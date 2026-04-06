@@ -17,6 +17,13 @@ A web platform for managing university staff data. Replaces manual Google Drive 
 | Auth | Auth.js | (upcoming) |
 | Infrastructure | Docker + Docker Compose | — |
 
+## Dev tools (local only, not in production)
+
+| Tool | Purpose | URL |
+|---|---|---|
+| Adminer | Visual database browser — inspect tables, run queries, edit rows | http://localhost:8080 |
+| MinIO Console | Visual file browser — see uploaded files, manage buckets | http://localhost:9001 |
+
 ---
 
 ## Prerequisites
