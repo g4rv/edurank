@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url is configured in prisma.config.ts — Prisma 7 moved it there
+}
+
+// ─── Enums ─────────────────────────────────────────────────────
+// An enum is a fixed list of allowed values enforced at the DB level.
+// If someone tries to insert "proffesor" (typo) — Postgres rejects it.
+
+enum Role {
+  ADMIN   // can manage users and edit everything
+  EDITOR  // can add and edit professors/departments
+  VIEWER  // read-only access
+}
+
+// ─── Auth ──────────────────────────────────────────────────────
+// The users table — people who log into the platform.
+// Professors and users are separate concepts:
+// a professor is data we track, a user is someone with login access.
+
+model User {
+  id           String    @id @default(cuid())
+  // cuid() generates a unique string ID like "clh3k2j0f0000..."
+  // safer than sequential integers (can't guess other IDs)
+
+  email        String    @unique
+  passwordHash String
+  // never store plain text passwords — we store a bcrypt hash
+
+  role         Role      @default(VIEWER)
+  // new users get VIEWER by default — least privilege principle
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  // @updatedAt automatically sets this field whenever the row changes
+
+  sessions     Session[]
+  // this isn't a DB column — it's a Prisma relation telling it
+  // "a User has many Sessions". Used for joins in queries.
+}
+
+// Auth.js stores sessions in this table.
+// One row = one logged-in browser session.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // "fields: [userId]" = the foreign key column on THIS table
+  // "references: [id]" = it points to the id column on User
+  // "onDelete: Cascade" = if the user is deleted, delete their sessions too
+}
+
+// ─── University Structure ──────────────────────────────────────
+
+model Faculty {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  // e.g. "Faculty of Engineering", "Faculty of Law"
+
+  departments Department[]
+  // one faculty has many departments
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Department {
+  id         String      @id @default(cuid())
+  name       String
+  // e.g. "Computer Science", "Civil Engineering"
+
+  facultyId  String
+  faculty    Faculty     @relation(fields: [facultyId], references: [id])
+  // this is the foreign key — every department belongs to one faculty
+
+  professors Professor[]
+  // one department has many professors
+
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@unique([name, facultyId])
+  // a department name must be unique WITHIN a faculty
+  // (two different faculties can both have a "General Studies" dept)
+}
+
+model Professor {
+  id           String     @id @default(cuid())
+  firstName    String
+  lastName     String
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  // every professor belongs to one department
+  // (and indirectly to a faculty through that department)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
