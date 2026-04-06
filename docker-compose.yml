@@ -66,33 +66,10 @@ services:
     # Postgres passes its healthcheck above. Without this, Adminer
     # might start before Postgres is ready and fail to connect.
 
-  # ─── MinIO ────────────────────────────────────────────────────
-  # S3-compatible object storage for files:
-  # professor photos, certificate PDFs, generated reports.
-  # → S3 API:      http://localhost:9000 (your app talks to this)
-  # → Web console: http://localhost:9001 (you browse files here)
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    # "command" overrides the default startup command of the container.
-    # "server /data" = run MinIO in server mode, store files in /data
-    # "--console-address :9001" = run the web UI on port 9001
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "9000:9000"  # S3 API — your Next.js app uploads/downloads files here
-      - "9001:9001"  # MinIO Console — browser UI to manage files
-    volumes:
-      - minio_data:/data
-      # Same concept as postgres_data — persists files across restarts.
-      # /data is where MinIO stores all uploaded files inside the container.
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # ─── File Storage (placeholder) ──────────────────────────────
+  # Not configured yet. Will be added once the core platform
+  # (auth + professor CRUD) is built. Candidates: RustFS, Garage.
+  # Needed for: professor photos, certificate PDFs, generated reports.
 
 # ─── Named Volumes ──────────────────────────────────────────────
 # You must declare every named volume you use under this section.
@@ -101,4 +78,3 @@ services:
 # To delete them (WARNING — deletes all data): docker volume rm ...
 volumes:
   postgres_data:
-  minio_data:

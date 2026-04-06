@@ -13,7 +13,7 @@ A web platform for managing university staff data. Replaces manual Google Drive 
 | Styling | Tailwind CSS | 4 |
 | ORM | Prisma | 7 |
 | Database | PostgreSQL | 16 |
-| File storage | MinIO | latest |
+| File storage | TBD (RustFS / Garage) | — |
 | Auth | Auth.js | (upcoming) |
 | Infrastructure | Docker + Docker Compose | — |
 
@@ -22,7 +22,6 @@ A web platform for managing university staff data. Replaces manual Google Drive 
 | Tool | Purpose | URL |
 |---|---|---|
 | Adminer | Visual database browser — inspect tables, run queries, edit rows | http://localhost:8080 |
-| MinIO Console | Visual file browser — see uploaded files, manage buckets | http://localhost:9001 |
 
 ---
 
@@ -62,10 +61,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 docker compose up -d
 ```
 
-This starts three containers:
+This starts two containers:
 - **postgres** — PostgreSQL database on port `5432`
 - **adminer** — Visual database browser at http://localhost:8080
-- **minio** — File storage at http://localhost:9000, console at http://localhost:9001
 
 First run downloads images (~600MB total). Subsequent runs are instant.
 
@@ -114,7 +112,6 @@ docker compose stop    # stop DB and storage when done
 |---|---|---|
 | App | http://localhost:3000 | — |
 | Adminer (DB browser) | http://localhost:8080 | See Adminer login below |
-| MinIO Console | http://localhost:9001 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` from `.env` |
 
 **Adminer login:**
 - System: `PostgreSQL`

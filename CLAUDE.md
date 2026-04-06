@@ -12,7 +12,7 @@ Self-hosted on a local university machine. Budget is zero.
 - **PostgreSQL 16** — relational data (professors → departments → faculties)
 - **Prisma 7** — ORM. Schema in `prisma/schema.prisma`, client in `src/lib/prisma.ts`
 - **Auth.js** — authentication and sessions (not yet implemented)
-- **MinIO** — S3-compatible file storage for photos, PDFs, generated reports
+- **File storage** — not yet implemented. Candidates: RustFS (Apache 2.0, not production-ready yet), Garage (AGPL-3.0, production-ready but complex). MinIO is dead — do not use it.
 - **Tailwind 4** — styling
 - **Docker Compose** — local infrastructure (Postgres + Adminer + MinIO)
 
