@@ -1,0 +1,104 @@
+services:
+  # ─── PostgreSQL ───────────────────────────────────────────────
+  # The main database. Stores all structured data:
+  # professors, departments, users, roles, sessions, etc.
+  postgres:
+    image: postgres:16-alpine
+    # "image" tells Docker which pre-built image to use.
+    # Think of an image like a recipe — Docker downloads it from
+    # Docker Hub (hub.docker.com) and uses it to create a container.
+    # "16" = Postgres version 16. "alpine" = built on Alpine Linux,
+    # a minimal distro (~5MB vs ~200MB for full Ubuntu). Same Postgres,
+    # just a smaller container.
+    restart: unless-stopped
+    # What to do if the container crashes or the machine reboots:
+    # "unless-stopped" = always restart automatically, UNLESS you
+    # manually ran "docker compose stop". Good default for services
+    # you always want running.
+    environment:
+      POSTGRES_DB: edurank
+      POSTGRES_USER: edurank_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # ${POSTGRES_PASSWORD} means: read this value from the .env file.
+      # Docker Compose automatically loads .env from the same folder.
+      # This is how we keep secrets out of committed files.
+    ports:
+      - "5432:5432"
+      # Exposes the container's port to your machine.
+      # Format: "HOST_PORT:CONTAINER_PORT"
+      # Left  (5432) = port on YOUR machine → you connect here
+      # Right (5432) = port INSIDE the container → Postgres listens here
+      # They're the same number by convention, but don't have to be.
+      # Example: "5433:5432" would mean Postgres runs on 5432 inside
+      # the container, but you connect to it via 5433 on your machine.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # This is critical. Without this line, ALL your data disappears
+      # every time the container restarts — containers are stateless by default.
+      # A named volume ("postgres_data") is a persistent folder managed by Docker.
+      # It maps to /var/lib/postgresql/data inside the container,
+      # which is where Postgres writes its actual data files.
+      # The volume lives on your machine and survives container restarts/deletions.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edurank_user -d edurank"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Docker will run this command every 10s to check if Postgres is ready.
+      # Other services (like your app) can wait for this before starting.
+      # pg_isready is a built-in Postgres tool that checks if the DB accepts connections.
+
+  # ─── Adminer ──────────────────────────────────────────────────
+  # A lightweight web UI to browse and edit your database visually.
+  # → Open http://localhost:8080 in your browser
+  # Login with: System=PostgreSQL, Server=postgres,
+  #             Username=edurank_user, Password=(from .env), Database=edurank
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # "depends_on" tells Docker Compose the startup order.
+    # "condition: service_healthy" means: don't start Adminer until
+    # Postgres passes its healthcheck above. Without this, Adminer
+    # might start before Postgres is ready and fail to connect.
+
+  # ─── MinIO ────────────────────────────────────────────────────
+  # S3-compatible object storage for files:
+  # professor photos, certificate PDFs, generated reports.
+  # → S3 API:      http://localhost:9000 (your app talks to this)
+  # → Web console: http://localhost:9001 (you browse files here)
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    # "command" overrides the default startup command of the container.
+    # "server /data" = run MinIO in server mode, store files in /data
+    # "--console-address :9001" = run the web UI on port 9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"  # S3 API — your Next.js app uploads/downloads files here
+      - "9001:9001"  # MinIO Console — browser UI to manage files
+    volumes:
+      - minio_data:/data
+      # Same concept as postgres_data — persists files across restarts.
+      # /data is where MinIO stores all uploaded files inside the container.
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ─── Named Volumes ──────────────────────────────────────────────
+# You must declare every named volume you use under this section.
+# Docker creates and manages these on your machine.
+# To see where they live: docker volume inspect edurank_postgres_data
+# To delete them (WARNING — deletes all data): docker volume rm ...
+volumes:
+  postgres_data:
+  minio_data:
