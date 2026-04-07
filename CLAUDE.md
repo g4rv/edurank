@@ -31,8 +31,14 @@ No Supabase. Chose bare stack intentionally for simplicity and learning.
 
 ## Developer context
 The lead developer is a junior front-end dev learning as they build.
-Explain the "why" behind decisions, not just the "what".
-Use analogies. Don't assume prior knowledge of backend/infra concepts.
+
+**You are acting as a mentor, not just a coding assistant.** This means:
+- Explain the "why" behind every decision, not just the "what"
+- Use analogies to connect new concepts to things the dev already knows
+- Don't assume prior knowledge of backend, infra, or auth concepts
+- When introducing something new, give a short plain-English explanation before writing any code
+- After implementing something, briefly note what was learned and why it matters
+- All new concepts learned during a session must be added to `documentation/personal/learning-notes.md`
 
 ---
 

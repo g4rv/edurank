@@ -156,13 +156,44 @@ User (platform login accounts — separate from professors)
 
 ---
 
-## What we built this session
+## What we built this session (Session 1 — Infrastructure)
 
-- `docker-compose.yml` — Postgres + Adminer + MinIO, all running locally
+- `docker-compose.yml` — Postgres + Adminer running locally
 - `.env` / `.env.example` — secrets management
 - `prisma/schema.prisma` — full DB schema with relationships, enums, auth tables
 - First migration applied — tables exist in Postgres (verified in Adminer)
 - `src/lib/prisma.ts` — singleton client, ready to use in the app
+
+---
+
+## Session 2 — Project hygiene and dependency basics
+
+### dependencies vs devDependencies
+
+`package.json` has two buckets for packages:
+
+| Bucket | When it's included | Use for |
+|---|---|---|
+| `dependencies` | Always — dev AND production builds | Code that runs in the browser or server at runtime |
+| `devDependencies` | Dev only — stripped from production | Tools that help you build (linters, type checkers, test runners) |
+
+**Why it matters:** If a package your app actually *runs* (like `clsx` in `cn.ts`) is only in `devDependencies`, production builds will crash — the package won't be there.
+
+**The rule of thumb:** Ask "does the app call this code while users are using it?" If yes → `dependencies`. If it only helps you write or check code → `devDependencies`.
+
+In our case:
+- `clsx` — used in `cn.ts` which is called by UI components at runtime → `dependencies`
+- `dotenv` — used by `prisma.config.ts` which only runs during `npx prisma migrate dev` → `devDependencies`
+
+### What dotenv does
+
+`dotenv` reads your `.env` file and loads the variables into `process.env` so your code can access them. Without it, `process.env.DATABASE_URL` would be `undefined`.
+
+Node.js doesn't load `.env` automatically — you have to explicitly call `import "dotenv/config"` (or `require("dotenv/config")`) at the top of a file. Prisma 7 needs this because it moved the database URL config into `prisma.config.ts`.
+
+### Keeping docs in sync with code
+
+When you delete something (like MinIO from docker-compose), update every place it's mentioned — CLAUDE.md, learning notes, comments. Stale docs are worse than no docs because they actively mislead.
 
 ## What's next
 
