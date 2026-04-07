@@ -19,7 +19,7 @@ Self-hosted on a local university machine. Budget is zero.
 No Supabase. Chose bare stack intentionally for simplicity and learning.
 
 ## Current state
-- [x] Docker Compose set up (Postgres, Adminer, MinIO)
+- [x] Docker Compose set up (Postgres, Adminer)
 - [x] Prisma schema defined — Faculty, Department, Professor, User, Session, Role enum
 - [x] First migration applied — tables exist in DB
 - [x] Prisma client singleton at `src/lib/prisma.ts`
