@@ -24,38 +24,30 @@ enum Role {
 // a professor is data we track, a user is someone with login access.
 
 model User {
-  id           String    @id @default(cuid())
+  id            String    @id @default(cuid())
   // cuid() generates a unique string ID like "clh3k2j0f0000..."
   // safer than sequential integers (can't guess other IDs)
 
-  email        String    @unique
-  passwordHash String
+  email         String    @unique
+  emailVerified DateTime?
+  // Auth.js adapter requires this field. We're not doing email verification,
+  // but the field must exist or the adapter errors. Nullable = always null for us.
+
+  passwordHash  String
   // never store plain text passwords — we store a bcrypt hash
 
-  role         Role      @default(VIEWER)
+  role          Role      @default(VIEWER)
   // new users get VIEWER by default — least privilege principle
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   // @updatedAt automatically sets this field whenever the row changes
 
-  sessions     Session[]
-  // this isn't a DB column — it's a Prisma relation telling it
-  // "a User has many Sessions". Used for joins in queries.
 }
 
-// Auth.js stores sessions in this table.
-// One row = one logged-in browser session.
-model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  expiresAt DateTime
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  // "fields: [userId]" = the foreign key column on THIS table
-  // "references: [id]" = it points to the id column on User
-  // "onDelete: Cascade" = if the user is deleted, delete their sessions too
-}
+// Session table removed — we use JWT sessions (stored in browser cookie, not DB).
+// With the Credentials provider, Auth.js requires JWT strategy.
+// If we ever switch to OAuth providers, we can add this table back.
 
 // ─── University Structure ──────────────────────────────────────
 

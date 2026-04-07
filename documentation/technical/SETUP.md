@@ -14,7 +14,7 @@ A web platform for managing university staff data. Replaces manual Google Drive 
 | ORM | Prisma | 7 |
 | Database | PostgreSQL | 16 |
 | File storage | TBD (RustFS / Garage) | — |
-| Auth | Auth.js | (upcoming) |
+| Auth | Auth.js (next-auth v5 beta) | 5.0.0-beta |
 | Infrastructure | Docker + Docker Compose | — |
 
 ## Dev tools (local only, not in production)
@@ -52,7 +52,7 @@ Open `.env` and fill in real values. Never commit this file.
 
 Generate a secure `AUTH_SECRET`:
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 ### 3. Start infrastructure (database + file storage)
@@ -83,7 +83,17 @@ npx prisma generate
 
 Generates TypeScript types from the schema into `src/generated/prisma/`.
 
-### 6. Start the development server
+### 6. Seed the database
+
+Create the first admin user so you can log in:
+
+```bash
+npx tsx prisma/seed.ts
+```
+
+> **Note:** Run this only once. Re-running will fail if the user already exists.
+
+### 7. Start the development server
 
 ```bash
 npm run dev
@@ -127,9 +137,16 @@ docker compose stop    # stop DB and storage when done
 ```
 edurank/
   src/
-    app/               Next.js App Router pages and API routes
+    app/
+      (auth)/
+        login/         Login page
+      api/
+        auth/          Auth.js catch-all route handler
+    auth.ts            Auth.js config — providers, callbacks, JWT
     lib/
-      prisma.ts        Shared Prisma client singleton
+      prisma.ts        Shared Prisma client singleton (with PrismaPg adapter)
+    types/
+      next-auth.d.ts   TypeScript type extensions for Auth.js session
     generated/
       prisma/          Auto-generated Prisma types (do not edit)
   prisma/
@@ -152,11 +169,12 @@ Faculty
   └── Department (many per faculty)
         └── Professor (many per department)
 
-User (platform accounts)
-  └── Session (one per logged-in browser)
+User (platform accounts — separate from professors)
 ```
 
 Roles: `ADMIN` | `EDITOR` | `VIEWER`
+
+Sessions are stored as JWT cookies — no Session table in the database.
 
 ---
 

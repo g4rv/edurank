@@ -195,8 +195,102 @@ Node.js doesn't load `.env` automatically — you have to explicitly call `impor
 
 When you delete something (like MinIO from docker-compose), update every place it's mentioned — CLAUDE.md, learning notes, comments. Stale docs are worse than no docs because they actively mislead.
 
+---
+
+## Session 3 — Authentication
+
+### How JWT auth works
+
+No session stored in DB. The token lives only in a browser cookie.
+
+```
+LOGIN:
+  1. User submits email + password
+  2. authorize() looks up user in Postgres — one DB query
+  3. bcryptjs.compare(input, storedHash) → true/false
+  4. If match → Auth.js creates a signed JWT token → stored in cookie
+
+EVERY REQUEST:
+  1. Browser sends cookie automatically
+  2. Auth.js verifies the signature using AUTH_SECRET
+  3. If valid → reads user id/role directly from token
+  4. No DB query at all
+```
+
+Analogy: a signed wristband at a concert. Checked once at the door (login), trusted on sight after that.
+
+### bcrypt and password hashing
+
+Passwords are never stored in plain text — only a hash.
+
+- **Hash** = one-way transformation. Cannot be reversed.
+- **bcrypt** = intentionally slow hashing algorithm. Makes brute-force attacks infeasible.
+- **Salt** = random string mixed into the hash before computation. Stored inside the hash string itself.
+
+```
+REGISTRATION:  bcrypt.hash("mypassword", 10)  →  "$2b$10$xK9mP2...hash"
+LOGIN:         bcrypt.compare("mypassword", "$2b$10$xK9mP2...hash")  →  true
+```
+
+`compare()` extracts the salt from the stored hash, re-hashes the input with the same salt, and checks if they match. You pass in two strings — the plain input and the stored hash — and get back `true` or `false`.
+
+### Prisma 7 breaking change — explicit adapter
+
+Prisma 7 no longer reads `DATABASE_URL` automatically. You must pass an adapter:
+
+```typescript
+import { PrismaPg } from "@prisma/adapter-pg"
+const adapter = new PrismaPg(process.env.DATABASE_URL!)
+new PrismaClient({ adapter })
+```
+
+### Next.js Server Actions
+
+A function marked `"use server"` runs on the server when a form is submitted. No API route needed — the form's `action` prop points directly to the function.
+
+```typescript
+async function loginAction(formData: FormData) {
+  "use server"
+  // runs on server, has access to DB, env vars, etc.
+}
+
+<form action={loginAction}>...</form>
+```
+
+**Important:** `"use server"` at the top of a file marks EVERY function as a Server Action, including React components — which breaks them. Put it inside the function only, or in a dedicated `actions.ts` file.
+
+### Route groups in Next.js
+
+Folders wrapped in `(parentheses)` are invisible in the URL:
+
+```
+src/app/(auth)/login/page.tsx  →  accessible at /login  (not /auth/login)
+```
+
+Used purely for organisation — grouping related pages without affecting the URL structure.
+
+### Auth.js + Credentials = JWT only
+
+The Credentials provider (email + password) forces JWT session strategy. Database sessions are not supported with Credentials. This means the `Session` table was removed — it's not needed.
+
+### TypeScript type augmentation
+
+Auth.js's built-in `Session` type doesn't include `id` or `role`. To add them without hacking the library, create a `.d.ts` file that extends the types:
+
+```typescript
+// src/types/next-auth.d.ts
+declare module "next-auth" {
+  interface Session {
+    user: { id: string; email: string; role: Role }
+  }
+}
+```
+
+This tells TypeScript "when I use `session.user`, it also has these fields."
+
 ## What's next
 
-- Auth.js setup — login page, sessions, role-based access
-- First API routes — CRUD for professors/departments
+- Seed script — create first admin user for testing login
+- Protect routes — redirect to login if no session
+- API routes — CRUD for professors/departments
 - UI — professor list, add/edit forms

@@ -3,31 +3,50 @@
 # EduRank — Project Context & Rules
 
 ## What this project is
-A web platform for a university to manage professor/staff data.
-Replaces manual Google Drive spreadsheets and PDFs tracked by hand.
+A web platform to store and manage as much data about university staff as possible,
+and generate various documents/surveys from that data (e.g. ratings, reports).
+
+**Replaces:** Google Drive spreadsheets + PDFs managed manually, plus a custom Google Apps Script
+that auto-generates documents. The script hits a hard 6-minute execution limit — a real bottleneck
+given the number of staff and documents.
+
+**Core ideas (details TBD):**
+- Professors fill in data about themselves (publications, achievements, CV info, etc.)
+- Departments have additional data about professors that professors cannot see or edit
+- Different departments may manage different types of data about the same professor
+- The platform generates documents/ratings from the combined data
+- Email notifications to professors may be needed (currently used in Google Scripts) — do not build until confirmed
+
+**Do not lock down the data model until the full requirements are understood.**
 Self-hosted on a local university machine. Budget is zero.
 
 ## Stack decisions (don't change without discussion)
 - **Next.js 16** — full-stack, API routes live inside the app, no separate backend
 - **PostgreSQL 16** — relational data (professors → departments → faculties)
 - **Prisma 7** — ORM. Schema in `prisma/schema.prisma`, client in `src/lib/prisma.ts`
-- **Auth.js** — authentication and sessions (not yet implemented)
+- **Auth.js (next-auth v5 beta)** — Credentials provider, JWT sessions
+- **bcryptjs** — password hashing (pure JS, no native deps)
+- **@prisma/adapter-pg** — Prisma 7 requires explicit DB adapter
 - **File storage** — not yet implemented. Candidates: RustFS (Apache 2.0, not production-ready yet), Garage (AGPL-3.0, production-ready but complex). MinIO is dead — do not use it.
 - **Tailwind 4** — styling
-- **Docker Compose** — local infrastructure (Postgres + Adminer + MinIO)
+- **Docker Compose** — local infrastructure (Postgres + Adminer)
 
 No Supabase. Chose bare stack intentionally for simplicity and learning.
 
 ## Current state
 - [x] Docker Compose set up (Postgres, Adminer)
-- [x] Prisma schema defined — Faculty, Department, Professor, User, Session, Role enum
-- [x] First migration applied — tables exist in DB
-- [x] Prisma client singleton at `src/lib/prisma.ts`
-- [ ] Auth.js — login, sessions, role-based access
+- [x] Prisma schema defined — Faculty, Department, Professor, User, Role enum
+- [x] Migrations applied — tables exist in DB
+- [x] Prisma client singleton at `src/lib/prisma.ts` (with PrismaPg adapter)
+- [x] Auth.js configured — `src/auth.ts`, Credentials provider, JWT sessions
+- [x] Auth API route — `src/app/api/auth/[...nextauth]/route.ts`
+- [x] Login page — `src/app/(auth)/login/page.tsx`
+- [ ] Seed script — create first admin user for testing
+- [ ] Protect routes — redirect to login if no session
 - [ ] API routes — CRUD for professors/departments/faculties
 - [ ] UI — professor list, add/edit forms
-- [ ] File uploads — MinIO integration for photos and PDFs
-- [ ] Report generation — PDF export with react-pdf
+- [ ] File uploads — photos and PDFs
+- [ ] Report generation — PDF export
 
 ## Developer context
 The lead developer is a junior front-end dev learning as they build.
@@ -109,9 +128,8 @@ Rules:
 
 ## Local dev startup
 ```bash
-docker compose up -d   # start Postgres, Adminer, MinIO
+docker compose up -d   # start Postgres, Adminer
 npm run dev            # start Next.js at localhost:3000
 ```
 
 Adminer: http://localhost:8080
-MinIO console: http://localhost:9001
