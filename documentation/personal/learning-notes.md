@@ -156,7 +156,7 @@ User (platform login accounts — separate from professors)
 
 ---
 
-## What we built this session (Session 1 — Infrastructure)
+## Session 1 — Infrastructure
 
 - `docker-compose.yml` — Postgres + Adminer running locally
 - `.env` / `.env.example` — secrets management
