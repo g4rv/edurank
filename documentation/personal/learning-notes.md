@@ -294,3 +294,121 @@ This tells TypeScript "when I use `session.user`, it also has these fields."
 - Protect routes — redirect to login if no session
 - API routes — CRUD for professors/departments
 - UI — professor list, add/edit forms
+
+---
+
+## Session 4 — Seed script, tooling cleanup, sessionVersion
+
+### Seed scripts
+
+A seed script populates the database with initial data before anyone uses the app. Think of it as placing pieces on the board before the game starts — the tables exist but are empty, so you need at least one user to log in as.
+
+In Prisma 7, the seed command is configured in `prisma.config.ts` (not `package.json` — that was the old Prisma 6 convention):
+
+```typescript
+// prisma.config.ts
+migrations: {
+  path: "prisma/migrations",
+  seed: "tsx prisma/seed.ts",
+}
+```
+
+Run it with:
+```bash
+npx prisma db seed
+# or via the npm script we added:
+npm run seed
+```
+
+### upsert — idempotent writes
+
+The seed uses `upsert` instead of `create`:
+
+```typescript
+await prisma.user.upsert({
+  where: { email },
+  update: {},   // do nothing if user already exists
+  create: { email, passwordHash, role: "ADMIN" },
+})
+```
+
+**Idempotent** means: running the operation multiple times produces the same result as running it once. This makes the seed safe to run repeatedly without crashing on duplicate emails.
+
+### tsx vs ts-node
+
+`ts-node` is the classic way to run TypeScript files directly in Node.js. But it breaks with Next.js's `tsconfig.json` because Next.js uses `"module": "esnext"` and `"moduleResolution": "bundler"` — settings that `ts-node` doesn't understand.
+
+`tsx` is a modern alternative that handles these settings correctly, requires zero extra config, and just works.
+
+```bash
+# ts-node would crash with this tsconfig
+# tsx works out of the box
+tsx prisma/seed.ts
+```
+
+### Path aliases don't work in Node.js scripts
+
+`@/*` (e.g. `import { prisma } from "@/lib/prisma"`) is a Next.js bundler feature — it's resolved by Next.js at build time, not by Node.js at runtime. Plain Node scripts (like seed files) don't know what `@/` means.
+
+Fix: use relative imports instead, and instantiate Prisma directly in the script rather than importing the singleton.
+
+### sessionVersion — JWT revocation without DB sessions
+
+Pure JWTs can't be revoked. If you change a user's role, their old token still says the old role until it expires.
+
+The `sessionVersion` pattern adds one integer field to `User`. Every JWT stores the version at login time. On each request, the version in the token is compared to the DB — mismatch means force re-login.
+
+```
+User in DB:  { sessionVersion: 3 }
+User's JWT:  { userId: "...", sessionVersion: 3 }  ✓ match → allow
+
+Admin changes role → DB increments to sessionVersion: 4
+User's JWT still has 3                             ✗ mismatch → force re-login
+```
+
+This gives you session invalidation while keeping the JWT strategy that Credentials requires. The only cost: one lightweight DB query per request to check the version. Not yet implemented — planned for after route protection.
+
+### Claude custom commands
+
+Commands in `.claude/commands/*.md` are custom slash commands for this project. Writing a markdown file there makes it available as `/command-name` in Claude Code. Useful for repeatable workflows like updating notes, evaluating progress, or logging decisions.
+
+**Errors this session:** [searchParams is a Promise in Next.js 16](#err-searchparams-async), [Prisma seed config ignored from package.json](#err-prisma-seed-config), [Seed script ECONNREFUSED](#err-seed-econnrefused)
+
+---
+
+## Errors
+
+### <a name="err-searchparams-async"></a> searchParams is a Promise in Next.js 16
+**What happened:** `Error: Route "/login" used searchParams.error. searchParams is a Promise and must be unwrapped with await`.
+**Why:** Next.js 16 made `searchParams` (and `params`) async Promises to support React's streaming model. Accessing them synchronously throws at runtime.
+**Fix:** Make the page component `async` and `await` the prop before accessing it:
+```typescript
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  // now use error instead of searchParams.error
+}
+```
+
+### <a name="err-prisma-seed-config"></a> Prisma seed config ignored from package.json
+**What happened:** `npx prisma db seed` printed "No seed command configured" even though `"prisma": { "seed": "..." }` was in `package.json`.
+**Why:** Prisma 7 moved all config (including seed) out of `package.json` and into `prisma.config.ts`. The `package.json` key is a Prisma 6 convention — Prisma 7 doesn't read it.
+**Fix:** Add the seed command to the `migrations` section of `prisma.config.ts`:
+```typescript
+migrations: {
+  path: "prisma/migrations",
+  seed: "tsx prisma/seed.ts",
+}
+```
+
+### <a name="err-seed-econnrefused"></a> Seed script ECONNREFUSED
+**What happened:** `PrismaClientKnownRequestError: ECONNREFUSED` when running the seed.
+**Why:** The seed script connected successfully to Node but couldn't reach Postgres — Docker wasn't running, so there was nothing listening on port 5432.
+**Fix:** Start Docker first, then run the seed:
+```bash
+docker compose up -d
+npm run seed
+```
