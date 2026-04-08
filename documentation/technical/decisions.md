@@ -31,3 +31,13 @@ Exists so future-us doesn't re-debate settled questions.
 **Chose:** Remove the package entirely
 **Rejected:** Keeping it as a future-use dependency
 **Why:** The Prisma adapter is only needed for database sessions (storing session records via Prisma). We use JWT sessions with the Credentials provider — the adapter is never called. Dead dependencies add noise and attack surface.
+
+### Node.js runtime for proxy instead of Edge
+**Chose:** `export const runtime = "nodejs"` in `src/proxy.ts`
+**Rejected:** Default Edge runtime
+**Why:** The proxy calls `auth()` from `src/auth.ts`, which imports Prisma. Prisma uses Node.js-only internals and crashes on the Edge runtime. Forcing Node.js runtime is the correct fix for a self-hosted app — Edge runtime only matters for Vercel CDN deployments, which we're not using.
+
+### proxy.ts over middleware.ts
+**Chose:** `src/proxy.ts` with exported `proxy` function
+**Rejected:** `src/middleware.ts` with exported `middleware` function
+**Why:** Next.js 16 deprecated `middleware.ts` and renamed the convention to `proxy.ts`. Using the deprecated name still works but will produce warnings and may break in a future release.
