@@ -297,7 +297,7 @@ This tells TypeScript "when I use `session.user`, it also has these fields."
 
 ---
 
-## Session 4 — Seed script, tooling cleanup, sessionVersion
+## Session 4 — Seed script, tooling cleanup, sessionVersion, route protection
 
 ### Seed scripts
 
@@ -371,6 +371,52 @@ This gives you session invalidation while keeping the JWT strategy that Credenti
 ### Claude custom commands
 
 Commands in `.claude/commands/*.md` are custom slash commands for this project. Writing a markdown file there makes it available as `/command-name` in Claude Code. Useful for repeatable workflows like updating notes, evaluating progress, or logging decisions.
+
+### Next.js 16 — middleware renamed to proxy
+
+In Next.js 16, `middleware.ts` is deprecated. The file is now called `proxy.ts` and the exported function is renamed from `middleware` to `proxy`. Everything else — `NextRequest`, `NextResponse`, the `matcher` config — works the same way.
+
+```typescript
+// src/proxy.ts
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+
+export function proxy(request: NextRequest) {
+  return NextResponse.redirect(new URL("/home", request.url))
+}
+
+export const config = {
+  matcher: ["/about/:path*"],
+}
+```
+
+### Edge runtime vs Node.js runtime
+
+Next.js proxy runs on the **Edge runtime** by default. Edge is a lightweight environment that starts faster and can run at CDN nodes worldwide — but it only supports a subset of Node.js APIs (no file system, no native modules).
+
+**Prisma can't run on Edge** because it uses Node.js-only internals. If the proxy imports anything that imports Prisma (like our `auth.ts`), it crashes.
+
+Fix: force Node.js runtime by adding one line at the top of the proxy file:
+
+```typescript
+export const runtime = "nodejs"
+```
+
+This tells Next.js to run the proxy in the full Node.js environment instead of Edge. Fine for self-hosted apps — only matters for Vercel Edge deployments.
+
+### matcher — controlling which routes run the proxy
+
+By default the proxy runs on every request, including Next.js static files and internal routes. The `matcher` config narrows it down:
+
+```typescript
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
+}
+```
+
+The pattern uses a negative lookahead (`(?!...)`) — plain English: "run on everything *except* these paths."
+
+**Why exclude `api/auth`?** That's the Auth.js route that handles login. If the proxy intercepted it before Auth.js could respond, logging in would trigger a redirect to `/login` → which triggers another login attempt → infinite loop.
 
 **Errors this session:** [searchParams is a Promise in Next.js 16](#err-searchparams-async), [Prisma seed config ignored from package.json](#err-prisma-seed-config), [Seed script ECONNREFUSED](#err-seed-econnrefused)
 
