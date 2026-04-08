@@ -42,7 +42,7 @@ No Supabase. Chose bare stack intentionally for simplicity and learning.
 - [x] Auth API route — `src/app/api/auth/[...nextauth]/route.ts`
 - [x] Login page — `src/app/(auth)/login/page.tsx`
 - [x] Seed script — `prisma/seed.ts`, run with `npm run seed`
-- [ ] Protect routes — redirect to login if no session
+- [x] Protect routes — `src/proxy.ts`, redirects unauthenticated users to `/login`
 - [ ] API routes — CRUD for professors/departments/faculties
 - [ ] UI — professor list, add/edit forms
 - [ ] File uploads — photos and PDFs
