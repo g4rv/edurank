@@ -41,7 +41,7 @@ No Supabase. Chose bare stack intentionally for simplicity and learning.
 - [x] Auth.js configured — `src/auth.ts`, Credentials provider, JWT sessions
 - [x] Auth API route — `src/app/api/auth/[...nextauth]/route.ts`
 - [x] Login page — `src/app/(auth)/login/page.tsx`
-- [ ] Seed script — create first admin user for testing
+- [x] Seed script — `prisma/seed.ts`, run with `npm run seed`
 - [ ] Protect routes — redirect to login if no session
 - [ ] API routes — CRUD for professors/departments/faculties
 - [ ] UI — professor list, add/edit forms
