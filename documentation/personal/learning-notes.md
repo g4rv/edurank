@@ -832,6 +832,156 @@ Running `docker build` with this file creates a custom image containing your ent
 
 ---
 
+## Session 8 — Reusable UI components, global header, naming conventions
+
+### React forwardRef
+
+`forwardRef` is a React pattern that allows a component to expose a ref to its parent. Without it, refs on custom components don't work.
+
+```typescript
+// Without forwardRef — ref doesn't reach the actual <button>
+const Button = ({ children }) => <button>{children}</button>
+<Button ref={buttonRef} />  // ref={buttonRef} is ignored
+
+// With forwardRef — ref is passed through
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ children, ...props }, ref) => <button ref={ref} {...props}>{children}</button>
+)
+<Button ref={buttonRef} />  // ref={buttonRef} now works
+```
+
+**When to use it:** Any reusable input/button/interactive component. Libraries like React Hook Form and focus management tools need refs to work correctly.
+
+### Component variants with TypeScript unions
+
+Instead of separate components for each button style, use a single component with variant props:
+
+```typescript
+type ButtonVariant = "primary" | "secondary" | "danger" | "ghost"
+
+interface ButtonProps {
+  variant?: ButtonVariant
+}
+
+// Inside component:
+className={cn({
+  "bg-zinc-900 text-white": variant === "primary",
+  "bg-red-600 text-white": variant === "danger",
+  // ...
+})}
+```
+
+TypeScript enforces only valid variants. One component, multiple appearances — keeps code DRY and consistent.
+
+### Server Components can call auth() directly
+
+Any async Server Component can call `auth()` from `src/auth.ts` to check the session:
+
+```typescript
+import { auth } from "@/auth"
+
+export async function Header() {
+  const session = await auth()
+
+  return (
+    <header>
+      {session && <p>Welcome, {session.user.email}</p>}
+    </header>
+  )
+}
+```
+
+No special setup needed — Server Components run on the server, so they have full access to `auth()`, Prisma, env vars, everything.
+
+### Inline Server Actions in Server Components
+
+Server Actions don't have to live in a separate `actions.ts` file. You can define them inline inside a Server Component:
+
+```typescript
+export async function Header() {
+  return (
+    <form
+      action={async () => {
+        "use server"
+        await signOut({ redirectTo: "/login" })
+      }}
+    >
+      <button type="submit">Logout</button>
+    </form>
+  )
+}
+```
+
+The `"use server"` directive inside the function marks it as a Server Action. Fine for one-off actions like logout. For complex logic or reusable actions, extract to `actions.ts`.
+
+### Component naming conventions (project standard)
+
+We settled on these rules for file and folder structure:
+
+**File names:** `kebab-case`
+```
+src/components/ui/button.tsx        ✓
+src/components/ui/Button.tsx        ✗
+```
+
+**Simple components:** single file
+```
+src/components/ui/button.tsx
+src/components/ui/input.tsx
+```
+
+**Complex components:** subfolder with `index.ts` barrel export
+```
+src/components/data-table/
+  index.ts              ← exports { DataTable }
+  data-table.tsx        ← main component
+  data-table-row.tsx    ← internal subcomponent
+  data-table-cell.tsx   ← internal subcomponent
+```
+
+The `index.ts` lets you import with a clean path:
+```typescript
+import { DataTable } from "@/components/data-table"
+// instead of:
+import { DataTable } from "@/components/data-table/data-table"
+```
+
+**Why kebab-case:** Matches Next.js page routing conventions (`/admin/page.tsx`), avoids case-sensitivity issues across operating systems, and is more readable than PascalCase for multi-word file names.
+
+### Shared layout with root layout.tsx
+
+`src/app/layout.tsx` wraps every page in the app. Adding a component there makes it appear on all pages:
+
+```typescript
+// src/app/layout.tsx
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body className="flex min-h-full flex-col">
+        <Header />    {/* appears on every page */}
+        {children}    {/* the actual page content */}
+      </body>
+    </html>
+  )
+}
+```
+
+Combined with `flex flex-col`, the header stays at the top and the page content grows to fill remaining space.
+
+### max-w-* utilities and content width
+
+Tailwind's `max-w-*` utilities control how wide content can get before it stops growing:
+
+| Class | Max width | Use for |
+|---|---|---|
+| `max-w-3xl` | 48rem (768px) | Narrow reading content, forms |
+| `max-w-4xl` | 56rem (896px) | Medium content |
+| `max-w-7xl` | 80rem (1280px) | Wide layouts, dashboards, tables |
+
+Combined with `mx-auto` (horizontal auto margins), content centers itself and respects the max-width limit even on ultrawide screens.
+
+---
+
 ## Errors
 
 ### <a name="err-searchparams-async"></a> searchParams is a Promise in Next.js 16

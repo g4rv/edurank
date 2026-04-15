@@ -89,3 +89,17 @@ Exists so future-us doesn't re-debate settled questions.
 **Chose:** Let Next.js 16 auto-detect Node.js runtime for proxy
 **Rejected:** Keeping `export const runtime = "nodejs"` from Session 4
 **Why:** Next.js 16 changed behavior — proxy files now always run on Node.js runtime by default, and exporting runtime config causes a build error. The runtime export was needed in Next.js 15 to force Node.js (for Prisma compatibility), but Next.js 16 makes it automatic since proxies always need full Node.js access. Removing the export fixes the build error and follows Next.js 16 conventions.
+
+---
+
+## Session 8
+
+### kebab-case for component file names
+**Chose:** `button.tsx`, `input.tsx`, `data-table.tsx`
+**Rejected:** PascalCase (`Button.tsx`, `Input.tsx`)
+**Why:** Matches Next.js page routing conventions (`/admin/page.tsx` not `/admin/Page.tsx`), avoids case-sensitivity issues across operating systems (macOS is case-insensitive, Linux is case-sensitive — PascalCase can cause hard-to-debug deployment issues), and is more readable for multi-word file names (`data-table.tsx` vs `DataTable.tsx`).
+
+### Complex components in subfolder with index.ts barrel export
+**Chose:** `src/components/data-table/index.ts` exports from `data-table.tsx`
+**Rejected:** All components as single files
+**Why:** When a component has internal subcomponents (e.g., `DataTable` with `DataTableRow`, `DataTableCell`), grouping them in a folder keeps related code together. The `index.ts` barrel export provides a clean import path (`@/components/data-table` instead of `@/components/data-table/data-table`). Simple components (Button, Input) stay as single files — no folder needed.

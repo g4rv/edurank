@@ -41,10 +41,8 @@ export default async function AdminPage({
   ]);
 
   return (
-    <main className="min-h-screen bg-zinc-50 p-8">
-      <div className="mx-auto max-w-3xl space-y-8">
-        <h1 className="text-2xl font-semibold text-zinc-900">Панель адміністратора</h1>
-
+    <main className="flex-1 bg-zinc-50 p-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         {error && (
           <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
         )}

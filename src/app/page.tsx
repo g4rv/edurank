@@ -17,8 +17,8 @@ export default async function HomePage() {
   });
 
   return (
-    <main className="min-h-screen bg-zinc-50 p-8">
-      <div className="mx-auto max-w-4xl">
+    <main className="flex-1 bg-zinc-50 p-8">
+      <div className="mx-auto max-w-7xl">
         <h1 className="mb-6 text-2xl font-semibold text-zinc-900">Викладачі</h1>
 
         {professors.length === 0 ? (
