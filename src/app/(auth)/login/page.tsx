@@ -21,19 +21,20 @@ async function loginAction(formData: FormData) {
   redirect("/");
 }
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: Promise<{ error?: string }>;
 }) {
+  const { error } = await searchParams;
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50">
       <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-sm">
-        <h1 className="mb-6 text-xl font-semibold text-zinc-900">Sign in</h1>
+        <h1 className="mb-6 text-xl font-semibold text-zinc-900">Вхід</h1>
 
-        {searchParams.error === "invalid" && (
+        {error === "invalid" && (
           <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-            Invalid email or password.
+            Невірний email або пароль.
           </p>
         )}
 
@@ -54,7 +55,7 @@ export default function LoginPage({
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="password" className="text-sm font-medium text-zinc-700">
-              Password
+              Пароль
             </label>
             <input
               id="password"
@@ -70,7 +71,7 @@ export default function LoginPage({
             type="submit"
             className="mt-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
           >
-            Sign in
+            Увійти
           </button>
         </form>
       </div>
