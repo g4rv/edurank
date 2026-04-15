@@ -85,8 +85,10 @@ model Department {
 
 model Professor {
   id           String     @id @default(cuid())
-  firstName    String
   lastName     String
+  firstName    String
+  patronymic   String?
+  // patronymic (по батькові) — optional for cases where it doesn't apply
 
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
