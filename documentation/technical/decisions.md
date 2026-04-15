@@ -65,3 +65,27 @@ Exists so future-us doesn't re-debate settled questions.
 **Chose:** `patronymic String?` — nullable
 **Rejected:** `patronymic String` — required
 **Why:** Not all professors have a patronymic (foreign staff, some naming conventions). Making it required would force dummy values for those cases. Optional allows the form to leave it blank while keeping the field available for all formal document generation where it exists.
+
+---
+
+## Session 7
+
+### Dynamic rendering for database-querying pages
+**Chose:** `export const dynamic = "force-dynamic"` on pages that query Prisma directly
+**Rejected:** Static pre-rendering at build time (Next.js default)
+**Why:** Pages that query the database need fresh data on every request. If statically pre-rendered at build time, the page would show stale data — after adding a professor, the homepage would still show the old list until you rebuild the entire app. Even if the database is running during build, pre-rendering would bake in whatever data exists at that moment. Dynamic rendering queries the database on each request, showing current data.
+
+### Keep dynamic rendering in production
+**Chose:** Keep `dynamic = "force-dynamic"` for Coolify/Docker deployment
+**Rejected:** Removing it and relying on database being available during Docker build
+**Why:** Even in production with DB available during build, static pre-rendering would still bake in stale data. The app needs to query live data on every request because professors are added/edited/deleted. Dynamic rendering is correct for both development and production when data changes frequently.
+
+### Database management npm scripts
+**Chose:** Add `db:migrate`, `db:generate`, `db:studio`, `db:reset` scripts to package.json
+**Rejected:** Always typing full `npx prisma ...` commands
+**Why:** Common operations become shorter and more memorable. `npm run db:migrate` is easier than `npx prisma migrate dev`. Scripts also serve as documentation — new developers can see available operations by reading package.json. The scripts match common workflow patterns (migrate, generate, studio, reset).
+
+### Removed runtime export from proxy.ts
+**Chose:** Let Next.js 16 auto-detect Node.js runtime for proxy
+**Rejected:** Keeping `export const runtime = "nodejs"` from Session 4
+**Why:** Next.js 16 changed behavior — proxy files now always run on Node.js runtime by default, and exporting runtime config causes a build error. The runtime export was needed in Next.js 15 to force Node.js (for Prisma compatibility), but Next.js 16 makes it automatic since proxies always need full Node.js access. Removing the export fixes the build error and follows Next.js 16 conventions.
