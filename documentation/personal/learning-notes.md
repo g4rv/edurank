@@ -422,6 +422,289 @@ The pattern uses a negative lookahead (`(?!...)`) — plain English: "run on eve
 
 ---
 
+## Session 5 — Auth.js internals, proxy deep-dive, API routes
+
+### Auth.js callback data flow
+
+`authorize()`, `jwt()`, and `session()` are three separate steps that each handle a different moment in the auth lifecycle.
+
+```
+LOGIN:
+  authorize() → returns user object { id, email, role }
+      ↓  passed as "user" argument to jwt()
+  jwt() → copies id and role onto the token → token signed into cookie
+
+EVERY SUBSEQUENT REQUEST:
+  cookie sent by browser automatically
+  Auth.js decrypts it → becomes "token" in jwt()
+  jwt() runs but user is undefined → token returned unchanged
+      ↓
+  session() shapes token into what app code sees via auth()
+```
+
+`authorize()` output is a **one-time handoff** to `jwt()` at login. After that, the token lives in the cookie and `jwt()` just decrypts and returns it as-is.
+
+### jwt() reads from the cookie on every request
+
+On subsequent requests, `token` in `jwt()` is not created fresh — it's the cookie contents, decrypted. The `if (user)` guard is what distinguishes "first call at login" from "every other call":
+
+```typescript
+jwt({ token, user }) {
+  if (user) {        // only true at login — authorize() just ran
+    token.id = user.id
+    token.role = user.role
+  }
+  return token       // all other requests: just return what was in the cookie
+}
+```
+
+Mental model: the cookie is a locked box. Auth.js opens it on every request, hands you the contents, you look at it and hand it back, Auth.js locks it again and continues.
+
+### Auth.js callbacks are predefined slots
+
+You can't invent callback names — Auth.js defines the available ones and calls them at the right moments. You just fill in the bodies:
+
+| Callback | When it runs |
+|---|---|
+| `jwt` | Token created (login) or read (every request) |
+| `session` | When app code calls `auth()` or `useSession()` |
+| `authorized` | In proxy/middleware to allow or block a request |
+| `signIn` | After login — lets you reject specific users |
+| `signOut` | On logout |
+| `redirect` | Controls where the user goes after sign in/out |
+
+Think of them like event listeners — Auth.js says "I will call `jwt` whenever I deal with a token, here's the slot."
+
+### proxy — request contains metadata, not page content
+
+The `request` argument in `proxy(request)` describes the **incoming HTTP request**, not the destination page. It's everything the browser sent:
+
+```typescript
+request.nextUrl.pathname  // which path they're trying to reach
+request.method            // GET, POST, etc.
+request.headers           // browser info, cookies, etc.
+```
+
+The proxy runs **before** the page renders. If it returns `NextResponse.redirect()`, the page never runs. Only `NextResponse.next()` lets the request through to the page or API handler.
+
+Analogy: a bouncer at a door. They don't know what's inside the room — they only see the person asking to enter and decide: let through, or turn away.
+
+### One proxy.ts per project
+
+There is exactly one `proxy.ts` and one `proxy()` function. It's a single global gatekeeper. All access control logic lives inside it as conditions:
+
+```typescript
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  if (!session && !isPublic) return NextResponse.redirect(...)
+  if (pathname.startsWith("/admin") && role !== "ADMIN") return NextResponse.redirect(...)
+
+  return NextResponse.next()
+}
+```
+
+One file, one function, all routing decisions in one place — easy to reason about who can go where.
+
+### Next.js API routes
+
+API routes are files inside `src/app/api/` that export named functions matching HTTP methods. The file path becomes the URL:
+
+```
+src/app/api/professors/route.ts  →  /api/professors
+```
+
+```typescript
+export async function GET() {
+  const professors = await prisma.professor.findMany()
+  return Response.json(professors)
+}
+
+export async function POST(request: Request) {
+  const body = await request.json()
+  const professor = await prisma.professor.create({ data: body })
+  return Response.json(professor)
+}
+```
+
+The proxy runs first, then the API handler runs if allowed. The difference from page routes: API routes return JSON, page routes return HTML.
+
+Full request lifecycle:
+
+```
+Browser/client makes a request
+  → proxy runs (access control)
+  → if NextResponse.next():
+      → /api/* path    → API route handler → returns JSON
+      → any other path → page component   → returns HTML
+```
+
+This is also why `api/auth` is excluded from the proxy matcher — `src/app/api/auth/[...nextauth]/route.ts` is Auth.js's own API route. If the proxy intercepted it, login would redirect to `/login` before Auth.js could respond — an infinite loop.
+
+---
+
+## Session 6 — API routes, Server Actions, Prisma error handling, schema additions
+
+### API route file structure and dynamic segments
+
+Every API route is a `route.ts` file inside `src/app/api/`. The folder path becomes the URL, and dynamic segments use square brackets — same as page routes:
+
+```
+src/app/api/faculties/route.ts        →  /api/faculties
+src/app/api/faculties/[id]/route.ts   →  /api/faculties/abc123
+```
+
+Inside a dynamic route file, `params` is a **Promise** in Next.js 16 (same rule as `searchParams`). You must `await` it before reading:
+
+```typescript
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params
+  // ...
+}
+```
+
+### Role-based guards on API routes
+
+The proxy ensures a session exists, but it doesn't enforce roles. Role checks belong inside each handler. The pattern we use:
+
+- `GET` — any authenticated user (proxy already guarantees a session)
+- `POST / PUT` — EDITOR or ADMIN only
+- `DELETE` — ADMIN only
+
+```typescript
+const session = await auth()
+if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+if (session.user.role === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+```
+
+The 401 check is technically redundant if the proxy is running correctly, but it's a good safety net for direct API calls.
+
+### Prisma error codes
+
+When Prisma throws a known database error, it wraps it in a `PrismaClientKnownRequestError` with a `code` property. The ones we handle:
+
+| Code | Meaning | Example |
+|---|---|---|
+| `P2002` | Unique constraint violation | Creating a faculty with a name that already exists |
+| `P2003` | Foreign key constraint violation | Deleting a faculty that still has departments |
+| `P2025` | Record not found | Updating or deleting a row that doesn't exist |
+
+Pattern for catching them safely:
+
+```typescript
+import { Prisma } from "@/generated/prisma/client"
+
+try {
+  await prisma.faculty.delete({ where: { id } })
+} catch (error) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+    return NextResponse.json({ error: "Cannot delete — has children" }, { status: 409 })
+  }
+  throw error  // re-throw anything unexpected
+}
+```
+
+`instanceof` check first, then `error.code` — this ensures you only handle Prisma errors, not something else that happened to be caught.
+
+### Server Actions in a separate file
+
+Server Actions can live directly inside a page (`"use server"` inside the function), but when there are many of them it's cleaner to move them to a dedicated file. A file with `"use server"` at the top marks every exported function as a Server Action:
+
+```typescript
+// src/app/admin/actions.ts
+"use server"
+
+export async function createFaculty(formData: FormData) { ... }
+export async function deleteFaculty(formData: FormData) { ... }
+```
+
+Then import and use them in the page:
+
+```typescript
+import { createFaculty, deleteFaculty } from "./actions"
+
+<form action={createFaculty}>...</form>
+```
+
+This keeps the page file focused on layout and the actions file focused on mutations.
+
+### Extracting a shared auth guard
+
+When multiple Server Actions all need the same check, extract it into a helper rather than repeating it:
+
+```typescript
+async function requireAdmin() {
+  const session = await auth()
+  if (!session || session.user.role !== "ADMIN") redirect("/")
+}
+
+export async function createFaculty(formData: FormData) {
+  await requireAdmin()
+  // ...
+}
+```
+
+`redirect()` inside `requireAdmin()` throws a special Next.js error that propagates up automatically — the caller doesn't need to do anything extra.
+
+### Server Component → Prisma directly vs API routes
+
+A Server Component that needs data doesn't have to call its own API. It runs on the server anyway, so it can query Prisma directly with no HTTP round-trip:
+
+```typescript
+// ✓ Server Component — call Prisma directly
+export default async function HomePage() {
+  const professors = await prisma.professor.findMany({ ... })
+  // ...
+}
+
+// API routes are for client-side code (fetch from the browser)
+// or external callers that can't import Prisma
+```
+
+The API routes we built are for when interactive UI needs to mutate data from the client (forms that use `fetch`, not Server Actions).
+
+### Promise.all for parallel DB queries
+
+When a page needs data from multiple tables, fetch them in parallel instead of sequentially:
+
+```typescript
+// Sequential — each query waits for the previous one
+const faculties = await prisma.faculty.findMany()
+const departments = await prisma.department.findMany()
+const professors = await prisma.professor.findMany()
+
+// Parallel — all three queries run at the same time
+const [faculties, departments, professors] = await Promise.all([
+  prisma.faculty.findMany(),
+  prisma.department.findMany(),
+  prisma.professor.findMany(),
+])
+```
+
+`Promise.all` takes an array of promises and resolves when all of them finish. The result is an array in the same order. Faster because Postgres handles all three queries concurrently.
+
+### Optional fields in Prisma schema
+
+Adding `?` to a field type makes it optional — nullable in the database, `null` in TypeScript:
+
+```prisma
+model Professor {
+  patronymic String?   // stored as NULL if not provided
+}
+```
+
+When displaying optional fields in JSX, `null` renders as nothing — no extra handling needed:
+
+```tsx
+{professor.lastName} {professor.firstName} {professor.patronymic}
+// If patronymic is null, it just renders as an empty string
+```
+
+---
+
 ## Errors
 
 ### <a name="err-searchparams-async"></a> searchParams is a Promise in Next.js 16

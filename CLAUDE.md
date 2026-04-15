@@ -63,6 +63,9 @@ The lead developer is a junior front-end dev learning as they build.
 
 ## Conventions
 
+### Language
+All user-facing text must be in Ukrainian — labels, placeholders, headings, error messages, buttons, everything visible in the UI. Code identifiers (variables, functions, types) stay in English.
+
 ### Code style
 - TypeScript everywhere — no `.js` files
 - Async/await over `.then()` chains

@@ -41,3 +41,27 @@ Exists so future-us doesn't re-debate settled questions.
 **Chose:** `src/proxy.ts` with exported `proxy` function
 **Rejected:** `src/middleware.ts` with exported `middleware` function
 **Why:** Next.js 16 deprecated `middleware.ts` and renamed the convention to `proxy.ts`. Using the deprecated name still works but will produce warnings and may break in a future release.
+
+---
+
+## Session 6
+
+### Server Component queries Prisma directly instead of calling its own API
+**Chose:** Import Prisma and query directly inside Server Component page files
+**Rejected:** Fetching from `/api/professors` etc. with `fetch()` inside the page
+**Why:** Server Components run on the server — calling your own API would add a full HTTP round-trip with no benefit. Direct Prisma calls are simpler, faster, and have full TypeScript types. The API routes exist for client-side code (browser `fetch`) that can't import Prisma.
+
+### Role-based access enforced at two levels
+**Chose:** Role checks in both the page/action (redirect non-admins) and the API route handlers (return 403)
+**Rejected:** Relying solely on the proxy for all access control
+**Why:** The proxy enforces authentication but not roles — it only checks whether a session exists. Role-specific pages need their own check. API routes also need their own guard because they can be called directly via `fetch` from client-side code, bypassing the page entirely.
+
+### Server Actions in a dedicated `actions.ts` file
+**Chose:** `src/app/admin/actions.ts` with `"use server"` at the top of the file
+**Rejected:** Inline `"use server"` inside each function in `page.tsx`
+**Why:** The admin page has six mutations (create/delete × three entities). Putting all of them inline in `page.tsx` would make the file unreadably long. A dedicated file keeps the page focused on layout and the actions file focused on mutations. Also avoids the footgun of accidentally marking React components as Server Actions by putting `"use server"` at the file level in the page.
+
+### patronymic field optional (String?) rather than required
+**Chose:** `patronymic String?` — nullable
+**Rejected:** `patronymic String` — required
+**Why:** Not all professors have a patronymic (foreign staff, some naming conventions). Making it required would force dummy values for those cases. Optional allows the form to leave it blank while keeping the field available for all formal document generation where it exists.
