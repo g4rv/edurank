@@ -1,8 +1,5 @@
-// Force Node.js runtime — our auth.ts imports Prisma which is Node-only.
-// The default Edge runtime would crash on Prisma imports.
-// This is fine since we're self-hosting, not deploying to Vercel Edge.
-export const runtime = "nodejs";
-
+// Next.js 16: proxy files always run on Node.js runtime (no config needed).
+// This is perfect for us since auth.ts imports Prisma, which requires Node.js.
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";

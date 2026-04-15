@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
+// This page queries the database, so it must be rendered dynamically (not at build time)
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const professors = await prisma.professor.findMany({
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],

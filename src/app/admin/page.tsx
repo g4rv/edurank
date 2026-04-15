@@ -10,6 +10,9 @@ import {
   deleteProfessor,
 } from "./actions";
 
+// This page queries the database, so it must be rendered dynamically
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -54,7 +57,7 @@ export default async function AdminPage({
               name="name"
               placeholder="Назва факультету"
               required
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
             />
             <button
               type="submit"
@@ -92,7 +95,7 @@ export default async function AdminPage({
               name="name"
               placeholder="Назва кафедри"
               required
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
             />
             <select
               name="facultyId"
@@ -148,18 +151,18 @@ export default async function AdminPage({
               name="lastName"
               placeholder="Прізвище"
               required
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
             />
             <input
               name="firstName"
               placeholder="Ім'я"
               required
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
             />
             <input
               name="patronymic"
               placeholder="По батькові"
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
             />
             <select
               name="departmentId"
