@@ -1,6 +1,7 @@
 import { signIn } from "@/auth";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
+import { Button, Input } from "@/components/ui";
 
 async function loginAction(formData: FormData) {
   "use server";
@@ -43,36 +44,19 @@ export default async function LoginPage({
             <label htmlFor="email" className="text-sm font-medium text-zinc-700">
               Email
             </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
-            />
+            <Input id="email" name="email" type="email" required autoComplete="email" />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="password" className="text-sm font-medium text-zinc-700">
               Пароль
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
-            />
+            <Input id="password" name="password" type="password" required autoComplete="current-password" />
           </div>
 
-          <button
-            type="submit"
-            className="mt-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
-          >
+          <Button type="submit" className="mt-2 w-full">
             Увійти
-          </button>
+          </Button>
         </form>
       </div>
     </div>

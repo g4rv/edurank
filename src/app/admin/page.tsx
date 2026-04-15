@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { Button, Input } from "@/components/ui";
 import {
   createFaculty,
   deleteFaculty,
@@ -53,18 +54,8 @@ export default async function AdminPage({
           <h2 className="mb-4 text-base font-medium text-zinc-900">Факультети</h2>
 
           <form action={createFaculty} className="mb-4 flex gap-2">
-            <input
-              name="name"
-              placeholder="Назва факультету"
-              required
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
-            />
-            <button
-              type="submit"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-            >
-              Додати
-            </button>
+            <Input name="name" placeholder="Назва факультету" required className="flex-1" />
+            <Button type="submit">Додати</Button>
           </form>
 
           {faculties.length === 0 ? (
@@ -76,9 +67,9 @@ export default async function AdminPage({
                   <span className="text-sm text-zinc-800">{f.name}</span>
                   <form action={deleteFaculty}>
                     <input type="hidden" name="id" value={f.id} />
-                    <button type="submit" className="text-sm text-red-500 hover:text-red-700">
+                    <Button variant="ghost" size="sm" type="submit">
                       Видалити
-                    </button>
+                    </Button>
                   </form>
                 </li>
               ))}
@@ -91,12 +82,7 @@ export default async function AdminPage({
           <h2 className="mb-4 text-base font-medium text-zinc-900">Кафедри</h2>
 
           <form action={createDepartment} className="mb-4 flex gap-2">
-            <input
-              name="name"
-              placeholder="Назва кафедри"
-              required
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
-            />
+            <Input name="name" placeholder="Назва кафедри" required className="flex-1" />
             <select
               name="facultyId"
               required
@@ -112,12 +98,7 @@ export default async function AdminPage({
                 </option>
               ))}
             </select>
-            <button
-              type="submit"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-            >
-              Додати
-            </button>
+            <Button type="submit">Додати</Button>
           </form>
 
           {departments.length === 0 ? (
@@ -132,9 +113,9 @@ export default async function AdminPage({
                   </span>
                   <form action={deleteDepartment}>
                     <input type="hidden" name="id" value={d.id} />
-                    <button type="submit" className="text-sm text-red-500 hover:text-red-700">
+                    <Button variant="ghost" size="sm" type="submit">
                       Видалити
-                    </button>
+                    </Button>
                   </form>
                 </li>
               ))}
@@ -147,23 +128,9 @@ export default async function AdminPage({
           <h2 className="mb-4 text-base font-medium text-zinc-900">Викладачі</h2>
 
           <form action={createProfessor} className="mb-4 flex gap-2">
-            <input
-              name="lastName"
-              placeholder="Прізвище"
-              required
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
-            />
-            <input
-              name="firstName"
-              placeholder="Ім'я"
-              required
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
-            />
-            <input
-              name="patronymic"
-              placeholder="По батькові"
-              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
-            />
+            <Input name="lastName" placeholder="Прізвище" required className="flex-1" />
+            <Input name="firstName" placeholder="Ім'я" required className="flex-1" />
+            <Input name="patronymic" placeholder="По батькові" className="flex-1" />
             <select
               name="departmentId"
               required
@@ -179,12 +146,7 @@ export default async function AdminPage({
                 </option>
               ))}
             </select>
-            <button
-              type="submit"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-            >
-              Додати
-            </button>
+            <Button type="submit">Додати</Button>
           </form>
 
           {professors.length === 0 ? (
@@ -201,9 +163,9 @@ export default async function AdminPage({
                   </span>
                   <form action={deleteProfessor}>
                     <input type="hidden" name="id" value={p.id} />
-                    <button type="submit" className="text-sm text-red-500 hover:text-red-700">
+                    <Button variant="ghost" size="sm" type="submit">
                       Видалити
-                    </button>
+                    </Button>
                   </form>
                 </li>
               ))}
