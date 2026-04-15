@@ -705,6 +705,133 @@ When displaying optional fields in JSX, `null` renders as nothing — no extra h
 
 ---
 
+## Session 7 — Build configuration, dynamic rendering, Prisma client generation
+
+### Next.js rendering modes: static vs dynamic
+
+Next.js tries to pre-render pages at **build time** by default. This works great for pages with static content (like an "About" page), but breaks for pages that query a database.
+
+Two rendering modes:
+- **Static (default)** — page generated once during `npm run build`, served as cached HTML
+- **Dynamic (on-demand)** — page rendered fresh on every request
+
+For pages that query Prisma directly, you must force dynamic rendering:
+
+```typescript
+// src/app/page.tsx
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const professors = await prisma.professor.findMany();
+  // ...
+}
+```
+
+**Why it matters:** If this page was statically rendered, the homepage would show the professor list from build time — not the current list. After adding a new professor, the page wouldn't update until you rebuild the entire app.
+
+**Rule of thumb:** If a page file imports Prisma and queries it at the top level → add `export const dynamic = "force-dynamic"`.
+
+### When to use dynamic rendering
+
+✅ **Use `dynamic = "force-dynamic"` on:**
+- Pages that query Prisma directly
+- Pages showing data that changes (CRUD operations)
+- Pages that need fresh data on every request
+
+❌ **Don't need it on:**
+- API routes (already dynamic by nature)
+- Server Actions (already dynamic)
+- Pages with static content only
+
+### Prisma client regeneration after schema changes
+
+When you modify `prisma/schema.prisma` (add/remove/change fields), the TypeScript types are out of sync until you regenerate the Prisma client.
+
+**The workflow:**
+```bash
+# 1. Edit prisma/schema.prisma
+# 2. Create and apply migration
+npx prisma migrate dev --name describe_change
+# This automatically runs prisma generate at the end
+
+# If you only need to regenerate types (rare):
+npx prisma generate
+```
+
+**What breaks if you forget:** TypeScript will error on fields that exist in the schema but not in the generated client types. Example: adding `patronymic` field but not regenerating → `Property 'patronymic' does not exist on type Professor`.
+
+### npm scripts for common tasks
+
+Adding shortcut scripts to `package.json` makes common operations easier:
+
+```json
+"scripts": {
+  "db:migrate": "npx prisma migrate dev",
+  "db:generate": "npx prisma generate",
+  "db:studio": "npx prisma studio",
+  "db:reset": "npx prisma migrate reset --force"
+}
+```
+
+- `npm run db:migrate` — create and apply migration (prompts for name), auto-generates client
+- `npm run db:generate` — regenerate client only (if types are out of sync)
+- `npm run db:studio` — open visual DB browser in your browser
+- `npm run db:reset` — nuclear option: drops DB, reapplies all migrations, runs seed
+
+### Next.js 16 proxy runtime auto-detection
+
+In Next.js 16, proxy files (`proxy.ts`) automatically run on the Node.js runtime — you can't (and don't need to) configure it manually.
+
+**Previous approach (Next.js 15 and earlier):**
+```typescript
+// src/middleware.ts
+export const runtime = "nodejs";  // needed to use Prisma
+```
+
+**Next.js 16:**
+```typescript
+// src/proxy.ts
+// No runtime export needed — always runs on Node.js by default
+```
+
+If you try to export `runtime` from `proxy.ts`, Next.js 16 throws a build error: `Route segment config is not allowed in Proxy file`.
+
+### Docker in production deployments
+
+**Local development:** Docker Compose runs Postgres. Next.js app runs directly on your machine (`npm run dev`).
+
+**Production (e.g. Coolify):** Two separate Docker containers:
+1. **Postgres container** — from your `docker-compose.yml` or Coolify's managed Postgres
+2. **Next.js app container** — built from a `Dockerfile` you create
+
+Both containers communicate via Docker network, same as locally. You create a `Dockerfile` that:
+- Installs dependencies
+- Runs `npx prisma generate`
+- Builds the Next.js app (`npm run build`)
+- Serves it with `node server.js`
+
+The `dynamic = "force-dynamic"` setting works the same in production — pages query the DB on each request, not at build time.
+
+### Dockerfile vs Docker image
+
+- **Pre-built image** (e.g. `postgres:16-alpine`) — someone else made it, you just use it
+- **Custom image** — your app packaged as a Docker image, built from a `Dockerfile`
+
+A `Dockerfile` is a recipe for building your own custom image:
+
+```dockerfile
+FROM node:20-alpine       # Start with Node.js base
+COPY . .                  # Add YOUR code
+RUN npm run build         # Build YOUR app
+CMD ["node", "server.js"] # Run YOUR app
+```
+
+Running `docker build` with this file creates a custom image containing your entire app, ready to deploy anywhere.
+
+**Errors this session:** [Next.js 16 proxy runtime export not allowed](#err-proxy-runtime-export), [Build fails querying DB at build time](#err-build-db-query), [Prisma types out of sync after schema change](#err-prisma-types-stale)
+
+---
+
 ## Errors
 
 ### <a name="err-searchparams-async"></a> searchParams is a Promise in Next.js 16
@@ -741,3 +868,37 @@ migrations: {
 docker compose up -d
 npm run seed
 ```
+
+### <a name="err-proxy-runtime-export"></a> Next.js 16 proxy runtime export not allowed
+**What happened:** `Error: Route segment config is not allowed in Proxy file at "./src\proxy.ts". Proxy always runs on Node.js runtime.`
+**Why:** Next.js 16 changed proxy behavior — proxy files now always run on Node.js runtime by default. Exporting `runtime = "nodejs"` is no longer needed and causes a build error.
+**Fix:** Remove the runtime export from `proxy.ts`:
+```typescript
+// Remove this line:
+export const runtime = "nodejs";
+
+// Proxy automatically runs on Node.js in Next.js 16
+```
+
+### <a name="err-build-db-query"></a> Build fails querying DB at build time
+**What happened:** `npm run build` failed with `ECONNREFUSED` when trying to pre-render pages that query Prisma.
+**Why:** Next.js tries to pre-render pages at build time by default. Pages that query the database need the DB running during build — but the build happens before Docker containers start, and even if DB is running, pre-rendered pages would show stale data.
+**Fix:** Mark DB-querying pages as dynamic to skip build-time rendering:
+```typescript
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const professors = await prisma.professor.findMany();
+  // ...
+}
+```
+This tells Next.js to render the page on every request instead of once at build time.
+
+### <a name="err-prisma-types-stale"></a> Prisma types out of sync after schema change
+**What happened:** TypeScript errors like `Property 'patronymic' does not exist on type Professor` after adding the field to `schema.prisma` and running the migration.
+**Why:** Migrations update the database structure, but the TypeScript types in `src/generated/prisma/` are only regenerated when you run `prisma generate`. The migration ran but the client wasn't regenerated.
+**Fix:** Run `npx prisma generate` to regenerate the Prisma client with updated types:
+```bash
+npx prisma generate
+```
+Note: `npx prisma migrate dev` automatically runs `prisma generate` at the end, so this only happens if you skip that step or something interrupts the process.
