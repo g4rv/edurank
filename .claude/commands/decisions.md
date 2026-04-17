@@ -23,6 +23,7 @@ Each entry:
 
 ```markdown
 ### Decision title
+
 **Chose:** What we went with
 **Rejected:** What we didn't use
 **Why:** The actual reason — constraints, trade-offs, limitations discovered
@@ -42,6 +43,7 @@ Exists so future-us doesn't re-debate settled questions.
 ---
 
 ## Rules
+
 - Be specific — "tsx works with esnext moduleResolution, ts-node does not" beats "tsx is better"
 - One entry per decision — don't merge unrelated choices
 - Do not rewrite existing entries

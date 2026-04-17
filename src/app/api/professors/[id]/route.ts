@@ -1,11 +1,11 @@
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
-import { Prisma } from "@/generated/prisma/client";
-import { NextResponse } from "next/server";
+import { prisma } from '@/lib/prisma';
+import { auth } from '@/auth';
+import { Prisma } from '@/generated/prisma/client';
+import { NextResponse } from 'next/server';
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const professor = await prisma.professor.findUnique({
@@ -20,28 +20,40 @@ export async function GET(
       },
     },
   });
-  if (!professor) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!professor)
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(professor);
 }
 
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!session)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (session.user.role === 'VIEWER')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { id } = await params;
   const body = await request.json();
   if (!body.firstName?.trim()) {
-    return NextResponse.json({ error: "firstName is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: 'firstName is required' },
+      { status: 400 }
+    );
   }
   if (!body.lastName?.trim()) {
-    return NextResponse.json({ error: "lastName is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: 'lastName is required' },
+      { status: 400 }
+    );
   }
   if (!body.departmentId) {
-    return NextResponse.json({ error: "departmentId is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: 'departmentId is required' },
+      { status: 400 }
+    );
   }
 
   try {
@@ -66,8 +78,13 @@ export async function PUT(
     return NextResponse.json(professor);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2025") return NextResponse.json({ error: "Not found" }, { status: 404 });
-      if (error.code === "P2003") return NextResponse.json({ error: "Department not found" }, { status: 400 });
+      if (error.code === 'P2025')
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      if (error.code === 'P2003')
+        return NextResponse.json(
+          { error: 'Department not found' },
+          { status: 400 }
+        );
     }
     throw error;
   }
@@ -75,11 +92,13 @@ export async function PUT(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!session)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (session.user.role !== 'ADMIN')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { id } = await params;
 
@@ -87,8 +106,11 @@ export async function DELETE(
     await prisma.professor.delete({ where: { id } });
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    ) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     throw error;
   }

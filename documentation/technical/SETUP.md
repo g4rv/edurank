@@ -6,21 +6,21 @@ A web platform for managing university staff data. Replaces manual Google Drive 
 
 ## Stack
 
-| Layer | Tool | Version |
-|---|---|---|
-| Framework | Next.js | 16 |
-| Language | TypeScript | 5 |
-| Styling | Tailwind CSS | 4 |
-| ORM | Prisma | 7 |
-| Database | PostgreSQL | 16 |
-| File storage | TBD (RustFS / Garage) | — |
-| Auth | Auth.js (next-auth v5 beta) | 5.0.0-beta |
-| Infrastructure | Docker + Docker Compose | — |
+| Layer          | Tool                        | Version    |
+| -------------- | --------------------------- | ---------- |
+| Framework      | Next.js                     | 16         |
+| Language       | TypeScript                  | 5          |
+| Styling        | Tailwind CSS                | 4          |
+| ORM            | Prisma                      | 7          |
+| Database       | PostgreSQL                  | 16         |
+| File storage   | TBD (RustFS / Garage)       | —          |
+| Auth           | Auth.js (next-auth v5 beta) | 5.0.0-beta |
+| Infrastructure | Docker + Docker Compose     | —          |
 
 ## Dev tools (local only, not in production)
 
-| Tool | Purpose | URL |
-|---|---|---|
+| Tool    | Purpose                                                          | URL                   |
+| ------- | ---------------------------------------------------------------- | --------------------- |
 | Adminer | Visual database browser — inspect tables, run queries, edit rows | http://localhost:8080 |
 
 ---
@@ -51,6 +51,7 @@ cp .env.example .env
 Open `.env` and fill in real values. Never commit this file.
 
 Generate a secure `AUTH_SECRET`:
+
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
@@ -62,6 +63,7 @@ docker compose up -d
 ```
 
 This starts two containers:
+
 - **postgres** — PostgreSQL database on port `5432`
 - **adminer** — Visual database browser at http://localhost:8080
 
@@ -118,12 +120,13 @@ docker compose stop    # stop DB and storage when done
 
 ## Useful URLs (local development)
 
-| Service | URL | Credentials |
-|---|---|---|
-| App | http://localhost:3000 | — |
+| Service              | URL                   | Credentials             |
+| -------------------- | --------------------- | ----------------------- |
+| App                  | http://localhost:3000 | —                       |
 | Adminer (DB browser) | http://localhost:8080 | See Adminer login below |
 
 **Adminer login:**
+
 - System: `PostgreSQL`
 - Server: `postgres`
 - Username: `edurank_user`

@@ -33,6 +33,7 @@ If most answers are "no" or "maybe" → you're following along, not learning yet
 ## What I Probably Understand vs What I Don't
 
 ### Probably understand:
+
 - ✅ What Docker is conceptually (containers, volumes, ports)
 - ✅ That Prisma is an ORM that translates TypeScript to SQL
 - ✅ The general flow of JWT auth (login → token → cookie → verify)
@@ -40,6 +41,7 @@ If most answers are "no" or "maybe" → you're following along, not learning yet
 - ✅ Basic Next.js routing (folders = URLs)
 
 ### Probably DON'T yet have:
+
 - ❌ Muscle memory for writing Prisma queries
 - ❌ Intuition for when to use Server Components vs API routes
 - ❌ Confidence to debug Prisma error codes without looking them up
@@ -52,9 +54,10 @@ If most answers are "no" or "maybe" → you're following along, not learning yet
 
 **Watching someone cook doesn't teach you to cook.**
 
-You can watch Gordon Ramsay make risotto 100 times. You'll understand *what* he's doing. But the first time you try yourself, you'll:
+You can watch Gordon Ramsay make risotto 100 times. You'll understand _what_ he's doing. But the first time you try yourself, you'll:
+
 - Forget the order of steps
-- Not know how things should *feel* at each stage
+- Not know how things should _feel_ at each stage
 - Panic when something doesn't look like the example
 - Not know how to recover from mistakes
 
@@ -67,6 +70,7 @@ You can watch Gordon Ramsay make risotto 100 times. You'll understand *what* he'
 ### Option 1: Rebuild Everything (Hard Mode)
 
 **Process:**
+
 1. Delete the project (or start a new folder)
 2. Keep documentation as reference only
 3. Try to rebuild: Docker → Prisma → Auth → one API route
@@ -80,6 +84,7 @@ You can watch Gordon Ramsay make risotto 100 times. You'll understand *what* he'
 ### Option 2: Build Next Features Independently (Medium Mode)
 
 **Process:**
+
 1. Claude doesn't write code first — I try, I share, he reviews
 2. When stuck, ask specific questions ("How do I handle multipart form data?")
 3. Claude explains concept, maybe shows small example
@@ -98,17 +103,20 @@ You can watch Gordon Ramsay make risotto 100 times. You'll understand *what* he'
 Pick ONE thing. Master it in isolation. Then move on.
 
 **Week 1 example: Prisma queries**
+
 - Create throwaway `test.ts` file
 - Write 20 different queries: findMany, findUnique, create, update, delete, include, where, orderBy
 - Run them against DB, see results
 - NO API routes, NO Next.js — just Prisma
 
 **Week 2: API routes**
+
 - Build 5 different API routes for random things
 - One returns list, one takes params, one handles POST, one returns error
 - Test with Postman/curl
 
 **Week 3: Server Actions**
+
 - Build 3 forms with Server Actions
 - Handle validation, errors, redirects
 
@@ -122,6 +130,7 @@ Pick ONE thing. Master it in isolation. Then move on.
 When ready to test myself, implement this feature:
 
 ### Requirements:
+
 1. Add `position` field to Professor model (String, optional) — examples: "Доцент", "Професор", "Асистент"
 2. Create and run the migration
 3. Update admin page to show position in professor list
@@ -130,6 +139,7 @@ When ready to test myself, implement this feature:
 6. Update API route to accept position in POST/PUT
 
 ### Rules:
+
 - Claude won't write code unless I'm completely stuck
 - I share implementation, Claude reviews
 - If it doesn't work, I debug (Claude gives hints only)
@@ -140,11 +150,11 @@ When ready to test myself, implement this feature:
 
 **What's my actual goal?**
 
-| Goal | Appropriate Approach |
-|------|---------------------|
-| Understand how modern web apps work conceptually | Following along is fine (current mode) |
-| Be able to build web apps myself | Must start writing code, making mistakes, debugging |
-| Get this specific project done | Having Claude build is efficient, but I'm not learning |
+| Goal                                             | Appropriate Approach                                   |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| Understand how modern web apps work conceptually | Following along is fine (current mode)                 |
+| Be able to build web apps myself                 | Must start writing code, making mistakes, debugging    |
+| Get this specific project done                   | Having Claude build is efficient, but I'm not learning |
 
 ---
 
@@ -153,6 +163,7 @@ When ready to test myself, implement this feature:
 When I'm ready to actually learn:
 
 **Rule:** For every new feature:
+
 1. **I write the first draft**
 2. I share code/questions when stuck
 3. Claude reviews, explains, suggests fixes

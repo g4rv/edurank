@@ -23,7 +23,7 @@ services:
       # Docker Compose automatically loads .env from the same folder.
       # This is how we keep secrets out of committed files.
     ports:
-      - "5432:5432"
+      - '5432:5432'
       # Exposes the container's port to your machine.
       # Format: "HOST_PORT:CONTAINER_PORT"
       # Left  (5432) = port on YOUR machine → you connect here
@@ -40,7 +40,7 @@ services:
       # which is where Postgres writes its actual data files.
       # The volume lives on your machine and survives container restarts/deletions.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U edurank_user -d edurank"]
+      test: ['CMD-SHELL', 'pg_isready -U edurank_user -d edurank']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -57,7 +57,7 @@ services:
     image: adminer:latest
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - '8080:8080'
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,7 +83,7 @@ services:
       POSTGRES_DB: edurank
       POSTGRES_USER: edurank_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      SCHEDULE: "0 2 * * *"
+      SCHEDULE: '0 2 * * *'
       # runs every day at 2:00 AM
       # cron format: minute hour day month weekday
       BACKUP_KEEP_DAYS: 7

@@ -17,15 +17,15 @@ isn't self-evident from the title.
 
 ## Types
 
-| Type | When to use |
-|---|---|
-| `feat` | New page, feature, or capability |
-| `fix` | Bug fix |
-| `schema` | Any change to `prisma/schema.prisma` |
-| `chore` | Dependencies, config, tooling, Docker |
-| `docs` | Documentation only |
-| `style` | Tailwind / CSS changes with no logic change |
-| `refactor` | Code restructure with no behavior change |
+| Type       | When to use                                 |
+| ---------- | ------------------------------------------- |
+| `feat`     | New page, feature, or capability            |
+| `fix`      | Bug fix                                     |
+| `schema`   | Any change to `prisma/schema.prisma`        |
+| `chore`    | Dependencies, config, tooling, Docker       |
+| `docs`     | Documentation only                          |
+| `style`    | Tailwind / CSS changes with no logic change |
+| `refactor` | Code restructure with no behavior change    |
 
 ---
 
@@ -59,21 +59,27 @@ Common scopes: `auth`, `professors`, `departments`, `faculties`, `ui`, `api`, `d
 ```
 chore: initial docker compose setup with postgres, adminer and minio
 ```
+
 ```
 schema(professor): add faculty and department models with relations
 ```
+
 ```
 feat(auth): add login page with email and password
 ```
+
 ```
 fix(auth): redirect to login when session expires
 ```
+
 ```
 chore(prisma): install prisma 7 and generate client
 ```
+
 ```
 docs: add setup guide and personal learning notes
 ```
+
 ```
 feat(professors): add professor list page with department filter
 ```

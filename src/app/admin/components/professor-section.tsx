@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useActionState, useEffect } from "react";
-import { createProfessor, deleteProfessor } from "../actions";
-import { Button, Input } from "@/components/ui";
-import { useToast } from "@/providers/toast-provider";
+import { useActionState, useEffect } from 'react';
+import { createProfessor, deleteProfessor } from '../actions';
+import { Button, Input } from '@/components/ui';
+import { useToast } from '@/providers/toast-provider';
 
 type Department = {
   id: string;
@@ -30,8 +30,14 @@ export function ProfessorSection({
   departments: Department[];
 }) {
   const toast = useToast();
-  const [createState, createAction, isCreating] = useActionState(createProfessor, null);
-  const [deleteState, deleteAction, isDeleting] = useActionState(deleteProfessor, null);
+  const [createState, createAction, isCreating] = useActionState(
+    createProfessor,
+    null
+  );
+  const [deleteState, deleteAction, isDeleting] = useActionState(
+    deleteProfessor,
+    null
+  );
 
   useEffect(() => {
     if (createState?.success) {
@@ -58,8 +64,18 @@ export function ProfessorSection({
       <h2 className="mb-4 text-base font-medium text-zinc-900">Викладачі</h2>
 
       <form action={createAction} className="mb-4 flex gap-2">
-        <Input name="lastName" placeholder="Прізвище" required className="flex-1" />
-        <Input name="firstName" placeholder="Ім'я" required className="flex-1" />
+        <Input
+          name="lastName"
+          placeholder="Прізвище"
+          required
+          className="flex-1"
+        />
+        <Input
+          name="firstName"
+          placeholder="Ім'я"
+          required
+          className="flex-1"
+        />
         <Input name="patronymic" placeholder="По батькові" className="flex-1" />
         <select
           name="departmentId"
@@ -77,7 +93,7 @@ export function ProfessorSection({
           ))}
         </select>
         <Button type="submit" disabled={isCreating}>
-          {isCreating ? "Збереження..." : "Додати"}
+          {isCreating ? 'Збереження...' : 'Додати'}
         </Button>
       </form>
 
@@ -88,14 +104,19 @@ export function ProfessorSection({
           {professors.map((p) => (
             <li key={p.id} className="flex items-center justify-between py-2.5">
               <span className="text-sm text-zinc-800">
-                {p.lastName} {p.firstName} {p.patronymic}{" "}
+                {p.lastName} {p.firstName} {p.patronymic}{' '}
                 <span className="text-zinc-400">
                   — {p.department.name}, {p.department.faculty.name}
                 </span>
               </span>
               <form action={deleteAction}>
                 <input type="hidden" name="id" value={p.id} />
-                <Button variant="ghost" size="sm" type="submit" disabled={isDeleting}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="submit"
+                  disabled={isDeleting}
+                >
                   Видалити
                 </Button>
               </form>

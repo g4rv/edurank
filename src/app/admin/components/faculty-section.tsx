@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useActionState, useEffect } from "react";
-import { createFaculty, deleteFaculty } from "../actions";
-import { Button, Input } from "@/components/ui";
-import { useToast } from "@/providers/toast-provider";
+import { useActionState, useEffect } from 'react';
+import { createFaculty, deleteFaculty } from '../actions';
+import { Button, Input } from '@/components/ui';
+import { useToast } from '@/providers/toast-provider';
 
 type Faculty = {
   id: string;
@@ -12,8 +12,14 @@ type Faculty = {
 
 export function FacultySection({ faculties }: { faculties: Faculty[] }) {
   const toast = useToast();
-  const [createState, createAction, isCreating] = useActionState(createFaculty, null);
-  const [deleteState, deleteAction, isDeleting] = useActionState(deleteFaculty, null);
+  const [createState, createAction, isCreating] = useActionState(
+    createFaculty,
+    null
+  );
+  const [deleteState, deleteAction, isDeleting] = useActionState(
+    deleteFaculty,
+    null
+  );
 
   useEffect(() => {
     if (createState?.success) {
@@ -40,9 +46,14 @@ export function FacultySection({ faculties }: { faculties: Faculty[] }) {
       <h2 className="mb-4 text-base font-medium text-zinc-900">Факультети</h2>
 
       <form action={createAction} className="mb-4 flex gap-2">
-        <Input name="name" placeholder="Назва факультету" required className="flex-1" />
+        <Input
+          name="name"
+          placeholder="Назва факультету"
+          required
+          className="flex-1"
+        />
         <Button type="submit" disabled={isCreating}>
-          {isCreating ? "Збереження..." : "Додати"}
+          {isCreating ? 'Збереження...' : 'Додати'}
         </Button>
       </form>
 
@@ -55,7 +66,12 @@ export function FacultySection({ faculties }: { faculties: Faculty[] }) {
               <span className="text-sm text-zinc-800">{f.name}</span>
               <form action={deleteAction}>
                 <input type="hidden" name="id" value={f.id} />
-                <Button variant="ghost" size="sm" type="submit" disabled={isDeleting}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="submit"
+                  disabled={isDeleting}
+                >
                   Видалити
                 </Button>
               </form>

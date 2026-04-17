@@ -17,17 +17,21 @@ Look at evidence from this session only — questions asked, decisions made, mis
 One paragraph — the honest summary. No softening.
 
 ### Strong sides
+
 Bullet list. Only include genuine strengths with evidence from the session.
 
 ### Weak spots
+
 Bullet list. Be specific — not "needs to learn more backend" but "didn't know where Prisma 7 moved seed config, and didn't ask before assuming package.json was correct". Name the pattern, not just the instance.
 
 ### What to focus on next
+
 2–3 concrete things to study or practice before the next session. Be specific.
 
 ---
 
 ## Rules
+
 - Do not pad the score upward to be encouraging
 - Do not list a strength without evidence
 - Do not soften weak spots with qualifiers like "understandably" or "given your experience"

@@ -1,8 +1,8 @@
-import { cn } from "@/utils/cn";
-import { ButtonHTMLAttributes, forwardRef } from "react";
+import { cn } from '@/utils/cn';
+import { ButtonHTMLAttributes, forwardRef } from 'react';
 
-type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
-type ButtonSize = "sm" | "md" | "lg";
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -10,27 +10,32 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "primary", size = "md", children, ...props }, ref) => {
+  (
+    { className, variant = 'primary', size = 'md', children, ...props },
+    ref
+  ) => {
     return (
       <button
         ref={ref}
         className={cn(
           // Base styles
-          "inline-flex items-center justify-center rounded-lg font-medium transition-colors outline-none focus:ring-2 focus:ring-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed",
+          'inline-flex items-center justify-center rounded-lg font-medium transition-colors outline-none focus:ring-2 focus:ring-zinc-100 disabled:cursor-not-allowed disabled:opacity-50',
 
           // Variants
           {
-            "bg-zinc-900 text-white hover:bg-zinc-700": variant === "primary",
-            "bg-zinc-100 text-zinc-900 hover:bg-zinc-200": variant === "secondary",
-            "bg-red-600 text-white hover:bg-red-700": variant === "danger",
-            "text-red-500 hover:text-red-700 hover:bg-red-50": variant === "ghost",
+            'bg-zinc-900 text-white hover:bg-zinc-700': variant === 'primary',
+            'bg-zinc-100 text-zinc-900 hover:bg-zinc-200':
+              variant === 'secondary',
+            'bg-red-600 text-white hover:bg-red-700': variant === 'danger',
+            'text-red-500 hover:bg-red-50 hover:text-red-700':
+              variant === 'ghost',
           },
 
           // Sizes
           {
-            "px-3 py-1.5 text-xs": size === "sm",
-            "px-4 py-2 text-sm": size === "md",
-            "px-6 py-3 text-base": size === "lg",
+            'px-3 py-1.5 text-xs': size === 'sm',
+            'px-4 py-2 text-sm': size === 'md',
+            'px-6 py-3 text-base': size === 'lg',
           },
 
           className
@@ -43,6 +48,6 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   }
 );
 
-Button.displayName = "Button";
+Button.displayName = 'Button';
 
 export { Button };

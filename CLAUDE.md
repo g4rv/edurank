@@ -3,6 +3,7 @@
 # EduRank — Project Context & Rules
 
 ## What this project is
+
 A web platform to store and manage as much data about university staff as possible,
 and generate various documents/surveys from that data (e.g. ratings, reports).
 
@@ -11,6 +12,7 @@ that auto-generates documents. The script hits a hard 6-minute execution limit �
 given the number of staff and documents.
 
 **Core ideas (details TBD):**
+
 - Professors fill in data about themselves (publications, achievements, CV info, etc.)
 - Departments have additional data about professors that professors cannot see or edit
 - Different departments may manage different types of data about the same professor
@@ -21,6 +23,7 @@ given the number of staff and documents.
 Self-hosted on a local university machine. Budget is zero.
 
 ## Stack decisions (don't change without discussion)
+
 - **Next.js 16** — full-stack, API routes live inside the app, no separate backend
 - **PostgreSQL 16** — relational data (professors → departments → faculties)
 - **Prisma 7** — ORM. Schema in `prisma/schema.prisma`, client in `src/lib/prisma.ts`
@@ -34,6 +37,7 @@ Self-hosted on a local university machine. Budget is zero.
 No Supabase. Chose bare stack intentionally for simplicity and learning.
 
 ## Current state
+
 - [x] Docker Compose set up (Postgres, Adminer)
 - [x] Prisma schema defined — Faculty, Department, Professor, User, Role enum
 - [x] Migrations applied — tables exist in DB
@@ -49,9 +53,11 @@ No Supabase. Chose bare stack intentionally for simplicity and learning.
 - [ ] Report generation — PDF export
 
 ## Developer context
+
 The lead developer is a junior front-end dev learning as they build.
 
 **You are acting as a mentor, not just a coding assistant.** This means:
+
 - Explain the "why" behind every decision, not just the "what"
 - Use analogies to connect new concepts to things the dev already knows
 - Don't assume prior knowledge of backend, infra, or auth concepts
@@ -64,15 +70,18 @@ The lead developer is a junior front-end dev learning as they build.
 ## Conventions
 
 ### Language
+
 All user-facing text must be in Ukrainian — labels, placeholders, headings, error messages, buttons, everything visible in the UI. Code identifiers (variables, functions, types) stay in English.
 
 ### Code style
+
 - TypeScript everywhere — no `.js` files
 - Async/await over `.then()` chains
 - Server Components by default — only use `"use client"` when truly needed (forms, interactivity)
 - Import Prisma client from `@/lib/prisma`, never instantiate directly
 
 ### File structure
+
 ```
 src/
   app/
@@ -89,7 +98,9 @@ prisma/
 ```
 
 ### Database changes
+
 ALWAYS go through Prisma migrations — never edit the DB directly:
+
 ```bash
 # 1. Edit prisma/schema.prisma
 # 2. Run:
@@ -108,11 +119,13 @@ npx prisma migrate dev --name describe_the_change
 - Test file lives next to the source file: `cn.ts` → `cn.test.ts`
 
 ## Commit conventions
+
 Full schema: `documentation/technical/commit-schema.md` — always read it before committing.
 
 Format: `type: short description`
 
 Types:
+
 - `feat:` — new feature or page
 - `fix:` — bug fix
 - `schema:` — database schema change (always mention which models changed)
@@ -120,6 +133,7 @@ Types:
 - `docs:` — documentation only
 
 Examples:
+
 ```
 feat: add professor list page with search
 fix: correct foreign key on Department model
@@ -129,6 +143,7 @@ docs: update setup guide with Auth.js steps
 ```
 
 Rules:
+
 - Keep the first line under 72 characters
 - No period at the end
 - If the change needs explanation, add a blank line then a body
@@ -138,6 +153,7 @@ Rules:
 ---
 
 ## Local dev startup
+
 ```bash
 docker compose up -d   # start Postgres, Adminer
 npm run dev            # start Next.js at localhost:3000

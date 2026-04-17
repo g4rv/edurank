@@ -1,6 +1,7 @@
 Read `documentation/personal/learning-notes.md` in full.
 
 Then review the current conversation from the beginning — identify:
+
 1. Every new concept, tool, or pattern that was explained or learned
 2. Every error that was encountered, its cause, and how it was fixed
 
@@ -13,6 +14,7 @@ Then review the current conversation from the beginning — identify:
 Add a new `## Session N — Topic` header (increment N from the last session in the file).
 
 Under it, write:
+
 - One subsection per new concept (use `###` headers matching the style of existing sessions)
 - Plain-English explanation of what it is and why it matters
 - Code examples where helpful
@@ -34,6 +36,7 @@ For each new error this session, append:
 
 ```markdown
 ### <a name="err-slug"></a> Short descriptive title
+
 **What happened:** One sentence — what the error message said or what went wrong.
 **Why:** The root cause — what Next.js / Node / Prisma actually does that caused it.
 **Fix:** What we changed to resolve it, with a code snippet if helpful.
@@ -45,6 +48,7 @@ For each new error this session, append:
 ---
 
 ## Style rules
+
 - Match the tone and style of existing sessions in the file
 - Do not rewrite or reformat existing content
 - Do not add entries for things already documented

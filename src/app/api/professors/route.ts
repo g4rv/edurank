@@ -1,11 +1,11 @@
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
-import { Prisma } from "@/generated/prisma/client";
-import { NextResponse } from "next/server";
+import { prisma } from '@/lib/prisma';
+import { auth } from '@/auth';
+import { Prisma } from '@/generated/prisma/client';
+import { NextResponse } from 'next/server';
 
 export async function GET() {
   const professors = await prisma.professor.findMany({
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     include: {
       department: {
         select: {
@@ -21,18 +21,29 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role === "VIEWER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!session)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (session.user.role === 'VIEWER')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const body = await request.json();
   if (!body.firstName?.trim()) {
-    return NextResponse.json({ error: "firstName is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: 'firstName is required' },
+      { status: 400 }
+    );
   }
   if (!body.lastName?.trim()) {
-    return NextResponse.json({ error: "lastName is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: 'lastName is required' },
+      { status: 400 }
+    );
   }
   if (!body.departmentId) {
-    return NextResponse.json({ error: "departmentId is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: 'departmentId is required' },
+      { status: 400 }
+    );
   }
 
   try {
@@ -55,8 +66,14 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(professor, { status: 201 });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
-      return NextResponse.json({ error: "Department not found" }, { status: 400 });
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2003'
+    ) {
+      return NextResponse.json(
+        { error: 'Department not found' },
+        { status: 400 }
+      );
     }
     throw error;
   }

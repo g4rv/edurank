@@ -1,11 +1,11 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from '@/lib/prisma';
 
 // This page queries the database, so it must be rendered dynamically (not at build time)
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const professors = await prisma.professor.findMany({
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     include: {
       department: {
         select: {
@@ -28,19 +28,33 @@ export default async function HomePage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50">
-                  <th className="px-4 py-3 text-left font-medium text-zinc-600">ПІБ</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-600">Кафедра</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-600">Факультет</th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-600">
+                    ПІБ
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-600">
+                    Кафедра
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-600">
+                    Факультет
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {professors.map((professor) => (
-                  <tr key={professor.id} className="border-b border-zinc-100 last:border-0">
+                  <tr
+                    key={professor.id}
+                    className="border-b border-zinc-100 last:border-0"
+                  >
                     <td className="px-4 py-3 text-zinc-900">
-                      {professor.lastName} {professor.firstName} {professor.patronymic}
+                      {professor.lastName} {professor.firstName}{' '}
+                      {professor.patronymic}
                     </td>
-                    <td className="px-4 py-3 text-zinc-600">{professor.department.name}</td>
-                    <td className="px-4 py-3 text-zinc-500">{professor.department.faculty.name}</td>
+                    <td className="px-4 py-3 text-zinc-600">
+                      {professor.department.name}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500">
+                      {professor.department.faculty.name}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -1,7 +1,18 @@
-"use client";
+'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
-import { ToastContainer, type ToastType, type ToastProps } from "@/components/ui/toast";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from 'react';
+import {
+  ToastContainer,
+  type ToastType,
+  type ToastProps,
+} from '@/components/ui/toast';
 
 interface ToastContextValue {
   success: (message: string) => void;
@@ -25,9 +36,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (message: string, type: ToastType) => {
       setToasts((prev) => {
         const id = crypto.randomUUID();
-        const newToast: ToastProps = { id, message, type, onClose: () => removeToast(id) };
+        const newToast: ToastProps = {
+          id,
+          message,
+          type,
+          onClose: () => removeToast(id),
+        };
 
-        const existingIndex = prev.findIndex((t) => t.message === message && t.type === type);
+        const existingIndex = prev.findIndex(
+          (t) => t.message === message && t.type === type
+        );
         if (existingIndex !== -1) {
           // Replace in-place with a fresh toast — new id causes React to remount,
           // which resets the timer and restarts the progress bar from full.
@@ -41,17 +59,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         return [...base, newToast];
       });
     },
-    [removeToast],
+    [removeToast]
   );
 
   const value = useMemo<ToastContextValue>(
     () => ({
-      success: (message) => addToast(message, "success"),
-      error: (message) => addToast(message, "error"),
-      warning: (message) => addToast(message, "warning"),
-      info: (message) => addToast(message, "info"),
+      success: (message) => addToast(message, 'success'),
+      error: (message) => addToast(message, 'error'),
+      warning: (message) => addToast(message, 'warning'),
+      info: (message) => addToast(message, 'info'),
     }),
-    [addToast],
+    [addToast]
   );
 
   return (
@@ -65,7 +83,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
-    throw new Error("useToast must be used within ToastProvider");
+    throw new Error('useToast must be used within ToastProvider');
   }
   return context;
 }

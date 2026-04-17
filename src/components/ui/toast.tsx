@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { cn } from "@/utils/cn";
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { cn } from '@/utils/cn';
 
-export type ToastType = "success" | "error" | "warning" | "info";
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 export interface ToastProps {
   id: string;
@@ -52,13 +52,13 @@ export function Toast({ message, type, onClose }: ToastProps) {
   return (
     <div
       className={cn(
-        "pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg shadow-lg ring-1 transition-all animate-in slide-in-from-top-2 duration-300",
+        'animate-in slide-in-from-top-2 pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg shadow-lg ring-1 transition-all duration-300',
         {
-          "bg-green-50 ring-green-200": type === "success",
-          "bg-red-50 ring-red-200": type === "error",
-          "bg-amber-50 ring-amber-200": type === "warning",
-          "bg-zinc-50 ring-zinc-200": type === "info",
-        },
+          'bg-green-50 ring-green-200': type === 'success',
+          'bg-red-50 ring-red-200': type === 'error',
+          'bg-amber-50 ring-amber-200': type === 'warning',
+          'bg-zinc-50 ring-zinc-200': type === 'info',
+        }
       )}
       role="alert"
       aria-live="polite"
@@ -67,7 +67,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
     >
       <div className="flex items-start gap-3 p-4">
         <div className="flex-shrink-0">
-          {type === "success" && (
+          {type === 'success' && (
             <svg
               className="h-5 w-5 text-green-600"
               fill="none"
@@ -83,7 +83,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
               />
             </svg>
           )}
-          {type === "error" && (
+          {type === 'error' && (
             <svg
               className="h-5 w-5 text-red-600"
               fill="none"
@@ -99,7 +99,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
               />
             </svg>
           )}
-          {type === "warning" && (
+          {type === 'warning' && (
             <svg
               className="h-5 w-5 text-amber-600"
               fill="none"
@@ -115,7 +115,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
               />
             </svg>
           )}
-          {type === "info" && (
+          {type === 'info' && (
             <svg
               className="h-5 w-5 text-zinc-600"
               fill="none"
@@ -134,11 +134,11 @@ export function Toast({ message, type, onClose }: ToastProps) {
         </div>
 
         <p
-          className={cn("flex-1 text-sm font-medium", {
-            "text-green-900": type === "success",
-            "text-red-900": type === "error",
-            "text-amber-900": type === "warning",
-            "text-zinc-900": type === "info",
+          className={cn('flex-1 text-sm font-medium', {
+            'text-green-900': type === 'success',
+            'text-red-900': type === 'error',
+            'text-amber-900': type === 'warning',
+            'text-zinc-900': type === 'info',
           })}
         >
           {message}
@@ -148,18 +148,32 @@ export function Toast({ message, type, onClose }: ToastProps) {
           type="button"
           onClick={onClose}
           className={cn(
-            "flex-shrink-0 rounded-lg p-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2",
+            'flex-shrink-0 rounded-lg p-1.5 transition-colors focus:ring-2 focus:ring-offset-2 focus:outline-none',
             {
-              "text-green-600 hover:bg-green-100 focus:ring-green-500": type === "success",
-              "text-red-600 hover:bg-red-100 focus:ring-red-500": type === "error",
-              "text-amber-600 hover:bg-amber-100 focus:ring-amber-500": type === "warning",
-              "text-zinc-600 hover:bg-zinc-100 focus:ring-zinc-500": type === "info",
-            },
+              'text-green-600 hover:bg-green-100 focus:ring-green-500':
+                type === 'success',
+              'text-red-600 hover:bg-red-100 focus:ring-red-500':
+                type === 'error',
+              'text-amber-600 hover:bg-amber-100 focus:ring-amber-500':
+                type === 'warning',
+              'text-zinc-600 hover:bg-zinc-100 focus:ring-zinc-500':
+                type === 'info',
+            }
           )}
           aria-label="Закрити"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
@@ -168,18 +182,18 @@ export function Toast({ message, type, onClose }: ToastProps) {
           scaleX(1→0) from the left edge; animationPlayState mirrors isPaused. */}
       <div className="h-0.5 w-full overflow-hidden">
         <div
-          className={cn("h-full w-full origin-left", {
-            "bg-green-400": type === "success",
-            "bg-red-400": type === "error",
-            "bg-amber-400": type === "warning",
-            "bg-zinc-300": type === "info",
+          className={cn('h-full w-full origin-left', {
+            'bg-green-400': type === 'success',
+            'bg-red-400': type === 'error',
+            'bg-amber-400': type === 'warning',
+            'bg-zinc-300': type === 'info',
           })}
           style={{
-            animationName: "toast-shrink",
+            animationName: 'toast-shrink',
             animationDuration: `${DURATION}ms`,
-            animationTimingFunction: "linear",
-            animationFillMode: "forwards",
-            animationPlayState: isPaused ? "paused" : "running",
+            animationTimingFunction: 'linear',
+            animationFillMode: 'forwards',
+            animationPlayState: isPaused ? 'paused' : 'running',
           }}
         />
       </div>
@@ -187,7 +201,13 @@ export function Toast({ message, type, onClose }: ToastProps) {
   );
 }
 
-export function ToastContainer({ toasts, onClose }: { toasts: ToastProps[]; onClose: (id: string) => void }) {
+export function ToastContainer({
+  toasts,
+  onClose,
+}: {
+  toasts: ToastProps[];
+  onClose: (id: string) => void;
+}) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -196,12 +216,12 @@ export function ToastContainer({ toasts, onClose }: { toasts: ToastProps[]; onCl
 
   if (!mounted) return null;
 
-  const container = document.getElementById("toast-root");
+  const container = document.getElementById('toast-root');
   if (!container) return null;
 
   return createPortal(
     <div
-      className="fixed top-4 left-4 right-4 z-50 flex flex-col gap-2 sm:left-auto sm:right-4 sm:w-96"
+      className="fixed top-4 right-4 left-4 z-50 flex flex-col gap-2 sm:right-4 sm:left-auto sm:w-96"
       aria-live="polite"
       aria-atomic="false"
     >
@@ -209,6 +229,6 @@ export function ToastContainer({ toasts, onClose }: { toasts: ToastProps[]; onCl
         <Toast key={toast.id} {...toast} onClose={() => onClose(toast.id)} />
       ))}
     </div>,
-    container,
+    container
   );
 }
