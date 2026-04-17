@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { Prisma } from "@/generated/prisma/client";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+
+type ActionState = {
+  success?: string;
+  error?: string;
+} | null;
 
 async function requireAdmin() {
   const session = await auth();
@@ -12,98 +18,116 @@ async function requireAdmin() {
 
 // ─── Faculties ────────────────────────────────────────────────
 
-export async function createFaculty(formData: FormData) {
+export async function createFaculty(prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
 
   const name = (formData.get("name") as string)?.trim();
-  if (!name) redirect("/admin?error=Назва+є+обов%27язковою");
+  if (!name) {
+    return { error: "Назва є обов'язковою" };
+  }
 
   try {
     await prisma.faculty.create({ data: { name } });
+    revalidatePath("/admin");
+    return { success: "Факультет створено" };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      redirect("/admin?error=Факультет+з+такою+назвою+вже+існує");
+      return { error: "Факультет з такою назвою вже існує" };
     }
-    throw error;
+    return { error: "Помилка сервера" };
   }
-
-  redirect("/admin");
 }
 
-export async function deleteFaculty(formData: FormData) {
+export async function deleteFaculty(prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
 
   const id = formData.get("id") as string;
 
   try {
     await prisma.faculty.delete({ where: { id } });
+    revalidatePath("/admin");
+    return { success: "Факультет видалено" };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
-      redirect("/admin?error=Неможливо+видалити+—+факультет+має+кафедри");
+      return { error: "Неможливо видалити — факультет має кафедри" };
     }
-    throw error;
+    return { error: "Помилка сервера" };
   }
-
-  redirect("/admin");
 }
 
 // ─── Departments ──────────────────────────────────────────────
 
-export async function createDepartment(formData: FormData) {
+export async function createDepartment(prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
 
   const name = (formData.get("name") as string)?.trim();
   const facultyId = formData.get("facultyId") as string;
-  if (!name || !facultyId) redirect("/admin?error=Усі+поля+є+обов%27язковими");
+  if (!name || !facultyId) {
+    return { error: "Усі поля є обов'язковими" };
+  }
 
   try {
     await prisma.department.create({ data: { name, facultyId } });
+    revalidatePath("/admin");
+    return { success: "Кафедру створено" };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      redirect("/admin?error=Кафедра+з+такою+назвою+вже+існує+на+цьому+факультеті");
+      return { error: "Кафедра з такою назвою вже існує на цьому факультеті" };
     }
-    throw error;
+    return { error: "Помилка сервера" };
   }
-
-  redirect("/admin");
 }
 
-export async function deleteDepartment(formData: FormData) {
+export async function deleteDepartment(prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
 
   const id = formData.get("id") as string;
 
   try {
     await prisma.department.delete({ where: { id } });
+    revalidatePath("/admin");
+    return { success: "Кафедру видалено" };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
-      redirect("/admin?error=Неможливо+видалити+—+кафедра+має+викладачів");
+      return { error: "Неможливо видалити — кафедра має викладачів" };
     }
-    throw error;
+    return { error: "Помилка сервера" };
   }
-
-  redirect("/admin");
 }
 
 // ─── Professors ───────────────────────────────────────────────
 
-export async function createProfessor(formData: FormData) {
+export async function createProfessor(prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
 
   const lastName = (formData.get("lastName") as string)?.trim();
   const firstName = (formData.get("firstName") as string)?.trim();
   const patronymic = (formData.get("patronymic") as string)?.trim() || null;
   const departmentId = formData.get("departmentId") as string;
-  if (!firstName || !lastName || !departmentId) redirect("/admin?error=Усі+поля+є+обов%27язковими");
 
-  await prisma.professor.create({ data: { lastName, firstName, patronymic, departmentId } });
-  redirect("/admin");
+  if (!firstName || !lastName || !departmentId) {
+    return { error: "Усі поля є обов'язковими" };
+  }
+
+  try {
+    await prisma.professor.create({ data: { lastName, firstName, patronymic, departmentId } });
+    revalidatePath("/admin");
+    return { success: "Викладача створено" };
+  } catch (_error) {
+    return { error: "Помилка сервера" };
+  }
 }
 
-export async function deleteProfessor(formData: FormData) {
+export async function deleteProfessor(prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
 
   const id = formData.get("id") as string;
-  await prisma.professor.delete({ where: { id } });
-  redirect("/admin");
+
+  try {
+    await prisma.professor.delete({ where: { id } });
+    revalidatePath("/admin");
+    return { success: "Викладача видалено" };
+  } catch (_error) {
+    return { error: "Помилка сервера" };
+  }
 }
