@@ -13,9 +13,9 @@ datasource db {
 // If someone tries to insert "proffesor" (typo) — Postgres rejects it.
 
 enum Role {
-  ADMIN   // can manage users and edit everything
-  EDITOR  // can add and edit professors/departments
-  VIEWER  // read-only access
+  ADMIN // can manage users and edit everything
+  EDITOR // can add and edit professors/departments
+  VIEWER // read-only access
 }
 
 // ─── Auth ──────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ enum Role {
 // a professor is data we track, a user is someone with login access.
 
 model User {
-  id            String    @id @default(cuid())
+  id String @id @default(cuid())
   // cuid() generates a unique string ID like "clh3k2j0f0000..."
   // safer than sequential integers (can't guess other IDs)
 
@@ -33,16 +33,28 @@ model User {
   // Auth.js adapter requires this field. We're not doing email verification,
   // but the field must exist or the adapter errors. Nullable = always null for us.
 
-  passwordHash  String
+  passwordHash String
   // never store plain text passwords — we store a bcrypt hash
 
-  role          Role      @default(VIEWER)
+  role Role @default(VIEWER)
   // new users get VIEWER by default — least privilege principle
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  // @updatedAt automatically sets this field whenever the row changes
+  divisionId String?
+  division   Division? @relation(fields: [divisionId], references: [id])
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // @updatedAt automatically sets this field whenever the row changes
+}
+
+model Division {
+  id   String @id @default(cuid())
+  name String @unique
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Session table removed — we use JWT sessions (stored in browser cookie, not DB).
@@ -52,49 +64,91 @@ model User {
 // ─── University Structure ──────────────────────────────────────
 
 model Faculty {
-  id          String       @id @default(cuid())
-  name        String       @unique
-  // e.g. "Faculty of Engineering", "Faculty of Law"
+  id   String @id @default(cuid())
+  name String @unique
+
+  deanId String?  @unique
+  dean   Professor? @relation("FacultyDean", fields: [deanId], references: [id])
 
   departments Department[]
-  // one faculty has many departments
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Department {
-  id         String      @id @default(cuid())
-  name       String
-  // e.g. "Computer Science", "Civil Engineering"
+  id   String @id @default(cuid())
+  name String
 
-  facultyId  String
-  faculty    Faculty     @relation(fields: [facultyId], references: [id])
-  // this is the foreign key — every department belongs to one faculty
+  facultyId String
+  faculty   Faculty @relation(fields: [facultyId], references: [id])
 
-  professors Professor[]
-  // one department has many professors
+  headId String? @unique
+  head   Professor? @relation("DepartmentHead", fields: [headId], references: [id])
 
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  professors Professor[] @relation("DepartmentProfessors")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([name, facultyId])
-  // a department name must be unique WITHIN a faculty
-  // (two different faculties can both have a "General Studies" dept)
 }
 
 model Professor {
-  id           String     @id @default(cuid())
-  lastName     String
-  firstName    String
-  patronymic   String?
-  // patronymic (по батькові) — optional for cases where it doesn't apply
+  id         String  @id @default(cuid())
+  lastName   String
+  firstName  String
+  patronymic String?
+
+  email                 String? @unique
+  employmentRate        Float?
+  pedagogicalExperience Int?
+
+  academicRank            AcademicRank?
+  academicPosition        AcademicPosition?
+  scientificDegree        ScientificDegree?
+  degreeMatchesDepartment Boolean?
+
+  ratingSheetId String?
+  certificateId String?
+
+  wosURL                     String?
+  wosCitationCount           Int?    @default(0)
+  scopusURL                  String?
+  scopusCitationCount        Int?    @default(0)
+  googleScholarURL           String?
+  googleScholarCitationCount Int?    @default(0)
+  orcidId                    String?
+
+  lastAccessVerified DateTime?
 
   departmentId String
-  department   Department @relation(fields: [departmentId], references: [id])
-  // every professor belongs to one department
-  // (and indirectly to a faculty through that department)
+  department   Department @relation("DepartmentProfessors", fields: [departmentId], references: [id])
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  headOfDepartment Department? @relation("DepartmentHead")
+  deanOfFaculty    Faculty?    @relation("FacultyDean")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Enums ─────────────────────────────────────────────────────
+
+enum AcademicRank {
+  DOCENT // доцент (вчене звання, awarded by ministry)
+  PROFESSOR // професор (вчене звання)
+  SENIOR_RESEARCHER // старший науковий співробітник
+}
+
+enum AcademicPosition {
+  ASSISTANT // асистент
+  LECTURER // викладач
+  SENIOR_LECTURER // старший викладач
+  DOCENT // доцент (посада)
+  PROFESSOR // професор (посада)
+}
+
+enum ScientificDegree {
+  CANDIDATE // кандидат наук / доктор філософії (PhD)
+  DOCTOR // доктор наук
 }
