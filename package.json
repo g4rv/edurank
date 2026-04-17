@@ -11,7 +11,10 @@
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
     "db:studio": "npx prisma studio",
-    "db:reset": "npx prisma migrate reset --force"
+    "db:reset": "npx prisma migrate reset --force",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "husky"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.6.0",
@@ -29,15 +32,19 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.1",
     "dotenv": "^16",
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
+    "husky": "^9.1.7",
+    "jsdom": "^29.0.2",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "prisma": "^7.6.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   }
 }
