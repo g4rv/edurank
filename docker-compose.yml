@@ -66,6 +66,33 @@ services:
     # Postgres passes its healthcheck above. Without this, Adminer
     # might start before Postgres is ready and fail to connect.
 
+  # ─── Postgres Backup ─────────────────────────────────────────
+  # Automatically dumps the database on a daily schedule.
+  # Backups are saved to ./backups/ on the host machine as .sql.gz files.
+  # Retention: 7 daily, 4 weekly, 6 monthly — old backups are deleted automatically.
+  #
+  # To restore a backup:
+  #   gunzip -c backups/last/edurank-latest.sql.gz | docker exec -i edurank-postgres-1 psql -U edurank_user -d edurank
+  postgres-backup:
+    image: prodrigestivill/postgres-backup-local
+    restart: unless-stopped
+    volumes:
+      - ./backups:/backups
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: edurank
+      POSTGRES_USER: edurank_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: "0 2 * * *"
+      # runs every day at 2:00 AM
+      # cron format: minute hour day month weekday
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # ─── File Storage (placeholder) ──────────────────────────────
   # Not configured yet. Will be added once the core platform
   # (auth + professor CRUD) is built. Candidates: RustFS, Garage.
