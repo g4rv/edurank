@@ -99,6 +99,14 @@ npx prisma migrate dev --name describe_the_change
 
 ---
 
+## Testing
+
+- **Framework:** Vitest — config in `vitest.config.ts`, tests co-located next to source files as `*.test.ts`
+- **Run tests:** `npm test` (single run) or `npm run test:watch` (watch mode)
+- **Pre-push hook:** Husky blocks `git push` if tests fail — never push broken code
+- Every new utility function or business logic function must have a corresponding test file
+- Test file lives next to the source file: `cn.ts` → `cn.test.ts`
+
 ## Commit conventions
 Full schema: `documentation/technical/commit-schema.md` — always read it before committing.
 

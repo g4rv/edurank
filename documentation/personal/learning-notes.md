@@ -982,6 +982,279 @@ Combined with `mx-auto` (horizontal auto margins), content centers itself and re
 
 ---
 
+## Session 9 — Toast notifications, useActionState, React Context, Portals
+
+### Toast notifications
+
+A **toast** is a temporary popup message that appears to notify users of actions (success, error, warning, info). The name comes from toast popping up from a toaster — quick, temporary, attention-grabbing.
+
+**Why they matter:** They provide instant feedback without interrupting the user's workflow. Better UX than showing errors in the URL or reloading the page.
+
+### React Context — global state without prop drilling
+
+**The problem:** Passing a function (like `showToast`) down through every component level is called "prop drilling":
+
+```tsx
+<App showToast={showToast}>
+  <Layout showToast={showToast}>
+    <Page showToast={showToast}>
+      <Button onClick={() => showToast("Saved!")} />
+```
+
+Painful and unmaintainable.
+
+**The solution:** React Context creates a "global" state container that any component can access without passing props through every level.
+
+**How it works:**
+1. **Create Context** — `const ToastContext = createContext()`
+2. **Provide it** — wrap your app with `<ToastContext.Provider value={...}>`
+3. **Consume it** — any child calls `useContext(ToastContext)` to access the state
+
+```tsx
+// Provider (in layout.tsx)
+<ToastContext.Provider value={{ showToast }}>
+  <App />
+</ToastContext.Provider>
+
+// Consumer (anywhere deep in the tree)
+function MyButton() {
+  const { showToast } = useContext(ToastContext);
+  return <button onClick={() => showToast("Success!")}>Save</button>;
+}
+```
+
+No prop drilling — the button directly accesses the global toast state.
+
+### Custom hooks pattern
+
+Instead of forcing every component to call `useContext(ToastContext)`, wrap it in a custom hook:
+
+```typescript
+export function useToast() {
+  const context = useContext(ToastContext);
+  if (!context) {
+    throw new Error("useToast must be used within ToastProvider");
+  }
+  return context;
+}
+```
+
+Now components just call `const toast = useToast()`. Cleaner and safer — throws a helpful error if Context is missing.
+
+### React portals — rendering outside the component tree
+
+**The problem:** UI elements like toasts need to appear on top of everything (modals, dropdowns, headers). If rendered inside their trigger component, they inherit CSS properties that break positioning:
+
+```tsx
+<div style="overflow: hidden">
+  <Toast />  {/* gets cut off by parent's overflow! */}
+</div>
+```
+
+**The solution:** `ReactDOM.createPortal()` renders a component into a different part of the DOM tree, outside its parent:
+
+```tsx
+createPortal(
+  <Toast />,
+  document.getElementById("toast-root")  // renders at top level
+)
+```
+
+The toast DOM node physically lives outside the app tree (in `<div id="toast-root">`), so it's unaffected by parent styles. But React still treats it as a child for event handling and Context access.
+
+**When to use portals:** Toasts, modals, tooltips, dropdowns — anything that needs to escape its container's CSS constraints.
+
+### useActionState — the modern way to handle Server Action responses
+
+**The old way (searchParams):**
+```typescript
+// Server Action
+export async function create(formData: FormData) {
+  await prisma.create({ ... });
+  redirect("/admin?success=Created");  // ❌ message in URL
+}
+```
+
+**Problems:**
+- Messages visible in URL bar
+- Browser history polluted with error states
+- Full page reload required
+- Not shareable (bookmarking `/admin?success=...` shows stale message)
+
+**The new way (useActionState):**
+```typescript
+// Server Action returns data
+export async function create(prevState: any, formData: FormData) {
+  "use server"
+  try {
+    await prisma.create({ ... });
+    return { success: "Created" };
+  } catch (error) {
+    return { error: "Failed" };
+  }
+}
+
+// Client Component uses the action
+"use client"
+const [state, action, isPending] = useActionState(create, null);
+
+useEffect(() => {
+  if (state?.success) toast.success(state.success);
+  if (state?.error) toast.error(state.error);
+}, [state]);
+
+<form action={action}>...</form>
+```
+
+**Benefits:**
+- No URL pollution
+- No page reload
+- Loading states (`isPending`)
+- Clean separation: Server Action returns data, Client Component handles UI
+
+### revalidatePath — refreshing cached data after mutations
+
+When a Server Action changes database data, Next.js doesn't automatically know to refetch it. `revalidatePath()` tells Next.js to invalidate the cache for a specific path:
+
+```typescript
+export async function createFaculty(prevState, formData) {
+  "use server"
+  await prisma.faculty.create({ ... });
+  revalidatePath("/admin");  // ← tell Next.js to refetch /admin data
+  return { success: "Created" };
+}
+```
+
+Without this, the page would show stale data (old list) even after creating a new faculty. `revalidatePath` forces Next.js to re-render the page with fresh database results on the next visit.
+
+### Managing multiple toasts with array state
+
+Instead of a single toast object, store an **array** of toasts:
+
+```typescript
+const [toasts, setToasts] = useState<Toast[]>([]);
+
+// Add a toast
+function addToast(message, type) {
+  const newToast = {
+    id: crypto.randomUUID(),  // unique ID for React key
+    message,
+    type
+  };
+  setToasts(prev => [...prev, newToast]);  // append to array
+}
+
+// Remove a toast
+function removeToast(id) {
+  setToasts(prev => prev.filter(t => t.id !== id));
+}
+```
+
+Each toast auto-dismisses after 5 seconds using `setTimeout` in a `useEffect`. Multiple toasts stack vertically — each one independently manages its own lifetime.
+
+### crypto.randomUUID() for unique IDs
+
+Each toast needs a unique `id` for:
+1. **React `key` prop** — so React can track which toast is which when re-rendering
+2. **Removing specific toasts** — when you click close or it auto-dismisses, filter by ID
+
+`crypto.randomUUID()` generates globally unique IDs like `"9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"`. Built into modern browsers and Node.js — no external library needed.
+
+### Hydration and the mounted state pattern
+
+**Hydration** is when React "attaches" to server-rendered HTML on the client. React expects the first client render to match exactly what the server rendered.
+
+**The problem with portals:**
+```typescript
+// BAD
+if (typeof window === "undefined") return null;
+```
+
+- **Server:** `typeof window === "undefined"` → returns `null`
+- **Client (first render):** `typeof window === "undefined"` is `false` → returns `<div>`
+- **React:** "Server said `null`, client says `<div>` — MISMATCH!" ❌
+
+**The fix — mounted state:**
+```typescript
+const [mounted, setMounted] = useState(false);
+
+useEffect(() => {
+  setMounted(true);  // only runs after hydration
+}, []);
+
+if (!mounted) return null;
+```
+
+- **Server:** `mounted` is `false` → returns `null`
+- **Client (first render):** `mounted` is still `false` → returns `null` ✓ MATCH!
+- **Client (after hydration):** `useEffect` runs, sets `mounted = true` → portal renders
+
+Both server and first client render return `null`, so React is happy. The portal only appears after hydration completes.
+
+**Why useEffect?** It only runs on the client, never on the server. Perfect for setting client-only state or accessing browser APIs.
+
+### Architectural separation: providers vs components
+
+**Providers** (state infrastructure) live in `src/providers/`:
+```
+src/providers/
+  toast-provider.tsx  ← Context, provider, useToast hook
+```
+
+**Components** (visual UI) live in `src/components/`:
+```
+src/components/ui/
+  toast.tsx  ← Toast visual component
+```
+
+**Why separate?** Providers are **app-level infrastructure** — they wrap the entire app in `layout.tsx`. Components are **UI building blocks** — imported into pages and other components. Clear separation makes it obvious which files are infrastructure concerns vs reusable UI.
+
+### useCallback dependency gotcha — infinite loops
+
+**The bug:**
+```typescript
+useEffect(() => {
+  if (state?.success) toast.success(state.success);
+}, [state, toast]);  // ❌ toast changes reference every render → infinite loop
+```
+
+The `toast` object (from `useToast()`) changes reference on every render, even though the functions inside are stable. This triggers the effect → shows toast → context updates → `toast` reference changes → effect runs again → infinite loop.
+
+**The fix:**
+```typescript
+useEffect(() => {
+  if (state?.success) toast.success(state.success);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [state]);  // ✓ Only trigger when state changes
+```
+
+Remove `toast` from dependencies. ESLint complains, but we disable the warning because `toast` functions are stable (wrapped in `useCallback` with proper dependencies in the provider).
+
+### Page-specific components subfolder pattern
+
+For components tightly coupled to a specific page (not reusable), organize them in a `components/` subfolder:
+
+```
+src/app/admin/
+  page.tsx          ← Server Component, queries DB
+  actions.ts        ← Server Actions
+  components/
+    faculty-section.tsx     ← Client Component, uses useActionState
+    department-section.tsx  ← Client Component
+    professor-section.tsx   ← Client Component
+```
+
+**Why this works:**
+- **Flat is too messy** — 6 files at the top level is hard to scan
+- **Logical grouping** — each section is self-contained (own state, own toasts)
+- **Not over-engineering** — these aren't reusable, just organized
+
+**When to use it:** When a page has 4+ related files, and the components are page-specific (not shared across the app).
+
+**Errors this session:** [Hydration mismatch with portal](#err-toast-hydration-mismatch), [Infinite toast loop with useEffect dependencies](#err-toast-infinite-loop), [Module not found after moving files](#err-moved-component-imports)
+
+---
+
 ## Errors
 
 ### <a name="err-searchparams-async"></a> searchParams is a Promise in Next.js 16
@@ -1052,3 +1325,555 @@ This tells Next.js to render the page on every request instead of once at build 
 npx prisma generate
 ```
 Note: `npx prisma migrate dev` automatically runs `prisma generate` at the end, so this only happens if you skip that step or something interrupts the process.
+
+### <a name="err-toast-hydration-mismatch"></a> Hydration mismatch with portal
+**What happened:** `Uncaught Error: Hydration failed because the server rendered HTML didn't match the client.`
+**Why:** The ToastContainer component used `typeof window === "undefined"` to check for server vs client. Server rendered `null`, but the first client render immediately returned the portal `<div>`, causing a mismatch. React expects server and first client render to be identical.
+**Fix:** Use the mounted state pattern with `useEffect`:
+```typescript
+const [mounted, setMounted] = useState(false);
+
+useEffect(() => {
+  setMounted(true);  // only runs after hydration completes
+}, []);
+
+if (!mounted) return null;  // both server and first client render return null
+```
+
+### <a name="err-toast-infinite-loop"></a> Infinite toast loop with useEffect dependencies
+**What happened:** Toasts appeared infinitely, flooding the screen in an endless loop.
+**Why:** The `useEffect` dependency array included `toast` from `useToast()`. The `toast` object changes reference on every render (even though the functions inside are stable via `useCallback`). This triggered the effect → showed toast → context updated → `toast` reference changed → effect ran again → infinite loop.
+**Fix:** Remove `toast` from the dependency array and disable ESLint warning:
+```typescript
+useEffect(() => {
+  if (state?.success) toast.success(state.success);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [state]);  // only state, not toast
+```
+
+### <a name="err-moved-component-imports"></a> Module not found after moving files
+**What happened:** `Module not found: Can't resolve './actions'` after moving section components into `admin/components/` subfolder.
+**Why:** The import paths used relative imports (`./actions`), which worked when files were in the same folder. After moving components into a subfolder, `./actions` pointed to `admin/components/actions.ts` (which doesn't exist) instead of `admin/actions.ts`.
+**Fix:** Update relative imports to go up one level:
+```typescript
+// Before (when in same folder)
+import { createFaculty } from "./actions";
+
+// After (moved to components/ subfolder)
+import { createFaculty } from "../actions";
+```
+
+---
+
+## Session 10 — ESLint config, useMemo, useRef, CSS animations, toast architecture
+
+### ESLint: ignoring intentionally unused variables
+
+TypeScript and ESLint enforce that every declared variable is used. But there are legitimate cases where you need a variable you won't use — the most common is a `catch` block where you need the parameter to exist but don't inspect it:
+
+```typescript
+try {
+  await prisma.professor.delete({ where: { id } })
+} catch (_error) {      // ← need the parameter, don't need the value
+  return { error: "Помилка сервера" }
+}
+```
+
+The convention is to prefix with `_`. ESLint v9 flat config lets you codify this as a rule so it stops warning:
+
+```javascript
+// eslint.config.mjs
+{
+  rules: {
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        argsIgnorePattern: "^_",          // function parameters: _param
+        varsIgnorePattern: "^_",           // variables: _unused
+        caughtErrorsIgnorePattern: "^_",   // catch blocks: catch (_error)
+      },
+    ],
+  },
+}
+```
+
+The three patterns cover different scopes. `caughtErrorsIgnorePattern` is the one that matters most for our Server Actions.
+
+### useMemo — preventing unnecessary re-renders of Context consumers
+
+When a component re-renders, any object literal defined inside it is a **new object in memory** — even if its contents haven't changed. This matters in Context providers:
+
+```typescript
+// ❌ New object every render — all consumers re-render unnecessarily
+const value = {
+  success: (msg) => addToast(msg, "success"),
+  error:   (msg) => addToast(msg, "error"),
+}
+
+// ✓ Same object reference if addToast hasn't changed
+const value = useMemo(() => ({
+  success: (msg) => addToast(msg, "success"),
+  error:   (msg) => addToast(msg, "error"),
+}), [addToast]);
+```
+
+`useMemo` caches the result of a function and only recalculates when its dependencies change. Here, `addToast` is already stable (wrapped in `useCallback`), so `value` is stable too — Context consumers only re-render when there's actually something new to show.
+
+**Rule of thumb:** Any object you pass as a Context value should be wrapped in `useMemo`.
+
+### useRef — mutable values that don't trigger re-renders
+
+`useState` is for values that, when changed, should cause the component to re-render and update the UI. `useRef` is for values that need to persist across renders but changing them should NOT trigger a re-render.
+
+```typescript
+const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const remainingRef = useRef(5000);
+```
+
+Good uses for `useRef`:
+- Timer IDs (you clear/restart them, but the component doesn't need to re-render for that)
+- Time measurements (`Date.now()` snapshots)
+- Previous values of props
+
+**Mental model:** `useState` is a signal to React — "something changed, please re-render." `useRef` is a sticky note on the component — "remember this between renders, but don't redraw."
+
+### CSS animations: transform vs width
+
+Animating `width` triggers the browser's **layout** phase on every frame — it has to recalculate the size and position of surrounding elements. For a progress bar running 60 frames per second, that's 300 layout recalculations over 5 seconds.
+
+`transform: scaleX()` runs entirely on the **GPU** and skips layout entirely. It's the standard approach for performant animations.
+
+```css
+/* ❌ Causes layout recalculation every frame */
+@keyframes shrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+/* ✓ GPU-only, no layout cost */
+@keyframes shrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+```
+
+`transform-origin` controls the anchor point of the transform. By default it's `center`, so `scaleX(0)` would collapse the bar inward from both sides. `origin-left` (Tailwind) anchors it to the left edge so it shrinks from right to left:
+
+```tsx
+<div className="origin-left" style={{ animationName: "shrink", ... }} />
+```
+
+### CSS animation: shorthand vs individual properties
+
+The `animation` CSS shorthand sets all animation sub-properties at once:
+
+```css
+animation: toast-shrink 5s linear forwards;
+/* equivalent to: */
+animation-name: toast-shrink;
+animation-duration: 5s;
+animation-timing-function: linear;
+animation-fill-mode: forwards;
+animation-play-state: running;  /* ← implicit default */
+```
+
+When you mix the shorthand with a separate `animation-play-state` in React inline styles, the browser's handling of which one wins can be inconsistent. Using individual properties avoids the ambiguity entirely:
+
+```typescript
+style={{
+  animationName: "toast-shrink",
+  animationDuration: `${DURATION}ms`,
+  animationTimingFunction: "linear",
+  animationFillMode: "forwards",
+  animationPlayState: isPaused ? "paused" : "running",  // clearly wins
+}}
+```
+
+### animationPlayState — pausing a CSS animation mid-run
+
+`animation-play-state: paused` freezes the animation exactly where it is. Setting it back to `running` resumes from the same point — the browser remembers the progress. This is what makes hover-to-pause work with no extra logic:
+
+```typescript
+animationPlayState: isPaused ? "paused" : "running"
+```
+
+The visual bar and the timer are separate concerns: the CSS animation is purely decorative. The actual dismiss is handled by `setTimeout`, which is managed independently.
+
+### Hover-pause with remaining time tracking
+
+A `setTimeout` can't be paused — you can only clear it and start a new one. To pause and resume correctly, you track how much time has elapsed when pausing, and start the next timeout with the remainder:
+
+```typescript
+const DURATION = 5000;
+const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const remainingRef = useRef(DURATION);
+
+useEffect(() => {
+  if (isPaused) return;                         // don't start while paused
+
+  const startedAt = Date.now();
+  timerRef.current = setTimeout(onClose, remainingRef.current);
+
+  return () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+      // Save how much time is left for the next resume
+      remainingRef.current = Math.max(0, remainingRef.current - (Date.now() - startedAt));
+    }
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [isPaused]);
+```
+
+When `isPaused` changes to `true`: the effect's cleanup function runs, clears the timer, and saves the remaining time. When `isPaused` changes back to `false`: a new timer starts with the saved remainder. One effect, two behaviors, driven by the same dependency.
+
+### React key remounting trick
+
+When a component's `key` prop changes, React treats it as a completely different component — it unmounts the old one and mounts a fresh one. All local state (including `useRef` values and active timers) is reset.
+
+This is useful for "refreshing" a component without rearchitecting its internals:
+
+```typescript
+// In the provider — when the same message arrives again:
+const id = crypto.randomUUID();  // new id → new key → React remounts Toast
+const refreshed = { id, message, type, onClose: () => removeToast(id) };
+return prev.map((t) => (t.id === existing.id ? refreshed : t));
+```
+
+The toast stays in the same position in the list (we replace, not remove+add), but because its `key` changed, React sees it as a new component. The timer restarts from 5 seconds, the progress bar resets to full. The user sees a "refreshed" toast without flicker.
+
+---
+
+### <a name="err-progress-bar-not-animating"></a> Progress bar not animating
+
+**What happened:** The toast progress bar was completely static — no visual movement, and toasts never closed automatically.
+**Why:** Two compounding issues. First, animating `width` in CSS can fail silently if the element doesn't have an explicit initial width set via a stylesheet rule (not just a natural block width). Second, mixing the `animation` shorthand with `animationPlayState` as a separate inline style property can cause inconsistent browser behavior. Together, they prevented the animation from starting.
+**Fix:** Switch to `transform: scaleX()` (GPU-accelerated, no width dependency) and use individual `animation-*` properties instead of the shorthand:
+```css
+@keyframes toast-shrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+```
+```typescript
+style={{
+  animationName: "toast-shrink",
+  animationDuration: `${DURATION}ms`,
+  animationTimingFunction: "linear",
+  animationFillMode: "forwards",
+  animationPlayState: isPaused ? "paused" : "running",
+}}
+```
+Also decouple dismiss from animation: `useEffect`/`setTimeout` handles closing; the CSS animation is purely visual.
+
+---
+
+## Session 11 — Schema design, domain modelling, Ukrainian academic degrees
+
+### Translating real-world data into a schema
+
+When adding fields from an existing spreadsheet to Prisma, don't copy the structure blindly. Ask three questions for each field:
+
+1. **Is this a foreign key disguised as a string?** A `department String?` field that stores a department name should be a proper `departmentId` relation — otherwise you lose filtering, get typos, and can't delete departments safely.
+2. **Is this enum value actually two separate concepts?** The original `AcademicRank` mixed *вчене звання* (academic rank, awarded by ministry) with *посада* (position, set by university). A professor can be "доцент за посадою" without holding the "вчене звання доцента". Split into two enums: `AcademicRank` and `AcademicPosition`.
+3. **Is this boolean better than extra enum variants?** `CANDIDATE_PHD_DEPARTMENT_SPECIFIC` as an enum value doubles the enum size just to track one extra yes/no fact. A `degreeMatchesDepartment Boolean?` field asks the same question more clearly, and the two concerns stay independent.
+
+### Ukrainian academic degree system
+
+Ukraine has two parallel systems coexisting since the 2016 reform:
+
+| Old system (pre-2016) | New system (post-2016) |
+|---|---|
+| кандидат наук | доктор філософії (PhD equivalent) |
+| доктор наук | доктор наук (unchanged) |
+
+Both titles still exist in real professor data — someone who graduated in 2013 keeps "кандидат наук" forever. For official document generation, the exact diploma title matters — you can't substitute one for the other.
+
+In our platform's spreadsheet, both are tracked as "Кандидат наук (PhD)", so we store them as one enum value and can split later if needed:
+
+```prisma
+enum ScientificDegree {
+  CANDIDATE  // кандидат наук / доктор філософії (PhD)
+  DOCTOR     // доктор наук
+}
+```
+
+### degreeMatchesDepartment — a qualifier, not a category
+
+"За спеціальністю кафедри" (degree specialty matches the department) is NOT a distinct degree type — it's a yes/no qualifier that affects rating scores. Stored as `Boolean?`:
+
+- `null` — not yet verified
+- `true` — degree specialty matches the department's accredited specialties
+- `false` — it doesn't match
+
+An admin sets this manually by comparing the diploma to the department's specialties list. The system cannot calculate it automatically.
+
+### Two organisational structures in one university
+
+A university has two separate trees that coexist independently:
+
+```
+Academic:                    Administrative:
+Faculty (Факультет)          Division (Відділ)
+  └── Department (Кафедра)     └── Users (staff who work there)
+        └── Professor
+```
+
+- **Academic structure** — defines where professors *work* and *teach*
+- **Administrative structure** — defines who *manages* specific data about professors
+
+A Division doesn't contain professors — it manages specific domains of professor data. For example: the Educational and Research Division manages ratings; the Quality Assurance Division manages accreditation. Different divisions own different slices of professor data.
+
+This is why `divisionId` lives on `User`, not on `Professor` — a division's *staff* belong to it, not the professors it manages.
+
+### Circular references in Prisma
+
+When two models reference each other (Department has a Professor as head, Professor belongs to a Department), Prisma needs help distinguishing which relation is which. The solution is **named relations**.
+
+Without names Prisma throws: *"The relation field is ambiguous."*
+
+**The owner side** — holds the actual foreign key column, has `fields` and `references`:
+```prisma
+head Professor? @relation("DepartmentHead", fields: [headId], references: [id])
+```
+
+**The back-relation side** — virtual, no column in DB, no `fields`/`references`:
+```prisma
+headOfDepartment Department? @relation("DepartmentHead")
+```
+
+The same string `"DepartmentHead"` on both sides tells Prisma these two fields are the two ends of the same relationship.
+
+### Back-relations are virtual — no DB column
+
+A back-relation like `headOfDepartment Department?` creates **no column** in the `Professor` table. It only exists in TypeScript so you can write `professor.headOfDepartment` without a manual query. If you deleted it, the database wouldn't change at all.
+
+The actual foreign key column always lives on the **owner side** — in this case `headId` on `Department`.
+
+### @unique on a foreign key — one-to-one vs one-to-many
+
+```prisma
+headId String? @unique
+```
+
+Without `@unique`: many departments could share the same professor as head (one-to-many).
+With `@unique`: each `headId` value can only appear once — one professor leads at most one department (one-to-one).
+
+Rule of thumb: add `@unique` to a foreign key when the real-world constraint is "one person can only hold this role in one place at a time."
+
+### <a name="err-usestate-as-effect"></a> useState used as a side-effect hook
+
+**What happened:** Code attempted `useState(() => { setMounted(true) })` to run a side effect after mount.
+**Why:** `useState`'s initializer argument is for computing the *initial value* of the state, not for running side effects. It returns the initial value, not a cleanup function, and only runs on the first render. It is not a substitute for `useEffect`.
+**Fix:** Use `useEffect` for any logic that should run after the component mounts:
+```typescript
+const [mounted, setMounted] = useState(false);
+useEffect(() => { setMounted(true); }, []);
+```
+
+---
+
+## Session 12 — Database backups, cron scheduling, pg_dump
+
+### Why backups matter and what pg_dump does
+
+`pg_dump` is PostgreSQL's built-in backup tool. It takes a consistent snapshot of the database and writes it as a `.sql` file — a series of `CREATE TABLE` and `INSERT INTO` statements. To restore, you pipe that file back into `psql` and the database is rebuilt from scratch.
+
+The key property: **pg_dump doesn't lock the database**. PostgreSQL uses MVCC (Multi-Version Concurrency Control) — when a backup starts, Postgres takes a snapshot of the data at that exact moment. Users can keep reading and writing while the backup runs. Nobody notices it's happening.
+
+For a small dataset (university platform, hundreds to thousands of rows), a full backup completes in under a second and produces a file under a few MB.
+
+### Backup container vs host cron job
+
+Two approaches to automate backups:
+
+**Host cron job** — a script on the machine runs `pg_dump` on a schedule. Requires configuring the host OS, not portable.
+
+**Dedicated backup container** — a Docker container whose only job is running `pg_dump` on a schedule. Everything stays inside Docker Compose. The `prodrigestivill/postgres-backup-local` image handles scheduling, compression, and rotation automatically.
+
+We use the container approach because it keeps all infrastructure in one place and requires zero host-level configuration.
+
+### Cron syntax
+
+The standard Unix format for scheduling. Five fields:
+
+```
+┌─ minute  (0–59)
+│ ┌─ hour   (0–23)
+│ │ ┌─ day of month (1–31)
+│ │ │ ┌─ month (1–12)
+│ │ │ │ ┌─ day of week (0–7)
+│ │ │ │ │
+0 2 * * *    ← 2:00 AM every day
+```
+
+`*` means "every possible value". So `* * * * *` means every minute.
+
+Common patterns:
+```
+0 2 * * *     every day at 2 AM
+0 2 * * 0     every Sunday at 2 AM
+0 */6 * * *   every 6 hours
+```
+
+2 AM is a common backup time — it's the quietest period when no one is using the system.
+
+### Three-tier backup retention
+
+Instead of keeping every daily backup forever, use three rolling windows:
+
+| Tier | Count | Covers |
+|---|---|---|
+| Daily | 7 | last 7 days |
+| Weekly | 4 | last 4 weeks |
+| Monthly | 6 | last 6 months |
+
+**Total: 17 files maximum** at any given moment. Each tier rolls independently — when a new daily is created, the oldest daily is deleted.
+
+Why three tiers instead of just one:
+- If you kept only 7 dailies, you'd have no coverage beyond one week
+- If you kept 180 dailies (6 months), you'd use 180× the disk space
+- Three tiers give 6 months of coverage with only 17 files
+
+Recovery granularity: use a daily for "broke today", weekly for "noticed 2 weeks later", monthly for "something went wrong 3 months ago".
+
+### Host path volumes vs named volumes
+
+We've used both volume types in `docker-compose.yml`:
+
+```yaml
+# Named volume — Docker manages it, stored in Docker's internal location
+- postgres_data:/var/lib/postgresql/data
+
+# Host path — maps to a real folder on your machine
+- ./backups:/backups
+```
+
+**Named volumes** are for data that only Docker needs to access (like Postgres data files). Docker manages the location — you can't easily open it in File Explorer.
+
+**Host path volumes** are for data you want to access directly from your machine — backup files you might want to copy, inspect, or move to another server. `./backups` creates a real folder next to `docker-compose.yml` that you can open normally.
+
+**Errors this session:** [gunzip not available on Windows](#err-gunzip-windows), [gunzip fails on symlink](#err-gunzip-symlink), [gunzip -k fails on hard-linked file](#err-gunzip-hard-link)
+
+---
+
+### <a name="err-gunzip-windows"></a> gunzip not available on Windows PowerShell
+**What happened:** `The term 'gunzip' is not recognized as the name of a cmdlet`.
+**Why:** `gunzip` is a Linux/Unix tool — it doesn't exist in Windows PowerShell.
+**Fix:** Run the command inside the Docker container where Linux tools are available:
+```bash
+docker compose exec postgres-backup gunzip -c /backups/last/edurank-latest.sql.gz > backups/edurank.sql
+```
+Or simply open the `.sql.gz` file directly in VS Code — it reads gzip files natively.
+
+### <a name="err-gunzip-symlink"></a> gunzip fails on symlink with "Too many levels of symbolic links"
+**What happened:** `gzip: /backups/last/edurank-latest.sql.gz: Too many levels of symbolic links`.
+**Why:** `edurank-latest.sql.gz` is a symlink pointing to the real timestamped file. `gunzip` can't follow it.
+**Fix:** List the directory to find the actual filename, then use that:
+```bash
+docker compose exec postgres-backup ls /backups/last/
+# Use the timestamped file, e.g. edurank-20260417-115133.sql.gz
+```
+
+### <a name="err-gunzip-hard-link"></a> gunzip -k fails on hard-linked backup file
+**What happened:** `gzip: edurank-20260417-115133.sql.gz has 3 other links -- file ignored`.
+**Why:** The backup container creates hard links between daily/weekly/monthly tiers to save disk space. `gunzip -k` (keep original) refuses to extract files with hard links as a safety measure.
+**Fix:** Use `-c` (stdout) and redirect to a new file instead of extracting in-place:
+```bash
+docker compose exec postgres-backup gunzip -c /backups/last/edurank-20260417-115133.sql.gz > backups/edurank.sql
+```
+
+---
+
+## Session 13 — Testing setup: Vitest, Husky, git hooks
+
+### Vitest vs Jest — why we chose Vitest
+
+Both are JavaScript test runners with identical APIs (`describe`, `it`, `expect`). The difference is setup cost and speed.
+
+| | Jest | Vitest |
+|---|---|---|
+| TypeScript | Needs `ts-jest` or Babel config | Works natively |
+| Path aliases (`@/`) | Needs `moduleNameMapper` config | Reads `tsconfig.json` automatically |
+| Speed | Slower | Much faster (uses Vite's pipeline) |
+| First run | Slow | Slow (cold cache), fast after |
+
+For this project, Vitest is the right choice because we use TypeScript and `@/` path aliases everywhere. With Jest you'd spend 30 minutes configuring transforms before writing a single test. Vitest just works.
+
+The API is identical — everything learned here transfers to Jest projects.
+
+### Husky — enforcing rules with git hooks
+
+Git has built-in hook points — moments where it pauses and asks "should I run something before continuing?" Common ones:
+
+| Hook | When it runs |
+|---|---|
+| `pre-commit` | Before a commit is created |
+| `pre-push` | Before code is pushed to remote |
+
+**Husky** makes git hooks easy to manage in a Node.js project. It stores hooks as small shell scripts in `.husky/` and commits them to git — so every developer on the project gets the same hooks automatically.
+
+We use `pre-push` (not `pre-commit`) because:
+- Tests can take a few seconds — running on every commit would feel slow
+- Pushes are less frequent than commits — a natural checkpoint
+
+```bash
+# .husky/pre-push
+npm test     # if this fails, the push is blocked
+```
+
+The flow:
+```
+git push
+  → Husky runs npm test
+  → tests pass ✓ → push continues
+  → tests fail ✗ → push blocked, error shown
+```
+
+### `prepare` script — auto-installing Husky
+
+```json
+"scripts": {
+  "prepare": "husky"
+}
+```
+
+`prepare` is a special npm lifecycle script that runs automatically after `npm install`. Adding `husky` here means any developer who clones the repo and runs `npm install` gets Husky set up automatically — no manual step needed.
+
+### jsdom — a fake browser for Node.js
+
+Tests run in Node.js, which has no browser APIs (`window`, `document`, `querySelector` don't exist). `jsdom` simulates a browser environment in memory so Node.js can run code that expects a browser.
+
+Set in `vitest.config.ts`:
+```typescript
+test: {
+  environment: "jsdom",
+}
+```
+
+Not needed for pure function tests like `cn` — but required the moment a test renders a React component. Installed upfront so it's ready when needed.
+
+### @vitejs/plugin-react — JSX in tests
+
+Vitest doesn't understand JSX (`<Button />`) by default. This plugin teaches it to transform JSX into plain JavaScript, the same way Next.js does during builds. Required for any test that renders a component.
+
+### Test co-location
+
+Test files live next to the source file they test:
+
+```
+src/utils/cn.ts       ← source
+src/utils/cn.test.ts  ← tests for cn
+```
+
+Why co-location over a separate `__tests__/` folder:
+- Easy to see if a file has tests (just look next to it)
+- Moving or deleting a file naturally carries its tests with it
+- No mental mapping between folder structures
+
+### Vitest cold start
+
+The first `npm test` run is slow (10–44 seconds) because Vitest compiles all TypeScript, builds jsdom, and writes its cache to disk. Subsequent runs reuse the cache and complete in under 2 seconds for the same tests.
+
+`npm run test:watch` keeps Vitest running in the background. Re-runs on file save are near-instant (~100ms) because nothing needs recompiling.
