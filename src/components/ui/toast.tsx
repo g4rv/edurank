@@ -211,7 +211,8 @@ export function ToastContainer({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true); // intentional — mounted pattern for portal hydration
   }, []);
 
   if (!mounted) return null;
