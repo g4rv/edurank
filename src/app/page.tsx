@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 
 // This page queries the database, so it must be rendered dynamically (not at build time)
@@ -43,11 +44,16 @@ export default async function HomePage() {
                 {professors.map((professor) => (
                   <tr
                     key={professor.id}
-                    className="border-b border-zinc-100 last:border-0"
+                    className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50"
                   >
-                    <td className="px-4 py-3 text-zinc-900">
-                      {professor.lastName} {professor.firstName}{' '}
-                      {professor.patronymic}
+                    <td className="px-4 py-3 font-medium text-zinc-900">
+                      <Link
+                        href={`/professors/${professor.id}`}
+                        className="hover:text-zinc-600 hover:underline"
+                      >
+                        {professor.lastName} {professor.firstName}{' '}
+                        {professor.patronymic}
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-zinc-600">
                       {professor.department.name}
