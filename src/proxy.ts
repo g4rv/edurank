@@ -19,9 +19,27 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Already logged in + visiting login → send to home
+  // Already logged in + visiting login → send to the right home for their role
   if (session && pathname === '/login') {
     return NextResponse.redirect(new URL('/', request.url));
+  }
+
+  // USER role can only access their own profile page.
+  // Block access to any other route and redirect to their profile.
+  if (session?.user.role === 'USER') {
+    const professorId = session.user.professorId;
+
+    // If somehow a USER has no linked professor, send to login (broken account)
+    if (!professorId) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    const profilePath = `/professors/${professorId}`;
+    const isOwnProfile = pathname === profilePath;
+
+    if (!isOwnProfile) {
+      return NextResponse.redirect(new URL(profilePath, request.url));
+    }
   }
 
   return NextResponse.next();

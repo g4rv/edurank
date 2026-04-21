@@ -13,9 +13,9 @@ datasource db {
 // If someone tries to insert "proffesor" (typo) — Postgres rejects it.
 
 enum Role {
-  ADMIN // can manage users and edit everything
-  EDITOR // can add and edit professors/departments
-  VIEWER // read-only access
+  ADMIN  // can manage users and edit any field
+  EDITOR // division editor — can edit their division's fields on any professor
+  USER   // professor or staff — can only view/edit their own profile (limited fields)
 }
 
 // ─── Auth ──────────────────────────────────────────────────────
@@ -36,11 +36,17 @@ model User {
   passwordHash String
   // never store plain text passwords — we store a bcrypt hash
 
-  role Role @default(VIEWER)
-  // new users get VIEWER by default — least privilege principle
+  role Role @default(USER)
+  // new users get USER by default — least privilege principle
 
   divisionId String?
   division   Division? @relation(fields: [divisionId], references: [id])
+
+  // Links this login account to a Professor record.
+  // Set for professors and staff who have a professor entry in the DB.
+  // Null for admins or editors who are not professors themselves.
+  professorId String?    @unique
+  professor   Professor? @relation(fields: [professorId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,6 +133,9 @@ model Professor {
 
   headOfDepartment Department? @relation("DepartmentHead")
   deanOfFaculty    Faculty?    @relation("FacultyDean")
+
+  // Back-relation: the User account that belongs to this professor (if any)
+  user User?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

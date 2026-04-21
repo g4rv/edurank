@@ -27,18 +27,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!passwordMatch) return null;
 
-        // Return only what goes into the JWT token — keep it minimal
-        return { id: user.id, email: user.email, role: user.role };
+        return {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          professorId: user.professorId,
+        };
       },
     }),
   ],
   callbacks: {
     // jwt() runs when the token is created (login) or read (every request).
-    // We add id and role so they're available in the session.
+    // We add id, role, and professorId so they're available in the session.
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.professorId = user.professorId;
       }
       return token;
     },
@@ -47,6 +52,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, token }) {
       session.user.id = token.id as string;
       session.user.role = token.role as Role;
+      session.user.professorId = token.professorId as string | null;
       return session;
     },
   },
