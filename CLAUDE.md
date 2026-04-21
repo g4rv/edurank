@@ -38,8 +38,8 @@ No Supabase. Chose bare stack intentionally for simplicity and learning.
 
 ## Current state
 
-- [x] Docker Compose set up (Postgres, Adminer)
-- [x] Prisma schema defined — Faculty, Department, Professor, User, Role enum
+- [x] Docker Compose set up (Postgres, Adminer, automated daily backups via `prodrigestivill/postgres-backup-local`)
+- [x] Prisma schema defined — Faculty, Department, Professor, User, Division, Role/AcademicRank/AcademicPosition/ScientificDegree enums
 - [x] Migrations applied — tables exist in DB
 - [x] Prisma client singleton at `src/lib/prisma.ts` (with PrismaPg adapter)
 - [x] Auth.js configured — `src/auth.ts`, Credentials provider, JWT sessions
@@ -47,10 +47,15 @@ No Supabase. Chose bare stack intentionally for simplicity and learning.
 - [x] Login page — `src/app/(auth)/login/page.tsx`
 - [x] Seed script — `prisma/seed.ts`, run with `npm run seed`
 - [x] Protect routes — `src/proxy.ts`, redirects unauthenticated users to `/login`
-- [ ] API routes — CRUD for professors/departments/faculties
-- [ ] UI — professor list, add/edit forms
-- [ ] File uploads — photos and PDFs
-- [ ] Report generation — PDF export
+- [x] API routes — CRUD for professors, departments, faculties (`src/app/api/`)
+- [x] Admin panel — `src/app/admin/` with faculty/department/professor sections, Server Actions, toast feedback
+- [x] UI components — `button`, `input`, `toast` in `src/components/ui/`; global `Header`; toast system via Context + portal in `src/providers/`
+- [x] Testing — Vitest + Husky pre-push hook (runs format check, lint, tsc, tests)
+- [x] Professor detail/edit page — `src/app/professors/[id]/`, field-level access control by role/division
+- [ ] Professor list page — `src/app/professors/` (not started)
+- [ ] Professor create form — via admin panel or dedicated page (not started)
+- [ ] File uploads — deferred, storage provider not chosen yet
+- [ ] Report generation — deferred, requires full data model first
 
 ## Developer context
 

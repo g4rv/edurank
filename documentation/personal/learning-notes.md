@@ -1319,6 +1319,350 @@ src/app/admin/
 
 ---
 
+## Session 14 — Role system redesign, enum migration, Auth.js debugging
+
+### Three-tier role model
+
+The platform now has three roles with distinct access levels:
+
+| Role | Access | Can edit |
+|---|---|---|
+| `ADMIN` | Everything | All fields on any professor |
+| `EDITOR` | Full professor list | Only their division's fields |
+| `USER` | Their own profile only | Email + research profile URLs |
+
+`EDITOR` is tied to a `Division` via `User.divisionId`. `USER` is linked to their own professor record via `User.professorId`.
+
+### User ↔ Professor link
+
+`User` (login account) and `Professor` (data record) are separate models. To connect them:
+
+```prisma
+model User {
+  professorId String?    @unique
+  professor   Professor? @relation(fields: [professorId], references: [id])
+}
+```
+
+`@unique` ensures one professor has at most one login account. Optional because admins and editors may not be professors themselves.
+
+The back-relation on `Professor`:
+
+```prisma
+model Professor {
+  user User?  // virtual — no column in DB, just TypeScript convenience
+}
+```
+
+### professorId in the JWT
+
+`professorId` is included in the JWT so the proxy can route USER accounts directly to their profile page without hitting the DB on every request:
+
+```typescript
+// authorize() → jwt() → session()
+return { id, email, role, professorId: user.professorId };
+```
+
+The proxy reads `session.user.professorId` and redirects any USER trying to access any other path back to `/professors/${professorId}`.
+
+### What a USER can self-edit
+
+Professors can only edit their own research profile fields:
+- `email`
+- `wosURL`, `scopusURL`, `googleScholarURL`, `orcidId`
+
+Everything else (rank, position, degree, department, employment rate) is managed by ADMIN or the relevant EDITOR.
+
+### <a name="err-prisma-enum-stale"></a> Migration renamed enum but Prisma client not regenerated
+
+**What happened:** USER could not log in — Auth.js threw `CallbackRouteError`. The actual cause buried in the stack trace: `PrismaClientKnownRequestError: Value 'USER' not found in enum 'Role'`.
+
+**Why:** Running `npx prisma migrate dev` updates the database (the SQL enum was renamed from `VIEWER` to `USER`), but it does NOT always regenerate the Prisma TypeScript client automatically — especially if the migration ran in a constrained environment. The generated client in `src/generated/prisma/` still had the old `VIEWER` value. When Prisma tried to deserialize the `role` column from the DB row, it didn't recognise `USER` and threw.
+
+**Fix:** Always run `npx prisma generate` after a migration that changes enum values:
+
+```bash
+npx prisma migrate dev --name describe_the_change
+npx prisma generate   # regenerate TypeScript client
+```
+
+**Rule:** If login or any DB query fails after a migration, `prisma generate` is always the first thing to check.
+
+### How to debug Auth.js errors
+
+Auth.js wraps internal errors in `CallbackRouteError`, which hides the real cause. The browser network tab only shows the RSC payload (unhelpful). The **Next.js dev server terminal** prints the full error with stack trace — that's where to look:
+
+```
+[auth][cause]: PrismaClientKnownRequestError: Value 'USER' not found in enum 'Role'
+```
+
+The pattern: `[auth][cause]` is the actual error. Everything above it is Auth.js wrapping.
+
+---
+
+## Session 15 — Zod, Conform, professor page, npm audit
+
+### Zod — schema-first validation
+
+Zod is a TypeScript-first validation library. You define the shape and rules of your data once as a schema, and Zod both validates it at runtime and infers the TypeScript type automatically — no duplication.
+
+```typescript
+const schema = z.object({
+  email: z.string().email('Невірний формат'),
+  employmentRate: z.coerce.number().min(0.1).max(2),
+});
+
+type FormData = z.infer<typeof schema>; // TypeScript type for free
+```
+
+**Why it matters:** Without Zod, you'd write a TypeScript type AND separate validation logic, and they'd inevitably drift out of sync. Zod keeps them as one source of truth.
+
+**`z.coerce`** is important for forms: HTML forms submit everything as strings, even number inputs. `z.coerce.number()` converts `"15"` → `15` before validating. Without it, a number schema would reject all form data.
+
+### Validation alternatives — Yup and Valibot
+
+**Yup** is Zod's older predecessor. Still works, but TypeScript inference is weaker — you have to write a separate TS type alongside the schema. Being replaced by Zod in most new projects. No strong reason to choose it today.
+
+**Valibot** is a newer alternative (2023) that solves Zod's one real weakness: bundle size. It's modular — only the validators you import get bundled. ~10x smaller than Zod in practice.
+
+```typescript
+// Only these are bundled — unused validators are tree-shaken
+import { object, string, email } from 'valibot';
+```
+
+For a self-hosted app with no bundle size constraints, Zod is the better choice (bigger community, more tutorials). If building a large public app where JS size matters, Valibot is worth considering.
+
+### Conform — form library built for Server Actions
+
+Conform (`@conform-to/react` + `@conform-to/zod`) is the form library that works natively with Server Actions and `useActionState`. Unlike react-hook-form (which intercepts form submission in JavaScript), Conform uses the native HTML form submission model — which means forms still work even with JavaScript disabled (progressive enhancement).
+
+**The core idea:** `useActionState` returns `lastResult` from the server. Conform reads `lastResult` and automatically places field-level errors next to the right inputs — no manual wiring.
+
+```tsx
+const [lastResult, action, isPending] = useActionState(serverAction, null);
+
+const [form, fields] = useForm({
+  lastResult,           // server errors flow in here automatically
+  onValidate({ formData }) {
+    return parseWithZod(formData, { schema }); // same schema, client-side
+  },
+  shouldValidate: 'onBlur',      // validate when user leaves a field
+  shouldRevalidate: 'onInput',   // re-validate on every keystroke after first error
+});
+```
+
+### The Conform + Server Action data flow
+
+```
+User leaves a field (blur)
+  → onValidate() runs Zod client-side
+  → Error appears instantly next to the input
+
+User submits the form
+  → form.onSubmit sends FormData to the Server Action
+  → Server Action: parseWithZod(formData, { schema })
+  → If invalid → submission.reply() sends structured errors back
+  → Conform reads lastResult, places each error next to the right field
+  → If valid → save to DB → submission.reply({ resetForm: false })
+```
+
+The schema runs twice: client-side for instant feedback, server-side for security. If someone bypasses client validation, the server catches it.
+
+### submission.reply() — how the server talks back to Conform
+
+`parseWithZod` returns a `submission` object. You return `submission.reply()` from the Server Action in every case — success or failure. Conform on the client reads whatever you return as `lastResult`.
+
+```typescript
+// Validation failed — field errors sent back automatically
+if (submission.status !== 'success') {
+  return submission.reply();
+}
+
+// DB error — attach a form-level error
+return submission.reply({ formErrors: ['Помилка при збереженні'] });
+
+// Success
+return submission.reply({ resetForm: false }); // keep field values after save
+```
+
+### getInputProps / getSelectProps — Conform's prop helpers
+
+Conform generates all the accessibility-required props for inputs: `name`, `id`, `aria-describedby`, `aria-invalid`, etc. Instead of writing them by hand, you spread the result of `getInputProps`:
+
+```tsx
+<Input
+  {...getInputProps(fields.email, { type: 'email' })}
+  key={fields.email.key}
+/>
+```
+
+The `key` prop forces React to remount the input when the field resets — otherwise the browser keeps the old value in uncontrolled inputs.
+
+`getSelectProps` works the same way for `<select>` elements.
+
+### One schema, two places
+
+The Zod schema lives in its own file (`schema.ts`) and is imported by both the Server Action and the Client Component:
+
+```
+schema.ts  ←  actions.ts (server-side validation)
+           ←  professor-form.tsx (client-side validation via onValidate)
+```
+
+This is the key advantage over the old approach (Zod only on server, no client validation). One file, one set of rules, used everywhere.
+
+### Field-level access control architecture
+
+The professor page splits responsibility into four files:
+
+```
+professors/[id]/
+  schema.ts          — Zod validation schema (shared)
+  actions.ts         — Server Action: auth check → canEdit → validate → save
+  page.tsx           — Server Component: fetch data + compute editableFields
+  components/
+    professor-form.tsx  — Client Component: Conform form, renders inputs or text per field
+```
+
+`getEditableFields()` returns `'all'` for ADMIN, a string array for EDITOR/USER, or empty `[]` for no access. The form renders each field as an `<Input>` or plain `<DisplayValue>` based on this. The Server Action re-checks permissions server-side — the client is never trusted for access control.
+
+### npm audit — checking for security vulnerabilities
+
+`npm audit` scans your installed packages against a database of known vulnerabilities and reports them with severity levels (low / moderate / high / critical).
+
+```bash
+npm audit           # show all vulnerabilities
+npm audit fix       # fix ones that don't require breaking changes
+npm audit fix --force  # fix all, including breaking changes (use with care)
+```
+
+Not all vulnerabilities require action. Internal dev-tool dependencies (like `@prisma/dev`) with vulnerabilities don't affect your running app — they only run during development. Focus on runtime dependencies with high/critical severity.
+
+This session: Next.js 16.2.2 had a DoS vulnerability in Server Components. Fixed by upgrading to 16.2.4:
+
+```bash
+npm install next@16.2.4
+```
+
+---
+
+## Session 16 — Replacing Conform with react-hook-form
+
+### Why we dropped Conform
+
+Conform was chosen in Session 15 because it was designed for Server Actions — it uses native `FormData` so forms work without JavaScript. The catch: it depends on Zod's internal API, and when Zod v4 was released it renamed a type (`ZodBranded`) that Conform depended on. The result: a runtime crash importing `@conform-to/zod`.
+
+Zod v4 shipped in August 2024. As of this session, Conform still hadn't published a compatible release. Nine months with no fix = the library is not being maintained. Staying with Conform would mean either downgrading Zod or being stuck forever. The right call: drop Conform, switch to a library that explicitly supports Zod v4.
+
+### react-hook-form — performance-first form library
+
+`react-hook-form` is the most widely used React form library. Its main design decision: it manages form state **without re-rendering the component on every keystroke**. It does this by using uncontrolled inputs (`ref`-based) rather than controlled inputs (`value`/`onChange`). The form values are read from the DOM when you need them, not stored in React state.
+
+The core API:
+
+```tsx
+const {
+  register,        // connects an input to the form
+  handleSubmit,    // wraps your submit handler with validation
+  formState: {
+    errors,        // validation errors per field
+    isSubmitting,  // true while handleSubmit is awaiting
+  },
+} = useForm<FormValues>({
+  resolver: zodResolver(schema), // plug in Zod validation
+  defaultValues: { ... },
+});
+```
+
+Spreading `register('fieldName')` onto an input gives it a `name`, `ref`, `onChange`, and `onBlur` — everything the form needs to track that field:
+
+```tsx
+<Input {...register('email')} type="email" />
+```
+
+For selects, the same `register` call works — no special helper needed (unlike Conform's `getSelectProps`).
+
+### zodResolver — wiring Zod into react-hook-form
+
+`@hookform/resolvers` is the official adapter package. It translates between react-hook-form's validation API and schema libraries like Zod, Yup, or Valibot.
+
+```tsx
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const schema = z.object({ email: z.string().email() });
+
+useForm({
+  resolver: zodResolver(schema),
+});
+```
+
+When the user submits, react-hook-form calls the resolver with the raw form values (strings from HTML inputs). The resolver passes them through `schema.parseAsync()`. If valid, the coerced/transformed output is passed to your `handleSubmit` callback. If invalid, the errors go into `formState.errors`.
+
+`@hookform/resolvers@5.x` explicitly supports Zod v4. That's what we're on.
+
+### react-hook-form + Server Actions pattern
+
+Conform was designed for Server Actions — it uses `FormData` natively. react-hook-form is not. It gives you a validated JavaScript object, not FormData.
+
+The bridge: change the Server Action to accept a **plain object** instead of `FormData`, then call it directly from `handleSubmit`:
+
+```tsx
+// Server Action — accepts plain object, not FormData
+export async function updateProfessor(
+  professorId: string,
+  data: ProfessorFormValues
+): Promise<{ success: true } | { success: false; error: string }> {
+  const parsed = professorSchema.safeParse(data); // validate server-side too
+  // ...
+}
+
+// Client Component — calls the server action directly
+const onSubmit = handleSubmit(async (data) => {
+  const result = await updateProfessor(p.id, data);
+  if (result.success) toast.success('Збережено');
+  else toast.error(result.error);
+});
+
+<form onSubmit={onSubmit}>
+```
+
+Key things that changed vs the Conform approach:
+
+| Before (Conform) | After (react-hook-form) |
+|---|---|
+| `<form action={action}>` | `<form onSubmit={onSubmit}>` |
+| Server Action receives `FormData` | Server Action receives typed object |
+| `useActionState` for pending state | `formState.isSubmitting` |
+| `lastResult` drives error placement | `formState.errors.field?.message` |
+| `getInputProps(fields.email)` | `{...register('email')}` |
+
+The double validation (client + server) stays — react-hook-form catches it on the client, and `safeParse` on the server is the security layer.
+
+### z.coerce + zodResolver TypeScript mismatch
+
+`z.coerce.number()` has a Zod input type of `unknown` (because it accepts anything and coerces it). The `zodResolver` infers the form's generic type from the schema's input type — so number fields typed as `unknown` conflict with react-hook-form's expectation that form values are specific types.
+
+TypeScript error: `Type 'Resolver<..., unknown, ...>' is not assignable to type 'Resolver<..., number | null | undefined, ...>'`
+
+The fix: cast the resolver explicitly using react-hook-form's `Resolver` type:
+
+```tsx
+import { useForm, type Resolver } from 'react-hook-form';
+
+useForm<ProfessorFormValues>({
+  // Cast needed: z.coerce.number() has input type `unknown`,
+  // which conflicts with react-hook-form's generic — runtime is correct.
+  resolver: zodResolver(professorSchema) as Resolver<ProfessorFormValues>,
+});
+```
+
+At runtime everything works correctly — Zod coerces the strings to numbers, and the validated output passed to `handleSubmit` has proper numbers. The cast is just telling TypeScript to trust us on the type.
+
+**Errors this session:** [zodResolver type mismatch with z.coerce](#err-zod-coerce-resolver)
+
+---
+
 ## Errors
 
 ### <a name="err-searchparams-async"></a> searchParams is a Promise in Next.js 16
@@ -1445,6 +1789,20 @@ import { createFaculty } from './actions';
 
 // After (moved to components/ subfolder)
 import { createFaculty } from '../actions';
+```
+
+### <a name="err-zod-coerce-resolver"></a> zodResolver type mismatch with z.coerce
+
+**What happened:** TypeScript error — `Type 'Resolver<..., unknown, ...>' is not assignable to type 'Resolver<..., number | null | undefined, ...>'` on the `resolver` prop of `useForm`.
+**Why:** `z.coerce.number()` has a Zod input type of `unknown` (it accepts anything and converts it). `zodResolver` infers the form's type from the schema's input type, so coerced number fields appear as `unknown` — incompatible with react-hook-form's expectation of concrete types. The runtime behaviour is correct; only the TypeScript inference breaks.
+**Fix:** Cast the resolver to the concrete form values type using react-hook-form's `Resolver` generic:
+
+```tsx
+import { useForm, type Resolver } from 'react-hook-form';
+
+useForm<ProfessorFormValues>({
+  resolver: zodResolver(professorSchema) as Resolver<ProfessorFormValues>,
+});
 ```
 
 ---

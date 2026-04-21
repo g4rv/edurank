@@ -163,6 +163,34 @@ Exists so future-us doesn't re-debate settled questions.
 
 ---
 
+## Session 14
+
+### VIEWER renamed to USER in Role enum
+
+**Chose:** `USER` as the role name for professors and regular staff
+**Rejected:** Keeping `VIEWER`
+**Why:** `VIEWER` implies read-only access, but professors *can* write — just only to their own limited fields. `USER` more accurately describes the role. The rename required a Prisma migration and a `prisma generate` to update the generated client.
+
+### Three-tier role model: ADMIN / EDITOR / USER
+
+**Chose:** ADMIN (full access), EDITOR (division-scoped field access), USER (own profile only)
+**Rejected:** Flat role model where all non-admins are read-only
+**Why:** The platform has two distinct non-admin needs: staff who manage specific data domains (Divisions) and professors who fill in their own data. A flat VIEWER role serves neither well. EDITOR is scoped to a Division — they can only edit fields that belong to their division. USER is scoped to their own Professor record.
+
+### Division field ownership hard-coded, not DB-driven
+
+**Chose:** A TypeScript map in code defining which fields each division type can edit
+**Rejected:** A `DivisionFieldPermission` DB table mapping `(divisionId, fieldName)` pairs
+**Why:** Requirements are still being discovered — the exact fields each division owns may change. A DB-driven approach would require schema migrations for every field ownership change. Hard-coded is readable, testable, and editable without a migration. Can be promoted to DB-driven later if needed.
+
+### User.professorId stored in JWT for routing
+
+**Chose:** Include `professorId` in the JWT so the proxy can route USERs to their profile without a DB lookup
+**Rejected:** Looking up `professorId` in the proxy via a DB query on every request
+**Why:** The proxy runs on every request. A DB query there would add latency for every page load by any USER. Since `professorId` is set at account creation and never changes, storing it in the JWT is safe and keeps routing free of DB calls.
+
+---
+
 ## Session 10
 
 ### Dismiss toast via useEffect/setTimeout, not onAnimationEnd
