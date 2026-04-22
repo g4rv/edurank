@@ -66,7 +66,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
       onMouseLeave={handleMouseLeave}
     >
       <div className="flex items-start gap-3 p-4">
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           {type === 'success' && (
             <svg
               className="h-5 w-5 text-green-600"
@@ -148,7 +148,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
           type="button"
           onClick={onClose}
           className={cn(
-            'flex-shrink-0 rounded-lg p-1.5 transition-colors focus:ring-2 focus:ring-offset-2 focus:outline-none',
+            'shrink-0 rounded-lg p-1.5 transition-colors focus:ring-2 focus:ring-offset-2 focus:outline-none',
             {
               'text-green-600 hover:bg-green-100 focus:ring-green-500':
                 type === 'success',
