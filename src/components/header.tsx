@@ -22,7 +22,7 @@ export async function Header() {
             {/* Navigation links based on role */}
             <nav className="flex items-center gap-4">
               <Link
-                href="/"
+                href="/professors"
                 className="text-sm text-zinc-600 transition-colors hover:text-zinc-900"
               >
                 Викладачі
@@ -47,7 +47,7 @@ export async function Header() {
                 <p className="text-xs text-zinc-500">
                   {session.user.role === 'ADMIN' && 'Адміністратор'}
                   {session.user.role === 'EDITOR' && 'Редактор'}
-                  {session.user.role === 'VIEWER' && 'Глядач'}
+                  {session.user.role === 'USER' && 'Користувач'}
                 </p>
               </div>
 

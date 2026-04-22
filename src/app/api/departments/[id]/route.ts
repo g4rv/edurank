@@ -27,7 +27,7 @@ export async function PUT(
   const session = await auth();
   if (!session)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (session.user.role === 'VIEWER')
+  if (session.user.role === 'USER')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { id } = await params;
