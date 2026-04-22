@@ -4,7 +4,7 @@ import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateProfessor } from '../actions';
 import { professorSchema, type ProfessorFormValues } from '../schema';
-import { Input, Button } from '@/components/ui';
+import { Input, Button, Select, Checkbox } from '@/components/ui';
 import { useToast } from '@/providers/toast-provider';
 import { canEdit, type EditableFields } from '@/lib/field-access';
 
@@ -27,9 +27,6 @@ const SCIENTIFIC_DEGREE_LABELS: Record<string, string> = {
   DOCTOR: 'Доктор наук',
 };
 
-const SELECT_CLASS =
-  'h-10 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100';
-
 // ─── Layout helpers ────────────────────────────────────────────────────────
 
 function Section({
@@ -44,7 +41,7 @@ function Section({
       <h2 className="border-b border-zinc-100 px-6 py-4 text-sm font-semibold text-zinc-700">
         {title}
       </h2>
-      <dl className="divide-y divide-zinc-100 px-6">{children}</dl>
+      <dl className="px-6">{children}</dl>
     </section>
   );
 }
@@ -142,12 +139,7 @@ export default function ProfessorForm({
       scientificDegree:
         (p.scientificDegree as ProfessorFormValues['scientificDegree']) ??
         undefined,
-      degreeMatchesDepartment:
-        p.degreeMatchesDepartment === true
-          ? 'true'
-          : p.degreeMatchesDepartment === false
-            ? 'false'
-            : '',
+      degreeMatchesDepartment: p.degreeMatchesDepartment ?? false,
       ratingSheetId: p.ratingSheetId ?? '',
       certificateId: p.certificateId ?? '',
       wosURL: p.wosURL ?? '',
@@ -258,14 +250,14 @@ export default function ProfessorForm({
       <Section title="Академічний профіль">
         <Row label="Вчене звання" error={errors.academicRank?.message}>
           {e('academicRank') ? (
-            <select {...register('academicRank')} className={SELECT_CLASS}>
+            <Select {...register('academicRank')} className="max-w-sm">
               <option value="">—</option>
               {Object.entries(ACADEMIC_RANK_LABELS).map(([val, label]) => (
                 <option key={val} value={val}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           ) : (
             <DisplayValue
               value={p.academicRank ? ACADEMIC_RANK_LABELS[p.academicRank] : null}
@@ -274,14 +266,14 @@ export default function ProfessorForm({
         </Row>
         <Row label="Посада" error={errors.academicPosition?.message}>
           {e('academicPosition') ? (
-            <select {...register('academicPosition')} className={SELECT_CLASS}>
+            <Select {...register('academicPosition')} className="max-w-sm">
               <option value="">—</option>
               {Object.entries(ACADEMIC_POSITION_LABELS).map(([val, label]) => (
                 <option key={val} value={val}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           ) : (
             <DisplayValue
               value={
@@ -294,14 +286,14 @@ export default function ProfessorForm({
         </Row>
         <Row label="Науковий ступінь" error={errors.scientificDegree?.message}>
           {e('scientificDegree') ? (
-            <select {...register('scientificDegree')} className={SELECT_CLASS}>
+            <Select {...register('scientificDegree')} className="max-w-sm">
               <option value="">—</option>
               {Object.entries(SCIENTIFIC_DEGREE_LABELS).map(([val, label]) => (
                 <option key={val} value={val}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           ) : (
             <DisplayValue
               value={
@@ -317,14 +309,7 @@ export default function ProfessorForm({
           error={errors.degreeMatchesDepartment?.message}
         >
           {e('degreeMatchesDepartment') ? (
-            <select
-              {...register('degreeMatchesDepartment')}
-              className={SELECT_CLASS}
-            >
-              <option value="">—</option>
-              <option value="true">Так</option>
-              <option value="false">Ні</option>
-            </select>
+            <Checkbox {...register('degreeMatchesDepartment')} className="mt-2" />
           ) : (
             <DisplayValue value={degreeMatchLabel} />
           )}

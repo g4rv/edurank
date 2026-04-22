@@ -23,10 +23,7 @@ export const professorSchema = z.object({
     .optional()
     .nullable(),
   scientificDegree: z.enum(['CANDIDATE', 'DOCTOR']).optional().nullable(),
-  degreeMatchesDepartment: z
-    .enum(['true', 'false', ''])
-    .optional()
-    .nullable(),
+  degreeMatchesDepartment: z.boolean().optional().nullable(),
 
   ratingSheetId: z.string().optional().nullable(),
   certificateId: z.string().optional().nullable(),

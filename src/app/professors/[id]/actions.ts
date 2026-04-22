@@ -52,11 +52,8 @@ export async function updateProfessor(
     dbData.academicPosition = values.academicPosition ?? null;
   if (canEdit('scientificDegree', editableFields))
     dbData.scientificDegree = values.scientificDegree ?? null;
-  if (canEdit('degreeMatchesDepartment', editableFields)) {
-    const v = values.degreeMatchesDepartment;
-    dbData.degreeMatchesDepartment =
-      v === 'true' ? true : v === 'false' ? false : null;
-  }
+  if (canEdit('degreeMatchesDepartment', editableFields))
+    dbData.degreeMatchesDepartment = values.degreeMatchesDepartment ?? null;
   if (canEdit('ratingSheetId', editableFields))
     dbData.ratingSheetId = values.ratingSheetId || null;
   if (canEdit('certificateId', editableFields))
