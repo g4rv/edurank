@@ -52,7 +52,7 @@ No Supabase. Chose bare stack intentionally for simplicity and learning.
 - [x] UI components — `button`, `input`, `toast` in `src/components/ui/`; global `Header`; toast system via Context + portal in `src/providers/`
 - [x] Testing — Vitest + Husky pre-push hook (runs format check, lint, tsc, tests)
 - [x] Professor detail/edit page — `src/app/professors/[id]/`, field-level access control by role/division
-- [ ] Professor list page — `src/app/professors/` (not started)
+- [x] Professor list page — `src/app/professors/`, search + filter by name/rank/position/degree/department/faculty
 - [ ] Professor create form — via admin panel or dedicated page (not started)
 - [ ] File uploads — deferred, storage provider not chosen yet
 - [ ] Report generation — deferred, requires full data model first
