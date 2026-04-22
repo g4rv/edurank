@@ -89,7 +89,7 @@ export default function Filter({ departments, faculties }: FilterProps) {
         value={query}
         onChange={(e) => handleQueryChange(e.target.value)}
         placeholder="Пошук за ПІБ, email, ORCID…"
-        className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-300"
+        className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-300"
       />
 
       {/* Category selects + toggle */}
@@ -110,23 +110,32 @@ export default function Filter({ departments, faculties }: FilterProps) {
           label="Вчене звання"
           value={searchParams.get('rank') ?? ''}
           onChange={(v) => handleSelect('rank', v)}
-          options={Object.entries(RANK_LABELS).map(([value, label]) => ({ value, label }))}
+          options={Object.entries(RANK_LABELS).map(([value, label]) => ({
+            value,
+            label,
+          }))}
         />
         <FilterSelect
           label="Посада"
           value={searchParams.get('position') ?? ''}
           onChange={(v) => handleSelect('position', v)}
-          options={Object.entries(POSITION_LABELS).map(([value, label]) => ({ value, label }))}
+          options={Object.entries(POSITION_LABELS).map(([value, label]) => ({
+            value,
+            label,
+          }))}
         />
         <FilterSelect
           label="Науковий ступінь"
           value={searchParams.get('degree') ?? ''}
           onChange={(v) => handleSelect('degree', v)}
-          options={Object.entries(DEGREE_LABELS).map(([value, label]) => ({ value, label }))}
+          options={Object.entries(DEGREE_LABELS).map(([value, label]) => ({
+            value,
+            label,
+          }))}
         />
 
         {/* Toggle: degreeMatchesDepartment */}
-        <label className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-600 transition-colors hover:border-zinc-300 has-checked:border-zinc-400 has-checked:bg-zinc-900 has-checked:text-white">
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-600 transition-colors select-none hover:border-zinc-300 has-checked:border-zinc-400 has-checked:bg-zinc-900 has-checked:text-white">
           <input
             type="checkbox"
             checked={searchParams.get('degreeMatch') === 'true'}

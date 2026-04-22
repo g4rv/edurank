@@ -113,8 +113,7 @@ export default function ProfessorForm({
   editableFields: EditableFields;
 }) {
   const toast = useToast();
-  const hasAnyEditable =
-    editableFields === 'all' || editableFields.length > 0;
+  const hasAnyEditable = editableFields === 'all' || editableFields.length > 0;
 
   const {
     register,
@@ -260,7 +259,9 @@ export default function ProfessorForm({
             </Select>
           ) : (
             <DisplayValue
-              value={p.academicRank ? ACADEMIC_RANK_LABELS[p.academicRank] : null}
+              value={
+                p.academicRank ? ACADEMIC_RANK_LABELS[p.academicRank] : null
+              }
             />
           )}
         </Row>
@@ -309,7 +310,10 @@ export default function ProfessorForm({
           error={errors.degreeMatchesDepartment?.message}
         >
           {e('degreeMatchesDepartment') ? (
-            <Checkbox {...register('degreeMatchesDepartment')} className="mt-2" />
+            <Checkbox
+              {...register('degreeMatchesDepartment')}
+              className="mt-2"
+            />
           ) : (
             <DisplayValue value={degreeMatchLabel} />
           )}
@@ -349,11 +353,7 @@ export default function ProfessorForm({
         </Row>
         <Row label="Scopus" error={errors.scopusURL?.message}>
           {e('scopusURL') ? (
-            <Input
-              {...register('scopusURL')}
-              type="url"
-              className="max-w-lg"
-            />
+            <Input {...register('scopusURL')} type="url" className="max-w-lg" />
           ) : (
             <DisplayValue value={p.scopusURL} />
           )}
@@ -401,7 +401,10 @@ export default function ProfessorForm({
 
       {/* ── Документи ──────────────────────────────────────────── */}
       <Section title="Документи">
-        <Row label="ID рейтингового листа" error={errors.ratingSheetId?.message}>
+        <Row
+          label="ID рейтингового листа"
+          error={errors.ratingSheetId?.message}
+        >
           {e('ratingSheetId') ? (
             <Input {...register('ratingSheetId')} className="max-w-sm" />
           ) : (

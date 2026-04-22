@@ -1325,11 +1325,11 @@ src/app/admin/
 
 The platform now has three roles with distinct access levels:
 
-| Role | Access | Can edit |
-|---|---|---|
-| `ADMIN` | Everything | All fields on any professor |
-| `EDITOR` | Full professor list | Only their division's fields |
-| `USER` | Their own profile only | Email + research profile URLs |
+| Role     | Access                 | Can edit                      |
+| -------- | ---------------------- | ----------------------------- |
+| `ADMIN`  | Everything             | All fields on any professor   |
+| `EDITOR` | Full professor list    | Only their division's fields  |
+| `USER`   | Their own profile only | Email + research profile URLs |
 
 `EDITOR` is tied to a `Division` via `User.divisionId`. `USER` is linked to their own professor record via `User.professorId`.
 
@@ -1368,6 +1368,7 @@ The proxy reads `session.user.professorId` and redirects any USER trying to acce
 ### What a USER can self-edit
 
 Professors can only edit their own research profile fields:
+
 - `email`
 - `wosURL`, `scopusURL`, `googleScholarURL`, `orcidId`
 
@@ -1442,12 +1443,12 @@ Conform (`@conform-to/react` + `@conform-to/zod`) is the form library that works
 const [lastResult, action, isPending] = useActionState(serverAction, null);
 
 const [form, fields] = useForm({
-  lastResult,           // server errors flow in here automatically
+  lastResult, // server errors flow in here automatically
   onValidate({ formData }) {
     return parseWithZod(formData, { schema }); // same schema, client-side
   },
-  shouldValidate: 'onBlur',      // validate when user leaves a field
-  shouldRevalidate: 'onInput',   // re-validate on every keystroke after first error
+  shouldValidate: 'onBlur', // validate when user leaves a field
+  shouldRevalidate: 'onInput', // re-validate on every keystroke after first error
 });
 ```
 
@@ -1629,13 +1630,13 @@ const onSubmit = handleSubmit(async (data) => {
 
 Key things that changed vs the Conform approach:
 
-| Before (Conform) | After (react-hook-form) |
-|---|---|
-| `<form action={action}>` | `<form onSubmit={onSubmit}>` |
-| Server Action receives `FormData` | Server Action receives typed object |
-| `useActionState` for pending state | `formState.isSubmitting` |
-| `lastResult` drives error placement | `formState.errors.field?.message` |
-| `getInputProps(fields.email)` | `{...register('email')}` |
+| Before (Conform)                    | After (react-hook-form)             |
+| ----------------------------------- | ----------------------------------- |
+| `<form action={action}>`            | `<form onSubmit={onSubmit}>`        |
+| Server Action receives `FormData`   | Server Action receives typed object |
+| `useActionState` for pending state  | `formState.isSubmitting`            |
+| `lastResult` drives error placement | `formState.errors.field?.message`   |
+| `getInputProps(fields.email)`       | `{...register('email')}`            |
 
 The double validation (client + server) stays — react-hook-form catches it on the client, and `safeParse` on the server is the security layer.
 

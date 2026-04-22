@@ -40,8 +40,7 @@ export async function updateProfessor(
     dbData.firstName = values.firstName;
   if (canEdit('patronymic', editableFields))
     dbData.patronymic = values.patronymic || null;
-  if (canEdit('email', editableFields))
-    dbData.email = values.email || null;
+  if (canEdit('email', editableFields)) dbData.email = values.email || null;
   if (canEdit('employmentRate', editableFields))
     dbData.employmentRate = values.employmentRate ?? null;
   if (canEdit('pedagogicalExperience', editableFields))
@@ -58,8 +57,7 @@ export async function updateProfessor(
     dbData.ratingSheetId = values.ratingSheetId || null;
   if (canEdit('certificateId', editableFields))
     dbData.certificateId = values.certificateId || null;
-  if (canEdit('wosURL', editableFields))
-    dbData.wosURL = values.wosURL || null;
+  if (canEdit('wosURL', editableFields)) dbData.wosURL = values.wosURL || null;
   if (canEdit('wosCitationCount', editableFields))
     dbData.wosCitationCount = values.wosCitationCount ?? 0;
   if (canEdit('scopusURL', editableFields))

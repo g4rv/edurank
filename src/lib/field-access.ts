@@ -41,7 +41,10 @@ export function getEditableFields(
   return [];
 }
 
-export function canEdit(field: string, editableFields: EditableFields): boolean {
+export function canEdit(
+  field: string,
+  editableFields: EditableFields
+): boolean {
   if (editableFields === 'all') return true;
   return editableFields.includes(field);
 }

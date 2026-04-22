@@ -1,9 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import {
-  POSITION_LABELS,
-  DEGREE_LABELS,
-} from '@/lib/professor-labels';
+import { POSITION_LABELS, DEGREE_LABELS } from '@/lib/professor-labels';
 import type { Prisma } from '@/generated/prisma/client';
 import type {
   AcademicRank,
@@ -15,8 +12,18 @@ import Filter from './components/filter';
 export const dynamic = 'force-dynamic';
 
 // Valid enum value sets for safe URL param parsing
-const VALID_RANKS = new Set<string>(['DOCENT', 'PROFESSOR', 'SENIOR_RESEARCHER']);
-const VALID_POSITIONS = new Set<string>(['ASSISTANT', 'LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
+const VALID_RANKS = new Set<string>([
+  'DOCENT',
+  'PROFESSOR',
+  'SENIOR_RESEARCHER',
+]);
+const VALID_POSITIONS = new Set<string>([
+  'ASSISTANT',
+  'LECTURER',
+  'SENIOR_LECTURER',
+  'DOCENT',
+  'PROFESSOR',
+]);
 const VALID_DEGREES = new Set<string>(['CANDIDATE', 'DOCTOR']);
 
 export default async function ProfessorsPage({
@@ -32,7 +39,8 @@ export default async function ProfessorsPage({
     degreeMatch?: string;
   }>;
 }) {
-  const { q, rank, position, degree, department, faculty, degreeMatch } = await searchParams;
+  const { q, rank, position, degree, department, faculty, degreeMatch } =
+    await searchParams;
 
   const where: Prisma.ProfessorWhereInput = {};
 
@@ -74,11 +82,25 @@ export default async function ProfessorsPage({
         },
       },
     }),
-    prisma.department.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    prisma.faculty.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    prisma.department.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    }),
+    prisma.faculty.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    }),
   ]);
 
-  const hasFilters = !!(q || rank || position || degree || department || faculty || degreeMatch);
+  const hasFilters = !!(
+    q ||
+    rank ||
+    position ||
+    degree ||
+    department ||
+    faculty ||
+    degreeMatch
+  );
 
   return (
     <main className="flex-1 bg-zinc-50 p-8">
@@ -102,11 +124,21 @@ export default async function ProfessorsPage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50">
-                  <th className="px-4 py-3 text-left font-medium text-zinc-600">ПІБ</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-600">Кафедра</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-600">Факультет</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-600">Посада</th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-600">Ступінь</th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-600">
+                    ПІБ
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-600">
+                    Кафедра
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-600">
+                    Факультет
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-600">
+                    Посада
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-zinc-600">
+                    Ступінь
+                  </th>
                 </tr>
               </thead>
               <tbody>

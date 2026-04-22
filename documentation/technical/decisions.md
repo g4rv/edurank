@@ -169,7 +169,7 @@ Exists so future-us doesn't re-debate settled questions.
 
 **Chose:** `USER` as the role name for professors and regular staff
 **Rejected:** Keeping `VIEWER`
-**Why:** `VIEWER` implies read-only access, but professors *can* write — just only to their own limited fields. `USER` more accurately describes the role. The rename required a Prisma migration and a `prisma generate` to update the generated client.
+**Why:** `VIEWER` implies read-only access, but professors _can_ write — just only to their own limited fields. `USER` more accurately describes the role. The rename required a Prisma migration and a `prisma generate` to update the generated client.
 
 ### Three-tier role model: ADMIN / EDITOR / USER
 

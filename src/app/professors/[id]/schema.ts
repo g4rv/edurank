@@ -6,12 +6,7 @@ export const professorSchema = z.object({
   patronymic: z.string().optional(),
   email: z.string().email('Невірний формат email').optional().or(z.literal('')),
 
-  employmentRate: z.coerce
-    .number()
-    .min(0.1)
-    .max(2)
-    .optional()
-    .nullable(),
+  employmentRate: z.coerce.number().min(0.1).max(2).optional().nullable(),
   pedagogicalExperience: z.coerce.number().int().min(0).optional().nullable(),
 
   academicRank: z

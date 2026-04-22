@@ -30,8 +30,13 @@ describe('getEditableFields', () => {
   });
 
   it('returns division fields for EDITOR with known division', () => {
-    const fields = getEditableFields('EDITOR', 'Навчально-науковий відділ') as string[];
-    expect(fields).toEqual(DIVISION_EDITABLE_FIELDS['Навчально-науковий відділ']);
+    const fields = getEditableFields(
+      'EDITOR',
+      'Навчально-науковий відділ'
+    ) as string[];
+    expect(fields).toEqual(
+      DIVISION_EDITABLE_FIELDS['Навчально-науковий відділ']
+    );
     expect(fields).toContain('academicRank');
     expect(fields).toContain('employmentRate');
     expect(fields).not.toContain('email');

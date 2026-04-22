@@ -23,10 +23,15 @@ async function main() {
 
   // ─── Department ────────────────────────────────────────────────
   const department = await prisma.department.upsert({
-    where: { name_facultyId: { name: 'Кафедра комп\'ютерних наук', facultyId: faculty.id } },
+    where: {
+      name_facultyId: {
+        name: "Кафедра комп'ютерних наук",
+        facultyId: faculty.id,
+      },
+    },
     update: {},
     create: {
-      name: 'Кафедра комп\'ютерних наук',
+      name: "Кафедра комп'ютерних наук",
       facultyId: faculty.id,
     },
   });
@@ -94,8 +99,12 @@ async function main() {
 
   console.log('Seeded:');
   console.log(`  ADMIN   ${admin.email}         password: admin123`);
-  console.log(`  EDITOR  ${editor.email}        password: editor123  division: ${division.name}`);
-  console.log(`  USER    ${professorUser.email}  password: user1234   professor: ${professor.lastName} ${professor.firstName}`);
+  console.log(
+    `  EDITOR  ${editor.email}        password: editor123  division: ${division.name}`
+  );
+  console.log(
+    `  USER    ${professorUser.email}  password: user1234   professor: ${professor.lastName} ${professor.firstName}`
+  );
 }
 
 main()
