@@ -4,52 +4,65 @@ Then review the current conversation from the beginning — identify:
 
 1. Every new concept, tool, or pattern that was explained or learned
 2. Every error that was encountered, its cause, and how it was fixed
+3. Every architectural decision that was made (what was chosen, what was rejected, why)
 
 ---
 
-## What to append
+## How to update
 
-### New session section
+The file is organized by **topic**, not by session. Do not add session headers. Add each new piece of content to the most relevant existing section.
 
-Add a new `## Session N — Topic` header (increment N from the last session in the file).
+### New concepts
 
-Under it, write:
+Find the right section from the table of contents (e.g. a new Prisma pattern goes under `## 3. Prisma ORM`, a new React hook goes under `## 6. React Patterns`).
 
-- One subsection per new concept (use `###` headers matching the style of existing sessions)
+Add a `###` subsection at the bottom of that section with:
+
 - Plain-English explanation of what it is and why it matters
 - Code examples where helpful
 - Analogies where useful
 
-If any errors occurred this session, add at the bottom of the session section:
+If a new concept introduces a brand-new topic area not covered by any existing section, add a new `## N. Topic Name` section and update the Table of Contents entry at the top.
 
-```
-**Errors this session:** [Short error title](#err-slug)
-```
+### Errors
 
-Use one line per error, each linking to its anchor in the Errors section.
-
-### Errors section
-
-The file must have an `## Errors` section at the very end. If it doesn't exist yet, create it.
-
-For each new error this session, append:
+Append to `## 11. Troubleshooting Reference`. Each entry must follow this format exactly:
 
 ```markdown
-### <a name="err-slug"></a> Short descriptive title
+### Short descriptive title
 
-**What happened:** One sentence — what the error message said or what went wrong.
-**Why:** The root cause — what Next.js / Node / Prisma actually does that caused it.
-**Fix:** What we changed to resolve it, with a code snippet if helpful.
+**Error:** One sentence — what the error message said or what went wrong.
+**Why:** The root cause.
+**Fix:**
+\```typescript
+// code snippet if helpful
+\```
 ```
 
-- `err-slug` must be lowercase, hyphen-separated, unique (e.g. `err-searchparams-async`)
-- Keep each entry concise — this is a reference, not an essay
+Add a horizontal rule (`---`) after each entry to match existing style.
+
+### Architectural decisions
+
+Append to `## 12. Architectural Decisions Log` using the existing pattern:
+
+```markdown
+### Decision title
+
+**Chose:** What was picked | **Rejected:** What was not picked
+
+One or two sentences on why, including what would break or cost more with the rejected option.
+```
+
+### References
+
+If a new package or official docs URL was introduced this session, add it to the relevant table in `## 13. References`.
 
 ---
 
 ## Style rules
 
-- Match the tone and style of existing sessions in the file
-- Do not rewrite or reformat existing content
+- Match the tone and style of existing entries — concise, mentor-voice, explain the "why"
 - Do not add entries for things already documented
+- Do not rewrite or reformat existing content — only append
 - Only document what is genuinely new this session
+- Code examples should be minimal — just enough to illustrate the concept

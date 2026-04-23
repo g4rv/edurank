@@ -1,5 +1,3 @@
-@AGENTS.md
-
 # EduRank — Project Context & Rules
 
 ## What this project is
@@ -38,24 +36,7 @@ No Supabase. Chose bare stack intentionally for simplicity and learning.
 
 ## Current state
 
-- [x] Docker Compose set up (Postgres, Adminer, automated daily backups via `prodrigestivill/postgres-backup-local`)
-- [x] Prisma schema defined — Faculty, Department, Professor, User, Division, Role/AcademicRank/AcademicPosition/ScientificDegree enums
-- [x] Migrations applied — tables exist in DB
-- [x] Prisma client singleton at `src/lib/prisma.ts` (with PrismaPg adapter)
-- [x] Auth.js configured — `src/auth.ts`, Credentials provider, JWT sessions
-- [x] Auth API route — `src/app/api/auth/[...nextauth]/route.ts`
-- [x] Login page — `src/app/(auth)/login/page.tsx`
-- [x] Seed script — `prisma/seed.ts`, run with `npm run seed`
-- [x] Protect routes — `src/proxy.ts`, redirects unauthenticated users to `/login`
-- [x] API routes — CRUD for professors, departments, faculties (`src/app/api/`)
-- [x] Admin panel — `src/app/admin/` with faculty/department/professor sections, Server Actions, toast feedback
-- [x] UI components — `button`, `input`, `toast` in `src/components/ui/`; global `Header`; toast system via Context + portal in `src/providers/`
-- [x] Testing — Vitest + Husky pre-push hook (runs format check, lint, tsc, tests)
-- [x] Professor detail/edit page — `src/app/professors/[id]/`, field-level access control by role/division
-- [x] Professor list page — `src/app/professors/`, search + filter by name/rank/position/degree/department/faculty
-- [ ] Professor create form — via admin panel or dedicated page (not started)
-- [ ] File uploads — deferred, storage provider not chosen yet
-- [ ] Report generation — deferred, requires full data model first
+See `documentation/technical/todo.md` for the full build checklist.
 
 ## Developer context
 
@@ -68,7 +49,6 @@ The lead developer is a junior front-end dev learning as they build.
 - Don't assume prior knowledge of backend, infra, or auth concepts
 - When introducing something new, give a short plain-English explanation before writing any code
 - After implementing something, briefly note what was learned and why it matters
-- All new concepts learned during a session must be added to `documentation/personal/learning-notes.md`
 
 ---
 
@@ -102,6 +82,75 @@ prisma/
   migrations/        auto-generated, always commit these
 ```
 
+### Component naming conventions (project standard)
+
+We settled on these rules for file and folder structure:
+
+**File names:** `kebab-case`
+
+```
+src/components/ui/button.tsx        ✓
+src/components/ui/Button.tsx        ✗
+```
+
+**Simple components:** single file
+
+```
+src/components/ui/button.tsx
+src/components/ui/input.tsx
+```
+
+**Complex components:** subfolder with `index.ts` barrel export
+
+```
+src/components/data-table/
+  index.ts              ← exports { DataTable }
+  data-table.tsx        ← main component
+  data-table-row.tsx    ← internal subcomponent
+  data-table-cell.tsx   ← internal subcomponent
+```
+
+The `index.ts` lets you import with a clean path:
+
+```typescript
+import { DataTable } from '@/components/data-table';
+// instead of:
+import { DataTable } from '@/components/data-table/data-table';
+```
+
+**Why kebab-case:** Matches Next.js page routing conventions (`/admin/page.tsx`), avoids case-sensitivity issues across operating systems, and is more readable than PascalCase for multi-word file names.
+
+### Tailwind v4 — always use v4 class names
+
+This project is on **Tailwind CSS v4**. Several class names changed from v3 — never use the old ones:
+
+**Removed aliases (use v4 name only):**
+
+| v3 — do not use                         | v4 — correct                                    |
+| --------------------------------------- | ----------------------------------------------- |
+| `flex-shrink` / `flex-shrink-0`         | `shrink` / `shrink-0`                           |
+| `flex-grow` / `flex-grow-0`             | `grow` / `grow-0`                               |
+| `overflow-ellipsis`                     | `text-ellipsis`                                 |
+| `decoration-slice` / `decoration-clone` | `box-decoration-slice` / `box-decoration-clone` |
+| `outline-hidden`                        | `outline-hidden`                                |
+| `bg-gradient-*`                         | `bg-linear-*`                                   |
+
+**Scale shifts (values moved down one step):**
+
+| v3                                   | v4                                      |
+| ------------------------------------ | --------------------------------------- |
+| `shadow` / `shadow-sm`               | `shadow-sm` / `shadow-xs`               |
+| `blur` / `blur-sm`                   | `blur-sm` / `blur-xs`                   |
+| `backdrop-blur` / `backdrop-blur-sm` | `backdrop-blur-sm` / `backdrop-blur-xs` |
+| `rounded` / `rounded-sm`             | `rounded-sm` / `rounded-xs`             |
+| `ring` (was 3px default)             | `ring-3`                                |
+
+**Important modifier change:** `!important` marker moves to the end: `text-red-500!` not `!text-red-500`.
+
+**Config is CSS-first** — no `tailwind.config.js`. Theme customisation lives in a `.css` file using `@theme`.
+
+Source: https://tailwindcss.com/docs/upgrade-guide
+
 ### Database changes
 
 ALWAYS go through Prisma migrations — never edit the DB directly:
@@ -125,43 +174,8 @@ npx prisma migrate dev --name describe_the_change
 
 ## Commit conventions
 
-Full schema: `documentation/technical/commit-schema.md` — always read it before committing.
+Commit schema: `documentation/technical/commit-schema.md` — always read it before committing.
 
-Format: `type: short description`
+## Setup and local dev
 
-Types:
-
-- `feat:` — new feature or page
-- `fix:` — bug fix
-- `schema:` — database schema change (always mention which models changed)
-- `chore:` — config, deps, tooling
-- `docs:` — documentation only
-
-Examples:
-
-```
-feat: add professor list page with search
-fix: correct foreign key on Department model
-schema: add email and phone fields to Professor
-chore: install Auth.js and bcrypt
-docs: update setup guide with Auth.js steps
-```
-
-Rules:
-
-- Keep the first line under 72 characters
-- No period at the end
-- If the change needs explanation, add a blank line then a body
-- Always commit `prisma/migrations/` alongside `prisma/schema.prisma` changes
-- No "Generated with Claude Code", "Co-Authored-By: Claude", or any AI attribution lines — ever
-
----
-
-## Local dev startup
-
-```bash
-docker compose up -d   # start Postgres, Adminer
-npm run dev            # start Next.js at localhost:3000
-```
-
-Adminer: http://localhost:8080
+See `README.md` for prerequisites, first-time setup, daily workflow, and all useful URLs.
