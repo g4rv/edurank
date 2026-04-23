@@ -1,8 +1,8 @@
 'use client';
 
+import { cn } from '@/utils/cn';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { cn } from '@/utils/cn';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -148,7 +148,7 @@ export function Toast({ message, type, onClose }: ToastProps) {
           type="button"
           onClick={onClose}
           className={cn(
-            'shrink-0 rounded-lg p-1.5 transition-colors focus:ring-2 focus:ring-offset-2 focus:outline-none',
+            'shrink-0 rounded-lg p-1.5 transition-colors focus:ring-2 focus:ring-offset-2 focus:outline-hidden',
             {
               'text-green-600 hover:bg-green-100 focus:ring-green-500':
                 type === 'success',

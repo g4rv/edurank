@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { Select } from '@/components/ui';
-import { cn } from '@/utils/cn';
 import {
-  RANK_LABELS,
-  POSITION_LABELS,
   DEGREE_LABELS,
+  POSITION_LABELS,
+  RANK_LABELS,
 } from '@/lib/professor-labels';
+import { cn } from '@/utils/cn';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 type Department = { id: string; name: string };
 type Faculty = { id: string; name: string };
@@ -89,7 +89,7 @@ export default function Filter({ departments, faculties }: FilterProps) {
         value={query}
         onChange={(e) => handleQueryChange(e.target.value)}
         placeholder="Пошук за ПІБ, email, ORCID…"
-        className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-300"
+        className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 outline-hidden placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-300"
       />
 
       {/* Category selects + toggle */}

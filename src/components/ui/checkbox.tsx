@@ -20,7 +20,7 @@ const Checkbox = forwardRef<
         className="sr-only"
         {...props}
       />
-      <span className="flex h-4 w-4 items-center justify-center rounded border border-zinc-300 bg-white transition-colors group-has-checked:border-zinc-900 group-has-checked:bg-zinc-900">
+      <span className="flex h-4 w-4 items-center justify-center rounded-sm border border-zinc-300 bg-white transition-colors group-has-checked:border-zinc-900 group-has-checked:bg-zinc-900">
         <svg
           className="hidden h-2.5 w-2.5 text-white group-has-checked:block"
           viewBox="0 0 10 8"
