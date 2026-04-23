@@ -28,7 +28,7 @@ If a new concept introduces a brand-new topic area not covered by any existing s
 
 Append to `## 11. Troubleshooting Reference`. Each entry must follow this format exactly:
 
-```markdown
+````markdown
 ### Short descriptive title
 
 **Error:** One sentence — what the error message said or what went wrong.
@@ -37,7 +37,7 @@ Append to `## 11. Troubleshooting Reference`. Each entry must follow this format
 \```typescript
 // code snippet if helpful
 \```
-```
+````
 
 Add a horizontal rule (`---`) after each entry to match existing style.
 

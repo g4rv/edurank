@@ -6,17 +6,17 @@ A web platform for managing university staff data. Replaces manual Google Drive 
 
 ## Stack
 
-| Layer        | Technology                  | Version        |
-| ------------ | --------------------------- | -------------- |
-| Framework    | Next.js                     | 16             |
-| Language     | TypeScript                  | 5              |
-| Styling      | Tailwind CSS                | 4              |
-| ORM          | Prisma                      | 7              |
-| Database     | PostgreSQL                  | 16             |
-| Auth         | Auth.js (next-auth v5 beta) | 5.0.0-beta     |
-| File storage | TBD — RustFS or Garage      | —              |
-| Runtime      | Node.js                     | 20+            |
-| Infra        | Docker + Docker Compose     | —              |
+| Layer        | Technology                  | Version    |
+| ------------ | --------------------------- | ---------- |
+| Framework    | Next.js                     | 16         |
+| Language     | TypeScript                  | 5          |
+| Styling      | Tailwind CSS                | 4          |
+| ORM          | Prisma                      | 7          |
+| Database     | PostgreSQL                  | 16         |
+| Auth         | Auth.js (next-auth v5 beta) | 5.0.0-beta |
+| File storage | TBD — RustFS or Garage      | —          |
+| Runtime      | Node.js                     | 20+        |
+| Infra        | Docker + Docker Compose     | —          |
 
 ---
 
@@ -113,10 +113,10 @@ docker compose stop    # stop the database when done
 
 ## Useful URLs
 
-| Service              | URL                   | Notes                     |
-| -------------------- | --------------------- | ------------------------- |
-| App                  | http://localhost:3000 | —                         |
-| Adminer (DB browser) | http://localhost:8080 | See login details below   |
+| Service              | URL                   | Notes                   |
+| -------------------- | --------------------- | ----------------------- |
+| App                  | http://localhost:3000 | —                       |
+| Adminer (DB browser) | http://localhost:8080 | See login details below |
 
 **Adminer login:**
 
@@ -177,11 +177,11 @@ User (platform login accounts — separate from professors)
 
 **Roles:**
 
-| Role     | Access                                       |
-| -------- | -------------------------------------------- |
-| `ADMIN`  | Full access — all fields, all professors     |
+| Role     | Access                                                           |
+| -------- | ---------------------------------------------------------------- |
+| `ADMIN`  | Full access — all fields, all professors                         |
 | `EDITOR` | Division-scoped — edits their division's fields on any professor |
-| `USER`   | Own profile only — limited fields            |
+| `USER`   | Own profile only — limited fields                                |
 
 Sessions are stored as signed JWT cookies — no session table in the database.
 
@@ -189,23 +189,23 @@ Sessions are stored as signed JWT cookies — no session table in the database.
 
 ## Common commands
 
-| Command                         | What it does                                  |
-| ------------------------------- | --------------------------------------------- |
-| `npm run dev`                   | Start development server                      |
-| `npm test`                      | Run tests once                                |
-| `npm run test:watch`            | Run tests in watch mode                       |
-| `npm run seed`                  | Seed the database with initial data           |
-| `npm run db:migrate`            | Create and apply a new migration              |
-| `npm run db:generate`           | Regenerate Prisma TypeScript client           |
-| `npm run db:studio`             | Open Prisma Studio (visual DB browser)        |
-| `npm run db:reset`              | Drop DB, reapply all migrations, run seed     |
-| `npm run format`                | Format all files with Prettier                |
-| `npm run lint`                  | Lint with ESLint                              |
-| `npm run ts:check`              | Type-check without emitting files             |
-| `docker compose up -d`          | Start all Docker containers in background     |
-| `docker compose stop`           | Stop containers (data preserved)              |
-| `docker compose down`           | Remove containers (data preserved)            |
-| `docker compose down -v`        | Remove containers AND all data (full reset)   |
+| Command                  | What it does                                |
+| ------------------------ | ------------------------------------------- |
+| `npm run dev`            | Start development server                    |
+| `npm test`               | Run tests once                              |
+| `npm run test:watch`     | Run tests in watch mode                     |
+| `npm run seed`           | Seed the database with initial data         |
+| `npm run db:migrate`     | Create and apply a new migration            |
+| `npm run db:generate`    | Regenerate Prisma TypeScript client         |
+| `npm run db:studio`      | Open Prisma Studio (visual DB browser)      |
+| `npm run db:reset`       | Drop DB, reapply all migrations, run seed   |
+| `npm run format`         | Format all files with Prettier              |
+| `npm run lint`           | Lint with ESLint                            |
+| `npm run ts:check`       | Type-check without emitting files           |
+| `docker compose up -d`   | Start all Docker containers in background   |
+| `docker compose stop`    | Stop containers (data preserved)            |
+| `docker compose down`    | Remove containers (data preserved)          |
+| `docker compose down -v` | Remove containers AND all data (full reset) |
 
 ---
 

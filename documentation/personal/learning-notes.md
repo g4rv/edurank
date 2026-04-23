@@ -29,13 +29,13 @@ Topics are organized by concept — not by session — so you can look up what y
 
 Docker packages an app and everything it needs into a **container** — a tiny isolated environment that runs inside your machine. Solves the "works on my machine" problem.
 
-| Concept | What it is |
-|---|---|
-| **Image** | Blueprint/snapshot (like a class in OOP). Read-only. Downloaded from Docker Hub. |
-| **Container** | A running instance of an image (like an object from a class). |
-| **Volume** | A persistent folder that survives container restarts. Without it, all data is lost when a container stops. |
-| **Network** | Virtual network that lets containers talk to each other by service name. |
-| **docker-compose.yml** | Defines multiple containers and how they connect. One command to start everything. |
+| Concept                | What it is                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Image**              | Blueprint/snapshot (like a class in OOP). Read-only. Downloaded from Docker Hub.                           |
+| **Container**          | A running instance of an image (like an object from a class).                                              |
+| **Volume**             | A persistent folder that survives container restarts. Without it, all data is lost when a container stops. |
+| **Network**            | Virtual network that lets containers talk to each other by service name.                                   |
+| **docker-compose.yml** | Defines multiple containers and how they connect. One command to start everything.                         |
 
 #### Key commands
 
@@ -57,7 +57,7 @@ Format in `docker-compose.yml`: `"HOST_PORT:CONTAINER_PORT"`
 
 #### Why containers talk by service name, not localhost
 
-Adminer runs inside Docker. When it connects to Postgres it uses `postgres` (the service name), not `localhost`. `localhost` inside a container means *the container itself*, not your machine.
+Adminer runs inside Docker. When it connects to Postgres it uses `postgres` (the service name), not `localhost`. `localhost` inside a container means _the container itself_, not your machine.
 
 #### Volumes: named vs host path
 
@@ -107,11 +107,11 @@ Instead of a host cron job (OS-level, not portable), use a dedicated Docker cont
 
 Instead of keeping every daily backup forever:
 
-| Tier | Count | Covers |
-|---|---|---|
-| Daily | 7 | last 7 days |
-| Weekly | 4 | last 4 weeks |
-| Monthly | 6 | last 6 months |
+| Tier    | Count | Covers        |
+| ------- | ----- | ------------- |
+| Daily   | 7     | last 7 days   |
+| Weekly  | 4     | last 4 weeks  |
+| Monthly | 6     | last 6 months |
 
 **17 files maximum** at any moment — 6 months of coverage without 180× disk usage. Recovery granularity: daily for "broke today", weekly for "noticed 2 weeks later", monthly for "something went wrong months ago".
 
@@ -134,14 +134,14 @@ Instead of keeping every daily backup forever:
 postgresql://edurank_user:password@localhost:5432/edurank
 ```
 
-| Part | Meaning |
-|---|---|
-| `postgresql://` | Protocol — what kind of DB |
-| `edurank_user` | Username |
-| `password` | Password |
-| `localhost` | Host — where the DB is running |
-| `5432` | Port — which "door" to knock on |
-| `edurank` | Database name |
+| Part            | Meaning                         |
+| --------------- | ------------------------------- |
+| `postgresql://` | Protocol — what kind of DB      |
+| `edurank_user`  | Username                        |
+| `password`      | Password                        |
+| `localhost`     | Host — where the DB is running  |
+| `5432`          | Port — which "door" to knock on |
+| `edurank`       | Database name                   |
 
 ### Why PostgreSQL
 
@@ -152,11 +152,11 @@ Our data is highly relational: professors → departments → faculties. Postgre
 - Row Level Security — DB itself controls who sees what row
 - Industry standard, best Prisma support
 
-| | SQLite | MySQL | PostgreSQL |
-|---|---|---|---|
-| Runs as | A single file | Server | Server |
-| Concurrent writes | Poor (locks file) | Good | Excellent |
-| Advanced features | Minimal | Good | Best-in-class |
+|                   | SQLite            | MySQL  | PostgreSQL    |
+| ----------------- | ----------------- | ------ | ------------- |
+| Runs as           | A single file     | Server | Server        |
+| Concurrent writes | Poor (locks file) | Good   | Excellent     |
+| Advanced features | Minimal           | Good   | Best-in-class |
 
 ### EduRank data relationships
 
@@ -182,16 +182,16 @@ Faculty (Факультет)            Division (Відділ)
 - **Academic** — defines where professors work and teach
 - **Administrative** — defines who manages specific data about professors
 
-A Division contains *staff*, not professors. Different divisions own different slices of professor data (e.g. Educational Division owns ratings, Quality Assurance Division owns accreditation data).
+A Division contains _staff_, not professors. Different divisions own different slices of professor data (e.g. Educational Division owns ratings, Quality Assurance Division owns accreditation data).
 
 ### Ukrainian academic degree system
 
 Ukraine has two parallel systems since the 2016 reform:
 
-| Old system (pre-2016) | New system (post-2016) |
-|---|---|
-| кандидат наук | доктор філософії (PhD equivalent) |
-| доктор наук | доктор наук (unchanged) |
+| Old system (pre-2016) | New system (post-2016)            |
+| --------------------- | --------------------------------- |
+| кандидат наук         | доктор філософії (PhD equivalent) |
+| доктор наук           | доктор наук (unchanged)           |
 
 Both titles still appear in real professor data — someone who graduated in 2013 keeps "кандидат наук". For official documents the exact title matters; you can't substitute one for the other.
 
@@ -214,6 +214,7 @@ const professors = await prisma.professor.findMany({
 ### schema.prisma structure
 
 Three sections:
+
 - `generator client` — generates TypeScript types
 - `datasource db` — which database to connect to
 - `model X { }` — one model = one table in Postgres
@@ -258,11 +259,11 @@ new PrismaClient({ adapter });
 
 When Prisma throws a known database error, it wraps it in `PrismaClientKnownRequestError` with a `code`:
 
-| Code | Meaning | Example |
-|---|---|---|
-| `P2002` | Unique constraint violation | Creating a faculty with a name that already exists |
-| `P2003` | Foreign key constraint violation | Deleting a faculty that still has departments |
-| `P2025` | Record not found | Updating or deleting a row that doesn't exist |
+| Code    | Meaning                          | Example                                            |
+| ------- | -------------------------------- | -------------------------------------------------- |
+| `P2002` | Unique constraint violation      | Creating a faculty with a name that already exists |
+| `P2003` | Foreign key constraint violation | Deleting a faculty that still has departments      |
+| `P2025` | Record not found                 | Updating or deleting a row that doesn't exist      |
 
 ```typescript
 import { Prisma } from '@/generated/prisma/client';
@@ -274,7 +275,10 @@ try {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === 'P2003'
   ) {
-    return NextResponse.json({ error: 'Cannot delete — has children' }, { status: 409 });
+    return NextResponse.json(
+      { error: 'Cannot delete — has children' },
+      { status: 409 }
+    );
   }
   throw error; // re-throw anything unexpected
 }
@@ -347,7 +351,7 @@ Use `upsert` instead of `create` so the seed is safe to run multiple times:
 ```typescript
 await prisma.user.upsert({
   where: { email },
-  update: {},                // do nothing if user already exists
+  update: {}, // do nothing if user already exists
   create: { email, passwordHash, role: 'ADMIN' },
 });
 ```
@@ -366,19 +370,19 @@ await prisma.user.upsert({
 }
 ```
 
-| Script | Purpose |
-|---|---|
-| `db:migrate` | Create and apply a migration (prompts for name), auto-generates client |
-| `db:generate` | Regenerate TypeScript client only (e.g. after enum changes) |
-| `db:studio` | Open visual DB browser in browser |
-| `db:reset` | Nuclear: drops DB, reapplies all migrations, runs seed |
+| Script        | Purpose                                                                |
+| ------------- | ---------------------------------------------------------------------- |
+| `db:migrate`  | Create and apply a migration (prompts for name), auto-generates client |
+| `db:generate` | Regenerate TypeScript client only (e.g. after enum changes)            |
+| `db:studio`   | Open visual DB browser in browser                                      |
+| `db:reset`    | Nuclear: drops DB, reapplies all migrations, runs seed                 |
 
 ### Translating a spreadsheet into a schema
 
 When adding fields from an existing spreadsheet to Prisma, don't copy the structure blindly. Ask three questions per field:
 
 1. **Is this a foreign key disguised as a string?** A `department String?` that stores a name should be a proper `departmentId` relation — otherwise you lose filtering, get typos, and can't delete safely.
-2. **Is this enum value actually two separate concepts?** `AcademicRank` mixed *вчене звання* (awarded by ministry) with *посада* (set by university). A professor can be "доцент за посадою" without holding the "вчене звання доцента". Split into two enums.
+2. **Is this enum value actually two separate concepts?** `AcademicRank` mixed _вчене звання_ (awarded by ministry) with _посада_ (set by university). A professor can be "доцент за посадою" without holding the "вчене звання доцента". Split into two enums.
 3. **Is this boolean better than extra enum variants?** `CANDIDATE_PHD_DEPARTMENT_SPECIFIC` as an enum value doubles the enum size just to track a yes/no fact. A `degreeMatchesDepartment Boolean?` field is clearer — two concerns stay independent.
 
 ---
@@ -418,10 +422,10 @@ export async function GET(
 
 Next.js tries to pre-render pages at **build time** by default. This breaks for pages that query a database.
 
-| Mode | When page renders | Use for |
-|---|---|---|
-| Static (default) | Once at `npm run build` | Pages with static content |
-| Dynamic | On every request | Pages that query Prisma directly |
+| Mode             | When page renders       | Use for                          |
+| ---------------- | ----------------------- | -------------------------------- |
+| Static (default) | Once at `npm run build` | Pages with static content        |
+| Dynamic          | On every request        | Pages that query Prisma directly |
 
 ```typescript
 // Force dynamic rendering for any page that queries the DB
@@ -611,20 +615,20 @@ jwt({ token, user }) {
 
 ### Auth.js callbacks are predefined slots
 
-| Callback | When it runs |
-|---|---|
-| `jwt` | Token created (login) or read (every request) |
-| `session` | When app code calls `auth()` or `useSession()` |
-| `authorized` | In proxy to allow or block a request |
-| `signIn` | After login — lets you reject specific users |
+| Callback     | When it runs                                   |
+| ------------ | ---------------------------------------------- |
+| `jwt`        | Token created (login) or read (every request)  |
+| `session`    | When app code calls `auth()` or `useSession()` |
+| `authorized` | In proxy to allow or block a request           |
+| `signIn`     | After login — lets you reject specific users   |
 
 ### Three-tier role model
 
-| Role | Access | Can edit |
-|---|---|---|
-| `ADMIN` | Everything | All fields on any professor |
-| `EDITOR` | Full professor list | Only their division's fields |
-| `USER` | Their own profile only | Email + research profile URLs |
+| Role     | Access                 | Can edit                      |
+| -------- | ---------------------- | ----------------------------- |
+| `ADMIN`  | Everything             | All fields on any professor   |
+| `EDITOR` | Full professor list    | Only their division's fields  |
+| `USER`   | Their own profile only | Email + research profile URLs |
 
 `EDITOR` is tied to a `Division` via `User.divisionId`. `USER` is linked to their own professor record via `User.professorId`.
 
@@ -667,11 +671,14 @@ The proxy ensures a session exists but doesn't enforce roles. Role checks belong
 
 ```typescript
 const session = await auth();
-if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-if (session.user.role === 'USER') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+if (!session)
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+if (session.user.role === 'USER')
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 ```
 
 Standard pattern:
+
 - `GET` — any authenticated user
 - `POST / PUT` — EDITOR or ADMIN only
 - `DELETE` — ADMIN only
@@ -899,7 +906,10 @@ useEffect(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
-      remainingRef.current = Math.max(0, remainingRef.current - (Date.now() - startedAt));
+      remainingRef.current = Math.max(
+        0,
+        remainingRef.current - (Date.now() - startedAt)
+      );
     }
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -945,6 +955,7 @@ type FormData = z.infer<typeof schema>; // TypeScript type for free
 **`z.coerce`** — HTML forms submit everything as strings. `z.coerce.number()` converts `"15"` → `15` before validating. Without it, a number schema would reject all form data.
 
 **Why Zod over alternatives:**
+
 - **Yup** — older predecessor. TypeScript inference is weaker — need a separate TS type alongside the schema.
 - **Valibot** — modular (~10x smaller than Zod). Better if bundle size matters. For a self-hosted app, Zod is fine.
 
@@ -1025,6 +1036,7 @@ useForm<ProfessorFormValues>({
 ### useActionState — Server Action responses without URL pollution
 
 **Old way (searchParams):**
+
 - Messages visible in URL bar
 - Browser history polluted
 - Full page reload required
@@ -1133,12 +1145,12 @@ className={cn({
 
 One component, multiple appearances — TypeScript enforces only valid variants.
 
-### Tailwind max-w-* utilities
+### Tailwind max-w-\* utilities
 
-| Class | Max width | Use for |
-|---|---|---|
-| `max-w-3xl` | 48rem (768px) | Narrow reading content, forms |
-| `max-w-4xl` | 56rem (896px) | Medium content |
+| Class       | Max width      | Use for                          |
+| ----------- | -------------- | -------------------------------- |
+| `max-w-3xl` | 48rem (768px)  | Narrow reading content, forms    |
+| `max-w-4xl` | 56rem (896px)  | Medium content                   |
 | `max-w-7xl` | 80rem (1280px) | Wide layouts, dashboards, tables |
 
 Combined with `mx-auto`, content centers itself and respects max-width on ultrawide screens.
@@ -1149,12 +1161,23 @@ Animating `width` triggers the browser's **layout** phase on every frame — rec
 
 ```css
 /* ❌ Causes layout recalculation every frame */
-@keyframes shrink { from { width: 100%; } to { width: 0%; } }
+@keyframes shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
 
 /* ✓ GPU-only, no layout cost */
 @keyframes shrink {
-  from { transform: scaleX(1); }
-  to   { transform: scaleX(0); }
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }
 ```
 
@@ -1185,11 +1208,11 @@ style={{
 
 Both use identical APIs (`describe`, `it`, `expect`). Vitest is the right choice for this project:
 
-| | Jest | Vitest |
-|---|---|---|
-| TypeScript | Needs `ts-jest` or Babel config | Works natively |
+|                     | Jest                            | Vitest                              |
+| ------------------- | ------------------------------- | ----------------------------------- |
+| TypeScript          | Needs `ts-jest` or Babel config | Works natively                      |
 | Path aliases (`@/`) | Needs `moduleNameMapper` config | Reads `tsconfig.json` automatically |
-| Speed | Slower | Much faster (uses Vite's pipeline) |
+| Speed               | Slower                          | Much faster (uses Vite's pipeline)  |
 
 Everything learned here transfers to Jest projects.
 
@@ -1197,10 +1220,10 @@ Everything learned here transfers to Jest projects.
 
 Git has built-in hook points where it pauses before continuing:
 
-| Hook | When it runs |
-|---|---|
-| `pre-commit` | Before a commit is created |
-| `pre-push` | Before code is pushed to remote |
+| Hook         | When it runs                    |
+| ------------ | ------------------------------- |
+| `pre-commit` | Before a commit is created      |
+| `pre-push`   | Before code is pushed to remote |
 
 Husky stores hooks as shell scripts in `.husky/` and commits them to git — every developer gets the same hooks automatically.
 
@@ -1249,9 +1272,9 @@ First `npm test` run is slow (10–44 seconds) — Vitest compiles TypeScript an
 
 ### dependencies vs devDependencies
 
-| Bucket | When included | Use for |
-|---|---|---|
-| `dependencies` | Always — dev AND production | Code that runs at runtime |
+| Bucket            | When included                       | Use for                                                          |
+| ----------------- | ----------------------------------- | ---------------------------------------------------------------- |
+| `dependencies`    | Always — dev AND production         | Code that runs at runtime                                        |
 | `devDependencies` | Dev only — stripped from production | Tools that help you build (linters, type checkers, test runners) |
 
 **Rule:** Ask "does the app call this code while users are using it?" If yes → `dependencies`.
@@ -1331,6 +1354,7 @@ export default async function LoginPage({
 **Why:** Prisma 7 moved seed config out of `package.json` into `prisma.config.ts`.
 
 **Fix:**
+
 ```typescript
 // prisma.config.ts
 migrations: {
@@ -1358,6 +1382,7 @@ migrations: {
 **Why:** Next.js tries to pre-render pages at build time. Pages that query the database need `force-dynamic`.
 
 **Fix:**
+
 ```typescript
 export const dynamic = 'force-dynamic';
 ```
@@ -1403,9 +1428,12 @@ export const dynamic = 'force-dynamic';
 **Why:** `typeof window === "undefined"` check renders differently on server (null) vs first client render (portal div).
 
 **Fix:** Use the mounted state pattern:
+
 ```typescript
 const [mounted, setMounted] = useState(false);
-useEffect(() => { setMounted(true); }, []);
+useEffect(() => {
+  setMounted(true);
+}, []);
 if (!mounted) return null;
 ```
 
@@ -1448,6 +1476,7 @@ Or open the `.sql.gz` file directly in VS Code — it reads gzip files natively.
 **Why:** `z.coerce.number()` has Zod input type `unknown`. `zodResolver` infers the form type from the schema input type — breaks TypeScript inference. Runtime is correct.
 
 **Fix:**
+
 ```typescript
 resolver: zodResolver(professorSchema) as Resolver<ProfessorFormValues>,
 ```
@@ -1458,7 +1487,7 @@ resolver: zodResolver(professorSchema) as Resolver<ProfessorFormValues>,
 
 **Error:** Attempt to run side effects inside `useState(() => { setMounted(true) })`.
 
-**Why:** `useState`'s initializer is for computing the *initial value* — not for side effects.
+**Why:** `useState`'s initializer is for computing the _initial value_ — not for side effects.
 
 **Fix:** Use `useEffect` for logic that should run after mount.
 
@@ -1605,16 +1634,16 @@ Silently ignoring repeated feedback hides information — especially bad for err
 
 ### Key packages
 
-| Package | Purpose |
-|---|---|
-| `prisma` + `@prisma/client` | ORM and TypeScript client |
-| `@prisma/adapter-pg` | Prisma 7 PostgreSQL adapter |
-| `next-auth` (v5 beta) | Authentication |
-| `bcryptjs` | Password hashing (pure JS, no native deps) |
-| `zod` | Schema validation + TypeScript inference |
-| `react-hook-form` | Form state management |
-| `@hookform/resolvers` | Zod adapter for react-hook-form |
-| `tsx` | Run TypeScript files in Node.js |
-| `vitest` | Test runner |
-| `husky` | Git hooks |
-| `prodrigestivill/postgres-backup-local` | Automated DB backups (Docker image) |
+| Package                                 | Purpose                                    |
+| --------------------------------------- | ------------------------------------------ |
+| `prisma` + `@prisma/client`             | ORM and TypeScript client                  |
+| `@prisma/adapter-pg`                    | Prisma 7 PostgreSQL adapter                |
+| `next-auth` (v5 beta)                   | Authentication                             |
+| `bcryptjs`                              | Password hashing (pure JS, no native deps) |
+| `zod`                                   | Schema validation + TypeScript inference   |
+| `react-hook-form`                       | Form state management                      |
+| `@hookform/resolvers`                   | Zod adapter for react-hook-form            |
+| `tsx`                                   | Run TypeScript files in Node.js            |
+| `vitest`                                | Test runner                                |
+| `husky`                                 | Git hooks                                  |
+| `prodrigestivill/postgres-backup-local` | Automated DB backups (Docker image)        |
