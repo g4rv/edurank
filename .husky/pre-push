@@ -1,4 +1,5 @@
 npm run format:check
+npm test
+npm run build
 npm run lint
 npx tsc --noEmit
-npm test
