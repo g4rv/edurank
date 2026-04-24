@@ -10,6 +10,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --animate-modal-in: modal-in 150ms ease-out;
+  --animate-modal-out: modal-out 150ms ease-in forwards;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,5 +33,60 @@ body {
   }
   to {
     transform: scaleX(0);
+  }
+}
+
+/* ─── Modal ─────────────────────────────────────────────────────── */
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes modal-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+  }
+}
+
+/* ::backdrop can't be styled via Tailwind, so we do it here */
+dialog::backdrop {
+  background: rgb(0 0 0 / 0);
+}
+
+dialog[open]:not([data-closing])::backdrop {
+  animation: backdrop-in 150ms ease-out forwards;
+}
+
+dialog[data-closing]::backdrop {
+  animation: backdrop-out 150ms ease-in forwards;
+}
+
+@keyframes backdrop-in {
+  from {
+    background: rgb(0 0 0 / 0);
+  }
+  to {
+    background: rgb(0 0 0 / 0.45);
+  }
+}
+
+@keyframes backdrop-out {
+  from {
+    background: rgb(0 0 0 / 0.45);
+  }
+  to {
+    background: rgb(0 0 0 / 0);
   }
 }
