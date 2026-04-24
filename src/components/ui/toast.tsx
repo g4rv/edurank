@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/utils/cn';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -208,12 +208,11 @@ export function ToastContainer({
   toasts: ToastProps[];
   onClose: (id: string) => void;
 }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true); // intentional — mounted pattern for portal hydration
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   if (!mounted) return null;
 
