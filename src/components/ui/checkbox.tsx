@@ -35,9 +35,7 @@ const Checkbox = forwardRef<
           />
         </svg>
       </span>
-      {children && (
-        <span className="text-sm text-zinc-700">{children}</span>
-      )}
+      {children && <span className="text-sm text-zinc-700">{children}</span>}
     </label>
   );
 });

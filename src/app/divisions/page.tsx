@@ -10,7 +10,9 @@ export default async function DivisionsPage() {
   const session = await auth();
   if (!session || session.user.role !== 'ADMIN') redirect('/');
 
-  const divisions = await prisma.division.findMany({ orderBy: { name: 'asc' } });
+  const divisions = await prisma.division.findMany({
+    orderBy: { name: 'asc' },
+  });
 
   return (
     <main className="flex-1 bg-zinc-50 py-8">

@@ -10,7 +10,8 @@ type ActionState = { success?: string; error?: string } | null;
 
 async function requireAdminOrEditor() {
   const session = await auth();
-  if (!session || !['ADMIN', 'EDITOR'].includes(session.user.role)) redirect('/');
+  if (!session || !['ADMIN', 'EDITOR'].includes(session.user.role))
+    redirect('/');
 }
 
 export async function createDepartment(

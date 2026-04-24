@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function DepartmentsPage() {
   const session = await auth();
-  if (!session || !['ADMIN', 'EDITOR'].includes(session.user.role)) redirect('/');
+  if (!session || !['ADMIN', 'EDITOR'].includes(session.user.role))
+    redirect('/');
 
   const [departments, faculties] = await Promise.all([
     prisma.department.findMany({

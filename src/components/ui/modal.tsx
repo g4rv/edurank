@@ -112,7 +112,9 @@ export function Modal({
         </div>
 
         {/* Scrollable body */}
-        <div ref={bodyRef} className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div ref={bodyRef} className="flex-1 overflow-y-auto px-6 py-5">
+          {children}
+        </div>
 
         {/* Optional sticky footer */}
         {footer && (

@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function FacultiesPage() {
   const session = await auth();
-  if (!session || !['ADMIN', 'EDITOR'].includes(session.user.role)) redirect('/');
+  if (!session || !['ADMIN', 'EDITOR'].includes(session.user.role))
+    redirect('/');
 
   const faculties = await prisma.faculty.findMany({ orderBy: { name: 'asc' } });
 

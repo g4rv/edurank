@@ -42,8 +42,10 @@ export default async function ProfessorsPage({
     degreeMatch?: string;
   }>;
 }) {
-  const [session, { q, rank, position, degree, department, faculty, degreeMatch }] =
-    await Promise.all([auth(), searchParams]);
+  const [
+    session,
+    { q, rank, position, degree, department, faculty, degreeMatch },
+  ] = await Promise.all([auth(), searchParams]);
 
   const canManage =
     session?.user.role === 'ADMIN' || session?.user.role === 'EDITOR';
@@ -89,7 +91,13 @@ export default async function ProfessorsPage({
   ]);
 
   const hasFilters = !!(
-    q || rank || position || degree || department || faculty || degreeMatch
+    q ||
+    rank ||
+    position ||
+    degree ||
+    department ||
+    faculty ||
+    degreeMatch
   );
 
   return (

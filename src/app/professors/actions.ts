@@ -8,7 +8,8 @@ import { createProfessorSchema, type CreateProfessorValues } from './schema';
 
 async function requireAdminOrEditor() {
   const session = await auth();
-  if (!session || !['ADMIN', 'EDITOR'].includes(session.user.role)) redirect('/');
+  if (!session || !['ADMIN', 'EDITOR'].includes(session.user.role))
+    redirect('/');
 }
 
 export async function createProfessor(
@@ -76,9 +77,7 @@ export async function createProfessor(
   }
 }
 
-export async function deleteProfessor(
-  id: string
-): Promise<{ error?: string }> {
+export async function deleteProfessor(id: string): Promise<{ error?: string }> {
   await requireAdminOrEditor();
 
   try {

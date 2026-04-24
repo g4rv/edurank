@@ -1,12 +1,18 @@
 import { cn } from '@/utils/cn';
 import { InputHTMLAttributes, forwardRef } from 'react';
 
-interface ToggleProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+interface ToggleProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  'type'
+> {
   labelPosition?: 'left' | 'right';
 }
 
 const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
-  ({ className, children, disabled, labelPosition = 'left', ...props }, ref) => {
+  (
+    { className, children, disabled, labelPosition = 'left', ...props },
+    ref
+  ) => {
     const label = children && (
       <span className="text-sm text-zinc-600">{children}</span>
     );

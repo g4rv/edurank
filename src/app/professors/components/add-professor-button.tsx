@@ -42,7 +42,7 @@ function FormSection({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+      <p className="text-xs font-semibold tracking-wide text-zinc-400 uppercase">
         {title}
       </p>
       {children}
@@ -120,7 +120,11 @@ export function AddProfessorButton({
             >
               Скасувати
             </Button>
-            <Button type="submit" form="add-professor-form" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              form="add-professor-form"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? 'Збереження...' : 'Зберегти'}
             </Button>
           </div>
@@ -251,10 +255,7 @@ export function AddProfessorButton({
               <Field label="Web of Science URL" error={errors.wosURL?.message}>
                 <Input {...register('wosURL')} type="url" />
               </Field>
-              <Field
-                label="Цитувань"
-                error={errors.wosCitationCount?.message}
-              >
+              <Field label="Цитувань" error={errors.wosCitationCount?.message}>
                 <Input
                   {...register('wosCitationCount')}
                   type="number"
