@@ -1,20 +1,12 @@
 'use client';
 
-import { Button, Input } from '@/components/ui';
+import { Button, Input, Select } from '@/components/ui';
 import { useToast } from '@/providers/toast-provider';
 import { useActionState, useEffect } from 'react';
 import { createDepartment, deleteDepartment } from '../actions';
 
-type Faculty = {
-  id: string;
-  name: string;
-};
-
-type Department = {
-  id: string;
-  name: string;
-  faculty: { name: string };
-};
+type Faculty = { id: string; name: string };
+type Department = { id: string; name: string; faculty: { name: string } };
 
 export function DepartmentSection({
   departments,
@@ -34,29 +26,19 @@ export function DepartmentSection({
   );
 
   useEffect(() => {
-    if (createState?.success) {
-      toast.success(createState.success);
-    }
-    if (createState?.error) {
-      toast.error(createState.error);
-    }
+    if (createState?.success) toast.success(createState.success);
+    if (createState?.error) toast.error(createState.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createState]);
 
   useEffect(() => {
-    if (deleteState?.success) {
-      toast.success(deleteState.success);
-    }
-    if (deleteState?.error) {
-      toast.error(deleteState.error);
-    }
+    if (deleteState?.success) toast.success(deleteState.success);
+    if (deleteState?.error) toast.error(deleteState.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deleteState]);
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-6">
-      <h2 className="mb-4 text-base font-medium text-zinc-900">Кафедри</h2>
-
       <form action={createAction} className="mb-4 flex gap-2">
         <Input
           name="name"
@@ -64,12 +46,7 @@ export function DepartmentSection({
           required
           className="flex-1"
         />
-        <select
-          name="facultyId"
-          required
-          defaultValue=""
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-700 outline-hidden focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
-        >
+        <Select name="facultyId" required defaultValue="">
           <option value="" disabled>
             Оберіть факультет
           </option>
@@ -78,7 +55,7 @@ export function DepartmentSection({
               {f.name}
             </option>
           ))}
-        </select>
+        </Select>
         <Button type="submit" disabled={isCreating}>
           {isCreating ? 'Збереження...' : 'Додати'}
         </Button>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Select } from '@/components/ui';
+import { Button, Input, Select, Toggle } from '@/components/ui';
 import {
   DEGREE_LABELS,
   POSITION_LABELS,
@@ -84,12 +84,11 @@ export default function Filter({ departments, faculties }: FilterProps) {
   return (
     <div className="space-y-3">
       {/* Text search */}
-      <input
+      <Input
         type="search"
         value={query}
         onChange={(e) => handleQueryChange(e.target.value)}
         placeholder="Пошук за ПІБ, email, ORCID…"
-        className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 outline-hidden placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-1 focus:ring-zinc-300"
       />
 
       {/* Category selects + toggle */}
@@ -135,24 +134,23 @@ export default function Filter({ departments, faculties }: FilterProps) {
         />
 
         {/* Toggle: degreeMatchesDepartment */}
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-600 transition-colors select-none hover:border-zinc-300 has-checked:border-zinc-400 has-checked:bg-zinc-900 has-checked:text-white">
-          <input
-            type="checkbox"
-            checked={searchParams.get('degreeMatch') === 'true'}
-            onChange={(e) => handleToggle('degreeMatch', e.target.checked)}
-            className="hidden"
-          />
-          Ступінь ↔ кафедра
-        </label>
+        <Toggle
+          checked={searchParams.get('degreeMatch') === 'true'}
+          onChange={(e) => handleToggle('degreeMatch', e.target.checked)}
+        >
+          Ступінь відповідає кафедрі
+        </Toggle>
 
         {hasFilters && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={clearAll}
-            className="text-sm text-zinc-400 transition-colors hover:text-zinc-700"
+            className="text-zinc-400 hover:bg-transparent hover:text-zinc-700"
           >
             Скинути все
-          </button>
+          </Button>
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import { Container } from '@/components/ui';
 
 // This page queries the database, so it must be rendered dynamically (not at build time)
 export const dynamic = 'force-dynamic';
@@ -18,8 +19,8 @@ export default async function HomePage() {
   });
 
   return (
-    <main className="flex-1 bg-zinc-50 p-8">
-      <div className="mx-auto max-w-7xl">
+    <main className="flex-1 bg-zinc-50 py-8">
+      <Container>
         <h1 className="mb-6 text-2xl font-semibold text-zinc-900">Викладачі</h1>
 
         {professors.length === 0 ? (
@@ -67,7 +68,7 @@ export default async function HomePage() {
             </table>
           </div>
         )}
-      </div>
+      </Container>
     </main>
   );
 }

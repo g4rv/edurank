@@ -1,14 +1,11 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
-import { createFaculty, deleteFaculty } from '../actions';
 import { Button, Input } from '@/components/ui';
 import { useToast } from '@/providers/toast-provider';
+import { useActionState, useEffect } from 'react';
+import { createFaculty, deleteFaculty } from '../actions';
 
-type Faculty = {
-  id: string;
-  name: string;
-};
+type Faculty = { id: string; name: string };
 
 export function FacultySection({ faculties }: { faculties: Faculty[] }) {
   const toast = useToast();
@@ -22,29 +19,19 @@ export function FacultySection({ faculties }: { faculties: Faculty[] }) {
   );
 
   useEffect(() => {
-    if (createState?.success) {
-      toast.success(createState.success);
-    }
-    if (createState?.error) {
-      toast.error(createState.error);
-    }
+    if (createState?.success) toast.success(createState.success);
+    if (createState?.error) toast.error(createState.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createState]);
 
   useEffect(() => {
-    if (deleteState?.success) {
-      toast.success(deleteState.success);
-    }
-    if (deleteState?.error) {
-      toast.error(deleteState.error);
-    }
+    if (deleteState?.success) toast.success(deleteState.success);
+    if (deleteState?.error) toast.error(deleteState.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deleteState]);
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-6">
-      <h2 className="mb-4 text-base font-medium text-zinc-900">Факультети</h2>
-
       <form action={createAction} className="mb-4 flex gap-2">
         <Input
           name="name"

@@ -1,5 +1,17 @@
 # EduRank — Project Context & Rules
 
+## Developer context
+
+The lead developer is a junior front-end dev learning as they build.
+
+**You are acting as a mentor, not just a coding assistant.** This means:
+
+- Explain the "why" behind every decision, not just the "what"
+- Use analogies to connect new concepts to things the dev already knows
+- Don't assume prior knowledge of backend, infra, or auth concepts
+- When introducing something new, give a short plain-English explanation before writing any code
+- After implementing something, briefly note what was learned and why it matters
+
 ## What this project is
 
 A web platform to store and manage as much data about university staff as possible,
@@ -37,18 +49,6 @@ No Supabase. Chose bare stack intentionally for simplicity and learning.
 ## Current state
 
 See `documentation/technical/todo.md` for the full build checklist.
-
-## Developer context
-
-The lead developer is a junior front-end dev learning as they build.
-
-**You are acting as a mentor, not just a coding assistant.** This means:
-
-- Explain the "why" behind every decision, not just the "what"
-- Use analogies to connect new concepts to things the dev already knows
-- Don't assume prior knowledge of backend, infra, or auth concepts
-- When introducing something new, give a short plain-English explanation before writing any code
-- After implementing something, briefly note what was learned and why it matters
 
 ---
 

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getEditableFields } from '@/lib/field-access';
 import { notFound, redirect } from 'next/navigation';
 import ProfessorForm from './components/professor-form';
+import { Container } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,10 +37,10 @@ export default async function ProfessorPage({
   );
 
   return (
-    <main className="flex-1 bg-zinc-50 p-8">
-      <div className="mx-auto max-w-3xl">
+    <main className="flex-1 bg-zinc-50 py-8">
+      <Container size="narrow">
         <ProfessorForm professor={professor} editableFields={editableFields} />
-      </div>
+      </Container>
     </main>
   );
 }
