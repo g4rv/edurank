@@ -211,7 +211,7 @@ export function ToastContainer({
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
-    () => false,
+    () => false
   );
 
   if (!mounted) return null;
