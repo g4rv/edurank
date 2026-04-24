@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { Container } from '@/components/ui';
 import { POSITION_LABELS, DEGREE_LABELS } from '@/lib/professor-labels';
 import type { Prisma } from '@/generated/prisma/client';
 import type {
@@ -8,10 +10,11 @@ import type {
   ScientificDegree,
 } from '@/generated/prisma/enums';
 import Filter from './components/filter';
+import { AddProfessorButton } from './components/add-professor-button';
+import { DeleteProfessorButton } from './components/delete-professor-button';
 
 export const dynamic = 'force-dynamic';
 
-// Valid enum value sets for safe URL param parsing
 const VALID_RANKS = new Set<string>([
   'DOCENT',
   'PROFESSOR',
@@ -39,8 +42,11 @@ export default async function ProfessorsPage({
     degreeMatch?: string;
   }>;
 }) {
-  const { q, rank, position, degree, department, faculty, degreeMatch } =
-    await searchParams;
+  const [session, { q, rank, position, degree, department, faculty, degreeMatch }] =
+    await Promise.all([auth(), searchParams]);
+
+  const canManage =
+    session?.user.role === 'ADMIN' || session?.user.role === 'EDITOR';
 
   const where: Prisma.ProfessorWhereInput = {};
 
@@ -53,24 +59,14 @@ export default async function ProfessorsPage({
       { orcidId: { contains: q.trim(), mode: 'insensitive' } },
     ];
   }
-  if (rank && VALID_RANKS.has(rank)) {
-    where.academicRank = rank as AcademicRank;
-  }
-  if (position && VALID_POSITIONS.has(position)) {
+  if (rank && VALID_RANKS.has(rank)) where.academicRank = rank as AcademicRank;
+  if (position && VALID_POSITIONS.has(position))
     where.academicPosition = position as AcademicPosition;
-  }
-  if (degree && VALID_DEGREES.has(degree)) {
+  if (degree && VALID_DEGREES.has(degree))
     where.scientificDegree = degree as ScientificDegree;
-  }
-  if (department) {
-    where.departmentId = department;
-  }
-  if (faculty) {
-    where.department = { facultyId: faculty };
-  }
-  if (degreeMatch === 'true') {
-    where.degreeMatchesDepartment = true;
-  }
+  if (department) where.departmentId = department;
+  if (faculty) where.department = { facultyId: faculty };
+  if (degreeMatch === 'true') where.degreeMatchesDepartment = true;
 
   const [professors, departments, faculties] = await Promise.all([
     prisma.professor.findMany({
@@ -93,19 +89,16 @@ export default async function ProfessorsPage({
   ]);
 
   const hasFilters = !!(
-    q ||
-    rank ||
-    position ||
-    degree ||
-    department ||
-    faculty ||
-    degreeMatch
+    q || rank || position || degree || department || faculty || degreeMatch
   );
 
   return (
-    <main className="flex-1 bg-zinc-50 p-8">
-      <div className="mx-auto max-w-7xl">
-        <h1 className="mb-6 text-2xl font-semibold text-zinc-900">Викладачі</h1>
+    <main className="flex-1 bg-zinc-50 py-8">
+      <Container>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-zinc-900">Викладачі</h1>
+          {canManage && <AddProfessorButton departments={departments} />}
+        </div>
 
         <Filter departments={departments} faculties={faculties} />
 
@@ -139,46 +132,64 @@ export default async function ProfessorsPage({
                   <th className="px-4 py-3 text-left font-medium text-zinc-600">
                     Ступінь
                   </th>
+                  {canManage && <th className="w-10 px-2 py-3" />}
                 </tr>
               </thead>
               <tbody>
-                {professors.map((professor) => (
-                  <tr
-                    key={professor.id}
-                    className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50"
-                  >
-                    <td className="px-4 py-3 font-medium text-zinc-900">
-                      <Link
-                        href={`/professors/${professor.id}`}
-                        className="hover:text-zinc-600 hover:underline"
-                      >
-                        {professor.lastName} {professor.firstName}{' '}
-                        {professor.patronymic}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-zinc-600">
-                      {professor.department.name}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500">
-                      {professor.department.faculty.name}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500">
-                      {professor.academicPosition
-                        ? POSITION_LABELS[professor.academicPosition]
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500">
-                      {professor.scientificDegree
-                        ? DEGREE_LABELS[professor.scientificDegree]
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {professors.map((professor) => {
+                  const fullName = [
+                    professor.lastName,
+                    professor.firstName,
+                    professor.patronymic,
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+
+                  return (
+                    <tr
+                      key={professor.id}
+                      className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50"
+                    >
+                      <td className="px-4 py-3 font-medium text-zinc-900">
+                        <Link
+                          href={`/professors/${professor.id}`}
+                          className="hover:text-zinc-600 hover:underline"
+                        >
+                          {fullName}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-zinc-600">
+                        {professor.department.name}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-500">
+                        {professor.department.faculty.name}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-500">
+                        {professor.academicPosition
+                          ? POSITION_LABELS[professor.academicPosition]
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-500">
+                        {professor.scientificDegree
+                          ? DEGREE_LABELS[professor.scientificDegree]
+                          : '—'}
+                      </td>
+                      {canManage && (
+                        <td className="px-2 py-3">
+                          <DeleteProfessorButton
+                            id={professor.id}
+                            name={fullName}
+                          />
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </Container>
     </main>
   );
 }
