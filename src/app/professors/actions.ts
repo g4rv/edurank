@@ -1,10 +1,11 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@/generated/prisma/client';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { createProfessorSchema, type CreateProfessorValues } from './schema';
+import { professorSchema, type ProfessorFormValues } from './[id]/schema';
 
 async function requireAdminOrEditor() {
   const session = await auth();
@@ -13,11 +14,11 @@ async function requireAdminOrEditor() {
 }
 
 export async function createProfessor(
-  data: CreateProfessorValues
+  data: ProfessorFormValues
 ): Promise<{ error?: string }> {
   await requireAdminOrEditor();
 
-  const parsed = createProfessorSchema.safeParse(data);
+  const parsed = professorSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   const {
@@ -84,7 +85,13 @@ export async function deleteProfessor(id: string): Promise<{ error?: string }> {
     await prisma.professor.delete({ where: { id } });
     revalidatePath('/professors');
     return {};
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2003'
+    ) {
+      return { error: 'Неможливо видалити — викладач має обліковий запис у системі' };
+    }
     return { error: 'Помилка сервера' };
   }
 }

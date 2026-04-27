@@ -41,6 +41,8 @@ export async function updateProfessor(
   if (canEdit('patronymic', editableFields))
     dbData.patronymic = values.patronymic || null;
   if (canEdit('email', editableFields)) dbData.email = values.email || null;
+  if (canEdit('departmentId', editableFields))
+    dbData.departmentId = values.departmentId;
   if (canEdit('employmentRate', editableFields))
     dbData.employmentRate = values.employmentRate ?? null;
   if (canEdit('pedagogicalExperience', editableFields))

@@ -16,7 +16,7 @@ export default async function ProfessorPage({
   const session = await auth();
   if (!session) redirect('/login');
 
-  const [professor, sessionUser] = await Promise.all([
+  const [professor, sessionUser, departments] = await Promise.all([
     prisma.professor.findUnique({
       where: { id },
       include: {
@@ -26,6 +26,10 @@ export default async function ProfessorPage({
     prisma.user.findUnique({
       where: { id: session.user.id },
       include: { division: true },
+    }),
+    prisma.department.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
     }),
   ]);
 
@@ -39,7 +43,11 @@ export default async function ProfessorPage({
   return (
     <main className="flex-1 bg-zinc-50 py-8">
       <Container size="narrow">
-        <ProfessorForm professor={professor} editableFields={editableFields} />
+        <ProfessorForm
+          professor={professor}
+          editableFields={editableFields}
+          departments={departments}
+        />
       </Container>
     </main>
   );

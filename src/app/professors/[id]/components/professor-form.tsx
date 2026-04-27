@@ -4,7 +4,7 @@ import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateProfessor } from '../actions';
 import { professorSchema, type ProfessorFormValues } from '../schema';
-import { Input, Button, Select, Checkbox } from '@/components/ui';
+import { Input, Button, Select, Checkbox, FormField } from '@/components/ui';
 import { useToast } from '@/providers/toast-provider';
 import { canEdit, type EditableFields } from '@/lib/field-access';
 
@@ -41,28 +41,8 @@ function Section({
       <h2 className="border-b border-zinc-100 px-6 py-4 text-sm font-semibold text-zinc-700">
         {title}
       </h2>
-      <dl className="px-6">{children}</dl>
+      <div className="flex flex-col gap-4 px-6 py-5">{children}</div>
     </section>
-  );
-}
-
-function Row({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-4 py-3">
-      <dt className="w-56 shrink-0 pt-2 text-sm text-zinc-500">{label}</dt>
-      <dd className="flex-1">
-        {children}
-        {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
-      </dd>
-    </div>
   );
 }
 
@@ -72,9 +52,9 @@ function DisplayValue({
   value: string | number | null | undefined;
 }) {
   if (value === null || value === undefined || value === '') {
-    return <span className="pt-2 text-sm text-zinc-400">—</span>;
+    return <span className="text-sm text-zinc-400">—</span>;
   }
-  return <span className="pt-2 text-sm text-zinc-900">{value}</span>;
+  return <span className="text-sm text-zinc-900">{value}</span>;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -100,7 +80,7 @@ export interface ProfessorData {
   googleScholarURL: string | null;
   googleScholarCitationCount: number | null;
   orcidId: string | null;
-  department: { name: string; faculty: { name: string } };
+  department: { id: string; name: string; faculty: { name: string } };
 }
 
 // ─── Main component ───────────────────────────────────────────────────────
@@ -108,9 +88,11 @@ export interface ProfessorData {
 export default function ProfessorForm({
   professor: p,
   editableFields,
+  departments,
 }: {
   professor: ProfessorData;
   editableFields: EditableFields;
+  departments: { id: string; name: string }[];
 }) {
   const toast = useToast();
   const hasAnyEditable = editableFields === 'all' || editableFields.length > 0;
@@ -128,6 +110,7 @@ export default function ProfessorForm({
       firstName: p.firstName,
       patronymic: p.patronymic ?? '',
       email: p.email ?? '',
+      departmentId: p.department.id,
       employmentRate: p.employmentRate ?? undefined,
       pedagogicalExperience: p.pedagogicalExperience ?? undefined,
       academicRank:
@@ -160,7 +143,7 @@ export default function ProfessorForm({
     }
   });
 
-  const e = (field: string) => canEdit(field, editableFields);
+  const isEditable = (field: string) => canEdit(field, editableFields);
 
   const fullName = [p.lastName, p.firstName, p.patronymic]
     .filter(Boolean)
@@ -185,55 +168,66 @@ export default function ProfessorForm({
 
       {/* ── Персональні дані ───────────────────────────────────── */}
       <Section title="Персональні дані">
-        <Row label="Прізвище" error={errors.lastName?.message}>
-          {e('lastName') ? (
+        <FormField label="Прізвище" error={errors.lastName?.message}>
+          {isEditable('lastName') ? (
             <Input {...register('lastName')} className="max-w-sm" />
           ) : (
             <DisplayValue value={p.lastName} />
           )}
-        </Row>
-        <Row label="Ім'я" error={errors.firstName?.message}>
-          {e('firstName') ? (
+        </FormField>
+        <FormField label="Ім'я" error={errors.firstName?.message}>
+          {isEditable('firstName') ? (
             <Input {...register('firstName')} className="max-w-sm" />
           ) : (
             <DisplayValue value={p.firstName} />
           )}
-        </Row>
-        <Row label="По батькові" error={errors.patronymic?.message}>
-          {e('patronymic') ? (
+        </FormField>
+        <FormField label="По батькові" error={errors.patronymic?.message}>
+          {isEditable('patronymic') ? (
             <Input {...register('patronymic')} className="max-w-sm" />
           ) : (
             <DisplayValue value={p.patronymic} />
           )}
-        </Row>
-        <Row label="Email" error={errors.email?.message}>
-          {e('email') ? (
+        </FormField>
+        <FormField label="Email" error={errors.email?.message}>
+          {isEditable('email') ? (
             <Input {...register('email')} type="email" className="max-w-sm" />
           ) : (
             <DisplayValue value={p.email} />
           )}
-        </Row>
+        </FormField>
+        <FormField label="Кафедра" error={errors.departmentId?.message}>
+          {isEditable('departmentId') ? (
+            <Select {...register('departmentId')} className="max-w-sm">
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <DisplayValue value={p.department.name} />
+          )}
+        </FormField>
       </Section>
 
       {/* ── Зайнятість ─────────────────────────────────────────── */}
       <Section title="Зайнятість">
-        <Row label="Ставка" error={errors.employmentRate?.message}>
-          {e('employmentRate') ? (
+        {editableFields === 'all' && (
+          <FormField label="Ставка" error={errors.employmentRate?.message}>
             <Input
               {...register('employmentRate')}
               type="number"
               step="0.1"
               className="max-w-sm"
             />
-          ) : (
-            <DisplayValue value={p.employmentRate} />
-          )}
-        </Row>
-        <Row
+          </FormField>
+        )}
+        <FormField
           label="Педагогічний стаж (років)"
           error={errors.pedagogicalExperience?.message}
         >
-          {e('pedagogicalExperience') ? (
+          {isEditable('pedagogicalExperience') ? (
             <Input
               {...register('pedagogicalExperience')}
               type="number"
@@ -242,13 +236,13 @@ export default function ProfessorForm({
           ) : (
             <DisplayValue value={p.pedagogicalExperience} />
           )}
-        </Row>
+        </FormField>
       </Section>
 
       {/* ── Академічний профіль ────────────────────────────────── */}
       <Section title="Академічний профіль">
-        <Row label="Вчене звання" error={errors.academicRank?.message}>
-          {e('academicRank') ? (
+        <FormField label="Вчене звання" error={errors.academicRank?.message}>
+          {isEditable('academicRank') ? (
             <Select {...register('academicRank')} className="max-w-sm">
               <option value="">—</option>
               {Object.entries(ACADEMIC_RANK_LABELS).map(([val, label]) => (
@@ -264,9 +258,9 @@ export default function ProfessorForm({
               }
             />
           )}
-        </Row>
-        <Row label="Посада" error={errors.academicPosition?.message}>
-          {e('academicPosition') ? (
+        </FormField>
+        <FormField label="Посада" error={errors.academicPosition?.message}>
+          {isEditable('academicPosition') ? (
             <Select {...register('academicPosition')} className="max-w-sm">
               <option value="">—</option>
               {Object.entries(ACADEMIC_POSITION_LABELS).map(([val, label]) => (
@@ -284,9 +278,12 @@ export default function ProfessorForm({
               }
             />
           )}
-        </Row>
-        <Row label="Науковий ступінь" error={errors.scientificDegree?.message}>
-          {e('scientificDegree') ? (
+        </FormField>
+        <FormField
+          label="Науковий ступінь"
+          error={errors.scientificDegree?.message}
+        >
+          {isEditable('scientificDegree') ? (
             <Select {...register('scientificDegree')} className="max-w-sm">
               <option value="">—</option>
               {Object.entries(SCIENTIFIC_DEGREE_LABELS).map(([val, label]) => (
@@ -304,26 +301,23 @@ export default function ProfessorForm({
               }
             />
           )}
-        </Row>
-        <Row
+        </FormField>
+        <FormField
           label="Ступінь за спеціальністю кафедри"
           error={errors.degreeMatchesDepartment?.message}
         >
-          {e('degreeMatchesDepartment') ? (
-            <Checkbox
-              {...register('degreeMatchesDepartment')}
-              className="mt-2"
-            />
+          {isEditable('degreeMatchesDepartment') ? (
+            <Checkbox {...register('degreeMatchesDepartment')} />
           ) : (
             <DisplayValue value={degreeMatchLabel} />
           )}
-        </Row>
+        </FormField>
       </Section>
 
       {/* ── Профілі дослідника ─────────────────────────────────── */}
       <Section title="Профілі дослідника">
-        <Row label="ORCID iD" error={errors.orcidId?.message}>
-          {e('orcidId') ? (
+        <FormField label="ORCID iD" error={errors.orcidId?.message}>
+          {isEditable('orcidId') ? (
             <Input
               {...register('orcidId')}
               placeholder="0000-0000-0000-0000"
@@ -332,16 +326,19 @@ export default function ProfessorForm({
           ) : (
             <DisplayValue value={p.orcidId} />
           )}
-        </Row>
-        <Row label="Web of Science" error={errors.wosURL?.message}>
-          {e('wosURL') ? (
+        </FormField>
+        <FormField label="Web of Science" error={errors.wosURL?.message}>
+          {isEditable('wosURL') ? (
             <Input {...register('wosURL')} type="url" className="max-w-lg" />
           ) : (
             <DisplayValue value={p.wosURL} />
           )}
-        </Row>
-        <Row label="Цитувань у WoS" error={errors.wosCitationCount?.message}>
-          {e('wosCitationCount') ? (
+        </FormField>
+        <FormField
+          label="Цитувань у WoS"
+          error={errors.wosCitationCount?.message}
+        >
+          {isEditable('wosCitationCount') ? (
             <Input
               {...register('wosCitationCount')}
               type="number"
@@ -350,19 +347,23 @@ export default function ProfessorForm({
           ) : (
             <DisplayValue value={p.wosCitationCount} />
           )}
-        </Row>
-        <Row label="Scopus" error={errors.scopusURL?.message}>
-          {e('scopusURL') ? (
-            <Input {...register('scopusURL')} type="url" className="max-w-lg" />
+        </FormField>
+        <FormField label="Scopus" error={errors.scopusURL?.message}>
+          {isEditable('scopusURL') ? (
+            <Input
+              {...register('scopusURL')}
+              type="url"
+              className="max-w-lg"
+            />
           ) : (
             <DisplayValue value={p.scopusURL} />
           )}
-        </Row>
-        <Row
+        </FormField>
+        <FormField
           label="Цитувань у Scopus"
           error={errors.scopusCitationCount?.message}
         >
-          {e('scopusCitationCount') ? (
+          {isEditable('scopusCitationCount') ? (
             <Input
               {...register('scopusCitationCount')}
               type="number"
@@ -371,9 +372,9 @@ export default function ProfessorForm({
           ) : (
             <DisplayValue value={p.scopusCitationCount} />
           )}
-        </Row>
-        <Row label="Google Scholar" error={errors.googleScholarURL?.message}>
-          {e('googleScholarURL') ? (
+        </FormField>
+        <FormField label="Google Scholar" error={errors.googleScholarURL?.message}>
+          {isEditable('googleScholarURL') ? (
             <Input
               {...register('googleScholarURL')}
               type="url"
@@ -382,12 +383,12 @@ export default function ProfessorForm({
           ) : (
             <DisplayValue value={p.googleScholarURL} />
           )}
-        </Row>
-        <Row
+        </FormField>
+        <FormField
           label="Цитувань у Google Scholar"
           error={errors.googleScholarCitationCount?.message}
         >
-          {e('googleScholarCitationCount') ? (
+          {isEditable('googleScholarCitationCount') ? (
             <Input
               {...register('googleScholarCitationCount')}
               type="number"
@@ -396,28 +397,31 @@ export default function ProfessorForm({
           ) : (
             <DisplayValue value={p.googleScholarCitationCount} />
           )}
-        </Row>
+        </FormField>
       </Section>
 
       {/* ── Документи ──────────────────────────────────────────── */}
       <Section title="Документи">
-        <Row
+        <FormField
           label="ID рейтингового листа"
           error={errors.ratingSheetId?.message}
         >
-          {e('ratingSheetId') ? (
+          {isEditable('ratingSheetId') ? (
             <Input {...register('ratingSheetId')} className="max-w-sm" />
           ) : (
             <DisplayValue value={p.ratingSheetId} />
           )}
-        </Row>
-        <Row label="ID сертифіката" error={errors.certificateId?.message}>
-          {e('certificateId') ? (
+        </FormField>
+        <FormField
+          label="ID сертифіката"
+          error={errors.certificateId?.message}
+        >
+          {isEditable('certificateId') ? (
             <Input {...register('certificateId')} className="max-w-sm" />
           ) : (
             <DisplayValue value={p.certificateId} />
           )}
-        </Row>
+        </FormField>
       </Section>
 
       {hasAnyEditable && (
