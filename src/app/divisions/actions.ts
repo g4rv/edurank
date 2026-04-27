@@ -37,18 +37,13 @@ export async function createDivision(
   }
 }
 
-export async function deleteDivision(
-  prevState: ActionState,
-  formData: FormData
-): Promise<ActionState> {
+export async function deleteDivision(id: string): Promise<{ error?: string }> {
   await requireAdmin();
-
-  const id = formData.get('id') as string;
 
   try {
     await prisma.division.delete({ where: { id } });
     revalidatePath('/divisions');
-    return { success: 'Відділ видалено' };
+    return {};
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

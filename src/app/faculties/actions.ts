@@ -38,18 +38,13 @@ export async function createFaculty(
   }
 }
 
-export async function deleteFaculty(
-  prevState: ActionState,
-  formData: FormData
-): Promise<ActionState> {
+export async function deleteFaculty(id: string): Promise<{ error?: string }> {
   await requireAdminOrEditor();
-
-  const id = formData.get('id') as string;
 
   try {
     await prisma.faculty.delete({ where: { id } });
     revalidatePath('/faculties');
-    return { success: 'Факультет видалено' };
+    return {};
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

@@ -24,7 +24,7 @@ export function NavLinks({ links }: { links: NavLink[] }) {
             className={cn(
               'text-sm transition-colors',
               isActive
-                ? 'font-medium text-zinc-900'
+                ? 'font-bold text-zinc-900'
                 : 'text-zinc-500 hover:text-zinc-900'
             )}
           >

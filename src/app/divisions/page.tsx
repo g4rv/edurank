@@ -12,6 +12,9 @@ export default async function DivisionsPage() {
 
   const divisions = await prisma.division.findMany({
     orderBy: { name: 'asc' },
+    include: {
+      users: { select: { email: true }, orderBy: { email: 'asc' } },
+    },
   });
 
   return (

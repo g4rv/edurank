@@ -14,7 +14,13 @@ export default async function DepartmentsPage() {
   const [departments, faculties] = await Promise.all([
     prisma.department.findMany({
       orderBy: { name: 'asc' },
-      include: { faculty: { select: { name: true } } },
+      include: {
+        faculty: { select: { name: true } },
+        professors: {
+          select: { lastName: true, firstName: true },
+          orderBy: { lastName: 'asc' },
+        },
+      },
     }),
     prisma.faculty.findMany({ orderBy: { name: 'asc' } }),
   ]);

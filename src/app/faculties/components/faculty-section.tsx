@@ -1,20 +1,16 @@
 'use client';
 
-import { Button, Input } from '@/components/ui';
+import { Button, DeleteButton, Input } from '@/components/ui';
 import { useToast } from '@/providers/toast-provider';
 import { useActionState, useEffect } from 'react';
 import { createFaculty, deleteFaculty } from '../actions';
 
-type Faculty = { id: string; name: string };
+type Faculty = { id: string; name: string; departments: { name: string }[] };
 
 export function FacultySection({ faculties }: { faculties: Faculty[] }) {
   const toast = useToast();
   const [createState, createAction, isCreating] = useActionState(
     createFaculty,
-    null
-  );
-  const [deleteState, deleteAction, isDeleting] = useActionState(
-    deleteFaculty,
     null
   );
 
@@ -23,12 +19,6 @@ export function FacultySection({ faculties }: { faculties: Faculty[] }) {
     if (createState?.error) toast.error(createState.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createState]);
-
-  useEffect(() => {
-    if (deleteState?.success) toast.success(deleteState.success);
-    if (deleteState?.error) toast.error(deleteState.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deleteState]);
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-6">
@@ -51,17 +41,14 @@ export function FacultySection({ faculties }: { faculties: Faculty[] }) {
           {faculties.map((f) => (
             <li key={f.id} className="flex items-center justify-between py-2.5">
               <span className="text-sm text-zinc-800">{f.name}</span>
-              <form action={deleteAction}>
-                <input type="hidden" name="id" value={f.id} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="submit"
-                  disabled={isDeleting}
-                >
-                  Видалити
-                </Button>
-              </form>
+              <DeleteButton
+                id={f.id}
+                name={f.name}
+                title="Видалити факультет"
+                successMessage="Факультет видалено"
+                onDelete={deleteFaculty}
+                blockedBy={f.departments.map((d) => d.name)}
+              />
             </li>
           ))}
         </ul>

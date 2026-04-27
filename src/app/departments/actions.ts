@@ -40,17 +40,14 @@ export async function createDepartment(
 }
 
 export async function deleteDepartment(
-  prevState: ActionState,
-  formData: FormData
-): Promise<ActionState> {
+  id: string
+): Promise<{ error?: string }> {
   await requireAdminOrEditor();
-
-  const id = formData.get('id') as string;
 
   try {
     await prisma.department.delete({ where: { id } });
     revalidatePath('/departments');
-    return { success: 'Кафедру видалено' };
+    return {};
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

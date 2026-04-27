@@ -17,7 +17,6 @@ export const DIVISION_EDITABLE_FIELDS: Record<string, string[]> = {
     'academicPosition',
     'scientificDegree',
     'degreeMatchesDepartment',
-    'employmentRate',
     'pedagogicalExperience',
     'ratingSheetId',
     'certificateId',

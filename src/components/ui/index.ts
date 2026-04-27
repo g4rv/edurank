@@ -1,4 +1,6 @@
 export { Button } from './button';
+export { DeleteButton } from './delete-button';
+export { FormField } from './form-field';
 export { Checkbox } from './checkbox';
 export { Container } from './container';
 export { Input } from './input';

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { Container } from '@/components/ui';
+import { Container, DeleteButton } from '@/components/ui';
 import { POSITION_LABELS, DEGREE_LABELS } from '@/lib/professor-labels';
 import type { Prisma } from '@/generated/prisma/client';
 import type {
@@ -11,7 +11,7 @@ import type {
 } from '@/generated/prisma/enums';
 import Filter from './components/filter';
 import { AddProfessorButton } from './components/add-professor-button';
-import { DeleteProfessorButton } from './components/delete-professor-button';
+import { deleteProfessor } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +78,7 @@ export default async function ProfessorsPage({
         department: {
           select: { name: true, faculty: { select: { name: true } } },
         },
+        user: { select: { email: true } },
       },
     }),
     prisma.department.findMany({
@@ -184,9 +185,19 @@ export default async function ProfessorsPage({
                       </td>
                       {canManage && (
                         <td className="px-2 py-3">
-                          <DeleteProfessorButton
+                          <DeleteButton
                             id={professor.id}
                             name={fullName}
+                            title="Видалити викладача"
+                            successMessage="Викладача видалено"
+                            onDelete={deleteProfessor}
+                            blockedBy={
+                              professor.user
+                                ? [
+                                    `Обліковий запис: ${professor.user.email}`,
+                                  ]
+                                : []
+                            }
                           />
                         </td>
                       )}

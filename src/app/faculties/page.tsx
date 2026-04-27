@@ -11,7 +11,12 @@ export default async function FacultiesPage() {
   if (!session || !['ADMIN', 'EDITOR'].includes(session.user.role))
     redirect('/');
 
-  const faculties = await prisma.faculty.findMany({ orderBy: { name: 'asc' } });
+  const faculties = await prisma.faculty.findMany({
+    orderBy: { name: 'asc' },
+    include: {
+      departments: { select: { name: true }, orderBy: { name: 'asc' } },
+    },
+  });
 
   return (
     <main className="flex-1 bg-zinc-50 py-8">

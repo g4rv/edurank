@@ -1,12 +1,17 @@
 'use client';
 
-import { Button, Input, Select } from '@/components/ui';
+import { Button, DeleteButton, Input, Select } from '@/components/ui';
 import { useToast } from '@/providers/toast-provider';
 import { useActionState, useEffect } from 'react';
 import { createDepartment, deleteDepartment } from '../actions';
 
 type Faculty = { id: string; name: string };
-type Department = { id: string; name: string; faculty: { name: string } };
+type Department = {
+  id: string;
+  name: string;
+  faculty: { name: string };
+  professors: { lastName: string; firstName: string }[];
+};
 
 export function DepartmentSection({
   departments,
@@ -20,22 +25,12 @@ export function DepartmentSection({
     createDepartment,
     null
   );
-  const [deleteState, deleteAction, isDeleting] = useActionState(
-    deleteDepartment,
-    null
-  );
 
   useEffect(() => {
     if (createState?.success) toast.success(createState.success);
     if (createState?.error) toast.error(createState.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createState]);
-
-  useEffect(() => {
-    if (deleteState?.success) toast.success(deleteState.success);
-    if (deleteState?.error) toast.error(deleteState.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deleteState]);
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-6">
@@ -71,17 +66,16 @@ export function DepartmentSection({
                 {d.name}{' '}
                 <span className="text-zinc-400">— {d.faculty.name}</span>
               </span>
-              <form action={deleteAction}>
-                <input type="hidden" name="id" value={d.id} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="submit"
-                  disabled={isDeleting}
-                >
-                  Видалити
-                </Button>
-              </form>
+              <DeleteButton
+                id={d.id}
+                name={d.name}
+                title="Видалити кафедру"
+                successMessage="Кафедру видалено"
+                onDelete={deleteDepartment}
+                blockedBy={d.professors.map(
+                  (p) => `${p.lastName} ${p.firstName}`
+                )}
+              />
             </li>
           ))}
         </ul>

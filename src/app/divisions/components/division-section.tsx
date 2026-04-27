@@ -1,20 +1,16 @@
 'use client';
 
-import { Button, Input } from '@/components/ui';
+import { Button, DeleteButton, Input } from '@/components/ui';
 import { useToast } from '@/providers/toast-provider';
 import { useActionState, useEffect } from 'react';
 import { createDivision, deleteDivision } from '../actions';
 
-type Division = { id: string; name: string };
+type Division = { id: string; name: string; users: { email: string }[] };
 
 export function DivisionSection({ divisions }: { divisions: Division[] }) {
   const toast = useToast();
   const [createState, createAction, isCreating] = useActionState(
     createDivision,
-    null
-  );
-  const [deleteState, deleteAction, isDeleting] = useActionState(
-    deleteDivision,
     null
   );
 
@@ -23,12 +19,6 @@ export function DivisionSection({ divisions }: { divisions: Division[] }) {
     if (createState?.error) toast.error(createState.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createState]);
-
-  useEffect(() => {
-    if (deleteState?.success) toast.success(deleteState.success);
-    if (deleteState?.error) toast.error(deleteState.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deleteState]);
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-6">
@@ -55,17 +45,14 @@ export function DivisionSection({ divisions }: { divisions: Division[] }) {
           {divisions.map((d) => (
             <li key={d.id} className="flex items-center justify-between py-2.5">
               <span className="text-sm text-zinc-800">{d.name}</span>
-              <form action={deleteAction}>
-                <input type="hidden" name="id" value={d.id} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="submit"
-                  disabled={isDeleting}
-                >
-                  Видалити
-                </Button>
-              </form>
+              <DeleteButton
+                id={d.id}
+                name={d.name}
+                title="Видалити відділ"
+                successMessage="Відділ видалено"
+                onDelete={deleteDivision}
+                blockedBy={d.users.map((u) => u.email)}
+              />
             </li>
           ))}
         </ul>
