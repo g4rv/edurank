@@ -350,11 +350,7 @@ export default function ProfessorForm({
         </FormField>
         <FormField label="Scopus" error={errors.scopusURL?.message}>
           {isEditable('scopusURL') ? (
-            <Input
-              {...register('scopusURL')}
-              type="url"
-              className="max-w-lg"
-            />
+            <Input {...register('scopusURL')} type="url" className="max-w-lg" />
           ) : (
             <DisplayValue value={p.scopusURL} />
           )}
@@ -373,7 +369,10 @@ export default function ProfessorForm({
             <DisplayValue value={p.scopusCitationCount} />
           )}
         </FormField>
-        <FormField label="Google Scholar" error={errors.googleScholarURL?.message}>
+        <FormField
+          label="Google Scholar"
+          error={errors.googleScholarURL?.message}
+        >
           {isEditable('googleScholarURL') ? (
             <Input
               {...register('googleScholarURL')}
@@ -412,10 +411,7 @@ export default function ProfessorForm({
             <DisplayValue value={p.ratingSheetId} />
           )}
         </FormField>
-        <FormField
-          label="ID сертифіката"
-          error={errors.certificateId?.message}
-        >
+        <FormField label="ID сертифіката" error={errors.certificateId?.message}>
           {isEditable('certificateId') ? (
             <Input {...register('certificateId')} className="max-w-sm" />
           ) : (

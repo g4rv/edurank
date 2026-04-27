@@ -193,9 +193,7 @@ export default async function ProfessorsPage({
                             onDelete={deleteProfessor}
                             blockedBy={
                               professor.user
-                                ? [
-                                    `Обліковий запис: ${professor.user.email}`,
-                                  ]
+                                ? [`Обліковий запис: ${professor.user.email}`]
                                 : []
                             }
                           />

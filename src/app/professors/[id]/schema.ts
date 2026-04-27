@@ -9,10 +9,7 @@ import {
 export const nameField = z
   .string()
   .min(1, 'Обовʼязкове поле')
-  .regex(
-    /^[А-ЯҐЄІЇа-яґєіїʼ'\-]+$/,
-    'Тільки літери, дефіс або апостроф'
-  );
+  .regex(/^[А-ЯҐЄІЇа-яґєіїʼ'\-]+$/, 'Тільки літери, дефіс або апостроф');
 
 const positiveInt = z.coerce
   .number()

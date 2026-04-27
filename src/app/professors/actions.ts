@@ -90,7 +90,9 @@ export async function deleteProfessor(id: string): Promise<{ error?: string }> {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2003'
     ) {
-      return { error: 'Неможливо видалити — викладач має обліковий запис у системі' };
+      return {
+        error: 'Неможливо видалити — викладач має обліковий запис у системі',
+      };
     }
     return { error: 'Помилка сервера' };
   }

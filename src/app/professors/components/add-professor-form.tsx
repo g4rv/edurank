@@ -2,7 +2,11 @@
 
 import { Button, Input, Select, Checkbox, FormField } from '@/components/ui';
 import { useToast } from '@/providers/toast-provider';
-import { RANK_LABELS, POSITION_LABELS, DEGREE_LABELS } from '@/lib/professor-labels';
+import {
+  RANK_LABELS,
+  POSITION_LABELS,
+  DEGREE_LABELS,
+} from '@/lib/professor-labels';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type Resolver } from 'react-hook-form';
 import { createProfessor } from '../actions';
@@ -225,7 +229,11 @@ export function AddProfessorForm({
             required={req('wosCitationCount')}
             error={errors.wosCitationCount?.message}
           >
-            <Input {...register('wosCitationCount')} type="number" placeholder="0" />
+            <Input
+              {...register('wosCitationCount')}
+              type="number"
+              placeholder="0"
+            />
           </FormField>
         </div>
         <div className="grid grid-cols-[1fr_140px] gap-3">
@@ -241,7 +249,11 @@ export function AddProfessorForm({
             required={req('scopusCitationCount')}
             error={errors.scopusCitationCount?.message}
           >
-            <Input {...register('scopusCitationCount')} type="number" placeholder="0" />
+            <Input
+              {...register('scopusCitationCount')}
+              type="number"
+              placeholder="0"
+            />
           </FormField>
         </div>
         <div className="grid grid-cols-[1fr_140px] gap-3">
