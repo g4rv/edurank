@@ -38,7 +38,7 @@ describe('getEditableFields', () => {
       DIVISION_EDITABLE_FIELDS['Навчально-науковий відділ']
     );
     expect(fields).toContain('academicRank');
-    expect(fields).toContain('employmentRate');
+    expect(fields).not.toContain('employmentRate');
     expect(fields).not.toContain('email');
   });
 
