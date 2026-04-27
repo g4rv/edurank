@@ -22,20 +22,8 @@
 - [x] Professor management controls — add + delete professor on `/professors` page via modals
 - [x] FormField component — unified label/input/error layout, replaces ad-hoc Row/Field duplicates
 - [x] Professor schema cleanup — Cyrillic-only name validation, `z.email()`, Prisma enum refs, `departmentId` in base schema
-
----
-
-## Next up
-
-### Professor department field — wire it into the edit form
-
-The schema already has `departmentId`. Now make it work end-to-end.
-
-- [ ] Delete `src/app/professors/schema.ts` — now redundant, `professorSchema` is the single source
-- [ ] Update `add-professor-button.tsx` — import `professorSchema` / `ProfessorFormValues` from `'../[id]/schema'`
-- [ ] `professors/[id]/page.tsx` — add `prisma.department.findMany({ select: { id, name }, orderBy: { name: 'asc' } })` in parallel with the professor query; include `department.id` in the professor select; pass `departments` list to `ProfessorForm`
-- [ ] `professor-form.tsx` — add `department.id` to `ProfessorData` type, add `departments` prop, add `departmentId` default value, add department `<Select>` (shown to admins only — others see a display value)
-- [ ] `professors/[id]/actions.ts` — add `departmentId` handling via `canEdit('departmentId', editableFields)`
+- [x] Professor department field — wired end-to-end; editable by admin in the detail form; `professorSchema` is now the single source (redundant `professors/schema.ts` removed)
+- [x] Add professor form — extracted from `add-professor-button.tsx` into `add-professor-form.tsx`; button file is now trigger + modal shell only
 
 ---
 
