@@ -1,0 +1,176 @@
+import 'dotenv/config';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../lib/generated/prisma/client';
+import bcrypt from 'bcryptjs';
+
+const adapter = new PrismaPg(process.env.DATABASE_URL!);
+const prisma = new PrismaClient({ adapter });
+
+async function main() {
+  // ─── Divisions ────────────────────────────────────────────────────────────
+
+  const nnv = await prisma.division.upsert({
+    where: { name: 'Навчально-науковий відділ' },
+    update: {},
+    create: { name: 'Навчально-науковий відділ' },
+  });
+
+  const nnczyo = await prisma.division.upsert({
+    where: { name: 'Навчально-науковий центр забезпечення якості освіти' },
+    update: {},
+    create: { name: 'Навчально-науковий центр забезпечення якості освіти' },
+  });
+
+  // ─── Faculty ──────────────────────────────────────────────────────────────
+
+  const faculty = await prisma.faculty.upsert({
+    where: { name: 'Факультет інформаційних технологій' },
+    update: {},
+    create: { name: 'Факультет інформаційних технологій' },
+  });
+
+  // ─── Department ───────────────────────────────────────────────────────────
+
+  const department = await prisma.department.upsert({
+    where: { name_facultyId: { name: "Кафедра комп'ютерних наук", facultyId: faculty.id } },
+    update: {},
+    create: { name: "Кафедра комп'ютерних наук", facultyId: faculty.id },
+  });
+
+  // ─── Staff ────────────────────────────────────────────────────────────────
+
+  // НПП professor
+  const professor = await prisma.staff.upsert({
+    where: { email: 'kovalenko@university.edu.ua' },
+    update: {},
+    create: {
+      lastName: 'Коваленко',
+      firstName: 'Іван',
+      patronymic: 'Петрович',
+      email: 'kovalenko@university.edu.ua',
+      isNpp: true,
+      departmentId: department.id,
+      academicRank: 'DOCENT',
+      scientificDegree: 'CANDIDATE',
+      degreeMatchesDepartment: true,
+      employmentRate: 1.0,
+      pedagogicalExperience: 15,
+      googleScholarUrl: 'https://scholar.google.com/citations?user=example',
+      orcidId: '0000-0000-0000-0001',
+    },
+  });
+
+  // Non-НПП — ННВ employee (will be the EDITOR)
+  const editorStaff = await prisma.staff.upsert({
+    where: { email: 'editor@university.edu.ua' },
+    update: {},
+    create: {
+      lastName: 'Редакторенко',
+      firstName: 'Олена',
+      patronymic: 'Іванівна',
+      email: 'editor@university.edu.ua',
+      isNpp: false,
+      divisionId: nnv.id,
+    },
+  });
+
+  // ─── Users ────────────────────────────────────────────────────────────────
+
+  const [adminHash, editorHash, userHash] = await Promise.all([
+    bcrypt.hash('admin123', 10),
+    bcrypt.hash('editor123', 10),
+    bcrypt.hash('user1234', 10),
+  ]);
+
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@edurank.local' },
+    update: {},
+    create: { email: 'admin@edurank.local', passwordHash: adminHash, role: 'ADMIN' },
+  });
+
+  const editor = await prisma.user.upsert({
+    where: { email: 'editor@edurank.local' },
+    update: {},
+    create: {
+      email: 'editor@edurank.local',
+      passwordHash: editorHash,
+      role: 'EDITOR',
+      staffId: editorStaff.id,
+    },
+  });
+
+  const user = await prisma.user.upsert({
+    where: { email: 'kovalenko@edurank.local' },
+    update: {},
+    create: {
+      email: 'kovalenko@edurank.local',
+      passwordHash: userHash,
+      role: 'USER',
+      staffId: professor.id,
+    },
+  });
+
+  // ─── Division permissions (ННВ) ───────────────────────────────────────────
+
+  // Field permissions — which Staff fields ННВ editors can edit
+  const nnvFields = [
+    'academicRank',
+    'scientificDegree',
+    'degreeMatchesDepartment',
+    'pedagogicalExperience',
+    'employmentRate',
+    'wosUrl',
+    'wosCitationCount',
+    'scopusUrl',
+    'scopusCitationCount',
+    'googleScholarUrl',
+    'googleScholarCitationCount',
+    'orcidId',
+  ];
+
+  for (const fieldName of nnvFields) {
+    await prisma.divisionFieldPermission.upsert({
+      where: { divisionId_fieldName: { divisionId: nnv.id, fieldName } },
+      update: {},
+      create: { divisionId: nnv.id, fieldName },
+    });
+  }
+
+  // Entity permissions — ННВ can fully manage staff, departments, and faculties
+  const nnvEntityPermissions = [
+    { entity: 'STAFF' as const, action: 'CREATE' as const },
+    { entity: 'STAFF' as const, action: 'UPDATE' as const },
+    { entity: 'STAFF' as const, action: 'DELETE' as const },
+    { entity: 'DEPARTMENT' as const, action: 'CREATE' as const },
+    { entity: 'DEPARTMENT' as const, action: 'UPDATE' as const },
+    { entity: 'DEPARTMENT' as const, action: 'DELETE' as const },
+    { entity: 'FACULTY' as const, action: 'CREATE' as const },
+    { entity: 'FACULTY' as const, action: 'UPDATE' as const },
+    { entity: 'FACULTY' as const, action: 'DELETE' as const },
+  ];
+
+  for (const { entity, action } of nnvEntityPermissions) {
+    await prisma.divisionEntityPermission.upsert({
+      where: { divisionId_entity_action: { divisionId: nnv.id, entity, action } },
+      update: {},
+      create: { divisionId: nnv.id, entity, action },
+    });
+  }
+
+  console.log('\nSeeded:');
+  console.log(`  ADMIN   ${admin.email}              password: admin123`);
+  console.log(`  EDITOR  ${editor.email}             password: editor123  division: ${nnv.name}`);
+  console.log(
+    `  USER    ${user.email}  password: user1234   staff: ${professor.lastName} ${professor.firstName}`
+  );
+  console.log(`\n  Divisions: ${nnv.name}, ${nnczyo.name}`);
+  console.log(`  Faculty: ${faculty.name}`);
+  console.log(`  Department: ${department.name}`);
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());
