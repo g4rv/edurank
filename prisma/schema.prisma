@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  EDITOR
+  USER
+}
+
+enum AcademicRank {
+  LECTURER // викладач
+  SENIOR_LECTURER // старший викладач
+  DOCENT // доцент
+  PROFESSOR // професор
+}
+
+enum ScientificDegree {
+  CANDIDATE // кандидат наук / доктор філософії (PhD)
+  DOCTOR // доктор наук
+}
+
+// Entity types that division permissions can apply to
+enum EntityType {
+  STAFF
+  DEPARTMENT
+  FACULTY
+}
+
+// CRUD actions a division can be granted on an entity type
+enum EntityAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String
+  role         Role   @default(USER)
+
+  // null for admins/editors who are not НПП staff themselves
+  staffId String? @unique
+  staff   Staff?  @relation(fields: [staffId], references: [id])
+
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── University structure ────────────────────────────────────────────────────
+
+model Faculty {
+  id   String @id @default(cuid())
+  name String @unique
+
+  deanId String? @unique
+  dean   Staff?  @relation("FacultyDean", fields: [deanId], references: [id])
+
+  departments Department[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Department {
+  id   String @id @default(cuid())
+  name String
+
+  facultyId String
+  faculty   Faculty @relation(fields: [facultyId], references: [id])
+
+  headId String? @unique
+  head   Staff?  @relation("DepartmentHead", fields: [headId], references: [id])
+
+  primaryStaff  Staff[]           @relation("PrimaryDepartment")
+  partTimeStaff StaffDepartment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, facultyId])
+}
+
+model Division {
+  id   String @id @default(cuid())
+  name String @unique
+
+  staff             Staff[]
+  fieldPermissions  DivisionFieldPermission[]
+  entityPermissions DivisionEntityPermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Staff ───────────────────────────────────────────────────────────────────
+
+model Staff {
+  id         String @id @default(cuid())
+  lastName   String
+  firstName  String
+  patronymic String
+
+  email String  @unique
+  phone String?
+
+  // true = НПП (науково-педагогічний працівник), must belong to a department
+  // false = non-НПП (administrative staff), department is optional
+  isNpp Boolean @default(true)
+
+  // Confidential: ADMIN sees all, USER sees own, EDITOR never sees
+  employmentRate Float?
+
+  pedagogicalExperience Int?
+
+  academicRank            AcademicRank?
+  scientificDegree        ScientificDegree?
+  degreeMatchesDepartment Boolean?
+
+  wosUrl                     String?
+  wosCitationCount           Int?    @default(0)
+  scopusUrl                  String?
+  scopusCitationCount        Int?    @default(0)
+  googleScholarUrl           String?
+  googleScholarCitationCount Int?    @default(0)
+  orcidId                    String?
+
+  // Primary department (required for НПП, optional for non-НПП)
+  departmentId String?
+  department   Department? @relation("PrimaryDepartment", fields: [departmentId], references: [id])
+
+  // Part-time (сумісництво) departments
+  partTimeDepartments StaffDepartment[]
+
+  // Division this person belongs to (determines EDITOR permission scope)
+  divisionId String?
+  division   Division? @relation(fields: [divisionId], references: [id])
+
+  headOfDepartment Department? @relation("DepartmentHead")
+  deanOfFaculty    Faculty?    @relation("FacultyDean")
+
+  user User?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Part-time (сумісництво) relationships — primary department lives on Staff directly
+model StaffDepartment {
+  staffId      String
+  staff        Staff      @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([staffId, departmentId])
+}
+
+// ─── Permissions ─────────────────────────────────────────────────────────────
+
+// Which Staff fields each division's editors can edit
+model DivisionFieldPermission {
+  id         String   @id @default(cuid())
+  divisionId String
+  division   Division @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  fieldName  String
+
+  @@unique([divisionId, fieldName])
+}
+
+// Which entity CRUD operations each division can perform
+// e.g. { entity: STAFF, action: CREATE } = this division can add new staff records
+model DivisionEntityPermission {
+  id         String       @id @default(cuid())
+  divisionId String
+  division   Division     @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  entity     EntityType
+  action     EntityAction
+
+  @@unique([divisionId, entity, action])
+}
+
+// ─── Audit log ───────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  action    String // "CREATE" | "UPDATE" | "DELETE"
+  entity    String // model name, e.g. "Staff"
+  entityId  String
+  label     String? // human-readable description, e.g. "Updated Коваленко І.П."
+  userId    String? // kept even if user is later deleted
+  user      User?   @relation(fields: [userId], references: [id])
+}

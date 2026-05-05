@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: edurank
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    depends_on:
+      - postgres
+
+  backup:
+    image: prodrigestivill/postgres-backup-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: edurank
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      SCHEDULE: '@daily'
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    volumes:
+      # Primary backup — local folder in dev, network share (NAS) in production.
+      # Override BACKUP_PATH in .env to point at a mounted network share on the server:
+      #   BACKUP_PATH=/mnt/nas/edurank-backups
+      - ${BACKUP_PATH:-./backups}:/backups
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
