@@ -32,17 +32,18 @@ University staff management platform for internal use at a university science de
 
 ```bash
 # Install dependencies
-pnpm install
+pnpm install && pnpm db:generate
 
 # Copy env template and fill in values
-cp .env.example .env.local
+cp .env.example .env
+# Edit .env — set AUTH_SECRET (generate: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")
 
 # Start database
 docker compose up -d
 
 # Apply migrations and seed
-pnpm prisma migrate dev
-pnpm prisma db seed
+pnpm db:migrate --name init
+pnpm db:seed
 
 # Start dev server
 pnpm dev
@@ -53,14 +54,20 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Scripts
 
 ```bash
-pnpm dev          # dev server (Turbopack)
-pnpm build        # production build
-pnpm start        # production server
-pnpm lint         # ESLint
-pnpm lint:fix     # ESLint with auto-fix
-pnpm format       # Prettier
-pnpm type-check   # TypeScript check (no emit)
-pnpm test         # Vitest
+pnpm dev              # dev server (Turbopack)
+pnpm build            # production build
+pnpm start            # production server
+pnpm lint             # ESLint
+pnpm lint:fix         # ESLint with auto-fix
+pnpm format           # Prettier
+pnpm type-check       # TypeScript check (no emit)
+pnpm test             # Vitest
+
+pnpm db:migrate       # create + apply migration (prompts for name, or pass --name <x>)
+pnpm db:seed          # seed database with test data
+pnpm db:reset         # wipe DB and reapply all migrations (dev only)
+pnpm db:generate      # regenerate Prisma client after schema change
+pnpm db:studio        # Prisma Studio GUI at localhost:5555
 ```
 
 ## Project structure

@@ -62,36 +62,48 @@ Rules:
 
 **Design direction:** Clean & modern — whitespace, card-based profiles, polished SaaS feel. shadcn/ui base. All UI text in Ukrainian.
 
+**Also installed:**
+
+- Prisma 7 — ORM + migrations (`prisma/schema.prisma` is source of truth)
+- PostgreSQL 16 — via Docker
+- NextAuth.js v5 beta — auth (not yet wired up)
+- Zod — schema validation
+- React Hook Form + @hookform/resolvers — form state
+- bcryptjs — password hashing
+- Docker Compose — postgres + adminer + backup service
+
 **Planned (not yet installed):**
 
-- Prisma — ORM + migrations (source of truth for DB schema)
-- PostgreSQL — via Docker
-- NextAuth.js — auth with Prisma adapter, credentials provider (email/password)
-- Zod — schema validation (shared between client forms and server actions)
-- React Hook Form — form state management
-- Husky — pre-commit hooks (lint + type-check)
-- Vitest — unit tests
-- Docker Compose — app + postgres + adminer containers
-- Adminer — lightweight DB admin GUI
+- Nothing blocking — all deps are in place
 
 ## Commands
 
 ```bash
-pnpm dev        # dev server (Turbopack)
-pnpm build      # production build
-pnpm start      # production server
-pnpm lint       # ESLint
+pnpm dev              # dev server (Turbopack)
+pnpm build            # production build
+pnpm start            # production server
+pnpm lint             # ESLint
+pnpm type-check       # tsc --noEmit
+pnpm test             # Vitest (--passWithNoTests until tests exist)
+
+pnpm db:migrate       # prisma migrate dev (pass --name <x> to skip prompt)
+pnpm db:seed          # prisma db seed
+pnpm db:reset         # prisma migrate reset --force (wipe + reapply, dev only)
+pnpm db:generate      # prisma generate (run after any schema change)
+pnpm db:studio        # Prisma Studio at localhost:5555
+docker compose up -d  # start all services
 ```
 
-Once added:
+## Prisma 7 notes
 
-```bash
-pnpm vitest              # run all tests
-pnpm vitest run <file>   # run a single test file
-pnpm prisma migrate dev  # apply schema changes
-pnpm prisma db seed      # seed test users
-docker compose up        # start all services
-```
+Prisma 7 differs significantly from earlier versions:
+
+- **No `url` in `schema.prisma`** — database URL lives in `prisma.config.ts`, read via `dotenv/config` from `.env`.
+- **Client entry point is `client.ts`**, not `index.ts`. Always import as `@/lib/generated/prisma/client`.
+- **Generated client is gitignored** — run `pnpm db:generate` after `pnpm install` or after any schema change.
+- **Seed config** lives in `prisma.config.ts` under `migrations.seed`, not in `package.json`.
+- **Driver adapter required** — uses `@prisma/adapter-pg` (pure Node.js, no native binary engines needed).
+- **`db:migrate --name <x>`** — pass `--name` flag to skip the interactive name prompt.
 
 ## Folder structure
 
