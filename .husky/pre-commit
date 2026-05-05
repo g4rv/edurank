@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+echo "--- lint + format staged files"
+pnpm lint-staged
+
+echo "--- type check"
+pnpm type-check
+
