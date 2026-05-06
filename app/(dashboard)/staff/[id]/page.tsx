@@ -2,8 +2,10 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
 import { Button } from '@/components/ui/button';
+import { DeleteStaffButton } from '@/components/staff/delete-button';
 import { cn } from '@/lib/utils';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
 
@@ -97,12 +99,30 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
 
   if (!staff) notFound();
 
-  if (session?.user.role === 'USER' && session.user.staffId !== id) {
+  const role = session?.user.role;
+
+  if (role === 'USER' && session?.user.staffId !== id) {
     redirect('/profile');
   }
 
-  const isAdmin = session?.user.role === 'ADMIN';
+  const isAdmin = role === 'ADMIN';
+  const isEditor = role === 'EDITOR';
   const showConfidential = isAdmin || session?.user.staffId === id;
+  const canEdit = isAdmin || isEditor;
+
+  let canDelete = isAdmin;
+  if (!canDelete && isEditor) {
+    const editorStaff = await db.staff.findUnique({
+      where: { id: session?.user.staffId ?? '' },
+      select: { divisionId: true },
+    });
+    if (editorStaff?.divisionId) {
+      const permission = await db.divisionEntityPermission.findFirst({
+        where: { divisionId: editorStaff.divisionId, entity: 'STAFF', action: 'DELETE' },
+      });
+      canDelete = !!permission;
+    }
+  }
 
   const subtitle =
     staff.isNpp && staff.academicRank
@@ -139,10 +159,15 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           </div>
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        {isAdmin && (
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/staff/${id}/edit`}>Редагувати</Link>
-          </Button>
+        {(canEdit || canDelete) && (
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/staff/${id}/edit`}>Редагувати</Link>
+              </Button>
+            )}
+            {canDelete && <DeleteStaffButton staffId={id} staffName={fullName(staff)} />}
+          </div>
         )}
       </div>
 

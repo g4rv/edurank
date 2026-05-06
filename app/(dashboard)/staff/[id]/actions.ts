@@ -5,6 +5,61 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
 
+export type StaffDeleteState = { error: string } | null;
+
+export async function deleteStaff(id: string): Promise<StaffDeleteState> {
+  const session = await auth();
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
+  const isAdmin = role === 'ADMIN';
+
+  if (!isAdmin) {
+    if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
+
+    const editorStaff = await db.staff.findUnique({
+      where: { id: session.user.staffId ?? '' },
+      select: { divisionId: true },
+    });
+    if (!editorStaff?.divisionId) return { error: 'Недостатньо прав' };
+
+    const permission = await db.divisionEntityPermission.findFirst({
+      where: { divisionId: editorStaff.divisionId, entity: 'STAFF', action: 'DELETE' },
+    });
+    if (!permission) return { error: 'Недостатньо прав' };
+  }
+
+  let dbError: string | null = null;
+
+  try {
+    await db.$transaction(async (tx) => {
+      const staff = await tx.staff.findUnique({
+        where: { id },
+        select: { lastName: true, firstName: true },
+      });
+
+      await tx.staff.delete({ where: { id } });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'DELETE',
+          entity: 'Staff',
+          entityId: id,
+          label: staff
+            ? `Видалено запис Staff: ${staff.lastName} ${staff.firstName}`
+            : `Видалено запис Staff`,
+          userId: session.user.id,
+        },
+      });
+    });
+  } catch {
+    dbError = 'Помилка при видаленні';
+  }
+
+  if (dbError) return { error: dbError };
+  redirect('/staff');
+}
+
 export type StaffUpdateState = { error: string } | null;
 
 export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<StaffUpdateState> {
