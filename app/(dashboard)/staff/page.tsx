@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
 import { listStaff, type StaffListItem } from '@/lib/queries/list-staff';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,23 @@ export default async function StaffPage({
   const { type } = await searchParams;
   const [session, staff] = await Promise.all([auth(), listStaff({ type })]);
 
+  const role = session?.user.role;
+  const isAdmin = role === 'ADMIN';
+
+  let canCreate = isAdmin;
+  if (!canCreate && role === 'EDITOR') {
+    const editorStaff = await db.staff.findUnique({
+      where: { id: session?.user.staffId ?? '' },
+      select: { divisionId: true },
+    });
+    if (editorStaff?.divisionId) {
+      const permission = await db.divisionEntityPermission.findFirst({
+        where: { divisionId: editorStaff.divisionId, entity: 'STAFF', action: 'CREATE' },
+      });
+      canCreate = !!permission;
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -42,7 +60,7 @@ export default async function StaffPage({
           <h1 className="text-2xl font-semibold">Персонал</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{staff.length} записів</p>
         </div>
-        {session?.user.role === 'ADMIN' && (
+        {canCreate && (
           <Button asChild>
             <Link href="/staff/new">Додати</Link>
           </Button>

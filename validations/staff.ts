@@ -34,3 +34,6 @@ export const staffUpdateSchema = z.object({
 });
 
 export type StaffUpdateSchema = z.infer<typeof staffUpdateSchema>;
+
+export const staffCreateSchema = staffUpdateSchema;
+export type StaffCreateSchema = StaffUpdateSchema;
