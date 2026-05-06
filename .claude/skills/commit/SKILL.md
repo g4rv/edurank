@@ -2,6 +2,7 @@
 name: commit
 description: Stage and commit current changes with a descriptive commit message. Use when the user wants to commit, save changes, or create a checkpoint.
 allowed-tools: Bash(git status *) Bash(git diff *) Bash(git add *) Bash(git commit *) Bash(git log *)
+model: Haiku
 ---
 
 Review changes and create a commit.

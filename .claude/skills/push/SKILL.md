@@ -2,6 +2,7 @@
 name: push
 description: Push the current branch to remote. Use when the user wants to push, sync, or publish their commits.
 allowed-tools: Bash(git status *) Bash(git branch *) Bash(git log *) Bash(git push *)
+model: Haiku
 ---
 
 Push the current branch to remote.
