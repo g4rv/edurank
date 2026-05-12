@@ -101,9 +101,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
 
   const role = session?.user.role;
 
-  if (role === 'USER' && session?.user.staffId !== id) {
-    redirect('/profile');
-  }
+  if (role === 'USER') redirect('/profile');
 
   const isAdmin = role === 'ADMIN';
   const isEditor = role === 'EDITOR';

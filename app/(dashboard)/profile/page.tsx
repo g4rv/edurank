@@ -95,17 +95,20 @@ export default async function ProfilePage() {
   if (!session) redirect('/login');
 
   const staffId = session.user.staffId;
+  const canAccessStaffList = session.user.role !== 'USER';
+
   if (!staffId) {
-    // User has no associated staff record
     return (
       <div className="space-y-6">
-        <Link
-          href="/staff"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" />
-          Персонал
-        </Link>
+        {canAccessStaffList && (
+          <Link
+            href="/staff"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="size-4" />
+            Персонал
+          </Link>
+        )}
 
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Ваш профіль не знайдено. Зверніться до адміністратора.
@@ -129,13 +132,15 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/staff"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" />
-        Персонал
-      </Link>
+      {canAccessStaffList && (
+        <Link
+          href="/staff"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" />
+          Персонал
+        </Link>
+      )}
 
       <div>
         <div className="flex items-center gap-3">

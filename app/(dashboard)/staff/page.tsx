@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -34,9 +35,12 @@ export default async function StaffPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { type } = await searchParams;
-  const [session, staff] = await Promise.all([auth(), listStaff({ type })]);
-
+  const session = await auth();
   const role = session?.user.role;
+
+  if (role === 'USER') redirect('/profile');
+
+  const staff = await listStaff({ type });
   const isAdmin = role === 'ADMIN';
 
   let canCreate = isAdmin;

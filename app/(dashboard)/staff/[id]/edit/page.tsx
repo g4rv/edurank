@@ -21,10 +21,9 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
 
   const role = session?.user.role;
   const isAdmin = role === 'ADMIN';
-  const isOwnProfile = role === 'USER' && session?.user.staffId === id;
   const isEditor = role === 'EDITOR';
 
-  if (!isAdmin && !isOwnProfile && !isEditor) redirect(`/staff/${id}`);
+  if (!isAdmin && !isEditor) redirect(`/staff/${id}`);
 
   return (
     <div className="space-y-6">

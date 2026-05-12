@@ -1,0 +1,132 @@
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { Pencil } from 'lucide-react';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { Button } from '@/components/ui/button';
+import { DeleteDepartmentButton } from '@/components/department/delete-button';
+
+function headName(head: { lastName: string; firstName: string; patronymic: string } | null) {
+  if (!head) return '—';
+  return `${head.lastName} ${head.firstName} ${head.patronymic}`;
+}
+
+export default async function DepartmentsPage() {
+  const session = await auth();
+  const role = session?.user.role;
+
+  if (role === 'USER') redirect('/profile');
+
+  const departments = await db.department.findMany({
+    select: {
+      id: true,
+      name: true,
+      faculty: { select: { name: true } },
+      head: { select: { lastName: true, firstName: true, patronymic: true } },
+      _count: { select: { primaryStaff: true } },
+    },
+    orderBy: [{ faculty: { name: 'asc' } }, { name: 'asc' }],
+  });
+
+  const isAdmin = role === 'ADMIN';
+  let canCreate = isAdmin;
+  let canEdit = isAdmin;
+  let canDelete = isAdmin;
+
+  if (!isAdmin && role === 'EDITOR') {
+    const editorStaff = await db.staff.findUnique({
+      where: { id: session?.user.staffId ?? '' },
+      select: { divisionId: true },
+    });
+    const divisionId = editorStaff?.divisionId;
+
+    if (divisionId) {
+      const [createPerm, updatePerm, deletePerm] = await Promise.all([
+        db.divisionEntityPermission.findFirst({
+          where: { divisionId, entity: 'DEPARTMENT', action: 'CREATE' },
+        }),
+        db.divisionEntityPermission.findFirst({
+          where: { divisionId, entity: 'DEPARTMENT', action: 'UPDATE' },
+        }),
+        db.divisionEntityPermission.findFirst({
+          where: { divisionId, entity: 'DEPARTMENT', action: 'DELETE' },
+        }),
+      ]);
+      canCreate = !!createPerm;
+      canEdit = !!updatePerm;
+      canDelete = !!deletePerm;
+    }
+  }
+
+  const showActions = canEdit || canDelete;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Кафедри</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">{departments.length} записів</p>
+        </div>
+        {canCreate && (
+          <Button asChild>
+            <Link href="/departments/new">Додати</Link>
+          </Button>
+        )}
+      </div>
+
+      {departments.length === 0 ? (
+        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+          Кафедр не знайдено
+        </div>
+      ) : (
+        <div className="rounded-xl border bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Назва</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Факультет</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Завідувач</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">НПП</th>
+                {showActions && (
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Дії</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {departments.map((dept) => (
+                <tr
+                  key={dept.id}
+                  className="border-b transition-colors last:border-0 hover:bg-muted/30"
+                >
+                  <td className="px-4 py-3 font-medium">{dept.name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{dept.faculty.name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{headName(dept.head)}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{dept._count.primaryStaff}</td>
+                  {showActions && (
+                    <td className="px-4 py-3">
+                      <div className="flex items-start justify-end gap-2">
+                        {canEdit && (
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/departments/${dept.id}/edit`}>
+                              <Pencil className="size-4" />
+                            </Link>
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <DeleteDepartmentButton
+                            departmentId={dept.id}
+                            departmentName={dept.name}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
