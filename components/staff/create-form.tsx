@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
+import { toast } from 'sonner';
 import { useForm, Controller } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
@@ -109,7 +110,6 @@ interface StaffCreateFormProps {
 }
 
 export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreateFormProps) {
-  const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const {
@@ -126,21 +126,14 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
   const isNppValue = watch('isNpp') === 'true';
 
   function onSubmit(data: StaffCreateSchema) {
-    setServerError(null);
     startTransition(async () => {
       const result = await createStaff(data);
-      if (result?.error) setServerError(result.error);
+      if (result?.error) toast.error(result.error);
     });
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit as never)} className="space-y-4">
-      {serverError && (
-        <div className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {serverError}
-        </div>
-      )}
-
       <SectionCard title="Основна інформація" step="01">
         <FieldGroup className="grid grid-cols-2 gap-4">
           <FormField htmlFor="lastName" label="Прізвище" error={errors.lastName}>
