@@ -31,8 +31,12 @@ export function DivisionForm({ defaultValues, action, submitLabel }: DivisionFor
 
   function onSubmit(data: DivisionSchema) {
     startTransition(async () => {
-      const result = await action(data);
-      if (result?.error) toast.error(result.error);
+      try {
+        const result = await action(data);
+        if (result?.error) toast.error(result.error);
+      } catch {
+        toast.error('Помилка сервера');
+      }
     });
   }
 

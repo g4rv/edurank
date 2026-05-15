@@ -39,7 +39,7 @@ export default async function StaffNewPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-3xl space-y-6">
       <Link
         href="/staff"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

@@ -1,17 +1,18 @@
 'use client';
 
+import { useTransition } from 'react';
+import { useForm } from 'react-hook-form';
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { PassInput } from '@/components/ui/pass-input';
 import { loginSchema, type LoginSchema } from '@/validations/login';
-import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
 import { loginAction } from './actions';
 
 export default function LoginPage() {
-  const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const {
@@ -23,10 +24,9 @@ export default function LoginPage() {
   });
 
   function onSubmit(data: LoginSchema) {
-    setServerError(null);
     startTransition(async () => {
       const result = await loginAction(data);
-      if (result?.error) setServerError(result.error);
+      if (result?.error) toast.error(result.error);
     });
   }
 
@@ -38,12 +38,6 @@ export default function LoginPage() {
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {serverError && (
-            <div className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {serverError}
-            </div>
-          )}
-
           <FieldGroup className="flex flex-col gap-4">
             <FormField htmlFor="email" label="Email" error={errors.email}>
               <Input
@@ -57,9 +51,8 @@ export default function LoginPage() {
             </FormField>
 
             <FormField htmlFor="password" label="Пароль" error={errors.password}>
-              <Input
+              <PassInput
                 id="password"
-                type="password"
                 autoComplete="current-password"
                 disabled={isPending}
                 {...register('password')}

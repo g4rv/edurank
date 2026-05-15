@@ -20,7 +20,7 @@ export default async function EditDivisionPage({ params }: { params: Promise<{ i
   if (!division) notFound();
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-lg space-y-6">
       <Link
         href="/divisions"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

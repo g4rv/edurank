@@ -47,7 +47,7 @@ export default async function NewDepartmentPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-lg space-y-6">
       <Link
         href="/departments"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

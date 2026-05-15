@@ -50,8 +50,12 @@ export function DepartmentForm({
 
   function onSubmit(data: DepartmentSchema) {
     startTransition(async () => {
-      const result = await action(data);
-      if (result?.error) toast.error(result.error);
+      try {
+        const result = await action(data);
+        if (result?.error) toast.error(result.error);
+      } catch {
+        toast.error('Помилка сервера');
+      }
     });
   }
 

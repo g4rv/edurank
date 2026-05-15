@@ -42,8 +42,12 @@ export function FacultyForm({ defaultValues, staff, action, submitLabel }: Facul
 
   function onSubmit(data: FacultySchema) {
     startTransition(async () => {
-      const result = await action(data);
-      if (result?.error) toast.error(result.error);
+      try {
+        const result = await action(data);
+        if (result?.error) toast.error(result.error);
+      } catch {
+        toast.error('Помилка сервера');
+      }
     });
   }
 

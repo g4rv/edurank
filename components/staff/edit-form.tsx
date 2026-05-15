@@ -131,8 +131,12 @@ export function StaffEditForm({
 
   function onSubmit(data: StaffUpdateSchema) {
     startTransition(async () => {
-      const result = await updateStaff(staffId, data);
-      if (result?.error) toast.error(result.error);
+      try {
+        const result = await updateStaff(staffId, data);
+        if (result?.error) toast.error(result.error);
+      } catch {
+        toast.error('Помилка сервера');
+      }
     });
   }
 

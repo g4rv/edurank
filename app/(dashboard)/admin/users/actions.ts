@@ -1,0 +1,132 @@
+'use server';
+
+import { redirect } from 'next/navigation';
+import { hash } from 'bcryptjs';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { userFormSchema, type UserFormSchema } from '@/validations/user';
+
+export type UserActionState = { error: string } | null;
+
+async function requireAdmin() {
+  const session = await auth();
+  if (!session) redirect('/login');
+  if (session.user.role !== 'ADMIN') return null;
+  return session;
+}
+
+function isDuplicateEmail(e: unknown) {
+  return e && typeof e === 'object' && 'code' in e && e.code === 'P2002';
+}
+
+export async function createUser(data: UserFormSchema): Promise<UserActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const parsed = userFormSchema.safeParse(data);
+  if (!parsed.success) return { error: 'Невірні дані' };
+
+  if (!parsed.data.password) return { error: "Пароль є обов'язковим" };
+
+  const passwordHash = await hash(parsed.data.password, 10);
+  let dbError: string | null = null;
+
+  try {
+    await db.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: parsed.data.email,
+          passwordHash,
+          role: parsed.data.role,
+          staffId: parsed.data.staffId ?? null,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'CREATE',
+          entity: 'User',
+          entityId: user.id,
+          label: `Створено користувача: ${parsed.data.email}`,
+          userId: session.user.id,
+        },
+      });
+    });
+  } catch (e) {
+    dbError = isDuplicateEmail(e) ? 'Користувач з таким email вже існує' : 'Помилка при збереженні';
+  }
+
+  if (dbError) return { error: dbError };
+  redirect('/admin/users');
+}
+
+export async function updateUser(id: string, data: UserFormSchema): Promise<UserActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const parsed = userFormSchema.safeParse(data);
+  if (!parsed.success) return { error: 'Невірні дані' };
+
+  const updateData: Record<string, unknown> = {
+    email: parsed.data.email,
+    role: parsed.data.role,
+    staffId: parsed.data.staffId ?? null,
+  };
+
+  if (parsed.data.password) {
+    updateData.passwordHash = await hash(parsed.data.password, 10);
+  }
+
+  let dbError: string | null = null;
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id }, data: updateData });
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'User',
+          entityId: id,
+          label: `Оновлено користувача: ${parsed.data.email}`,
+          userId: session.user.id,
+        },
+      });
+    });
+  } catch (e) {
+    dbError = isDuplicateEmail(e) ? 'Користувач з таким email вже існує' : 'Помилка при збереженні';
+  }
+
+  if (dbError) return { error: dbError };
+  redirect('/admin/users');
+}
+
+export async function deleteUser(id: string): Promise<UserActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  if (session.user.id === id) return { error: 'Неможливо видалити власний обліковий запис' };
+
+  const user = await db.user.findUnique({ where: { id }, select: { email: true } });
+  if (!user) return { error: 'Користувача не знайдено' };
+
+  let dbError: string | null = null;
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.user.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: {
+          action: 'DELETE',
+          entity: 'User',
+          entityId: id,
+          label: `Видалено користувача: ${user.email}`,
+          userId: session.user.id,
+        },
+      });
+    });
+  } catch {
+    dbError = 'Помилка при видаленні';
+  }
+
+  if (dbError) return { error: dbError };
+  redirect('/admin/users');
+}

@@ -46,7 +46,7 @@ export default async function EditFacultyPage({ params }: { params: Promise<{ id
   if (!faculty) notFound();
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-lg space-y-6">
       <Link
         href="/faculties"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
