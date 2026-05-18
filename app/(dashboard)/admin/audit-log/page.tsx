@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
+import { SortTh } from '@/components/ui/sort-th';
 
 const ACTION_LABELS: Record<string, string> = {
   CREATE: 'Створено',
@@ -102,15 +103,6 @@ const VALID_ACTIONS = ['CREATE', 'UPDATE', 'DELETE'];
 const VALID_ENTITIES = ['Staff', 'Faculty', 'Department', 'Division', 'User'];
 const PAGE_SIZE = 50;
 
-function buildHref(params: Record<string, string | undefined>) {
-  const sp = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v) sp.set(k, v);
-  }
-  const qs = sp.toString();
-  return `/admin/audit-log${qs ? `?${qs}` : ''}`;
-}
-
 export default async function AuditLogPage({
   searchParams,
 }: {
@@ -119,25 +111,47 @@ export default async function AuditLogPage({
   const session = await auth();
   if (session?.user.role !== 'ADMIN') redirect('/');
 
-  const { action, entity, page: pageParam } = await searchParams;
+  const { action, entity, page: pageParam, dir, sort } = await searchParams;
 
   const actionFilter =
     typeof action === 'string' && VALID_ACTIONS.includes(action) ? action : undefined;
   const entityFilter =
     typeof entity === 'string' && VALID_ENTITIES.includes(entity) ? entity : undefined;
   const page = Math.max(1, parseInt(typeof pageParam === 'string' ? pageParam : '1', 10));
+  const sortField = sort === 'author' ? 'author' : 'createdAt';
+  const sortDir = dir === 'asc' ? 'asc' : 'desc';
+
+  function buildHref(overrides: Record<string, string | undefined>) {
+    const sp = new URLSearchParams();
+    const base: Record<string, string | undefined> = {
+      action: actionFilter,
+      entity: entityFilter,
+      sort: sortField !== 'createdAt' ? sortField : undefined,
+      dir: sortDir !== 'desc' ? sortDir : undefined,
+    };
+    for (const [k, v] of Object.entries({ ...base, ...overrides })) {
+      if (v) sp.set(k, v);
+    }
+    const qs = sp.toString();
+    return `/admin/audit-log${qs ? `?${qs}` : ''}`;
+  }
 
   const where = {
     ...(actionFilter ? { action: actionFilter } : {}),
     ...(entityFilter ? { entity: entityFilter } : {}),
   };
 
+  const orderBy =
+    sortField === 'author'
+      ? { user: { email: sortDir as 'asc' | 'desc' } }
+      : { createdAt: sortDir as 'asc' | 'desc' };
+
   const [total, logs, divisions, departments, faculties, staffList] = await Promise.all([
     db.auditLog.count({ where }),
     db.auditLog.findMany({
       where,
       include: { user: { select: { email: true } } },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -227,7 +241,15 @@ export default async function AuditLogPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Час</th>
+                <SortTh
+                  label="Час"
+                  href={buildHref({
+                    sort: 'createdAt',
+                    dir: sortField === 'createdAt' ? (sortDir === 'desc' ? 'asc' : 'desc') : 'desc',
+                  })}
+                  active={sortField === 'createdAt'}
+                  dir={sortDir as 'asc' | 'desc'}
+                />
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Дія</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   Об&apos;єкт
@@ -235,9 +257,15 @@ export default async function AuditLogPage({
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   Опис / Зміни
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Користувач
-                </th>
+                <SortTh
+                  label="Користувач"
+                  href={buildHref({
+                    sort: 'author',
+                    dir: sortField === 'author' ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc',
+                  })}
+                  active={sortField === 'author'}
+                  dir={sortDir as 'asc' | 'desc'}
+                />
               </tr>
             </thead>
             <tbody>

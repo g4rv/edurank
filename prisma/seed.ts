@@ -21,6 +21,18 @@ async function main() {
     create: { name: 'Навчально-науковий центр забезпечення якості освіти' },
   });
 
+  const vmz = await prisma.division.upsert({
+    where: { name: "Відділ міжнародних зв'язків" },
+    update: {},
+    create: { name: "Відділ міжнародних зв'язків" },
+  });
+
+  const va = await prisma.division.upsert({
+    where: { name: 'Відділ аспірантури' },
+    update: {},
+    create: { name: 'Відділ аспірантури' },
+  });
+
   // ─── Faculty ──────────────────────────────────────────────────────────────
 
   const faculty = await prisma.faculty.upsert({
@@ -163,7 +175,7 @@ async function main() {
   console.log(
     `  USER    ${user.email}  password: user1234   staff: ${professor.lastName} ${professor.firstName}`
   );
-  console.log(`\n  Divisions: ${nnv.name}, ${nnczyo.name}`);
+  console.log(`\n  Divisions: ${nnv.name}, ${nnczyo.name}, ${vmz.name}, ${va.name}`);
   console.log(`  Faculty: ${faculty.name}`);
   console.log(`  Department: ${department.name}`);
 }

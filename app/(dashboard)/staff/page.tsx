@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { listStaff, type StaffListItem } from '@/lib/queries/list-staff';
 import { Button } from '@/components/ui/button';
+import { SortTh } from '@/components/ui/sort-th';
 import { cn } from '@/lib/utils';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
 
@@ -34,13 +35,23 @@ export default async function StaffPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const { type } = await searchParams;
+  const { type, sort, dir } = await searchParams;
   const session = await auth();
   const role = session?.user.role;
 
   if (role === 'USER') redirect('/profile');
 
-  const staff = await listStaff({ type });
+  const VALID_SORTS = ['lastName', 'email', 'academicRank', 'department'] as const;
+  type SortField = (typeof VALID_SORTS)[number];
+
+  const typeFilter = type === 'npp' || type === 'admin' ? type : undefined;
+  const sortField: SortField =
+    typeof sort === 'string' && (VALID_SORTS as readonly string[]).includes(sort)
+      ? (sort as SortField)
+      : 'lastName';
+  const sortDir = dir === 'desc' ? 'desc' : 'asc';
+
+  const staff = await listStaff({ type: typeFilter, sort: sortField, dir: sortDir });
   const isAdmin = role === 'ADMIN';
 
   let canCreate = isAdmin;
@@ -55,6 +66,20 @@ export default async function StaffPage({
       });
       canCreate = !!permission;
     }
+  }
+
+  function buildHref(overrides: Record<string, string | undefined>) {
+    const sp = new URLSearchParams();
+    const base: Record<string, string | undefined> = {
+      type: typeFilter,
+      sort: sortField !== 'lastName' ? sortField : undefined,
+      dir: sortDir !== 'asc' ? sortDir : undefined,
+    };
+    for (const [k, v] of Object.entries({ ...base, ...overrides })) {
+      if (v) sp.set(k, v);
+    }
+    const qs = sp.toString();
+    return `/staff${qs ? `?${qs}` : ''}`;
   }
 
   return (
@@ -73,12 +98,11 @@ export default async function StaffPage({
 
       <div className="flex w-fit gap-1 rounded-lg bg-muted p-1">
         {TABS.map((tab) => {
-          const isActive = type === tab.value || (!type && tab.value === undefined);
-          const href = tab.value ? `/staff?type=${tab.value}` : '/staff';
+          const isActive = typeFilter === tab.value || (!typeFilter && tab.value === undefined);
           return (
             <Link
               key={tab.label}
-              href={href}
+              href={buildHref({ type: tab.value })}
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                 isActive
@@ -101,30 +125,54 @@ export default async function StaffPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">ПІБ</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Email</th>
+                <SortTh
+                  label="ПІБ"
+                  href={buildHref({
+                    sort: 'lastName',
+                    dir: sortField === 'lastName' && sortDir === 'asc' ? 'desc' : 'asc',
+                  })}
+                  active={sortField === 'lastName'}
+                  dir={sortDir}
+                />
+                <SortTh
+                  label="Email"
+                  href={buildHref({
+                    sort: 'email',
+                    dir: sortField === 'email' && sortDir === 'asc' ? 'desc' : 'asc',
+                  })}
+                  active={sortField === 'email'}
+                  dir={sortDir}
+                />
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Тип</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Кафедра / Відділ
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Вчене звання
-                </th>
+                <SortTh
+                  label="Кафедра / Відділ"
+                  href={buildHref({
+                    sort: 'department',
+                    dir: sortField === 'department' && sortDir === 'asc' ? 'desc' : 'asc',
+                  })}
+                  active={sortField === 'department'}
+                  dir={sortDir}
+                />
+                <SortTh
+                  label="Вчене звання"
+                  href={buildHref({
+                    sort: 'academicRank',
+                    dir: sortField === 'academicRank' && sortDir === 'asc' ? 'desc' : 'asc',
+                  })}
+                  active={sortField === 'academicRank'}
+                  dir={sortDir}
+                />
               </tr>
             </thead>
             <tbody>
               {staff.map((member) => (
                 <tr
                   key={member.id}
-                  className="border-b transition-colors last:border-0 hover:bg-muted/30"
+                  className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/staff/${member.id}`}
-                      className="font-medium underline-offset-4 hover:underline"
-                    >
-                      {fullName(member)}
-                    </Link>
+                  <td className="px-4 py-3 font-medium">
+                    <Link href={`/staff/${member.id}`} className="absolute inset-0" />
+                    {fullName(member)}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
                   <td className="px-4 py-3">

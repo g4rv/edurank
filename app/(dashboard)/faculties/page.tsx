@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { Button } from '@/components/ui/button';
+import { SortTh } from '@/components/ui/sort-th';
 import { DeleteFacultyButton } from '@/components/faculty/delete-button';
 
 function deanName(dean: { lastName: string; firstName: string; patronymic: string } | null) {
@@ -12,13 +13,19 @@ function deanName(dean: { lastName: string; firstName: string; patronymic: strin
   return `${dean.lastName} ${dean.firstName} ${dean.patronymic}`;
 }
 
-export default async function FacultiesPage() {
+export default async function FacultiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const { dir } = await searchParams;
   const session = await auth();
   const role = session?.user.role;
 
   if (role === 'USER') redirect('/profile');
 
-  const faculties = await listFaculties();
+  const sortDir = dir === 'desc' ? 'desc' : 'asc';
+  const faculties = await listFaculties({ dir: sortDir });
   const isAdmin = role === 'ADMIN';
 
   let canCreate = isAdmin;
@@ -51,6 +58,7 @@ export default async function FacultiesPage() {
   }
 
   const showActions = canEdit || canDelete;
+  const nextDir = sortDir === 'asc' ? 'desc' : 'asc';
 
   return (
     <div className="space-y-6">
@@ -75,7 +83,7 @@ export default async function FacultiesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Назва</th>
+                <SortTh label="Назва" href={`/faculties?dir=${nextDir}`} active dir={sortDir} />
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Декан</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Кафедри</th>
                 {showActions && (
@@ -87,13 +95,18 @@ export default async function FacultiesPage() {
               {faculties.map((faculty) => (
                 <tr
                   key={faculty.id}
-                  className="border-b transition-colors last:border-0 hover:bg-muted/30"
+                  className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
-                  <td className="px-4 py-3 font-medium">{faculty.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {canEdit && (
+                      <Link href={`/faculties/${faculty.id}/edit`} className="absolute inset-0" />
+                    )}
+                    {faculty.name}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{deanName(faculty.dean)}</td>
                   <td className="px-4 py-3 text-muted-foreground">{faculty._count.departments}</td>
                   {showActions && (
-                    <td className="px-4 py-3">
+                    <td className="relative z-10 px-4 py-3">
                       <div className="flex items-start justify-end gap-2">
                         {canEdit && (
                           <Button asChild variant="outline" size="sm">

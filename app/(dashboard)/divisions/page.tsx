@@ -4,13 +4,21 @@ import { Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
+import { SortTh } from '@/components/ui/sort-th';
 import { DeleteDivisionButton } from '@/components/division/delete-button';
 
-export default async function DivisionsPage() {
+export default async function DivisionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const { dir } = await searchParams;
   const session = await auth();
   const role = session?.user.role;
 
   if (role === 'USER') redirect('/profile');
+
+  const sortDir = dir === 'desc' ? ('desc' as const) : ('asc' as const);
 
   const divisions = await db.division.findMany({
     select: {
@@ -18,10 +26,11 @@ export default async function DivisionsPage() {
       name: true,
       _count: { select: { staff: true } },
     },
-    orderBy: { name: 'asc' },
+    orderBy: { name: sortDir },
   });
 
   const isAdmin = role === 'ADMIN';
+  const nextDir = sortDir === 'asc' ? 'desc' : 'asc';
 
   return (
     <div className="space-y-6">
@@ -46,7 +55,7 @@ export default async function DivisionsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Назва</th>
+                <SortTh label="Назва" href={`/divisions?dir=${nextDir}`} active dir={sortDir} />
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   Співробітників
                 </th>
@@ -59,19 +68,15 @@ export default async function DivisionsPage() {
               {divisions.map((division) => (
                 <tr
                   key={division.id}
-                  className="border-b transition-colors last:border-0 hover:bg-muted/30"
+                  className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
                   <td className="px-4 py-3 font-medium">
-                    <Link
-                      href={`/divisions/${division.id}`}
-                      className="underline-offset-4 hover:underline"
-                    >
-                      {division.name}
-                    </Link>
+                    <Link href={`/divisions/${division.id}`} className="absolute inset-0" />
+                    {division.name}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{division._count.staff}</td>
                   {isAdmin && (
-                    <td className="px-4 py-3">
+                    <td className="relative z-10 px-4 py-3">
                       <div className="flex items-start justify-end gap-2">
                         <Button asChild variant="outline" size="sm">
                           <Link href={`/divisions/${division.id}/edit`}>
