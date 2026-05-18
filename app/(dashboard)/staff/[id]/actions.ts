@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
+import { diffChanges } from '@/lib/audit';
 
 export type StaffDeleteState = { error: string } | null;
 
@@ -35,7 +36,18 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
     await db.$transaction(async (tx) => {
       const staff = await tx.staff.findUnique({
         where: { id },
-        select: { lastName: true, firstName: true },
+        select: {
+          lastName: true,
+          firstName: true,
+          patronymic: true,
+          email: true,
+          phone: true,
+          isNpp: true,
+          academicRank: true,
+          scientificDegree: true,
+          departmentId: true,
+          divisionId: true,
+        },
       });
 
       await tx.staff.delete({ where: { id } });
@@ -49,6 +61,9 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
             ? `Видалено запис Staff: ${staff.lastName} ${staff.firstName}`
             : `Видалено запис Staff`,
           userId: session.user.id,
+          changes: staff
+            ? diffChanges(staff as Record<string, string | number | boolean | null>, {})
+            : undefined,
         },
       });
     });
@@ -60,7 +75,7 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
   redirect('/staff');
 }
 
-export type StaffUpdateState = { error: string } | null;
+export type StaffUpdateState = { error: string } | { success: true };
 
 export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<StaffUpdateState> {
   const session = await auth();
@@ -108,6 +123,45 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
 
   try {
     await db.$transaction(async (tx) => {
+      const existing = await tx.staff.findUnique({
+        where: { id },
+        select: {
+          lastName: true,
+          firstName: true,
+          patronymic: true,
+          email: true,
+          phone: true,
+          isNpp: true,
+          employmentRate: true,
+          pedagogicalExperience: true,
+          academicRank: true,
+          scientificDegree: true,
+          degreeMatchesDepartment: true,
+          wosUrl: true,
+          wosCitationCount: true,
+          scopusUrl: true,
+          scopusCitationCount: true,
+          googleScholarUrl: true,
+          googleScholarCitationCount: true,
+          orcidId: true,
+          departmentId: true,
+          divisionId: true,
+        },
+      });
+
+      const beforeFiltered: Record<string, string | number | boolean | null> = {};
+      for (const key of Object.keys(updateData)) {
+        beforeFiltered[key] = ((existing as Record<string, unknown> | null)?.[key] ?? null) as
+          | string
+          | number
+          | boolean
+          | null;
+      }
+      const changes = diffChanges(
+        beforeFiltered,
+        updateData as Record<string, string | number | boolean | null>
+      );
+
       await tx.staff.update({ where: { id }, data: updateData });
 
       if (isAdmin) {
@@ -127,6 +181,7 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
           entityId: id,
           label: `Оновлено запис Staff`,
           userId: session.user.id,
+          changes,
         },
       });
     });
@@ -135,5 +190,5 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
   }
 
   if (dbError) return { error: dbError };
-  redirect(`/staff/${id}`);
+  return { success: true };
 }

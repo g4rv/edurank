@@ -5,6 +5,7 @@ import { hash } from 'bcryptjs';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { userFormSchema, type UserFormSchema } from '@/validations/user';
+import { diffChanges } from '@/lib/audit';
 
 export type UserActionState = { error: string } | null;
 
@@ -48,6 +49,14 @@ export async function createUser(data: UserFormSchema): Promise<UserActionState>
           entityId: user.id,
           label: `Створено користувача: ${parsed.data.email}`,
           userId: session.user.id,
+          changes: diffChanges(
+            {},
+            {
+              email: parsed.data.email,
+              role: parsed.data.role,
+              staffId: parsed.data.staffId ?? null,
+            }
+          ),
         },
       });
     });
@@ -80,6 +89,27 @@ export async function updateUser(id: string, data: UserFormSchema): Promise<User
 
   try {
     await db.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { id },
+        select: { email: true, role: true, staffId: true },
+      });
+      const changesData: Record<string, string | null> = {
+        email: parsed.data.email,
+        role: parsed.data.role,
+        staffId: parsed.data.staffId ?? null,
+      };
+      const changes = diffChanges(
+        {
+          email: existing?.email ?? null,
+          role: existing?.role ?? null,
+          staffId: existing?.staffId ?? null,
+        },
+        changesData
+      );
+      if (parsed.data.password) {
+        (changes as Record<string, unknown>).password = { from: '***', to: '***' };
+      }
+
       await tx.user.update({ where: { id }, data: updateData });
       await tx.auditLog.create({
         data: {
@@ -88,6 +118,7 @@ export async function updateUser(id: string, data: UserFormSchema): Promise<User
           entityId: id,
           label: `Оновлено користувача: ${parsed.data.email}`,
           userId: session.user.id,
+          changes,
         },
       });
     });
@@ -120,6 +151,7 @@ export async function deleteUser(id: string): Promise<UserActionState> {
           entityId: id,
           label: `Видалено користувача: ${user.email}`,
           userId: session.user.id,
+          changes: diffChanges({ email: user.email }, {}),
         },
       });
     });

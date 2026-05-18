@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
+import { diffChanges } from '@/lib/audit';
 
 export type StaffCreateState = { error: string } | null;
 
@@ -73,6 +74,7 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
           entityId: created.id,
           label: `Створено запис Staff: ${rest.lastName} ${rest.firstName}`,
           userId: session.user.id,
+          changes: diffChanges({}, createData as Record<string, string | number | boolean | null>),
         },
       });
     });

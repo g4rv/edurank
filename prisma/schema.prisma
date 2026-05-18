@@ -200,6 +200,7 @@ model AuditLog {
   entity    String // model name, e.g. "Staff"
   entityId  String
   label     String? // human-readable description, e.g. "Updated Коваленко І.П."
+  changes   Json? // { field: { from, to } } for UPDATE; { field: { from: null, to: value } } for CREATE; vice versa for DELETE
   userId    String? // kept even if user is later deleted
   user      User?   @relation(fields: [userId], references: [id])
 }

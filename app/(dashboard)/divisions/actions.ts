@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { divisionSchema, type DivisionSchema } from '@/validations/division';
+import { diffChanges } from '@/lib/audit';
 
 export type DivisionActionState = { error: string } | null;
 
@@ -36,6 +37,7 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
           entityId: created.id,
           label: `Створено відділ: ${parsed.data.name}`,
           userId: session.user.id,
+          changes: diffChanges({}, { name: parsed.data.name }),
         },
       });
     });
@@ -61,6 +63,9 @@ export async function updateDivision(
 
   try {
     await db.$transaction(async (tx) => {
+      const existing = await tx.division.findUnique({ where: { id }, select: { name: true } });
+      const changes = diffChanges({ name: existing?.name ?? null }, { name: parsed.data.name });
+
       await tx.division.update({ where: { id }, data: { name: parsed.data.name } });
       await tx.auditLog.create({
         data: {
@@ -69,6 +74,7 @@ export async function updateDivision(
           entityId: id,
           label: `Оновлено відділ: ${parsed.data.name}`,
           userId: session.user.id,
+          changes,
         },
       });
     });
@@ -105,6 +111,7 @@ export async function deleteDivision(id: string): Promise<DivisionActionState> {
           entityId: id,
           label: `Видалено відділ: ${division.name}`,
           userId: session.user.id,
+          changes: diffChanges({ name: division.name }, {}),
         },
       });
     });

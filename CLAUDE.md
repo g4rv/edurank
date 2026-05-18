@@ -195,6 +195,12 @@ Do not implement until source documents are provided. What we know so far:
 - Hooks (`hooks/`): `use` prefix, camelCase (`useProfessorForm.ts`)
 - Tests: colocated next to the file they test, `.test.ts(x)` suffix
 
+## Audit log
+
+Mutations use `diffChanges` from `lib/audit.ts` to capture before/after state in `AuditLog.changes` (JSON). The audit log page at `app/(dashboard)/admin/audit-log/page.tsx` renders these diffs using a `FIELD_LABELS` map.
+
+**When adding a new field to any model**, also add its Ukrainian label to `FIELD_LABELS` in the audit log page. When adding a new entity with mutations, wire up `diffChanges` in its `actions.ts` following the pattern in existing action files.
+
 ## Key conventions
 
 - Import alias `@/*` maps to project root (e.g. `@/lib/db`, `@/components/ui`)

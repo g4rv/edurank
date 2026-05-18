@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
+import { diffChanges } from '@/lib/audit';
 
 export type DepartmentActionState = { error: string } | null;
 
@@ -59,6 +60,14 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
           entityId: created.id,
           label: `Створено кафедру: ${parsed.data.name}`,
           userId: session.user.id,
+          changes: diffChanges(
+            {},
+            {
+              name: parsed.data.name,
+              facultyId: parsed.data.facultyId,
+              headId: parsed.data.headId ?? null,
+            }
+          ),
         },
       });
     });
@@ -94,6 +103,23 @@ export async function updateDepartment(
 
   try {
     await db.$transaction(async (tx) => {
+      const existing = await tx.department.findUnique({
+        where: { id },
+        select: { name: true, facultyId: true, headId: true },
+      });
+      const changes = diffChanges(
+        {
+          name: existing?.name ?? null,
+          facultyId: existing?.facultyId ?? null,
+          headId: existing?.headId ?? null,
+        },
+        {
+          name: parsed.data.name,
+          facultyId: parsed.data.facultyId,
+          headId: parsed.data.headId ?? null,
+        }
+      );
+
       await tx.department.update({
         where: { id },
         data: {
@@ -109,6 +135,7 @@ export async function updateDepartment(
           entityId: id,
           label: `Оновлено кафедру: ${parsed.data.name}`,
           userId: session.user.id,
+          changes,
         },
       });
     });
@@ -136,7 +163,12 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
 
   const department = await db.department.findUnique({
     where: { id },
-    select: { name: true, _count: { select: { primaryStaff: true } } },
+    select: {
+      name: true,
+      facultyId: true,
+      headId: true,
+      _count: { select: { primaryStaff: true } },
+    },
   });
 
   if (!department) return { error: 'Кафедру не знайдено' };
@@ -155,6 +187,14 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
           entityId: id,
           label: `Видалено кафедру: ${department.name}`,
           userId: session.user.id,
+          changes: diffChanges(
+            {
+              name: department.name,
+              facultyId: department.facultyId,
+              headId: department.headId ?? null,
+            },
+            {}
+          ),
         },
       });
     });

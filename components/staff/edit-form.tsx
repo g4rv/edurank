@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useForm, Controller } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
@@ -114,6 +115,7 @@ export function StaffEditForm({
   isAdmin,
   staffId,
 }: StaffEditFormProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const {
@@ -131,11 +133,12 @@ export function StaffEditForm({
 
   function onSubmit(data: StaffUpdateSchema) {
     startTransition(async () => {
-      try {
-        const result = await updateStaff(staffId, data);
-        if (result?.error) toast.error(result.error);
-      } catch {
-        toast.error('Помилка сервера');
+      const result = await updateStaff(staffId, data);
+      if ('error' in result) {
+        toast.error(result.error);
+      } else {
+        toast.success('Збережено');
+        router.refresh();
       }
     });
   }

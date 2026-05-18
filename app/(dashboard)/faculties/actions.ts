@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { facultySchema, type FacultySchema } from '@/validations/faculty';
+import { diffChanges } from '@/lib/audit';
 
 export type FacultyActionState = { error: string } | null;
 
@@ -55,6 +56,7 @@ export async function createFaculty(data: FacultySchema): Promise<FacultyActionS
           entityId: created.id,
           label: `Створено факультет: ${parsed.data.name}`,
           userId: session.user.id,
+          changes: diffChanges({}, { name: parsed.data.name, deanId: parsed.data.deanId ?? null }),
         },
       });
     });
@@ -87,6 +89,15 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
 
   try {
     await db.$transaction(async (tx) => {
+      const existing = await tx.faculty.findUnique({
+        where: { id },
+        select: { name: true, deanId: true },
+      });
+      const changes = diffChanges(
+        { name: existing?.name ?? null, deanId: existing?.deanId ?? null },
+        { name: parsed.data.name, deanId: parsed.data.deanId ?? null }
+      );
+
       await tx.faculty.update({
         where: { id },
         data: { name: parsed.data.name, deanId: parsed.data.deanId },
@@ -98,6 +109,7 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
           entityId: id,
           label: `Оновлено факультет: ${parsed.data.name}`,
           userId: session.user.id,
+          changes,
         },
       });
     });
@@ -125,7 +137,7 @@ export async function deleteFaculty(id: string): Promise<FacultyActionState> {
 
   const faculty = await db.faculty.findUnique({
     where: { id },
-    select: { name: true, _count: { select: { departments: true } } },
+    select: { name: true, deanId: true, _count: { select: { departments: true } } },
   });
 
   if (!faculty) return { error: 'Факультет не знайдено' };
@@ -144,6 +156,7 @@ export async function deleteFaculty(id: string): Promise<FacultyActionState> {
           entityId: id,
           label: `Видалено факультет: ${faculty.name}`,
           userId: session.user.id,
+          changes: diffChanges({ name: faculty.name, deanId: faculty.deanId ?? null }, {}),
         },
       });
     });
