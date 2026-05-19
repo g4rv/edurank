@@ -3,8 +3,11 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { listStaff, type StaffListItem } from '@/lib/queries/list-staff';
+import { listDepartments } from '@/lib/queries/list-departments';
+import { listFaculties } from '@/lib/queries/list-faculties';
 import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
+import { StaffFilters } from '@/components/staff/staff-filters';
 import { cn } from '@/lib/utils';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
 
@@ -19,6 +22,12 @@ const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
   CANDIDATE: 'Кандидат наук',
   DOCTOR: 'Доктор наук',
 };
+
+const VALID_SORTS = ['lastName', 'email', 'academicRank', 'department'] as const;
+type SortField = (typeof VALID_SORTS)[number];
+
+const VALID_RANKS = new Set<string>(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
+const VALID_DEGREES = new Set<string>(['CANDIDATE', 'DOCTOR']);
 
 const TABS = [
   { label: 'Всі', value: undefined },
@@ -35,14 +44,13 @@ export default async function StaffPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const { type, sort, dir } = await searchParams;
+  const params = await searchParams;
   const session = await auth();
   const role = session?.user.role;
 
   if (role === 'USER') redirect('/profile');
 
-  const VALID_SORTS = ['lastName', 'email', 'academicRank', 'department'] as const;
-  type SortField = (typeof VALID_SORTS)[number];
+  const { type, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch } = params;
 
   const typeFilter = type === 'npp' || type === 'admin' ? type : undefined;
   const sortField: SortField =
@@ -51,7 +59,31 @@ export default async function StaffPage({
       : 'lastName';
   const sortDir = dir === 'desc' ? 'desc' : 'asc';
 
-  const staff = await listStaff({ type: typeFilter, sort: sortField, dir: sortDir });
+  const isNpp = typeFilter === 'npp' ? true : typeFilter === 'admin' ? false : undefined;
+  const rankFilter =
+    typeof rank === 'string' && VALID_RANKS.has(rank) ? (rank as AcademicRank) : undefined;
+  const degreeFilter =
+    typeof degree === 'string' && VALID_DEGREES.has(degree)
+      ? (degree as ScientificDegree)
+      : undefined;
+
+  const [staff, faculties, departments] = await Promise.all([
+    listStaff({
+      isNpp,
+      sort: sortField,
+      dir: sortDir,
+      q: typeof q === 'string' ? q : undefined,
+      facultyId: typeof faculty === 'string' ? faculty : undefined,
+      departmentId: typeof dept === 'string' ? dept : undefined,
+      rank: rankFilter,
+      degree: degreeFilter,
+      partTime: partTime === '1',
+      degreeMatch: degreeMatch === '1',
+    }),
+    listFaculties(),
+    listDepartments(),
+  ]);
+
   const isAdmin = role === 'ADMIN';
 
   let canCreate = isAdmin;
@@ -74,6 +106,13 @@ export default async function StaffPage({
       type: typeFilter,
       sort: sortField !== 'lastName' ? sortField : undefined,
       dir: sortDir !== 'asc' ? sortDir : undefined,
+      q: typeof q === 'string' ? q : undefined,
+      faculty: typeof faculty === 'string' ? faculty : undefined,
+      dept: typeof dept === 'string' ? dept : undefined,
+      rank: rankFilter,
+      degree: degreeFilter,
+      partTime: partTime === '1' ? '1' : undefined,
+      degreeMatch: degreeMatch === '1' ? '1' : undefined,
     };
     for (const [k, v] of Object.entries({ ...base, ...overrides })) {
       if (v) sp.set(k, v);
@@ -115,6 +154,11 @@ export default async function StaffPage({
           );
         })}
       </div>
+
+      <StaffFilters
+        faculties={faculties.map((f) => ({ id: f.id, name: f.name }))}
+        departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
+      />
 
       {staff.length === 0 ? (
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">

@@ -48,11 +48,11 @@ export default async function EditFacultyPage({ params }: { params: Promise<{ id
   return (
     <div className="max-w-lg space-y-6">
       <Link
-        href="/faculties"
+        href={`/faculties/${id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
-        Факультети
+        {faculty.name}
       </Link>
 
       <h1 className="text-2xl font-semibold">Редагувати: {faculty.name}</h1>

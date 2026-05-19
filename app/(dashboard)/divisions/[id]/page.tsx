@@ -111,13 +111,16 @@ export default async function DivisionDetailPage({ params }: { params: Promise<{
           {division.fieldPermissions.length === 0 ? (
             <p className="text-sm text-muted-foreground">Поля не налаштовано</p>
           ) : (
-            <ul className="space-y-1.5">
+            <div className="flex flex-wrap gap-2">
               {division.fieldPermissions.map((fp) => (
-                <li key={fp.fieldName} className="text-sm">
+                <span
+                  key={fp.fieldName}
+                  className="rounded-md border bg-muted px-2.5 py-1 text-xs font-medium text-foreground"
+                >
                   {FIELD_LABELS[fp.fieldName] ?? fp.fieldName}
-                </li>
+                </span>
               ))}
-            </ul>
+            </div>
           )}
         </InfoCard>
 
@@ -125,16 +128,16 @@ export default async function DivisionDetailPage({ params }: { params: Promise<{
           {division.entityPermissions.length === 0 ? (
             <p className="text-sm text-muted-foreground">Дії не налаштовано</p>
           ) : (
-            <ul className="space-y-1.5">
+            <div className="flex flex-wrap gap-2">
               {division.entityPermissions.map((ep) => (
-                <li key={`${ep.entity}-${ep.action}`} className="text-sm">
-                  {ENTITY_LABELS[ep.entity] ?? ep.entity} —{' '}
-                  <span className="text-muted-foreground">
-                    {ACTION_LABELS[ep.action] ?? ep.action}
-                  </span>
-                </li>
+                <span
+                  key={`${ep.entity}-${ep.action}`}
+                  className="rounded-md border bg-muted px-2.5 py-1 text-xs font-medium text-foreground"
+                >
+                  {ENTITY_LABELS[ep.entity] ?? ep.entity} — {ACTION_LABELS[ep.action] ?? ep.action}
+                </span>
               ))}
-            </ul>
+            </div>
           )}
         </InfoCard>
       </div>

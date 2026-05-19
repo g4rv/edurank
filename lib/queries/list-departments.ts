@@ -5,6 +5,7 @@ export async function listDepartments() {
     select: {
       id: true,
       name: true,
+      facultyId: true,
       faculty: { select: { name: true } },
     },
     orderBy: [{ faculty: { name: 'asc' } }, { name: 'asc' }],

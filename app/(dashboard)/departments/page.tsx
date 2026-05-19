@@ -133,9 +133,7 @@ export default async function DepartmentsPage({
                   className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
                   <td className="px-4 py-3 font-medium">
-                    {canEdit && (
-                      <Link href={`/departments/${dept.id}/edit`} className="absolute inset-0" />
-                    )}
+                    <Link href={`/departments/${dept.id}`} className="absolute inset-0" />
                     {dept.name}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{dept.faculty.name}</td>

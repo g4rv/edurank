@@ -98,9 +98,7 @@ export default async function FacultiesPage({
                   className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
                   <td className="px-4 py-3 font-medium">
-                    {canEdit && (
-                      <Link href={`/faculties/${faculty.id}/edit`} className="absolute inset-0" />
-                    )}
+                    <Link href={`/faculties/${faculty.id}`} className="absolute inset-0" />
                     {faculty.name}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{deanName(faculty.dean)}</td>
