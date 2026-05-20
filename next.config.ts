@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
     serverActions: {
       allowedOrigins: ['*.ngrok-free.dev', '*.ngrok-free.app', '*.ngrok.io', '*.ngrok.app'],
     },
+    staleTimes: {
+      dynamic: 30,
+    },
   },
 };
 

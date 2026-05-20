@@ -12,7 +12,7 @@ import { StaffTable } from '@/components/staff/staff-table';
 import { cn } from '@/lib/utils';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
 
-const VALID_SORTS = ['lastName', 'email', 'academicRank', 'department'] as const;
+const VALID_SORTS = ['lastName', 'email', 'academicRank', 'department', 'employmentRate'] as const;
 type SortField = (typeof VALID_SORTS)[number];
 
 const VALID_RANKS = new Set<string>(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
@@ -35,6 +35,8 @@ export default async function StaffPage({
 
   if (role === 'USER') redirect('/profile');
 
+  const isAdmin = role === 'ADMIN';
+
   const { type, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch } = params;
 
   const typeFilter = type === 'npp' || type === 'admin' ? type : undefined;
@@ -42,6 +44,8 @@ export default async function StaffPage({
     typeof sort === 'string' && (VALID_SORTS as readonly string[]).includes(sort)
       ? (sort as SortField)
       : 'lastName';
+  const effectiveSortField: SortField =
+    sortField === 'employmentRate' && !isAdmin ? 'lastName' : sortField;
   const sortDir = dir === 'desc' ? 'desc' : 'asc';
 
   const isNpp = typeFilter === 'npp' ? true : typeFilter === 'admin' ? false : undefined;
@@ -55,7 +59,7 @@ export default async function StaffPage({
   const [staff, faculties, departments] = await Promise.all([
     listStaff({
       isNpp,
-      sort: sortField,
+      sort: effectiveSortField,
       dir: sortDir,
       q: typeof q === 'string' ? q : undefined,
       facultyId: typeof faculty === 'string' ? faculty : undefined,
@@ -69,8 +73,6 @@ export default async function StaffPage({
     listDepartments(),
   ]);
 
-  const isAdmin = role === 'ADMIN';
-
   let canCreate = isAdmin;
   if (!canCreate && role === 'EDITOR') {
     const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'STAFF');
@@ -81,7 +83,7 @@ export default async function StaffPage({
     const sp = new URLSearchParams();
     const base: Record<string, string | undefined> = {
       type: typeFilter,
-      sort: sortField !== 'lastName' ? sortField : undefined,
+      sort: effectiveSortField !== 'lastName' ? effectiveSortField : undefined,
       dir: sortDir !== 'asc' ? sortDir : undefined,
       q: typeof q === 'string' ? q : undefined,
       faculty: typeof faculty === 'string' ? faculty : undefined,
@@ -104,18 +106,18 @@ export default async function StaffPage({
         label="ПІБ"
         href={buildHref({
           sort: 'lastName',
-          dir: sortField === 'lastName' && sortDir === 'asc' ? 'desc' : 'asc',
+          dir: effectiveSortField === 'lastName' && sortDir === 'asc' ? 'desc' : 'asc',
         })}
-        active={sortField === 'lastName'}
+        active={effectiveSortField === 'lastName'}
         dir={sortDir}
       />
       <SortTh
         label="Email"
         href={buildHref({
           sort: 'email',
-          dir: sortField === 'email' && sortDir === 'asc' ? 'desc' : 'asc',
+          dir: effectiveSortField === 'email' && sortDir === 'asc' ? 'desc' : 'asc',
         })}
-        active={sortField === 'email'}
+        active={effectiveSortField === 'email'}
         dir={sortDir}
       />
       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Тип</th>
@@ -123,27 +125,38 @@ export default async function StaffPage({
         label="Кафедра / Відділ"
         href={buildHref({
           sort: 'department',
-          dir: sortField === 'department' && sortDir === 'asc' ? 'desc' : 'asc',
+          dir: effectiveSortField === 'department' && sortDir === 'asc' ? 'desc' : 'asc',
         })}
-        active={sortField === 'department'}
+        active={effectiveSortField === 'department'}
         dir={sortDir}
       />
       <SortTh
         label="Вчене звання"
         href={buildHref({
           sort: 'academicRank',
-          dir: sortField === 'academicRank' && sortDir === 'asc' ? 'desc' : 'asc',
+          dir: effectiveSortField === 'academicRank' && sortDir === 'asc' ? 'desc' : 'asc',
         })}
-        active={sortField === 'academicRank'}
+        active={effectiveSortField === 'academicRank'}
         dir={sortDir}
       />
+      {isAdmin && (
+        <SortTh
+          label="Ставка"
+          href={buildHref({
+            sort: 'employmentRate',
+            dir: effectiveSortField === 'employmentRate' && sortDir === 'asc' ? 'desc' : 'asc',
+          })}
+          active={effectiveSortField === 'employmentRate'}
+          dir={sortDir}
+        />
+      )}
     </tr>
   );
 
   // Key changes with every filter/sort combination so the table animates in fresh
   const tableKey = [
     typeFilter,
-    sortField,
+    effectiveSortField,
     sortDir,
     q,
     faculty,
@@ -193,7 +206,12 @@ export default async function StaffPage({
         departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
       />
 
-      <StaffTable key={tableKey} staff={staff} sortHeader={sortHeader} />
+      <StaffTable
+        key={tableKey}
+        staff={isAdmin ? staff : staff.map(({ employmentRate: _r, ...rest }) => rest)}
+        sortHeader={sortHeader}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

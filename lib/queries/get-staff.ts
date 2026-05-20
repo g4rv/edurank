@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 
-export async function getStaff(id: string) {
+export async function getStaff(id: string, includeConfidential = false) {
   return db.staff.findUnique({
     where: { id },
     select: {
@@ -11,7 +11,7 @@ export async function getStaff(id: string) {
       email: true,
       phone: true,
       isNpp: true,
-      employmentRate: true,
+      ...(includeConfidential ? { employmentRate: true } : {}),
       pedagogicalExperience: true,
       academicRank: true,
       scientificDegree: true,

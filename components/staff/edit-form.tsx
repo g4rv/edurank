@@ -67,7 +67,7 @@ function toFormValues(staff: StaffDetail): RawFormValues {
     email: staff.email,
     phone: staff.phone ?? '',
     isNpp: staff.isNpp ? 'true' : 'false',
-    employmentRate: staff.employmentRate !== null ? String(staff.employmentRate) : '',
+    employmentRate: staff.employmentRate != null ? String(staff.employmentRate) : '',
     pedagogicalExperience:
       staff.pedagogicalExperience !== null ? String(staff.pedagogicalExperience) : '',
     academicRank: staff.academicRank ?? '',

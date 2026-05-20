@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
 
-const _VALID_SORTS = ['lastName', 'email', 'academicRank', 'department'] as const;
+const _VALID_SORTS = ['lastName', 'email', 'academicRank', 'department', 'employmentRate'] as const;
 type SortField = (typeof _VALID_SORTS)[number];
 
 export type StaffFilters = {
@@ -26,7 +26,16 @@ export async function listStaff(filters?: StaffFilters) {
       ? [{ lastName: sortDir }, { firstName: sortDir }]
       : sortField === 'department'
         ? [{ department: { name: sortDir } }, { division: { name: sortDir } }]
-        : [{ [sortField]: sortDir }];
+        : sortField === 'employmentRate'
+          ? [
+              {
+                employmentRate: {
+                  sort: sortDir,
+                  nulls: (sortDir === 'asc' ? 'first' : 'last') as 'first' | 'last',
+                },
+              },
+            ]
+          : [{ [sortField]: sortDir }];
 
   const conditions: object[] = [];
 
@@ -61,6 +70,7 @@ export async function listStaff(filters?: StaffFilters) {
       isNpp: true,
       academicRank: true,
       scientificDegree: true,
+      employmentRate: true,
       department: { select: { name: true } },
       division: { select: { name: true } },
     },

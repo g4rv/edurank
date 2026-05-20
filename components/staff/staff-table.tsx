@@ -8,16 +8,19 @@ import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import type { StaffListItem } from '@/lib/queries/list-staff';
 
-function fullName(s: Pick<StaffListItem, 'lastName' | 'firstName' | 'patronymic'>) {
+function fullName(s: Pick<TableStaffItem, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
 }
 
+type TableStaffItem = Omit<StaffListItem, 'employmentRate'> & { employmentRate?: number | null };
+
 type Props = {
-  staff: StaffListItem[];
+  staff: TableStaffItem[];
   sortHeader: React.ReactNode;
+  isAdmin?: boolean;
 };
 
-export function StaffTable({ staff, sortHeader }: Props) {
+export function StaffTable({ staff, sortHeader, isAdmin }: Props) {
   if (staff.length === 0) {
     return (
       <motion.div
@@ -71,6 +74,19 @@ export function StaffTable({ staff, sortHeader }: Props) {
                       .join(', ')
                   : '—'}
               </td>
+              {isAdmin && (
+                <td className="px-4 py-3">
+                  {'employmentRate' in member && member.employmentRate != null ? (
+                    <span className="text-sm text-muted-foreground tabular-nums">
+                      {member.employmentRate}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                      не вказано
+                    </span>
+                  )}
+                </td>
+              )}
             </AnimatedRow>
           ))}
         </AnimatedTableBody>

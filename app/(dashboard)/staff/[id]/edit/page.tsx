@@ -9,21 +9,21 @@ import { StaffEditForm } from '@/components/staff/edit-form';
 
 export default async function StaffEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
-  const [session, staff, departments, divisions] = await Promise.all([
-    auth(),
-    getStaff(id),
-    listDepartments(),
-    listDivisions(),
-  ]);
-
-  if (!staff) notFound();
+  const session = await auth();
 
   const role = session?.user.role;
   const isAdmin = role === 'ADMIN';
   const isEditor = role === 'EDITOR';
 
   if (!isAdmin && !isEditor) redirect(`/staff/${id}`);
+
+  const [staff, departments, divisions] = await Promise.all([
+    getStaff(id, isAdmin),
+    listDepartments(),
+    listDivisions(),
+  ]);
+
+  if (!staff) notFound();
 
   return (
     <div className="max-w-3xl space-y-6">

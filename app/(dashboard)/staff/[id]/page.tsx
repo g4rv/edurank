@@ -84,18 +84,19 @@ function ProfileLink({
 
 export default async function StaffDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [session, staff] = await Promise.all([auth(), getStaff(id)]);
-
-  if (!staff) notFound();
+  const session = await auth();
 
   const role = session?.user.role;
-
   if (role === 'USER') redirect('/profile');
 
   const isAdmin = role === 'ADMIN';
   const isEditor = role === 'EDITOR';
   const showConfidential = isAdmin || session?.user.staffId === id;
   const canEdit = isAdmin || isEditor;
+
+  const staff = await getStaff(id, showConfidential);
+
+  if (!staff) notFound();
 
   let canDelete = isAdmin;
   if (!canDelete && isEditor) {
@@ -160,7 +161,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             {showConfidential && (
               <Field
                 label="Ставка"
-                value={staff.employmentRate !== null ? `${staff.employmentRate}` : '—'}
+                value={staff.employmentRate != null ? `${staff.employmentRate}` : '—'}
               />
             )}
           </InfoCard>
