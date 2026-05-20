@@ -2,24 +2,13 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
+import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { Button } from '@/components/ui/button';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { DeleteStaffButton } from '@/components/staff/delete-button';
+import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
-
-const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
-  LECTURER: 'Викладач',
-  SENIOR_LECTURER: 'Старший викладач',
-  DOCENT: 'Доцент',
-  PROFESSOR: 'Професор',
-};
-
-const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
-  CANDIDATE: 'Кандидат наук',
-  DOCTOR: 'Доктор наук',
-};
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -110,16 +99,8 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
 
   let canDelete = isAdmin;
   if (!canDelete && isEditor) {
-    const editorStaff = await db.staff.findUnique({
-      where: { id: session?.user.staffId ?? '' },
-      select: { divisionId: true },
-    });
-    if (editorStaff?.divisionId) {
-      const permission = await db.divisionEntityPermission.findFirst({
-        where: { divisionId: editorStaff.divisionId, entity: 'STAFF', action: 'DELETE' },
-      });
-      canDelete = !!permission;
-    }
+    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'STAFF');
+    canDelete = perms.canDelete;
   }
 
   const subtitle =
@@ -133,7 +114,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
       : null;
 
   return (
-    <div className="space-y-6">
+    <AnimatedPage className="space-y-6">
       <Link
         href="/staff"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -287,6 +268,6 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
       </div>
-    </div>
+    </AnimatedPage>
   );
 }

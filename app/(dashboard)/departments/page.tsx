@@ -3,8 +3,11 @@ import Link from 'next/link';
 import { Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
+import { AnimatedTableBody } from '@/components/ui/animated-table-body';
+import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
 
 function headName(head: { lastName: string; firstName: string; patronymic: string } | null) {
@@ -52,28 +55,10 @@ export default async function DepartmentsPage({
   let canDelete = isAdmin;
 
   if (!isAdmin && role === 'EDITOR') {
-    const editorStaff = await db.staff.findUnique({
-      where: { id: session?.user.staffId ?? '' },
-      select: { divisionId: true },
-    });
-    const divisionId = editorStaff?.divisionId;
-
-    if (divisionId) {
-      const [createPerm, updatePerm, deletePerm] = await Promise.all([
-        db.divisionEntityPermission.findFirst({
-          where: { divisionId, entity: 'DEPARTMENT', action: 'CREATE' },
-        }),
-        db.divisionEntityPermission.findFirst({
-          where: { divisionId, entity: 'DEPARTMENT', action: 'UPDATE' },
-        }),
-        db.divisionEntityPermission.findFirst({
-          where: { divisionId, entity: 'DEPARTMENT', action: 'DELETE' },
-        }),
-      ]);
-      canCreate = !!createPerm;
-      canEdit = !!updatePerm;
-      canDelete = !!deletePerm;
-    }
+    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'DEPARTMENT');
+    canCreate = perms.canCreate;
+    canEdit = perms.canUpdate;
+    canDelete = perms.canDelete;
   }
 
   const showActions = canEdit || canDelete;
@@ -126,9 +111,9 @@ export default async function DepartmentsPage({
                 )}
               </tr>
             </thead>
-            <tbody>
+            <AnimatedTableBody>
               {departments.map((dept) => (
-                <tr
+                <AnimatedRow
                   key={dept.id}
                   className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
@@ -158,9 +143,9 @@ export default async function DepartmentsPage({
                       </div>
                     </td>
                   )}
-                </tr>
+                </AnimatedRow>
               ))}
-            </tbody>
+            </AnimatedTableBody>
           </table>
         </div>
       )}

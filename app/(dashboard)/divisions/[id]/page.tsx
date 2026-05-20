@@ -4,6 +4,7 @@ import { ChevronLeft, Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
+import { AnimatedPage } from '@/components/ui/animated-page';
 import { DeleteDivisionButton } from '@/components/division/delete-button';
 
 const FIELD_LABELS: Record<string, string> = {
@@ -78,7 +79,7 @@ export default async function DivisionDetailPage({ params }: { params: Promise<{
   const isAdmin = role === 'ADMIN';
 
   return (
-    <div className="space-y-6">
+    <AnimatedPage className="space-y-6">
       <Link
         href="/divisions"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -141,6 +142,6 @@ export default async function DivisionDetailPage({ params }: { params: Promise<{
           )}
         </InfoCard>
       </div>
-    </div>
+    </AnimatedPage>
   );
 }

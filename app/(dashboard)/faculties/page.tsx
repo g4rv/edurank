@@ -2,10 +2,12 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
 import { listFaculties } from '@/lib/queries/list-faculties';
+import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
+import { AnimatedTableBody } from '@/components/ui/animated-table-body';
+import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteFacultyButton } from '@/components/faculty/delete-button';
 
 function deanName(dean: { lastName: string; firstName: string; patronymic: string } | null) {
@@ -33,28 +35,10 @@ export default async function FacultiesPage({
   let canDelete = isAdmin;
 
   if (!isAdmin && role === 'EDITOR') {
-    const editorStaff = await db.staff.findUnique({
-      where: { id: session?.user.staffId ?? '' },
-      select: { divisionId: true },
-    });
-    const divisionId = editorStaff?.divisionId;
-
-    if (divisionId) {
-      const [createPerm, updatePerm, deletePerm] = await Promise.all([
-        db.divisionEntityPermission.findFirst({
-          where: { divisionId, entity: 'FACULTY', action: 'CREATE' },
-        }),
-        db.divisionEntityPermission.findFirst({
-          where: { divisionId, entity: 'FACULTY', action: 'UPDATE' },
-        }),
-        db.divisionEntityPermission.findFirst({
-          where: { divisionId, entity: 'FACULTY', action: 'DELETE' },
-        }),
-      ]);
-      canCreate = !!createPerm;
-      canEdit = !!updatePerm;
-      canDelete = !!deletePerm;
-    }
+    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'FACULTY');
+    canCreate = perms.canCreate;
+    canEdit = perms.canUpdate;
+    canDelete = perms.canDelete;
   }
 
   const showActions = canEdit || canDelete;
@@ -91,9 +75,9 @@ export default async function FacultiesPage({
                 )}
               </tr>
             </thead>
-            <tbody>
+            <AnimatedTableBody>
               {faculties.map((faculty) => (
-                <tr
+                <AnimatedRow
                   key={faculty.id}
                   className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
@@ -119,9 +103,9 @@ export default async function FacultiesPage({
                       </div>
                     </td>
                   )}
-                </tr>
+                </AnimatedRow>
               ))}
-            </tbody>
+            </AnimatedTableBody>
           </table>
         </div>
       )}

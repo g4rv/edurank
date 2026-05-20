@@ -6,6 +6,8 @@ import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
+import { AnimatedTableBody } from '@/components/ui/animated-table-body';
+import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteUserButton } from '@/components/admin/delete-user-button';
 import type { Role } from '@/lib/generated/prisma/client';
 
@@ -101,9 +103,9 @@ export default async function UsersPage({
                 <th className="px-4 py-3 text-right font-medium text-muted-foreground">Дії</th>
               </tr>
             </thead>
-            <tbody>
+            <AnimatedTableBody>
               {users.map((user) => (
-                <tr
+                <AnimatedRow
                   key={user.id}
                   className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
@@ -139,9 +141,9 @@ export default async function UsersPage({
                       <DeleteUserButton userId={user.id} userEmail={user.email} />
                     </div>
                   </td>
-                </tr>
+                </AnimatedRow>
               ))}
-            </tbody>
+            </AnimatedTableBody>
           </table>
         </div>
       )}

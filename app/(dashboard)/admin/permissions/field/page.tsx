@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { FieldPermissionToggle } from '@/components/admin/field-permission-toggle';
+import { AnimatedList, AnimatedItem } from '@/components/ui/animated-list';
 
 const FIELD_GROUPS = [
   {
@@ -123,21 +124,20 @@ export default async function FieldPermissionsPage({
                   <div className="border-b px-4 py-3">
                     <p className="text-sm font-medium">{group.label}</p>
                   </div>
-                  <div className="divide-y">
+                  <AnimatedList className="divide-y">
                     {group.fields.map((field) => (
-                      <label
-                        key={field}
-                        className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-muted/30"
-                      >
-                        <FieldPermissionToggle
-                          divisionId={selectedId}
-                          fieldName={field}
-                          checked={granted.has(field)}
-                        />
-                        <span className="text-sm">{FIELD_LABELS[field] ?? field}</span>
-                      </label>
+                      <AnimatedItem key={field}>
+                        <label className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-muted/30">
+                          <FieldPermissionToggle
+                            divisionId={selectedId}
+                            fieldName={field}
+                            checked={granted.has(field)}
+                          />
+                          <span className="text-sm">{FIELD_LABELS[field] ?? field}</span>
+                        </label>
+                      </AnimatedItem>
                     ))}
-                  </div>
+                  </AnimatedList>
                 </div>
               ))}
             </div>

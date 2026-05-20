@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { EntityPermissionToggle } from '@/components/admin/entity-permission-toggle';
 import type { EntityType, EntityAction } from '@/lib/generated/prisma/client';
+import { AnimatedTableBody } from '@/components/ui/animated-table-body';
+import { AnimatedRow } from '@/components/ui/animated-row';
 
 const ENTITIES: { value: EntityType; label: string }[] = [
   { value: 'STAFF', label: 'Персонал' },
@@ -93,9 +95,9 @@ export default async function EntityPermissionsPage({
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <AnimatedTableBody>
                   {ENTITIES.map((e) => (
-                    <tr key={e.value} className="border-b last:border-0">
+                    <AnimatedRow key={e.value} className="border-b last:border-0">
                       <td className="px-4 py-3 font-medium">{e.label}</td>
                       {ACTIONS.map((a) => (
                         <td key={a.value} className="px-4 py-3 text-center">
@@ -107,9 +109,9 @@ export default async function EntityPermissionsPage({
                           />
                         </td>
                       ))}
-                    </tr>
+                    </AnimatedRow>
                   ))}
-                </tbody>
+                </AnimatedTableBody>
               </table>
             </div>
           )}

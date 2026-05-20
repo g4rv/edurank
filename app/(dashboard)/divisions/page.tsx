@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
+import { AnimatedTableBody } from '@/components/ui/animated-table-body';
+import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteDivisionButton } from '@/components/division/delete-button';
 
 export default async function DivisionsPage({
@@ -64,9 +66,9 @@ export default async function DivisionsPage({
                 )}
               </tr>
             </thead>
-            <tbody>
+            <AnimatedTableBody>
               {divisions.map((division) => (
-                <tr
+                <AnimatedRow
                   key={division.id}
                   className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
@@ -90,9 +92,9 @@ export default async function DivisionsPage({
                       </div>
                     </td>
                   )}
-                </tr>
+                </AnimatedRow>
               ))}
-            </tbody>
+            </AnimatedTableBody>
           </table>
         </div>
       )}

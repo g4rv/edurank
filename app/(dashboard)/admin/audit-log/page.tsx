@@ -6,6 +6,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { SortTh } from '@/components/ui/sort-th';
+import { AnimatedTableBody } from '@/components/ui/animated-table-body';
+import { AnimatedRow } from '@/components/ui/animated-row';
 
 const ACTION_LABELS: Record<string, string> = {
   CREATE: 'Створено',
@@ -268,7 +270,7 @@ export default async function AuditLogPage({
                 />
               </tr>
             </thead>
-            <tbody>
+            <AnimatedTableBody>
               {logs.map((log) => {
                 const changes =
                   log.changes && typeof log.changes === 'object' && !Array.isArray(log.changes)
@@ -276,7 +278,7 @@ export default async function AuditLogPage({
                     : null;
 
                 return (
-                  <tr
+                  <AnimatedRow
                     key={log.id}
                     className="border-b transition-colors last:border-0 hover:bg-muted/30"
                   >
@@ -303,10 +305,10 @@ export default async function AuditLogPage({
                     <td className="px-4 py-3 align-top text-muted-foreground">
                       {log.user?.email ?? '—'}
                     </td>
-                  </tr>
+                  </AnimatedRow>
                 );
               })}
-            </tbody>
+            </AnimatedTableBody>
           </table>
         </div>
       )}

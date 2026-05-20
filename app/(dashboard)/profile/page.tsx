@@ -3,20 +3,9 @@ import Link from 'next/link';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
+import { AnimatedPage } from '@/components/ui/animated-page';
+import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
-
-const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
-  LECTURER: 'Викладач',
-  SENIOR_LECTURER: 'Старший викладач',
-  DOCENT: 'Доцент',
-  PROFESSOR: 'Професор',
-};
-
-const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
-  CANDIDATE: 'Кандидат наук',
-  DOCTOR: 'Доктор наук',
-};
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -99,7 +88,7 @@ export default async function ProfilePage() {
 
   if (!staffId) {
     return (
-      <div className="space-y-6">
+      <AnimatedPage className="space-y-6">
         {canAccessStaffList && (
           <Link
             href="/staff"
@@ -113,7 +102,7 @@ export default async function ProfilePage() {
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Ваш профіль не знайдено. Зверніться до адміністратора.
         </div>
-      </div>
+      </AnimatedPage>
     );
   }
 
@@ -131,7 +120,7 @@ export default async function ProfilePage() {
       : null;
 
   return (
-    <div className="space-y-6">
+    <AnimatedPage className="space-y-6">
       {canAccessStaffList && (
         <Link
           href="/staff"
@@ -265,6 +254,6 @@ export default async function ProfilePage() {
           </InfoCard>
         )}
       </div>
-    </div>
+    </AnimatedPage>
   );
 }

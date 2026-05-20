@@ -1,27 +1,16 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { listStaff, type StaffListItem } from '@/lib/queries/list-staff';
+import { listStaff } from '@/lib/queries/list-staff';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listFaculties } from '@/lib/queries/list-faculties';
+import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
 import { StaffFilters } from '@/components/staff/staff-filters';
+import { StaffTable } from '@/components/staff/staff-table';
 import { cn } from '@/lib/utils';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
-
-const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
-  LECTURER: 'Викладач',
-  SENIOR_LECTURER: 'Старший викладач',
-  DOCENT: 'Доцент',
-  PROFESSOR: 'Професор',
-};
-
-const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
-  CANDIDATE: 'Кандидат наук',
-  DOCTOR: 'Доктор наук',
-};
 
 const VALID_SORTS = ['lastName', 'email', 'academicRank', 'department'] as const;
 type SortField = (typeof VALID_SORTS)[number];
@@ -34,10 +23,6 @@ const TABS = [
   { label: 'НПП', value: 'npp' },
   { label: 'Адміністративний', value: 'admin' },
 ] as const;
-
-function fullName(s: Pick<StaffListItem, 'lastName' | 'firstName' | 'patronymic'>) {
-  return `${s.lastName} ${s.firstName} ${s.patronymic}`;
-}
 
 export default async function StaffPage({
   searchParams,
@@ -88,16 +73,8 @@ export default async function StaffPage({
 
   let canCreate = isAdmin;
   if (!canCreate && role === 'EDITOR') {
-    const editorStaff = await db.staff.findUnique({
-      where: { id: session?.user.staffId ?? '' },
-      select: { divisionId: true },
-    });
-    if (editorStaff?.divisionId) {
-      const permission = await db.divisionEntityPermission.findFirst({
-        where: { divisionId: editorStaff.divisionId, entity: 'STAFF', action: 'CREATE' },
-      });
-      canCreate = !!permission;
-    }
+    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'STAFF');
+    canCreate = perms.canCreate;
   }
 
   function buildHref(overrides: Record<string, string | undefined>) {
@@ -120,6 +97,62 @@ export default async function StaffPage({
     const qs = sp.toString();
     return `/staff${qs ? `?${qs}` : ''}`;
   }
+
+  const sortHeader = (
+    <tr className="border-b bg-muted/40">
+      <SortTh
+        label="ПІБ"
+        href={buildHref({
+          sort: 'lastName',
+          dir: sortField === 'lastName' && sortDir === 'asc' ? 'desc' : 'asc',
+        })}
+        active={sortField === 'lastName'}
+        dir={sortDir}
+      />
+      <SortTh
+        label="Email"
+        href={buildHref({
+          sort: 'email',
+          dir: sortField === 'email' && sortDir === 'asc' ? 'desc' : 'asc',
+        })}
+        active={sortField === 'email'}
+        dir={sortDir}
+      />
+      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Тип</th>
+      <SortTh
+        label="Кафедра / Відділ"
+        href={buildHref({
+          sort: 'department',
+          dir: sortField === 'department' && sortDir === 'asc' ? 'desc' : 'asc',
+        })}
+        active={sortField === 'department'}
+        dir={sortDir}
+      />
+      <SortTh
+        label="Вчене звання"
+        href={buildHref({
+          sort: 'academicRank',
+          dir: sortField === 'academicRank' && sortDir === 'asc' ? 'desc' : 'asc',
+        })}
+        active={sortField === 'academicRank'}
+        dir={sortDir}
+      />
+    </tr>
+  );
+
+  // Key changes with every filter/sort combination so the table animates in fresh
+  const tableKey = [
+    typeFilter,
+    sortField,
+    sortDir,
+    q,
+    faculty,
+    dept,
+    rank,
+    degree,
+    partTime,
+    degreeMatch,
+  ].join('|');
 
   return (
     <div className="space-y-6">
@@ -160,98 +193,7 @@ export default async function StaffPage({
         departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
       />
 
-      {staff.length === 0 ? (
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Записів не знайдено
-        </div>
-      ) : (
-        <div className="rounded-xl border bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                <SortTh
-                  label="ПІБ"
-                  href={buildHref({
-                    sort: 'lastName',
-                    dir: sortField === 'lastName' && sortDir === 'asc' ? 'desc' : 'asc',
-                  })}
-                  active={sortField === 'lastName'}
-                  dir={sortDir}
-                />
-                <SortTh
-                  label="Email"
-                  href={buildHref({
-                    sort: 'email',
-                    dir: sortField === 'email' && sortDir === 'asc' ? 'desc' : 'asc',
-                  })}
-                  active={sortField === 'email'}
-                  dir={sortDir}
-                />
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Тип</th>
-                <SortTh
-                  label="Кафедра / Відділ"
-                  href={buildHref({
-                    sort: 'department',
-                    dir: sortField === 'department' && sortDir === 'asc' ? 'desc' : 'asc',
-                  })}
-                  active={sortField === 'department'}
-                  dir={sortDir}
-                />
-                <SortTh
-                  label="Вчене звання"
-                  href={buildHref({
-                    sort: 'academicRank',
-                    dir: sortField === 'academicRank' && sortDir === 'asc' ? 'desc' : 'asc',
-                  })}
-                  active={sortField === 'academicRank'}
-                  dir={sortDir}
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {staff.map((member) => (
-                <tr
-                  key={member.id}
-                  className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
-                >
-                  <td className="px-4 py-3 font-medium">
-                    <Link href={`/staff/${member.id}`} className="absolute inset-0" />
-                    {fullName(member)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        member.isNpp
-                          ? 'bg-primary/10 text-primary'
-                          : 'bg-muted text-muted-foreground'
-                      )}
-                    >
-                      {member.isNpp ? 'НПП' : 'Адм.'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {member.department?.name ?? member.division?.name ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {member.academicRank
-                      ? [
-                          ACADEMIC_RANK_LABELS[member.academicRank],
-                          member.scientificDegree
-                            ? SCIENTIFIC_DEGREE_LABELS[member.scientificDegree]
-                            : null,
-                        ]
-                          .filter(Boolean)
-                          .join(', ')
-                      : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <StaffTable key={tableKey} staff={staff} sortHeader={sortHeader} />
     </div>
   );
 }

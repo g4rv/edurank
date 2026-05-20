@@ -4,6 +4,9 @@ import { ChevronLeft, Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
+import { AnimatedPage } from '@/components/ui/animated-page';
+import { AnimatedTableBody } from '@/components/ui/animated-table-body';
+import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
 import { cn } from '@/lib/utils';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
@@ -105,7 +108,7 @@ export default async function DepartmentDetailPage({
   ];
 
   return (
-    <div className="space-y-6">
+    <AnimatedPage className="space-y-6">
       <Link
         href="/departments"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -182,9 +185,9 @@ export default async function DepartmentDetailPage({
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Тип</th>
               </tr>
             </thead>
-            <tbody>
+            <AnimatedTableBody>
               {allStaff.map((member) => (
-                <tr
+                <AnimatedRow
                   key={member.id}
                   className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
@@ -216,12 +219,12 @@ export default async function DepartmentDetailPage({
                       {member.type === 'primary' ? 'Основний' : 'Сумісник'}
                     </span>
                   </td>
-                </tr>
+                </AnimatedRow>
               ))}
-            </tbody>
+            </AnimatedTableBody>
           </table>
         </div>
       )}
-    </div>
+    </AnimatedPage>
   );
 }
