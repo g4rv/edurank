@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
+import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
 
 export type StaffCreateState = { error: string } | { redirectTo: string };
 
@@ -18,20 +19,9 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
   if (!isAdmin) {
     if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
 
-    const editorStaff = await db.staff.findUnique({
-      where: { id: session.user.staffId ?? '' },
-      select: { divisionId: true },
-    });
-    if (!editorStaff?.divisionId) return { error: 'Недостатньо прав' };
-
-    const permission = await db.divisionEntityPermission.findFirst({
-      where: {
-        divisionId: editorStaff.divisionId,
-        entity: 'STAFF',
-        action: 'CREATE',
-      },
-    });
-    if (!permission) return { error: 'Недостатньо прав' };
+    const divisionId = await getEditorDivisionId(session.user.staffId);
+    if (!divisionId || !(await hasEntityPermission(divisionId, 'STAFF', 'CREATE')))
+      return { error: 'Недостатньо прав' };
   }
 
   const parsed = staffCreateSchema.safeParse(data);

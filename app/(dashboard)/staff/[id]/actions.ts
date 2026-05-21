@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
+import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
 
 export type StaffDeleteState = { error: string } | { redirectTo: string };
 
@@ -18,16 +19,9 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
   if (!isAdmin) {
     if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
 
-    const editorStaff = await db.staff.findUnique({
-      where: { id: session.user.staffId ?? '' },
-      select: { divisionId: true },
-    });
-    if (!editorStaff?.divisionId) return { error: 'Недостатньо прав' };
-
-    const permission = await db.divisionEntityPermission.findFirst({
-      where: { divisionId: editorStaff.divisionId, entity: 'STAFF', action: 'DELETE' },
-    });
-    if (!permission) return { error: 'Недостатньо прав' };
+    const divisionId = await getEditorDivisionId(session.user.staffId);
+    if (!divisionId || !(await hasEntityPermission(divisionId, 'STAFF', 'DELETE')))
+      return { error: 'Недостатньо прав' };
   }
 
   let dbError: string | null = null;

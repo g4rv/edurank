@@ -5,24 +5,9 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import { diffChanges } from '@/lib/audit';
+import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
 
 export type DepartmentActionState = { error: string } | { redirectTo: string };
-
-async function getEditorDivisionId(staffId: string | null | undefined): Promise<string | null> {
-  if (!staffId) return null;
-  const s = await db.staff.findUnique({ where: { id: staffId }, select: { divisionId: true } });
-  return s?.divisionId ?? null;
-}
-
-async function hasDepartmentPermission(
-  divisionId: string,
-  action: 'CREATE' | 'UPDATE' | 'DELETE'
-): Promise<boolean> {
-  const perm = await db.divisionEntityPermission.findFirst({
-    where: { divisionId, entity: 'DEPARTMENT', action },
-  });
-  return !!perm;
-}
 
 export async function createDepartment(data: DepartmentSchema): Promise<DepartmentActionState> {
   const session = await auth();
@@ -34,7 +19,7 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
   if (!isAdmin) {
     if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
     const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasDepartmentPermission(divisionId, 'CREATE')))
+    if (!divisionId || !(await hasEntityPermission(divisionId, 'DEPARTMENT', 'CREATE')))
       return { error: 'Недостатньо прав' };
   }
 
@@ -92,7 +77,7 @@ export async function updateDepartment(
   if (!isAdmin) {
     if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
     const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasDepartmentPermission(divisionId, 'UPDATE')))
+    if (!divisionId || !(await hasEntityPermission(divisionId, 'DEPARTMENT', 'UPDATE')))
       return { error: 'Недостатньо прав' };
   }
 
@@ -157,7 +142,7 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
   if (!isAdmin) {
     if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
     const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasDepartmentPermission(divisionId, 'DELETE')))
+    if (!divisionId || !(await hasEntityPermission(divisionId, 'DEPARTMENT', 'DELETE')))
       return { error: 'Недостатньо прав' };
   }
 
