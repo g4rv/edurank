@@ -92,15 +92,16 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const isAdmin = role === 'ADMIN';
   const isEditor = role === 'EDITOR';
   const showConfidential = isAdmin || session?.user.staffId === id;
-  const canEdit = isAdmin || isEditor;
 
   const staff = await getStaff(id, showConfidential);
 
   if (!staff) notFound();
 
+  let canEdit = isAdmin;
   let canDelete = isAdmin;
-  if (!canDelete && isEditor) {
+  if (isEditor) {
     const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'STAFF');
+    canEdit = perms.canUpdate;
     canDelete = perms.canDelete;
   }
 
