@@ -36,20 +36,29 @@ export default async function EditDepartmentPage({ params }: { params: Promise<{
     }
   }
 
-  const [department, faculties, staff] = await Promise.all([
+  const [department, faculties, takenDeanRows, takenHeadRows, allStaff] = await Promise.all([
     db.department.findUnique({
       where: { id },
       select: { id: true, name: true, facultyId: true, headId: true },
     }),
-    db.faculty.findMany({
-      select: { id: true, name: true },
-      orderBy: { name: 'asc' },
+    db.faculty.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    db.faculty.findMany({ select: { deanId: true }, where: { deanId: { not: null } } }),
+    db.department.findMany({
+      select: { headId: true },
+      where: { headId: { not: null }, id: { not: id } },
     }),
     db.staff.findMany({
       select: { id: true, lastName: true, firstName: true, patronymic: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     }),
   ]);
+  const takenIds = new Set([
+    ...takenDeanRows.map((r) => r.deanId as string),
+    ...takenHeadRows.map((r) => r.headId as string),
+  ]);
+  // keep the current head available even if they're a dean elsewhere
+  if (department?.headId) takenIds.delete(department.headId);
+  const staff = allStaff.filter((s) => !takenIds.has(s.id));
 
   if (!department) notFound();
 

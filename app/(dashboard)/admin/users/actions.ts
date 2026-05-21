@@ -7,7 +7,7 @@ import { db } from '@/lib/db';
 import { userFormSchema, type UserFormSchema } from '@/validations/user';
 import { diffChanges } from '@/lib/audit';
 
-export type UserActionState = { error: string } | null;
+export type UserActionState = { error: string } | { redirectTo: string };
 
 async function requireAdmin() {
   const session = await auth();
@@ -47,7 +47,7 @@ export async function createUser(data: UserFormSchema): Promise<UserActionState>
           action: 'CREATE',
           entity: 'User',
           entityId: user.id,
-          label: `Створено користувача: ${parsed.data.email}`,
+          label: parsed.data.email,
           userId: session.user.id,
           changes: diffChanges(
             {},
@@ -65,7 +65,7 @@ export async function createUser(data: UserFormSchema): Promise<UserActionState>
   }
 
   if (dbError) return { error: dbError };
-  redirect('/admin/users');
+  return { redirectTo: '/admin/users' };
 }
 
 export async function updateUser(id: string, data: UserFormSchema): Promise<UserActionState> {
@@ -116,7 +116,7 @@ export async function updateUser(id: string, data: UserFormSchema): Promise<User
           action: 'UPDATE',
           entity: 'User',
           entityId: id,
-          label: `Оновлено користувача: ${parsed.data.email}`,
+          label: parsed.data.email,
           userId: session.user.id,
           changes,
         },
@@ -127,7 +127,7 @@ export async function updateUser(id: string, data: UserFormSchema): Promise<User
   }
 
   if (dbError) return { error: dbError };
-  redirect('/admin/users');
+  return { redirectTo: '/admin/users' };
 }
 
 export async function deleteUser(id: string): Promise<UserActionState> {
@@ -149,7 +149,7 @@ export async function deleteUser(id: string): Promise<UserActionState> {
           action: 'DELETE',
           entity: 'User',
           entityId: id,
-          label: `Видалено користувача: ${user.email}`,
+          label: user.email,
           userId: session.user.id,
           changes: diffChanges({ email: user.email }, {}),
         },
@@ -160,5 +160,5 @@ export async function deleteUser(id: string): Promise<UserActionState> {
   }
 
   if (dbError) return { error: dbError };
-  redirect('/admin/users');
+  return { redirectTo: '/admin/users' };
 }

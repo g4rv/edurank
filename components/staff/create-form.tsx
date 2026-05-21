@@ -1,6 +1,8 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { toast } from 'sonner';
 import { useForm, Controller } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
@@ -110,6 +112,7 @@ interface StaffCreateFormProps {
 }
 
 export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreateFormProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const {
@@ -123,14 +126,21 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
     defaultValues: EMPTY_VALUES,
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const isNppValue = watch('isNpp') === 'true';
 
   function onSubmit(data: StaffCreateSchema) {
     startTransition(async () => {
       try {
         const result = await createStaff(data);
-        if (result?.error) toast.error(result.error);
-      } catch {
+        if ('error' in result) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success('Збережено');
+        router.push(result.redirectTo);
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
         toast.error('Помилка сервера');
       }
     });

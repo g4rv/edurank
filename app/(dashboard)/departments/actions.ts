@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import { diffChanges } from '@/lib/audit';
 
-export type DepartmentActionState = { error: string } | null;
+export type DepartmentActionState = { error: string } | { redirectTo: string };
 
 async function getEditorDivisionId(staffId: string | null | undefined): Promise<string | null> {
   if (!staffId) return null;
@@ -58,7 +58,7 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
           action: 'CREATE',
           entity: 'Department',
           entityId: created.id,
-          label: `Створено кафедру: ${parsed.data.name}`,
+          label: parsed.data.name,
           userId: session.user.id,
           changes: diffChanges(
             {},
@@ -76,7 +76,7 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
   }
 
   if (dbError) return { error: dbError };
-  redirect('/departments');
+  return { redirectTo: '/departments' };
 }
 
 export async function updateDepartment(
@@ -133,7 +133,7 @@ export async function updateDepartment(
           action: 'UPDATE',
           entity: 'Department',
           entityId: id,
-          label: `Оновлено кафедру: ${parsed.data.name}`,
+          label: parsed.data.name,
           userId: session.user.id,
           changes,
         },
@@ -144,7 +144,7 @@ export async function updateDepartment(
   }
 
   if (dbError) return { error: dbError };
-  redirect('/departments');
+  return { redirectTo: `/departments/${id}` };
 }
 
 export async function deleteDepartment(id: string): Promise<DepartmentActionState> {
@@ -185,7 +185,7 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
           action: 'DELETE',
           entity: 'Department',
           entityId: id,
-          label: `Видалено кафедру: ${department.name}`,
+          label: department.name,
           userId: session.user.id,
           changes: diffChanges(
             {
@@ -203,5 +203,5 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
   }
 
   if (dbError) return { error: dbError };
-  redirect('/departments');
+  return { redirectTo: '/departments' };
 }

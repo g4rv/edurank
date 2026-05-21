@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,12 +27,18 @@ export function DeleteDepartmentButton({
   departmentId,
   departmentName,
 }: DeleteDepartmentButtonProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function handleDelete() {
     startTransition(async () => {
       const result = await deleteDepartment(departmentId);
-      if (result?.error) toast.error(result.error);
+      if ('error' in result) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success('Видалено');
+      router.push(result.redirectTo);
     });
   }
 

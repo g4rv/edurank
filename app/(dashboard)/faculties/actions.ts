@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 import { facultySchema, type FacultySchema } from '@/validations/faculty';
 import { diffChanges } from '@/lib/audit';
 
-export type FacultyActionState = { error: string } | null;
+export type FacultyActionState = { error: string } | { redirectTo: string };
 
 async function getEditorDivisionId(staffId: string | null | undefined): Promise<string | null> {
   if (!staffId) return null;
@@ -54,7 +54,7 @@ export async function createFaculty(data: FacultySchema): Promise<FacultyActionS
           action: 'CREATE',
           entity: 'Faculty',
           entityId: created.id,
-          label: `Створено факультет: ${parsed.data.name}`,
+          label: parsed.data.name,
           userId: session.user.id,
           changes: diffChanges({}, { name: parsed.data.name, deanId: parsed.data.deanId ?? null }),
         },
@@ -65,7 +65,7 @@ export async function createFaculty(data: FacultySchema): Promise<FacultyActionS
   }
 
   if (dbError) return { error: dbError };
-  redirect('/faculties');
+  return { redirectTo: '/faculties' };
 }
 
 export async function updateFaculty(id: string, data: FacultySchema): Promise<FacultyActionState> {
@@ -107,7 +107,7 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
           action: 'UPDATE',
           entity: 'Faculty',
           entityId: id,
-          label: `Оновлено факультет: ${parsed.data.name}`,
+          label: parsed.data.name,
           userId: session.user.id,
           changes,
         },
@@ -118,7 +118,7 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
   }
 
   if (dbError) return { error: dbError };
-  redirect('/faculties');
+  return { redirectTo: `/faculties/${id}` };
 }
 
 export async function deleteFaculty(id: string): Promise<FacultyActionState> {
@@ -154,7 +154,7 @@ export async function deleteFaculty(id: string): Promise<FacultyActionState> {
           action: 'DELETE',
           entity: 'Faculty',
           entityId: id,
-          label: `Видалено факультет: ${faculty.name}`,
+          label: faculty.name,
           userId: session.user.id,
           changes: diffChanges({ name: faculty.name, deanId: faculty.deanId ?? null }, {}),
         },
@@ -165,5 +165,5 @@ export async function deleteFaculty(id: string): Promise<FacultyActionState> {
   }
 
   if (dbError) return { error: dbError };
-  redirect('/faculties');
+  return { redirectTo: '/faculties' };
 }

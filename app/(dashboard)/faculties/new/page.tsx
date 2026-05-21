@@ -31,10 +31,19 @@ export default async function NewFacultyPage() {
     }
   }
 
-  const staff = await db.staff.findMany({
-    select: { id: true, lastName: true, firstName: true, patronymic: true },
-    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-  });
+  const [takenDeanRows, takenHeadRows, allStaff] = await Promise.all([
+    db.faculty.findMany({ select: { deanId: true }, where: { deanId: { not: null } } }),
+    db.department.findMany({ select: { headId: true }, where: { headId: { not: null } } }),
+    db.staff.findMany({
+      select: { id: true, lastName: true, firstName: true, patronymic: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    }),
+  ]);
+  const takenIds = new Set([
+    ...takenDeanRows.map((r) => r.deanId as string),
+    ...takenHeadRows.map((r) => r.headId as string),
+  ]);
+  const staff = allStaff.filter((s) => !takenIds.has(s.id));
 
   return (
     <div className="max-w-lg space-y-6">

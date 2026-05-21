@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
 
-export type StaffDeleteState = { error: string } | null;
+export type StaffDeleteState = { error: string } | { redirectTo: string };
 
 export async function deleteStaff(id: string): Promise<StaffDeleteState> {
   const session = await auth();
@@ -57,9 +57,7 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
           action: 'DELETE',
           entity: 'Staff',
           entityId: id,
-          label: staff
-            ? `Видалено запис Staff: ${staff.lastName} ${staff.firstName}`
-            : `Видалено запис Staff`,
+          label: staff ? `${staff.lastName} ${staff.firstName} ${staff.patronymic}` : undefined,
           userId: session.user.id,
           changes: staff
             ? diffChanges(staff as Record<string, string | number | boolean | null>, {})
@@ -72,7 +70,7 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
   }
 
   if (dbError) return { error: dbError };
-  redirect('/staff');
+  return { redirectTo: '/staff' };
 }
 
 export type StaffUpdateState = { error: string } | { success: true };
@@ -179,7 +177,9 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
           action: 'UPDATE',
           entity: 'Staff',
           entityId: id,
-          label: `Оновлено запис Staff`,
+          label: existing
+            ? `${existing.lastName} ${existing.firstName} ${existing.patronymic}`
+            : undefined,
           userId: session.user.id,
           changes,
         },

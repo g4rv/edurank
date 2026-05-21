@@ -1,6 +1,8 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { toast } from 'sonner';
 import { useForm, Controller } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
@@ -15,11 +17,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@/components/ui/combobox';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import type { DepartmentActionState } from '@/app/(dashboard)/departments/actions';
 
 type FacultyOption = { id: string; name: string };
 type StaffOption = { id: string; lastName: string; firstName: string; patronymic: string };
+
+function staffName(s: StaffOption) {
+  return `${s.lastName} ${s.firstName} ${s.patronymic}`;
+}
 
 interface DepartmentFormProps {
   defaultValues?: Partial<DepartmentSchema>;
@@ -36,6 +50,7 @@ export function DepartmentForm({
   action,
   submitLabel,
 }: DepartmentFormProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const {
@@ -52,8 +67,14 @@ export function DepartmentForm({
     startTransition(async () => {
       try {
         const result = await action(data);
-        if (result?.error) toast.error(result.error);
-      } catch {
+        if ('error' in result) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success('Збережено');
+        router.push(result.redirectTo);
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
         toast.error('Помилка сервера');
       }
     });
@@ -91,25 +112,31 @@ export function DepartmentForm({
           <Controller
             name="headId"
             control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value ?? ''}
-                onValueChange={(v) => field.onChange(v === '__none' ? null : v)}
-                disabled={isPending}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none">—</SelectItem>
-                  {staff.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.lastName} {s.firstName} {s.patronymic}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            render={({ field }) => {
+              const selected = staff.find((s) => s.id === field.value);
+              return (
+                <Combobox
+                  items={staff}
+                  value={field.value ?? ''}
+                  onChange={(v) => field.onChange(v || null)}
+                  filter={(s, q) => staffName(s).toLowerCase().includes(q.toLowerCase())}
+                  displayValue={selected ? staffName(selected) : ''}
+                  disabled={isPending}
+                >
+                  <ComboboxInput placeholder="—" />
+                  <ComboboxContent>
+                    <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
+                    <ComboboxList<StaffOption>>
+                      {(s) => (
+                        <ComboboxItem key={s.id} value={s.id}>
+                          {staffName(s)}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+              );
+            }}
           />
         </FormField>
       </div>

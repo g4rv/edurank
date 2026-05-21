@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 import { divisionSchema, type DivisionSchema } from '@/validations/division';
 import { diffChanges } from '@/lib/audit';
 
-export type DivisionActionState = { error: string } | null;
+export type DivisionActionState = { error: string } | { redirectTo: string };
 
 async function requireAdmin() {
   const session = await auth();
@@ -35,7 +35,7 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
           action: 'CREATE',
           entity: 'Division',
           entityId: created.id,
-          label: `Створено відділ: ${parsed.data.name}`,
+          label: parsed.data.name,
           userId: session.user.id,
           changes: diffChanges({}, { name: parsed.data.name }),
         },
@@ -46,7 +46,7 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
   }
 
   if (dbError) return { error: dbError };
-  redirect('/divisions');
+  return { redirectTo: '/divisions' };
 }
 
 export async function updateDivision(
@@ -72,7 +72,7 @@ export async function updateDivision(
           action: 'UPDATE',
           entity: 'Division',
           entityId: id,
-          label: `Оновлено відділ: ${parsed.data.name}`,
+          label: parsed.data.name,
           userId: session.user.id,
           changes,
         },
@@ -83,7 +83,7 @@ export async function updateDivision(
   }
 
   if (dbError) return { error: dbError };
-  redirect('/divisions');
+  return { redirectTo: `/divisions/${id}` };
 }
 
 export async function deleteDivision(id: string): Promise<DivisionActionState> {
@@ -109,7 +109,7 @@ export async function deleteDivision(id: string): Promise<DivisionActionState> {
           action: 'DELETE',
           entity: 'Division',
           entityId: id,
-          label: `Видалено відділ: ${division.name}`,
+          label: division.name,
           userId: session.user.id,
           changes: diffChanges({ name: division.name }, {}),
         },
@@ -120,5 +120,5 @@ export async function deleteDivision(id: string): Promise<DivisionActionState> {
   }
 
   if (dbError) return { error: dbError };
-  redirect('/divisions');
+  return { redirectTo: '/divisions' };
 }

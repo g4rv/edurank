@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
+import { AuditDateFilter } from '@/components/admin/audit-date-filter';
 
 const ACTION_LABELS: Record<string, string> = {
   CREATE: 'Створено',
@@ -82,7 +83,7 @@ function ChangesDisplay({ changes, resolve }: { changes: Changes; resolve: Resol
   const rest = entries.length - 8;
 
   return (
-    <dl className="mt-1.5 space-y-0.5 border-t pt-1.5">
+    <dl className="space-y-0.5">
       {visible.map(([key, { from, to }]) => (
         <div
           key={key}
@@ -113,12 +114,22 @@ export default async function AuditLogPage({
   const session = await auth();
   if (session?.user.role !== 'ADMIN') redirect('/');
 
-  const { action, entity, page: pageParam, dir, sort } = await searchParams;
+  const {
+    action,
+    entity,
+    page: pageParam,
+    dir,
+    sort,
+    from: fromParam,
+    to: toParam,
+  } = await searchParams;
 
   const actionFilter =
     typeof action === 'string' && VALID_ACTIONS.includes(action) ? action : undefined;
   const entityFilter =
     typeof entity === 'string' && VALID_ENTITIES.includes(entity) ? entity : undefined;
+  const fromFilter = typeof fromParam === 'string' && fromParam ? fromParam : undefined;
+  const toFilter = typeof toParam === 'string' && toParam ? toParam : undefined;
   const page = Math.max(1, parseInt(typeof pageParam === 'string' ? pageParam : '1', 10));
   const sortField = sort === 'author' ? 'author' : 'createdAt';
   const sortDir = dir === 'asc' ? 'asc' : 'desc';
@@ -128,6 +139,8 @@ export default async function AuditLogPage({
     const base: Record<string, string | undefined> = {
       action: actionFilter,
       entity: entityFilter,
+      from: fromFilter,
+      to: toFilter,
       sort: sortField !== 'createdAt' ? sortField : undefined,
       dir: sortDir !== 'desc' ? sortDir : undefined,
     };
@@ -138,9 +151,17 @@ export default async function AuditLogPage({
     return `/admin/audit-log${qs ? `?${qs}` : ''}`;
   }
 
+  const fromDate = fromFilter ? new Date(`${fromFilter}T00:00:00.000Z`) : undefined;
+  const toDate = toFilter ? new Date(`${toFilter}T23:59:59.999Z`) : undefined;
+
   const where = {
     ...(actionFilter ? { action: actionFilter } : {}),
     ...(entityFilter ? { entity: entityFilter } : {}),
+    ...(fromDate || toDate
+      ? {
+          createdAt: { ...(fromDate ? { gte: fromDate } : {}), ...(toDate ? { lte: toDate } : {}) },
+        }
+      : {}),
   };
 
   const orderBy =
@@ -148,7 +169,7 @@ export default async function AuditLogPage({
       ? { user: { email: sortDir as 'asc' | 'desc' } }
       : { createdAt: sortDir as 'asc' | 'desc' };
 
-  const [total, logs, divisions, departments, faculties, staffList] = await Promise.all([
+  const [total, logs, divisions, departments, faculties, staffList, userList] = await Promise.all([
     db.auditLog.count({ where }),
     db.auditLog.findMany({
       where,
@@ -160,7 +181,8 @@ export default async function AuditLogPage({
     db.division.findMany({ select: { id: true, name: true } }),
     db.department.findMany({ select: { id: true, name: true } }),
     db.faculty.findMany({ select: { id: true, name: true } }),
-    db.staff.findMany({ select: { id: true, lastName: true, firstName: true } }),
+    db.staff.findMany({ select: { id: true, lastName: true, firstName: true, patronymic: true } }),
+    db.user.findMany({ select: { id: true, email: true } }),
   ]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -168,7 +190,27 @@ export default async function AuditLogPage({
   const divisionMap = new Map(divisions.map((d) => [d.id, d.name]));
   const departmentMap = new Map(departments.map((d) => [d.id, d.name]));
   const facultyMap = new Map(faculties.map((f) => [f.id, f.name]));
-  const staffMap = new Map(staffList.map((s) => [s.id, `${s.lastName} ${s.firstName}`]));
+  const staffMap = new Map(
+    staffList.map((s) => [s.id, `${s.lastName} ${s.firstName} ${s.patronymic}`])
+  );
+  const userMap = new Map(userList.map((u) => [u.id, u.email]));
+
+  function resolveEntityName(entity: string, entityId: string): string | null {
+    switch (entity) {
+      case 'Staff':
+        return staffMap.get(entityId) ?? null;
+      case 'Department':
+        return departmentMap.get(entityId) ?? null;
+      case 'Faculty':
+        return facultyMap.get(entityId) ?? null;
+      case 'Division':
+        return divisionMap.get(entityId) ?? null;
+      case 'User':
+        return userMap.get(entityId) ?? null;
+      default:
+        return null;
+    }
+  }
 
   function resolve(field: string, value: unknown): string {
     if (value === null || value === undefined) return '—';
@@ -198,7 +240,9 @@ export default async function AuditLogPage({
         <p className="mt-0.5 text-sm text-muted-foreground">{total} записів</p>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
+        <AuditDateFilter from={fromFilter ?? ''} to={toFilter ?? ''} />
+
         <div className="flex w-fit gap-1 rounded-lg bg-muted p-1">
           {([undefined, ...VALID_ACTIONS] as (string | undefined)[]).map((a) => (
             <Link
@@ -256,9 +300,7 @@ export default async function AuditLogPage({
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   Об&apos;єкт
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Опис / Зміни
-                </th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Зміни</th>
                 <SortTh
                   label="Користувач"
                   href={buildHref({
@@ -295,12 +337,21 @@ export default async function AuditLogPage({
                         {ACTION_LABELS[log.action] ?? log.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 align-top text-muted-foreground">
-                      {ENTITY_LABELS[log.entity] ?? log.entity}
+                    <td className="px-4 py-3 align-top">
+                      <span className="text-xs text-muted-foreground">
+                        {ENTITY_LABELS[log.entity] ?? log.entity}
+                      </span>
+                      {(() => {
+                        const name = resolveEntityName(log.entity, log.entityId) ?? log.label;
+                        return name ? <p className="mt-0.5 text-sm font-medium">{name}</p> : null;
+                      })()}
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <span>{log.label ?? '—'}</span>
-                      {changes && <ChangesDisplay changes={changes} resolve={resolve} />}
+                      {changes ? (
+                        <ChangesDisplay changes={changes} resolve={resolve} />
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 align-top text-muted-foreground">
                       {log.user?.email ?? '—'}

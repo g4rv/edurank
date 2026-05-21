@@ -1,6 +1,8 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { useForm, Controller } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
@@ -16,6 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@/components/ui/combobox';
 import { userFormSchema, type UserFormSchema } from '@/validations/user';
 import type { UserActionState } from '@/app/(dashboard)/admin/users/actions';
 
@@ -33,6 +43,10 @@ type StaffOption = {
   email: string;
 };
 
+function staffLabel(s: StaffOption) {
+  return `${s.lastName} ${s.firstName} ${s.patronymic}`;
+}
+
 interface UserFormProps {
   mode: 'create' | 'edit';
   defaultValues?: Partial<UserFormSchema>;
@@ -41,6 +55,7 @@ interface UserFormProps {
 }
 
 export function UserForm({ mode, defaultValues, action, availableStaff }: UserFormProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const {
@@ -64,8 +79,14 @@ export function UserForm({ mode, defaultValues, action, availableStaff }: UserFo
     startTransition(async () => {
       try {
         const result = await action(data);
-        if (result?.error) toast.error(result.error);
-      } catch {
+        if ('error' in result) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success('Збережено');
+        router.push(result.redirectTo);
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
         toast.error('Помилка сервера');
       }
     });
@@ -120,26 +141,36 @@ export function UserForm({ mode, defaultValues, action, availableStaff }: UserFo
           <Controller
             name="staffId"
             control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value ?? ''}
-                onValueChange={(v) => field.onChange(v === '__none' ? null : v)}
-                disabled={isPending}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none">—</SelectItem>
-                  {availableStaff.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.lastName} {s.firstName} {s.patronymic}{' '}
-                      <span className="text-muted-foreground">({s.email})</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            render={({ field }) => {
+              const selected = availableStaff.find((s) => s.id === field.value);
+              return (
+                <Combobox
+                  items={availableStaff}
+                  value={field.value ?? ''}
+                  onChange={(v) => field.onChange(v || null)}
+                  filter={(s, q) =>
+                    `${staffLabel(s)} ${s.email}`.toLowerCase().includes(q.toLowerCase())
+                  }
+                  displayValue={selected ? staffLabel(selected) : ''}
+                  disabled={isPending}
+                >
+                  <ComboboxInput placeholder="—" />
+                  <ComboboxContent>
+                    <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
+                    <ComboboxList<StaffOption>>
+                      {(s) => (
+                        <ComboboxItem key={s.id} value={s.id}>
+                          <span>
+                            {staffLabel(s)}{' '}
+                            <span className="text-muted-foreground">({s.email})</span>
+                          </span>
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+              );
+            }}
           />
         </FormField>
       </div>

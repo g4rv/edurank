@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
 
-export type StaffCreateState = { error: string } | null;
+export type StaffCreateState = { error: string } | { redirectTo: string };
 
 export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateState> {
   const session = await auth();
@@ -72,7 +72,7 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
           action: 'CREATE',
           entity: 'Staff',
           entityId: created.id,
-          label: `Створено запис Staff: ${rest.lastName} ${rest.firstName}`,
+          label: `${rest.lastName} ${rest.firstName} ${rest.patronymic}`,
           userId: session.user.id,
           changes: diffChanges({}, createData as Record<string, string | number | boolean | null>),
         },
@@ -83,5 +83,5 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
   }
 
   if (dbError) return { error: dbError };
-  redirect(`/staff/${createdId}`);
+  return { redirectTo: `/staff/${createdId}` };
 }
