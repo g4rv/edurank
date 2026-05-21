@@ -158,6 +158,8 @@ model Staff {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([divisionId])
 }
 
 // Part-time (сумісництво) relationships — primary department lives on Staff directly
