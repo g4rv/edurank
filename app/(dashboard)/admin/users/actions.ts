@@ -76,6 +76,7 @@ export async function updateUser(id: string, data: UserFormSchema): Promise<User
     email: parsed.data.email,
     role: parsed.data.role,
     staffId: parsed.data.staffId ?? null,
+    tokenVersion: { increment: 1 },
   };
 
   if (parsed.data.password) {
@@ -158,4 +159,19 @@ export async function deleteUser(id: string): Promise<UserActionState> {
 
   if (dbError) return { error: dbError };
   return { redirectTo: '/admin/users' };
+}
+
+export type ForceLogoutState = { error: string } | { success: true };
+
+export async function forceLogoutUser(id: string): Promise<ForceLogoutState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  try {
+    await db.user.update({ where: { id }, data: { tokenVersion: { increment: 1 } } });
+  } catch {
+    return { error: 'Помилка' };
+  }
+
+  return { success: true };
 }

@@ -9,6 +9,7 @@ import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteUserButton } from '@/components/admin/delete-user-button';
+import { ForceLogoutButton } from '@/components/admin/force-logout-button';
 import type { Role } from '@/lib/generated/prisma/client';
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -104,45 +105,46 @@ export default async function UsersPage({
               </tr>
             </thead>
             <AnimatedTableBody>
-              {users.map((user) => (
-                <AnimatedRow
-                  key={user.id}
-                  className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
-                >
-                  <td className="px-4 py-3 font-medium">
-                    <Link href={`/admin/users/${user.id}/edit`} className="absolute inset-0" />
-                    {user.email}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        ROLE_CLASSES[user.role]
-                      )}
-                    >
-                      {ROLE_LABELS[user.role]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {user.staff
-                      ? `${user.staff.lastName} ${user.staff.firstName} ${user.staff.patronymic}`
-                      : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {new Date(user.createdAt).toLocaleDateString('uk-UA')}
-                  </td>
-                  <td className="relative z-10 px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={`/admin/users/${user.id}/edit`}>
-                          <Pencil className="size-4" />
-                        </Link>
-                      </Button>
-                      <DeleteUserButton userId={user.id} userEmail={user.email} />
-                    </div>
-                  </td>
-                </AnimatedRow>
-              ))}
+              {users.map((user) => {
+                const isSelf = user.id === session.user.id;
+                return (
+                  <AnimatedRow
+                    key={user.id}
+                    className="border-b transition-colors last:border-0 hover:bg-muted/30"
+                  >
+                    <td className="px-4 py-3 font-medium">{user.email}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                          ROLE_CLASSES[user.role]
+                        )}
+                      >
+                        {ROLE_LABELS[user.role]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {user.staff
+                        ? `${user.staff.lastName} ${user.staff.firstName} ${user.staff.patronymic}`
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {new Date(user.createdAt).toLocaleDateString('uk-UA')}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/admin/users/${user.id}/edit`}>
+                            <Pencil className="size-4" />
+                          </Link>
+                        </Button>
+                        {!isSelf && <ForceLogoutButton userId={user.id} userEmail={user.email} />}
+                        {!isSelf && <DeleteUserButton userId={user.id} userEmail={user.email} />}
+                      </div>
+                    </td>
+                  </AnimatedRow>
+                );
+              })}
             </AnimatedTableBody>
           </table>
         </div>
