@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { userFormSchema, type UserFormSchema } from '@/validations/user';
 import { diffChanges } from '@/lib/audit';
+import { parseDbError } from '@/lib/db-error';
 
 export type UserActionState = { error: string } | { redirectTo: string };
 
@@ -14,10 +15,6 @@ async function requireAdmin() {
   if (!session) redirect('/login');
   if (session.user.role !== 'ADMIN') return null;
   return session;
-}
-
-function isDuplicateEmail(e: unknown) {
-  return e && typeof e === 'object' && 'code' in e && e.code === 'P2002';
 }
 
 export async function createUser(data: UserFormSchema): Promise<UserActionState> {
@@ -61,7 +58,7 @@ export async function createUser(data: UserFormSchema): Promise<UserActionState>
       });
     });
   } catch (e) {
-    dbError = isDuplicateEmail(e) ? 'Користувач з таким email вже існує' : 'Помилка при збереженні';
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };
@@ -123,7 +120,7 @@ export async function updateUser(id: string, data: UserFormSchema): Promise<User
       });
     });
   } catch (e) {
-    dbError = isDuplicateEmail(e) ? 'Користувач з таким email вже існує' : 'Помилка при збереженні';
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };

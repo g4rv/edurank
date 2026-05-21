@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
 import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
+import { parseDbError } from '@/lib/db-error';
 
 export type StaffDeleteState = { error: string } | { redirectTo: string };
 
@@ -59,8 +60,8 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при видаленні';
+  } catch (e) {
+    dbError = parseDbError(e, 'Помилка при видаленні');
   }
 
   if (dbError) return { error: dbError };
@@ -179,8 +180,8 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при збереженні';
+  } catch (e) {
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };

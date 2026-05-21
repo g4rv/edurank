@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
 import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
+import { parseDbError } from '@/lib/db-error';
 
 export type StaffCreateState = { error: string } | { redirectTo: string };
 
@@ -68,8 +69,8 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при збереженні';
+  } catch (e) {
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };

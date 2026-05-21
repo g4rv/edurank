@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { divisionSchema, type DivisionSchema } from '@/validations/division';
 import { diffChanges } from '@/lib/audit';
+import { parseDbError } from '@/lib/db-error';
 
 export type DivisionActionState = { error: string } | { redirectTo: string };
 
@@ -41,8 +42,8 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при збереженні';
+  } catch (e) {
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };
@@ -78,8 +79,8 @@ export async function updateDivision(
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при збереженні';
+  } catch (e) {
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };
@@ -115,8 +116,8 @@ export async function deleteDivision(id: string): Promise<DivisionActionState> {
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при видаленні';
+  } catch (e) {
+    dbError = parseDbError(e, 'Помилка при видаленні');
   }
 
   if (dbError) return { error: dbError };

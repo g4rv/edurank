@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { facultySchema, type FacultySchema } from '@/validations/faculty';
 import { diffChanges } from '@/lib/audit';
 import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
+import { parseDbError } from '@/lib/db-error';
 
 export type FacultyActionState = { error: string } | { redirectTo: string };
 
@@ -45,8 +46,8 @@ export async function createFaculty(data: FacultySchema): Promise<FacultyActionS
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при збереженні';
+  } catch (e) {
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };
@@ -98,8 +99,8 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при збереженні';
+  } catch (e) {
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };
@@ -145,8 +146,8 @@ export async function deleteFaculty(id: string): Promise<FacultyActionState> {
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при видаленні';
+  } catch (e) {
+    dbError = parseDbError(e, 'Помилка при видаленні');
   }
 
   if (dbError) return { error: dbError };

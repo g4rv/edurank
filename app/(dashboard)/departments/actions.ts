@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import { diffChanges } from '@/lib/audit';
 import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
+import { parseDbError } from '@/lib/db-error';
 
 export type DepartmentActionState = { error: string } | { redirectTo: string };
 
@@ -56,8 +57,8 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при збереженні';
+  } catch (e) {
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };
@@ -124,8 +125,8 @@ export async function updateDepartment(
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при збереженні';
+  } catch (e) {
+    dbError = parseDbError(e);
   }
 
   if (dbError) return { error: dbError };
@@ -183,8 +184,8 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при видаленні';
+  } catch (e) {
+    dbError = parseDbError(e, 'Помилка при видаленні');
   }
 
   if (dbError) return { error: dbError };
