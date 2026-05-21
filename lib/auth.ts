@@ -28,17 +28,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           role: user.role,
           staffId: user.staffId,
+          tokenVersion: user.tokenVersion,
         };
       },
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.staffId = user.staffId;
+        token.tokenVersion = (user as unknown as { tokenVersion: number }).tokenVersion;
+        return token;
       }
+
+      // On every subsequent request, re-read from DB to pick up role changes
+      // and validate tokenVersion — bumping it forces an immediate re-login
+      const dbUser = await db.user.findUnique({
+        where: { id: token.id as string },
+        select: { role: true, staffId: true, tokenVersion: true },
+      });
+
+      if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) return null;
+
+      token.role = dbUser.role;
+      token.staffId = dbUser.staffId;
       return token;
     },
     session({ session, token }) {
