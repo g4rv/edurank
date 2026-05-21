@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-const str = (v: unknown) => (v === '' || v === undefined ? null : v);
+const str = (v: unknown) =>
+  v === '' || v === undefined || (typeof v === 'string' && !v.trim()) ? null : v;
 const num = (v: unknown) =>
   v === '' || v === null || v === undefined ? null : isNaN(Number(v)) ? null : Number(v);
 const boolStr = (v: unknown) =>
