@@ -101,9 +101,10 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
       where: { divisionId },
       select: { fieldName: true },
     });
+    const EDITOR_BLOCKED = new Set(['employmentRate']);
     const allowed = new Set(permissions.map((p) => p.fieldName));
     for (const [key, val] of Object.entries(fields)) {
-      if (allowed.has(key)) updateData[key] = val;
+      if (allowed.has(key) && !EDITOR_BLOCKED.has(key)) updateData[key] = val;
     }
   } else {
     const USER_EDITABLE = new Set(['phone', 'wosUrl', 'scopusUrl', 'googleScholarUrl', 'orcidId']);

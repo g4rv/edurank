@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
+import { FIELD_LABELS } from '@/lib/labels';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
@@ -28,36 +29,6 @@ const ENTITY_LABELS: Record<string, string> = {
   Department: 'Кафедра',
   Division: 'Відділ',
   User: 'Користувач',
-};
-
-const FIELD_LABELS: Record<string, string> = {
-  lastName: 'Прізвище',
-  firstName: "Ім'я",
-  patronymic: 'По батькові',
-  email: 'Email',
-  phone: 'Телефон',
-  isNpp: 'Тип',
-  employmentRate: 'Ставка',
-  pedagogicalExperience: 'Пед. досвід',
-  academicRank: 'Вчене звання',
-  scientificDegree: 'Науковий ступінь',
-  degreeMatchesDepartment: 'Відповідн. кафедрі',
-  wosUrl: 'WoS',
-  wosCitationCount: 'Цит. WoS',
-  scopusUrl: 'Scopus',
-  scopusCitationCount: 'Цит. Scopus',
-  googleScholarUrl: 'Scholar',
-  googleScholarCitationCount: 'Цит. Scholar',
-  orcidId: 'ORCID',
-  departmentId: 'Кафедра',
-  divisionId: 'Відділ',
-  name: 'Назва',
-  deanId: 'Декан',
-  facultyId: 'Факультет',
-  headId: 'Завідувач',
-  role: 'Роль',
-  staffId: 'Співробітник',
-  password: 'Пароль',
 };
 
 const VALUE_LABELS: Record<string, string> = {

@@ -6,29 +6,7 @@ import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DeleteDivisionButton } from '@/components/division/delete-button';
-
-const FIELD_LABELS: Record<string, string> = {
-  lastName: 'Прізвище',
-  firstName: "Ім'я",
-  patronymic: 'По батькові',
-  email: 'Email',
-  phone: 'Телефон',
-  isNpp: 'Тип (НПП / Адміністративний)',
-  employmentRate: 'Ставка',
-  pedagogicalExperience: 'Педагогічний досвід',
-  academicRank: 'Вчене звання',
-  scientificDegree: 'Науковий ступінь',
-  degreeMatchesDepartment: 'Ступінь відповідає кафедрі',
-  wosUrl: 'Web of Science — URL',
-  wosCitationCount: 'Web of Science — цитувань',
-  scopusUrl: 'Scopus — URL',
-  scopusCitationCount: 'Scopus — цитувань',
-  googleScholarUrl: 'Google Scholar — URL',
-  googleScholarCitationCount: 'Google Scholar — цитувань',
-  orcidId: 'ORCID',
-  departmentId: 'Кафедра',
-  divisionId: 'Відділ',
-};
+import { FIELD_LABELS } from '@/lib/labels';
 
 const ENTITY_LABELS: Record<string, string> = {
   STAFF: 'Персонал',

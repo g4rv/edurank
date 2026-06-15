@@ -9,19 +9,8 @@ import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
 import { cn } from '@/lib/utils';
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
-
-const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
-  LECTURER: 'Викладач',
-  SENIOR_LECTURER: 'Старший викладач',
-  DOCENT: 'Доцент',
-  PROFESSOR: 'Професор',
-};
-
-const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
-  CANDIDATE: 'Кандидат наук',
-  DOCTOR: 'Доктор наук',
-};
+import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
+import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 
 function fullName(p: { lastName: string; firstName: string; patronymic: string }) {
   return `${p.lastName} ${p.firstName} ${p.patronymic}`;
@@ -80,23 +69,9 @@ export default async function DepartmentDetailPage({
   let canDelete = isAdmin;
 
   if (!isAdmin && role === 'EDITOR') {
-    const editorStaff = await db.staff.findUnique({
-      where: { id: session?.user.staffId ?? '' },
-      select: { divisionId: true },
-    });
-    const divisionId = editorStaff?.divisionId;
-    if (divisionId) {
-      const [updatePerm, deletePerm] = await Promise.all([
-        db.divisionEntityPermission.findFirst({
-          where: { divisionId, entity: 'DEPARTMENT', action: 'UPDATE' },
-        }),
-        db.divisionEntityPermission.findFirst({
-          where: { divisionId, entity: 'DEPARTMENT', action: 'DELETE' },
-        }),
-      ]);
-      canEdit = !!updatePerm;
-      canDelete = !!deletePerm;
-    }
+    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'DEPARTMENT');
+    canEdit = perms.canUpdate;
+    canDelete = perms.canDelete;
   }
 
   const primaryIds = new Set(department.primaryStaff.map((s) => s.id));

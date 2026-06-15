@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
+import { FIELD_LABELS } from '@/lib/labels';
 import { FieldPermissionToggle } from '@/components/admin/field-permission-toggle';
 import { AnimatedList, AnimatedItem } from '@/components/ui/animated-list';
 
@@ -37,28 +38,6 @@ const FIELD_GROUPS = [
     fields: ['departmentId', 'divisionId'],
   },
 ] as const;
-
-const FIELD_LABELS: Record<string, string> = {
-  lastName: 'Прізвище',
-  firstName: "Ім'я",
-  patronymic: 'По батькові',
-  email: 'Email',
-  phone: 'Телефон',
-  isNpp: 'Тип (НПП / Адм.)',
-  pedagogicalExperience: 'Педагогічний стаж',
-  academicRank: 'Вчене звання',
-  scientificDegree: 'Науковий ступінь',
-  degreeMatchesDepartment: 'Відповідність ступеня кафедрі',
-  wosUrl: 'WoS профіль',
-  wosCitationCount: 'WoS цитувань',
-  scopusUrl: 'Scopus профіль',
-  scopusCitationCount: 'Scopus цитувань',
-  googleScholarUrl: 'Google Scholar профіль',
-  googleScholarCitationCount: 'Google Scholar цитувань',
-  orcidId: 'ORCID',
-  departmentId: 'Кафедра (основна)',
-  divisionId: 'Відділ',
-};
 
 export default async function FieldPermissionsPage({
   searchParams,

@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { updateStaff } from '@/app/(dashboard)/staff/[id]/actions';
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
@@ -133,12 +134,17 @@ export function StaffEditForm({
 
   function onSubmit(data: StaffUpdateSchema) {
     startTransition(async () => {
-      const result = await updateStaff(staffId, data);
-      if ('error' in result) {
-        toast.error(result.error);
-      } else {
-        toast.success('Збережено');
-        router.refresh();
+      try {
+        const result = await updateStaff(staffId, data);
+        if ('error' in result) {
+          toast.error(result.error);
+        } else {
+          toast.success('Збережено');
+          router.refresh();
+        }
+      } catch (e) {
+        if (isRedirectError(e)) throw e;
+        toast.error('Сталася помилка');
       }
     });
   }

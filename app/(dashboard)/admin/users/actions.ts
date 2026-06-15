@@ -153,8 +153,8 @@ export async function deleteUser(id: string): Promise<UserActionState> {
         },
       });
     });
-  } catch {
-    dbError = 'Помилка при видаленні';
+  } catch (e) {
+    dbError = parseDbError(e, 'Помилка при видаленні');
   }
 
   if (dbError) return { error: dbError };
@@ -169,8 +169,8 @@ export async function forceLogoutUser(id: string): Promise<ForceLogoutState> {
 
   try {
     await db.user.update({ where: { id }, data: { tokenVersion: { increment: 1 } } });
-  } catch {
-    return { error: 'Помилка' };
+  } catch (e) {
+    return { error: parseDbError(e, 'Помилка') };
   }
 
   return { success: true };
