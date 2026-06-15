@@ -106,7 +106,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const staff = await getStaff(staffId);
+  const staff = await getStaff(staffId, true);
   if (!staff) notFound();
 
   const subtitle =

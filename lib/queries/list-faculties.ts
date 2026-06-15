@@ -1,9 +1,6 @@
 import { db } from '@/lib/db';
 
-export async function listFaculties(options?: {
-  sort?: string | string[];
-  dir?: string | string[];
-}) {
+export async function listFaculties(options?: { dir?: string | string[] }) {
   const sortDir = options?.dir === 'desc' ? ('desc' as const) : ('asc' as const);
 
   return db.faculty.findMany({

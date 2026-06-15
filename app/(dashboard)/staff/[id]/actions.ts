@@ -92,14 +92,13 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
   if (isAdmin) {
     updateData = { ...fields };
   } else if (role === 'EDITOR') {
-    const editorStaff = await db.staff.findUnique({
-      where: { id: session.user.staffId ?? '' },
-      select: { divisionId: true },
-    });
-    if (!editorStaff?.divisionId) return { error: 'Недостатньо прав' };
+    const divisionId = await getEditorDivisionId(session.user.staffId);
+    if (!divisionId) return { error: 'Недостатньо прав' };
+    if (!(await hasEntityPermission(divisionId, 'STAFF', 'UPDATE')))
+      return { error: 'Недостатньо прав' };
 
     const permissions = await db.divisionFieldPermission.findMany({
-      where: { divisionId: editorStaff.divisionId },
+      where: { divisionId },
       select: { fieldName: true },
     });
     const allowed = new Set(permissions.map((p) => p.fieldName));
@@ -107,9 +106,10 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
       if (allowed.has(key)) updateData[key] = val;
     }
   } else {
-    // USER editing own profile — non-confidential fields only
-    const { employmentRate: _emp, ...rest } = fields;
-    updateData = { ...rest };
+    const USER_EDITABLE = new Set(['phone', 'wosUrl', 'scopusUrl', 'googleScholarUrl', 'orcidId']);
+    for (const [key, val] of Object.entries(fields)) {
+      if (USER_EDITABLE.has(key)) updateData[key] = val;
+    }
   }
 
   let dbError: string | null = null;
