@@ -1,7 +1,6 @@
 import { Prisma } from '@/lib/generated/prisma/client';
 
 const UNIQUE_FIELD_MESSAGES: Record<string, string> = {
-  email: 'Працівник з таким email вже існує',
   Staff_email_key: 'Працівник з таким email вже існує',
   User_email_key: 'Користувач з таким email вже існує',
 };
