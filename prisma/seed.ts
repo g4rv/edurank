@@ -2,6 +2,11 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import bcrypt from 'bcryptjs';
+import {
+  ACTIVITY_TYPES_2026,
+  RATING_DIVISIONS,
+  SECTION_TITLES,
+} from '../lib/rating/activity-types';
 
 const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
@@ -15,23 +20,17 @@ async function main() {
     create: { name: 'Навчально-науковий відділ' },
   });
 
-  const nnczyo = await prisma.division.upsert({
-    where: { name: 'Навчально-науковий центр забезпечення якості освіти' },
-    update: {},
-    create: { name: 'Навчально-науковий центр забезпечення якості освіти' },
-  });
-
-  const vmz = await prisma.division.upsert({
-    where: { name: "Відділ міжнародних зв'язків" },
-    update: {},
-    create: { name: "Відділ міжнародних зв'язків" },
-  });
-
-  const va = await prisma.division.upsert({
-    where: { name: 'Відділ аспірантури' },
-    update: {},
-    create: { name: 'Відділ аспірантури' },
-  });
+  // Rating divisions (Phase 2) — creates all 6, incl. the two new 2026 ones
+  // (відділ кадрів, навчальний відділ); keyed by short catalogue keys
+  const ratingDivisionIds: Record<string, string> = {};
+  for (const [key, name] of Object.entries(RATING_DIVISIONS)) {
+    const division = await prisma.division.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+    ratingDivisionIds[key] = division.id;
+  }
 
   // ─── Faculty ──────────────────────────────────────────────────────────────
 
@@ -169,15 +168,58 @@ async function main() {
     });
   }
 
+  // ─── Rating template 2026 (Phase 2) ───────────────────────────────────────
+
+  const template = await prisma.ratingTemplate.upsert({
+    where: { year: 2026 },
+    update: { isActive: true },
+    create: { year: 2026, name: 'Рейтинг НПП 2026', isActive: true },
+  });
+
+  const sectionIds: Record<number, string> = {};
+  for (const [number, title] of Object.entries(SECTION_TITLES)) {
+    const section = await prisma.ratingSection.upsert({
+      where: { templateId_number: { templateId: template.id, number: Number(number) } },
+      update: { title },
+      create: { templateId: template.id, number: Number(number), title },
+    });
+    sectionIds[Number(number)] = section.id;
+  }
+
+  for (const def of ACTIVITY_TYPES_2026) {
+    const data = {
+      sectionId: sectionIds[def.section],
+      order: def.order,
+      label: def.label,
+      coefficient: def.coefficient,
+      coefficientNote: def.coefficientNote ?? null,
+      inputSource: def.inputSource,
+      verifyingDivisionId: def.verifyingDivision ? ratingDivisionIds[def.verifyingDivision] : null,
+      isActive: true,
+    };
+    await prisma.activityType.upsert({
+      where: { templateId_code: { templateId: template.id, code: def.code } },
+      update: data,
+      create: { templateId: template.id, code: def.code, ...data },
+    });
+  }
+
+  const activityTypeCount = await prisma.activityType.count({
+    where: { templateId: template.id },
+  });
+
   console.log('\nSeeded:');
   console.log(`  ADMIN   ${admin.email}              password: admin123`);
   console.log(`  EDITOR  ${editor.email}             password: editor123  division: ${nnv.name}`);
   console.log(
     `  USER    ${user.email}  password: user1234   staff: ${professor.lastName} ${professor.firstName}`
   );
-  console.log(`\n  Divisions: ${nnv.name}, ${nnczyo.name}, ${vmz.name}, ${va.name}`);
+  console.log(`\n  Divisions: ${Object.values(RATING_DIVISIONS).join(', ')}`);
   console.log(`  Faculty: ${faculty.name}`);
   console.log(`  Department: ${department.name}`);
+  console.log(
+    `  Rating template: ${template.name} (${template.year}, active) — ${activityTypeCount} activity types`
+  );
 }
 
 main()

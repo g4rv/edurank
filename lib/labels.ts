@@ -42,4 +42,23 @@ export const FIELD_LABELS: Record<string, string> = {
   role: 'Роль',
   staffId: 'Співробітник',
   password: 'Пароль',
+  // Rating (Phase 2): Activity
+  activityTypeId: 'Тип досягнення',
+  year: 'Рік',
+  evidence: 'Дані досягнення',
+  computedValue: 'Обчислене значення',
+  score: 'Бали',
+  status: 'Статус',
+  submittedByRole: 'Подано',
+  approvedAt: 'Підтверджено',
+  removedAt: 'Відхилено',
+  removeReason: 'Причина відхилення',
+  // Rating (Phase 2): ActivityType / RatingTemplate
+  label: 'Показник',
+  coefficient: 'Коефіцієнт',
+  coefficientNote: 'Критерії',
+  inputSource: 'Джерело внесення',
+  verifyingDivisionId: 'Відповідальний відділ',
+  isActive: 'Активний',
+  closedAt: 'Рік закрито',
 };

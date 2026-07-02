@@ -41,6 +41,29 @@ enum EntityAction {
   DELETE
 }
 
+// How a rating activity gets into the system
+enum InputSource {
+  NPP_SUBMISSION // NPP submits via profile, goes to PENDING queue
+  DIVISION_MANAGED // division enters directly, immediately APPROVED
+}
+
+enum ActivityStatus {
+  PENDING
+  APPROVED
+  REMOVED
+}
+
+enum SubmittedByRole {
+  NPP
+  DIVISION
+}
+
+// Year lifecycle — lives on RatingTemplate (one flag per year, checked by all actions)
+enum RatingYearStatus {
+  OPEN
+  CLOSED
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 model User {
@@ -57,6 +80,10 @@ model User {
   tokenVersion Int @default(0)
 
   auditLogs AuditLog[]
+
+  approvedActivities Activity[]       @relation("ActivityApprover")
+  removedActivities  Activity[]       @relation("ActivityRemover")
+  closedTemplates    RatingTemplate[] @relation("TemplateCloser")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -103,6 +130,7 @@ model Division {
   staff             Staff[]
   fieldPermissions  DivisionFieldPermission[]
   entityPermissions DivisionEntityPermission[]
+  verifiedTypes     ActivityType[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -154,6 +182,9 @@ model Staff {
   headOfDepartment Department? @relation("DepartmentHead")
   deanOfFaculty    Faculty?    @relation("FacultyDean")
 
+  activities    Activity[]
+  ratingEntries RatingEntry[]
+
   user User?
 
   createdAt DateTime @default(now())
@@ -195,6 +226,130 @@ model DivisionEntityPermission {
   action     EntityAction
 
   @@unique([divisionId, entity, action])
+}
+
+// ─── Rating system (Phase 2) ─────────────────────────────────────────────────
+
+// One template per year; admin clones the previous year and edits differences
+model RatingTemplate {
+  id       String           @id @default(cuid())
+  year     Int              @unique
+  name     String
+  isActive Boolean          @default(false)
+  status   RatingYearStatus @default(OPEN)
+
+  closedAt       DateTime?
+  closedByUserId String?
+  closedBy       User?     @relation("TemplateCloser", fields: [closedByUserId], references: [id])
+
+  sections      RatingSection[]
+  activityTypes ActivityType[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RatingSection {
+  id         String         @id @default(cuid())
+  templateId String
+  template   RatingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  number     Int // 1–5
+  title      String
+
+  activityTypes ActivityType[]
+
+  @@unique([templateId, number])
+}
+
+// One row per rating indicator per template (~67 for 2026)
+model ActivityType {
+  id         String         @id @default(cuid())
+  templateId String
+  template   RatingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  sectionId  String
+  section    RatingSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  order Int
+  code  String // stable semantic key, e.g. "publication_cat_a" — survives yearly renumbering
+  label String
+
+  // For FIXED/MULT kinds: points per unit. For SELECT/GATE kinds: 1 (points per option
+  // live in the scoring engine, keyed by code).
+  coefficient     Float
+  coefficientNote String?
+
+  inputSource InputSource
+
+  // Who approves NPP submissions / who enters division-managed values
+  verifyingDivisionId String?
+  verifyingDivision   Division? @relation(fields: [verifyingDivisionId], references: [id])
+
+  isActive Boolean @default(true)
+
+  activities Activity[]
+
+  @@unique([templateId, code])
+  @@index([verifyingDivisionId])
+}
+
+// One row per submitted/entered activity. Repeatable types may have several rows
+// per (staff, type, year) — deliberately NO unique constraint on that triple.
+model Activity {
+  id String @id @default(cuid())
+
+  staffId        String
+  staff          Staff        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  activityTypeId String
+  activityType   ActivityType @relation(fields: [activityTypeId], references: [id])
+
+  // Denormalized from activityType.template.year — always derived server-side, never client input
+  year Int
+
+  evidence      Json
+  computedValue Float
+  score         Float // computedValue × coefficient; recomputed and frozen at approval
+
+  status          ActivityStatus  @default(PENDING)
+  submittedByRole SubmittedByRole
+
+  approvedByUserId String?
+  approvedBy       User?     @relation("ActivityApprover", fields: [approvedByUserId], references: [id])
+  approvedAt       DateTime?
+
+  removedByUserId String?
+  removedBy       User?     @relation("ActivityRemover", fields: [removedByUserId], references: [id])
+  removedAt       DateTime?
+  removeReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffId, year])
+  @@index([activityTypeId, status])
+}
+
+// Cached per-staff/year rollup of approved activity scores; snapshot frozen at year close
+model RatingEntry {
+  id String @id @default(cuid())
+
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  year    Int
+
+  section1Score Float @default(0)
+  section2Score Float @default(0)
+  section3Score Float @default(0)
+  section4Score Float @default(0)
+  section5Score Float @default(0)
+  totalScore    Float @default(0)
+
+  // Full rating (labels + coefficients + scores) as of year close — authoritative for closed years
+  snapshot Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, year])
 }
 
 // ─── Audit log ───────────────────────────────────────────────────────────────

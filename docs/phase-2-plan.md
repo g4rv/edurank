@@ -9,7 +9,7 @@
 - **Source of truth for structure:** `edu-reference/Проєкт рейтинг 2026.xlsx` — Sheet 1 = final 2026 structure, Sheet 2 = 2025→2026 diff. **Finished, not a draft.** Build the catalogue/scoring/forms from THIS, not the old `sections/розділ *.md` forms.
 - **Active template = 2026.**
 - **Scope:** full pipeline — submission → verification → scoring → rating tables → PDF/graphs → publication verification.
-- **Approval auth:** an editor may approve/enter an activity only when their division `==` `ActivityType.verifyingDivisionId`. No new permission table.
+- **Input model (updated 2026-07-02, supersedes the old queue design):** «Дані внесені» division rows = that division enters values directly in its own panel (counts immediately; `verifyingDivisionId` = that division). Blank rows = NPP self-report from profile, **auto-approved on submit** (`verifyingDivisionId = null`) — there is NO pre-approval queue. Post-moderation instead: **ННВ editors + ADMIN** can discard an NPP self-report with a reason; the entering division (+ADMIN) manages its own rows. No new permission table.
 - **Divisions/actors = 6:** `ННВ, ННЦЗЯО, ВМЗ, ВА` + two new — `відділ кадрів` (HR) and `навчальний відділ`. All are ordinary `Division` rows with editors. The 2026 "Дані внесені" column is the authoritative who-enters mapping.
 - **Year cycle:** admin explicitly opens/closes a year. Template clones across years; changing it each year is optional, not required.
 - **Direct entry:** division-managed values are `APPROVED` immediately on save (no queue).
@@ -42,53 +42,70 @@
 
 # Milestone M0 — Data model & seed
 
-**Goal:** schema, migration, and a seeded 2025 template with all activity types. Nothing visible yet.
-**Ship criterion:** `pnpm db:reset` builds a full template; Prisma Studio shows ~54 `ActivityType` rows.
+**Goal:** schema, migration, and a seeded 2026 template with all activity types. Nothing visible yet.
+**Ship criterion:** `pnpm db:reset` builds a full template; Prisma Studio shows 67 `ActivityType` rows. **(DONE 2026-07-02)**
+
+### Issue M0.0 — Extract the 2026 catalogue from Excel (BLOCKER — do first)
+
+> The only extracted analysis in the repo (`edu-reference/rating-ref-analysis.md`) describes the OLD 2025 file.
+> `Проєкт рейтинг 2026.xlsx` has never been parsed into a readable form — M0.3 cannot start without this.
+
+- [x] Parse `edu-reference/Проєкт рейтинг 2026.xlsx` (script, e.g. `xlsx` package or Python) — Sheet 1 (final structure) and Sheet 2 (2025→2026 diff).
+- [x] Write `docs/rating-2026-catalogue.md`: one table per section — code, label, "Критерії" note, coefficient/points, "Дані внесені" (who enters), evidence fields needed. Human-reviewable, checked in.
+- [x] Include the short→full division name map (sheet uses `ННВ`, `ННЦЗЯО`, `ВМЗ`, `ВА`, `відділ кадрів`, `навчальний відділ`; DB uses full names like `Навчально-науковий відділ`).
+- [x] **User reviews the catalogue before M0.3 is built from it.**
 
 ### Issue M0.1 — Prisma schema: rating models
 
-- [ ] Add enums: `InputSource { NPP_SUBMISSION, DIVISION_MANAGED }`, `ActivityStatus { PENDING, APPROVED, REMOVED }`, `SubmittedByRole { NPP, DIVISION }`, `RatingEntryStatus { OPEN, CLOSED }`.
-- [ ] `RatingTemplate` (id, year `@unique`, name, isActive, timestamps).
-- [ ] `RatingSection` (id, templateId, number 1–5, title; `@@unique([templateId, number])`).
-- [ ] `ActivityType` (id, templateId, sectionId, order, code, label, coefficient `Float`, coefficientNote, inputSource, verifyingDivisionId nullable→Division, isActive; `@@unique([templateId, code])`, index on `verifyingDivisionId`).
-- [ ] `Activity` (id, staffId, activityTypeId, year, evidence `Json`, computedValue `Float`, score `Float`, status, submittedByRole, approvedByUserId/approvedAt, removedByUserId/removedAt/removeReason, timestamps; indexes on `[staffId, year]`, `[activityTypeId, status]`).
-- [ ] `RatingEntry` (id, staffId, year, section1Score…section5Score, totalScore, status, snapshot `Json`, closedAt, closedByUserId; `@@unique([staffId, year])`).
-- [ ] Relations back-references on `Staff`, `Division`, `User`.
+- [x] Add enums: `InputSource { NPP_SUBMISSION, DIVISION_MANAGED }`, `ActivityStatus { PENDING, APPROVED, REMOVED }`, `SubmittedByRole { NPP, DIVISION }`, `RatingYearStatus { OPEN, CLOSED }`.
+- [x] `RatingTemplate` (id, year `@unique`, name, isActive, **status `RatingYearStatus` @default(OPEN), closedAt, closedByUserId** — year open/closed lives HERE, not on `RatingEntry`: a staff with no entry yet must still hit the closed-year check).
+- [x] `RatingSection` (id, templateId, number 1–5, title; `@@unique([templateId, number])`).
+- [x] `ActivityType` (id, templateId, sectionId, order, code, label, coefficient `Float`, coefficientNote, inputSource, verifyingDivisionId nullable→Division, isActive; `@@unique([templateId, code])`, index on `verifyingDivisionId`).
+- [x] `Activity` (id, staffId, activityTypeId, year, evidence `Json`, computedValue `Float`, score `Float`, status, submittedByRole, approvedByUserId/approvedAt, removedByUserId/removedAt/removeReason, timestamps; indexes on `[staffId, year]`, `[activityTypeId, status]`).
+  - **No `@@unique([staffId, activityTypeId, year])`** — repeatable NPP types legitimately have multiple rows. Direct-entry upsert (M5) uses find-then-update in a transaction instead.
+  - **`year` is denormalized** (for indexes/queries) — actions must DERIVE it from `activityType.template.year`, never accept it from the client.
+- [x] `RatingEntry` (id, staffId, year, section1Score…section5Score, totalScore, snapshot `Json`; `@@unique([staffId, year])`). No status column — year status is on the template.
+- [x] Relations back-references on `Staff`, `Division`, `User`.
 
 ### Issue M0.2 — Migration + client
 
-- [ ] `pnpm db:migrate --name phase2_rating_models`
-- [ ] `pnpm db:generate`, `pnpm type-check` green.
+- [x] `pnpm db:migrate --name phase2_rating_models`
+- [x] `pnpm db:generate`, `pnpm type-check` green.
 
 ### Issue M0.3 — Activity-type catalogue (constants)
 
-- [ ] `lib/rating/activity-types.ts` — declare every activity type **from `Проєкт рейтинг 2026.xlsx` Sheet 1**: `code`, `section`, `order`, `label`, `coefficient`, `inputSource`, `verifyingDivision` (by name/key), `coefficientNote` (the "Критерії"/"D" column).
-- [ ] Map each row's `verifyingDivision` from the **"Дані внесені" column** (відділ кадрів / навчальний / ННЦЗЯО / ВМЗ / ННВ / ВА; blank = NPP self-submission).
-- [ ] Include the 2026-only shapes: quartile tiers on cat. А, gate model on moodle, degree "за спеціальністю кафедри" tiers, стажування в Україні, зустріч з експертною групою.
-- [ ] Do NOT include the removed items (article 5-ст, відгуки автореферат, рецензування МАН).
+- [x] `lib/rating/activity-types.ts` — declare every activity type **from `docs/rating-2026-catalogue.md` (produced in M0.0)**: `code`, `section`, `order`, `label`, `coefficient`, `inputSource`, `verifyingDivision` (short key, resolved via the division name map), `coefficientNote` (the "Критерії"/"D" column).
+- [x] Map each row's `verifyingDivision` from the **"Дані внесені" column** (відділ кадрів / навчальний / ННЦЗЯО / ВМЗ / ННВ / ВА; blank = NPP self-submission).
+- [x] Include the 2026-only shapes: quartile tiers on cat. А, gate model on moodle, degree "за спеціальністю кафедри" tiers, стажування в Україні, зустріч з експертною групою.
+- [x] Do NOT include the removed items (article 5-ст, відгуки автореферат, рецензування МАН).
 
 ### Issue M0.4 — Seed template
 
-- [ ] Extend `prisma/seed.ts`: seed the **6 divisions** (add `відділ кадрів`, `навчальний відділ`) if missing.
-- [ ] Create **2026** `RatingTemplate` (isActive) + 5 sections + all activity types from the catalogue, linked to divisions by name.
-- [ ] Idempotent (upsert by `[templateId, code]`).
-- [ ] `pnpm db:reset` runs clean.
+- [x] Extend `prisma/seed.ts`: seed the **6 divisions** (add `відділ кадрів`, `навчальний відділ`) if missing. Existing 4 are seeded under FULL names (`Навчально-науковий відділ`, …) — use the same convention and resolve catalogue short keys through the name map.
+- [x] Create **2026** `RatingTemplate` (isActive) + 5 sections + all activity types from the catalogue, linked to divisions by name.
+- [x] Idempotent (upsert by `[templateId, code]`).
+- [x] `pnpm db:reset` runs clean.
 
 ### Issue M0.5 — Labels
 
-- [ ] Add rating field labels to `FIELD_LABELS` in `lib/labels.ts` (for audit-log diffs on Activity: status, score, removeReason, etc.).
-- [ ] Add section-title + status label maps in `lib/rating/labels.ts`.
+- [x] Add rating field labels to `FIELD_LABELS` in `lib/labels.ts` (for audit-log diffs on Activity: status, score, removeReason, etc.).
+- [x] Add section-title + status label maps in `lib/rating/labels.ts`.
 
 ---
 
 # Milestone M1 — Scoring engine
 
 **Goal:** pure, tested functions that turn evidence → score. No DB, no UI.
-**Ship criterion:** `pnpm test` covers every scoring branch.
+**Ship criterion:** `pnpm test` covers every scoring branch. **(DONE 2026-07-02 — 25 tests)**
+
+> Decision locked in M1: **one Activity row = one item.** Repeatable achievements (each award,
+> each curated group, each conference…) are submitted one at a time; caps like «не більше 5»
+> are enforced in the submit action by counting existing rows. Evidence option keys are defined
+> in `SELECT_OPTION_POINTS` (`lib/rating/scoring.ts`) — M2 schemas/forms must reuse them.
 
 ### Issue M1.1 — Formula functions
 
-- [ ] `lib/rating/scoring.ts`: implement the **2026** formulas:
+- [x] `lib/rating/scoring.ts`: implement the **2026** formulas:
   - author sheets `pages / 24` (editions, monograph)
   - **moodle GATE:** 150 (Розроблення) or 50 (Оновлення) only if ALL six materials present, else 0. No percentages, no elective multiplier.
   - **cat. А publication:** score by quartile — Q1=600, Q2=500, Q3-4/none=400.
@@ -97,11 +114,11 @@
   - degree tiers (doctor 50/40, PhD 30/20 — "за спеціальністю кафедри" or not)
   - default `value = 1`
   - **Do NOT implement** the removed `pages / authors` article formula.
-- [ ] `computeScore(code, evidence) → { computedValue, score }` where `score = computedValue × coefficient`.
+- [x] `computeScore(code, evidence) → { computedValue, score }` where `score = computedValue × coefficient`.
 
 ### Issue M1.2 — Unit tests
 
-- [ ] `lib/rating/scoring.test.ts` — one case per formula + edge cases (moodle: all-present vs one-missing → 0; each quartile; each select branch).
+- [x] `lib/rating/scoring.test.ts` — one case per formula + edge cases (moodle: all-present vs one-missing → 0; each quartile; each select branch).
 
 ---
 
@@ -118,7 +135,7 @@
 ### Issue M2.2 — Evidence form components
 
 - [ ] `components/rating/evidence/` — one small RHF form component per code (reuse existing `form-field`, `select`, `combobox`, `calendar`, `switch`).
-- [ ] Group repeatable ones (awards, куратор groups, проф. об'єднання) with add/remove rows.
+- [ ] Repeatable items = one Activity per entry (no add/remove row groups): the NPP submits the form once per award / group / conference. Caps («не більше 5») enforced server-side in M3.
 - [ ] 2026 specifics: cat. А publication needs a **quartile select (Q1/Q2/Q3-4)**; moodle needs a **mode select (Розроблення/Оновлення) + 6 material checkboxes** with a "gate" hint (all required for points).
 
 ### Issue M2.3 — Registry + human summary
@@ -130,8 +147,8 @@
 
 # Milestone M3 — NPP submission flow (USER)
 
-**Goal:** an NPP submits activities from their profile; they land `PENDING`.
-**Ship criterion:** USER adds an activity, sees it PENDING; cannot submit for anyone else.
+**Goal:** an NPP submits activities from their profile; they are **auto-approved** and count immediately.
+**Ship criterion:** USER adds an activity, sees it APPROVED with its score; cannot submit for anyone else.
 
 ### Issue M3.1 — Query: own activities
 
@@ -139,12 +156,12 @@
 
 ### Issue M3.2 — Submit action
 
-- [ ] `app/(dashboard)/profile/actions.ts` → `createActivity`: auth USER, own `staffId` only, activity type must be `NPP_SUBMISSION` and in the active template, parse evidence via registry, `computeScore`, insert `PENDING` `submittedByRole=NPP`, audit.
-- [ ] `resubmitActivity` after a REMOVE (or just allow new create).
+- [ ] `app/(dashboard)/profile/actions.ts` (new file — profile has no actions yet) → `createActivity`: auth USER, own `staffId` only, activity type must be `NPP_SUBMISSION`, in the active template, and template `status=OPEN`; **derive `year` from the template, never from client input**; parse evidence via registry, `computeScore`, insert **`APPROVED`** `submittedByRole=NPP` (auto-approve, score frozen at submit), audit, recompute rating.
+- [ ] Resubmit after a discard = new create (old row stays `REMOVED` with reason).
 
 ### Issue M3.3 — Profile UI
 
-- [ ] Extend `app/(dashboard)/profile/page.tsx`: "Мої досягнення" section — year selector, list by section, status badges (Очікує / Підтверджено / Відхилено + reason).
+- [ ] Extend `app/(dashboard)/profile/page.tsx`: "Мої досягнення" section — year selector, list by section, status badges (Підтверджено / Відхилено + reason).
 - [ ] "Додати досягнення" flow: pick activity type → render evidence form from registry → submit.
 
 ### Issue M3.4 — Tests
@@ -153,28 +170,27 @@
 
 ---
 
-# Milestone M4 — Division verification queue (EDITOR)
+# Milestone M4 — Discard flow & oversight (ННВ + ADMIN)
 
-**Goal:** editors approve/remove pending NPP submissions for their division's activity types.
-**Ship criterion:** editor of ННВ sees only ННВ-verified pending items; approve freezes score; remove needs reason.
+**Goal:** post-moderation — ННВ editors and ADMIN can discard a wrong NPP self-report with a reason.
+**Ship criterion:** ННВ editor discards an entry → score leaves the rating, NPP sees the reason and can resubmit; other divisions' editors cannot discard.
 
-### Issue M4.1 — Query: approval queue
+### Issue M4.1 — Query: recent self-reports
 
-- [ ] `lib/queries/list-pending-activities.ts` — `PENDING` where `activityType.verifyingDivisionId == editor division`.
+- [ ] `lib/queries/list-npp-activities.ts` — recent `APPROVED` NPP self-reports (`inputSource=NPP_SUBMISSION`), filterable by year/section/staff, for the oversight panel.
 
-### Issue M4.2 — Approve / remove actions
+### Issue M4.2 — Discard action
 
-- [ ] `app/(dashboard)/divisions/[id]/actions.ts` (or a `rating` route): `approveActivity`, `removeActivity(reason)`.
-- [ ] Auth: editor division must equal the activity type's `verifyingDivisionId` (server-side). ADMIN allowed.
-- [ ] Set status/approvedBy/removedBy, audit via `diffChanges`.
+- [ ] `removeActivity(reason)`: auth = ADMIN, or EDITOR whose division is ННВ (server-side via `getEditorDivisionId`). Reject if template `status=CLOSED`. Reason required.
+- [ ] Set `status=REMOVED`, removedBy/removedAt/removeReason, audit via `diffChanges`, recompute rating.
 
-### Issue M4.3 — Queue UI
+### Issue M4.3 — Oversight UI
 
-- [ ] Panel on division dashboard: pending list, evidence summary (`renderSummary`), approve / remove-with-reason buttons.
+- [ ] Panel (ННВ dashboard + admin): list of NPP self-reports with evidence summary (`renderSummary`), discard-with-reason button.
 
 ### Issue M4.4 — Tests
 
-- [ ] Action test: editor of wrong division is rejected.
+- [ ] Action test: editor of a non-ННВ division is rejected; reason is required.
 
 ---
 
@@ -185,7 +201,8 @@
 
 ### Issue M5.1 — Entry action
 
-- [ ] `upsertDivisionActivity`: auth via `verifyingDivisionId`, type must be `DIVISION_MANAGED`, `computeScore`, insert/update as `APPROVED` `submittedByRole=DIVISION`, audit.
+- [ ] `upsertDivisionActivity`: auth via `verifyingDivisionId`, type must be `DIVISION_MANAGED`, template `OPEN`, `computeScore`, insert/update as `APPROVED` `submittedByRole=DIVISION`, audit.
+- [ ] Upsert = `findFirst` (same staff + type + year, `status != REMOVED`) then update-or-create **inside the transaction** — there is no DB unique constraint (repeatable NPP types forbid one).
 
 ### Issue M5.2 — Entry grid UI
 
@@ -204,7 +221,7 @@
 
 ### Issue M6.1 — Recompute function
 
-- [ ] `lib/rating/recompute.ts`: sum APPROVED `score` by section → write `RatingEntry` (section1..5, total). Called after approve / remove / direct-entry.
+- [ ] `lib/rating/recompute.ts`: sum APPROVED `score` by section → write `RatingEntry` (section1..5, total). Called after submit / discard / direct-entry.
 - [ ] Decide sync vs lazy (default sync).
 
 ### Issue M6.2 — Rating queries
@@ -233,7 +250,7 @@
 
 ### Issue M7.2 — Close year
 
-- [ ] `closeYear(year)`: build `RatingEntry.snapshot` JSON (labels + coefficients + scores as-of-close) for every staff, set `status=CLOSED`, `closedAt/By`.
+- [ ] `closeYear(year)`: build `RatingEntry.snapshot` JSON (labels + coefficients + scores as-of-close) for every staff, then set **`RatingTemplate.status=CLOSED`, `closedAt/By`** (single authoritative flag — all action guards read it).
 - [ ] **Decide appeals policy** — block or allow submissions into closed year (enforce in M3/M4 actions).
 
 ### Issue M7.3 — Template admin UI
@@ -254,7 +271,7 @@
 
 ### Issue M8.1 — PDF generation
 
-- [ ] Choose approach (server-side React-PDF / html-to-pdf). Add dep.
+- [ ] Choose approach (server-side React-PDF / html-to-pdf). Add dep. **No PDF or chart lib is installed yet — verify Next 16 + React 19 compatibility before committing to one** (`@react-pdf/renderer` and `recharts` are the default candidates).
 - [ ] Per-staff rating report matching the Excel table layout; per-year.
 - [ ] (Optional) department/division summary PDF.
 
@@ -293,18 +310,18 @@
 
 ## Suggested order & rough sizing (solo)
 
-| Milestone                 | What you can demo         | Rough size         |
-| ------------------------- | ------------------------- | ------------------ |
-| M0                        | Seeded template in Studio | 2–3 days           |
-| M1                        | Tested scoring            | 1–2 days           |
-| M2                        | All evidence forms render | 5–8 days (largest) |
-| M3                        | NPP submits               | 3–4 days           |
-| M4                        | Editor approves           | 2–3 days           |
-| M5                        | Division entry            | 2 days             |
-| M6                        | Rating tables             | 3–4 days           |
-| **↑ core loop shippable** |                           | **~4 weeks**       |
-| M7                        | Year admin                | 3–4 days           |
-| M8                        | PDF + graphs              | 4–6 days           |
-| M9                        | Verification + QA         | 3–5 days           |
+| Milestone                 | What you can demo         | Rough size                                 |
+| ------------------------- | ------------------------- | ------------------------------------------ |
+| M0                        | Seeded template in Studio | 2–3 days (+1 for M0.0 extraction + review) |
+| M1                        | Tested scoring            | 1–2 days                                   |
+| M2                        | All evidence forms render | 5–8 days (largest)                         |
+| M3                        | NPP submits               | 3–4 days                                   |
+| M4                        | Discard & oversight       | 1–2 days                                   |
+| M5                        | Division entry            | 2 days                                     |
+| M6                        | Rating tables             | 3–4 days                                   |
+| **↑ core loop shippable** |                           | **~4 weeks**                               |
+| M7                        | Year admin                | 3–4 days                                   |
+| M8                        | PDF + graphs              | 4–6 days                                   |
+| M9                        | Verification + QA         | 3–5 days                                   |
 
 **Full scope: ~8–10 weeks solo.** Core loop (M0–M6) is the 1-month target.
