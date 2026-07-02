@@ -201,6 +201,8 @@ Mutations use `diffChanges` from `lib/audit.ts` to capture before/after state in
 
 **When adding a new field to any model**, also add its Ukrainian label to `FIELD_LABELS` in `lib/labels.ts`. When adding a new entity with mutations, wire up `diffChanges` in its `actions.ts` following the pattern in existing action files.
 
+**When adding a new editable Staff field**, also add it to `ALLOWED_FIELD_NAMES` in `app/(dashboard)/admin/permissions/field/actions.ts` and to `FIELD_GROUPS` in `app/(dashboard)/admin/permissions/field/page.tsx` so it appears in the permissions UI and can be granted to divisions.
+
 ## Key conventions
 
 - Import alias `@/*` maps to project root (e.g. `@/lib/db`, `@/components/ui`)

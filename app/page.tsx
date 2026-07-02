@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 
 export default async function Home() {
   const session = await auth();
-  if (session?.user.role === 'USER') redirect('/profile');
+  if (!session) redirect('/login');
+  if (session.user.role === 'USER') redirect('/profile');
   redirect('/staff');
 }

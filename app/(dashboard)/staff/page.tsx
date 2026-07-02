@@ -68,6 +68,7 @@ export default async function StaffPage({
       degree: degreeFilter,
       partTime: partTime === '1',
       degreeMatch: degreeMatch === '1',
+      includeConfidential: isAdmin,
     }),
     listFaculties(),
     listDepartments(),
@@ -206,12 +207,7 @@ export default async function StaffPage({
         departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
       />
 
-      <StaffTable
-        key={tableKey}
-        staff={isAdmin ? staff : staff.map(({ employmentRate: _r, ...rest }) => rest)}
-        sortHeader={sortHeader}
-        isAdmin={isAdmin}
-      />
+      <StaffTable key={tableKey} staff={staff} sortHeader={sortHeader} isAdmin={isAdmin} />
     </div>
   );
 }

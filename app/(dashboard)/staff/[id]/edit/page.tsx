@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listDivisions } from '@/lib/queries/list-divisions';
+import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { StaffEditForm } from '@/components/staff/edit-form';
 
 export default async function StaffEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,6 +17,11 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
   const isEditor = role === 'EDITOR';
 
   if (!isAdmin && !isEditor) redirect(`/staff/${id}`);
+
+  if (isEditor) {
+    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'STAFF');
+    if (!perms.canUpdate) redirect(`/staff/${id}`);
+  }
 
   const [staff, departments, divisions] = await Promise.all([
     getStaff(id, isAdmin),

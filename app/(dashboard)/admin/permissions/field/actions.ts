@@ -7,6 +7,28 @@ import { db } from '@/lib/db';
 
 export type PermissionToggleState = { error: string } | null;
 
+const ALLOWED_FIELD_NAMES = new Set([
+  'lastName',
+  'firstName',
+  'patronymic',
+  'email',
+  'phone',
+  'isNpp',
+  'academicRank',
+  'scientificDegree',
+  'degreeMatchesDepartment',
+  'pedagogicalExperience',
+  'wosUrl',
+  'wosCitationCount',
+  'scopusUrl',
+  'scopusCitationCount',
+  'googleScholarUrl',
+  'googleScholarCitationCount',
+  'orcidId',
+  'departmentId',
+  'divisionId',
+]);
+
 export async function setFieldPermission(
   divisionId: string,
   fieldName: string,
@@ -15,6 +37,7 @@ export async function setFieldPermission(
   const session = await auth();
   if (!session) redirect('/login');
   if (session.user.role !== 'ADMIN') return { error: 'Недостатньо прав' };
+  if (!ALLOWED_FIELD_NAMES.has(fieldName)) return { error: 'Невідоме поле' };
 
   try {
     if (enabled) {

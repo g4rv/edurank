@@ -153,12 +153,12 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
       name: true,
       facultyId: true,
       headId: true,
-      _count: { select: { primaryStaff: true } },
+      _count: { select: { primaryStaff: true, partTimeStaff: true } },
     },
   });
 
   if (!department) return { error: 'Кафедру не знайдено' };
-  if (department._count.primaryStaff > 0)
+  if (department._count.primaryStaff > 0 || department._count.partTimeStaff > 0)
     return { error: 'Неможливо видалити кафедру, до якої прикріплений персонал' };
 
   let dbError: string | null = null;

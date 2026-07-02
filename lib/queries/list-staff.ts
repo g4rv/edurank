@@ -15,6 +15,7 @@ export type StaffFilters = {
   degree?: ScientificDegree;
   partTime?: boolean;
   degreeMatch?: boolean;
+  includeConfidential?: boolean;
 };
 
 export async function listStaff(filters?: StaffFilters) {
@@ -70,7 +71,7 @@ export async function listStaff(filters?: StaffFilters) {
       isNpp: true,
       academicRank: true,
       scientificDegree: true,
-      employmentRate: true,
+      ...(filters?.includeConfidential ? { employmentRate: true } : {}),
       department: { select: { name: true } },
       division: { select: { name: true } },
     },

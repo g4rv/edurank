@@ -134,7 +134,10 @@ export async function deleteUser(id: string): Promise<UserActionState> {
 
   if (session.user.id === id) return { error: 'Неможливо видалити власний обліковий запис' };
 
-  const user = await db.user.findUnique({ where: { id }, select: { email: true } });
+  const user = await db.user.findUnique({
+    where: { id },
+    select: { email: true, role: true, staffId: true },
+  });
   if (!user) return { error: 'Користувача не знайдено' };
 
   let dbError: string | null = null;
@@ -149,7 +152,7 @@ export async function deleteUser(id: string): Promise<UserActionState> {
           entityId: id,
           label: user.email,
           userId: session.user.id,
-          changes: diffChanges({ email: user.email }, {}),
+          changes: diffChanges({ email: user.email, role: user.role, staffId: user.staffId }, {}),
         },
       });
     });

@@ -16,6 +16,7 @@ export function parseDbError(err: unknown, fallback = 'Помилка при з�
       return 'Запис з такими даними вже існує';
     }
     if (err.code === 'P2025') return 'Запис не знайдено';
+    if (err.code === 'P2003') return 'Вказаний запис не існує';
   }
   return fallback;
 }

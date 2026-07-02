@@ -31,7 +31,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/faculties', label: 'Факультети', icon: GraduationCap, roles: ['ADMIN', 'EDITOR'] },
   { href: '/departments', label: 'Кафедри', icon: BookOpen, roles: ['ADMIN', 'EDITOR'] },
   { href: '/divisions', label: 'Відділи', icon: Building2, roles: ['ADMIN', 'EDITOR'] },
-  { href: '/profile', label: 'Мій профіль', icon: LayoutDashboard, roles: ['USER'] },
 ];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
@@ -45,6 +44,7 @@ interface SidebarProps {
   user: {
     email: string;
     role: Role;
+    staffId?: string | null;
   };
 }
 
@@ -64,6 +64,17 @@ export function Sidebar({ user }: SidebarProps) {
         {mainNav.map((item) => (
           <NavLink key={item.href} item={item} pathname={pathname} />
         ))}
+        {user.staffId && (
+          <NavLink
+            item={{
+              href: '/profile',
+              label: 'Мій профіль',
+              icon: LayoutDashboard,
+              roles: [user.role],
+            }}
+            pathname={pathname}
+          />
+        )}
 
         {adminNav.length > 0 && (
           <>
