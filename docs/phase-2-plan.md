@@ -199,6 +199,11 @@
 **Goal:** divisions enter division-managed values per NPP per year; immediately `APPROVED`.
 **Ship criterion:** ННВ enters pedagogical experience for a staff, it shows APPROVED and counts in rating.
 
+> **Decision (user, 2026-07-06):** each division gets its OWN page — the in-app replacement of its
+> `Дані *.xlsx` working file (ВМЗ → проєкти; ННЦЗЯО → ОП/ради/обовʼязки; ВА → спецради; ННВ → НДР та
+> фіксовані показники; + кадри й навчальний відділ). Access: only editors of that division (via
+> `getEditorDivisionId`) + ADMIN. Not one generic shared panel.
+
 ### Issue M5.1 — Entry action
 
 - [ ] `upsertDivisionActivity`: auth via `verifyingDivisionId`, type must be `DIVISION_MANAGED`, template `OPEN`, `computeScore`, insert/update as `APPROVED` `submittedByRole=DIVISION`, audit.
@@ -207,6 +212,11 @@
 ### Issue M5.2 — Entry grid UI
 
 - [ ] Division dashboard panel: NPP × managed-activity-type grid for selected year; inline entry using evidence forms.
+- [ ] **Design note (from `edu-reference/Дані *.xlsx`, checked 2026-07-06):** divisions track group
+      items entity-first — ВМЗ: row per проєкт with staff lists per role; ННЦЗЯО: row per ОП / рада;
+      ВА: row per спецрада (+ «Разова» flag — ask user if it affects scoring). For these, prefer an
+      "enter object once → pick staff per role → fan out one Activity per staff" flow. The pure
+      NPP × type grid fits only «Обовязки»-style booleans/numbers (навантаження, сайт, комісії).
 
 ### Issue M5.3 — Tests
 
