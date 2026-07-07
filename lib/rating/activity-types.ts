@@ -54,6 +54,8 @@ export interface ActivityTypeDef {
    * ННВ editors or ADMIN can discard with a reason).
    */
   verifyingDivision?: RatingDivisionKey;
+  /** «не більше N» caps from the sheet — enforced in the submit action per staff/year */
+  maxPerYear?: number;
 }
 
 export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
@@ -676,6 +678,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficient: 1,
     coefficientNote: 'очна — 50, заочна (дистанційна) — 20',
     inputSource: 'NPP_SUBMISSION',
+    maxPerYear: 5,
   },
   {
     code: 'conf_ukraine',
@@ -687,6 +690,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     kind: 'FIXED',
     coefficient: 10,
     inputSource: 'NPP_SUBMISSION',
+    maxPerYear: 5,
   },
   {
     code: 'edu_exhibitions',

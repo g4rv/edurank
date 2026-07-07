@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -13,17 +14,25 @@ import {
   KeyRound,
   LogOut,
   LayoutDashboard,
+  Award,
+  Plus,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { signOutAction } from '@/app/(dashboard)/actions';
+import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import type { Role } from '@/lib/generated/prisma/client';
+
+const RATING_SECTIONS = [1, 2, 3, 4, 5];
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
   roles: Role[];
+  exact?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -75,6 +84,21 @@ export function Sidebar({ user }: SidebarProps) {
             pathname={pathname}
           />
         )}
+        {user.role === 'USER' && (
+          <>
+            <NavLink
+              item={{
+                href: '/achievements',
+                label: 'Мій рейтинг',
+                icon: Award,
+                roles: [user.role],
+                exact: true,
+              }}
+              pathname={pathname}
+            />
+            <AddActivityNav pathname={pathname} />
+          </>
+        )}
 
         {adminNav.length > 0 && (
           <>
@@ -105,8 +129,62 @@ export function Sidebar({ user }: SidebarProps) {
   );
 }
 
+function AddActivityNav({ pathname }: { pathname: string }) {
+  const isOnSectionRoute = RATING_SECTIONS.some((s) => pathname === `/achievements/${s}`);
+  const [manuallyOpen, setManuallyOpen] = useState(false);
+  const expanded = isOnSectionRoute || manuallyOpen;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setManuallyOpen((v) => !v)}
+        className={cn(
+          'flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
+          'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+        )}
+      >
+        <Plus className="size-4 shrink-0" />
+        Додати активність
+        {expanded ? (
+          <ChevronDown className="ml-auto size-4 shrink-0" />
+        ) : (
+          <ChevronRight className="ml-auto size-4 shrink-0" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="mt-0.5 ml-3.5 flex flex-col gap-0.5 border-l pl-2.5">
+          {RATING_SECTIONS.map((section) => {
+            const href = `/achievements/${section}`;
+            const isActive = pathname === href;
+            return (
+              <Link
+                key={section}
+                href={href}
+                title={SECTION_TITLES[section]}
+                className={cn(
+                  'rounded-md px-2 py-1.5 text-sm transition-colors',
+                  isActive
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                )}
+              >
+                Розділ {section}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
-  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+  // Exact match for /achievements (My Rating) so section routes don't also highlight it
+  const isActive = item.exact
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(item.href + '/');
   const Icon = item.icon;
 
   return (

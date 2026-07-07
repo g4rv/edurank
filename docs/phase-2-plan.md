@@ -24,8 +24,11 @@
 ## Decisions still open (resolve during the milestone noted)
 
 - **Appeals to a closed year** — can an NPP submit into a `CLOSED` year? _(decide in M7)_
-- **Recompute strategy** — recompute `RatingEntry` synchronously on each approve/remove, or lazily on read? _(decide in M6; default: synchronous, small scale ~300 staff)_
 - **Publication verification** — what "verified" means exactly (manual editor flag vs external DOI/WoS check). _(decide in M9)_
+- **«Разова» спецрада** (from `Дані Аспірантура.xlsx`) — does a one-time defense council score the same as a permanent one? _(ask user; needed for M5 ВА page)_
+- **Citation profile links** — should `citations_*` entries store the WoS/Scopus profile URL as proof (ННВ tracks them today)? _(ask user; needed for M5 ННВ page)_
+
+Resolved earlier: recompute strategy = synchronous in-transaction (see M6.1).
 
 ## Conventions (follow existing Phase 1 patterns)
 
@@ -124,24 +127,24 @@
 
 # Milestone M2 — Typed evidence schemas & forms registry
 
-**Goal:** per-activity-type Zod schema + form component, keyed by `code`. The heavy milestone.
-**Ship criterion:** a registry maps every code → `{ schema, FormComponent, summary }`; renders in a debug page.
+**Goal:** per-activity-type Zod schema + form rendering, keyed by `code`. The heavy milestone.
+**Ship criterion:** a registry resolves every code → `{ def, fields, schema }` + summary; renders in a debug page. **(DONE 2026-07-02; built leaner than planned — field specs + ONE generic renderer instead of 67 per-code components; playground reviewed by user 2026-07-06)**
 
 ### Issue M2.1 — Evidence Zod schemas
 
-- [ ] `validations/activity-evidence.ts`: a discriminated set of schemas, one per `code` (text/select/number/url/checkbox/date fields per doc).
-- [ ] `evidenceSchemaFor(code)` lookup; exhaustive over the catalogue.
+- [x] `validations/activity-evidence.ts`: schemas generated from `EVIDENCE_FIELDS` specs (`lib/rating/evidence-fields.ts`), one per `code`.
+- [x] `evidenceSchemaFor(code)` lookup; exhaustive over the catalogue.
 
 ### Issue M2.2 — Evidence form components
 
-- [ ] `components/rating/evidence/` — one small RHF form component per code (reuse existing `form-field`, `select`, `combobox`, `calendar`, `switch`).
-- [ ] Repeatable items = one Activity per entry (no add/remove row groups): the NPP submits the form once per award / group / conference. Caps («не більше 5») enforced server-side in M3.
-- [ ] 2026 specifics: cat. А publication needs a **quartile select (Q1/Q2/Q3-4)**; moodle needs a **mode select (Розроблення/Оновлення) + 6 material checkboxes** with a "gate" hint (all required for points).
+- [x] One generic `components/rating/evidence-fields.tsx` renderer driven by the field specs (instead of a component per code — same result, far less code).
+- [x] Repeatable items = one Activity per entry (no add/remove row groups): the NPP submits the form once per award / group / conference. Caps («не більше 5») enforced server-side in M3.
+- [x] 2026 specifics: cat. А quartile select (Q1/Q2/Q3-4); moodle mode select (Розроблення/Оновлення) + 6 material checkboxes (gate).
 
 ### Issue M2.3 — Registry + human summary
 
-- [ ] `lib/rating/registry.ts`: `code → { schema, Form, renderSummary(evidence) }` for list/queue display.
-- [ ] Dev-only test page `app/(dashboard)/admin/rating-debug/page.tsx` to render each form (delete before ship, or keep admin-gated).
+- [x] `lib/rating/registry.ts`: `activityTypeMeta(code)` → `{ def, fields, schema }` + `summarizeEvidence(code, evidence)` for list/audit display.
+- [x] Admin-gated playground `app/(dashboard)/admin/rating-debug/page.tsx` with section + item selects, Ukrainian labels.
 
 ---
 
@@ -157,6 +160,8 @@
 ### Issue M3.2 — Submit action
 
 - [ ] `app/(dashboard)/profile/actions.ts` (new file — profile has no actions yet) → `createActivity`: auth USER, own `staffId` only, activity type must be `NPP_SUBMISSION`, in the active template, and template `status=OPEN`; **derive `year` from the template, never from client input**; parse evidence via registry, `computeScore`, insert **`APPROVED`** `submittedByRole=NPP` (auto-approve, score frozen at submit), audit, recompute rating.
+- [ ] `lib/rating/recompute.ts` is **pulled forward from M6.1** — the submit action is its first caller (in-transaction, synchronous).
+- [ ] Enforce «не більше 5» caps (conf_abroad, conf_ukraine) by counting existing non-REMOVED rows.
 - [ ] Resubmit after a discard = new create (old row stays `REMOVED` with reason).
 
 ### Issue M3.3 — Profile UI
@@ -209,14 +214,14 @@
 - [ ] `upsertDivisionActivity`: auth via `verifyingDivisionId`, type must be `DIVISION_MANAGED`, template `OPEN`, `computeScore`, insert/update as `APPROVED` `submittedByRole=DIVISION`, audit.
 - [ ] Upsert = `findFirst` (same staff + type + year, `status != REMOVED`) then update-or-create **inside the transaction** — there is no DB unique constraint (repeatable NPP types forbid one).
 
-### Issue M5.2 — Entry grid UI
+### Issue M5.2 — Division pages (one per division)
 
-- [ ] Division dashboard panel: NPP × managed-activity-type grid for selected year; inline entry using evidence forms.
-- [ ] **Design note (from `edu-reference/Дані *.xlsx`, checked 2026-07-06):** divisions track group
-      items entity-first — ВМЗ: row per проєкт with staff lists per role; ННЦЗЯО: row per ОП / рада;
-      ВА: row per спецрада (+ «Разова» flag — ask user if it affects scoring). For these, prefer an
-      "enter object once → pick staff per role → fan out one Activity per staff" flow. The pure
-      NPP × type grid fits only «Обовязки»-style booleans/numbers (навантаження, сайт, комісії).
+- [ ] Six pages, each the in-app replacement of that division's `Дані *.xlsx` sheets, gated to its
+      editors + ADMIN. Two UI patterns: - **Entity-first** (from `edu-reference/Дані *.xlsx`, checked 2026-07-06): ВМЗ → проєкти
+      (staff picked per role), ННЦЗЯО → ОП / ради, ВА → спецради (+ «Разова» flag — ask user if it
+      affects scoring), ННВ → НДР-теми. "Enter object once → pick staff per role → fan out one
+      Activity per staff." - **Staff-first grid** for «Обовязки»-style booleans/numbers (навантаження, сайт, комісії,
+      стаж/звання/ступінь for кадри) — NPP × type for the selected year.
 
 ### Issue M5.3 — Tests
 
@@ -231,8 +236,8 @@
 
 ### Issue M6.1 — Recompute function
 
-- [ ] `lib/rating/recompute.ts`: sum APPROVED `score` by section → write `RatingEntry` (section1..5, total). Called after submit / discard / direct-entry.
-- [ ] Decide sync vs lazy (default sync).
+- [ ] `lib/rating/recompute.ts`: sum APPROVED `score` by section → write `RatingEntry` (section1..5, total). Called after submit / discard / direct-entry. **Implemented in M3** (first caller); M4/M5 actions must call it too.
+- [x] Decided: **synchronous, in the same transaction** as the mutation (scale ~300 staff makes this trivially cheap).
 
 ### Issue M6.2 — Rating queries
 
@@ -245,7 +250,7 @@
 
 ### Issue M6.4 — Tests
 
-- [ ] Recompute test: approve adds, remove subtracts, matches expected totals.
+- [ ] Recompute test: submit adds, discard subtracts, matches expected totals.
 
 ---
 
@@ -320,18 +325,19 @@
 
 ## Suggested order & rough sizing (solo)
 
-| Milestone                 | What you can demo         | Rough size                                 |
-| ------------------------- | ------------------------- | ------------------------------------------ |
-| M0                        | Seeded template in Studio | 2–3 days (+1 for M0.0 extraction + review) |
-| M1                        | Tested scoring            | 1–2 days                                   |
-| M2                        | All evidence forms render | 5–8 days (largest)                         |
-| M3                        | NPP submits               | 3–4 days                                   |
-| M4                        | Discard & oversight       | 1–2 days                                   |
-| M5                        | Division entry            | 2 days                                     |
-| M6                        | Rating tables             | 3–4 days                                   |
-| **↑ core loop shippable** |                           | **~4 weeks**                               |
-| M7                        | Year admin                | 3–4 days                                   |
-| M8                        | PDF + graphs              | 4–6 days                                   |
-| M9                        | Verification + QA         | 3–5 days                                   |
+| Milestone                 | What you can demo         | Status / rough size                       |
+| ------------------------- | ------------------------- | ----------------------------------------- |
+| M0                        | Seeded template in Studio | ✅ done 2026-07-02                        |
+| M1                        | Tested scoring            | ✅ done 2026-07-02                        |
+| M2                        | All evidence forms render | ✅ done 2026-07-02, reviewed 2026-07-06   |
+| M3                        | NPP submits               | 3–4 days                                  |
+| M4                        | Discard & oversight       | 1–2 days                                  |
+| M5                        | Division pages            | 5–7 days (grew: 6 separate pages)         |
+| M6                        | Rating tables             | 3–4 days                                  |
+| **↑ core loop shippable** |                           | **~2–3 weeks from 2026-07-06**            |
+| M7                        | Year admin                | 3–4 days                                  |
+| M8                        | PDF + graphs              | 4–6 days (**cuttable if deadline slips**) |
+| M9                        | Verification + QA         | 3–5 days                                  |
 
-**Full scope: ~8–10 weeks solo.** Core loop (M0–M6) is the 1-month target.
+**Deadline: 2 months from 2026-07-06 (user, hard).** Core loop (M3–M6) first; M8 and M9.1 are the
+sacrifice candidates if time runs short.
