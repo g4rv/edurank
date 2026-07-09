@@ -25,10 +25,12 @@
 
 - **Appeals to a closed year** — can an NPP submit into a `CLOSED` year? _(decide in M7)_
 - **Publication verification** — what "verified" means exactly (manual editor flag vs external DOI/WoS check). _(decide in M9)_
-- **«Разова» спецрада** (from `Дані Аспірантура.xlsx`) — does a one-time defense council score the same as a permanent one? _(ask user; needed for M5 ВА page)_
-- **Citation profile links** — should `citations_*` entries store the WoS/Scopus profile URL as proof (ННВ tracks them today)? _(ask user; needed for M5 ННВ page)_
 
 Resolved earlier: recompute strategy = synchronous in-transaction (see M6.1).
+Resolved 2026-07-09:
+
+- **«Разова» спецрада** — same points as a permanent one for now; the ВА flow stores the flag as informational evidence so the rule can change without losing data. (Source of the flag: `Дані Аспірантура.xlsx`, sheet «Спеціалізовані вчені ради».)
+- **Citation profile links** — NO extra URL evidence field. h-index values will be auto-filled later by a separate scraper project; until then citation items are plain numbers entered by ННВ like any ННВ-managed type.
 
 ## Conventions (follow existing Phase 1 patterns)
 
@@ -153,25 +155,29 @@ Resolved earlier: recompute strategy = synchronous in-transaction (see M6.1).
 **Goal:** an NPP submits activities from their profile; they are **auto-approved** and count immediately.
 **Ship criterion:** USER adds an activity, sees it APPROVED with its score; cannot submit for anyone else.
 
+> **DONE (commit `d244160`).** Built as a dedicated `/achievements` route («Мій рейтинг»), not a profile-page
+> extension: cleaner separation, profile stays personal-data-only. NPP can also hard-DELETE their own
+> APPROVED self-report (mistake fix); no edit — delete + re-add covers it.
+
 ### Issue M3.1 — Query: own activities
 
-- [ ] `lib/queries/list-activities.ts` — by staff + year, grouped by section, with status.
+- [x] `lib/queries/list-activities.ts` — by staff + year, grouped by section, with status.
 
 ### Issue M3.2 — Submit action
 
-- [ ] `app/(dashboard)/profile/actions.ts` (new file — profile has no actions yet) → `createActivity`: auth USER, own `staffId` only, activity type must be `NPP_SUBMISSION`, in the active template, and template `status=OPEN`; **derive `year` from the template, never from client input**; parse evidence via registry, `computeScore`, insert **`APPROVED`** `submittedByRole=NPP` (auto-approve, score frozen at submit), audit, recompute rating.
-- [ ] `lib/rating/recompute.ts` is **pulled forward from M6.1** — the submit action is its first caller (in-transaction, synchronous).
-- [ ] Enforce «не більше 5» caps (conf_abroad, conf_ukraine) by counting existing non-REMOVED rows.
-- [ ] Resubmit after a discard = new create (old row stays `REMOVED` with reason).
+- [x] `app/(dashboard)/achievements/actions.ts` → `createActivity`: auth USER, own `staffId` only, activity type must be `NPP_SUBMISSION`, in the active template, and template `status=OPEN`; **derive `year` from the template, never from client input**; parse evidence via registry, `computeScore`, insert **`APPROVED`** `submittedByRole=NPP` (auto-approve, score frozen at submit), audit, recompute rating.
+- [x] `lib/rating/recompute.ts` is **pulled forward from M6.1** — the submit action is its first caller (in-transaction, synchronous).
+- [x] Enforce «не більше 5» caps (conf_abroad, conf_ukraine) by counting existing non-REMOVED rows (`maxPerYear` in the catalogue).
+- [x] Resubmit after a discard = new create (old row stays `REMOVED` with reason).
 
 ### Issue M3.3 — Profile UI
 
-- [ ] Extend `app/(dashboard)/profile/page.tsx`: "Мої досягнення" section — year selector, list by section, status badges (Підтверджено / Відхилено + reason).
-- [ ] "Додати досягнення" flow: pick activity type → render evidence form from registry → submit.
+- [x] `/achievements` = «Мій рейтинг» read-only rating table (5 sections, subtotals, grand total; `RatingTable` built generic for M6 reuse); `/achievements/[section]` = that section's items + status badges.
+- [x] "Додати досягнення" flow: pick activity type → render evidence form from registry (`components/rating/evidence-fields.tsx`) → submit. Sidebar: «Мій рейтинг» + «Додати активність» (Розділ 1–5).
 
 ### Issue M3.4 — Tests
 
-- [ ] Action test: rejects submitting for another staff, rejects DIVISION_MANAGED codes.
+- [x] Action test (`achievements/actions.test.ts`): rejects submitting for another staff, rejects DIVISION_MANAGED codes.
 
 ---
 
@@ -180,22 +186,25 @@ Resolved earlier: recompute strategy = synchronous in-transaction (see M6.1).
 **Goal:** post-moderation — ННВ editors and ADMIN can discard a wrong NPP self-report with a reason.
 **Ship criterion:** ННВ editor discards an entry → score leaves the rating, NPP sees the reason and can resubmit; other divisions' editors cannot discard.
 
+> **DONE (commit `8874a37`).** Note: the discard reason is write-once — no edit-reason action exists
+> (workaround: NPP resubmits, moderator discards again). Add `updateRemoveReason` later if it hurts.
+
 ### Issue M4.1 — Query: recent self-reports
 
-- [ ] `lib/queries/list-npp-activities.ts` — recent `APPROVED` NPP self-reports (`inputSource=NPP_SUBMISSION`), filterable by year/section/staff, for the oversight panel.
+- [x] `lib/queries/list-npp-activities.ts` — recent `APPROVED` NPP self-reports (`inputSource=NPP_SUBMISSION`), by year, for the oversight panel.
 
 ### Issue M4.2 — Discard action
 
-- [ ] `removeActivity(reason)`: auth = ADMIN, or EDITOR whose division is ННВ (server-side via `getEditorDivisionId`). Reject if template `status=CLOSED`. Reason required.
-- [ ] Set `status=REMOVED`, removedBy/removedAt/removeReason, audit via `diffChanges`, recompute rating.
+- [x] `removeActivity(id, reason)` in `app/(dashboard)/moderation/actions.ts`: auth = ADMIN, or EDITOR whose division is ННВ (`canModerateRating` in `lib/rating/moderation.ts`). Reject if template `status=CLOSED`. Reason required, ≤500 chars.
+- [x] Set `status=REMOVED`, removedBy/removedAt/removeReason, audit via `diffChanges`, recompute rating.
 
 ### Issue M4.3 — Oversight UI
 
-- [ ] Panel (ННВ dashboard + admin): list of NPP self-reports with evidence summary (`renderSummary`), discard-with-reason button.
+- [x] `/moderation` page («Модерація рейтингу», sidebar link for ННВ editors + ADMIN): list of NPP self-reports with evidence summary, discard-with-reason button, year selector.
 
 ### Issue M4.4 — Tests
 
-- [ ] Action test: editor of a non-ННВ division is rejected; reason is required.
+- [x] Action test (`moderation/actions.test.ts`): editor of a non-ННВ division is rejected; reason is required; closed year rejected.
 
 ---
 
@@ -209,23 +218,30 @@ Resolved earlier: recompute strategy = synchronous in-transaction (see M6.1).
 > фіксовані показники; + кадри й навчальний відділ). Access: only editors of that division (via
 > `getEditorDivisionId`) + ADMIN. Not one generic shared panel.
 
+> **IN PROGRESS.** M5.1 + the staff-first grid are DONE (commits `233e85d`, `4d7ce86`). Built as ONE
+> route `/division-data` («Дані відділу») serving all divisions — an editor lands on their own division
+> (via `canActForDivision`), ADMIN gets a division picker — instead of six separate routes. The picker
+> lists divisions that own indicators in the active template, so an empty division (ВА today) still
+> appears. Entity-first flows remain.
+
 ### Issue M5.1 — Entry action
 
-- [ ] `upsertDivisionActivity`: auth via `verifyingDivisionId`, type must be `DIVISION_MANAGED`, template `OPEN`, `computeScore`, insert/update as `APPROVED` `submittedByRole=DIVISION`, audit.
-- [ ] Upsert = `findFirst` (same staff + type + year, `status != REMOVED`) then update-or-create **inside the transaction** — there is no DB unique constraint (repeatable NPP types forbid one).
+- [x] `upsertDivisionActivity` in `app/(dashboard)/division-data/actions.ts`: auth via `verifyingDivisionId` (`canActForDivision` in `lib/permissions.ts`), type must be `DIVISION_MANAGED`, template `OPEN`, staff must be НПП, `computeScore`, insert/update as `APPROVED` `submittedByRole=DIVISION`, audit.
+- [x] Upsert = `findFirst` (same staff + type + year, `status != REMOVED`) then update-or-create **inside the transaction** — there is no DB unique constraint (repeatable NPP types forbid one).
+- [x] `clearDivisionActivity`: hard-delete a mistaken division entry + audit + recompute (division rows need no discard trail — the division is their source of truth).
 
-### Issue M5.2 — Division pages (one per division)
+### Issue M5.2 — Division pages
 
-- [ ] Six pages, each the in-app replacement of that division's `Дані *.xlsx` sheets, gated to its
-      editors + ADMIN. Two UI patterns: - **Entity-first** (from `edu-reference/Дані *.xlsx`, checked 2026-07-06): ВМЗ → проєкти
-      (staff picked per role), ННЦЗЯО → ОП / ради, ВА → спецради (+ «Разова» flag — ask user if it
-      affects scoring), ННВ → НДР-теми. "Enter object once → pick staff per role → fan out one
-      Activity per staff." - **Staff-first grid** for «Обовязки»-style booleans/numbers (навантаження, сайт, комісії,
-      стаж/звання/ступінь for кадри) — NPP × type for the selected year.
+- [x] **Staff-first grid** (`/division-data`): NPP × type for the active year, popover cell forms driven by the evidence registry, client search, read-only when year closed. Covers кадри, навчальний відділ, and the fixed/«Обовязки»-style indicators of ННВ/ННЦЗЯО out of the box.
+- [ ] **Entity-first flows** (from `edu-reference/Дані *.xlsx`, checked 2026-07-06): ВМЗ → проєкти
+      (staff picked per role), ННЦЗЯО → ОП / ради, ВА → спецради (+ «Разова» flag stored as
+      informational evidence — same points for now, see resolved decisions), ННВ → НДР-теми.
+      "Enter object once → pick staff per role → fan out one Activity per staff" on top of the
+      same upsert action. Until built, the grid already allows per-staff entry for these items.
 
 ### Issue M5.3 — Tests
 
-- [ ] Rejects NPP_SUBMISSION codes; rejects wrong division.
+- [x] `division-data/actions.test.ts`: rejects NPP_SUBMISSION codes; rejects wrong-division editor; rejects closed year and non-НПП staff; upsert updates the live row instead of duplicating.
 
 ---
 
@@ -236,7 +252,7 @@ Resolved earlier: recompute strategy = synchronous in-transaction (see M6.1).
 
 ### Issue M6.1 — Recompute function
 
-- [ ] `lib/rating/recompute.ts`: sum APPROVED `score` by section → write `RatingEntry` (section1..5, total). Called after submit / discard / direct-entry. **Implemented in M3** (first caller); M4/M5 actions must call it too.
+- [x] `lib/rating/recompute.ts`: sum APPROVED `score` by section → write `RatingEntry` (section1..5, total). Implemented in M3; called by all M3/M4/M5 mutations (submit, NPP delete, discard, direct-entry, clear).
 - [x] Decided: **synchronous, in the same transaction** as the mutation (scale ~300 staff makes this trivially cheap).
 
 ### Issue M6.2 — Rating queries
