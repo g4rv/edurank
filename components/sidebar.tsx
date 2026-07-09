@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   Award,
   BadgeCheck,
+  Table2,
   Plus,
   ChevronDown,
   ChevronRight,
@@ -57,9 +58,10 @@ interface SidebarProps {
     staffId?: string | null;
   };
   canModerate?: boolean;
+  canEnterData?: boolean;
 }
 
-export function Sidebar({ user, canModerate = false }: SidebarProps) {
+export function Sidebar({ user, canModerate = false, canEnterData = false }: SidebarProps) {
   const pathname = usePathname();
 
   const mainNav = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
@@ -107,6 +109,17 @@ export function Sidebar({ user, canModerate = false }: SidebarProps) {
               href: '/moderation',
               label: 'Модерація рейтингу',
               icon: BadgeCheck,
+              roles: [user.role],
+            }}
+            pathname={pathname}
+          />
+        )}
+        {canEnterData && (
+          <NavLink
+            item={{
+              href: '/division-data',
+              label: 'Дані відділу',
+              icon: Table2,
               roles: [user.role],
             }}
             pathname={pathname}
