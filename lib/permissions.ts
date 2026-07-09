@@ -56,6 +56,16 @@ export async function canManageEntity(
   return hasEntityPermission(divisionId, entity, action);
 }
 
+/** ADMIN, or an EDITOR belonging to exactly this division (rating direct-entry pages) */
+export async function canActForDivision(
+  user: { role: Role; staffId?: string | null },
+  divisionId: string
+): Promise<boolean> {
+  if (user.role === 'ADMIN') return true;
+  if (user.role !== 'EDITOR') return false;
+  return (await getEditorDivisionId(user.staffId)) === divisionId;
+}
+
 /** Staff field names a division's editors are granted to edit */
 export async function getDivisionFieldGrants(divisionId: string): Promise<Set<string>> {
   const permissions = await db.divisionFieldPermission.findMany({
