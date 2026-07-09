@@ -266,6 +266,7 @@ Resolved earlier: recompute strategy = synchronous in-transaction (see M6.1).
 ### Issue M7.2 — Close year
 
 - [ ] `closeYear(year)`: build `RatingEntry.snapshot` JSON (labels + coefficients + scores as-of-close) for every staff, then set **`RatingTemplate.status=CLOSED`, `closedAt/By`** (single authoritative flag — all action guards read it).
+- [ ] **Purge discarded rows on close** _(decision, user, 2026-07-07)_: before setting `CLOSED`, hard-delete all `REMOVED` activities of that year. While the year is open they stay visible (NPP sees the reason, moderators see history); after close they are junk. Audit log keeps the discard trail, so nothing is unexplainable afterward. Chosen over a time-based auto-delete (no cron infra; a fixed delay could hide the reason before the NPP saw it).
 - [ ] **Decide appeals policy** — block or allow submissions into closed year (enforce in M3/M4 actions).
 
 ### Issue M7.3 — Template admin UI

@@ -15,6 +15,7 @@ import {
   LogOut,
   LayoutDashboard,
   Award,
+  BadgeCheck,
   Plus,
   ChevronDown,
   ChevronRight,
@@ -55,9 +56,10 @@ interface SidebarProps {
     role: Role;
     staffId?: string | null;
   };
+  canModerate?: boolean;
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, canModerate = false }: SidebarProps) {
   const pathname = usePathname();
 
   const mainNav = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
@@ -98,6 +100,17 @@ export function Sidebar({ user }: SidebarProps) {
             />
             <AddActivityNav pathname={pathname} />
           </>
+        )}
+        {canModerate && (
+          <NavLink
+            item={{
+              href: '/moderation',
+              label: 'Модерація рейтингу',
+              icon: BadgeCheck,
+              roles: [user.role],
+            }}
+            pathname={pathname}
+          />
         )}
 
         {adminNav.length > 0 && (
