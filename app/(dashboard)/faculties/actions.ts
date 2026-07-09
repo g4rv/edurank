@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { facultySchema, type FacultySchema } from '@/validations/faculty';
 import { diffChanges } from '@/lib/audit';
-import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
+import { canManageEntity } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 
 export type FacultyActionState = { error: string } | { redirectTo: string };
@@ -14,15 +14,8 @@ export async function createFaculty(data: FacultySchema): Promise<FacultyActionS
   const session = await auth();
   if (!session) redirect('/login');
 
-  const role = session.user.role;
-  const isAdmin = role === 'ADMIN';
-
-  if (!isAdmin) {
-    if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
-    const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasEntityPermission(divisionId, 'FACULTY', 'CREATE')))
-      return { error: 'Недостатньо прав' };
-  }
+  if (!(await canManageEntity(session.user, 'FACULTY', 'CREATE')))
+    return { error: 'Недостатньо прав' };
 
   const parsed = facultySchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
@@ -58,15 +51,8 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
   const session = await auth();
   if (!session) redirect('/login');
 
-  const role = session.user.role;
-  const isAdmin = role === 'ADMIN';
-
-  if (!isAdmin) {
-    if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
-    const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasEntityPermission(divisionId, 'FACULTY', 'UPDATE')))
-      return { error: 'Недостатньо прав' };
-  }
+  if (!(await canManageEntity(session.user, 'FACULTY', 'UPDATE')))
+    return { error: 'Недостатньо прав' };
 
   const parsed = facultySchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
@@ -111,15 +97,8 @@ export async function deleteFaculty(id: string): Promise<FacultyActionState> {
   const session = await auth();
   if (!session) redirect('/login');
 
-  const role = session.user.role;
-  const isAdmin = role === 'ADMIN';
-
-  if (!isAdmin) {
-    if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
-    const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasEntityPermission(divisionId, 'FACULTY', 'DELETE')))
-      return { error: 'Недостатньо прав' };
-  }
+  if (!(await canManageEntity(session.user, 'FACULTY', 'DELETE')))
+    return { error: 'Недостатньо прав' };
 
   const faculty = await db.faculty.findUnique({
     where: { id },

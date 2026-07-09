@@ -1,5 +1,25 @@
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import type { EntityType, EntityAction } from '@/lib/generated/prisma/client';
+import type { EntityType, EntityAction, Role } from '@/lib/generated/prisma/client';
+
+/**
+ * Confidential Staff fields: only ADMIN reads/writes them, EDITOR never,
+ * USER sees only their own. Enforced in three places that must stay in sync:
+ * - updateStaff write filter
+ * - setFieldPermission (cannot be granted to a division)
+ * - queries via includeConfidential
+ */
+export const CONFIDENTIAL_STAFF_FIELDS: ReadonlySet<string> = new Set(['employmentRate']);
+
+/** Staff fields a USER may edit on their own profile */
+export const USER_EDITABLE_STAFF_FIELDS: ReadonlySet<string> = new Set([
+  'phone',
+  'wosUrl',
+  'scopusUrl',
+  'googleScholarUrl',
+  'orcidId',
+]);
 
 export async function getEditorDivisionId(
   staffId: string | null | undefined
@@ -18,4 +38,39 @@ export async function hasEntityPermission(
     where: { divisionId, entity, action },
   });
   return !!perm;
+}
+
+/**
+ * The standard ADMIN/EDITOR ladder for entity CRUD actions:
+ * ADMIN — always; EDITOR — if their division holds the entity permission; others — never.
+ */
+export async function canManageEntity(
+  user: { role: Role; staffId?: string | null },
+  entity: EntityType,
+  action: EntityAction
+): Promise<boolean> {
+  if (user.role === 'ADMIN') return true;
+  if (user.role !== 'EDITOR') return false;
+  const divisionId = await getEditorDivisionId(user.staffId);
+  if (!divisionId) return false;
+  return hasEntityPermission(divisionId, entity, action);
+}
+
+/** Staff field names a division's editors are granted to edit */
+export async function getDivisionFieldGrants(divisionId: string): Promise<Set<string>> {
+  const permissions = await db.divisionFieldPermission.findMany({
+    where: { divisionId },
+    select: { fieldName: true },
+  });
+  return new Set(permissions.map((p) => p.fieldName));
+}
+
+/**
+ * Guard for ADMIN-only actions: redirects anonymous users to /login,
+ * returns null for non-admins (caller returns its own error), the session for admins.
+ */
+export async function requireAdmin() {
+  const session = await auth();
+  if (!session) redirect('/login');
+  return session.user.role === 'ADMIN' ? session : null;
 }

@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
-import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
+import { canManageEntity } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 
 export type StaffCreateState = { error: string } | { redirectTo: string };
@@ -14,16 +14,8 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
   const session = await auth();
   if (!session) redirect('/login');
 
-  const role = session.user.role;
-  const isAdmin = role === 'ADMIN';
-
-  if (!isAdmin) {
-    if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
-
-    const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasEntityPermission(divisionId, 'STAFF', 'CREATE')))
-      return { error: 'Недостатньо прав' };
-  }
+  if (!(await canManageEntity(session.user, 'STAFF', 'CREATE')))
+    return { error: 'Недостатньо прав' };
 
   const parsed = staffCreateSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };

@@ -1,20 +1,12 @@
 'use server';
 
-import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { divisionSchema, type DivisionSchema } from '@/validations/division';
 import { diffChanges } from '@/lib/audit';
+import { requireAdmin } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 
 export type DivisionActionState = { error: string } | { redirectTo: string };
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session) redirect('/login');
-  if (session.user.role !== 'ADMIN') return null;
-  return session;
-}
 
 export async function createDivision(data: DivisionSchema): Promise<DivisionActionState> {
   const session = await requireAdmin();

@@ -1,21 +1,13 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { hash } from 'bcryptjs';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { userFormSchema, type UserFormSchema } from '@/validations/user';
 import { diffChanges } from '@/lib/audit';
+import { requireAdmin } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 
 export type UserActionState = { error: string } | { redirectTo: string };
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session) redirect('/login');
-  if (session.user.role !== 'ADMIN') return null;
-  return session;
-}
 
 export async function createUser(data: UserFormSchema): Promise<UserActionState> {
   const session = await requireAdmin();

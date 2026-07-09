@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import { diffChanges } from '@/lib/audit';
-import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
+import { canManageEntity } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 
 export type DepartmentActionState = { error: string } | { redirectTo: string };
@@ -14,15 +14,8 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
   const session = await auth();
   if (!session) redirect('/login');
 
-  const role = session.user.role;
-  const isAdmin = role === 'ADMIN';
-
-  if (!isAdmin) {
-    if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
-    const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasEntityPermission(divisionId, 'DEPARTMENT', 'CREATE')))
-      return { error: 'Недостатньо прав' };
-  }
+  if (!(await canManageEntity(session.user, 'DEPARTMENT', 'CREATE')))
+    return { error: 'Недостатньо прав' };
 
   const parsed = departmentSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
@@ -72,15 +65,8 @@ export async function updateDepartment(
   const session = await auth();
   if (!session) redirect('/login');
 
-  const role = session.user.role;
-  const isAdmin = role === 'ADMIN';
-
-  if (!isAdmin) {
-    if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
-    const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasEntityPermission(divisionId, 'DEPARTMENT', 'UPDATE')))
-      return { error: 'Недостатньо прав' };
-  }
+  if (!(await canManageEntity(session.user, 'DEPARTMENT', 'UPDATE')))
+    return { error: 'Недостатньо прав' };
 
   const parsed = departmentSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
@@ -137,15 +123,8 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
   const session = await auth();
   if (!session) redirect('/login');
 
-  const role = session.user.role;
-  const isAdmin = role === 'ADMIN';
-
-  if (!isAdmin) {
-    if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
-    const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasEntityPermission(divisionId, 'DEPARTMENT', 'DELETE')))
-      return { error: 'Недостатньо прав' };
-  }
+  if (!(await canManageEntity(session.user, 'DEPARTMENT', 'DELETE')))
+    return { error: 'Недостатньо прав' };
 
   const department = await db.department.findUnique({
     where: { id },

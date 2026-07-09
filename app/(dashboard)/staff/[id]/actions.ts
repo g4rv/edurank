@@ -5,7 +5,14 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
-import { getEditorDivisionId, hasEntityPermission } from '@/lib/permissions';
+import {
+  canManageEntity,
+  getEditorDivisionId,
+  getDivisionFieldGrants,
+  hasEntityPermission,
+  CONFIDENTIAL_STAFF_FIELDS,
+  USER_EDITABLE_STAFF_FIELDS,
+} from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 
 export type StaffDeleteState = { error: string } | { redirectTo: string };
@@ -14,16 +21,8 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
   const session = await auth();
   if (!session) redirect('/login');
 
-  const role = session.user.role;
-  const isAdmin = role === 'ADMIN';
-
-  if (!isAdmin) {
-    if (role !== 'EDITOR') return { error: 'Недостатньо прав' };
-
-    const divisionId = await getEditorDivisionId(session.user.staffId);
-    if (!divisionId || !(await hasEntityPermission(divisionId, 'STAFF', 'DELETE')))
-      return { error: 'Недостатньо прав' };
-  }
+  if (!(await canManageEntity(session.user, 'STAFF', 'DELETE')))
+    return { error: 'Недостатньо прав' };
 
   let dbError: string | null = null;
 
@@ -97,19 +96,13 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
     if (!(await hasEntityPermission(divisionId, 'STAFF', 'UPDATE')))
       return { error: 'Недостатньо прав' };
 
-    const permissions = await db.divisionFieldPermission.findMany({
-      where: { divisionId },
-      select: { fieldName: true },
-    });
-    const EDITOR_BLOCKED = new Set(['employmentRate']);
-    const allowed = new Set(permissions.map((p) => p.fieldName));
+    const allowed = await getDivisionFieldGrants(divisionId);
     for (const [key, val] of Object.entries(fields)) {
-      if (allowed.has(key) && !EDITOR_BLOCKED.has(key)) updateData[key] = val;
+      if (allowed.has(key) && !CONFIDENTIAL_STAFF_FIELDS.has(key)) updateData[key] = val;
     }
   } else {
-    const USER_EDITABLE = new Set(['phone', 'wosUrl', 'scopusUrl', 'googleScholarUrl', 'orcidId']);
     for (const [key, val] of Object.entries(fields)) {
-      if (USER_EDITABLE.has(key)) updateData[key] = val;
+      if (USER_EDITABLE_STAFF_FIELDS.has(key)) updateData[key] = val;
     }
   }
 
