@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
-import { requireAdmin, CONFIDENTIAL_STAFF_FIELDS } from '@/lib/permissions';
+import { requireAdmin, AUTH_STAFF_FIELDS, CONFIDENTIAL_STAFF_FIELDS } from '@/lib/permissions';
 
 export type PermissionToggleState = { error: string } | null;
 
@@ -35,8 +35,9 @@ export async function setFieldPermission(
 ): Promise<PermissionToggleState> {
   const session = await requireAdmin();
   if (!session) return { error: 'Недостатньо прав' };
-  // Confidential fields are not grantable, period — even if the whitelist drifts
+  // Confidential and auth fields are not grantable, period — even if the whitelist drifts
   if (CONFIDENTIAL_STAFF_FIELDS.has(fieldName)) return { error: 'Невідоме поле' };
+  if (AUTH_STAFF_FIELDS.has(fieldName)) return { error: 'Невідоме поле' };
   if (!ALLOWED_FIELD_NAMES.has(fieldName)) return { error: 'Невідоме поле' };
 
   try {

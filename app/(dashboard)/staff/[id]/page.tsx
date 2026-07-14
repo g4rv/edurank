@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
+import { getStaffAccount } from '@/lib/queries/get-staff-account';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
+import { AccountCard } from '@/components/staff/account-card';
 import { Button } from '@/components/ui/button';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DeleteStaffButton } from '@/components/staff/delete-button';
@@ -96,6 +98,8 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const staff = await getStaff(id, showConfidential);
 
   if (!staff) notFound();
+
+  const account = isAdmin ? await getStaffAccount(id) : null;
 
   let canEdit = isAdmin;
   let canDelete = isAdmin;
@@ -234,8 +238,12 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
 
-        {/* Right — roles and work places */}
+        {/* Right — account, roles and work places */}
         <div className="flex flex-1 flex-col gap-4">
+          {account && (
+            <AccountCard staffId={id} account={account} isSelf={session?.user.id === id} />
+          )}
+
           {(staff.headOfDepartment || staff.deanOfFaculty) && (
             <InfoCard title="Керівні посади">
               {staff.headOfDepartment && (

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(() => {
     throw new Error('redirected');
@@ -8,23 +9,37 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
-    staff: { findUnique: vi.fn() },
+    staff: { findUnique: vi.fn(), update: vi.fn() },
     divisionEntityPermission: { findFirst: vi.fn() },
     divisionFieldPermission: { findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
+vi.mock('@/lib/activation', () => ({
+  ACTIVATION_TOKEN_DAYS: 30,
+  issueActivationToken: vi.fn().mockResolvedValue('raw-token'),
+}));
+vi.mock('@/lib/mail/mailer', () => ({ sendMail: vi.fn().mockResolvedValue(undefined) }));
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { sendMail } from '@/lib/mail/mailer';
 import type { StaffUpdateSchema } from '@/validations/staff';
-import { updateStaff, deleteStaff } from './actions';
+import {
+  updateStaff,
+  deleteStaff,
+  sendInvite,
+  resetPassword,
+  setPasswordManually,
+  changeRole,
+} from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
 const mockEntityPerm = db.divisionEntityPermission.findFirst as unknown as Mock;
 const mockFieldPerms = db.divisionFieldPermission.findMany as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
+const mockSendMail = sendMail as unknown as Mock;
 
 // Payload an attacker could send: touches confidential + non-granted fields
 const fullPayload: StaffUpdateSchema = {
@@ -58,8 +73,8 @@ function mockTx() {
       update: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
     },
-    user: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
     staffDepartment: { deleteMany: vi.fn(), createMany: vi.fn() },
+    activationToken: { deleteMany: vi.fn().mockResolvedValue({}) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
   };
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
@@ -164,5 +179,140 @@ describe('deleteStaff authorization', () => {
     expect(await deleteStaff('staff-1')).toEqual({ redirectTo: '/staff' });
     expect(tx.staff.delete).toHaveBeenCalledWith({ where: { id: 'staff-1' } });
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+});
+
+// ─── Account actions ─────────────────────────────────────────────────────────
+
+const adminSession = { user: { id: 'admin-1', role: 'ADMIN', staffId: 'admin-1' } };
+const editorSession = { user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } };
+
+const person = {
+  id: 'staff-1',
+  email: 'kovalenko@university.edu.ua',
+  lastName: 'Коваленко',
+  firstName: 'Іван',
+  patronymic: 'Петрович',
+};
+
+describe('sendInvite', () => {
+  it('rejects non-admin', async () => {
+    mockAuth.mockResolvedValue(editorSession);
+    expect(await sendInvite('staff-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('rejects an already activated account', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockStaffFind.mockResolvedValue({ ...person, passwordHash: 'hash' });
+    expect(await sendInvite('staff-1')).toEqual({ error: 'Обліковий запис вже активовано' });
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('emails an activation link to the staff email', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockStaffFind.mockResolvedValue({ ...person, passwordHash: null });
+    expect(await sendInvite('staff-1')).toEqual({
+      success: true,
+      message: 'Запрошення надіслано',
+    });
+    expect(mockSendMail).toHaveBeenCalledWith(expect.objectContaining({ to: person.email }));
+    expect(mockSendMail.mock.calls[0][0].text).toContain('/activate/raw-token');
+  });
+});
+
+describe('resetPassword', () => {
+  it('rejects non-admin', async () => {
+    mockAuth.mockResolvedValue(editorSession);
+    expect(await resetPassword('staff-1')).toEqual({ error: 'Недостатньо прав' });
+  });
+
+  it('clears the hash, kills sessions, audits and emails a reset link', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockStaffFind.mockResolvedValue(person);
+    const tx = mockTx();
+    expect(await resetPassword('staff-1')).toEqual({
+      success: true,
+      message: 'Пароль скинуто, лист надіслано',
+    });
+    expect(tx.staff.update).toHaveBeenCalledWith({
+      where: { id: 'staff-1' },
+      data: { passwordHash: null, tokenVersion: { increment: 1 } },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalled();
+    expect(mockSendMail).toHaveBeenCalled();
+  });
+});
+
+describe('setPasswordManually', () => {
+  it('rejects non-admin', async () => {
+    mockAuth.mockResolvedValue(editorSession);
+    expect(
+      await setPasswordManually('staff-1', { password: 'password1', confirmPassword: 'password1' })
+    ).toEqual({ error: 'Недостатньо прав' });
+  });
+
+  it('rejects a short or mismatched password', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    expect(
+      await setPasswordManually('staff-1', { password: 'short', confirmPassword: 'short' })
+    ).toEqual({ error: 'Некоректні дані' });
+    expect(
+      await setPasswordManually('staff-1', { password: 'password1', confirmPassword: 'password2' })
+    ).toEqual({ error: 'Некоректні дані' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('sets the hash, consumes the token, kills sessions and audits', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockStaffFind.mockResolvedValue(person);
+    const tx = mockTx();
+    expect(
+      await setPasswordManually('staff-1', { password: 'password1', confirmPassword: 'password1' })
+    ).toEqual({ success: true, message: 'Пароль встановлено' });
+    expect(tx.staff.update).toHaveBeenCalledWith({
+      where: { id: 'staff-1' },
+      data: expect.objectContaining({ tokenVersion: { increment: 1 } }),
+    });
+    expect(tx.activationToken.deleteMany).toHaveBeenCalledWith({ where: { staffId: 'staff-1' } });
+    expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+});
+
+describe('changeRole', () => {
+  it('rejects non-admin', async () => {
+    mockAuth.mockResolvedValue(editorSession);
+    expect(await changeRole('staff-1', { role: 'EDITOR' })).toEqual({
+      error: 'Недостатньо прав',
+    });
+  });
+
+  it('rejects changing your own role', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    expect(await changeRole('admin-1', { role: 'USER' })).toEqual({
+      error: 'Не можна змінити власну роль',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('updates the role, bumps tokenVersion and audits the change', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockStaffFind.mockResolvedValue({ ...person, role: 'USER' });
+    const tx = mockTx();
+    expect(await changeRole('staff-1', { role: 'EDITOR' })).toEqual({
+      success: true,
+      message: 'Роль змінено',
+    });
+    expect(tx.staff.update).toHaveBeenCalledWith({
+      where: { id: 'staff-1' },
+      data: { role: 'EDITOR', tokenVersion: { increment: 1 } },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          changes: { role: { from: 'USER', to: 'EDITOR' } },
+        }),
+      })
+    );
   });
 });

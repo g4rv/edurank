@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
 import { StaffFilters } from '@/components/staff/staff-filters';
 import { StaffTable } from '@/components/staff/staff-table';
-import { cn } from '@/lib/utils';
+import { STAFF_VIEWS, type StaffView } from '@/components/staff/staff-view';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
 
 const VALID_SORTS = ['lastName', 'email', 'academicRank', 'department', 'employmentRate'] as const;
@@ -17,12 +17,6 @@ type SortField = (typeof VALID_SORTS)[number];
 
 const VALID_RANKS = new Set<string>(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
 const VALID_DEGREES = new Set<string>(['CANDIDATE', 'DOCTOR']);
-
-const TABS = [
-  { label: 'Всі', value: undefined },
-  { label: 'НПП', value: 'npp' },
-  { label: 'Адміністративний', value: 'admin' },
-] as const;
 
 export default async function StaffPage({
   searchParams,
@@ -37,9 +31,11 @@ export default async function StaffPage({
 
   const isAdmin = role === 'ADMIN';
 
-  const { type, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch } = params;
+  const { view, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch } = params;
 
-  const typeFilter = type === 'npp' || type === 'admin' ? type : undefined;
+  // Role-based view presets (default НПП). Replaces the old НПП/Адм. isNpp tabs.
+  const viewFilter: StaffView =
+    typeof view === 'string' && view in STAFF_VIEWS ? (view as StaffView) : 'npp';
   const sortField: SortField =
     typeof sort === 'string' && (VALID_SORTS as readonly string[]).includes(sort)
       ? (sort as SortField)
@@ -48,7 +44,7 @@ export default async function StaffPage({
     sortField === 'employmentRate' && !isAdmin ? 'lastName' : sortField;
   const sortDir = dir === 'desc' ? 'desc' : 'asc';
 
-  const isNpp = typeFilter === 'npp' ? true : typeFilter === 'admin' ? false : undefined;
+  const viewDef = STAFF_VIEWS[viewFilter];
   const rankFilter =
     typeof rank === 'string' && VALID_RANKS.has(rank) ? (rank as AcademicRank) : undefined;
   const degreeFilter =
@@ -58,7 +54,9 @@ export default async function StaffPage({
 
   const [staff, faculties, departments] = await Promise.all([
     listStaff({
-      isNpp,
+      role: 'role' in viewDef ? viewDef.role : undefined,
+      excludeRole: 'excludeRole' in viewDef ? viewDef.excludeRole : undefined,
+      includeAccount: isAdmin,
       sort: effectiveSortField,
       dir: sortDir,
       q: typeof q === 'string' ? q : undefined,
@@ -83,7 +81,7 @@ export default async function StaffPage({
   function buildHref(overrides: Record<string, string | undefined>) {
     const sp = new URLSearchParams();
     const base: Record<string, string | undefined> = {
-      type: typeFilter,
+      view: viewFilter !== 'npp' ? viewFilter : undefined,
       sort: effectiveSortField !== 'lastName' ? effectiveSortField : undefined,
       dir: sortDir !== 'asc' ? sortDir : undefined,
       q: typeof q === 'string' ? q : undefined,
@@ -140,6 +138,7 @@ export default async function StaffPage({
         active={effectiveSortField === 'academicRank'}
         dir={sortDir}
       />
+      {isAdmin && <th className="px-4 py-3 text-left font-medium text-muted-foreground">Роль</th>}
       {isAdmin && (
         <SortTh
           label="Ставка"
@@ -156,7 +155,7 @@ export default async function StaffPage({
 
   // Key changes with every filter/sort combination so the table animates in fresh
   const tableKey = [
-    typeFilter,
+    viewFilter,
     effectiveSortField,
     sortDir,
     q,
@@ -182,29 +181,10 @@ export default async function StaffPage({
         )}
       </div>
 
-      <div className="flex w-fit gap-1 rounded-lg bg-muted p-1">
-        {TABS.map((tab) => {
-          const isActive = typeFilter === tab.value || (!typeFilter && tab.value === undefined);
-          return (
-            <Link
-              key={tab.label}
-              href={buildHref({ type: tab.value })}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </div>
-
       <StaffFilters
         faculties={faculties.map((f) => ({ id: f.id, name: f.name }))}
         departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
+        view={viewFilter}
       />
 
       <StaffTable key={tableKey} staff={staff} sortHeader={sortHeader} isAdmin={isAdmin} />

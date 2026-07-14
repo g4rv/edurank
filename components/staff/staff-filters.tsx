@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { STAFF_VIEWS, type StaffView } from '@/components/staff/staff-view';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
 
 const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
@@ -30,9 +31,10 @@ const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
 type Props = {
   faculties: { id: string; name: string }[];
   departments: { id: string; name: string; facultyId: string }[];
+  view: StaffView;
 };
 
-export function StaffFilters({ faculties, departments }: Props) {
+export function StaffFilters({ faculties, departments, view }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -115,6 +117,21 @@ export function StaffFilters({ faculties, departments }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        <Select value={view} onValueChange={(v) => setParam('view', v === 'npp' ? undefined : v)}>
+          <SelectTrigger size="sm" className="font-medium">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start">
+            {(Object.entries(STAFF_VIEWS) as [StaffView, { label: string }][]).map(
+              ([value, def]) => (
+                <SelectItem key={value} value={value}>
+                  {def.label}
+                </SelectItem>
+              )
+            )}
+          </SelectContent>
+        </Select>
+
         <Input
           placeholder="Пошук за ПІБ, email, ORCID..."
           defaultValue={q}

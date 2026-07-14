@@ -1,15 +1,27 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { hash } from 'bcryptjs';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
+import {
+  setPasswordSchema,
+  changeRoleSchema,
+  type SetPasswordSchema,
+  type ChangeRoleSchema,
+} from '@/validations/account';
+import { issueActivationToken, ACTIVATION_TOKEN_DAYS } from '@/lib/activation';
+import { sendMail } from '@/lib/mail/mailer';
+import { inviteEmail, passwordResetEmail } from '@/lib/mail/templates';
 import { diffChanges } from '@/lib/audit';
 import {
   canManageEntity,
   getEditorDivisionId,
   getDivisionFieldGrants,
   hasEntityPermission,
+  requireAdmin,
   CONFIDENTIAL_STAFF_FIELDS,
   USER_EDITABLE_STAFF_FIELDS,
 } from '@/lib/permissions';
@@ -180,4 +192,185 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
 
   if (dbError) return { error: dbError };
   return { success: true };
+}
+
+// ─── Account actions (ADMIN only) ────────────────────────────────────────────
+
+export type AccountActionState = { error: string } | { success: true; message?: string };
+
+function staffFullName(s: { lastName: string; firstName: string; patronymic: string }) {
+  return `${s.lastName} ${s.firstName} ${s.patronymic}`;
+}
+
+async function issueAndEmailLink(
+  staff: { id: string; email: string; lastName: string; firstName: string; patronymic: string },
+  kind: 'invite' | 'reset'
+): Promise<void> {
+  const token = await issueActivationToken(staff.id);
+  const link = `${process.env.APP_URL ?? 'http://localhost:3000'}/activate/${token}`;
+  const input = {
+    fullName: staffFullName(staff),
+    link,
+    expiresDays: ACTIVATION_TOKEN_DAYS,
+  };
+  await sendMail({
+    to: staff.email,
+    ...(kind === 'invite' ? inviteEmail(input) : passwordResetEmail(input)),
+  });
+}
+
+// Invite (or re-invite) a not-yet-activated person: new token + email
+export async function sendInvite(id: string): Promise<AccountActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const staff = await db.staff.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      email: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+      passwordHash: true,
+    },
+  });
+  if (!staff) return { error: 'Запис не знайдено' };
+  if (staff.passwordHash) return { error: 'Обліковий запис вже активовано' };
+
+  try {
+    await issueAndEmailLink(staff, 'invite');
+  } catch {
+    return { error: 'Не вдалося надіслати лист. Перевірте налаштування пошти' };
+  }
+
+  revalidatePath(`/staff/${id}`);
+  return { success: true, message: 'Запрошення надіслано' };
+}
+
+// Reset password: clear the hash (deactivates), kill sessions, email a new link
+export async function resetPassword(id: string): Promise<AccountActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const staff = await db.staff.findUnique({
+    where: { id },
+    select: { id: true, email: true, lastName: true, firstName: true, patronymic: true },
+  });
+  if (!staff) return { error: 'Запис не знайдено' };
+
+  await db.$transaction(async (tx) => {
+    await tx.staff.update({
+      where: { id },
+      data: { passwordHash: null, tokenVersion: { increment: 1 } },
+    });
+    await tx.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'Staff',
+        entityId: id,
+        label: staffFullName(staff),
+        userId: session.user.id,
+        changes: { passwordHash: { from: '***', to: null } },
+      },
+    });
+  });
+
+  try {
+    await issueAndEmailLink(staff, 'reset');
+  } catch {
+    return { error: 'Пароль скинуто, але лист не надіслано. Перевірте налаштування пошти' };
+  }
+
+  revalidatePath(`/staff/${id}`);
+  return { success: true, message: 'Пароль скинуто, лист надіслано' };
+}
+
+// Manual fallback for a bounced mailbox: admin sets the password directly
+export async function setPasswordManually(
+  id: string,
+  data: SetPasswordSchema
+): Promise<AccountActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const parsed = setPasswordSchema.safeParse(data);
+  if (!parsed.success) return { error: 'Некоректні дані' };
+
+  const staff = await db.staff.findUnique({
+    where: { id },
+    select: { id: true, lastName: true, firstName: true, patronymic: true },
+  });
+  if (!staff) return { error: 'Запис не знайдено' };
+
+  const passwordHash = await hash(parsed.data.password, 10);
+
+  await db.$transaction(async (tx) => {
+    await tx.staff.update({
+      where: { id },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
+    });
+    await tx.activationToken.deleteMany({ where: { staffId: id } });
+    await tx.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'Staff',
+        entityId: id,
+        label: staffFullName(staff),
+        userId: session.user.id,
+        changes: { passwordHash: { from: null, to: '***' } },
+      },
+    });
+  });
+
+  revalidatePath(`/staff/${id}`);
+  return { success: true, message: 'Пароль встановлено' };
+}
+
+// Bump tokenVersion — every live session for this person dies on next request
+export async function forceLogout(id: string): Promise<AccountActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  await db.staff.update({ where: { id }, data: { tokenVersion: { increment: 1 } } });
+
+  revalidatePath(`/staff/${id}`);
+  return { success: true, message: 'Всі сесії завершено' };
+}
+
+export async function changeRole(id: string, data: ChangeRoleSchema): Promise<AccountActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  if (session.user.id === id) return { error: 'Не можна змінити власну роль' };
+
+  const parsed = changeRoleSchema.safeParse(data);
+  if (!parsed.success) return { error: 'Некоректні дані' };
+
+  const staff = await db.staff.findUnique({
+    where: { id },
+    select: { id: true, role: true, lastName: true, firstName: true, patronymic: true },
+  });
+  if (!staff) return { error: 'Запис не знайдено' };
+  if (staff.role === parsed.data.role) return { success: true };
+
+  await db.$transaction(async (tx) => {
+    await tx.staff.update({
+      where: { id },
+      data: { role: parsed.data.role, tokenVersion: { increment: 1 } },
+    });
+    await tx.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'Staff',
+        entityId: id,
+        label: staffFullName(staff),
+        userId: session.user.id,
+        changes: { role: { from: staff.role, to: parsed.data.role } },
+      },
+    });
+  });
+
+  revalidatePath(`/staff/${id}`);
+  return { success: true, message: 'Роль змінено' };
 }

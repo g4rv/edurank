@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
-import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
+import { ACADEMIC_RANK_LABELS, ROLE_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import type { StaffListItem } from '@/lib/queries/list-staff';
@@ -74,6 +74,20 @@ export function StaffTable({ staff, sortHeader, isAdmin }: Props) {
                       .join(', ')
                   : '—'}
               </td>
+              {isAdmin && (
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-muted-foreground">
+                      {member.role ? ROLE_LABELS[member.role] : '—'}
+                    </span>
+                    {member.isActivated === false && (
+                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                        Не активований
+                      </span>
+                    )}
+                  </div>
+                </td>
+              )}
               {isAdmin && (
                 <td className="px-4 py-3">
                   {'employmentRate' in member && member.employmentRate != null ? (

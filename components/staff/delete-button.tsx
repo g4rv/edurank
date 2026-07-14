@@ -50,8 +50,8 @@ export function DeleteStaffButton({ staffId, staffName }: DeleteStaffButtonProps
         <AlertDialogHeader>
           <AlertDialogTitle>Видалити співробітника?</AlertDialogTitle>
           <AlertDialogDescription>
-            Запис <span className="font-medium text-foreground">{staffName} </span>буде видалено
-            безповоротно. Пов&apos;язаний обліковий запис не буде видалено.
+            Запис <span className="font-medium text-foreground">{staffName} </span>разом з обліковим
+            записом буде видалено безповоротно.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

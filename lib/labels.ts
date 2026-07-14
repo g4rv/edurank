@@ -1,4 +1,10 @@
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
+import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
+
+export const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: 'Адміністратор',
+  EDITOR: 'Редактор',
+  USER: 'Користувач',
+};
 
 export const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
   LECTURER: 'Викладач',
@@ -42,6 +48,7 @@ export const FIELD_LABELS: Record<string, string> = {
   role: 'Роль',
   staffId: 'Співробітник',
   password: 'Пароль',
+  passwordHash: 'Пароль',
   // Rating (Phase 2): Activity
   activityTypeId: 'Тип досягнення',
   year: 'Рік',

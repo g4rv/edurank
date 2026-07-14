@@ -1,11 +1,15 @@
 import { db } from '@/lib/db';
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
+import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
 
 const _VALID_SORTS = ['lastName', 'email', 'academicRank', 'department', 'employmentRate'] as const;
 type SortField = (typeof _VALID_SORTS)[number];
 
 export type StaffFilters = {
   isNpp?: boolean;
+  role?: Role;
+  excludeRole?: Role;
+  // ADMIN list view: adds role + activation state (never the hash itself)
+  includeAccount?: boolean;
   sort?: SortField;
   dir?: 'asc' | 'desc';
   q?: string;
@@ -41,6 +45,8 @@ export async function listStaff(filters?: StaffFilters) {
   const conditions: object[] = [];
 
   if (filters?.isNpp !== undefined) conditions.push({ isNpp: filters.isNpp });
+  if (filters?.role) conditions.push({ role: filters.role });
+  if (filters?.excludeRole) conditions.push({ role: { not: filters.excludeRole } });
   if (filters?.facultyId) conditions.push({ department: { facultyId: filters.facultyId } });
   if (filters?.departmentId) conditions.push({ departmentId: filters.departmentId });
   if (filters?.rank) conditions.push({ academicRank: filters.rank });
@@ -60,7 +66,7 @@ export async function listStaff(filters?: StaffFilters) {
     });
   }
 
-  return db.staff.findMany({
+  const rows = await db.staff.findMany({
     where: conditions.length > 0 ? { AND: conditions } : undefined,
     select: {
       id: true,
@@ -72,11 +78,18 @@ export async function listStaff(filters?: StaffFilters) {
       academicRank: true,
       scientificDegree: true,
       ...(filters?.includeConfidential ? { employmentRate: true } : {}),
+      ...(filters?.includeAccount ? { role: true, passwordHash: true } : {}),
       department: { select: { name: true } },
       division: { select: { name: true } },
     },
     orderBy,
   });
+
+  // Strip the hash before it can leave the query layer — UI only gets a boolean
+  return rows.map(({ passwordHash, ...rest }) => ({
+    ...rest,
+    isActivated: filters?.includeAccount ? typeof passwordHash === 'string' : undefined,
+  }));
 }
 
 export type StaffListItem = Awaited<ReturnType<typeof listStaff>>[number];

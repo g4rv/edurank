@@ -12,6 +12,17 @@ import type { EntityType, EntityAction, Role } from '@/lib/generated/prisma/clie
  */
 export const CONFIDENTIAL_STAFF_FIELDS: ReadonlySet<string> = new Set(['employmentRate']);
 
+/**
+ * Account/auth columns on Staff (merged from the former User model).
+ * Never grantable to divisions, never client-editable through updateStaff,
+ * and passwordHash must never appear in a select that reaches UI.
+ */
+export const AUTH_STAFF_FIELDS: ReadonlySet<string> = new Set([
+  'passwordHash',
+  'role',
+  'tokenVersion',
+]);
+
 /** Staff fields a USER may edit on their own profile */
 export const USER_EDITABLE_STAFF_FIELDS: ReadonlySet<string> = new Set([
   'phone',

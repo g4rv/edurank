@@ -1,7 +1,7 @@
 # Refactor — Merge User into Staff (one "profile" per person)
 
-**Status:** proposed, not started. Decided 2026-07-09. Do **before** continuing M5 entity-first
-flows — every later milestone adds more `User` foreign keys, so this only gets more expensive.
+**Status:** built 2026-07-14 (steps 1–8; unit tests green). Awaiting user browser smoke test:
+create → invite email (Mailpit at localhost:8025) → activate → log in → role gates → reset.
 
 **Precondition:** not in production, no real data. `db:reset` + reseed is the migration — no data
 migration script needed. Run the current-code browser test of `/moderation` and `/division-data`
