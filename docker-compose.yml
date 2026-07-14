@@ -11,6 +11,15 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  # Dev-only fake SMTP server: catches all outgoing mail, web UI to read it.
+  # Never deploy to production — prod points SMTP_* at a real provider instead.
+  mailpit:
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports:
+      - '1025:1025' # SMTP — the app sends here
+      - '8025:8025' # Web UI — http://localhost:8025
+
   adminer:
     image: adminer:latest
     restart: unless-stopped

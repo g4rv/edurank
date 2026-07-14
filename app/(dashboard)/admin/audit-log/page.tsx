@@ -28,7 +28,6 @@ const ENTITY_LABELS: Record<string, string> = {
   Faculty: 'Факультет',
   Department: 'Кафедра',
   Division: 'Відділ',
-  User: 'Користувач',
 };
 
 const VALUE_LABELS: Record<string, string> = {
@@ -74,7 +73,7 @@ function ChangesDisplay({ changes, resolve }: { changes: Changes; resolve: Resol
 }
 
 const VALID_ACTIONS = ['CREATE', 'UPDATE', 'DELETE'];
-const VALID_ENTITIES = ['Staff', 'Faculty', 'Department', 'Division', 'User'];
+const VALID_ENTITIES = ['Staff', 'Faculty', 'Department', 'Division'];
 const PAGE_SIZE = 50;
 
 export default async function AuditLogPage({
@@ -140,7 +139,7 @@ export default async function AuditLogPage({
       ? { user: { email: sortDir as 'asc' | 'desc' } }
       : { createdAt: sortDir as 'asc' | 'desc' };
 
-  const [total, logs, divisions, departments, faculties, staffList, userList] = await Promise.all([
+  const [total, logs, divisions, departments, faculties, staffList] = await Promise.all([
     db.auditLog.count({ where }),
     db.auditLog.findMany({
       where,
@@ -153,7 +152,6 @@ export default async function AuditLogPage({
     db.department.findMany({ select: { id: true, name: true } }),
     db.faculty.findMany({ select: { id: true, name: true } }),
     db.staff.findMany({ select: { id: true, lastName: true, firstName: true, patronymic: true } }),
-    db.user.findMany({ select: { id: true, email: true } }),
   ]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -164,8 +162,6 @@ export default async function AuditLogPage({
   const staffMap = new Map(
     staffList.map((s) => [s.id, `${s.lastName} ${s.firstName} ${s.patronymic}`])
   );
-  const userMap = new Map(userList.map((u) => [u.id, u.email]));
-
   function resolveEntityName(entity: string, entityId: string): string | null {
     switch (entity) {
       case 'Staff':
@@ -176,8 +172,6 @@ export default async function AuditLogPage({
         return facultyMap.get(entityId) ?? null;
       case 'Division':
         return divisionMap.get(entityId) ?? null;
-      case 'User':
-        return userMap.get(entityId) ?? null;
       default:
         return null;
     }

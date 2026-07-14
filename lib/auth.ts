@@ -14,21 +14,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await db.user.findUnique({
+        const staff = await db.staff.findUnique({
           where: { email: credentials.email as string },
+          select: { id: true, email: true, role: true, passwordHash: true, tokenVersion: true },
         });
 
-        if (!user) return null;
+        // passwordHash === null → account not activated yet (no password to check)
+        if (!staff?.passwordHash) return null;
 
-        const valid = await compare(credentials.password as string, user.passwordHash);
+        const valid = await compare(credentials.password as string, staff.passwordHash);
         if (!valid) return null;
 
         return {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          staffId: user.staffId,
-          tokenVersion: user.tokenVersion,
+          id: staff.id,
+          email: staff.email,
+          role: staff.role,
+          // Alias kept for the ~34 existing readers: after the User→Staff merge
+          // the account id IS the staff id, so staffId always equals id.
+          staffId: staff.id,
+          tokenVersion: staff.tokenVersion,
         };
       },
     }),
@@ -45,15 +49,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // On every subsequent request, re-read from DB to pick up role changes
       // and validate tokenVersion — bumping it forces an immediate re-login
-      const dbUser = await db.user.findUnique({
+      const dbStaff = await db.staff.findUnique({
         where: { id: token.id as string },
-        select: { role: true, staffId: true, tokenVersion: true },
+        select: { role: true, tokenVersion: true },
       });
 
-      if (!dbUser || dbUser.tokenVersion !== token.tokenVersion) return null;
+      if (!dbStaff || dbStaff.tokenVersion !== token.tokenVersion) return null;
 
-      token.role = dbUser.role;
-      token.staffId = dbUser.staffId;
+      token.role = dbStaff.role;
+      token.staffId = token.id;
       return token;
     },
     session({ session, token }) {

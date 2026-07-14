@@ -9,7 +9,6 @@ import {
   Building2,
   BookOpen,
   ShieldCheck,
-  UserCog,
   ClipboardList,
   KeyRound,
   LogOut,
@@ -45,7 +44,6 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
-  { href: '/admin/users', label: 'Користувачі', icon: UserCog, roles: ['ADMIN'] },
   { href: '/admin/permissions/field', label: 'Поля доступу', icon: KeyRound, roles: ['ADMIN'] },
   { href: '/admin/permissions/entity', label: 'Дії доступу', icon: ShieldCheck, roles: ['ADMIN'] },
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList, roles: ['ADMIN'] },

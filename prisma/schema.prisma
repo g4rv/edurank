@@ -66,27 +66,15 @@ enum RatingYearStatus {
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
-model User {
-  id           String @id @default(cuid())
-  email        String @unique
-  passwordHash String
-  role         Role   @default(USER)
-
-  // null for admins/editors who are not НПП staff themselves
-  staffId String? @unique
-  staff   Staff?  @relation(fields: [staffId], references: [id])
-
-  // Incremented to invalidate all existing sessions for this user
-  tokenVersion Int @default(0)
-
-  auditLogs AuditLog[]
-
-  approvedActivities Activity[]       @relation("ActivityApprover")
-  removedActivities  Activity[]       @relation("ActivityRemover")
-  closedTemplates    RatingTemplate[] @relation("TemplateCloser")
-
+// One-time "set your password" link emailed to Staff.email. Single-use,
+// hashed at rest; one pending token per staff (resend replaces it).
+model ActivationToken {
+  id        String   @id @default(cuid())
+  staffId   String   @unique
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 // ─── University structure ────────────────────────────────────────────────────
@@ -147,6 +135,15 @@ model Staff {
   email String  @unique
   phone String?
 
+  // ── Account (merged from the former User model) ──
+  // null = account not activated yet (person never set a password)
+  passwordHash String?
+  role         Role    @default(USER)
+  // Incremented to invalidate all existing sessions for this person
+  tokenVersion Int     @default(0)
+
+  activationToken ActivationToken?
+
   // true = НПП (науково-педагогічний працівник), must belong to a department
   // false = non-НПП (administrative staff), department is optional
   isNpp Boolean @default(true)
@@ -185,7 +182,10 @@ model Staff {
   activities    Activity[]
   ratingEntries RatingEntry[]
 
-  user User?
+  auditLogs          AuditLog[]
+  approvedActivities Activity[]       @relation("ActivityApprover")
+  removedActivities  Activity[]       @relation("ActivityRemover")
+  closedTemplates    RatingTemplate[] @relation("TemplateCloser")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -240,7 +240,7 @@ model RatingTemplate {
 
   closedAt       DateTime?
   closedByUserId String?
-  closedBy       User?     @relation("TemplateCloser", fields: [closedByUserId], references: [id])
+  closedBy       Staff?    @relation("TemplateCloser", fields: [closedByUserId], references: [id])
 
   sections      RatingSection[]
   activityTypes ActivityType[]
@@ -313,11 +313,11 @@ model Activity {
   submittedByRole SubmittedByRole
 
   approvedByUserId String?
-  approvedBy       User?     @relation("ActivityApprover", fields: [approvedByUserId], references: [id])
+  approvedBy       Staff?    @relation("ActivityApprover", fields: [approvedByUserId], references: [id])
   approvedAt       DateTime?
 
   removedByUserId String?
-  removedBy       User?     @relation("ActivityRemover", fields: [removedByUserId], references: [id])
+  removedBy       Staff?    @relation("ActivityRemover", fields: [removedByUserId], references: [id])
   removedAt       DateTime?
   removeReason    String?
 
@@ -362,6 +362,6 @@ model AuditLog {
   entityId  String
   label     String? // human-readable description, e.g. "Updated Коваленко І.П."
   changes   Json? // { field: { from, to } } for UPDATE; { field: { from: null, to: value } } for CREATE; vice versa for DELETE
-  userId    String? // kept even if user is later deleted
-  user      User?   @relation(fields: [userId], references: [id])
+  userId    String? // kept even if the staff row is later deleted
+  user      Staff?  @relation(fields: [userId], references: [id])
 }

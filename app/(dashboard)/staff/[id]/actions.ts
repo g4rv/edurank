@@ -151,21 +151,6 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
 
       await tx.staff.update({ where: { id }, data: updateData });
 
-      // Auto role sync: if admin changed divisionId, update the linked user's role
-      if (isAdmin && 'divisionId' in updateData && existing?.divisionId !== updateData.divisionId) {
-        const linkedUser = await tx.user.findUnique({
-          where: { staffId: id },
-          select: { id: true, role: true },
-        });
-        if (linkedUser && linkedUser.role !== 'ADMIN') {
-          const newRole = updateData.divisionId ? 'EDITOR' : 'USER';
-          await tx.user.update({
-            where: { id: linkedUser.id },
-            data: { role: newRole, tokenVersion: { increment: 1 } },
-          });
-        }
-      }
-
       if (isAdmin) {
         await tx.staffDepartment.deleteMany({ where: { staffId: id } });
         if (partTimeDepartmentIds.length > 0) {

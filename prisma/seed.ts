@@ -48,13 +48,36 @@ async function main() {
     create: { name: "Кафедра комп'ютерних наук", facultyId: faculty.id },
   });
 
-  // ─── Staff ────────────────────────────────────────────────────────────────
+  // ─── Staff (every person, login included — the User model is merged in) ────
 
-  // НПП professor
+  const [adminHash, editorHash, userHash] = await Promise.all([
+    bcrypt.hash('admin123', 10),
+    bcrypt.hash('editor123', 10),
+    bcrypt.hash('user1234', 10),
+  ]);
+
+  // ADMIN — pre-activated so db:reset never locks anyone out
+  const admin = await prisma.staff.upsert({
+    where: { email: 'admin@edurank.local' },
+    update: { passwordHash: adminHash, role: 'ADMIN' },
+    create: {
+      lastName: 'Адміністратор',
+      firstName: 'Системи',
+      patronymic: '—',
+      email: 'admin@edurank.local',
+      isNpp: false,
+      passwordHash: adminHash,
+      role: 'ADMIN',
+    },
+  });
+
+  // НПП professor (role USER, activated)
   const professor = await prisma.staff.upsert({
     where: { email: 'kovalenko@university.edu.ua' },
-    update: {},
+    update: { passwordHash: userHash, role: 'USER' },
     create: {
+      passwordHash: userHash,
+      role: 'USER',
       lastName: 'Коваленко',
       firstName: 'Іван',
       patronymic: 'Петрович',
@@ -71,10 +94,10 @@ async function main() {
     },
   });
 
-  // Non-НПП — ННВ employee (will be the EDITOR)
+  // Non-НПП — ННВ employee (EDITOR, activated)
   const editorStaff = await prisma.staff.upsert({
     where: { email: 'editor@university.edu.ua' },
-    update: {},
+    update: { passwordHash: editorHash, role: 'EDITOR' },
     create: {
       lastName: 'Редакторенко',
       firstName: 'Олена',
@@ -82,42 +105,8 @@ async function main() {
       email: 'editor@university.edu.ua',
       isNpp: false,
       divisionId: nnv.id,
-    },
-  });
-
-  // ─── Users ────────────────────────────────────────────────────────────────
-
-  const [adminHash, editorHash, userHash] = await Promise.all([
-    bcrypt.hash('admin123', 10),
-    bcrypt.hash('editor123', 10),
-    bcrypt.hash('user1234', 10),
-  ]);
-
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@edurank.local' },
-    update: {},
-    create: { email: 'admin@edurank.local', passwordHash: adminHash, role: 'ADMIN' },
-  });
-
-  const editor = await prisma.user.upsert({
-    where: { email: 'editor@edurank.local' },
-    update: {},
-    create: {
-      email: 'editor@edurank.local',
       passwordHash: editorHash,
       role: 'EDITOR',
-      staffId: editorStaff.id,
-    },
-  });
-
-  const user = await prisma.user.upsert({
-    where: { email: 'kovalenko@edurank.local' },
-    update: {},
-    create: {
-      email: 'kovalenko@edurank.local',
-      passwordHash: userHash,
-      role: 'USER',
-      staffId: professor.id,
     },
   });
 
@@ -208,11 +197,11 @@ async function main() {
     where: { templateId: template.id },
   });
 
-  console.log('\nSeeded:');
+  console.log('\nSeeded (logins live on Staff now):');
   console.log(`  ADMIN   ${admin.email}              password: admin123`);
-  console.log(`  EDITOR  ${editor.email}             password: editor123  division: ${nnv.name}`);
+  console.log(`  EDITOR  ${editorStaff.email}       password: editor123  division: ${nnv.name}`);
   console.log(
-    `  USER    ${user.email}  password: user1234   staff: ${professor.lastName} ${professor.firstName}`
+    `  USER    ${professor.email}    password: user1234   staff: ${professor.lastName} ${professor.firstName}`
   );
   console.log(`\n  Divisions: ${Object.values(RATING_DIVISIONS).join(', ')}`);
   console.log(`  Faculty: ${faculty.name}`);
