@@ -233,6 +233,8 @@ Feedback must appear as close to its cause as possible:
 
 This is Next.js 16 with React 19 — APIs and conventions differ from older versions. Before writing any routing, data-fetching, or caching code, check `node_modules/next/dist/docs/` for current behavior. Do not rely on pre-2025 Next.js knowledge.
 
+Route protection lives in `proxy.ts` (Next 16's rename of `middleware.ts`): everything except `/login`, `/forgot-password`, and `/activate/*` requires a session. **When adding any new public (unauthenticated) route, whitelist it there** — otherwise anonymous visitors get redirected to /login.
+
 ## Tailwind v4 notes
 
 Tailwind v4 has no `tailwind.config.js`. Configuration (custom colors, fonts, spacing) is done in `app/globals.css` using the `@theme` directive. The PostCSS plugin is `@tailwindcss/postcss`.
