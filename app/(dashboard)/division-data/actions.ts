@@ -202,3 +202,170 @@ export async function clearDivisionActivity(
   revalidatePath('/division-data');
   return { success: true };
 }
+
+export type BatchUpsertDivisionActivityState = { error: string } | { success: true; saved: number };
+
+// Entity-first bulk entry: one object (project / council / program) fanned out
+// to several NPP in a single transaction. Each row gets the same shared
+// evidence plus its own role, and becomes a normal per-staff Activity —
+// identical to what upsertDivisionActivity would create one at a time.
+export async function batchUpsertDivisionActivity(
+  activityTypeId: string,
+  rows: { staffId: string; evidence: unknown }[]
+): Promise<BatchUpsertDivisionActivityState> {
+  const session = await auth();
+  if (!session) redirect('/login');
+
+  if (rows.length === 0) return { error: 'Додайте хоча б одного НПП' };
+  if (rows.length > 100) return { error: 'Забагато записів за один раз' };
+
+  const staffIds = rows.map((r) => r.staffId);
+  if (new Set(staffIds).size !== staffIds.length) {
+    return { error: 'Один НПП вказано декілька разів' };
+  }
+
+  const type = await db.activityType.findUnique({
+    where: { id: activityTypeId },
+    select: {
+      id: true,
+      code: true,
+      label: true,
+      coefficient: true,
+      inputSource: true,
+      isActive: true,
+      verifyingDivisionId: true,
+      template: { select: { year: true, isActive: true, status: true } },
+    },
+  });
+  if (
+    !type ||
+    !type.isActive ||
+    type.inputSource !== 'DIVISION_MANAGED' ||
+    !type.verifyingDivisionId
+  ) {
+    return { error: 'Цей показник не вноситься відділом' };
+  }
+  if (!type.template.isActive || type.template.status !== 'OPEN') {
+    return { error: 'Рейтинговий рік закрито' };
+  }
+
+  if (!(await canActForDivision(session.user, type.verifyingDivisionId))) {
+    return { error: 'Недостатньо прав' };
+  }
+
+  const staffList = await db.staff.findMany({
+    where: { id: { in: staffIds } },
+    select: { id: true, isNpp: true, lastName: true, firstName: true, patronymic: true },
+  });
+  const staffById = new Map(staffList.map((s) => [s.id, s]));
+  for (const id of staffIds) {
+    const s = staffById.get(id);
+    if (!s) return { error: 'НПП не знайдено' };
+    if (!s.isNpp) {
+      return { error: `${s.lastName} ${s.firstName} ${s.patronymic} — не НПП` };
+    }
+  }
+
+  let meta: ReturnType<typeof activityTypeMeta>;
+  try {
+    meta = activityTypeMeta(type.code);
+  } catch {
+    return { error: 'Невідомий показник' };
+  }
+
+  // Validate everything up front — the transaction is all-or-nothing
+  const prepared: {
+    staffId: string;
+    staffLabel: string;
+    evidence: Prisma.InputJsonValue;
+    computedValue: number;
+    score: number;
+    summary: string;
+  }[] = [];
+  for (const row of rows) {
+    const parsed = meta.schema.safeParse(row.evidence);
+    if (!parsed.success) return { error: 'Невірні дані форми' };
+    const { computedValue, score } = computeScore(type.code, parsed.data, type.coefficient);
+    const s = staffById.get(row.staffId)!;
+    prepared.push({
+      staffId: row.staffId,
+      staffLabel: `${s.lastName} ${s.firstName} ${s.patronymic}`,
+      evidence: parsed.data as Prisma.InputJsonValue,
+      computedValue,
+      score,
+      summary: summarizeEvidence(type.code, parsed.data),
+    });
+  }
+
+  const year = type.template.year;
+
+  try {
+    await db.$transaction(async (tx) => {
+      for (const row of prepared) {
+        const existing = await tx.activity.findFirst({
+          where: {
+            staffId: row.staffId,
+            activityTypeId: type.id,
+            year,
+            status: { not: 'REMOVED' },
+          },
+          select: { id: true, score: true, evidence: true },
+        });
+
+        const data = {
+          evidence: row.evidence,
+          computedValue: row.computedValue,
+          score: row.score,
+          status: 'APPROVED' as const,
+          submittedByRole: 'DIVISION' as const,
+          approvedByUserId: session.user.id,
+          approvedAt: new Date(),
+        };
+
+        if (existing) {
+          await tx.activity.update({ where: { id: existing.id }, data });
+          await tx.auditLog.create({
+            data: {
+              action: 'UPDATE',
+              entity: 'Activity',
+              entityId: existing.id,
+              label: `${row.staffLabel} — ${type.label}`,
+              userId: session.user.id,
+              changes: diffChanges(
+                {
+                  score: existing.score,
+                  evidence: summarizeEvidence(type.code, existing.evidence),
+                },
+                { score: row.score, evidence: row.summary }
+              ),
+            },
+          });
+        } else {
+          const created = await tx.activity.create({
+            data: { staffId: row.staffId, activityTypeId: type.id, year, ...data },
+          });
+          await tx.auditLog.create({
+            data: {
+              action: 'CREATE',
+              entity: 'Activity',
+              entityId: created.id,
+              label: `${row.staffLabel} — ${type.label}`,
+              userId: session.user.id,
+              changes: diffChanges(
+                {},
+                { year, score: row.score, status: 'APPROVED', evidence: row.summary }
+              ),
+            },
+          });
+        }
+
+        await recomputeRatingEntry(tx, row.staffId, year);
+      }
+    });
+  } catch (e) {
+    return { error: parseDbError(e, 'Помилка при внесенні даних') };
+  }
+
+  revalidatePath('/division-data');
+  return { success: true, saved: prepared.length };
+}

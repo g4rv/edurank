@@ -12,6 +12,8 @@ import { activityTypeMeta } from '@/lib/rating/registry';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DivisionSelect } from '@/components/rating/division-select';
 import { DivisionEntryGrid, type EntryGridCell } from '@/components/rating/division-entry-grid';
+import { EntityEntryDialog } from '@/components/rating/entity-entry-dialog';
+import { ENTITY_FIRST_CODES } from '@/lib/rating/entity-entry';
 
 function itemNumberFor(code: string): string {
   try {
@@ -80,6 +82,19 @@ export default async function DivisionDataPage({
     };
   }
 
+  const gridTypes = types.map((t) => ({
+    id: t.id,
+    code: t.code,
+    itemNumber: itemNumberFor(t.code),
+    label: t.label,
+  }));
+  const gridStaff = staff.map((s) => ({
+    id: s.id,
+    name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
+    department: s.department?.name ?? '',
+  }));
+  const entityTypes = gridTypes.filter((t) => ENTITY_FIRST_CODES.includes(t.code));
+
   return (
     <AnimatedPage className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -90,23 +105,19 @@ export default async function DivisionDataPage({
             {!yearOpen && ' (рік закрито, лише перегляд)'}
           </p>
         </div>
-        {session.user.role === 'ADMIN' && divisions.length > 1 && (
-          <DivisionSelect divisions={divisions} value={divisionId} />
-        )}
+        <div className="flex items-center gap-2">
+          {yearOpen && entityTypes.length > 0 && (
+            <EntityEntryDialog types={entityTypes} staff={gridStaff} />
+          )}
+          {session.user.role === 'ADMIN' && divisions.length > 1 && (
+            <DivisionSelect divisions={divisions} value={divisionId} />
+          )}
+        </div>
       </div>
 
       <DivisionEntryGrid
-        types={types.map((t) => ({
-          id: t.id,
-          code: t.code,
-          itemNumber: itemNumberFor(t.code),
-          label: t.label,
-        }))}
-        staff={staff.map((s) => ({
-          id: s.id,
-          name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
-          department: s.department?.name ?? '',
-        }))}
+        types={gridTypes}
+        staff={gridStaff}
         entries={entryMap}
         readOnly={!yearOpen}
       />

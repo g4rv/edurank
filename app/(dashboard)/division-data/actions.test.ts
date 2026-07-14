@@ -9,7 +9,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
-    staff: { findUnique: vi.fn() },
+    staff: { findUnique: vi.fn(), findMany: vi.fn() },
     activityType: { findUnique: vi.fn() },
     activity: { findUnique: vi.fn() },
     $transaction: vi.fn(),
@@ -18,10 +18,15 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { upsertDivisionActivity, clearDivisionActivity } from './actions';
+import {
+  upsertDivisionActivity,
+  clearDivisionActivity,
+  batchUpsertDivisionActivity,
+} from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
+const mockStaffFindMany = db.staff.findMany as unknown as Mock;
 const mockTypeFind = db.activityType.findUnique as unknown as Mock;
 const mockActivityFind = db.activity.findUnique as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
@@ -193,5 +198,98 @@ describe('clearDivisionActivity', () => {
     expect(tx.activity.delete).toHaveBeenCalledWith({ where: { id: 'activity-1' } });
     expect(tx.auditLog.create).toHaveBeenCalled();
     expect(tx.ratingEntry.upsert).toHaveBeenCalled();
+  });
+});
+
+describe('batchUpsertDivisionActivity', () => {
+  // ННВ-managed НДР theme: role select (керівник 300 / виконавець 200) + title
+  const ndrType = {
+    ...divisionType,
+    id: 'type-ndr',
+    code: 'ndr_execution',
+    label: 'Виконання НДР',
+    verifyingDivisionId: 'div-nnv',
+  };
+
+  const franko = { id: 'staff-1', ...npp };
+  const shevchenko = {
+    id: 'staff-2',
+    isNpp: true,
+    lastName: 'Шевченко',
+    firstName: 'Тарас',
+    patronymic: 'Григорович',
+  };
+
+  const rows = [
+    { staffId: 'staff-1', evidence: { option: 'leader', title: 'Тема НДР' } },
+    { staffId: 'staff-2', evidence: { option: 'executor', title: 'Тема НДР' } },
+  ];
+
+  beforeEach(() => {
+    mockTypeFind.mockResolvedValue(ndrType);
+    mockStaffFindMany.mockResolvedValue([franko, shevchenko]);
+  });
+
+  it('rejects an editor of a different division', async () => {
+    mockAuth.mockResolvedValue(kadryEditor);
+    mockStaffFind.mockResolvedValue({ divisionId: 'div-kadry' });
+    expect(await batchUpsertDivisionActivity('type-ndr', rows)).toEqual({
+      error: 'Недостатньо прав',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty staff list and duplicated staff', async () => {
+    expect(await batchUpsertDivisionActivity('type-ndr', [])).toEqual({
+      error: 'Додайте хоча б одного НПП',
+    });
+    expect(
+      await batchUpsertDivisionActivity('type-ndr', [rows[0], { ...rows[1], staffId: 'staff-1' }])
+    ).toEqual({ error: 'Один НПП вказано декілька разів' });
+  });
+
+  it('rejects the whole batch when one person is not НПП, naming them', async () => {
+    mockStaffFindMany.mockResolvedValue([franko, { ...shevchenko, isNpp: false }]);
+    expect(await batchUpsertDivisionActivity('type-ndr', rows)).toEqual({
+      error: 'Шевченко Тарас Григорович — не НПП',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects when any row has invalid evidence', async () => {
+    expect(
+      await batchUpsertDivisionActivity('type-ndr', [
+        rows[0],
+        { staffId: 'staff-2', evidence: { option: 'executor', title: '' } },
+      ])
+    ).toEqual({ error: 'Невірні дані форми' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('creates one row per person with role-based scores and recomputes each', async () => {
+    const tx = mockTx(null);
+    expect(await batchUpsertDivisionActivity('type-ndr', rows)).toEqual({
+      success: true,
+      saved: 2,
+    });
+    expect(tx.activity.create).toHaveBeenCalledTimes(2);
+    expect(tx.activity.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ staffId: 'staff-1', score: 300, status: 'APPROVED' }),
+    });
+    expect(tx.activity.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ staffId: 'staff-2', score: 200 }),
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(2);
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(2);
+  });
+
+  it('updates the live row for a person who already has one', async () => {
+    const tx = mockTx({ id: 'activity-old', score: 200, evidence: rows[1].evidence });
+    expect(await batchUpsertDivisionActivity('type-ndr', rows)).toEqual({
+      success: true,
+      saved: 2,
+    });
+    expect(tx.activity.update).toHaveBeenCalledTimes(2);
+    expect(tx.activity.create).not.toHaveBeenCalled();
   });
 });

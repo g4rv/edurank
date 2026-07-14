@@ -224,11 +224,11 @@ Resolved 2026-07-09:
 > фіксовані показники; + кадри й навчальний відділ). Access: only editors of that division (via
 > `getEditorDivisionId`) + ADMIN. Not one generic shared panel.
 
-> **IN PROGRESS.** M5.1 + the staff-first grid are DONE (commits `233e85d`, `4d7ce86`). Built as ONE
+> **DONE.** M5.1 + the staff-first grid (commits `233e85d`, `4d7ce86`); entity-first flows 2026-07-14. Built as ONE
 > route `/division-data` («Дані відділу») serving all divisions — an editor lands on their own division
 > (via `canActForDivision`), ADMIN gets a division picker — instead of six separate routes. The picker
 > lists divisions that own indicators in the active template, so an empty division (ВА today) still
-> appears. Entity-first flows remain.
+> appears.
 
 ### Issue M5.1 — Entry action
 
@@ -239,11 +239,13 @@ Resolved 2026-07-09:
 ### Issue M5.2 — Division pages
 
 - [x] **Staff-first grid** (`/division-data`): NPP × type for the active year, popover cell forms driven by the evidence registry, client search, read-only when year closed. Covers кадри, навчальний відділ, and the fixed/«Обовязки»-style indicators of ННВ/ННЦЗЯО out of the box.
-- [ ] **Entity-first flows** (from `edu-reference/Дані *.xlsx`, checked 2026-07-06): ВМЗ → проєкти
+- [x] **Entity-first flows** (from `edu-reference/Дані *.xlsx`, checked 2026-07-06): ВМЗ → проєкти
       (staff picked per role), ННЦЗЯО → ОП / ради, ВА → спецради (+ «Разова» flag stored as
       informational evidence — same points for now, see resolved decisions), ННВ → НДР-теми.
       "Enter object once → pick staff per role → fan out one Activity per staff" on top of the
-      same upsert action. Until built, the grid already allows per-staff entry for these items.
+      same upsert action. **(DONE 2026-07-14: «Групове внесення» dialog on `/division-data` —
+      shared fields once + per-staff role rows → `batchUpsertDivisionActivity`, one transaction;
+      whitelist in `lib/rating/entity-entry.ts`.)**
 
 ### Issue M5.3 — Tests
 

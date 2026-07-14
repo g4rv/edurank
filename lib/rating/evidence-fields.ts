@@ -323,6 +323,8 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       opt('member', 'член ради'),
     ]),
     text('council', 'Назва / шифр ради'),
+    // Informational only — same points as a permanent council (decision 2026-07-07)
+    checkbox('oneTime', 'Разова рада (одноразовий захист)'),
   ],
   journal_editorial_a: [
     select('option', ROLE_OPTION, EDITORIAL_OPTIONS),
