@@ -17,6 +17,12 @@ export const setPasswordSchema = z
 
 export type SetPasswordSchema = z.infer<typeof setPasswordSchema>;
 
+export const forgotPasswordSchema = z.object({
+  email: z.email({ error: 'Некоректний email' }).trim(),
+});
+
+export type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>;
+
 export const changeRoleSchema = z.object({
   role: z.enum(['ADMIN', 'EDITOR', 'USER']),
 });

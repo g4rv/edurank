@@ -66,7 +66,7 @@ describe('activateAction', () => {
 
     expect(tx.staff.update).toHaveBeenCalledWith({
       where: { id: 'staff-1' },
-      data: { passwordHash: expect.any(String) },
+      data: { passwordHash: expect.any(String), tokenVersion: { increment: 1 } },
     });
     // Stored value must be a bcrypt hash, never the plain password
     expect(tx.staff.update.mock.calls[0][0].data.passwordHash).not.toBe(validData.password);

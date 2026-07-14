@@ -13,7 +13,8 @@ export default async function ActivatePage({ params }: { params: Promise<{ token
         <div className="mt-8 rounded-xl border bg-card p-6 shadow-sm">
           <p className="text-sm">Посилання недійсне або протерміноване.</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Зверніться до адміністратора, щоб отримати нове запрошення.
+            Діє лише останнє надіслане посилання — перевірте, чи немає в пошті новішого листа. Якщо
+            його немає, скористайтеся відновленням пароля або зверніться до адміністратора.
           </p>
           <Link
             href="/login"

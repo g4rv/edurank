@@ -22,7 +22,12 @@ export async function activateAction(
   const passwordHash = await hash(parsed.data.password, 10);
 
   await db.$transaction(async (tx) => {
-    await tx.staff.update({ where: { id: staff.id }, data: { passwordHash } });
+    // tokenVersion bump: setting a new password kills any session opened with
+    // the old one (matters for self-service reset of a possibly stolen account)
+    await tx.staff.update({
+      where: { id: staff.id },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
+    });
     await tx.activationToken.deleteMany({ where: { staffId: staff.id } });
     await tx.auditLog.create({
       data: {
