@@ -16,6 +16,7 @@ import {
   Award,
   BadgeCheck,
   Table2,
+  Trophy,
   Plus,
   ChevronDown,
   ChevronRight,
@@ -37,6 +38,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { href: '/rating', label: 'Рейтинг НПП', icon: Trophy, roles: ['ADMIN', 'EDITOR'] },
   { href: '/staff', label: 'Персонал', icon: Users, roles: ['ADMIN', 'EDITOR'] },
   { href: '/faculties', label: 'Факультети', icon: GraduationCap, roles: ['ADMIN', 'EDITOR'] },
   { href: '/departments', label: 'Кафедри', icon: BookOpen, roles: ['ADMIN', 'EDITOR'] },

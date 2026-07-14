@@ -5,7 +5,11 @@ import { auth } from '@/lib/auth';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
 import { getStaffAccount } from '@/lib/queries/get-staff-account';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
+import { getActiveTemplate } from '@/lib/queries/get-active-template';
+import { listStaffActivities } from '@/lib/queries/list-activities';
+import { toAchievementGroups } from '@/lib/rating/achievement-rows';
 import { AccountCard } from '@/components/staff/account-card';
+import { RatingTable } from '@/components/rating/rating-table';
 import { Button } from '@/components/ui/button';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DeleteStaffButton } from '@/components/staff/delete-button';
@@ -100,6 +104,12 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   if (!staff) notFound();
 
   const account = isAdmin ? await getStaffAccount(id) : null;
+
+  // Rating table (M6): activities of the active year for НПП
+  const template = staff.isNpp ? await getActiveTemplate() : null;
+  const ratingGroups = template
+    ? toAchievementGroups(await listStaffActivities(id, template.year), [1, 2, 3, 4, 5])
+    : null;
 
   let canEdit = isAdmin;
   let canDelete = isAdmin;
@@ -278,6 +288,13 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
       </div>
+
+      {template && ratingGroups && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Рейтинг — {template.year} рік</h2>
+          <RatingTable groups={ratingGroups} />
+        </section>
+      )}
     </AnimatedPage>
   );
 }

@@ -265,16 +265,18 @@ Resolved 2026-07-09:
 
 ### Issue M6.2 — Rating queries
 
-- [ ] `lib/queries/get-rating.ts` (per staff/year) and `list-ratings.ts` (department/division rollup, sortable).
+- [x] `lib/queries/get-rating.ts` (per staff/year) and `list-ratings.ts` (department/division rollup, sortable).
 
 ### Issue M6.3 — Rating table UI
 
-- [ ] Per-staff rating table (on profile + staff detail): sections, items, scores.
-- [ ] Rollup table page: staff ranked by total for a year, filter by department/division.
+- [x] Per-staff rating table (on profile + staff detail): sections, items, scores. (Staff detail =
+      full `RatingTable`; profile = compact section-totals card linking to «Мій рейтинг».)
+- [x] Rollup table page `/rating` («Рейтинг НПП», ADMIN+EDITOR): ranked by total for the active
+      year, faculty/department filter + name search, zero-score НПП included.
 
 ### Issue M6.4 — Tests
 
-- [ ] Recompute test: submit adds, discard subtracts, matches expected totals.
+- [x] Recompute test: submit adds, discard subtracts, matches expected totals.
 
 ---
 

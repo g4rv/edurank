@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
+import { getActiveTemplate } from '@/lib/queries/get-active-template';
+import { getRatingEntry } from '@/lib/queries/get-rating';
+import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
@@ -109,6 +112,10 @@ export default async function ProfilePage() {
   const staff = await getStaff(staffId, true);
   if (!staff) notFound();
 
+  // Compact rating summary (M6) — the full table lives on «Мій рейтинг»
+  const template = staff.isNpp ? await getActiveTemplate() : null;
+  const rating = template ? await getRatingEntry(staffId, template.year) : null;
+
   const subtitle =
     staff.isNpp && staff.academicRank
       ? [
@@ -147,6 +154,47 @@ export default async function ProfilePage() {
       </div>
 
       <div className="flex flex-col gap-4">
+        {template && (
+          <div className="rounded-xl border bg-card p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold tracking-wide text-foreground uppercase">
+                Рейтинг — {template.year} рік
+              </h2>
+              <Link
+                href="/achievements"
+                className="text-sm text-primary underline-offset-4 hover:underline"
+              >
+                Мій рейтинг
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {[1, 2, 3, 4, 5].map((n) => {
+                const score = rating
+                  ? [
+                      rating.section1Score,
+                      rating.section2Score,
+                      rating.section3Score,
+                      rating.section4Score,
+                      rating.section5Score,
+                    ][n - 1]
+                  : 0;
+                return (
+                  <div key={n} className="rounded-lg bg-muted/40 px-3 py-2">
+                    <p className="text-xs text-muted-foreground" title={SECTION_TITLES[n]}>
+                      Розділ {n}
+                    </p>
+                    <p className="text-lg font-semibold tabular-nums">{score}</p>
+                  </div>
+                );
+              })}
+              <div className="rounded-lg bg-primary/10 px-3 py-2">
+                <p className="text-xs text-primary">Разом</p>
+                <p className="text-lg font-bold tabular-nums">{rating?.totalScore ?? 0}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <InfoCard title="Контакти">
           <Field label="Email" value={staff.email} />
           <Field label="Телефон" value={staff.phone ?? '—'} />
