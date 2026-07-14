@@ -12,9 +12,18 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { ChevronDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { STAFF_VIEWS, type StaffView } from '@/components/staff/staff-view';
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
+import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
+
+// Role checkboxes for the ?roles= param. НПП (role USER) is the default view;
+// nothing checked = all roles ('all' sentinel keeps that distinct from the default).
+const ROLE_OPTIONS: { value: Role; label: string }[] = [
+  { value: 'USER', label: 'НПП' },
+  { value: 'EDITOR', label: 'Редактори' },
+  { value: 'ADMIN', label: 'Адміністратори' },
+];
 
 const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
   LECTURER: 'Викладач',
@@ -31,13 +40,20 @@ const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
 type Props = {
   faculties: { id: string; name: string }[];
   departments: { id: string; name: string; facultyId: string }[];
-  view: StaffView;
 };
 
-export function StaffFilters({ faculties, departments, view }: Props) {
+export function StaffFilters({ faculties, departments }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  const rolesParam = searchParams.get('roles');
+  const selectedRoles: Role[] =
+    rolesParam === null
+      ? ['USER']
+      : rolesParam === 'all'
+        ? []
+        : (rolesParam.split(',').filter((r) => ROLE_OPTIONS.some((o) => o.value === r)) as Role[]);
 
   const q = searchParams.get('q') ?? '';
   const facultyId = searchParams.get('faculty') ?? '';
@@ -63,6 +79,22 @@ export function StaffFilters({ faculties, departments, view }: Props) {
 
   function setParam(key: string, value: string | undefined) {
     router.push(`${pathname}?${buildParams({ [key]: value })}`);
+  }
+
+  function toggleRole(role: Role) {
+    const next = selectedRoles.includes(role)
+      ? selectedRoles.filter((r) => r !== role)
+      : [...selectedRoles, role];
+    // Default view (НПП only) = no param; nothing checked = 'all'
+    const value =
+      next.length === 0
+        ? 'all'
+        : next.length === 1 && next[0] === 'USER'
+          ? undefined
+          : ROLE_OPTIONS.filter((o) => next.includes(o.value))
+              .map((o) => o.value)
+              .join(',');
+    setParam('roles', value);
   }
 
   function handleSearch(value: string) {
@@ -117,20 +149,39 @@ export function StaffFilters({ faculties, departments, view }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={view} onValueChange={(v) => setParam('view', v === 'npp' ? undefined : v)}>
-          <SelectTrigger size="sm" className="font-medium">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start">
-            {(Object.entries(STAFF_VIEWS) as [StaffView, { label: string }][]).map(
-              ([value, def]) => (
-                <SelectItem key={value} value={value}>
-                  {def.label}
-                </SelectItem>
-              )
-            )}
-          </SelectContent>
-        </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex h-8 items-center gap-1.5 rounded-lg border bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-muted/50">
+              {selectedRoles.length === 0
+                ? 'Всі ролі'
+                : ROLE_OPTIONS.filter((o) => selectedRoles.includes(o.value))
+                    .map((o) => o.label)
+                    .join(', ')}
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-52 p-2">
+            <div className="flex flex-col gap-1">
+              {ROLE_OPTIONS.map((option) => {
+                const checked = selectedRoles.includes(option.value);
+                return (
+                  <label
+                    key={option.value}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleRole(option.value)}
+                      className="size-4 accent-primary"
+                    />
+                    {option.label}
+                  </label>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <Input
           placeholder="Пошук за ПІБ, email, ORCID..."

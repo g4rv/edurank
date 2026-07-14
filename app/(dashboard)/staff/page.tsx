@@ -9,8 +9,7 @@ import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
 import { StaffFilters } from '@/components/staff/staff-filters';
 import { StaffTable } from '@/components/staff/staff-table';
-import { STAFF_VIEWS, type StaffView } from '@/components/staff/staff-view';
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
+import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
 
 const VALID_SORTS = ['lastName', 'email', 'academicRank', 'department', 'employmentRate'] as const;
 type SortField = (typeof VALID_SORTS)[number];
@@ -31,11 +30,19 @@ export default async function StaffPage({
 
   const isAdmin = role === 'ADMIN';
 
-  const { view, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch } = params;
+  const { roles, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch } = params;
 
-  // Role-based view presets (default НПП). Replaces the old НПП/Адм. isNpp tabs.
-  const viewFilter: StaffView =
-    typeof view === 'string' && view in STAFF_VIEWS ? (view as StaffView) : 'npp';
+  // Role checkboxes (?roles=USER,EDITOR). Absent = НПП default; 'all' = no filter.
+  const VALID_ROLES = new Set(['USER', 'EDITOR', 'ADMIN']);
+  const rolesParam = typeof roles === 'string' ? roles : undefined;
+  const roleFilter: Role[] | undefined = !rolesParam
+    ? ['USER']
+    : rolesParam === 'all'
+      ? undefined
+      : (() => {
+          const picked = rolesParam.split(',').filter((r) => VALID_ROLES.has(r)) as Role[];
+          return picked.length > 0 ? picked : undefined;
+        })();
   const sortField: SortField =
     typeof sort === 'string' && (VALID_SORTS as readonly string[]).includes(sort)
       ? (sort as SortField)
@@ -44,7 +51,6 @@ export default async function StaffPage({
     sortField === 'employmentRate' && !isAdmin ? 'lastName' : sortField;
   const sortDir = dir === 'desc' ? 'desc' : 'asc';
 
-  const viewDef = STAFF_VIEWS[viewFilter];
   const rankFilter =
     typeof rank === 'string' && VALID_RANKS.has(rank) ? (rank as AcademicRank) : undefined;
   const degreeFilter =
@@ -54,8 +60,7 @@ export default async function StaffPage({
 
   const [staff, faculties, departments] = await Promise.all([
     listStaff({
-      role: 'role' in viewDef ? viewDef.role : undefined,
-      excludeRole: 'excludeRole' in viewDef ? viewDef.excludeRole : undefined,
+      roles: roleFilter,
       includeAccount: isAdmin,
       sort: effectiveSortField,
       dir: sortDir,
@@ -81,7 +86,7 @@ export default async function StaffPage({
   function buildHref(overrides: Record<string, string | undefined>) {
     const sp = new URLSearchParams();
     const base: Record<string, string | undefined> = {
-      view: viewFilter !== 'npp' ? viewFilter : undefined,
+      roles: rolesParam,
       sort: effectiveSortField !== 'lastName' ? effectiveSortField : undefined,
       dir: sortDir !== 'asc' ? sortDir : undefined,
       q: typeof q === 'string' ? q : undefined,
@@ -155,7 +160,7 @@ export default async function StaffPage({
 
   // Key changes with every filter/sort combination so the table animates in fresh
   const tableKey = [
-    viewFilter,
+    rolesParam,
     effectiveSortField,
     sortDir,
     q,
@@ -184,7 +189,6 @@ export default async function StaffPage({
       <StaffFilters
         faculties={faculties.map((f) => ({ id: f.id, name: f.name }))}
         departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
-        view={viewFilter}
       />
 
       <StaffTable key={tableKey} staff={staff} sortHeader={sortHeader} isAdmin={isAdmin} />

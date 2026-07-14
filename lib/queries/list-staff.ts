@@ -6,8 +6,8 @@ type SortField = (typeof _VALID_SORTS)[number];
 
 export type StaffFilters = {
   isNpp?: boolean;
-  role?: Role;
-  excludeRole?: Role;
+  // Show only these roles; undefined = all
+  roles?: Role[];
   // ADMIN list view: adds role + activation state (never the hash itself)
   includeAccount?: boolean;
   sort?: SortField;
@@ -45,8 +45,7 @@ export async function listStaff(filters?: StaffFilters) {
   const conditions: object[] = [];
 
   if (filters?.isNpp !== undefined) conditions.push({ isNpp: filters.isNpp });
-  if (filters?.role) conditions.push({ role: filters.role });
-  if (filters?.excludeRole) conditions.push({ role: { not: filters.excludeRole } });
+  if (filters?.roles?.length) conditions.push({ role: { in: filters.roles } });
   if (filters?.facultyId) conditions.push({ department: { facultyId: filters.facultyId } });
   if (filters?.departmentId) conditions.push({ departmentId: filters.departmentId });
   if (filters?.rank) conditions.push({ academicRank: filters.rank });
