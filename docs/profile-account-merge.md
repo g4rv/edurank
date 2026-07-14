@@ -91,14 +91,9 @@ small and mechanical.
 
 ## Personnel page changes
 
-- The current НПП/Адміністративний/Всі **tab bar becomes a single dropdown select**, filtering by
-  **role only** (LOCKED 2026-07-09 — the useful views are role combinations, one axis, no surprises).
-  Presets:
-  - **НПП** (default) — `role = USER`
-  - **Редактори** — `role = EDITOR`
-  - **Адміністратори** — `role = ADMIN`
-  - **Редактори та НПП** — everyone except admins (the "who fills in data" view)
-  - **Всі** — no role filter
+- The current НПП/Адміністративний/Всі **tab bar becomes a checkbox multi-select dropdown**,
+  filtering by **role only** (revised 2026-07-14 from fixed presets — the user picks any custom
+  role combination). Default = НПП (`role = USER`); nothing checked = all roles.
 - **`isNpp` stays in the schema** — it still drives real rules (НПП must have a department; only НПП
   get a rating) — but it gets **no filter control**. If a true "academic staff only" view is wanted
   later, add `isNpp` back as a filter then.
