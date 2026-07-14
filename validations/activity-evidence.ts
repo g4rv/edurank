@@ -46,6 +46,15 @@ function fieldSchema(f: EvidenceField): z.ZodType {
   }
 }
 
+/** Zod schema for an arbitrary subset of evidence fields (e.g. the shared
+ *  fields of an entity-first group entry, validated apart from the role) */
+export function schemaForFields(
+  fields: readonly EvidenceField[]
+): z.ZodType<Record<string, unknown>> {
+  const shape = Object.fromEntries(fields.map((f) => [f.name, fieldSchema(f)]));
+  return z.strictObject(shape) as unknown as z.ZodType<Record<string, unknown>>;
+}
+
 const schemaCache = new Map<string, z.ZodType<Record<string, unknown>>>();
 
 /** Zod schema for one activity type's evidence; throws on unknown code */

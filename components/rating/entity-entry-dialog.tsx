@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { useForm, type FieldValues } from 'react-hook-form';
+import { useForm, type FieldValues, type Resolver } from 'react-hook-form';
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { batchUpsertDivisionActivity } from '@/app/(dashboard)/division-data/actions';
@@ -35,6 +36,7 @@ import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { evidenceDefaults } from '@/lib/rating/evidence-fields';
 import { entityEntryMeta } from '@/lib/rating/entity-entry';
 import { activityTypeMeta } from '@/lib/rating/registry';
+import { schemaForFields } from '@/validations/activity-evidence';
 import { SELECT_OPTION_POINTS } from '@/lib/rating/scoring';
 import type { EntryGridStaff, EntryGridType } from '@/components/rating/division-entry-grid';
 
@@ -109,23 +111,28 @@ function EntityEntryForm({
   onDone: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
-  const { def, schema } = activityTypeMeta(type.code);
+  const { def } = activityTypeMeta(type.code);
   const { sharedFields, roleField } = entityEntryMeta(type.code);
 
   const defaultRole = roleField?.options[0]?.value ?? '';
   const [rows, setRows] = useState<StaffRow[]>([{ key: 0, staffId: '', role: defaultRole }]);
   const [nextKey, setNextKey] = useState(1);
+  // Problems with the staff list render inline below it, per the UI feedback rule
+  const [rowsError, setRowsError] = useState<string | null>(null);
 
   const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
 
-  // No resolver here: the full schema includes the per-row role field, so the
-  // assembled evidence is validated in onSubmit (probe) and again server-side.
+  // Validates only the shared fields — the per-row role select always holds a
+  // valid enum value; the assembled evidence is re-validated server-side.
+  // useState initializer: fields are static for this mount (form remounts per type).
+  const [sharedSchema] = useState(() => schemaForFields(sharedFields));
   const {
     register,
     control,
     handleSubmit,
     formState: { errors },
   } = useForm<FieldValues>({
+    resolver: standardSchemaResolver(sharedSchema as never) as unknown as Resolver<FieldValues>,
     defaultValues: evidenceDefaults(sharedFields),
   });
 
@@ -135,33 +142,26 @@ function EntityEntryForm({
   }
 
   function updateRow(key: number, patch: Partial<StaffRow>) {
+    setRowsError(null);
     setRows((r) => r.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   }
 
   function removeRow(key: number) {
+    setRowsError(null);
     setRows((r) => (r.length > 1 ? r.filter((row) => row.key !== key) : r));
   }
 
   function onSubmit(shared: FieldValues) {
     const picked = rows.filter((r) => r.staffId);
     if (picked.length === 0) {
-      toast.error('Оберіть хоча б одного НПП');
+      setRowsError('Оберіть хоча б одного НПП');
       return;
     }
     if (new Set(picked.map((r) => r.staffId)).size !== picked.length) {
-      toast.error('Один НПП вказано декілька разів');
+      setRowsError('Один НПП вказано декілька разів');
       return;
     }
-
-    // Validate one assembled evidence object client-side so field errors
-    // surface before the server round-trip
-    const probe = schema.safeParse(
-      roleField ? { ...shared, [roleField.name]: picked[0].role } : shared
-    );
-    if (!probe.success) {
-      toast.error('Заповніть усі поля форми');
-      return;
-    }
+    setRowsError(null);
 
     startTransition(async () => {
       const result = await batchUpsertDivisionActivity(
@@ -272,6 +272,7 @@ function EntityEntryForm({
             );
           })}
         </div>
+        {rowsError && <p className="text-sm text-destructive">{rowsError}</p>}
         <Button type="button" variant="outline" size="sm" onClick={addRow}>
           <Plus className="size-4" />
           Додати НПП

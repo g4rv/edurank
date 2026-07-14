@@ -203,6 +203,14 @@ Mutations use `diffChanges` from `lib/audit.ts` to capture before/after state in
 
 **When adding a new editable Staff field**, also add it to `ALLOWED_FIELD_NAMES` in `app/(dashboard)/admin/permissions/field/actions.ts` and to `FIELD_GROUPS` in `app/(dashboard)/admin/permissions/field/page.tsx` so it appears in the permissions UI and can be granted to divisions.
 
+## UI feedback conventions
+
+Feedback must appear as close to its cause as possible:
+
+- **Field-level problems → inline.** Required-but-empty, wrong format, etc. render as red text directly under the field (react-hook-form resolver + `FormField` error). Never a toast for something a field can show itself.
+- **Modal (dialog)** — for actions the user must explicitly confirm (destructive, irreversible) or events they must understand before continuing.
+- **Toast** — only for quick transient outcomes with no specific element to attach to: save success, unexpected server error.
+
 ## Key conventions
 
 - Import alias `@/*` maps to project root (e.g. `@/lib/db`, `@/components/ui`)
