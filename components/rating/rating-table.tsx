@@ -12,78 +12,100 @@ function sectionTotal(group: AchievementGroup): number {
   return group.items.filter((i) => i.status === 'APPROVED').reduce((sum, i) => sum + i.score, 0);
 }
 
+const cell = 'border border-border px-3 py-2';
+
 /**
- * Full read-only rating table: all 5 sections with subtotals + grand total.
+ * Full read-only rating table, spreadsheet-style: one bordered grid with
+ * section header rows, item rows, section subtotals and a grand total.
  * `groups` should include every section (even empty ones) for the complete picture.
  */
 export function RatingTable({ groups }: { groups: AchievementGroup[] }) {
   const grandTotal = groups.reduce((sum, g) => sum + sectionTotal(g), 0);
 
   return (
-    <div className="space-y-4">
-      {groups.map((group) => {
-        const subtotal = sectionTotal(group);
-        return (
-          <div key={group.number} className="overflow-hidden rounded-xl border bg-card">
-            <div className="flex items-center justify-between gap-3 border-b bg-muted/40 px-5 py-3">
-              <h3 className="text-sm font-semibold">
-                Розділ {group.number}. {group.title}
-              </h3>
-              <span className="shrink-0 text-sm font-semibold tabular-nums">{subtotal}</span>
-            </div>
-
-            {group.items.length === 0 ? (
-              <p className="px-5 py-4 text-sm text-muted-foreground">Немає досягнень.</p>
-            ) : (
-              <ul className="divide-y">
-                {group.items.map((item) => (
-                  <li key={item.id} className="flex items-start justify-between gap-3 px-5 py-3">
-                    <div className="min-w-0">
-                      <p className="text-sm">
-                        <span className="mr-1.5 text-muted-foreground">{item.itemNumber}</span>
-                        {item.label}
-                      </p>
-                      {item.summary && (
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {item.summary}
-                        </p>
-                      )}
-                      {item.status === 'REMOVED' && item.removeReason && (
-                        <p className="mt-1 text-xs text-destructive">
-                          Причина відхилення: {item.removeReason}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                          STATUS_STYLES[item.status]
-                        )}
-                      >
-                        {item.statusLabel}
-                      </span>
-                      <span
-                        className={cn(
-                          'w-12 text-right text-sm font-semibold tabular-nums',
-                          item.status !== 'APPROVED' && 'text-muted-foreground line-through'
-                        )}
-                      >
-                        {item.score}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
-
-      <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-primary/30 bg-card px-5 py-4">
-        <span className="text-base font-semibold">Загальна сума балів</span>
-        <span className="text-lg font-bold tabular-nums">{grandTotal}</span>
-      </div>
+    <div className="overflow-x-auto rounded-xl border bg-card">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-muted/60 text-left">
+            <th className={cn(cell, 'w-16 font-medium text-muted-foreground')}>№</th>
+            <th className={cn(cell, 'font-medium text-muted-foreground')}>Показник</th>
+            <th className={cn(cell, 'w-32 font-medium text-muted-foreground')}>Статус</th>
+            <th className={cn(cell, 'w-20 text-right font-medium text-muted-foreground')}>Бали</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((group) => (
+            <SectionRows key={group.number} group={group} />
+          ))}
+          <tr className="bg-primary/10 font-bold">
+            <td colSpan={3} className={cell}>
+              Загальна сума балів
+            </td>
+            <td className={cn(cell, 'text-right text-base tabular-nums')}>{grandTotal}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+  );
+}
+
+function SectionRows({ group }: { group: AchievementGroup }) {
+  const subtotal = sectionTotal(group);
+
+  return (
+    <>
+      <tr className="bg-muted/40 font-semibold">
+        <td colSpan={3} className={cell}>
+          Розділ {group.number}. {group.title}
+        </td>
+        <td className={cn(cell, 'text-right tabular-nums')}>{subtotal}</td>
+      </tr>
+
+      {group.items.length === 0 ? (
+        <tr>
+          <td colSpan={4} className={cn(cell, 'text-muted-foreground')}>
+            Немає досягнень
+          </td>
+        </tr>
+      ) : (
+        group.items.map((item) => (
+          <tr key={item.id} className="transition-colors hover:bg-muted/20">
+            <td className={cn(cell, 'align-top text-muted-foreground tabular-nums')}>
+              {item.itemNumber}
+            </td>
+            <td className={cn(cell, 'align-top')}>
+              <p>{item.label}</p>
+              {item.summary && (
+                <p className="mt-0.5 text-xs text-muted-foreground">{item.summary}</p>
+              )}
+              {item.status === 'REMOVED' && item.removeReason && (
+                <p className="mt-1 text-xs text-destructive">
+                  Причина відхилення: {item.removeReason}
+                </p>
+              )}
+            </td>
+            <td className={cn(cell, 'align-top')}>
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+                  STATUS_STYLES[item.status]
+                )}
+              >
+                {item.statusLabel}
+              </span>
+            </td>
+            <td
+              className={cn(
+                cell,
+                'text-right align-top font-semibold tabular-nums',
+                item.status !== 'APPROVED' && 'font-normal text-muted-foreground line-through'
+              )}
+            >
+              {item.score}
+            </td>
+          </tr>
+        ))
+      )}
+    </>
   );
 }
