@@ -10,6 +10,12 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Public account-recovery routes: reachable without a session by design
+  // (activation links arrive by email; forgot-password is for the logged-out)
+  if (pathname === '/forgot-password' || pathname.startsWith('/activate/')) {
+    return NextResponse.next();
+  }
+
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
