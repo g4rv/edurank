@@ -4,6 +4,12 @@
 > This file = the build plan for Linear. Milestones map to Linear **Projects/Milestones**,
 > issues map to Linear **Issues**, steps are the **sub-tasks / checklist** inside each issue.
 
+> **Interleaved refactor — `docs/profile-account-merge.md`** (decided 2026-07-09): merge `User` into
+> `Staff` (one profile per person; email-invite activation; role dropdown on the personnel page;
+> `/admin/users` deleted). Slotted **between M5.1/M5.2 and the M5 entity-first flows** — every later
+> milestone adds more `User` foreign keys, so it is cheapest now. Precondition before starting: browser
+> test of `/moderation` and `/division-data` on current code.
+
 ## Decisions locked (2026-07-01, updated 2026-07-02)
 
 - **Source of truth for structure:** `edu-reference/Проєкт рейтинг 2026.xlsx` — Sheet 1 = final 2026 structure, Sheet 2 = 2025→2026 diff. **Finished, not a draft.** Build the catalogue/scoring/forms from THIS, not the old `sections/розділ *.md` forms.
