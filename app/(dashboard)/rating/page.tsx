@@ -5,7 +5,9 @@ import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listRatings } from '@/lib/queries/list-ratings';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { listDepartments } from '@/lib/queries/list-departments';
+import { FileDown } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { Button } from '@/components/ui/button';
 import { RatingFilters } from '@/components/rating/rating-filters';
 import { cn } from '@/lib/utils';
 
@@ -47,12 +49,20 @@ export default async function RatingRollupPage({
 
   return (
     <AnimatedPage className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Рейтинг НПП</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {template.year} рік — {rows.length} НПП
-          {template.status === 'CLOSED' && ' (рік закрито)'}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Рейтинг НПП</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {template.year} рік — {rows.length} НПП
+            {template.status === 'CLOSED' && ' (рік закрито)'}
+          </p>
+        </div>
+        <Button asChild variant="outline">
+          <a href={`/api/export/ratings?year=${template.year}`} download>
+            <FileDown className="size-4" />
+            Завантажити архів (Excel)
+          </a>
+        </Button>
       </div>
 
       <RatingFilters
