@@ -28,6 +28,9 @@ const ENTITY_LABELS: Record<string, string> = {
   Faculty: 'Факультет',
   Department: 'Кафедра',
   Division: 'Відділ',
+  Activity: 'Досягнення',
+  RatingTemplate: 'Рейтинговий рік',
+  ActivityType: 'Показник рейтингу',
 };
 
 const VALUE_LABELS: Record<string, string> = {
@@ -73,7 +76,15 @@ function ChangesDisplay({ changes, resolve }: { changes: Changes; resolve: Resol
 }
 
 const VALID_ACTIONS = ['CREATE', 'UPDATE', 'DELETE'];
-const VALID_ENTITIES = ['Staff', 'Faculty', 'Department', 'Division'];
+const VALID_ENTITIES = [
+  'Staff',
+  'Faculty',
+  'Department',
+  'Division',
+  'Activity',
+  'RatingTemplate',
+  'ActivityType',
+];
 const PAGE_SIZE = 50;
 
 export default async function AuditLogPage({

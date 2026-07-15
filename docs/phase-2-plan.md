@@ -287,22 +287,22 @@ Resolved 2026-07-09:
 
 ### Issue M7.1 — Template CRUD actions
 
-- [ ] `app/(dashboard)/admin/rating/actions.ts`: `createTemplate`, `cloneTemplate(fromYear)`, `updateActivityType` (label/coefficient/verifyingDivision/isActive), `addActivityType`, `deactivateActivityType`. ADMIN only, audited.
+- [x] `app/(dashboard)/admin/rating/actions.ts`: `createTemplate`, `cloneTemplate(fromYear)`, `activateTemplate`, `updateActivityType` (label/coefficient/note/verifyingDivision/isActive — covers deactivate), `addActivityType` (registry codes only). ADMIN only, audited.
 
 ### Issue M7.2 — Close year
 
-- [ ] `closeYear(year)`: build `RatingEntry.snapshot` JSON (labels + coefficients + scores as-of-close) for every staff, then set **`RatingTemplate.status=CLOSED`, `closedAt/By`** (single authoritative flag — all action guards read it).
-- [ ] **Purge discarded rows on close** _(decision, user, 2026-07-07)_: before setting `CLOSED`, hard-delete all `REMOVED` activities of that year. While the year is open they stay visible (NPP sees the reason, moderators see history); after close they are junk. Audit log keeps the discard trail, so nothing is unexplainable afterward. Chosen over a time-based auto-delete (no cron infra; a fixed delay could hide the reason before the NPP saw it).
-- [ ] **Decide appeals policy** — block or allow submissions into closed year (enforce in M3/M4 actions).
+- [x] `closeYear(year)`: build `RatingEntry.snapshot` JSON (labels + coefficients + scores as-of-close) for every staff, then set **`RatingTemplate.status=CLOSED`, `closedAt/By`** (single authoritative flag — all action guards read it).
+- [x] **Purge discarded rows on close** _(decision, user, 2026-07-07)_: before setting `CLOSED`, hard-delete all `REMOVED` activities of that year. While the year is open they stay visible (NPP sees the reason, moderators see history); after close they are junk. Audit log keeps the discard trail, so nothing is unexplainable afterward. Chosen over a time-based auto-delete (no cron infra; a fixed delay could hide the reason before the NPP saw it).
+- [x] **Appeals policy (decided 2026-07-15):** closed year stays hard-blocked everywhere; appeals go through ADMIN `reopenYear` → fix → close again (snapshot rebuilt). Audited both ways.
 
 ### Issue M7.3 — Template admin UI
 
-- [ ] `app/(dashboard)/admin/rating/page.tsx`: list templates/years, clone button, per-section activity-type editor, close-year action with confirm modal.
+- [x] `/admin/rating` years list (activate / clone to year+1 / close / reopen, confirm modals) + `/admin/rating/[year]` per-section editor with edit dialog and add-from-catalogue. Sidebar: «Рейтингові роки».
 
 ### Issue M7.4 — Closed-year read-only
 
-- [ ] All submit/approve/entry actions reject when year `CLOSED`.
-- [ ] Closed-year views render from `snapshot`, not live recompute.
+- [x] All submit/approve/entry actions reject when year `CLOSED` (guards existed; covered by tests).
+- [x] Closed-year views render from `snapshot` («Мій рейтинг» + staff rating tab via `snapshotToGroups`).
 
 ---
 

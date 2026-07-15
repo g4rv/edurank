@@ -4,8 +4,9 @@ import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
+import { getRatingEntry } from '@/lib/queries/get-rating';
 import { listStaffActivities } from '@/lib/queries/list-activities';
-import { toAchievementGroups } from '@/lib/rating/achievement-rows';
+import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-rows';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingTable } from '@/components/rating/rating-table';
 import { StaffTabs } from '@/components/staff/staff-tabs';
@@ -33,7 +34,14 @@ export default async function StaffRatingPage({ params }: { params: Promise<{ id
     );
   }
 
-  const groups = toAchievementGroups(await listStaffActivities(id, template.year), [1, 2, 3, 4, 5]);
+  // Closed year → the frozen snapshot is authoritative; open year → live rows
+  const snapshotGroups =
+    template.status === 'CLOSED'
+      ? snapshotToGroups((await getRatingEntry(id, template.year))?.snapshot)
+      : null;
+  const groups =
+    snapshotGroups ??
+    toAchievementGroups(await listStaffActivities(id, template.year), [1, 2, 3, 4, 5]);
 
   return (
     <AnimatedPage className="space-y-6">

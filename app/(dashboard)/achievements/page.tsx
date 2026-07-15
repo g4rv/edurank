@@ -6,7 +6,8 @@ import { listStaffActivities } from '@/lib/queries/list-activities';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingTable } from '@/components/rating/rating-table';
 import { YearSelect } from '@/components/rating/year-select';
-import { toAchievementGroups } from '@/lib/rating/achievement-rows';
+import { getRatingEntry } from '@/lib/queries/get-rating';
+import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-rows';
 
 const SECTION_NUMBERS = [1, 2, 3, 4, 5];
 
@@ -42,13 +43,27 @@ export default async function MyRatingPage({
     );
   }
 
-  const activities = await listStaffActivities(staffId, selectedYear);
-  const groups = toAchievementGroups(activities, SECTION_NUMBERS);
+  // Closed year → the frozen snapshot is authoritative; open year → live rows
+  const selectedStatus = templateYears.find((t) => t.year === selectedYear)?.status;
+  const snapshotGroups =
+    selectedStatus === 'CLOSED'
+      ? snapshotToGroups((await getRatingEntry(staffId, selectedYear))?.snapshot)
+      : null;
+  const groups =
+    snapshotGroups ??
+    toAchievementGroups(await listStaffActivities(staffId, selectedYear), SECTION_NUMBERS);
 
   return (
     <AnimatedPage className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Мій рейтинг</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Мій рейтинг</h1>
+          {selectedStatus === 'CLOSED' && (
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Рік закрито — підсумки зафіксовано
+            </p>
+          )}
+        </div>
         <YearSelect years={years} value={selectedYear} />
       </div>
 

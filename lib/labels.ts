@@ -68,4 +68,5 @@ export const FIELD_LABELS: Record<string, string> = {
   verifyingDivisionId: 'Відповідальний відділ',
   isActive: 'Активний',
   closedAt: 'Рік закрито',
+  code: 'Код показника',
 };

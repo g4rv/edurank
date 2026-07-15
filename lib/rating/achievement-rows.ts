@@ -28,6 +28,42 @@ function toRow(a: StaffActivity, canManage: boolean): AchievementRow {
   };
 }
 
+// Shape written by closeYear into RatingEntry.snapshot
+interface RatingSnapshot {
+  closedAt: string;
+  total: number;
+  sections: {
+    number: number;
+    title: string;
+    subtotal: number;
+    items: {
+      id: string;
+      itemNumber: string;
+      label: string;
+      summary: string;
+      score: number;
+      status: 'APPROVED';
+      statusLabel: string;
+    }[];
+  }[];
+}
+
+/** Display groups from a closed year's frozen snapshot (authoritative after close) */
+export function snapshotToGroups(snapshot: unknown): AchievementGroup[] | null {
+  const s = snapshot as RatingSnapshot | null;
+  if (!s || !Array.isArray(s.sections)) return null;
+  return s.sections.map((section) => ({
+    number: section.number,
+    title: section.title,
+    items: section.items.map((item) => ({
+      ...item,
+      removeReason: null,
+      date: '',
+      canDelete: false,
+    })),
+  }));
+}
+
 /**
  * Maps activities to display groups; when `sections` is given, includes those (even empty) in order.
  * `canManage` = the viewer may delete their own open-year self-reports (drives the delete button).

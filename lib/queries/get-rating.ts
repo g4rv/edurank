@@ -11,6 +11,7 @@ export async function getRatingEntry(staffId: string, year: number) {
       section4Score: true,
       section5Score: true,
       totalScore: true,
+      snapshot: true,
       updatedAt: true,
     },
   });

@@ -17,6 +17,7 @@ import {
   BadgeCheck,
   Table2,
   Trophy,
+  CalendarCog,
   Plus,
   ChevronDown,
   ChevronRight,
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
+  { href: '/admin/rating', label: 'Рейтингові роки', icon: CalendarCog, roles: ['ADMIN'] },
   { href: '/admin/permissions/field', label: 'Поля доступу', icon: KeyRound, roles: ['ADMIN'] },
   { href: '/admin/permissions/entity', label: 'Дії доступу', icon: ShieldCheck, roles: ['ADMIN'] },
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList, roles: ['ADMIN'] },
