@@ -350,6 +350,16 @@ Resolved 2026-07-09:
 
 ---
 
+## Backlog — post-Phase-2 improvements (user requests)
+
+- [ ] **Bulk moderation** _(user, 2026-07-15)_: on `/moderation`, checkboxes to select multiple
+      self-reports and verify / discard them all at once (one shared discard reason; one
+      transaction; per-row audit entries as today).
+- [ ] **DOI-checker worker** _(user, 2026-07-15)_: separate small container on the same VPS
+      (own Dockerfile in docker-compose, shared postgres network). Periodically checks unverified
+      publication submissions via free Crossref/OpenAlex APIs (DOI exists + title match) and
+      pre-fills `Activity.verifiedAt` suggestions; ННВ's manual flag stays the final say.
+
 ## Suggested order & rough sizing (solo)
 
 | Milestone                 | What you can demo         | Status / rough size                       |
