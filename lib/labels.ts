@@ -60,6 +60,8 @@ export const FIELD_LABELS: Record<string, string> = {
   approvedAt: 'Підтверджено',
   removedAt: 'Відхилено',
   removeReason: 'Причина відхилення',
+  verified: 'Перевірено',
+  verifiedAt: 'Перевірено',
   // Rating (Phase 2): ActivityType / RatingTemplate
   label: 'Показник',
   coefficient: 'Коефіцієнт',

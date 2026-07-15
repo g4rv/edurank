@@ -185,6 +185,7 @@ model Staff {
   auditLogs          AuditLog[]
   approvedActivities Activity[]       @relation("ActivityApprover")
   removedActivities  Activity[]       @relation("ActivityRemover")
+  verifiedActivities Activity[]       @relation("ActivityVerifier")
   closedTemplates    RatingTemplate[] @relation("TemplateCloser")
 
   createdAt DateTime @default(now())
@@ -320,6 +321,12 @@ model Activity {
   removedBy       Staff?    @relation("ActivityRemover", fields: [removedByUserId], references: [id])
   removedAt       DateTime?
   removeReason    String?
+
+  // Manual ННВ check for publication submissions (M9.1): «Перевірено» in WoS/Scopus.
+  // A future DOI-checker worker writes here too — the flag stays the human final say.
+  verifiedByUserId String?
+  verifiedBy       Staff?    @relation("ActivityVerifier", fields: [verifiedByUserId], references: [id])
+  verifiedAt       DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

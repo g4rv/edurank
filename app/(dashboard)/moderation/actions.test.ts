@@ -17,7 +17,7 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { removeActivity } from './actions';
+import { removeActivity, setActivityVerified } from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
@@ -132,5 +132,93 @@ describe('removeActivity', () => {
         where: { staffId_year: { staffId: 'staff-1', year: 2026 } },
       })
     );
+  });
+});
+
+describe('setActivityVerified', () => {
+  const publication = {
+    id: 'activity-2',
+    status: 'APPROVED',
+    verifiedAt: null,
+    staff: { lastName: 'Коваленко', firstName: 'Іван', patronymic: 'Петрович' },
+    activityType: {
+      code: 'publication_cat_b',
+      label: 'Публікації категорії «Б»',
+      template: { status: 'OPEN' },
+    },
+  };
+
+  function mockVerifyTx() {
+    const tx = {
+      activity: { update: vi.fn().mockResolvedValue({}) },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    };
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
+    return tx;
+  }
+
+  it('rejects an editor of a non-ННВ division', async () => {
+    mockAuth.mockResolvedValue(nnvEditorSession);
+    mockStaffFind.mockResolvedValue({ division: { name: 'Відділ кадрів' } });
+    mockActivityFind.mockResolvedValue(publication);
+    expect(await setActivityVerified('activity-2', true)).toEqual({
+      error: 'Недостатньо прав',
+    });
+  });
+
+  it('rejects a non-publication activity', async () => {
+    mockActivityFind.mockResolvedValue({
+      ...publication,
+      activityType: { ...publication.activityType, code: 'conf_ukraine' },
+    });
+    expect(await setActivityVerified('activity-2', true)).toEqual({
+      error: 'Перевірка застосовується лише до публікацій',
+    });
+  });
+
+  it('rejects when the year is closed', async () => {
+    mockActivityFind.mockResolvedValue({
+      ...publication,
+      activityType: { ...publication.activityType, template: { status: 'CLOSED' } },
+    });
+    expect(await setActivityVerified('activity-2', true)).toEqual({
+      error: 'Рейтинговий рік закрито',
+    });
+  });
+
+  it('marks verified with the checker recorded, audits', async () => {
+    mockActivityFind.mockResolvedValue(publication);
+    const tx = mockVerifyTx();
+    expect(await setActivityVerified('activity-2', true)).toEqual({
+      success: true,
+      verified: true,
+    });
+    expect(tx.activity.update).toHaveBeenCalledWith({
+      where: { id: 'activity-2' },
+      data: { verifiedAt: expect.any(Date), verifiedByUserId: 'admin-1' },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  it('clears the mark', async () => {
+    mockActivityFind.mockResolvedValue({ ...publication, verifiedAt: new Date() });
+    const tx = mockVerifyTx();
+    expect(await setActivityVerified('activity-2', false)).toEqual({
+      success: true,
+      verified: false,
+    });
+    expect(tx.activity.update).toHaveBeenCalledWith({
+      where: { id: 'activity-2' },
+      data: { verifiedAt: null, verifiedByUserId: null },
+    });
+  });
+
+  it('no-ops when the state already matches', async () => {
+    mockActivityFind.mockResolvedValue(publication);
+    expect(await setActivityVerified('activity-2', false)).toEqual({
+      success: true,
+      verified: false,
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });

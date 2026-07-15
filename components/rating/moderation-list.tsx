@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DiscardActivityButton } from '@/components/rating/discard-activity-button';
+import { VerifyActivityButton } from '@/components/rating/verify-activity-button';
 
 export interface ModerationRow {
   id: string;
@@ -21,6 +22,8 @@ export interface ModerationRow {
   removeReason: string | null;
   date: string;
   canDiscard: boolean;
+  verified: boolean;
+  canVerify: boolean;
 }
 
 const STATUS_STYLES: Record<ModerationRow['status'], string> = {
@@ -125,6 +128,15 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
                   >
                     {row.score}
                   </span>
+                  {row.canVerify ? (
+                    <VerifyActivityButton activityId={row.id} verified={row.verified} />
+                  ) : (
+                    row.verified && (
+                      <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+                        Перевірено
+                      </span>
+                    )
+                  )}
                   {row.canDiscard && (
                     <DiscardActivityButton
                       activityId={row.id}

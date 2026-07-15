@@ -2,6 +2,12 @@ import { db } from '@/lib/db';
 import { RATING_DIVISIONS } from '@/lib/rating/activity-types';
 import type { Role } from '@/lib/generated/prisma/client';
 
+/** Publication submissions that get the manual «Перевірено» check (M9.1) */
+export const PUBLICATION_CODES: ReadonlySet<string> = new Set([
+  'publication_cat_a',
+  'publication_cat_b',
+]);
+
 /**
  * Who may discard NPP self-reports: ADMIN, or an EDITOR whose division is ННВ
  * (plan decision — NPP_SUBMISSION types carry no per-type verifying division).

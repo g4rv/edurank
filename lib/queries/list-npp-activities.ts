@@ -18,6 +18,7 @@ export async function listNppActivities(year: number, section?: number) {
       score: true,
       status: true,
       removeReason: true,
+      verifiedAt: true,
       createdAt: true,
       staff: {
         select: {

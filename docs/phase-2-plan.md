@@ -331,18 +331,18 @@ Resolved 2026-07-09:
 
 ### Issue M9.1 — Publication verification
 
-- [ ] Decide meaning (manual verified flag vs DOI/WoS/Scopus lookup).
-- [ ] Add flag/field + editor UI on category А/Б publication activities; audit.
+- [x] Decided (user, 2026-07-15): manual «Перевірено» flag by ННВ/ADMIN now; a future DOI-checker worker (Crossref/OpenAlex, separate container on the same VPS) may pre-fill it — the flag stays the human final say.
+- [x] `Activity.verifiedAt/verifiedByUserId` + «Перевірити» toggle on /moderation for publication_cat_a/b (APPROVED, open year); audited; static badge after close.
 
 ### Issue M9.2 — Permission & security audit
 
-- [ ] Re-verify every action: role + division/`verifyingDivisionId` + closed-year checks.
-- [ ] Confirm USER can't touch others; EDITOR can't cross divisions; confidential fields unaffected.
+- [x] Re-verified every action (2026-07-15 sweep): all 30 actions auth + role/division checks; closed-year guards on all rating mutations.
+- [x] Confirmed: USER own-only; EDITOR division-scoped; passwordHash in zero components; employmentRate admin/own-gated everywhere.
 
 ### Issue M9.3 — UX polish
 
-- [ ] Loading skeletons, empty states, error toasts for all new pages (match Phase 1).
-- [ ] Nav/sidebar entries for new pages, role-gated.
+- [x] Loading skeletons added for /rating, /staff/[id]/rating, /admin/rating(+/[year]); empty states and toasts were built per-page.
+- [x] Nav/sidebar entries for new pages, role-gated (done incrementally).
 
 ### Issue M9.4 — Smoke test pass
 

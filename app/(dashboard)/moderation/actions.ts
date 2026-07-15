@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
-import { canModerateRating } from '@/lib/rating/moderation';
+import { canModerateRating, PUBLICATION_CODES } from '@/lib/rating/moderation';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
 
 export type RemoveActivityState = { error: string } | { success: true };
@@ -84,4 +84,70 @@ export async function removeActivity(
   revalidatePath('/moderation');
   revalidatePath('/achievements');
   return { success: true };
+}
+
+export type VerifyActivityState = { error: string } | { success: true; verified: boolean };
+
+// Manual «Перевірено» check on a publication self-report (M9.1): ННВ editor or
+// ADMIN toggles it after checking the publication in WoS/Scopus. Informational —
+// does not change scores; a future DOI-checker may pre-fill it.
+export async function setActivityVerified(
+  activityId: string,
+  verified: boolean
+): Promise<VerifyActivityState> {
+  const session = await auth();
+  if (!session) redirect('/login');
+
+  if (!(await canModerateRating(session.user))) return { error: 'Недостатньо прав' };
+
+  const activity = await db.activity.findUnique({
+    where: { id: activityId },
+    select: {
+      id: true,
+      status: true,
+      verifiedAt: true,
+      staff: { select: { lastName: true, firstName: true, patronymic: true } },
+      activityType: {
+        select: { code: true, label: true, template: { select: { status: true } } },
+      },
+    },
+  });
+
+  if (!activity) return { error: 'Запис не знайдено' };
+  if (!PUBLICATION_CODES.has(activity.activityType.code)) {
+    return { error: 'Перевірка застосовується лише до публікацій' };
+  }
+  if (activity.status !== 'APPROVED') return { error: 'Запис не підтверджено' };
+  if (activity.activityType.template.status !== 'OPEN') {
+    return { error: 'Рейтинговий рік закрито' };
+  }
+
+  const wasVerified = activity.verifiedAt !== null;
+  if (wasVerified === verified) return { success: true, verified };
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.activity.update({
+        where: { id: activity.id },
+        data: verified
+          ? { verifiedAt: new Date(), verifiedByUserId: session.user.id }
+          : { verifiedAt: null, verifiedByUserId: null },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'Activity',
+          entityId: activity.id,
+          label: `${activity.staff.lastName} ${activity.staff.firstName} ${activity.staff.patronymic} — ${activity.activityType.label}`,
+          userId: session.user.id,
+          changes: diffChanges({ verified: wasVerified }, { verified }),
+        },
+      });
+    });
+  } catch (e) {
+    return { error: parseDbError(e, 'Помилка при збереженні') };
+  }
+
+  revalidatePath('/moderation');
+  return { success: true, verified };
 }
