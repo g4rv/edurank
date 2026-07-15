@@ -7,6 +7,8 @@ import { activityTypeMeta } from '@/lib/rating/registry';
 // Replicates the official per-teacher rating workbook
 // (edu-reference/Фінансів/Таблиці_Викладачів/*.xlsx): columns
 // A № п/п | B Зміст показників | C бали | D Критерії | E Отриманий рейтинг | F Дані внесені
+// Layout follows the paper form: centered text, item number merged
+// vertically across its option rows, gray section bands.
 
 // Short division names as they appear in the sheet's «Дані внесені» column
 const DIVISION_SHORT: Record<RatingDivisionKey, string> = {
@@ -70,6 +72,32 @@ function optionPoints(code: string, value: string): number | null {
 
 const THIN = { style: 'thin' as const };
 const BORDER = { top: THIN, left: THIN, bottom: THIN, right: THIN };
+const CENTER: Partial<ExcelJS.Alignment> = {
+  horizontal: 'center',
+  vertical: 'middle',
+  wrapText: true,
+};
+const GRAY_FILL: ExcelJS.Fill = {
+  type: 'pattern',
+  pattern: 'solid',
+  fgColor: { argb: 'FFD9D9D9' },
+};
+const LIGHT_FILL: ExcelJS.Fill = {
+  type: 'pattern',
+  pattern: 'solid',
+  fgColor: { argb: 'FFF2F2F2' },
+};
+const SCORE_FORMAT = '0.0';
+
+/** Border + centering for the six table columns of a row */
+function styleTableRow(row: ExcelJS.Row) {
+  for (let col = 1; col <= 6; col++) {
+    const cell = row.getCell(col);
+    cell.border = BORDER;
+    cell.alignment = CENTER;
+  }
+  row.getCell(5).numFmt = SCORE_FORMAT;
+}
 
 export function buildRatingWorkbook(
   staff: ExportStaffData,
@@ -82,9 +110,9 @@ export function buildRatingWorkbook(
     { width: 8 },
     { width: 55 },
     { width: 12 },
-    { width: 22 },
+    { width: 18 },
     { width: 14 },
-    { width: 15 },
+    { width: 14 },
   ];
 
   // Earned scores: grouped types match by option, plain types sum everything
@@ -106,26 +134,41 @@ export function buildRatingWorkbook(
   title.getCell(1).alignment = { horizontal: 'center' };
 
   const subtitle = ws.addRow([
-    `ПРОФЕСІЙНОЇ ДІЯЛЬНОСТІ НАУКОВО-ПЕДАГОГІЧНИХ ПРАЦІВНИКІВ УНІВЕРСИТЕТУ ЗА ${staff.year} РІК`,
+    'ПРОФЕСІЙНОЇ ДІЯЛЬНОСТІ НАУКОВО-ПЕДАГОГІЧНИХ ПРАЦІВНИКІВ УНІВЕРСИТЕТУ ЗА',
+    '',
+    '',
+    '',
+    staff.year,
   ]);
-  ws.mergeCells(`A${subtitle.number}:F${subtitle.number}`);
+  ws.mergeCells(`A${subtitle.number}:D${subtitle.number}`);
   subtitle.getCell(1).font = { bold: true, size: 12 };
   subtitle.getCell(1).alignment = { horizontal: 'center' };
+  subtitle.getCell(5).font = { bold: true, size: 12 };
+  subtitle.getCell(5).alignment = { horizontal: 'center' };
+  subtitle.getCell(5).fill = LIGHT_FILL;
 
   ws.addRow([]);
-  const dept = ws.addRow(['', 'Кафедра', staff.department]);
+  const dept = ws.addRow(['', 'Кафедра', '', staff.department]);
+  ws.mergeCells(`D${dept.number}:F${dept.number}`);
   dept.getCell(2).font = { bold: true };
-  dept.getCell(3).font = { bold: true, underline: true };
-  ws.mergeCells(`C${dept.number}:F${dept.number}`);
+  dept.getCell(2).alignment = { horizontal: 'center' };
+  dept.getCell(4).font = { bold: true };
+  dept.getCell(4).alignment = { horizontal: 'center' };
+  ws.addRow([]);
 
-  const person = ws.addRow(['', 'Науково-педагогічний працівник', staff.fullName]);
+  const person = ws.addRow(['', 'Науково-педагогічний працівник', '', staff.fullName]);
+  ws.mergeCells(`D${person.number}:F${person.number}`);
   person.getCell(2).font = { bold: true };
-  person.getCell(3).font = { bold: true, underline: true };
-  ws.mergeCells(`C${person.number}:F${person.number}`);
+  person.getCell(2).alignment = { horizontal: 'center' };
+  person.getCell(4).font = { bold: true };
+  person.getCell(4).alignment = { horizontal: 'center' };
+  person.getCell(4).fill = LIGHT_FILL;
+  person.getCell(4).border = { bottom: THIN };
 
-  const hint = ws.addRow(['', '', '( Прізвище, ім’я, по батькові )']);
-  hint.getCell(3).font = { size: 8 };
-  ws.mergeCells(`C${hint.number}:F${hint.number}`);
+  const hint = ws.addRow(['', '', '', '( Прізвище, ім’я, по батькові )']);
+  ws.mergeCells(`D${hint.number}:F${hint.number}`);
+  hint.getCell(4).font = { size: 9, bold: true };
+  hint.getCell(4).alignment = { horizontal: 'center' };
   ws.addRow([]);
 
   // ── Table header ──
@@ -138,9 +181,10 @@ export function buildRatingWorkbook(
     'Дані внесені',
   ]);
   ws.mergeCells(`B${header.number}:C${header.number}`);
-  header.eachCell((cell) => {
+  header.eachCell({ includeEmpty: true }, (cell, col) => {
+    if (col > 6) return;
     cell.font = { bold: true };
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.alignment = CENTER;
     cell.border = BORDER;
   });
   header.height = 30;
@@ -153,12 +197,10 @@ export function buildRatingWorkbook(
 
     const sectionRow = ws.addRow([`${sectionNumber}.`, SECTION_TITLES[sectionNumber] ?? '']);
     ws.mergeCells(`B${sectionRow.number}:F${sectionRow.number}`);
-    sectionRow.eachCell({ includeEmpty: true }, (cell, col) => {
-      if (col <= 6) {
-        cell.font = { bold: true };
-        cell.border = BORDER;
-      }
-    });
+    styleTableRow(sectionRow);
+    sectionRow.getCell(1).font = { bold: true };
+    sectionRow.getCell(2).font = { bold: true };
+    sectionRow.getCell(2).fill = GRAY_FILL;
 
     const firstItemRow = ws.rowCount + 1;
 
@@ -168,14 +210,11 @@ export function buildRatingWorkbook(
       const opt = optionField(type.code);
 
       if (opt) {
-        // Group header, then one row per option with its points
-        const head = ws.addRow([itemNumber, `${type.label}:`, '', type.coefficientNote ?? '']);
-        head.getCell(1).font = { bold: true };
+        // Group: label row, then one row per option; № merged across the group.
+        // Критерії stays empty — the per-option points live in column C.
+        const head = ws.addRow(['', `${type.label}:`]);
+        styleTableRow(head);
         head.getCell(2).font = { bold: true };
-        head.eachCell({ includeEmpty: true }, (cell, col) => {
-          if (col <= 6) cell.border = BORDER;
-        });
-        head.getCell(2).alignment = { wrapText: true };
 
         for (const option of opt.options) {
           const earned = scoreByCodeOption.get(`${type.code}:${option.value}`);
@@ -187,13 +226,17 @@ export function buildRatingWorkbook(
             earned ?? '',
             division,
           ]);
-          row.getCell(2).alignment = { wrapText: true };
+          styleTableRow(row);
           if (earned !== undefined) row.getCell(5).font = { bold: true };
-          row.eachCell({ includeEmpty: true }, (cell, col) => {
-            if (col <= 6) cell.border = BORDER;
-          });
         }
+
+        ws.mergeCells(`A${head.number}:A${ws.rowCount}`);
+        const numberCell = ws.getCell(`A${head.number}`);
+        numberCell.value = itemNumber;
+        numberCell.font = { bold: true };
+        numberCell.alignment = CENTER;
       } else {
+        // Plain indicator; Критерії holds only the short unit note
         const earned = scoreByCode.get(type.code);
         const row = ws.addRow([
           itemNumber,
@@ -203,40 +246,32 @@ export function buildRatingWorkbook(
           earned ?? '',
           division,
         ]);
+        styleTableRow(row);
         row.getCell(1).font = { bold: true };
-        row.getCell(2).alignment = { wrapText: true };
-        row.getCell(4).alignment = { wrapText: true };
         if (earned !== undefined) row.getCell(5).font = { bold: true };
-        row.eachCell({ includeEmpty: true }, (cell, col) => {
-          if (col <= 6) cell.border = BORDER;
-        });
       }
     }
 
     const lastItemRow = ws.rowCount;
     const totalRow = ws.addRow([`Всього балів по розділу ${sectionNumber}`]);
     ws.mergeCells(`A${totalRow.number}:D${totalRow.number}`);
+    styleTableRow(totalRow);
     totalRow.getCell(1).font = { bold: true };
     totalRow.getCell(5).value = {
       formula: `SUM(E${firstItemRow}:E${lastItemRow})`,
     } as ExcelJS.CellFormulaValue;
     totalRow.getCell(5).font = { bold: true };
-    totalRow.eachCell({ includeEmpty: true }, (cell, col) => {
-      if (col <= 6) cell.border = BORDER;
-    });
     sectionTotalRows.push(totalRow.number);
   }
 
   const grand = ws.addRow(['Загальна сума балів']);
   ws.mergeCells(`A${grand.number}:D${grand.number}`);
+  styleTableRow(grand);
   grand.getCell(1).font = { bold: true, size: 12 };
   grand.getCell(5).value = {
     formula: `SUM(${sectionTotalRows.map((r) => `E${r}`).join(',')})`,
   } as ExcelJS.CellFormulaValue;
   grand.getCell(5).font = { bold: true, size: 12 };
-  grand.eachCell({ includeEmpty: true }, (cell, col) => {
-    if (col <= 6) cell.border = BORDER;
-  });
 
   return wb;
 }

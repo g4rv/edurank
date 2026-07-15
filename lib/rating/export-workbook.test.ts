@@ -52,7 +52,7 @@ describe('buildRatingWorkbook', () => {
 
   it('renders the official header block', () => {
     expect(flat.some((r) => r.includes('ТАБЛИЦЯ РЕЙТИНГОВОГО ОЦІНЮВАННЯ'))).toBe(true);
-    expect(flat.some((r) => r.includes('ЗА 2026 РІК'))).toBe(true);
+    expect(flat.some((r) => r.includes('УНІВЕРСИТЕТУ ЗА') && r.includes('2026'))).toBe(true);
     expect(flat.some((r) => r.includes('Кафедра') && r.includes("комп'ютерних наук"))).toBe(true);
     expect(flat.some((r) => r.includes('Коваленко Іван Петрович'))).toBe(true);
   });
