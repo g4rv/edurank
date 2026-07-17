@@ -8,9 +8,85 @@ import {
   SECTION_TITLES,
 } from '../lib/rating/activity-types';
 import { syncProfileDerived } from '../lib/rating/profile-derived';
+import { EVIDENCE_FIELDS } from '../lib/rating/evidence-fields';
+import { evidenceSchemaFor } from '../validations/activity-evidence';
+import { computeScore } from '../lib/rating/scoring';
+import { recomputeRatingEntry } from '../lib/rating/recompute';
+import type { InputSource, Prisma } from '../lib/generated/prisma/client';
 
 const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
+
+// Valid demo evidence for any activity type, built from its field specs.
+// Validated through the real Zod schema so catalogue drift fails the seed loudly.
+function sampleEvidence(code: string): Record<string, unknown> {
+  const fields = EVIDENCE_FIELDS[code] ?? [];
+  const out: Record<string, unknown> = {};
+  for (const f of fields) {
+    switch (f.kind) {
+      case 'text':
+        out[f.name] = `Демо — ${f.label}`;
+        break;
+      case 'number':
+        out[f.name] = f.name === 'pages' ? 24 : 2;
+        break;
+      case 'url':
+        out[f.name] = 'https://example.com/demo';
+        break;
+      case 'date':
+        out[f.name] = '2026-03-15';
+        break;
+      case 'checkbox':
+        out[f.name] = true;
+        break;
+      case 'select':
+        out[f.name] = f.options[0].value;
+        break;
+    }
+  }
+  return evidenceSchemaFor(code).parse(out) as Record<string, unknown>;
+}
+
+// Fills one staff member's 2026 rating: one APPROVED demo activity per active
+// type of the given input sources. Idempotent — old demo rows are replaced.
+async function seedDemoRating(staffId: string, templateId: string, sources: InputSource[]) {
+  const types = await prisma.activityType.findMany({
+    where: { templateId, isActive: true, inputSource: { in: sources } },
+    select: {
+      id: true,
+      code: true,
+      coefficient: true,
+      inputSource: true,
+      template: { select: { year: true } },
+    },
+  });
+  if (types.length === 0) return;
+  const year = types[0].template.year;
+
+  await prisma.activity.deleteMany({
+    where: { staffId, year, activityType: { inputSource: { in: sources } } },
+  });
+
+  for (const type of types) {
+    const evidence = sampleEvidence(type.code);
+    const { computedValue, score } = computeScore(type.code, evidence, type.coefficient);
+    await prisma.activity.create({
+      data: {
+        staffId,
+        activityTypeId: type.id,
+        year,
+        evidence: evidence as Prisma.InputJsonValue,
+        computedValue,
+        score,
+        status: 'APPROVED',
+        submittedByRole: type.inputSource === 'DIVISION_MANAGED' ? 'DIVISION' : 'NPP',
+        approvedAt: new Date(),
+      },
+    });
+  }
+
+  await recomputeRatingEntry(prisma, staffId, year);
+}
 
 async function main() {
   // ─── Divisions ────────────────────────────────────────────────────────────
@@ -198,6 +274,58 @@ async function main() {
     where: { templateId: template.id },
   });
 
+  // ─── Demo НПП with pre-filled ratings ─────────────────────────────────────
+
+  // 1) Only self-reported (NPP_SUBMISSION) achievements; profile-derived fields empty
+  const nppDemo = await prisma.staff.upsert({
+    where: { email: 'shevchenko@university.edu.ua' },
+    update: { passwordHash: userHash, role: 'USER' },
+    create: {
+      passwordHash: userHash,
+      role: 'USER',
+      lastName: 'Шевченко',
+      firstName: 'Марія',
+      patronymic: 'Олександрівна',
+      email: 'shevchenko@university.edu.ua',
+      isNpp: true,
+      departmentId: department.id,
+    },
+  });
+  await seedDemoRating(nppDemo.id, template.id, ['NPP_SUBMISSION']);
+
+  // 2) Everything filled: full profile (derived indicators), all self-reported
+  //    and all division-managed achievements
+  const fullDemo = await prisma.staff.upsert({
+    where: { email: 'bondarenko@university.edu.ua' },
+    update: { passwordHash: userHash, role: 'USER' },
+    create: {
+      passwordHash: userHash,
+      role: 'USER',
+      lastName: 'Бондаренко',
+      firstName: 'Олег',
+      patronymic: 'Васильович',
+      email: 'bondarenko@university.edu.ua',
+      isNpp: true,
+      departmentId: department.id,
+      employmentRate: 1.0,
+      pedagogicalExperience: 25,
+      academicRank: 'PROFESSOR',
+      scientificDegree: 'DOCTOR',
+      degreeMatchesDepartment: true,
+      adminPosition: 'DEAN',
+      basicEducationMatch: true,
+      basicEducationSpecialty: "Комп'ютерні науки",
+      wosCitationCount: 5,
+      scopusCitationCount: 4,
+      googleScholarCitationCount: 12,
+      wosUrl: 'https://www.webofscience.com/wos/author/record/demo',
+      scopusUrl: 'https://www.scopus.com/authid/detail.uri?authorId=demo',
+      googleScholarUrl: 'https://scholar.google.com/citations?user=demo',
+      orcidId: '0000-0000-0000-0002',
+    },
+  });
+  await seedDemoRating(fullDemo.id, template.id, ['NPP_SUBMISSION', 'DIVISION_MANAGED']);
+
   // Profile-derived indicators (стаж, звання, посада…) — build the rating rows
   // from the profiles just seeded, same sync the app runs on profile edits.
   const allStaff = await prisma.staff.findMany({ select: { id: true } });
@@ -211,6 +339,8 @@ async function main() {
   console.log(
     `  USER    ${professor.email}    password: user1234   staff: ${professor.lastName} ${professor.firstName}`
   );
+  console.log(`  USER    ${nppDemo.email}   password: user1234   demo: усі самоподання (НПП)`);
+  console.log(`  USER    ${fullDemo.email}   password: user1234   demo: увесь рейтинг заповнено`);
   console.log(`\n  Divisions: ${Object.values(RATING_DIVISIONS).join(', ')}`);
   console.log(`  Faculty: ${faculty.name}`);
   console.log(`  Department: ${department.name}`);
