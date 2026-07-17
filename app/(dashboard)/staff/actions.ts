@@ -7,6 +7,7 @@ import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
 import { canManageEntity } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
+import { syncProfileDerived } from '@/lib/rating/profile-derived';
 
 export type StaffCreateState = { error: string } | { redirectTo: string };
 
@@ -60,6 +61,8 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
           changes: diffChanges({}, createData as Record<string, string | number | boolean | null>),
         },
       });
+
+      await syncProfileDerived(tx, created.id);
     });
   } catch (e) {
     dbError = parseDbError(e);

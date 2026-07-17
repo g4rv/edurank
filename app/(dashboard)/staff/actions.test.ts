@@ -36,6 +36,9 @@ const payload: StaffCreateSchema = {
   academicRank: null,
   scientificDegree: null,
   degreeMatchesDepartment: null,
+  adminPosition: null,
+  basicEducationMatch: null,
+  basicEducationSpecialty: null,
   wosUrl: null,
   wosCitationCount: null,
   scopusUrl: null,
@@ -53,6 +56,8 @@ function mockTx() {
     staff: { create: vi.fn().mockResolvedValue({ id: 'staff-new' }) },
     staffDepartment: { createMany: vi.fn().mockResolvedValue({}) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    // no active template → syncProfileDerived no-ops
+    ratingTemplate: { findFirst: vi.fn().mockResolvedValue(null) },
   };
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
   return tx;

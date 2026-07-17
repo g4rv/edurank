@@ -7,6 +7,7 @@ import {
   RATING_DIVISIONS,
   SECTION_TITLES,
 } from '../lib/rating/activity-types';
+import { syncProfileDerived } from '../lib/rating/profile-derived';
 
 const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
@@ -196,6 +197,13 @@ async function main() {
   const activityTypeCount = await prisma.activityType.count({
     where: { templateId: template.id },
   });
+
+  // Profile-derived indicators (стаж, звання, посада…) — build the rating rows
+  // from the profiles just seeded, same sync the app runs on profile edits.
+  const allStaff = await prisma.staff.findMany({ select: { id: true } });
+  for (const { id } of allStaff) {
+    await syncProfileDerived(prisma, id);
+  }
 
   console.log('\nSeeded (logins live on Staff now):');
   console.log(`  ADMIN   ${admin.email}              password: admin123`);

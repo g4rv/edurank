@@ -100,6 +100,17 @@ describe('upsertDivisionActivity', () => {
     });
   });
 
+  it('rejects a profile-derived code', async () => {
+    mockTypeFind.mockResolvedValue({
+      ...divisionType,
+      inputSource: 'PROFILE_DERIVED',
+      verifyingDivisionId: null,
+    });
+    expect(await upsertDivisionActivity('staff-1', 'type-1', { value: 20 })).toEqual({
+      error: 'Цей показник не вноситься відділом',
+    });
+  });
+
   it('rejects when the year is closed', async () => {
     mockTypeFind.mockResolvedValue({
       ...divisionType,

@@ -26,6 +26,7 @@ import {
   USER_EDITABLE_STAFF_FIELDS,
 } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
+import { syncProfileDerived, PROFILE_DERIVED_STAFF_FIELDS } from '@/lib/rating/profile-derived';
 
 export type StaffDeleteState = { error: string } | { redirectTo: string };
 
@@ -136,6 +137,9 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
           academicRank: true,
           scientificDegree: true,
           degreeMatchesDepartment: true,
+          adminPosition: true,
+          basicEducationMatch: true,
+          basicEducationSpecialty: true,
           wosUrl: true,
           wosCitationCount: true,
           scopusUrl: true,
@@ -162,6 +166,14 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
       );
 
       await tx.staff.update({ where: { id }, data: updateData });
+
+      // Profile is the source of truth for derived rating indicators — re-sync
+      // when any feeding field (or the НПП flag itself) was touched.
+      const touchesDerived = Object.keys(updateData).some(
+        (key) =>
+          key === 'isNpp' || (PROFILE_DERIVED_STAFF_FIELDS as readonly string[]).includes(key)
+      );
+      if (touchesDerived) await syncProfileDerived(tx, id);
 
       if (isAdmin) {
         await tx.staffDepartment.deleteMany({ where: { staffId: id } });

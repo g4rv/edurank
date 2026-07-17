@@ -1,4 +1,9 @@
-import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
+import type {
+  AcademicRank,
+  AdminPosition,
+  Role,
+  ScientificDegree,
+} from '@/lib/generated/prisma/client';
 
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Адміністратор',
@@ -18,6 +23,16 @@ export const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
   DOCTOR: 'Доктор наук',
 };
 
+export const ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {
+  VICE_RECTOR: 'Проректор',
+  DEAN: 'Декан',
+  VICE_DEAN_OR_SECRETARY: 'Заступник декана / вчений секретар / відп. секретар прийм. комісії',
+  DEPARTMENT_OR_UNIT_HEAD: 'Завідувач кафедри / керівник відділу',
+  DEPUTY_DEPARTMENT_HEAD: 'Заступник завідувача кафедри',
+  DEPUTY_ADMISSION_SECRETARY: 'Заступник відповідального секретаря приймальної комісії',
+  LAB_OR_CENTER_HEAD: 'Завідувач лабораторії / керівник центру',
+};
+
 export const FIELD_LABELS: Record<string, string> = {
   // Staff
   lastName: 'Прізвище',
@@ -31,6 +46,9 @@ export const FIELD_LABELS: Record<string, string> = {
   academicRank: 'Вчене звання',
   scientificDegree: 'Науковий ступінь',
   degreeMatchesDepartment: 'Відповідність ступеня кафедрі',
+  adminPosition: 'Адміністративна посада',
+  basicEducationMatch: 'Базова освіта за спеціальністю кафедри',
+  basicEducationSpecialty: 'Спеціальність за дипломом',
   wosUrl: 'WoS профіль',
   wosCitationCount: 'WoS цитувань',
   scopusUrl: 'Scopus профіль',

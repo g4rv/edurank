@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 
 interface FormFieldProps {
   label?: string;
+  /** Rendered inside the label after the text (e.g. an "affects rating" hint icon) */
+  labelSuffix?: React.ReactNode;
   htmlFor?: string;
   hideLabel?: boolean;
   description?: string;
@@ -18,6 +20,7 @@ interface FormFieldProps {
 
 export function FormField({
   label,
+  labelSuffix,
   htmlFor,
   hideLabel = false,
   description,
@@ -32,6 +35,7 @@ export function FormField({
       {label && (
         <FieldLabel htmlFor={htmlFor} className={cn(hideLabel && 'sr-only')}>
           {label}
+          {labelSuffix}
         </FieldLabel>
       )}
       {startAdornment || endAdornment ? (

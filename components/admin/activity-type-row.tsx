@@ -42,7 +42,7 @@ export interface EditableActivityType {
   label: string;
   coefficient: number;
   coefficientNote: string | null;
-  inputSource: 'NPP_SUBMISSION' | 'DIVISION_MANAGED';
+  inputSource: 'NPP_SUBMISSION' | 'DIVISION_MANAGED' | 'PROFILE_DERIVED';
   verifyingDivisionId: string | null;
   isActive: boolean;
 }

@@ -45,6 +45,19 @@ enum EntityAction {
 enum InputSource {
   NPP_SUBMISSION // NPP submits via profile, goes to PENDING queue
   DIVISION_MANAGED // division enters directly, immediately APPROVED
+  PROFILE_DERIVED // auto-synced from Staff profile fields; no manual entry anywhere
+}
+
+// Administrative position held by an НПП (rating item 1.6) — keys match the
+// admin_position select options in lib/rating/evidence-fields.ts
+enum AdminPosition {
+  VICE_RECTOR // проректор
+  DEAN // декан
+  VICE_DEAN_OR_SECRETARY // заступник декана / вчений секретар / відп. секретар прийм. комісії
+  DEPARTMENT_OR_UNIT_HEAD // завідувач кафедри / керівник відділу
+  DEPUTY_DEPARTMENT_HEAD // заступник завідувача кафедри
+  DEPUTY_ADMISSION_SECRETARY // заступник відповідального секретаря приймальної комісії
+  LAB_OR_CENTER_HEAD // завідувач лабораторії / керівник центру
 }
 
 enum ActivityStatus {
@@ -56,6 +69,7 @@ enum ActivityStatus {
 enum SubmittedByRole {
   NPP
   DIVISION
+  SYSTEM // profile-derived rows written by syncProfileDerived
 }
 
 // Year lifecycle — lives on RatingTemplate (one flag per year, checked by all actions)
@@ -156,6 +170,13 @@ model Staff {
   academicRank            AcademicRank?
   scientificDegree        ScientificDegree?
   degreeMatchesDepartment Boolean?
+
+  // Rating item 1.6 — administrative position (profile-derived indicator)
+  adminPosition AdminPosition?
+
+  // Rating item 1.9 — basic education matches the department specialty
+  basicEducationMatch     Boolean?
+  basicEducationSpecialty String?
 
   wosUrl                     String?
   wosCitationCount           Int?    @default(0)

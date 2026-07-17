@@ -23,6 +23,22 @@ export const staffUpdateSchema = z
     ),
     scientificDegree: z.preprocess(str, z.enum(['CANDIDATE', 'DOCTOR']).nullable()),
     degreeMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+    adminPosition: z.preprocess(
+      str,
+      z
+        .enum([
+          'VICE_RECTOR',
+          'DEAN',
+          'VICE_DEAN_OR_SECRETARY',
+          'DEPARTMENT_OR_UNIT_HEAD',
+          'DEPUTY_DEPARTMENT_HEAD',
+          'DEPUTY_ADMISSION_SECRETARY',
+          'LAB_OR_CENTER_HEAD',
+        ])
+        .nullable()
+    ),
+    basicEducationMatch: z.preprocess(boolStr, z.boolean().nullable()),
+    basicEducationSpecialty: z.preprocess(str, z.string().nullable()),
     wosUrl: z.preprocess(str, z.string().nullable()),
     wosCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
     scopusUrl: z.preprocess(str, z.string().nullable()),

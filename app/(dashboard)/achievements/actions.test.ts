@@ -88,6 +88,12 @@ describe('createActivity', () => {
     expect(result).toEqual({ error: 'Цей показник недоступний для самостійного подання' });
   });
 
+  it('rejects PROFILE_DERIVED activity types', async () => {
+    mockTypeFind.mockResolvedValue({ ...confUkraineType, inputSource: 'PROFILE_DERIVED' });
+    const result = await createActivity('type-1', { title: 'X' });
+    expect(result).toEqual({ error: 'Цей показник недоступний для самостійного подання' });
+  });
+
   it('rejects when the year is closed', async () => {
     mockTypeFind.mockResolvedValue({
       ...confUkraineType,

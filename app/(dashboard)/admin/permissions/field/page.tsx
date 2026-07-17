@@ -19,6 +19,9 @@ const FIELD_GROUPS = [
       'scientificDegree',
       'degreeMatchesDepartment',
       'pedagogicalExperience',
+      'adminPosition',
+      'basicEducationMatch',
+      'basicEducationSpecialty',
     ],
   },
   {

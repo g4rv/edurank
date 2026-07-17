@@ -13,6 +13,7 @@ import {
   updateActivityTypeSchema,
   type UpdateActivityTypeSchema,
 } from '@/validations/rating-admin';
+import { backfillProfileDerived } from '@/lib/rating/profile-derived';
 
 export type RatingAdminState = { error: string } | { success: true; message?: string };
 
@@ -161,6 +162,9 @@ export async function activateTemplate(year: number): Promise<RatingAdminState> 
     return { error: parseDbError(e, 'Помилка при активації') };
   }
 
+  // The newly active year must reflect current profiles (стаж, звання, посада…)
+  await backfillProfileDerived();
+
   revalidateRating();
   return { success: true, message: `Рік ${year} активовано` };
 }
@@ -230,6 +234,10 @@ export async function updateActivityType(
     return { error: parseDbError(e, 'Помилка при збереженні') };
   }
 
+  // Derived rows carry a frozen score — re-sync so a coefficient edit or an
+  // isActive toggle on a profile-derived type is reflected immediately.
+  if (type.inputSource === 'PROFILE_DERIVED') await backfillProfileDerived();
+
   revalidateRating();
   return { success: true, message: 'Збережено' };
 }
@@ -293,6 +301,8 @@ export async function addActivityType(templateId: string, code: string): Promise
   } catch (e) {
     return { error: parseDbError(e, 'Помилка при додаванні') };
   }
+
+  if (def.inputSource === 'PROFILE_DERIVED') await backfillProfileDerived();
 
   revalidateRating();
   return { success: true, message: 'Показник додано' };
@@ -444,6 +454,9 @@ export async function reopenYear(year: number): Promise<RatingAdminState> {
   } catch (e) {
     return { error: parseDbError(e, 'Помилка при відкритті року') };
   }
+
+  // Profiles may have changed while the year was closed — bring derived rows up to date
+  await backfillProfileDerived();
 
   revalidateRating();
   return { success: true, message: `Рік ${year} знову відкрито` };

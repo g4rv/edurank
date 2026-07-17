@@ -12,6 +12,8 @@ vi.mock('@/lib/db', () => ({
     ratingTemplate: { findUnique: vi.fn(), findMany: vi.fn() },
     activityType: { findUnique: vi.fn() },
     division: { findUnique: vi.fn() },
+    // backfillProfileDerived sweep → no staff, no work
+    staff: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn(),
   },
 }));

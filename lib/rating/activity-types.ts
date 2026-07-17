@@ -32,7 +32,7 @@ export const SECTION_TITLES: Record<number, string> = {
  */
 export type ActivityKind = 'FIXED' | 'MULT' | 'SELECT' | 'SELECT_MULT' | 'GATE';
 
-export type ActivityInputSource = 'NPP_SUBMISSION' | 'DIVISION_MANAGED';
+export type ActivityInputSource = 'NPP_SUBMISSION' | 'DIVISION_MANAGED' | 'PROFILE_DERIVED';
 
 export interface ActivityTypeDef {
   /** Stable semantic key — survives yearly renumbering; unique per template */
@@ -69,8 +69,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     kind: 'MULT',
     coefficient: 1,
     coefficientNote: '1 бал за рік',
-    inputSource: 'DIVISION_MANAGED',
-    verifyingDivision: 'KADRY',
+    inputSource: 'PROFILE_DERIVED',
   },
   {
     code: 'academic_rank',
@@ -81,8 +80,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     kind: 'SELECT',
     coefficient: 1,
     coefficientNote: 'професор — 50, доцент — 30, старший викладач — 15, викладач — 10',
-    inputSource: 'DIVISION_MANAGED',
-    verifyingDivision: 'KADRY',
+    inputSource: 'PROFILE_DERIVED',
   },
   {
     code: 'scientific_degree',
@@ -94,8 +92,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficient: 1,
     coefficientNote:
       'доктор наук за спеціальністю кафедри — 50, доктор наук — 40, кандидат наук (PhD) за спеціальністю кафедри — 30, кандидат наук (PhD) — 20',
-    inputSource: 'DIVISION_MANAGED',
-    verifyingDivision: 'KADRY',
+    inputSource: 'PROFILE_DERIVED',
   },
   {
     code: 'honors_awards',
@@ -132,7 +129,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficient: 1,
     coefficientNote:
       'проректор — 100, декан — 80, заступник декана / вчений секретар університету / відповідальний секретар приймальної комісії — 50, завідувач кафедри / керівник відділу — 60, заступник завідувача кафедри — 40, заступник відповідального секретаря приймальної комісії — 30, завідувач лабораторії / керівник центру — 30',
-    inputSource: 'NPP_SUBMISSION',
+    inputSource: 'PROFILE_DERIVED',
   },
   {
     code: 'program_guarantor',
@@ -181,7 +178,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     label: 'Базова освіта за спеціальністю кафедри',
     kind: 'FIXED',
     coefficient: 50,
-    inputSource: 'NPP_SUBMISSION',
+    inputSource: 'PROFILE_DERIVED',
   },
   {
     code: 'prof_associations',
@@ -734,8 +731,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     kind: 'MULT',
     coefficient: 100,
     coefficientNote: '100 × h-індекс',
-    inputSource: 'DIVISION_MANAGED',
-    verifyingDivision: 'NNV',
+    inputSource: 'PROFILE_DERIVED',
   },
   {
     code: 'citations_scopus',
@@ -746,8 +742,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     kind: 'MULT',
     coefficient: 100,
     coefficientNote: '100 × h-індекс',
-    inputSource: 'DIVISION_MANAGED',
-    verifyingDivision: 'NNV',
+    inputSource: 'PROFILE_DERIVED',
   },
   {
     code: 'citations_scholar',
@@ -758,8 +753,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     kind: 'MULT',
     coefficient: 10,
     coefficientNote: '10 × h-індекс',
-    inputSource: 'DIVISION_MANAGED',
-    verifyingDivision: 'NNV',
+    inputSource: 'PROFILE_DERIVED',
   },
   {
     code: 'patent_granted',

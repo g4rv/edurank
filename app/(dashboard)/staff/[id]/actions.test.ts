@@ -54,6 +54,9 @@ const fullPayload: StaffUpdateSchema = {
   academicRank: 'PROFESSOR',
   scientificDegree: 'DOCTOR',
   degreeMatchesDepartment: true,
+  adminPosition: 'DEAN',
+  basicEducationMatch: true,
+  basicEducationSpecialty: 'Історія',
   wosUrl: 'https://wos.example/1',
   wosCitationCount: 10,
   scopusUrl: null,
@@ -76,6 +79,8 @@ function mockTx() {
     staffDepartment: { deleteMany: vi.fn(), createMany: vi.fn() },
     activationToken: { deleteMany: vi.fn().mockResolvedValue({}) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    // no active template → syncProfileDerived no-ops
+    ratingTemplate: { findFirst: vi.fn().mockResolvedValue(null) },
   };
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
   return tx;

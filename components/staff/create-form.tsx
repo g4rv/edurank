@@ -22,6 +22,8 @@ import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { createStaff } from '@/app/(dashboard)/staff/actions';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
+import { ADMIN_POSITION_LABELS } from '@/lib/labels';
+import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 
 const ACADEMIC_RANK_OPTIONS = [
   { value: 'LECTURER', label: 'Викладач' },
@@ -35,6 +37,11 @@ const SCIENTIFIC_DEGREE_OPTIONS = [
   { value: 'DOCTOR', label: 'Доктор наук' },
 ] as const;
 
+const ADMIN_POSITION_OPTIONS = Object.entries(ADMIN_POSITION_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
+
 type RawFormValues = {
   lastName: string;
   firstName: string;
@@ -47,6 +54,9 @@ type RawFormValues = {
   academicRank: string;
   scientificDegree: string;
   degreeMatchesDepartment: string;
+  adminPosition: string;
+  basicEducationMatch: string;
+  basicEducationSpecialty: string;
   wosUrl: string;
   wosCitationCount: string;
   scopusUrl: string;
@@ -71,6 +81,9 @@ const EMPTY_VALUES: RawFormValues = {
   academicRank: '',
   scientificDegree: '',
   degreeMatchesDepartment: '',
+  adminPosition: '',
+  basicEducationMatch: '',
+  basicEducationSpecialty: '',
   wosUrl: '',
   wosCitationCount: '',
   scopusUrl: '',
@@ -299,7 +312,11 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
       {isNppValue && (
         <SectionCard title="Академічна інформація" step={isAdmin ? '04' : '03'}>
           <FieldGroup className="grid grid-cols-2 gap-4">
-            <FormField label="Вчене звання" error={errors.academicRank}>
+            <FormField
+              label="Вчене звання"
+              labelSuffix={<RatingFieldHint field="academicRank" />}
+              error={errors.academicRank}
+            >
               <Controller
                 name="academicRank"
                 control={control}
@@ -320,7 +337,11 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
                 )}
               />
             </FormField>
-            <FormField label="Науковий ступінь" error={errors.scientificDegree}>
+            <FormField
+              label="Науковий ступінь"
+              labelSuffix={<RatingFieldHint field="scientificDegree" />}
+              error={errors.scientificDegree}
+            >
               <Controller
                 name="scientificDegree"
                 control={control}
@@ -344,6 +365,7 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
             <FormField
               htmlFor="pedagogicalExperience"
               label="Педагогічний досвід (років)"
+              labelSuffix={<RatingFieldHint field="pedagogicalExperience" />}
               error={errors.pedagogicalExperience}
             >
               <Input
@@ -355,7 +377,11 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
                 {...register('pedagogicalExperience')}
               />
             </FormField>
-            <FormField label="Ступінь відповідає кафедрі" error={errors.degreeMatchesDepartment}>
+            <FormField
+              label="Ступінь відповідає кафедрі"
+              labelSuffix={<RatingFieldHint field="degreeMatchesDepartment" />}
+              error={errors.degreeMatchesDepartment}
+            >
               <Controller
                 name="degreeMatchesDepartment"
                 control={control}
@@ -371,6 +397,65 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
                     </SelectContent>
                   </Select>
                 )}
+              />
+            </FormField>
+            <FormField
+              label="Адміністративна посада"
+              labelSuffix={<RatingFieldHint field="adminPosition" />}
+              error={errors.adminPosition}
+            >
+              <Controller
+                name="adminPosition"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value=" ">—</SelectItem>
+                      {ADMIN_POSITION_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </FormField>
+            <FormField
+              label="Базова освіта за спеціальністю кафедри"
+              labelSuffix={<RatingFieldHint field="basicEducationMatch" />}
+              error={errors.basicEducationMatch}
+            >
+              <Controller
+                name="basicEducationMatch"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value=" ">—</SelectItem>
+                      <SelectItem value="true">Так</SelectItem>
+                      <SelectItem value="false">Ні</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </FormField>
+            <FormField
+              htmlFor="basicEducationSpecialty"
+              label="Спеціальність за дипломом"
+              labelSuffix={<RatingFieldHint field="basicEducationSpecialty" />}
+              error={errors.basicEducationSpecialty}
+            >
+              <Input
+                id="basicEducationSpecialty"
+                disabled={isPending}
+                {...register('basicEducationSpecialty')}
               />
             </FormField>
           </FieldGroup>
@@ -391,6 +476,7 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
             <FormField
               htmlFor="wosCitationCount"
               label="Web of Science — цитувань"
+              labelSuffix={<RatingFieldHint field="wosCitationCount" />}
               error={errors.wosCitationCount}
             >
               <Input
@@ -413,6 +499,7 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
             <FormField
               htmlFor="scopusCitationCount"
               label="Scopus — цитувань"
+              labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
               error={errors.scopusCitationCount}
             >
               <Input
@@ -439,6 +526,7 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
             <FormField
               htmlFor="googleScholarCitationCount"
               label="Google Scholar — цитувань"
+              labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
               error={errors.googleScholarCitationCount}
             >
               <Input
