@@ -18,6 +18,7 @@ import {
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { evidenceDefaults } from '@/lib/rating/evidence-fields';
 import { activityTypeMeta } from '@/lib/rating/registry';
+import { compareItemNumbers } from '@/lib/rating/achievement-rows';
 
 export interface SubmittableType {
   id: string;
@@ -25,8 +26,19 @@ export interface SubmittableType {
   label: string;
 }
 
+function itemNumberFor(code: string): string {
+  try {
+    return activityTypeMeta(code).def.itemNumber;
+  } catch {
+    return '';
+  }
+}
+
 // One section's worth of submittable types — the section itself is fixed by the route.
-export function AddAchievementForm({ types }: { types: SubmittableType[] }) {
+export function AddAchievementForm({ types: unsortedTypes }: { types: SubmittableType[] }) {
+  const types = [...unsortedTypes].sort((a, b) =>
+    compareItemNumbers(itemNumberFor(a.code), itemNumberFor(b.code))
+  );
   const [open, setOpen] = useState(false);
   const [typeId, setTypeId] = useState(types[0]?.id ?? '');
 

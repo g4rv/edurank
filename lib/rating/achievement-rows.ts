@@ -12,6 +12,16 @@ function itemNumberFor(code: string): string {
   }
 }
 
+/** Numeric-aware compare for item numbers: "1.9" < "1.10" < "3.24"; unknown ("") sorts last */
+export function compareItemNumbers(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  const [aMajor = 0, aMinor = 0] = a.split('.').map(Number);
+  const [bMajor = 0, bMinor = 0] = b.split('.').map(Number);
+  return aMajor - bMajor || aMinor - bMinor;
+}
+
 function toRow(a: StaffActivity, canManage: boolean): AchievementRow {
   return {
     id: a.id,
@@ -55,12 +65,14 @@ export function snapshotToGroups(snapshot: unknown): AchievementGroup[] | null {
   return s.sections.map((section) => ({
     number: section.number,
     title: section.title,
-    items: section.items.map((item) => ({
-      ...item,
-      removeReason: null,
-      date: '',
-      canDelete: false,
-    })),
+    items: section.items
+      .map((item) => ({
+        ...item,
+        removeReason: null,
+        date: '',
+        canDelete: false,
+      }))
+      .sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber)),
   }));
 }
 
@@ -79,6 +91,9 @@ export function toAchievementGroups(
     const rows = rowsBySection.get(n) ?? [];
     rows.push(toRow(a, canManage));
     rowsBySection.set(n, rows);
+  }
+  for (const rows of rowsBySection.values()) {
+    rows.sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber));
   }
 
   const numbers = sections ?? [...rowsBySection.keys()].sort((a, b) => a - b);
