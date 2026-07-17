@@ -380,8 +380,15 @@ Resolved 2026-07-09:
       `carryYears`/«діє до» on activity types; `openYear`/`cloneTemplate` copies still-valid
       APPROVED activities into the new year (row per year — per-year coefficients and snapshots
       stay self-contained) and recomputes. Technically low cost; blocked on policy only.
-- [ ] **Bulk profile-edit grid for divisions (HR first)** _(user, 2026-07-17 — theoretical, not
-      now)_: spreadsheet-style page — rows = НПП, columns = the Staff fields the editor's division
+- [ ] **Template editor v2 — admin-defined indicators** _(user, 2026-07-17 — core long-term goal:
+      admin edits rating forms with NO code changes)_: move field specs + scoring params from code
+      constants into DB — `ActivityType.evidenceFields Json` (form definition consumed by the
+      existing generic renderer + Zod generator) and `ActivityType.scoring Json` (parametrized
+      kinds: fixed / select-points / number×coef / pages÷24 / maxPerYear; moodle gate stays
+      built-in). Admin UI: field-builder dialog in `/admin/rating/[year]` (field type, label,
+      select options with points). Excel export already reads the DB template; only item numbers
+      and select sub-rows must switch to the same JSON specs (~0.5 day inside this). ~1 week.
+      now)\_: spreadsheet-style page — rows = НПП, columns = the Staff fields the editor's division
       has DivisionFieldPermission for (кадри: посада, кафедра, стаж…), inline/popover editing like
       /division-data. Generic for any division. With profile-derived sync in place, edits update
       ratings instantly. ~2–3 days, after profile-derived indicators.
