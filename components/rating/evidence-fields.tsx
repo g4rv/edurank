@@ -20,6 +20,10 @@ import {
 } from '@/components/ui/select';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import { MOODLE_MODE_POINTS, SELECT_OPTION_POINTS } from '@/lib/rating/scoring';
+import { MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
+
+const DATE_MIN = `${MIN_EVIDENCE_YEAR}-01-01`;
+const DATE_MAX = `${new Date().getFullYear() + 1}-12-31`;
 
 interface EvidenceFieldsProps {
   code: string;
@@ -98,7 +102,14 @@ export function EvidenceFields({
           case 'date':
             return (
               <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
-                <Input id={f.name} type="date" disabled={disabled} {...register(f.name)} />
+                <Input
+                  id={f.name}
+                  type="date"
+                  min={DATE_MIN}
+                  max={DATE_MAX}
+                  disabled={disabled}
+                  {...register(f.name)}
+                />
               </FormField>
             );
 

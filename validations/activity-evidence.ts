@@ -7,6 +7,9 @@ import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-field
 const emptyToUndefined = (v: unknown) =>
   v === '' || v === null || (typeof v === 'string' && !v.trim()) ? undefined : v;
 
+/** Earliest year accepted in evidence date fields (guards against typos like 0002 or 2131412) */
+export const MIN_EVIDENCE_YEAR = 1950;
+
 function fieldSchema(f: EvidenceField): z.ZodType {
   switch (f.kind) {
     case 'text': {
@@ -31,7 +34,14 @@ function fieldSchema(f: EvidenceField): z.ZodType {
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'date': {
-      const base = z.iso.date({ error: 'Некоректна дата' });
+      const maxYear = new Date().getFullYear() + 1;
+      const base = z.iso.date({ error: 'Некоректна дата' }).refine(
+        (v) => {
+          const year = Number(v.slice(0, 4));
+          return year >= MIN_EVIDENCE_YEAR && year <= maxYear;
+        },
+        { error: `Рік має бути в межах ${MIN_EVIDENCE_YEAR}–${maxYear}` }
+      );
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'checkbox': {

@@ -144,6 +144,16 @@ describe('schema validation behavior', () => {
     expect(patent.safeParse({ ...okPatent, date: '01.03.2026' }).success).toBe(false);
   });
 
+  it('rejects dates with out-of-range years', () => {
+    const patent = evidenceSchemaFor('patent_granted');
+    const base = { registrationNumber: '12345', title: 'Пристрій' };
+    const nextYear = new Date().getFullYear() + 1;
+    expect(patent.safeParse({ ...base, date: '0002-03-01' }).success).toBe(false);
+    expect(patent.safeParse({ ...base, date: '2300-03-01' }).success).toBe(false);
+    expect(patent.safeParse({ ...base, date: '1949-12-31' }).success).toBe(false);
+    expect(patent.safeParse({ ...base, date: `${nextYear}-12-31` }).success).toBe(true);
+  });
+
   it('coerces numeric strings from form inputs', () => {
     const schema = evidenceSchemaFor('monograph_ua');
     const parsed = schema.parse({ pages: '120', coAuthors: '2', bibliography: 'Опис. ISBN 978…' });
