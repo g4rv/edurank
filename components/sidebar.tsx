@@ -59,11 +59,18 @@ interface SidebarProps {
     role: Role;
     staffId?: string | null;
   };
+  /** Fresh from DB (layout), not the session token — admin can flip the staff type mid-session */
+  isNpp?: boolean;
   canModerate?: boolean;
   canEnterData?: boolean;
 }
 
-export function Sidebar({ user, canModerate = false, canEnterData = false }: SidebarProps) {
+export function Sidebar({
+  user,
+  isNpp = false,
+  canModerate = false,
+  canEnterData = false,
+}: SidebarProps) {
   const pathname = usePathname();
 
   const mainNav = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
@@ -90,7 +97,7 @@ export function Sidebar({ user, canModerate = false, canEnterData = false }: Sid
             pathname={pathname}
           />
         )}
-        {user.role === 'USER' && (
+        {user.role === 'USER' && isNpp && (
           <>
             <NavLink
               item={{
