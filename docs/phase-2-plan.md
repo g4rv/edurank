@@ -311,6 +311,10 @@ Resolved 2026-07-09:
 **Goal:** PDF rating reports + visual graphs.
 **Ship criterion:** download a per-staff PDF; see rating-over-time and section-breakdown charts.
 
+> **DEFERRED (user, 2026-07-15).** Replaced by the Excel zip export (commits `2fb7d57`, `dbf5c05`):
+> `/api/export/ratings` + `lib/rating/export-workbook.ts` generate one official-form `.xlsx` per staff,
+> zipped, matching the reference layout. PDF and charts stay in the backlog if ever needed.
+
 ### Issue M8.1 — PDF generation
 
 - [ ] Choose approach (server-side React-PDF / html-to-pdf). Add dep. **No PDF or chart lib is installed yet — verify Next 16 + React 19 compatibility before committing to one** (`@react-pdf/renderer` and `recharts` are the default candidates).
@@ -362,19 +366,19 @@ Resolved 2026-07-09:
 
 ## Suggested order & rough sizing (solo)
 
-| Milestone                 | What you can demo         | Status / rough size                       |
-| ------------------------- | ------------------------- | ----------------------------------------- |
-| M0                        | Seeded template in Studio | ✅ done 2026-07-02                        |
-| M1                        | Tested scoring            | ✅ done 2026-07-02                        |
-| M2                        | All evidence forms render | ✅ done 2026-07-02, reviewed 2026-07-06   |
-| M3                        | NPP submits               | 3–4 days                                  |
-| M4                        | Discard & oversight       | 1–2 days                                  |
-| M5                        | Division pages            | 5–7 days (grew: 6 separate pages)         |
-| M6                        | Rating tables             | 3–4 days                                  |
-| **↑ core loop shippable** |                           | **~2–3 weeks from 2026-07-06**            |
-| M7                        | Year admin                | 3–4 days                                  |
-| M8                        | PDF + graphs              | 4–6 days (**cuttable if deadline slips**) |
-| M9                        | Verification + QA         | 3–5 days                                  |
+| Milestone                 | What you can demo         | Status / rough size                             |
+| ------------------------- | ------------------------- | ----------------------------------------------- |
+| M0                        | Seeded template in Studio | ✅ done 2026-07-02                              |
+| M1                        | Tested scoring            | ✅ done 2026-07-02                              |
+| M2                        | All evidence forms render | ✅ done 2026-07-02, reviewed 2026-07-06         |
+| M3                        | NPP submits               | ✅ done 2026-07-03                              |
+| M4                        | Discard & oversight       | ✅ done 2026-07-04                              |
+| M5                        | Division pages            | ✅ done 2026-07-14 (grid + entity-first)        |
+| M6                        | Rating tables             | ✅ done 2026-07-14                              |
+| **↑ core loop shippable** |                           | **✅ shipped**                                  |
+| M7                        | Year admin                | ✅ done 2026-07-15                              |
+| M8                        | PDF + graphs              | ⏸ deferred — Excel zip export shipped instead   |
+| M9                        | Verification + QA         | ✅ done 2026-07-16 (M9.4 smoke test still open) |
 
 **Deadline: 2 months from 2026-07-06 (user, hard).** Core loop (M3–M6) first; M8 and M9.1 are the
 sacrifice candidates if time runs short.

@@ -213,6 +213,7 @@ Feedback must appear as close to its cause as possible:
 
 ## Key conventions
 
+- **Commits: always use the `commit` skill (`/commit`)** — never compose raw `git add`/`git commit` commands yourself
 - Import alias `@/*` maps to project root (e.g. `@/lib/db`, `@/components/ui`)
 - App Router only — no Pages Router
 - Server Actions for all mutations — no separate REST API layer
