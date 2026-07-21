@@ -356,6 +356,20 @@ Resolved 2026-07-09:
 
 ## Backlog — post-Phase-2 improvements (user requests)
 
+- [ ] **Mobile / responsive pass** _(user, 2026-07-21 — deferred, do later)_: only 13 of 118 tsx
+      files use any breakpoint today, so this is greenfield. Three tiers:
+      **T1 shell (~0.5 day, unblocks everything)** — `app/(dashboard)/layout.tsx` is
+      `flex h-screen` with a fixed `w-56` sidebar, which leaves 151px of content on a 375px
+      phone; sidebar must become a drawer (shadcn Sheet, Radix already installed).
+      **T2 forms & detail pages (~1–2 days)** — mechanical `grid-cols-2` →
+      `grid-cols-1 md:grid-cols-2`; also fix `components/staff/staff-table.tsx`, the one table
+      with no `overflow-x-auto` wrapper.
+      **T3 spreadsheets (redesign, skip for now)** — `division-entry-grid` (300 НПП × ~11
+      indicator columns with popover cells), `/rating` rollup, `rating-table`. Breakpoints do
+      not fix these; they need a card-per-person view.
+      **Scope by audience:** T1+T2 fully covers the НПП pages (`/achievements`,
+      `/achievements/[section]`, `/profile`) — the users most likely to be on a phone. Editors
+      and admins work on desktop, so T3 waits until someone asks.
 - [ ] **Bulk moderation** _(user, 2026-07-15)_: on `/moderation`, checkboxes to select multiple
       self-reports and verify / discard them all at once (one shared discard reason; one
       transaction; per-row audit entries as today).
