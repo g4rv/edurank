@@ -37,7 +37,16 @@ export type EvidenceField =
   | { kind: 'isbn'; name: string; label: string; optional?: boolean }
   // Syntax-checked only — a DOI has no check digit; see lib/doi.ts
   | { kind: 'doi'; name: string; label: string; optional?: boolean }
-  | { kind: 'checkbox'; name: string; label: string; mustBeTrue?: boolean }
+  // `mustBeTrue` makes the box a condition of submitting, not just a flag;
+  // `requiredError` explains why, since a generic «Потрібно підтвердити» does
+  // not tell an НПП that the item is all-or-nothing
+  | {
+      kind: 'checkbox';
+      name: string;
+      label: string;
+      mustBeTrue?: boolean;
+      requiredError?: string;
+    }
   | {
       kind: 'select';
       name: string;
@@ -89,7 +98,11 @@ const doi = (name: string, label: string, opts?: { optional?: boolean }): Eviden
   ...opts,
 });
 
-const checkbox = (name: string, label: string, opts?: { mustBeTrue?: boolean }): EvidenceField => ({
+const checkbox = (
+  name: string,
+  label: string,
+  opts?: { mustBeTrue?: boolean; requiredError?: string }
+): EvidenceField => ({
   kind: 'checkbox',
   name,
   label,
@@ -461,15 +474,28 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   ],
 
   // ── Розділ 5 ────────────────────────────────────────────────────────────────
+  // Item 5.1 is all-or-nothing: a course missing any of the six materials earns
+  // nothing at all, so the submission is refused rather than saved as a
+  // zero-point row the НПП would have to wonder about later. Each box carries
+  // the reason, because the failure is about the set, not the single tick.
   moodle_course: [
     select('mode', 'Вид роботи', [opt('development', 'Розроблення'), opt('update', 'Оновлення')]),
     text('discipline', 'Дисципліна (освітній компонент)'),
     url('link', 'Посилання на курс'),
-    checkbox('workProgram', 'Робоча програма'),
-    checkbox('syllabus', 'Силабус'),
-    checkbox('tests', 'Тестові завдання'),
-    checkbox('lectureNotes', 'Конспекти лекцій'),
-    checkbox('presentations', 'Презентації'),
-    checkbox('methodicalMaterials', 'Основні методичні матеріали'),
+    ...(
+      [
+        ['workProgram', 'Робоча програма'],
+        ['syllabus', 'Силабус'],
+        ['tests', 'Тестові завдання'],
+        ['lectureNotes', 'Конспекти лекцій'],
+        ['presentations', 'Презентації'],
+        ['methodicalMaterials', 'Основні методичні матеріали'],
+      ] as const
+    ).map(([name, label]) =>
+      checkbox(name, label, {
+        mustBeTrue: true,
+        requiredError: 'Бали нараховуються лише за наявності всіх шести матеріалів',
+      })
+    ),
   ],
 };

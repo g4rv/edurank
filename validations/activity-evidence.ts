@@ -79,7 +79,7 @@ function fieldSchema(f: EvidenceField): z.ZodType {
     }
     case 'checkbox': {
       return f.mustBeTrue
-        ? z.literal(true, { error: 'Потрібно підтвердити' })
+        ? z.literal(true, { error: f.requiredError ?? 'Потрібно підтвердити' })
         : z.boolean({ error: 'Оберіть значення' }).default(false);
     }
     case 'select': {

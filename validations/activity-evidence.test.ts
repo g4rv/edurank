@@ -108,13 +108,33 @@ describe('schema → scoring integration (all 67 types)', () => {
     }
   });
 
-  it('moodle full sample scores mode points; unchecking one material gives 0', () => {
+  // Item 5.1 is gated twice over: the schema refuses an incomplete course, and
+  // the scoring engine still returns 0 for one — the second guard matters
+  // because computeScore is also reachable from paths that skip the form.
+  it('moodle full sample scores mode points', () => {
     const schema = evidenceSchemaFor('moodle_course');
     const full = schema.parse(sampleEvidence(EVIDENCE_FIELDS.moodle_course));
     expect(computeScore('moodle_course', full, 1).score).toBe(MOODLE_MODE_POINTS.development);
+  });
 
-    const gated = schema.parse({ ...full, presentations: false });
-    expect(computeScore('moodle_course', gated, 1).score).toBe(0);
+  it('moodle refuses a course missing any one material, rather than saving it as 0', () => {
+    const schema = evidenceSchemaFor('moodle_course');
+    const full = sampleEvidence(EVIDENCE_FIELDS.moodle_course);
+
+    for (const material of MOODLE_MATERIALS) {
+      const result = schema.safeParse({ ...full, [material]: false });
+      expect(result.success, material).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toContain('всіх шести');
+      }
+    }
+  });
+
+  it('scoring still gates an incomplete course reaching it another way', () => {
+    const full = evidenceSchemaFor('moodle_course').parse(
+      sampleEvidence(EVIDENCE_FIELDS.moodle_course)
+    );
+    expect(computeScore('moodle_course', { ...full, presentations: false }, 1).score).toBe(0);
   });
 });
 
