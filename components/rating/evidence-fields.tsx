@@ -94,7 +94,9 @@ export function EvidenceFields({
                 <Input
                   id={f.name}
                   type="url"
-                  placeholder="https://…"
+                  // Host-restricted fields name that service, so the example is
+                  // one the field will actually accept
+                  placeholder={f.hosts ? `https://${f.hosts[0]}/record/…` : 'https://…'}
                   disabled={disabled}
                   {...register(f.name)}
                 />

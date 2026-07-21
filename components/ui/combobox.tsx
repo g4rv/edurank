@@ -139,7 +139,6 @@ function ComboboxInput({
           onClick={() => setOpen(true)}
           className={cn(
             'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-xs',
-            'placeholder:text-muted-foreground',
             'focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-50'
           )}

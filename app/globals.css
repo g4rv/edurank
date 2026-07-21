@@ -7,6 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-placeholder: var(--placeholder);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-geist-sans);
@@ -59,6 +60,9 @@
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
+  /* Deliberately fainter than --muted-foreground: a placeholder is an example
+     of what to type, and must never read as a value already filled in */
+  --placeholder: oklch(0.72 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -96,6 +100,8 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
+  /* On dark, fainter means closer to the background, so lower rather than higher */
+  --placeholder: oklch(0.52 0 0);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
@@ -130,5 +136,12 @@
   button:not(:disabled),
   [role='button']:not(:disabled) {
     cursor: pointer;
+  }
+  /* One rule for every input and textarea in the app — placeholders are hints,
+     not data, so they are set apart from real input text here rather than by a
+     utility class repeated on each field component. Radix Select is a button
+     with no ::placeholder, so its trigger carries data-[placeholder] instead. */
+  ::placeholder {
+    color: var(--placeholder);
   }
 }

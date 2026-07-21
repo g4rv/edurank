@@ -45,7 +45,7 @@ export function LoginForm() {
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="admin@edurank.local"
+                placeholder="email@university.edu.ua"
                 disabled={isPending}
                 {...register('email')}
               />

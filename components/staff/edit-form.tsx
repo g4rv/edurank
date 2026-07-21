@@ -307,7 +307,7 @@ export function StaffEditForm({
               step="0.25"
               min="0"
               max="2"
-              placeholder="1"
+              placeholder="0.75"
               disabled={isPending}
               {...register('employmentRate')}
             />
@@ -378,7 +378,7 @@ export function StaffEditForm({
                 id="pedagogicalExperience"
                 type="number"
                 min="0"
-                placeholder="0"
+                placeholder="12"
                 disabled={isPending}
                 {...register('pedagogicalExperience')}
               />
@@ -474,7 +474,7 @@ export function StaffEditForm({
             <FormField htmlFor="wosUrl" label="Web of Science — URL" error={errors.wosUrl}>
               <Input
                 id="wosUrl"
-                placeholder="https://"
+                placeholder="https://webofscience.com/wos/author/record/12345"
                 disabled={isPending}
                 {...register('wosUrl')}
               />
@@ -489,7 +489,7 @@ export function StaffEditForm({
                 id="wosCitationCount"
                 type="number"
                 min="0"
-                placeholder="0"
+                placeholder="12"
                 disabled={isPending}
                 {...register('wosCitationCount')}
               />
@@ -497,7 +497,7 @@ export function StaffEditForm({
             <FormField htmlFor="scopusUrl" label="Scopus — URL" error={errors.scopusUrl}>
               <Input
                 id="scopusUrl"
-                placeholder="https://"
+                placeholder="https://scopus.com/authid/detail.uri?authorId=12345"
                 disabled={isPending}
                 {...register('scopusUrl')}
               />
@@ -512,7 +512,7 @@ export function StaffEditForm({
                 id="scopusCitationCount"
                 type="number"
                 min="0"
-                placeholder="0"
+                placeholder="12"
                 disabled={isPending}
                 {...register('scopusCitationCount')}
               />
@@ -524,7 +524,7 @@ export function StaffEditForm({
             >
               <Input
                 id="googleScholarUrl"
-                placeholder="https://"
+                placeholder="https://scholar.google.com/citations?user=AbCdEfg"
                 disabled={isPending}
                 {...register('googleScholarUrl')}
               />
@@ -539,7 +539,7 @@ export function StaffEditForm({
                 id="googleScholarCitationCount"
                 type="number"
                 min="0"
-                placeholder="0"
+                placeholder="12"
                 disabled={isPending}
                 {...register('googleScholarCitationCount')}
               />
@@ -547,7 +547,7 @@ export function StaffEditForm({
             <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
               <Input
                 id="orcidId"
-                placeholder="0000-0000-0000-0000"
+                placeholder="0000-0002-1825-0097"
                 disabled={isPending}
                 {...register('orcidId')}
               />
