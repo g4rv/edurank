@@ -36,7 +36,7 @@ const IsbnInput = forwardRef<
           inputMode="numeric"
           autoComplete="off"
           spellCheck={false}
-          placeholder="978-3-16-148410-0"
+          placeholder="Наприклад: 978-3-16-148410-0"
           data-slot="input"
           aria-invalid={state === 'invalid' || props['aria-invalid']}
           onChange={(e) => {

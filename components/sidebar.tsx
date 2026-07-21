@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -18,9 +17,6 @@ import {
   Table2,
   Trophy,
   CalendarCog,
-  Plus,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -164,53 +160,34 @@ export function Sidebar({
   );
 }
 
+// Always open: five links are short enough to show outright, and a collapsed
+// group hid the only route an НПП uses to submit anything.
 function AddActivityNav({ pathname }: { pathname: string }) {
-  const isOnSectionRoute = RATING_SECTIONS.some((s) => pathname === `/achievements/${s}`);
-  const [manuallyOpen, setManuallyOpen] = useState(false);
-  const expanded = isOnSectionRoute || manuallyOpen;
-
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setManuallyOpen((v) => !v)}
-        className={cn(
-          'flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
-          'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-        )}
-      >
-        <Plus className="size-4 shrink-0" />
-        Додати активність
-        {expanded ? (
-          <ChevronDown className="ml-auto size-4 shrink-0" />
-        ) : (
-          <ChevronRight className="ml-auto size-4 shrink-0" />
-        )}
-      </button>
+    <div className="mt-1">
+      <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Додати активність</p>
 
-      {expanded && (
-        <div className="mt-0.5 ml-3.5 flex flex-col gap-0.5 border-l pl-2.5">
-          {RATING_SECTIONS.map((section) => {
-            const href = `/achievements/${section}`;
-            const isActive = pathname === href;
-            return (
-              <Link
-                key={section}
-                href={href}
-                title={SECTION_TITLES[section]}
-                className={cn(
-                  'rounded-md px-2 py-1.5 text-sm transition-colors',
-                  isActive
-                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                )}
-              >
-                Розділ {section}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      <div className="mt-0.5 ml-3.5 flex flex-col gap-0.5 border-l pl-2.5">
+        {RATING_SECTIONS.map((section) => {
+          const href = `/achievements/${section}`;
+          const isActive = pathname === href;
+          return (
+            <Link
+              key={section}
+              href={href}
+              title={SECTION_TITLES[section]}
+              className={cn(
+                'rounded-md px-2 py-1.5 text-sm transition-colors',
+                isActive
+                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+              )}
+            >
+              Розділ {section}
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -34,7 +34,7 @@ const DoiInput = forwardRef<
           type="text"
           autoComplete="off"
           spellCheck={false}
-          placeholder="10.1038/s41586-021-03819-2"
+          placeholder="Наприклад: 10.1038/s41586-021-03819-2"
           data-slot="input"
           aria-invalid={state === 'invalid' || props['aria-invalid']}
           onChange={(e) => {
