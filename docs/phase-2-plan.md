@@ -363,7 +363,7 @@ Resolved 2026-07-09:
       (own Dockerfile in docker-compose, shared postgres network). Periodically checks unverified
       publication submissions via free Crossref/OpenAlex APIs (DOI exists + title match) and
       pre-fills `Activity.verifiedAt` suggestions; ННВ's manual flag stays the final say.
-- [ ] **Profile-derived indicators** _(user, 2026-07-17 — agreed next feature, do FIRST)_: new
+- [x] **Profile-derived indicators** _(user, 2026-07-17 — agreed next feature, do FIRST)_: new
       `InputSource.PROFILE_DERIVED`; rating items 1.1 стаж / 1.2 звання / 1.3 ступінь / 1.6 посада
       (new `Staff.adminPosition` field) / 1.9 базова освіта / 3.24 цитування ×3 read their value
       from the Staff profile instead of manual entry. `lib/rating/profile-derived.ts` maps code →
@@ -371,10 +371,14 @@ Resolved 2026-07-09:
       (kills point farming) on staff create/edit and on year open/reopen/activate; empty field =
       activity removed. NPP cannot submit these codes; hidden from /division-data grid. Editing
       rights come free via existing DivisionFieldPermission. ~2–3 days.
-- [ ] **Rating tooltips on profile fields** _(user, 2026-07-17)_: small "i" icon + tooltip on every
+      **(DONE 2026-07-17, commit `679caec` + `c364de8` item-number sort — user-tested. 8 derived
+      types; client-safe half split into `lib/rating/profile-derived-fields.ts`.)**
+- [x] **Rating tooltips on profile fields** _(user, 2026-07-17)_: small "i" icon + tooltip on every
       staff-profile field present in the profile-derived mapping («Впливає на рейтинг — п. X, до
       N балів»). List comes from `profile-derived.ts`, no hardcoding. ~0.5 day, do together with
       profile-derived indicators.
+      **(DONE 2026-07-17, commit `679caec`: `RATING_FIELD_HINTS` derived from
+      `PROFILE_DERIVED_SOURCES` + `components/staff/rating-field-hint.tsx`.)**
 - [ ] **Multi-year (carry-over) achievements** _(user, 2026-07-17 — VERY OPTIONAL, boss must
       confirm the policy first: which types carry over and for how long)_: optional
       `carryYears`/«діє до» on activity types; `openYear`/`cloneTemplate` copies still-valid
@@ -388,10 +392,11 @@ Resolved 2026-07-09:
       built-in). Admin UI: field-builder dialog in `/admin/rating/[year]` (field type, label,
       select options with points). Excel export already reads the DB template; only item numbers
       and select sub-rows must switch to the same JSON specs (~0.5 day inside this). ~1 week.
-      now)\_: spreadsheet-style page — rows = НПП, columns = the Staff fields the editor's division
-      has DivisionFieldPermission for (кадри: посада, кафедра, стаж…), inline/popover editing like
-      /division-data. Generic for any division. With profile-derived sync in place, edits update
-      ratings instantly. ~2–3 days, after profile-derived indicators.
+- [ ] **Bulk profile-edit grid** _(user, 2026-07-17 — next feature now that profile-derived is
+      shipped)_: spreadsheet-style page — rows = НПП, columns = the Staff fields the editor's
+      division has DivisionFieldPermission for (кадри: посада, кафедра, стаж…), inline/popover
+      editing like /division-data. Generic for any division. With profile-derived sync in place,
+      edits update ratings instantly. ~2–3 days.
 
 ## Suggested order & rough sizing (solo)
 
