@@ -47,6 +47,9 @@ export function summarizeEvidence(code: string, evidence: unknown): string {
       case 'isbn':
         parts.push(`ISBN ${v}`);
         break;
+      case 'doi':
+        parts.push(`DOI ${v}`);
+        break;
       case 'text':
       case 'url':
       case 'date':

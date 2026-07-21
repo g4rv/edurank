@@ -24,6 +24,8 @@ export type EvidenceField =
   | { kind: 'date'; name: string; label: string; optional?: boolean }
   // Check-digit validated; see lib/isbn.ts for what that does and does not prove
   | { kind: 'isbn'; name: string; label: string; optional?: boolean }
+  // Syntax-checked only — a DOI has no check digit; see lib/doi.ts
+  | { kind: 'doi'; name: string; label: string; optional?: boolean }
   | { kind: 'checkbox'; name: string; label: string; mustBeTrue?: boolean }
   | {
       kind: 'select';
@@ -60,6 +62,13 @@ const date = (name: string, label: string, opts?: { optional?: boolean }): Evide
 
 const isbn = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
   kind: 'isbn',
+  name,
+  label,
+  ...opts,
+});
+
+const doi = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
+  kind: 'doi',
   name,
   label,
   ...opts,
@@ -294,12 +303,17 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       opt('q3_4_or_none', 'Квартиль Q3-4 / відсутній'),
     ]),
     text('bibliography', 'Бібліографічний опис', { multiline: true }),
-    url('link', 'Посилання Scopus / WoS (DOI)'),
+    // The form asks for «посилання Scopus або WOS», so `link` stays a plain URL
+    // and must keep accepting them. The DOI sits beside it, optional — it is
+    // what the future Crossref/OpenAlex checker will query.
+    url('link', 'Посилання Scopus / WoS'),
+    doi('doi', 'DOI', { optional: true }),
   ],
   publication_cat_b: [
     select('option', 'Авторство', [opt('solo', 'одноосібно'), opt('coauthored', 'співавторство')]),
     text('bibliography', 'Бібліографічний опис', { multiline: true }),
-    url('link', 'Посилання / DOI', { optional: true }),
+    url('link', 'Посилання', { optional: true }),
+    doi('doi', 'DOI', { optional: true }),
   ],
   defense_supervision: [
     select('option', 'Ступінь', [opt('doctor', 'доктор наук'), opt('phd', 'кандидат наук (PhD)')]),

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { isValidIsbn } from '@/lib/isbn';
+import { isValidDoi, normalizeDoi } from '@/lib/doi';
 
 // Builds one Zod schema per activity type from its evidence field specs.
 // Shared client (RHF resolver) + server (submit action) — single source of truth.
@@ -52,6 +53,14 @@ function fieldSchema(f: EvidenceField): z.ZodType {
         .string({ error: "Обов'язкове поле" })
         .trim()
         .refine(isValidIsbn, { error: 'Некоректний ISBN — перевірте контрольну цифру' });
+      return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
+    }
+    case 'doi': {
+      // Stored bare (resolver prefix stripped) so the checker can query it directly
+      const base = z
+        .string({ error: "Обов'язкове поле" })
+        .transform(normalizeDoi)
+        .refine(isValidDoi, { error: 'Некоректний DOI — очікується 10.XXXX/…' });
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'checkbox': {

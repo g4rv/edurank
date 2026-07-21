@@ -9,6 +9,7 @@ import {
 } from 'react-hook-form';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { DoiInput } from '@/components/ui/doi-input';
 import { IsbnInput } from '@/components/ui/isbn-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -104,6 +105,13 @@ export function EvidenceFields({
             return (
               <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
                 <IsbnInput id={f.name} disabled={disabled} {...register(f.name)} />
+              </FormField>
+            );
+
+          case 'doi':
+            return (
+              <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
+                <DoiInput id={f.name} disabled={disabled} {...register(f.name)} />
               </FormField>
             );
 

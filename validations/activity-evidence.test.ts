@@ -29,6 +29,9 @@ function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknow
       case 'isbn':
         out[f.name] = '978-3-16-148410-0';
         break;
+      case 'doi':
+        out[f.name] = '10.1038/s41586-021-03819-2';
+        break;
       case 'checkbox':
         out[f.name] = true;
         break;
@@ -190,6 +193,36 @@ describe('schema validation behavior', () => {
     expect(schema.safeParse({ ...base, isbn: '' }).success).toBe(true);
     expect(schema.safeParse({ ...base, isbn: '978-3-16-148410-0' }).success).toBe(true);
     expect(schema.safeParse({ ...base, isbn: '978-3-16-148410-1' }).success).toBe(false);
+  });
+
+  it('accepts a DOI in any pasted form and stores it bare', () => {
+    const schema = evidenceSchemaFor('publication_cat_a');
+    const base = {
+      option: 'q1',
+      bibliography: 'Опис',
+      link: 'https://www.scopus.com/record/display.uri?eid=2-s2.0-123',
+    };
+
+    // The resolver prefix is stripped so the future checker can query it directly
+    const parsed = schema.parse({ ...base, doi: 'https://doi.org/10.1038/abc123' });
+    expect(parsed).toMatchObject({ doi: '10.1038/abc123' });
+
+    expect(schema.safeParse({ ...base, doi: 'doi:10.1038/abc123' }).success).toBe(true);
+    expect(schema.safeParse({ ...base, doi: '10.1038/abc123' }).success).toBe(true);
+    expect(schema.safeParse({ ...base, doi: 'немає' }).success).toBe(false);
+  });
+
+  it('keeps the Scopus/WoS link a plain URL — the form asks for it, not for a DOI', () => {
+    const schema = evidenceSchemaFor('publication_cat_a');
+    const base = { option: 'q1', bibliography: 'Опис' };
+
+    // A Scopus link with no DOI to hand must still submit
+    expect(
+      schema.safeParse({ ...base, link: 'https://www.scopus.com/record/display.uri?eid=2-s2.0-1' })
+        .success
+    ).toBe(true);
+    // …and the DOI is optional alongside it
+    expect(schema.safeParse({ ...base, link: 'https://example.com/p' }).success).toBe(true);
   });
 
   it('mustBeTrue checkbox requires confirmation', () => {

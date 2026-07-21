@@ -377,6 +377,11 @@ Resolved 2026-07-09:
       (own Dockerfile in docker-compose, shared postgres network). Periodically checks unverified
       publication submissions via free Crossref/OpenAlex APIs (DOI exists + title match) and
       pre-fills `Activity.verifiedAt` suggestions; ННВ's manual flag stays the final say.
+      **Unblocked 2026-07-21:** `publication_cat_a` / `_b` now carry a dedicated `doi` evidence
+      field, stored bare (resolver prefix stripped) and syntax-checked, so the worker reads
+      `evidence.doi` instead of guessing a DOI out of the free-text link. It is optional, so the
+      worker must skip rows without one. An ISBN existence check for monographs (`evidence.isbn`,
+      OpenLibrary) fits the same container.
 - [x] **Profile-derived indicators** _(user, 2026-07-17 — agreed next feature, do FIRST)_: new
       `InputSource.PROFILE_DERIVED`; rating items 1.1 стаж / 1.2 звання / 1.3 ступінь / 1.6 посада
       (new `Staff.adminPosition` field) / 1.9 базова освіта / 3.24 цитування ×3 read their value
@@ -407,9 +412,10 @@ Resolved 2026-07-09:
       select options with points). Excel export already reads the DB template; only item numbers
       and select sub-rows must switch to the same JSON specs (~0.5 day inside this). ~1 week.
       **Field-kind vocabulary to carry over:** `text` (+multiline) / `number` (+min, int) /
-      `url` / `date` / `checkbox` (+mustBeTrue) / `select` (+options) / `isbn`. The last one is
-      validated in code (`lib/isbn.ts` check digit) rather than by a JSON parameter, so the
-      builder should offer it as a picked kind, not something an admin can define.
+      `url` / `date` / `checkbox` (+mustBeTrue) / `select` (+options) / `isbn` / `doi`. The last
+      two are validated in code (`lib/isbn.ts` check digit, `lib/doi.ts` syntax) rather than by a
+      JSON parameter, so the builder should offer them as picked kinds, not something an admin
+      can define.
 - [ ] **Bulk profile-edit grid** _(user, 2026-07-17 — next feature now that profile-derived is
       shipped)_: spreadsheet-style page — rows = НПП, columns = the Staff fields the editor's
       division has DivisionFieldPermission for (кадри: посада, кафедра, стаж…), inline/popover
