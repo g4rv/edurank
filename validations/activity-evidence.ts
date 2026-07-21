@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { isValidIsbn } from '@/lib/isbn';
 import { isValidDoi, normalizeDoi } from '@/lib/doi';
+import { hasDomainHost, hostMatches, withProtocol } from '@/lib/link-hosts';
 
 // Builds one Zod schema per activity type from its evidence field specs.
 // Shared client (RHF resolver) + server (submit action) — single source of truth.
@@ -32,7 +33,20 @@ function fieldSchema(f: EvidenceField): z.ZodType {
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'url': {
-      const base = z.url({ error: 'Некоректне посилання' }).max(2000);
+      // Bare hosts get https:// so a pasted `www.scopus.com/…` is not rejected
+      // as "not a URL" when it plainly is one
+      let base: z.ZodType<string> = z
+        .string({ error: "Обов'язкове поле" })
+        .trim()
+        .transform(withProtocol)
+        .pipe(z.url({ error: 'Некоректне посилання' }).max(2000))
+        .refine(hasDomainHost, { error: 'Некоректне посилання' });
+
+      if (f.hosts) {
+        const hosts = f.hosts;
+        const message = f.hostsError ?? 'Посилання на інший сайт';
+        base = base.refine((v) => hostMatches(v, hosts), { error: message });
+      }
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'date': {

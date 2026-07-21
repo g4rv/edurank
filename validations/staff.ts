@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import {
+  hasDomainHost,
+  hostMatches,
+  withProtocol,
+  SCHOLAR_HOSTS,
+  SCOPUS_HOSTS,
+  WOS_HOSTS,
+} from '@/lib/link-hosts';
 
 const str = (v: unknown) =>
   v === '' || v === undefined || (typeof v === 'string' && !v.trim()) ? null : v;
@@ -6,6 +14,23 @@ const num = (v: unknown) =>
   v === '' || v === null || v === undefined ? null : isNaN(Number(v)) ? null : Number(v);
 const boolStr = (v: unknown) =>
   v === '' || v === null || v === undefined ? null : v === true || v === 'true' ? true : false;
+
+/**
+ * An optional profile link that must point at the right service. Empty stays
+ * null — these are optional — but a filled value has to be a real URL on that
+ * site, otherwise the profile page renders a dead link nobody notices.
+ */
+const profileLink = (hosts: readonly string[], error: string) =>
+  z.preprocess(
+    str,
+    z
+      .string()
+      .transform(withProtocol)
+      .pipe(z.url({ error: 'Некоректне посилання' }).max(2000))
+      .refine(hasDomainHost, { error: 'Некоректне посилання' })
+      .refine((v) => hostMatches(v, hosts), { error })
+      .nullable()
+  );
 
 export const staffUpdateSchema = z
   .object({
@@ -39,11 +64,11 @@ export const staffUpdateSchema = z
     ),
     basicEducationMatch: z.preprocess(boolStr, z.boolean().nullable()),
     basicEducationSpecialty: z.preprocess(str, z.string().nullable()),
-    wosUrl: z.preprocess(str, z.string().nullable()),
+    wosUrl: profileLink(WOS_HOSTS, 'Очікується посилання на Web of Science'),
     wosCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
-    scopusUrl: z.preprocess(str, z.string().nullable()),
+    scopusUrl: profileLink(SCOPUS_HOSTS, 'Очікується посилання на Scopus'),
     scopusCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
-    googleScholarUrl: z.preprocess(str, z.string().nullable()),
+    googleScholarUrl: profileLink(SCHOLAR_HOSTS, 'Очікується посилання на Google Scholar'),
     googleScholarCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
     orcidId: z.preprocess(str, z.string().nullable()),
     departmentId: z.preprocess(str, z.string().nullable()),

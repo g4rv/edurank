@@ -58,7 +58,7 @@ const fullPayload: StaffUpdateSchema = {
   adminPosition: 'DEAN',
   basicEducationMatch: true,
   basicEducationSpecialty: 'Історія',
-  wosUrl: 'https://wos.example/1',
+  wosUrl: 'https://www.webofscience.com/wos/author/record/1',
   wosCitationCount: 10,
   scopusUrl: null,
   scopusCitationCount: null,

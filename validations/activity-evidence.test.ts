@@ -21,7 +21,8 @@ function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknow
         out[f.name] = Math.max(f.min ?? 0, 1);
         break;
       case 'url':
-        out[f.name] = 'https://example.com/proof';
+        // Host-restricted fields need a link on that service, not a placeholder
+        out[f.name] = f.hosts ? `https://www.${f.hosts[0]}/record` : 'https://example.com/proof';
         break;
       case 'date':
         out[f.name] = '2026-06-15';
@@ -127,7 +128,11 @@ describe('schema validation behavior', () => {
 
   it('rejects an option outside the list', () => {
     const schema = evidenceSchemaFor('publication_cat_a');
-    const ok = { option: 'q1', bibliography: 'Опис', link: 'https://doi.org/10.1/x' };
+    const ok = {
+      option: 'q1',
+      bibliography: 'Опис',
+      link: 'https://www.scopus.com/record/display.uri?eid=2-s2.0-1',
+    };
     expect(schema.safeParse(ok).success).toBe(true);
     expect(schema.safeParse({ ...ok, option: 'q5' }).success).toBe(false);
   });
@@ -212,17 +217,21 @@ describe('schema validation behavior', () => {
     expect(schema.safeParse({ ...base, doi: 'немає' }).success).toBe(false);
   });
 
-  it('keeps the Scopus/WoS link a plain URL — the form asks for it, not for a DOI', () => {
+  it('accepts a Scopus or WoS link but refuses any other site', () => {
     const schema = evidenceSchemaFor('publication_cat_a');
     const base = { option: 'q1', bibliography: 'Опис' };
+    const ok = (link: string) => schema.safeParse({ ...base, link }).success;
 
-    // A Scopus link with no DOI to hand must still submit
-    expect(
-      schema.safeParse({ ...base, link: 'https://www.scopus.com/record/display.uri?eid=2-s2.0-1' })
-        .success
-    ).toBe(true);
-    // …and the DOI is optional alongside it
-    expect(schema.safeParse({ ...base, link: 'https://example.com/p' }).success).toBe(true);
+    // A Scopus link with no DOI to hand must still submit — the DOI is optional
+    expect(ok('https://www.scopus.com/record/display.uri?eid=2-s2.0-1')).toBe(true);
+    expect(ok('https://www.webofscience.com/wos/woscc/full-record/WOS:000123')).toBe(true);
+    expect(ok('http://apps.webofknowledge.com/full_record.do?x=1')).toBe(true);
+    expect(ok('www.scopus.com/record/display.uri?eid=1')).toBe(true); // pasted without protocol
+
+    // The point: a valid URL is no longer enough
+    expect(ok('https://example.com/paper.pdf')).toBe(false);
+    expect(ok('https://drive.google.com/file/d/abc')).toBe(false);
+    expect(ok('https://doi.org/10.1038/abc')).toBe(false); // the DOI has its own field
   });
 
   it('mustBeTrue checkbox requires confirmation', () => {

@@ -1,3 +1,5 @@
+import { SCOPUS_OR_WOS_HOSTS } from '@/lib/link-hosts';
+
 // Evidence field specs — the single source for BOTH the Zod schemas
 // (validations/activity-evidence.ts) and the generic evidence form (M2).
 // Ukrainian strings here are field labels rendered by form components
@@ -20,7 +22,16 @@ export type EvidenceField =
       int?: boolean;
       optional?: boolean;
     }
-  | { kind: 'url'; name: string; label: string; optional?: boolean }
+  // `hosts` narrows a URL to a service (see lib/link-hosts.ts); without it any
+  // valid URL is accepted, which is right for open links like a video lecture
+  | {
+      kind: 'url';
+      name: string;
+      label: string;
+      optional?: boolean;
+      hosts?: readonly string[];
+      hostsError?: string;
+    }
   | { kind: 'date'; name: string; label: string; optional?: boolean }
   // Check-digit validated; see lib/isbn.ts for what that does and does not prove
   | { kind: 'isbn'; name: string; label: string; optional?: boolean }
@@ -46,7 +57,11 @@ const number = (
   opts?: { min?: number; int?: boolean; optional?: boolean }
 ): EvidenceField => ({ kind: 'number', name, label, ...opts });
 
-const url = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
+const url = (
+  name: string,
+  label: string,
+  opts?: { optional?: boolean; hosts?: readonly string[]; hostsError?: string }
+): EvidenceField => ({
   kind: 'url',
   name,
   label,
@@ -303,10 +318,14 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       opt('q3_4_or_none', 'Квартиль Q3-4 / відсутній'),
     ]),
     text('bibliography', 'Бібліографічний опис', { multiline: true }),
-    // The form asks for «посилання Scopus або WOS», so `link` stays a plain URL
-    // and must keep accepting them. The DOI sits beside it, optional — it is
-    // what the future Crossref/OpenAlex checker will query.
-    url('link', 'Посилання Scopus / WoS'),
+    // The form asks for «посилання Scopus або WOS», so this stays a link rather
+    // than becoming a DOI field — but it must actually BE one of those two.
+    // The DOI sits beside it, optional; it is what the future
+    // Crossref/OpenAlex checker will query.
+    url('link', 'Посилання Scopus / WoS', {
+      hosts: SCOPUS_OR_WOS_HOSTS,
+      hostsError: 'Очікується посилання на Scopus або Web of Science',
+    }),
     doi('doi', 'DOI', { optional: true }),
   ],
   publication_cat_b: [
