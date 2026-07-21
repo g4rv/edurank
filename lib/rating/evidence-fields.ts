@@ -22,6 +22,8 @@ export type EvidenceField =
     }
   | { kind: 'url'; name: string; label: string; optional?: boolean }
   | { kind: 'date'; name: string; label: string; optional?: boolean }
+  // Check-digit validated; see lib/isbn.ts for what that does and does not prove
+  | { kind: 'isbn'; name: string; label: string; optional?: boolean }
   | { kind: 'checkbox'; name: string; label: string; mustBeTrue?: boolean }
   | {
       kind: 'select';
@@ -51,6 +53,13 @@ const url = (name: string, label: string, opts?: { optional?: boolean }): Eviden
 
 const date = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
   kind: 'date',
+  name,
+  label,
+  ...opts,
+});
+
+const isbn = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
+  kind: 'isbn',
   name,
   label,
   ...opts,
@@ -266,11 +275,16 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   monograph_ua: [
     number('pages', 'Кількість сторінок', { min: 1, int: true }),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
-    text('bibliography', 'Бібліографічний опис (обов’язково ISBN)', { multiline: true }),
+    // Required: the 2026 form marks this item «обов'язково ISBN»
+    isbn('isbn', 'ISBN'),
+    text('bibliography', 'Бібліографічний опис', { multiline: true }),
   ],
   monograph_eu: [
     number('pages', 'Кількість сторінок', { min: 1, int: true }),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
+    // Optional: the form does not demand it here, so a missing ISBN must not
+    // block a genuine submission — but it is still checked when filled in
+    isbn('isbn', 'ISBN', { optional: true }),
     text('bibliography', 'Бібліографічний опис', { multiline: true }),
   ],
   publication_cat_a: [

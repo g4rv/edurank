@@ -26,6 +26,9 @@ function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknow
       case 'date':
         out[f.name] = '2026-06-15';
         break;
+      case 'isbn':
+        out[f.name] = '978-3-16-148410-0';
+        break;
       case 'checkbox':
         out[f.name] = true;
         break;
@@ -156,9 +159,37 @@ describe('schema validation behavior', () => {
 
   it('coerces numeric strings from form inputs', () => {
     const schema = evidenceSchemaFor('monograph_ua');
-    const parsed = schema.parse({ pages: '120', coAuthors: '2', bibliography: 'Опис. ISBN 978…' });
+    const parsed = schema.parse({
+      pages: '120',
+      coAuthors: '2',
+      isbn: '978-3-16-148410-0',
+      bibliography: 'Опис',
+    });
     expect(parsed).toMatchObject({ pages: 120, coAuthors: 2 });
     expect(computeScore('monograph_ua', parsed, 200)).toEqual({ computedValue: 2.5, score: 500 });
+  });
+
+  it('rejects an ISBN whose check digit does not match', () => {
+    const schema = evidenceSchemaFor('monograph_ua');
+    const base = { pages: 120, coAuthors: 2, bibliography: 'Опис' };
+
+    expect(schema.safeParse({ ...base, isbn: '978-3-16-148410-0' }).success).toBe(true);
+    expect(schema.safeParse({ ...base, isbn: '9783161484100' }).success).toBe(true);
+    expect(schema.safeParse({ ...base, isbn: '0-8044-2957-X' }).success).toBe(true);
+
+    expect(schema.safeParse({ ...base, isbn: '978-3-16-148410-1' }).success).toBe(false);
+    expect(schema.safeParse({ ...base, isbn: 'немає' }).success).toBe(false);
+    expect(schema.safeParse(base).success).toBe(false); // required on monograph_ua
+  });
+
+  it('leaves the ISBN optional on monograph_eu but still checks it when filled', () => {
+    const schema = evidenceSchemaFor('monograph_eu');
+    const base = { pages: 200, coAuthors: 1, bibliography: 'Beschreibung' };
+
+    expect(schema.safeParse(base).success).toBe(true);
+    expect(schema.safeParse({ ...base, isbn: '' }).success).toBe(true);
+    expect(schema.safeParse({ ...base, isbn: '978-3-16-148410-0' }).success).toBe(true);
+    expect(schema.safeParse({ ...base, isbn: '978-3-16-148410-1' }).success).toBe(false);
   });
 
   it('mustBeTrue checkbox requires confirmation', () => {

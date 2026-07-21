@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { isValidIsbn } from '@/lib/isbn';
 
 // Builds one Zod schema per activity type from its evidence field specs.
 // Shared client (RHF resolver) + server (submit action) — single source of truth.
@@ -42,6 +43,15 @@ function fieldSchema(f: EvidenceField): z.ZodType {
         },
         { error: `Рік має бути в межах ${MIN_EVIDENCE_YEAR}–${maxYear}` }
       );
+      return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
+    }
+    case 'isbn': {
+      // Stored as typed — publishers hyphenate differently, and the check
+      // ignores separators anyway
+      const base = z
+        .string({ error: "Обов'язкове поле" })
+        .trim()
+        .refine(isValidIsbn, { error: 'Некоректний ISBN — перевірте контрольну цифру' });
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'checkbox': {

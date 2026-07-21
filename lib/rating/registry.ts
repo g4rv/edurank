@@ -44,6 +44,9 @@ export function summarizeEvidence(code: string, evidence: unknown): string {
       case 'number':
         parts.push(`${f.label}: ${v}`);
         break;
+      case 'isbn':
+        parts.push(`ISBN ${v}`);
+        break;
       case 'text':
       case 'url':
       case 'date':

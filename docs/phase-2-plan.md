@@ -406,6 +406,10 @@ Resolved 2026-07-09:
       built-in). Admin UI: field-builder dialog in `/admin/rating/[year]` (field type, label,
       select options with points). Excel export already reads the DB template; only item numbers
       and select sub-rows must switch to the same JSON specs (~0.5 day inside this). ~1 week.
+      **Field-kind vocabulary to carry over:** `text` (+multiline) / `number` (+min, int) /
+      `url` / `date` / `checkbox` (+mustBeTrue) / `select` (+options) / `isbn`. The last one is
+      validated in code (`lib/isbn.ts` check digit) rather than by a JSON parameter, so the
+      builder should offer it as a picked kind, not something an admin can define.
 - [ ] **Bulk profile-edit grid** _(user, 2026-07-17 — next feature now that profile-derived is
       shipped)_: spreadsheet-style page — rows = НПП, columns = the Staff fields the editor's
       division has DivisionFieldPermission for (кадри: посада, кафедра, стаж…), inline/popover
