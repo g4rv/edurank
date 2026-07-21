@@ -1,5 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { buildRatingWorkbook, type ExportActivityType } from './export-workbook';
+import { buildRatingWorkbook, ratingFileNames, type ExportActivityType } from './export-workbook';
+
+describe('ratingFileNames', () => {
+  it('keeps a plain name as-is', () => {
+    expect(ratingFileNames(['Коваленко Іван Петрович'])).toEqual(['Коваленко Іван Петрович.xlsx']);
+  });
+
+  // Two people really can share a ПІБ — without a suffix the zip keeps only one
+  it('suffixes repeats instead of overwriting them', () => {
+    expect(
+      ratingFileNames([
+        'Шевченко Тарас Григорович',
+        'Мельник Ольга Ігорівна',
+        'Шевченко Тарас Григорович',
+      ])
+    ).toEqual([
+      'Шевченко Тарас Григорович.xlsx',
+      'Мельник Ольга Ігорівна.xlsx',
+      'Шевченко Тарас Григорович (2).xlsx',
+    ]);
+  });
+
+  it('numbers a third namesake separately', () => {
+    const names = ratingFileNames(Array(3).fill('Бондаренко Марія Олексіївна'));
+    expect(new Set(names).size).toBe(3);
+    expect(names[2]).toBe('Бондаренко Марія Олексіївна (3).xlsx');
+  });
+
+  it('replaces characters Windows forbids', () => {
+    expect(ratingFileNames(['Іванов/Петров Іван*Ігорович'])).toEqual([
+      'Іванов Петров Іван Ігорович.xlsx',
+    ]);
+  });
+
+  it('falls back to a placeholder for an empty name', () => {
+    expect(ratingFileNames(['   '])).toEqual(['Без імені.xlsx']);
+  });
+
+  it('returns one name per input, in order', () => {
+    expect(ratingFileNames(['В', 'Б', 'А'])).toEqual(['В.xlsx', 'Б.xlsx', 'А.xlsx']);
+  });
+});
 
 const types: ExportActivityType[] = [
   {

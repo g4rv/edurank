@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { RATING_DIVISIONS, type RatingDivisionKey } from '@/lib/rating/activity-types';
 import {
   buildRatingWorkbook,
+  ratingFileNames,
   type ExportActivityType,
   type ExportStaffData,
 } from '@/lib/rating/export-workbook';
@@ -92,22 +93,22 @@ export async function GET(request: Request) {
     activitiesByStaff.set(a.staffId, list);
   }
 
+  const fullNames = staffList.map((s) => `${s.lastName} ${s.firstName} ${s.patronymic}`);
+  // Namesakes must not overwrite each other inside the archive
+  const fileNames = ratingFileNames(fullNames);
+
   const zip = new JSZip();
-  for (const staff of staffList) {
-    const fullName = `${staff.lastName} ${staff.firstName} ${staff.patronymic}`;
+  for (const [i, staff] of staffList.entries()) {
     const wb = buildRatingWorkbook(
       {
-        fullName,
+        fullName: fullNames[i],
         department: staff.department?.name ?? '',
         year: template.year,
         activities: activitiesByStaff.get(staff.id) ?? [],
       },
       exportTypes
     );
-    const buffer = await wb.xlsx.writeBuffer();
-    // Windows-forbidden filename characters → space
-    const safeName = fullName.replace(/[\\/:*?"<>|]/g, ' ').trim();
-    zip.file(`${safeName}.xlsx`, buffer);
+    zip.file(fileNames[i], await wb.xlsx.writeBuffer());
   }
 
   const archive = await zip.generateAsync({ type: 'uint8array' });
