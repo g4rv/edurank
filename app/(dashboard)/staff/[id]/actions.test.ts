@@ -9,7 +9,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
-    staff: { findUnique: vi.fn(), update: vi.fn() },
+    staff: { findUnique: vi.fn(), update: vi.fn(), count: vi.fn() },
     divisionEntityPermission: { findFirst: vi.fn() },
     divisionFieldPermission: { findMany: vi.fn() },
     $transaction: vi.fn(),
@@ -39,6 +39,7 @@ const mockStaffFind = db.staff.findUnique as unknown as Mock;
 const mockEntityPerm = db.divisionEntityPermission.findFirst as unknown as Mock;
 const mockFieldPerms = db.divisionFieldPermission.findMany as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
+const mockStaffCount = db.staff.count as unknown as Mock;
 const mockSendMail = sendMail as unknown as Mock;
 
 // Payload an attacker could send: touches confidential + non-granted fields
@@ -198,6 +199,38 @@ describe('deleteStaff authorization', () => {
     expect(tx.staff.delete).toHaveBeenCalledWith({ where: { id: 'staff-1' } });
     expect(tx.auditLog.create).toHaveBeenCalled();
   });
+
+  // Deleting the only admin who can actually log in leaves nobody able to
+  // grant the role back — recoverable only by hand in the database
+  it('refuses to delete the last admin who can still log in', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffFind.mockResolvedValue({ role: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(0); // no other activated admin
+    expect(await deleteStaff('admin-last')).toEqual({
+      error: 'Це єдиний активний адміністратор — спочатку призначте іншого',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('allows deleting an admin while another activated admin remains', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffFind.mockResolvedValue({ role: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(1);
+    const tx = mockTx();
+    tx.staff.findUnique.mockResolvedValue(null);
+    expect(await deleteStaff('admin-2')).toEqual({ redirectTo: '/staff' });
+    expect(tx.staff.delete).toHaveBeenCalled();
+  });
+
+  it('counts only activated admins — an un-invited one cannot take over', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffFind.mockResolvedValue({ role: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(0);
+    await deleteStaff('admin-last');
+    expect(mockStaffCount).toHaveBeenCalledWith({
+      where: { id: { not: 'admin-last' }, role: 'ADMIN', passwordHash: { not: null } },
+    });
+  });
 });
 
 // ─── Account actions ─────────────────────────────────────────────────────────
@@ -260,6 +293,19 @@ describe('resetPassword', () => {
     expect(tx.auditLog.create).toHaveBeenCalled();
     expect(mockSendMail).toHaveBeenCalled();
   });
+
+  // Clearing the hash first would leave them with no password AND no link
+  it('keeps the old password when the mail cannot be sent', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockStaffFind.mockResolvedValue(person);
+    mockSendMail.mockRejectedValueOnce(new Error('SMTP down'));
+    const tx = mockTx();
+
+    expect(await resetPassword('staff-1')).toEqual({
+      error: 'Не вдалося надіслати лист. Пароль не скинуто',
+    });
+    expect(tx.staff.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('setPasswordManually', () => {
@@ -311,6 +357,40 @@ describe('changeRole', () => {
       error: 'Не можна змінити власну роль',
     });
     expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses to demote the last admin who can still log in', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockStaffFind.mockResolvedValue({ ...person, role: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(0);
+    expect(await changeRole('staff-1', { role: 'EDITOR' })).toEqual({
+      error: 'Це єдиний активний адміністратор — спочатку призначте іншого',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('allows demoting an admin while another activated admin remains', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockStaffFind.mockResolvedValue({ ...person, role: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(1);
+    const tx = mockTx();
+    expect(await changeRole('staff-1', { role: 'EDITOR' })).toEqual({
+      success: true,
+      message: 'Роль змінено',
+    });
+    expect(tx.staff.update).toHaveBeenCalled();
+  });
+
+  it('promoting to ADMIN is never blocked by the guard', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockStaffFind.mockResolvedValue({ ...person, role: 'USER' });
+    mockStaffCount.mockResolvedValue(0);
+    const tx = mockTx();
+    expect(await changeRole('staff-1', { role: 'ADMIN' })).toEqual({
+      success: true,
+      message: 'Роль змінено',
+    });
+    expect(tx.staff.update).toHaveBeenCalled();
   });
 
   it('updates the role, bumps tokenVersion and audits the change', async () => {

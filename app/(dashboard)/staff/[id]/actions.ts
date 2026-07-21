@@ -23,6 +23,7 @@ import {
   hasEntityPermission,
   requireAdmin,
   isEditorWritableField,
+  isLastActiveAdmin,
   USER_EDITABLE_STAFF_FIELDS,
 } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
@@ -36,6 +37,10 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
 
   if (!(await canManageEntity(session.user, 'STAFF', 'DELETE')))
     return { error: 'Недостатньо прав' };
+
+  if (await isLastActiveAdmin(id)) {
+    return { error: 'Це єдиний активний адміністратор — спочатку призначте іншого' };
+  }
 
   let dbError: string | null = null;
 
@@ -271,6 +276,15 @@ export async function resetPassword(id: string): Promise<AccountActionState> {
   });
   if (!staff) return { error: 'Запис не знайдено' };
 
+  // Mail first, deactivate second: the reset clears the password, so doing it
+  // before a failed send would leave the person with neither a working
+  // password nor a link — and for a lone admin, no way back in at all.
+  try {
+    await issueAndEmailLink(staff, 'reset');
+  } catch {
+    return { error: 'Не вдалося надіслати лист. Пароль не скинуто' };
+  }
+
   await db.$transaction(async (tx) => {
     await tx.staff.update({
       where: { id },
@@ -287,12 +301,6 @@ export async function resetPassword(id: string): Promise<AccountActionState> {
       },
     });
   });
-
-  try {
-    await issueAndEmailLink(staff, 'reset');
-  } catch {
-    return { error: 'Пароль скинуто, але лист не надіслано. Перевірте налаштування пошти' };
-  }
 
   revalidatePath(`/staff/${id}`);
   return { success: true, message: 'Пароль скинуто, лист надіслано' };
@@ -365,6 +373,10 @@ export async function changeRole(id: string, data: ChangeRoleSchema): Promise<Ac
   });
   if (!staff) return { error: 'Запис не знайдено' };
   if (staff.role === parsed.data.role) return { success: true };
+
+  if (parsed.data.role !== 'ADMIN' && (await isLastActiveAdmin(id))) {
+    return { error: 'Це єдиний активний адміністратор — спочатку призначте іншого' };
+  }
 
   await db.$transaction(async (tx) => {
     await tx.staff.update({

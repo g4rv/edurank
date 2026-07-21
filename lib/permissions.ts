@@ -53,6 +53,22 @@ export const USER_EDITABLE_STAFF_FIELDS: ReadonlySet<string> = new Set([
   'orcidId',
 ]);
 
+/**
+ * True when demoting or deleting this person would leave nobody able to sign
+ * in as ADMIN. Only activated accounts count: an admin who never set a
+ * password cannot log in, and only another admin could invite them — so
+ * "one inactive admin remains" is still a locked-out university.
+ */
+export async function isLastActiveAdmin(staffId: string): Promise<boolean> {
+  const staff = await db.staff.findUnique({ where: { id: staffId }, select: { role: true } });
+  if (staff?.role !== 'ADMIN') return false;
+
+  const otherAdmins = await db.staff.count({
+    where: { id: { not: staffId }, role: 'ADMIN', passwordHash: { not: null } },
+  });
+  return otherAdmins === 0;
+}
+
 export async function getEditorDivisionId(
   staffId: string | null | undefined
 ): Promise<string | null> {
