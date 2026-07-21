@@ -124,6 +124,12 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
     }
   }
 
+  // An editor whose division holds no usable field grants would otherwise get
+  // an empty UPDATE, an empty audit row, and a «Збережено» for nothing saved
+  if (Object.keys(updateData).length === 0) {
+    return { error: 'Немає полів, доступних для редагування' };
+  }
+
   let dbError: string | null = null;
 
   try {
@@ -189,6 +195,11 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
           });
         }
       }
+
+      // Re-saving a form without touching anything should not leave a log entry
+      // that lists no change. ADMIN still always gets one: they may have edited
+      // the part-time departments, which the field diff does not cover.
+      if (Object.keys(changes).length === 0 && !isAdmin) return;
 
       await tx.auditLog.create({
         data: {

@@ -141,6 +141,33 @@ describe('updateStaff field filtering', () => {
     expect(writtenFields(tx)).toEqual(['academicRank']);
   });
 
+  // Without this the editor gets an empty UPDATE and a «Збережено» toast
+  it('tells an EDITOR whose division has no usable grants that nothing is editable', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue([]);
+
+    expect(await updateStaff('staff-1', fullPayload)).toEqual({
+      error: 'Немає полів, доступних для редагування',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('writes no audit row when an editor saves without changing anything', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'academicRank' }]);
+    const tx = mockTx();
+    // Stored value already equals what the form submits
+    tx.staff.findUnique.mockResolvedValue({ academicRank: fullPayload.academicRank });
+
+    expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
+    expect(tx.staff.update).toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it('USER edits own profile: only the whitelisted contact/profile fields', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
     const tx = mockTx();
