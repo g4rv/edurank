@@ -37,8 +37,10 @@ const FIELD_GROUPS = [
     ],
   },
   {
+    // divisionId is deliberately absent — assigning a division grants editor
+    // powers, so it stays ADMIN-only (PERMISSION_SCOPING_STAFF_FIELDS)
     label: 'Організаційне',
-    fields: ['departmentId', 'divisionId'],
+    fields: ['departmentId'],
   },
 ] as const;
 

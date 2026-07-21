@@ -23,6 +23,27 @@ export const AUTH_STAFF_FIELDS: ReadonlySet<string> = new Set([
   'tokenVersion',
 ]);
 
+/**
+ * A person's division decides which permissions their EDITOR role carries, so
+ * an editor who could write it would escalate at will — grant the field to
+ * кадри and any of their editors could move themselves into ННВ and pick up
+ * rating moderation. ADMIN only, for the same reason Division CRUD is.
+ */
+export const PERMISSION_SCOPING_STAFF_FIELDS: ReadonlySet<string> = new Set(['divisionId']);
+
+/**
+ * May an EDITOR write this Staff field at all? Applied on top of the
+ * division's grants, so a stale or hand-inserted DivisionFieldPermission row
+ * still cannot reach a confidential, account, or permission-scoping column.
+ */
+export function isEditorWritableField(fieldName: string): boolean {
+  return (
+    !CONFIDENTIAL_STAFF_FIELDS.has(fieldName) &&
+    !AUTH_STAFF_FIELDS.has(fieldName) &&
+    !PERMISSION_SCOPING_STAFF_FIELDS.has(fieldName)
+  );
+}
+
 /** Staff fields a USER may edit on their own profile */
 export const USER_EDITABLE_STAFF_FIELDS: ReadonlySet<string> = new Set([
   'phone',

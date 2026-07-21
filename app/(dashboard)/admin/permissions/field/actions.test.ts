@@ -42,6 +42,15 @@ describe('setFieldPermission', () => {
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 
+  // Granting divisionId would let any editor of that division move themselves
+  // into ННВ and pick up rating moderation
+  it('never grants divisionId — it decides the editor’s own permission scope', async () => {
+    expect(await setFieldPermission('div-1', 'divisionId', true)).toEqual({
+      error: 'Невідоме поле',
+    });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
   it('rejects a field name outside the whitelist', async () => {
     expect(await setFieldPermission('div-1', 'passwordHash', true)).toEqual({
       error: 'Невідоме поле',

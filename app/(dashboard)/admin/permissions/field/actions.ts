@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
-import { requireAdmin, AUTH_STAFF_FIELDS, CONFIDENTIAL_STAFF_FIELDS } from '@/lib/permissions';
+import { requireAdmin, isEditorWritableField } from '@/lib/permissions';
 
 export type PermissionToggleState = { error: string } | null;
 
@@ -28,7 +28,8 @@ const ALLOWED_FIELD_NAMES = new Set([
   'googleScholarCitationCount',
   'orcidId',
   'departmentId',
-  'divisionId',
+  // NOT divisionId — it decides an editor's own permission scope, see
+  // PERMISSION_SCOPING_STAFF_FIELDS. Admin assigns divisions on the staff form.
 ]);
 
 export async function setFieldPermission(
@@ -38,9 +39,9 @@ export async function setFieldPermission(
 ): Promise<PermissionToggleState> {
   const session = await requireAdmin();
   if (!session) return { error: 'Недостатньо прав' };
-  // Confidential and auth fields are not grantable, period — even if the whitelist drifts
-  if (CONFIDENTIAL_STAFF_FIELDS.has(fieldName)) return { error: 'Невідоме поле' };
-  if (AUTH_STAFF_FIELDS.has(fieldName)) return { error: 'Невідоме поле' };
+  // Confidential, auth and scoping fields are not grantable, period — even if
+  // the whitelist below ever drifts
+  if (!isEditorWritableField(fieldName)) return { error: 'Невідоме поле' };
   if (!ALLOWED_FIELD_NAMES.has(fieldName)) return { error: 'Невідоме поле' };
 
   try {

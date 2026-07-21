@@ -127,6 +127,19 @@ describe('updateStaff field filtering', () => {
     expect(writtenFields(tx).sort()).toEqual(['academicRank', 'pedagogicalExperience']);
   });
 
+  // Division decides an editor's permission scope, so writing it is escalation:
+  // grant it once and any editor could move themselves into ННВ.
+  it('EDITOR never writes divisionId, even if the grant row exists', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'academicRank' }, { fieldName: 'divisionId' }]);
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
+    expect(writtenFields(tx)).toEqual(['academicRank']);
+  });
+
   it('USER edits own profile: only the whitelisted contact/profile fields', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
     const tx = mockTx();

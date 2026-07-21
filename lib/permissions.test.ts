@@ -20,7 +20,9 @@ import {
   canManageEntity,
   requireAdmin,
   getDivisionFieldGrants,
+  isEditorWritableField,
   CONFIDENTIAL_STAFF_FIELDS,
+  PERMISSION_SCOPING_STAFF_FIELDS,
 } from './permissions';
 
 const mockAuth = auth as unknown as Mock;
@@ -99,5 +101,26 @@ describe('getDivisionFieldGrants', () => {
 describe('CONFIDENTIAL_STAFF_FIELDS', () => {
   it('contains employmentRate', () => {
     expect(CONFIDENTIAL_STAFF_FIELDS.has('employmentRate')).toBe(true);
+  });
+});
+
+describe('isEditorWritableField', () => {
+  it('allows ordinary staff fields', () => {
+    for (const field of ['academicRank', 'phone', 'departmentId', 'pedagogicalExperience']) {
+      expect(isEditorWritableField(field)).toBe(true);
+    }
+  });
+
+  // Writing divisionId rewrites the writer's own permission scope: an editor
+  // granted it could move themselves into ННВ and gain rating moderation.
+  it('blocks divisionId — an editor could otherwise escalate themselves', () => {
+    expect(PERMISSION_SCOPING_STAFF_FIELDS.has('divisionId')).toBe(true);
+    expect(isEditorWritableField('divisionId')).toBe(false);
+  });
+
+  it('blocks confidential and account columns', () => {
+    for (const field of ['employmentRate', 'passwordHash', 'role', 'tokenVersion']) {
+      expect(isEditorWritableField(field)).toBe(false);
+    }
   });
 });

@@ -22,7 +22,7 @@ import {
   getDivisionFieldGrants,
   hasEntityPermission,
   requireAdmin,
-  CONFIDENTIAL_STAFF_FIELDS,
+  isEditorWritableField,
   USER_EDITABLE_STAFF_FIELDS,
 } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
@@ -111,7 +111,7 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
 
     const allowed = await getDivisionFieldGrants(divisionId);
     for (const [key, val] of Object.entries(fields)) {
-      if (allowed.has(key) && !CONFIDENTIAL_STAFF_FIELDS.has(key)) updateData[key] = val;
+      if (allowed.has(key) && isEditorWritableField(key)) updateData[key] = val;
     }
   } else {
     for (const [key, val] of Object.entries(fields)) {

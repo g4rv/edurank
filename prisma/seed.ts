@@ -189,13 +189,15 @@ async function main() {
 
   // ─── Division permissions (ННВ) ───────────────────────────────────────────
 
-  // Field permissions — which Staff fields ННВ editors can edit
+  // Field permissions — which Staff fields ННВ editors can edit.
+  // Deliberately excludes employmentRate (confidential) and divisionId (decides
+  // editor scope): both are ADMIN-only and setFieldPermission refuses to grant
+  // them, so seeding a row here would only create an inert, confusing grant.
   const nnvFields = [
     'academicRank',
     'scientificDegree',
     'degreeMatchesDepartment',
     'pedagogicalExperience',
-    'employmentRate',
     'wosUrl',
     'wosCitationCount',
     'scopusUrl',
