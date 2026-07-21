@@ -45,7 +45,7 @@ export function LoginForm() {
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="email@university.edu.ua"
+                placeholder="email@example.com"
                 disabled={isPending}
                 {...register('email')}
               />
