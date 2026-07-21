@@ -24,7 +24,9 @@ export default async function StaffPage({
 }) {
   const params = await searchParams;
   const session = await auth();
-  const role = session?.user.role;
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
 
@@ -79,7 +81,7 @@ export default async function StaffPage({
 
   let canCreate = isAdmin;
   if (!canCreate && role === 'EDITOR') {
-    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'STAFF');
+    const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'STAFF');
     canCreate = perms.canCreate;
   }
 

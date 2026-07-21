@@ -11,15 +11,16 @@ import { StaffEditForm } from '@/components/staff/edit-form';
 export default async function StaffEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
+  if (!session) redirect('/login');
 
-  const role = session?.user.role;
+  const role = session.user.role;
   const isAdmin = role === 'ADMIN';
   const isEditor = role === 'EDITOR';
 
   if (!isAdmin && !isEditor) redirect(`/staff/${id}`);
 
   if (isEditor) {
-    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'STAFF');
+    const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'STAFF');
     if (!perms.canUpdate) redirect(`/staff/${id}`);
   }
 

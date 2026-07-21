@@ -16,7 +16,9 @@ export default async function DivisionsPage({
 }) {
   const { dir } = await searchParams;
   const session = await auth();
-  const role = session?.user.role;
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
 

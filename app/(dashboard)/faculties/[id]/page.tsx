@@ -18,7 +18,9 @@ function fullName(p: { lastName: string; firstName: string; patronymic: string }
 export default async function FacultyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  const role = session?.user.role;
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
 
@@ -56,7 +58,7 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
   let canDelete = isAdmin;
 
   if (!isAdmin && role === 'EDITOR') {
-    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'FACULTY');
+    const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'FACULTY');
     canEdit = perms.canUpdate;
     canDelete = perms.canDelete;
   }

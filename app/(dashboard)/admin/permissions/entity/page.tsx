@@ -26,7 +26,8 @@ export default async function EntityPermissionsPage({
   searchParams: Promise<{ division?: string }>;
 }) {
   const session = await auth();
-  if (session?.user.role !== 'ADMIN') redirect('/');
+  if (!session) redirect('/login');
+  if (session.user.role !== 'ADMIN') redirect('/');
 
   const divisions = await db.division.findMany({ orderBy: { name: 'asc' } });
   const { division: divisionParam } = await searchParams;

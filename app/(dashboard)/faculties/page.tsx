@@ -22,7 +22,9 @@ export default async function FacultiesPage({
 }) {
   const { dir } = await searchParams;
   const session = await auth();
-  const role = session?.user.role;
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
 
@@ -35,7 +37,7 @@ export default async function FacultiesPage({
   let canDelete = isAdmin;
 
   if (!isAdmin && role === 'EDITOR') {
-    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'FACULTY');
+    const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'FACULTY');
     canCreate = perms.canCreate;
     canEdit = perms.canUpdate;
     canDelete = perms.canDelete;

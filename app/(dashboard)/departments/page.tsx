@@ -25,7 +25,9 @@ export default async function DepartmentsPage({
 }) {
   const { sort, dir } = await searchParams;
   const session = await auth();
-  const role = session?.user.role;
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
 
@@ -55,7 +57,7 @@ export default async function DepartmentsPage({
   let canDelete = isAdmin;
 
   if (!isAdmin && role === 'EDITOR') {
-    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'DEPARTMENT');
+    const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'DEPARTMENT');
     canCreate = perms.canCreate;
     canEdit = perms.canUpdate;
     canDelete = perms.canDelete;

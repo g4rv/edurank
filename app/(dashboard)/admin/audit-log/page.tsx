@@ -93,7 +93,8 @@ export default async function AuditLogPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const session = await auth();
-  if (session?.user.role !== 'ADMIN') redirect('/');
+  if (!session) redirect('/login');
+  if (session.user.role !== 'ADMIN') redirect('/');
 
   const {
     action,

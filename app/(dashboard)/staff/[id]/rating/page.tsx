@@ -14,8 +14,9 @@ import { StaffTabs } from '@/components/staff/staff-tabs';
 export default async function StaffRatingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
+  if (!session) redirect('/login');
 
-  if (session?.user.role === 'USER') redirect('/achievements');
+  if (session.user.role === 'USER') redirect('/achievements');
 
   const staff = await db.staff.findUnique({
     where: { id },

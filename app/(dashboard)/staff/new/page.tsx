@@ -14,14 +14,16 @@ export default async function StaffNewPage() {
     listDivisions(),
   ]);
 
-  const role = session?.user.role;
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
   const isAdmin = role === 'ADMIN';
 
   if (!isAdmin) {
     if (role !== 'EDITOR') redirect('/staff');
 
     const editorStaff = await db.staff.findUnique({
-      where: { id: session?.user.staffId ?? '' },
+      where: { id: session.user.staffId ?? '' },
       select: { divisionId: true },
     });
 

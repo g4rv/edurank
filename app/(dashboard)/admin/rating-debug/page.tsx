@@ -6,7 +6,8 @@ import { RatingDebugPlayground } from '@/components/rating/debug-playground';
 // ADMIN-only; carries no data-changing actions.
 export default async function RatingDebugPage() {
   const session = await auth();
-  if (session?.user.role !== 'ADMIN') redirect('/');
+  if (!session) redirect('/login');
+  if (session.user.role !== 'ADMIN') redirect('/');
 
   return (
     <div className="space-y-6">

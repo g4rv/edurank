@@ -34,7 +34,9 @@ function InfoCard({ title, children }: { title: string; children: React.ReactNod
 export default async function DivisionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  const role = session?.user.role;
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
 

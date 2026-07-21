@@ -8,7 +8,9 @@ import { createDepartment } from '@/app/(dashboard)/departments/actions';
 
 export default async function NewDepartmentPage() {
   const session = await auth();
-  const role = session?.user.role;
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
 
@@ -18,7 +20,7 @@ export default async function NewDepartmentPage() {
     if (role !== 'EDITOR') redirect('/departments');
 
     const editorStaff = await db.staff.findUnique({
-      where: { id: session?.user.staffId ?? '' },
+      where: { id: session.user.staffId ?? '' },
       select: { divisionId: true },
     });
     if (editorStaff?.divisionId) {

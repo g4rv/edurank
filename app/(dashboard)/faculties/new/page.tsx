@@ -8,7 +8,9 @@ import { createFaculty } from '@/app/(dashboard)/faculties/actions';
 
 export default async function NewFacultyPage() {
   const session = await auth();
-  const role = session?.user.role;
+  if (!session) redirect('/login');
+
+  const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
 
@@ -18,7 +20,7 @@ export default async function NewFacultyPage() {
     if (role !== 'EDITOR') redirect('/faculties');
 
     const editorStaff = await db.staff.findUnique({
-      where: { id: session?.user.staffId ?? '' },
+      where: { id: session.user.staffId ?? '' },
       select: { divisionId: true },
     });
     if (editorStaff?.divisionId) {

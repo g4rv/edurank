@@ -88,13 +88,14 @@ function ProfileLink({
 export default async function StaffDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
+  if (!session) redirect('/login');
 
-  const role = session?.user.role;
+  const role = session.user.role;
   if (role === 'USER') redirect('/profile');
 
   const isAdmin = role === 'ADMIN';
   const isEditor = role === 'EDITOR';
-  const showConfidential = isAdmin || session?.user.staffId === id;
+  const showConfidential = isAdmin || session.user.staffId === id;
 
   const staff = await getStaff(id, showConfidential);
 
@@ -105,7 +106,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   let canEdit = isAdmin;
   let canDelete = isAdmin;
   if (isEditor) {
-    const perms = await getEditorEntityPermissions(session?.user.staffId ?? '', 'STAFF');
+    const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'STAFF');
     canEdit = perms.canUpdate;
     canDelete = perms.canDelete;
   }
@@ -244,7 +245,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         {/* Right — account, roles and work places */}
         <div className="flex flex-1 flex-col gap-4">
           {account && (
-            <AccountCard staffId={id} account={account} isSelf={session?.user.id === id} />
+            <AccountCard staffId={id} account={account} isSelf={session.user.id === id} />
           )}
 
           {(staff.headOfDepartment || staff.deanOfFaculty) && (

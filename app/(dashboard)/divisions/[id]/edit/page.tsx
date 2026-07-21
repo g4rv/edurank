@@ -9,8 +9,9 @@ import { updateDivision } from '@/app/(dashboard)/divisions/actions';
 export default async function EditDivisionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
+  if (!session) redirect('/login');
 
-  if (session?.user.role !== 'ADMIN') redirect('/divisions');
+  if (session.user.role !== 'ADMIN') redirect('/divisions');
 
   const division = await db.division.findUnique({
     where: { id },
