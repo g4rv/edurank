@@ -1,10 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/db', () => ({
-  db: { staff: { findMany: vi.fn() }, $transaction: vi.fn() },
+  db: {
+    staff: { findMany: vi.fn() },
+    activity: { findMany: vi.fn() },
+    ratingTemplate: { findFirst: vi.fn() },
+    $transaction: vi.fn(),
+  },
 }));
 
+import { db } from '@/lib/db';
 import {
+  backfillProfileDerived,
   derivedEvidence,
   syncProfileDerived,
   PROFILE_DERIVED_CODES,
@@ -121,16 +128,21 @@ function makeTx(opts: {
     },
     staff: { findUnique: vi.fn().mockResolvedValue(opts.staff ?? null) },
     activity: {
-      // sync queries by activityTypeId; recompute queries by staffId+year only
-      findMany: vi.fn(({ where }: { where: { activityTypeId?: string } }) => {
-        if (!where.activityTypeId) return Promise.resolve([]);
-        const code = where.activityTypeId.replace('type-', '');
-        const rows = opts.existing?.[code] ?? [];
-        return Promise.resolve(rows.map((r) => ({ submittedByRole: 'SYSTEM', ...r })));
+      // sync asks for all derived types at once; recompute queries by staffId+year only
+      findMany: vi.fn(({ where }: { where: { activityTypeId?: { in: string[] } } }) => {
+        const typeIds = where.activityTypeId?.in;
+        if (!typeIds) return Promise.resolve([]);
+        const rows = typeIds.flatMap((typeId) =>
+          (opts.existing?.[typeId.replace('type-', '')] ?? []).map((r) => ({
+            submittedByRole: 'SYSTEM',
+            activityTypeId: typeId,
+            ...r,
+          }))
+        );
+        return Promise.resolve(rows);
       }),
-      create: vi.fn().mockResolvedValue({}),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn().mockResolvedValue({}),
-      delete: vi.fn().mockResolvedValue({}),
       deleteMany: vi.fn().mockResolvedValue({}),
     },
     ratingEntry: { upsert: vi.fn().mockResolvedValue({}) },
@@ -158,9 +170,9 @@ describe('syncProfileDerived', () => {
     });
     await syncProfileDerived(tx as never, 'staff-1');
 
-    expect(tx.activity.create).toHaveBeenCalledTimes(1);
-    const created = tx.activity.create.mock.calls[0][0].data;
-    expect(created).toMatchObject({
+    const created = tx.activity.createMany.mock.calls[0][0].data;
+    expect(created).toHaveLength(1);
+    expect(created[0]).toMatchObject({
       activityTypeId: 'type-academic_rank',
       year: 2026,
       status: 'APPROVED',
@@ -180,7 +192,7 @@ describe('syncProfileDerived', () => {
       },
     });
     await syncProfileDerived(tx as never, 'staff-1');
-    expect(tx.activity.create).not.toHaveBeenCalled();
+    expect(tx.activity.createMany).not.toHaveBeenCalled();
     expect(tx.activity.update).toHaveBeenCalledWith({
       where: { id: 'act-1' },
       data: {
@@ -214,7 +226,7 @@ describe('syncProfileDerived', () => {
       },
     });
     await syncProfileDerived(tx as never, 'staff-1');
-    expect(tx.activity.delete).toHaveBeenCalledWith({ where: { id: 'act-2' } });
+    expect(tx.activity.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['act-2'] } } });
     expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
   });
 
@@ -234,7 +246,7 @@ describe('syncProfileDerived', () => {
     expect(tx.activity.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: ['act-farm-1', 'act-farm-2'] } },
     });
-    expect(tx.activity.create).not.toHaveBeenCalled();
+    expect(tx.activity.createMany).not.toHaveBeenCalled();
     expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
   });
 
@@ -247,7 +259,167 @@ describe('syncProfileDerived', () => {
       },
     });
     await syncProfileDerived(tx as never, 'staff-1');
-    expect(tx.activity.delete).toHaveBeenCalledWith({ where: { id: 'act-3' } });
-    expect(tx.activity.create).not.toHaveBeenCalled();
+    expect(tx.activity.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['act-3'] } } });
+    expect(tx.activity.createMany).not.toHaveBeenCalled();
+  });
+
+  it('reads every derived type in one query, not one per type', async () => {
+    const tx = makeTx({
+      template: {
+        year: 2026,
+        activityTypes: [derivedType('academic_rank'), derivedType('admin_position')],
+      },
+      staff: { ...emptyStaff },
+    });
+    await syncProfileDerived(tx as never, 'staff-1');
+
+    expect(tx.activity.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.activity.findMany.mock.calls[0][0].where.activityTypeId).toEqual({
+      in: ['type-academic_rank', 'type-admin_position'],
+    });
+  });
+
+  it('writes nothing at all when the profile already matches', async () => {
+    const tx = makeTx({
+      template: { year: 2026, activityTypes: [derivedType('academic_rank')] },
+      staff: { ...emptyStaff, academicRank: 'PROFESSOR' },
+      existing: {
+        academic_rank: [{ id: 'act-1', evidence: { option: 'professor' }, score: 50 }],
+      },
+    });
+    await syncProfileDerived(tx as never, 'staff-1');
+
+    expect(tx.activity.deleteMany).not.toHaveBeenCalled();
+    expect(tx.activity.update).not.toHaveBeenCalled();
+    expect(tx.activity.createMany).not.toHaveBeenCalled();
+    expect(tx.ratingEntry.upsert).not.toHaveBeenCalled();
+  });
+});
+
+// ── backfillProfileDerived: one batched sweep, not a transaction per person ──
+
+describe('backfillProfileDerived', () => {
+  const mockTemplateFirst = db.ratingTemplate.findFirst as unknown as ReturnType<typeof vi.fn>;
+  const mockStaffMany = db.staff.findMany as unknown as ReturnType<typeof vi.fn>;
+  const mockActivityMany = db.activity.findMany as unknown as ReturnType<typeof vi.fn>;
+  const mockTransaction = db.$transaction as unknown as ReturnType<typeof vi.fn>;
+
+  function txSpy() {
+    const tx = {
+      activity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+        update: vi.fn().mockResolvedValue({}),
+        deleteMany: vi.fn().mockResolvedValue({}),
+      },
+      ratingEntry: { upsert: vi.fn().mockResolvedValue({}) },
+    };
+    mockTransaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));
+    return tx;
+  }
+
+  it('does nothing without an active open template', async () => {
+    mockTemplateFirst.mockResolvedValue(null);
+    expect(await backfillProfileDerived()).toBe(0);
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('reads the whole picture in a fixed number of queries', async () => {
+    mockTemplateFirst.mockResolvedValue({
+      year: 2026,
+      activityTypes: [derivedType('academic_rank'), derivedType('admin_position')],
+    });
+    mockStaffMany.mockResolvedValue(
+      Array.from({ length: 50 }, (_, i) => ({
+        id: `staff-${i}`,
+        ...emptyStaff,
+        academicRank: 'DOCENT',
+      }))
+    );
+    mockActivityMany.mockResolvedValue([]);
+    txSpy();
+
+    expect(await backfillProfileDerived()).toBe(50);
+    // 50 staff, still one read each of template / staff / activities — and ONE transaction
+    expect(mockTemplateFirst).toHaveBeenCalledTimes(1);
+    expect(mockStaffMany).toHaveBeenCalledTimes(1);
+    expect(mockActivityMany).toHaveBeenCalledTimes(1);
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates every missing row in a single createMany', async () => {
+    mockTemplateFirst.mockResolvedValue({
+      year: 2026,
+      activityTypes: [derivedType('academic_rank')],
+    });
+    mockStaffMany.mockResolvedValue([
+      { id: 'staff-1', ...emptyStaff, academicRank: 'PROFESSOR' },
+      { id: 'staff-2', ...emptyStaff, academicRank: 'DOCENT' },
+    ]);
+    mockActivityMany.mockResolvedValue([]);
+    const tx = txSpy();
+
+    expect(await backfillProfileDerived()).toBe(2);
+    expect(tx.activity.createMany).toHaveBeenCalledTimes(1);
+    const created = tx.activity.createMany.mock.calls[0][0].data;
+    expect(created).toHaveLength(2);
+    expect(created.map((c: { score: number }) => c.score)).toEqual([50, 30]);
+  });
+
+  it('skips staff whose derived rows already match', async () => {
+    mockTemplateFirst.mockResolvedValue({
+      year: 2026,
+      activityTypes: [derivedType('academic_rank')],
+    });
+    mockStaffMany.mockResolvedValue([
+      { id: 'staff-1', ...emptyStaff, academicRank: 'PROFESSOR' },
+      { id: 'staff-2', ...emptyStaff, academicRank: 'DOCENT' },
+    ]);
+    // staff-1 is already correct; staff-2 has nothing yet
+    mockActivityMany.mockResolvedValue([
+      {
+        id: 'act-1',
+        staffId: 'staff-1',
+        activityTypeId: 'type-academic_rank',
+        evidence: { option: 'professor' },
+        score: 50,
+        submittedByRole: 'SYSTEM',
+      },
+    ]);
+    const tx = txSpy();
+
+    expect(await backfillProfileDerived()).toBe(1);
+    const created = tx.activity.createMany.mock.calls[0][0].data;
+    expect(created).toHaveLength(1);
+    expect(created[0].staffId).toBe('staff-2');
+  });
+
+  it('recomputes only the staff it actually changed', async () => {
+    mockTemplateFirst.mockResolvedValue({
+      year: 2026,
+      activityTypes: [derivedType('academic_rank')],
+    });
+    mockStaffMany.mockResolvedValue([
+      { id: 'staff-1', ...emptyStaff, academicRank: 'PROFESSOR' },
+      { id: 'staff-untouched', ...emptyStaff },
+    ]);
+    mockActivityMany.mockResolvedValue([]);
+    const tx = txSpy();
+
+    await backfillProfileDerived();
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.ratingEntry.upsert.mock.calls[0][0].where.staffId_year.staffId).toBe('staff-1');
+  });
+
+  it('opens no transaction when nothing needs changing', async () => {
+    mockTemplateFirst.mockResolvedValue({
+      year: 2026,
+      activityTypes: [derivedType('academic_rank')],
+    });
+    mockStaffMany.mockResolvedValue([{ id: 'staff-1', ...emptyStaff }]);
+    mockActivityMany.mockResolvedValue([]);
+
+    expect(await backfillProfileDerived()).toBe(0);
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });

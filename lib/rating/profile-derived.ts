@@ -6,7 +6,7 @@ import type {
 } from '@/lib/generated/prisma/client';
 import { db } from '@/lib/db';
 import { computeScore } from '@/lib/rating/scoring';
-import { recomputeRatingEntry } from '@/lib/rating/recompute';
+import { recomputeRatingEntries, recomputeRatingEntry } from '@/lib/rating/recompute';
 import {
   PROFILE_DERIVED_CODES,
   type ProfileDerivedCode,
@@ -117,18 +117,119 @@ export function derivedEvidence(
   }
 }
 
+interface DerivedType {
+  id: string;
+  code: string;
+  coefficient: number;
+}
+
+interface ExistingRow {
+  id: string;
+  evidence: unknown;
+  score: number;
+  submittedByRole: string;
+}
+
+interface SyncPlan {
+  deleteIds: string[];
+  updates: { id: string; evidence: Prisma.InputJsonValue; computedValue: number; score: number }[];
+  creates: Prisma.ActivityCreateManyInput[];
+}
+
+function planIsEmpty(plan: SyncPlan): boolean {
+  return plan.deleteIds.length === 0 && plan.updates.length === 0 && plan.creates.length === 0;
+}
+
 /**
- * Syncs one staff member's profile-derived activities in the active OPEN year.
- * Exactly one APPROVED row per derived type: created/updated when the profile field
- * has a value, hard-deleted when it is empty or the staff is not (or no longer) НПП.
- * Recomputes the rating entry when anything changed. No-op when there is no active
- * open template. Closed years are never touched (their snapshot is authoritative).
+ * Pure diff for ONE staff member: what has to change so that each derived type
+ * has exactly one APPROVED SYSTEM row matching the profile. Shared by the
+ * single-staff sync and the full backfill so the two can never drift apart.
+ *
+ * `rowsByType` must be ordered oldest-first — the oldest row is kept and
+ * adopted, any others (pre-reclassification manual entries, farmed duplicates)
+ * are purged.
  */
-export async function syncProfileDerived(
-  tx: Prisma.TransactionClient,
-  staffId: string
-): Promise<void> {
-  const template = await tx.ratingTemplate.findFirst({
+export function planProfileDerived(
+  staff: DerivedStaff,
+  staffId: string,
+  types: DerivedType[],
+  rowsByType: Map<string, ExistingRow[]>,
+  year: number
+): SyncPlan {
+  const plan: SyncPlan = { deleteIds: [], updates: [], creates: [] };
+
+  for (const type of types) {
+    const [existing, ...extras] = rowsByType.get(type.id) ?? [];
+    plan.deleteIds.push(...extras.map((r) => r.id));
+
+    const evidence = staff.isNpp ? derivedEvidence(type.code as ProfileDerivedCode, staff) : null;
+
+    if (!evidence) {
+      if (existing) plan.deleteIds.push(existing.id);
+      continue;
+    }
+
+    const { computedValue, score } = computeScore(type.code, evidence, type.coefficient);
+
+    if (!existing) {
+      plan.creates.push({
+        staffId,
+        activityTypeId: type.id,
+        year,
+        evidence: evidence as Prisma.InputJsonValue,
+        computedValue,
+        score,
+        status: 'APPROVED',
+        submittedByRole: 'SYSTEM',
+        approvedAt: new Date(),
+      });
+      continue;
+    }
+
+    const unchanged =
+      existing.score === score &&
+      existing.submittedByRole === 'SYSTEM' &&
+      JSON.stringify(existing.evidence) === JSON.stringify(evidence);
+    if (unchanged) continue;
+
+    plan.updates.push({
+      id: existing.id,
+      evidence: evidence as Prisma.InputJsonValue,
+      computedValue,
+      score,
+    });
+  }
+
+  return plan;
+}
+
+/** Writes a plan out. Updates also adopt pre-reclassification rows as system-synced. */
+async function applyPlan(tx: Prisma.TransactionClient, plan: SyncPlan): Promise<void> {
+  if (plan.deleteIds.length > 0) {
+    await tx.activity.deleteMany({ where: { id: { in: plan.deleteIds } } });
+  }
+  for (const row of plan.updates) {
+    await tx.activity.update({
+      where: { id: row.id },
+      data: {
+        evidence: row.evidence,
+        computedValue: row.computedValue,
+        score: row.score,
+        status: 'APPROVED',
+        submittedByRole: 'SYSTEM',
+      },
+    });
+  }
+  if (plan.creates.length > 0) {
+    await tx.activity.createMany({ data: plan.creates });
+  }
+}
+
+/** The derived types of the active OPEN year, or null when there is nothing to sync */
+async function activeDerivedTypes(
+  client: Pick<Prisma.TransactionClient, 'ratingTemplate'>
+): Promise<{ year: number; types: DerivedType[] } | null> {
+  const template = await client.ratingTemplate.findFirst({
     where: { isActive: true, status: 'OPEN' },
     select: {
       year: true,
@@ -142,7 +243,23 @@ export async function syncProfileDerived(
       },
     },
   });
-  if (!template || template.activityTypes.length === 0) return;
+  if (!template || template.activityTypes.length === 0) return null;
+  return { year: template.year, types: template.activityTypes };
+}
+
+/**
+ * Syncs one staff member's profile-derived activities in the active OPEN year.
+ * Exactly one APPROVED row per derived type: created/updated when the profile field
+ * has a value, hard-deleted when it is empty or the staff is not (or no longer) НПП.
+ * Recomputes the rating entry when anything changed. No-op when there is no active
+ * open template. Closed years are never touched (their snapshot is authoritative).
+ */
+export async function syncProfileDerived(
+  tx: Prisma.TransactionClient,
+  staffId: string
+): Promise<void> {
+  const active = await activeDerivedTypes(tx);
+  if (!active) return;
 
   const staff = await tx.staff.findUnique({
     where: { id: staffId },
@@ -150,80 +267,99 @@ export async function syncProfileDerived(
   });
   if (!staff) return;
 
-  let changed = false;
+  const rows = await tx.activity.findMany({
+    where: {
+      staffId,
+      activityTypeId: { in: active.types.map((t) => t.id) },
+      status: { not: 'REMOVED' },
+    },
+    select: { id: true, activityTypeId: true, evidence: true, score: true, submittedByRole: true },
+    orderBy: { createdAt: 'asc' },
+  });
 
-  for (const type of template.activityTypes) {
-    // All non-removed rows of this type: the first becomes the synced row, any
-    // extras (pre-reclassification manual entries, farmed duplicates) are purged.
-    const rows = await tx.activity.findMany({
-      where: { staffId, activityTypeId: type.id, status: { not: 'REMOVED' } },
-      select: { id: true, evidence: true, score: true, submittedByRole: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    const [existing, ...extras] = rows;
-    if (extras.length > 0) {
-      await tx.activity.deleteMany({ where: { id: { in: extras.map((r) => r.id) } } });
-      changed = true;
-    }
-
-    const evidence = staff.isNpp ? derivedEvidence(type.code as ProfileDerivedCode, staff) : null;
-
-    if (!evidence) {
-      if (existing) {
-        await tx.activity.delete({ where: { id: existing.id } });
-        changed = true;
-      }
-      continue;
-    }
-
-    const { computedValue, score } = computeScore(type.code, evidence, type.coefficient);
-
-    if (existing) {
-      const same =
-        existing.score === score &&
-        existing.submittedByRole === 'SYSTEM' &&
-        JSON.stringify(existing.evidence) === JSON.stringify(evidence);
-      if (same) continue;
-      await tx.activity.update({
-        where: { id: existing.id },
-        data: {
-          evidence: evidence as Prisma.InputJsonValue,
-          computedValue,
-          score,
-          // Adopt pre-reclassification manual rows as system-synced ones
-          status: 'APPROVED',
-          submittedByRole: 'SYSTEM',
-        },
-      });
-    } else {
-      await tx.activity.create({
-        data: {
-          staffId,
-          activityTypeId: type.id,
-          year: template.year,
-          evidence: evidence as Prisma.InputJsonValue,
-          computedValue,
-          score,
-          status: 'APPROVED',
-          submittedByRole: 'SYSTEM',
-          approvedAt: new Date(),
-        },
-      });
-    }
-    changed = true;
+  const rowsByType = new Map<string, ExistingRow[]>();
+  for (const row of rows) {
+    const list = rowsByType.get(row.activityTypeId) ?? [];
+    list.push(row);
+    rowsByType.set(row.activityTypeId, list);
   }
 
-  if (changed) await recomputeRatingEntry(tx, staffId, template.year);
+  const plan = planProfileDerived(staff, staffId, active.types, rowsByType, active.year);
+  if (planIsEmpty(plan)) return;
+
+  await applyPlan(tx, plan);
+  await recomputeRatingEntry(tx, staffId, active.year);
 }
 
 /**
  * Backfills profile-derived activities for every staff member — used when a year is
  * opened, reopened, activated, or when derived types are (re)introduced to a template.
- * One transaction per staff so a 300-person sweep never hits transaction timeouts.
+ *
+ * Reads the whole picture in four queries and writes one batched plan, instead of a
+ * transaction per person: an admin triggers this from a server action and waits for
+ * it, so ~300 staff × a query per derived type is not an acceptable page load.
+ *
+ * Returns how many staff actually changed.
  */
-export async function backfillProfileDerived(): Promise<void> {
-  const staffIds = await db.staff.findMany({ select: { id: true } });
-  for (const { id } of staffIds) {
-    await db.$transaction((tx) => syncProfileDerived(tx, id));
+export async function backfillProfileDerived(): Promise<number> {
+  const active = await activeDerivedTypes(db);
+  if (!active) return 0;
+
+  const typeIds = active.types.map((t) => t.id);
+  const [staffList, rows] = await Promise.all([
+    db.staff.findMany({ select: { id: true, ...DERIVED_STAFF_SELECT } }),
+    db.activity.findMany({
+      where: { activityTypeId: { in: typeIds }, status: { not: 'REMOVED' } },
+      select: {
+        id: true,
+        staffId: true,
+        activityTypeId: true,
+        evidence: true,
+        score: true,
+        submittedByRole: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    }),
+  ]);
+
+  const rowsByStaff = new Map<string, Map<string, ExistingRow[]>>();
+  for (const row of rows) {
+    const byType = rowsByStaff.get(row.staffId) ?? new Map<string, ExistingRow[]>();
+    const list = byType.get(row.activityTypeId) ?? [];
+    list.push(row);
+    byType.set(row.activityTypeId, list);
+    rowsByStaff.set(row.staffId, byType);
   }
+
+  const combined: SyncPlan = { deleteIds: [], updates: [], creates: [] };
+  const changedStaffIds: string[] = [];
+
+  for (const staff of staffList) {
+    const plan = planProfileDerived(
+      staff,
+      staff.id,
+      active.types,
+      rowsByStaff.get(staff.id) ?? new Map(),
+      active.year
+    );
+    if (planIsEmpty(plan)) continue;
+
+    combined.deleteIds.push(...plan.deleteIds);
+    combined.updates.push(...plan.updates);
+    combined.creates.push(...plan.creates);
+    changedStaffIds.push(staff.id);
+  }
+
+  if (changedStaffIds.length === 0) return 0;
+
+  await db.$transaction(
+    async (tx) => {
+      await applyPlan(tx, combined);
+      await recomputeRatingEntries(tx, changedStaffIds, active.year);
+    },
+    // First run after activation touches every НПП at once
+    { timeout: 120_000 }
+  );
+
+  return changedStaffIds.length;
 }

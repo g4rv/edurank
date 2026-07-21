@@ -9,11 +9,16 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
-    ratingTemplate: { findUnique: vi.fn(), findMany: vi.fn() },
+    ratingTemplate: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      // backfillProfileDerived: no active open template → sweep is a no-op
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
     activityType: { findUnique: vi.fn() },
     division: { findUnique: vi.fn() },
-    // backfillProfileDerived sweep → no staff, no work
     staff: { findMany: vi.fn().mockResolvedValue([]) },
+    activity: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn(),
   },
 }));

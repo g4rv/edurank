@@ -164,10 +164,14 @@ export async function activateTemplate(year: number): Promise<RatingAdminState> 
   }
 
   // The newly active year must reflect current profiles (стаж, звання, посада…)
-  await backfillProfileDerived();
+  const synced = await backfillProfileDerived();
 
   revalidateRating();
-  return { success: true, message: `Рік ${year} активовано` };
+  return {
+    success: true,
+    message:
+      synced > 0 ? `Рік ${year} активовано. Заповнено: ${synced} НПП` : `Рік ${year} активовано`,
+  };
 }
 
 // ─── Activity types ──────────────────────────────────────────────────────────
@@ -484,8 +488,14 @@ export async function reopenYear(year: number): Promise<RatingAdminState> {
   }
 
   // Profiles may have changed while the year was closed — bring derived rows up to date
-  await backfillProfileDerived();
+  const synced = await backfillProfileDerived();
 
   revalidateRating();
-  return { success: true, message: `Рік ${year} знову відкрито` };
+  return {
+    success: true,
+    message:
+      synced > 0
+        ? `Рік ${year} знову відкрито. Оновлено: ${synced} НПП`
+        : `Рік ${year} знову відкрито`,
+  };
 }
