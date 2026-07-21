@@ -149,7 +149,7 @@ function planIsEmpty(plan: SyncPlan): boolean {
  * adopted, any others (pre-reclassification manual entries, farmed duplicates)
  * are purged.
  */
-export function planProfileDerived(
+function planProfileDerived(
   staff: DerivedStaff,
   staffId: string,
   types: DerivedType[],

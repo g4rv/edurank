@@ -37,7 +37,3 @@ export async function findStaffByActivationToken(token: string) {
   if (!record || record.expiresAt < new Date()) return null;
   return record.staff;
 }
-
-export async function consumeActivationToken(staffId: string): Promise<void> {
-  await db.activationToken.deleteMany({ where: { staffId } });
-}

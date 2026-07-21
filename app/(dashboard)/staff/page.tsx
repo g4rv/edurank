@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
-import { listStaff } from '@/lib/queries/list-staff';
+import { listStaff, STAFF_SORT_FIELDS, type StaffSortField } from '@/lib/queries/list-staff';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
@@ -10,9 +10,6 @@ import { SortTh } from '@/components/ui/sort-th';
 import { StaffFilters } from '@/components/staff/staff-filters';
 import { StaffTable } from '@/components/staff/staff-table';
 import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
-
-const VALID_SORTS = ['lastName', 'email', 'academicRank', 'department', 'employmentRate'] as const;
-type SortField = (typeof VALID_SORTS)[number];
 
 const VALID_RANKS = new Set<string>(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
 const VALID_DEGREES = new Set<string>(['CANDIDATE', 'DOCTOR']);
@@ -45,11 +42,11 @@ export default async function StaffPage({
           const picked = rolesParam.split(',').filter((r) => VALID_ROLES.has(r)) as Role[];
           return picked.length > 0 ? picked : undefined;
         })();
-  const sortField: SortField =
-    typeof sort === 'string' && (VALID_SORTS as readonly string[]).includes(sort)
-      ? (sort as SortField)
+  const sortField: StaffSortField =
+    typeof sort === 'string' && (STAFF_SORT_FIELDS as readonly string[]).includes(sort)
+      ? (sort as StaffSortField)
       : 'lastName';
-  const effectiveSortField: SortField =
+  const effectiveSortField: StaffSortField =
     sortField === 'employmentRate' && !isAdmin ? 'lastName' : sortField;
   const sortDir = dir === 'desc' ? 'desc' : 'asc';
 

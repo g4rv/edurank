@@ -1,8 +1,16 @@
 import { db } from '@/lib/db';
 import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
 
-const _VALID_SORTS = ['lastName', 'email', 'academicRank', 'department', 'employmentRate'] as const;
-type SortField = (typeof _VALID_SORTS)[number];
+/** Columns listStaff can order by — the query owns this list; pages validate against it */
+export const STAFF_SORT_FIELDS = [
+  'lastName',
+  'email',
+  'academicRank',
+  'department',
+  'employmentRate',
+] as const;
+
+export type StaffSortField = (typeof STAFF_SORT_FIELDS)[number];
 
 export type StaffFilters = {
   isNpp?: boolean;
@@ -10,7 +18,7 @@ export type StaffFilters = {
   roles?: Role[];
   // ADMIN list view: adds role + activation state (never the hash itself)
   includeAccount?: boolean;
-  sort?: SortField;
+  sort?: StaffSortField;
   dir?: 'asc' | 'desc';
   q?: string;
   facultyId?: string;

@@ -17,11 +17,7 @@ export const CONFIDENTIAL_STAFF_FIELDS: ReadonlySet<string> = new Set(['employme
  * Never grantable to divisions, never client-editable through updateStaff,
  * and passwordHash must never appear in a select that reaches UI.
  */
-export const AUTH_STAFF_FIELDS: ReadonlySet<string> = new Set([
-  'passwordHash',
-  'role',
-  'tokenVersion',
-]);
+const AUTH_STAFF_FIELDS: ReadonlySet<string> = new Set(['passwordHash', 'role', 'tokenVersion']);
 
 /**
  * A person's division decides which permissions their EDITOR role carries, so

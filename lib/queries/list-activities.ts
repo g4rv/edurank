@@ -35,17 +35,3 @@ export async function listStaffActivities(staffId: string, year: number, section
 }
 
 export type StaffActivity = Awaited<ReturnType<typeof listStaffActivities>>[number];
-
-/** Activities grouped by section number 1–5 (sections without entries are omitted) */
-export function groupActivitiesBySection(activities: StaffActivity[]) {
-  const groups = new Map<number, { title: string; activities: StaffActivity[] }>();
-  for (const activity of activities) {
-    const { number, title } = activity.activityType.section;
-    const group = groups.get(number) ?? { title, activities: [] };
-    group.activities.push(activity);
-    groups.set(number, group);
-  }
-  return [...groups.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([number, group]) => ({ number, ...group }));
-}

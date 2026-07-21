@@ -1,9 +1,4 @@
-import type {
-  ActivityStatus,
-  InputSource,
-  RatingYearStatus,
-  SubmittedByRole,
-} from '@/lib/generated/prisma/client';
+import type { ActivityStatus, InputSource, RatingYearStatus } from '@/lib/generated/prisma/client';
 import type { ActivityKind } from '@/lib/rating/activity-types';
 
 // «Зараховано», not «Підтверджено»: submissions are auto-approved, so this says
@@ -21,12 +16,6 @@ export const INPUT_SOURCE_LABELS: Record<InputSource, string> = {
   NPP_SUBMISSION: 'Подає НПП',
   DIVISION_MANAGED: 'Вносить відділ',
   PROFILE_DERIVED: 'Автоматично з профілю',
-};
-
-export const SUBMITTED_BY_ROLE_LABELS: Record<SubmittedByRole, string> = {
-  NPP: 'НПП',
-  DIVISION: 'Відділ',
-  SYSTEM: 'Автоматично з профілю',
 };
 
 export const RATING_YEAR_STATUS_LABELS: Record<RatingYearStatus, string> = {
