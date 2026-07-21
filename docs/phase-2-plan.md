@@ -350,7 +350,14 @@ Resolved 2026-07-09:
 
 ### Issue M9.4 — Smoke test pass
 
-- [ ] Full flow: submit → approve → direct-entry → rating → close year → PDF, as USER / EDITOR / ADMIN.
+- [x] Full flow: submit → discard → direct-entry → rating → close year → Excel export, as
+      USER / EDITOR / ADMIN. _(«PDF» in the original wording — M8 was dropped for the Excel
+      export.)_
+- **Closed 2026-07-21 as "good enough for now", not as an exhaustive pass.** The user exercised
+  the app through a day of UI work and found no further issues. Real testing happens when the
+  MVP is shown to the boss, so expect a second round of findings then — the two smoke-test
+  fixes on 2026-07-17 (date bounds `911c583`, non-НПП nav `0b36bb5`) came from exactly this kind
+  of hands-on use, not from the test suite.
 
 ---
 
@@ -424,19 +431,41 @@ Resolved 2026-07-09:
 
 ## Suggested order & rough sizing (solo)
 
-| Milestone                 | What you can demo         | Status / rough size                             |
-| ------------------------- | ------------------------- | ----------------------------------------------- |
-| M0                        | Seeded template in Studio | ✅ done 2026-07-02                              |
-| M1                        | Tested scoring            | ✅ done 2026-07-02                              |
-| M2                        | All evidence forms render | ✅ done 2026-07-02, reviewed 2026-07-06         |
-| M3                        | NPP submits               | ✅ done 2026-07-03                              |
-| M4                        | Discard & oversight       | ✅ done 2026-07-04                              |
-| M5                        | Division pages            | ✅ done 2026-07-14 (grid + entity-first)        |
-| M6                        | Rating tables             | ✅ done 2026-07-14                              |
-| **↑ core loop shippable** |                           | **✅ shipped**                                  |
-| M7                        | Year admin                | ✅ done 2026-07-15                              |
-| M8                        | PDF + graphs              | ⏸ deferred — Excel zip export shipped instead   |
-| M9                        | Verification + QA         | ✅ done 2026-07-16 (M9.4 smoke test still open) |
+| Milestone                 | What you can demo         | Status / rough size                            |
+| ------------------------- | ------------------------- | ---------------------------------------------- |
+| M0                        | Seeded template in Studio | ✅ done 2026-07-02                             |
+| M1                        | Tested scoring            | ✅ done 2026-07-02                             |
+| M2                        | All evidence forms render | ✅ done 2026-07-02, reviewed 2026-07-06        |
+| M3                        | NPP submits               | ✅ done 2026-07-03                             |
+| M4                        | Discard & oversight       | ✅ done 2026-07-04                             |
+| M5                        | Division pages            | ✅ done 2026-07-14 (grid + entity-first)       |
+| M6                        | Rating tables             | ✅ done 2026-07-14                             |
+| **↑ core loop shippable** |                           | **✅ shipped**                                 |
+| M7                        | Year admin                | ✅ done 2026-07-15                             |
+| M8                        | PDF + graphs              | ⏸ deferred — Excel zip export shipped instead  |
+| M9                        | Verification + QA         | ✅ done 2026-07-21 (M9.4 closed, see the note) |
 
 **Deadline: 2 months from 2026-07-06 (user, hard).** Core loop (M3–M6) first; M8 and M9.1 are the
 sacrifice candidates if time runs short.
+
+---
+
+## Phase 2 complete — 2026-07-21
+
+Every milestone is done except M8, dropped on purpose for the Excel export. Nothing in the
+milestone list is still open; everything below «Backlog» is a want, not a gap.
+
+**Next up, in the order that makes sense:**
+
+1. **Show the MVP to the boss.** This is the real test. Two of the three decisions still marked
+   "boss must confirm" — carry-over policy, and whether items beyond monographs need an ISBN —
+   only move once he has seen it.
+2. **Bulk profile-edit grid** — agreed as the next feature, and profile-derived sync means edits
+   land in the rating immediately.
+3. **Deployment prep and real-data import.** Note before importing: profile links are now
+   validated against the service they name, so any bad URL in the source spreadsheet blocks the
+   staff form until it is fixed.
+
+**Expect a second round of findings from the demo.** The suite is at 323 tests and catches
+logic, but both smoke-test fixes on 2026-07-17 (date bounds `911c583`, non-НПП nav `0b36bb5`)
+came from someone using the app, not from a test — as did every UI issue found on 2026-07-21.
