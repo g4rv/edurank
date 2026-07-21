@@ -56,7 +56,7 @@ Rules:
 - Tailwind CSS v4 — configured via CSS `@theme` directive, no `tailwind.config.js`
 - ESLint with `eslint-config-next`
 
-**Auth:** Email + password. No OAuth. NextAuth.js with Prisma adapter and credentials provider.
+**Auth:** Email + password, no OAuth. NextAuth v5 credentials provider with **JWT sessions — no database adapter**. The `jwt` callback in `lib/auth.ts` re-reads the Staff row on every call so role changes and the `tokenVersion` kill-switch (`forceLogout`) take effect immediately.
 
 **Scale:** ~300 staff, tens of editors, a couple of admins.
 
@@ -65,16 +65,16 @@ Rules:
 **Also installed:**
 
 - Prisma 7 — ORM + migrations (`prisma/schema.prisma` is source of truth)
-- PostgreSQL 16 — via Docker
-- NextAuth.js v5 beta — auth (not yet wired up)
-- Zod — schema validation
-- React Hook Form + @hookform/resolvers — form state
-- bcryptjs — password hashing
-- Docker Compose — postgres + adminer + backup service
+- PostgreSQL 16 — via Docker; Docker Compose runs postgres + adminer + backup
+- NextAuth v5 beta + bcryptjs — auth, wired up
+- Zod — schema validation; React Hook Form + @hookform/resolvers — form state
+- radix-ui + shadcn, lucide-react (icons), sonner (toasts), motion (animations),
+  next-themes, react-day-picker + date-fns
+- nodemailer — invite / password-reset mail (`lib/mail/`)
+- exceljs + jszip — the rating export at `/api/export/ratings`
+- Vitest — tests
 
-**Planned (not yet installed):**
-
-- Nothing blocking — all deps are in place
+No PDF or chart library is installed: M8 was dropped in favour of the Excel export.
 
 ## Commands
 
@@ -109,81 +109,97 @@ Prisma 7 differs significantly from earlier versions:
 
 ```
 app/
-  (auth)/                         ← unauthenticated routes
-    login/
+  (auth)/                         ← public routes; whitelist new ones in proxy.ts
+    login/                        ← page.tsx checks the session server-side, form in login-form.tsx
+    forgot-password/              ← self-service reset request
+    activate/[token]/             ← set password from an emailed link
     layout.tsx
   (dashboard)/                    ← all authenticated routes, shared dashboard shell
     admin/                        ← ADMIN-only pages
       permissions/
         field/                    ← configure DivisionFieldPermission per division
-          actions.ts
-          page.tsx
         entity/                   ← configure DivisionEntityPermission per division
-          actions.ts
-          page.tsx
-      users/                      ← manage user accounts
-        actions.ts
-        page.tsx
+      rating/                     ← rating years: activate / clone / close / reopen
+        [year]/                   ← per-section indicator editor
+      rating-debug/               ← service page: renders every evidence form (no nav link)
       audit-log/
-        page.tsx
     staff/                        ← ADMIN + EDITOR (НПП + non-НПП unified list)
       [id]/
-        actions.ts
-        page.tsx
-      actions.ts
-      page.tsx
-    faculties/
-      actions.ts
-      page.tsx
-    departments/
-      actions.ts
-      page.tsx
-    divisions/
-      [id]/                       ← division detail page (stats for editors of that division)
-        page.tsx
-      actions.ts
-      page.tsx
-    profile/                      ← USER only: own profile + achievement submission
-      actions.ts
-      page.tsx
-    layout.tsx                    ← shared dashboard shell (sidebar + header)
+        edit/
+        rating/                   ← the staff member's rating tab
+      new/
+    faculties/                    ← [id]/, [id]/edit/, new/
+    departments/                  ← same shape
+    divisions/                    ← same shape; create/delete is ADMIN-only
+    profile/                      ← own profile (personal data only)
+    achievements/                 ← USER: «Мій рейтинг» + submission forms
+      [section]/                  ← add an activity from section 1–5
+    moderation/                   ← ННВ + ADMIN: discard self-reports, verify publications
+    division-data/                ← EDITOR: their division's direct-entry grid
+    rating/                       ← ADMIN + EDITOR: university-wide rollup
+    actions.ts                    ← sign-out
+    layout.tsx                    ← dashboard shell (sidebar), redirects anonymous to /login
+  api/
+    auth/[...nextauth]/           ← NextAuth handler
+    export/ratings/               ← zip of per-staff Excel forms; /api is NOT covered by proxy.ts,
+                                    so this route does its own auth check
   globals.css
   layout.tsx                      ← root layout
-  page.tsx                        ← redirects to /dashboard
+  page.tsx                        ← redirects by role
 
 components/
-  ui/                         ← shadcn base components (Button, Input, etc.)
-  [feature]/                  ← feature-specific components (e.g. components/professor/)
+  ui/                             ← shadcn base components (Button, Input, etc.)
+  [feature]/                      ← admin/, staff/, rating/, faculty/, department/, division/
 
 lib/
-  db.ts                       ← Prisma client singleton
-  auth.ts                     ← NextAuth config
-  utils.ts                    ← cn() and other shared utilities (shadcn convention)
-  queries/                    ← read-only DB functions, one file per entity
+  db.ts                           ← Prisma client singleton
+  auth.ts                         ← NextAuth config (jwt callback re-reads Staff for role/tokenVersion)
+  audit.ts                        ← diffChanges
+  labels.ts                       ← FIELD_LABELS and enum label maps
+  permissions.ts                  ← role/field/entity guards shared by actions
+  activation.ts                   ← activation + reset tokens
+  utils.ts                        ← cn() and other shared utilities (shadcn convention)
+  mail/                           ← mailer + templates
+  queries/                        ← read-only DB functions, one file per entity
+  rating/                         ← scoring, recompute, registry, profile-derived, export
 
-validations/                  ← Zod schemas, one file per entity
+validations/                      ← Zod schemas, one file per entity
 
-types/
-  index.ts
-
-hooks/                        ← custom React hooks
+types/                            ← next-auth.d.ts (session shape)
 
 prisma/
   schema.prisma
   seed.ts
+
+proxy.ts                          ← optimistic cookie gate only (see «Next.js 16 notes»)
 ```
 
-## Phase 2 — Achievement & Rating system (not yet designed)
+Tests live next to the file they cover (`*.test.ts`), so `lib/` and `actions.ts` folders
+contain test files alongside the source. There is no `hooks/` directory yet — add one if a
+custom hook ever appears.
 
-Do not implement until source documents are provided. What we know so far:
+## Phase 2 — Achievement & Rating system (built)
 
-- Professors submit achievements (publications, conference participation, patents, grants, teaching innovations, etc.)
-- Each achievement type has a predefined scoring coefficient
-- Submissions go into a pending queue; the responsible division's editors validate them (approve / decline with reason)
-- Approved submissions add to the professor's rating for the current academic year
-- Which division validates which achievement types is configurable
-- Output: rating tables, graphs, PDF reports, publication verification
-- Documents and forms from the current system will be provided for analysis before any schema work begins
+Full design and milestone history: `docs/phase-2-plan.md`. The 2026 indicator catalogue:
+`docs/rating-2026-catalogue.md`. Read those before changing rating behaviour.
+
+How an indicator's value gets in is decided by `ActivityType.inputSource`:
+
+| Source             | Who enters it                          | Where                           |
+| ------------------ | -------------------------------------- | ------------------------------- |
+| `NPP_SUBMISSION`   | the НПП, for themselves                | `/achievements/[section]`       |
+| `DIVISION_MANAGED` | editors of `verifyingDivision`         | `/division-data`                |
+| `PROFILE_DERIVED`  | nobody — synced from the Staff profile | `lib/rating/profile-derived.ts` |
+
+Rules that are easy to get wrong:
+
+- **There is no approval queue.** Submissions are `APPROVED` on save and count immediately; `PENDING` is never written. Oversight is _post_-moderation: ННВ editors and ADMIN discard a wrong entry with a reason (`/moderation`). So «Зараховано» means "counts", not "someone checked it".
+- **«Перевірено» is a separate flag** (`Activity.verifiedAt`), manual, publications only, and it does **not** affect the score.
+- **Scores are frozen at save.** `Activity.score` is computed once; editing a coefficient later does not rewrite existing rows.
+- **A deactivated indicator scores nothing.** Only `APPROVED` rows of an `isActive` type count — see `COUNTED` in `lib/rating/recompute.ts`. Toggling `isActive` recomputes everyone holding it.
+- **`year` is always derived** from the type's template, never taken from client input.
+- **Closed years are read-only** and render from `RatingEntry.snapshot`. Appeals go through ADMIN `reopenYear` → fix → close again.
+- Adding an indicator means adding it in three places that must stay in step — `ACTIVITY_TYPES_2026`, `EVIDENCE_FIELDS`, and the evidence schema. `lib/rating/registry.test.ts` fails if they drift.
 
 ## Naming conventions
 
@@ -234,7 +250,14 @@ Feedback must appear as close to its cause as possible:
 
 This is Next.js 16 with React 19 — APIs and conventions differ from older versions. Before writing any routing, data-fetching, or caching code, check `node_modules/next/dist/docs/` for current behavior. Do not rely on pre-2025 Next.js knowledge.
 
-Route protection lives in `proxy.ts` (Next 16's rename of `middleware.ts`): everything except `/login`, `/forgot-password`, and `/activate/*` requires a session. **When adding any new public (unauthenticated) route, whitelist it there** — otherwise anonymous visitors get redirected to /login.
+`proxy.ts` (Next 16's rename of `middleware.ts`) is an **optimistic gate only**: it checks that a session cookie exists and nothing more. It deliberately does not call `auth()`, because it runs on every route including prefetched ones and `lib/auth.ts` re-reads the Staff row on each call — that cost a query per prefetched link. Next's own auth guide says the proxy "should not be your only line of defense".
+
+**The real check is per page and per action.** Every page starts with `if (!session) redirect('/login')` and every server action re-checks role and permissions. Keep doing both:
+
+- **New public (unauthenticated) route** → whitelist it in `proxy.ts`, otherwise visitors are bounced to `/login`.
+- **New authenticated page** → start it with the `auth()` + `if (!session)` guard. The proxy will not do it for you.
+- **New `/api` route** → the proxy matcher excludes `/api` entirely, so it must authenticate itself (see `app/api/export/ratings/route.ts`).
+- `/login` is intentionally not gated on the cookie — a stale cookie would ping-pong against the dashboard's own redirect. `app/(auth)/login/page.tsx` checks the verified session instead.
 
 ## Tailwind v4 notes
 
