@@ -86,48 +86,54 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
       ) : (
         <ul className="divide-y rounded-xl border bg-card">
           {filtered.map((row) => (
+            // Description first at full width, meta and actions on their own row
+            // below. Side by side, a long label pushed the actions down on some
+            // rows and not others, so no two rows looked alike.
             <li key={row.id} className="px-5 py-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">
-                    {row.staffName}
-                    {row.department && (
-                      <span className="ml-1.5 font-normal text-muted-foreground">
-                        · {row.department}
-                      </span>
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-sm">
-                    <span className="mr-1.5 text-muted-foreground">{row.itemNumber}</span>
-                    {row.label}
-                  </p>
-                  {row.summary && (
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.summary}</p>
+              <div>
+                <p className="text-sm font-medium">
+                  {row.staffName}
+                  {row.department && (
+                    <span className="ml-1.5 font-normal text-muted-foreground">
+                      · {row.department}
+                    </span>
                   )}
-                  {row.status === 'REMOVED' && row.removeReason && (
-                    <p className="mt-1 text-xs text-destructive">
-                      Причина відхилення: {row.removeReason}
-                    </p>
+                </p>
+                <p className="mt-0.5 text-sm">
+                  <span className="mr-1.5 text-muted-foreground">{row.itemNumber}</span>
+                  {row.label}
+                </p>
+                {row.summary && (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.summary}</p>
+                )}
+                {row.status === 'REMOVED' && row.removeReason && (
+                  <p className="mt-1 text-xs text-destructive">
+                    Причина відхилення: {row.removeReason}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">{row.date}</span>
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                    STATUS_STYLES[row.status]
                   )}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{row.date}</span>
-                  <span
-                    className={cn(
-                      'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                      STATUS_STYLES[row.status]
-                    )}
-                  >
-                    {row.statusLabel}
-                  </span>
-                  <span
-                    className={cn(
-                      'w-12 text-right text-sm font-semibold tabular-nums',
-                      row.status === 'REMOVED' && 'text-muted-foreground line-through'
-                    )}
-                  >
-                    {row.score}
-                  </span>
+                >
+                  {row.statusLabel}
+                </span>
+                <span
+                  className={cn(
+                    'text-sm font-semibold tabular-nums',
+                    row.status === 'REMOVED' && 'text-muted-foreground line-through'
+                  )}
+                >
+                  {row.score}
+                </span>
+
+                {/* Buttons keep to the right edge so their position never moves */}
+                <div className="ml-auto flex items-center gap-2">
                   {row.canVerify ? (
                     <VerifyActivityButton activityId={row.id} verified={row.verified} />
                   ) : (
