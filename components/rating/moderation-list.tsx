@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Eye, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -137,8 +137,11 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
                   {row.canVerify ? (
                     <VerifyActivityButton activityId={row.id} verified={row.verified} />
                   ) : (
+                    // Read-only view (closed year): state only, no toggle. Same
+                    // eye as the button so the two read as one thing.
                     row.verified && (
-                      <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+                        <Eye className="size-3.5" />
                         Перевірено
                       </span>
                     )

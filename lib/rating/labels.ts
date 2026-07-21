@@ -6,9 +6,14 @@ import type {
 } from '@/lib/generated/prisma/client';
 import type { ActivityKind } from '@/lib/rating/activity-types';
 
+// «Зараховано», not «Підтверджено»: submissions are auto-approved, so this says
+// nothing about anyone having looked at them — only that the points count. The
+// separate «Перевірено» flag is the one that means a human checked the item.
+// PENDING is never written (no queue — auto-approve plus post-moderation); the
+// label stays only because the enum value does.
 export const ACTIVITY_STATUS_LABELS: Record<ActivityStatus, string> = {
   PENDING: 'Очікує підтвердження',
-  APPROVED: 'Підтверджено',
+  APPROVED: 'Зараховано',
   REMOVED: 'Відхилено',
 };
 

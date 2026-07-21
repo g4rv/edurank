@@ -68,6 +68,10 @@ export function snapshotToGroups(snapshot: unknown): AchievementGroup[] | null {
     items: section.items
       .map((item) => ({
         ...item,
+        // Read the status word from the current constant rather than the one
+        // frozen into the snapshot: it is presentation, not data, so renaming it
+        // should apply to already-closed years too.
+        statusLabel: ACTIVITY_STATUS_LABELS[item.status] ?? item.statusLabel,
         removeReason: null,
         date: '',
         canDelete: false,

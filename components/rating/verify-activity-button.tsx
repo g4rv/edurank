@@ -3,11 +3,13 @@
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { BadgeCheck } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { setActivityVerified } from '@/app/(dashboard)/moderation/actions';
 import { Button } from '@/components/ui/button';
 
-// Quick reversible toggle — no confirm dialog needed (informational flag)
+// Quick reversible toggle — no confirm dialog needed (informational flag).
+// The label states what the flag IS, not what the click does; `title` carries
+// the action. Reads as an on/off switch rather than a one-way command.
 export function VerifyActivityButton({
   activityId,
   verified,
@@ -38,8 +40,8 @@ export function VerifyActivityButton({
       onClick={toggle}
       title={verified ? 'Зняти позначку «Перевірено»' : 'Позначити перевіреним у WoS/Scopus'}
     >
-      <BadgeCheck className="size-4" />
-      {verified ? 'Перевірено' : 'Перевірити'}
+      {verified ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+      {verified ? 'Перевірено' : 'Не перевірено'}
     </Button>
   );
 }
