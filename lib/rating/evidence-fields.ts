@@ -46,6 +46,12 @@ export type EvidenceField =
       label: string;
       mustBeTrue?: boolean;
       requiredError?: string;
+      /**
+       * Renders consecutive boxes sharing this title as one block, under a
+       * heading and above a single shared error. For a set that stands or falls
+       * together, repeating the same message per box is noise.
+       */
+      group?: string;
     }
   | {
       kind: 'select';
@@ -101,7 +107,7 @@ const doi = (name: string, label: string, opts?: { optional?: boolean }): Eviden
 const checkbox = (
   name: string,
   label: string,
-  opts?: { mustBeTrue?: boolean; requiredError?: string }
+  opts?: { mustBeTrue?: boolean; requiredError?: string; group?: string }
 ): EvidenceField => ({
   kind: 'checkbox',
   name,
@@ -476,8 +482,8 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   // ── Розділ 5 ────────────────────────────────────────────────────────────────
   // Item 5.1 is all-or-nothing: a course missing any of the six materials earns
   // nothing at all, so the submission is refused rather than saved as a
-  // zero-point row the НПП would have to wonder about later. Each box carries
-  // the reason, because the failure is about the set, not the single tick.
+  // zero-point row the НПП would have to wonder about later. The six are one
+  // group, so the reason is shown once beneath them rather than on each box.
   moodle_course: [
     select('mode', 'Вид роботи', [opt('development', 'Розроблення'), opt('update', 'Оновлення')]),
     text('discipline', 'Дисципліна (освітній компонент)'),
@@ -495,6 +501,7 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       checkbox(name, label, {
         mustBeTrue: true,
         requiredError: 'Бали нараховуються лише за наявності всіх шести матеріалів',
+        group: 'Матеріали курсу',
       })
     ),
   ],
