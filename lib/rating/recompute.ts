@@ -37,6 +37,16 @@ export function sumBySection(rows: SectionScoreRow[]): SectionTotals {
   };
 }
 
+/**
+ * Only APPROVED rows of a still-active indicator count. Deactivating an
+ * ActivityType (`isActive = false`) therefore drops its points out of every
+ * total immediately — the rows stay for history, but score nothing.
+ */
+const COUNTED = {
+  status: 'APPROVED',
+  activityType: { isActive: true },
+} satisfies Pick<Prisma.ActivityWhereInput, 'status' | 'activityType'>;
+
 /** Recomputes and upserts the RatingEntry for one staff/year from APPROVED activities */
 export async function recomputeRatingEntry(
   tx: Prisma.TransactionClient,
@@ -44,7 +54,7 @@ export async function recomputeRatingEntry(
   year: number
 ): Promise<SectionTotals> {
   const activities = await tx.activity.findMany({
-    where: { staffId, year, status: 'APPROVED' },
+    where: { staffId, year, ...COUNTED },
     select: { score: true, activityType: { select: { section: { select: { number: true } } } } },
   });
 
@@ -59,4 +69,44 @@ export async function recomputeRatingEntry(
   });
 
   return totals;
+}
+
+/**
+ * Same rollup for many staff at once: ONE read for all their activities, then
+ * one upsert each — instead of a read per person. Used after template-level
+ * edits (indicator deactivated, coefficient changed) that move many ratings.
+ */
+export async function recomputeRatingEntries(
+  tx: Prisma.TransactionClient,
+  staffIds: string[],
+  year: number
+): Promise<void> {
+  if (staffIds.length === 0) return;
+
+  const activities = await tx.activity.findMany({
+    where: { staffId: { in: staffIds }, year, ...COUNTED },
+    select: {
+      staffId: true,
+      score: true,
+      activityType: { select: { section: { select: { number: true } } } },
+    },
+  });
+
+  const rowsByStaff = new Map<string, SectionScoreRow[]>();
+  for (const a of activities) {
+    const rows = rowsByStaff.get(a.staffId) ?? [];
+    rows.push({ score: a.score, sectionNumber: a.activityType.section.number });
+    rowsByStaff.set(a.staffId, rows);
+  }
+
+  // Iterate staffIds, not the map: someone whose last counting row just went
+  // away has no activities left and still needs their entry zeroed.
+  for (const staffId of staffIds) {
+    const totals = sumBySection(rowsByStaff.get(staffId) ?? []);
+    await tx.ratingEntry.upsert({
+      where: { staffId_year: { staffId, year } },
+      create: { staffId, year, ...totals },
+      update: totals,
+    });
+  }
 }

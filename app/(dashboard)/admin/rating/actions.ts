@@ -9,6 +9,7 @@ import { requireAdmin } from '@/lib/permissions';
 import { ACTIVITY_TYPES_2026, RATING_DIVISIONS, SECTION_TITLES } from '@/lib/rating/activity-types';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { summarizeEvidence, activityTypeMeta } from '@/lib/rating/registry';
+import { recomputeRatingEntries } from '@/lib/rating/recompute';
 import {
   updateActivityTypeSchema,
   type UpdateActivityTypeSchema,
@@ -191,7 +192,7 @@ export async function updateActivityType(
       verifyingDivisionId: true,
       isActive: true,
       inputSource: true,
-      template: { select: { status: true } },
+      template: { select: { status: true, year: true } },
     },
   });
   if (!type) return { error: 'Показник не знайдено' };
@@ -207,39 +208,65 @@ export async function updateActivityType(
     if (!division) return { error: 'Відділ не знайдено' };
   }
 
+  // Toggling «Показник активний» moves every rating that holds this indicator:
+  // deactivated rows stay for history but stop scoring (see COUNTED in recompute.ts).
+  const activeChanged = parsed.data.isActive !== type.isActive;
+  let affected = 0;
+
   try {
-    await db.$transaction(async (tx) => {
-      await tx.activityType.update({ where: { id }, data: parsed.data });
-      await tx.auditLog.create({
-        data: {
-          action: 'UPDATE',
-          entity: 'ActivityType',
-          entityId: id,
-          label: type.label,
-          userId: session.user.id,
-          changes: diffChanges(
-            {
-              label: type.label,
-              coefficient: type.coefficient,
-              coefficientNote: type.coefficientNote,
-              verifyingDivisionId: type.verifyingDivisionId,
-              isActive: type.isActive,
-            },
-            parsed.data as Record<string, string | number | boolean | null>
-          ),
-        },
-      });
-    });
+    await db.$transaction(
+      async (tx) => {
+        await tx.activityType.update({ where: { id }, data: parsed.data });
+        await tx.auditLog.create({
+          data: {
+            action: 'UPDATE',
+            entity: 'ActivityType',
+            entityId: id,
+            label: type.label,
+            userId: session.user.id,
+            changes: diffChanges(
+              {
+                label: type.label,
+                coefficient: type.coefficient,
+                coefficientNote: type.coefficientNote,
+                verifyingDivisionId: type.verifyingDivisionId,
+                isActive: type.isActive,
+              },
+              parsed.data as Record<string, string | number | boolean | null>
+            ),
+          },
+        });
+
+        if (activeChanged) {
+          const holders = await tx.activity.findMany({
+            where: { activityTypeId: id, year: type.template.year },
+            select: { staffId: true },
+            distinct: ['staffId'],
+          });
+          affected = holders.length;
+          await recomputeRatingEntries(
+            tx,
+            holders.map((h) => h.staffId),
+            type.template.year
+          );
+        }
+      },
+      // A university-wide indicator can touch all ~300 НПП in one go
+      { timeout: 60_000 }
+    );
   } catch (e) {
     return { error: parseDbError(e, 'Помилка при збереженні') };
   }
 
-  // Derived rows carry a frozen score — re-sync so a coefficient edit or an
-  // isActive toggle on a profile-derived type is reflected immediately.
+  // Derived rows carry a frozen score — re-sync so a coefficient edit or a
+  // re-activation refills them from the current profiles.
   if (type.inputSource === 'PROFILE_DERIVED') await backfillProfileDerived();
 
   revalidateRating();
-  return { success: true, message: 'Збережено' };
+  return {
+    success: true,
+    message: affected > 0 ? `Збережено. Оновлено рейтинг: ${affected} НПП` : 'Збережено',
+  };
 }
 
 // Re-adds a catalogue indicator that is missing from this template. Only codes
@@ -347,9 +374,10 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
       // 1. Purge discarded rows (decision 2026-07-07)
       await tx.activity.deleteMany({ where: { year, status: 'REMOVED' } });
 
-      // 2. Snapshot per staff: approved items with labels/scores as of close
+      // 2. Snapshot per staff: approved items with labels/scores as of close.
+      // Deactivated indicators score nothing, so they stay out of the snapshot too.
       const activities = await tx.activity.findMany({
-        where: { year, status: 'APPROVED' },
+        where: { year, status: 'APPROVED', activityType: { isActive: true } },
         select: {
           id: true,
           staffId: true,

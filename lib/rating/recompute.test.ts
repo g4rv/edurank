@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { recomputeRatingEntry, sumBySection } from './recompute';
+import { recomputeRatingEntries, recomputeRatingEntry, sumBySection } from './recompute';
 import type { Prisma } from '@/lib/generated/prisma/client';
 
 describe('sumBySection', () => {
@@ -72,7 +72,14 @@ describe('recomputeRatingEntry', () => {
     );
 
     expect(tx.activity.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { staffId: 'staff-1', year: 2026, status: 'APPROVED' } })
+      expect.objectContaining({
+        where: {
+          staffId: 'staff-1',
+          year: 2026,
+          status: 'APPROVED',
+          activityType: { isActive: true },
+        },
+      })
     );
     expect(totals).toEqual({
       section1Score: 50,
@@ -110,5 +117,70 @@ describe('recomputeRatingEntry', () => {
     );
     expect(totals.totalScore).toBe(0);
     expect(tx.ratingEntry.upsert).toHaveBeenCalled();
+  });
+
+  // A deactivated indicator must score nothing: the filter is what enforces it,
+  // so assert the query never asks for rows of an inactive type.
+  it('asks only for rows of a still-active indicator', async () => {
+    const tx = mockTx([]);
+    await recomputeRatingEntry(tx as unknown as Prisma.TransactionClient, 'staff-1', 2026);
+    const where = tx.activity.findMany.mock.calls[0][0].where;
+    expect(where.activityType).toEqual({ isActive: true });
+  });
+});
+
+describe('recomputeRatingEntries (bulk)', () => {
+  function mockBulkTx(rows: { staffId: string; score: number; sectionNumber: number }[]) {
+    return {
+      activity: {
+        findMany: vi.fn().mockResolvedValue(
+          rows.map((r) => ({
+            staffId: r.staffId,
+            score: r.score,
+            activityType: { section: { number: r.sectionNumber } },
+          }))
+        ),
+      },
+      ratingEntry: { upsert: vi.fn().mockResolvedValue({}) },
+    };
+  }
+
+  it('reads once and upserts one entry per staff', async () => {
+    const tx = mockBulkTx([
+      { staffId: 'a', score: 50, sectionNumber: 1 },
+      { staffId: 'a', score: 300, sectionNumber: 3 },
+      { staffId: 'b', score: 30, sectionNumber: 1 },
+    ]);
+    await recomputeRatingEntries(tx as unknown as Prisma.TransactionClient, ['a', 'b'], 2026);
+
+    expect(tx.activity.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(2);
+
+    const [first, second] = tx.ratingEntry.upsert.mock.calls;
+    expect(first[0].update).toMatchObject({
+      section1Score: 50,
+      section3Score: 300,
+      totalScore: 350,
+    });
+    expect(second[0].update).toMatchObject({ section1Score: 30, totalScore: 30 });
+  });
+
+  it('zeroes a staff member whose last counting row went away', async () => {
+    // 'b' has no rows left after the indicator was deactivated
+    const tx = mockBulkTx([{ staffId: 'a', score: 50, sectionNumber: 1 }]);
+    await recomputeRatingEntries(tx as unknown as Prisma.TransactionClient, ['a', 'b'], 2026);
+
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(2);
+    const zeroed = tx.ratingEntry.upsert.mock.calls.find(
+      (c) => c[0].where.staffId_year.staffId === 'b'
+    );
+    expect(zeroed?.[0].update.totalScore).toBe(0);
+  });
+
+  it('does nothing for an empty staff list', async () => {
+    const tx = mockBulkTx([]);
+    await recomputeRatingEntries(tx as unknown as Prisma.TransactionClient, [], 2026);
+    expect(tx.activity.findMany).not.toHaveBeenCalled();
+    expect(tx.ratingEntry.upsert).not.toHaveBeenCalled();
   });
 });

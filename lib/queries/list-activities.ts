@@ -1,12 +1,16 @@
 import { db } from '@/lib/db';
 
-/** Activities of one staff member for one year, newest first (all statuses); optionally one section */
+/**
+ * Activities of one staff member for one year, newest first (all statuses);
+ * optionally one section. Deactivated indicators are excluded so the table
+ * subtotals match the RatingEntry that `recomputeRatingEntry` writes.
+ */
 export async function listStaffActivities(staffId: string, year: number, section?: number) {
   return db.activity.findMany({
     where: {
       staffId,
       year,
-      ...(section ? { activityType: { section: { number: section } } } : {}),
+      activityType: { isActive: true, ...(section ? { section: { number: section } } : {}) },
     },
     select: {
       id: true,

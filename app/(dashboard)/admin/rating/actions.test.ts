@@ -46,7 +46,10 @@ function mockTx() {
       updateMany: vi.fn().mockResolvedValue({}),
     },
     ratingSection: { create: vi.fn().mockResolvedValue({ id: 'sec-new' }) },
-    ratingEntry: { updateMany: vi.fn().mockResolvedValue({}) },
+    ratingEntry: {
+      updateMany: vi.fn().mockResolvedValue({}),
+      upsert: vi.fn().mockResolvedValue({}),
+    },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
   };
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
@@ -138,7 +141,7 @@ describe('updateActivityType', () => {
     verifyingDivisionId: 'div-nnv',
     isActive: true,
     inputSource: 'DIVISION_MANAGED',
-    template: { status: 'OPEN' },
+    template: { status: 'OPEN', year: 2026 },
   };
   const valid = {
     label: 'Виконання НДР',
@@ -154,7 +157,7 @@ describe('updateActivityType', () => {
   });
 
   it('rejects when the year is closed', async () => {
-    mockTypeFind.mockResolvedValue({ ...type, template: { status: 'CLOSED' } });
+    mockTypeFind.mockResolvedValue({ ...type, template: { status: 'CLOSED', year: 2026 } });
     expect(await updateActivityType('type-1', valid)).toEqual({
       error: 'Рейтинговий рік закрито',
     });
@@ -180,6 +183,76 @@ describe('updateActivityType', () => {
       data: valid,
     });
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  it('leaves ratings alone when isActive did not change', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+    await updateActivityType('type-1', valid);
+    expect(tx.ratingEntry.upsert).not.toHaveBeenCalled();
+  });
+
+  // «Показник активний» = «counts this year»: switching it off must pull the
+  // points out of every rating that holds the indicator, right away.
+  it('deactivating recomputes every staff member holding the indicator', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+    tx.activity.findMany
+      // 1st call: distinct holders of this type
+      .mockResolvedValueOnce([{ staffId: 'staff-1' }, { staffId: 'staff-2' }])
+      // 2nd call: their remaining counting rows (the type is now inactive → none)
+      .mockResolvedValueOnce([]);
+
+    expect(await updateActivityType('type-1', { ...valid, isActive: false })).toEqual({
+      success: true,
+      message: 'Збережено. Оновлено рейтинг: 2 НПП',
+    });
+
+    expect(tx.activity.findMany).toHaveBeenCalledWith({
+      where: { activityTypeId: 'type-1', year: 2026 },
+      select: { staffId: true },
+      distinct: ['staffId'],
+    });
+    // Both holders zeroed
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(2);
+    for (const call of tx.ratingEntry.upsert.mock.calls) {
+      expect(call[0].update.totalScore).toBe(0);
+    }
+  });
+
+  it('reactivating recomputes too, bringing the points back', async () => {
+    mockTypeFind.mockResolvedValue({ ...type, isActive: false });
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+    tx.activity.findMany
+      .mockResolvedValueOnce([{ staffId: 'staff-1' }])
+      .mockResolvedValueOnce([
+        { staffId: 'staff-1', score: 300, activityType: { section: { number: 3 } } },
+      ]);
+
+    expect(await updateActivityType('type-1', { ...valid, isActive: true })).toEqual({
+      success: true,
+      message: 'Збережено. Оновлено рейтинг: 1 НПП',
+    });
+    expect(tx.ratingEntry.upsert.mock.calls[0][0].update).toMatchObject({
+      section3Score: 300,
+      totalScore: 300,
+    });
+  });
+
+  it('reports a plain message when nobody holds the indicator', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+    tx.activity.findMany.mockResolvedValueOnce([]);
+
+    expect(await updateActivityType('type-1', { ...valid, isActive: false })).toEqual({
+      success: true,
+      message: 'Збережено',
+    });
+    expect(tx.ratingEntry.upsert).not.toHaveBeenCalled();
   });
 });
 
