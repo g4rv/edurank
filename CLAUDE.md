@@ -73,9 +73,17 @@ Rules:
 - nodemailer — invite / password-reset mail (`lib/mail/`)
 - exceljs + jszip — the rating export at `/api/export/ratings`
 - recharts + `components/ui/chart.tsx` (shadcn) — the charts on `/dashboard`
+- @react-pdf/renderer — the PDF charts at `/api/export/rating-chart`; needs the TTF in
+  `public/fonts/` (Geist's woff2 is unreadable to it and has no Cyrillic). No headless
+  browser: Puppeteer would add ~300MB of Chromium to the image for two bar charts.
 - Vitest — tests
 
-No PDF library is installed: M8's PDF report was dropped in favour of the Excel export.
+**On-screen charts follow the app's monochrome theme; the PDFs deliberately do not.**
+`lib/rating/pdf-chart.tsx` reproduces the charts the university already circulates
+(`edu-reference/*.pdf`, made in Word), down to their colours: `#4472C4` for the single
+series on «Рейтинг кафедр», and `#C00000` (total) beside `#0070C0` (розділ) on a
+department's staff chart. Red for a total is not a warning there — it is their house
+style, and matching it matters more than our own colour habits.
 
 **Charts follow the app's monochrome theme.** Every colour token is `oklch(L 0 0)` —
 only `--destructive` carries a hue — so charts get their identity from row labels and

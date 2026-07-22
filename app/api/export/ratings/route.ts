@@ -19,7 +19,11 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const yearParam = Number(url.searchParams.get('year'));
+  // Read the raw param before converting: Number(null) is 0, and 0 is an
+  // integer, so a missing year would look up the template for year zero and
+  // 404 instead of falling back to the active one.
+  const rawYear = url.searchParams.get('year');
+  const yearParam = rawYear === null ? NaN : Number(rawYear);
 
   const template = Number.isInteger(yearParam)
     ? await db.ratingTemplate.findUnique({ where: { year: yearParam } })
