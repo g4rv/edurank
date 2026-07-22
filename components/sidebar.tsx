@@ -16,6 +16,7 @@ import {
   Table2,
   Trophy,
   CalendarCog,
+  ChartColumn,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -34,6 +35,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { href: '/dashboard', label: 'Огляд', icon: ChartColumn, roles: ['ADMIN', 'EDITOR'] },
   { href: '/staff', label: 'Персонал', icon: Users, roles: ['ADMIN', 'EDITOR'] },
   { href: '/faculties', label: 'Факультети', icon: GraduationCap, roles: ['ADMIN', 'EDITOR'] },
   { href: '/departments', label: 'Кафедри', icon: BookOpen, roles: ['ADMIN', 'EDITOR'] },

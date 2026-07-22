@@ -72,9 +72,18 @@ Rules:
   next-themes, react-day-picker + date-fns
 - nodemailer — invite / password-reset mail (`lib/mail/`)
 - exceljs + jszip — the rating export at `/api/export/ratings`
+- recharts + `components/ui/chart.tsx` (shadcn) — the charts on `/dashboard`
 - Vitest — tests
 
-No PDF or chart library is installed: M8 was dropped in favour of the Excel export.
+No PDF library is installed: M8's PDF report was dropped in favour of the Excel export.
+
+**Charts follow the app's monochrome theme.** Every colour token is `oklch(L 0 0)` —
+only `--destructive` carries a hue — so charts get their identity from row labels and
+position, never from a categorical palette. Every dashboard chart is single-series and
+uses one gray (`var(--chart-3)`); a bar chart with five coloured bars would be off-brand
+and would double-encode length as hue. `--chart-1…5` are stepped separately for light
+and dark: the ramps are not flips of each other, because the dark card sits at
+`oklch(0.205)` and the light ramp's dark end would sink into it.
 
 ## Commands
 
@@ -89,6 +98,8 @@ pnpm test             # Vitest (--passWithNoTests until tests exist)
 pnpm db:migrate       # prisma migrate dev (pass --name <x> to skip prompt)
 pnpm db:seed          # prisma db seed
 pnpm db:reset         # prisma migrate reset --force (wipe + reapply, dev only)
+pnpm db:demo          # add ~200 demo НПП across 4 faculties, so the charts have data
+pnpm db:demo --clear  # remove them again (matches on the @demo.local email domain)
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 docker compose up -d  # start all services
@@ -115,6 +126,7 @@ app/
     activate/[token]/             ← set password from an emailed link
     layout.tsx
   (dashboard)/                    ← all authenticated routes, shared dashboard shell
+    dashboard/                    ← ADMIN + EDITOR: «Огляд» — charts + faculty/department tree
     admin/                        ← ADMIN-only pages
       permissions/
         field/                    ← configure DivisionFieldPermission per division

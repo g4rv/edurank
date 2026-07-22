@@ -1,0 +1,185 @@
+import { db } from '@/lib/db';
+import { SECTION_TITLES } from '@/lib/rating/activity-types';
+
+// Everything the overview page draws, from three queries and arithmetic in JS.
+// At ~300 НПП the whole set fits in memory comfortably, and doing the maths here
+// keeps the shapes the charts want in one readable place.
+
+export interface ScoreBand {
+  /** Inclusive lower bound of the band */
+  from: number;
+  /** Exclusive upper bound — except the last band, which is closed */
+  to: number;
+  count: number;
+}
+
+export interface DepartmentScore {
+  id: string;
+  name: string;
+  faculty: string;
+  nppCount: number;
+  average: number;
+}
+
+export interface FacultyNode {
+  id: string;
+  name: string;
+  nppCount: number;
+  departments: { id: string; name: string; nppCount: number }[];
+}
+
+export interface DashboardData {
+  nppCount: number;
+  otherStaffCount: number;
+  /** НПП with at least one point this year */
+  scoredCount: number;
+  averageScore: number;
+  medianScore: number;
+  topScore: number;
+  sectionTotals: { section: number; title: string; total: number }[];
+  distribution: ScoreBand[];
+  departments: DepartmentScore[];
+  faculties: FacultyNode[];
+}
+
+/** Round a raw band width up to something a person reads: 50, 100, 250, 500… */
+function niceStep(raw: number): number {
+  const steps = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000];
+  return steps.find((s) => s >= raw) ?? 10000;
+}
+
+function median(sorted: number[]): number {
+  if (sorted.length === 0) return 0;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+/**
+ * Bands the scores so the shape of the year is visible. Empty bands are kept —
+ * a gap between the crowd and the top few is the point of the chart, and
+ * dropping empty bands would quietly close it up.
+ */
+export function bandScores(totals: number[]): ScoreBand[] {
+  const top = Math.max(...totals, 0);
+  if (top === 0) return [];
+
+  const step = niceStep(Math.ceil(top / 10));
+  const bandCount = Math.max(1, Math.ceil(top / step));
+
+  const bands: ScoreBand[] = Array.from({ length: bandCount }, (_, i) => ({
+    from: i * step,
+    to: (i + 1) * step,
+    count: 0,
+  }));
+
+  for (const total of totals) {
+    const index = Math.min(Math.floor(total / step), bandCount - 1);
+    bands[index].count += 1;
+  }
+
+  return bands;
+}
+
+export async function getDashboard(year: number): Promise<DashboardData> {
+  const [faculties, npp, otherStaffCount] = await Promise.all([
+    db.faculty.findMany({
+      select: {
+        id: true,
+        name: true,
+        departments: { select: { id: true, name: true }, orderBy: { name: 'asc' } },
+      },
+      orderBy: { name: 'asc' },
+    }),
+    db.staff.findMany({
+      where: { isNpp: true },
+      select: {
+        departmentId: true,
+        ratingEntries: {
+          where: { year },
+          select: {
+            section1Score: true,
+            section2Score: true,
+            section3Score: true,
+            section4Score: true,
+            section5Score: true,
+            totalScore: true,
+          },
+        },
+      },
+    }),
+    db.staff.count({ where: { isNpp: false } }),
+  ]);
+
+  const totals = npp.map((s) => s.ratingEntries[0]?.totalScore ?? 0);
+  const sorted = [...totals].sort((a, b) => a - b);
+  const sum = totals.reduce((acc, t) => acc + t, 0);
+
+  const sectionTotals = [1, 2, 3, 4, 5].map((section) => ({
+    section,
+    title: SECTION_TITLES[section],
+    total: npp.reduce((acc, s) => {
+      const entry = s.ratingEntries[0];
+      if (!entry) return acc;
+      const scores = [
+        entry.section1Score,
+        entry.section2Score,
+        entry.section3Score,
+        entry.section4Score,
+        entry.section5Score,
+      ];
+      return acc + scores[section - 1];
+    }, 0),
+  }));
+
+  // Один прохід по НПП: скільки їх на кафедрі і скільки балів разом
+  const byDepartment = new Map<string, { count: number; sum: number }>();
+  for (const [i, member] of npp.entries()) {
+    if (!member.departmentId) continue;
+    const bucket = byDepartment.get(member.departmentId) ?? { count: 0, sum: 0 };
+    bucket.count += 1;
+    bucket.sum += totals[i];
+    byDepartment.set(member.departmentId, bucket);
+  }
+
+  const departments: DepartmentScore[] = faculties
+    .flatMap((faculty) =>
+      faculty.departments.map((department) => {
+        const bucket = byDepartment.get(department.id);
+        return {
+          id: department.id,
+          name: department.name,
+          faculty: faculty.name,
+          nppCount: bucket?.count ?? 0,
+          average: bucket && bucket.count > 0 ? bucket.sum / bucket.count : 0,
+        };
+      })
+    )
+    .sort((a, b) => b.average - a.average || a.name.localeCompare(b.name, 'uk'));
+
+  const facultyNodes: FacultyNode[] = faculties.map((faculty) => {
+    const departmentNodes = faculty.departments.map((department) => ({
+      id: department.id,
+      name: department.name,
+      nppCount: byDepartment.get(department.id)?.count ?? 0,
+    }));
+    return {
+      id: faculty.id,
+      name: faculty.name,
+      nppCount: departmentNodes.reduce((acc, d) => acc + d.nppCount, 0),
+      departments: departmentNodes,
+    };
+  });
+
+  return {
+    nppCount: npp.length,
+    otherStaffCount,
+    scoredCount: totals.filter((t) => t > 0).length,
+    averageScore: npp.length > 0 ? sum / npp.length : 0,
+    medianScore: median(sorted),
+    topScore: Math.max(...totals, 0),
+    sectionTotals,
+    distribution: bandScores(totals),
+    departments,
+    faculties: facultyNodes,
+  };
+}
