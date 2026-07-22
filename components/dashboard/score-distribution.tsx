@@ -1,6 +1,6 @@
 'use client';
 
-import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import type { ScoreBand } from '@/lib/queries/get-dashboard';
 
@@ -35,6 +35,15 @@ export function ScoreDistribution({ bands, median }: { bands: ScoreBand[]; media
           axisLine={false}
           tickMargin={8}
           interval="preserveStartEnd"
+          className="text-xs"
+        />
+        {/* Without an axis the count per band would live only in the tooltip,
+            and a value a mouse can reach is not a value everyone can read. */}
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          width={28}
+          allowDecimals={false}
           className="text-xs"
         />
         <ChartTooltip
