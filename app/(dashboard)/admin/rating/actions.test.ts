@@ -25,7 +25,15 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { closeYear, reopenYear, updateActivityType, cloneTemplate } from './actions';
+import { catalogueType } from '@/lib/rating/db-specs';
+import {
+  closeYear,
+  cloneTemplate,
+  createActivityType,
+  deleteActivityType,
+  reopenYear,
+  updateActivityType,
+} from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockTemplateFind = db.ratingTemplate.findUnique as unknown as Mock;
@@ -44,6 +52,7 @@ function mockTx() {
     activityType: {
       create: vi.fn().mockResolvedValue({ id: 'type-new' }),
       update: vi.fn().mockResolvedValue({}),
+      delete: vi.fn().mockResolvedValue({}),
     },
     ratingTemplate: {
       create: vi.fn().mockResolvedValue({ id: 'tpl-new' }),
@@ -138,11 +147,18 @@ describe('reopenYear', () => {
 });
 
 describe('updateActivityType', () => {
+  // Form and scoring rule ride on the row now, so both the stored type and the
+  // submitted payload carry them — the catalogue conversion supplies both.
+  const ndrSpecs = catalogueType('ndr_execution').specs;
   const type = {
     id: 'type-1',
     label: 'Виконання НДР',
+    itemNumber: '3.4',
+    maxPerYear: null,
     coefficient: 1,
     coefficientNote: null,
+    evidenceFields: ndrSpecs.evidenceFields,
+    scoring: ndrSpecs.scoring,
     verifyingDivisionId: 'div-nnv',
     isActive: true,
     inputSource: 'DIVISION_MANAGED',
@@ -150,8 +166,12 @@ describe('updateActivityType', () => {
   };
   const valid = {
     label: 'Виконання НДР',
+    itemNumber: '3.4',
     coefficient: 2,
     coefficientNote: null,
+    maxPerYear: undefined,
+    evidenceFields: ndrSpecs.evidenceFields,
+    scoring: ndrSpecs.scoring,
     verifyingDivisionId: 'div-nnv',
     isActive: true,
   };
@@ -185,7 +205,8 @@ describe('updateActivityType', () => {
     });
     expect(tx.activityType.update).toHaveBeenCalledWith({
       where: { id: 'type-1' },
-      data: valid,
+      // «no cap» is stored as NULL, not as a missing column
+      data: { ...valid, maxPerYear: null },
     });
     expect(tx.auditLog.create).toHaveBeenCalled();
   });
@@ -258,6 +279,159 @@ describe('updateActivityType', () => {
       message: 'Збережено',
     });
     expect(tx.ratingEntry.upsert).not.toHaveBeenCalled();
+  });
+});
+
+// An indicator nobody wrote code for: this is the whole point of the editor.
+describe('createActivityType', () => {
+  const openTemplate = {
+    id: 'tpl-1',
+    status: 'OPEN',
+    sections: [{ id: 'sec-3', number: 3 }],
+    activityTypes: [{ code: 'ndr_execution', order: 4, sectionId: 'sec-3' }],
+  };
+
+  const jury = {
+    code: 'startup_jury',
+    section: 3,
+    itemNumber: '3.25',
+    label: 'Участь у журі стартап-конкурсу',
+    coefficient: 1,
+    coefficientNote: null,
+    maxPerYear: undefined,
+    inputSource: 'NPP_SUBMISSION' as const,
+    verifyingDivisionId: null,
+    isActive: true,
+    scoring: { kind: 'SELECT' as const },
+    evidenceFields: [
+      {
+        kind: 'select' as const,
+        name: 'option',
+        label: 'Роль',
+        options: [
+          { value: 'head', label: 'голова журі', points: 50 },
+          { value: 'member', label: 'член журі', points: 20 },
+        ],
+      },
+      { kind: 'url' as const, name: 'link', label: 'Підтвердження' },
+    ],
+  };
+
+  it('rejects non-admin', async () => {
+    mockAuth.mockResolvedValue(editorSession);
+    expect(await createActivityType('tpl-1', jury)).toEqual({ error: 'Недостатньо прав' });
+  });
+
+  it('creates the indicator with its own form and scoring rule', async () => {
+    mockTemplateFind.mockResolvedValue(openTemplate);
+    const tx = mockTx();
+
+    expect(await createActivityType('tpl-1', jury)).toEqual({
+      success: true,
+      message: 'Показник створено',
+    });
+    expect(tx.activityType.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        templateId: 'tpl-1',
+        sectionId: 'sec-3',
+        code: 'startup_jury',
+        itemNumber: '3.25',
+        // appended after the section's last indicator
+        order: 5,
+        maxPerYear: null,
+        evidenceFields: jury.evidenceFields,
+        scoring: { kind: 'SELECT' },
+      }),
+    });
+    expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  it('refuses a rule its fields cannot support', async () => {
+    mockTemplateFind.mockResolvedValue(openTemplate);
+    mockTx();
+    // SELECT with no scored option select — the engine would throw on submit
+    const result = await createActivityType('tpl-1', {
+      ...jury,
+      evidenceFields: [{ kind: 'text' as const, name: 'title', label: 'Назва' }],
+    });
+    expect('error' in result && result.error).toContain('список вибору');
+  });
+
+  it('refuses an option with no points', async () => {
+    mockTemplateFind.mockResolvedValue(openTemplate);
+    mockTx();
+    const result = await createActivityType('tpl-1', {
+      ...jury,
+      evidenceFields: [
+        {
+          kind: 'select' as const,
+          name: 'option',
+          label: 'Роль',
+          options: [{ value: 'head', label: 'голова журі' }],
+        },
+      ],
+    });
+    expect('error' in result && result.error).toContain('бали');
+  });
+
+  it('refuses a duplicate code in the same year', async () => {
+    mockTemplateFind.mockResolvedValue(openTemplate);
+    expect(await createActivityType('tpl-1', { ...jury, code: 'ndr_execution' })).toEqual({
+      error: 'Показник з таким кодом вже є в цьому році',
+    });
+  });
+
+  it('refuses to invent a profile-derived indicator', async () => {
+    mockTemplateFind.mockResolvedValue(openTemplate);
+    expect(await createActivityType('tpl-1', { ...jury, inputSource: 'PROFILE_DERIVED' })).toEqual({
+      error: 'Показники з профілю не створюються вручну',
+    });
+  });
+
+  it('refuses when the year is closed', async () => {
+    mockTemplateFind.mockResolvedValue({ ...openTemplate, status: 'CLOSED' });
+    expect(await createActivityType('tpl-1', jury)).toEqual({
+      error: 'Рейтинговий рік закрито',
+    });
+  });
+});
+
+describe('deleteActivityType', () => {
+  const unused = {
+    id: 'type-1',
+    code: 'startup_jury',
+    label: 'Журі',
+    template: { status: 'OPEN' },
+    _count: { activities: 0 },
+  };
+
+  it('deletes an indicator nobody has used', async () => {
+    mockTypeFind.mockResolvedValue(unused);
+    const tx = mockTx();
+    expect(await deleteActivityType('type-1')).toEqual({
+      success: true,
+      message: 'Показник видалено',
+    });
+    expect(tx.activityType.delete).toHaveBeenCalledWith({ where: { id: 'type-1' } });
+  });
+
+  // Those rows are somebody's rating history — deactivating is the honest path
+  it('refuses once submissions exist, and says how many', async () => {
+    mockTypeFind.mockResolvedValue({ ...unused, _count: { activities: 12 } });
+    const tx = mockTx();
+    const result = await deleteActivityType('type-1');
+    expect('error' in result && result.error).toContain('12');
+    expect(tx.activityType.delete).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the year is closed', async () => {
+    mockTypeFind.mockResolvedValue({ ...unused, template: { status: 'CLOSED' } });
+    expect(await deleteActivityType('type-1')).toEqual({ error: 'Рейтинговий рік закрито' });
+  });
+
+  it('rejects non-admin', async () => {
+    mockAuth.mockResolvedValue(editorSession);
+    expect(await deleteActivityType('type-1')).toEqual({ error: 'Недостатньо прав' });
   });
 });
 

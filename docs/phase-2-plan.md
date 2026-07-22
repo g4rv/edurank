@@ -410,7 +410,7 @@ Resolved 2026-07-09:
       `carryYears`/«діє до» on activity types; `openYear`/`cloneTemplate` copies still-valid
       APPROVED activities into the new year (row per year — per-year coefficients and snapshots
       stay self-contained) and recomputes. Technically low cost; blocked on policy only.
-- [ ] **Template editor v2 — admin-defined indicators** _(user, 2026-07-17 — core long-term goal:
+- [x] **Template editor v2 — admin-defined indicators** _(user, 2026-07-17 — core long-term goal:
       admin edits rating forms with NO code changes)_: move field specs + scoring params from code
       constants into DB — `ActivityType.evidenceFields Json` (form definition consumed by the
       existing generic renderer + Zod generator) and `ActivityType.scoring Json` (parametrized
@@ -423,6 +423,20 @@ Resolved 2026-07-09:
       two are validated in code (`lib/isbn.ts` check digit, `lib/doi.ts` syntax) rather than by a
       JSON parameter, so the builder should offer them as picked kinds, not something an admin
       can define.
+      **(DONE 2026-07-22, branch `feature/template-editor-v2`, three commits.** Schema:
+      `ActivityType.evidenceFields/scoring/itemNumber/maxPerYear`. `lib/rating/registry.ts` is
+      gone — nothing in the rating path is keyed by `code` any more; `parseTypeSpecs(row)` gives
+      the field specs, the rule and the Zod schema, and `computeScore(type, evidence)` takes the
+      row. Select options carry their own `points`, so `SELECT_OPTION_POINTS` and
+      `MOODLE_MODE_POINTS` moved to `lib/rating/db-specs.ts` as seed input. The Moodle gate
+      generalised to «any `mustBeTrue` checkbox», so admin-built gates work. UI:
+      `components/admin/activity-type-dialog.tsx` (basics + rule picker + field builder + live
+      preview), `evidence-field-builder.tsx`, `evidence-preview.tsx`; per-section «Додати
+      показник», delete only while the indicator holds no rows. `specProblems()` guards the
+      rule↔fields contract on both client and server. `/admin/rating-debug` now renders the DB
+      rows rather than the constants. 351 tests.\*\*
+      **Still code, by design:** a new field kind, a new scoring kind, and `PROFILE_DERIVED`
+      indicators (they map to a Staff column).
 - [ ] **Bulk profile-edit grid** _(user, 2026-07-17 — next feature now that profile-derived is
       shipped)_: spreadsheet-style page — rows = НПП, columns = the Staff fields the editor's
       division has DivisionFieldPermission for (кадри: посада, кафедра, стаж…), inline/popover

@@ -95,6 +95,85 @@ export function parseTypeSpecs(row: {
   return { fields, scoring, schema: schemaForFields(fields) };
 }
 
+// ─── What a scoring rule needs from the fields ───────────────────────────────
+
+/**
+ * Field names the rule reads. The builder creates these itself and stops the
+ * admin removing or renaming them, so a saved rule can never point at a field
+ * that is not there. Everything else on the form is evidence, not arithmetic.
+ */
+export function scoringFieldNames(scoring: ScoringSpec): string[] {
+  const names: string[] = [];
+  const pageBased = scoring.pageBased === true;
+  if (pageBased) names.push('pages', 'coAuthors');
+
+  switch (scoring.kind) {
+    case 'FIXED':
+      break;
+    case 'MULT':
+      if (!pageBased) names.push('value');
+      break;
+    case 'SELECT':
+      names.push('option');
+      break;
+    case 'SELECT_MULT':
+      names.push('option');
+      if (!pageBased) names.push('credits');
+      break;
+    case 'GATE':
+      names.push('mode');
+      break;
+  }
+  return names;
+}
+
+const SCORING_FIELD_TEMPLATES: Record<string, EvidenceField> = {
+  value: { kind: 'number', name: 'value', label: 'Значення', min: 0 },
+  credits: { kind: 'number', name: 'credits', label: 'Кількість кредитів', min: 1 },
+  pages: { kind: 'number', name: 'pages', label: 'Кількість сторінок', min: 1, int: true },
+  coAuthors: {
+    kind: 'number',
+    name: 'coAuthors',
+    label: 'Кількість співавторів',
+    min: 1,
+    int: true,
+    optional: true,
+  },
+  option: {
+    kind: 'select',
+    name: 'option',
+    label: 'Варіант',
+    options: [{ value: 'option_1', label: 'Варіант 1', points: 0 }],
+  },
+  mode: {
+    kind: 'select',
+    name: 'mode',
+    label: 'Вид роботи',
+    options: [{ value: 'mode_1', label: 'Варіант 1', points: 0 }],
+  },
+};
+
+/**
+ * Fields reconciled with a (possibly just changed) scoring rule: the ones the
+ * rule needs are kept or created in place, the ones a previous rule needed are
+ * dropped, everything the admin added stays untouched and in order.
+ */
+export function withScoringFields(
+  fields: readonly EvidenceField[],
+  scoring: ScoringSpec
+): EvidenceField[] {
+  const needed = scoringFieldNames(scoring);
+  const neededSet = new Set(needed);
+  const everScoring = new Set(Object.keys(SCORING_FIELD_TEMPLATES));
+
+  const kept = fields.filter((f) => neededSet.has(f.name) || !everScoring.has(f.name));
+  const present = new Set(kept.map((f) => f.name));
+  const added = needed.filter((n) => !present.has(n)).map((n) => SCORING_FIELD_TEMPLATES[n]);
+
+  // Scoring fields lead the form — they are what the points come from
+  return [...added, ...kept];
+}
+
 // ─── Layer 2: the cross-field contract ───────────────────────────────────────
 
 type Found = { field: EvidenceField | undefined; problems: string[] };

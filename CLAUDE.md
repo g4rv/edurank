@@ -161,7 +161,7 @@ lib/
   utils.ts                        ← cn() and other shared utilities (shadcn convention)
   mail/                           ← mailer + templates
   queries/                        ← read-only DB functions, one file per entity
-  rating/                         ← scoring, recompute, registry, profile-derived, export
+  rating/                         ← scoring, recompute, db-specs, profile-derived, export
 
 validations/                      ← Zod schemas, one file per entity
 
@@ -199,7 +199,16 @@ Rules that are easy to get wrong:
 - **A deactivated indicator scores nothing.** Only `APPROVED` rows of an `isActive` type count — see `COUNTED` in `lib/rating/recompute.ts`. Toggling `isActive` recomputes everyone holding it.
 - **`year` is always derived** from the type's template, never taken from client input.
 - **Closed years are read-only** and render from `RatingEntry.snapshot`. Appeals go through ADMIN `reopenYear` → fix → close again.
-- Adding an indicator means adding it in three places that must stay in step — `ACTIVITY_TYPES_2026`, `EVIDENCE_FIELDS`, and the evidence schema. `lib/rating/registry.test.ts` fails if they drift.
+
+### Indicators live in the database, not in code
+
+Each `ActivityType` row carries its own form definition (`evidenceFields`) and scoring rule (`scoring`), both JSON, plus `itemNumber` and `maxPerYear`. Adding or changing an indicator is an ADMIN action in `/admin/rating/[year]` — **no code change**. Consequences:
+
+- **Never key rating behaviour on `code`.** Read the row: `parseTypeSpecs(row)` gives typed field specs, the scoring spec and the generated Zod schema. `computeScore(type, evidence)` takes the type, not a code.
+- **Select options carry their own `points`.** There is no central points map at runtime.
+- **A year owns its structure.** `cloneTemplate` copies the JSON, so reshaping 2027 cannot touch 2026 — which is what makes reopening an old year for a correction safe.
+- `ACTIVITY_TYPES_2026` + `EVIDENCE_FIELDS` are now **seed input only**: `dbSpecs(def)` converts a catalogue def into the row columns. `catalogueType(code)` gives tests the same view the app builds from a row.
+- **What still needs code:** a new field kind (`lib/rating/evidence-fields.ts` + renderer + Zod generator), a new scoring kind (`lib/rating/scoring.ts`), and `PROFILE_DERIVED` indicators (they map to a Staff column). `specProblems()` is the contract between a field set and its rule — it guards both the builder and the seed.
 
 ## Naming conventions
 

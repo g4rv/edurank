@@ -10,10 +10,12 @@ import { ACTIVITY_TYPES_2026, RATING_DIVISIONS, SECTION_TITLES } from '@/lib/rat
 import { dbSpecs } from '@/lib/rating/db-specs';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
-import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
+import { evidenceFieldsSpecSchema, scoringSpecSchema } from '@/validations/activity-type-spec';
 import { recomputeRatingEntries } from '@/lib/rating/recompute';
 import {
+  createActivityTypeSchema,
   updateActivityTypeSchema,
+  type CreateActivityTypeSchema,
   type UpdateActivityTypeSchema,
 } from '@/validations/rating-admin';
 import { backfillProfileDerived } from '@/lib/rating/profile-derived';
@@ -182,6 +184,19 @@ export async function activateTemplate(year: number): Promise<RatingAdminState> 
 
 // ─── Activity types ──────────────────────────────────────────────────────────
 
+/**
+ * A one-line stand-in for the two JSON spec columns in the audit log. The full
+ * form definition is too big to diff usefully, but «SELECT · 4 поля» changing
+ * to «SELECT · 5 полів» tells a reader the form was edited and how.
+ */
+function specsFingerprint(row: { evidenceFields: unknown; scoring: unknown }): string {
+  const fields = evidenceFieldsSpecSchema.safeParse(row.evidenceFields);
+  const scoring = scoringSpecSchema.safeParse(row.scoring);
+  if (!fields.success || !scoring.success) return 'некоректні специфікації';
+  const pageBased = scoring.data.pageBased ? ' · друковані аркуші' : '';
+  return `${scoring.data.kind}${pageBased} · полів: ${fields.data.length}`;
+}
+
 export async function updateActivityType(
   id: string,
   data: UpdateActivityTypeSchema
@@ -197,8 +212,12 @@ export async function updateActivityType(
     select: {
       id: true,
       label: true,
+      itemNumber: true,
+      maxPerYear: true,
       coefficient: true,
       coefficientNote: true,
+      evidenceFields: true,
+      scoring: true,
       verifyingDivisionId: true,
       isActive: true,
       inputSource: true,
@@ -218,6 +237,8 @@ export async function updateActivityType(
     if (!division) return { error: 'Відділ не знайдено' };
   }
 
+  const { evidenceFields, scoring, maxPerYear, ...plain } = parsed.data;
+
   // Toggling «Показник активний» moves every rating that holds this indicator:
   // deactivated rows stay for history but stop scoring (see COUNTED in recompute.ts).
   const activeChanged = parsed.data.isActive !== type.isActive;
@@ -226,7 +247,15 @@ export async function updateActivityType(
   try {
     await db.$transaction(
       async (tx) => {
-        await tx.activityType.update({ where: { id }, data: parsed.data });
+        await tx.activityType.update({
+          where: { id },
+          data: {
+            ...plain,
+            maxPerYear: maxPerYear ?? null,
+            evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
+            scoring: scoring as unknown as Prisma.InputJsonValue,
+          },
+        });
         await tx.auditLog.create({
           data: {
             action: 'UPDATE',
@@ -234,15 +263,24 @@ export async function updateActivityType(
             entityId: id,
             label: type.label,
             userId: session.user.id,
+            // The specs are JSON, which diffChanges does not take — they are
+            // logged as «змінено» so the entry still shows the form was edited.
             changes: diffChanges(
               {
                 label: type.label,
+                itemNumber: type.itemNumber,
+                maxPerYear: type.maxPerYear,
                 coefficient: type.coefficient,
                 coefficientNote: type.coefficientNote,
                 verifyingDivisionId: type.verifyingDivisionId,
                 isActive: type.isActive,
+                specs: specsFingerprint(type),
               },
-              parsed.data as Record<string, string | number | boolean | null>
+              {
+                ...plain,
+                maxPerYear: maxPerYear ?? null,
+                specs: specsFingerprint({ evidenceFields, scoring }),
+              }
             ),
           },
         });
@@ -279,8 +317,159 @@ export async function updateActivityType(
   };
 }
 
-// Re-adds a catalogue indicator that is missing from this template. Only codes
-// known to the registry are allowed — forms and scoring are keyed by code.
+// A brand-new indicator, defined entirely by the admin — its form fields and
+// scoring rule come from the builder, not from the code catalogue. This is what
+// makes a yearly rating change possible without a developer.
+export async function createActivityType(
+  templateId: string,
+  data: CreateActivityTypeSchema
+): Promise<RatingAdminState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const parsed = createActivityTypeSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Некоректні дані' };
+  }
+  const {
+    code,
+    section: sectionNumber,
+    evidenceFields,
+    scoring,
+    maxPerYear,
+    ...plain
+  } = parsed.data;
+
+  const template = await db.ratingTemplate.findUnique({
+    where: { id: templateId },
+    select: {
+      id: true,
+      status: true,
+      sections: { select: { id: true, number: true } },
+      activityTypes: {
+        select: { code: true, order: true, sectionId: true },
+      },
+    },
+  });
+  if (!template) return { error: 'Шаблон не знайдено' };
+  if (template.status !== 'OPEN') return { error: 'Рейтинговий рік закрито' };
+  if (template.activityTypes.some((t) => t.code === code)) {
+    return { error: 'Показник з таким кодом вже є в цьому році' };
+  }
+
+  const section = template.sections.find((s) => s.number === sectionNumber);
+  if (!section) return { error: 'Розділ не знайдено' };
+
+  if (plain.inputSource === 'DIVISION_MANAGED' && !plain.verifyingDivisionId) {
+    return { error: 'Для показника відділу потрібно вказати відділ' };
+  }
+  if (plain.verifyingDivisionId) {
+    const division = await db.division.findUnique({ where: { id: plain.verifyingDivisionId } });
+    if (!division) return { error: 'Відділ не знайдено' };
+  }
+  // Derived indicators read a Staff profile field, and that mapping lives in
+  // code — an admin cannot invent one, only edit the ones that exist.
+  if (plain.inputSource === 'PROFILE_DERIVED') {
+    return { error: 'Показники з профілю не створюються вручну' };
+  }
+
+  // Append within the section; `order` only decides ties inside one section
+  const lastOrder = Math.max(
+    0,
+    ...template.activityTypes.filter((t) => t.sectionId === section.id).map((t) => t.order)
+  );
+
+  try {
+    await db.$transaction(async (tx) => {
+      const created = await tx.activityType.create({
+        data: {
+          ...plain,
+          templateId: template.id,
+          sectionId: section.id,
+          order: lastOrder + 1,
+          code,
+          maxPerYear: maxPerYear ?? null,
+          evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
+          scoring: scoring as unknown as Prisma.InputJsonValue,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'CREATE',
+          entity: 'ActivityType',
+          entityId: created.id,
+          label: plain.label,
+          userId: session.user.id,
+          changes: diffChanges(
+            {},
+            {
+              code,
+              itemNumber: plain.itemNumber,
+              label: plain.label,
+              coefficient: plain.coefficient,
+              specs: specsFingerprint({ evidenceFields, scoring }),
+            }
+          ),
+        },
+      });
+    });
+  } catch (e) {
+    return { error: parseDbError(e, 'Помилка при створенні') };
+  }
+
+  revalidateRating();
+  return { success: true, message: 'Показник створено' };
+}
+
+// Removes an indicator outright. Only possible while nothing has been submitted
+// under it — once it holds data, «вимкнути» is the honest option: the rows stay
+// for history and stop scoring.
+export async function deleteActivityType(id: string): Promise<RatingAdminState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const type = await db.activityType.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      code: true,
+      label: true,
+      template: { select: { status: true } },
+      _count: { select: { activities: true } },
+    },
+  });
+  if (!type) return { error: 'Показник не знайдено' };
+  if (type.template.status !== 'OPEN') return { error: 'Рейтинговий рік закрито' };
+  if (type._count.activities > 0) {
+    return {
+      error: `За показником вже є записи (${type._count.activities}). Його можна лише вимкнути.`,
+    };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.activityType.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: {
+          action: 'DELETE',
+          entity: 'ActivityType',
+          entityId: id,
+          label: type.label,
+          userId: session.user.id,
+          changes: diffChanges({ code: type.code, label: type.label }, {}),
+        },
+      });
+    });
+  } catch (e) {
+    return { error: parseDbError(e, 'Помилка при видаленні') };
+  }
+
+  revalidateRating();
+  return { success: true, message: 'Показник видалено' };
+}
+
+// Re-adds a 2026 catalogue indicator missing from this template — the shortcut
+// for «I deleted it by mistake», distinct from building one from scratch.
 export async function addActivityType(templateId: string, code: string): Promise<RatingAdminState> {
   const session = await requireAdmin();
   if (!session) return { error: 'Недостатньо прав' };

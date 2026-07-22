@@ -4,10 +4,12 @@ import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { ActivityTypeRow } from '@/components/admin/activity-type-row';
+import { ActivityTypeRow, type EditableActivityType } from '@/components/admin/activity-type-row';
 import { AddActivityType } from '@/components/admin/add-activity-type';
+import { NewActivityType } from '@/components/admin/new-activity-type';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
 import { RATING_YEAR_STATUS_LABELS } from '@/lib/rating/labels';
+import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { cn } from '@/lib/utils';
 
 export default async function RatingTemplatePage({
@@ -44,11 +46,17 @@ export default async function RatingTemplatePage({
                 id: true,
                 code: true,
                 label: true,
+                itemNumber: true,
+                maxPerYear: true,
                 coefficient: true,
                 coefficientNote: true,
                 inputSource: true,
                 verifyingDivisionId: true,
+                evidenceFields: true,
+                scoring: true,
                 isActive: true,
+                // Drives whether the row may be deleted or only deactivated
+                _count: { select: { activities: true } },
               },
             },
           },
@@ -112,24 +120,61 @@ export default async function RatingTemplatePage({
 
       {template.sections.map((section) => (
         <div key={section.id} className="overflow-hidden rounded-xl border bg-card">
-          <div className="border-b bg-muted/40 px-5 py-3">
+          <div className="flex items-center justify-between gap-3 border-b bg-muted/40 px-5 py-2">
             <h2 className="text-sm font-semibold">
               Розділ {section.number}. {section.title}
             </h2>
+            {editable && (
+              <NewActivityType
+                templateId={template.id}
+                section={section.number}
+                divisions={divisions}
+              />
+            )}
           </div>
           {section.activityTypes.length === 0 ? (
             <p className="px-5 py-4 text-sm text-muted-foreground">Немає показників.</p>
           ) : (
             <table className="w-full text-sm">
               <tbody>
-                {section.activityTypes.map((type) => (
-                  <ActivityTypeRow
-                    key={type.id}
-                    type={type}
-                    divisions={divisions}
-                    editable={editable}
-                  />
-                ))}
+                {section.activityTypes.map((type) => {
+                  // A row whose specs do not parse still renders — the admin
+                  // needs to be able to open and repair it
+                  let fields: EditableActivityType['fields'] = [];
+                  let scoring: EditableActivityType['scoring'] = { kind: 'FIXED' };
+                  try {
+                    const specs = parseTypeSpecs(type);
+                    fields = specs.fields;
+                    scoring = specs.scoring;
+                  } catch {
+                    // leave the safe defaults
+                  }
+
+                  return (
+                    <ActivityTypeRow
+                      key={type.id}
+                      templateId={template.id}
+                      type={{
+                        id: type.id,
+                        code: type.code,
+                        section: section.number,
+                        itemNumber: type.itemNumber,
+                        label: type.label,
+                        coefficient: type.coefficient,
+                        coefficientNote: type.coefficientNote,
+                        maxPerYear: type.maxPerYear,
+                        inputSource: type.inputSource,
+                        verifyingDivisionId: type.verifyingDivisionId,
+                        isActive: type.isActive,
+                        activityCount: type._count.activities,
+                        fields,
+                        scoring,
+                      }}
+                      divisions={divisions}
+                      editable={editable}
+                    />
+                  );
+                })}
               </tbody>
             </table>
           )}

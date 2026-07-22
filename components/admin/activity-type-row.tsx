@@ -2,13 +2,12 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, type Resolver } from 'react-hook-form';
-import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toast } from 'sonner';
-import { Pencil } from 'lucide-react';
-import { updateActivityType } from '@/app/(dashboard)/admin/rating/actions';
+import { Pencil, Trash2 } from 'lucide-react';
+import { deleteActivityType } from '@/app/(dashboard)/admin/rating/actions';
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -18,43 +17,29 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  ActivityTypeDialog,
+  type ActivityTypeDraft,
+} from '@/components/admin/activity-type-dialog';
 import { INPUT_SOURCE_LABELS } from '@/lib/rating/labels';
-import {
-  updateActivityTypeSchema,
-  type UpdateActivityTypeSchema,
-} from '@/validations/rating-admin';
 import { cn } from '@/lib/utils';
 
-export interface EditableActivityType {
+export interface EditableActivityType extends ActivityTypeDraft {
   id: string;
-  code: string;
-  label: string;
-  coefficient: number;
-  coefficientNote: string | null;
-  inputSource: 'NPP_SUBMISSION' | 'DIVISION_MANAGED' | 'PROFILE_DERIVED';
-  verifyingDivisionId: string | null;
-  isActive: boolean;
+  /** How many activities already reference this indicator (0 → it may be deleted) */
+  activityCount: number;
 }
 
 interface ActivityTypeRowProps {
+  templateId: string;
   type: EditableActivityType;
   divisions: { id: string; name: string }[];
   editable: boolean;
 }
 
-export function ActivityTypeRow({ type, divisions, editable }: ActivityTypeRowProps) {
+export function ActivityTypeRow({ templateId, type, divisions, editable }: ActivityTypeRowProps) {
   const division = divisions.find((d) => d.id === type.verifyingDivisionId);
+  const [editing, setEditing] = useState(false);
 
   return (
     <tr
@@ -63,7 +48,10 @@ export function ActivityTypeRow({ type, divisions, editable }: ActivityTypeRowPr
         !type.isActive && 'opacity-50'
       )}
     >
-      <td className="px-5 py-2.5">
+      <td className="w-16 px-3 py-2.5 align-top text-xs text-muted-foreground tabular-nums">
+        {type.itemNumber}
+      </td>
+      <td className="px-2 py-2.5">
         <p className={cn('text-sm', !type.isActive && 'line-through')}>{type.label}</p>
         {type.coefficientNote && (
           <p className="mt-0.5 text-xs whitespace-pre-line text-muted-foreground">
@@ -78,142 +66,82 @@ export function ActivityTypeRow({ type, divisions, editable }: ActivityTypeRowPr
         {INPUT_SOURCE_LABELS[type.inputSource]}
         {division && <span className="block">{division.name}</span>}
       </td>
-      <td className="w-16 px-3 py-2.5 text-right">
-        {editable && <EditDialog type={type} divisions={divisions} />}
+      <td className="w-24 px-3 py-2.5 text-right">
+        {editable && (
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setEditing(true)}
+              aria-label={`Редагувати: ${type.label}`}
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <DeleteButton type={type} />
+            <ActivityTypeDialog
+              templateId={templateId}
+              draft={type}
+              divisions={divisions}
+              open={editing}
+              onOpenChange={setEditing}
+            />
+          </div>
+        )}
       </td>
     </tr>
   );
 }
 
-function EditDialog({
-  type,
-  divisions,
-}: {
-  type: EditableActivityType;
-  divisions: { id: string; name: string }[];
-}) {
+function DeleteButton({ type }: { type: EditableActivityType }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    formState: { errors },
-  } = useForm<UpdateActivityTypeSchema>({
-    // z.coerce makes the schema's input type `unknown`, hence the cast
-    resolver: standardSchemaResolver(
-      updateActivityTypeSchema
-    ) as unknown as Resolver<UpdateActivityTypeSchema>,
-    defaultValues: {
-      label: type.label,
-      coefficient: type.coefficient,
-      coefficientNote: type.coefficientNote ?? '',
-      verifyingDivisionId: type.verifyingDivisionId ?? '',
-      isActive: type.isActive,
-    },
-  });
+  // An indicator that already holds submissions is never deleted — those rows
+  // are somebody's rating history. Deactivating is the way to retire it.
+  const hasData = type.activityCount > 0;
 
-  const isActive = watch('isActive');
-  const divisionId = watch('verifyingDivisionId');
-
-  function onSubmit(data: UpdateActivityTypeSchema) {
+  function onDelete() {
     startTransition(async () => {
-      const result = await updateActivityType(type.id, data);
+      const result = await deleteActivityType(type.id);
       if ('error' in result) {
         toast.error(result.error);
         return;
       }
-      toast.success('Збережено');
-      setOpen(false);
+      toast.success(result.message ?? 'Показник видалено');
       router.refresh();
     });
   }
 
   return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (v) reset();
-      }}
-    >
+    <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`Редагувати: ${type.label}`}>
-          <Pencil className="size-4" />
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={hasData}
+          aria-label={
+            hasData
+              ? `За показником «${type.label}» вже є записи — його можна лише вимкнути`
+              : `Видалити: ${type.label}`
+          }
+          className="text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent className="max-h-[85vh] max-w-xl overflow-y-auto">
+      <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Редагувати показник</AlertDialogTitle>
+          <AlertDialogTitle>Видалити показник?</AlertDialogTitle>
           <AlertDialogDescription>
-            Зміни коефіцієнта діють на нові подання — вже підтверджені бали не перераховуються.
+            «{type.label}» буде вилучено з цього року. Інші роки не зміняться.
           </AlertDialogDescription>
         </AlertDialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <FormField htmlFor={`label-${type.id}`} label="Назва" error={errors.label}>
-            <Textarea id={`label-${type.id}`} rows={2} {...register('label')} />
-          </FormField>
-
-          <FormField
-            htmlFor={`coefficient-${type.id}`}
-            label="Коефіцієнт (балів)"
-            error={errors.coefficient}
-          >
-            <Input
-              id={`coefficient-${type.id}`}
-              type="number"
-              step="any"
-              min="0"
-              {...register('coefficient')}
-            />
-          </FormField>
-
-          <FormField
-            htmlFor={`note-${type.id}`}
-            label="Примітка (критерії)"
-            error={errors.coefficientNote as { message?: string } | undefined}
-          >
-            <Textarea id={`note-${type.id}`} rows={2} {...register('coefficientNote')} />
-          </FormField>
-
-          {type.inputSource === 'DIVISION_MANAGED' && (
-            <div className="space-y-2">
-              <span className="text-sm font-medium">Відповідальний відділ</span>
-              <Select
-                value={divisionId || undefined}
-                onValueChange={(v) => setValue('verifyingDivisionId', v)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Оберіть відділ" />
-                </SelectTrigger>
-                <SelectContent>
-                  {divisions.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <label className="flex cursor-pointer items-center gap-2">
-            <Switch checked={isActive} onCheckedChange={(v) => setValue('isActive', v)} />
-            <span className="text-sm">Показник активний</span>
-          </label>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? 'Збереження…' : 'Зберегти'}
-            </Button>
-          </AlertDialogFooter>
-        </form>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Скасувати</AlertDialogCancel>
+          <AlertDialogAction onClick={onDelete} disabled={isPending}>
+            {isPending ? 'Видалення…' : 'Видалити'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
