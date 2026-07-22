@@ -37,7 +37,9 @@ Font.registerHyphenationCallback((word) => [word]);
 const COLOR_SINGLE = '#4472C4';
 const COLOR_TOTAL = '#C00000';
 const COLOR_METRIC = '#0070C0';
-const COLOR_GRID = '#D9D9D9';
+const COLOR_GRID = '#E4E4E4';
+const COLOR_AXIS = '#BFBFBF';
+const COLOR_TRACK = '#F4F4F4';
 const COLOR_INK = '#404040';
 
 // A4 portrait, minus the page padding below
@@ -55,8 +57,9 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 12, fontWeight: 700, textAlign: 'center', color: '#000' },
   subtitle: { fontSize: 10, textAlign: 'center', marginTop: 3, marginBottom: 12 },
-  label: { fontSize: 6.5, textAlign: 'right', paddingRight: 5 },
-  value: { fontSize: 6.5, paddingLeft: 3 },
+  rank: { fontSize: 5.5, textAlign: 'right', paddingRight: 4, color: '#9A9A9A' },
+  label: { fontSize: 6.5, textAlign: 'right', paddingRight: 6 },
+  value: { fontSize: 6.5, paddingLeft: 4 },
   tick: { fontSize: 6.5, color: COLOR_INK },
   legendRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 12, gap: 16 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -89,47 +92,69 @@ interface Row {
   values: number[];
 }
 
+const LABEL_FONT = 6.5;
+const RANK_WIDTH = 14;
+const TIP_WIDTH = 36;
+
+/**
+ * Roboto's lowercase Cyrillic averages a bit under half the point size. Close
+ * enough to size the label column to the names actually in the chart, instead
+ * of reserving a fixed slab of the page that most rows never use.
+ */
+function labelColumnWidth(rows: Row[], max: number): number {
+  const longest = rows.reduce((n, r) => Math.max(n, r.label.length), 0);
+  return Math.round(Math.max(70, Math.min(max, longest * LABEL_FONT * 0.5 + 8)));
+}
+
 function BarChart({
   rows,
   colors,
-  labelWidth,
+  maxLabelWidth,
   height,
 }: {
   rows: Row[];
   colors: string[];
-  labelWidth: number;
+  maxLabelWidth: number;
   height: number;
 }) {
-  const plotWidth = CONTENT_WIDTH - labelWidth - 34; // 34pt of room for the tip label
+  const labelWidth = labelColumnWidth(rows, maxLabelWidth);
+  const plotWidth = CONTENT_WIDTH - RANK_WIDTH - labelWidth - TIP_WIDTH;
   const max = Math.max(...rows.flatMap((r) => r.values), 0);
   const ticks = axisTicks(max);
   const axisMax = ticks[ticks.length - 1] || 1;
 
-  // Rows share the whole plot so a short list fills the sheet instead of
-  // huddling at the top. The bar keeps its own cap, so a tall row turns into
-  // air around a thin mark rather than a fat block.
-  const rowHeight = Math.max(7, Math.min(40, height / Math.max(rows.length, 1)));
+  // Compact rows: tight enough to read as one block, never so tight that the
+  // labels touch. A short list leaves the foot of the page empty rather than
+  // stretching eight departments across a whole sheet.
   const single = colors.length === 1;
+  // 20 / 26 keeps the reference's own rhythm: it fits ~28 departments and ~8
+  // paired staff rows on one sheet, and leaves the foot of the page empty for
+  // short lists rather than stretching them.
+  const rowHeight = Math.max(8, Math.min(single ? 20 : 26, height / Math.max(rows.length, 1)));
   const barHeight = Math.max(
     2,
-    Math.round(Math.min(rowHeight * (single ? 0.5 : 0.32), single ? 14 : 9))
+    Math.round(Math.min(rowHeight * (single ? 0.5 : 0.3), single ? 11 : 8))
   );
   const plotHeight = rowHeight * rows.length;
+
+  const plotLeft = RANK_WIDTH + labelWidth;
 
   return (
     <View>
       <View style={{ position: 'relative', height: plotHeight }}>
-        {/* Gridlines sit under the bars: drawn first, hairline, one step off white */}
+        {/* Gridlines sit under the bars: hairline, solid, one step off the page */}
         {ticks.map((t) => (
           <View
             key={`grid-${t}`}
             style={{
               position: 'absolute',
-              left: labelWidth + (t / axisMax) * plotWidth,
+              left: plotLeft + (t / axisMax) * plotWidth,
               top: 0,
-              width: 0.75,
+              width: t === 0 ? 1 : 0.75,
               height: plotHeight,
-              backgroundColor: COLOR_GRID,
+              // The zero line is the one the bars grow from, so it reads as an
+              // axis rather than as another gridline.
+              backgroundColor: t === 0 ? COLOR_AXIS : COLOR_GRID,
             }}
           />
         ))}
@@ -147,21 +172,45 @@ function BarChart({
               alignItems: 'center',
             }}
           >
+            {/* The list is a ranking, so the position is real information */}
+            <View style={{ width: RANK_WIDTH }}>
+              <Text style={styles.rank}>{i + 1}</Text>
+            </View>
+
             <View style={{ width: labelWidth }}>
               <Text style={styles.label}>{row.label}</Text>
             </View>
 
-            <View style={{ width: plotWidth + 34 }}>
+            <View style={{ width: plotWidth + TIP_WIDTH }}>
               {row.values.map((value, s) => (
                 <View
                   key={`s-${s}`}
-                  style={{ flexDirection: 'row', alignItems: 'center', height: barHeight + 1 }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    height: barHeight + 1.5,
+                  }}
                 >
+                  {/* Track: the rest of the scale, shown as a pale channel so
+                      every row reads against the same full width. */}
                   <View
                     style={{
-                      width: Math.max((value / axisMax) * plotWidth, value > 0 ? 0.5 : 0),
+                      position: 'absolute',
+                      left: 0,
+                      width: plotWidth,
+                      height: barHeight,
+                      backgroundColor: COLOR_TRACK,
+                      borderRadius: 1,
+                    }}
+                  />
+                  <View
+                    style={{
+                      width: Math.max((value / axisMax) * plotWidth, value > 0 ? 0.6 : 0),
                       height: barHeight,
                       backgroundColor: colors[s],
+                      // Rounded at the data end, square where it leaves the axis
+                      borderTopRightRadius: 1.5,
+                      borderBottomRightRadius: 1.5,
                     }}
                   />
                   <Text style={styles.value}>{number.format(Math.round(value * 100) / 100)}</Text>
@@ -173,15 +222,15 @@ function BarChart({
       </View>
 
       {/* Axis labels, each centred on its gridline */}
-      <View style={{ position: 'relative', height: 12, marginTop: 2 }}>
+      <View style={{ position: 'relative', height: 12, marginTop: 3 }}>
         {ticks.map((t) => (
           <Text
             key={`tick-${t}`}
             style={{
               ...styles.tick,
               position: 'absolute',
-              left: labelWidth + (t / axisMax) * plotWidth - 14,
-              width: 28,
+              left: plotLeft + (t / axisMax) * plotWidth - 16,
+              width: 32,
               textAlign: 'center',
             }}
           >
@@ -237,8 +286,8 @@ export function DepartmentChartDocument({
         <BarChart
           rows={rows.map((r) => ({ label: r.name, values: [r.value] }))}
           colors={[COLOR_SINGLE]}
-          labelWidth={250}
-          height={640}
+          maxLabelWidth={220}
+          height={660}
         />
 
         <Legend items={[{ color: COLOR_SINGLE, label: 'Середнє' }]} />
@@ -279,8 +328,8 @@ export function DepartmentStaffDocument({
             values: showMetricSeries ? [r.total, r.value] : [r.total],
           }))}
           colors={colors}
-          labelWidth={170}
-          height={620}
+          maxLabelWidth={190}
+          height={640}
         />
 
         <Legend

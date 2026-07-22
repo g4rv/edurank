@@ -24,10 +24,18 @@ function parseMetric(raw: string | null): RatingMetric | null {
   return n >= 1 && n <= 5 && Number.isInteger(n) ? (n as RatingMetric) : null;
 }
 
-/** Latin fallback too: a Cyrillic filename alone breaks older download managers */
-function contentDisposition(name: string): string {
+/**
+ * `inline` is what makes the preview possible: an `attachment` header tells the
+ * browser to download, so an <iframe> pointed at it renders nothing at all.
+ * The body is identical either way — only the header differs, so what the
+ * preview shows is exactly what the download saves.
+ *
+ * Both filename forms are sent: a Cyrillic name alone breaks older clients.
+ */
+function contentDisposition(name: string, inline: boolean): string {
   const ascii = name.replace(/[^\x20-\x7E]/g, '_');
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+  const kind = inline ? 'inline' : 'attachment';
+  return `${kind}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 }
 
 export async function GET(request: Request) {
@@ -38,6 +46,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const kind = url.searchParams.get('kind') ?? 'departments';
+  const inline = url.searchParams.get('inline') === '1';
   const metric = parseMetric(url.searchParams.get('metric') ?? 'total');
   if (!metric) return new Response('Bad metric', { status: 400 });
 
@@ -74,7 +83,8 @@ export async function GET(request: Request) {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': contentDisposition(
-          `${data.departmentName} — рейтинг ${template.year}.pdf`
+          `${data.departmentName} — рейтинг ${template.year}.pdf`,
+          inline
         ),
       },
     });
@@ -94,7 +104,7 @@ export async function GET(request: Request) {
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': contentDisposition(`Рейтинг кафедр ${template.year}.pdf`),
+      'Content-Disposition': contentDisposition(`Рейтинг кафедр ${template.year}.pdf`, inline),
     },
   });
 }
