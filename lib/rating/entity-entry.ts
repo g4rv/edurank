@@ -1,4 +1,4 @@
-import { EVIDENCE_FIELDS, type EvidenceField } from './evidence-fields';
+import type { EvidenceField } from './evidence-fields';
 
 // Division-managed types where the natural workflow is entity-first:
 // enter the object (project / council / program / journal) once, pick the
@@ -35,8 +35,7 @@ export interface EntityEntryMeta {
   roleField: Extract<EvidenceField, { kind: 'select' }> | null;
 }
 
-export function entityEntryMeta(code: string): EntityEntryMeta {
-  const fields = EVIDENCE_FIELDS[code] ?? [];
+export function entityEntryMeta(fields: readonly EvidenceField[]): EntityEntryMeta {
   const roleField = fields.find(
     (f): f is Extract<EvidenceField, { kind: 'select' }> =>
       f.kind === 'select' && f.name === 'option'

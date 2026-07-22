@@ -10,6 +10,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 import { db } from '@/lib/db';
+import { catalogueType } from './db-specs';
 import {
   backfillProfileDerived,
   derivedEvidence,
@@ -113,7 +114,12 @@ describe('derivedEvidence', () => {
 
 // ── syncProfileDerived against a mocked transaction ─────────────────────────
 
-const derivedType = (code: string, coefficient = 1) => ({ id: `type-${code}`, code, coefficient });
+// A derived ActivityType row: the sync scores it off the row's own specs, so
+// the mock carries the same JSON columns the seed writes.
+const derivedType = (code: string, coefficient = 1) => {
+  const { evidenceFields, scoring } = catalogueType(code).specs;
+  return { id: `type-${code}`, code, coefficient, evidenceFields, scoring };
+};
 
 type ExistingRow = { id: string; evidence: unknown; score: number; submittedByRole?: string };
 

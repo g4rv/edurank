@@ -26,6 +26,8 @@ export async function listStaffActivities(staffId: string, year: number, section
           id: true,
           code: true,
           label: true,
+          itemNumber: true,
+          evidenceFields: true,
           section: { select: { number: true, title: true } },
         },
       },

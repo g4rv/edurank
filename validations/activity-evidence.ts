@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
+import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import { isValidIsbn } from '@/lib/isbn';
 import { isValidDoi, normalizeDoi } from '@/lib/doi';
 import { hasDomainHost, hostMatches, withProtocol } from '@/lib/link-hosts';
 
-// Builds one Zod schema per activity type from its evidence field specs.
+// Builds one Zod schema per activity type from its evidence field specs
+// (carried by the ActivityType row — see validations/activity-type-spec.ts).
 // Shared client (RHF resolver) + server (submit action) — single source of truth.
 
 const emptyToUndefined = (v: unknown) =>
@@ -96,20 +97,4 @@ export function schemaForFields(
 ): z.ZodType<Record<string, unknown>> {
   const shape = Object.fromEntries(fields.map((f) => [f.name, fieldSchema(f)]));
   return z.strictObject(shape) as unknown as z.ZodType<Record<string, unknown>>;
-}
-
-const schemaCache = new Map<string, z.ZodType<Record<string, unknown>>>();
-
-/** Zod schema for one activity type's evidence; throws on unknown code */
-export function evidenceSchemaFor(code: string): z.ZodType<Record<string, unknown>> {
-  const cached = schemaCache.get(code);
-  if (cached) return cached;
-
-  const fields = EVIDENCE_FIELDS[code];
-  if (!fields) throw new Error(`No evidence fields defined for activity type: ${code}`);
-
-  const shape = Object.fromEntries(fields.map((f) => [f.name, fieldSchema(f)]));
-  const schema = z.strictObject(shape) as unknown as z.ZodType<Record<string, unknown>>;
-  schemaCache.set(code, schema);
-  return schema;
 }

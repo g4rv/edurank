@@ -42,21 +42,38 @@ describe('ratingFileNames', () => {
   });
 });
 
+// Shaped like the parsed DB rows the export route passes in: item number and
+// field specs come off the ActivityType row, and the option points with them.
 const types: ExportActivityType[] = [
   {
     code: 'pedagogical_experience',
     label: 'Науково-педагогічний стаж',
+    itemNumber: '1.1',
     coefficient: 1,
     coefficientNote: '1 бал за рік',
     sectionNumber: 1,
+    fields: [{ kind: 'number', name: 'value', label: 'Стаж (років)', min: 0, int: true }],
     divisionKey: 'KADRY',
   },
   {
     code: 'ndr_execution',
     label: 'Виконання НДР',
+    itemNumber: '3.4',
     coefficient: 1,
     coefficientNote: 'керівник — 300, виконавець — 200',
     sectionNumber: 3,
+    fields: [
+      {
+        kind: 'select',
+        name: 'option',
+        label: 'Роль',
+        options: [
+          { value: 'leader', label: 'керівник', points: 300 },
+          { value: 'executor', label: 'виконавець', points: 200 },
+        ],
+      },
+      { kind: 'text', name: 'title', label: 'Тема НДР' },
+    ],
     divisionKey: 'NNV',
   },
 ];

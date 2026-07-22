@@ -16,29 +16,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
-import { evidenceDefaults } from '@/lib/rating/evidence-fields';
-import { activityTypeMeta } from '@/lib/rating/registry';
+import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { schemaForFields } from '@/validations/activity-evidence';
 import { compareItemNumbers } from '@/lib/rating/achievement-rows';
 
 export interface SubmittableType {
   id: string;
-  code: string;
   label: string;
-}
-
-function itemNumberFor(code: string): string {
-  try {
-    return activityTypeMeta(code).def.itemNumber;
-  } catch {
-    return '';
-  }
+  itemNumber: string;
+  coefficientNote: string | null;
+  fields: EvidenceField[];
 }
 
 // One section's worth of submittable types — the section itself is fixed by the route.
 export function AddAchievementForm({ types: unsortedTypes }: { types: SubmittableType[] }) {
-  const types = [...unsortedTypes].sort((a, b) =>
-    compareItemNumbers(itemNumberFor(a.code), itemNumberFor(b.code))
-  );
+  const types = [...unsortedTypes].sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber));
   const [open, setOpen] = useState(false);
   const [typeId, setTypeId] = useState(types[0]?.id ?? '');
 
@@ -73,9 +65,7 @@ export function AddAchievementForm({ types: unsortedTypes }: { types: Submittabl
           <SelectContent>
             {types.map((t) => (
               <SelectItem key={t.id} value={t.id}>
-                <span className="font-medium text-muted-foreground">
-                  {activityTypeMeta(t.code).def.itemNumber}
-                </span>
+                <span className="font-medium text-muted-foreground">{t.itemNumber}</span>
                 <span className="line-clamp-1">{t.label}</span>
               </SelectItem>
             ))}
@@ -93,7 +83,8 @@ export function AddAchievementForm({ types: unsortedTypes }: { types: Submittabl
 
 function EvidenceForm({ type, onDone }: { type: SubmittableType; onDone: () => void }) {
   const [isPending, startTransition] = useTransition();
-  const { def, fields, schema } = activityTypeMeta(type.code);
+  // useState initializer: fields are static for this mount (form remounts per type)
+  const [schema] = useState(() => schemaForFields(type.fields));
 
   const {
     register,
@@ -103,7 +94,7 @@ function EvidenceForm({ type, onDone }: { type: SubmittableType; onDone: () => v
   } = useForm<FieldValues>({
     // schemas vary per activity type, so the form is untyped by design
     resolver: standardSchemaResolver(schema as never) as unknown as Resolver<FieldValues>,
-    defaultValues: evidenceDefaults(fields),
+    defaultValues: evidenceDefaults(type.fields),
   });
 
   function onSubmit(data: FieldValues) {
@@ -120,18 +111,12 @@ function EvidenceForm({ type, onDone }: { type: SubmittableType; onDone: () => v
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mt-4 border-t pt-4">
-      {def.coefficientNote && (
+      {type.coefficientNote && (
         <p className="mb-3 text-sm whitespace-pre-line text-muted-foreground">
-          {def.coefficientNote}
+          {type.coefficientNote}
         </p>
       )}
-      <EvidenceFields
-        code={type.code}
-        fields={fields}
-        register={register}
-        control={control}
-        errors={errors}
-      />
+      <EvidenceFields fields={type.fields} register={register} control={control} errors={errors} />
       <Button type="submit" disabled={isPending} className="mt-4">
         {isPending ? 'Подання...' : 'Подати'}
       </Button>

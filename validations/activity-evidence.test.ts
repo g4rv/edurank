@@ -1,13 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
 import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
-import {
-  computeScore,
-  MOODLE_MATERIALS,
-  MOODLE_MODE_POINTS,
-  SELECT_OPTION_POINTS,
-} from '@/lib/rating/scoring';
-import { evidenceSchemaFor } from './activity-evidence';
+import { computeScore } from '@/lib/rating/scoring';
+import { catalogueType, SELECT_OPTION_POINTS } from '@/lib/rating/db-specs';
+import { schemaForFields } from './activity-evidence';
+
+// Schemas are built from an activity type's own field specs. Here they are
+// built from the catalogue through `catalogueType`, the same conversion the
+// seed writes into the DB — so these tests still cover the real 2026 forms.
+const schemaFor = (code: string) => catalogueType(code).schema;
+
+/** Score a catalogue code, optionally overriding its coefficient */
+function score(code: string, evidence: unknown, coefficient?: number) {
+  const type = catalogueType(code);
+  return computeScore(coefficient === undefined ? type : { ...type, coefficient }, evidence);
+}
+
+/** The mustBeTrue checkboxes of a gate type, off its own field specs */
+const gateNames = (code: string) =>
+  catalogueType(code)
+    .evidenceFields.filter((f) => f.kind === 'checkbox' && f.mustBeTrue)
+    .map((f) => f.name);
+
+const MOODLE_MATERIALS = gateNames('moodle_course');
 
 /** Build a valid sample evidence object straight from the field specs */
 function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknown> {
@@ -97,14 +112,14 @@ describe('catalogue ↔ evidence fields consistency', () => {
 describe('schema → scoring integration (all 67 types)', () => {
   it('sample evidence parses and computes a score for every type', () => {
     for (const def of ACTIVITY_TYPES_2026) {
-      const schema = evidenceSchemaFor(def.code);
+      const schema = schemaFor(def.code);
       const parsed = schema.safeParse(sampleEvidence(EVIDENCE_FIELDS[def.code]));
       expect(parsed.success, `${def.code}: ${JSON.stringify(parsed.error?.issues)}`).toBe(true);
       if (!parsed.success) continue;
-      const { computedValue, score } = computeScore(def.code, parsed.data, def.coefficient);
-      expect(Number.isFinite(computedValue), def.code).toBe(true);
-      expect(Number.isFinite(score), def.code).toBe(true);
-      expect(score, def.code).toBeGreaterThanOrEqual(0);
+      const result = score(def.code, parsed.data);
+      expect(Number.isFinite(result.computedValue), def.code).toBe(true);
+      expect(Number.isFinite(result.score), def.code).toBe(true);
+      expect(result.score, def.code).toBeGreaterThanOrEqual(0);
     }
   });
 
@@ -112,13 +127,14 @@ describe('schema → scoring integration (all 67 types)', () => {
   // the scoring engine still returns 0 for one — the second guard matters
   // because computeScore is also reachable from paths that skip the form.
   it('moodle full sample scores mode points', () => {
-    const schema = evidenceSchemaFor('moodle_course');
+    const schema = schemaFor('moodle_course');
     const full = schema.parse(sampleEvidence(EVIDENCE_FIELDS.moodle_course));
-    expect(computeScore('moodle_course', full, 1).score).toBe(MOODLE_MODE_POINTS.development);
+    // «Розроблення» is the first mode option, which is what sampleEvidence picks
+    expect(score('moodle_course', full).score).toBe(150);
   });
 
   it('moodle refuses a course missing any one material, rather than saving it as 0', () => {
-    const schema = evidenceSchemaFor('moodle_course');
+    const schema = schemaFor('moodle_course');
     const full = sampleEvidence(EVIDENCE_FIELDS.moodle_course);
 
     for (const material of MOODLE_MATERIALS) {
@@ -131,23 +147,21 @@ describe('schema → scoring integration (all 67 types)', () => {
   });
 
   it('scoring still gates an incomplete course reaching it another way', () => {
-    const full = evidenceSchemaFor('moodle_course').parse(
-      sampleEvidence(EVIDENCE_FIELDS.moodle_course)
-    );
-    expect(computeScore('moodle_course', { ...full, presentations: false }, 1).score).toBe(0);
+    const full = schemaFor('moodle_course').parse(sampleEvidence(EVIDENCE_FIELDS.moodle_course));
+    expect(score('moodle_course', { ...full, presentations: false }).score).toBe(0);
   });
 });
 
 describe('schema validation behavior', () => {
   it('rejects missing required text', () => {
-    const schema = evidenceSchemaFor('prof_associations');
+    const schema = schemaFor('prof_associations');
     expect(schema.safeParse({}).success).toBe(false);
     expect(schema.safeParse({ title: '   ' }).success).toBe(false);
     expect(schema.safeParse({ title: 'Спілка економістів' }).success).toBe(true);
   });
 
   it('rejects an option outside the list', () => {
-    const schema = evidenceSchemaFor('publication_cat_a');
+    const schema = schemaFor('publication_cat_a');
     const ok = {
       option: 'q1',
       bibliography: 'Опис',
@@ -158,25 +172,25 @@ describe('schema validation behavior', () => {
   });
 
   it('rejects unknown extra keys (strict)', () => {
-    const schema = evidenceSchemaFor('prof_associations');
+    const schema = schemaFor('prof_associations');
     expect(schema.safeParse({ title: 'Спілка', hacked: 1 }).success).toBe(false);
   });
 
   it('rejects bad url and bad date, accepts empty optional fields', () => {
-    const schema = evidenceSchemaFor('conf_abroad');
+    const schema = schemaFor('conf_abroad');
     const base = { option: 'in_person', title: 'IEEE Conf' };
     expect(schema.safeParse(base).success).toBe(true);
     expect(schema.safeParse({ ...base, link: '' }).success).toBe(true);
     expect(schema.safeParse({ ...base, link: 'not-a-url' }).success).toBe(false);
 
-    const patent = evidenceSchemaFor('patent_granted');
+    const patent = schemaFor('patent_granted');
     const okPatent = { date: '2026-03-01', registrationNumber: '12345', title: 'Пристрій' };
     expect(patent.safeParse(okPatent).success).toBe(true);
     expect(patent.safeParse({ ...okPatent, date: '01.03.2026' }).success).toBe(false);
   });
 
   it('rejects dates with out-of-range years', () => {
-    const patent = evidenceSchemaFor('patent_granted');
+    const patent = schemaFor('patent_granted');
     const base = { registrationNumber: '12345', title: 'Пристрій' };
     const nextYear = new Date().getFullYear() + 1;
     expect(patent.safeParse({ ...base, date: '0002-03-01' }).success).toBe(false);
@@ -186,7 +200,7 @@ describe('schema validation behavior', () => {
   });
 
   it('coerces numeric strings from form inputs', () => {
-    const schema = evidenceSchemaFor('monograph_ua');
+    const schema = schemaFor('monograph_ua');
     const parsed = schema.parse({
       pages: '120',
       coAuthors: '2',
@@ -194,11 +208,11 @@ describe('schema validation behavior', () => {
       bibliography: 'Опис',
     });
     expect(parsed).toMatchObject({ pages: 120, coAuthors: 2 });
-    expect(computeScore('monograph_ua', parsed, 200)).toEqual({ computedValue: 2.5, score: 500 });
+    expect(score('monograph_ua', parsed, 200)).toEqual({ computedValue: 2.5, score: 500 });
   });
 
   it('rejects an ISBN whose check digit does not match', () => {
-    const schema = evidenceSchemaFor('monograph_ua');
+    const schema = schemaFor('monograph_ua');
     const base = { pages: 120, coAuthors: 2, bibliography: 'Опис' };
 
     expect(schema.safeParse({ ...base, isbn: '978-3-16-148410-0' }).success).toBe(true);
@@ -211,7 +225,7 @@ describe('schema validation behavior', () => {
   });
 
   it('leaves the ISBN optional on monograph_eu but still checks it when filled', () => {
-    const schema = evidenceSchemaFor('monograph_eu');
+    const schema = schemaFor('monograph_eu');
     const base = { pages: 200, coAuthors: 1, bibliography: 'Beschreibung' };
 
     expect(schema.safeParse(base).success).toBe(true);
@@ -221,7 +235,7 @@ describe('schema validation behavior', () => {
   });
 
   it('accepts a DOI in any pasted form and stores it bare', () => {
-    const schema = evidenceSchemaFor('publication_cat_a');
+    const schema = schemaFor('publication_cat_a');
     const base = {
       option: 'q1',
       bibliography: 'Опис',
@@ -238,7 +252,7 @@ describe('schema validation behavior', () => {
   });
 
   it('accepts a Scopus or WoS link but refuses any other site', () => {
-    const schema = evidenceSchemaFor('publication_cat_a');
+    const schema = schemaFor('publication_cat_a');
     const base = { option: 'q1', bibliography: 'Опис' };
     const ok = (link: string) => schema.safeParse({ ...base, link }).success;
 
@@ -255,12 +269,22 @@ describe('schema validation behavior', () => {
   });
 
   it('mustBeTrue checkbox requires confirmation', () => {
-    const schema = evidenceSchemaFor('basic_education_match');
+    const schema = schemaFor('basic_education_match');
     expect(schema.safeParse({ confirmed: false, specialty: 'Економіка' }).success).toBe(false);
     expect(schema.safeParse({ confirmed: true, specialty: 'Економіка' }).success).toBe(true);
   });
 
-  it('throws on unknown code', () => {
-    expect(() => evidenceSchemaFor('nope')).toThrow('No evidence fields');
+  it('builds a schema from an arbitrary field set, not from a code', () => {
+    // What the admin builder relies on: fields the catalogue never defined
+    const schema = schemaForFields([
+      { kind: 'text', name: 'title', label: 'Назва' },
+      { kind: 'number', name: 'count', label: 'Кількість', min: 1, int: true },
+      { kind: 'text', name: 'note', label: 'Примітка', optional: true },
+    ]);
+    expect(schema.safeParse({ title: 'Журі', count: 2 }).success).toBe(true);
+    expect(schema.safeParse({ title: '', count: 2 }).success).toBe(false);
+    expect(schema.safeParse({ title: 'Журі', count: 0 }).success).toBe(false);
+    expect(schema.safeParse({ title: 'Журі', count: 1.5 }).success).toBe(false);
+    expect(schema.safeParse({ title: 'Журі', count: 2, extra: 1 }).success).toBe(false);
   });
 });

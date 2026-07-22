@@ -7,7 +7,8 @@ import { db } from '@/lib/db';
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
-import { activityTypeMeta, summarizeEvidence } from '@/lib/rating/registry';
+import { summarizeEvidence } from '@/lib/rating/evidence-fields';
+import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
 import { computeScore } from '@/lib/rating/scoring';
 
@@ -46,6 +47,9 @@ export async function createActivity(
       coefficient: true,
       inputSource: true,
       isActive: true,
+      maxPerYear: true,
+      evidenceFields: true,
+      scoring: true,
       template: { select: { year: true, isActive: true, status: true } },
     },
   });
@@ -56,23 +60,31 @@ export async function createActivity(
     return { error: 'Рейтинговий рік закрито для подання' };
   }
 
-  let meta: ReturnType<typeof activityTypeMeta>;
+  let specs: ReturnType<typeof parseTypeSpecs>;
   try {
-    meta = activityTypeMeta(type.code);
+    specs = parseTypeSpecs(type);
   } catch {
     return { error: 'Невідомий показник' };
   }
 
-  const parsed = meta.schema.safeParse(evidence);
+  const parsed = specs.schema.safeParse(evidence);
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   // Never trust the client for the year — it comes from the type's template
   const year = type.template.year;
-  const { computedValue, score } = computeScore(type.code, parsed.data, type.coefficient);
+  const { computedValue, score } = computeScore(
+    {
+      code: type.code,
+      coefficient: type.coefficient,
+      scoring: specs.scoring,
+      evidenceFields: specs.fields,
+    },
+    parsed.data
+  );
 
   try {
     await db.$transaction(async (tx) => {
-      const cap = meta.def.maxPerYear;
+      const cap = type.maxPerYear;
       if (cap) {
         const existing = await tx.activity.count({
           where: { staffId, activityTypeId: type.id, year, status: { not: 'REMOVED' } },
@@ -107,7 +119,7 @@ export async function createActivity(
               year,
               score,
               status: 'APPROVED',
-              evidence: summarizeEvidence(type.code, parsed.data),
+              evidence: summarizeEvidence(specs.fields, parsed.data),
             }
           ),
         },

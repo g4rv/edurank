@@ -8,7 +8,8 @@ import type { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { canActForDivision } from '@/lib/permissions';
-import { activityTypeMeta, summarizeEvidence } from '@/lib/rating/registry';
+import { summarizeEvidence } from '@/lib/rating/evidence-fields';
+import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { computeScore } from '@/lib/rating/scoring';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
 
@@ -35,6 +36,8 @@ export async function upsertDivisionActivity(
       inputSource: true,
       isActive: true,
       verifyingDivisionId: true,
+      evidenceFields: true,
+      scoring: true,
       template: { select: { year: true, isActive: true, status: true } },
     },
   });
@@ -60,19 +63,27 @@ export async function upsertDivisionActivity(
   });
   if (!staff?.isNpp) return { error: 'Рейтинг ведеться лише для НПП' };
 
-  let meta: ReturnType<typeof activityTypeMeta>;
+  let specs: ReturnType<typeof parseTypeSpecs>;
   try {
-    meta = activityTypeMeta(type.code);
+    specs = parseTypeSpecs(type);
   } catch {
     return { error: 'Невідомий показник' };
   }
 
-  const parsed = meta.schema.safeParse(evidence);
+  const parsed = specs.schema.safeParse(evidence);
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   const year = type.template.year;
-  const { computedValue, score } = computeScore(type.code, parsed.data, type.coefficient);
-  const evidenceSummary = summarizeEvidence(type.code, parsed.data);
+  const { computedValue, score } = computeScore(
+    {
+      code: type.code,
+      coefficient: type.coefficient,
+      scoring: specs.scoring,
+      evidenceFields: specs.fields,
+    },
+    parsed.data
+  );
+  const evidenceSummary = summarizeEvidence(specs.fields, parsed.data);
   const staffLabel = `${staff.lastName} ${staff.firstName} ${staff.patronymic}`;
 
   try {
@@ -104,7 +115,7 @@ export async function upsertDivisionActivity(
             changes: diffChanges(
               {
                 score: existing.score,
-                evidence: summarizeEvidence(type.code, existing.evidence),
+                evidence: summarizeEvidence(specs.fields, existing.evidence),
               },
               { score, evidence: evidenceSummary }
             ),
@@ -234,6 +245,8 @@ export async function batchUpsertDivisionActivity(
       inputSource: true,
       isActive: true,
       verifyingDivisionId: true,
+      evidenceFields: true,
+      scoring: true,
       template: { select: { year: true, isActive: true, status: true } },
     },
   });
@@ -266,12 +279,18 @@ export async function batchUpsertDivisionActivity(
     }
   }
 
-  let meta: ReturnType<typeof activityTypeMeta>;
+  let specs: ReturnType<typeof parseTypeSpecs>;
   try {
-    meta = activityTypeMeta(type.code);
+    specs = parseTypeSpecs(type);
   } catch {
     return { error: 'Невідомий показник' };
   }
+  const scorable = {
+    code: type.code,
+    coefficient: type.coefficient,
+    scoring: specs.scoring,
+    evidenceFields: specs.fields,
+  };
 
   // Validate everything up front — the transaction is all-or-nothing
   const prepared: {
@@ -283,9 +302,9 @@ export async function batchUpsertDivisionActivity(
     summary: string;
   }[] = [];
   for (const row of rows) {
-    const parsed = meta.schema.safeParse(row.evidence);
+    const parsed = specs.schema.safeParse(row.evidence);
     if (!parsed.success) return { error: 'Невірні дані форми' };
-    const { computedValue, score } = computeScore(type.code, parsed.data, type.coefficient);
+    const { computedValue, score } = computeScore(scorable, parsed.data);
     const s = staffById.get(row.staffId)!;
     prepared.push({
       staffId: row.staffId,
@@ -293,7 +312,7 @@ export async function batchUpsertDivisionActivity(
       evidence: parsed.data as Prisma.InputJsonValue,
       computedValue,
       score,
-      summary: summarizeEvidence(type.code, parsed.data),
+      summary: summarizeEvidence(specs.fields, parsed.data),
     });
   }
 
@@ -334,7 +353,7 @@ export async function batchUpsertDivisionActivity(
               changes: diffChanges(
                 {
                   score: existing.score,
-                  evidence: summarizeEvidence(type.code, existing.evidence),
+                  evidence: summarizeEvidence(specs.fields, existing.evidence),
                 },
                 { score: row.score, evidence: row.summary }
               ),

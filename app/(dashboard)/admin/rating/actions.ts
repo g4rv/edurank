@@ -9,7 +9,8 @@ import { requireAdmin } from '@/lib/permissions';
 import { ACTIVITY_TYPES_2026, RATING_DIVISIONS, SECTION_TITLES } from '@/lib/rating/activity-types';
 import { dbSpecs } from '@/lib/rating/db-specs';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
-import { summarizeEvidence, activityTypeMeta } from '@/lib/rating/registry';
+import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import { recomputeRatingEntries } from '@/lib/rating/recompute';
 import {
   updateActivityTypeSchema,
@@ -362,12 +363,10 @@ interface SnapshotItem {
   statusLabel: string;
 }
 
-function itemNumberFor(code: string): string {
-  try {
-    return activityTypeMeta(code).def.itemNumber;
-  } catch {
-    return '';
-  }
+/** Field specs off the row's JSON; a malformed row degrades to an empty summary */
+function fieldsOf(activityType: { evidenceFields: unknown }): readonly EvidenceField[] {
+  const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
+  return parsed.success ? parsed.data : [];
 }
 
 // Freezes the year: purges discarded rows (audit log keeps their trail),
@@ -399,7 +398,13 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
           score: true,
           evidence: true,
           activityType: {
-            select: { code: true, label: true, section: { select: { number: true, title: true } } },
+            select: {
+              code: true,
+              label: true,
+              itemNumber: true,
+              evidenceFields: true,
+              section: { select: { number: true, title: true } },
+            },
           },
         },
       });
@@ -417,9 +422,9 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
             .filter((r) => r.activityType.section.number === number)
             .map((r) => ({
               id: r.id,
-              itemNumber: itemNumberFor(r.activityType.code),
+              itemNumber: r.activityType.itemNumber,
               label: r.activityType.label,
-              summary: summarizeEvidence(r.activityType.code, r.evidence),
+              summary: summarizeEvidence(fieldsOf(r.activityType), r.evidence),
               score: r.score,
               status: 'APPROVED' as const,
               statusLabel: ACTIVITY_STATUS_LABELS.APPROVED,

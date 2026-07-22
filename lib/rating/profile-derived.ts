@@ -6,6 +6,7 @@ import type {
 } from '@/lib/generated/prisma/client';
 import { db } from '@/lib/db';
 import { computeScore } from '@/lib/rating/scoring';
+import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { recomputeRatingEntries, recomputeRatingEntry } from '@/lib/rating/recompute';
 import {
   PROFILE_DERIVED_CODES,
@@ -121,6 +122,8 @@ interface DerivedType {
   id: string;
   code: string;
   coefficient: number;
+  evidenceFields: unknown;
+  scoring: unknown;
 }
 
 interface ExistingRow {
@@ -169,7 +172,16 @@ function planProfileDerived(
       continue;
     }
 
-    const { computedValue, score } = computeScore(type.code, evidence, type.coefficient);
+    const specs = parseTypeSpecs(type);
+    const { computedValue, score } = computeScore(
+      {
+        code: type.code,
+        coefficient: type.coefficient,
+        scoring: specs.scoring,
+        evidenceFields: specs.fields,
+      },
+      evidence
+    );
 
     if (!existing) {
       plan.creates.push({
@@ -239,7 +251,7 @@ async function activeDerivedTypes(
           isActive: true,
           code: { in: PROFILE_DERIVED_CODES },
         },
-        select: { id: true, code: true, coefficient: true },
+        select: { id: true, code: true, coefficient: true, evidenceFields: true, scoring: true },
       },
     },
   });

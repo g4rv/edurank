@@ -7,14 +7,12 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { YearSelect } from '@/components/rating/year-select';
 import { ModerationList } from '@/components/rating/moderation-list';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
-import { activityTypeMeta, summarizeEvidence } from '@/lib/rating/registry';
+import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 
-function itemNumberFor(code: string): string {
-  try {
-    return activityTypeMeta(code).def.itemNumber;
-  } catch {
-    return '';
-  }
+function fieldsOf(activityType: { evidenceFields: unknown }): readonly EvidenceField[] {
+  const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
+  return parsed.success ? parsed.data : [];
 }
 
 export default async function ModerationPage({
@@ -53,9 +51,9 @@ export default async function ModerationPage({
     staffName: `${a.staff.lastName} ${a.staff.firstName} ${a.staff.patronymic}`,
     department: a.staff.department?.name ?? '',
     section: a.activityType.section.number,
-    itemNumber: itemNumberFor(a.activityType.code),
+    itemNumber: a.activityType.itemNumber,
     label: a.activityType.label,
-    summary: summarizeEvidence(a.activityType.code, a.evidence),
+    summary: summarizeEvidence(fieldsOf(a.activityType), a.evidence),
     score: a.score,
     status: a.status,
     statusLabel: ACTIVITY_STATUS_LABELS[a.status],

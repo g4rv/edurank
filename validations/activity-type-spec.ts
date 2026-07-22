@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScoringSpec } from '@/lib/rating/scoring';
+import { schemaForFields } from './activity-evidence';
 
 // Validates the JSON stored on ActivityType (`evidenceFields` + `scoring`).
 // Two layers:
@@ -72,6 +73,27 @@ export const scoringSpecSchema: z.ZodType<ScoringSpec> = z.strictObject({
   kind: z.enum(['FIXED', 'MULT', 'SELECT', 'SELECT_MULT', 'GATE']),
   pageBased: z.boolean().optional(),
 });
+
+export interface ParsedTypeSpecs {
+  fields: EvidenceField[];
+  scoring: ScoringSpec;
+  /** Zod schema for this type's evidence, generated from the field specs */
+  schema: z.ZodType<Record<string, unknown>>;
+}
+
+/**
+ * Parses the JSON columns of an ActivityType row into typed specs plus the
+ * evidence schema. Throws on malformed JSON — a row that went through the
+ * builder or the seed always parses, so a throw means data corruption.
+ */
+export function parseTypeSpecs(row: {
+  evidenceFields: unknown;
+  scoring: unknown;
+}): ParsedTypeSpecs {
+  const fields = evidenceFieldsSpecSchema.parse(row.evidenceFields);
+  const scoring = scoringSpecSchema.parse(row.scoring);
+  return { fields, scoring, schema: schemaForFields(fields) };
+}
 
 // ─── Layer 2: the cross-field contract ───────────────────────────────────────
 

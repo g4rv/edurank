@@ -1,15 +1,14 @@
 import type { AchievementGroup, AchievementRow } from '@/components/rating/achievements-list';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
-import { activityTypeMeta, summarizeEvidence } from '@/lib/rating/registry';
+import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import type { StaffActivity } from '@/lib/queries/list-activities';
 
-function itemNumberFor(code: string): string {
-  try {
-    return activityTypeMeta(code).def.itemNumber;
-  } catch {
-    return '';
-  }
+/** Field specs off the row's JSON; a malformed row degrades to an empty summary */
+function fieldsOf(activityType: { evidenceFields: unknown }): readonly EvidenceField[] {
+  const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
+  return parsed.success ? parsed.data : [];
 }
 
 /** Numeric-aware compare for item numbers: "1.9" < "1.10" < "3.24"; unknown ("") sorts last */
@@ -25,9 +24,9 @@ export function compareItemNumbers(a: string, b: string): number {
 function toRow(a: StaffActivity, canManage: boolean): AchievementRow {
   return {
     id: a.id,
-    itemNumber: itemNumberFor(a.activityType.code),
+    itemNumber: a.activityType.itemNumber,
     label: a.activityType.label,
-    summary: summarizeEvidence(a.activityType.code, a.evidence),
+    summary: summarizeEvidence(fieldsOf(a.activityType), a.evidence),
     score: a.score,
     status: a.status,
     statusLabel: ACTIVITY_STATUS_LABELS[a.status],

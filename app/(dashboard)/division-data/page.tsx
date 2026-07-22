@@ -8,19 +8,18 @@ import {
   listDivisionEntries,
   listNppForRating,
 } from '@/lib/queries/list-division-data';
-import { activityTypeMeta } from '@/lib/rating/registry';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DivisionSelect } from '@/components/rating/division-select';
 import { DivisionEntryGrid, type EntryGridCell } from '@/components/rating/division-entry-grid';
 import { EntityEntryDialog } from '@/components/rating/entity-entry-dialog';
 import { ENTITY_FIRST_CODES } from '@/lib/rating/entity-entry';
+import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 
-function itemNumberFor(code: string): string {
-  try {
-    return activityTypeMeta(code).def.itemNumber;
-  } catch {
-    return '';
-  }
+/** Field specs off the row's JSON; a malformed row degrades to an empty form */
+function fieldsOf(activityType: { evidenceFields: unknown }): EvidenceField[] {
+  const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
+  return parsed.success ? parsed.data : [];
 }
 
 function EmptyState({ message }: { message: string }) {
@@ -85,8 +84,10 @@ export default async function DivisionDataPage({
   const gridTypes = types.map((t) => ({
     id: t.id,
     code: t.code,
-    itemNumber: itemNumberFor(t.code),
+    itemNumber: t.itemNumber,
     label: t.label,
+    coefficientNote: t.coefficientNote,
+    fields: fieldsOf(t),
   }));
   const gridStaff = staff.map((s) => ({
     id: s.id,

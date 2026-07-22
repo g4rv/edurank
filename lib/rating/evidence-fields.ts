@@ -150,6 +150,44 @@ const GUARANTOR_PERIOD_OPTIONS = [
   opt('accreditation_year', 'на рік акредитації'),
 ];
 
+/**
+ * Short human-readable line for lists and audit views,
+ * e.g. «Квартиль Q1 · Nature 2026 · https://doi.org/…».
+ */
+export function summarizeEvidence(fields: readonly EvidenceField[], evidence: unknown): string {
+  if (typeof evidence !== 'object' || evidence === null) return '';
+  const e = evidence as Record<string, unknown>;
+
+  const parts: string[] = [];
+  for (const f of fields) {
+    const v = e[f.name];
+    if (v === undefined || v === null || v === '') continue;
+    switch (f.kind) {
+      case 'select':
+        parts.push(f.options.find((o) => o.value === v)?.label ?? String(v));
+        break;
+      case 'checkbox':
+        if (v === true) parts.push(f.label);
+        break;
+      case 'number':
+        parts.push(`${f.label}: ${v}`);
+        break;
+      case 'isbn':
+        parts.push(`ISBN ${v}`);
+        break;
+      case 'doi':
+        parts.push(`DOI ${v}`);
+        break;
+      case 'text':
+      case 'url':
+      case 'date':
+        parts.push(String(v));
+        break;
+    }
+  }
+  return parts.slice(0, 5).join(' · ');
+}
+
 /** Empty form default values for a field set (RHF-friendly) */
 export function evidenceDefaults(fields: readonly EvidenceField[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};

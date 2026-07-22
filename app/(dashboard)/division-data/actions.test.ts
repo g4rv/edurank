@@ -18,6 +18,7 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { catalogueType } from '@/lib/rating/db-specs';
 import {
   upsertDivisionActivity,
   clearDivisionActivity,
@@ -34,7 +35,9 @@ const mockTransaction = db.$transaction as unknown as Mock;
 const adminSession = { user: { id: 'admin-1', role: 'ADMIN', staffId: null } };
 const kadryEditor = { user: { id: 'editor-1', role: 'EDITOR', staffId: 'staff-kadry' } };
 
-// KADRY-managed «Науково-педагогічний стаж» in the OPEN 2026 template
+// KADRY-managed «Науково-педагогічний стаж» in the OPEN 2026 template.
+// Form and scoring rule ride on the row, as the seed writes them.
+const experienceSpecs = catalogueType('pedagogical_experience').specs;
 const divisionType = {
   id: 'type-1',
   code: 'pedagogical_experience',
@@ -43,6 +46,8 @@ const divisionType = {
   inputSource: 'DIVISION_MANAGED',
   isActive: true,
   verifyingDivisionId: 'div-kadry',
+  evidenceFields: experienceSpecs.evidenceFields,
+  scoring: experienceSpecs.scoring,
   template: { year: 2026, isActive: true, status: 'OPEN' },
 };
 
@@ -214,12 +219,15 @@ describe('clearDivisionActivity', () => {
 
 describe('batchUpsertDivisionActivity', () => {
   // ННВ-managed НДР theme: role select (керівник 300 / виконавець 200) + title
+  const ndrSpecs = catalogueType('ndr_execution').specs;
   const ndrType = {
     ...divisionType,
     id: 'type-ndr',
     code: 'ndr_execution',
     label: 'Виконання НДР',
     verifyingDivisionId: 'div-nnv',
+    evidenceFields: ndrSpecs.evidenceFields,
+    scoring: ndrSpecs.scoring,
   };
 
   const franko = { id: 'staff-1', ...npp };

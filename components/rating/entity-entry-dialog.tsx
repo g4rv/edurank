@@ -35,9 +35,7 @@ import {
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { evidenceDefaults } from '@/lib/rating/evidence-fields';
 import { entityEntryMeta } from '@/lib/rating/entity-entry';
-import { activityTypeMeta } from '@/lib/rating/registry';
 import { schemaForFields } from '@/validations/activity-evidence';
-import { SELECT_OPTION_POINTS } from '@/lib/rating/scoring';
 import type { EntryGridStaff, EntryGridType } from '@/components/rating/division-entry-grid';
 
 interface EntityEntryDialogProps {
@@ -111,8 +109,7 @@ function EntityEntryForm({
   onDone: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
-  const { def } = activityTypeMeta(type.code);
-  const { sharedFields, roleField } = entityEntryMeta(type.code);
+  const { sharedFields, roleField } = entityEntryMeta(type.fields);
 
   const defaultRole = roleField?.options[0]?.value ?? '';
   const [rows, setRows] = useState<StaffRow[]>([{ key: 0, staffId: '', role: defaultRole }]);
@@ -182,13 +179,12 @@ function EntityEntryForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {def.coefficientNote && (
-        <p className="text-xs whitespace-pre-line text-muted-foreground">{def.coefficientNote}</p>
+      {type.coefficientNote && (
+        <p className="text-xs whitespace-pre-line text-muted-foreground">{type.coefficientNote}</p>
       )}
 
       {sharedFields.length > 0 && (
         <EvidenceFields
-          code={type.code}
           fields={sharedFields}
           register={register}
           control={control}
@@ -242,17 +238,12 @@ function EntityEntryForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {roleField.options.map((o) => {
-                        const points = (
-                          SELECT_OPTION_POINTS as Record<string, Record<string, number>>
-                        )[type.code]?.[o.value];
-                        return (
-                          <SelectItem key={o.value} value={o.value}>
-                            {o.label}
-                            {points ? ` — ${points}` : ''}
-                          </SelectItem>
-                        );
-                      })}
+                      {roleField.options.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                          {o.points !== undefined ? ` — ${o.points}` : ''}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}

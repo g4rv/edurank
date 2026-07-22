@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { toRenderItems } from './evidence-fields';
 import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
-import { MOODLE_MATERIALS } from '@/lib/rating/scoring';
+
+// The six materials are the gate checkboxes of item 5.1, read off its own specs
+const MOODLE_MATERIALS = EVIDENCE_FIELDS.moodle_course
+  .filter((f) => f.kind === 'checkbox' && f.mustBeTrue)
+  .map((f) => f.name);
 
 const box = (name: string, group?: string): EvidenceField => ({
   kind: 'checkbox',
@@ -55,8 +59,7 @@ describe('toRenderItems', () => {
 
     const group = groups[0];
     expect(group.kind === 'group' && group.title).toBe('Матеріали курсу');
-    expect(group.kind === 'group' && group.fields.map((f) => f.name)).toEqual([
-      ...MOODLE_MATERIALS,
-    ]);
+    expect(MOODLE_MATERIALS).toHaveLength(6);
+    expect(group.kind === 'group' && group.fields.map((f) => f.name)).toEqual(MOODLE_MATERIALS);
   });
 });

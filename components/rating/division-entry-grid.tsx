@@ -13,8 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
-import { evidenceDefaults } from '@/lib/rating/evidence-fields';
-import { activityTypeMeta } from '@/lib/rating/registry';
+import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { schemaForFields } from '@/validations/activity-evidence';
 import { cn } from '@/lib/utils';
 
 export interface EntryGridType {
@@ -22,6 +22,8 @@ export interface EntryGridType {
   code: string;
   itemNumber: string;
   label: string;
+  coefficientNote: string | null;
+  fields: EvidenceField[];
 }
 
 export interface EntryGridStaff {
@@ -192,7 +194,8 @@ function CellForm({
   onDone: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
-  const { def, fields, schema } = activityTypeMeta(type.code);
+  // useState initializer: fields are static for this mount (form remounts per open)
+  const [schema] = useState(() => schemaForFields(type.fields));
 
   const {
     register,
@@ -203,7 +206,7 @@ function CellForm({
     // schemas vary per activity type, so the form is untyped by design
     resolver: standardSchemaResolver(schema as never) as unknown as Resolver<FieldValues>,
     defaultValues: {
-      ...evidenceDefaults(fields),
+      ...evidenceDefaults(type.fields),
       ...((entry?.evidence as Record<string, unknown>) ?? {}),
     },
   });
@@ -239,16 +242,10 @@ function CellForm({
         <p className="text-sm font-semibold">{type.label}</p>
         <p className="text-xs text-muted-foreground">{staffName}</p>
       </div>
-      {def.coefficientNote && (
-        <p className="text-xs whitespace-pre-line text-muted-foreground">{def.coefficientNote}</p>
+      {type.coefficientNote && (
+        <p className="text-xs whitespace-pre-line text-muted-foreground">{type.coefficientNote}</p>
       )}
-      <EvidenceFields
-        code={type.code}
-        fields={fields}
-        register={register}
-        control={control}
-        errors={errors}
-      />
+      <EvidenceFields fields={type.fields} register={register} control={control} errors={errors} />
       <div className="flex items-center justify-between gap-2">
         <Button type="submit" size="sm" disabled={isPending}>
           {isPending ? 'Збереження…' : 'Зберегти'}

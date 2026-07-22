@@ -9,8 +9,8 @@ import {
 } from '../lib/rating/activity-types';
 import { syncProfileDerived } from '../lib/rating/profile-derived';
 import { dbSpecs } from '../lib/rating/db-specs';
-import { EVIDENCE_FIELDS } from '../lib/rating/evidence-fields';
-import { evidenceSchemaFor } from '../validations/activity-evidence';
+import type { EvidenceField } from '../lib/rating/evidence-fields';
+import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
 import { recomputeRatingEntry } from '../lib/rating/recompute';
 import type { InputSource, Prisma } from '../lib/generated/prisma/client';
@@ -20,8 +20,7 @@ const prisma = new PrismaClient({ adapter });
 
 // Valid demo evidence for any activity type, built from its field specs.
 // Validated through the real Zod schema so catalogue drift fails the seed loudly.
-function sampleEvidence(code: string): Record<string, unknown> {
-  const fields = EVIDENCE_FIELDS[code] ?? [];
+function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const f of fields) {
     switch (f.kind) {
@@ -52,7 +51,7 @@ function sampleEvidence(code: string): Record<string, unknown> {
         break;
     }
   }
-  return evidenceSchemaFor(code).parse(out) as Record<string, unknown>;
+  return out;
 }
 
 // Fills one staff member's 2026 rating: one APPROVED demo activity per active
@@ -65,6 +64,8 @@ async function seedDemoRating(staffId: string, templateId: string, sources: Inpu
       code: true,
       coefficient: true,
       inputSource: true,
+      evidenceFields: true,
+      scoring: true,
       template: { select: { year: true } },
     },
   });
@@ -76,8 +77,18 @@ async function seedDemoRating(staffId: string, templateId: string, sources: Inpu
   });
 
   for (const type of types) {
-    const evidence = sampleEvidence(type.code);
-    const { computedValue, score } = computeScore(type.code, evidence, type.coefficient);
+    const specs = parseTypeSpecs(type);
+    // Validated through the real schema so catalogue drift fails the seed loudly
+    const evidence = specs.schema.parse(sampleEvidence(specs.fields));
+    const { computedValue, score } = computeScore(
+      {
+        code: type.code,
+        coefficient: type.coefficient,
+        scoring: specs.scoring,
+        evidenceFields: specs.fields,
+      },
+      evidence
+    );
     await prisma.activity.create({
       data: {
         staffId,

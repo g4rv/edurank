@@ -1,8 +1,6 @@
 import ExcelJS from 'exceljs';
-import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
+import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import { SECTION_TITLES, type RatingDivisionKey } from '@/lib/rating/activity-types';
-import { MOODLE_MODE_POINTS, SELECT_OPTION_POINTS } from '@/lib/rating/scoring';
-import { activityTypeMeta } from '@/lib/rating/registry';
 
 // Replicates the official per-teacher rating workbook
 // (edu-reference/Фінансів/Таблиці_Викладачів/*.xlsx): columns
@@ -23,9 +21,12 @@ const DIVISION_SHORT: Record<RatingDivisionKey, string> = {
 export interface ExportActivityType {
   code: string;
   label: string;
+  itemNumber: string;
   coefficient: number;
   coefficientNote: string | null;
   sectionNumber: number;
+  /** Parsed off the row's evidenceFields JSON by the caller */
+  fields: readonly EvidenceField[];
   /** Registry short key resolved by the caller from verifyingDivisionId */
   divisionKey: RatingDivisionKey | null;
 }
@@ -42,14 +43,6 @@ export interface ExportStaffData {
   department: string;
   year: number;
   activities: ExportActivity[];
-}
-
-function itemNumberFor(code: string): string {
-  try {
-    return `${activityTypeMeta(code).def.itemNumber}.`;
-  } catch {
-    return '';
-  }
 }
 
 /** Characters Windows refuses in a filename */
@@ -73,21 +66,13 @@ export function ratingFileNames(fullNames: string[]): string[] {
 }
 
 /** The select whose options become sub-rows (role `option` or moodle `mode`) */
-function optionField(code: string) {
-  const fields = EVIDENCE_FIELDS[code] ?? [];
+function optionField(fields: readonly EvidenceField[]) {
   return (
     fields.find(
       (f): f is Extract<EvidenceField, { kind: 'select' }> =>
         f.kind === 'select' && (f.name === 'option' || f.name === 'mode')
     ) ?? null
   );
-}
-
-function optionPoints(code: string, value: string): number | null {
-  const bySelect = (SELECT_OPTION_POINTS as Record<string, Record<string, number>>)[code];
-  if (bySelect?.[value] !== undefined) return bySelect[value];
-  const byMode = (MOODLE_MODE_POINTS as Record<string, number>)[value];
-  return byMode ?? null;
 }
 
 const THIN = { style: 'thin' as const };
@@ -225,9 +210,9 @@ export function buildRatingWorkbook(
     const firstItemRow = ws.rowCount + 1;
 
     for (const type of sectionTypes) {
-      const itemNumber = itemNumberFor(type.code);
+      const itemNumber = type.itemNumber ? `${type.itemNumber}.` : '';
       const division = type.divisionKey ? DIVISION_SHORT[type.divisionKey] : '';
-      const opt = optionField(type.code);
+      const opt = optionField(type.fields);
 
       if (opt) {
         // Group: label row, then one row per option; № merged across the group.
@@ -241,7 +226,7 @@ export function buildRatingWorkbook(
           const row = ws.addRow([
             '',
             option.label,
-            optionPoints(type.code, option.value) ?? '',
+            option.points ?? '',
             '',
             earned ?? '',
             division,

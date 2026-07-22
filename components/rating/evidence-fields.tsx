@@ -23,31 +23,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
-import { MOODLE_MODE_POINTS, SELECT_OPTION_POINTS } from '@/lib/rating/scoring';
 import { MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
 
 const DATE_MIN = `${MIN_EVIDENCE_YEAR}-01-01`;
 const DATE_MAX = `${new Date().getFullYear() + 1}-12-31`;
 
 interface EvidenceFieldsProps {
-  code: string;
   fields: readonly EvidenceField[];
   register: UseFormRegister<FieldValues>;
   control: Control<FieldValues>;
   errors: FieldErrors<FieldValues>;
   disabled?: boolean;
-}
-
-function optionSuffix(code: string, fieldName: string, value: string): string {
-  if (fieldName === 'mode') {
-    const points = MOODLE_MODE_POINTS[value as keyof typeof MOODLE_MODE_POINTS];
-    return points ? ` — ${points} балів` : '';
-  }
-  if (fieldName === 'option') {
-    const points = (SELECT_OPTION_POINTS as Record<string, Record<string, number>>)[code]?.[value];
-    return points ? ` — ${points} балів` : '';
-  }
-  return '';
 }
 
 export type RenderItem =
@@ -74,7 +60,6 @@ export function toRenderItems(fields: readonly EvidenceField[]): RenderItem[] {
 
 /** Renders one activity type's evidence inputs from its field specs */
 export function EvidenceFields({
-  code,
   fields,
   register,
   control,
@@ -179,7 +164,7 @@ export function EvidenceFields({
                     {f.options.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
                         {o.label}
-                        {optionSuffix(code, f.name, o.value)}
+                        {o.points !== undefined ? ` — ${o.points} балів` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>

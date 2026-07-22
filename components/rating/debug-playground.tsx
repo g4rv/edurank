@@ -13,23 +13,56 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
-import { ACTIVITY_TYPES_2026, RATING_DIVISIONS, SECTION_TITLES } from '@/lib/rating/activity-types';
-import { evidenceDefaults } from '@/lib/rating/evidence-fields';
+import { SECTION_TITLES } from '@/lib/rating/activity-types';
+import {
+  evidenceDefaults,
+  summarizeEvidence,
+  type EvidenceField,
+} from '@/lib/rating/evidence-fields';
 import { ACTIVITY_KIND_LABELS, INPUT_SOURCE_LABELS } from '@/lib/rating/labels';
-import { activityTypeMeta, summarizeEvidence } from '@/lib/rating/registry';
-import { computeScore } from '@/lib/rating/scoring';
+import { schemaForFields } from '@/validations/activity-evidence';
+import { computeScore, type ScoringSpec } from '@/lib/rating/scoring';
+import type { InputSource } from '@/lib/generated/prisma/client';
+
+// One activity type as this service page needs it. Read from the DB row, so the
+// page always shows the forms the app is really using — including whatever an
+// admin has just built (template editor v2).
+export interface DebugType {
+  id: string;
+  code: string;
+  section: number;
+  itemNumber: string;
+  label: string;
+  coefficient: number;
+  coefficientNote: string | null;
+  inputSource: InputSource;
+  divisionName: string | null;
+  fields: EvidenceField[];
+  scoring: ScoringSpec;
+}
 
 const SECTIONS = [1, 2, 3, 4, 5] as const;
 
-export function RatingDebugPlayground() {
-  const [section, setSection] = useState<number>(1);
-  const sectionTypes = ACTIVITY_TYPES_2026.filter((t) => t.section === section);
-  const [code, setCode] = useState(sectionTypes[0].code);
+export function RatingDebugPlayground({ types }: { types: DebugType[] }) {
+  const [section, setSection] = useState<number>(types[0]?.section ?? 1);
+  const [code, setCode] = useState(types[0]?.code ?? '');
+
+  const sectionTypes = types.filter((t) => t.section === section);
+  const selected = sectionTypes.find((t) => t.code === code) ?? sectionTypes[0];
 
   function onSectionChange(value: string) {
     const next = Number(value);
     setSection(next);
-    setCode(ACTIVITY_TYPES_2026.find((t) => t.section === next)!.code);
+    const first = types.find((t) => t.section === next);
+    if (first) setCode(first.code);
+  }
+
+  if (types.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+        Активний рейтинговий рік ще не налаштовано.
+      </div>
+    );
   }
 
   return (
@@ -55,7 +88,7 @@ export function RatingDebugPlayground() {
 
           <div className="space-y-2">
             <Label htmlFor="debug-type">Показник</Label>
-            <Select value={code} onValueChange={setCode}>
+            <Select value={selected?.code ?? ''} onValueChange={setCode}>
               <SelectTrigger id="debug-type" className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -73,18 +106,22 @@ export function RatingDebugPlayground() {
       </div>
 
       {/* key remounts the form when the type changes */}
-      <DebugForm key={code} code={code} />
+      {selected && <DebugForm key={selected.id} type={selected} />}
     </div>
   );
 }
 
-function DebugForm({ code }: { code: string }) {
-  const { def, fields, schema } = activityTypeMeta(code);
+function DebugForm({ type }: { type: DebugType }) {
   const [result, setResult] = useState<{
     computedValue: number;
     score: number;
     summary: string;
   } | null>(null);
+  // A hand-built spec can disagree with its own fields; this page is exactly
+  // where that must be visible instead of throwing.
+  const [scoreError, setScoreError] = useState<string | null>(null);
+  // useState initializer: fields are static for this mount (form remounts per type)
+  const [schema] = useState(() => schemaForFields(type.fields));
 
   const {
     register,
@@ -94,12 +131,26 @@ function DebugForm({ code }: { code: string }) {
   } = useForm<FieldValues>({
     // schemas vary per activity type, so the form is untyped by design
     resolver: standardSchemaResolver(schema as never) as unknown as Resolver<FieldValues>,
-    defaultValues: evidenceDefaults(fields),
+    defaultValues: evidenceDefaults(type.fields),
   });
 
   function onSubmit(data: FieldValues) {
-    const { computedValue, score } = computeScore(code, data, def.coefficient);
-    setResult({ computedValue, score, summary: summarizeEvidence(code, data) });
+    try {
+      const { computedValue, score } = computeScore(
+        {
+          code: type.code,
+          coefficient: type.coefficient,
+          scoring: type.scoring,
+          evidenceFields: type.fields,
+        },
+        data
+      );
+      setResult({ computedValue, score, summary: summarizeEvidence(type.fields, data) });
+      setScoreError(null);
+    } catch (e) {
+      setResult(null);
+      setScoreError(e instanceof Error ? e.message : 'Помилка обчислення');
+    }
   }
 
   return (
@@ -107,31 +158,32 @@ function DebugForm({ code }: { code: string }) {
       <div className="rounded-xl border bg-card p-5">
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full bg-foreground px-2.5 py-0.5 font-semibold text-background">
-            {def.itemNumber}
+            {type.itemNumber}
           </span>
           <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-medium text-primary">
-            {INPUT_SOURCE_LABELS[def.inputSource]}
+            {INPUT_SOURCE_LABELS[type.inputSource]}
           </span>
-          {def.verifyingDivision && (
+          {type.divisionName && (
             <span className="rounded-full border px-2 py-0.5 text-muted-foreground">
-              {RATING_DIVISIONS[def.verifyingDivision]}
+              {type.divisionName}
             </span>
           )}
-          <span className="ml-auto text-muted-foreground">{ACTIVITY_KIND_LABELS[def.kind]}</span>
+          <span className="ml-auto text-muted-foreground">
+            {ACTIVITY_KIND_LABELS[type.scoring.kind]}
+          </span>
         </div>
-        <h2 className="text-base font-semibold">{def.label}</h2>
-        {def.coefficientNote && (
+        <h2 className="text-base font-semibold">{type.label}</h2>
+        {type.coefficientNote && (
           <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">
-            {def.coefficientNote}
+            {type.coefficientNote}
           </p>
         )}
-        <p className="mt-1 text-sm text-muted-foreground">Коефіцієнт: {def.coefficient}</p>
+        <p className="mt-1 text-sm text-muted-foreground">Коефіцієнт: {type.coefficient}</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border bg-card p-5">
         <EvidenceFields
-          code={code}
-          fields={fields}
+          fields={type.fields}
           register={register}
           control={control}
           errors={errors}
@@ -140,6 +192,12 @@ function DebugForm({ code }: { code: string }) {
           Обчислити бали
         </Button>
       </form>
+
+      {scoreError && (
+        <div className="rounded-xl border-2 border-destructive/30 bg-card p-5 text-sm text-destructive">
+          {scoreError}
+        </div>
+      )}
 
       {result && (
         <div className="rounded-xl border-2 border-primary/30 bg-card p-5 text-sm">

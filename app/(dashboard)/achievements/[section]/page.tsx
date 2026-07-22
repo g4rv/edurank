@@ -9,6 +9,14 @@ import { AddAchievementForm } from '@/components/rating/add-achievement-form';
 import { YearSelect } from '@/components/rating/year-select';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { toAchievementGroups } from '@/lib/rating/achievement-rows';
+import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
+
+/** Field specs off the row's JSON; a malformed row degrades to an empty form */
+function fieldsOf(activityType: { evidenceFields: unknown }): EvidenceField[] {
+  const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
+  return parsed.success ? parsed.data : [];
+}
 
 const SECTION_NUMBERS = [1, 2, 3, 4, 5];
 
@@ -61,7 +69,13 @@ export default async function AchievementsSectionPage({
   const submittableTypes = canManage
     ? template.activityTypes
         .filter((t) => t.section.number === section)
-        .map((t) => ({ id: t.id, code: t.code, label: t.label }))
+        .map((t) => ({
+          id: t.id,
+          label: t.label,
+          itemNumber: t.itemNumber,
+          coefficientNote: t.coefficientNote,
+          fields: fieldsOf(t),
+        }))
     : [];
 
   return (

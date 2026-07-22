@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { RATING_DIVISIONS, type RatingDivisionKey } from '@/lib/rating/activity-types';
+import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import {
   buildRatingWorkbook,
   ratingFileNames,
@@ -31,8 +32,10 @@ export async function GET(request: Request) {
       select: {
         code: true,
         label: true,
+        itemNumber: true,
         coefficient: true,
         coefficientNote: true,
+        evidenceFields: true,
         verifyingDivisionId: true,
         section: { select: { number: true } },
       },
@@ -68,16 +71,21 @@ export async function GET(request: Request) {
     if (entry) keyByDivisionId.set(division.id, entry[0] as RatingDivisionKey);
   }
 
-  const exportTypes: ExportActivityType[] = types.map((t) => ({
-    code: t.code,
-    label: t.label,
-    coefficient: t.coefficient,
-    coefficientNote: t.coefficientNote,
-    sectionNumber: t.section.number,
-    divisionKey: t.verifyingDivisionId
-      ? (keyByDivisionId.get(t.verifyingDivisionId) ?? null)
-      : null,
-  }));
+  const exportTypes: ExportActivityType[] = types.map((t) => {
+    const fields = evidenceFieldsSpecSchema.safeParse(t.evidenceFields);
+    return {
+      code: t.code,
+      label: t.label,
+      itemNumber: t.itemNumber,
+      coefficient: t.coefficient,
+      coefficientNote: t.coefficientNote,
+      sectionNumber: t.section.number,
+      fields: fields.success ? fields.data : [],
+      divisionKey: t.verifyingDivisionId
+        ? (keyByDivisionId.get(t.verifyingDivisionId) ?? null)
+        : null,
+    };
+  });
 
   const activitiesByStaff = new Map<string, ExportStaffData['activities']>();
   for (const a of activities) {

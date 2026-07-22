@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { dbSpecs } from './db-specs';
+import { catalogueType, dbSpecs } from './db-specs';
 import { ACTIVITY_TYPES_2026 } from './activity-types';
+import { EVIDENCE_FIELDS } from './evidence-fields';
 import {
   evidenceFieldsSpecSchema,
   scoringSpecSchema,
@@ -69,5 +70,29 @@ describe('dbSpecs over the whole 2026 catalogue', () => {
     const specs = dbSpecs(def!);
     expect(specs.maxPerYear).toBe(def!.maxPerYear);
     expect(specs.itemNumber).toBe(def!.itemNumber);
+  });
+});
+
+describe('catalogueType', () => {
+  it('returns a scorable type with a working evidence schema', () => {
+    const type = catalogueType('publication_cat_a');
+    expect(type.coefficient).toBe(1);
+    expect(type.scoring.kind).toBe('SELECT');
+    // The schema is generated from the same fields the engine scores
+    expect(type.schema.safeParse({}).success).toBe(false);
+  });
+
+  it('every schema rejects an empty object when the type has a required field', () => {
+    const withRequired = ACTIVITY_TYPES_2026.filter((t) =>
+      (EVIDENCE_FIELDS[t.code] ?? []).some((f) => !('optional' in f && f.optional))
+    );
+    expect(withRequired.length).toBeGreaterThan(0);
+    for (const def of withRequired) {
+      expect(catalogueType(def.code).schema.safeParse({}).success, def.code).toBe(false);
+    }
+  });
+
+  it('throws a named error for an unknown code', () => {
+    expect(() => catalogueType('no_such_indicator')).toThrow(/no_such_indicator/);
   });
 });

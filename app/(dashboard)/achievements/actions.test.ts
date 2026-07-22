@@ -18,6 +18,7 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { catalogueType } from '@/lib/rating/db-specs';
 import { createActivity, deleteActivity } from './actions';
 
 const mockAuth = auth as unknown as Mock;
@@ -29,7 +30,10 @@ const mockTransaction = db.$transaction as unknown as Mock;
 const userSession = { user: { id: 'user-1', role: 'USER', staffId: 'staff-1' } };
 const nppStaff = { isNpp: true, lastName: 'Тест', firstName: 'Тест', patronymic: 'Тестович' };
 
-// conf_ukraine: FIXED, coefficient 10, maxPerYear 5, evidence = title + optional link
+// conf_ukraine: FIXED, coefficient 10, maxPerYear 5, evidence = title + optional link.
+// Specs come from the catalogue conversion, exactly as the seed writes them to
+// the row — the action reads the form and scoring rule off these columns.
+const confUkraineSpecs = catalogueType('conf_ukraine').specs;
 const confUkraineType = {
   id: 'type-1',
   code: 'conf_ukraine',
@@ -37,6 +41,9 @@ const confUkraineType = {
   coefficient: 10,
   inputSource: 'NPP_SUBMISSION',
   isActive: true,
+  maxPerYear: confUkraineSpecs.maxPerYear,
+  evidenceFields: confUkraineSpecs.evidenceFields,
+  scoring: confUkraineSpecs.scoring,
   template: { year: 2026, isActive: true, status: 'OPEN' },
 };
 
