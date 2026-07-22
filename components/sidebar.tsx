@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   ClipboardList,
   KeyRound,
-  LogOut,
   LayoutDashboard,
   Award,
   BadgeCheck,
@@ -19,8 +18,8 @@ import {
   CalendarCog,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { signOutAction } from '@/app/(dashboard)/actions';
+import { SignOutButton } from '@/components/sign-out-button';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import type { Role } from '@/lib/generated/prisma/client';
 
@@ -74,8 +73,9 @@ export function Sidebar({
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r bg-sidebar">
-      <div className="flex h-14 items-center border-b px-4">
+      <div className="flex h-14 items-center gap-2 border-b px-4">
         <span className="text-base font-semibold tracking-tight">EduRank</span>
+        <ThemeToggle className="-mr-1.5 ml-auto" />
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
@@ -144,17 +144,9 @@ export function Sidebar({
 
       <div className="border-t p-3">
         <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-        <form action={signOutAction} className="mt-2">
-          <Button
-            type="submit"
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="size-4" />
-            Вийти
-          </Button>
-        </form>
+        <div className="mt-2">
+          <SignOutButton />
+        </div>
       </div>
     </aside>
   );
