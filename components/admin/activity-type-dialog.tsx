@@ -162,6 +162,19 @@ function ActivityTypeForm({
   const divisionId = watch('verifyingDivisionId') as string;
   const section = String(watch('section') ?? draft.section);
 
+  /**
+   * The item number is printed on the official form and orders the export, so
+   * its first digit is the розділ. Moving the indicator renumbers it rather
+   * than leaving «6.21» sitting in розділ 1.
+   */
+  function onSectionChange(value: string) {
+    const next = Number(value);
+    setValue('section', next);
+    const current = String(watch('itemNumber') ?? '');
+    const [, ...rest] = current.split('.');
+    setValue('itemNumber', rest.length > 0 ? [next, ...rest].join('.') : String(next));
+  }
+
   /** Rule change reshapes the form: the fields it needs appear, stale ones go */
   function onScoringChange(next: ScoringSpec) {
     const reconciled = withScoringFields(fields, next);
@@ -204,34 +217,39 @@ function ActivityTypeForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-[7rem_1fr]">
-        <FormField htmlFor="itemNumber" label="№ п/п" error={errors.itemNumber}>
-          <Input id="itemNumber" placeholder="3.12" {...register('itemNumber')} />
+      <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
+        <FormField
+          htmlFor="itemNumber"
+          label="№ п/п"
+          error={errors.itemNumber}
+          description={`Розділ ${section}`}
+        >
+          <Input id="itemNumber" placeholder={`${section}.12`} {...register('itemNumber')} />
         </FormField>
         <FormField htmlFor="label" label="Назва показника" error={errors.label}>
           <Textarea id="label" rows={2} {...register('label')} />
         </FormField>
       </div>
 
-      {!isEdit && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <span className="text-sm font-medium">Розділ</span>
-            <Select value={section} onValueChange={(v) => setValue('section', Number(v))}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SECTIONS.map((s) => (
-                  <SelectItem key={s} value={String(s)}>
-                    <span className="font-medium">{s}.</span>
-                    <span className="line-clamp-1">{SECTION_TITLES[s]}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <span className="text-sm font-medium">Розділ</span>
+          <Select value={section} onValueChange={onSectionChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SECTIONS.map((s) => (
+                <SelectItem key={s} value={String(s)}>
+                  <span className="font-medium">{s}.</span>
+                  <span className="line-clamp-1">{SECTION_TITLES[s]}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
+        {!isEdit && (
           <FormField
             htmlFor="code"
             label="Службовий код"
@@ -240,8 +258,8 @@ function ActivityTypeForm({
           >
             <Input id="code" placeholder="startup_jury" {...register('code')} />
           </FormField>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {!isEdit && (

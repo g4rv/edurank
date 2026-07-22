@@ -9,11 +9,11 @@ import {
 } from '@/components/admin/activity-type-dialog';
 
 /** A blank indicator: fixed points, one text field for the proof */
-function blankDraft(section: number): ActivityTypeDraft {
+function blankDraft(section: number, itemNumber: string): ActivityTypeDraft {
   return {
     code: '',
     section,
-    itemNumber: '',
+    itemNumber,
     label: '',
     coefficient: 10,
     coefficientNote: null,
@@ -29,10 +29,13 @@ function blankDraft(section: number): ActivityTypeDraft {
 export function NewActivityType({
   templateId,
   section,
+  nextItemNumber,
   divisions,
 }: {
   templateId: string;
   section: number;
+  /** Next free number in this section, so the admin rarely has to type one */
+  nextItemNumber: string;
   divisions: { id: string; name: string }[];
 }) {
   const [open, setOpen] = useState(false);
@@ -45,7 +48,7 @@ export function NewActivityType({
       </Button>
       <ActivityTypeDialog
         templateId={templateId}
-        draft={blankDraft(section)}
+        draft={blankDraft(section, nextItemNumber)}
         divisions={divisions}
         open={open}
         onOpenChange={setOpen}

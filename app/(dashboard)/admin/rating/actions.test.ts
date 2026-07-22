@@ -162,11 +162,20 @@ describe('updateActivityType', () => {
     verifyingDivisionId: 'div-nnv',
     isActive: true,
     inputSource: 'DIVISION_MANAGED',
-    template: { status: 'OPEN', year: 2026 },
+    section: { number: 3 },
+    template: {
+      status: 'OPEN',
+      year: 2026,
+      sections: [
+        { id: 'sec-1', number: 1 },
+        { id: 'sec-3', number: 3 },
+      ],
+    },
   };
   const valid = {
     label: 'Виконання НДР',
     itemNumber: '3.4',
+    section: 3,
     coefficient: 2,
     coefficientNote: null,
     maxPerYear: undefined,
@@ -195,6 +204,32 @@ describe('updateActivityType', () => {
     });
   });
 
+  // The number is printed on the official form, so «6.21» in розділ 1 would
+  // misfile the indicator on paper as well as in the export ordering
+  it('refuses an item number that belongs to another section', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    const result = await updateActivityType('type-1', {
+      ...valid,
+      section: 1,
+      itemNumber: '6.21',
+    });
+    expect('error' in result && result.error).toContain('починатися з 1');
+  });
+
+  it('moves the indicator when the section changes', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+
+    expect(await updateActivityType('type-1', { ...valid, section: 1, itemNumber: '1.7' })).toEqual(
+      { success: true, message: 'Збережено' }
+    );
+    expect(tx.activityType.update).toHaveBeenCalledWith({
+      where: { id: 'type-1' },
+      data: expect.objectContaining({ sectionId: 'sec-1', itemNumber: '1.7' }),
+    });
+  });
+
   it('updates and audits the diff', async () => {
     mockTypeFind.mockResolvedValue(type);
     (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
@@ -203,10 +238,16 @@ describe('updateActivityType', () => {
       success: true,
       message: 'Збережено',
     });
+    const { section, ...columns } = valid;
     expect(tx.activityType.update).toHaveBeenCalledWith({
       where: { id: 'type-1' },
-      // «no cap» is stored as NULL, not as a missing column
-      data: { ...valid, maxPerYear: null },
+      data: {
+        ...columns,
+        // the section number resolves to the row it names in this template…
+        sectionId: 'sec-3',
+        // …and «no cap» is stored as NULL, not as a missing column
+        maxPerYear: null,
+      },
     });
     expect(tx.auditLog.create).toHaveBeenCalled();
   });
@@ -372,6 +413,12 @@ describe('createActivityType', () => {
       ],
     });
     expect('error' in result && result.error).toContain('бали');
+  });
+
+  it('refuses an item number from another section', async () => {
+    mockTemplateFind.mockResolvedValue(openTemplate);
+    const result = await createActivityType('tpl-1', { ...jury, itemNumber: '6.21' });
+    expect('error' in result && result.error).toContain('починатися з 3');
   });
 
   it('refuses a duplicate code in the same year', async () => {

@@ -205,7 +205,9 @@ export async function updateActivityType(
   if (!session) return { error: 'Недостатньо прав' };
 
   const parsed = updateActivityTypeSchema.safeParse(data);
-  if (!parsed.success) return { error: 'Некоректні дані' };
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Некоректні дані' };
+  }
 
   const type = await db.activityType.findUnique({
     where: { id },
@@ -221,7 +223,14 @@ export async function updateActivityType(
       verifyingDivisionId: true,
       isActive: true,
       inputSource: true,
-      template: { select: { status: true, year: true } },
+      section: { select: { number: true } },
+      template: {
+        select: {
+          status: true,
+          year: true,
+          sections: { select: { id: true, number: true } },
+        },
+      },
     },
   });
   if (!type) return { error: 'Показник не знайдено' };
@@ -237,7 +246,12 @@ export async function updateActivityType(
     if (!division) return { error: 'Відділ не знайдено' };
   }
 
-  const { evidenceFields, scoring, maxPerYear, ...plain } = parsed.data;
+  const { evidenceFields, scoring, maxPerYear, section: sectionNumber, ...plain } = parsed.data;
+
+  // Moving between розділи is allowed — it is how a misfiled indicator gets
+  // corrected. The section must belong to this same year.
+  const section = type.template.sections.find((s) => s.number === sectionNumber);
+  if (!section) return { error: 'Розділ не знайдено' };
 
   // Toggling «Показник активний» moves every rating that holds this indicator:
   // deactivated rows stay for history but stop scoring (see COUNTED in recompute.ts).
@@ -251,6 +265,7 @@ export async function updateActivityType(
           where: { id },
           data: {
             ...plain,
+            sectionId: section.id,
             maxPerYear: maxPerYear ?? null,
             evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
             scoring: scoring as unknown as Prisma.InputJsonValue,
@@ -269,6 +284,7 @@ export async function updateActivityType(
               {
                 label: type.label,
                 itemNumber: type.itemNumber,
+                section: type.section.number,
                 maxPerYear: type.maxPerYear,
                 coefficient: type.coefficient,
                 coefficientNote: type.coefficientNote,
@@ -278,6 +294,7 @@ export async function updateActivityType(
               },
               {
                 ...plain,
+                section: sectionNumber,
                 maxPerYear: maxPerYear ?? null,
                 specs: specsFingerprint({ evidenceFields, scoring }),
               }

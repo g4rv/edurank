@@ -12,6 +12,20 @@ import { RATING_YEAR_STATUS_LABELS } from '@/lib/rating/labels';
 import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { cn } from '@/lib/utils';
 
+/**
+ * The next free number in a section — «3.1» after nothing, «3.25» after 3.24.
+ * Only the section's own numbers count, so a stray number left by an older
+ * catalogue cannot push the suggestion into another section's range.
+ */
+function nextItemNumber(section: number, types: { itemNumber: string }[]): string {
+  const minors = types
+    .map((t) => t.itemNumber.split('.'))
+    .filter(([major]) => Number(major) === section)
+    .map(([, minor]) => Number(minor))
+    .filter((n) => Number.isFinite(n));
+  return `${section}.${Math.max(0, ...minors) + 1}`;
+}
+
 export default async function RatingTemplatePage({
   params,
 }: {
@@ -128,6 +142,7 @@ export default async function RatingTemplatePage({
               <NewActivityType
                 templateId={template.id}
                 section={section.number}
+                nextItemNumber={nextItemNumber(section.number, section.activityTypes)}
                 divisions={divisions}
               />
             )}

@@ -5,6 +5,11 @@ import {
   specProblems,
 } from '@/validations/activity-type-spec';
 
+/** The section an item number claims: «3.12» → 3 */
+export function itemNumberSection(itemNumber: string): number {
+  return Number(itemNumber.trim().split('.')[0]);
+}
+
 // The half of an indicator that is plain settings
 const base = {
   label: z.string().trim().min(1, { error: "Обов'язкове поле" }).max(500),
@@ -14,6 +19,9 @@ const base = {
     .min(1, { error: "Обов'язкове поле" })
     .max(10)
     .regex(/^\d+(\.\d+)*$/, { error: 'Формат номера — 3.12' }),
+  // Which розділ the indicator sits in. Editable, so a wrong choice can be
+  // corrected in place instead of by deleting and rebuilding the indicator.
+  section: z.coerce.number().int().min(1).max(5),
   coefficient: z.coerce
     .number({ error: 'Має бути числом' })
     .positive({ error: 'Має бути більше нуля' }),
@@ -48,10 +56,27 @@ const specs = {
 
 const withCoherentSpecs = <T extends z.ZodTypeAny>(schema: T) =>
   schema.superRefine((data, ctx) => {
-    const value = data as { evidenceFields: unknown; scoring: unknown };
+    const value = data as {
+      evidenceFields: unknown;
+      scoring: unknown;
+      itemNumber: string;
+      section: number;
+    };
+
     const problems = specProblems(value.evidenceFields as never, value.scoring as never);
     for (const problem of problems) {
       ctx.addIssue({ code: 'custom', message: problem, path: ['evidenceFields'] });
+    }
+
+    // «3.12» belongs to розділ 3 and nowhere else. Item numbers are printed on
+    // the official form and drive the export ordering, so a number that
+    // disagrees with its section would misfile the indicator on paper.
+    if (itemNumberSection(value.itemNumber) !== value.section) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Номер має починатися з ${value.section} — показник у розділі ${value.section}`,
+        path: ['itemNumber'],
+      });
     }
   });
 
@@ -63,8 +88,8 @@ export const createActivityTypeSchema = withCoherentSpecs(
   z.object({
     ...base,
     ...specs,
-    // Stable key for this indicator inside the template; generated from the
-    // item number when the admin does not care, but never changed afterwards
+    // Stable key for this indicator inside the template; chosen once and never
+    // changed, so renumbering a year cannot orphan the rows already submitted
     code: z
       .string()
       .trim()
@@ -73,7 +98,6 @@ export const createActivityTypeSchema = withCoherentSpecs(
       .regex(/^[a-z][a-z0-9_]*$/, {
         error: 'Лише малі латинські літери, цифри та підкреслення',
       }),
-    section: z.coerce.number().int().min(1).max(5),
     inputSource: z.enum(['NPP_SUBMISSION', 'DIVISION_MANAGED', 'PROFILE_DERIVED']),
   })
 );
