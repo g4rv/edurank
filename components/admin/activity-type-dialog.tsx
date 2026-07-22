@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createActivityType, updateActivityType } from '@/app/(dashboard)/admin/rating/actions';
-import { EvidenceFieldBuilder } from '@/components/admin/evidence-field-builder';
+import { AddFieldSelect, EvidenceFieldBuilder } from '@/components/admin/evidence-field-builder';
 import { EvidencePreview } from '@/components/admin/evidence-preview';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { ACTIVITY_KIND_LABELS, INPUT_SOURCE_LABELS } from '@/lib/rating/labels';
@@ -68,6 +68,36 @@ const SCORING_KINDS: ScoringSpec['kind'][] = ['FIXED', 'MULT', 'SELECT', 'SELECT
 
 const SECTIONS = [1, 2, 3, 4, 5];
 
+/**
+ * The form is long, so it is read in named parts rather than as one run of
+ * inputs. A heading and a hairline carry the grouping — boxes are left to the
+ * things that really are objects: a form field, and the preview.
+ */
+function FormSection({
+  title,
+  hint,
+  action,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-t pt-5 first:border-t-0 first:pt-0">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="space-y-0.5">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 interface ActivityTypeDialogProps {
   templateId: string;
   draft: ActivityTypeDraft;
@@ -87,8 +117,8 @@ export function ActivityTypeDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
-        <AlertDialogHeader>
+      <AlertDialogContent className="flex max-h-[88vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+        <AlertDialogHeader className="border-b px-6 py-4">
           <AlertDialogTitle>{isEdit ? 'Редагувати показник' : 'Новий показник'}</AlertDialogTitle>
           <AlertDialogDescription>
             Зміни діють на нові подання — уже нараховані бали не перераховуються.
@@ -216,172 +246,206 @@ function ActivityTypeForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
-        <FormField
-          htmlFor="itemNumber"
-          label="№ п/п"
-          error={errors.itemNumber}
-          description={`Розділ ${section}`}
-        >
-          <Input id="itemNumber" placeholder={`${section}.12`} {...register('itemNumber')} />
-        </FormField>
-        <FormField htmlFor="label" label="Назва показника" error={errors.label}>
-          <Textarea id="label" rows={2} {...register('label')} />
-        </FormField>
-      </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        <FormSection title="Показник" hint="Як він називається і де стоїть в офіційній формі">
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
+              <FormField htmlFor="itemNumber" label="№ п/п" error={errors.itemNumber}>
+                <Input id="itemNumber" placeholder={`${section}.12`} {...register('itemNumber')} />
+              </FormField>
+              <FormField htmlFor="label" label="Назва показника" error={errors.label}>
+                <Textarea id="label" rows={2} {...register('label')} />
+              </FormField>
+            </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <span className="text-sm font-medium">Розділ</span>
-          <Select value={section} onValueChange={onSectionChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SECTIONS.map((s) => (
-                <SelectItem key={s} value={String(s)}>
-                  <span className="font-medium">{s}.</span>
-                  <span className="line-clamp-1">{SECTION_TITLES[s]}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField htmlFor="section" label="Розділ">
+                <Select value={section} onValueChange={onSectionChange}>
+                  <SelectTrigger id="section" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SECTIONS.map((s) => (
+                      <SelectItem key={s} value={String(s)}>
+                        <span className="font-medium">{s}.</span>
+                        <span className="line-clamp-1">{SECTION_TITLES[s]}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
 
-        {!isEdit && (
-          <FormField
-            htmlFor="code"
-            label="Службовий код"
-            error={errors.code}
-            description="Незмінний ключ показника — латиницею, напр. startup_jury"
-          >
-            <Input id="code" placeholder="startup_jury" {...register('code')} />
-          </FormField>
-        )}
-      </div>
+              {!isEdit && (
+                <FormField
+                  htmlFor="code"
+                  label="Службовий код"
+                  error={errors.code}
+                  description="Незмінний ключ показника — латиницею, напр. startup_jury"
+                >
+                  <Input id="code" placeholder="startup_jury" {...register('code')} />
+                </FormField>
+              )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {!isEdit && (
-          <div className="space-y-2">
-            <span className="text-sm font-medium">Хто вносить</span>
-            <Select value={inputSource} onValueChange={(v) => setValue('inputSource', v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NPP_SUBMISSION">{INPUT_SOURCE_LABELS.NPP_SUBMISSION}</SelectItem>
-                <SelectItem value="DIVISION_MANAGED">
-                  {INPUT_SOURCE_LABELS.DIVISION_MANAGED}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              {isEdit ? (
+                // Set once at creation: the source decides where the indicator is
+                // filled in, and moving it would strand the rows already entered.
+                <FormField label="Хто вносить" description="Після створення не змінюється">
+                  <p className="flex h-8 items-center text-sm">
+                    {INPUT_SOURCE_LABELS[inputSource]}
+                  </p>
+                </FormField>
+              ) : (
+                <FormField htmlFor="inputSource" label="Хто вносить">
+                  <Select value={inputSource} onValueChange={(v) => setValue('inputSource', v)}>
+                    <SelectTrigger id="inputSource" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NPP_SUBMISSION">
+                        {INPUT_SOURCE_LABELS.NPP_SUBMISSION}
+                      </SelectItem>
+                      <SelectItem value="DIVISION_MANAGED">
+                        {INPUT_SOURCE_LABELS.DIVISION_MANAGED}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              )}
+
+              {inputSource === 'DIVISION_MANAGED' && (
+                <FormField htmlFor="verifyingDivisionId" label="Відповідальний відділ">
+                  <Select
+                    value={divisionId || undefined}
+                    onValueChange={(v) => setValue('verifyingDivisionId', v)}
+                  >
+                    <SelectTrigger id="verifyingDivisionId" className="w-full">
+                      <SelectValue placeholder="Оберіть відділ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {divisions.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              )}
+            </div>
           </div>
-        )}
+        </FormSection>
 
-        {inputSource === 'DIVISION_MANAGED' && (
-          <div className="space-y-2">
-            <span className="text-sm font-medium">Відповідальний відділ</span>
-            <Select
-              value={divisionId || undefined}
-              onValueChange={(v) => setValue('verifyingDivisionId', v)}
+        <FormSection title="Нарахування балів" hint="Скільки дає один запис і з чого це рахується">
+          <div className="space-y-4">
+            <FormField
+              htmlFor="scoringKind"
+              label="Правило нарахування"
+              description={SCORING_HINTS[scoring.kind]}
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Оберіть відділ" />
-              </SelectTrigger>
-              <SelectContent>
-                {divisions.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select
+                value={scoring.kind}
+                onValueChange={(v) =>
+                  onScoringChange({ ...scoring, kind: v as ScoringSpec['kind'] })
+                }
+              >
+                <SelectTrigger id="scoringKind" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SCORING_KINDS.map((kind) => (
+                    <SelectItem key={kind} value={kind}>
+                      {ACTIVITY_KIND_LABELS[kind]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            {(scoring.kind === 'MULT' || scoring.kind === 'SELECT_MULT') && (
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <Switch
+                  checked={scoring.pageBased === true}
+                  onCheckedChange={(v) =>
+                    onScoringChange({ ...scoring, pageBased: v || undefined })
+                  }
+                />
+                <span>
+                  Рахувати друковані аркуші
+                  <span className="block text-xs text-muted-foreground">
+                    сторінки ÷ 24 ÷ кількість співавторів
+                  </span>
+                </span>
+              </label>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField htmlFor="coefficient" label="Коефіцієнт" error={errors.coefficient}>
+                <Input
+                  id="coefficient"
+                  type="number"
+                  step="any"
+                  min="0"
+                  {...register('coefficient')}
+                />
+              </FormField>
+              <FormField
+                htmlFor="maxPerYear"
+                label="Не більше за рік"
+                error={errors.maxPerYear}
+                description="Порожньо — без обмеження"
+              >
+                <Input id="maxPerYear" type="number" min="1" step="1" {...register('maxPerYear')} />
+              </FormField>
+            </div>
+
+            <FormField
+              htmlFor="coefficientNote"
+              label="Примітка (критерії)"
+              error={errors.coefficientNote}
+            >
+              <Textarea id="coefficientNote" rows={2} {...register('coefficientNote')} />
+            </FormField>
           </div>
-        )}
-      </div>
+        </FormSection>
 
-      <div className="rounded-xl border p-4">
-        <div className="space-y-2">
-          <span className="text-sm font-medium">Правило нарахування</span>
-          <Select
-            value={scoring.kind}
-            onValueChange={(v) => onScoringChange({ ...scoring, kind: v as ScoringSpec['kind'] })}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SCORING_KINDS.map((kind) => (
-                <SelectItem key={kind} value={kind}>
-                  {ACTIVITY_KIND_LABELS[kind]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">{SCORING_HINTS[scoring.kind]}</p>
-        </div>
-
-        {(scoring.kind === 'MULT' || scoring.kind === 'SELECT_MULT') && (
-          <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
-            <Switch
-              checked={scoring.pageBased === true}
-              onCheckedChange={(v) => onScoringChange({ ...scoring, pageBased: v || undefined })}
+        <FormSection
+          title="Поля форми"
+          hint="Що заповнюють, подаючи цей показник"
+          action={<AddFieldSelect fields={fields} onChange={onFieldsChange} />}
+        >
+          <div className="space-y-4">
+            <EvidenceFieldBuilder
+              fields={fields}
+              scoring={scoring}
+              onChange={onFieldsChange}
+              error={specError ?? (errors.evidenceFields?.message as string | undefined)}
             />
-            <span>
-              Рахувати друковані аркуші
-              <span className="block text-xs text-muted-foreground">
-                сторінки ÷ 24 ÷ кількість співавторів
-              </span>
-            </span>
-          </label>
-        )}
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <FormField htmlFor="coefficient" label="Коефіцієнт" error={errors.coefficient}>
-            <Input id="coefficient" type="number" step="any" min="0" {...register('coefficient')} />
-          </FormField>
-          <FormField
-            htmlFor="maxPerYear"
-            label="Не більше за рік"
-            error={errors.maxPerYear}
-            description="Порожньо — без обмеження"
-          >
-            <Input id="maxPerYear" type="number" min="1" step="1" {...register('maxPerYear')} />
-          </FormField>
-        </div>
-
-        <div className="mt-4">
-          <FormField
-            htmlFor="coefficientNote"
-            label="Примітка (критерії)"
-            error={errors.coefficientNote}
-          >
-            <Textarea id="coefficientNote" rows={2} {...register('coefficientNote')} />
-          </FormField>
-        </div>
+            <EvidencePreview fields={fields} />
+          </div>
+        </FormSection>
       </div>
 
-      <EvidenceFieldBuilder
-        fields={fields}
-        scoring={scoring}
-        onChange={onFieldsChange}
-        error={specError ?? (errors.evidenceFields?.message as string | undefined)}
-      />
+      <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex cursor-pointer items-center gap-2">
+          <Switch checked={!!isActive} onCheckedChange={(v) => setValue('isActive', v)} />
+          <span className="text-sm">
+            Показник активний
+            {!isActive && (
+              <span className="block text-xs text-muted-foreground">
+                Вимкнений показник не нараховує балів
+              </span>
+            )}
+          </span>
+        </label>
 
-      <EvidencePreview fields={fields} />
-
-      <label className="flex cursor-pointer items-center gap-2">
-        <Switch checked={!!isActive} onCheckedChange={(v) => setValue('isActive', v)} />
-        <span className="text-sm">Показник активний</span>
-      </label>
-
-      <AlertDialogFooter>
-        <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Збереження…' : isEdit ? 'Зберегти' : 'Створити'}
-        </Button>
-      </AlertDialogFooter>
+        <AlertDialogFooter>
+          <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Збереження…' : isEdit ? 'Зберегти' : 'Створити'}
+          </Button>
+        </AlertDialogFooter>
+      </div>
     </form>
   );
 }

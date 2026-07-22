@@ -73,6 +73,37 @@ function blankField(kind: EvidenceField['kind'], taken: Set<string>): EvidenceFi
   }
 }
 
+/** Lives in the section header next to «Поля форми», so it stays in reach */
+export function AddFieldSelect({
+  fields,
+  onChange,
+}: {
+  fields: EvidenceField[];
+  onChange: (fields: EvidenceField[]) => void;
+}) {
+  const taken = new Set(fields.map((f) => f.name));
+
+  return (
+    <Select
+      value=""
+      onValueChange={(kind) =>
+        onChange([...fields, blankField(kind as EvidenceField['kind'], taken)])
+      }
+    >
+      <SelectTrigger size="sm" className="w-44 shrink-0">
+        <SelectValue placeholder="Додати поле…" />
+      </SelectTrigger>
+      <SelectContent align="end">
+        {ADDABLE_KINDS.map((kind) => (
+          <SelectItem key={kind} value={kind}>
+            {FIELD_KIND_LABELS[kind]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 interface EvidenceFieldBuilderProps {
   fields: EvidenceField[];
   scoring: ScoringSpec;
@@ -87,7 +118,6 @@ export function EvidenceFieldBuilder({
   error,
 }: EvidenceFieldBuilderProps) {
   const scoringNames = new Set(scoringFieldNames(scoring));
-  const taken = new Set(fields.map((f) => f.name));
 
   function patch(index: number, changes: Partial<EvidenceField>) {
     onChange(fields.map((f, i) => (i === index ? ({ ...f, ...changes } as EvidenceField) : f)));
@@ -103,49 +133,35 @@ export function EvidenceFieldBuilder({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">Поля форми</span>
-        <Select
-          value=""
-          onValueChange={(kind) =>
-            onChange([...fields, blankField(kind as EvidenceField['kind'], taken)])
-          }
-        >
-          <SelectTrigger size="sm" className="w-48">
-            <SelectValue placeholder="Додати поле…" />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {ADDABLE_KINDS.map((kind) => (
-              <SelectItem key={kind} value={kind}>
-                {FIELD_KIND_LABELS[kind]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {fields.length === 0 && (
-        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+      {fields.length === 0 ? (
+        <p className="px-4 py-6 text-center text-sm text-muted-foreground">
           Полів немає. Показник можна подати без доказів — або додайте поле.
         </p>
+      ) : (
+        <div className="space-y-2">
+          {fields.map((field, index) => (
+            <FieldCard
+              key={field.name}
+              field={field}
+              index={index}
+              total={fields.length}
+              scored={scoringNames.has(field.name)}
+              onPatch={(changes) => patch(index, changes)}
+              onRemove={() => onChange(fields.filter((_, i) => i !== index))}
+              onMove={(delta) => move(index, delta)}
+            />
+          ))}
+        </div>
       )}
 
-      <div className="space-y-3">
-        {fields.map((field, index) => (
-          <FieldCard
-            key={field.name}
-            field={field}
-            index={index}
-            total={fields.length}
-            scored={scoringNames.has(field.name)}
-            onPatch={(changes) => patch(index, changes)}
-            onRemove={() => onChange(fields.filter((_, i) => i !== index))}
-            onMove={(delta) => move(index, delta)}
-          />
-        ))}
-      </div>
-
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -168,36 +184,27 @@ function FieldCard({
   onMove: (delta: number) => void;
 }) {
   return (
-    <div className={cn('rounded-lg border p-3', scored && 'border-primary/40 bg-primary/[0.03]')}>
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full border px-2 py-0.5 text-muted-foreground">
-              {FIELD_KIND_LABELS[field.kind]}
-            </span>
-            <code className="text-muted-foreground">{field.name}</code>
-            {scored && (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-                впливає на бали
-              </span>
-            )}
-          </div>
+    <div
+      className={cn('rounded-lg border bg-card p-3', scored && 'border-primary/40 bg-primary/5')}
+    >
+      {/* The card's own controls sit in its header, so they cannot be mistaken
+          for controls of whatever the settings below happen to render. */}
+      <div className="mb-2 flex items-center gap-2 text-xs">
+        <span className="shrink-0 rounded-full border px-2 py-0.5 whitespace-nowrap text-muted-foreground">
+          {FIELD_KIND_LABELS[field.kind]}
+        </span>
+        {scored && (
+          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+            впливає на бали
+          </span>
+        )}
 
-          <Input
-            value={field.label}
-            onChange={(e) => onPatch({ label: e.target.value })}
-            placeholder="Підпис поля"
-            aria-label={`Підпис поля ${field.name}`}
-          />
-
-          <FieldSettings field={field} scored={scored} onPatch={onPatch} />
-        </div>
-
-        <div className="flex shrink-0 flex-col">
+        <div className="ml-auto flex shrink-0 items-center">
           <Button
             type="button"
             variant="ghost"
             size="icon"
+            className="size-7"
             onClick={() => onMove(-1)}
             disabled={index === 0}
             aria-label="Вище"
@@ -208,6 +215,7 @@ function FieldCard({
             type="button"
             variant="ghost"
             size="icon"
+            className="size-7"
             onClick={() => onMove(1)}
             disabled={index === total - 1}
             aria-label="Нижче"
@@ -222,11 +230,22 @@ function FieldCard({
             // A scoring field cannot go: the rule reads it by name
             disabled={scored}
             aria-label={scored ? 'Поле потрібне для нарахування балів' : 'Прибрати поле'}
-            className="text-muted-foreground hover:text-destructive"
+            className="size-7 text-muted-foreground hover:text-destructive"
           >
             <Trash2 className="size-4" />
           </Button>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Input
+          value={field.label}
+          onChange={(e) => onPatch({ label: e.target.value })}
+          placeholder="Підпис поля"
+          aria-label={`Підпис поля ${index + 1}`}
+        />
+
+        <FieldSettings field={field} scored={scored} onPatch={onPatch} />
       </div>
     </div>
   );
@@ -281,7 +300,7 @@ function FieldSettings({
               onChange={(e) =>
                 onPatch({ min: Number(e.target.value) || 0 } as Partial<EvidenceField>)
               }
-              aria-label={`Мінімум для ${field.name}`}
+              aria-label={`Мінімум для «${field.label}»`}
             />
           </label>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -335,7 +354,7 @@ function FieldSettings({
                 onPatch({ requiredError: e.target.value || undefined } as Partial<EvidenceField>)
               }
               placeholder="Пояснення, чому це обов'язково"
-              aria-label={`Пояснення для ${field.name}`}
+              aria-label={`Пояснення для «${field.label}»`}
             />
           )}
         </div>
@@ -367,9 +386,7 @@ function OptionsEditor({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {scored ? 'Варіанти та їхні бали' : 'Варіанти'}
-        </span>
+        <span className="text-xs text-muted-foreground">Варіанти</span>
         <Button
           type="button"
           variant="outline"
@@ -388,6 +405,15 @@ function OptionsEditor({
           Варіант
         </Button>
       </div>
+
+      {/* Only worth a column header when there is a second column to name */}
+      {scored && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="flex-1">Назва варіанта</span>
+          <span className="w-28 shrink-0">Бали</span>
+          <span className="size-8 shrink-0" aria-hidden />
+        </div>
+      )}
 
       {options.map((option, i) => (
         <div key={option.value} className="flex items-center gap-2">
