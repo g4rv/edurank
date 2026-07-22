@@ -295,6 +295,15 @@ model ActivityType {
   code  String // stable semantic key, e.g. "publication_cat_a" — survives yearly renumbering
   label String
 
+  itemNumber String // printed item number («3.12») — display + Excel export ordering
+  maxPerYear Int? // «не більше N» cap, enforced in the submit actions
+
+  // The admin-editable half of the indicator (template editor v2):
+  // evidenceFields — EvidenceField[] form definition (validations/activity-type-spec.ts)
+  // scoring        — ScoringSpec, how evidence turns into points (lib/rating/scoring.ts)
+  evidenceFields Json
+  scoring        Json
+
   // For FIXED/MULT kinds: points per unit. For SELECT/GATE kinds: 1 (points per option
   // live in the scoring engine, keyed by code).
   coefficient     Float

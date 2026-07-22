@@ -8,6 +8,7 @@ import {
   SECTION_TITLES,
 } from '../lib/rating/activity-types';
 import { syncProfileDerived } from '../lib/rating/profile-derived';
+import { dbSpecs } from '../lib/rating/db-specs';
 import { EVIDENCE_FIELDS } from '../lib/rating/evidence-fields';
 import { evidenceSchemaFor } from '../validations/activity-evidence';
 import { computeScore } from '../lib/rating/scoring';
@@ -31,10 +32,17 @@ function sampleEvidence(code: string): Record<string, unknown> {
         out[f.name] = f.name === 'pages' ? 24 : 2;
         break;
       case 'url':
-        out[f.name] = 'https://example.com/demo';
+        // Host-restricted links must actually point at an allowed host
+        out[f.name] = f.hosts ? `https://${f.hosts[0]}/demo` : 'https://example.com/demo';
         break;
       case 'date':
         out[f.name] = '2026-03-15';
+        break;
+      case 'isbn':
+        out[f.name] = '978-3-16-148410-0';
+        break;
+      case 'doi':
+        out[f.name] = '10.1000/demo.2026';
         break;
       case 'checkbox':
         out[f.name] = true;
@@ -255,10 +263,15 @@ async function main() {
   }
 
   for (const def of ACTIVITY_TYPES_2026) {
+    const specs = dbSpecs(def);
     const data = {
       sectionId: sectionIds[def.section],
       order: def.order,
       label: def.label,
+      itemNumber: specs.itemNumber,
+      maxPerYear: specs.maxPerYear,
+      evidenceFields: specs.evidenceFields as unknown as Prisma.InputJsonValue,
+      scoring: specs.scoring as unknown as Prisma.InputJsonValue,
       coefficient: def.coefficient,
       coefficientNote: def.coefficientNote ?? null,
       inputSource: def.inputSource,

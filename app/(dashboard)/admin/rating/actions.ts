@@ -7,6 +7,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { requireAdmin } from '@/lib/permissions';
 import { ACTIVITY_TYPES_2026, RATING_DIVISIONS, SECTION_TITLES } from '@/lib/rating/activity-types';
+import { dbSpecs } from '@/lib/rating/db-specs';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { summarizeEvidence, activityTypeMeta } from '@/lib/rating/registry';
 import { recomputeRatingEntries } from '@/lib/rating/recompute';
@@ -67,6 +68,10 @@ export async function cloneTemplate(fromYear: number): Promise<RatingAdminState>
             order: type.order,
             code: type.code,
             label: type.label,
+            itemNumber: type.itemNumber,
+            maxPerYear: type.maxPerYear,
+            evidenceFields: type.evidenceFields as Prisma.InputJsonValue,
+            scoring: type.scoring as Prisma.InputJsonValue,
             coefficient: type.coefficient,
             coefficientNote: type.coefficientNote,
             inputSource: type.inputSource,
@@ -302,6 +307,8 @@ export async function addActivityType(templateId: string, code: string): Promise
     ? await db.division.findUnique({ where: { name: RATING_DIVISIONS[def.verifyingDivision] } })
     : null;
 
+  const specs = dbSpecs(def);
+
   try {
     await db.$transaction(async (tx) => {
       const created = await tx.activityType.create({
@@ -311,6 +318,10 @@ export async function addActivityType(templateId: string, code: string): Promise
           order: def.order,
           code: def.code,
           label: def.label,
+          itemNumber: specs.itemNumber,
+          maxPerYear: specs.maxPerYear,
+          evidenceFields: specs.evidenceFields as unknown as Prisma.InputJsonValue,
+          scoring: specs.scoring as unknown as Prisma.InputJsonValue,
           coefficient: def.coefficient,
           coefficientNote: def.coefficientNote ?? null,
           inputSource: def.inputSource,

@@ -53,11 +53,14 @@ export type EvidenceField =
        */
       group?: string;
     }
+  // `points` feeds the scoring engine when the type's scoring rule reads this
+  // select (the `option`/`mode` conventions) — and the form shows it as a
+  // « — N балів» suffix. Absent on purely descriptive selects.
   | {
       kind: 'select';
       name: string;
       label: string;
-      options: readonly { value: string; label: string }[];
+      options: readonly { value: string; label: string; points?: number }[];
     };
 
 const text = (

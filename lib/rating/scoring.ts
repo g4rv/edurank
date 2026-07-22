@@ -128,7 +128,17 @@ export const MOODLE_MATERIALS = [
 export type MoodleMaterial = (typeof MOODLE_MATERIALS)[number];
 
 /** MULT/SELECT_MULT codes whose value = друковані аркуші: (pages / 24) / coAuthors */
-const PAGE_BASED_CODES = new Set(['monograph_ua', 'monograph_eu', 'edition_publication']);
+export const PAGE_BASED_CODES = new Set(['monograph_ua', 'monograph_eu', 'edition_publication']);
+
+/**
+ * How one activity type's score is computed — the shape stored in
+ * `ActivityType.scoring` (JSON). `pageBased` applies to MULT/SELECT_MULT and
+ * switches the numeric part to друковані аркуші: pages / 24 / coAuthors.
+ */
+export interface ScoringSpec {
+  kind: ActivityKind;
+  pageBased?: boolean;
+}
 
 const KIND_BY_CODE = new Map<string, ActivityKind>(
   ACTIVITY_TYPES_2026.map((t) => [t.code, t.kind])
