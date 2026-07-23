@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FormField } from '@/components/ui/form-field';
 import {
   Select,
   SelectContent,
@@ -11,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 // The PDF report, inline with the rest of the overview: filters, a live preview
 // that is the real file, and one download of exactly what is shown. No dialog —
@@ -32,117 +32,125 @@ export function ReportsView({
   year: number;
   departments: { id: string; name: string }[];
 }) {
-  const [kind, setKind] = useState<'departments' | 'staff'>('departments');
-  // Розділ 3 — те, що показують нинішні паперові звіти
-  const [metric, setMetric] = useState('3');
-  const [departmentId, setDepartmentId] = useState(departments[0]?.id ?? '');
+  // One control instead of two: «all» shows every кафедра's average, a
+  // department id shows that кафедра's НПП. Either way it is «which кафедри»,
+  // so it reads as one question.
+  const [target, setTarget] = useState('all');
+  // Загальний бал за замовчуванням — сума всіх розділів
+  const [metric, setMetric] = useState('total');
 
-  const params = new URLSearchParams({ kind, metric, year: String(year) });
-  if (kind === 'staff') params.set('departmentId', departmentId);
+  const isAll = target === 'all';
+  const params = new URLSearchParams({
+    kind: isAll ? 'departments' : 'staff',
+    metric,
+    year: String(year),
+  });
+  if (!isAll) params.set('departmentId', target);
   const href = `/api/export/rating-chart?${params.toString()}`;
   // Same file, rendered rather than saved — see the route's contentDisposition
   const inlineHref = `${href}&inline=1`;
-
-  const ready = kind === 'departments' || departmentId !== '';
 
   // Rebuilding a PDF on every keystroke of the filters would hammer the server,
   // so the preview follows a beat behind the controls.
   const [previewHref, setPreviewHref] = useState(inlineHref);
   useEffect(() => {
-    if (!ready) return;
     const id = setTimeout(() => setPreviewHref(inlineHref), 350);
     return () => clearTimeout(id);
-  }, [inlineHref, ready]);
+  }, [inlineHref]);
 
   return (
     <section className="rounded-xl border bg-card">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
-        <div className="space-y-0.5">
-          <h2 className="text-sm font-semibold">Звіти PDF</h2>
-          <p className="text-xs text-muted-foreground">
-            Стовпчикова діаграма за {year} рік — у тому ж вигляді, що й паперові звіти
-          </p>
+      {/* Title and download on top, the two filters sharing the width below —
+          so the header sits happily in a half-width column. */}
+      <div className="space-y-3 border-b px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <h2 className="text-sm font-semibold">Звіти PDF</h2>
+            <p className="text-xs text-muted-foreground">Діаграма за {year} рік</p>
+          </div>
+          <Button asChild size="sm">
+            <a href={href} download>
+              <FileDown className="size-4" />
+              Завантажити
+            </a>
+          </Button>
         </div>
-        <Button asChild size="sm" disabled={!ready}>
-          <a href={href} download>
-            <FileDown className="size-4" />
-            Завантажити
-          </a>
-        </Button>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <LabeledSelect
+            id="reportTarget"
+            label="Кафедра"
+            value={target}
+            onValueChange={setTarget}
+            wrapperClassName="min-w-40 flex-1"
+          >
+            <SelectItem value="all">Усі кафедри</SelectItem>
+            {departments.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.name}
+              </SelectItem>
+            ))}
+          </LabeledSelect>
+
+          <LabeledSelect
+            id="reportMetric"
+            label="Показник"
+            value={metric}
+            onValueChange={setMetric}
+            wrapperClassName="min-w-40 flex-1"
+          >
+            {METRICS.map((m) => (
+              <SelectItem key={m.value} value={m.value}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </LabeledSelect>
+        </div>
       </div>
 
-      {/* Filters on the left, the printed page on the right */}
-      <div className="grid gap-4 p-4 md:grid-cols-[16rem_1fr]">
-        <div className="space-y-4">
-          <FormField htmlFor="reportKind" label="Що показати">
-            <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
-              <SelectTrigger id="reportKind" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="departments">Усі кафедри — середній бал</SelectItem>
-                <SelectItem value="staff">Одна кафедра — по кожному НПП</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormField>
-
-          {kind === 'staff' && (
-            <FormField htmlFor="reportDepartment" label="Кафедра">
-              <Select value={departmentId} onValueChange={setDepartmentId}>
-                <SelectTrigger id="reportDepartment" className="w-full">
-                  <SelectValue placeholder="Оберіть кафедру" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-          )}
-
-          <FormField
-            htmlFor="reportMetric"
-            label="Показник"
-            description={
-              kind === 'staff'
-                ? 'Друкується поряд із загальною сумою балів кожного НПП'
-                : 'За ним кафедри шикуються у рейтингу'
-            }
-          >
-            <Select value={metric} onValueChange={setMetric}>
-              <SelectTrigger id="reportMetric" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {METRICS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormField>
-        </div>
-
-        {/* The preview is the printed page, so it keeps A4 upright proportions */}
-        <div className="h-168 max-h-[86vh] min-w-0 overflow-hidden rounded-lg border bg-muted/30">
-          {ready ? (
-            <iframe
-              key={previewHref}
-              src={`${previewHref}#toolbar=0&navpanes=0&view=FitH`}
-              title="Попередній перегляд звіту"
-              className="h-full w-full"
-            />
-          ) : (
-            <p className="p-8 text-center text-sm text-muted-foreground">
-              Оберіть кафедру, щоб побачити діаграму.
-            </p>
-          )}
+      {/* The preview is the printed page: capped at 500px so it reads like a
+          sheet, with the A4 height that width implies (× √2). Extra side
+          padding keeps the sheet off the card edges. */}
+      <div className="px-8 py-5">
+        <div className="mx-auto h-[707px] max-h-[86vh] w-full max-w-[500px] overflow-hidden rounded-lg border bg-muted/30">
+          <iframe
+            key={previewHref}
+            src={`${previewHref}#toolbar=0&navpanes=0&view=FitH`}
+            title="Попередній перегляд звіту"
+            className="h-full w-full"
+          />
         </div>
       </div>
     </section>
+  );
+}
+
+function LabeledSelect({
+  id,
+  label,
+  value,
+  onValueChange,
+  wrapperClassName,
+  children,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  wrapperClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn('space-y-1', wrapperClassName)}>
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+        {label}
+      </label>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>{children}</SelectContent>
+      </Select>
+    </div>
   );
 }

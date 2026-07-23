@@ -153,25 +153,29 @@ export default async function DashboardPage() {
         </Panel>
       </div>
 
-      <Panel
-        title="Структура"
-        hint="Факультет → кафедра → скільки НПП"
-        bodyClassName=""
-        action={
-          <Link href="/departments" className="text-xs text-muted-foreground hover:underline">
-            Усі кафедри
-          </Link>
-        }
-      >
-        <OrgTree faculties={data.faculties} />
-      </Panel>
+      {/* The report sheet is only 500px wide, so the structure tree rides
+          beside it instead of the report spanning the page alone. */}
+      <div className="grid items-start gap-4 xl:grid-cols-[34rem_1fr]">
+        <ReportsView
+          year={template.year}
+          departments={data.departments
+            .filter((d) => d.nppCount > 0)
+            .map((d) => ({ id: d.id, name: d.name }))}
+        />
 
-      <ReportsView
-        year={template.year}
-        departments={data.departments
-          .filter((d) => d.nppCount > 0)
-          .map((d) => ({ id: d.id, name: d.name }))}
-      />
+        <Panel
+          title="Структура"
+          hint="Факультет → кафедра → скільки НПП"
+          bodyClassName=""
+          action={
+            <Link href="/departments" className="text-xs text-muted-foreground hover:underline">
+              Усі кафедри
+            </Link>
+          }
+        >
+          <OrgTree faculties={data.faculties} />
+        </Panel>
+      </div>
     </AnimatedPage>
   );
 }
