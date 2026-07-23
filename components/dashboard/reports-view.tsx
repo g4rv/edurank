@@ -71,8 +71,9 @@ export function ReportsView({
         </Button>
       </div>
 
-      <div className="space-y-4 p-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Filters on the left, the printed page on the right */}
+      <div className="grid gap-4 p-4 md:grid-cols-[16rem_1fr]">
+        <div className="space-y-4">
           <FormField htmlFor="reportKind" label="Що показати">
             <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
               <SelectTrigger id="reportKind" className="w-full">
@@ -127,7 +128,7 @@ export function ReportsView({
         </div>
 
         {/* The preview is the printed page, so it keeps A4 upright proportions */}
-        <div className="h-[46rem] max-h-[86vh] overflow-hidden rounded-lg border bg-muted/30">
+        <div className="h-168 max-h-[86vh] min-w-0 overflow-hidden rounded-lg border bg-muted/30">
           {ready ? (
             <iframe
               key={previewHref}
