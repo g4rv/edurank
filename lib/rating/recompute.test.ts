@@ -42,6 +42,35 @@ describe('sumBySection', () => {
     const after = sumBySection([{ score: 40, sectionNumber: 2 }]);
     expect(before.section2Score - after.section2Score).toBe(40);
   });
+
+  // The bug: adding clean 2-decimal scores with + leaves binary-float dust that
+  // was written straight into the DB. Buckets and total must come back clean.
+  it('rounds away float-addition dust so the DB stores clean 2-decimal values', () => {
+    const totals = sumBySection([
+      { score: 0.1, sectionNumber: 1 },
+      { score: 0.2, sectionNumber: 1 },
+      { score: 8.33, sectionNumber: 3 },
+      { score: 8.34, sectionNumber: 3 },
+    ]);
+    // Not 0.30000000000000004 / 16.669999999999998
+    expect(totals.section1Score).toBe(0.3);
+    expect(totals.section3Score).toBe(16.67);
+    expect(totals.totalScore).toBe(16.97);
+  });
+
+  it('the total equals the sum of the rounded section buckets', () => {
+    const totals = sumBySection([
+      { score: 1.005, sectionNumber: 1 },
+      { score: 2.005, sectionNumber: 2 },
+    ]);
+    const sumOfBuckets =
+      totals.section1Score +
+      totals.section2Score +
+      totals.section3Score +
+      totals.section4Score +
+      totals.section5Score;
+    expect(totals.totalScore).toBe(Math.round(sumOfBuckets * 100) / 100);
+  });
 });
 
 // M6.4: the DB-facing wrapper — reads only APPROVED rows, upserts the entry

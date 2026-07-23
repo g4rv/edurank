@@ -18,6 +18,17 @@ export interface SectionTotals {
   totalScore: number;
 }
 
+/**
+ * Round to 2 decimals. Each Activity.score is already rounded, but summing them
+ * with `+=` reintroduces binary-float dust (0.1 + 0.2 = 0.30000000000000004),
+ * and that dust would be written straight into RatingEntry. Round the buckets so
+ * the DB only ever holds clean 2-decimal values — the fix is on the stored value,
+ * not the display.
+ */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 /** Pure rollup: sums scores into the five section buckets (unknown sections are ignored) */
 export function sumBySection(rows: SectionScoreRow[]): SectionTotals {
   const sections = [0, 0, 0, 0, 0];
@@ -26,14 +37,18 @@ export function sumBySection(rows: SectionScoreRow[]): SectionTotals {
       sections[row.sectionNumber - 1] += row.score;
     }
   }
-  const [section1Score, section2Score, section3Score, section4Score, section5Score] = sections;
+  const [section1Score, section2Score, section3Score, section4Score, section5Score] =
+    sections.map(round2);
   return {
     section1Score,
     section2Score,
     section3Score,
     section4Score,
     section5Score,
-    totalScore: sections.reduce((a, b) => a + b, 0),
+    // Sum the rounded buckets so the total agrees with the parts to the last digit
+    totalScore: round2(
+      section1Score + section2Score + section3Score + section4Score + section5Score
+    ),
   };
 }
 

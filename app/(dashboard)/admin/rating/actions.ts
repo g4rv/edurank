@@ -569,6 +569,11 @@ interface SnapshotItem {
   statusLabel: string;
 }
 
+/** Keep summed scores to 2 decimals — see the note in lib/rating/recompute.ts */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 /** Field specs off the row's JSON; a malformed row degrades to an empty summary */
 function fieldsOf(activityType: { evidenceFields: unknown }): readonly EvidenceField[] {
   const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
@@ -638,11 +643,13 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
           return {
             number,
             title: SECTION_TITLES[number] ?? '',
-            subtotal: items.reduce((sum, i) => sum + i.score, 0),
+            // round2: summing 2-decimal scores with + reintroduces float dust
+            // (0.1 + 0.2 = 0.30000000000000004); the snapshot is frozen, so keep it clean.
+            subtotal: round2(items.reduce((sum, i) => sum + i.score, 0)),
             items,
           };
         });
-        const total = sections.reduce((sum, s) => sum + s.subtotal, 0);
+        const total = round2(sections.reduce((sum, s) => sum + s.subtotal, 0));
 
         const snapshot = { closedAt: new Date().toISOString(), total, sections };
         await tx.ratingEntry.updateMany({
