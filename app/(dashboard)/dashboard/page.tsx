@@ -10,7 +10,7 @@ import { OrgTree } from '@/components/dashboard/org-tree';
 import { ScoreDistribution } from '@/components/dashboard/score-distribution';
 import { SectionTotals } from '@/components/dashboard/section-totals';
 import { DepartmentScores } from '@/components/dashboard/department-scores';
-import { RatingPdfDialog } from '@/components/dashboard/rating-pdf-dialog';
+import { ReportsView } from '@/components/dashboard/reports-view';
 
 const full = new Intl.NumberFormat('uk-UA');
 
@@ -141,18 +141,7 @@ export default async function DashboardPage() {
           <SectionTotals sections={data.sectionTotals} />
         </Panel>
 
-        <Panel
-          title="Кафедри"
-          hint="Середній бал на одного НПП, а не сума — інакше виграє більша"
-          action={
-            <RatingPdfDialog
-              year={template.year}
-              departments={data.departments
-                .filter((d) => d.nppCount > 0)
-                .map((d) => ({ id: d.id, name: d.name }))}
-            />
-          }
-        >
+        <Panel title="Кафедри" hint="Середній бал на одного НПП, а не сума — інакше виграє більша">
           {data.departments.length > 0 ? (
             <DepartmentScores
               departments={data.departments}
@@ -176,6 +165,13 @@ export default async function DashboardPage() {
       >
         <OrgTree faculties={data.faculties} />
       </Panel>
+
+      <ReportsView
+        year={template.year}
+        departments={data.departments
+          .filter((d) => d.nppCount > 0)
+          .map((d) => ({ id: d.id, name: d.name }))}
+      />
     </AnimatedPage>
   );
 }
