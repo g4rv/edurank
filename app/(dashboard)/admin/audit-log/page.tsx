@@ -9,6 +9,7 @@ import { FIELD_LABELS } from '@/lib/labels';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
+import { DataTable } from '@/components/ui/data-table';
 import { AuditDateFilter } from '@/components/admin/audit-date-filter';
 
 const ACTION_LABELS: Record<string, string> = {
@@ -260,85 +261,78 @@ export default async function AuditLogPage({
           Записів не знайдено
         </div>
       ) : (
-        <div className="rounded-xl border bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                <SortTh
-                  label="Час"
-                  href={buildHref({
-                    sort: 'createdAt',
-                    dir: sortField === 'createdAt' ? (sortDir === 'desc' ? 'asc' : 'desc') : 'desc',
-                  })}
-                  active={sortField === 'createdAt'}
-                  dir={sortDir as 'asc' | 'desc'}
-                />
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Дія</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Об&apos;єкт
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Зміни</th>
-                <SortTh
-                  label="Користувач"
-                  href={buildHref({
-                    sort: 'author',
-                    dir: sortField === 'author' ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc',
-                  })}
-                  active={sortField === 'author'}
-                  dir={sortDir as 'asc' | 'desc'}
-                />
-              </tr>
-            </thead>
-            <AnimatedTableBody>
-              {logs.map((log) => {
-                const changes =
-                  log.changes && typeof log.changes === 'object' && !Array.isArray(log.changes)
-                    ? (log.changes as Changes)
-                    : null;
+        <DataTable>
+          <thead>
+            <tr className="border-b bg-muted/40">
+              <SortTh
+                label="Час"
+                href={buildHref({
+                  sort: 'createdAt',
+                  dir: sortField === 'createdAt' ? (sortDir === 'desc' ? 'asc' : 'desc') : 'desc',
+                })}
+                active={sortField === 'createdAt'}
+                dir={sortDir as 'asc' | 'desc'}
+              />
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Дія</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Об&apos;єкт</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Зміни</th>
+              <SortTh
+                label="Користувач"
+                href={buildHref({
+                  sort: 'author',
+                  dir: sortField === 'author' ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc',
+                })}
+                active={sortField === 'author'}
+                dir={sortDir as 'asc' | 'desc'}
+              />
+            </tr>
+          </thead>
+          <AnimatedTableBody>
+            {logs.map((log) => {
+              const changes =
+                log.changes && typeof log.changes === 'object' && !Array.isArray(log.changes)
+                  ? (log.changes as Changes)
+                  : null;
 
-                return (
-                  <AnimatedRow
-                    key={log.id}
-                    className="border-b transition-colors last:border-0 hover:bg-muted/30"
-                  >
-                    <td className="px-4 py-3 align-top whitespace-nowrap text-muted-foreground">
-                      {new Date(log.createdAt).toLocaleString('uk-UA')}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                          ACTION_CLASSES[log.action] ?? 'bg-muted text-muted-foreground'
-                        )}
-                      >
-                        {ACTION_LABELS[log.action] ?? log.action}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <span className="text-xs text-muted-foreground">
-                        {ENTITY_LABELS[log.entity] ?? log.entity}
-                      </span>
-                      {(() => {
-                        const name = resolveEntityName(log.entity, log.entityId) ?? log.label;
-                        return name ? <p className="mt-0.5 text-sm font-medium">{name}</p> : null;
-                      })()}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      {changes ? (
-                        <ChangesDisplay changes={changes} resolve={resolve} />
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
+              return (
+                <AnimatedRow key={log.id} className="transition-colors">
+                  <td className="px-4 py-3 align-top whitespace-nowrap text-muted-foreground">
+                    {new Date(log.createdAt).toLocaleString('uk-UA')}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        ACTION_CLASSES[log.action] ?? 'bg-muted text-muted-foreground'
                       )}
-                    </td>
-                    <td className="px-4 py-3 align-top text-muted-foreground">
-                      {log.user?.email ?? '—'}
-                    </td>
-                  </AnimatedRow>
-                );
-              })}
-            </AnimatedTableBody>
-          </table>
-        </div>
+                    >
+                      {ACTION_LABELS[log.action] ?? log.action}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <span className="text-xs text-muted-foreground">
+                      {ENTITY_LABELS[log.entity] ?? log.entity}
+                    </span>
+                    {(() => {
+                      const name = resolveEntityName(log.entity, log.entityId) ?? log.label;
+                      return name ? <p className="mt-0.5 text-sm font-medium">{name}</p> : null;
+                    })()}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {changes ? (
+                      <ChangesDisplay changes={changes} resolve={resolve} />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 align-top text-muted-foreground">
+                    {log.user?.email ?? '—'}
+                  </td>
+                </AnimatedRow>
+              );
+            })}
+          </AnimatedTableBody>
+        </DataTable>
       )}
 
       {totalPages > 1 && (

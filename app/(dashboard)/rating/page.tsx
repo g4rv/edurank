@@ -9,6 +9,7 @@ import { FileDown } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { RatingFilters } from '@/components/rating/rating-filters';
+import { DataTable } from '@/components/ui/data-table';
 import { cn } from '@/lib/utils';
 
 export default async function RatingRollupPage({
@@ -70,61 +71,56 @@ export default async function RatingRollupPage({
         departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
       />
 
-      <div className="overflow-x-auto rounded-xl border bg-card">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/40 text-left">
-              <th className="w-12 px-4 py-3 font-medium text-muted-foreground">№</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">ПІБ</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">Кафедра</th>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <th
-                  key={n}
-                  className="w-20 px-3 py-3 text-right font-medium text-muted-foreground"
-                  title={`Розділ ${n}`}
-                >
-                  Р{n}
-                </th>
-              ))}
-              <th className="w-24 px-4 py-3 text-right font-medium text-muted-foreground">Разом</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
-              <tr
-                key={row.id}
-                className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
+      <DataTable>
+        <thead>
+          <tr className="border-b bg-muted/40 text-left">
+            <th className="w-12 px-4 py-3 font-medium text-muted-foreground">№</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">ПІБ</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Кафедра</th>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <th
+                key={n}
+                className="w-20 px-3 py-3 text-right font-medium text-muted-foreground"
+                title={`Розділ ${n}`}
               >
-                <td className="px-4 py-3 text-muted-foreground tabular-nums">{index + 1}</td>
-                <td className="px-4 py-3 font-medium">
-                  <Link href={`/staff/${row.id}/rating`} className="absolute inset-0" />
-                  {row.name}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{row.department ?? '—'}</td>
-                {row.sections.map((score, i) => (
-                  <td
-                    key={i}
-                    className={cn(
-                      'px-3 py-3 text-right tabular-nums',
-                      score === 0 && 'text-muted-foreground/50'
-                    )}
-                  >
-                    {score}
-                  </td>
-                ))}
-                <td className="px-4 py-3 text-right font-semibold tabular-nums">{row.total}</td>
-              </tr>
+                Р{n}
+              </th>
             ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
-                  Нікого не знайдено
+            <th className="w-24 px-4 py-3 text-right font-medium text-muted-foreground">Разом</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={row.id} className="relative transition-colors">
+              <td className="px-4 py-3 text-muted-foreground tabular-nums">{index + 1}</td>
+              <td className="px-4 py-3 font-medium">
+                <Link href={`/staff/${row.id}/rating`} className="absolute inset-0" />
+                {row.name}
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">{row.department ?? '—'}</td>
+              {row.sections.map((score, i) => (
+                <td
+                  key={i}
+                  className={cn(
+                    'px-3 py-3 text-right tabular-nums',
+                    score === 0 && 'text-muted-foreground/50'
+                  )}
+                >
+                  {score}
                 </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+              <td className="px-4 py-3 text-right font-semibold tabular-nums">{row.total}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
+                Нікого не знайдено
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </DataTable>
     </AnimatedPage>
   );
 }

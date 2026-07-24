@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
+import { DataTable } from '@/components/ui/data-table';
 import { DeleteFacultyButton } from '@/components/faculty/delete-button';
 
 function deanName(dean: { lastName: string; firstName: string; patronymic: string } | null) {
@@ -65,51 +66,46 @@ export default async function FacultiesPage({
           Факультетів не знайдено
         </div>
       ) : (
-        <div className="rounded-xl border bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                <SortTh label="Назва" href={`/faculties?dir=${nextDir}`} active dir={sortDir} />
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Декан</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Кафедри</th>
+        <DataTable>
+          <thead>
+            <tr className="border-b bg-muted/40">
+              <SortTh label="Назва" href={`/faculties?dir=${nextDir}`} active dir={sortDir} />
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Декан</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Кафедри</th>
+              {showActions && (
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Дії</th>
+              )}
+            </tr>
+          </thead>
+          <AnimatedTableBody>
+            {faculties.map((faculty) => (
+              <AnimatedRow key={faculty.id} className="relative transition-colors">
+                <td className="px-4 py-3 font-medium">
+                  <Link href={`/faculties/${faculty.id}`} className="absolute inset-0" />
+                  {faculty.name}
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">{deanName(faculty.dean)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{faculty._count.departments}</td>
                 {showActions && (
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Дії</th>
-                )}
-              </tr>
-            </thead>
-            <AnimatedTableBody>
-              {faculties.map((faculty) => (
-                <AnimatedRow
-                  key={faculty.id}
-                  className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
-                >
-                  <td className="px-4 py-3 font-medium">
-                    <Link href={`/faculties/${faculty.id}`} className="absolute inset-0" />
-                    {faculty.name}
+                  <td className="relative z-10 px-4 py-3">
+                    <div className="flex items-start justify-end gap-2">
+                      {canEdit && (
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/faculties/${faculty.id}/edit`}>
+                            <Pencil className="size-4" />
+                          </Link>
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <DeleteFacultyButton facultyId={faculty.id} facultyName={faculty.name} />
+                      )}
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{deanName(faculty.dean)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{faculty._count.departments}</td>
-                  {showActions && (
-                    <td className="relative z-10 px-4 py-3">
-                      <div className="flex items-start justify-end gap-2">
-                        {canEdit && (
-                          <Button asChild variant="outline" size="sm">
-                            <Link href={`/faculties/${faculty.id}/edit`}>
-                              <Pencil className="size-4" />
-                            </Link>
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <DeleteFacultyButton facultyId={faculty.id} facultyName={faculty.name} />
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </AnimatedRow>
-              ))}
-            </AnimatedTableBody>
-          </table>
-        </div>
+                )}
+              </AnimatedRow>
+            ))}
+          </AnimatedTableBody>
+        </DataTable>
       )}
     </div>
   );

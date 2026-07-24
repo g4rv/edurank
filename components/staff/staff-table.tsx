@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { ACADEMIC_RANK_LABELS, ROLE_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
+import { DataTable } from '@/components/ui/data-table';
 import type { StaffListItem } from '@/lib/queries/list-staff';
 
 function fullName(s: Pick<TableStaffItem, 'lastName' | 'firstName' | 'patronymic'>) {
@@ -35,76 +36,71 @@ export function StaffTable({ staff, sortHeader, isAdmin }: Props) {
   }
 
   return (
-    <div className="rounded-xl border bg-card">
-      <table className="w-full text-sm">
-        <thead>{sortHeader}</thead>
-        <AnimatedTableBody>
-          {staff.map((member) => (
-            <AnimatedRow
-              key={member.id}
-              className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
-            >
-              <td className="px-4 py-3 font-medium">
-                <Link href={`/staff/${member.id}`} className="absolute inset-0" />
-                {fullName(member)}
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
+    <DataTable>
+      <thead>{sortHeader}</thead>
+      <AnimatedTableBody>
+        {staff.map((member) => (
+          <AnimatedRow key={member.id} className="relative transition-colors">
+            <td className="px-4 py-3 font-medium">
+              <Link href={`/staff/${member.id}`} className="absolute inset-0" />
+              {fullName(member)}
+            </td>
+            <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
+            <td className="px-4 py-3">
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                  member.isNpp ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                )}
+              >
+                {member.isNpp ? 'НПП' : 'Адм.'}
+              </span>
+            </td>
+            <td className="px-4 py-3 text-muted-foreground">
+              {member.department?.name ?? member.division?.name ?? '—'}
+            </td>
+            <td className="px-4 py-3 text-muted-foreground">
+              {member.academicRank
+                ? [
+                    ACADEMIC_RANK_LABELS[member.academicRank],
+                    member.scientificDegree
+                      ? SCIENTIFIC_DEGREE_LABELS[member.scientificDegree]
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')
+                : '—'}
+            </td>
+            {isAdmin && (
               <td className="px-4 py-3">
-                <span
-                  className={cn(
-                    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                    member.isNpp ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                  )}
-                >
-                  {member.isNpp ? 'НПП' : 'Адм.'}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {member.department?.name ?? member.division?.name ?? '—'}
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {member.academicRank
-                  ? [
-                      ACADEMIC_RANK_LABELS[member.academicRank],
-                      member.scientificDegree
-                        ? SCIENTIFIC_DEGREE_LABELS[member.scientificDegree]
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(', ')
-                  : '—'}
-              </td>
-              {isAdmin && (
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-muted-foreground">
-                      {member.role ? ROLE_LABELS[member.role] : '—'}
-                    </span>
-                    {member.isActivated === false && (
-                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                        Не активований
-                      </span>
-                    )}
-                  </div>
-                </td>
-              )}
-              {isAdmin && (
-                <td className="px-4 py-3">
-                  {'employmentRate' in member && member.employmentRate != null ? (
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {member.employmentRate}
-                    </span>
-                  ) : (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-muted-foreground">
+                    {member.role ? ROLE_LABELS[member.role] : '—'}
+                  </span>
+                  {member.isActivated === false && (
                     <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                      не вказано
+                      Не активований
                     </span>
                   )}
-                </td>
-              )}
-            </AnimatedRow>
-          ))}
-        </AnimatedTableBody>
-      </table>
-    </div>
+                </div>
+              </td>
+            )}
+            {isAdmin && (
+              <td className="px-4 py-3">
+                {'employmentRate' in member && member.employmentRate != null ? (
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    {member.employmentRate}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                    не вказано
+                  </span>
+                )}
+              </td>
+            )}
+          </AnimatedRow>
+        ))}
+      </AnimatedTableBody>
+    </DataTable>
   );
 }

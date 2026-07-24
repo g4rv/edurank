@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
+import { DataTable } from '@/components/ui/data-table';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
 
 function headName(head: { lastName: string; firstName: string; patronymic: string } | null) {
@@ -90,66 +91,58 @@ export default async function DepartmentsPage({
           Кафедр не знайдено
         </div>
       ) : (
-        <div className="rounded-xl border bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                <SortTh
-                  label="Назва"
-                  href={buildHref('name')}
-                  active={sortField === 'name'}
-                  dir={sortDir}
-                />
-                <SortTh
-                  label="Факультет"
-                  href={buildHref('faculty')}
-                  active={sortField === 'faculty'}
-                  dir={sortDir}
-                />
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Завідувач</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">НПП</th>
+        <DataTable>
+          <thead>
+            <tr className="border-b bg-muted/40">
+              <SortTh
+                label="Назва"
+                href={buildHref('name')}
+                active={sortField === 'name'}
+                dir={sortDir}
+              />
+              <SortTh
+                label="Факультет"
+                href={buildHref('faculty')}
+                active={sortField === 'faculty'}
+                dir={sortDir}
+              />
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Завідувач</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">НПП</th>
+              {showActions && (
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Дії</th>
+              )}
+            </tr>
+          </thead>
+          <AnimatedTableBody>
+            {departments.map((dept) => (
+              <AnimatedRow key={dept.id} className="relative transition-colors">
+                <td className="px-4 py-3 font-medium">
+                  <Link href={`/departments/${dept.id}`} className="absolute inset-0" />
+                  {dept.name}
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">{dept.faculty.name}</td>
+                <td className="px-4 py-3 text-muted-foreground">{headName(dept.head)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{dept._count.primaryStaff}</td>
                 {showActions && (
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Дії</th>
-                )}
-              </tr>
-            </thead>
-            <AnimatedTableBody>
-              {departments.map((dept) => (
-                <AnimatedRow
-                  key={dept.id}
-                  className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
-                >
-                  <td className="px-4 py-3 font-medium">
-                    <Link href={`/departments/${dept.id}`} className="absolute inset-0" />
-                    {dept.name}
+                  <td className="relative z-10 px-4 py-3">
+                    <div className="flex items-start justify-end gap-2">
+                      {canEdit && (
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/departments/${dept.id}/edit`}>
+                            <Pencil className="size-4" />
+                          </Link>
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <DeleteDepartmentButton departmentId={dept.id} departmentName={dept.name} />
+                      )}
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{dept.faculty.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{headName(dept.head)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{dept._count.primaryStaff}</td>
-                  {showActions && (
-                    <td className="relative z-10 px-4 py-3">
-                      <div className="flex items-start justify-end gap-2">
-                        {canEdit && (
-                          <Button asChild variant="outline" size="sm">
-                            <Link href={`/departments/${dept.id}/edit`}>
-                              <Pencil className="size-4" />
-                            </Link>
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <DeleteDepartmentButton
-                            departmentId={dept.id}
-                            departmentName={dept.name}
-                          />
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </AnimatedRow>
-              ))}
-            </AnimatedTableBody>
-          </table>
-        </div>
+                )}
+              </AnimatedRow>
+            ))}
+          </AnimatedTableBody>
+        </DataTable>
       )}
     </div>
   );
