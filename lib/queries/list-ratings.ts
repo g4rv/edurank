@@ -1,10 +1,14 @@
 import { db } from '@/lib/db';
 
+export type RatingSortField = 'name' | 'department' | 's1' | 's2' | 's3' | 's4' | 's5' | 'total';
+
 export interface RatingListFilters {
   year: number;
   facultyId?: string;
   departmentId?: string;
   q?: string;
+  sort?: RatingSortField;
+  dir?: 'asc' | 'desc';
 }
 
 /**
@@ -48,27 +52,53 @@ export async function listRatings(filters: RatingListFilters) {
     },
   });
 
-  return staff
-    .map((s) => {
-      const entry = s.ratingEntries[0];
-      return {
-        id: s.id,
-        name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
-        department: s.department?.name ?? null,
-        faculty: s.department?.faculty?.name ?? null,
-        sections: entry
-          ? [
-              entry.section1Score,
-              entry.section2Score,
-              entry.section3Score,
-              entry.section4Score,
-              entry.section5Score,
-            ]
-          : [0, 0, 0, 0, 0],
-        total: entry?.totalScore ?? 0,
-      };
-    })
-    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'uk'));
+  const rows = staff.map((s) => {
+    const entry = s.ratingEntries[0];
+    return {
+      id: s.id,
+      name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
+      department: s.department?.name ?? null,
+      faculty: s.department?.faculty?.name ?? null,
+      sections: entry
+        ? [
+            entry.section1Score,
+            entry.section2Score,
+            entry.section3Score,
+            entry.section4Score,
+            entry.section5Score,
+          ]
+        : [0, 0, 0, 0, 0],
+      total: entry?.totalScore ?? 0,
+    };
+  });
+
+  // Default view is the ranking: highest total first. Any column can override.
+  const sort = filters.sort ?? 'total';
+  const sign = (filters.dir ?? 'desc') === 'asc' ? 1 : -1;
+  const value = (r: (typeof rows)[number]): string | number => {
+    switch (sort) {
+      case 'name':
+        return r.name;
+      case 'department':
+        return r.department ?? '';
+      case 'total':
+        return r.total;
+      default:
+        return r.sections[Number(sort[1]) - 1];
+    }
+  };
+
+  return rows.sort((a, b) => {
+    const va = value(a);
+    const vb = value(b);
+    const cmp =
+      typeof va === 'string' && typeof vb === 'string'
+        ? va.localeCompare(vb, 'uk')
+        : (va as number) - (vb as number);
+    // Ties always fall back to name, so the order never wobbles between loads.
+    if (cmp === 0) return a.name.localeCompare(b.name, 'uk');
+    return sign * cmp;
+  });
 }
 
 export type RatingRow = Awaited<ReturnType<typeof listRatings>>[number];

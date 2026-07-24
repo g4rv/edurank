@@ -2,13 +2,14 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
-import { listRatings } from '@/lib/queries/list-ratings';
+import { listRatings, type RatingSortField } from '@/lib/queries/list-ratings';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { FileDown } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { RatingFilters } from '@/components/rating/rating-filters';
+import { SortTh } from '@/components/ui/sort-th';
 import { DataTable } from '@/components/ui/data-table';
 import { cn } from '@/lib/utils';
 
@@ -35,7 +36,23 @@ export default async function RatingRollupPage({
     );
   }
 
-  const { q, faculty, dept } = params;
+  const { q, faculty, dept, sort, dir } = params;
+
+  const VALID_SORTS: readonly RatingSortField[] = [
+    'name',
+    'department',
+    's1',
+    's2',
+    's3',
+    's4',
+    's5',
+    'total',
+  ];
+  const sortField =
+    typeof sort === 'string' && (VALID_SORTS as readonly string[]).includes(sort)
+      ? (sort as RatingSortField)
+      : 'total';
+  const sortDir = dir === 'asc' ? 'asc' : 'desc';
 
   const [rows, faculties, departments] = await Promise.all([
     listRatings({
@@ -43,10 +60,32 @@ export default async function RatingRollupPage({
       q: typeof q === 'string' ? q : undefined,
       facultyId: typeof faculty === 'string' ? faculty : undefined,
       departmentId: typeof dept === 'string' ? dept : undefined,
+      sort: sortField,
+      dir: sortDir,
     }),
     listFaculties(),
     listDepartments(),
   ]);
+
+  // Scores read best highest-first, names A→Я; a column already sorted flips.
+  const NUMERIC_FIRST: ReadonlySet<string> = new Set(['total', 's1', 's2', 's3', 's4', 's5']);
+  function sortHref(col: RatingSortField) {
+    const nextDir =
+      sortField === col
+        ? sortDir === 'asc'
+          ? 'desc'
+          : 'asc'
+        : NUMERIC_FIRST.has(col)
+          ? 'desc'
+          : 'asc';
+    const sp = new URLSearchParams();
+    if (typeof q === 'string' && q) sp.set('q', q);
+    if (typeof faculty === 'string' && faculty) sp.set('faculty', faculty);
+    if (typeof dept === 'string' && dept) sp.set('dept', dept);
+    sp.set('sort', col);
+    sp.set('dir', nextDir);
+    return `/rating?${sp.toString()}`;
+  }
 
   return (
     <AnimatedPage className="space-y-6">
@@ -75,18 +114,38 @@ export default async function RatingRollupPage({
         <thead>
           <tr className="border-b bg-muted/40 text-left">
             <th className="w-12 px-4 py-3 font-medium text-muted-foreground">№</th>
-            <th className="px-4 py-3 font-medium text-muted-foreground">ПІБ</th>
-            <th className="px-4 py-3 font-medium text-muted-foreground">Кафедра</th>
+            <SortTh
+              label="ПІБ"
+              href={sortHref('name')}
+              active={sortField === 'name'}
+              dir={sortDir}
+            />
+            <SortTh
+              label="Кафедра"
+              href={sortHref('department')}
+              active={sortField === 'department'}
+              dir={sortDir}
+            />
             {[1, 2, 3, 4, 5].map((n) => (
-              <th
+              <SortTh
                 key={n}
-                className="w-20 px-3 py-3 text-right font-medium text-muted-foreground"
+                label={`Р${n}`}
                 title={`Розділ ${n}`}
-              >
-                Р{n}
-              </th>
+                href={sortHref(`s${n}` as RatingSortField)}
+                active={sortField === `s${n}`}
+                dir={sortDir}
+                align="right"
+                className="w-20 px-3"
+              />
             ))}
-            <th className="w-24 px-4 py-3 text-right font-medium text-muted-foreground">Разом</th>
+            <SortTh
+              label="Разом"
+              href={sortHref('total')}
+              active={sortField === 'total'}
+              dir={sortDir}
+              align="right"
+              className="w-24"
+            />
           </tr>
         </thead>
         <tbody>
