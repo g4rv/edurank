@@ -93,6 +93,19 @@ and would double-encode length as hue. `--chart-1…5` are stepped separately fo
 and dark: the ramps are not flips of each other, because the dark card sits at
 `oklch(0.205)` and the light ramp's dark end would sink into it.
 
+**The one hue exception: small status indicators.** Monochrome governs layout, charts,
+and data. A small badge or icon that reports **state** may carry a hue, because it encodes
+one condition, not a category, and never appears in a chart:
+
+- **green** — ok / verified / valid (activation done, «Перевірено», a valid DOI/ISBN)
+- **amber** — pending / needs attention (not activated, «не вказано»)
+- **red** (`--destructive`) — destructive / error (delete, discard)
+
+Examples live in `staff-table`, `account-card`, `moderation-list`, `audit-log`,
+`admin/rating`, and the `doi-input` / `isbn-input` checkmarks. This is deliberately narrow:
+anything larger than a pill/icon, and anything that colours a **row or a chart series** by
+value, still breaks the rule. The active nav and all chrome stay pure gray.
+
 ## Commands
 
 ```bash
