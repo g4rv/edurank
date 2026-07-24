@@ -8,8 +8,8 @@ import { setActivityVerified } from '@/app/(dashboard)/moderation/actions';
 import { Button } from '@/components/ui/button';
 
 // Quick reversible toggle — no confirm dialog needed (informational flag).
-// The label states what the flag IS, not what the click does; `title` carries
-// the action. Reads as an on/off switch rather than a one-way command.
+// Unverified shows the action to take («Перевірити»); once set it shows the
+// state reached («Перевірено»). The title spells the fuller action out either way.
 export function VerifyActivityButton({
   activityId,
   verified,
@@ -41,7 +41,7 @@ export function VerifyActivityButton({
       title={verified ? 'Зняти позначку «Перевірено»' : 'Позначити перевіреним у WoS/Scopus'}
     >
       {verified ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
-      {verified ? 'Перевірено' : 'Не перевірено'}
+      {verified ? 'Перевірено' : 'Перевірити'}
     </Button>
   );
 }
