@@ -1,5 +1,6 @@
 'use client';
 
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -34,13 +35,12 @@ interface NavItem {
   exact?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard', label: 'Огляд', icon: ChartColumn, roles: ['ADMIN', 'EDITOR'] },
+// The org structure: people first, then the containers they live in.
+const STRUCTURE_NAV: NavItem[] = [
   { href: '/staff', label: 'Персонал', icon: Users, roles: ['ADMIN', 'EDITOR'] },
-  { href: '/faculties', label: 'Факультети', icon: GraduationCap, roles: ['ADMIN', 'EDITOR'] },
   { href: '/departments', label: 'Кафедри', icon: BookOpen, roles: ['ADMIN', 'EDITOR'] },
+  { href: '/faculties', label: 'Факультети', icon: GraduationCap, roles: ['ADMIN', 'EDITOR'] },
   { href: '/divisions', label: 'Відділи', icon: Building2, roles: ['ADMIN', 'EDITOR'] },
-  { href: '/rating', label: 'Рейтинг НПП', icon: Trophy, roles: ['ADMIN', 'EDITOR'] },
 ];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
@@ -70,8 +70,68 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
 
-  const mainNav = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
+  const canSeeRating = user.role === 'ADMIN' || user.role === 'EDITOR';
+  const structure = STRUCTURE_NAV.filter((item) => item.roles.includes(user.role));
   const adminNav = user.role === 'ADMIN' ? ADMIN_NAV_ITEMS : [];
+
+  const link = (item: NavItem) => <NavLink key={item.href} item={item} pathname={pathname} />;
+
+  // Top block: own profile, the structure entities, then (for an НПП) their own
+  // rating links — one visual group, no dividers inside.
+  const topBlock: React.ReactNode[] = [];
+  if (user.staffId) {
+    topBlock.push(
+      link({ href: '/profile', label: 'Мій профіль', icon: LayoutDashboard, roles: [user.role] })
+    );
+  }
+  for (const item of structure) topBlock.push(link(item));
+  if (user.role === 'USER' && isNpp) {
+    topBlock.push(
+      link({
+        href: '/achievements',
+        label: 'Мій рейтинг',
+        icon: Award,
+        roles: [user.role],
+        exact: true,
+      }),
+      <AddActivityNav key="add-activity" pathname={pathname} />
+    );
+  }
+
+  // Direct-entry grid — its own band between structure and the rating group.
+  const dataEntry: React.ReactNode[] = [];
+  if (canEnterData) {
+    dataEntry.push(
+      link({ href: '/division-data', label: 'Дані відділу', icon: Table2, roles: [user.role] })
+    );
+  }
+
+  // Rating group at the bottom — the app's core job, kept together: the rollup,
+  // moderation, then the charts («Огляд» renamed «Графіки», route unchanged).
+  const ratingGroup: React.ReactNode[] = [];
+  if (canSeeRating) {
+    ratingGroup.push(
+      link({ href: '/rating', label: 'Рейтинг НПП', icon: Trophy, roles: ['ADMIN', 'EDITOR'] })
+    );
+  }
+  if (canModerate) {
+    ratingGroup.push(
+      link({
+        href: '/moderation',
+        label: 'Модерація рейтингу',
+        icon: BadgeCheck,
+        roles: [user.role],
+      })
+    );
+  }
+  if (canSeeRating) {
+    ratingGroup.push(
+      link({ href: '/dashboard', label: 'Графіки', icon: ChartColumn, roles: ['ADMIN', 'EDITOR'] })
+    );
+  }
+
+  // Only non-empty groups show, and a divider sits between each present pair.
+  const groups = [topBlock, dataEntry, ratingGroup].filter((g) => g.length > 0);
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r bg-sidebar">
@@ -81,65 +141,18 @@ export function Sidebar({
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {mainNav.map((item) => (
-          <NavLink key={item.href} item={item} pathname={pathname} />
+        {groups.map((group, i) => (
+          <Fragment key={i}>
+            {i > 0 && <div className="mx-2 my-1 border-t" />}
+            {group}
+          </Fragment>
         ))}
-        {user.staffId && (
-          <NavLink
-            item={{
-              href: '/profile',
-              label: 'Мій профіль',
-              icon: LayoutDashboard,
-              roles: [user.role],
-            }}
-            pathname={pathname}
-          />
-        )}
-        {user.role === 'USER' && isNpp && (
-          <>
-            <NavLink
-              item={{
-                href: '/achievements',
-                label: 'Мій рейтинг',
-                icon: Award,
-                roles: [user.role],
-                exact: true,
-              }}
-              pathname={pathname}
-            />
-            <AddActivityNav pathname={pathname} />
-          </>
-        )}
-        {canModerate && (
-          <NavLink
-            item={{
-              href: '/moderation',
-              label: 'Модерація рейтингу',
-              icon: BadgeCheck,
-              roles: [user.role],
-            }}
-            pathname={pathname}
-          />
-        )}
-        {canEnterData && (
-          <NavLink
-            item={{
-              href: '/division-data',
-              label: 'Дані відділу',
-              icon: Table2,
-              roles: [user.role],
-            }}
-            pathname={pathname}
-          />
-        )}
 
         {adminNav.length > 0 && (
           <>
             <div className="mx-2 my-1 border-t" />
             <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Адміністрування</p>
-            {adminNav.map((item) => (
-              <NavLink key={item.href} item={item} pathname={pathname} />
-            ))}
+            {adminNav.map((item) => link(item))}
           </>
         )}
       </nav>
