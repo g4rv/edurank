@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts';
 import { FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,11 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import { cn } from '@/lib/utils';
+import type { ReportDepartment } from '@/lib/queries/get-rating-chart';
 
-// The PDF report, inline with the rest of the overview: filters, a live preview
-// that is the real file, and one download of exactly what is shown. No dialog —
-// everything the page can show sits on the page.
+// The report, native and themed: the two filters drive a live Recharts bar
+// chart, and «PDF» downloads exactly what the filters describe. The on-screen
+// chart is the app's monochrome self (single series, one gray); the PDF keeps
+// the university's house-style colours — they diverge on purpose.
 
 const METRICS: { value: string; label: string }[] = [
   { value: 'total', label: 'Загальний бал' },
@@ -25,21 +29,63 @@ const METRICS: { value: string; label: string }[] = [
   { value: '5', label: 'Розділ 5 — навчально-методичне забезпечення' },
 ];
 
+const config = {
+  value: { label: 'Бал', color: 'var(--chart-3)' },
+} satisfies ChartConfig;
+
+const full = new Intl.NumberFormat('uk-UA');
+const compact = new Intl.NumberFormat('uk-UA', { notation: 'compact' });
+
+interface Row {
+  name: string;
+  short: string;
+  value: number;
+  nppCount: number | null;
+}
+
 export function ReportsView({
   year,
   departments,
 }: {
   year: number;
-  departments: { id: string; name: string }[];
+  departments: ReportDepartment[];
 }) {
-  // One control instead of two: «all» shows every кафедра's average, a
-  // department id shows that кафедра's НПП. Either way it is «which кафедри»,
-  // so it reads as one question.
+  // One control: «all» plots every кафедра's average, a department id plots that
+  // кафедра's НПП. Either way the question is «which кафедри», so it reads as one.
   const [target, setTarget] = useState('all');
-  // Загальний бал за замовчуванням — сума всіх розділів
   const [metric, setMetric] = useState('total');
 
   const isAll = target === 'all';
+  const metricIdx = metric === 'total' ? null : Number(metric) - 1;
+
+  const data: Row[] = useMemo(() => {
+    const pick = (sections: number[], total: number) =>
+      metricIdx === null ? total : sections[metricIdx];
+
+    if (isAll) {
+      return departments
+        .map((d) => ({
+          name: d.name,
+          short: d.name.replace(/^Кафедра\s+/i, ''),
+          value: pick(d.avgSections, d.avgTotal),
+          nppCount: d.nppCount,
+        }))
+        .sort((a, b) => b.value - a.value);
+    }
+
+    const dept = departments.find((d) => d.id === target);
+    if (!dept) return [];
+    return dept.staff
+      .map((s) => ({
+        name: s.name,
+        short: s.name,
+        value: pick(s.sections, s.total),
+        nppCount: null,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [departments, target, isAll, metricIdx]);
+
+  // The PDF download — same filters, the university's house-style format.
   const params = new URLSearchParams({
     kind: isAll ? 'departments' : 'staff',
     metric,
@@ -47,31 +93,23 @@ export function ReportsView({
   });
   if (!isAll) params.set('departmentId', target);
   const href = `/api/export/rating-chart?${params.toString()}`;
-  // Same file, rendered rather than saved — see the route's contentDisposition
-  const inlineHref = `${href}&inline=1`;
 
-  // Rebuilding a PDF on every keystroke of the filters would hammer the server,
-  // so the preview follows a beat behind the controls.
-  const [previewHref, setPreviewHref] = useState(inlineHref);
-  useEffect(() => {
-    const id = setTimeout(() => setPreviewHref(inlineHref), 350);
-    return () => clearTimeout(id);
-  }, [inlineHref]);
+  // Grow with the rows so one bar does not float in white space, nor twenty
+  // squeeze into a smear.
+  const height = Math.max(180, data.length * 30 + 44);
 
   return (
     <section className="rounded-xl border bg-card">
-      {/* Title and download on top, the two filters sharing the width below —
-          so the header sits happily in a half-width column. */}
       <div className="space-y-3 border-b px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <h2 className="text-sm font-semibold">Звіти PDF</h2>
-            <p className="text-xs text-muted-foreground">Діаграма за {year} рік</p>
+            <h2 className="text-sm font-semibold">Звіт</h2>
+            <p className="text-xs text-muted-foreground">Рейтинг за {year} рік</p>
           </div>
-          <Button asChild size="sm">
+          <Button asChild size="sm" variant="outline" title="Завантажити PDF">
             <a href={href} download>
               <FileDown className="size-4" />
-              Завантажити
+              PDF
             </a>
           </Button>
         </div>
@@ -108,18 +146,58 @@ export function ReportsView({
         </div>
       </div>
 
-      {/* The preview is the printed page: capped at 500px so it reads like a
-          sheet, with the A4 height that width implies (× √2). Extra side
-          padding keeps the sheet off the card edges. */}
-      <div className="px-8 py-5">
-        <div className="mx-auto h-[707px] max-h-[86vh] w-full max-w-[500px] overflow-hidden rounded-lg border bg-muted/30">
-          <iframe
-            key={previewHref}
-            src={`${previewHref}#toolbar=0&navpanes=0&view=FitH`}
-            title="Попередній перегляд звіту"
-            className="h-full w-full"
-          />
-        </div>
+      <div className="px-2 py-4 sm:px-4">
+        {data.length === 0 ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">
+            Немає даних для цього вибору.
+          </p>
+        ) : (
+          <ChartContainer config={config} className="aspect-auto w-full" style={{ height }}>
+            <BarChart
+              data={data}
+              layout="vertical"
+              margin={{ top: 4, right: 44, bottom: 4, left: 0 }}
+            >
+              <CartesianGrid horizontal={false} stroke="var(--border)" />
+              <XAxis type="number" hide />
+              <YAxis
+                type="category"
+                dataKey="short"
+                tickLine={false}
+                axisLine={false}
+                width={isAll ? 150 : 168}
+                interval={0}
+                className="text-xs"
+              />
+              <ChartTooltip
+                cursor={false}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const row = payload[0].payload as Row;
+                  return (
+                    <div className="max-w-64 rounded-lg border bg-background px-2.5 py-1.5 text-xs shadow-md">
+                      <p className="font-medium">{row.name}</p>
+                      <p className="mt-1">
+                        {full.format(Math.round(row.value))} балів
+                        {row.nppCount !== null && ` · ${row.nppCount} НПП`}
+                      </p>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey="value" fill="var(--color-value)" radius={[0, 4, 4, 0]} maxBarSize={22}>
+                <LabelList
+                  dataKey="value"
+                  position="right"
+                  offset={8}
+                  className="fill-muted-foreground"
+                  fontSize={11}
+                  formatter={(value) => compact.format(Number(value ?? 0))}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
       </div>
     </section>
   );

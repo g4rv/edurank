@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getDashboard } from '@/lib/queries/get-dashboard';
+import { getReportData } from '@/lib/queries/get-rating-chart';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StatStrip } from '@/components/dashboard/stat-strip';
 import { OrgTree } from '@/components/dashboard/org-tree';
@@ -74,7 +75,10 @@ export default async function DashboardPage() {
     );
   }
 
-  const data = await getDashboard(template.year);
+  const [data, reportData] = await Promise.all([
+    getDashboard(template.year),
+    getReportData(template.year),
+  ]);
 
   return (
     <AnimatedPage className="space-y-4">
@@ -156,12 +160,7 @@ export default async function DashboardPage() {
       {/* The report sheet is only 500px wide, so the structure tree rides
           beside it instead of the report spanning the page alone. */}
       <div className="grid items-start gap-4 xl:grid-cols-[34rem_1fr]">
-        <ReportsView
-          year={template.year}
-          departments={data.departments
-            .filter((d) => d.nppCount > 0)
-            .map((d) => ({ id: d.id, name: d.name }))}
-        />
+        <ReportsView year={template.year} departments={reportData} />
 
         <Panel
           title="Структура"

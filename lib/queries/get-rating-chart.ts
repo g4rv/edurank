@@ -146,3 +146,84 @@ export async function getDepartmentStaffChart(
       .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'uk')),
   };
 }
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export interface ReportStaff {
+  name: string;
+  /** section1..5 scores */
+  sections: number[];
+  total: number;
+}
+
+export interface ReportDepartment {
+  id: string;
+  name: string;
+  nppCount: number;
+  /** average of each розділ across the department's НПП */
+  avgSections: number[];
+  avgTotal: number;
+  staff: ReportStaff[];
+}
+
+/**
+ * Everything the on-screen report chart needs, in one read: each department's
+ * per-section averages and every НПП's section scores. The client derives any
+ * metric — a розділ or the total — from these without another round trip. A few
+ * hundred rows at this scale, so preloading beats a fetch per filter change.
+ *
+ * The PDF route keeps using getDepartmentChart / getDepartmentStaffChart per
+ * metric; this feeds the live preview, which the PDF no longer has to be.
+ */
+export async function getReportData(year: number): Promise<ReportDepartment[]> {
+  const departments = await db.department.findMany({
+    select: {
+      id: true,
+      name: true,
+      primaryStaff: {
+        where: { isNpp: true },
+        select: {
+          lastName: true,
+          firstName: true,
+          patronymic: true,
+          ratingEntries: { where: { year }, select: ENTRY_SELECT },
+        },
+      },
+    },
+  });
+
+  return departments
+    .filter((d) => d.primaryStaff.length > 0)
+    .map((d) => {
+      const staff: ReportStaff[] = d.primaryStaff
+        .map((s) => {
+          const e = s.ratingEntries[0];
+          return {
+            name: `${s.lastName} ${s.firstName} ${s.patronymic}`.trim(),
+            sections: [
+              e?.section1Score ?? 0,
+              e?.section2Score ?? 0,
+              e?.section3Score ?? 0,
+              e?.section4Score ?? 0,
+              e?.section5Score ?? 0,
+            ],
+            total: e?.totalScore ?? 0,
+          };
+        })
+        .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'uk'));
+
+      const n = staff.length;
+      const avgSections = [0, 1, 2, 3, 4].map((i) =>
+        round2(staff.reduce((acc, s) => acc + s.sections[i], 0) / n)
+      );
+      return {
+        id: d.id,
+        name: d.name,
+        nppCount: n,
+        avgSections,
+        avgTotal: round2(staff.reduce((acc, s) => acc + s.total, 0) / n),
+        staff,
+      };
+    })
+    .sort((a, b) => b.avgTotal - a.avgTotal || a.name.localeCompare(b.name, 'uk'));
+}
