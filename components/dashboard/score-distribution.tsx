@@ -1,16 +1,15 @@
 'use client';
 
-import { Area, Bar, CartesianGrid, ComposedChart, ReferenceLine, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import type { ScoreBand } from '@/lib/queries/get-dashboard';
 
 // The shape of the year: where the crowd sits and how far the top runs ahead of
-// it. Bars carry the exact per-band count; a smooth curve over them traces the
-// overall shape (the "level"). One series, so no legend — the card title says
-// what is plotted. Monochrome: bars are one gray, the curve is the foreground —
-// it reads as shape and position, never as a second category.
+// it. Score is a continuum (0 → 8k), so it reads as a smooth filled curve with a
+// dot per band — not bars. One series, one accent colour; the card title says
+// what is plotted. With no bars there is nothing to hide the line behind.
 const config = {
-  count: { label: 'НПП', color: 'var(--chart-3)' },
+  count: { label: 'НПП', color: 'var(--chart-accent)' },
 } satisfies ChartConfig;
 
 const compact = new Intl.NumberFormat('uk-UA', { notation: 'compact' });
@@ -25,24 +24,13 @@ export function ScoreDistribution({ bands, median }: { bands: ScoreBand[]; media
   }));
 
   return (
-    // aspect-auto: ChartContainer ships aspect-video, which fights an explicit
-    // height and lets the chart decide its own width
-    <ChartContainer config={config} className="aspect-auto h-56 w-full">
-      {/* Top margin is the median label's room — without it the label is drawn
-          over whatever bar happens to stand at the median. barCategoryGap is
-          tight so the bars nearly touch and the row reads as a continuum, not
-          islands. */}
-      <ComposedChart
-        data={data}
-        margin={{ top: 20, right: 8, bottom: 0, left: 8 }}
-        barCategoryGap="8%"
-      >
+    <ChartContainer config={config} className="aspect-auto h-64 w-full">
+      {/* Top margin is the median label's room. */}
+      <AreaChart data={data} margin={{ top: 20, right: 12, bottom: 0, left: 8 }}>
         <defs>
-          {/* Faint fill under the curve — enough to read as a shape, not enough
-              to compete with the bars for the same ink. */}
-          <linearGradient id="distributionCurve" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--foreground)" stopOpacity={0.14} />
-            <stop offset="100%" stopColor="var(--foreground)" stopOpacity={0} />
+          <linearGradient id="distributionFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-count)" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="var(--color-count)" stopOpacity={0.04} />
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke="var(--border)" />
@@ -81,6 +69,7 @@ export function ScoreDistribution({ bands, median }: { bands: ScoreBand[]; media
             x={compact.format(bands.find((b) => median >= b.from && median < b.to)?.from ?? 0)}
             stroke="var(--foreground)"
             strokeWidth={1}
+            strokeDasharray="4 3"
             label={{
               value: `медіана ${full.format(Math.round(median))}`,
               position: 'top',
@@ -89,20 +78,22 @@ export function ScoreDistribution({ bands, median }: { bands: ScoreBand[]; media
             }}
           />
         )}
-        <Bar dataKey="count" fill="var(--color-count)" radius={[3, 3, 0, 0]} />
-        {/* The curve rides over the bars — same data, drawn as a shape. It goes
-            last so the line and its fill sit on top of the bars. */}
         <Area
           type="monotone"
           dataKey="count"
-          stroke="var(--foreground)"
-          strokeWidth={1.5}
-          fill="url(#distributionCurve)"
-          dot={false}
-          activeDot={false}
+          stroke="var(--color-count)"
+          strokeWidth={2.5}
+          fill="url(#distributionFill)"
+          dot={{ r: 3, fill: 'var(--color-count)', stroke: 'var(--background)', strokeWidth: 1.5 }}
+          activeDot={{
+            r: 5,
+            fill: 'var(--color-count)',
+            stroke: 'var(--background)',
+            strokeWidth: 2,
+          }}
           isAnimationActive={false}
         />
-      </ComposedChart>
+      </AreaChart>
     </ChartContainer>
   );
 }

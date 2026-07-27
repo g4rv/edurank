@@ -19,6 +19,8 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-chart-accent: var(--chart-accent);
+  --color-chart-total: var(--chart-total);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -74,6 +76,12 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  /* The blue the university's circulated reports use (#4472C4) — the charts'
+     accent, so screen and print read as the same family. --chart-total is the
+     same reports' red (#C00000) for the «Загальний бал» bar paired with a
+     розділ, exactly as the printed кафедра chart pairs them. */
+  --chart-accent: oklch(0.556 0.132 264);
+  --chart-total: oklch(0.505 0.208 27);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -116,6 +124,9 @@
   --chart-3: oklch(0.6 0 0);
   --chart-4: oklch(0.75 0 0);
   --chart-5: oklch(0.9 0 0);
+  /* Lightened so #4472C4 / #C00000 still read on the dark card */
+  --chart-accent: oklch(0.7 0.135 264);
+  --chart-total: oklch(0.62 0.19 25);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   /* Monochrome, like light mode and the primary button — the shadcn default

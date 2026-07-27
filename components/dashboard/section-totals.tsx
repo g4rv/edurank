@@ -4,10 +4,10 @@ import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 
 // Where the university's points come from, by розділ. The розділи are numbered
-// on the official form, so the number is a label the reader already knows —
-// it is not decoration, and it is why no colour is needed to tell them apart.
+// on the official form, so the number is the label the reader already knows;
+// the bars share one accent colour and length does the comparing.
 const config = {
-  total: { label: 'Балів', color: 'var(--chart-3)' },
+  total: { label: 'Балів', color: 'var(--chart-accent)' },
 } satisfies ChartConfig;
 
 // The full titles all open with «Показники …» and run to 70 characters, which
