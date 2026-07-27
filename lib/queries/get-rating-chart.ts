@@ -108,7 +108,8 @@ export interface DepartmentStaffChart {
 
 /**
  * «Кафедра X» — one row per НПП with two bars: the year's total and the chosen
- * розділ, exactly as the reference PDF pairs them. Sorted by the total.
+ * розділ, exactly as the reference PDF pairs them. Sorted by whatever is plotted
+ * (the chosen розділ, or the total), so the export matches the on-screen preview.
  */
 export async function getDepartmentStaffChart(
   departmentId: string,
@@ -143,7 +144,7 @@ export async function getDepartmentStaffChart(
           value: valueOf(entry, metric),
         };
       })
-      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'uk')),
+      .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'uk')),
   };
 }
 
