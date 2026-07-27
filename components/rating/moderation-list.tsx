@@ -15,11 +15,13 @@ import {
 } from '@/components/ui/select';
 import { DiscardActivityButton } from '@/components/rating/discard-activity-button';
 import { VerifyActivityButton } from '@/components/rating/verify-activity-button';
+import { compareItemNumbers } from '@/lib/rating/achievement-rows';
 
 export interface ModerationRow {
   id: string;
   staffName: string;
   department: string;
+  faculty: string;
   section: number;
   itemNumber: string;
   label: string;
@@ -46,7 +48,7 @@ const SECTIONS = [1, 2, 3, 4, 5];
 const PAGE_ROWS = 50;
 const PAGE_PEOPLE = 20;
 
-type SortKey = 'name' | 'department' | 'section' | 'score' | 'date';
+type SortKey = 'name' | 'department' | 'section' | 'item' | 'score' | 'date';
 type StatusFilter = 'all' | 'approved' | 'removed' | 'unverified';
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -60,7 +62,10 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
   const [section, setSection] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
+  const [faculty, setFaculty] = useState('all');
   const [department, setDepartment] = useState('all');
+  // Selected by itemNumber — unique inside one year's template
+  const [indicator, setIndicator] = useState('all');
   const [grouped, setGrouped] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
     key: 'name',
@@ -77,13 +82,22 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
       fn(...args);
     };
 
-  const departments = useMemo(
-    () =>
-      Array.from(new Set(rows.map((r) => r.department).filter(Boolean))).sort((a, b) =>
-        a.localeCompare(b, 'uk')
-      ),
-    [rows]
-  );
+  const faculties = useMemo(() => uniqueSorted(rows.map((r) => r.faculty)), [rows]);
+
+  // Each list is scoped by the filter above it, so the options can never be empty
+  const departments = useMemo(() => {
+    const scope = faculty === 'all' ? rows : rows.filter((r) => r.faculty === faculty);
+    return uniqueSorted(scope.map((r) => r.department));
+  }, [rows, faculty]);
+
+  const indicators = useMemo(() => {
+    const scope = section === null ? rows : rows.filter((r) => r.section === section);
+    const byNumber = new Map<string, string>();
+    for (const r of scope) if (!byNumber.has(r.itemNumber)) byNumber.set(r.itemNumber, r.label);
+    return Array.from(byNumber, ([itemNumber, label]) => ({ itemNumber, label })).sort((a, b) =>
+      compareItemNumbers(a.itemNumber, b.itemNumber)
+    );
+  }, [rows, section]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -91,36 +105,54 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
       (r) =>
         (section === null || r.section === section) &&
         (!q || r.staffName.toLowerCase().includes(q)) &&
+        (faculty === 'all' || r.faculty === faculty) &&
         (department === 'all' || r.department === department) &&
+        (indicator === 'all' || r.itemNumber === indicator) &&
         matchStatus(r, status)
     );
 
     const sign = sort.dir === 'asc' ? 1 : -1;
-    const value = (r: ModerationRow): string | number => {
+    const compare = (a: ModerationRow, b: ModerationRow): number => {
       switch (sort.key) {
         case 'name':
-          return r.staffName;
+          return a.staffName.localeCompare(b.staffName, 'uk');
         case 'department':
-          return r.department;
+          return a.department.localeCompare(b.department, 'uk');
         case 'section':
-          return r.section;
+          return a.section - b.section;
+        case 'item':
+          return compareItemNumbers(a.itemNumber, b.itemNumber);
         case 'score':
-          return r.score;
+          return a.score - b.score;
         case 'date':
-          return r.ts;
+          return a.ts - b.ts;
       }
     };
     return [...list].sort((a, b) => {
-      const va = value(a);
-      const vb = value(b);
-      const cmp =
-        typeof va === 'string' && typeof vb === 'string'
-          ? va.localeCompare(vb, 'uk')
-          : (va as number) - (vb as number);
-      if (cmp === 0) return a.staffName.localeCompare(b.staffName, 'uk');
-      return sign * cmp;
+      const cmp = compare(a, b);
+      if (cmp !== 0) return sign * cmp;
+      // Ties always read in the same order — person, then catalogue item number —
+      // so one НПП's submissions never come back in raw insertion order.
+      return (
+        a.staffName.localeCompare(b.staffName, 'uk') ||
+        compareItemNumbers(a.itemNumber, b.itemNumber)
+      );
     });
-  }, [rows, section, search, department, status, sort]);
+  }, [rows, section, search, faculty, department, indicator, status, sort]);
+
+  // Narrowing a parent filter can strand its child on a value that no longer
+  // exists, so the child resets with it — in the handler, not an effect.
+  function changeFaculty(value: string) {
+    setPage(1);
+    setFaculty(value);
+    setDepartment('all');
+  }
+
+  function changeSection(value: number | null) {
+    setPage(1);
+    setSection(value);
+    setIndicator('all');
+  }
 
   function toggleSort(key: SortKey) {
     setSort((s) =>
@@ -134,19 +166,27 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
         search={search}
         setSearch={withReset(setSearch)}
         section={section}
-        setSection={withReset(setSection)}
+        setSection={changeSection}
         status={status}
         setStatus={withReset(setStatus)}
+        faculty={faculty}
+        setFaculty={changeFaculty}
+        faculties={faculties}
         department={department}
         setDepartment={withReset(setDepartment)}
         departments={departments}
+        indicator={indicator}
+        setIndicator={withReset(setIndicator)}
+        indicators={indicators}
         grouped={grouped}
         setGrouped={withReset(setGrouped)}
       />
 
       <p className="text-sm text-muted-foreground">
         Знайдено {filtered.length} подань
+        {faculty !== 'all' && ` · ${faculty}`}
         {department !== 'all' && ` · ${department}`}
+        {indicator !== 'all' && ` · п. ${indicator}`}
       </p>
 
       {filtered.length === 0 ? (
@@ -188,9 +228,15 @@ function Filters({
   setSection,
   status,
   setStatus,
+  faculty,
+  setFaculty,
+  faculties,
   department,
   setDepartment,
   departments,
+  indicator,
+  setIndicator,
+  indicators,
   grouped,
   setGrouped,
 }: {
@@ -200,9 +246,15 @@ function Filters({
   setSection: (v: number | null) => void;
   status: StatusFilter;
   setStatus: (v: StatusFilter) => void;
+  faculty: string;
+  setFaculty: (v: string) => void;
+  faculties: string[];
   department: string;
   setDepartment: (v: string) => void;
   departments: string[];
+  indicator: string;
+  setIndicator: (v: string) => void;
+  indicators: { itemNumber: string; label: string }[];
   grouped: boolean;
   setGrouped: (v: boolean) => void;
 }) {
@@ -227,6 +279,20 @@ function Filters({
             {STATUS_OPTIONS.map((o) => (
               <SelectItem key={o.value} value={o.value}>
                 {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={faculty} onValueChange={setFaculty}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Факультет" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Усі факультети</SelectItem>
+            {faculties.map((f) => (
+              <SelectItem key={f} value={f}>
+                {f}
               </SelectItem>
             ))}
           </SelectContent>
@@ -274,6 +340,21 @@ function Filters({
             Розділ {s}
           </Button>
         ))}
+
+        <Select value={indicator} onValueChange={setIndicator}>
+          <SelectTrigger className="ml-auto w-96">
+            <SelectValue placeholder="Показник" />
+          </SelectTrigger>
+          <SelectContent className="max-w-xl">
+            <SelectItem value="all">Усі показники</SelectItem>
+            {indicators.map((i) => (
+              <SelectItem key={i.itemNumber} value={i.itemNumber}>
+                <span className="mr-1.5 text-muted-foreground tabular-nums">{i.itemNumber}</span>
+                {i.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );
@@ -312,7 +393,7 @@ function TableView({
               align="right"
               className="w-20"
             />
-            <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Показник</th>
+            <Th label="Показник" k="item" sort={sort} onSort={toggleSort} />
             <Th
               label="Бали"
               k="score"
@@ -402,7 +483,8 @@ function GroupedView({
       .map(([name, items]) => ({
         name,
         department: items[0].department,
-        items,
+        // Inside a card the submissions read as the catalogue does: 1.1, 1.2, … 3.14
+        items: [...items].sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber)),
         // Only counted rows add up — the total mirrors the rating
         total: items.filter((i) => i.status === 'APPROVED').reduce((s, i) => s + i.score, 0),
       }))
@@ -590,3 +672,8 @@ function Pager({
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Distinct non-empty values, alphabetical in Ukrainian — for the filter dropdowns */
+function uniqueSorted(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b, 'uk'));
+}

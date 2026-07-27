@@ -50,6 +50,7 @@ export default async function ModerationPage({
     id: a.id,
     staffName: `${a.staff.lastName} ${a.staff.firstName} ${a.staff.patronymic}`,
     department: a.staff.department?.name ?? '',
+    faculty: a.staff.department?.faculty.name ?? '',
     section: a.activityType.section.number,
     itemNumber: a.activityType.itemNumber,
     label: a.activityType.label,

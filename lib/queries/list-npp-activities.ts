@@ -26,7 +26,7 @@ export async function listNppActivities(year: number, section?: number) {
           lastName: true,
           firstName: true,
           patronymic: true,
-          department: { select: { name: true } },
+          department: { select: { name: true, faculty: { select: { name: true } } } },
         },
       },
       activityType: {
