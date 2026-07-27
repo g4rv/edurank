@@ -78,24 +78,26 @@ Rules:
   browser: Puppeteer would add ~300MB of Chromium to the image for two bar charts.
 - Vitest — tests
 
-**On-screen charts follow the app's monochrome theme; the PDFs deliberately do not.**
-`lib/rating/pdf-chart.tsx` reproduces the charts the university already circulates
-(`edu-reference/*.pdf`, made in Word), down to their colours: `#4472C4` for the single
-series on «Рейтинг кафедр», and `#C00000` (total) beside `#0070C0` (розділ) on a
-department's staff chart. Red for a total is not a warning there — it is their house
-style, and matching it matters more than our own colour habits.
+**On-screen charts share the circulated reports' palette.** The university's Word PDFs
+(`edu-reference/*.pdf`, reproduced by `lib/rating/pdf-chart.tsx`) use `#4472C4` for the
+single series on «Рейтинг кафедр», and `#C00000` (total) beside `#0070C0` (розділ) on a
+department's staff chart. The app adopts the same family as CSS tokens — `--chart-accent`
+(blue `#4472C4`) for a chart series and `--chart-total` (red `#C00000`) for the «Загальний
+бал» bar paired with a розділ — so screen and print read as one thing. Red for a total is
+not a warning here; it is their house style. Both tokens are stepped lighter in dark mode
+so they hold on the `oklch(0.205)` card.
 
-**Charts follow the app's monochrome theme.** Every colour token is `oklch(L 0 0)` —
-only `--destructive` carries a hue — so charts get their identity from row labels and
-position, never from a categorical palette. Every dashboard chart is single-series and
-uses one gray (`var(--chart-3)`); a bar chart with five coloured bars would be off-brand
-and would double-encode length as hue. `--chart-1…5` are stepped separately for light
-and dark: the ramps are not flips of each other, because the dark card sits at
-`oklch(0.205)` and the light ramp's dark end would sink into it.
+**Colour marks a series, not decoration.** A chart uses one accent for a single series and
+lets length do the comparing; it reaches for a second hue only where there are genuinely
+two series — the paired кафедра view (total vs розділ), matching the printed sheet. The
+score distribution is an `AreaChart` (a continuum, not a ranking): a gradient fill with a
+dot per band and a dashed foreground median line. The `--chart-1…5` gray ramp remains for
+any future monochrome chart, stepped separately for light and dark because the dark card
+sits at `oklch(0.205)` and a flipped light ramp would sink into it.
 
-**The one hue exception: small status indicators.** Monochrome governs layout, charts,
-and data. A small badge or icon that reports **state** may carry a hue, because it encodes
-one condition, not a category, and never appears in a chart:
+**Chrome and data stay monochrome; small status indicators may carry a hue.** Layout, the
+sidebar, tables, and text are gray. A small badge or icon that reports **state** is the one
+place hue is allowed off the chart palette, because it encodes one condition, not a category:
 
 - **green** — ok / verified / valid (activation done, «Перевірено», a valid DOI/ISBN)
 - **amber** — pending / needs attention (not activated, «не вказано»)
@@ -103,8 +105,8 @@ one condition, not a category, and never appears in a chart:
 
 Examples live in `staff-table`, `account-card`, `moderation-list`, `audit-log`,
 `admin/rating`, and the `doi-input` / `isbn-input` checkmarks. This is deliberately narrow:
-anything larger than a pill/icon, and anything that colours a **row or a chart series** by
-value, still breaks the rule. The active nav and all chrome stay pure gray.
+anything larger than a pill/icon, and colouring a **table row** by value, still breaks the
+rule. The active nav and all chrome stay pure gray.
 
 ## Commands
 
