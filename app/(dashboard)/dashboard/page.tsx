@@ -10,7 +10,6 @@ import { StatStrip } from '@/components/dashboard/stat-strip';
 import { OrgTree } from '@/components/dashboard/org-tree';
 import { ScoreDistribution } from '@/components/dashboard/score-distribution';
 import { SectionTotals } from '@/components/dashboard/section-totals';
-import { DepartmentScores } from '@/components/dashboard/department-scores';
 import { ReportsView } from '@/components/dashboard/reports-view';
 
 const full = new Intl.NumberFormat('uk-UA');
@@ -56,7 +55,7 @@ export default async function DashboardPage() {
   if (!template) {
     return (
       <AnimatedPage className="space-y-6">
-        <h1 className="text-2xl font-semibold">Огляд</h1>
+        <h1 className="text-2xl font-semibold">Графіки</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center">
           <p className="text-sm text-muted-foreground">
             Рейтинговий рік ще не налаштовано, тому показувати поки нічого.
@@ -84,7 +83,7 @@ export default async function DashboardPage() {
     <AnimatedPage className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Огляд</h1>
+          <h1 className="text-2xl font-semibold">Графіки</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {template.year} рік · {template.status === 'CLOSED' ? 'закрито' : 'активний'}
           </p>
@@ -138,29 +137,19 @@ export default async function DashboardPage() {
         )}
       </Panel>
 
-      {/* items-start: the department chart grows with its rows, and without this
-          the five-bar card next to it is stretched to match. */}
+      {/* The report is the hero: filters in a left rail drive the big preview.
+          The department ranking lives inside it (кафедра by кафедра, any
+          показник, with a PDF), so no separate static «Кафедри» card. */}
+      <ReportsView
+        year={template.year}
+        departments={reportData}
+        universityAverage={data.averageScore}
+      />
+
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Panel title="Бали за розділами" hint="Сума по всіх НПП, розділи 1–5 офіційної форми">
           <SectionTotals sections={data.sectionTotals} />
         </Panel>
-
-        <Panel title="Кафедри" hint="Середній бал на одного НПП, а не сума — інакше виграє більша">
-          {data.departments.length > 0 ? (
-            <DepartmentScores
-              departments={data.departments}
-              universityAverage={data.averageScore}
-            />
-          ) : (
-            <p className="py-12 text-center text-sm text-muted-foreground">Кафедр ще немає.</p>
-          )}
-        </Panel>
-      </div>
-
-      {/* The report sheet is only 500px wide, so the structure tree rides
-          beside it instead of the report spanning the page alone. */}
-      <div className="grid items-start gap-4 xl:grid-cols-[34rem_1fr]">
-        <ReportsView year={template.year} departments={reportData} />
 
         <Panel
           title="Структура"
