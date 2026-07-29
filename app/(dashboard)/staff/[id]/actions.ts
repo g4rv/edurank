@@ -18,6 +18,7 @@ import { inviteEmail, passwordResetEmail } from '@/lib/mail/templates';
 import { diffChanges } from '@/lib/audit';
 import {
   canManageEntity,
+  canMutateStaffRecord,
   getEditorDivisionId,
   getDivisionFieldGrants,
   hasEntityPermission,
@@ -37,6 +38,14 @@ export async function deleteStaff(id: string): Promise<StaffDeleteState> {
 
   if (!(await canManageEntity(session.user, 'STAFF', 'DELETE')))
     return { error: 'Недостатньо прав' };
+
+  // An editor holding STAFF DELETE could otherwise remove an admin outright —
+  // the entity permission says they may delete staff, not whom.
+  const target = await db.staff.findUnique({ where: { id }, select: { id: true, role: true } });
+  if (!target) return { error: 'Запис не знайдено' };
+  if (!canMutateStaffRecord(session.user, target, { allowSelf: false })) {
+    return { error: 'Недостатньо прав' };
+  }
 
   if (await isLastActiveAdmin(id)) {
     return { error: 'Це єдиний активний адміністратор — спочатку призначте іншого' };
@@ -98,6 +107,12 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
   if (!isAdmin && !isOwnProfile && role !== 'EDITOR') {
     return { error: 'Недостатньо прав' };
   }
+
+  // Which fields an editor may write is decided further down by their grants;
+  // whose record they may write is decided here, before anything is parsed.
+  const target = await db.staff.findUnique({ where: { id }, select: { id: true, role: true } });
+  if (!target) return { error: 'Запис не знайдено' };
+  if (!canMutateStaffRecord(session.user, target)) return { error: 'Недостатньо прав' };
 
   const parsed = staffUpdateSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };

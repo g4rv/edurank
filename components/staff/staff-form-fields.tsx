@@ -250,27 +250,33 @@ export function StaffFormFields({
                 )}
               />
             </FormField>
-            <FormField label="Відділ" error={errors.divisionId}>
-              <Controller
-                name="divisionId"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="—" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value=" ">—</SelectItem>
-                      {divisions.map((div) => (
-                        <SelectItem key={div.id} value={div.id}>
-                          {div.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </FormField>
+            {/* ADMIN only: a person's відділ decides which permissions their
+                EDITOR role would carry, so the server takes it from nobody else.
+                Showing the control to an editor would collect a choice that is
+                then dropped without a word. */}
+            {isAdmin && (
+              <FormField label="Відділ" error={errors.divisionId}>
+                <Controller
+                  name="divisionId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value=" ">—</SelectItem>
+                        {divisions.map((div) => (
+                          <SelectItem key={div.id} value={div.id}>
+                            {div.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </FormField>
+            )}
           </div>
 
           {isAdmin && (

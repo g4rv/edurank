@@ -18,6 +18,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import {
   canManageEntity,
+  canMutateStaffRecord,
   requireAdmin,
   getDivisionFieldGrants,
   isEditorWritableField,
@@ -122,5 +123,49 @@ describe('isEditorWritableField', () => {
     for (const field of ['employmentRate', 'passwordHash', 'role', 'tokenVersion']) {
       expect(isEditorWritableField(field)).toBe(false);
     }
+  });
+});
+
+// The grants answer WHICH fields; this answers WHOSE record. Without it an
+// editor able to write `email` could retarget an admin's address and take the
+// account over through the public reset flow.
+describe('canMutateStaffRecord', () => {
+  const editor = { role: 'EDITOR' as const, staffId: 'staff-editor' };
+  const admin = { role: 'ADMIN' as const, staffId: 'staff-admin' };
+  const user = { role: 'USER' as const, staffId: 'staff-user' };
+
+  it('lets an ADMIN act on anyone', () => {
+    for (const role of ['ADMIN', 'EDITOR', 'USER'] as const) {
+      expect(canMutateStaffRecord(admin, { id: 'other', role })).toBe(true);
+    }
+  });
+
+  it('lets an EDITOR act on USER records only', () => {
+    expect(canMutateStaffRecord(editor, { id: 'other', role: 'USER' })).toBe(true);
+    expect(canMutateStaffRecord(editor, { id: 'other', role: 'EDITOR' })).toBe(false);
+    expect(canMutateStaffRecord(editor, { id: 'other', role: 'ADMIN' })).toBe(false);
+  });
+
+  it('lets anyone act on their own record whatever their role', () => {
+    expect(canMutateStaffRecord(editor, { id: 'staff-editor', role: 'EDITOR' })).toBe(true);
+    expect(canMutateStaffRecord(user, { id: 'staff-user', role: 'USER' })).toBe(true);
+  });
+
+  it('withholds the self exception when the caller asks for it (deletion)', () => {
+    expect(
+      canMutateStaffRecord(editor, { id: 'staff-editor', role: 'EDITOR' }, { allowSelf: false })
+    ).toBe(false);
+  });
+
+  // A USER reaching the action directly must not edit a peer just because the
+  // peer is also a USER — the own-record branch is the only one open to them.
+  it('refuses a USER acting on another USER', () => {
+    expect(canMutateStaffRecord(user, { id: 'someone-else', role: 'USER' })).toBe(false);
+  });
+
+  it('refuses a caller with no staffId claiming the own-record exception', () => {
+    expect(
+      canMutateStaffRecord({ role: 'EDITOR', staffId: null }, { id: 'other', role: 'EDITOR' })
+    ).toBe(false);
   });
 });

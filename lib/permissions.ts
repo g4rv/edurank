@@ -100,6 +100,34 @@ export async function canManageEntity(
   return hasEntityPermission(divisionId, entity, action);
 }
 
+/**
+ * Whose record may this caller mutate?
+ *
+ * A division's grants decide WHICH fields an editor may write; this decides
+ * WHOSE. The two are separate questions and the grants never answered the
+ * second one: an editor allowed to write `email` could point an admin's
+ * address at their own mailbox, run the public reset flow at /forgot-password,
+ * and come back holding the admin's role.
+ *
+ * ADMIN — anybody. EDITOR — only USER records. Anyone — their own row, which
+ * cannot escalate: role, tokenVersion and divisionId stay unwritable for
+ * everyone but ADMIN (see isEditorWritableField), so a self-edit reaches
+ * nothing but ordinary profile data.
+ *
+ * Deleting passes `allowSelf: false` — removing yourself is not a self-service
+ * action, and an editor deleting their own row only strands the record.
+ */
+export function canMutateStaffRecord(
+  caller: { role: Role; staffId?: string | null },
+  target: { id: string; role: Role },
+  { allowSelf = true }: { allowSelf?: boolean } = {}
+): boolean {
+  if (caller.role === 'ADMIN') return true;
+  if (allowSelf && caller.staffId && caller.staffId === target.id) return true;
+  if (caller.role !== 'EDITOR') return false;
+  return target.role === 'USER';
+}
+
 /** ADMIN, or an EDITOR belonging to exactly this division (rating direct-entry pages) */
 export async function canActForDivision(
   user: { role: Role; staffId?: string | null },

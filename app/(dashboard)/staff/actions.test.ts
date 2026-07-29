@@ -92,3 +92,42 @@ describe('createStaff authorization', () => {
     expect(tx.auditLog.create).toHaveBeenCalled();
   });
 });
+
+// Creating a record must not be the way around the filter updateStaff applies:
+// ставка is confidential and відділ decides an editor's own permission scope.
+describe('createStaff field filtering', () => {
+  const loaded: StaffCreateSchema = {
+    ...payload,
+    employmentRate: 0.75,
+    divisionId: 'div-nnv',
+  };
+
+  function createdFields(tx: ReturnType<typeof mockTx>): string[] {
+    return Object.keys(tx.staff.create.mock.calls[0][0].data);
+  }
+
+  it('drops employmentRate and divisionId for an EDITOR', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 's1' } });
+    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    const tx = mockTx();
+
+    expect(await createStaff(loaded)).toEqual({ redirectTo: '/staff/staff-new' });
+    const fields = createdFields(tx);
+    expect(fields).not.toContain('employmentRate');
+    expect(fields).not.toContain('divisionId');
+    // The ordinary data an editor is entitled to enter still goes in
+    expect(fields).toContain('lastName');
+    expect(fields).toContain('email');
+  });
+
+  it('keeps both for an ADMIN', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    const tx = mockTx();
+
+    expect(await createStaff(loaded)).toEqual({ redirectTo: '/staff/staff-new' });
+    const data = tx.staff.create.mock.calls[0][0].data;
+    expect(data.employmentRate).toBe(0.75);
+    expect(data.divisionId).toBe('div-nnv');
+  });
+});

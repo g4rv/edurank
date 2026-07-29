@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
-import { canManageEntity } from '@/lib/permissions';
+import { canManageEntity, isEditorWritableField } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 import { syncProfileDerived } from '@/lib/rating/profile-derived';
 
@@ -28,6 +28,19 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
     departmentId: departmentId ?? null,
     divisionId: divisionId ?? null,
   };
+
+  // STAFF CREATE authorises the record and its ordinary data — not the columns
+  // that are never an editor's to write. Ставка is confidential and відділ
+  // decides an editor's own permission scope, so both are ADMIN-only in
+  // updateStaff; leaving them open here would make creating a person the way
+  // around that filter. The per-division field grants deliberately do NOT apply:
+  // they govern editing an existing row, and enforcing them at creation would
+  // stop an editor from filling in a name they are allowed to create.
+  if (session.user.role !== 'ADMIN') {
+    for (const key of Object.keys(createData)) {
+      if (!isEditorWritableField(key)) delete createData[key];
+    }
+  }
 
   let createdId = '';
   let dbError: string | null = null;

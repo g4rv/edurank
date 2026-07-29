@@ -70,6 +70,20 @@ const fullPayload: StaffUpdateSchema = {
   partTimeDepartmentIds: [],
 };
 
+/**
+ * db.staff.findUnique serves three lookups in these actions: the target's role
+ * (canMutateStaffRecord), the caller's division (getEditorDivisionId) and the
+ * target's role again (isLastActiveAdmin). Dispatch on the select so tests do
+ * not depend on the order the action happens to call them in.
+ */
+function mockStaffLookups({ targetRole = 'USER', divisionId = 'div-1' as string | null } = {}) {
+  mockStaffFind.mockImplementation(async (args: { where?: { id?: string }; select?: object }) => {
+    const select = (args?.select ?? {}) as Record<string, boolean>;
+    if (select.divisionId) return { divisionId };
+    return { id: args?.where?.id, role: targetRole };
+  });
+}
+
 function mockTx() {
   const tx = {
     staff: {
@@ -106,7 +120,7 @@ describe('updateStaff field filtering', () => {
 
   it('rejects an EDITOR whose division lacks the STAFF UPDATE entity permission', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
-    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' }); // getEditorDivisionId
+    mockStaffLookups();
     mockEntityPerm.mockResolvedValue(null);
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ error: 'Недостатньо прав' });
     expect(mockTransaction).not.toHaveBeenCalled();
@@ -114,7 +128,7 @@ describe('updateStaff field filtering', () => {
 
   it('EDITOR writes only granted fields — never employmentRate, even if granted', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
-    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockStaffLookups();
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     // employmentRate granted here on purpose: the confidential filter must still block it
     mockFieldPerms.mockResolvedValue([
@@ -132,7 +146,7 @@ describe('updateStaff field filtering', () => {
   // grant it once and any editor could move themselves into ННВ.
   it('EDITOR never writes divisionId, even if the grant row exists', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
-    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockStaffLookups();
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     mockFieldPerms.mockResolvedValue([{ fieldName: 'academicRank' }, { fieldName: 'divisionId' }]);
     const tx = mockTx();
@@ -144,7 +158,7 @@ describe('updateStaff field filtering', () => {
   // Without this the editor gets an empty UPDATE and a «Збережено» toast
   it('tells an EDITOR whose division has no usable grants that nothing is editable', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
-    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockStaffLookups();
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     mockFieldPerms.mockResolvedValue([]);
 
@@ -156,7 +170,7 @@ describe('updateStaff field filtering', () => {
 
   it('writes no audit row when an editor saves without changing anything', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
-    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockStaffLookups();
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     mockFieldPerms.mockResolvedValue([{ fieldName: 'academicRank' }]);
     const tx = mockTx();
@@ -170,6 +184,7 @@ describe('updateStaff field filtering', () => {
 
   it('USER edits own profile: only the whitelisted contact/profile fields', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
+    mockStaffLookups();
     const tx = mockTx();
 
     expect(await updateStaff('staff-own', fullPayload)).toEqual({ success: true });
@@ -184,11 +199,69 @@ describe('updateStaff field filtering', () => {
 
   it('ADMIN writes all schema fields including employmentRate', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
     const tx = mockTx();
 
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
     expect(writtenFields(tx)).toContain('employmentRate');
     expect(writtenFields(tx)).toContain('divisionId');
+  });
+});
+
+// The grants say which fields an editor may write, never whose record. Without
+// a target check an editor holding `email` could point an admin's address at
+// their own mailbox, run /forgot-password and come back as that admin.
+describe('updateStaff target-role guard', () => {
+  const editorWithEmailGrant = () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'email' }, { fieldName: 'academicRank' }]);
+  };
+
+  it('refuses an EDITOR editing an ADMIN, even with every grant', async () => {
+    editorWithEmailGrant();
+    mockStaffLookups({ targetRole: 'ADMIN' });
+
+    expect(await updateStaff('admin-1', fullPayload)).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses an EDITOR editing another EDITOR', async () => {
+    editorWithEmailGrant();
+    mockStaffLookups({ targetRole: 'EDITOR' });
+
+    expect(await updateStaff('staff-other-editor', fullPayload)).toEqual({
+      error: 'Недостатньо прав',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('still allows an EDITOR editing an ordinary USER', async () => {
+    editorWithEmailGrant();
+    mockStaffLookups({ targetRole: 'USER' });
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
+    expect(writtenFields(tx).sort()).toEqual(['academicRank', 'email']);
+  });
+
+  // Their own row is theirs whatever their role: the field filters still apply
+  // and role/divisionId stay unwritable, so this cannot escalate.
+  it('allows an EDITOR editing their own record', async () => {
+    editorWithEmailGrant();
+    mockStaffLookups({ targetRole: 'EDITOR' });
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-editor', fullPayload)).toEqual({ success: true });
+    expect(writtenFields(tx).sort()).toEqual(['academicRank', 'email']);
+  });
+
+  it('reports a missing record instead of pretending it saved', async () => {
+    editorWithEmailGrant();
+    mockStaffFind.mockResolvedValue(null);
+
+    expect(await updateStaff('gone', fullPayload)).toEqual({ error: 'Запис не знайдено' });
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });
 
@@ -201,7 +274,7 @@ describe('deleteStaff authorization', () => {
 
   it('rejects an EDITOR without the STAFF DELETE grant', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
-    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockStaffLookups();
     mockEntityPerm.mockResolvedValue(null);
     expect(await deleteStaff('staff-1')).toEqual({ error: 'Недостатньо прав' });
     expect(mockTransaction).not.toHaveBeenCalled();
@@ -209,6 +282,7 @@ describe('deleteStaff authorization', () => {
 
   it('allows ADMIN: deletes and audits', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
     const tx = mockTx();
     tx.staff.findUnique.mockResolvedValue({
       lastName: 'Франко',
@@ -231,7 +305,7 @@ describe('deleteStaff authorization', () => {
   // grant the role back — recoverable only by hand in the database
   it('refuses to delete the last admin who can still log in', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
-    mockStaffFind.mockResolvedValue({ role: 'ADMIN' });
+    mockStaffLookups({ targetRole: 'ADMIN' });
     mockStaffCount.mockResolvedValue(0); // no other activated admin
     expect(await deleteStaff('admin-last')).toEqual({
       error: 'Це єдиний активний адміністратор — спочатку призначте іншого',
@@ -241,7 +315,7 @@ describe('deleteStaff authorization', () => {
 
   it('allows deleting an admin while another activated admin remains', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
-    mockStaffFind.mockResolvedValue({ role: 'ADMIN' });
+    mockStaffLookups({ targetRole: 'ADMIN' });
     mockStaffCount.mockResolvedValue(1);
     const tx = mockTx();
     tx.staff.findUnique.mockResolvedValue(null);
@@ -249,9 +323,41 @@ describe('deleteStaff authorization', () => {
     expect(tx.staff.delete).toHaveBeenCalled();
   });
 
+  // STAFF DELETE says an editor may delete staff, not whom: an admin's row is
+  // off-limits however complete their division's permissions are.
+  it('refuses an EDITOR deleting an ADMIN', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockStaffLookups({ targetRole: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(5); // plenty of other admins — not the last-admin guard
+
+    expect(await deleteStaff('admin-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses an EDITOR deleting their own record', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockStaffLookups({ targetRole: 'EDITOR' });
+
+    expect(await deleteStaff('staff-editor')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('still lets an EDITOR delete an ordinary USER', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockStaffLookups({ targetRole: 'USER' });
+    const tx = mockTx();
+    tx.staff.findUnique.mockResolvedValue(null);
+
+    expect(await deleteStaff('staff-1')).toEqual({ redirectTo: '/staff' });
+    expect(tx.staff.delete).toHaveBeenCalled();
+  });
+
   it('counts only activated admins — an un-invited one cannot take over', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
-    mockStaffFind.mockResolvedValue({ role: 'ADMIN' });
+    mockStaffLookups({ targetRole: 'ADMIN' });
     mockStaffCount.mockResolvedValue(0);
     await deleteStaff('admin-last');
     expect(mockStaffCount).toHaveBeenCalledWith({
