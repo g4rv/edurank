@@ -22,6 +22,29 @@ import { backfillProfileDerived } from '@/lib/rating/profile-derived';
 
 export type RatingAdminState = { error: string } | { success: true; message?: string };
 
+/**
+ * The profile backfill always runs after its transaction has committed, so a
+ * failure here must never read as «the year was not activated» — it was. One
+ * indicator with malformed spec JSON is enough for parseTypeSpecs to throw
+ * inside it, and the admin would otherwise get an unhandled server error on an
+ * action that had in fact succeeded.
+ *
+ * Callers append `warning` to their own message instead: the lifecycle change
+ * stands, the derived indicators are simply not refilled yet, and re-running
+ * the action once the broken indicator is fixed will refill them.
+ */
+async function syncDerivedOrWarn(): Promise<{ synced: number; warning: string | null }> {
+  try {
+    return { synced: await backfillProfileDerived(), warning: null };
+  } catch (e) {
+    console.error('backfillProfileDerived failed', e);
+    return {
+      synced: 0,
+      warning: 'показники з профілю не оновлено — перевірте налаштування показників',
+    };
+  }
+}
+
 function revalidateRating() {
   revalidatePath('/admin/rating');
   revalidatePath('/rating');
@@ -172,13 +195,16 @@ export async function activateTemplate(year: number): Promise<RatingAdminState> 
   }
 
   // The newly active year must reflect current profiles (стаж, звання, посада…)
-  const synced = await backfillProfileDerived();
+  const { synced, warning } = await syncDerivedOrWarn();
 
   revalidateRating();
   return {
     success: true,
-    message:
-      synced > 0 ? `Рік ${year} активовано. Заповнено: ${synced} НПП` : `Рік ${year} активовано`,
+    message: warning
+      ? `Рік ${year} активовано, але ${warning}`
+      : synced > 0
+        ? `Рік ${year} активовано. Заповнено: ${synced} НПП`
+        : `Рік ${year} активовано`,
   };
 }
 
@@ -325,12 +351,17 @@ export async function updateActivityType(
 
   // Derived rows carry a frozen score — re-sync so a coefficient edit or a
   // re-activation refills them from the current profiles.
-  if (type.inputSource === 'PROFILE_DERIVED') await backfillProfileDerived();
+  const derived =
+    type.inputSource === 'PROFILE_DERIVED' ? await syncDerivedOrWarn() : { warning: null };
 
   revalidateRating();
   return {
     success: true,
-    message: affected > 0 ? `Збережено. Оновлено рейтинг: ${affected} НПП` : 'Збережено',
+    message: derived.warning
+      ? `Збережено, але ${derived.warning}`
+      : affected > 0
+        ? `Збережено. Оновлено рейтинг: ${affected} НПП`
+        : 'Збережено',
   };
 }
 
@@ -551,10 +582,14 @@ export async function addActivityType(templateId: string, code: string): Promise
     return { error: parseDbError(e, 'Помилка при додаванні') };
   }
 
-  if (def.inputSource === 'PROFILE_DERIVED') await backfillProfileDerived();
+  const derived =
+    def.inputSource === 'PROFILE_DERIVED' ? await syncDerivedOrWarn() : { warning: null };
 
   revalidateRating();
-  return { success: true, message: 'Показник додано' };
+  return {
+    success: true,
+    message: derived.warning ? `Показник додано, але ${derived.warning}` : 'Показник додано',
+  };
 }
 
 // ─── Year lifecycle ──────────────────────────────────────────────────────────
@@ -717,13 +752,14 @@ export async function reopenYear(year: number): Promise<RatingAdminState> {
   }
 
   // Profiles may have changed while the year was closed — bring derived rows up to date
-  const synced = await backfillProfileDerived();
+  const { synced, warning } = await syncDerivedOrWarn();
 
   revalidateRating();
   return {
     success: true,
-    message:
-      synced > 0
+    message: warning
+      ? `Рік ${year} знову відкрито, але ${warning}`
+      : synced > 0
         ? `Рік ${year} знову відкрито. Оновлено: ${synced} НПП`
         : `Рік ${year} знову відкрито`,
   };

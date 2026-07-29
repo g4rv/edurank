@@ -144,6 +144,26 @@ describe('reopenYear', () => {
     });
     expect(tx.auditLog.create).toHaveBeenCalled();
   });
+
+  // The profile backfill runs after the transaction has committed. One indicator
+  // with malformed spec JSON is enough to make it throw, and the year is
+  // reopened either way — so the admin must be told what happened, not shown a
+  // crash on an action that succeeded.
+  it('still reports success when the profile backfill fails', async () => {
+    mockTemplateFind.mockResolvedValue({ id: 'tpl-1', name: 'x', status: 'CLOSED' });
+    const tx = mockTx();
+    (db.ratingTemplate.findFirst as unknown as Mock).mockRejectedValueOnce(
+      new Error('bad spec json')
+    );
+
+    expect(await reopenYear(2026)).toEqual({
+      success: true,
+      message:
+        'Рік 2026 знову відкрито, але показники з профілю не оновлено — перевірте налаштування показників',
+    });
+    // The lifecycle change itself still committed
+    expect(tx.ratingTemplate.update).toHaveBeenCalled();
+  });
 });
 
 describe('updateActivityType', () => {
