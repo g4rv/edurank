@@ -5,10 +5,14 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
 
-// Open to every role: the only claim it checks is that the record is yours, and
-// the action writes nothing outside USER_EDITABLE_STAFF_FIELDS. ADMIN and EDITOR
-// reach the full form through /staff/[id]/edit instead — see the button on
-// /profile — so this page stays the same narrow one for everybody who lands on it.
+// The one place a person edits themselves, whatever their role: the only claim
+// it checks is that the record is yours, and the action writes nothing outside
+// USER_EDITABLE_STAFF_FIELDS.
+//
+// An admin who needs to change their own ПІБ, кафедра or ставка goes through
+// Персонал like they would for anyone else. That is an administrative act on a
+// staff record, and keeping it there is what stops this page needing to know
+// about roles at all.
 export default async function ProfileEditPage() {
   const session = await auth();
   if (!session) redirect('/login');
@@ -32,11 +36,12 @@ export default async function ProfileEditPage() {
       <div>
         <h1 className="text-2xl font-semibold">Редагування профілю</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Контактні дані та посилання на наукові профілі
+          {staff.isNpp ? 'Контактні дані та посилання на наукові профілі' : 'Контактні дані'}
         </p>
       </div>
 
       <ProfileEditForm
+        isNpp={staff.isNpp}
         defaultValues={{
           phone: staff.phone ?? '',
           wosUrl: staff.wosUrl ?? '',

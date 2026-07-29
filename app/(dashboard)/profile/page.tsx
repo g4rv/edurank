@@ -155,12 +155,12 @@ export default async function ProfilePage() {
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
 
-        {/* Everyone can correct their own record; how much of it depends on the
-            role. ADMIN and EDITOR already have the full staff form and their
-            permissions are applied there, so they go to it. Everyone else gets
-            the narrow one: contact details and research profile links. */}
+        {/* Editing your own profile means your contact details, whatever your
+            role. The rest of a staff record — ПІБ, кафедра, звання, ставка — is
+            administered, not self-served, and that lives under /staff even when
+            the person happens to be you. */}
         <Button asChild variant="outline">
-          <Link href={canAccessStaffList ? `/staff/${staffId}/edit` : '/profile/edit'}>
+          <Link href="/profile/edit">
             <Pencil className="size-4" />
             Редагувати
           </Link>
