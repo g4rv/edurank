@@ -36,7 +36,7 @@ Division (відділ)                — separate cross-cutting structure, uni
 ## Permission model (two layers, both per division, both configured by ADMIN)
 
 **Layer 1 — Field permissions (`DivisionFieldPermission` table)**
-Which fields on a `Staff` record each division's editors can edit. Example: ННВ can edit `academicRank` and `employmentRate`; ННЦЗЯО can edit `courseCount`.
+Which fields on a `Staff` record each division's editors can edit. Example: ННВ can edit `academicRank` and `pedagogicalExperience`; another division might be granted only `orcidId`. (`employmentRate` is confidential and grantable to nobody — see `CONFIDENTIAL_STAFF_FIELDS`.)
 
 **Layer 2 — Entity permissions (`DivisionEntityPermission` table)**
 Which CRUD operations on top-level entities each division can perform. Example: ННВ can create/delete Staff, Departments, Faculties. Another division may have none of these.
@@ -123,6 +123,7 @@ pnpm db:seed          # prisma db seed
 pnpm db:reset         # prisma migrate reset --force (wipe + reapply, dev only)
 pnpm db:demo          # add ~200 demo НПП across 4 faculties, so the charts have data
 pnpm db:demo --clear  # remove them again (matches on the @demo.local email domain)
+pnpm db:fix-rounding  # one-off repair: re-round RatingEntry totals to 2 decimals
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 docker compose up -d  # start all services

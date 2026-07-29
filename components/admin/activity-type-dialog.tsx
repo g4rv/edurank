@@ -169,6 +169,7 @@ function ActivityTypeForm({
     handleSubmit,
     setValue,
     watch,
+    getValues,
     formState: { errors },
   } = useForm<FieldValues>({
     resolver: standardSchemaResolver(schema as never) as unknown as Resolver<FieldValues>,
@@ -203,7 +204,7 @@ function ActivityTypeForm({
   function onSectionChange(value: string) {
     const next = Number(value);
     setValue('section', next);
-    const current = String(watch('itemNumber') ?? '');
+    const current = String(getValues('itemNumber') ?? '');
     const [, ...rest] = current.split('.');
     setValue('itemNumber', rest.length > 0 ? [next, ...rest].join('.') : String(next));
   }

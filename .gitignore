@@ -47,3 +47,6 @@ next-env.d.ts
 /backups
 
 /edu-reference
+
+# Playwright MCP scratch output (page snapshots, console logs)
+/.playwright-mcp/
