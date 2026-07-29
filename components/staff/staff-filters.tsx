@@ -74,6 +74,9 @@ export function StaffFilters({ faculties, departments }: Props) {
         sp.delete(key);
       }
     }
+    // Any change to what's listed starts again at page 1 — page 5 of the old
+    // result set is meaningless once the filter narrows it.
+    sp.delete('page');
     return sp.toString();
   }
 

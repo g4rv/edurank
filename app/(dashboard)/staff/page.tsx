@@ -6,6 +6,7 @@ import { listDepartments } from '@/lib/queries/list-departments';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/ui/pagination';
 import { SortTh } from '@/components/ui/sort-th';
 import { StaffFilters } from '@/components/staff/staff-filters';
 import { StaffTable } from '@/components/staff/staff-table';
@@ -13,6 +14,10 @@ import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prism
 
 const VALID_RANKS = new Set<string>(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
 const VALID_DEGREES = new Set<string>(['CANDIDATE', 'DOCTOR']);
+
+// The list is a few hundred people; sending them all is cheap, rendering them
+// all is not — 200 rows made the page ~14 000px tall.
+const PAGE_SIZE = 50;
 
 export default async function StaffPage({
   searchParams,
@@ -29,7 +34,7 @@ export default async function StaffPage({
 
   const isAdmin = role === 'ADMIN';
 
-  const { roles, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch } = params;
+  const { roles, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch, page } = params;
 
   // Role checkboxes (?roles=USER,EDITOR). Absent = НПП default; 'all' = no filter.
   const VALID_ROLES = new Set(['USER', 'EDITOR', 'ADMIN']);
@@ -75,6 +80,15 @@ export default async function StaffPage({
     listFaculties(),
     listDepartments(),
   ]);
+
+  // Paging is applied after the query so the header count and the pager both
+  // describe the whole filtered set, not the slice on screen.
+  const totalPages = Math.max(1, Math.ceil(staff.length / PAGE_SIZE));
+  const requestedPage = typeof page === 'string' ? Number(page) : 1;
+  const currentPage = Number.isFinite(requestedPage)
+    ? Math.min(Math.max(Math.trunc(requestedPage), 1), totalPages)
+    : 1;
+  const pageStaff = staff.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   let canCreate = isAdmin;
   if (!canCreate && role === 'EDITOR') {
@@ -169,10 +183,13 @@ export default async function StaffPage({
     degree,
     partTime,
     degreeMatch,
+    currentPage,
   ].join('|');
 
   return (
-    <div className="space-y-6">
+    // Fills the dashboard's main area: the header, filters and pager keep their
+    // height and the table takes what is left, scrolling its rows internally.
+    <div className="flex h-full min-h-0 flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Персонал</h1>
@@ -190,7 +207,18 @@ export default async function StaffPage({
         departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
       />
 
-      <StaffTable key={tableKey} staff={staff} sortHeader={sortHeader} isAdmin={isAdmin} />
+      <StaffTable key={tableKey} staff={pageStaff} sortHeader={sortHeader} isAdmin={isAdmin} fill />
+
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        hrefFor={(p) => buildHref({ page: p > 1 ? String(p) : undefined })}
+        summary={
+          <>
+            Стор. {currentPage} з {totalPages} · {staff.length} записів
+          </>
+        }
+      />
     </div>
   );
 }

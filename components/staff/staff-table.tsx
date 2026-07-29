@@ -19,9 +19,11 @@ type Props = {
   staff: TableStaffItem[];
   sortHeader: React.ReactNode;
   isAdmin?: boolean;
+  /** Scroll rows inside the card instead of growing the page — see DataTable */
+  fill?: boolean;
 };
 
-export function StaffTable({ staff, sortHeader, isAdmin }: Props) {
+export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
   if (staff.length === 0) {
     return (
       <motion.div
@@ -36,7 +38,7 @@ export function StaffTable({ staff, sortHeader, isAdmin }: Props) {
   }
 
   return (
-    <DataTable>
+    <DataTable fill={fill}>
       <thead>{sortHeader}</thead>
       <AnimatedTableBody>
         {staff.map((member) => (
@@ -86,16 +88,13 @@ export function StaffTable({ staff, sortHeader, isAdmin }: Props) {
               </td>
             )}
             {isAdmin && (
-              <td className="px-4 py-3">
-                {'employmentRate' in member && member.employmentRate != null ? (
-                  <span className="text-sm text-muted-foreground tabular-nums">
-                    {member.employmentRate}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                    не вказано
-                  </span>
-                )}
+              <td className="px-4 py-3 text-muted-foreground tabular-nums">
+                {/* «—» like every other empty cell. An amber pill here fires on
+                    every staff member without a ставка, which is most of them —
+                    at that density it reads as decoration, not as a warning. */}
+                {'employmentRate' in member && member.employmentRate != null
+                  ? member.employmentRate
+                  : '—'}
               </td>
             )}
           </AnimatedRow>

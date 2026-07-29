@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ChevronUp, ChevronDown, ChevronsUpDown, Eye, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
+import { Pagination } from '@/components/ui/pagination';
 import {
   Select,
   SelectContent,
@@ -58,29 +60,82 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'unverified', label: 'Публікації без перевірки' },
 ];
 
-export function ModerationList({ rows }: { rows: ModerationRow[] }) {
-  const [section, setSection] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<StatusFilter>('all');
-  const [faculty, setFaculty] = useState('all');
-  const [department, setDepartment] = useState('all');
-  // Selected by itemNumber — unique inside one year's template
-  const [indicator, setIndicator] = useState('all');
-  const [grouped, setGrouped] = useState(false);
-  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
-    key: 'name',
-    dir: 'asc',
-  });
-  const [page, setPage] = useState(1);
+const SORT_KEYS: readonly SortKey[] = ['name', 'department', 'section', 'item', 'score', 'date'];
 
-  // Any change to what's shown starts the list at the top again — done in the
-  // filter handlers, not an effect, so there's no cascading re-render.
-  const withReset =
-    <A extends unknown[]>(fn: (...args: A) => void) =>
-    (...args: A) => {
-      setPage(1);
-      fn(...args);
+export function ModerationList({ rows }: { rows: ModerationRow[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Every control reads from the query string, so a narrowed view can be
+  // bookmarked or sent to a colleague — the same contract /staff already has.
+  // Defaults stay out of the URL to keep a shared link readable.
+  const sectionParam = Number(searchParams.get('section'));
+  const section = SECTIONS.includes(sectionParam) ? sectionParam : null;
+  const search = searchParams.get('q') ?? '';
+  const statusParam = searchParams.get('status') ?? '';
+  const status: StatusFilter = STATUS_OPTIONS.some((o) => o.value === statusParam)
+    ? (statusParam as StatusFilter)
+    : 'all';
+  const faculty = searchParams.get('faculty') ?? 'all';
+  const department = searchParams.get('dept') ?? 'all';
+  // Selected by itemNumber — unique inside one year's template
+  const indicator = searchParams.get('item') ?? 'all';
+  const grouped = searchParams.get('view') === 'grouped';
+  const sortParam = searchParams.get('sort') ?? '';
+  // Kept as two primitives, not an object: an object literal would be a new
+  // reference every render and would defeat the memo on `filtered`.
+  const sortKey: SortKey = (SORT_KEYS as readonly string[]).includes(sortParam)
+    ? (sortParam as SortKey)
+    : 'name';
+  const sortDir: 'asc' | 'desc' = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
+  const pageParam = Number(searchParams.get('page'));
+  const page = Number.isFinite(pageParam) && pageParam > 1 ? Math.trunc(pageParam) : 1;
+
+  // A falsy value drops the key, so the default state leaves no trace in the URL.
+  function setParams(overrides: Record<string, string | undefined>) {
+    const sp = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(overrides)) {
+      if (value) sp.set(key, value);
+      else sp.delete(key);
+    }
+    // Narrowing the list invalidates the page number, so it resets unless the
+    // change *is* a page change.
+    if (!('page' in overrides)) sp.delete('page');
+    const qs = sp.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
+  // The input stays local so typing is instant; the URL catches up on a pause.
+  const [searchDraft, setSearchDraft] = useState(search);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleSearch(value: string) {
+    setSearchDraft(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      // Cleared before the push so the sync below can tell our own navigation
+      // from an outside one
+      debounceRef.current = null;
+      setParams({ q: value || undefined });
+    }, 400);
+  }
+
+  // A queued push must not outlive the page: typing and then leaving would
+  // otherwise navigate back here 400ms later, from a component nobody is on.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
+  }, []);
+
+  // Back/forward changes the query string without passing through handleSearch,
+  // so the box would keep the old text while the list showed the new results.
+  // Skipped while a push is queued — that value is the reader still typing, and
+  // it is newer than anything the URL currently holds.
+  useEffect(() => {
+    if (debounceRef.current === null) setSearchDraft(search);
+  }, [search]);
 
   const faculties = useMemo(() => uniqueSorted(rows.map((r) => r.faculty)), [rows]);
 
@@ -111,9 +166,9 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
         matchStatus(r, status)
     );
 
-    const sign = sort.dir === 'asc' ? 1 : -1;
+    const sign = sortDir === 'asc' ? 1 : -1;
     const compare = (a: ModerationRow, b: ModerationRow): number => {
-      switch (sort.key) {
+      switch (sortKey) {
         case 'name':
           return a.staffName.localeCompare(b.staffName, 'uk');
         case 'department':
@@ -138,48 +193,52 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
         compareItemNumbers(a.itemNumber, b.itemNumber)
       );
     });
-  }, [rows, section, search, faculty, department, indicator, status, sort]);
+  }, [rows, section, search, faculty, department, indicator, status, sortKey, sortDir]);
 
   // Narrowing a parent filter can strand its child on a value that no longer
-  // exists, so the child resets with it — in the handler, not an effect.
+  // exists, so the child clears in the same navigation.
   function changeFaculty(value: string) {
-    setPage(1);
-    setFaculty(value);
-    setDepartment('all');
+    setParams({ faculty: value === 'all' ? undefined : value, dept: undefined });
   }
 
   function changeSection(value: number | null) {
-    setPage(1);
-    setSection(value);
-    setIndicator('all');
+    setParams({ section: value ? String(value) : undefined, item: undefined });
+  }
+
+  function onPage(next: number) {
+    setParams({ page: next > 1 ? String(next) : undefined });
   }
 
   function toggleSort(key: SortKey) {
-    setSort((s) =>
-      s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
-    );
+    const dir = sortKey === key && sortDir === 'asc' ? 'desc' : 'asc';
+    setParams({
+      sort: key === 'name' && dir === 'asc' ? undefined : key,
+      dir: dir === 'desc' ? 'desc' : undefined,
+    });
   }
 
   return (
-    <div className="space-y-4">
+    // Fills the main area so the pager stays on screen with the table — the
+    // rows scroll inside the card, not the page.
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <Filters
-        search={search}
-        setSearch={withReset(setSearch)}
+        search={searchDraft}
+        setSearch={handleSearch}
         section={section}
         setSection={changeSection}
         status={status}
-        setStatus={withReset(setStatus)}
+        setStatus={(v) => setParams({ status: v === 'all' ? undefined : v })}
         faculty={faculty}
         setFaculty={changeFaculty}
         faculties={faculties}
         department={department}
-        setDepartment={withReset(setDepartment)}
+        setDepartment={(v) => setParams({ dept: v === 'all' ? undefined : v })}
         departments={departments}
         indicator={indicator}
-        setIndicator={withReset(setIndicator)}
+        setIndicator={(v) => setParams({ item: v === 'all' ? undefined : v })}
         indicators={indicators}
         grouped={grouped}
-        setGrouped={withReset(setGrouped)}
+        setGrouped={(v) => setParams({ view: v ? 'grouped' : undefined })}
       />
 
       <p className="text-sm text-muted-foreground">
@@ -194,14 +253,14 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
           Подань не знайдено.
         </div>
       ) : grouped ? (
-        <GroupedView rows={filtered} page={page} setPage={setPage} />
+        <GroupedView rows={filtered} page={page} onPage={onPage} />
       ) : (
         <TableView
           rows={filtered}
-          sort={sort}
+          sort={{ key: sortKey, dir: sortDir }}
           toggleSort={toggleSort}
           page={page}
-          setPage={setPage}
+          onPage={onPage}
         />
       )}
     </div>
@@ -366,21 +425,21 @@ function TableView({
   sort,
   toggleSort,
   page,
-  setPage,
+  onPage,
 }: {
   rows: ModerationRow[];
   sort: { key: SortKey; dir: 'asc' | 'desc' };
   toggleSort: (key: SortKey) => void;
   page: number;
-  setPage: (updater: (p: number) => number) => void;
+  onPage: (page: number) => void;
 }) {
   const totalPages = Math.ceil(rows.length / PAGE_ROWS);
   const current = Math.min(page, totalPages);
   const slice = rows.slice((current - 1) * PAGE_ROWS, current * PAGE_ROWS);
 
   return (
-    <div className="space-y-3">
-      <DataTable>
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <DataTable fill>
         <thead>
           <tr className="border-b bg-muted/40">
             <Th label="ПІБ" k="name" sort={sort} onSort={toggleSort} />
@@ -454,7 +513,7 @@ function TableView({
       <Pager
         current={current}
         totalPages={totalPages}
-        setPage={setPage}
+        onPage={onPage}
         unit="подань"
         total={rows.length}
       />
@@ -466,11 +525,11 @@ function TableView({
 function GroupedView({
   rows,
   page,
-  setPage,
+  onPage,
 }: {
   rows: ModerationRow[];
   page: number;
-  setPage: (updater: (p: number) => number) => void;
+  onPage: (page: number) => void;
 }) {
   const people = useMemo(() => {
     const map = new Map<string, ModerationRow[]>();
@@ -496,8 +555,8 @@ function GroupedView({
   const slice = people.slice((current - 1) * PAGE_PEOPLE, current * PAGE_PEOPLE);
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="min-h-64 flex-1 space-y-2 overflow-y-auto">
         {slice.map((person) => (
           <details key={person.name} className="rounded-xl border bg-card">
             <summary className="flex cursor-pointer items-center gap-3 px-4 py-3 select-none">
@@ -541,7 +600,7 @@ function GroupedView({
       <Pager
         current={current}
         totalPages={totalPages}
-        setPage={setPage}
+        onPage={onPage}
         unit="НПП"
         total={people.length}
       />
@@ -633,41 +692,27 @@ function RowActions({ row }: { row: ModerationRow }) {
 function Pager({
   current,
   totalPages,
-  setPage,
+  onPage,
   unit,
   total,
 }: {
   current: number;
   totalPages: number;
-  setPage: (updater: (p: number) => number) => void;
+  onPage: (page: number) => void;
   unit: string;
   total: number;
 }) {
-  if (totalPages <= 1) return null;
   return (
-    <div className="flex items-center justify-between text-sm text-muted-foreground">
-      <span>
-        Стор. {current} з {totalPages} · {total} {unit}
-      </span>
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={current <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-        >
-          ← Попередня
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={current >= totalPages}
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-        >
-          Наступна →
-        </Button>
-      </div>
-    </div>
+    <Pagination
+      page={current}
+      totalPages={totalPages}
+      onPageChange={onPage}
+      summary={
+        <>
+          Стор. {current} з {totalPages} · {total} {unit}
+        </>
+      }
+    />
   );
 }
 
