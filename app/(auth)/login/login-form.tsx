@@ -4,9 +4,8 @@ import { useTransition } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { FieldGroup } from '@/components/ui/field';
+import { FieldError, FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { PassInput } from '@/components/ui/pass-input';
@@ -19,15 +18,23 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<LoginSchema>({
     resolver: standardSchemaResolver(loginSchema),
   });
 
   function onSubmit(data: LoginSchema) {
+    // «Невірний email або пароль» is the result of this form, not an unrelated
+    // background event, so it belongs in the form. A toast puts it in the corner
+    // of a page that is nothing but this form, and then takes it away again.
+    // It goes on the form rather than on a field on purpose: which of the two is
+    // wrong is deliberately not disclosed.
+    clearErrors('root');
     startTransition(async () => {
       const result = await loginAction(data);
-      if (result?.error) toast.error(result.error);
+      if (result?.error) setError('root', { message: result.error });
     });
   }
 
@@ -60,6 +67,8 @@ export function LoginForm() {
               />
             </FormField>
           </FieldGroup>
+
+          {errors.root?.message && <FieldError errors={[{ message: errors.root.message }]} />}
 
           <Button type="submit" size="lg" disabled={isPending} className="w-full">
             {isPending ? 'Вхід...' : 'Увійти'}
