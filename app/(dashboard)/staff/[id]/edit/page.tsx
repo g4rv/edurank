@@ -27,7 +27,10 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
   const [staff, departments, divisions] = await Promise.all([
     getStaff(id, isAdmin),
     listDepartments(),
-    listDivisions(),
+    // Only ADMIN may assign a відділ, and the names must not reach anyone else:
+    // a prop is serialised into the page payload whether the control that would
+    // use it is rendered or not.
+    isAdmin ? listDivisions() : Promise.resolve([]),
   ]);
 
   if (!staff) notFound();

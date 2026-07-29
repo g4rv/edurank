@@ -11,7 +11,7 @@ export default async function EditDivisionPage({ params }: { params: Promise<{ i
   const session = await auth();
   if (!session) redirect('/login');
 
-  if (session.user.role !== 'ADMIN') redirect('/divisions');
+  if (session.user.role !== 'ADMIN') redirect('/');
 
   const division = await db.division.findUnique({
     where: { id },

@@ -21,7 +21,10 @@ export default async function DivisionsPage({
 
   const role = session.user.role;
 
-  if (role === 'USER') redirect('/profile');
+  // Divisions ARE the permission model — this page and the detail behind it list
+  // which fields and actions each division holds, which is what someone would
+  // read before trying to widen their own. ADMIN only, like creating one.
+  if (role !== 'ADMIN') redirect('/');
 
   const sortDir = dir === 'desc' ? ('desc' as const) : ('asc' as const);
 

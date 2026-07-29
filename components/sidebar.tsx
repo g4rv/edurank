@@ -40,7 +40,7 @@ const STRUCTURE_NAV: NavItem[] = [
   { href: '/staff', label: 'Персонал', icon: Users, roles: ['ADMIN', 'EDITOR'] },
   { href: '/departments', label: 'Кафедри', icon: BookOpen, roles: ['ADMIN', 'EDITOR'] },
   { href: '/faculties', label: 'Факультети', icon: GraduationCap, roles: ['ADMIN', 'EDITOR'] },
-  { href: '/divisions', label: 'Відділи', icon: Building2, roles: ['ADMIN', 'EDITOR'] },
+  { href: '/divisions', label: 'Відділи', icon: Building2, roles: ['ADMIN'] },
 ];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [

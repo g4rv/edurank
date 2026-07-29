@@ -38,7 +38,9 @@ export default async function DivisionDetailPage({ params }: { params: Promise<{
 
   const role = session.user.role;
 
-  if (role === 'USER') redirect('/profile');
+  // Same reason as the list: this page shows the division's granted fields and
+  // entity actions. ADMIN only.
+  if (role !== 'ADMIN') redirect('/');
 
   const division = await db.division.findUnique({
     where: { id },

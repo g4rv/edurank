@@ -9,7 +9,7 @@ export default async function NewDivisionPage() {
   const session = await auth();
   if (!session) redirect('/login');
 
-  if (session.user.role !== 'ADMIN') redirect('/divisions');
+  if (session.user.role !== 'ADMIN') redirect('/');
 
   return (
     <div className="max-w-lg space-y-6">

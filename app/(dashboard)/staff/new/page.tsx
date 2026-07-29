@@ -8,16 +8,19 @@ import { listDivisions } from '@/lib/queries/list-divisions';
 import { StaffCreateForm } from '@/components/staff/create-form';
 
 export default async function StaffNewPage() {
-  const [session, departments, divisions] = await Promise.all([
-    auth(),
-    listDepartments(),
-    listDivisions(),
-  ]);
-
+  const session = await auth();
   if (!session) redirect('/login');
 
   const role = session.user.role;
   const isAdmin = role === 'ADMIN';
+
+  const [departments, divisions] = await Promise.all([
+    listDepartments(),
+    // Only ADMIN may assign a відділ, and the names must not reach anyone else:
+    // a prop is serialised into the page payload whether the control that would
+    // use it is rendered or not.
+    isAdmin ? listDivisions() : Promise.resolve([]),
+  ]);
 
   if (!isAdmin) {
     if (role !== 'EDITOR') redirect('/staff');
