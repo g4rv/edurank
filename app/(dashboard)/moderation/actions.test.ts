@@ -66,17 +66,17 @@ describe('removeActivity', () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it('rejects an editor of a non-ННВ division', async () => {
+  it('rejects an editor whose division lacks the moderation flag', async () => {
     mockAuth.mockResolvedValue(nnvEditorSession);
-    mockStaffFind.mockResolvedValue({ division: { name: 'Відділ кадрів' } });
+    mockStaffFind.mockResolvedValue({ division: { canModerateRating: false } });
     expect(await removeActivity('activity-1', 'причина')).toEqual({
       error: 'Недостатньо прав',
     });
   });
 
-  it('allows an ННВ editor', async () => {
+  it('allows an editor whose division carries the moderation flag', async () => {
     mockAuth.mockResolvedValue(nnvEditorSession);
-    mockStaffFind.mockResolvedValue({ division: { name: 'Навчально-науковий відділ' } });
+    mockStaffFind.mockResolvedValue({ division: { canModerateRating: true } });
     const tx = mockTx();
     expect(await removeActivity('activity-1', 'причина')).toEqual({ success: true });
     expect(tx.activity.update).toHaveBeenCalled();
@@ -157,9 +157,9 @@ describe('setActivityVerified', () => {
     return tx;
   }
 
-  it('rejects an editor of a non-ННВ division', async () => {
+  it('rejects an editor whose division lacks the moderation flag', async () => {
     mockAuth.mockResolvedValue(nnvEditorSession);
-    mockStaffFind.mockResolvedValue({ division: { name: 'Відділ кадрів' } });
+    mockStaffFind.mockResolvedValue({ division: { canModerateRating: false } });
     mockActivityFind.mockResolvedValue(publication);
     expect(await setActivityVerified('activity-2', true)).toEqual({
       error: 'Недостатньо прав',

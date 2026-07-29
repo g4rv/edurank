@@ -110,10 +110,13 @@ async function seedDemoRating(staffId: string, templateId: string, sources: Inpu
 async function main() {
   // ─── Divisions ────────────────────────────────────────────────────────────
 
+  // ННВ is the division that moderates the rating. The flag is set on update
+  // too: an existing database seeded before the column arrived would otherwise
+  // keep a ННВ that cannot moderate anything.
   const nnv = await prisma.division.upsert({
     where: { name: 'Навчально-науковий відділ' },
-    update: {},
-    create: { name: 'Навчально-науковий відділ' },
+    update: { canModerateRating: true },
+    create: { name: 'Навчально-науковий відділ', canModerateRating: true },
   });
 
   // Rating divisions (Phase 2) — creates all 6, incl. the two new 2026 ones

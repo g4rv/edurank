@@ -20,7 +20,10 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
   try {
     await db.$transaction(async (tx) => {
       const created = await tx.division.create({
-        data: { name: parsed.data.name },
+        data: {
+          name: parsed.data.name,
+          canModerateRating: parsed.data.canModerateRating,
+        },
         select: { id: true },
       });
       await tx.auditLog.create({
@@ -30,7 +33,13 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
           entityId: created.id,
           label: parsed.data.name,
           userId: session.user.id,
-          changes: diffChanges({}, { name: parsed.data.name }),
+          changes: diffChanges(
+            {},
+            {
+              name: parsed.data.name,
+              canModerateRating: parsed.data.canModerateRating,
+            }
+          ),
         },
       });
     });
@@ -56,10 +65,30 @@ export async function updateDivision(
 
   try {
     await db.$transaction(async (tx) => {
-      const existing = await tx.division.findUnique({ where: { id }, select: { name: true } });
-      const changes = diffChanges({ name: existing?.name ?? null }, { name: parsed.data.name });
+      const existing = await tx.division.findUnique({
+        where: { id },
+        select: { name: true, canModerateRating: true },
+      });
+      // Granting or revoking moderation is a permission change — it has to be
+      // as visible in the audit log as a rename is.
+      const changes = diffChanges(
+        {
+          name: existing?.name ?? null,
+          canModerateRating: existing?.canModerateRating ?? null,
+        },
+        {
+          name: parsed.data.name,
+          canModerateRating: parsed.data.canModerateRating,
+        }
+      );
 
-      await tx.division.update({ where: { id }, data: { name: parsed.data.name } });
+      await tx.division.update({
+        where: { id },
+        data: {
+          name: parsed.data.name,
+          canModerateRating: parsed.data.canModerateRating,
+        },
+      });
       await tx.auditLog.create({
         data: {
           action: 'UPDATE',

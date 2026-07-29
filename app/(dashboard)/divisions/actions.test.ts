@@ -42,7 +42,7 @@ beforeEach(() => {
 describe('division actions authorization', () => {
   it('createDivision rejects EDITOR', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 's1' } });
-    expect(await createDivision({ name: 'Новий відділ' })).toEqual({
+    expect(await createDivision({ name: 'Новий відділ', canModerateRating: false })).toEqual({
       error: 'Недостатньо прав',
     });
     expect(mockTransaction).not.toHaveBeenCalled();
@@ -56,7 +56,9 @@ describe('division actions authorization', () => {
   it('createDivision allows ADMIN and audits', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
     const tx = mockTx();
-    expect(await createDivision({ name: 'Новий відділ' })).toEqual({ redirectTo: '/divisions' });
+    expect(await createDivision({ name: 'Новий відділ', canModerateRating: false })).toEqual({
+      redirectTo: '/divisions',
+    });
     expect(tx.division.create).toHaveBeenCalled();
     expect(tx.auditLog.create).toHaveBeenCalled();
   });

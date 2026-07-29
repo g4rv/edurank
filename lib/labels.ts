@@ -64,6 +64,7 @@ export const FIELD_LABELS: Record<string, string> = {
   facultyId: 'Факультет',
   headId: 'Завідувач',
   role: 'Роль',
+  canModerateRating: 'Модерація рейтингу',
   staffId: 'Співробітник',
   password: 'Пароль',
   passwordHash: 'Пароль',

@@ -135,6 +135,13 @@ model Division {
   id   String @id @default(cuid())
   name String @unique
 
+  // May this division's editors moderate the rating — discard a wrong НПП
+  // self-report with a reason, and toggle «Перевірено» on a publication?
+  // Previously decided by matching the name «ННВ», so renaming the division in
+  // the UI silently stripped every one of its editors of the right. ADMIN
+  // always moderates and needs no row here.
+  canModerateRating Boolean @default(false)
+
   staff             Staff[]
   fieldPermissions  DivisionFieldPermission[]
   entityPermissions DivisionEntityPermission[]
