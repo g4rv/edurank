@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
-import { parseDbError } from '@/lib/db-error';
+import { isUniqueViolation, parseDbError } from '@/lib/db-error';
 import { canActForDivision } from '@/lib/permissions';
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { parseTypeSpecs } from '@/validations/activity-type-spec';
@@ -86,8 +86,12 @@ export async function upsertDivisionActivity(
   const evidenceSummary = summarizeEvidence(specs.fields, parsed.data);
   const staffLabel = `${staff.lastName} ${staff.firstName} ${staff.patronymic}`;
 
-  try {
-    await db.$transaction(async (tx) => {
+  // Find-then-write is a race: two editors saving the same cell both see no row
+  // and both insert. The partial unique index stops the duplicate reaching the
+  // table; running the same body again then finds the winner's row and takes the
+  // update path, which is what the loser meant to do anyway.
+  const save = () =>
+    db.$transaction(async (tx) => {
       const existing = await tx.activity.findFirst({
         where: { staffId, activityTypeId: type.id, year, status: { not: 'REMOVED' } },
         select: { id: true, score: true, evidence: true },
@@ -142,8 +146,18 @@ export async function upsertDivisionActivity(
 
       await recomputeRatingEntry(tx, staffId, year);
     });
+
+  try {
+    await save();
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при внесенні даних') };
+    if (!isUniqueViolation(e)) {
+      return { error: parseDbError(e, 'Помилка при внесенні даних') };
+    }
+    try {
+      await save();
+    } catch (retryError) {
+      return { error: parseDbError(retryError, 'Помилка при внесенні даних') };
+    }
   }
 
   revalidatePath('/division-data');
@@ -318,8 +332,11 @@ export async function batchUpsertDivisionActivity(
 
   const year = type.template.year;
 
-  try {
-    await db.$transaction(async (tx) => {
+  // Same lost-race handling as the single-cell save above: the whole batch is
+  // one transaction, so a collision on any one row rolls all of them back and
+  // the retry re-reads every row, updating the ones that now exist.
+  const saveAll = () =>
+    db.$transaction(async (tx) => {
       for (const row of prepared) {
         const existing = await tx.activity.findFirst({
           where: {
@@ -381,8 +398,18 @@ export async function batchUpsertDivisionActivity(
         await recomputeRatingEntry(tx, row.staffId, year);
       }
     });
+
+  try {
+    await saveAll();
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при внесенні даних') };
+    if (!isUniqueViolation(e)) {
+      return { error: parseDbError(e, 'Помилка при внесенні даних') };
+    }
+    try {
+      await saveAll();
+    } catch (retryError) {
+      return { error: parseDbError(retryError, 'Помилка при внесенні даних') };
+    }
   }
 
   revalidatePath('/division-data');
