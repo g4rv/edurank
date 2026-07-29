@@ -76,7 +76,20 @@ beforeEach(() => {
 });
 
 describe('closeYear', () => {
-  const openTemplate = { id: 'tpl-1', name: 'Рейтинг НПП 2026', status: 'OPEN' };
+  const openTemplate = {
+    id: 'tpl-1',
+    name: 'Рейтинг НПП 2026',
+    status: 'OPEN',
+    // Title deliberately unlike SECTION_TITLES[3] — the snapshot must freeze
+    // what this year calls its розділ, not what the code catalogue calls it
+    sections: [
+      { number: 1, title: 'Розділ один' },
+      { number: 2, title: 'Розділ два' },
+      { number: 3, title: 'Наука цього року' },
+      { number: 4, title: 'Розділ чотири' },
+      { number: 5, title: "П'ятий розділ" },
+    ],
+  };
 
   it('rejects non-admin', async () => {
     mockAuth.mockResolvedValue(editorSession);
@@ -119,6 +132,8 @@ describe('closeYear', () => {
     expect(snapshot.total).toBe(300);
     expect(snapshot.sections).toHaveLength(5);
     expect(snapshot.sections[2].items[0].label).toBe('Виконання НДР');
+    // Frozen under this template's own heading, not the code catalogue's
+    expect(snapshot.sections[2].title).toBe('Наука цього року');
     // Authoritative flag flipped with the closer recorded
     expect(tx.ratingTemplate.update).toHaveBeenCalledWith({
       where: { id: 'tpl-1' },
@@ -260,7 +275,9 @@ describe('updateActivityType', () => {
       success: true,
       message: 'Збережено',
     });
-    const { section, ...columns } = valid;
+    // section is pulled out only to exclude it from `columns` — the action
+    // resolves it to a sectionId rather than writing the number
+    const { section: _section, ...columns } = valid;
     expect(tx.activityType.update).toHaveBeenCalledWith({
       where: { id: 'type-1' },
       data: {

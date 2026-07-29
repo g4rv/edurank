@@ -626,10 +626,21 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
 
   const template = await db.ratingTemplate.findUnique({
     where: { year },
-    select: { id: true, name: true, status: true },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      // The snapshot is what a closed year renders from forever, so its headings
+      // come from this year's own sections rather than the 2026 constants in
+      // code. They agree today; a template whose sections were ever retitled
+      // would otherwise be frozen under the wrong ones.
+      sections: { select: { number: true, title: true } },
+    },
   });
   if (!template) return { error: 'Шаблон не знайдено' };
   if (template.status !== 'OPEN') return { error: 'Рік вже закрито' };
+
+  const titleByNumber = new Map(template.sections.map((s) => [s.number, s.title]));
 
   try {
     await db.$transaction(async (tx) => {
@@ -679,7 +690,7 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
             }));
           return {
             number,
-            title: SECTION_TITLES[number] ?? '',
+            title: titleByNumber.get(number) ?? SECTION_TITLES[number] ?? '',
             // round2: summing 2-decimal scores with + reintroduces float dust
             // (0.1 + 0.2 = 0.30000000000000004); the snapshot is frozen, so keep it clean.
             subtotal: round2(items.reduce((sum, i) => sum + i.score, 0)),
