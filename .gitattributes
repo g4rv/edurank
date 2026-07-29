@@ -1,0 +1,23 @@
+# Normalise line endings. Without this every `git add` on Windows warns that
+# LF will be replaced by CRLF, and a file touched on another machine shows up
+# as wholly rewritten in the diff.
+#
+# Text files are stored with LF in the repository. Git still checks them out
+# with the platform's native endings, so nothing changes in the editor.
+* text=auto eol=lf
+
+# Binary: never touch these, a substitution corrupts them
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.xlsx binary
+*.zip binary
+
+# Generated: collapse in diffs and exclude from language statistics
+pnpm-lock.yaml -diff linguist-generated

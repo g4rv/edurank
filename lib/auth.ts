@@ -4,6 +4,17 @@ import { compare } from 'bcryptjs';
 import { db } from '@/lib/db';
 import type { Role } from '@/lib/generated/prisma/client';
 
+// NextAuth reads AUTH_SECRET on its own and, when it is missing, fails at the
+// first request with a message that does not name it. In production that is a
+// dead site; in development it only costs sessions across a restart, so a
+// warning is enough there and a fresh clone still runs.
+if (!process.env.AUTH_SECRET) {
+  const message =
+    'AUTH_SECRET is not set — generate one with `openssl rand -base64 32` (see .env.example).';
+  if (process.env.NODE_ENV === 'production') throw new Error(message);
+  console.warn(`[auth] ${message} Sessions will not survive a restart.`);
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({

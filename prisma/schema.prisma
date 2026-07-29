@@ -43,7 +43,7 @@ enum EntityAction {
 
 // How a rating activity gets into the system
 enum InputSource {
-  NPP_SUBMISSION // NPP submits via profile, goes to PENDING queue
+  NPP_SUBMISSION // НПП submits for themselves; APPROVED on save, see ActivityStatus
   DIVISION_MANAGED // division enters directly, immediately APPROVED
   PROFILE_DERIVED // auto-synced from Staff profile fields; no manual entry anywhere
 }
@@ -60,6 +60,12 @@ enum AdminPosition {
   LAB_OR_CENTER_HEAD // завідувач лабораторії / керівник центру
 }
 
+// There is no approval queue: every submit and every division entry writes
+// APPROVED and counts at once, and oversight is post-moderation (ННВ/ADMIN
+// discard with a reason → REMOVED). PENDING is therefore never written by any
+// code path — it is kept only because dropping an enum value needs a migration
+// for no gain, and because a future «потребує виправлення» state would land
+// here. Do not read it as evidence that a queue exists.
 enum ActivityStatus {
   PENDING
   APPROVED
@@ -340,6 +346,8 @@ model Activity {
   computedValue Float
   score         Float // computedValue × coefficient; recomputed and frozen at approval
 
+  // Every writer sets this explicitly, so the default is never reached in
+  // practice — see the note on ActivityStatus before treating it as a queue
   status          ActivityStatus  @default(PENDING)
   submittedByRole SubmittedByRole
 
