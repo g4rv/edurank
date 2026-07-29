@@ -103,6 +103,7 @@ export async function cloneTemplate(fromYear: number): Promise<RatingAdminState>
             inputSource: type.inputSource,
             verifyingDivisionId: type.verifyingDivisionId,
             isActive: type.isActive,
+            requiresVerification: type.requiresVerification,
           },
         });
       }
@@ -558,6 +559,7 @@ export async function addActivityType(templateId: string, code: string): Promise
           label: def.label,
           itemNumber: specs.itemNumber,
           maxPerYear: specs.maxPerYear,
+          requiresVerification: specs.requiresVerification,
           evidenceFields: specs.evidenceFields as unknown as Prisma.InputJsonValue,
           scoring: specs.scoring as unknown as Prisma.InputJsonValue,
           coefficient: def.coefficient,

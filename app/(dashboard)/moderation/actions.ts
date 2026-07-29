@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
-import { canModerateRating, PUBLICATION_CODES } from '@/lib/rating/moderation';
+import { canModerateRating } from '@/lib/rating/moderation';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
 
 export type RemoveActivityState = { error: string } | { success: true };
@@ -108,14 +108,18 @@ export async function setActivityVerified(
       verifiedAt: true,
       staff: { select: { lastName: true, firstName: true, patronymic: true } },
       activityType: {
-        select: { code: true, label: true, template: { select: { status: true } } },
+        select: {
+          requiresVerification: true,
+          label: true,
+          template: { select: { status: true } },
+        },
       },
     },
   });
 
   if (!activity) return { error: 'Запис не знайдено' };
-  if (!PUBLICATION_CODES.has(activity.activityType.code)) {
-    return { error: 'Перевірка застосовується лише до публікацій' };
+  if (!activity.activityType.requiresVerification) {
+    return { error: 'Цей показник не потребує перевірки' };
   }
   if (activity.status !== 'APPROVED') return { error: 'Запис не підтверджено' };
   if (activity.activityType.template.status !== 'OPEN') {

@@ -21,6 +21,7 @@ function blankDraft(section: number, itemNumber: string): ActivityTypeDraft {
     inputSource: 'NPP_SUBMISSION',
     verifyingDivisionId: null,
     isActive: true,
+    requiresVerification: false,
     scoring: { kind: 'FIXED' },
     fields: [{ kind: 'text', name: 'title', label: 'Назва' }],
   };

@@ -56,6 +56,11 @@ export interface ActivityTypeDef {
   verifyingDivision?: RatingDivisionKey;
   /** «не більше N» caps from the sheet — enforced in the submit action per staff/year */
   maxPerYear?: number;
+  /**
+   * Offers the manual «Перевірено» check on /moderation — ННВ confirming the
+   * publication is really indexed. Never affects the score.
+   */
+  requiresVerification?: boolean;
 }
 
 export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
@@ -522,6 +527,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote:
       'квартиль Q1 — 600, квартиль Q2 — 500, квартиль Q3-4 / відсутній — 400; посилання Scopus або WoS',
     inputSource: 'NPP_SUBMISSION',
+    requiresVerification: true,
   },
   {
     code: 'publication_cat_b',
@@ -533,6 +539,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficient: 1,
     coefficientNote: 'одноосібно — 300, співавторство — 150',
     inputSource: 'NPP_SUBMISSION',
+    requiresVerification: true,
   },
   {
     code: 'defense_supervision',

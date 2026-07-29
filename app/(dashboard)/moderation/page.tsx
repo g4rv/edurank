@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { canModerateRating, PUBLICATION_CODES } from '@/lib/rating/moderation';
+import { canModerateRating } from '@/lib/rating/moderation';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { listNppActivities } from '@/lib/queries/list-npp-activities';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -63,7 +63,7 @@ export default async function ModerationPage({
     ts: a.createdAt.getTime(),
     canDiscard: yearOpen && a.status === 'APPROVED',
     verified: a.verifiedAt !== null,
-    canVerify: yearOpen && a.status === 'APPROVED' && PUBLICATION_CODES.has(a.activityType.code),
+    canVerify: yearOpen && a.status === 'APPROVED' && a.activityType.requiresVerification,
   }));
 
   return (

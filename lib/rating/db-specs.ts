@@ -119,6 +119,7 @@ export const PAGE_BASED_CODES = new Set(['monograph_ua', 'monograph_eu', 'editio
 export interface ActivityTypeSpecs {
   itemNumber: string;
   maxPerYear: number | null;
+  requiresVerification: boolean;
   evidenceFields: EvidenceField[];
   scoring: ScoringSpec;
 }
@@ -165,6 +166,7 @@ export function dbSpecs(def: ActivityTypeDef): ActivityTypeSpecs {
   return {
     itemNumber: def.itemNumber,
     maxPerYear: def.maxPerYear ?? null,
+    requiresVerification: def.requiresVerification ?? false,
     evidenceFields,
     scoring: {
       kind: def.kind,

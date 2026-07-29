@@ -181,6 +181,7 @@ describe('updateActivityType', () => {
     scoring: ndrSpecs.scoring,
     verifyingDivisionId: 'div-nnv',
     isActive: true,
+    requiresVerification: false,
     inputSource: 'DIVISION_MANAGED',
     section: { number: 3 },
     template: {
@@ -203,6 +204,7 @@ describe('updateActivityType', () => {
     scoring: ndrSpecs.scoring,
     verifyingDivisionId: 'div-nnv',
     isActive: true,
+    requiresVerification: false,
   };
 
   it('rejects non-admin', async () => {
@@ -363,6 +365,7 @@ describe('createActivityType', () => {
     inputSource: 'NPP_SUBMISSION' as const,
     verifyingDivisionId: null,
     isActive: true,
+    requiresVerification: false,
     scoring: { kind: 'SELECT' as const },
     evidenceFields: [
       {
@@ -533,6 +536,7 @@ describe('cloneTemplate', () => {
             inputSource: 'DIVISION_MANAGED',
             verifyingDivisionId: 'div-kadry',
             isActive: true,
+            requiresVerification: false,
           },
         ],
       })

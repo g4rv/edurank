@@ -142,7 +142,7 @@ describe('setActivityVerified', () => {
     verifiedAt: null,
     staff: { lastName: 'Коваленко', firstName: 'Іван', patronymic: 'Петрович' },
     activityType: {
-      code: 'publication_cat_b',
+      requiresVerification: true,
       label: 'Публікації категорії «Б»',
       template: { status: 'OPEN' },
     },
@@ -166,13 +166,35 @@ describe('setActivityVerified', () => {
     });
   });
 
-  it('rejects a non-publication activity', async () => {
+  // Which indicators are checkable is a column on the row now, so an admin can
+  // mark a newly built publication indicator verifiable without a code change.
+  // The whole point of the column: a publication indicator an admin builds in
+  // the template editor carries no known code, and must still be checkable.
+  it('accepts an indicator with an unknown code once it is marked verifiable', async () => {
     mockActivityFind.mockResolvedValue({
       ...publication,
-      activityType: { ...publication.activityType, code: 'conf_ukraine' },
+      activityType: {
+        requiresVerification: true,
+        label: 'Публікації у нових виданнях (2027)',
+        template: { status: 'OPEN' },
+      },
+    });
+    const tx = mockVerifyTx();
+
+    expect(await setActivityVerified('activity-2', true)).toEqual({
+      success: true,
+      verified: true,
+    });
+    expect(tx.activity.update).toHaveBeenCalled();
+  });
+
+  it('rejects an indicator that is not marked as needing verification', async () => {
+    mockActivityFind.mockResolvedValue({
+      ...publication,
+      activityType: { ...publication.activityType, requiresVerification: false },
     });
     expect(await setActivityVerified('activity-2', true)).toEqual({
-      error: 'Перевірка застосовується лише до публікацій',
+      error: 'Цей показник не потребує перевірки',
     });
   });
 

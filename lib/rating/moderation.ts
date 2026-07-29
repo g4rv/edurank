@@ -1,11 +1,10 @@
 import { db } from '@/lib/db';
 import type { Role } from '@/lib/generated/prisma/client';
 
-/** Publication submissions that get the manual «Перевірено» check (M9.1) */
-export const PUBLICATION_CODES: ReadonlySet<string> = new Set([
-  'publication_cat_a',
-  'publication_cat_b',
-]);
+// Which indicators offer the manual «Перевірено» check is a property of the
+// indicator row (ActivityType.requiresVerification), not a list of codes kept
+// here: an admin can build a new publication indicator in the template editor,
+// and a hardcoded set would leave it unverifiable with nothing to explain why.
 
 /**
  * Who may discard NPP self-reports: ADMIN, or an EDITOR whose division carries

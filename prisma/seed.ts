@@ -284,6 +284,7 @@ async function main() {
       label: def.label,
       itemNumber: specs.itemNumber,
       maxPerYear: specs.maxPerYear,
+      requiresVerification: specs.requiresVerification,
       evidenceFields: specs.evidenceFields as unknown as Prisma.InputJsonValue,
       scoring: specs.scoring as unknown as Prisma.InputJsonValue,
       coefficient: def.coefficient,

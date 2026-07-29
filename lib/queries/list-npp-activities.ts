@@ -33,6 +33,7 @@ export async function listNppActivities(year: number, section?: number) {
         select: {
           code: true,
           label: true,
+          requiresVerification: true,
           itemNumber: true,
           evidenceFields: true,
           section: { select: { number: true } },

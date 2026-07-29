@@ -330,6 +330,13 @@ model ActivityType {
 
   isActive Boolean @default(true)
 
+  // Offers the manual «Перевірено» check on this indicator's rows (ННВ confirms
+  // the publication really is in WoS/Scopus). Informational — it never changes a
+  // score. Was a hardcoded list of two publication codes, which left an
+  // admin-built publication indicator with no way to be checked; keying rating
+  // behaviour on `code` is exactly what the template editor exists to avoid.
+  requiresVerification Boolean @default(false)
+
   activities Activity[]
 
   @@unique([templateId, code])

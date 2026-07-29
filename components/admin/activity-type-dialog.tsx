@@ -51,6 +51,7 @@ export interface ActivityTypeDraft {
   inputSource: 'NPP_SUBMISSION' | 'DIVISION_MANAGED' | 'PROFILE_DERIVED';
   verifyingDivisionId: string | null;
   isActive: boolean;
+  requiresVerification: boolean;
   fields: EvidenceField[];
   scoring: ScoringSpec;
 }
@@ -182,12 +183,14 @@ function ActivityTypeForm({
       inputSource: draft.inputSource,
       verifyingDivisionId: draft.verifyingDivisionId ?? '',
       isActive: draft.isActive,
+      requiresVerification: draft.requiresVerification,
       evidenceFields: draft.fields,
       scoring: draft.scoring,
     },
   });
 
   const isActive = watch('isActive');
+  const requiresVerification = watch('requiresVerification');
   const inputSource = watch('inputSource') as ActivityTypeDraft['inputSource'];
   const divisionId = watch('verifyingDivisionId') as string;
   const section = String(watch('section') ?? draft.section);
@@ -427,17 +430,34 @@ function ActivityTypeForm({
       </div>
 
       <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <label className="flex cursor-pointer items-center gap-2">
-          <Switch checked={!!isActive} onCheckedChange={(v) => setValue('isActive', v)} />
-          <span className="text-sm">
-            Показник активний
-            {!isActive && (
-              <span className="block text-xs text-muted-foreground">
-                Вимкнений показник не нараховує балів
-              </span>
-            )}
-          </span>
-        </label>
+        <div className="flex flex-col gap-2">
+          <label className="flex cursor-pointer items-center gap-2">
+            <Switch checked={!!isActive} onCheckedChange={(v) => setValue('isActive', v)} />
+            <span className="text-sm">
+              Показник активний
+              {!isActive && (
+                <span className="block text-xs text-muted-foreground">
+                  Вимкнений показник не нараховує балів
+                </span>
+              )}
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-center gap-2">
+            <Switch
+              checked={!!requiresVerification}
+              onCheckedChange={(v) => setValue('requiresVerification', v)}
+            />
+            <span className="text-sm">
+              Потребує перевірки
+              {!!requiresVerification && (
+                <span className="block text-xs text-muted-foreground">
+                  Модератор зможе позначати ці записи як перевірені; на бали не впливає
+                </span>
+              )}
+            </span>
+          </label>
+        </div>
 
         <AlertDialogFooter>
           <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>

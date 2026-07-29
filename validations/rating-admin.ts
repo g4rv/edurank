@@ -44,6 +44,9 @@ const base = {
     .transform((v) => (v === '' ? null : v))
     .nullable(),
   isActive: z.boolean(),
+  // Offers the manual «Перевірено» check on /moderation. Free for any indicator:
+  // it is informational and never touches a score, so there is nothing to guard.
+  requiresVerification: z.boolean(),
 };
 
 // …and the half that defines the form and the arithmetic. `specProblems` is the
