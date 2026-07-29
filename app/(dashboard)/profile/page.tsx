@@ -1,12 +1,13 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { Button } from '@/components/ui/button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 
@@ -138,19 +139,32 @@ export default async function ProfilePage() {
         </Link>
       )}
 
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{fullName(staff)}</h1>
-          <span
-            className={cn(
-              'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-              staff.isNpp ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-            )}
-          >
-            {staff.isNpp ? 'НПП' : 'Адміністративний'}
-          </span>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold">{fullName(staff)}</h1>
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                staff.isNpp ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+              )}
+            >
+              {staff.isNpp ? 'НПП' : 'Адміністративний'}
+            </span>
+          </div>
+          {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+
+        {/* Everyone can correct their own record; how much of it depends on the
+            role. ADMIN and EDITOR already have the full staff form and their
+            permissions are applied there, so they go to it. Everyone else gets
+            the narrow one: contact details and research profile links. */}
+        <Button asChild variant="outline">
+          <Link href={canAccessStaffList ? `/staff/${staffId}/edit` : '/profile/edit'}>
+            <Pencil className="size-4" />
+            Редагувати
+          </Link>
+        </Button>
       </div>
 
       <div className="flex flex-col gap-4">

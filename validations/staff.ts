@@ -89,3 +89,23 @@ export type StaffUpdateSchema = z.infer<typeof staffUpdateSchema>;
 
 export const staffCreateSchema = staffUpdateSchema;
 export type StaffCreateSchema = StaffUpdateSchema;
+
+/**
+ * What a person may change about themselves, whatever their role: how to reach
+ * them and where their public research profiles are. Everything else on a Staff
+ * row — name, department, звання, ставка — is somebody else's to set, which is
+ * why this is a separate, much smaller shape than staffUpdateSchema rather than
+ * a subset of it.
+ *
+ * Kept in step with USER_EDITABLE_STAFF_FIELDS in lib/permissions.ts, which
+ * filters the write again on the server.
+ */
+export const ownProfileSchema = z.object({
+  phone: z.preprocess(str, z.string().max(50, { error: 'Занадто довге значення' }).nullable()),
+  wosUrl: profileLink(WOS_HOSTS, 'Очікується посилання на Web of Science'),
+  scopusUrl: profileLink(SCOPUS_HOSTS, 'Очікується посилання на Scopus'),
+  googleScholarUrl: profileLink(SCHOLAR_HOSTS, 'Очікується посилання на Google Scholar'),
+  orcidId: z.preprocess(str, z.string().max(50, { error: 'Занадто довге значення' }).nullable()),
+});
+
+export type OwnProfileSchema = z.infer<typeof ownProfileSchema>;
