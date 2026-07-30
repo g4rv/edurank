@@ -157,13 +157,13 @@ async function main() {
 
   // ADMIN — pre-activated so db:reset never locks anyone out
   const admin = await prisma.staff.upsert({
-    where: { email: 'admin@edurank.local' },
+    where: { email: 'admin@edurank.edu' },
     update: { passwordHash: adminHash, role: 'ADMIN' },
     create: {
       lastName: 'Адміністратор',
       firstName: 'Системи',
       patronymic: '—',
-      email: 'admin@edurank.local',
+      email: 'admin@edurank.edu',
       isNpp: false,
       passwordHash: adminHash,
       role: 'ADMIN',
@@ -172,7 +172,7 @@ async function main() {
 
   // НПП professor (role USER, activated)
   const professor = await prisma.staff.upsert({
-    where: { email: 'kovalenko@university.edu.ua' },
+    where: { email: 'kovalenko@edurank.edu' },
     update: { passwordHash: userHash, role: 'USER' },
     create: {
       passwordHash: userHash,
@@ -180,7 +180,7 @@ async function main() {
       lastName: 'Коваленко',
       firstName: 'Іван',
       patronymic: 'Петрович',
-      email: 'kovalenko@university.edu.ua',
+      email: 'kovalenko@edurank.edu',
       isNpp: true,
       departmentId: department.id,
       academicRank: 'DOCENT',
@@ -195,13 +195,13 @@ async function main() {
 
   // Non-НПП — ННВ employee (EDITOR, activated)
   const editorStaff = await prisma.staff.upsert({
-    where: { email: 'editor@university.edu.ua' },
+    where: { email: 'editor@edurank.edu' },
     update: { passwordHash: editorHash, role: 'EDITOR' },
     create: {
       lastName: 'Редакторенко',
       firstName: 'Олена',
       patronymic: 'Іванівна',
-      email: 'editor@university.edu.ua',
+      email: 'editor@edurank.edu',
       isNpp: false,
       divisionId: nnv.id,
       passwordHash: editorHash,
@@ -308,7 +308,7 @@ async function main() {
 
   // 1) Only self-reported (NPP_SUBMISSION) achievements; profile-derived fields empty
   const nppDemo = await prisma.staff.upsert({
-    where: { email: 'shevchenko@university.edu.ua' },
+    where: { email: 'shevchenko@edurank.edu' },
     update: { passwordHash: userHash, role: 'USER' },
     create: {
       passwordHash: userHash,
@@ -316,7 +316,7 @@ async function main() {
       lastName: 'Шевченко',
       firstName: 'Марія',
       patronymic: 'Олександрівна',
-      email: 'shevchenko@university.edu.ua',
+      email: 'shevchenko@edurank.edu',
       isNpp: true,
       departmentId: department.id,
     },
@@ -326,7 +326,7 @@ async function main() {
   // 2) Everything filled: full profile (derived indicators), all self-reported
   //    and all division-managed achievements
   const fullDemo = await prisma.staff.upsert({
-    where: { email: 'bondarenko@university.edu.ua' },
+    where: { email: 'bondarenko@edurank.edu' },
     update: { passwordHash: userHash, role: 'USER' },
     create: {
       passwordHash: userHash,
@@ -334,7 +334,7 @@ async function main() {
       lastName: 'Бондаренко',
       firstName: 'Олег',
       patronymic: 'Васильович',
-      email: 'bondarenko@university.edu.ua',
+      email: 'bondarenko@edurank.edu',
       isNpp: true,
       departmentId: department.id,
       employmentRate: 1.0,

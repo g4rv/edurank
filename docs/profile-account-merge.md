@@ -119,7 +119,7 @@ small and mechanical.
 
 ## Seed admin — already exists, reuse it
 
-The current seed (`prisma/seed.ts`) already creates real logins: `admin@edurank.local` / `admin123`
+The current seed (`prisma/seed.ts`) already creates real logins: `admin@edurank.edu` / `admin123`
 (ADMIN), plus an editor / `editor123` and a user / `user1234`. After the merge these become **Staff
 rows already activated** (real `passwordHash`, `role`), not `User` rows — the admin stays pre-activated
 so `db:reset` never locks anyone out. No new credentials needed from the user.
