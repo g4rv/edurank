@@ -208,38 +208,39 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             </InfoCard>
           )}
 
-          {staff.isNpp && (
-            <InfoCard title="Наукові профілі">
-              {staff.wosUrl ? (
-                <ProfileLink
-                  label="Web of Science"
-                  href={staff.wosUrl}
-                  count={staff.wosCitationCount}
-                />
-              ) : (
-                <Field label="Web of Science" value="—" />
-              )}
-              {staff.scopusUrl ? (
-                <ProfileLink
-                  label="Scopus"
-                  href={staff.scopusUrl}
-                  count={staff.scopusCitationCount}
-                />
-              ) : (
-                <Field label="Scopus" value="—" />
-              )}
-              {staff.googleScholarUrl ? (
-                <ProfileLink
-                  label="Google Scholar"
-                  href={staff.googleScholarUrl}
-                  count={staff.googleScholarCitationCount}
-                />
-              ) : (
-                <Field label="Google Scholar" value="—" />
-              )}
-              <Field label="ORCID" value={staff.orcidId ?? '—'} />
-            </InfoCard>
-          )}
+          {/* Not gated on isNpp: an administrative employee can hold a doctorate
+              and an ORCID too. «Академічна інформація» above stays НПП-only,
+              because звання and ступінь really are academic-staff data. */}
+          <InfoCard title="Наукові профілі">
+            {staff.wosUrl ? (
+              <ProfileLink
+                label="Web of Science"
+                href={staff.wosUrl}
+                count={staff.wosCitationCount}
+              />
+            ) : (
+              <Field label="Web of Science" value="—" />
+            )}
+            {staff.scopusUrl ? (
+              <ProfileLink
+                label="Scopus"
+                href={staff.scopusUrl}
+                count={staff.scopusCitationCount}
+              />
+            ) : (
+              <Field label="Scopus" value="—" />
+            )}
+            {staff.googleScholarUrl ? (
+              <ProfileLink
+                label="Google Scholar"
+                href={staff.googleScholarUrl}
+                count={staff.googleScholarCitationCount}
+              />
+            ) : (
+              <Field label="Google Scholar" value="—" />
+            )}
+            <Field label="ORCID" value={staff.orcidId ?? '—'} />
+          </InfoCard>
         </div>
 
         {/* Right — account, roles and work places */}

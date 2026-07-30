@@ -22,16 +22,7 @@ type FormValues = {
   orcidId: string;
 };
 
-export function ProfileEditForm({
-  defaultValues,
-  isNpp,
-}: {
-  defaultValues: FormValues;
-  /** Research profiles belong to НПП — the profile view hides them for
-      administrative staff, so the form that fills them must agree. Hidden
-      fields still submit their stored value, so nothing is cleared by hiding. */
-  isNpp: boolean;
-}) {
+export function ProfileEditForm({ defaultValues }: { defaultValues: FormValues }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -67,49 +58,41 @@ export function ProfileEditForm({
             <Input id="phone" placeholder="+380..." disabled={isPending} {...register('phone')} />
           </FormField>
 
-          {isNpp && (
-            <>
-              <FormField
-                htmlFor="wosUrl"
-                label="Web of Science"
-                description="Посилання на ваш профіль"
-                error={errors.wosUrl}
-              >
-                <Input id="wosUrl" disabled={isPending} {...register('wosUrl')} />
-              </FormField>
+          <FormField
+            htmlFor="wosUrl"
+            label="Web of Science"
+            description="Посилання на ваш профіль"
+            error={errors.wosUrl}
+          >
+            <Input id="wosUrl" disabled={isPending} {...register('wosUrl')} />
+          </FormField>
 
-              <FormField
-                htmlFor="scopusUrl"
-                label="Scopus"
-                description="Посилання на ваш профіль"
-                error={errors.scopusUrl}
-              >
-                <Input id="scopusUrl" disabled={isPending} {...register('scopusUrl')} />
-              </FormField>
+          <FormField
+            htmlFor="scopusUrl"
+            label="Scopus"
+            description="Посилання на ваш профіль"
+            error={errors.scopusUrl}
+          >
+            <Input id="scopusUrl" disabled={isPending} {...register('scopusUrl')} />
+          </FormField>
 
-              <FormField
-                htmlFor="googleScholarUrl"
-                label="Google Scholar"
-                description="Посилання на ваш профіль"
-                error={errors.googleScholarUrl}
-              >
-                <Input
-                  id="googleScholarUrl"
-                  disabled={isPending}
-                  {...register('googleScholarUrl')}
-                />
-              </FormField>
+          <FormField
+            htmlFor="googleScholarUrl"
+            label="Google Scholar"
+            description="Посилання на ваш профіль"
+            error={errors.googleScholarUrl}
+          >
+            <Input id="googleScholarUrl" disabled={isPending} {...register('googleScholarUrl')} />
+          </FormField>
 
-              <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
-                <Input
-                  id="orcidId"
-                  placeholder="0000-0000-0000-0000"
-                  disabled={isPending}
-                  {...register('orcidId')}
-                />
-              </FormField>
-            </>
-          )}
+          <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
+            <Input
+              id="orcidId"
+              placeholder="0000-0000-0000-0000"
+              disabled={isPending}
+              {...register('orcidId')}
+            />
+          </FormField>
         </FieldGroup>
       </div>
 

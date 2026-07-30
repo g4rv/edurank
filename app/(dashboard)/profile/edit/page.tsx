@@ -36,12 +36,11 @@ export default async function ProfileEditPage() {
       <div>
         <h1 className="text-2xl font-semibold">Редагування профілю</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          {staff.isNpp ? 'Контактні дані та посилання на наукові профілі' : 'Контактні дані'}
+          Контактні дані та посилання на наукові профілі
         </p>
       </div>
 
       <ProfileEditForm
-        isNpp={staff.isNpp}
         defaultValues={{
           phone: staff.phone ?? '',
           wosUrl: staff.wosUrl ?? '',

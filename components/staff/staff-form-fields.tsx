@@ -495,90 +495,93 @@ export function StaffFormFields({
         </SectionCard>
       )}
 
-      {isNpp && (
-        <SectionCard title="Наукові профілі" step={step()}>
-          <FieldGroup className="grid grid-cols-2 gap-4">
-            <FormField htmlFor="wosUrl" label="Web of Science — URL" error={errors.wosUrl}>
-              <Input
-                id="wosUrl"
-                placeholder="https://webofscience.com/wos/author/..."
-                disabled={isPending}
-                {...register('wosUrl')}
-              />
-            </FormField>
-            <FormField
-              htmlFor="wosCitationCount"
-              label="Web of Science — цитувань"
-              labelSuffix={<RatingFieldHint field="wosCitationCount" />}
-              error={errors.wosCitationCount}
-            >
-              <Input
-                id="wosCitationCount"
-                type="number"
-                min="0"
-                disabled={isPending}
-                {...register('wosCitationCount')}
-              />
-            </FormField>
-            <FormField htmlFor="scopusUrl" label="Scopus — URL" error={errors.scopusUrl}>
-              <Input
-                id="scopusUrl"
-                placeholder="https://scopus.com/authid/..."
-                disabled={isPending}
-                {...register('scopusUrl')}
-              />
-            </FormField>
-            <FormField
-              htmlFor="scopusCitationCount"
-              label="Scopus — цитувань"
-              labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
-              error={errors.scopusCitationCount}
-            >
-              <Input
-                id="scopusCitationCount"
-                type="number"
-                min="0"
-                disabled={isPending}
-                {...register('scopusCitationCount')}
-              />
-            </FormField>
-            <FormField
-              htmlFor="googleScholarUrl"
-              label="Google Scholar — URL"
-              error={errors.googleScholarUrl}
-            >
-              <Input
-                id="googleScholarUrl"
-                placeholder="https://scholar.google.com/..."
-                disabled={isPending}
-                {...register('googleScholarUrl')}
-              />
-            </FormField>
-            <FormField
-              htmlFor="googleScholarCitationCount"
-              label="Google Scholar — цитувань"
-              labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
-              error={errors.googleScholarCitationCount}
-            >
-              <Input
-                id="googleScholarCitationCount"
-                type="number"
-                min="0"
-                disabled={isPending}
-                {...register('googleScholarCitationCount')}
-              />
-            </FormField>
-            <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
-              <Input
-                id="orcidId"
-                placeholder="0000-0000-0000-0000"
-                disabled={isPending}
-                {...register('orcidId')}
-              />
-            </FormField>
-          </FieldGroup>
-        </SectionCard>
-      )}
+      {/* Not gated on isNpp: an administrative employee can hold a doctorate and
+          an ORCID too. The citation counts only feed the rating for НПП — see
+          syncProfileDerived — so recording them for anyone else is harmless.
+          «Академічна інформація» above stays НПП-only: звання and ступінь really
+          are academic-staff data. */}
+      <SectionCard title="Наукові профілі" step={step()}>
+        <FieldGroup className="grid grid-cols-2 gap-4">
+          <FormField htmlFor="wosUrl" label="Web of Science — URL" error={errors.wosUrl}>
+            <Input
+              id="wosUrl"
+              placeholder="https://webofscience.com/wos/author/..."
+              disabled={isPending}
+              {...register('wosUrl')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="wosCitationCount"
+            label="Web of Science — цитувань"
+            labelSuffix={<RatingFieldHint field="wosCitationCount" />}
+            error={errors.wosCitationCount}
+          >
+            <Input
+              id="wosCitationCount"
+              type="number"
+              min="0"
+              disabled={isPending}
+              {...register('wosCitationCount')}
+            />
+          </FormField>
+          <FormField htmlFor="scopusUrl" label="Scopus — URL" error={errors.scopusUrl}>
+            <Input
+              id="scopusUrl"
+              placeholder="https://scopus.com/authid/..."
+              disabled={isPending}
+              {...register('scopusUrl')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="scopusCitationCount"
+            label="Scopus — цитувань"
+            labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
+            error={errors.scopusCitationCount}
+          >
+            <Input
+              id="scopusCitationCount"
+              type="number"
+              min="0"
+              disabled={isPending}
+              {...register('scopusCitationCount')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="googleScholarUrl"
+            label="Google Scholar — URL"
+            error={errors.googleScholarUrl}
+          >
+            <Input
+              id="googleScholarUrl"
+              placeholder="https://scholar.google.com/..."
+              disabled={isPending}
+              {...register('googleScholarUrl')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="googleScholarCitationCount"
+            label="Google Scholar — цитувань"
+            labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
+            error={errors.googleScholarCitationCount}
+          >
+            <Input
+              id="googleScholarCitationCount"
+              type="number"
+              min="0"
+              disabled={isPending}
+              {...register('googleScholarCitationCount')}
+            />
+          </FormField>
+          <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
+            <Input
+              id="orcidId"
+              placeholder="0000-0000-0000-0000"
+              disabled={isPending}
+              {...register('orcidId')}
+            />
+          </FormField>
+        </FieldGroup>
+      </SectionCard>
     </>
   );
 }
