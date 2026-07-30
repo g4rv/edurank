@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Slot } from 'radix-ui';
+import { Loader2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -46,12 +47,25 @@ function Button({
   variant = 'default',
   size = 'default',
   asChild = false,
+  loading = false,
+  children,
+  disabled,
   ...props
 }: React.ComponentProps<'button'> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    /**
+     * Work is in flight: shows a spinner in place of the leading icon and
+     * disables the button. `disabled` alone greys it out and says nothing about
+     * why — on a slow action like closing a rating year that reads as broken.
+     *
+     * Ignored with `asChild`, where the child owns its own content and there is
+     * nowhere for us to put a spinner.
+     */
+    loading?: boolean;
   }) {
   const Comp = asChild ? Slot.Root : 'button';
+  const showSpinner = loading && !asChild;
 
   return (
     <Comp
@@ -59,8 +73,19 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
+      disabled={disabled || (loading && !asChild)}
+      aria-busy={showSpinner || undefined}
       {...props}
-    />
+    >
+      {showSpinner ? (
+        <>
+          <Loader2 className="animate-spin" aria-hidden />
+          {children}
+        </>
+      ) : (
+        children
+      )}
+    </Comp>
   );
 }
 

@@ -54,7 +54,7 @@ export function RatingYearActions({ year, status, isActive, isLatest }: RatingYe
         <Button
           variant="outline"
           size="sm"
-          disabled={isPending}
+          loading={isPending}
           onClick={() => run(() => activateTemplate(year))}
         >
           <CheckCircle2 className="size-4" />
@@ -66,7 +66,7 @@ export function RatingYearActions({ year, status, isActive, isLatest }: RatingYe
         <Button
           variant="outline"
           size="sm"
-          disabled={isPending}
+          loading={isPending}
           onClick={() => run(() => cloneTemplate(year))}
         >
           <Copy className="size-4" />
@@ -77,7 +77,7 @@ export function RatingYearActions({ year, status, isActive, isLatest }: RatingYe
       {status === 'OPEN' ? (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isPending}>
+            <Button variant="outline" size="sm" loading={isPending}>
               <Lock className="size-4" />
               Закрити рік
             </Button>
@@ -102,7 +102,7 @@ export function RatingYearActions({ year, status, isActive, isLatest }: RatingYe
       ) : (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isPending}>
+            <Button variant="outline" size="sm" loading={isPending}>
               <LockOpen className="size-4" />
               Відкрити рік
             </Button>
