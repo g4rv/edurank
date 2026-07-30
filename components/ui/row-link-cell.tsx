@@ -13,9 +13,10 @@ import { cn } from '@/lib/utils';
  * component is what stops that coming back.
  *
  * Only this cell is a link, which leaves every other cell selectable — an email
- * can be copied straight out of the list. The arrow and the underline appear on
- * hover of the whole row, so wherever the pointer is it is clear which part
- * actually navigates. That needs `group/row` on the `<tr>`.
+ * can be copied straight out of the list. The arrow marks which cell that is
+ * without needing to be hovered; the underline and the brighter arrow then
+ * confirm it on hover of the whole row, so the cue is there wherever the pointer
+ * sits. Both hover states need `group/row` on the `<tr>`.
  */
 export function RowLinkCell({
   href,
@@ -34,8 +35,11 @@ export function RowLinkCell({
       <Link href={href} className="absolute inset-0" aria-label={label} />
       <span className="inline-flex items-center gap-1.5 underline-offset-4 group-hover/row:underline">
         {children}
+        {/* Always visible, so which cell is the link can be read without
+            hunting for it with the pointer. Muted at rest and brightening on row
+            hover keeps it from shouting down a list of two hundred rows. */}
         <ArrowUpRight
-          className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100"
+          className="size-3.5 shrink-0 text-muted-foreground/70 transition-colors group-hover/row:text-foreground"
           aria-hidden
         />
       </span>
