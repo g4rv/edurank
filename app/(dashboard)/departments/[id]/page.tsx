@@ -166,9 +166,9 @@ export default async function DepartmentDetailPage({
               {allStaff.map((member) => (
                 <AnimatedRow
                   key={member.id}
-                  className="relative border-b transition-colors last:border-0 hover:bg-muted/30"
+                  className="border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
-                  <td className="px-4 py-3 font-medium">
+                  <td className="relative px-4 py-3 font-medium">
                     <Link href={`/staff/${member.id}`} className="absolute inset-0" />
                     {fullName(member)}
                   </td>

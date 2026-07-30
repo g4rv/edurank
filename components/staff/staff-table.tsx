@@ -42,8 +42,13 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
       <thead>{sortHeader}</thead>
       <AnimatedTableBody>
         {staff.map((member) => (
-          <AnimatedRow key={member.id} className="relative transition-colors">
-            <td className="px-4 py-3 font-medium">
+          <AnimatedRow key={member.id} className="transition-colors">
+            {/* The overlay link is positioned against this CELL, not the row.
+                `position: relative` on a <tr> is not honoured everywhere — Safari
+                ignores it — and when it is ignored every row's overlay resolves
+                against a shared ancestor, so a single row's link ends up covering
+                the whole table and swallowing every click. */}
+            <td className="relative px-4 py-3 font-medium">
               <Link href={`/staff/${member.id}`} className="absolute inset-0" />
               {fullName(member)}
             </td>

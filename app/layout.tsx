@@ -32,10 +32,16 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">
+        {/* Light unless the reader has chosen otherwise. The operating system's
+            preference is deliberately ignored: the dark palette has had far less
+            use than the light one, so a visitor whose laptop happens to be in
+            dark mode should not meet the app in its less-tested skin. The toggle
+            still works and its choice persists — this only changes the default
+            for someone who has never pressed it. */}
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
           {children}

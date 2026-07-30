@@ -73,8 +73,8 @@ export default async function DivisionsPage({
           </thead>
           <AnimatedTableBody>
             {divisions.map((division) => (
-              <AnimatedRow key={division.id} className="relative transition-colors">
-                <td className="px-4 py-3 font-medium">
+              <AnimatedRow key={division.id} className="transition-colors">
+                <td className="relative px-4 py-3 font-medium">
                   <Link href={`/divisions/${division.id}`} className="absolute inset-0" />
                   {division.name}
                 </td>

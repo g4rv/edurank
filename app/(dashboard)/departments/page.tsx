@@ -115,8 +115,8 @@ export default async function DepartmentsPage({
           </thead>
           <AnimatedTableBody>
             {departments.map((dept) => (
-              <AnimatedRow key={dept.id} className="relative transition-colors">
-                <td className="px-4 py-3 font-medium">
+              <AnimatedRow key={dept.id} className="transition-colors">
+                <td className="relative px-4 py-3 font-medium">
                   <Link href={`/departments/${dept.id}`} className="absolute inset-0" />
                   {dept.name}
                 </td>
