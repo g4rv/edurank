@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { Button } from '@/components/ui/button';
+import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
@@ -115,11 +116,8 @@ export default async function DepartmentsPage({
           </thead>
           <AnimatedTableBody>
             {departments.map((dept) => (
-              <AnimatedRow key={dept.id} className="transition-colors">
-                <td className="relative px-4 py-3 font-medium">
-                  <Link href={`/departments/${dept.id}`} className="absolute inset-0" />
-                  {dept.name}
-                </td>
+              <AnimatedRow key={dept.id} className="group/row transition-colors">
+                <RowLinkCell href={`/departments/${dept.id}`}>{dept.name}</RowLinkCell>
                 <td className="px-4 py-3 text-muted-foreground">{dept.faculty.name}</td>
                 <td className="px-4 py-3 text-muted-foreground">{headName(dept.head)}</td>
                 <td className="px-4 py-3 text-muted-foreground">{dept._count.primaryStaff}</td>

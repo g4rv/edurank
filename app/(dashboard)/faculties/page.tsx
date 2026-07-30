@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { Button } from '@/components/ui/button';
+import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
@@ -79,11 +80,8 @@ export default async function FacultiesPage({
           </thead>
           <AnimatedTableBody>
             {faculties.map((faculty) => (
-              <AnimatedRow key={faculty.id} className="transition-colors">
-                <td className="relative px-4 py-3 font-medium">
-                  <Link href={`/faculties/${faculty.id}`} className="absolute inset-0" />
-                  {faculty.name}
-                </td>
+              <AnimatedRow key={faculty.id} className="group/row transition-colors">
+                <RowLinkCell href={`/faculties/${faculty.id}`}>{faculty.name}</RowLinkCell>
                 <td className="px-4 py-3 text-muted-foreground">{deanName(faculty.dean)}</td>
                 <td className="px-4 py-3 text-muted-foreground">{faculty._count.departments}</td>
                 {showActions && (

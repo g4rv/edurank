@@ -4,6 +4,7 @@ import { ChevronLeft, Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
+import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
@@ -153,12 +154,9 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
               {staffList.map((member) => (
                 <AnimatedRow
                   key={member.id}
-                  className="border-b transition-colors last:border-0 hover:bg-muted/30"
+                  className="group/row border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
-                  <td className="relative px-4 py-3 font-medium">
-                    <Link href={`/staff/${member.id}`} className="absolute inset-0" />
-                    {fullName(member)}
-                  </td>
+                  <RowLinkCell href={`/staff/${member.id}`}>{fullName(member)}</RowLinkCell>
                   <td className="px-4 py-3 text-muted-foreground">
                     {member.department?.name ?? '—'}
                   </td>

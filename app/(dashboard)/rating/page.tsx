@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listRatings, type RatingSortField } from '@/lib/queries/list-ratings';
@@ -11,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { RatingFilters } from '@/components/rating/rating-filters';
 import { SortTh } from '@/components/ui/sort-th';
 import { DataTable } from '@/components/ui/data-table';
+import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { cn } from '@/lib/utils';
 
 export default async function RatingRollupPage({
@@ -150,12 +150,9 @@ export default async function RatingRollupPage({
         </thead>
         <tbody>
           {rows.map((row, index) => (
-            <tr key={row.id} className="transition-colors">
+            <tr key={row.id} className="group/row transition-colors">
               <td className="px-4 py-3 text-muted-foreground tabular-nums">{index + 1}</td>
-              <td className="relative px-4 py-3 font-medium">
-                <Link href={`/staff/${row.id}/rating`} className="absolute inset-0" />
-                {row.name}
-              </td>
+              <RowLinkCell href={`/staff/${row.id}/rating`}>{row.name}</RowLinkCell>
               <td className="px-4 py-3 text-muted-foreground">{row.department ?? '—'}</td>
               {row.sections.map((score, i) => (
                 <td

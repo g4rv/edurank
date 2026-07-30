@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { motion } from 'motion/react';
+import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { cn } from '@/lib/utils';
 import { ACADEMIC_RANK_LABELS, ROLE_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
@@ -42,16 +42,8 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
       <thead>{sortHeader}</thead>
       <AnimatedTableBody>
         {staff.map((member) => (
-          <AnimatedRow key={member.id} className="transition-colors">
-            {/* The overlay link is positioned against this CELL, not the row.
-                `position: relative` on a <tr> is not honoured everywhere — Safari
-                ignores it — and when it is ignored every row's overlay resolves
-                against a shared ancestor, so a single row's link ends up covering
-                the whole table and swallowing every click. */}
-            <td className="relative px-4 py-3 font-medium">
-              <Link href={`/staff/${member.id}`} className="absolute inset-0" />
-              {fullName(member)}
-            </td>
+          <AnimatedRow key={member.id} className="group/row transition-colors">
+            <RowLinkCell href={`/staff/${member.id}`}>{fullName(member)}</RowLinkCell>
             <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
             <td className="px-4 py-3">
               <span

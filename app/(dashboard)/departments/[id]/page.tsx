@@ -8,6 +8,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
+import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { cn } from '@/lib/utils';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
@@ -166,12 +167,9 @@ export default async function DepartmentDetailPage({
               {allStaff.map((member) => (
                 <AnimatedRow
                   key={member.id}
-                  className="border-b transition-colors last:border-0 hover:bg-muted/30"
+                  className="group/row border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
-                  <td className="relative px-4 py-3 font-medium">
-                    <Link href={`/staff/${member.id}`} className="absolute inset-0" />
-                    {fullName(member)}
-                  </td>
+                  <RowLinkCell href={`/staff/${member.id}`}>{fullName(member)}</RowLinkCell>
                   <td className="px-4 py-3 text-muted-foreground">
                     {member.academicRank
                       ? [

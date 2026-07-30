@@ -44,8 +44,9 @@ export function DataTable({
           '[&_td]:border-border/60 [&_th]:border-border/60',
           // Zebra — every other body row a step up from the card
           '[&_tbody_tr:nth-child(even)]:bg-muted/40',
-          // Hover clearly wins over the zebra shade
-          '[&_tbody_tr:hover]:bg-muted/70',
+          // Hover clearly wins over the zebra shade — it is the only cue that a
+          // row is interactive, so it is a full step above the /40 stripe
+          '[&_tbody_tr:hover]:bg-muted',
           // Scrolling inside the card would carry the labels away, so pin them.
           // The header needs its own opaque fill here — rows would otherwise
           // show through the translucent tint the call sites put on the <tr>.

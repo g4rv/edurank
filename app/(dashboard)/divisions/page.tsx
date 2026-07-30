@@ -4,6 +4,7 @@ import { Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
+import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
@@ -73,11 +74,8 @@ export default async function DivisionsPage({
           </thead>
           <AnimatedTableBody>
             {divisions.map((division) => (
-              <AnimatedRow key={division.id} className="transition-colors">
-                <td className="relative px-4 py-3 font-medium">
-                  <Link href={`/divisions/${division.id}`} className="absolute inset-0" />
-                  {division.name}
-                </td>
+              <AnimatedRow key={division.id} className="group/row transition-colors">
+                <RowLinkCell href={`/divisions/${division.id}`}>{division.name}</RowLinkCell>
                 <td className="px-4 py-3 text-muted-foreground">{division._count.staff}</td>
                 {isAdmin && (
                   <td className="relative z-10 px-4 py-3">
