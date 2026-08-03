@@ -27,6 +27,25 @@ Division (відділ)                — separate cross-cutting structure, uni
 - Both types live in the same `Staff` table; the UI shows a unified list with a filter tab (НПП / Адміністративний / Всі).
 - Divisions operate university-wide — not scoped to faculty or department.
 
+**A person is never deleted — they are archived** (`Staff.archivedAt`). Deleting
+cascades their activities and rating entries, closed years included, and those
+numbers are final university records. Two ordinary cases decided this: someone
+who leaves and returns years later must find their history intact, and someone on
+декретна відпустка must drop out of the current rating while every past result
+stays. There is no hard delete of a person anywhere — `archiveStaff` /
+`restoreStaff` are it, and the `STAFF DELETE` entity permission governs them.
+
+Consequences to keep in mind:
+
+- An archived account **cannot sign in** (`authorize` in `lib/auth.ts`), and
+  archiving bumps `tokenVersion` so an open session ends immediately.
+- Every query that lists people or scores the **current** year must exclude them:
+  spread `ON_ROSTER` from `lib/queries/roster.ts` into the `where`. A **closed**
+  year is the exception — its ranking is frozen history and keeps whoever was in
+  it (`listRatings` checks the template status for exactly this).
+- Their profile-derived rows are dropped from the open year on archive and
+  refilled on restore, so nobody retypes a returning person.
+
 ## Roles
 
 - `ADMIN` — hardcoded full read/write, including confidential fields (e.g. ставка / work rate). No permission rows needed.
@@ -240,7 +259,8 @@ Rules that are easy to get wrong:
 
 Each `ActivityType` row carries its own form definition (`evidenceFields`) and scoring rule (`scoring`), both JSON, plus `itemNumber` and `maxPerYear`. Adding or changing an indicator is an ADMIN action in `/admin/rating/[year]` — **no code change**. Consequences:
 
-- **Never key rating behaviour on `code`.** Read the row: `parseTypeSpecs(row)` gives typed field specs, the scoring spec and the generated Zod schema. `computeScore(type, evidence)` takes the type, not a code.
+- **Never key rating behaviour on `code`.** Read the row: `parseTypeSpecs(row)` gives typed field specs, the scoring spec and the generated Zod schema. `computeScore(type, evidence)` takes the type, not a code. Per-indicator behaviour is a **column**, and there are three: `isActive`, `requiresVerification` («Перевірено» on /moderation) and `entityFirstEntry` (the bulk group dialog on /division-data). All three were code lists once, and each one silently excluded any indicator an admin built themselves.
+- **Divisions are identified by `registryKey`, never by `name`.** The name is editable on /divisions; matching on it left a re-added catalogue indicator with no verifying division and blanked the export's «Дані внесені» column.
 - **Select options carry their own `points`.** There is no central points map at runtime.
 - **A year owns its structure.** `cloneTemplate` copies the JSON, so reshaping 2027 cannot touch 2026 — which is what makes reopening an old year for a correction safe.
 - `ACTIVITY_TYPES_2026` + `EVIDENCE_FIELDS` are now **seed input only**: `dbSpecs(def)` converts a catalogue def into the row columns. `catalogueType(code)` gives tests the same view the app builds from a row.

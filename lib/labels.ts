@@ -58,6 +58,8 @@ export const FIELD_LABELS: Record<string, string> = {
   orcidId: 'ORCID',
   departmentId: 'Кафедра (основна)',
   divisionId: 'Відділ',
+  archivedAt: 'Архівовано',
+  archiveReason: 'Причина архівування',
   // Faculty / Department / Division / User
   name: 'Назва',
   deanId: 'Декан',
@@ -65,6 +67,7 @@ export const FIELD_LABELS: Record<string, string> = {
   headId: 'Завідувач',
   role: 'Роль',
   canModerateRating: 'Модерація рейтингу',
+  registryKey: 'Ключ у довіднику',
   staffId: 'Співробітник',
   password: 'Пароль',
   passwordHash: 'Пароль',
@@ -88,6 +91,8 @@ export const FIELD_LABELS: Record<string, string> = {
   inputSource: 'Джерело внесення',
   verifyingDivisionId: 'Відповідальний відділ',
   isActive: 'Активний',
+  requiresVerification: 'Потребує перевірки',
+  entityFirstEntry: 'Внесення групою',
   closedAt: 'Рік закрито',
   code: 'Код показника',
 };
