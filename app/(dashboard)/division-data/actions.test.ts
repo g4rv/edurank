@@ -285,7 +285,7 @@ describe('batchUpsertDivisionActivity', () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it('creates one row per person with role-based scores and recomputes each', async () => {
+  it('creates one row per person with role-based scores and one rollup pass', async () => {
     const tx = mockTx(null);
     expect(await batchUpsertDivisionActivity('type-ndr', rows)).toEqual({
       success: true,
@@ -299,7 +299,15 @@ describe('batchUpsertDivisionActivity', () => {
       data: expect.objectContaining({ staffId: 'staff-2', score: 200 }),
     });
     expect(tx.auditLog.create).toHaveBeenCalledTimes(2);
+    // Everyone in the batch still gets their entry rewritten…
     expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(2);
+    // …but off ONE read of the batch's activities, not one per person
+    expect(tx.activity.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.activity.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ staffId: { in: ['staff-1', 'staff-2'] } }),
+      })
+    );
   });
 
   it('updates the live row for a person who already has one', async () => {
