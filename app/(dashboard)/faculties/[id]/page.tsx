@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ChevronLeft, Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { ON_ROSTER } from '@/lib/queries/roster';
 import { Button } from '@/components/ui/button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -41,7 +42,7 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
   if (!faculty) notFound();
 
   const staffList = await db.staff.findMany({
-    where: { department: { facultyId: id }, isNpp: true },
+    where: { ...ON_ROSTER, department: { facultyId: id }, isNpp: true },
     select: {
       id: true,
       lastName: true,

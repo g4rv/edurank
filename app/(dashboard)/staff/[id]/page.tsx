@@ -10,7 +10,7 @@ import { AccountCard } from '@/components/staff/account-card';
 import { StaffTabs } from '@/components/staff/staff-tabs';
 import { Button } from '@/components/ui/button';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { DeleteStaffButton } from '@/components/staff/delete-button';
+import { ArchiveStaffButton, RestoreStaffButton } from '@/components/staff/archive-button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 
@@ -105,7 +105,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const account = isAdmin ? await getStaffAccount(id) : null;
 
   let canEdit = isAdmin;
-  let canDelete = isAdmin;
+  let canArchive = isAdmin;
   if (isEditor) {
     const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'STAFF');
     // The entity permission says an editor may edit staff; canMutateStaffRecord
@@ -114,7 +114,10 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
     // editor into «Недостатньо прав» after filling in the whole form.
     const target = { id: staff.id, role: staff.role };
     canEdit = perms.canUpdate && canMutateStaffRecord(session.user, target);
-    canDelete = perms.canDelete && canMutateStaffRecord(session.user, target, { allowSelf: false });
+    // STAFF DELETE is the right to take someone off the roster; archiving is
+    // now the only thing that does, so it governs that.
+    canArchive =
+      perms.canDelete && canMutateStaffRecord(session.user, target, { allowSelf: false });
   }
 
   const subtitle =
@@ -149,17 +152,36 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             >
               {staff.isNpp ? 'НПП' : 'Адміністративний'}
             </span>
+            {staff.archivedAt && (
+              <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                Архівований
+              </span>
+            )}
           </div>
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+          {staff.archivedAt && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Не враховується в рейтингу поточного року, вхід у систему вимкнено
+              {staff.archiveReason ? ` — ${staff.archiveReason}` : ''}
+            </p>
+          )}
         </div>
-        {(canEdit || canDelete) && (
+        {(canEdit || canArchive) && (
           <div className="flex items-center gap-2">
-            {canEdit && (
+            {/* An archived record is read-only until it is restored — editing
+                someone who is off the roster only invites confusion about why
+                their changes do not show up in the rating. */}
+            {canEdit && !staff.archivedAt && (
               <Button asChild variant="outline" size="sm">
                 <Link href={`/staff/${id}/edit`}>Редагувати</Link>
               </Button>
             )}
-            {canDelete && <DeleteStaffButton staffId={id} staffName={fullName(staff)} />}
+            {canArchive &&
+              (staff.archivedAt ? (
+                <RestoreStaffButton staffId={id} staffName={fullName(staff)} />
+              ) : (
+                <ArchiveStaffButton staffId={id} staffName={fullName(staff)} />
+              ))}
           </div>
         )}
       </div>

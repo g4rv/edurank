@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { ON_ROSTER } from './roster';
 
 /** Divisions owning at least one active division-managed type in the active template */
 export async function listEntryDivisions() {
@@ -47,7 +48,7 @@ export async function listDivisionEntries(divisionId: string, year: number) {
 /** All НПП as grid rows, alphabetical */
 export async function listNppForRating() {
   return db.staff.findMany({
-    where: { isNpp: true },
+    where: { ...ON_ROSTER, isNpp: true },
     select: {
       id: true,
       lastName: true,

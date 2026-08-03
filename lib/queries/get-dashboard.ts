@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { ON_ROSTER } from '@/lib/queries/roster';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 
 // Everything the overview page draws, from three queries and arithmetic in JS.
@@ -91,7 +92,7 @@ export async function getDashboard(year: number): Promise<DashboardData> {
       orderBy: { name: 'asc' },
     }),
     db.staff.findMany({
-      where: { isNpp: true },
+      where: { ...ON_ROSTER, isNpp: true },
       select: {
         departmentId: true,
         ratingEntries: {
@@ -107,7 +108,7 @@ export async function getDashboard(year: number): Promise<DashboardData> {
         },
       },
     }),
-    db.staff.count({ where: { isNpp: false } }),
+    db.staff.count({ where: { ...ON_ROSTER, isNpp: false } }),
   ]);
 
   const totals = npp.map((s) => s.ratingEntries[0]?.totalScore ?? 0);

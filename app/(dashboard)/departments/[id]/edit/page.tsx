@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { ON_ROSTER } from '@/lib/queries/roster';
 import { DepartmentForm } from '@/components/department/department-form';
 import { updateDepartment } from '@/app/(dashboard)/departments/actions';
 
@@ -50,6 +51,9 @@ export default async function EditDepartmentPage({ params }: { params: Promise<{
       where: { headId: { not: null }, id: { not: id } },
     }),
     db.staff.findMany({
+      // Nobody archived can be picked as a head or a dean — they are off the
+      // roster, and an archived person cannot even sign in.
+      where: ON_ROSTER,
       select: { id: true, lastName: true, firstName: true, patronymic: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     }),

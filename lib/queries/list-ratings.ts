@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { ON_ROSTER } from './roster';
 
 export type RatingSortField = 'name' | 'department' | 's1' | 's2' | 's3' | 's4' | 's5' | 'total';
 
@@ -16,7 +17,20 @@ export interface RatingListFilters {
  * sorted by total descending. ~300 rows — sorting in JS is fine.
  */
 export async function listRatings(filters: RatingListFilters) {
+  // A closed year is frozen history: its ranking must keep everyone who was in
+  // it, including people archived since — otherwise last year's table quietly
+  // changes shape every time somebody leaves. An open year is the live roster,
+  // so archived people drop out of it, which is the point of archiving them.
+  const closed =
+    (
+      await db.ratingTemplate.findUnique({
+        where: { year: filters.year },
+        select: { status: true },
+      })
+    )?.status === 'CLOSED';
+
   const conditions: object[] = [{ isNpp: true }];
+  if (!closed) conditions.push(ON_ROSTER);
   if (filters.facultyId) conditions.push({ department: { facultyId: filters.facultyId } });
   if (filters.departmentId) conditions.push({ departmentId: filters.departmentId });
   if (filters.q) {

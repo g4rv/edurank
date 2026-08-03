@@ -34,7 +34,24 @@ export default async function StaffPage({
 
   const isAdmin = role === 'ADMIN';
 
-  const { roles, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch, page } = params;
+  const {
+    roles,
+    sort,
+    dir,
+    q,
+    faculty,
+    dept,
+    rank,
+    degree,
+    partTime,
+    degreeMatch,
+    page,
+    archived,
+  } = params;
+
+  // ?archived=1 is how an archived person is found again to be restored — they
+  // are out of the ordinary list by design.
+  const archivedView = archived === '1';
 
   // Role checkboxes (?roles=USER,EDITOR). Absent = НПП default; 'all' = no filter.
   const VALID_ROLES = new Set(['USER', 'EDITOR', 'ADMIN']);
@@ -76,6 +93,7 @@ export default async function StaffPage({
       partTime: partTime === '1',
       degreeMatch: degreeMatch === '1',
       includeConfidential: isAdmin,
+      archived: archivedView ? 'only' : 'exclude',
     }),
     listFaculties(),
     listDepartments(),
@@ -109,6 +127,7 @@ export default async function StaffPage({
       degree: degreeFilter,
       partTime: partTime === '1' ? '1' : undefined,
       degreeMatch: degreeMatch === '1' ? '1' : undefined,
+      archived: archivedView ? '1' : undefined,
     };
     for (const [k, v] of Object.entries({ ...base, ...overrides })) {
       if (v) sp.set(k, v);
@@ -183,6 +202,7 @@ export default async function StaffPage({
     degree,
     partTime,
     degreeMatch,
+    archivedView ? 'archived' : '',
     currentPage,
   ].join('|');
 
@@ -192,14 +212,30 @@ export default async function StaffPage({
     <div className="flex h-full min-h-0 flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Персонал</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{staff.length} записів</p>
+          <h1 className="text-2xl font-semibold">{archivedView ? 'Архів' : 'Персонал'}</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {staff.length} записів
+            {archivedView && ' — не враховуються в рейтингу поточного року'}
+          </p>
         </div>
-        {canCreate && (
-          <Button asChild>
-            <Link href="/staff/new">Додати</Link>
+        <div className="flex items-center gap-2">
+          {/* Archived people are out of the ordinary list on purpose, so this is
+              the only way back to them — and the only way to restore anyone. */}
+          <Button asChild variant="outline">
+            <Link
+              href={
+                archivedView ? buildHref({ archived: undefined }) : buildHref({ archived: '1' })
+              }
+            >
+              {archivedView ? 'До списку' : 'Архів'}
+            </Link>
           </Button>
-        )}
+          {canCreate && !archivedView && (
+            <Button asChild>
+              <Link href="/staff/new">Додати</Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       <StaffFilters

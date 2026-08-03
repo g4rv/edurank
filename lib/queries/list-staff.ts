@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { ON_ROSTER } from './roster';
 import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
 
 /** Columns listStaff can order by — the query owns this list; pages validate against it */
@@ -28,6 +29,13 @@ export type StaffFilters = {
   partTime?: boolean;
   degreeMatch?: boolean;
   includeConfidential?: boolean;
+  /**
+   * Archived people are off the roster and out of this list by default — that
+   * is what archiving is for. `'only'` is how an admin finds them again to
+   * restore someone; `'all'` exists for nothing yet and is deliberately not
+   * wired to a control.
+   */
+  archived?: 'exclude' | 'only' | 'all';
 };
 
 export async function listStaff(filters?: StaffFilters) {
@@ -51,6 +59,10 @@ export async function listStaff(filters?: StaffFilters) {
           : [{ [sortField]: sortDir }];
 
   const conditions: object[] = [];
+
+  const archived = filters?.archived ?? 'exclude';
+  if (archived === 'exclude') conditions.push(ON_ROSTER);
+  if (archived === 'only') conditions.push({ archivedAt: { not: null } });
 
   if (filters?.isNpp !== undefined) conditions.push({ isNpp: filters.isNpp });
   if (filters?.roles?.length) conditions.push({ role: { in: filters.roles } });
@@ -82,6 +94,7 @@ export async function listStaff(filters?: StaffFilters) {
       patronymic: true,
       email: true,
       isNpp: true,
+      archivedAt: true,
       academicRank: true,
       scientificDegree: true,
       ...(filters?.includeConfidential ? { employmentRate: true } : {}),

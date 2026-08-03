@@ -183,6 +183,21 @@ model Staff {
   // false = non-НПП (administrative staff), department is optional
   isNpp Boolean @default(true)
 
+  // Off the active roster, without losing a thing. Set when someone leaves, or
+  // goes on декретна відпустка: they drop out of the current year's rating and
+  // out of every list an editor works from, while all their past activities and
+  // closed-year snapshots stay exactly as they were. Restoring is one click, so
+  // a person who comes back after three years does not get their history typed
+  // in again.
+  //
+  // There is no hard delete of a person anywhere in the app — this is the only
+  // way out, which is what makes closed-year numbers safe.
+  //
+  // An archived account cannot sign in (see authorize in lib/auth.ts); archiving
+  // bumps tokenVersion so any session open at that moment ends immediately.
+  archivedAt     DateTime?
+  archiveReason  String? // free note: «декрет до 2029», «звільнення» …
+
   // Confidential: ADMIN sees all, USER sees own, EDITOR never sees
   employmentRate Float?
 

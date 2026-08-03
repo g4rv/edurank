@@ -27,11 +27,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const staff = await db.staff.findUnique({
           where: { email: credentials.email as string },
-          select: { id: true, email: true, role: true, passwordHash: true, tokenVersion: true },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            passwordHash: true,
+            tokenVersion: true,
+            archivedAt: true,
+          },
         });
 
         // passwordHash === null → account not activated yet (no password to check)
         if (!staff?.passwordHash) return null;
+
+        // Archived = off the roster, which includes the login. Someone who left
+        // the university keeps no access; someone on декретна відпустка gets it
+        // back when an admin restores them, which has to happen anyway to put
+        // them back in the rating.
+        if (staff.archivedAt) return null;
 
         const valid = await compare(credentials.password as string, staff.passwordHash);
         if (!valid) return null;
@@ -62,10 +75,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // and validate tokenVersion — bumping it forces an immediate re-login
       const dbStaff = await db.staff.findUnique({
         where: { id: token.id as string },
-        select: { role: true, tokenVersion: true },
+        select: { role: true, tokenVersion: true, archivedAt: true },
       });
 
-      if (!dbStaff || dbStaff.tokenVersion !== token.tokenVersion) return null;
+      // Archiving bumps tokenVersion, so the check below already ends the
+      // session. Reading archivedAt as well covers a row archived straight in
+      // the database, where no bump happened.
+      if (!dbStaff || dbStaff.archivedAt) return null;
+      if (dbStaff.tokenVersion !== token.tokenVersion) return null;
 
       token.role = dbStaff.role;
       token.staffId = token.id;

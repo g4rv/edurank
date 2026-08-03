@@ -30,68 +30,167 @@ import {
 import { parseDbError } from '@/lib/db-error';
 import { syncProfileDerived, PROFILE_DERIVED_STAFF_FIELDS } from '@/lib/rating/profile-derived';
 
-export type StaffDeleteState = { error: string } | { redirectTo: string };
+export type StaffArchiveState = { error: string } | { success: true; message: string };
 
-export async function deleteStaff(id: string): Promise<StaffDeleteState> {
+/**
+ * Take a person off the active roster without losing anything they did.
+ *
+ * There is no hard delete of a person in this app. Deleting a Staff row
+ * cascades their activities and rating entries — closed years included — and
+ * those numbers are final university records. Archiving covers the two cases
+ * that actually happen: someone leaves (and may come back years later, to find
+ * their history intact), and someone goes on декретна відпустка, where they must
+ * drop out of the current rating while every past result stays.
+ *
+ * The STAFF DELETE entity permission governs it: same intent — removing a person
+ * from the roster — with none of the loss.
+ */
+export async function archiveStaff(id: string, reason: string): Promise<StaffArchiveState> {
   const session = await auth();
   if (!session) redirect('/login');
 
   if (!(await canManageEntity(session.user, 'STAFF', 'DELETE')))
     return { error: 'Недостатньо прав' };
 
-  // An editor holding STAFF DELETE could otherwise remove an admin outright —
-  // the entity permission says they may delete staff, not whom.
-  const target = await db.staff.findUnique({ where: { id }, select: { id: true, role: true } });
+  // An editor holding STAFF DELETE could otherwise archive an admin — the
+  // entity permission says they may take staff off the roster, not whom.
+  const target = await db.staff.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      role: true,
+      archivedAt: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
+  });
   if (!target) return { error: 'Запис не знайдено' };
   if (!canMutateStaffRecord(session.user, target, { allowSelf: false })) {
     return { error: 'Недостатньо прав' };
   }
+  if (target.archivedAt) return { error: 'Запис вже архівовано' };
 
+  // Archiving blocks the login, so the last admin would lock the university out
   if (await isLastActiveAdmin(id)) {
     return { error: 'Це єдиний активний адміністратор — спочатку призначте іншого' };
   }
+
+  const trimmedReason = reason.trim();
+  if (trimmedReason.length > 500) return { error: 'Причина занадто довга (до 500 символів)' };
 
   let dbError: string | null = null;
 
   try {
     await db.$transaction(async (tx) => {
-      const staff = await tx.staff.findUnique({
+      const archivedAt = new Date();
+
+      // tokenVersion: an archived account cannot sign in, and any session open
+      // right now must end too — otherwise the person keeps working until it
+      // expires on its own.
+      await tx.staff.update({
         where: { id },
-        select: {
-          lastName: true,
-          firstName: true,
-          patronymic: true,
-          email: true,
-          phone: true,
-          isNpp: true,
-          academicRank: true,
-          scientificDegree: true,
-          departmentId: true,
-          divisionId: true,
+        data: {
+          archivedAt,
+          archiveReason: trimmedReason || null,
+          tokenVersion: { increment: 1 },
         },
       });
 
-      await tx.staff.delete({ where: { id } });
+      // The rating rows stay untouched on purpose: the person leaves the lists,
+      // the history does not move. syncProfileDerived drops their derived rows
+      // for the open year, so the current year stops counting them.
+      await syncProfileDerived(tx, id);
 
       await tx.auditLog.create({
         data: {
-          action: 'DELETE',
+          action: 'UPDATE',
           entity: 'Staff',
           entityId: id,
-          label: staff ? `${staff.lastName} ${staff.firstName} ${staff.patronymic}` : undefined,
+          label: staffFullName(target),
           userId: session.user.id,
-          changes: staff
-            ? diffChanges(staff as Record<string, string | number | boolean | null>, {})
-            : undefined,
+          changes: diffChanges(
+            { archivedAt: null, archiveReason: null },
+            { archivedAt: archivedAt.toISOString(), archiveReason: trimmedReason || null }
+          ),
         },
       });
     });
   } catch (e) {
-    dbError = parseDbError(e, 'Помилка при видаленні');
+    dbError = parseDbError(e, 'Помилка при архівуванні');
   }
 
   if (dbError) return { error: dbError };
-  return { redirectTo: '/staff' };
+  revalidatePath('/staff');
+  revalidatePath(`/staff/${id}`);
+  return { success: true, message: 'Запис архівовано' };
+}
+
+/** Back onto the roster: the login works again and the current year counts them */
+export async function restoreStaff(id: string): Promise<StaffArchiveState> {
+  const session = await auth();
+  if (!session) redirect('/login');
+
+  if (!(await canManageEntity(session.user, 'STAFF', 'DELETE')))
+    return { error: 'Недостатньо прав' };
+
+  const target = await db.staff.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      role: true,
+      archivedAt: true,
+      archiveReason: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
+  });
+  if (!target) return { error: 'Запис не знайдено' };
+  if (!canMutateStaffRecord(session.user, target, { allowSelf: false })) {
+    return { error: 'Недостатньо прав' };
+  }
+  const archivedAt = target.archivedAt;
+  if (!archivedAt) return { error: 'Запис не архівовано' };
+
+  let dbError: string | null = null;
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.staff.update({
+        where: { id },
+        data: { archivedAt: null, archiveReason: null },
+      });
+
+      // Refill the derived indicators the archive dropped, so a returning
+      // person's стаж, звання and посада count in the open year again.
+      await syncProfileDerived(tx, id);
+
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'Staff',
+          entityId: id,
+          label: staffFullName(target),
+          userId: session.user.id,
+          changes: diffChanges(
+            {
+              archivedAt: archivedAt.toISOString(),
+              archiveReason: target.archiveReason,
+            },
+            { archivedAt: null, archiveReason: null }
+          ),
+        },
+      });
+    });
+  } catch (e) {
+    dbError = parseDbError(e, 'Помилка при відновленні');
+  }
+
+  if (dbError) return { error: dbError };
+  revalidatePath('/staff');
+  revalidatePath(`/staff/${id}`);
+  return { success: true, message: 'Запис відновлено' };
 }
 
 export type StaffUpdateState = { error: string } | { success: true };

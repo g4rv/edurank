@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { ON_ROSTER } from '@/lib/queries/roster';
 import type { RatingDivisionKey } from '@/lib/rating/activity-types';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import {
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
     }),
     db.division.findMany({ select: { id: true, registryKey: true } }),
     db.staff.findMany({
-      where: { isNpp: true },
+      where: { ...ON_ROSTER, isNpp: true },
       select: {
         id: true,
         lastName: true,

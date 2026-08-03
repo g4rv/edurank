@@ -34,9 +34,12 @@ export async function createActivity(
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
-    select: { isNpp: true, lastName: true, firstName: true, patronymic: true },
+    select: { isNpp: true, archivedAt: true, lastName: true, firstName: true, patronymic: true },
   });
   if (!staff?.isNpp) return { error: 'Подання досягнень доступне лише для НПП' };
+  // Archiving blocks the login, so this is only reachable with a session that
+  // was already open — belt and braces on the year's numbers.
+  if (staff.archivedAt) return { error: 'Ваш запис архівовано' };
 
   const type = await db.activityType.findUnique({
     where: { id: activityTypeId },

@@ -21,6 +21,7 @@ import {
 
 const emptyStaff = {
   isNpp: true,
+  archivedAt: null,
   pedagogicalExperience: null,
   academicRank: null,
   scientificDegree: null,
@@ -234,6 +235,39 @@ describe('syncProfileDerived', () => {
     await syncProfileDerived(tx as never, 'staff-1');
     expect(tx.activity.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['act-2'] } } });
     expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  // Archiving is what takes someone off the roster, and the open year has to
+  // stop counting them the moment it happens — including the indicators that
+  // come from their profile, which nobody enters by hand and which would
+  // otherwise keep scoring for a person on декретна відпустка.
+  it('drops the derived rows of an archived person', async () => {
+    const tx = makeTx({
+      template: { year: 2026, activityTypes: [derivedType('academic_rank')] },
+      staff: { ...emptyStaff, academicRank: 'PROFESSOR', archivedAt: new Date('2026-03-01') },
+      existing: {
+        academic_rank: [{ id: 'act-1', evidence: { option: 'professor' }, score: 50 }],
+      },
+    });
+    await syncProfileDerived(tx as never, 'staff-1');
+
+    expect(tx.activity.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['act-1'] } } });
+    expect(tx.activity.createMany).not.toHaveBeenCalled();
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  // …and restoring them fills the same rows back in, which is the whole point
+  // of archiving rather than deleting: nobody retypes a returning person.
+  it('refills the derived rows once the archive is lifted', async () => {
+    const tx = makeTx({
+      template: { year: 2026, activityTypes: [derivedType('academic_rank')] },
+      staff: { ...emptyStaff, academicRank: 'PROFESSOR', archivedAt: null },
+    });
+    await syncProfileDerived(tx as never, 'staff-1');
+
+    const created = tx.activity.createMany.mock.calls[0][0].data;
+    expect(created).toHaveLength(1);
+    expect(created[0]).toMatchObject({ evidence: { option: 'professor' }, score: 50 });
   });
 
   it('purges duplicate rows, keeping the oldest as the synced one', async () => {

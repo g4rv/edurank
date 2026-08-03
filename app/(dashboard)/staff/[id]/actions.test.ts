@@ -27,7 +27,8 @@ import { sendMail } from '@/lib/mail/mailer';
 import type { StaffUpdateSchema } from '@/validations/staff';
 import {
   updateStaff,
-  deleteStaff,
+  archiveStaff,
+  restoreStaff,
   sendInvite,
   resetPassword,
   setPasswordManually,
@@ -76,11 +77,15 @@ const fullPayload: StaffUpdateSchema = {
  * target's role again (isLastActiveAdmin). Dispatch on the select so tests do
  * not depend on the order the action happens to call them in.
  */
-function mockStaffLookups({ targetRole = 'USER', divisionId = 'div-1' as string | null } = {}) {
+function mockStaffLookups({
+  targetRole = 'USER',
+  divisionId = 'div-1' as string | null,
+  archivedAt = null as Date | null,
+} = {}) {
   mockStaffFind.mockImplementation(async (args: { where?: { id?: string }; select?: object }) => {
     const select = (args?.select ?? {}) as Record<string, boolean>;
     if (select.divisionId) return { divisionId };
-    return { id: args?.where?.id, role: targetRole };
+    return { id: args?.where?.id, role: targetRole, archivedAt };
   });
 }
 
@@ -89,7 +94,8 @@ function mockTx() {
     staff: {
       findUnique: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue({}),
-      delete: vi.fn().mockResolvedValue({}),
+      // No `delete`: a person is never hard-deleted any more, so a call would
+      // fail here loudly instead of quietly passing a mock.
     },
     staffDepartment: { deleteMany: vi.fn(), createMany: vi.fn() },
     activationToken: { deleteMany: vi.fn().mockResolvedValue({}) },
@@ -265,10 +271,10 @@ describe('updateStaff target-role guard', () => {
   });
 });
 
-describe('deleteStaff authorization', () => {
+describe('archiveStaff authorization', () => {
   it('rejects USER — even for their own record', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
-    expect(await deleteStaff('staff-own')).toEqual({ error: 'Недостатньо прав' });
+    expect(await archiveStaff('staff-own', '')).toEqual({ error: 'Недостатньо прав' });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
@@ -276,93 +282,161 @@ describe('deleteStaff authorization', () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockStaffLookups();
     mockEntityPerm.mockResolvedValue(null);
-    expect(await deleteStaff('staff-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(await archiveStaff('staff-1', '')).toEqual({ error: 'Недостатньо прав' });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it('allows ADMIN: deletes and audits', async () => {
-    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
-    mockStaffLookups();
-    const tx = mockTx();
-    tx.staff.findUnique.mockResolvedValue({
-      lastName: 'Франко',
-      firstName: 'Іван',
-      patronymic: 'Якович',
-      email: 'ivan@univ.ua',
-      phone: null,
-      isNpp: true,
-      academicRank: 'PROFESSOR',
-      scientificDegree: 'DOCTOR',
-      departmentId: 'dep-1',
-      divisionId: null,
-    });
-    expect(await deleteStaff('staff-1')).toEqual({ redirectTo: '/staff' });
-    expect(tx.staff.delete).toHaveBeenCalledWith({ where: { id: 'staff-1' } });
-    expect(tx.auditLog.create).toHaveBeenCalled();
-  });
-
-  // Deleting the only admin who can actually log in leaves nobody able to
-  // grant the role back — recoverable only by hand in the database
-  it('refuses to delete the last admin who can still log in', async () => {
-    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
-    mockStaffLookups({ targetRole: 'ADMIN' });
-    mockStaffCount.mockResolvedValue(0); // no other activated admin
-    expect(await deleteStaff('admin-last')).toEqual({
-      error: 'Це єдиний активний адміністратор — спочатку призначте іншого',
-    });
-    expect(mockTransaction).not.toHaveBeenCalled();
-  });
-
-  it('allows deleting an admin while another activated admin remains', async () => {
-    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
-    mockStaffLookups({ targetRole: 'ADMIN' });
-    mockStaffCount.mockResolvedValue(1);
-    const tx = mockTx();
-    tx.staff.findUnique.mockResolvedValue(null);
-    expect(await deleteStaff('admin-2')).toEqual({ redirectTo: '/staff' });
-    expect(tx.staff.delete).toHaveBeenCalled();
-  });
-
-  // STAFF DELETE says an editor may delete staff, not whom: an admin's row is
-  // off-limits however complete their division's permissions are.
-  it('refuses an EDITOR deleting an ADMIN', async () => {
+  // STAFF DELETE says an editor may take staff off the roster, not whom: an
+  // admin's row is off-limits however complete their division's permissions are.
+  it('refuses an EDITOR archiving an ADMIN', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     mockStaffLookups({ targetRole: 'ADMIN' });
     mockStaffCount.mockResolvedValue(5); // plenty of other admins — not the last-admin guard
 
-    expect(await deleteStaff('admin-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(await archiveStaff('admin-1', '')).toEqual({ error: 'Недостатньо прав' });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it('refuses an EDITOR deleting their own record', async () => {
+  it('refuses an EDITOR archiving their own record', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     mockStaffLookups({ targetRole: 'EDITOR' });
 
-    expect(await deleteStaff('staff-editor')).toEqual({ error: 'Недостатньо прав' });
+    expect(await archiveStaff('staff-editor', '')).toEqual({ error: 'Недостатньо прав' });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it('still lets an EDITOR delete an ordinary USER', async () => {
+  it('still lets an EDITOR archive an ordinary USER', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     mockStaffLookups({ targetRole: 'USER' });
     const tx = mockTx();
-    tx.staff.findUnique.mockResolvedValue(null);
 
-    expect(await deleteStaff('staff-1')).toEqual({ redirectTo: '/staff' });
-    expect(tx.staff.delete).toHaveBeenCalled();
+    expect(await archiveStaff('staff-1', '')).toEqual({
+      success: true,
+      message: 'Запис архівовано',
+    });
+    expect(tx.staff.update).toHaveBeenCalled();
+  });
+
+  // Archiving blocks the login, so the last admin would lock the university out
+  // exactly as deleting them used to.
+  it('refuses to archive the last admin who can still log in', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups({ targetRole: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(0); // no other activated admin
+    expect(await archiveStaff('admin-last', '')).toEqual({
+      error: 'Це єдиний активний адміністратор — спочатку призначте іншого',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 
   it('counts only activated admins — an un-invited one cannot take over', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
     mockStaffLookups({ targetRole: 'ADMIN' });
     mockStaffCount.mockResolvedValue(0);
-    await deleteStaff('admin-last');
+    await archiveStaff('admin-last', '');
     expect(mockStaffCount).toHaveBeenCalledWith({
       where: { id: { not: 'admin-last' }, role: 'ADMIN', passwordHash: { not: null } },
     });
+  });
+});
+
+describe('archiveStaff', () => {
+  const adminArchives = () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffCount.mockResolvedValue(5);
+  };
+
+  // The whole point: a person leaves the roster, their record does not leave
+  // the database. Nothing in here deletes anything.
+  it('sets archivedAt with the reason and ends every open session', async () => {
+    adminArchives();
+    mockStaffLookups({ targetRole: 'USER' });
+    const tx = mockTx();
+
+    expect(await archiveStaff('staff-1', '  декретна відпустка до 2029  ')).toEqual({
+      success: true,
+      message: 'Запис архівовано',
+    });
+
+    const data = tx.staff.update.mock.calls[0][0].data;
+    expect(data.archivedAt).toBeInstanceOf(Date);
+    expect(data.archiveReason).toBe('декретна відпустка до 2029');
+    // An archived account cannot sign in; a session open right now must end too
+    expect(data.tokenVersion).toEqual({ increment: 1 });
+    expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  it('keeps an empty reason as null rather than an empty string', async () => {
+    adminArchives();
+    mockStaffLookups({ targetRole: 'USER' });
+    const tx = mockTx();
+
+    await archiveStaff('staff-1', '   ');
+    expect(tx.staff.update.mock.calls[0][0].data.archiveReason).toBeNull();
+  });
+
+  it('refuses a reason longer than the column expects', async () => {
+    adminArchives();
+    mockStaffLookups({ targetRole: 'USER' });
+
+    expect(await archiveStaff('staff-1', 'я'.repeat(501))).toEqual({
+      error: 'Причина занадто довга (до 500 символів)',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses to archive someone who already is', async () => {
+    adminArchives();
+    mockStaffLookups({ targetRole: 'USER', archivedAt: new Date('2026-01-01') });
+
+    expect(await archiveStaff('staff-1', '')).toEqual({ error: 'Запис вже архівовано' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('reports a missing record instead of pretending it archived', async () => {
+    adminArchives();
+    mockStaffFind.mockResolvedValue(null);
+
+    expect(await archiveStaff('gone', '')).toEqual({ error: 'Запис не знайдено' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('restoreStaff', () => {
+  it('clears the archive so the login and the rating work again', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups({ targetRole: 'USER', archivedAt: new Date('2026-01-01') });
+    const tx = mockTx();
+
+    expect(await restoreStaff('staff-1')).toEqual({
+      success: true,
+      message: 'Запис відновлено',
+    });
+    expect(tx.staff.update).toHaveBeenCalledWith({
+      where: { id: 'staff-1' },
+      data: { archivedAt: null, archiveReason: null },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  it('refuses a record that is not archived', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups({ targetRole: 'USER' });
+
+    expect(await restoreStaff('staff-1')).toEqual({ error: 'Запис не архівовано' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an EDITOR restoring an ADMIN', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockStaffLookups({ targetRole: 'ADMIN', archivedAt: new Date('2026-01-01') });
+
+    expect(await restoreStaff('admin-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });
 

@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { ON_ROSTER } from '@/lib/queries/roster';
 
 // The two datasets behind the PDF charts. Both read RatingEntry, which already
 // holds the per-section scores, so neither needs to touch Activity.
@@ -74,7 +75,7 @@ export async function getDepartmentChart(
     select: {
       name: true,
       primaryStaff: {
-        where: { isNpp: true },
+        where: { ...ON_ROSTER, isNpp: true },
         select: { ratingEntries: { where: { year }, select: ENTRY_SELECT } },
       },
     },
@@ -121,7 +122,7 @@ export async function getDepartmentStaffChart(
     select: {
       name: true,
       primaryStaff: {
-        where: { isNpp: true },
+        where: { ...ON_ROSTER, isNpp: true },
         select: {
           lastName: true,
           firstName: true,
@@ -182,7 +183,7 @@ export async function getReportData(year: number): Promise<ReportDepartment[]> {
       id: true,
       name: true,
       primaryStaff: {
-        where: { isNpp: true },
+        where: { ...ON_ROSTER, isNpp: true },
         select: {
           lastName: true,
           firstName: true,

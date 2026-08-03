@@ -15,6 +15,10 @@ export async function getStaff(id: string, includeConfidential = false) {
       // delete USER rows and their own, never an admin's. The pages need it to
       // stop offering «Редагувати» on a record the action will refuse.
       role: true,
+      // Off the roster: drives the archived badge, the restore button and the
+      // read-only treatment of the record
+      archivedAt: true,
+      archiveReason: true,
       ...(includeConfidential ? { employmentRate: true } : {}),
       pedagogicalExperience: true,
       academicRank: true,

@@ -43,7 +43,17 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
       <AnimatedTableBody>
         {staff.map((member) => (
           <AnimatedRow key={member.id} className="group/row transition-colors">
-            <RowLinkCell href={`/staff/${member.id}`}>{fullName(member)}</RowLinkCell>
+            <RowLinkCell href={`/staff/${member.id}`}>
+              {fullName(member)}
+              {/* Only ever shown in the archive view, where every row carries it
+                  — but the name is where a reader looks first, and «архів» is
+                  the one thing that changes how the rest of the row reads. */}
+              {member.archivedAt && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  Архів
+                </span>
+              )}
+            </RowLinkCell>
             <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
             <td className="px-4 py-3">
               <span

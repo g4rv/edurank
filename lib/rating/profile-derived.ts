@@ -32,6 +32,7 @@ export {
 
 interface DerivedStaff {
   isNpp: boolean;
+  archivedAt: Date | null;
   pedagogicalExperience: number | null;
   academicRank: AcademicRank | null;
   scientificDegree: ScientificDegree | null;
@@ -46,6 +47,7 @@ interface DerivedStaff {
 
 const DERIVED_STAFF_SELECT = {
   isNpp: true,
+  archivedAt: true,
   pedagogicalExperience: true,
   academicRank: true,
   scientificDegree: true,
@@ -165,7 +167,14 @@ function planProfileDerived(
     const [existing, ...extras] = rowsByType.get(type.id) ?? [];
     plan.deleteIds.push(...extras.map((r) => r.id));
 
-    const evidence = staff.isNpp ? derivedEvidence(type.code as ProfileDerivedCode, staff) : null;
+    // Archived people are off the roster: no derived rows, so the open year
+    // stops counting them the moment they are archived — and refills when they
+    // are restored. Their past years are untouched; this only ever writes to
+    // the active OPEN template (see activeDerivedTypes).
+    const countsThisYear = staff.isNpp && !staff.archivedAt;
+    const evidence = countsThisYear
+      ? derivedEvidence(type.code as ProfileDerivedCode, staff)
+      : null;
 
     if (!evidence) {
       if (existing) plan.deleteIds.push(existing.id);

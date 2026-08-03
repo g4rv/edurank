@@ -59,9 +59,11 @@ export async function upsertDivisionActivity(
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
-    select: { isNpp: true, lastName: true, firstName: true, patronymic: true },
+    select: { isNpp: true, archivedAt: true, lastName: true, firstName: true, patronymic: true },
   });
   if (!staff?.isNpp) return { error: 'Рейтинг ведеться лише для НПП' };
+  // The grid does not offer archived people, so reaching one means a stale page
+  if (staff.archivedAt) return { error: 'Запис архівовано' };
 
   let specs: ReturnType<typeof parseTypeSpecs>;
   try {
@@ -282,7 +284,14 @@ export async function batchUpsertDivisionActivity(
 
   const staffList = await db.staff.findMany({
     where: { id: { in: staffIds } },
-    select: { id: true, isNpp: true, lastName: true, firstName: true, patronymic: true },
+    select: {
+      id: true,
+      isNpp: true,
+      archivedAt: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
   });
   const staffById = new Map(staffList.map((s) => [s.id, s]));
   for (const id of staffIds) {
@@ -290,6 +299,9 @@ export async function batchUpsertDivisionActivity(
     if (!s) return { error: 'НПП не знайдено' };
     if (!s.isNpp) {
       return { error: `${s.lastName} ${s.firstName} ${s.patronymic} — не НПП` };
+    }
+    if (s.archivedAt) {
+      return { error: `${s.lastName} ${s.firstName} ${s.patronymic} — запис архівовано` };
     }
   }
 

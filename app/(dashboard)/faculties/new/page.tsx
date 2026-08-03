@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { ON_ROSTER } from '@/lib/queries/roster';
 import { FacultyForm } from '@/components/faculty/faculty-form';
 import { createFaculty } from '@/app/(dashboard)/faculties/actions';
 
@@ -37,6 +38,9 @@ export default async function NewFacultyPage() {
     db.faculty.findMany({ select: { deanId: true }, where: { deanId: { not: null } } }),
     db.department.findMany({ select: { headId: true }, where: { headId: { not: null } } }),
     db.staff.findMany({
+      // Nobody archived can be picked as a head or a dean — they are off the
+      // roster, and an archived person cannot even sign in.
+      where: ON_ROSTER,
       select: { id: true, lastName: true, firstName: true, patronymic: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     }),
