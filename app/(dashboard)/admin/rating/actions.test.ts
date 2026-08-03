@@ -25,6 +25,7 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { Prisma } from '@/lib/generated/prisma/client';
 import { catalogueType } from '@/lib/rating/db-specs';
 import {
   closeYear,
@@ -124,11 +125,19 @@ describe('closeYear', () => {
     expect(tx.activity.deleteMany).toHaveBeenCalledWith({
       where: { year: 2026, status: 'REMOVED' },
     });
+    // Last close's snapshots are wiped first, then the fresh ones written
+    expect(tx.ratingEntry.updateMany.mock.calls[0][0]).toEqual({
+      where: { year: 2026 },
+      data: { snapshot: Prisma.DbNull },
+    });
     // Snapshot written for the staff with approved rows
     expect(tx.ratingEntry.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { staffId: 'staff-1', year: 2026 } })
     );
-    const snapshot = tx.ratingEntry.updateMany.mock.calls[0][0].data.snapshot;
+    const staffWrite = tx.ratingEntry.updateMany.mock.calls.find(
+      (call) => call[0].where.staffId === 'staff-1'
+    )!;
+    const snapshot = staffWrite[0].data.snapshot;
     expect(snapshot.total).toBe(300);
     expect(snapshot.sections).toHaveLength(5);
     expect(snapshot.sections[2].items[0].label).toBe('Виконання НДР');
@@ -140,6 +149,24 @@ describe('closeYear', () => {
       data: expect.objectContaining({ status: 'CLOSED', closedByUserId: 'admin-1' }),
     });
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  // The appeals path: close → reopen → an ННВ moderator discards everything one
+  // person submitted → close again. Nothing is written for them the second time,
+  // so the first close's snapshot has to be cleared or their rating page keeps
+  // listing the discarded items while /rating already shows zero.
+  it('clears the previous snapshots even for staff with nothing left', async () => {
+    mockTemplateFind.mockResolvedValue(openTemplate);
+    const tx = mockTx();
+    tx.activity.findMany.mockResolvedValue([]);
+
+    expect(await closeYear(2026)).toEqual({ success: true, message: 'Рік 2026 закрито' });
+
+    expect(tx.ratingEntry.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.ratingEntry.updateMany).toHaveBeenCalledWith({
+      where: { year: 2026 },
+      data: { snapshot: Prisma.DbNull },
+    });
   });
 });
 

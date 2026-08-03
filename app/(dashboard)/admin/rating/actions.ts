@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
-import type { Prisma } from '@/lib/generated/prisma/client';
+import { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { requireAdmin } from '@/lib/permissions';
@@ -647,7 +647,15 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
       // 1. Purge discarded rows (decision 2026-07-07)
       await tx.activity.deleteMany({ where: { year, status: 'REMOVED' } });
 
-      // 2. Snapshot per staff: approved items with labels/scores as of close.
+      // 2. Drop every snapshot this year already carries. The loop below only
+      // writes for staff who still hold a counting row, so without this a person
+      // whose entries were all discarded during a reopen would keep the snapshot
+      // from the previous close — their rating page would go on listing the
+      // discarded items while /rating, reading the recomputed columns, shows
+      // zero for the same closed year.
+      await tx.ratingEntry.updateMany({ where: { year }, data: { snapshot: Prisma.DbNull } });
+
+      // 3. Snapshot per staff: approved items with labels/scores as of close.
       // Deactivated indicators score nothing, so they stay out of the snapshot too.
       const activities = await tx.activity.findMany({
         where: { year, status: 'APPROVED', activityType: { isActive: true } },
@@ -706,7 +714,7 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
         });
       }
 
-      // 3. Flip the authoritative flag
+      // 4. Flip the authoritative flag
       await tx.ratingTemplate.update({
         where: { id: template.id },
         data: { status: 'CLOSED', closedAt: new Date(), closedByUserId: session.user.id },
