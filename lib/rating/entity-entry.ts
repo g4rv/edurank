@@ -5,28 +5,12 @@ import type { EvidenceField } from './evidence-fields';
 // staff involved (with a per-person role where the type has one), and fan
 // out one Activity per person. The staff-first grid still works for these —
 // this is the bulk path replacing the divisions' Дані *.xlsx working files.
-export const ENTITY_FIRST_CODES: readonly string[] = [
-  // ВМЗ — міжнародні проєкти
-  'intl_grant_won',
-  'intl_program_participation',
-  'intl_grant_application',
-  // ННВ — НДР-теми, конкурси, видання
-  'ukr_grant_application',
-  'ndr_execution',
-  'journal_editorial_a',
-  'journal_editorial_b',
-  // ННЦЗЯО — освітні програми, плани, ради
-  'accreditation_self_analysis',
-  'edu_program_development',
-  'edu_program_update',
-  'curriculum_development',
-  'curriculum_update',
-  'accreditation_expert_meeting',
-  'university_councils',
-  'subject_committee',
-  // ВА — спецради
-  'specialized_council',
-];
+//
+// WHICH indicators offer it is a property of the row
+// (`ActivityType.entityFirstEntry`, a checkbox in the template editor), not a
+// list of codes: a code list left an admin-built indicator of exactly this
+// shape stuck on the one-cell-at-a-time grid, and silently lost the bulk path
+// if a code was ever renamed.
 
 export interface EntityEntryMeta {
   // The object's own fields, entered once and copied to every staff Activity

@@ -248,6 +248,7 @@ describe('updateActivityType', () => {
     verifyingDivisionId: 'div-nnv',
     isActive: true,
     requiresVerification: false,
+    entityFirstEntry: false,
   };
 
   it('rejects non-admin', async () => {
@@ -411,6 +412,7 @@ describe('createActivityType', () => {
     verifyingDivisionId: null,
     isActive: true,
     requiresVerification: false,
+    entityFirstEntry: false,
     scoring: { kind: 'SELECT' as const },
     evidenceFields: [
       {

@@ -52,6 +52,7 @@ export interface ActivityTypeDraft {
   verifyingDivisionId: string | null;
   isActive: boolean;
   requiresVerification: boolean;
+  entityFirstEntry: boolean;
   fields: EvidenceField[];
   scoring: ScoringSpec;
 }
@@ -185,6 +186,7 @@ function ActivityTypeForm({
       verifyingDivisionId: draft.verifyingDivisionId ?? '',
       isActive: draft.isActive,
       requiresVerification: draft.requiresVerification,
+      entityFirstEntry: draft.entityFirstEntry,
       evidenceFields: draft.fields,
       scoring: draft.scoring,
     },
@@ -192,6 +194,7 @@ function ActivityTypeForm({
 
   const isActive = watch('isActive');
   const requiresVerification = watch('requiresVerification');
+  const entityFirstEntry = watch('entityFirstEntry');
   const inputSource = watch('inputSource') as ActivityTypeDraft['inputSource'];
   const divisionId = watch('verifyingDivisionId') as string;
   const section = String(watch('section') ?? draft.section);
@@ -458,6 +461,24 @@ function ActivityTypeForm({
               )}
             </span>
           </label>
+
+          {inputSource === 'DIVISION_MANAGED' && (
+            <label className="flex cursor-pointer items-center gap-2">
+              <Switch
+                checked={!!entityFirstEntry}
+                onCheckedChange={(v) => setValue('entityFirstEntry', v)}
+              />
+              <span className="text-sm">
+                Внесення групою
+                {!!entityFirstEntry && (
+                  <span className="block text-xs text-muted-foreground">
+                    Один об’єкт (проєкт, рада, програма) вноситься раз і розподіляється на всіх
+                    учасників
+                  </span>
+                )}
+              </span>
+            </label>
+          )}
         </div>
 
         <AlertDialogFooter>

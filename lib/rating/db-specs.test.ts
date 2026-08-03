@@ -96,3 +96,30 @@ describe('catalogueType', () => {
     expect(() => catalogueType('no_such_indicator')).toThrow(/no_such_indicator/);
   });
 });
+
+// Which indicators offer the bulk entity-first dialog on /division-data is a
+// column on the row now, fed from the catalogue by dbSpecs. It used to be a
+// list of codes in lib/rating/entity-entry.ts, which an admin-built indicator
+// of the same shape could never join.
+describe('entityFirstEntry', () => {
+  it('is carried from the catalogue def into the DB specs', () => {
+    expect(dbSpecs(defOf('ndr_execution')).entityFirstEntry).toBe(true);
+    expect(dbSpecs(defOf('pedagogical_experience')).entityFirstEntry).toBe(false);
+  });
+
+  it('marks exactly the division-managed group-entered indicators', () => {
+    const flagged = ACTIVITY_TYPES_2026.filter((d) => dbSpecs(d).entityFirstEntry);
+    expect(flagged).toHaveLength(16);
+    // A person is never entered as a group of one: every flagged indicator is
+    // one a division fills in on behalf of several НПП at once.
+    for (const def of flagged) {
+      expect(def.inputSource, def.code).toBe('DIVISION_MANAGED');
+    }
+  });
+});
+
+function defOf(code: string) {
+  const def = ACTIVITY_TYPES_2026.find((d) => d.code === code);
+  if (!def) throw new Error(`no catalogue def for ${code}`);
+  return def;
+}

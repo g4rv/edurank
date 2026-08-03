@@ -345,6 +345,13 @@ model ActivityType {
   // behaviour on `code` is exactly what the template editor exists to avoid.
   requiresVerification Boolean @default(false)
 
+  // Offers the bulk entity-first dialog on /division-data: enter the object
+  // (проєкт / рада / освітня програма) once, pick everyone involved, fan out one
+  // Activity each. Was a hardcoded list of 17 codes in lib/rating/entity-entry.ts,
+  // which left an admin-built indicator of the same shape stuck on the
+  // one-cell-at-a-time grid with nothing to explain why.
+  entityFirstEntry Boolean @default(false)
+
   activities Activity[]
 
   @@unique([templateId, code])

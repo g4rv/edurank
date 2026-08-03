@@ -12,7 +12,6 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { DivisionSelect } from '@/components/rating/division-select';
 import { DivisionEntryGrid, type EntryGridCell } from '@/components/rating/division-entry-grid';
 import { EntityEntryDialog } from '@/components/rating/entity-entry-dialog';
-import { ENTITY_FIRST_CODES } from '@/lib/rating/entity-entry';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 
@@ -84,6 +83,7 @@ export default async function DivisionDataPage({
   const gridTypes = types.map((t) => ({
     id: t.id,
     code: t.code,
+    entityFirstEntry: t.entityFirstEntry,
     itemNumber: t.itemNumber,
     label: t.label,
     coefficientNote: t.coefficientNote,
@@ -94,7 +94,8 @@ export default async function DivisionDataPage({
     name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
     department: s.department?.name ?? '',
   }));
-  const entityTypes = gridTypes.filter((t) => ENTITY_FIRST_CODES.includes(t.code));
+  // The indicator row decides, not a list of codes here
+  const entityTypes = gridTypes.filter((t) => t.entityFirstEntry);
 
   return (
     <AnimatedPage className="space-y-6">

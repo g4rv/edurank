@@ -47,6 +47,10 @@ const base = {
   // Offers the manual «Перевірено» check on /moderation. Free for any indicator:
   // it is informational and never touches a score, so there is nothing to guard.
   requiresVerification: z.boolean(),
+  // Offers the bulk entity-first dialog on /division-data. Only reachable for
+  // DIVISION_MANAGED indicators — nobody else has that page — so it needs no
+  // guard of its own either.
+  entityFirstEntry: z.boolean(),
 };
 
 // …and the half that defines the form and the arithmetic. `specProblems` is the

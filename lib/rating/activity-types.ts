@@ -66,6 +66,12 @@ export interface ActivityTypeDef {
    * publication is really indexed. Never affects the score.
    */
   requiresVerification?: boolean;
+  /**
+   * Offers the bulk entity-first dialog on /division-data: the object (проєкт,
+   * рада, освітня програма) is entered once and fanned out to everyone involved,
+   * instead of filling the same evidence in one grid cell at a time.
+   */
+  entityFirstEntry?: boolean;
 }
 
 export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
@@ -179,6 +185,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'голова — 100, секретар — 80, член ради — 50',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNCZYAO',
+    entityFirstEntry: true,
   },
   {
     code: 'basic_education_match',
@@ -295,6 +302,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'балів / авторський колектив',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNCZYAO',
+    entityFirstEntry: true,
   },
   {
     code: 'edu_program_development',
@@ -307,6 +315,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'балів / група розробників',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNCZYAO',
+    entityFirstEntry: true,
   },
   {
     code: 'edu_program_update',
@@ -319,6 +328,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'балів / група розробників',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNCZYAO',
+    entityFirstEntry: true,
   },
   {
     code: 'accreditation_expert_meeting',
@@ -331,6 +341,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'за 1 зустріч',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNCZYAO',
+    entityFirstEntry: true,
   },
   {
     code: 'curriculum_development',
@@ -343,6 +354,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'балів / група розробників',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNCZYAO',
+    entityFirstEntry: true,
   },
   {
     code: 'curriculum_update',
@@ -355,6 +367,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'балів / група розробників',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNCZYAO',
+    entityFirstEntry: true,
   },
   {
     code: 'subject_committee',
@@ -367,6 +380,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'голова — 50, член — 30',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNCZYAO',
+    entityFirstEntry: true,
   },
   {
     code: 'group_curator',
@@ -428,6 +442,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
       'керівник/координатор проєкту — 450, менеджер, керівник академічної (робочої) групи — 350, учасник академічної групи / виконавець (тренер) — 150, виконавець (технічний та адміністративний персонал) — 100',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'VMZ',
+    entityFirstEntry: true,
   },
   {
     code: 'intl_program_participation',
@@ -440,6 +455,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'керівник/координатор — 450, менеджер — 350, виконавець — 150, учасник — 100',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'VMZ',
+    entityFirstEntry: true,
   },
   {
     code: 'intl_grant_application',
@@ -451,6 +467,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficient: 100,
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'VMZ',
+    entityFirstEntry: true,
   },
   {
     code: 'ukr_grant_application',
@@ -462,6 +479,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficient: 70,
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNV',
+    entityFirstEntry: true,
   },
   {
     code: 'ndr_execution',
@@ -474,6 +492,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: 'керівник — 300, виконавець — 200',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNV',
+    entityFirstEntry: true,
   },
   {
     code: 'initiative_topic',
@@ -628,6 +647,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
       'голова — 150, заступник, відповідальний секретар, вчений секретар — 100, член ради — 50',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'VA',
+    entityFirstEntry: true,
   },
   {
     code: 'journal_editorial_a',
@@ -641,6 +661,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
       'головний редактор — 250, заступник (відповідальний секретар) — 200, член редакційної колегії — 150, технічний секретар — 140; при наявності підтвердження у системі URIS',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNV',
+    entityFirstEntry: true,
   },
   {
     code: 'journal_editorial_b',
@@ -654,6 +675,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
       'головний редактор — 200, заступник (відповідальний секретар) — 160, член редакційної колегії — 150, технічний секретар — 120; при наявності підтвердження у системі URIS',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNV',
+    entityFirstEntry: true,
   },
   {
     code: 'journal_website_support',

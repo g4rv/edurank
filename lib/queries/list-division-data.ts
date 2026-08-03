@@ -22,6 +22,7 @@ export async function listDivisionActivityTypes(divisionId: string) {
       itemNumber: true,
       coefficientNote: true,
       evidenceFields: true,
+      entityFirstEntry: true,
       section: { select: { number: true } },
     },
     orderBy: [{ section: { number: 'asc' } }, { order: 'asc' }],

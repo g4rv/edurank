@@ -70,6 +70,7 @@ export default async function RatingTemplatePage({
                 scoring: true,
                 isActive: true,
                 requiresVerification: true,
+                entityFirstEntry: true,
                 // Drives whether the row may be deleted or only deactivated
                 _count: { select: { activities: true } },
               },
@@ -183,6 +184,7 @@ export default async function RatingTemplatePage({
                         verifyingDivisionId: type.verifyingDivisionId,
                         isActive: type.isActive,
                         requiresVerification: type.requiresVerification,
+                        entityFirstEntry: type.entityFirstEntry,
                         activityCount: type._count.activities,
                         fields,
                         scoring,

@@ -120,6 +120,7 @@ export interface ActivityTypeSpecs {
   itemNumber: string;
   maxPerYear: number | null;
   requiresVerification: boolean;
+  entityFirstEntry: boolean;
   evidenceFields: EvidenceField[];
   scoring: ScoringSpec;
 }
@@ -167,6 +168,7 @@ export function dbSpecs(def: ActivityTypeDef): ActivityTypeSpecs {
     itemNumber: def.itemNumber,
     maxPerYear: def.maxPerYear ?? null,
     requiresVerification: def.requiresVerification ?? false,
+    entityFirstEntry: def.entityFirstEntry ?? false,
     evidenceFields,
     scoring: {
       kind: def.kind,

@@ -22,6 +22,7 @@ function blankDraft(section: number, itemNumber: string): ActivityTypeDraft {
     verifyingDivisionId: null,
     isActive: true,
     requiresVerification: false,
+    entityFirstEntry: false,
     scoring: { kind: 'FIXED' },
     fields: [{ kind: 'text', name: 'title', label: 'Назва' }],
   };
