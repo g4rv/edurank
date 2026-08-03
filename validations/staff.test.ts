@@ -64,3 +64,26 @@ describe('staff profile links', () => {
     }
   });
 });
+
+// The self-edit form has always capped these; the admin/editor form took any
+// length at all. Same columns, same person typing into them — the two shapes
+// disagreeing is how one form ends up storing what the other rejects.
+describe('free-text length limits', () => {
+  it('accepts ordinary values', () => {
+    expect(parse({ phone: '+380 44 123 45 67', orcidId: '0000-0002-1825-0097' }).success).toBe(
+      true
+    );
+  });
+
+  it('refuses an overlong phone, ORCID or specialty', () => {
+    expect(parse({ phone: '0'.repeat(51) }).success).toBe(false);
+    expect(parse({ orcidId: 'x'.repeat(51) }).success).toBe(false);
+    expect(parse({ basicEducationSpecialty: 'я'.repeat(201) }).success).toBe(false);
+  });
+
+  it('still treats an empty value as null, not as a too-short string', () => {
+    const result = parse({ phone: '', orcidId: '  ' });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.phone).toBeNull();
+  });
+});

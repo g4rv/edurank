@@ -38,7 +38,7 @@ export const staffUpdateSchema = z
     firstName: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     patronymic: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     email: z.email({ error: 'Некоректний email' }).trim(),
-    phone: z.preprocess(str, z.string().nullable()),
+    phone: z.preprocess(str, z.string().max(50, { error: 'Занадто довге значення' }).nullable()),
     isNpp: z.preprocess((v) => v === true || v === 'true', z.boolean()),
     employmentRate: z.preprocess(num, z.number().nonnegative().nullable()),
     pedagogicalExperience: z.preprocess(num, z.number().int().nonnegative().nullable()),
@@ -63,14 +63,17 @@ export const staffUpdateSchema = z
         .nullable()
     ),
     basicEducationMatch: z.preprocess(boolStr, z.boolean().nullable()),
-    basicEducationSpecialty: z.preprocess(str, z.string().nullable()),
+    basicEducationSpecialty: z.preprocess(
+      str,
+      z.string().max(200, { error: 'Занадто довге значення' }).nullable()
+    ),
     wosUrl: profileLink(WOS_HOSTS, 'Очікується посилання на Web of Science'),
     wosCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
     scopusUrl: profileLink(SCOPUS_HOSTS, 'Очікується посилання на Scopus'),
     scopusCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
     googleScholarUrl: profileLink(SCHOLAR_HOSTS, 'Очікується посилання на Google Scholar'),
     googleScholarCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
-    orcidId: z.preprocess(str, z.string().nullable()),
+    orcidId: z.preprocess(str, z.string().max(50, { error: 'Занадто довге значення' }).nullable()),
     departmentId: z.preprocess(str, z.string().nullable()),
     divisionId: z.preprocess(str, z.string().nullable()),
     partTimeDepartmentIds: z.array(z.string()).default([]),
