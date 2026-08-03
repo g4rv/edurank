@@ -21,9 +21,6 @@
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "pnpm": {
     "onlyBuiltDependencies": [
       "@prisma/engines",
