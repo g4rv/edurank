@@ -32,6 +32,7 @@ import {
   cloneTemplate,
   createActivityType,
   deleteActivityType,
+  addActivityType,
   reopenYear,
   updateActivityType,
 } from './actions';
@@ -600,5 +601,47 @@ describe('cloneTemplate', () => {
         verifyingDivisionId: 'div-kadry',
       }),
     });
+  });
+});
+
+// Re-adding an indicator from the 2026 catalogue. The catalogue names the
+// division that verifies it by short key (NNV, KADRY…); resolving that to a row
+// used to match on the division's display name, which an admin can edit on
+// /divisions. A rename left the re-added indicator with no verifying division —
+// and a DIVISION_MANAGED type without one is refused by upsertDivisionActivity
+// forever, with nothing anywhere to explain it.
+describe('addActivityType', () => {
+  const template = {
+    id: 'tpl-1',
+    status: 'OPEN',
+    sections: [{ id: 'sec-3', number: 3 }],
+    activityTypes: [],
+  };
+
+  it('resolves the verifying division by registry key, not by name', async () => {
+    mockTemplateFind.mockResolvedValue(template);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+
+    expect(await addActivityType('tpl-1', 'ndr_execution')).toEqual({
+      success: true,
+      message: 'Показник додано',
+    });
+
+    expect(db.division.findUnique).toHaveBeenCalledWith({ where: { registryKey: 'NNV' } });
+    expect(tx.activityType.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ code: 'ndr_execution', verifyingDivisionId: 'div-nnv' }),
+    });
+  });
+
+  it('refuses rather than creating an indicator no division can fill', async () => {
+    mockTemplateFind.mockResolvedValue(template);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue(null);
+    const tx = mockTx();
+
+    expect(await addActivityType('tpl-1', 'ndr_execution')).toEqual({
+      error: 'Відділ для цього показника не знайдено',
+    });
+    expect(tx.activityType.create).not.toHaveBeenCalled();
   });
 });

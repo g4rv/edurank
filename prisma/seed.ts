@@ -110,26 +110,29 @@ async function seedDemoRating(staffId: string, templateId: string, sources: Inpu
 async function main() {
   // ─── Divisions ────────────────────────────────────────────────────────────
 
-  // ННВ is the division that moderates the rating. The flag is set on update
-  // too: an existing database seeded before the column arrived would otherwise
-  // keep a ННВ that cannot moderate anything.
-  const nnv = await prisma.division.upsert({
-    where: { name: 'Навчально-науковий відділ' },
-    update: { canModerateRating: true },
-    create: { name: 'Навчально-науковий відділ', canModerateRating: true },
-  });
-
-  // Rating divisions (Phase 2) — creates all 6, incl. the two new 2026 ones
-  // (відділ кадрів, навчальний відділ); keyed by short catalogue keys
-  const ratingDivisionIds: Record<string, string> = {};
+  // Rating divisions (Phase 2) — all 6, incl. the two new 2026 ones (відділ
+  // кадрів, навчальний відділ). Upserted on the catalogue's stable key rather
+  // than the name: the name is what an admin may rename on /divisions, and
+  // re-seeding after a rename must find the same row instead of trying to
+  // create a second one beside it.
+  //
+  // ННВ is the division that moderates the rating. Its flag is set on update
+  // too, so a database seeded before the column arrived does not keep a ННВ
+  // that cannot moderate anything.
+  const ratingDivisions: Record<string, { id: string; name: string }> = {};
   for (const [key, name] of Object.entries(RATING_DIVISIONS)) {
+    const canModerateRating = key === 'NNV';
     const division = await prisma.division.upsert({
-      where: { name },
-      update: {},
-      create: { name },
+      where: { registryKey: key },
+      update: { canModerateRating },
+      create: { name, registryKey: key, canModerateRating },
     });
-    ratingDivisionIds[key] = division.id;
+    ratingDivisions[key] = { id: division.id, name: division.name };
   }
+  const ratingDivisionIds: Record<string, string> = Object.fromEntries(
+    Object.entries(ratingDivisions).map(([key, d]) => [key, d.id])
+  );
+  const nnv = ratingDivisions.NNV;
 
   // ─── Faculty ──────────────────────────────────────────────────────────────
 

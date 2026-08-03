@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { RATING_DIVISIONS, type RatingDivisionKey } from '@/lib/rating/activity-types';
+import type { RatingDivisionKey } from '@/lib/rating/activity-types';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import {
   buildRatingWorkbook,
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       },
       orderBy: [{ section: { number: 'asc' } }, { order: 'asc' }],
     }),
-    db.division.findMany({ select: { id: true, name: true } }),
+    db.division.findMany({ select: { id: true, registryKey: true } }),
     db.staff.findMany({
       where: { isNpp: true },
       select: {
@@ -68,11 +68,14 @@ export async function GET(request: Request) {
     }),
   ]);
 
-  // Division id → registry short key (sheet's «Дані внесені» column)
+  // Division id → registry short key (sheet's «Дані внесені» column).
+  // The key is a column on the row; matching the division's display name here
+  // meant an admin renaming it on /divisions blanked the column with no sign.
   const keyByDivisionId = new Map<string, RatingDivisionKey>();
   for (const division of divisions) {
-    const entry = Object.entries(RATING_DIVISIONS).find(([, name]) => name === division.name);
-    if (entry) keyByDivisionId.set(division.id, entry[0] as RatingDivisionKey);
+    if (division.registryKey) {
+      keyByDivisionId.set(division.id, division.registryKey as RatingDivisionKey);
+    }
   }
 
   const exportTypes: ExportActivityType[] = types.map((t) => {

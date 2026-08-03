@@ -135,6 +135,14 @@ model Division {
   id   String @id @default(cuid())
   name String @unique
 
+  // Stable identity for the divisions the rating catalogue knows about
+  // (RATING_DIVISIONS in lib/rating/activity-types.ts): KADRY, NNV, VMZ…
+  // `name` is a label an admin edits on /divisions, so matching on it made a
+  // rename break re-adding a catalogue indicator and blank the export's «Дані
+  // внесені» column. Null for any division an admin creates themselves — they
+  // are not part of the catalogue and need no key.
+  registryKey String? @unique
+
   // May this division's editors moderate the rating — discard a wrong НПП
   // self-report with a reason, and toggle «Перевірено» on a publication?
   // Previously decided by matching the name «ННВ», so renaming the division in

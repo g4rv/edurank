@@ -2,7 +2,12 @@
 // (extracted from edu-reference/Проєкт рейтинг 2026.xlsx, Sheet 1).
 // Ukrainian strings here are seed DATA (stored in DB), not UI text.
 
-/** Short division keys used by the catalogue → Division.name in DB */
+/**
+ * Short division keys used by the catalogue. The key itself lives on the row as
+ * `Division.registryKey`; the name here is only what the seed CREATES the
+ * division with. An admin may rename it afterwards, so nothing at runtime may
+ * look a division up by name.
+ */
 export const RATING_DIVISIONS = {
   KADRY: 'Відділ кадрів',
   NAVCH: 'Навчальний відділ',

@@ -6,7 +6,7 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { requireAdmin } from '@/lib/permissions';
-import { ACTIVITY_TYPES_2026, RATING_DIVISIONS, SECTION_TITLES } from '@/lib/rating/activity-types';
+import { ACTIVITY_TYPES_2026, SECTION_TITLES } from '@/lib/rating/activity-types';
 import { dbSpecs } from '@/lib/rating/db-specs';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
@@ -542,9 +542,15 @@ export async function addActivityType(templateId: string, code: string): Promise
   const section = template.sections.find((s) => s.number === def.section);
   if (!section) return { error: 'Розділ не знайдено' };
 
+  // By the catalogue's stable key, never by the division's name: the name is
+  // editable on /divisions, and a rename used to leave the re-added indicator
+  // with no verifying division — permanently unenterable, with nothing said.
   const division = def.verifyingDivision
-    ? await db.division.findUnique({ where: { name: RATING_DIVISIONS[def.verifyingDivision] } })
+    ? await db.division.findUnique({ where: { registryKey: def.verifyingDivision } })
     : null;
+  if (def.verifyingDivision && !division) {
+    return { error: 'Відділ для цього показника не знайдено' };
+  }
 
   const specs = dbSpecs(def);
 
