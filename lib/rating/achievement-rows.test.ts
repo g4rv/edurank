@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { compareItemNumbers, snapshotToGroups } from './achievement-rows';
+import { compareItemNumbers, snapshotToGroups, toAchievementGroups } from './achievement-rows';
+import type { StaffActivity } from '@/lib/queries/list-activities';
 import { ACTIVITY_STATUS_LABELS } from './labels';
 
 describe('compareItemNumbers', () => {
@@ -97,5 +98,46 @@ describe('snapshotToGroups', () => {
       expect(item.canDelete).toBe(false);
       expect(item.removeReason).toBeNull();
     }
+  });
+});
+
+// An open year renders from live rows, and each row carries its own розділ
+// heading. Reading the title off the row rather than the SECTION_TITLES
+// constant is what keeps a year that renames a section rendering as itself —
+// the same reason closeYear freezes the template's titles into the snapshot.
+describe('toAchievementGroups', () => {
+  const activity = (section: number, title: string): StaffActivity =>
+    ({
+      id: `a-${section}`,
+      evidence: {},
+      computedValue: 1,
+      score: 10,
+      status: 'APPROVED',
+      submittedByRole: 'NPP',
+      removeReason: null,
+      createdAt: new Date('2026-03-01'),
+      activityType: {
+        id: `t-${section}`,
+        code: 'x',
+        label: 'Показник',
+        itemNumber: `${section}.1`,
+        evidenceFields: [],
+        section: { number: section, title },
+      },
+    }) as unknown as StaffActivity;
+
+  it("titles each group from the year's own section rows", () => {
+    const groups = toAchievementGroups([activity(3, 'Наука цього року')]);
+    expect(groups[0]).toMatchObject({ number: 3, title: 'Наука цього року' });
+  });
+
+  // A section with nothing in it brings no title with it, so the catalogue
+  // constant is the only thing left to name it.
+  it('falls back to the catalogue title for a section with no rows', () => {
+    const groups = toAchievementGroups([activity(3, 'Наука цього року')], [1, 3]);
+    expect(groups.map((g) => g.number)).toEqual([1, 3]);
+    expect(groups[0].title).toBe('Показники професійного розвитку');
+    expect(groups[0].items).toEqual([]);
+    expect(groups[1].title).toBe('Наука цього року');
   });
 });

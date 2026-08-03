@@ -52,6 +52,7 @@ const types: ExportActivityType[] = [
     coefficient: 1,
     coefficientNote: '1 бал за рік',
     sectionNumber: 1,
+    sectionTitle: 'Показники професійного розвитку цього року',
     fields: [{ kind: 'number', name: 'value', label: 'Стаж (років)', min: 0, int: true }],
     divisionKey: 'KADRY',
   },
@@ -62,6 +63,7 @@ const types: ExportActivityType[] = [
     coefficient: 1,
     coefficientNote: 'керівник — 300, виконавець — 200',
     sectionNumber: 3,
+    sectionTitle: 'Наука цього року',
     fields: [
       {
         kind: 'select',
@@ -113,6 +115,14 @@ describe('buildRatingWorkbook', () => {
     expect(flat.some((r) => r.includes('УНІВЕРСИТЕТУ ЗА') && r.includes('2026'))).toBe(true);
     expect(flat.some((r) => r.includes('Кафедра') && r.includes("комп'ютерних наук"))).toBe(true);
     expect(flat.some((r) => r.includes('Коваленко Іван Петрович'))).toBe(true);
+  });
+
+  // The sheet is the official form for ONE year, so its band headings come from
+  // that year's own RatingSection rows — the SECTION_TITLES constant is only a
+  // fallback. Both fixture titles are deliberately unlike the constant.
+  it('bands each розділ under the year’s own heading', () => {
+    expect(flat.some((r) => r.includes('Показники професійного розвитку цього року'))).toBe(true);
+    expect(flat.some((r) => r.includes('Наука цього року'))).toBe(true);
   });
 
   it('renders a plain indicator with its earned score and division', () => {

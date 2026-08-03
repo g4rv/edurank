@@ -82,6 +82,10 @@ export function snapshotToGroups(snapshot: unknown): AchievementGroup[] | null {
 /**
  * Maps activities to display groups; when `sections` is given, includes those (even empty) in order.
  * `canManage` = the viewer may delete their own open-year self-reports (drives the delete button).
+ *
+ * Headings come from the year's own RatingSection rows, which every activity
+ * already carries — the SECTION_TITLES constant is only the fallback for a
+ * section with nothing in it, since an empty group brings no title with it.
  */
 export function toAchievementGroups(
   activities: StaffActivity[],
@@ -89,11 +93,13 @@ export function toAchievementGroups(
   canManage = false
 ): AchievementGroup[] {
   const rowsBySection = new Map<number, AchievementRow[]>();
+  const titleBySection = new Map<number, string>();
   for (const a of activities) {
     const n = a.activityType.section.number;
     const rows = rowsBySection.get(n) ?? [];
     rows.push(toRow(a, canManage));
     rowsBySection.set(n, rows);
+    titleBySection.set(n, a.activityType.section.title);
   }
   for (const rows of rowsBySection.values()) {
     rows.sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber));
@@ -102,7 +108,7 @@ export function toAchievementGroups(
   const numbers = sections ?? [...rowsBySection.keys()].sort((a, b) => a - b);
   return numbers.map((number) => ({
     number,
-    title: SECTION_TITLES[number] ?? '',
+    title: titleBySection.get(number) ?? SECTION_TITLES[number] ?? '',
     items: rowsBySection.get(number) ?? [],
   }));
 }

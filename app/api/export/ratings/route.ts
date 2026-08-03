@@ -41,7 +41,7 @@ export async function GET(request: Request) {
         coefficientNote: true,
         evidenceFields: true,
         verifyingDivisionId: true,
-        section: { select: { number: true } },
+        section: { select: { number: true, title: true } },
       },
       orderBy: [{ section: { number: 'asc' } }, { order: 'asc' }],
     }),
@@ -87,6 +87,7 @@ export async function GET(request: Request) {
       coefficient: t.coefficient,
       coefficientNote: t.coefficientNote,
       sectionNumber: t.section.number,
+      sectionTitle: t.section.title,
       fields: fields.success ? fields.data : [],
       divisionKey: t.verifyingDivisionId
         ? (keyByDivisionId.get(t.verifyingDivisionId) ?? null)

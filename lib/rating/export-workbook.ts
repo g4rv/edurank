@@ -25,6 +25,8 @@ export interface ExportActivityType {
   coefficient: number;
   coefficientNote: string | null;
   sectionNumber: number;
+  /** The year's own heading for that розділ (RatingSection.title) */
+  sectionTitle: string;
   /** Parsed off the row's evidenceFields JSON by the caller */
   fields: readonly EvidenceField[];
   /** Registry short key resolved by the caller from verifyingDivisionId */
@@ -200,7 +202,10 @@ export function buildRatingWorkbook(
     const sectionTypes = types.filter((t) => t.sectionNumber === sectionNumber);
     if (sectionTypes.length === 0) continue;
 
-    const sectionRow = ws.addRow([`${sectionNumber}.`, SECTION_TITLES[sectionNumber] ?? '']);
+    // The year's own heading, not the code catalogue's: the sheet is the
+    // official form for THAT year and must read the way that year is defined.
+    const sectionTitle = sectionTypes[0]?.sectionTitle || SECTION_TITLES[sectionNumber] || '';
+    const sectionRow = ws.addRow([`${sectionNumber}.`, sectionTitle]);
     ws.mergeCells(`B${sectionRow.number}:F${sectionRow.number}`);
     styleTableRow(sectionRow);
     sectionRow.getCell(1).font = { bold: true };
