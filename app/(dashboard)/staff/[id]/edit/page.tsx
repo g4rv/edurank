@@ -6,6 +6,7 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listDivisions } from '@/lib/queries/list-divisions';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
+import { canMutateStaffRecord } from '@/lib/permissions';
 import { StaffEditForm } from '@/components/staff/edit-form';
 
 export default async function StaffEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +35,13 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
   ]);
 
   if (!staff) notFound();
+
+  // Whose record it is decides as much as which fields: an editor may edit USER
+  // records and their own, never an admin's. updateStaff refuses it anyway —
+  // this stops the form being offered at all rather than after it is filled in.
+  if (!canMutateStaffRecord(session.user, { id: staff.id, role: staff.role })) {
+    redirect(`/staff/${id}`);
+  }
 
   return (
     <div className="max-w-3xl space-y-6">

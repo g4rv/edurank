@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
 import { getStaffAccount } from '@/lib/queries/get-staff-account';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
+import { canMutateStaffRecord } from '@/lib/permissions';
 import { AccountCard } from '@/components/staff/account-card';
 import { StaffTabs } from '@/components/staff/staff-tabs';
 import { Button } from '@/components/ui/button';
@@ -107,8 +108,13 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   let canDelete = isAdmin;
   if (isEditor) {
     const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'STAFF');
-    canEdit = perms.canUpdate;
-    canDelete = perms.canDelete;
+    // The entity permission says an editor may edit staff; canMutateStaffRecord
+    // says WHOSE — USER records and their own, never an admin's. Both actions
+    // re-check it, so showing the button on an admin's record only walked the
+    // editor into «Недостатньо прав» after filling in the whole form.
+    const target = { id: staff.id, role: staff.role };
+    canEdit = perms.canUpdate && canMutateStaffRecord(session.user, target);
+    canDelete = perms.canDelete && canMutateStaffRecord(session.user, target, { allowSelf: false });
   }
 
   const subtitle =
