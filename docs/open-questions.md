@@ -194,8 +194,11 @@ that is intended.
 
 ### Good to know — we can pick a default
 
-**Q12.** Сумісництво — if an НПП works in two departments, which one gets a bonus?
-Primary only?
+**Q12.** Сумісництво — if an НПП works in two departments, which one gets a bonus? ⚠️ ASSUMED 2026-08-04
+
+> **Primary only**, and one Vc per person. Not confirmed with the boss — recorded as an
+> assumption because `Кст`/`Кнпп`/`<Rк>` are per кафедра and two Vc values would have
+> nothing to reconcile them before 1С.
 
 **Q13.** Can a granted bonus be cancelled? By whom, and does it need a written reason?
 
@@ -205,14 +208,21 @@ departments, or something narrower? ✅ ANSWERED 2026-08-04
 > **The same as a head, across every кафедра of their faculty.** One
 > `scopeOf(person) → departmentIds[]`, two cases.
 
-**Q15.** Do we store the recruited student's name? That is personal data of someone who
-is not a system user.
+**Q15.** Do we store the recruited student's name? ✅ ANSWERED 2026-08-04
+
+> **Yes** — the НПП types the student's full details, and the name is the matching key
+> for duplicate detection. It is personal data of a non-user: worth a retention rule
+> before the rollout (see [stake-distribution.md](./stake-distribution.md)).
 
 **Q16.** What happens if a person leaves or changes department mid-year — does the
 bonus follow them?
 
-**Q17.** What should the head's "summary about workers" contain, and who reads it —
-department meeting, HR, or the rector?
+**Q17.** What should the head's "summary about workers" contain, and who reads it? ✅ MOSTLY ANSWERED by the положення
+
+> It is **додаток 6, мотивований висновок** — a per-person form covering п.37 (освіта,
+> ступінь, досвід, керівництво дисертацією, публікації) and the п.38 positions. The
+> комісія reads it when deciding the штатний розпис. So it is the same dataset as
+> Характеристика, and building that produces most of it.
 
 ### Later
 

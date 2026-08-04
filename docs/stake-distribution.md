@@ -126,6 +126,12 @@ contract students. Worked example: Дошкільна освіта has base 10.5
 бакалавр is 1/21 ≈ 0.048 ставки, and a магістр денна is worth twice that
 (Nд is halved), while a заочний бакалавр is worth half (Nз is 4× the base).
 
+**Сумісництво (Q12) — assumed, not confirmed.** A student lands in the recruiter's
+**primary** кафедра, and a сумісник gets one Vc, computed on their primary кафедра
+only. Reason: `Кст`, `Кнпп` and `<Rк>` are all per кафедра, so counting someone in
+two кафедри would put them in two averages and two pools and produce two Vc values
+that nothing reconciles before 1С. Revisit if сумісники turn out to recruit often.
+
 **Working assumptions** (correct these if wrong):
 
 - A duplicate means the same student claimed by **different** НПП. The same НПП
