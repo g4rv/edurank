@@ -120,11 +120,39 @@ potential, not earned:
   (після підтвердження завідувачем)
 ```
 
-The per-student figure is the formula's own second term for one student:
-`1 / (2·Nд)` for денна, `1 / Nз` for заочна, times the узгоджуючий коефіцієнт for
-contract students. Worked example: Дошкільна освіта has base 10.5, so one денна
-бакалавр is 1/21 ≈ 0.048 ставки, and a магістр денна is worth twice that
-(Nд is halved), while a заочний бакалавр is worth half (Nз is 4× the base).
+The per-student figure comes from the formula's second term — but **what they
+actually apply differs from what the положення says**, and the difference was
+measured, not guessed.
+
+`Рейтинг_Профорієнтація.xlsx` records the ставка each recruited student was worth,
+1389 rows over 2025 and 2026. Expressed as a multiple of `1 / base(speciality)`:
+
+|              | денна бюджет | денна контракт | заочна бюджет | заочна контракт |
+| ------------ | ------------ | -------------- | ------------- | --------------- |
+| **бакалавр** | 1.0          | 0.175          | 0.25          | 0.0375          |
+| **магістр**  | 2.0          | 0.35           | 0.5           | 0.0875          |
+
+Read off that table:
+
+- **Заочна matches the положення** (`1/Nз`), and the магістр halving matches
+  (`Nд` halved → contribution doubled).
+- **Денна does not.** Budget денна students are recorded at `1/Nд`, exactly twice
+  what `Nзд/(2·Nд)` produces. The factor of 2 is simply not applied in practice.
+- **The узгоджуючий коефіцієнт looks like 0.175** — a contract student is worth
+  17.5% of a budget one in six of the eight cells. That answers a value the
+  положення never states.
+- **One cell breaks the pattern**: бакалавр/заочна/контракт is 0.0375 where the
+  rest of the table implies 0.04375.
+- **2025 was adjusted by hand, 2026 was not**: in 2025 «бакалавр денна контракт»
+  ranges 0.120–0.230; in 2026 every value is exactly 0.175.
+
+**Consequence for the model.** Do not hardcode the положення's factors and do not
+hardcode the observed ones either. The per-form, per-degree and per-funding
+multipliers become **per-year settings**, seeded with the values above. Then
+whichever the вчена рада confirms, the app follows without a code change.
+
+All five points are written up for the owner in
+[`questions-for-boss-ua.md`](./questions-for-boss-ua.md).
 
 **Сумісництво (Q12) — assumed, not confirmed.** A student lands in the recruiter's
 **primary** кафедра, and a сумісник gets one Vc, computed on their primary кафедра
@@ -262,7 +290,10 @@ dropped (see Q1), that is one edit.
 
 ## Still open
 
-- The value of the **узгоджуючий коефіцієнт** for the current year.
+See [`questions-for-boss-ua.md`](./questions-for-boss-ua.md) — the five ставки
+questions are written there in Ukrainian, ready to ask.
+
+- The **узгоджуючий коефіцієнт**: observed as 0.175, needs confirming.
 - The **Менеджмент 12 vs 13** discrepancy — ask, do not "fix".
 - Who enters recruited students. Додаток 3 is signed by завідувач, декан **and**
   відповідальний секретар приймальної комісії, which suggests the приймальна
