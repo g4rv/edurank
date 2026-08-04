@@ -121,7 +121,11 @@ export async function cloneTemplate(fromYear: number): Promise<RatingAdminState>
       });
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при клонуванні') };
+    return {
+      error: parseDbError(e, 'Помилка при клонуванні', 'rating.cloneTemplate', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidateRating();
@@ -161,7 +165,11 @@ export async function createTemplate(year: number): Promise<RatingAdminState> {
       });
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при створенні') };
+    return {
+      error: parseDbError(e, 'Помилка при створенні', 'rating.createTemplate', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidateRating();
@@ -193,7 +201,11 @@ export async function activateTemplate(year: number): Promise<RatingAdminState> 
       });
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при активації') };
+    return {
+      error: parseDbError(e, 'Помилка при активації', 'rating.activateTemplate', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   // The newly active year must reflect current profiles (стаж, звання, посада…)
@@ -348,7 +360,11 @@ export async function updateActivityType(
       { timeout: 60_000 }
     );
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при збереженні') };
+    return {
+      error: parseDbError(e, 'Помилка при збереженні', 'rating.updateActivityType', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   // Derived rows carry a frozen score — re-sync so a coefficient edit or a
@@ -464,7 +480,11 @@ export async function createActivityType(
       });
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при створенні') };
+    return {
+      error: parseDbError(e, 'Помилка при створенні', 'rating.createActivityType', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidateRating();
@@ -511,7 +531,11 @@ export async function deleteActivityType(id: string): Promise<RatingAdminState> 
       });
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при видаленні') };
+    return {
+      error: parseDbError(e, 'Помилка при видаленні', 'rating.deleteActivityType', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidateRating();
@@ -589,7 +613,11 @@ export async function addActivityType(templateId: string, code: string): Promise
       });
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при додаванні') };
+    return {
+      error: parseDbError(e, 'Помилка при додаванні', 'rating.addActivityType', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   const derived =
@@ -740,7 +768,11 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
       });
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при закритті року') };
+    return {
+      error: parseDbError(e, 'Помилка при закритті року', 'rating.closeYear', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidateRating();
@@ -777,7 +809,11 @@ export async function reopenYear(year: number): Promise<RatingAdminState> {
       });
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при відкритті року') };
+    return {
+      error: parseDbError(e, 'Помилка при відкритті року', 'rating.reopenYear', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   // Profiles may have changed while the year was closed — bring derived rows up to date

@@ -51,7 +51,9 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
       });
     });
   } catch (e) {
-    dbError = parseDbError(e);
+    dbError = parseDbError(e, 'Помилка при збереженні', 'department.createDepartment', {
+      userId: session.user.id,
+    });
   }
 
   if (dbError) return { error: dbError };
@@ -112,7 +114,9 @@ export async function updateDepartment(
       });
     });
   } catch (e) {
-    dbError = parseDbError(e);
+    dbError = parseDbError(e, 'Помилка при збереженні', 'department.updateDepartment', {
+      userId: session.user.id,
+    });
   }
 
   if (dbError) return { error: dbError };
@@ -164,7 +168,9 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
       });
     });
   } catch (e) {
-    dbError = parseDbError(e, 'Помилка при видаленні');
+    dbError = parseDbError(e, 'Помилка при видаленні', 'department.deleteDepartment', {
+      userId: session.user.id,
+    });
   }
 
   if (dbError) return { error: dbError };

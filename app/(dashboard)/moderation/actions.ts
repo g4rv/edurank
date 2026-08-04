@@ -78,7 +78,11 @@ export async function removeActivity(
       await recomputeRatingEntry(tx, activity.staffId, activity.year);
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при відхиленні') };
+    return {
+      error: parseDbError(e, 'Помилка при відхиленні', 'moderation.removeActivity', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidatePath('/moderation');
@@ -149,7 +153,11 @@ export async function setActivityVerified(
       });
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при збереженні') };
+    return {
+      error: parseDbError(e, 'Помилка при збереженні', 'moderation.setActivityVerified', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidatePath('/moderation');

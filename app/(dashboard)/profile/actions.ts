@@ -87,7 +87,11 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
       });
     });
   } catch (e) {
-    return { error: parseDbError(e) };
+    return {
+      error: parseDbError(e, 'Помилка при збереженні', 'profile.updateOwnProfile', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidatePath('/profile');

@@ -134,7 +134,11 @@ export async function createActivity(
     if (e instanceof CapExceededError) {
       return { error: `Не більше ${e.cap} подань цього показника на рік` };
     }
-    return { error: parseDbError(e, 'Помилка при поданні досягнення') };
+    return {
+      error: parseDbError(e, 'Помилка при поданні досягнення', 'achievements.createActivity', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidatePath('/achievements');
@@ -194,7 +198,11 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
       await recomputeRatingEntry(tx, staffId, activity.year);
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при видаленні') };
+    return {
+      error: parseDbError(e, 'Помилка при видаленні', 'achievements.deleteActivity', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidatePath('/achievements');

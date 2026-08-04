@@ -117,7 +117,9 @@ export async function archiveStaff(id: string, reason: string): Promise<StaffArc
       });
     });
   } catch (e) {
-    dbError = parseDbError(e, 'Помилка при архівуванні');
+    dbError = parseDbError(e, 'Помилка при архівуванні', 'staff.archiveStaff', {
+      userId: session.user.id,
+    });
   }
 
   if (dbError) return { error: dbError };
@@ -184,7 +186,9 @@ export async function restoreStaff(id: string): Promise<StaffArchiveState> {
       });
     });
   } catch (e) {
-    dbError = parseDbError(e, 'Помилка при відновленні');
+    dbError = parseDbError(e, 'Помилка при відновленні', 'staff.restoreStaff', {
+      userId: session.user.id,
+    });
   }
 
   if (dbError) return { error: dbError };
@@ -329,7 +333,9 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
       });
     });
   } catch (e) {
-    dbError = parseDbError(e);
+    dbError = parseDbError(e, 'Помилка при збереженні', 'staff.updateStaff', {
+      userId: session.user.id,
+    });
   }
 
   if (dbError) return { error: dbError };

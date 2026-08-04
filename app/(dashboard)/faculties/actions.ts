@@ -40,7 +40,9 @@ export async function createFaculty(data: FacultySchema): Promise<FacultyActionS
       });
     });
   } catch (e) {
-    dbError = parseDbError(e);
+    dbError = parseDbError(e, 'Помилка при збереженні', 'faculty.createFaculty', {
+      userId: session.user.id,
+    });
   }
 
   if (dbError) return { error: dbError };
@@ -86,7 +88,9 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
       });
     });
   } catch (e) {
-    dbError = parseDbError(e);
+    dbError = parseDbError(e, 'Помилка при збереженні', 'faculty.updateFaculty', {
+      userId: session.user.id,
+    });
   }
 
   if (dbError) return { error: dbError };
@@ -126,7 +130,9 @@ export async function deleteFaculty(id: string): Promise<FacultyActionState> {
       });
     });
   } catch (e) {
-    dbError = parseDbError(e, 'Помилка при видаленні');
+    dbError = parseDbError(e, 'Помилка при видаленні', 'faculty.deleteFaculty', {
+      userId: session.user.id,
+    });
   }
 
   if (dbError) return { error: dbError };

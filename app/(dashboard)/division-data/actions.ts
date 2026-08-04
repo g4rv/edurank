@@ -153,12 +153,26 @@ export async function upsertDivisionActivity(
     await save();
   } catch (e) {
     if (!isUniqueViolation(e)) {
-      return { error: parseDbError(e, 'Помилка при внесенні даних') };
+      return {
+        error: parseDbError(
+          e,
+          'Помилка при внесенні даних',
+          'divisionData.upsertDivisionActivity',
+          { userId: session.user.id }
+        ),
+      };
     }
     try {
       await save();
     } catch (retryError) {
-      return { error: parseDbError(retryError, 'Помилка при внесенні даних') };
+      return {
+        error: parseDbError(
+          retryError,
+          'Помилка при внесенні даних',
+          'divisionData.upsertDivisionActivity',
+          { userId: session.user.id }
+        ),
+      };
     }
   }
 
@@ -223,7 +237,11 @@ export async function clearDivisionActivity(
       await recomputeRatingEntry(tx, activity.staffId, activity.year);
     });
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при видаленні') };
+    return {
+      error: parseDbError(e, 'Помилка при видаленні', 'divisionData.clearDivisionActivity', {
+        userId: session.user.id,
+      }),
+    };
   }
 
   revalidatePath('/division-data');
@@ -423,12 +441,26 @@ export async function batchUpsertDivisionActivity(
     await saveAll();
   } catch (e) {
     if (!isUniqueViolation(e)) {
-      return { error: parseDbError(e, 'Помилка при внесенні даних') };
+      return {
+        error: parseDbError(
+          e,
+          'Помилка при внесенні даних',
+          'divisionData.batchUpsertDivisionActivity',
+          { userId: session.user.id }
+        ),
+      };
     }
     try {
       await saveAll();
     } catch (retryError) {
-      return { error: parseDbError(retryError, 'Помилка при внесенні даних') };
+      return {
+        error: parseDbError(
+          retryError,
+          'Помилка при внесенні даних',
+          'divisionData.batchUpsertDivisionActivity',
+          { userId: session.user.id }
+        ),
+      };
     }
   }
 
