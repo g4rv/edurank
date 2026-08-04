@@ -57,24 +57,18 @@ Watch for: name variants, missing or shared emails, department names that do not
 match what is in the database, duplicate people. The code is easy; the data is
 where the time goes.
 
-### A2. Error logging — small, high value
+### A2. Error logging — DONE 2026-08-04
 
-Today every server action does `catch (e) → parseDbError(e) → "Помилка при
-збереженні"` and **discards the error** (`lib/db-error.ts:31`). The whole app has
-three logging calls. When someone reports «I cannot save», there is no stack, no
-error code, no timestamp, no user id — nothing to debug from.
+`lib/log.ts` + `parseDbError` now split expected failures from defects: a
+duplicate email gets a specific message and no log entry, anything else gets the
+stack, the scope, the caller's id, and a code shown to the person so a report can
+be traced. Seven silent `catch` blocks were fixed, including the public password
+reset, which could have had SMTP down for everybody with nothing anywhere showing
+it. The error boundary shows Next's digest for page-level failures.
 
-Note the audit log records every _successful_ mutation in detail. Failures record
-nothing. That asymmetry is the bug.
-
-Decided approach: a `logError(context, err)` helper writing one structured line to
-stdout (action, user id, error code, message, stack), wired into `parseDbError`
-and the catch sites. Docker/Coolify already collects stdout, so this needs no new
-service. ~30 lines.
-
-Later, only if support proves painful: an `ErrorLog` table plus a small `/admin`
-page, so an admin can see failures without SSH. Deliberately **not** an external
-service — internal university data, and nobody here would maintain it.
+Not built, deliberately: an `ErrorLog` table with an admin page. Do that only if
+reading `docker compose logs` turns out to be too slow in practice — see the
+convention in CLAUDE.md.
 
 ### A3. Instructions in Ukrainian
 

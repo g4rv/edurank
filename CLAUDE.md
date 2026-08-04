@@ -292,6 +292,30 @@ Feedback must appear as close to its cause as possible:
 - **Modal (dialog)** — for actions the user must explicitly confirm (destructive, irreversible) or events they must understand before continuing.
 - **Toast** — only for quick transient outcomes with no specific element to attach to: save success, unexpected server error.
 
+## Errors: never swallow one
+
+An action that fails must leave two traces — a Ukrainian sentence for the person
+and an entry somebody can debug from. Before `lib/log.ts` existed there was only
+the first, and «Помилка при збереженні» with no stack anywhere made a support
+report unactionable.
+
+- **Write failures → `parseDbError(e, 'Ukrainian message', 'scope.action', { userId })`.**
+  It splits the two cases by itself: P2002/P2025/P2003 are the person doing what
+  the data forbids, so they get a specific message and are **not** logged;
+  anything else is a defect and gets the stack, the scope and an id, and the
+  returned message carries that id («… (код 7f3a2b19)»).
+- **Anything else you catch → `logError(scope, e, context)`** before returning a
+  message. A bare `} catch {` that returns a string is how SMTP stayed broken
+  with nobody knowing.
+- **`logWarning`** for what nobody is blocked by and no id is needed — a failed
+  invite mail, a backfill that did not run.
+- Scope names the operation, not the file: `staff.archiveStaff`, `rating.closeYear`.
+  It is what you grep when the report is «archiving is broken».
+- Output is one JSON line per entry to stdout, which the container runtime
+  already collects. There is no error table and no external service — if
+  support gets painful, an `ErrorLog` model plus a small admin page is the next
+  step, deliberately not an outside dependency.
+
 ## Key conventions
 
 - **Commits: always use the `commit` skill (`/commit`)** — never compose raw `git add`/`git commit` commands yourself
