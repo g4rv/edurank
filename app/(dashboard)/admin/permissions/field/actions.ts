@@ -56,7 +56,13 @@ export async function setFieldPermission(
       await db.divisionFieldPermission.deleteMany({ where: { divisionId, fieldName } });
     }
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при збереженні', 'permissions.setFieldPermission') };
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'permissions.setFieldPermission'
+      ),
+    };
   }
 
   revalidatePath('/admin/permissions/field');

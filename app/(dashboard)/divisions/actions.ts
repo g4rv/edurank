@@ -44,9 +44,14 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
       });
     });
   } catch (e) {
-    dbError = parseDbError(e, 'Помилка при збереженні', 'division.createDivision', {
-      userId: session.user.id,
-    });
+    dbError = parseDbError(
+      e,
+      'Не вдалося зберегти. Зміни не застосовано',
+      'division.createDivision',
+      {
+        userId: session.user.id,
+      }
+    );
   }
 
   if (dbError) return { error: dbError };
@@ -103,9 +108,14 @@ export async function updateDivision(
       });
     });
   } catch (e) {
-    dbError = parseDbError(e, 'Помилка при збереженні', 'division.updateDivision', {
-      userId: session.user.id,
-    });
+    dbError = parseDbError(
+      e,
+      'Не вдалося зберегти. Зміни не застосовано',
+      'division.updateDivision',
+      {
+        userId: session.user.id,
+      }
+    );
   }
 
   if (dbError) return { error: dbError };
@@ -142,9 +152,14 @@ export async function deleteDivision(id: string): Promise<DivisionActionState> {
       });
     });
   } catch (e) {
-    dbError = parseDbError(e, 'Помилка при видаленні', 'division.deleteDivision', {
-      userId: session.user.id,
-    });
+    dbError = parseDbError(
+      e,
+      'Не вдалося видалити. Зміни не застосовано',
+      'division.deleteDivision',
+      {
+        userId: session.user.id,
+      }
+    );
   }
 
   if (dbError) return { error: dbError };

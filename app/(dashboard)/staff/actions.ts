@@ -78,7 +78,7 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
       await syncProfileDerived(tx, created.id);
     });
   } catch (e) {
-    dbError = parseDbError(e, 'Помилка при збереженні', 'staff.createStaff', {
+    dbError = parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'staff.createStaff', {
       userId: session.user.id,
     });
   }

@@ -4,7 +4,8 @@ import { isUniqueViolation, parseDbError } from './db-error';
 
 // The distinction this file exists to make: a person doing something the data
 // forbids is not a defect and must not fill the log, while anything else is a
-// defect and must leave a stack behind with an id the person can quote.
+// defect and must leave a stack behind. What the PERSON sees is the same either
+// way — a plain sentence, never a code.
 
 let errorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -48,19 +49,22 @@ describe('expected failures', () => {
 });
 
 describe('unexpected failures', () => {
-  it('logs with the stack and returns the id in the message', () => {
+  it('logs with the stack, and tells the person only that it did not save', () => {
     const message = parseDbError(
       new Error('connection reset'),
-      'Помилка при збереженні',
+      'Не вдалося зберегти. Зміни не застосовано',
       'staff.update'
     );
-    const id = /код ([0-9a-f]{8})/.exec(message)?.[1];
 
-    expect(id).toBeDefined();
-    expect(message).toBe(`Помилка при збереженні (код ${id})`);
+    // No code, no digest, nothing to read out — see the note above
+    expect(message).toBe('Не вдалося зберегти. Зміни не застосовано');
+    expect(message).not.toMatch(/[0-9a-f]{8}/);
 
     const logged = JSON.parse(errorSpy.mock.calls[0][0] as string);
-    expect(logged).toMatchObject({ id, scope: 'staff.update', message: 'connection reset' });
+    expect(logged).toMatchObject({ scope: 'staff.update', message: 'connection reset' });
+    // …but the entry still carries who and when, which is how it gets found
+    expect(logged.id).toMatch(/^[0-9a-f]{8}$/);
+    expect(logged.at).toBeDefined();
   });
 
   it('passes the context through to the log', () => {
@@ -76,8 +80,8 @@ describe('unexpected failures', () => {
   // A Prisma error we do not translate is a defect like any other: something
   // in the query was wrong, and nobody would ever find out silently.
   it('treats an untranslated Prisma code as unexpected', () => {
-    const message = parseDbError(known('P2000'), 'Помилка при збереженні', 'x');
-    expect(message).toMatch(/код [0-9a-f]{8}/);
+    const message = parseDbError(known('P2000'), 'Не вдалося зберегти', 'x');
+    expect(message).toBe('Не вдалося зберегти');
     expect(errorSpy).toHaveBeenCalled();
   });
 });

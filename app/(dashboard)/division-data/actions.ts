@@ -160,7 +160,7 @@ export async function upsertDivisionActivity(
       return {
         error: parseDbError(
           e,
-          'Помилка при внесенні даних',
+          'Не вдалося зберегти дані. Зміни не застосовано',
           'divisionData.upsertDivisionActivity',
           { userId: session.user.id }
         ),
@@ -172,7 +172,7 @@ export async function upsertDivisionActivity(
       return {
         error: parseDbError(
           retryError,
-          'Помилка при внесенні даних',
+          'Не вдалося зберегти дані. Зміни не застосовано',
           'divisionData.upsertDivisionActivity',
           { userId: session.user.id }
         ),
@@ -242,9 +242,14 @@ export async function clearDivisionActivity(
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при видаленні', 'divisionData.clearDivisionActivity', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося видалити. Зміни не застосовано',
+        'divisionData.clearDivisionActivity',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
@@ -449,7 +454,7 @@ export async function batchUpsertDivisionActivity(
       return {
         error: parseDbError(
           e,
-          'Помилка при внесенні даних',
+          'Не вдалося зберегти дані. Зміни не застосовано',
           'divisionData.batchUpsertDivisionActivity',
           { userId: session.user.id }
         ),
@@ -461,7 +466,7 @@ export async function batchUpsertDivisionActivity(
       return {
         error: parseDbError(
           retryError,
-          'Помилка при внесенні даних',
+          'Не вдалося зберегти дані. Зміни не застосовано',
           'divisionData.batchUpsertDivisionActivity',
           { userId: session.user.id }
         ),

@@ -26,15 +26,16 @@ export function isUniqueViolation(err: unknown): boolean {
  *   specific message and nothing is logged: it is not a defect, and logging it
  *   would bury the real ones.
  * - **Unexpected** — anything else is a bug, a broken connection or bad data.
- *   It is logged with its stack, and the returned message carries the log's id
- *   so a support report can be traced to the exact entry.
+ *   It is logged with its stack, its scope and the caller's id; the person is
+ *   told plainly that the change did not go through, with no code — support
+ *   traces it by who and when.
  *
  * `scope` names the operation for the log («staff.archive»). It is optional so
  * that a call site which has not been updated still logs, just less usefully.
  */
 export function parseDbError(
   err: unknown,
-  fallback = 'Помилка при збереженні',
+  fallback = 'Не вдалося зберегти. Зміни не застосовано',
   scope = 'db',
   context: LogContext = {}
 ): string {
@@ -51,6 +52,10 @@ export function parseDbError(
     if (err.code === 'P2003') return 'Вказаний запис не існує';
   }
 
-  const id = logError(scope, err, context);
-  return `${fallback} (код ${id})`;
+  // Logged with the caller's id and the time, which is what actually finds it
+  // later. The person gets none of that: a code they cannot act on helps nobody
+  // and makes an ordinary failure look worse than it is. What they need to know
+  // is that the work did not go through.
+  logError(scope, err, context);
+  return fallback;
 }

@@ -299,11 +299,16 @@ and an entry somebody can debug from. Before `lib/log.ts` existed there was only
 the first, and «Помилка при збереженні» with no stack anywhere made a support
 report unactionable.
 
+- **Never show an error code, a digest or an id to a user.** They cannot act on
+  it, and it makes an ordinary failure look alarming. A message says what failed
+  and what happened to their work — «Не вдалося зберегти. Зміни не застосовано» —
+  so they know whether to try again. Support traces an entry by `userId` and
+  time, which every log line carries.
 - **Write failures → `parseDbError(e, 'Ukrainian message', 'scope.action', { userId })`.**
   It splits the two cases by itself: P2002/P2025/P2003 are the person doing what
   the data forbids, so they get a specific message and are **not** logged;
-  anything else is a defect and gets the stack, the scope and an id, and the
-  returned message carries that id («… (код 7f3a2b19)»).
+  anything else is a defect and gets the stack, the scope and the caller's id in
+  the log, while the person just gets the sentence.
 - **Anything else you catch → `logError(scope, e, context)`** before returning a
   message. A bare `} catch {` that returns a string is how SMTP stayed broken
   with nobody knowing.

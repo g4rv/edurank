@@ -123,9 +123,14 @@ export async function cloneTemplate(fromYear: number): Promise<RatingAdminState>
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при клонуванні', 'rating.cloneTemplate', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося створити копію року. Зміни не застосовано',
+        'rating.cloneTemplate',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
@@ -167,7 +172,7 @@ export async function createTemplate(year: number): Promise<RatingAdminState> {
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при створенні', 'rating.createTemplate', {
+      error: parseDbError(e, 'Не вдалося створити. Зміни не застосовано', 'rating.createTemplate', {
         userId: session.user.id,
       }),
     };
@@ -203,9 +208,14 @@ export async function activateTemplate(year: number): Promise<RatingAdminState> 
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при активації', 'rating.activateTemplate', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося активувати рік. Зміни не застосовано',
+        'rating.activateTemplate',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
@@ -362,9 +372,14 @@ export async function updateActivityType(
     );
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при збереженні', 'rating.updateActivityType', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'rating.updateActivityType',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
@@ -482,9 +497,14 @@ export async function createActivityType(
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при створенні', 'rating.createActivityType', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося створити. Зміни не застосовано',
+        'rating.createActivityType',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
@@ -533,9 +553,14 @@ export async function deleteActivityType(id: string): Promise<RatingAdminState> 
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при видаленні', 'rating.deleteActivityType', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося видалити. Зміни не застосовано',
+        'rating.deleteActivityType',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
@@ -615,9 +640,14 @@ export async function addActivityType(templateId: string, code: string): Promise
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при додаванні', 'rating.addActivityType', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося додати показник. Зміни не застосовано',
+        'rating.addActivityType',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
@@ -770,7 +800,7 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при закритті року', 'rating.closeYear', {
+      error: parseDbError(e, 'Не вдалося закрити рік. Зміни не застосовано', 'rating.closeYear', {
         userId: session.user.id,
       }),
     };
@@ -811,7 +841,7 @@ export async function reopenYear(year: number): Promise<RatingAdminState> {
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при відкритті року', 'rating.reopenYear', {
+      error: parseDbError(e, 'Не вдалося відкрити рік. Зміни не застосовано', 'rating.reopenYear', {
         userId: session.user.id,
       }),
     };

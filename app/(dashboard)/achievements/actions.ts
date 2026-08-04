@@ -139,9 +139,14 @@ export async function createActivity(
       return { error: `Не більше ${e.cap} подань цього показника на рік` };
     }
     return {
-      error: parseDbError(e, 'Помилка при поданні досягнення', 'achievements.createActivity', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося подати досягнення. Дані не збережено',
+        'achievements.createActivity',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
@@ -203,9 +208,14 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при видаленні', 'achievements.deleteActivity', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося видалити. Зміни не застосовано',
+        'achievements.deleteActivity',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 

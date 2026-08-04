@@ -79,9 +79,14 @@ export async function removeActivity(
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при відхиленні', 'moderation.removeActivity', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося відхилити. Зміни не застосовано',
+        'moderation.removeActivity',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
@@ -154,9 +159,14 @@ export async function setActivityVerified(
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при збереженні', 'moderation.setActivityVerified', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'moderation.setActivityVerified',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 

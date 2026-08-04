@@ -28,7 +28,13 @@ export async function setEntityPermission(
       await db.divisionEntityPermission.deleteMany({ where: { divisionId, entity, action } });
     }
   } catch (e) {
-    return { error: parseDbError(e, 'Помилка при збереженні', 'permissions.setEntityPermission') };
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'permissions.setEntityPermission'
+      ),
+    };
   }
 
   revalidatePath('/admin/permissions/entity');

@@ -4,8 +4,8 @@ import { randomBytes } from 'crypto';
  * Server-side error logging.
  *
  * Until this existed, a failing action did `catch (e) → parseDbError(e)` and
- * threw the error away: the person saw «Помилка при збереженні» and nobody,
- * anywhere, had the stack. The audit log records every successful mutation in
+ * threw the error away: the person was told it failed and nobody, anywhere,
+ * had the stack. The audit log records every successful mutation in
  * detail; failures recorded nothing at all.
  *
  * Output goes to stdout/stderr as one JSON line, because that is what the
@@ -13,10 +13,11 @@ import { randomBytes } from 'crypto';
  * view, with no extra service to run or pay for. The stack follows on its own
  * lines; a collector keeps it with the entry above it.
  *
- * Every entry carries a short **id**, which is also shown to the person who hit
- * the error («Помилка при збереженні (код 7f3a2b19)»). That is the whole point:
- * when someone says «I cannot save», the code they read out finds the exact
- * stack in the log. Without it, the report is unactionable.
+ * Every entry carries `userId` and a timestamp, which is how a report is traced:
+ * somebody says «I could not save this morning» and their id plus the time finds
+ * it. The entry also has a short id, but that is for correlating lines inside the
+ * log — it is deliberately never shown on screen, because a code the reader
+ * cannot act on helps nobody and makes an ordinary failure look alarming.
  */
 
 export interface LogContext {

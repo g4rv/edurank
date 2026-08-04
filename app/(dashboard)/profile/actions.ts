@@ -88,9 +88,14 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Помилка при збереженні', 'profile.updateOwnProfile', {
-        userId: session.user.id,
-      }),
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'profile.updateOwnProfile',
+        {
+          userId: session.user.id,
+        }
+      ),
     };
   }
 
