@@ -6,6 +6,13 @@ now answered by that data and are marked as such below.
 
 Purpose: a single page to take into the meeting with the boss.
 
+> **Updated 2026-08-04 — the meeting happened.** Q1, Q3, Q5, Q11 and Q14 are answered
+> and marked ✅ below. Q4 is **superseded**: `edu-reference/formula.pdf` shows that the
+> ставка is computed by a formula and the recruitment bonus is its second term, not a
+> separate feature. The whole Розподіл ставок design now lives in
+> [`stake-distribution.md`](./stake-distribution.md) — read that first; the notes below
+> are kept for the questions still open.
+
 ---
 
 ## 1. Feature status
@@ -39,13 +46,13 @@ Google Scholar counts and profile URLs, ORCID.
 | Feature                                       | Source file                                  | Blocked on                       |
 | --------------------------------------------- | -------------------------------------------- | -------------------------------- |
 | Staff import                                  | `УГСП_Дані - НПП.csv`                        | Nothing — best defined, do first |
-| Розподіл ставок (pool + distribution)         | `Розподіл ставок - 2025.csv`                 | Q1                               |
-| Характеристика_РНПАВ report                   | `Каменська … - Характеристика_РНПАВ.csv`     | Q2                               |
+| Розподіл ставок (formula-based)               | `formula.pdf` + `Розподіл ставок - 2025.csv` | nothing — spec is written        |
+| Характеристика_РНПАВ (= п.38, feeds Кнпп)     | `Каменська … - Характеристика_РНПАВ.csv`     | Q2 (map), Q9 (5-year window)     |
 | Публікації report                             | `Звіти ННВ - Публікації_2025.csv`            | Q7                               |
 | Підвищення кваліфікації registration form     | `Template_Form_Certificate - ШАБЛОН.csv`     | Q8                               |
 | «Повідомити» — notify an НПП without deleting | `nnv rating.txt`                             | Q6                               |
-| Student recruitment → ставка bonus            | `Рейтинг_Профорієнтація.xlsx` (not yet read) | Q3, Q4                           |
-| Head of department / dean permissions         | —                                            | Q5                               |
+| Student recruitment (2nd term of the formula) | `formula.pdf` додаток 3                      | who enters the students          |
+| Head / dean scope                             | —                                            | nothing — decided 2026-08-04     |
 | Historical import 2021–2025                   | old Google system                            | Q9                               |
 
 ---
@@ -75,7 +82,13 @@ Recording these so we don't waste meeting time on them.
 
 ### Blockers
 
-**Q1. When the head's split and the vice-rector's split differ, which one is real?**
+**Q1. When the head's split and the vice-rector's split differ, which one is real?** ✅ ANSWERED 2026-08-04
+
+> **Approval step.** The head proposes, the комісія / віце-ректор approves, and only the
+> approved version is official. Додаток 2 of the положення confirms it: the form has both
+> «Розподілений обсяг ставки» and «Обсяг ставки за формулою» plus «Обґрунтування» — a
+> deviation from the formula is expected, and must be justified. See
+> [stake-distribution.md](./stake-distribution.md).
 
 The data shows both existing at the same time. Where the pool total agrees, the two
 disagree only on how to divide it:
@@ -90,7 +103,12 @@ disagree only on how to divide it:
 _Why it matters:_ decides whether we build an approval step (head proposes →
 vice-rector approves) or just several saved drafts. Different amount of work.
 
-**Q2. Which rating indicators feed each of the 20 ЛУ-38 criteria?**
+**Q2. Which rating indicators feed each of the 20 ЛУ-38 criteria?** — STILL OPEN, but bigger than it looked
+
+> The Характеристика file **is** п.38 of the Ліцензійні умови — 20 positions, same order,
+> confirmed against постанова 1187. Building it also produces `Кнпп` for the ставка
+> formula, додаток 3's «позицій із 20» column and most of додаток 6. So it is no longer
+> just a report — it is a dependency of Розподіл ставок.
 
 Partly derivable already — criterion 1 ← publications (3.8 / 3.9 / 3.10),
 4 ← навчально-методичні посібники, 8 ← 3.5 ініціативна тематика,
@@ -99,17 +117,31 @@ Partly derivable already — criterion 1 ← publications (3.8 / 3.9 / 3.10),
 _Suggested shortcut:_ ask for 3–4 more filled Характеристики from different people
 instead of going criterion by criterion in the meeting.
 
-**Q3. Is this app the official source of ставка, or does the real number stay in 1С?**
+**Q3. Is this app the official source of ставка, or does the real number stay in 1С?** ✅ ANSWERED 2026-08-04
+
+> **1С stays official.** EduRank plans and approves; 1С records. The approved numbers
+> therefore need a clean export (see Q18), and the audit trail is useful rather than
+> legally load-bearing.
 
 Previously answered: real values live in 1С. Confirm this still holds once the app
 starts calculating bonuses, because it changes how strict the audit trail must be.
 
-**Q4. Does the student-recruitment bonus come out of the department pool, or on top?**
+**Q4. Does the student-recruitment bonus come out of the department pool, or on top?** ❌ SUPERSEDED 2026-08-04
+
+> Neither. `edu-reference/formula.pdf` shows recruitment is the **second term of the same
+> formula** that computes ставка — the two are one feature, calculated in different
+> periods (the first term after the rating year closes, the second after the admission
+> campaign). The question below is kept only for the record.
 
 _Why it matters:_ on top = two independent features. Out of the pool = a head's budget
 shrinks whenever his own staff recruit students, and the two features become coupled.
 
-**Q5. May a head of department see their own staff's ставка?**
+**Q5. May a head of department see their own staff's ставка?** ✅ ANSWERED 2026-08-04
+
+> **Yes, and more.** A завідувач sees their own кафедра properly: staff list, profiles,
+> ставка, rating results, plus the distribution grid. Implemented as a scope derived
+> from `Department.headId`, **not** a new `Role` — one person can be head, НПП and a
+> division editor at the same time, and `Staff.role` holds only one value.
 
 Today only ADMIN can (`lib/permissions.ts` — `CONFIDENTIAL_STAFF_FIELDS`). Needs a
 firm yes or no, it is a policy decision and not a technical one.
@@ -152,7 +184,10 @@ text — it would be guesswork.
 - How long does the bonus last — exactly one academic year, 1 Sep to 31 Aug?
 - Is there a cap? Can one НПП collect +1.0 from ten students?
 
-**Q11. May a head allocate rate to themselves?**
+**Q11. May a head allocate rate to themselves?** ✅ ANSWERED 2026-08-04
+
+> **Yes**, as an ordinary row in their own grid. The approval step and the audit log are
+> the control.
 
 The data says yes in practice — heads appear in their own distribution rows. Confirm
 that is intended.
@@ -165,7 +200,10 @@ Primary only?
 **Q13.** Can a granted bonus be cancelled? By whom, and does it need a written reason?
 
 **Q14.** What does a dean (head of faculty) get — the same powers across all their
-departments, or something narrower?
+departments, or something narrower? ✅ ANSWERED 2026-08-04
+
+> **The same as a head, across every кафедра of their faculty.** One
+> `scopeOf(person) → departmentIds[]`, two cases.
 
 **Q15.** Do we store the recruited student's name? That is personal data of someone who
 is not a system user.
@@ -188,13 +226,18 @@ department meeting, HR, or the rector?
 
 ## 4. Suggested order of work
 
+_Revised 2026-08-04._
+
 1. **Staff import** from `УГСП_Дані - НПП.csv` — no unknowns, and it makes everything
    else testable against real data.
-2. **Розподіл ставок** — spec is clear apart from Q1.
-3. **Характеристика_РНПАВ** — needs Q2; most of the map can be derived from more
+2. **Розподіл ставок** — fully specified now, see [stake-distribution.md](./stake-distribution.md).
+   Needs the norms table and one coefficient value as data, not as answers.
+3. **Характеристика_РНПАВ** — no longer just a report: it is where `Кнпп` comes from,
+   so it is a dependency of the formula rather than a follow-up to it.
+4. **Характеристика_РНПАВ** — needs Q2; most of the map can be derived from more
    filled examples.
-4. **Публікації report** — small once Q7 is confirmed.
-5. **Підвищення кваліфікації form** — smallest, standalone.
+5. **Публікації report** — small once Q7 is confirmed.
+6. **Підвищення кваліфікації form** — smallest, standalone.
 
 The recruitment bonus and the head/dean permission layer are the two large ones, and
 both are blocked on questions rather than on code.

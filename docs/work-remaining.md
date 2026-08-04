@@ -136,20 +136,20 @@ reopen, plus the permission matrix (editor vs admin vs НПП).
 
 ## B. Blocked on the boss
 
-Question numbers refer to `open-questions.md`.
+**Updated 2026-08-04 — the meeting happened and most of this section is unblocked.**
+Q1, Q3, Q5, Q11 and Q14 are answered; Q4 turned out to be the wrong question. The
+Розподіл ставок design is now a written spec: [`stake-distribution.md`](./stake-distribution.md).
 
-| Work                          | Blocked on                | Note                                                                                                                                                                                                                                                                       |
-| ----------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Розподіл ставок**           | **Q1**                    | Whose split wins — head or vice-rector? Decides approval step vs parallel drafts. Design already settled: integer hundredths, per-person `maxStake`, per-author drafts. The data model and grid could be built now with drafts, and the approval step added if Q1 says so. |
-| **Head / dean permissions**   | **Q5**                    | May a head see their staff's ставка? A new scope («my department's staff») orthogonal to divisions. Decide Role vs relation-derived **before** writing code — it changes `lib/permissions.ts` fundamentally.                                                               |
-| Характеристика_РНПАВ          | **Q2**                    | Needs the criteria → indicator map. Shortcut: ask for 3–4 more filled examples instead of going criterion by criterion.                                                                                                                                                    |
-| Публікації report             | Q7                        | Columns already known from the reference CSV. **Can be built now** and adjusted — Q7 only asks to confirm.                                                                                                                                                                 |
-| Підвищення кваліфікації form  | Q8                        | Smallest, standalone. Is it a separate «визнання результатів» step, or just how the evidence for 1.11/1.12 arrives?                                                                                                                                                        |
-| «Повідомити» without deleting | Q6                        | Likely an email plus a flag on the activity. Overlaps A5.                                                                                                                                                                                                                  |
-| Historical import 2021–2025   | Q9                        | Flat CSV into a read-only archive table. Needed before Характеристика is useful on day one.                                                                                                                                                                                |
-| Recruitment bonus             | Q3, Q4, Q10, Q12–Q16, Q19 | **Do not start** until Q4 — whether the bonus comes out of the department pool or on top — decides whether it couples to Розподіл ставок or stands alone.                                                                                                                  |
-
----
+| Work                          | State                                                                                                                                                                                                                                    |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Розподіл ставок**           | ✅ **unblocked.** Ставка is computed by the university's formula, not divided by hand. Head proposes → комісія approves. Needs two pieces of _data_, not decisions: the norms table (35 numbers) and this year's узгоджуючий коефіцієнт. |
+| **Head / dean scope**         | ✅ **unblocked.** A head sees their own кафедра fully; a dean the same across their faculty. Derived from `Department.headId` / `Faculty.deanId`, not a new Role.                                                                        |
+| **Характеристика_РНПАВ**      | ⚠️ **promoted.** It is п.38 of the Ліцензійні умови, and it is where `Кнпп` comes from — a dependency of the formula, not a later report. Still needs Q2 (which indicator fills which position) and Q9 (the five-year window).           |
+| Student recruitment           | ✅ no longer a separate feature — it is the formula's second term. Open: who enters the students (додаток 3 is co-signed by the приймальна комісія).                                                                                     |
+| Публікації report             | Q7 — columns already known; can be built and adjusted.                                                                                                                                                                                   |
+| Підвищення кваліфікації form  | Q8 — smallest, standalone.                                                                                                                                                                                                               |
+| «Повідомити» without deleting | Q6 — overlaps A5 (reminders).                                                                                                                                                                                                            |
+| Historical import 2021–2025   | Q9 — now doubly needed: the Характеристика window is five years.                                                                                                                                                                         |
 
 ## C. Before deployment
 
@@ -216,9 +216,12 @@ Recorded so nobody spends a second day on them.
 
 1. **A1 staff import** — unblocks judgement on everything else.
 2. **A2 error logging** — small, and you will want it the first time real users hit a bug.
-3. **A3 instructions** + **A4 bulk invite** + **A5 reminders** — the adoption set.
-4. Whatever the boss unblocks, starting with **Розподіл ставок**.
-5. **C deployment**, with the pilot before the rollout.
+3. **Характеристика / п.38** — the report they already produce by hand, and the source
+   of `Кнпп`. Build it before the formula needs it.
+4. **Розподіл ставок** — [`stake-distribution.md`](./stake-distribution.md).
+5. **A3 instructions** + **A4 bulk invite** + **A5 reminders** — the adoption set.
+6. **C deployment**, with the pilot before the rollout.
 
-The critical path has not changed: **staff import → Q1/Q5 answers → Розподіл
-ставок.** Everything in section B below Розподіл ставок can be reordered freely.
+The critical path is now: **staff import → Характеристика (it carries `Кнпп`) →
+Розподіл ставок.** Q1 and Q5 are answered, so nothing on that path waits on
+anybody. Everything else in section B can be reordered freely.
