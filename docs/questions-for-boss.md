@@ -122,3 +122,59 @@ computed number, or whether the computed value is always final.
 - Чи можна отримати список зарахованих здобувачів (наказ) у вигляді файла — щоб
   НПП обирали студента зі списку, а не вписували ПІБ вручну? Це прибрало б
   помилки в іменах і зробило б перевірку дублікатів точною.
+
+---
+
+# Questions about Характеристика (п.38 of the Ліцензійні умови)
+
+We mapped the 20 positions against the rating that already works: **14 of 20 fill
+themselves** from rating data. Since only **4 of 20** are needed for compliance,
+most staff should qualify with nothing typed by hand. Full mapping in
+[`kharakterystyka.md`](./kharakterystyka.md).
+
+## 6. Patents (position 2)
+
+Position 2 accepts one granted patent, **or** five declaration patents, **or**
+five copyright registration certificates. Our rating has three separate
+indicators: a granted patent, a _submitted application_, and a copyright
+registration.
+
+> **Питання.** Ми плануємо зараховувати отриманий патент і свідоцтва про
+> авторське право, але не зараховувати подану заявку. Чи правильно це?
+
+**Why it matters.** Counting applications would let an unsuccessful submission
+satisfy a licence position.
+
+## 7. International projects (position 10)
+
+Position 10 wants _participation in_ an international project. Our `3.3` is
+preparing and submitting a grant proposal to a competition — if it was not won,
+there is no project.
+
+> **Питання.** Чи зараховується подана (але не виграна) заявка на міжнародний
+> грант як «участь у міжнародному проєкті»?
+
+**Why it matters.** Small in practice — anyone whose only international activity
+is a failed application probably has four other positions anyway.
+
+## 8. Supervising school pupils (position 15)
+
+Position 15 is about **школярі** — pupils placing in МАН or school olympiads. The
+rating has no such indicator at all; it only counts здобувачі вищої освіти.
+
+> **Питання.** Чи займаються наші НПП підготовкою школярів до олімпіад та МАН?
+
+**Why it matters.** If they do, it likely deserves a rating indicator rather than
+a manual tick repeated every time.
+
+## 9. Practical experience (position 20)
+
+Position 20 wants ≥5 years of practical work in the speciality, **excluding**
+teaching and research. We store `pedagogicalExperience`, which is precisely what
+it excludes.
+
+> **Питання.** Звідки брати дані про практичний досвід за фахом? Чи є вони у
+> відділі кадрів?
+
+**Why it matters.** It is the one position that needs data the app has never
+collected.
