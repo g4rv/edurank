@@ -8,6 +8,7 @@ import type { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
 import { isUniqueViolation, parseDbError } from '@/lib/db-error';
 import { canActForDivision } from '@/lib/permissions';
+import { logError } from '@/lib/log';
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { computeScore } from '@/lib/rating/scoring';
@@ -68,7 +69,10 @@ export async function upsertDivisionActivity(
   let specs: ReturnType<typeof parseTypeSpecs>;
   try {
     specs = parseTypeSpecs(type);
-  } catch {
+  } catch (e) {
+    // Malformed evidenceFields/scoring JSON on the indicator row — a defect,
+    // not a user mistake, and «Невідомий показник» names neither which nor why.
+    logError('divisionData.parseSpecs', e, { entityId: type.id, code: type.code });
     return { error: 'Невідомий показник' };
   }
 
@@ -326,7 +330,8 @@ export async function batchUpsertDivisionActivity(
   let specs: ReturnType<typeof parseTypeSpecs>;
   try {
     specs = parseTypeSpecs(type);
-  } catch {
+  } catch (e) {
+    logError('divisionData.parseSpecsBatch', e, { entityId: type.id, code: type.code });
     return { error: 'Невідомий показник' };
   }
   const scorable = {

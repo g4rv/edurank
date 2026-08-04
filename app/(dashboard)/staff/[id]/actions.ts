@@ -28,6 +28,7 @@ import {
   USER_EDITABLE_STAFF_FIELDS,
 } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
+import { logError } from '@/lib/log';
 import { syncProfileDerived, PROFILE_DERIVED_STAFF_FIELDS } from '@/lib/rating/profile-derived';
 
 export type StaffArchiveState = { error: string } | { success: true; message: string };
@@ -388,7 +389,10 @@ export async function sendInvite(id: string): Promise<AccountActionState> {
 
   try {
     await issueAndEmailLink(staff, 'invite');
-  } catch {
+  } catch (e) {
+    // «Перевірте налаштування пошти» is the right thing to say and useless to
+    // act on — the reason SMTP refused only exists here.
+    logError('staff.sendInvite', e, { userId: session.user.id, entityId: id });
     return { error: 'Не вдалося надіслати лист. Перевірте налаштування пошти' };
   }
 
@@ -412,7 +416,8 @@ export async function resetPassword(id: string): Promise<AccountActionState> {
   // password nor a link — and for a lone admin, no way back in at all.
   try {
     await issueAndEmailLink(staff, 'reset');
-  } catch {
+  } catch (e) {
+    logError('staff.resetPassword', e, { userId: session.user.id, entityId: id });
     return { error: 'Не вдалося надіслати лист. Пароль не скинуто' };
   }
 

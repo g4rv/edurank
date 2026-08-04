@@ -5,6 +5,7 @@ import { issueActivationToken, ACTIVATION_TOKEN_DAYS } from '@/lib/activation';
 import { sendMail } from '@/lib/mail/mailer';
 import { passwordResetEmail } from '@/lib/mail/templates';
 import { forgotPasswordSchema, type ForgotPasswordSchema } from '@/validations/account';
+import { logError } from '@/lib/log';
 
 export type ForgotPasswordState = { error: string } | { success: true };
 
@@ -49,8 +50,11 @@ export async function requestPasswordReset(
           expiresDays: ACTIVATION_TOKEN_DAYS,
         }),
       });
-    } catch {
-      // Swallow: a mailer failure must look identical to an unknown email
+    } catch (e) {
+      // The CALLER still learns nothing — the answer must look identical whether
+      // or not the address exists. But it is logged: if SMTP is down, every
+      // reset silently fails and this is the only place that would show it.
+      logError('auth.requestPasswordReset', e, { entityId: staff.id });
     }
   }
 

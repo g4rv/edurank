@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import { requireAdmin, isEditorWritableField } from '@/lib/permissions';
+import { parseDbError } from '@/lib/db-error';
 
 export type PermissionToggleState = { error: string } | null;
 
@@ -54,8 +55,8 @@ export async function setFieldPermission(
     } else {
       await db.divisionFieldPermission.deleteMany({ where: { divisionId, fieldName } });
     }
-  } catch {
-    return { error: 'Помилка при збереженні' };
+  } catch (e) {
+    return { error: parseDbError(e, 'Помилка при збереженні', 'permissions.setFieldPermission') };
   }
 
   revalidatePath('/admin/permissions/field');

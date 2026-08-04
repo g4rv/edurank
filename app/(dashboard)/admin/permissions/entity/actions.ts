@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import { requireAdmin } from '@/lib/permissions';
+import { parseDbError } from '@/lib/db-error';
 import type { EntityType, EntityAction } from '@/lib/generated/prisma/client';
 
 export type PermissionToggleState = { error: string } | null;
@@ -26,8 +27,8 @@ export async function setEntityPermission(
     } else {
       await db.divisionEntityPermission.deleteMany({ where: { divisionId, entity, action } });
     }
-  } catch {
-    return { error: 'Помилка при збереженні' };
+  } catch (e) {
+    return { error: parseDbError(e, 'Помилка при збереженні', 'permissions.setEntityPermission') };
   }
 
   revalidatePath('/admin/permissions/entity');

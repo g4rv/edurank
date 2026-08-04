@@ -11,6 +11,7 @@ import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
 import { computeScore } from '@/lib/rating/scoring';
+import { logError } from '@/lib/log';
 
 export type CreateActivityState = { error: string } | { success: true; score: number };
 
@@ -66,7 +67,10 @@ export async function createActivity(
   let specs: ReturnType<typeof parseTypeSpecs>;
   try {
     specs = parseTypeSpecs(type);
-  } catch {
+  } catch (e) {
+    // Malformed evidenceFields/scoring JSON on the row — a broken indicator, not
+    // a user mistake. Without this the admin only hears «Невідомий показник».
+    logError('achievements.parseSpecs', e, { entityId: type.id, code: type.code });
     return { error: 'Невідомий показник' };
   }
 

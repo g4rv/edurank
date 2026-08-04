@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
+import { logError } from '@/lib/log';
 import { requireAdmin } from '@/lib/permissions';
 import { ACTIVITY_TYPES_2026, SECTION_TITLES } from '@/lib/rating/activity-types';
 import { dbSpecs } from '@/lib/rating/db-specs';
@@ -37,7 +38,7 @@ async function syncDerivedOrWarn(): Promise<{ synced: number; warning: string | 
   try {
     return { synced: await backfillProfileDerived(), warning: null };
   } catch (e) {
-    console.error('backfillProfileDerived failed', e);
+    logError('rating.backfillProfileDerived', e);
     return {
       synced: 0,
       warning: 'показники з профілю не оновлено — перевірте налаштування показників',
