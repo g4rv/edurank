@@ -275,6 +275,30 @@ Still open: where the ставки freed by a cap go (proposal: shown as
 field), and whether «excluded entirely» is still possible now that 0 is not a
 valid cap.
 
+## Rounding: ставки move in steps of 0.05
+
+Confirmed against the 2025 file, not assumed: **all 226 ставки and all 226
+`maxStake` values are exact multiples of 0.05**, forming a clean ladder
+`0 · 0.1 · 0.15 · 0.2 … 1.45 · 1.5`.
+
+The pool is **not** on that ladder — `Кст` is computed from student numbers, and
+two of the 25 drafts hold `2.16` and `7.56`. So the distributed total can never
+equal the pool exactly. Кафедра «Політології»: pool `2.16`, distributed `2.15`,
+`undistributed: 0.01` — a remainder smaller than the step and therefore
+impossible to hand out.
+
+Rules for the implementation:
+
+- a person's ставка is rounded to the nearest 0.05, halves going up
+  (`0.02 → 0.00`, `0.03 → 0.05`);
+- store integer hundredths and snap in multiples of 5, never round floats — the
+  old system's negative `undistributed` came from exactly this;
+- a remainder below 0.05 stays undistributed and is shown as such, rather than
+  being forced onto somebody.
+
+Still to confirm with the owner's boss: the rounding direction at an exact half,
+and that the sub-step remainder is genuinely meant to stay unallocated.
+
 ## Precision
 
 Their recorded per-student values are rounded to **3 decimals**, which for a

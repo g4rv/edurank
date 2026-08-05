@@ -127,6 +127,22 @@ system had an `undistributed` field, so it simply stayed for manual assignment.
 > **Питання.** Пропонуємо так само: залишок показується як «нерозподілено».
 > Підходить?
 
+## 9. Are ставки always multiples of 0.05?
+
+**What we found.** In the 2025 distribution **all 226 ставки and all 226 caps**
+are exact multiples of 0.05 — a clean ladder from 0 to 1.5. The pool is not: it
+is computed from student numbers, and two кафедри have `2.16` and `7.56`. So the
+distributed total can never match the pool exactly — «Політології» distributed
+2.15 of a 2.16 pool and recorded `undistributed: 0.01`, a remainder smaller than
+the step itself.
+
+> **Питання.** Чи правильно, що ставка завжди кратна 0,05, і при рівній відстані
+> округлюємо вгору? І чи залишок, менший за 0,05, просто лишається
+> нерозподіленим?
+
+**Why it matters.** It decides how every ставка is computed, and whether
+«нерозподілено» is a normal state rather than an error.
+
 ## Smaller ones, if there is time
 
 - **Соціальна робота (11.5) та Публічне управління (12.5)** не мають рядка в
@@ -145,7 +161,7 @@ themselves** from rating data. Since only **4 of 20** are needed for compliance,
 most staff should qualify with nothing typed by hand. Full mapping in
 [`kharakterystyka.md`](./kharakterystyka.md).
 
-## 9. Patents (position 2)
+## 10. Patents (position 2)
 
 Position 2 accepts one granted patent, **or** five declaration patents, **or**
 five copyright registration certificates. Our rating has three separate
@@ -158,7 +174,7 @@ registration.
 **Why it matters.** Counting applications would let an unsuccessful submission
 satisfy a licence position.
 
-## 10. International projects (position 10)
+## 11. International projects (position 10)
 
 Position 10 wants _participation in_ an international project. Our `3.3` is
 preparing and submitting a grant proposal to a competition — if it was not won,
@@ -170,7 +186,7 @@ there is no project.
 **Why it matters.** Small in practice — anyone whose only international activity
 is a failed application probably has four other positions anyway.
 
-## 11. Supervising school pupils (position 15)
+## 12. Supervising school pupils (position 15)
 
 Position 15 is about **школярі** — pupils placing in МАН or school olympiads. The
 rating has no such indicator at all; it only counts здобувачі вищої освіти.
@@ -180,7 +196,7 @@ rating has no such indicator at all; it only counts здобувачі вищо�
 **Why it matters.** If they do, it likely deserves a rating indicator rather than
 a manual tick repeated every time.
 
-## 12. Practical experience (position 20)
+## 13. Practical experience (position 20)
 
 Position 20 wants ≥5 years of practical work in the speciality, **excluding**
 teaching and research. We store `pedagogicalExperience`, which is precisely what
