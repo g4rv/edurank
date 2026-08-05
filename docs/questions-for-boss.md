@@ -62,28 +62,7 @@ whether it changes each year (then it is a yearly setting) or is fixed.
 
 ---
 
-## 3. One combination breaks the pattern
-
-**What we found.** Seven of the eight combinations are perfectly regular:
-магістр is always ×2 of бакалавр, and контракт is always ×0.175 of бюджет. One is
-not — бакалавр, заочна, контракт.
-
-|                 | бюджет | контракт                                  |
-| --------------- | ------ | ----------------------------------------- |
-| бакалавр заочна | 0.25   | **0.0375** — but the pattern says 0.04375 |
-| магістр заочна  | 0.5    | 0.0875 ✓                                  |
-
-> **Питання.** Майже всі значення у файлі узгоджені між собою: магістр завжди
-> вдвічі більший за бакалавра, а контракт — це 0,175 від бюджету. Але одна
-> комбінація випадає: бакалавр, заочна форма, контракт. Там записано 0,0375, хоча
-> за логікою інших клітинок мало б бути 0,04375. Це свідоме рішення чи помилка?
-
-**Why it matters.** Small, but it affects заочні контрактні students, and those
-are the largest group in the data (548 of 1389 records).
-
----
-
-## 4. Менеджмент — 12 or 13?
+## 3. Менеджмент — 12 or 13?
 
 **What we found.** Додаток 5 gives Менеджмент a норматив of **12**. Постанова КМУ
 №1134, which додаток 5 is based on, gives менеджмент **13**. Every other
@@ -98,7 +77,7 @@ so it changes ставки on that кафедра.
 
 ---
 
-## 5. Were the 2025 numbers adjusted by hand?
+## 4. Were the 2025 numbers adjusted by hand?
 
 **What we found.** In 2026 every value in a group is identical, which is what you
 expect from a calculation. In 2025 they vary — for бакалавр денна контракт
@@ -113,6 +92,38 @@ anywhere from 0.120 to 0.230 of the норматив, where 2026 is exactly 0.17
 computed number, or whether the computed value is always final.
 
 ---
+
+## 5. Can an НПП get zero?
+
+In 2025, **47 of 226 people (21 %)** got exactly 0, and 40 more got under 0.5 —
+39 % below the положення's stated minimum. The lowest per-person cap is now 0.1,
+so a zero can no longer be expressed as a cap.
+
+> **Питання.** Чи має залишатися можливість не дати НПП жодної ставки?
+
+## 6. What if a кафедра gets zero ставок?
+
+Three кафедри of 25 had `Кст = 0` in 2025 and everyone got nothing. Under the
+formula each person would land on the 0.5 floor, so the кафедра would distribute
+ставки it was never given.
+
+> **Питання.** Що система має робити, коли кафедрі не виділено жодної ставки?
+
+## 7. What if there are fewer ставки than people?
+
+With `Кст = 4` and `Кнпп = 8`, even an average person computes to 0.25 and is
+raised to 0.5 — so the кафедра's total exceeds its pool. The положення covers a
+_surplus_ (priority to гаранти) but says nothing about a shortfall.
+
+> **Питання.** Чи може сума ставок по кафедрі перевищувати Кст?
+
+## 8. Where does a capped person's remainder go?
+
+Formula says 1.2, the cap says 0.75 — the 0.45 has to go somewhere. The old
+system had an `undistributed` field, so it simply stayed for manual assignment.
+
+> **Питання.** Пропонуємо так само: залишок показується як «нерозподілено».
+> Підходить?
 
 ## Smaller ones, if there is time
 
@@ -132,7 +143,7 @@ themselves** from rating data. Since only **4 of 20** are needed for compliance,
 most staff should qualify with nothing typed by hand. Full mapping in
 [`kharakterystyka.md`](./kharakterystyka.md).
 
-## 6. Patents (position 2)
+## 9. Patents (position 2)
 
 Position 2 accepts one granted patent, **or** five declaration patents, **or**
 five copyright registration certificates. Our rating has three separate
@@ -145,7 +156,7 @@ registration.
 **Why it matters.** Counting applications would let an unsuccessful submission
 satisfy a licence position.
 
-## 7. International projects (position 10)
+## 10. International projects (position 10)
 
 Position 10 wants _participation in_ an international project. Our `3.3` is
 preparing and submitting a grant proposal to a competition — if it was not won,
@@ -157,7 +168,7 @@ there is no project.
 **Why it matters.** Small in practice — anyone whose only international activity
 is a failed application probably has four other positions anyway.
 
-## 8. Supervising school pupils (position 15)
+## 11. Supervising school pupils (position 15)
 
 Position 15 is about **школярі** — pupils placing in МАН or school olympiads. The
 rating has no such indicator at all; it only counts здобувачі вищої освіти.
@@ -167,7 +178,7 @@ rating has no such indicator at all; it only counts здобувачі вищо�
 **Why it matters.** If they do, it likely deserves a rating indicator rather than
 a manual tick repeated every time.
 
-## 9. Practical experience (position 20)
+## 12. Practical experience (position 20)
 
 Position 20 wants ≥5 years of practical work in the speciality, **excluding**
 teaching and research. We store `pedagogicalExperience`, which is precisely what

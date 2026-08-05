@@ -235,6 +235,49 @@ which we already track as rating indicator 1.7 (`program_guarantor`).
 
 ---
 
+## Per-person caps (decided 2026-08-05)
+
+The formula alone cannot produce what the university actually did. Checking the
+2025 distribution (`Розподіл ставок - 2025.csv`, 226 people, 25 кафедр) against
+it: only 18 % land within 0.1 of the formula, median gap 0.30. The reasons are
+three mechanisms the формула never mentions:
+
+| Found in 2025                              | Count                       | The formula                      |
+| ------------------------------------------ | --------------------------- | -------------------------------- |
+| ставка = 0                                 | 47 (21 %)                   | cannot go below 0.5              |
+| ставка between 0 and 0.5                   | 40 (18 %)                   | same                             |
+| sitting exactly on a per-person `maxStake` | 80 (35 %)                   | has no per-person cap            |
+| exceeding `maxStake`                       | **0** — the cap is absolute | —                                |
+| кафедра with `Кст = 0`                     | 3 of 25                     | everyone would land on the floor |
+
+2025 almost certainly predates the formula (the положення is 2024, and the 2026
+recruitment values are exactly computed while 2025's vary by hand). But the
+mechanisms are real and the owner has confirmed they stay:
+
+- **Every НПП has an editable min and max**, applied after the formula:
+  `final = clamp(Vc, person.min, person.max)`.
+- **The lowest a cap may go is 0.1**, not 0 — a deliberate override of the
+  положення's «менше 0,5 → встановлюється 0,5».
+- **Only ADMIN edits caps.** The завідувач distributes inside limits they cannot
+  change, which is what stops a head capping colleagues down and themselves up.
+
+Still open: where the ставки freed by a cap go (proposal: shown as
+«нерозподілено» for the head to place, matching the old system's `undistributed`
+field), and whether «excluded entirely» is still possible now that 0 is not a
+valid cap.
+
+## Precision
+
+Their recorded per-student values are rounded to **3 decimals**, which for a
+заочний контрактний здобувач (~0.004) leaves barely one significant digit.
+Compute at full precision and round only for display — summing rounded values is
+what produced the old system's negative «undistributed».
+
+This also retracts an earlier finding of ours: a supposed anomaly where the
+contract coefficient looked like 0.15 for бакалавр/заочна instead of 0.175. At
+that precision the data cannot tell the two apart, and the apparent pattern came
+from база 12.5 specialities dominating the sample. **Assume 0.175 everywhere.**
+
 ## Data model sketch
 
 Rate is stored as **integer hundredths**, never a float — the old system's
@@ -257,6 +300,8 @@ StudentClaim      { staffId, year,                    // who claims, which year
                     rejectReason?,
                     confirmedById?, confirmedAt?,
                     createdAt }                        // «who was first» — evidence
+
+StaffStakeLimits  { staffId, year, minHundredths, maxHundredths }  // ADMIN only
 
 StakeDistribution { departmentId, year,
                     status: DRAFT | SUBMITTED | APPROVED,
