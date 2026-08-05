@@ -238,17 +238,26 @@ which we already track as rating indicator 1.7 (`program_guarantor`).
 ## Per-person caps (decided 2026-08-05)
 
 The formula alone cannot produce what the university actually did. Checking the
-2025 distribution (`Розподіл ставок - 2025.csv`, 226 people, 25 кафедр) against
-it: only 18 % land within 0.1 of the formula, median gap 0.30. The reasons are
-three mechanisms the формула never mentions:
+2025 distribution (`Розподіл ставок - 2025.csv`) against it: fewer than a fifth
+of people land within 0.1 of the formula, median gap 0.30.
+
+That file holds **25 saved drafts but only 20 кафедри** — five appear twice, once
+from the завідувач and once from Дудар. Deduplicated, it covers **175 people**,
+and three mechanisms explain the gap, none of which the формула mentions:
 
 | Found in 2025                              | Count                       | The formula                      |
 | ------------------------------------------ | --------------------------- | -------------------------------- |
-| ставка = 0                                 | 47 (21 %)                   | cannot go below 0.5              |
-| ставка between 0 and 0.5                   | 40 (18 %)                   | same                             |
-| sitting exactly on a per-person `maxStake` | 80 (35 %)                   | has no per-person cap            |
+| ставка = 0                                 | 37 (21 %)                   | cannot go below 0.5              |
+| ставка between 0 and 0.5                   | 34 (19 %)                   | same                             |
+| sitting exactly on a per-person `maxStake` | 68 (39 %)                   | has no per-person cap            |
 | exceeding `maxStake`                       | **0** — the cap is absolute | —                                |
-| кафедра with `Кст = 0`                     | 3 of 25                     | everyone would land on the floor |
+| кафедра with `Кст = 0`                     | 2 of 20                     | everyone would land on the floor |
+
+A caution about that last row: a third кафедра also shows `Кст = 0`, but it has
+a second draft from Дудар with `Кст = 5` — so the zero is an **unfilled draft**,
+not a decision. In the old data «never filled in» and «given nothing» look
+identical. That is an argument for the DRAFT / SUBMITTED / APPROVED status
+already decided: an untouched draft will never be read as a refusal.
 
 2025 almost certainly predates the formula (the положення is 2024, and the 2026
 recruitment values are exactly computed while 2025's vary by hand). But the

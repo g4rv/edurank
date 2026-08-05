@@ -95,15 +95,17 @@ computed number, or whether the computed value is always final.
 
 ## 5. Can an НПП get zero?
 
-In 2025, **47 of 226 people (21 %)** got exactly 0, and 40 more got under 0.5 —
-39 % below the положення's stated minimum. The lowest per-person cap is now 0.1,
+In 2025, **37 of 175 people (21 %)** got exactly 0, and 34 more got under 0.5 —
+41 % below the положення's stated minimum. The lowest per-person cap is now 0.1,
 so a zero can no longer be expressed as a cap.
 
 > **Питання.** Чи має залишатися можливість не дати НПП жодної ставки?
 
 ## 6. What if a кафедра gets zero ставок?
 
-Three кафедри of 25 had `Кст = 0` in 2025 and everyone got nothing. Under the
+Two кафедри of 20 had `Кст = 0` in 2025 and everyone got nothing. (A third
+shows zero too, but has a second draft with `Кст = 5` — that zero is an unfilled
+draft, not a decision.) Under the
 formula each person would land on the 0.5 floor, so the кафедра would distribute
 ставки it was never given.
 
