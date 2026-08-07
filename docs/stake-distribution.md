@@ -22,10 +22,16 @@ deviations from it with a written justification.
 ```
       Rнпп     Кст      ⎛ n  Nзд      n  Nзз ⎞
 Vc = 0.5 ⋅ ──── ⋅ ──── + ⎜ Σ ────  +  Σ ──── ⎟
-     <Rк>    Кнпп     ⎝i=1 2·Nд    i=1  Nз  ⎠
+     <Rк>    Кнпп     ⎝i=1  Nд     i=1  Nз  ⎠
 
-0.5 ≤ Vc ≤ 1.5      below 0.5 → set to 0.5
+0.1 ≤ Vc            per-person floor, see «Nobody gets zero» below
 ```
+
+**This is the corrected formula, not the положення's.** The положення prints
+`Nзд / (2·Nд)` for денна and clamps `0.5 ≤ Vc ≤ 1.5`. Both are wrong and the
+owner confirmed it: the денна divisor is **`Nд`**, with no factor of 2 (2026-08-07),
+and the floor is **0.1**, not 0.5 (2026-08-06). Do not "restore" either from the
+PDF.
 
 **Two terms, computed at different times.** The first needs the rating year to be
 closed; the second needs the admission campaign to be over. The model must store
@@ -40,6 +46,43 @@ them separately and combine, not compute once.
 | `Кнпп`        | staff on the кафедра meeting п.37 + ≥4 of п.38 over 5 years | from the Характеристика data (see below)  |
 | `Nзд` / `Nзз` | students this person recruited — денна / заочна             | new records, one per student              |
 | `Nд` / `Nз`   | норматив здобувачів на 1 ставку                             | norms table, per speciality per year      |
+
+### The pool bounds the first term only (decided 2026-08-07)
+
+This is the single most load-bearing fact about the whole feature, and the
+положення does not say it — it prints one `Vc` and leaves the impression that the
+pool covers all of it. It does not:
+
+```
+term 1  — the pool share       Σ over the кафедра = Кст     HARD CEILING
+term 2  — the recruitment bonus  paid ON TOP of Кст          not bounded by it
+```
+
+So the order of operations is:
+
+1. **ADMIN/проректор sets `Кст`** — the кафедра's pool.
+2. **The formula spreads that pool**, `0.5 · (Rнпп/<Rк>) · (Кст/Кнпп)` per person.
+   This is the _initial, fair_ split: proportional to rating, nobody's opinion in it.
+3. **The head adjusts by hand** who gets what — and **the sum may never exceed
+   `Кст`**. This is a hard block, not a warning: the head cannot save or submit a
+   distribution that overspends the pool.
+4. **Recruitment bonuses are added afterwards, outside the pool.** A person who
+   brought in students gets their `Σ Nзд/Nд + Σ Nзз/Nз` on top. This money does
+   not come out of `Кст` and does not compete with colleagues.
+
+**Consequence — a person's total ставка can exceed their pool share, and the
+кафедра's total can exceed `Кст`, but only ever through term 2.** Never through
+the head's pen. If you are looking at a sum bigger than `Кст`, the difference must
+be exactly the recruitment bonuses; anything else is a bug.
+
+This retracts the earlier open question «чи може сума перевищувати Кст», which
+was malformed — it asked about one number where there are two, and the answer
+differs per term.
+
+**Consequence for the UI.** The grid needs two columns, not one: the pool share
+(editable by the head, with a live «нерозподілено» against `Кст`) and the
+recruitment bonus (read-only, computed from confirmed students). A single merged
+number would make the hard ceiling impossible to enforce or explain.
 
 ### The norms table is one number per speciality
 
@@ -57,11 +100,13 @@ foreign full-time students. None apply here today — no evening form, no
 спеціаліст level — but the model should not make them impossible to add.
 
 Their base numbers match постанова 1134's 2004/05 column throughout, with two
-exceptions worth raising with the boss, **not** worth "fixing" in code:
+exceptions — neither of them a bug to "fix" in code:
 
-- **Менеджмент — 12 in додаток 5, 13 in the law.** Either a deliberate вчена рада
-  decision or a typo. It matters: a smaller norm makes each recruited student
-  worth more.
+- **Менеджмент — 12 in додаток 5, 13 in the law. Use 12** (confirmed 2026-08-07).
+  Додаток 5 wins over постанова 1134 where they disagree. The norm is a per-year
+  setting anyway, so this is seed data, not a constant — but seed it with 12 and
+  do not "correct" it against the law later. A smaller norm makes each recruited
+  student worth more, so this is not cosmetic.
 - **Соціальна робота (11.5) and Публічне управління (12.5) have no row in the
   law** — they are post-2015 specialities, assigned by analogy.
 
@@ -73,8 +118,8 @@ approves.
 
 Both contract and state-funded, with contract multiplied by the **узгоджуючий
 коефіцієнт** that the вчена рада sets each year (додаток 5 footnote). The
-coefficient's value is not in the положення — it becomes a per-year setting, and
-we need this year's number before the first real calculation.
+coefficient's value is not in the положення; for 2026 it is **0.175**, confirmed
+by the owner on 2026-08-07. It stays a per-year setting — confirmed, not frozen.
 
 ### How a recruited student gets into the system (decided 2026-08-04)
 
@@ -138,21 +183,36 @@ Read off that table:
   (`Nд` halved → contribution doubled).
 - **Денна does not.** Budget денна students are recorded at `1/Nд`, exactly twice
   what `Nзд/(2·Nд)` produces. The factor of 2 is simply not applied in practice.
-- **The узгоджуючий коефіцієнт looks like 0.175** — a contract student is worth
-  17.5% of a budget one in six of the eight cells. That answers a value the
-  положення never states.
 - **One cell breaks the pattern**: бакалавр/заочна/контракт is 0.0375 where the
   rest of the table implies 0.04375.
 - **2025 was adjusted by hand, 2026 was not**: in 2025 «бакалавр денна контракт»
   ranges 0.120–0.230; in 2026 every value is exactly 0.175.
 
-**Consequence for the model.** Do not hardcode the положення's factors and do not
-hardcode the observed ones either. The per-form, per-degree and per-funding
-multipliers become **per-year settings**, seeded with the values above. Then
-whichever the вчена рада confirms, the app follows without a code change.
+### The measured values are the correct ones (confirmed 2026-08-07)
 
-All five points are written up for the owner in
-[`questions-for-boss-ua.md`](./questions-for-boss-ua.md).
+The owner confirmed both open points, and in the same direction the data pointed:
+the положення is wrong and the spreadsheets are right.
+
+```
+per student = multiplier / base(speciality)          budget
+            = multiplier / base(speciality) × 0.175  contract
+```
+
+Worked through on the example given — a speciality with `base = 10.5`:
+
+| Здобувач                | Значення                 |
+| ----------------------- | ------------------------ |
+| бакалавр денна бюджет   | `1/10.5` = 0.095         |
+| бакалавр денна контракт | `1/10.5 × 0.175` = 0.017 |
+
+So: **no factor of 2 anywhere**, and the **узгоджуючий коефіцієнт is 0.175**,
+applied as a plain multiplier on the budget value. The remaining multipliers
+(магістр ×2, заочна ×0.25) already agreed with the положення and are unchanged.
+The stray 0.0375 cell stays a rounding artefact, not a rule — see «Precision».
+
+**Consequence for the model is unchanged.** These are still **per-year settings**,
+seeded with the values above, not constants in code. They are confirmed for 2026,
+not fixed forever, and the вчена рада can move them.
 
 **Сумісництво (Q12) — assumed, not confirmed.** A student lands in the recruiter's
 **primary** кафедра, and a сумісник gets one Vc, computed on their primary кафедра
@@ -272,8 +332,57 @@ mechanisms are real and the owner has confirmed they stay:
 
 Still open: where the ставки freed by a cap go (proposal: shown as
 «нерозподілено» for the head to place, matching the old system's `undistributed`
-field), and whether «excluded entirely» is still possible now that 0 is not a
-valid cap.
+field).
+
+## Nobody gets zero, and the pool must be able to pay for that (decided 2026-08-06)
+
+Two answers that close the two blocking questions about zero.
+
+**No НПП may end on 0.** The floor of 0.1 is absolute — there is no «excluded
+entirely» route, no zero cap, no leaving a person out of the distribution to the
+same effect. Every person on the кафедра receives at least 0.1.
+
+**Therefore `Кст = 0` cannot be entered at all.** A pool that cannot pay the
+floor for everyone is not a decision, it is bad input, and the system rejects it
+when the проректор/ADMIN types it:
+
+```
+Кст ≥ 0.1 × (people on the кафедра)
+```
+
+10 people → the smallest permitted `Кст` is 1.0; 25 people → 2.5. The 2025 file's
+two кафедри with `Кст = 0` become impossible to reproduce, which is the point:
+in that data a zero pool and an untouched draft were indistinguishable, and both
+zeroed 100 % of the кафедра.
+
+Consequences to carry into the implementation:
+
+- The floor is a **validation on the Кст input**, not a silent correction. The
+  message must say what the minimum is and why (`N осіб × 0,1`), so the person
+  entering it knows whether to raise the pool or check the roster.
+- It moves with the roster. Archiving a person lowers the minimum; adding one
+  raises it and can put an already-saved `Кст` below the floor — that has to
+  surface on the кафедра's distribution page, not fail silently at approval time.
+- It largely dissolves the old «ставок менше, ніж людей» worry. With a per-person
+  floor of 0.1 rather than the положення's 0.5, `Кст = 4` across 8 people needs
+  only 0.8 — the pool can no longer be structurally too small to satisfy the
+  floor, because the floor is what defines the pool's minimum.
+
+**`N` is every НПП on the кафедра, not `Кнпп`** (confirmed 2026-08-07). The two
+counts differ — `Кнпп` is only those meeting п.37 and ≥4 of п.38 — and it is the
+wider one that applies here. The stated reason is the rule's whole purpose: the
+pool must be big enough that **everyone can get a working rate**, and staff who
+do not qualify under п.38 still receive a row in the distribution. So `N` is the
+roster count, exactly the set of people the grid renders.
+
+Note the two counts play different roles and must not be conflated in code:
+`Кнпп` is a **divisor inside the formula** (it scales each person's share);
+`N` is a **validation bound on the input** (it sets the pool's minimum).
+
+**The bound is one-sided.** `Кст` may freely exceed `N` — a кафедра of 20 people
+can hold a pool of 25 ставок (confirmed 2026-08-07). There is no ceiling tied to
+headcount, and an average above 1.0 ставка per person is normal, not an error to
+warn about. Only the floor is enforced.
 
 ## Rounding: ставки move in steps of 0.05
 

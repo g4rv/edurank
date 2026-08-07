@@ -70,17 +70,76 @@ already store what it needs:
 Since only **≥4 of 20** are needed and 14 auto-fill, most staff should qualify
 without anybody typing anything.
 
+## Applications never count (decided 2026-08-07)
+
+**Only a completed, defined achievement goes into the Характеристика.** An
+application — for anything — is not one. The owner's words: «we accept only
+defined achievements, we don't put applications in the Характеристика file».
+
+That is a single rule covering both of the questions we had open, and it should
+be applied to any future indicator of the same shape, not just these two:
+
+| Position | Counts                                                                           | Does **not** count                                                  |
+| -------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **п.2**  | `3.25 patent_granted`, `3.25 copyright_registration`                             | `3.25 patent_application` — а submitted application is not a patent |
+| **п.10** | `3.1 intl_grant_won`, `3.2 intl_program_participation`, `3.6 intl_open_lectures` | `3.3 intl_grant_application` — an unwon proposal is not a project   |
+
+The indicators themselves are unaffected: an application still **scores points in
+the rating**, because the rating rewards the effort. It just does not satisfy a
+п.38 position. Two different questions about the same row, and the code must keep
+them separate — the Характеристика reads a filtered subset of the activities, not
+all of them.
+
+## Where the first Характеристики come from (decided 2026-08-07)
+
+There are **no existing Характеристики to import**. The plan is the other way
+round: gather the historical rating data the university already holds, import
+that, and **generate the Характеристики from it**. Nobody retypes twenty
+positions for ~300 people.
+
+This makes the п.38 mapping above load-bearing rather than a convenience — it is
+the only thing that turns the imported history into a filled document.
+
+**But the history is mostly totals, so it mostly cannot.** Asked what the old
+Excel files actually contain, the owner's answer was «most of data is results
+only» — a score per person per year, with no row per achievement. Publications
+are the exception: per-item records may exist for those.
+
+That splits the plan in two, and the split is not a detail:
+
+| Source data                   | What we can do                                                  |
+| ----------------------------- | --------------------------------------------------------------- |
+| Publications, if per-item     | Import as activities → **п.1, п.12 auto-fill**, maybe п.3       |
+| Everything else — totals only | Import as historical scores only. **No позиція can be derived** |
+
+A yearly total tells us a person scored 1250 points. It cannot tell us whether
+five of those were Scopus articles, whether a monograph reached ≥5 авторських
+аркушів (that needs `pages` and `coAuthors`), or whether five деклараційні
+патенти exist separately from one granted one. The thresholds in «Thresholds the
+data can actually check» all need the individual rows.
+
+**So the first Характеристика is largely manual, and that is now expected, not a
+failure.** The realistic shape:
+
+- import per-item publications where they exist, and auto-fill what they cover;
+- import the remaining years as totals, for rating history and charts only;
+- everything else on the first Характеристика is typed once, by hand;
+- from the first live year onward the system accumulates its own rows, and the
+  five-year window fills itself — the manual pass is a one-time cost, not annual.
+
+Worth checking when the files arrive: whether anything besides publications kept
+per-item rows. Every category that did is a позиція nobody has to type.
+
+**Timing: not before ~2026-08-12.** The source files are on a local disk the
+owner cannot reach while working remotely. Format is Excel throughout. So the
+importer can be built and tested against invented data now, but its real shape is
+not confirmed until the files arrive — expect it to need adjusting, and do not
+treat the first import run as a migration that only happens once.
+
 ## Open — asked, not yet answered
 
 Recorded in [questions-for-boss-ua.md](./questions-for-boss-ua.md):
 
-- **п.2** — do a submitted patent application (`3.25 patent_application`) and the
-  «5 деклараційних патентів» / «5 свідоцтв» thresholds work the way we read them?
-  Current plan: count granted patents and copyright registrations, **not**
-  applications.
-- **п.10** — does preparing and submitting an international grant proposal
-  (`3.3 intl_grant_application`) count as «участь у проєкті»? Current plan: no —
-  an unsuccessful application is not a project.
 - **п.15** — do НПП here supervise школярі at all? If yes it probably deserves a
   rating indicator rather than a manual tick.
 - **п.20** — where does «досвід практичної роботи за фахом» come from? Кадри?
