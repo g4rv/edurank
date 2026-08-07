@@ -23,6 +23,9 @@ export async function listDivisionActivityTypes(divisionId: string) {
       itemNumber: true,
       coefficientNote: true,
       evidenceFields: true,
+      // Same reason as getActiveTemplate: the grid's schema applies the rule's
+      // own checks, so it needs the rule and not only the fields.
+      scoring: true,
       entityFirstEntry: true,
       section: { select: { number: true } },
     },

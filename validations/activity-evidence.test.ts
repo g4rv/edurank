@@ -123,9 +123,10 @@ describe('schema → scoring integration (all 67 types)', () => {
     }
   });
 
-  // Item 5.1 is gated twice over: the schema refuses an incomplete course, and
-  // the scoring engine still returns 0 for one — the second guard matters
-  // because computeScore is also reachable from paths that skip the form.
+  // Item 5.1 pays per material, so any subset scores — except the empty one.
+  // Nothing ticked sums to 0, and a saved 0 would read as «Зараховано» beside
+  // no points at all, so the schema refuses it while the engine still computes
+  // it (computeScore is reachable from paths that skip the form).
   it('moodle full sample scores mode points', () => {
     const schema = schemaFor('moodle_course');
     const full = schema.parse(sampleEvidence(EVIDENCE_FIELDS.moodle_course));
@@ -147,6 +148,29 @@ describe('schema → scoring integration (all 67 types)', () => {
     const full = schemaFor('moodle_course').parse(sampleEvidence(EVIDENCE_FIELDS.moodle_course));
     // «Презентації» is worth 30 of the 150 available for розроблення
     expect(score('moodle_course', { ...full, presentations: false }).score).toBe(120);
+  });
+
+  it('refuses a course with no material ticked at all', () => {
+    const schema = schemaFor('moodle_course');
+    const none = { ...sampleEvidence(EVIDENCE_FIELDS.moodle_course) };
+    for (const material of MOODLE_MATERIALS) none[material] = false;
+
+    const result = schema.safeParse(none);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain('хоча б один');
+      // Lands on the first box so the grouped set shows one message
+      expect(result.error.issues[0].path).toEqual([MOODLE_MATERIALS[0]]);
+    }
+  });
+
+  it('accepts a course with a single material ticked', () => {
+    const schema = schemaFor('moodle_course');
+    for (const material of MOODLE_MATERIALS) {
+      const one = { ...sampleEvidence(EVIDENCE_FIELDS.moodle_course) };
+      for (const other of MOODLE_MATERIALS) one[other] = other === material;
+      expect(schema.safeParse(one).success, material).toBe(true);
+    }
   });
 });
 

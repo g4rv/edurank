@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
+import type { ScoringSpec } from '@/lib/rating/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +25,8 @@ export interface EntryGridType {
   label: string;
   coefficientNote: string | null;
   fields: EvidenceField[];
+  /** Needed for the rule-level checks, e.g. CHECK_SUM's «tick at least one» */
+  scoring: ScoringSpec;
 }
 
 export interface EntryGridStaff {
@@ -195,7 +198,7 @@ function CellForm({
 }) {
   const [isPending, startTransition] = useTransition();
   // useState initializer: fields are static for this mount (form remounts per open)
-  const [schema] = useState(() => schemaForFields(type.fields));
+  const [schema] = useState(() => schemaForFields(type.fields, type.scoring));
 
   const {
     register,

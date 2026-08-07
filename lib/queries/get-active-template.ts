@@ -18,6 +18,10 @@ export async function getActiveTemplate() {
           coefficient: true,
           coefficientNote: true,
           evidenceFields: true,
+          // The form's schema needs the rule too, not just the fields — a
+          // CHECK_SUM type refuses a submission with nothing ticked, and
+          // without this the check would only fire server-side.
+          scoring: true,
           section: { select: { number: true, title: true } },
         },
         orderBy: [{ section: { number: 'asc' } }, { order: 'asc' }],

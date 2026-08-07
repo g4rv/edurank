@@ -121,7 +121,7 @@ function DebugForm({ type }: { type: DebugType }) {
   // where that must be visible instead of throwing.
   const [scoreError, setScoreError] = useState<string | null>(null);
   // useState initializer: fields are static for this mount (form remounts per type)
-  const [schema] = useState(() => schemaForFields(type.fields));
+  const [schema] = useState(() => schemaForFields(type.fields, type.scoring));
 
   const {
     register,

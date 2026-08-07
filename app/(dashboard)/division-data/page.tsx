@@ -13,12 +13,20 @@ import { DivisionSelect } from '@/components/rating/division-select';
 import { DivisionEntryGrid, type EntryGridCell } from '@/components/rating/division-entry-grid';
 import { EntityEntryDialog } from '@/components/rating/entity-entry-dialog';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
-import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
+import { evidenceFieldsSpecSchema, scoringSpecSchema } from '@/validations/activity-type-spec';
+import type { ScoringSpec } from '@/lib/rating/scoring';
 
 /** Field specs off the row's JSON; a malformed row degrades to an empty form */
 function fieldsOf(activityType: { evidenceFields: unknown }): EvidenceField[] {
   const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
   return parsed.success ? parsed.data : [];
+}
+
+/** The scoring rule, for the form's rule-level checks. A malformed row falls
+ *  back to FIXED, which adds no extra rule — the field checks still run. */
+function scoringOf(activityType: { scoring: unknown }): ScoringSpec {
+  const parsed = scoringSpecSchema.safeParse(activityType.scoring);
+  return parsed.success ? parsed.data : { kind: 'FIXED' };
 }
 
 function EmptyState({ message }: { message: string }) {
@@ -88,6 +96,7 @@ export default async function DivisionDataPage({
     label: t.label,
     coefficientNote: t.coefficientNote,
     fields: fieldsOf(t),
+    scoring: scoringOf(t),
   }));
   const gridStaff = staff.map((s) => ({
     id: s.id,

@@ -10,12 +10,20 @@ import { YearSelect } from '@/components/rating/year-select';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { toAchievementGroups } from '@/lib/rating/achievement-rows';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
-import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
+import { evidenceFieldsSpecSchema, scoringSpecSchema } from '@/validations/activity-type-spec';
+import type { ScoringSpec } from '@/lib/rating/scoring';
 
 /** Field specs off the row's JSON; a malformed row degrades to an empty form */
 function fieldsOf(activityType: { evidenceFields: unknown }): EvidenceField[] {
   const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
   return parsed.success ? parsed.data : [];
+}
+
+/** The scoring rule, for the form's rule-level checks. A malformed row falls
+ *  back to FIXED, which adds no extra rule — the field checks still run. */
+function scoringOf(activityType: { scoring: unknown }): ScoringSpec {
+  const parsed = scoringSpecSchema.safeParse(activityType.scoring);
+  return parsed.success ? parsed.data : { kind: 'FIXED' };
 }
 
 const SECTION_NUMBERS = [1, 2, 3, 4, 5];
@@ -75,6 +83,7 @@ export default async function AchievementsSectionPage({
           itemNumber: t.itemNumber,
           coefficientNote: t.coefficientNote,
           fields: fieldsOf(t),
+          scoring: scoringOf(t),
         }))
     : [];
 

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
+import type { ScoringSpec } from '@/lib/rating/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { compareItemNumbers } from '@/lib/rating/achievement-rows';
 
@@ -26,6 +27,8 @@ export interface SubmittableType {
   itemNumber: string;
   coefficientNote: string | null;
   fields: EvidenceField[];
+  /** Needed for the rule-level checks, e.g. CHECK_SUM's «tick at least one» */
+  scoring: ScoringSpec;
 }
 
 // One section's worth of submittable types — the section itself is fixed by the route.
@@ -84,7 +87,7 @@ export function AddAchievementForm({ types: unsortedTypes }: { types: Submittabl
 function EvidenceForm({ type, onDone }: { type: SubmittableType; onDone: () => void }) {
   const [isPending, startTransition] = useTransition();
   // useState initializer: fields are static for this mount (form remounts per type)
-  const [schema] = useState(() => schemaForFields(type.fields));
+  const [schema] = useState(() => schemaForFields(type.fields, type.scoring));
 
   const {
     register,

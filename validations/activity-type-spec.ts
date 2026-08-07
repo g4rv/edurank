@@ -93,7 +93,7 @@ export function parseTypeSpecs(row: {
 }): ParsedTypeSpecs {
   const fields = evidenceFieldsSpecSchema.parse(row.evidenceFields);
   const scoring = scoringSpecSchema.parse(row.scoring);
-  return { fields, scoring, schema: schemaForFields(fields) };
+  return { fields, scoring, schema: schemaForFields(fields, scoring) };
 }
 
 // ─── What a scoring rule needs from the fields ───────────────────────────────

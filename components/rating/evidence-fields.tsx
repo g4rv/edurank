@@ -232,8 +232,10 @@ export function EvidenceFields({
       {toRenderItems(fields).map((item) => {
         if (item.kind === 'single') return renderField(item.field);
 
-        // The set fails as one, so it gets one heading and one message; the
-        // individual boxes only turn red to show which are still missing.
+        // The set fails as one, so it gets one heading and one message.
+        // No individual box is marked: a rule like «tick at least one» has no
+        // particular box at fault, and reddening whichever one the error
+        // happens to be attached to reads as «this is the one you must tick».
         const groupError = item.fields
           .map((f) => errors[f.name] as { message?: string } | undefined)
           .find(Boolean);
@@ -243,9 +245,7 @@ export function EvidenceFields({
             <FieldLabel>{item.title}</FieldLabel>
             <div className="flex flex-col gap-2">
               {item.fields.map((f) =>
-                f.kind === 'checkbox' ? (
-                  <div key={f.name}>{checkboxRow(f, !!errors[f.name])}</div>
-                ) : null
+                f.kind === 'checkbox' ? <div key={f.name}>{checkboxRow(f, false)}</div> : null
               )}
             </div>
             <FieldError errors={groupError ? [groupError] : []} />

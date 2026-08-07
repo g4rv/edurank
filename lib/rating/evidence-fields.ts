@@ -547,10 +547,10 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       [
         ['workProgram', 'Робоча програма', 15, 5],
         ['syllabus', 'Силабус', 5, 5],
-        ['tests', 'Тестові завдання', 20, 10],
+        ['tests', 'Тестові завдання (питання до тестів)', 20, 10],
         ['lectureNotes', 'Конспекти лекцій', 50, 10],
         ['presentations', 'Презентації', 30, 10],
-        ['methodicalMaterials', 'Основні методичні матеріали', 30, 10],
+        ['methodicalMaterials', 'Методичні матеріали для практичних робіт', 30, 10],
       ] as const
     ).map(([name, label, development, update]) =>
       checkbox(name, label, {

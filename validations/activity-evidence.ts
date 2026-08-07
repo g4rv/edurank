@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import type { ScoringSpec } from '@/lib/rating/scoring';
 import { isValidIsbn } from '@/lib/isbn';
 import { isValidDoi, normalizeDoi } from '@/lib/doi';
 import { hasDomainHost, hostMatches, withProtocol } from '@/lib/link-hosts';
@@ -91,10 +92,33 @@ function fieldSchema(f: EvidenceField): z.ZodType {
 }
 
 /** Zod schema for an arbitrary subset of evidence fields (e.g. the shared
- *  fields of an entity-first group entry, validated apart from the role) */
+ *  fields of an entity-first group entry, validated apart from the role).
+ *  Pass `scoring` to also apply the rule-level checks — without it only the
+ *  per-field ones run, which is what a partial subset wants. */
 export function schemaForFields(
-  fields: readonly EvidenceField[]
+  fields: readonly EvidenceField[],
+  scoring?: ScoringSpec
 ): z.ZodType<Record<string, unknown>> {
   const shape = Object.fromEntries(fields.map((f) => [f.name, fieldSchema(f)]));
-  return z.strictObject(shape) as unknown as z.ZodType<Record<string, unknown>>;
+  const object = z.strictObject(shape);
+
+  // CHECK_SUM with nothing ticked sums to 0. Saving that would record a claim
+  // of no work at all — «Зараховано» beside a score of 0, which reads as a
+  // system fault to the person and to anyone moderating later. Refuse it.
+  // The message lands on the first scored box, which is where the renderer
+  // looks for a grouped set's single error.
+  if (scoring?.kind === 'CHECK_SUM') {
+    const scored = fields.filter((f) => f.kind === 'checkbox' && f.points !== undefined);
+    if (scored.length > 0) {
+      return object.refine(
+        (v) => scored.some((f) => (v as Record<string, unknown>)[f.name] === true),
+        {
+          error: 'Позначте хоча б один пункт — інакше бали не нараховуються',
+          path: [scored[0].name],
+        }
+      ) as unknown as z.ZodType<Record<string, unknown>>;
+    }
+  }
+
+  return object as unknown as z.ZodType<Record<string, unknown>>;
 }

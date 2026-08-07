@@ -200,6 +200,6 @@ export function catalogueType(code: string): CatalogueType {
     coefficient: def.coefficient,
     scoring: specs.scoring,
     evidenceFields: specs.evidenceFields,
-    schema: schemaForFields(specs.evidenceFields),
+    schema: schemaForFields(specs.evidenceFields, specs.scoring),
   };
 }
