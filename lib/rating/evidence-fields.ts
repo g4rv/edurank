@@ -171,8 +171,31 @@ export function summarizeEvidence(fields: readonly EvidenceField[], evidence: un
   if (typeof evidence !== 'object' || evidence === null) return '';
   const e = evidence as Record<string, unknown>;
 
+  // A grouped checkbox set becomes one part — «<group>: a, b, c» — rather than
+  // one part per ticked box. As separate parts, item 5.1's six materials ran
+  // into the 5-part cap below and only two ever showed, so a course with five
+  // materials read the same as one with two while the score differed by 100.
+  // Comma-separated inside the group, since ` · ` already separates parts.
+  const groups = new Map<string, string[]>();
+  for (const f of fields) {
+    if (f.kind !== 'checkbox' || !f.group) continue;
+    const ticked = groups.get(f.group) ?? [];
+    if (e[f.name] === true) ticked.push(f.label);
+    groups.set(f.group, ticked);
+  }
+  const summarised = new Set<string>();
+
   const parts: string[] = [];
   for (const f of fields) {
+    // Emitted once, in the position of the group's first box
+    if (f.kind === 'checkbox' && f.group) {
+      if (summarised.has(f.group)) continue;
+      summarised.add(f.group);
+      const ticked = groups.get(f.group);
+      if (ticked && ticked.length > 0) parts.push(`${f.group}: ${ticked.join(', ')}`);
+      continue;
+    }
+
     const v = e[f.name];
     if (v === undefined || v === null || v === '') continue;
     switch (f.kind) {
