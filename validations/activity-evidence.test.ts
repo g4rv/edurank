@@ -16,13 +16,13 @@ function score(code: string, evidence: unknown, coefficient?: number) {
   return computeScore(coefficient === undefined ? type : { ...type, coefficient }, evidence);
 }
 
-/** The mustBeTrue checkboxes of a gate type, off its own field specs */
-const gateNames = (code: string) =>
+/** The scored checkboxes of a check-sum type, off its own field specs */
+const scoredCheckboxNames = (code: string) =>
   catalogueType(code)
-    .evidenceFields.filter((f) => f.kind === 'checkbox' && f.mustBeTrue)
+    .evidenceFields.filter((f) => f.kind === 'checkbox' && f.points !== undefined)
     .map((f) => f.name);
 
-const MOODLE_MATERIALS = gateNames('moodle_course');
+const MOODLE_MATERIALS = scoredCheckboxNames('moodle_course');
 
 /** Build a valid sample evidence object straight from the field specs */
 function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknown> {
@@ -100,7 +100,7 @@ describe('catalogue ↔ evidence fields consistency', () => {
       if (def.code === 'intl_internship' || def.code === 'ukr_internship') {
         expect(names(def.code)).toContain('credits');
       }
-      if (def.kind === 'GATE') {
+      if (def.kind === 'CHECK_SUM') {
         const n = names(def.code);
         expect(n).toContain('mode');
         for (const m of MOODLE_MATERIALS) expect(n, `moodle missing ${m}`).toContain(m);
@@ -133,22 +133,20 @@ describe('schema → scoring integration (all 67 types)', () => {
     expect(score('moodle_course', full).score).toBe(150);
   });
 
-  it('moodle refuses a course missing any one material, rather than saving it as 0', () => {
+  it('moodle accepts a course missing a material — it is no longer all-or-nothing', () => {
     const schema = schemaFor('moodle_course');
     const full = sampleEvidence(EVIDENCE_FIELDS.moodle_course);
 
     for (const material of MOODLE_MATERIALS) {
       const result = schema.safeParse({ ...full, [material]: false });
-      expect(result.success, material).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toContain('всіх шести');
-      }
+      expect(result.success, material).toBe(true);
     }
   });
 
-  it('scoring still gates an incomplete course reaching it another way', () => {
+  it('an incomplete course scores the materials it does have', () => {
     const full = schemaFor('moodle_course').parse(sampleEvidence(EVIDENCE_FIELDS.moodle_course));
-    expect(score('moodle_course', { ...full, presentations: false }).score).toBe(0);
+    // «Презентації» is worth 30 of the 150 available for розроблення
+    expect(score('moodle_course', { ...full, presentations: false }).score).toBe(120);
   });
 });
 

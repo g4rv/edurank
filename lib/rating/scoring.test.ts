@@ -17,19 +17,20 @@ function score(code: string, evidence: unknown, coefficient?: number) {
 
 const defsByKind = (kind: string) => ACTIVITY_TYPES_2026.filter((t) => t.kind === kind);
 
-/** The gate checkboxes of moodle_course, straight off its field specs */
-const moodleGates = catalogueType('moodle_course').evidenceFields.filter(
-  (f): f is Extract<EvidenceField, { kind: 'checkbox' }> => f.kind === 'checkbox' && !!f.mustBeTrue
+/** The scored material checkboxes of moodle_course, straight off its field specs */
+const moodleMaterials = catalogueType('moodle_course').evidenceFields.filter(
+  (f): f is Extract<EvidenceField, { kind: 'checkbox' }> =>
+    f.kind === 'checkbox' && f.points !== undefined
 );
 
 function allMoodleMaterials(present = true): Record<string, boolean> {
-  return Object.fromEntries(moodleGates.map((g) => [g.name, present]));
+  return Object.fromEntries(moodleMaterials.map((m) => [m.name, present]));
 }
 
 describe('catalogue ↔ scoring consistency', () => {
-  it('SELECT / SELECT_MULT / GATE types have coefficient 1 in 2026', () => {
+  it('SELECT / SELECT_MULT / CHECK_SUM types have coefficient 1 in 2026', () => {
     for (const def of ACTIVITY_TYPES_2026) {
-      if (def.kind === 'SELECT' || def.kind === 'SELECT_MULT' || def.kind === 'GATE') {
+      if (def.kind === 'SELECT' || def.kind === 'SELECT_MULT' || def.kind === 'CHECK_SUM') {
         expect(def.coefficient, def.code).toBe(1);
       }
     }
@@ -161,7 +162,7 @@ describe('SELECT_MULT types', () => {
   });
 });
 
-describe('moodle GATE (all-or-nothing, flat evidence)', () => {
+describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
   it('development with ALL six materials = 150', () => {
     expect(score('moodle_course', { mode: 'development', ...allMoodleMaterials() })).toEqual({
       computedValue: 150,
@@ -173,22 +174,49 @@ describe('moodle GATE (all-or-nothing, flat evidence)', () => {
     expect(score('moodle_course', { mode: 'update', ...allMoodleMaterials() }).score).toBe(50);
   });
 
-  it('ANY single missing material gives 0 (both modes)', () => {
-    expect(moodleGates).toHaveLength(6);
-    for (const gate of moodleGates) {
-      const evidence = { ...allMoodleMaterials(), [gate.name]: false };
-      expect(
-        score('moodle_course', { mode: 'development', ...evidence }).score,
-        `development missing ${gate.name}`
-      ).toBe(0);
-      expect(
-        score('moodle_course', { mode: 'update', ...evidence }).score,
-        `update missing ${gate.name}`
-      ).toBe(0);
+  it('a missing material costs exactly its own share, not the whole score', () => {
+    expect(moodleMaterials).toHaveLength(6);
+    for (const material of moodleMaterials) {
+      for (const mode of ['development', 'update'] as const) {
+        const full = mode === 'development' ? 150 : 50;
+        const share = material.points?.[mode] ?? 0;
+        expect(share, `${material.name} has no ${mode} points`).toBeGreaterThan(0);
+        expect(
+          score('moodle_course', { mode, ...allMoodleMaterials(), [material.name]: false }).score,
+          `${mode} without ${material.name}`
+        ).toBe(full - share);
+      }
     }
   });
 
-  it('rejects an unknown mode even when the gates already force a 0', () => {
+  // The regression this rule replaced: five of six materials used to score 0.
+  it('five of six materials scores the five', () => {
+    expect(
+      score('moodle_course', {
+        mode: 'development',
+        ...allMoodleMaterials(),
+        presentations: false,
+      }).score
+    ).toBe(120);
+  });
+
+  it('no materials at all scores 0', () => {
+    expect(
+      score('moodle_course', { mode: 'development', ...allMoodleMaterials(false) }).score
+    ).toBe(0);
+  });
+
+  it('the material shares add up to their mode maximum', () => {
+    for (const [mode, max] of [
+      ['development', 150],
+      ['update', 50],
+    ] as const) {
+      const total = moodleMaterials.reduce((sum, m) => sum + (m.points?.[mode] ?? 0), 0);
+      expect(total, mode).toBe(max);
+    }
+  });
+
+  it('rejects an unknown mode even when nothing is ticked', () => {
     expect(() => score('moodle_course', { mode: 'elective', ...allMoodleMaterials() })).toThrow(
       'unknown option'
     );
@@ -228,11 +256,11 @@ describe('admin-defined types (specs the engine has never seen)', () => {
     expect(computeScore({ ...jury, coefficient: 3 }, { option: 'member' }).score).toBe(60);
   });
 
-  it('supports a gate type with its own checkboxes and mode points', () => {
+  it('supports a check-sum type with its own scored checkboxes', () => {
     const portfolio: ScorableType = {
       code: 'portfolio',
       coefficient: 1,
-      scoring: { kind: 'GATE' },
+      scoring: { kind: 'CHECK_SUM' },
       evidenceFields: [
         {
           kind: 'select',
@@ -240,17 +268,18 @@ describe('admin-defined types (specs the engine has never seen)', () => {
           label: 'Вид',
           options: [{ value: 'full', label: 'повне', points: 90 }],
         },
-        { kind: 'checkbox', name: 'plan', label: 'План', mustBeTrue: true },
-        { kind: 'checkbox', name: 'report', label: 'Звіт', mustBeTrue: true },
-        // Not a gate — an ordinary optional flag must not block the points
+        { kind: 'checkbox', name: 'plan', label: 'План', points: { full: 60 } },
+        { kind: 'checkbox', name: 'report', label: 'Звіт', points: { full: 30 } },
+        // No points — an ordinary flag must contribute nothing either way
         { kind: 'checkbox', name: 'extra', label: 'Додатково' },
       ],
     };
 
     expect(computeScore(portfolio, { mode: 'full', plan: true, report: true }).score).toBe(90);
-    expect(computeScore(portfolio, { mode: 'full', plan: true, report: false }).score).toBe(0);
+    expect(computeScore(portfolio, { mode: 'full', plan: true, report: false }).score).toBe(60);
+    expect(computeScore(portfolio, { mode: 'full', plan: false, report: false }).score).toBe(0);
     expect(
-      computeScore(portfolio, { mode: 'full', plan: true, report: true, extra: false }).score
+      computeScore(portfolio, { mode: 'full', plan: true, report: true, extra: true }).score
     ).toBe(90);
   });
 

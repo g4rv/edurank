@@ -23,7 +23,7 @@
 ### 2026 scoring specifics (feed M1/M2)
 
 - **Category А publications** split by quartile: Q1=600, Q2=500, Q3-4/none=400 → quartile select.
-- **Moodle (section 5) = GATE (all-or-nothing).** Full points only if ALL six materials present, else 0. Розроблення=150, Оновлення=50. The old %/coefficient + elective ×1.25 model is REMOVED.
+- **Moodle (section 5) = CHECK_SUM.** Розроблення=150 / Оновлення=50 is the **maximum**; each material carries its own share of it (15/5, 5/5, 20/10, 50/10, 30/10, 30/10) and only ticked ones count. Corrected 2026-08-07 — it was written as all-or-nothing, which scored 0 for five materials of six. The old 2025 %/coefficient + elective ×1.25 model stays REMOVED.
 - **Науковий ступінь** has "за спеціальністю кафедри" tiers in the score (replaces old `degreeMatchesDepartment` boolean).
 - **Removed in 2026 (do NOT build):** article "не менше 5 ст" (pages/authors formula), "відгуки на автореферат", "рецензування МАН".
 
@@ -118,7 +118,7 @@ Resolved 2026-07-09:
 
 - [x] `lib/rating/scoring.ts`: implement the **2026** formulas:
   - author sheets `pages / 24` (editions, monograph)
-  - **moodle GATE:** 150 (Розроблення) or 50 (Оновлення) only if ALL six materials present, else 0. No percentages, no elective multiplier.
+  - **moodle CHECK_SUM:** 150 (Розроблення) / 50 (Оновлення) is the ceiling; sum the ticked materials' own points. No percentages, no elective multiplier.
   - **cat. А publication:** score by quartile — Q1=600, Q2=500, Q3-4/none=400.
   - conf abroad 50/20; intl olympiad 100/80/60; ukr olympiad 80/60/40
   - intl conf org 100/80/50; ukr conf org 50/40/20; initiative topic 15/10

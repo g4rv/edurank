@@ -63,10 +63,17 @@ const SCORING_HINTS: Record<ScoringSpec['kind'], string> = {
   MULT: 'Бали = введене число × коефіцієнт.',
   SELECT: 'Бали залежать від обраного варіанта.',
   SELECT_MULT: 'Бали = бали варіанта × введена кількість.',
-  GATE: 'Усе або нічого: бали лише коли всі обов’язкові прапорці підтверджено.',
+  CHECK_SUM:
+    'Сума позначених: кожен прапорець має власні бали для обраного виду роботи, рахуються лише позначені. Бали виду роботи — це максимум, і бали прапорців мають скласти саме його.',
 };
 
-const SCORING_KINDS: ScoringSpec['kind'][] = ['FIXED', 'MULT', 'SELECT', 'SELECT_MULT', 'GATE'];
+const SCORING_KINDS: ScoringSpec['kind'][] = [
+  'FIXED',
+  'MULT',
+  'SELECT',
+  'SELECT_MULT',
+  'CHECK_SUM',
+];
 
 const SECTIONS = [1, 2, 3, 4, 5];
 

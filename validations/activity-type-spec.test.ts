@@ -143,16 +143,40 @@ describe('specProblems', () => {
     expect(problems.some((p) => p.includes('друкованими аркушами'))).toBe(true);
   });
 
-  it('refuses a gate with no mandatory checkbox', () => {
-    const problems = specProblems([scoredSelect('mode')], { kind: 'GATE' });
+  it('refuses a check-sum rule with no scored checkbox', () => {
+    const problems = specProblems([scoredSelect('mode')], { kind: 'CHECK_SUM' });
     expect(problems[0]).toContain('чекбокса');
   });
 
-  it('accepts a gate that has one', () => {
+  it('accepts a check-sum whose shares add up to each mode maximum', () => {
     const fields: EvidenceField[] = [
       scoredSelect('mode'),
-      { kind: 'checkbox', name: 'plan', label: 'План', mustBeTrue: true },
+      { kind: 'checkbox', name: 'plan', label: 'План', points: { head: 30, member: 12 } },
+      { kind: 'checkbox', name: 'report', label: 'Звіт', points: { head: 20, member: 8 } },
     ];
-    expect(specProblems(fields, { kind: 'GATE' })).toEqual([]);
+    expect(specProblems(fields, { kind: 'CHECK_SUM' })).toEqual([]);
+  });
+
+  // The guard that matters: the maximum and the shares are edited on different
+  // parts of the builder, so nothing else would catch them drifting apart.
+  it('refuses shares that do not add up to the mode maximum', () => {
+    const fields: EvidenceField[] = [
+      scoredSelect('mode'),
+      { kind: 'checkbox', name: 'plan', label: 'План', points: { head: 30, member: 12 } },
+      { kind: 'checkbox', name: 'report', label: 'Звіт', points: { head: 15, member: 8 } },
+    ];
+    const problems = specProblems(fields, { kind: 'CHECK_SUM' });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('45');
+    expect(problems[0]).toContain('50');
+  });
+
+  it('refuses a checkbox missing points for one of the modes', () => {
+    const fields: EvidenceField[] = [
+      scoredSelect('mode'),
+      { kind: 'checkbox', name: 'plan', label: 'План', points: { head: 50 } },
+    ];
+    const problems = specProblems(fields, { kind: 'CHECK_SUM' });
+    expect(problems.some((p) => p.includes('не вказано бали'))).toBe(true);
   });
 });

@@ -119,6 +119,15 @@ export function EvidenceFieldBuilder({
 }: EvidenceFieldBuilderProps) {
   const scoringNames = new Set(scoringFieldNames(scoring));
 
+  // CHECK_SUM splits the `mode` select's points across the checkboxes, so each
+  // box needs one input per mode option. Read off the live fields, so adding a
+  // mode immediately asks for its column.
+  const modeField = fields.find((f) => f.kind === 'select' && f.name === 'mode');
+  const modeOptions =
+    scoring.kind === 'CHECK_SUM' && modeField?.kind === 'select'
+      ? modeField.options.map((o) => ({ value: o.value, label: o.label }))
+      : [];
+
   function patch(index: number, changes: Partial<EvidenceField>) {
     onChange(fields.map((f, i) => (i === index ? ({ ...f, ...changes } as EvidenceField) : f)));
   }
@@ -146,6 +155,7 @@ export function EvidenceFieldBuilder({
               index={index}
               total={fields.length}
               scored={scoringNames.has(field.name)}
+              modeOptions={modeOptions}
               onPatch={(changes) => patch(index, changes)}
               onRemove={() => onChange(fields.filter((_, i) => i !== index))}
               onMove={(delta) => move(index, delta)}
@@ -171,6 +181,7 @@ function FieldCard({
   index,
   total,
   scored,
+  modeOptions,
   onPatch,
   onRemove,
   onMove,
@@ -179,6 +190,7 @@ function FieldCard({
   index: number;
   total: number;
   scored: boolean;
+  modeOptions: { value: string; label: string }[];
   onPatch: (changes: Partial<EvidenceField>) => void;
   onRemove: () => void;
   onMove: (delta: number) => void;
@@ -245,7 +257,7 @@ function FieldCard({
           aria-label={`Підпис поля ${index + 1}`}
         />
 
-        <FieldSettings field={field} scored={scored} onPatch={onPatch} />
+        <FieldSettings field={field} scored={scored} modeOptions={modeOptions} onPatch={onPatch} />
       </div>
     </div>
   );
@@ -254,10 +266,12 @@ function FieldCard({
 function FieldSettings({
   field,
   scored,
+  modeOptions,
   onPatch,
 }: {
   field: EvidenceField;
   scored: boolean;
+  modeOptions: { value: string; label: string }[];
   onPatch: (changes: Partial<EvidenceField>) => void;
 }) {
   const optionalToggle = 'optional' in field && (
@@ -356,6 +370,33 @@ function FieldSettings({
               placeholder="Пояснення, чому це обов'язково"
               aria-label={`Пояснення для «${field.label}»`}
             />
+          )}
+          {modeOptions.length > 0 && (
+            <div className="space-y-1.5 rounded-md border border-dashed p-2">
+              <p className="text-xs text-muted-foreground">
+                Бали за цей пункт. Разом по всіх пунктах має вийти максимум виду роботи.
+              </p>
+              {modeOptions.map((o) => (
+                <label key={o.value} className="flex items-center gap-2 text-sm">
+                  <span className="min-w-32 text-muted-foreground">{o.label}</span>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    className="h-8 w-24"
+                    value={field.points?.[o.value] ?? ''}
+                    onChange={(e) => {
+                      const next = { ...(field.points ?? {}) };
+                      if (e.target.value === '') delete next[o.value];
+                      else next[o.value] = Number(e.target.value);
+                      onPatch({
+                        points: Object.keys(next).length > 0 ? next : undefined,
+                      } as Partial<EvidenceField>);
+                    }}
+                    aria-label={`Бали «${field.label}» для «${o.label}»`}
+                  />
+                </label>
+              ))}
+            </div>
           )}
         </div>
       );

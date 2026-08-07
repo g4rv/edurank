@@ -151,7 +151,7 @@ export function dbSpecs(def: ActivityTypeDef): ActivityTypeSpecs {
           name: 'option',
           points: SELECT_OPTION_POINTS[def.code as keyof typeof SELECT_OPTION_POINTS],
         }
-      : def.kind === 'GATE'
+      : def.kind === 'CHECK_SUM'
         ? { name: 'mode', points: MOODLE_MODE_POINTS }
         : null;
   if (scoresBySelect && !scoresBySelect.points) {

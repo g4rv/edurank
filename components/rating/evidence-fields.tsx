@@ -2,6 +2,7 @@
 
 import {
   Controller,
+  useWatch,
   type Control,
   type FieldErrors,
   type FieldValues,
@@ -66,6 +67,20 @@ export function EvidenceFields({
   errors,
   disabled,
 }: EvidenceFieldsProps) {
+  // A CHECK_SUM checkbox is worth a different amount per mode, so the « — N
+  // балів» suffix has to follow the mode the person has actually chosen. Any
+  // other rule has no `mode` field and this stays undefined, costing nothing.
+  const mode = useWatch({ control, name: 'mode' });
+
+  function pointsFor(f: Extract<EvidenceField, { kind: 'checkbox' }>): number | undefined {
+    return typeof mode === 'string' ? f.points?.[mode] : undefined;
+  }
+
+  // When checkboxes divide the chosen option's points, that number is a ceiling
+  // rather than an award — «Розроблення — 150 балів» would promise a total only
+  // a fully-filled course earns.
+  const scoredByCheckboxes = fields.some((f) => f.kind === 'checkbox' && f.points !== undefined);
+
   function renderField(f: EvidenceField) {
     const error = errors[f.name] as { message?: string } | undefined;
 
@@ -164,7 +179,11 @@ export function EvidenceFields({
                     {f.options.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
                         {o.label}
-                        {o.points !== undefined ? ` — ${o.points} балів` : ''}
+                        {o.points === undefined
+                          ? ''
+                          : scoredByCheckboxes
+                            ? ` — до ${o.points} балів`
+                            : ` — ${o.points} балів`}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -178,6 +197,7 @@ export function EvidenceFields({
 
   /** The switch and its label; the error text is placed by the caller */
   function checkboxRow(f: Extract<EvidenceField, { kind: 'checkbox' }>, invalid: boolean) {
+    const points = pointsFor(f);
     return (
       <Controller
         name={f.name}
@@ -195,7 +215,12 @@ export function EvidenceFields({
               disabled={disabled}
               aria-invalid={invalid}
             />
-            {f.label}
+            <span>
+              {f.label}
+              {points !== undefined ? (
+                <span className="text-muted-foreground"> — {points} балів</span>
+              ) : null}
+            </span>
           </label>
         )}
       />

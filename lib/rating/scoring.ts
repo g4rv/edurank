@@ -1,6 +1,6 @@
 // Scoring engine — pure functions, no DB, no UI.
 // score = computedValue × ActivityType.coefficient (user-confirmed model).
-// For SELECT/SELECT_MULT/GATE kinds the option points come from the type's own
+// For SELECT/SELECT_MULT/CHECK_SUM kinds the option points come from the type's own
 // evidence field specs (`options[].points`), so the engine is fully driven by
 // what the ActivityType row carries — no per-code knowledge (template editor v2).
 //
@@ -85,16 +85,29 @@ function authorSheets(evidence: unknown, code: string): number {
   return pages / 24 / coAuthors;
 }
 
-// All-or-nothing: mode points only when every gate checkbox is ticked, else 0.
-// The gates are the type's own mustBeTrue checkboxes (the six Moodle materials
-// in the 2026 catalogue), so an admin-built gate type works the same way.
-// The mode is resolved first, so a malformed one is rejected even when the
-// gates already force the score to 0.
-function gateValue(type: ScorableType, evidence: unknown): number {
-  const points = optionPoints(type, 'mode', evidence);
+// Sum of the ticked checkboxes' own points, read from the column the chosen
+// `mode` selects. The mode's option points are the maximum — the shares add up
+// to it — and are resolved first so a malformed mode is rejected even when
+// nothing is ticked and the sum would be 0 anyway.
+//
+// This replaced an all-or-nothing rule in which Moodle's six materials were
+// mustBeTrue gates: an НПП who uploaded five of six scored nothing. Partial
+// work now scores partially, which is what the university intended all along.
+function checkSumValue(type: ScorableType, evidence: unknown): number {
+  const max = optionPoints(type, 'mode', evidence);
   const e = asRecord(evidence, type.code);
-  const gates = type.evidenceFields.filter((f) => f.kind === 'checkbox' && f.mustBeTrue);
-  return gates.every((g) => e[g.name] === true) ? points : 0;
+  const mode = e.mode as string;
+
+  const sum = type.evidenceFields.reduce(
+    (total, f) =>
+      f.kind === 'checkbox' && e[f.name] === true ? total + (f.points?.[mode] ?? 0) : total,
+    0
+  );
+
+  // Cannot exceed the declared maximum. `specProblems` already refuses a spec
+  // whose shares do not add up, so this only catches a row saved before that
+  // guard existed — never silently pay more than the mode allows.
+  return Math.min(sum, max);
 }
 
 function computeValue(type: ScorableType, evidence: unknown): number {
@@ -115,8 +128,8 @@ function computeValue(type: ScorableType, evidence: unknown): number {
         : requireNumber(asRecord(evidence, type.code).credits, 'credits', type.code, { min: 1 });
       return points * units;
     }
-    case 'GATE':
-      return gateValue(type, evidence);
+    case 'CHECK_SUM':
+      return checkSumValue(type, evidence);
   }
 }
 

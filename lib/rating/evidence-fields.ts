@@ -10,7 +10,7 @@ import { SCOPUS_OR_WOS_HOSTS } from '@/lib/link-hosts';
 //   exactly the keys of SELECT_OPTION_POINTS[code]
 // - MULT types have a number `value`, or `pages` + `coAuthors` for page-based codes
 // - SELECT_MULT internships add a number `credits`
-// - moodle_course has a select `mode` + six flat checkboxes named as MOODLE_MATERIALS
+// - moodle_course has a select `mode` + six scored checkboxes (MOODLE_MATERIALS)
 
 export type EvidenceField =
   | { kind: 'text'; name: string; label: string; multiline?: boolean; optional?: boolean }
@@ -46,6 +46,14 @@ export type EvidenceField =
       label: string;
       mustBeTrue?: boolean;
       requiredError?: string;
+      /**
+       * CHECK_SUM only: what ticking this box is worth, keyed by the chosen
+       * value of the rule's `mode` select. Per-mode rather than a single
+       * number because the shares are not proportional — Moodle's «конспекти
+       * лекцій» is 50 of 150 when developing a course but 10 of 50 when
+       * updating one, so no single multiplier reproduces both columns.
+       */
+      points?: Record<string, number>;
       /**
        * Renders consecutive boxes sharing this title as one block, under a
        * heading and above a single shared error. For a set that stands or falls
@@ -110,7 +118,12 @@ const doi = (name: string, label: string, opts?: { optional?: boolean }): Eviden
 const checkbox = (
   name: string,
   label: string,
-  opts?: { mustBeTrue?: boolean; requiredError?: string; group?: string }
+  opts?: {
+    mustBeTrue?: boolean;
+    requiredError?: string;
+    points?: Record<string, number>;
+    group?: string;
+  }
 ): EvidenceField => ({
   kind: 'checkbox',
   name,
@@ -521,27 +534,27 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   ],
 
   // ── Розділ 5 ────────────────────────────────────────────────────────────────
-  // Item 5.1 is all-or-nothing: a course missing any of the six materials earns
-  // nothing at all, so the submission is refused rather than saved as a
-  // zero-point row the НПП would have to wonder about later. The six are one
-  // group, so the reason is shown once beneath them rather than on each box.
+  // Item 5.1 pays per material present. Each box carries its own share of the
+  // mode's maximum (150 розроблення / 50 оновлення) and only ticked boxes count,
+  // so a course missing one material scores the other five rather than zero.
+  // The columns come from docs/rating-2026-catalogue.md and each sums to its
+  // mode's maximum — `specProblems` enforces that, so a typo cannot go unnoticed.
   moodle_course: [
     select('mode', 'Вид роботи', [opt('development', 'Розроблення'), opt('update', 'Оновлення')]),
     text('discipline', 'Дисципліна (освітній компонент)'),
     url('link', 'Посилання на курс'),
     ...(
       [
-        ['workProgram', 'Робоча програма'],
-        ['syllabus', 'Силабус'],
-        ['tests', 'Тестові завдання'],
-        ['lectureNotes', 'Конспекти лекцій'],
-        ['presentations', 'Презентації'],
-        ['methodicalMaterials', 'Основні методичні матеріали'],
+        ['workProgram', 'Робоча програма', 15, 5],
+        ['syllabus', 'Силабус', 5, 5],
+        ['tests', 'Тестові завдання', 20, 10],
+        ['lectureNotes', 'Конспекти лекцій', 50, 10],
+        ['presentations', 'Презентації', 30, 10],
+        ['methodicalMaterials', 'Основні методичні матеріали', 30, 10],
       ] as const
-    ).map(([name, label]) =>
+    ).map(([name, label, development, update]) =>
       checkbox(name, label, {
-        mustBeTrue: true,
-        requiredError: 'Бали нараховуються лише за наявності всіх шести матеріалів',
+        points: { development, update },
         group: 'Матеріали курсу',
       })
     ),

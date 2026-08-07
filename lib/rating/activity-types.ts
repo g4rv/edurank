@@ -33,9 +33,10 @@ export const SECTION_TITLES: Record<number, string> = {
  * - MULT        score = coefficient × numeric value (years, h-index, авт. аркуші…)
  * - SELECT      score = points of the chosen option (coefficient stays 1)
  * - SELECT_MULT score = option points × numeric value (credits, авт. аркуші…)
- * - GATE        all-or-nothing (Moodle): mode points only if all 6 materials present, else 0
+ * - CHECK_SUM   sum of the ticked checkboxes' own points, read from the column
+ *               the chosen `mode` selects; the mode's points are the maximum
  */
-export type ActivityKind = 'FIXED' | 'MULT' | 'SELECT' | 'SELECT_MULT' | 'GATE';
+export type ActivityKind = 'FIXED' | 'MULT' | 'SELECT' | 'SELECT_MULT' | 'CHECK_SUM';
 
 export type ActivityInputSource = 'NPP_SUBMISSION' | 'DIVISION_MANAGED' | 'PROFILE_DERIVED';
 
@@ -48,7 +49,7 @@ export interface ActivityTypeDef {
   itemNumber: string;
   label: string;
   kind: ActivityKind;
-  /** FIXED/MULT: points per unit. SELECT/SELECT_MULT/GATE: 1 (option points live in the scoring engine) */
+  /** FIXED/MULT: points per unit. SELECT/SELECT_MULT/CHECK_SUM: 1 (option points live in the field specs) */
   coefficient: number;
   /** The «Критерії» column: option points, units, conditions */
   coefficientNote?: string;
@@ -883,10 +884,10 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     itemNumber: '5.1',
     label:
       'Навчально-методичне забезпечення навчальних дисциплін (освітніх компонентів) на платформі Moodle',
-    kind: 'GATE',
+    kind: 'CHECK_SUM',
     coefficient: 1,
     coefficientNote:
-      'Розроблення — 150, Оновлення — 50; бали нараховуються лише за умови заповнення всіх шести обов’язкових пунктів (робоча програма, силабус, тестові завдання, конспекти лекцій, презентації, основні методичні матеріали), інакше 0',
+      'Максимум: Розроблення — 150, Оновлення — 50. Кожен матеріал має власну вартість (розроблення/оновлення): робоча програма 15/5, силабус 5/5, тестові завдання 20/10, конспекти лекцій 50/10, презентації 30/10, основні методичні матеріали 30/10. Бали нараховуються за позначені матеріали — заповнювати всі не обов’язково',
     inputSource: 'NPP_SUBMISSION',
   },
 ];

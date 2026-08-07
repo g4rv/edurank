@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { toRenderItems } from './evidence-fields';
 import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
 
-// The six materials are the gate checkboxes of item 5.1, read off its own specs
+// The six materials are the scored checkboxes of item 5.1, read off its own specs
 const MOODLE_MATERIALS = EVIDENCE_FIELDS.moodle_course
-  .filter((f) => f.kind === 'checkbox' && f.mustBeTrue)
+  .filter((f) => f.kind === 'checkbox' && f.points !== undefined)
   .map((f) => f.name);
 
 const box = (name: string, group?: string): EvidenceField => ({

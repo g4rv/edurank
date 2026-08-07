@@ -49,6 +49,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     ...common,
     mustBeTrue: z.boolean().optional(),
     requiredError: z.string().max(500).optional(),
+    points: z.record(z.string(), z.number()).optional(),
     group: z.string().max(200).optional(),
   }),
   z.strictObject({
@@ -70,7 +71,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
 export const evidenceFieldsSpecSchema = z.array(evidenceFieldSpecSchema);
 
 export const scoringSpecSchema: z.ZodType<ScoringSpec> = z.strictObject({
-  kind: z.enum(['FIXED', 'MULT', 'SELECT', 'SELECT_MULT', 'GATE']),
+  kind: z.enum(['FIXED', 'MULT', 'SELECT', 'SELECT_MULT', 'CHECK_SUM']),
   pageBased: z.boolean().optional(),
 });
 
@@ -120,7 +121,7 @@ export function scoringFieldNames(scoring: ScoringSpec): string[] {
       names.push('option');
       if (!pageBased) names.push('credits');
       break;
-    case 'GATE':
+    case 'CHECK_SUM':
       names.push('mode');
       break;
   }
@@ -215,6 +216,48 @@ function requireScoredSelect(
 }
 
 /**
+ * CHECK_SUM: the `mode` select declares a maximum per option, and the scored
+ * checkboxes divide it. Verified here because the two halves are edited on
+ * different parts of the builder — nothing else would notice a course whose
+ * materials add up to 145 of a stated 150, and the missing 5 would surface
+ * only as an НПП quietly scoring less than the sheet promises.
+ */
+function checkSumProblems(fields: readonly EvidenceField[]): string[] {
+  const problems: string[] = [];
+  const mode = fields.find((f) => f.kind === 'select' && f.name === 'mode');
+  const scored = fields.filter((f) => f.kind === 'checkbox' && f.points !== undefined);
+
+  if (scored.length === 0) {
+    problems.push('Правило «сума позначених» потребує хоча б одного чекбокса з балами');
+    return problems;
+  }
+  if (mode?.kind !== 'select') return problems; // requireScoredSelect already reported it
+
+  for (const option of mode.options) {
+    if (option.points === undefined) continue; // reported by requireScoredSelect
+    const missing = scored.filter(
+      (f) => f.kind === 'checkbox' && f.points?.[option.value] === undefined
+    );
+    if (missing.length > 0) {
+      problems.push(
+        `Для варіанта «${option.label}» не вказано бали чекбоксів: ${missing.map((f) => f.label).join(', ')}`
+      );
+      continue;
+    }
+    const total = scored.reduce(
+      (sum, f) => sum + (f.kind === 'checkbox' ? (f.points?.[option.value] ?? 0) : 0),
+      0
+    );
+    if (total !== option.points) {
+      problems.push(
+        `Сума балів чекбоксів для «${option.label}» дорівнює ${total}, а має дорівнювати ${option.points}`
+      );
+    }
+  }
+  return problems;
+}
+
+/**
  * Contract check between a field set and its scoring rule. Empty array = valid.
  * Field-name conventions (`option`, `value`, `pages`, `coAuthors`, `credits`,
  * `mode`) are the builder's job to create — this confirms they exist.
@@ -257,12 +300,9 @@ export function specProblems(fields: readonly EvidenceField[], scoring: ScoringS
         );
       }
       break;
-    case 'GATE': {
+    case 'CHECK_SUM': {
       requireScoredSelect(fields, 'mode', problems);
-      const gates = fields.filter((f) => f.kind === 'checkbox' && f.mustBeTrue);
-      if (gates.length === 0) {
-        problems.push("Правило «все або нічого» потребує хоча б одного обов'язкового чекбокса");
-      }
+      problems.push(...checkSumProblems(fields));
       break;
     }
   }

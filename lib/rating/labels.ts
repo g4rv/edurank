@@ -29,5 +29,5 @@ export const ACTIVITY_KIND_LABELS: Record<ActivityKind, string> = {
   MULT: 'Бали × кількість',
   SELECT: 'Бали за обраний варіант',
   SELECT_MULT: 'Варіант × кількість',
-  GATE: 'Усе або нічого',
+  CHECK_SUM: 'Сума позначених',
 };
