@@ -63,8 +63,8 @@ already store what it needs:
 
 |           п.38 | Why                                                                                                                                           | Plan                                             |
 | -------------: | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-|         **15** | керівництво **школярем** (МАН, учнівські олімпіади) — we only track здобувачі вищої освіти                                                    | manual, unless it becomes a rating indicator     |
-|         **20** | досвід практичної роботи за фахом ≥5 років, **крім** педагогічної — a personnel fact, and `pedagogicalExperience` is exactly what it excludes | manual, or a profile field from кадри            |
+|         **15** | керівництво **школярем** (МАН, учнівські олімпіади) — we only track здобувачі вищої освіти                                                    | manual; such НПП exist, see below                |
+|         **20** | досвід практичної роботи за фахом ≥5 років, **крім** педагогічної — a personnel fact, and `pedagogicalExperience` is exactly what it excludes | manual; nobody qualifies today, see below        |
 | **16, 17, 18** | учасник бойових дій, операції ООН, навчання НАТО — «для вищих військових навчальних закладів»                                                 | not applicable here; shown but never auto-filled |
 
 Since only **≥4 of 20** are needed and 14 auto-fill, most staff should qualify
@@ -136,13 +136,38 @@ importer can be built and tested against invented data now, but its real shape i
 not confirmed until the files arrive — expect it to need adjusting, and do not
 treat the first import run as a migration that only happens once.
 
+## п.15 and п.20 — answered 2026-08-07
+
+**п.15 — yes, some НПП do prepare школярі** for МАН and учнівські олімпіади. So
+this is real work being done that the rating currently cannot see at all.
+
+That makes it a genuine question rather than a formality, and the two ways to
+handle it are **not** equivalent:
+
+| Option                             | Effect                                                                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Manual entry on the Характеристика | Fills п.15. Awards **no rating points**. Safe — changes nobody's score.                                                        |
+| A new rating indicator             | Fills п.15 **and** awards points, so it changes rating totals, кафедра averages, and therefore **every ставка** on the кафедра |
+
+The second is not ours to decide. The rating catalogue is admin-editable, so
+adding an indicator needs no code — but the points it carries are approved by the
+вчена рада, and inventing a value here would quietly move real money. **Default
+to manual entry** until someone with the authority says otherwise. Raising it is
+worth doing: the work exists and currently earns nothing.
+
+**п.20 — nobody currently qualifies.** Asked whether staff have ≥5 years of
+practical experience outside teaching and research, the answer was that we have
+no such НПП today. So:
+
+- keep the position on the form, entered by hand, never auto-filled;
+- **do not build a кадри import for it** — there is nothing to import;
+- it stays a plain profile field if it is ever needed, not an integration.
+
+Treat this as "true today", not "true forever" — one hire changes it. The cost of
+being wrong is one person typing one field, which is why no machinery is
+justified.
+
 ## Open — asked, not yet answered
-
-Recorded in [questions-for-boss-ua.md](./questions-for-boss-ua.md):
-
-- **п.15** — do НПП here supervise школярі at all? If yes it probably deserves a
-  rating indicator rather than a manual tick.
-- **п.20** — where does «досвід практичної роботи за фахом» come from? Кадри?
 
 Design questions still open, for the owner rather than the boss:
 
