@@ -214,6 +214,28 @@ The stray 0.0375 cell stays a rounding artefact, not a rule — see «Precision�
 seeded with the values above, not constants in code. They are confirmed for 2026,
 not fixed forever, and the вчена рада can move them.
 
+### No hand-override of a student's value (decided 2026-08-07)
+
+The 2025 file varies inside a single category — «бакалавр денна контракт» runs
+0.120–0.230 where 2026 is exactly 0.175 throughout. That is someone typing, not a
+formula. The question was whether the app should support it.
+
+**It should not.** The recruitment value is always `multiplier / base`, times
+0.175 for contract, and nothing in the UI can change a computed one. Build no
+override screen, no justification field, no per-claim editable amount.
+
+Note this is **term 2 only**. Hand-adjustment stays fully supported where the
+положення puts it — the head's split of the pool (term 1), with додаток 2's
+«обґрунтування» column. The two must not be confused: one is the head's job, the
+other is arithmetic.
+
+The reasoning for treating 2025 as history rather than practice: the положення is
+from 2024, 2026 is clean, so the irregular year most likely predates the formula
+entirely. That is inference, not testimony — nobody currently on the project was
+here in 2025. If a real need for overrides surfaces later, add it then; the cost
+of adding it is far lower than the cost of an unnecessary path through which
+someone can quietly change a number that decides pay.
+
 **Сумісництво (Q12) — assumed, not confirmed.** A student lands in the recruiter's
 **primary** кафедра, and a сумісник gets one Vc, computed on their primary кафедра
 only. Reason: `Кст`, `Кнпп` and `<Rк>` are all per кафедра, so counting someone in
