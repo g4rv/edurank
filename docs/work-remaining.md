@@ -114,8 +114,11 @@ citation pasted as free text into the column of its indicator (3.7 укр, 3.7 �
 
 The owner's words: not intuitive, and not all data visible as intended.
 
-- **The /division-data table header scrolls away.** Column headers disappear as
-  you scroll, so you lose track of which column you are in. Sticky header.
+- ~~**The /division-data table header scrolls away.**~~ **DONE 2026-08-07.** The
+  grid now scrolls inside its own box (`max-h-[calc(100vh-16rem)]`) with a
+  sticky header row and a sticky НПП column. The height cap is what makes
+  sticky work at all — `position: sticky` resolves against a scrollport, and a
+  page-level scroll gave it none.
 - **Low contrast across most pages.** Fields are barely distinguishable from
   the background — a consequence of the monochrome direction in CLAUDE.md.
 - **Wanted: a test page** rendering the same components in several

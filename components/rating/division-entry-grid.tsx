@@ -75,15 +75,24 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
         />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border bg-card">
+      {/* Scrolls in both directions inside its own box rather than with the
+          page. A page-level scroll took the column headings out of view, and on
+          a grid this wide you then cannot tell which indicator a cell belongs
+          to. Sticky only resolves against a scrollport, so the height cap is
+          what makes the header stick at all — not decoration. */}
+      <div className="max-h-[calc(100vh-16rem)] overflow-auto rounded-xl border bg-card">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/50 text-left">
-              <th className="sticky left-0 z-10 min-w-56 bg-muted/50 px-4 py-3 font-medium backdrop-blur">
+            <tr className="text-left">
+              {/* The corner sits above both sticky axes, so it outranks each */}
+              <th className="sticky top-0 left-0 z-30 min-w-56 border-r border-b bg-muted px-4 py-3 font-medium">
                 НПП
               </th>
               {types.map((t) => (
-                <th key={t.id} className="min-w-32 px-3 py-3 align-bottom font-medium">
+                <th
+                  key={t.id}
+                  className="sticky top-0 z-20 min-w-32 border-b bg-muted px-3 py-3 align-bottom font-medium"
+                >
                   <span className="block text-xs text-muted-foreground">{t.itemNumber}</span>
                   <span className="line-clamp-2" title={t.label}>
                     {t.label}
@@ -95,7 +104,8 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
           <tbody>
             {visibleStaff.map((s) => (
               <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/30">
-                <td className="sticky left-0 z-10 bg-card px-4 py-2 backdrop-blur">
+                {/* Opaque, not translucent: rows scroll underneath it */}
+                <td className="sticky left-0 z-10 border-r bg-card px-4 py-2">
                   <span className="block font-medium">{s.name}</span>
                   <span className="block text-xs text-muted-foreground">{s.department}</span>
                 </td>
