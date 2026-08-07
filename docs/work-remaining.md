@@ -1,10 +1,15 @@
 # Work remaining
 
-State as of **2026-08-04**. This is the single list of what is left to build. It
+State as of **2026-08-07**. This is the single list of what is left to build. It
 replaces reading four documents at once: `audit-2026-07-29.md` is now a
 historical snapshot (accurate for its date, wrong about current code in several
-places), `open-questions.md` holds the questions for the boss, `ui-fixes-plan.md`
-is done except for one item, `profile-account-merge.md` is finished.
+places), `ui-fixes-plan.md` is done except for one item,
+`profile-account-merge.md` is finished.
+
+`open-questions.md` and the questions artifact are **closed** — every question
+was answered on 2026-08-06/07. The answers live in
+[`stake-distribution.md`](./stake-distribution.md) and
+[`kharakterystyka.md`](./kharakterystyka.md), not here.
 
 Keep this file current. When something ships, move it out of here — not into
 here with a strikethrough.
@@ -14,208 +19,292 @@ here with a strikethrough.
 ## Where the app is now
 
 Phase 1 (structure, staff, permissions, auth) and Phase 2 (the whole rating
-system) are complete and stable: 415 tests, type-check clean, one deliberate lint
-warning. The audit of 2026-07-29 is fully closed, and a second pass on 2026-08-03
-closed everything it found (9 commits, `cbdbd0c`…`1d1e572`).
+system) are complete and stable: **447 tests**, type-check clean, one deliberate
+lint warning. The audit of 2026-07-29 is fully closed.
 
-**Nothing in the app is known-broken.** Everything below is work not yet started.
+**One real bug was found and fixed on 2026-08-07** — item 5.1 scored a course
+with five of six materials as **0** instead of 120, because the catalogue
+described it as all-or-nothing. See «Shipped today» below. Nothing else in the
+app is known-broken.
 
 ---
 
 ## The shape of what is left
 
-Two groups, and the difference matters more than the size of either:
+**Nothing is blocked on a decision any more.** That changed on 2026-08-07. What
+remains splits three ways:
 
-- **Blocked on the boss** — the two big features and most of the reports. Big,
-  visible, and not startable.
-- **Not blocked by anyone** — real data, and everything that decides whether
-  people actually use the system. Less visible, and the reason a working
-  system still fails.
+- **Rating UI rework** — new, requested by the owner after using the app. Small
+  pieces, high visibility, all unblocked.
+- **The two big features** — Характеристика and Розподіл ставок. Both fully
+  specced, neither started.
+- **Adoption** — import, instructions, invites, reminders. Less visible, and
+  the reason a working system still fails.
 
-The second group is the risk. A perfect rating engine that nobody fills in is
-worth nothing, and every item in «Adoption» below is unblocked today.
+The third group is still the risk. A perfect rating engine nobody fills in is
+worth nothing.
 
 ---
 
-## A. Ready to build now
+## Shipped today (2026-08-07)
 
-### A1. Staff import — do this first
+Recorded so the next session does not re-derive it.
+
+| Commit    | What                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------ |
+| `e9f518a` | Item 5.1: `GATE` → `CHECK_SUM`. Each material carries its own share of the mode's maximum. |
+| `aede590` | `pnpm db:gate-to-check-sum` for stored rows; `computeValue` throws on an unknown kind.     |
+| `d10eff4` | «Tick at least one» rule; two label renames; client forms now apply rule-level checks.     |
+| `6726d0f` | A grouped checkbox set summarises as one part listing its ticked labels.                   |
+
+Three lessons worth keeping:
+
+1. **Changing a scoring kind is a data migration.** `scoring` and
+   `evidenceFields` are JSON columns — editing `lib/rating/` changes nothing
+   already written. `pnpm db:seed` fixes the active template; a **cloned** one
+   is never reseeded. Now in CLAUDE.md.
+2. **The client forms were validating with the fields only**, never the scoring
+   rule, so a rule-level failure showed nothing at all on screen. Fixed for all
+   three forms; `entity-entry-dialog` is the deliberate exception.
+3. **`docs/` beats `edu-reference/`.** The latter is the old Google-Sheets
+   system. A 2025 file there described a model 2026 had deliberately replaced.
+
+---
+
+## A. Rating UI rework — from the owner, 2026-08-07
+
+All unblocked. Roughly in the order the owner raised them.
+
+### A1. Rating table fully visible
+
+An НПП should see **every** indicator, including ones they have not filled,
+showing `0`. Today the table only lists what exists. Smallest of the set.
+
+### A2. Link field on 3.16, 3.17, 3.18
+
+A new field: link to the editorial-board / council page **where the НПП is
+named**. Filled by the НПП themselves, checked by us. Only those three
+indicators — confirmed, not «and similar».
+
+### A3. Section 3 submission form
+
+Confirmed shape: **одна робота — одна форма**, but shorter than today's. Not a
+bulk paste.
+
+### A4. Section 3 report like `Звіти ННВ`
+
+`edu-reference/csv/Звіти ННВ - Публікації_2025.csv`: one row per work, the
+citation pasted as free text into the column of its indicator (3.7 укр, 3.7 ЄС,
+3.8 A, 3.9 Б, одноосібно, 3.10), with a running count in the header.
+
+### A5. /division-data closer to `Дані ННВ`
+
+`edu-reference/csv/Дані ННВ - 2025.csv`: one wide grid, one row per НПП, paired
+`Назва` / `Роль` columns per indicator. Today's grid is shaped differently.
+
+### A6. Visual pass — **after** the items above
+
+The owner's words: not intuitive, and not all data visible as intended.
+
+- **The /division-data table header scrolls away.** Column headers disappear as
+  you scroll, so you lose track of which column you are in. Sticky header.
+- **Low contrast across most pages.** Fields are barely distinguishable from
+  the background — a consequence of the monochrome direction in CLAUDE.md.
+- **Wanted: a test page** rendering the same components in several
+  styles/designs to choose from. Explicitly scheduled **after** the crucial
+  items, not now.
+
+### A7. Field-by-field pass — deferred, its own session
+
+The rule: **everything an НПП can be expected to know about themselves, they
+enter themselves, with evidence.** Rating-related only. The owner offered to go
+through indicator by indicator for the unclear ones. Deferred by agreement —
+do the clear work first, then bring a list of the genuinely ambiguous ones.
+
+---
+
+## B. The two big features
+
+Both fully specced. Neither started.
+
+### B1. Характеристика / п.38 — [`kharakterystyka.md`](./kharakterystyka.md)
+
+It is п.38 of the Ліцензійні умови and the source of `Кнпп`. 14 of 20 positions
+fill themselves from rating data; 3 are military and never apply; 2 are manual
+(п.15 школярі — such НПП exist; п.20 practical experience — nobody qualifies
+today); 1 needs a defence date on the profile.
+
+Decided 2026-08-07 and easy to get wrong later:
+
+- **Applications never count.** A submitted patent application or an unwon grant
+  proposal scores in the **rating** but closes no п.38 position.
+- **One defence date**, for the highest degree. Enough for п.5, since the
+  highest degree is also the latest.
+- **Generated text is never editable.** Fix the generator, not the document.
+- **We never add, remove or re-price a rating indicator.** The catalogue belongs
+  to the вчена рада and moves only by their vote.
+
+### B2. Розподіл ставок — [`stake-distribution.md`](./stake-distribution.md)
+
+The formula, corrected against the положення in two places (денна divisor is
+`Nд` with no factor of 2; the floor is 0.1, not 0.5).
+
+The structural fact that shapes the whole UI: **`Кст` bounds the first term
+only.** The pool is spread by rating, the head adjusts by hand and may never
+exceed it (hard block), and recruitment bonuses are paid **on top**, outside the
+pool. So the grid needs **two columns** — editable pool share with a live
+«нерозподілено», and a read-only computed bonus.
+
+Also decided: `Кст ≥ 0.1 × every НПП on the кафедра` as an input validation;
+rounding is two rules (pool share to 0.05 with ties **down**; bonus to 3
+decimals); no hand-override of a student's value; no dispute arbitration, no
+claim cancellation, no past-year storage, no mid-year-leaving handling.
+
+---
+
+## C. Ready to build now (unchanged from 2026-08-04)
+
+### C1. Staff import — still the thing to do first
 
 From `edu-reference/csv/УГСП_Дані - НПП.csv`. The `Staff` model already carries
-every column in that file (ставка, стаж, звання, ступінь, email, WoS/Scopus/
-Scholar counts and URLs, ORCID).
+every column. Needs a **dry-run report first** — rows to create / update / skip
+with a reason each — then commit, one audit-log entry per row.
 
-Shape: admin-only upload page **or** a `tsx` script. Must have a **dry-run report
-first** — rows to create / update / skip, with the reason for each — and only
-then commit. One audit-log entry per row.
+Why first: no unknowns, and it makes everything else testable against real
+people instead of 200 invented ones. Watch for name variants, missing or shared
+emails, department names that do not match, duplicates. The code is easy; the
+data is where the time goes.
 
-Why first: it is the only item with no unknowns, and it makes everything else
-testable against real people instead of 200 invented ones. It also makes the boss
-meeting better — real numbers on screen beat a demo.
+### C2. Instructions in Ukrainian
 
-Watch for: name variants, missing or shared emails, department names that do not
-match what is in the database, duplicate people. The code is easy; the data is
-where the time goes.
+There are none beyond the profile-field tooltips. Four audiences: ~200 НПП,
+division editors, ННВ moderators, admins. Plan: a `/help` page split by role
+plus contextual text on the 3–4 screens where people will certainly get stuck.
+**The wording must be reviewed by the owner.**
 
-### A2. Error logging — DONE 2026-08-04
+### C3. Bulk invite
 
-`lib/log.ts` + `parseDbError` now split expected failures from defects: a
-duplicate email gets a specific message and no log entry, anything else gets the
-stack, the scope, the caller's id, and a code shown to the person so a report can
-be traced. Seven silent `catch` blocks were fixed, including the public password
-reset, which could have had SMTP down for everybody with nothing anywhere showing
-it. The error boundary shows Next's digest for page-level failures.
+300 people, one button per person today. Select a department or filter, send to
+everyone without a password, spread over the SMTP cap, per-person resend for
+bounces. The invite mechanics exist — this is the batch layer.
 
-Not built, deliberately: an `ErrorLog` table with an admin page. Do that only if
-reading `docker compose logs` turns out to be too slow in practice — see the
-convention in CLAUDE.md.
+### C4. Reminders / notifications
 
-### A3. Instructions in Ukrainian
+**There is no notification code in the app at all.** Nothing tells an НПП that
+submissions are open, that the year closes soon, or that something of theirs was
+discarded. Biggest adoption risk. Minimum: an email on discard, and a «year
+closes on X» an admin can trigger.
 
-There are none. The only explanatory text in the app is the tooltip set on
-rating-relevant profile fields (`components/staff/rating-field-hint.tsx`).
+### C5. E2E tests
 
-Four audiences:
+Unit coverage is strong; cross-page flows are untested. The Playwright plugin is
+now wired up and was used to verify 5.1 — worth keeping: login → submit →
+moderate → close year → reopen, plus the permission matrix.
 
-| Who                | Needs to know                                                                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| ~200 НПП           | the activation email, adding an achievement, what «Зараховано» means, why a score changed, what to do when an entry is discarded |
-| Division editors   | the entry grid, the group («entity-first») dialog                                                                                |
-| ННВ moderators     | discarding with a reason, what «Перевірено» means and that it does not change points                                             |
-| Admin (1–2 people) | year lifecycle (activate / clone / close / reopen), permissions, the template editor                                             |
+### C6. Documentation upkeep
 
-Plan: a `/help` page split by role, plus contextual text on the 3–4 screens where
-people will certainly get stuck. No videos until after the pilot — the pilot users
-show which parts actually confuse people, and a video is expensive to redo.
-
-**The wording must be reviewed by the owner.** Getting the register right for
-university staff, and using the terms the department already uses, is not
-something to accept from a draft unchecked.
-
-### A4. Bulk invite
-
-300 people, and today inviting them is one button per person on each staff page.
-Needs: select a department (or a filter), send to everyone in it who has no
-password yet, spread over the SMTP daily cap, with a per-person resend for
-bounces. The invite mechanics already exist — this is the batch layer over them.
-
-### A5. Reminders / notifications
-
-There is **no notification code in the app at all**. Nothing ever tells an НПП
-that submissions are open, that the year closes soon, or that something of theirs
-was discarded (they only see the reason if they visit `/achievements`).
-
-This is the single biggest adoption risk. Minimum useful version: an email when
-your entry is discarded, and a «year closes on X» reminder an admin can trigger
-for everyone who has submitted nothing.
-
-### A6. E2E tests (audit W10)
-
-Unit coverage is strong; the flows that cross pages are untested. Worth a few
-Playwright runs over imported data: login → submit → moderate → close year →
-reopen, plus the permission matrix (editor vs admin vs НПП).
-
-### A7. Documentation upkeep
-
-- `audit-2026-07-29.md` still describes pre-fix code. Either mark it clearly as
-  historical or update the finding statuses (S3 talks about hard-deleting an
-  admin, which is now impossible; B3, B5, W4 are closed; the B1 index name does
-  not match what shipped).
-- `ui-fixes-plan.md` item **#4** was decided and never built: inline pencil and
-  delete are still in the rows of divisions, faculties and departments with the
-  `z-10` overlay hack. Since then the row-link work went a different way (one
-  cell is the link), so **re-confirm the decision before building it**.
+- `audit-2026-07-29.md` still describes pre-fix code — mark it historical or
+  update the statuses.
+- `ui-fixes-plan.md` **#4** was decided and never built (inline pencil/delete in
+  division, faculty, department rows). The row-link work went a different way
+  since, so **re-confirm before building**.
 
 ---
 
-## B. Blocked on the boss
+## D. Waiting on other people
 
-**Updated 2026-08-04 — the meeting happened and most of this section is unblocked.**
-Q1, Q3, Q5, Q11 and Q14 are answered; Q4 turned out to be the wrong question. The
-Розподіл ставок design is now a written spec: [`stake-distribution.md`](./stake-distribution.md).
+Not blocked on a decision — blocked on a file or a third party.
 
-| Work                          | State                                                                                                                                                                                                                                                                                                                                                                                    |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Розподіл ставок**           | ✅ **unblocked.** Ставка is computed by the university's formula, not divided by hand. Head proposes → комісія approves. Needs two pieces of _data_, not decisions: the norms table (35 numbers) and this year's узгоджуючий коефіцієнт.                                                                                                                                                 |
-| **Head / dean scope**         | ✅ **unblocked.** A head sees their own кафедра fully; a dean the same across their faculty. Derived from `Department.headId` / `Faculty.deanId`, not a new Role.                                                                                                                                                                                                                        |
-| **Характеристика_РНПАВ**      | ⚠️ **promoted, and Q2 is answered.** It is п.38 of the Ліцензійні умови and the source of `Кнпп`. The mapping is done: 14 of 20 positions fill themselves from rating data, 3 are military and never apply here, 2 need data we do not collect, 1 needs a defence date on the profile. Spec: [`kharakterystyka.md`](./kharakterystyka.md). Still wants Q9 for the full five-year window. |
-| Student recruitment           | ✅ no longer a separate feature — it is the formula's second term. Open: who enters the students (додаток 3 is co-signed by the приймальна комісія).                                                                                                                                                                                                                                     |
-| Публікації report             | Q7 — columns already known; can be built and adjusted.                                                                                                                                                                                                                                                                                                                                   |
-| Підвищення кваліфікації form  | Q8 — smallest, standalone.                                                                                                                                                                                                                                                                                                                                                               |
-| «Повідомити» without deleting | Q6 — overlaps A5 (reminders).                                                                                                                                                                                                                                                                                                                                                            |
-| Historical import 2021–2025   | Q9 — now doubly needed: the Характеристика window is five years.                                                                                                                                                                                                                                                                                                                         |
+| What                             | From whom          | When            |
+| -------------------------------- | ------------------ | --------------- |
+| Historical rating Excel files    | owner's local disk | **~2026-08-12** |
+| Rate-manage page design          | owner              | «later»         |
+| Наказ про зарахування as a table | приймальна комісія | owner is asking |
 
-## C. Before deployment
+**The import will do less than hoped.** The owner checked: the old files are
+«most of data is results only» — a score per person per year. Publications may
+have per-item rows; nothing else will. A yearly total cannot satisfy a п.38
+threshold, so **the first Характеристика is largely manual** and that is now the
+expected outcome, not a failure. Worth checking when the files arrive whether
+any other category kept per-item rows.
+
+---
+
+## E. Before deployment
 
 Decided: Hetzner VPS + Coolify.
 
 - Production Dockerfile (standalone Next build)
 - Real SMTP, `AUTH_SECRET` and `APP_URL` set
 - **Login throttling** (audit S4) — acceptable on a university network, not on a
-  public VPS. Per-IP/per-email counter, even in memory.
-- Backup path on the NAS, **and a restore drill**. A backup nobody has restored is
-  a hope, not a backup.
-- Pilot with 2–3 real users before the department-wide rollout.
+  public VPS
+- Backup path on the NAS, **and a restore drill**. A backup nobody has restored
+  is a hope, not a backup.
+- Pilot with 2–3 real users before the department-wide rollout
 - Nobody currently owns support. Decide who answers when an НПП cannot log in.
 
 ---
 
-## D. Decisions still owed by the owner
+## F. Settled — do not re-open
 
-- **W6** — any EDITOR can download every НПП's full rating workbook and chart,
-  including divisions with no rating role. Intended?
-- Everything in section B.
-- `ui-fixes-plan.md` #4 (see A7) — still wanted, given the row-link rework?
+**Every question from the tracker is answered.** The 22 answers are recorded in
+`stake-distribution.md` and `kharakterystyka.md`. A few that would otherwise be
+re-asked:
 
----
+- **W6 — editors downloading every НПП's workbook: intended.** Any division
+  member may inspect the total rating; they simply cannot edit fields outside
+  their permissions.
+- **«Повідомити» without deleting: not building it.** Discard-with-reason
+  already reaches the НПП.
+- **Підвищення кваліфікації is an ordinary indicator** (1.11, 1.12) — no
+  separate recognition step, no new entity.
+- **Звіт «Публікації» columns stay as they are** until someone names what is
+  missing.
+- **1С export: Excel, our own column set**, adjusted if 1С rejects it. No sample
+  file is being chased.
+- **Менеджмент norm is 12**, per додаток 5. Соціальна робота 11.5 and Публічне
+  управління 12.5 likewise — додаток 5 wins over постанова 1134.
 
-## E. Settled — do not re-open
-
-Recorded so nobody spends a second day on them.
-
-**Owner decisions:**
+**Earlier owner decisions:**
 
 - Editors keep the ability to edit emails. Residual risk accepted: an editor can
-  take over a **USER** account via an email change plus the public reset. The
-  ADMIN version of that path is closed. Notifying the old address would remove
-  the risk and was deliberately not built.
+  take over a **USER** account via an email change plus the public reset.
 - Editors may only edit records where `role = USER`, plus their own.
-- A person is **never deleted** — only archived. See CLAUDE.md for the full rule.
-- Hard delete of a person no longer exists anywhere in the app.
+- A person is **never deleted** — only archived. See CLAUDE.md.
 
 **Measured, not guessed — three things that are NOT problems:**
 
-- `closeYear` on the default 5 s transaction timeout: **274 ms** for 204 staff and
-  4498 activities. No explicit timeout needed.
-- `batchUpsertDivisionActivity` worst case (100 rows): **590 ms**. Also nowhere
-  near the limit. (The batched recompute was still worth doing — 590 → 257 ms —
-  but for cost, not for the timeout.)
+- `closeYear` on the default 5 s transaction timeout: **274 ms** for 204 staff
+  and 4498 activities.
+- `batchUpsertDivisionActivity` worst case (100 rows): **590 ms**.
 - `prisma migrate dev` does **not** drop the partial unique index it cannot
-  express. Verified with `prisma migrate diff --from-config-datasource
---to-schema` against the live database that holds it.
+  express.
 
 **Known and accepted:**
 
-- One lint warning in `activity-type-dialog.tsx` — `watch()` is a subscription;
-  replacing it stops the form reacting. It is a fact about react-hook-form.
-- `ActivityStatus.PENDING` is never written. There is no approval queue and none
-  should be added.
+- One lint warning in `activity-type-dialog.tsx` — `watch()` is a subscription.
+- `ActivityStatus.PENDING` is never written. No approval queue should be added.
 - `/staff` slices for paging after fetching all rows. Fine at ~300 people.
-- Demo data holds two junk indicators, «asd» (2.10) and «іва» (6.21). Both have
-  activities, so they can only be deactivated, not deleted.
+- Demo data holds two junk indicators, «asd» (2.10) and «іва» (6.21).
+- The **2027 clone keeps the old 5.1 labels**. A year owns its structure, so
+  `db:seed` only touched 2026. Fix it in `/admin/rating/2027` if it matters.
 
 ---
 
 ## Suggested order
 
-1. **A1 staff import** — unblocks judgement on everything else.
-2. **A2 error logging** — small, and you will want it the first time real users hit a bug.
-3. **Характеристика / п.38** — the report they already produce by hand, and the source
+1. **A1–A2** — rating table visibility and the 3.16–3.18 link field. Both small,
+   both visible, and they finish what was started today.
+2. **C1 staff import** — unblocks judgement on everything else, and makes the
+   next demo real.
+3. **A3–A5** — the section 3 and /division-data reshaping.
+4. **B1 Характеристика** — the report they produce by hand today, and the source
    of `Кнпп`. Build it before the formula needs it.
-4. **Розподіл ставок** — [`stake-distribution.md`](./stake-distribution.md).
-5. **A3 instructions** + **A4 bulk invite** + **A5 reminders** — the adoption set.
-6. **C deployment**, with the pilot before the rollout.
+5. **B2 Розподіл ставок** — the biggest, and fully specced.
+6. **A6 visual pass** — after the above, as the owner asked.
+7. **C2–C4** — the adoption set.
+8. **E deployment**, with the pilot before the rollout.
 
-The critical path is now: **staff import → Характеристика (it carries `Кнпп`) →
-Розподіл ставок.** Q1 and Q5 are answered, so nothing on that path waits on
-anybody. Everything else in section B can be reordered freely.
+The critical path is unchanged: **staff import → Характеристика (it carries
+`Кнпп`) → Розподіл ставок.** Nothing on it waits on anybody now. The import
+files arriving ~12.08 affect only how much of the Характеристика fills itself.
