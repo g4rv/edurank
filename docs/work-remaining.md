@@ -119,6 +119,10 @@ The owner's words: not intuitive, and not all data visible as intended.
   sticky header row and a sticky НПП column. The height cap is what makes
   sticky work at all — `position: sticky` resolves against a scrollport, and a
   page-level scroll gave it none.
+- ~~**/division-data is unusable at 200 people.**~~ **DONE 2026-08-07.** Search
+  now sits beside sort (ПІБ / кафедра / spершу заповнені / спершу порожні), a
+  data filter (усі / із даними / без даних), a «Повні назви» toggle for the
+  clamped column headings, a «N із M» counter and 40-per-page paging.
 - **Low contrast across most pages.** Fields are barely distinguishable from
   the background — a consequence of the monochrome direction in CLAUDE.md.
 - **Wanted: a test page** rendering the same components in several

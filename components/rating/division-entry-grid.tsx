@@ -12,6 +12,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScoringSpec } from '@/lib/rating/scoring';
@@ -51,28 +58,136 @@ interface DivisionEntryGridProps {
 
 // Staff-first grid: one row per НПП, one column per division-managed item.
 // Click a cell to enter/correct the value for the open year.
+const PAGE_SIZE = 40;
+
+type SortKey = 'name' | 'department' | 'filled-desc' | 'filled-asc';
+type Filled = 'all' | 'with-data' | 'empty';
+
+const SORT_LABELS: Record<SortKey, string> = {
+  name: 'За ПІБ',
+  department: 'За кафедрою',
+  'filled-desc': 'Спершу заповнені',
+  'filled-asc': 'Спершу порожні',
+};
+
+const FILLED_LABELS: Record<Filled, string> = {
+  all: 'Усі',
+  'with-data': 'Із даними',
+  empty: 'Без даних',
+};
+
+// Staff-first grid: one row per НПП, one column per division-managed item.
+// Click a cell to enter/correct the value for the open year.
 export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionEntryGridProps) {
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<SortKey>('name');
+  const [filled, setFilled] = useState<Filled>('all');
+  const [fullHeaders, setFullHeaders] = useState(false);
+  const [page, setPage] = useState(0);
 
-  const visibleStaff = useMemo(() => {
+  const matching = useMemo(() => {
+    /** How many of this division's columns already hold a value for one person */
+    const countFor = (staffId: string) =>
+      types.reduce((n, t) => (entries[`${staffId}:${t.id}`] ? n + 1 : n), 0);
+
     const q = query.trim().toLowerCase();
-    if (!q) return staff;
-    return staff.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.department.toLowerCase().includes(q)
-    );
-  }, [staff, query]);
+    const byName = (a: EntryGridStaff, b: EntryGridStaff) => a.name.localeCompare(b.name, 'uk');
+
+    const rows = staff.filter((s) => {
+      if (q && !s.name.toLowerCase().includes(q) && !s.department.toLowerCase().includes(q)) {
+        return false;
+      }
+      if (filled === 'all') return true;
+      const has = countFor(s.id) > 0;
+      return filled === 'with-data' ? has : !has;
+    });
+
+    const sorted = [...rows];
+    switch (sort) {
+      case 'name':
+        sorted.sort(byName);
+        break;
+      case 'department':
+        sorted.sort((a, b) => a.department.localeCompare(b.department, 'uk') || byName(a, b));
+        break;
+      case 'filled-desc':
+        sorted.sort((a, b) => countFor(b.id) - countFor(a.id) || byName(a, b));
+        break;
+      case 'filled-asc':
+        sorted.sort((a, b) => countFor(a.id) - countFor(b.id) || byName(a, b));
+        break;
+    }
+    return sorted;
+  }, [staff, entries, types, query, sort, filled]);
+
+  const pageCount = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
+  const current = Math.min(page, pageCount - 1);
+  const visibleStaff = matching.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE);
+
+  // Narrowing the list must not leave you stranded on a page that no longer exists
+  function change<T>(set: (v: T) => void) {
+    return (v: T) => {
+      set(v);
+      setPage(0);
+    };
+  }
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-sm">
-        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Пошук НПП або кафедри…"
-          className="pl-9"
-          aria-label="Пошук НПП"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-64 flex-1 sm:max-w-sm">
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => change(setQuery)(e.target.value)}
+            placeholder="Пошук НПП або кафедри…"
+            className="pl-9"
+            aria-label="Пошук НПП"
+          />
+        </div>
+
+        <Select value={sort} onValueChange={(v) => change(setSort)(v as SortKey)}>
+          <SelectTrigger className="w-44" aria-label="Сортування">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(SORT_LABELS).map(([v, label]) => (
+              <SelectItem key={v} value={v}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filled} onValueChange={(v) => change(setFilled)(v as Filled)}>
+          <SelectTrigger className="w-36" aria-label="Фільтр за даними">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(FILLED_LABELS).map(([v, label]) => (
+              <SelectItem key={v} value={v}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* The labels are long enough that a clamped header hides which
+            indicator a column is. Off by default so the grid stays compact,
+            because most of the time the item number is enough. */}
+        <Button
+          type="button"
+          variant={fullHeaders ? 'secondary' : 'outline'}
+          size="sm"
+          onClick={() => setFullHeaders((v) => !v)}
+          aria-pressed={fullHeaders}
+        >
+          {fullHeaders ? 'Стислі назви' : 'Повні назви'}
+        </Button>
+
+        <span className="ml-auto text-sm whitespace-nowrap text-muted-foreground">
+          {matching.length} із {staff.length}
+        </span>
       </div>
 
       {/* Scrolls in both directions inside its own box rather than with the
@@ -91,10 +206,13 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
               {types.map((t) => (
                 <th
                   key={t.id}
-                  className="sticky top-0 z-20 min-w-32 border-b bg-muted px-3 py-3 align-bottom font-medium"
+                  className={cn(
+                    'sticky top-0 z-20 border-b bg-muted px-3 py-3 align-bottom font-medium',
+                    fullHeaders ? 'min-w-48' : 'min-w-32'
+                  )}
                 >
                   <span className="block text-xs text-muted-foreground">{t.itemNumber}</span>
-                  <span className="line-clamp-2" title={t.label}>
+                  <span className={cn(!fullHeaders && 'line-clamp-2')} title={t.label}>
                     {t.label}
                   </span>
                 </th>
@@ -135,6 +253,34 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
           </tbody>
         </table>
       </div>
+
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm text-muted-foreground">
+            Стор. {current + 1} з {pageCount}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(current - 1)}
+              disabled={current === 0}
+            >
+              Назад
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(current + 1)}
+              disabled={current >= pageCount - 1}
+            >
+              Далі
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
