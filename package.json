@@ -17,6 +17,7 @@
     "db:seed": "prisma db seed",
     "db:demo": "tsx prisma/demo.ts",
     "db:fix-rounding": "tsx prisma/fix-rating-rounding.ts",
+    "db:gate-to-check-sum": "tsx prisma/gate-to-check-sum.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force"

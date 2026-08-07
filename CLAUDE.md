@@ -143,6 +143,7 @@ pnpm db:reset         # prisma migrate reset --force (wipe + reapply, dev only)
 pnpm db:demo          # add ~200 demo НПП across 4 faculties, so the charts have data
 pnpm db:demo --clear  # remove them again (matches on the @demo.local email domain)
 pnpm db:fix-rounding  # one-off repair: re-round RatingEntry totals to 2 decimals
+pnpm db:gate-to-check-sum  # one-off: convert retired GATE indicator rows to CHECK_SUM
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 docker compose up -d  # start all services
@@ -265,6 +266,7 @@ Each `ActivityType` row carries its own form definition (`evidenceFields`) and s
 - **A year owns its structure.** `cloneTemplate` copies the JSON, so reshaping 2027 cannot touch 2026 — which is what makes reopening an old year for a correction safe.
 - `ACTIVITY_TYPES_2026` + `EVIDENCE_FIELDS` are now **seed input only**: `dbSpecs(def)` converts a catalogue def into the row columns. `catalogueType(code)` gives tests the same view the app builds from a row.
 - **What still needs code:** a new field kind (`lib/rating/evidence-fields.ts` + renderer + Zod generator), a new scoring kind (`lib/rating/scoring.ts`), and `PROFILE_DERIVED` indicators (they map to a Staff column). `specProblems()` is the contract between a field set and its rule — it guards both the builder and the seed.
+- **Changing a scoring kind is a data migration, not just a code change.** `scoring` and `evidenceFields` are JSON columns, so editing the catalogue in `lib/rating/` leaves every existing row untouched and the running app keeps the old behaviour. `pnpm db:seed` upserts the current template; a **cloned** template is not reseeded and needs a one-off script (see `prisma/gate-to-check-sum.ts`). `computeValue` throws on a kind it does not know, so a missed row fails loudly instead of scoring `NaN`.
 
 ## Naming conventions
 

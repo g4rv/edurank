@@ -36,6 +36,14 @@ export interface ScorableType {
   evidenceFields: readonly EvidenceField[];
 }
 
+const SCORING_KINDS = new Set<string>([
+  'FIXED',
+  'MULT',
+  'SELECT',
+  'SELECT_MULT',
+  'CHECK_SUM',
+] satisfies ActivityKind[]);
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -112,6 +120,16 @@ function checkSumValue(type: ScorableType, evidence: unknown): number {
 
 function computeValue(type: ScorableType, evidence: unknown): number {
   const { kind, pageBased } = type.scoring;
+
+  // `kind` arrives from a JSON column, so TypeScript's exhaustiveness proves
+  // nothing about a row written by an older build. Without this an unknown kind
+  // falls out of the switch as `undefined` and becomes a NaN score — a wrong
+  // number that looks like a real one. GATE rows predating CHECK_SUM are exactly
+  // that case; `pnpm db:gate-to-check-sum` converts them.
+  if (!SCORING_KINDS.has(kind)) {
+    throw new Error(`${type.code}: unknown scoring kind "${String(kind)}"`);
+  }
+
   switch (kind) {
     case 'FIXED':
       return 1;

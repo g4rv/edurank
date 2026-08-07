@@ -283,6 +283,25 @@ describe('admin-defined types (specs the engine has never seen)', () => {
     ).toBe(90);
   });
 
+  // A row written by an older build still says GATE. Throwing beats returning
+  // NaN, which would look like a real score all the way into the totals.
+  it('refuses a retired scoring kind rather than scoring it as NaN', () => {
+    const legacy = {
+      code: 'moodle_course',
+      coefficient: 1,
+      scoring: { kind: 'GATE' },
+      evidenceFields: [
+        {
+          kind: 'select' as const,
+          name: 'mode',
+          label: 'Вид',
+          options: [{ value: 'full', label: 'повне', points: 90 }],
+        },
+      ],
+    } as unknown as ScorableType;
+    expect(() => computeScore(legacy, { mode: 'full' })).toThrow('unknown scoring kind');
+  });
+
   it('refuses a select option that carries no points', () => {
     const broken: ScorableType = {
       ...jury,
