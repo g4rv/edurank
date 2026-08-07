@@ -108,7 +108,9 @@ exceptions — neither of them a bug to "fix" in code:
   do not "correct" it against the law later. A smaller norm makes each recruited
   student worth more, so this is not cosmetic.
 - **Соціальна робота (11.5) and Публічне управління (12.5) have no row in the
-  law** — they are post-2015 specialities, assigned by analogy.
+  law** — they are post-2015 specialities, assigned by analogy. **Use додаток 5's
+  numbers** (confirmed 2026-08-07), same rule as Менеджмент. Who chose them and
+  by what analogy is not worth tracing.
 
 This is exactly why the norms are **editable yearly data**, not constants in code:
 the вчена рада approves the table each year, and the app must follow whatever it
@@ -242,6 +244,22 @@ only. Reason: `Кст`, `Кнпп` and `<Rк>` are all per кафедра, so co
 two кафедри would put them in two averages and two pools and produce two Vc values
 that nothing reconciles before 1С. Revisit if сумісники turn out to recruit often.
 
+### Four things we are deliberately not building (decided 2026-08-07)
+
+Each of these was an open question, and each answer removed work rather than
+adding it. Recorded so nobody re-proposes them as missing features:
+
+| Not building                     | Because                                                                                                                                                                                                                                                                                            |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dispute arbitration**          | There is no in-system winner. Head/dean/ADMIN **see** the duplicates, who claimed first, and how many duplicates each person has — then they **talk to that person**. The resolution happens off-screen; the system's job is to make the pattern visible. No «assign to» button, no verdict field. |
+| **Cancelling a confirmed claim** | Once the bonus is distributed it stands for the year, even if the student is later expelled. So no cancel flow, no reason field, no recalculation mid-year.                                                                                                                                        |
+| **Past-year ставки**             | Previous years' distributions are **not stored at all**. Only the current year exists. (Rating history is separate and still kept — this is about the ставка distribution only.)                                                                                                                   |
+| **Mid-year leaving / декрет**    | Not ours. Redistributing the remaining working hours is a different administrative process outside EduRank.                                                                                                                                                                                        |
+
+The dispute row is the one worth re-reading before building the кафедра view: it
+means the screen is a **report**, and every temptation to add a resolution
+control on it should be resisted.
+
 **Working assumptions** (correct these if wrong):
 
 - A duplicate means the same student claimed by **different** НПП. The same НПП
@@ -352,9 +370,10 @@ mechanisms are real and the owner has confirmed they stay:
 - **Only ADMIN edits caps.** The завідувач distributes inside limits they cannot
   change, which is what stops a head capping colleagues down and themselves up.
 
-Still open: where the ставки freed by a cap go (proposal: shown as
-«нерозподілено» for the head to place, matching the old system's `undistributed`
-field).
+**Where the ставки freed by a cap go (decided 2026-08-07):** they become
+«нерозподілено» — shown as their own line, and the head places them by hand
+inside other people's limits. Matches the old system's `undistributed` field.
+Not redistributed automatically: the head decides, and the audit log records it.
 
 ## Nobody gets zero, and the pool must be able to pay for that (decided 2026-08-06)
 
@@ -418,17 +437,35 @@ equal the pool exactly. Кафедра «Політології»: pool `2.16`, 
 `undistributed: 0.01` — a remainder smaller than the step and therefore
 impossible to hand out.
 
+### Two rounding rules, not one (decided 2026-08-07)
+
+The 0.05 ladder is **only** the pool share. The recruitment bonus does not sit on
+it at all, and applying one rule to both would be wrong in both directions:
+
+| Value                      | Rounded to       | Tie (exactly halfway)     |
+| -------------------------- | ---------------- | ------------------------- |
+| Pool share (term 1)        | nearest **0.05** | **down** — `0.125 → 0.10` |
+| Recruitment bonus (term 2) | **3 decimals**   | ordinary                  |
+
+Confirmed with worked examples: `0.12 → 0.10` (closer to 0.10), `0.13 → 0.15`
+(closer to 0.15), and an exact half goes to the lower step. The per-person floor
+of 0.1 still applies after rounding — nothing rounds a person below it.
+
+Three decimals for the bonus matches what the university already records: their
+per-student values are stored at that precision (see «Precision»), and a
+заочний контрактний здобувач is worth ~0.004, which the 0.05 ladder would round
+away to nothing.
+
 Rules for the implementation:
 
-- a person's ставка is rounded to the nearest 0.05, halves going up
-  (`0.02 → 0.00`, `0.03 → 0.05`);
-- store integer hundredths and snap in multiples of 5, never round floats — the
-  old system's negative `undistributed` came from exactly this;
+- **store integer hundredths for the pool share** and snap in multiples of 5,
+  never round floats — the old system's negative `undistributed` came from
+  exactly this;
+- store the bonus at full precision, round to 3 decimals for display and export;
 - a remainder below 0.05 stays undistributed and is shown as such, rather than
-  being forced onto somebody.
-
-Still to confirm with the owner's boss: the rounding direction at an exact half,
-and that the sub-step remainder is genuinely meant to stay unallocated.
+  being forced onto somebody;
+- round **once**, at the end. Rounding a share and then summing is what produced
+  the old negative remainder.
 
 ## Precision
 
@@ -488,7 +525,7 @@ dropped (see Q1), that is one edit.
 | #   | Decision                                                                                                                                                                                                                                                                                                  |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Q1  | **Approval step.** Head proposes → комісія/віце-ректор approves. Only the approved version is official.                                                                                                                                                                                                   |
-| Q3  | **1С stays the payroll truth.** EduRank plans and approves; the result is exported for 1С as **Excel** (confirmed 2026-08-07). Column set still to be specified.                                                                                                                                          |
+| Q3  | **1С stays the payroll truth.** EduRank plans and approves; the result is exported for 1С as **Excel**. We define the column set ourselves — ПІБ, кафедра, pool share, bonus, total, year — and adjust if 1С rejects it (confirmed 2026-08-07). No sample file is being chased first.                     |
 | Q4  | **Bonus on top — the original reading was right** (confirmed 2026-08-07). An earlier note here called it "superseded" on the grounds that both terms belong to one formula. They do, but only term 1 is bounded by `Кст`; the recruitment sum is paid over it. See «The pool bounds the first term only». |
 | Q5  | **A head sees their own кафедра properly**: staff, profiles, ставка, rating results, plus the distribution grid. Derived from `Department.headId`, **not** a new `Role` — one person can be head, НПП and editor at once.                                                                                 |
 | Q11 | **A head may allocate to themselves**, as an ordinary row. Approval and the audit log are the control.                                                                                                                                                                                                    |

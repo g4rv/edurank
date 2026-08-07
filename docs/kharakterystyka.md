@@ -138,22 +138,20 @@ treat the first import run as a migration that only happens once.
 
 ## п.15 and п.20 — answered 2026-08-07
 
-**п.15 — yes, some НПП do prepare школярі** for МАН and учнівські олімпіади. So
-this is real work being done that the rating currently cannot see at all.
+**п.15 — yes, some НПП do prepare школярі** for МАН and учнівські олімпіади. It
+is nonetheless **entered by hand, and no rating indicator is added for it.**
 
-That makes it a genuine question rather than a formality, and the two ways to
-handle it are **not** equivalent:
+The answer to "should we add a field to the rating for this?" was: _«absolutely
+not, rating is managed by science consilium with voting»_. That is a rule far
+beyond п.15, and it is the important part of this answer:
 
-| Option                             | Effect                                                                                                                         |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Manual entry on the Характеристика | Fills п.15. Awards **no rating points**. Safe — changes nobody's score.                                                        |
-| A new rating indicator             | Fills п.15 **and** awards points, so it changes rating totals, кафедра averages, and therefore **every ставка** on the кафедра |
+> **We never add, remove or re-price a rating indicator.** The catalogue belongs
+> to the вчена рада and changes only by their vote. That `/admin/rating/[year]`
+> makes it technically easy is irrelevant — easy is not the same as permitted.
 
-The second is not ours to decide. The rating catalogue is admin-editable, so
-adding an indicator needs no code — but the points it carries are approved by the
-вчена рада, and inventing a value here would quietly move real money. **Default
-to manual entry** until someone with the authority says otherwise. Raising it is
-worth doing: the work exists and currently earns nothing.
+So п.15 is filled by hand on the Характеристика, awards no points, and the work
+stays invisible to the rating until the вчена рада decides otherwise. If that
+seems unfair, the route is a vote, not a code change.
 
 **п.20 — nobody currently qualifies.** Asked whether staff have ≥5 years of
 practical experience outside teaching and research, the answer was that we have
@@ -167,11 +165,29 @@ Treat this as "true today", not "true forever" — one hire changes it. The cost
 being wrong is one person typing one field, which is why no machinery is
 justified.
 
-## Open — asked, not yet answered
+## Defence date and generated text — answered 2026-08-07
 
-Design questions still open, for the owner rather than the boss:
+**One defence date, for the highest degree.** Not one per ступінь. If someone
+defended кандидат in 2015 and доктор in 2024, we store 2024 and the earlier date
+is not kept.
 
-- **Defence date** — one field for the current ступінь, or one per degree
-  (кандидат, then доктор)?
-- **Editing generated text** — the evidence text is generated. If somebody edits
-  it, is that stored as an override, or is generated text always final?
+This is enough for п.5, which asks for a defence **within the last five years**:
+the highest degree is also the most recent one, so if that date is outside the
+window, no defence falls inside it either. The concern that a single field would
+break п.5 was wrong.
+
+**Generated text is never editable.** The evidence sentences are assembled from
+rating data and that is the final form — no override field, no «edit» button,
+nothing stored per-person. The text is therefore always a true reflection of what
+is in the rating, which is the point: an editable Характеристика could assert
+something the underlying entries do not support.
+
+The consequence to accept: if a generated sentence reads badly, the fix is in the
+**generator**, for everybody at once — not a manual correction on one document.
+
+## Підвищення кваліфікації is just an indicator
+
+Confirmed 2026-08-07. It is a way to submit a document against indicators 1.11
+and 1.12 — no separate «визнання результатів» step, no review page, no status
+machine, no new entity. The form collects its fields and the entry scores like
+any other.
