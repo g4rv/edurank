@@ -459,6 +459,9 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   ],
   olympiad_jury: [text('event', 'Назва заходу'), text('basis', 'Номер наказу', { optional: true })],
   scientific_school: [text('title', 'Назва наукової школи')],
+  // The mention link (3.16–3.18, decided 2026-08-07): the public page of the
+  // council / editorial board that names this person. Proof of the role that
+  // does not depend on anyone's word, and cheap to check.
   specialized_council: [
     select('option', ROLE_OPTION, [
       opt('head', 'голова'),
@@ -466,21 +469,30 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       opt('member', 'член ради'),
     ]),
     text('council', 'Назва / шифр ради'),
+    url('mentionLink', 'Посилання на сторінку, де вказано НПП'),
     // Informational only — same points as a permanent council (decision 2026-07-07)
     checkbox('oneTime', 'Разова рада (одноразовий захист)'),
   ],
   journal_editorial_a: [
     select('option', ROLE_OPTION, EDITORIAL_OPTIONS),
     text('journal', 'Назва видання'),
+    url('mentionLink', 'Посилання на сторінку, де вказано НПП'),
   ],
   journal_editorial_b: [
     select('option', ROLE_OPTION, EDITORIAL_OPTIONS),
     text('journal', 'Назва видання'),
+    url('mentionLink', 'Посилання на сторінку, де вказано НПП'),
   ],
-  journal_website_support: [text('journal', 'Назва видання')],
+  // Same checkable-link field, but this indicator is about maintaining the site
+  // rather than being named on it, so the label asks for what actually applies.
+  journal_website_support: [
+    text('journal', 'Назва видання'),
+    url('mentionLink', 'Посилання на сайт збірника'),
+  ],
   org_consulting: [
     text('organization', 'Назва установи / організації'),
     text('basis', 'Договір / підстава', { optional: true }),
+    url('mentionLink', 'Посилання на сторінку, де вказано НПП'),
   ],
   conf_abroad: [
     select('option', 'Форма участі', [

@@ -75,16 +75,24 @@ Three lessons worth keeping:
 
 All unblocked. Roughly in the order the owner raised them.
 
-### A1. Rating table fully visible
+### A1. Rating table fully visible — **DONE 2026-08-07**
 
-An НПП should see **every** indicator, including ones they have not filled,
-showing `0`. Today the table only lists what exists. Smallest of the set.
+«Мій рейтинг» now lists every indicator of the year, with `0` and a hint of
+whose job it is («Подаєте самостійно» / «Вносить відділ» / «З профілю») for the
+ones with nothing under them. Open years only — a closed year renders from its
+frozen snapshot, and «you could still do this» is not something to say about it.
 
-### A2. Link field on 3.16, 3.17, 3.18
+### A2. Link field on 3.16, 3.17, 3.18 — **DONE 2026-08-07**
 
-A new field: link to the editorial-board / council page **where the НПП is
-named**. Filled by the НПП themselves, checked by us. Only those three
-indicators — confirmed, not «and similar».
+`mentionLink` added to all five codes behind those three item numbers. Label is
+«Посилання на сторінку, де вказано НПП», except `journal_website_support`, which
+is about maintaining the site rather than being named on it and asks for
+«Посилання на сайт збірника».
+
+**Open, and it needs you:** 3.16 and 3.17 are `DIVISION_MANAGED`, so the field
+is filled by the division editor, not the НПП. You said the link «must be filled
+by npp himself». Moving those indicators to НПП self-entry is a real change of
+who owns the data — it belongs in the A7 pass, not in a field addition.
 
 ### A3. Section 3 submission form
 

@@ -12,6 +12,14 @@ export interface AchievementRow {
   removeReason: string | null;
   date: string;
   canDelete: boolean;
+  /**
+   * An indicator the person has nothing under — no activity exists, so there is
+   * no status and the 0 is an absence rather than a result. Rendered muted in
+   * the rating table and never listed among actual achievements.
+   */
+  isEmpty?: boolean;
+  /** Who fills this one in; only meaningful on an empty row */
+  inputSource?: 'NPP_SUBMISSION' | 'DIVISION_MANAGED' | 'PROFILE_DERIVED';
 }
 
 export interface AchievementGroup {

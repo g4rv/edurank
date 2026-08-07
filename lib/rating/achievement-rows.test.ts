@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { compareItemNumbers, snapshotToGroups, toAchievementGroups } from './achievement-rows';
 import type { StaffActivity } from '@/lib/queries/list-activities';
+import type { TemplateIndicator } from '@/lib/queries/list-template-indicators';
 import { ACTIVITY_STATUS_LABELS } from './labels';
 
 describe('compareItemNumbers', () => {
@@ -139,5 +140,59 @@ describe('toAchievementGroups', () => {
     expect(groups[0].title).toBe('Показники професійного розвитку');
     expect(groups[0].items).toEqual([]);
     expect(groups[1].title).toBe('Наука цього року');
+  });
+
+  // Passing the year's indicators fills in what the person has not done, so the
+  // table is the whole rating rather than only the parts already finished.
+  describe('with the catalogue', () => {
+    const indicator = (
+      id: string,
+      itemNumber: string,
+      section: number,
+      inputSource: TemplateIndicator['inputSource'] = 'NPP_SUBMISSION'
+    ): TemplateIndicator => ({
+      id,
+      itemNumber,
+      label: `Показник ${itemNumber}`,
+      inputSource,
+      section: { number: section, title: `Розділ ${section}` },
+    });
+
+    const catalogue = [
+      indicator('t-3', '3.1', 3),
+      indicator('t-other', '3.2', 3),
+      indicator('t-div', '3.3', 3, 'DIVISION_MANAGED'),
+    ];
+
+    it('adds a zero row for every indicator with no activity', () => {
+      const groups = toAchievementGroups([activity(3, 'Наука')], [3], false, catalogue);
+      const items = groups[0].items;
+
+      expect(items.map((i) => i.itemNumber)).toEqual(['3.1', '3.2', '3.3']);
+      // 3.1 is the real activity, the other two are placeholders
+      expect(items[0].isEmpty).toBeUndefined();
+      expect(items[0].score).toBe(10);
+      expect(items[1]).toMatchObject({ isEmpty: true, score: 0, statusLabel: '' });
+      expect(items[2]).toMatchObject({ isEmpty: true, inputSource: 'DIVISION_MANAGED' });
+    });
+
+    it('never duplicates an indicator the person already has', () => {
+      const groups = toAchievementGroups([activity(3, 'Наука')], [3], false, catalogue);
+      expect(groups[0].items.filter((i) => i.itemNumber === '3.1')).toHaveLength(1);
+    });
+
+    // Repeatable indicators mean several rows under one number — all of them
+    // real, and no placeholder beside them.
+    it('leaves an indicator alone when it has more than one activity', () => {
+      const twice = [activity(3, 'Наука'), { ...activity(3, 'Наука'), id: 'a-3b' }];
+      const groups = toAchievementGroups(twice, [3], false, [catalogue[0]]);
+      expect(groups[0].items).toHaveLength(2);
+      expect(groups[0].items.every((i) => !i.isEmpty)).toBe(true);
+    });
+
+    it('changes nothing when no catalogue is passed', () => {
+      const groups = toAchievementGroups([activity(3, 'Наука')], [3]);
+      expect(groups[0].items).toHaveLength(1);
+    });
   });
 });

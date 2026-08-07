@@ -4,6 +4,7 @@ import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import type { StaffActivity } from '@/lib/queries/list-activities';
+import type { TemplateIndicator } from '@/lib/queries/list-template-indicators';
 
 /** Field specs off the row's JSON; a malformed row degrades to an empty summary */
 function fieldsOf(activityType: { evidenceFields: unknown }): readonly EvidenceField[] {
@@ -90,17 +91,47 @@ export function snapshotToGroups(snapshot: unknown): AchievementGroup[] | null {
 export function toAchievementGroups(
   activities: StaffActivity[],
   sections?: number[],
-  canManage = false
+  canManage = false,
+  catalogue?: readonly TemplateIndicator[]
 ): AchievementGroup[] {
   const rowsBySection = new Map<number, AchievementRow[]>();
   const titleBySection = new Map<number, string>();
+  const filled = new Set<string>();
+
   for (const a of activities) {
     const n = a.activityType.section.number;
     const rows = rowsBySection.get(n) ?? [];
     rows.push(toRow(a, canManage));
     rowsBySection.set(n, rows);
     titleBySection.set(n, a.activityType.section.title);
+    filled.add(a.activityType.id);
   }
+
+  // Indicators with nothing under them, so the table shows the whole rating
+  // rather than only the parts already done. An НПП reading the old table had
+  // to know the catalogue by heart to notice what was missing.
+  for (const indicator of catalogue ?? []) {
+    if (filled.has(indicator.id)) continue;
+    const n = indicator.section.number;
+    const rows = rowsBySection.get(n) ?? [];
+    rows.push({
+      id: `empty-${indicator.id}`,
+      itemNumber: indicator.itemNumber,
+      label: indicator.label,
+      summary: '',
+      score: 0,
+      status: 'APPROVED',
+      statusLabel: '',
+      removeReason: null,
+      date: '',
+      canDelete: false,
+      isEmpty: true,
+      inputSource: indicator.inputSource,
+    });
+    rowsBySection.set(n, rows);
+    titleBySection.set(n, indicator.section.title);
+  }
+
   for (const rows of rowsBySection.values()) {
     rows.sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber));
   }

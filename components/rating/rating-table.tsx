@@ -7,6 +7,13 @@ const STATUS_STYLES = {
   REMOVED: 'bg-destructive/10 text-destructive',
 } as const;
 
+/** Who fills an indicator in — shown on a row that has nothing under it yet */
+const EMPTY_HINTS = {
+  NPP_SUBMISSION: 'Подаєте самостійно',
+  DIVISION_MANAGED: 'Вносить відділ',
+  PROFILE_DERIVED: 'З профілю',
+} as const;
+
 /** Only APPROVED items count toward totals */
 function sectionTotal(group: AchievementGroup): number {
   return group.items.filter((i) => i.status === 'APPROVED').reduce((sum, i) => sum + i.score, 0);
@@ -69,7 +76,13 @@ function SectionRows({ group }: { group: AchievementGroup }) {
         </tr>
       ) : (
         group.items.map((item) => (
-          <tr key={item.id} className="transition-colors hover:bg-muted/20">
+          <tr
+            key={item.id}
+            className={cn(
+              'transition-colors hover:bg-muted/20',
+              item.isEmpty && 'text-muted-foreground'
+            )}
+          >
             <td className={cn(cell, 'align-top text-muted-foreground tabular-nums')}>
               {item.itemNumber}
             </td>
@@ -85,20 +98,31 @@ function SectionRows({ group }: { group: AchievementGroup }) {
               )}
             </td>
             <td className={cn(cell, 'align-top')}>
-              <span
-                className={cn(
-                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
-                  STATUS_STYLES[item.status]
-                )}
-              >
-                {item.statusLabel}
-              </span>
+              {/* An empty row has no status to report — the hint says whose job
+                  it is instead, which is the useful thing at that moment. */}
+              {item.isEmpty ? (
+                <span className="text-xs whitespace-nowrap">
+                  {item.inputSource ? EMPTY_HINTS[item.inputSource] : '—'}
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+                    STATUS_STYLES[item.status]
+                  )}
+                >
+                  {item.statusLabel}
+                </span>
+              )}
             </td>
             <td
               className={cn(
                 cell,
                 'text-right align-top font-semibold tabular-nums',
-                item.status !== 'APPROVED' && 'font-normal text-muted-foreground line-through'
+                item.isEmpty && 'font-normal',
+                !item.isEmpty &&
+                  item.status !== 'APPROVED' &&
+                  'font-normal text-muted-foreground line-through'
               )}
             >
               {item.score}

@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { listStaffActivities } from '@/lib/queries/list-activities';
+import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingTable } from '@/components/rating/rating-table';
 import { YearSelect } from '@/components/rating/year-select';
@@ -49,9 +50,20 @@ export default async function MyRatingPage({
     selectedStatus === 'CLOSED'
       ? snapshotToGroups((await getRatingEntry(staffId, selectedYear))?.snapshot)
       : null;
+
+  // The catalogue fills in the indicators with nothing under them, so the table
+  // shows the whole rating. Only for a year still open: a closed year is frozen
+  // history, and «you could still do this» is not something to say about it.
+  const catalogue = snapshotGroups ? undefined : await listTemplateIndicators(selectedYear);
+
   const groups =
     snapshotGroups ??
-    toAchievementGroups(await listStaffActivities(staffId, selectedYear), SECTION_NUMBERS);
+    toAchievementGroups(
+      await listStaffActivities(staffId, selectedYear),
+      SECTION_NUMBERS,
+      false,
+      catalogue
+    );
 
   return (
     <AnimatedPage className="space-y-6">
