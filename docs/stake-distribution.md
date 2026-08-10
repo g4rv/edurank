@@ -63,9 +63,10 @@ So the order of operations is:
 1. **ADMIN/проректор sets `Кст`** — the кафедра's pool.
 2. **The formula spreads that pool**, `0.5 · (Rнпп/<Rк>) · (Кст/Кнпп)` per person.
    This is the _initial, fair_ split: proportional to rating, nobody's opinion in it.
-3. **The head adjusts by hand** who gets what — and **the sum may never exceed
-   `Кст`**. This is a hard block, not a warning: the head cannot save or submit a
-   distribution that overspends the pool.
+3. **The head adjusts by hand** who gets what, and that is the final answer —
+   nobody approves it after them (see «There is no approval step»). **The sum may
+   never exceed `Кст`**: a hard block, not a warning, and with no approval stage
+   behind it, the save is the only place left to enforce it.
 4. **Recruitment bonuses are added afterwards, outside the pool.** A person who
    brought in students gets their `Σ Nзд/Nд + Σ Nзз/Nз` on top. This money does
    not come out of `Кст` and does not compete with colleagues.
@@ -318,13 +319,40 @@ positions keep working normally.
      ↓
 ADMIN / вице-ректор   enters Кст per кафедра, the norms, the coefficient
      ↓
-завідувач кафедри     sees each person's formula result; proposes the actual
-                      split, justifying any deviation (додаток 2)
-     ↓
-комісія               approves. Only the approved version is official.
+завідувач кафедри     sees each person's formula result; sets the actual split,
+                      justifying any deviation (додаток 2). This is final.
      ↓
 1С                    payroll truth — EduRank plans, 1С records (Q3)
 ```
+
+### There is no approval step (decided 2026-08-10 — retracts Q1)
+
+The chain above used to have a **комісія** between the head and 1С, recorded as
+Q1 on 2026-08-04. **It is retracted.** The owner's words: ADMIN provides the rate
+pool, and the head spreads it, because the head knows their staff better. What
+the head saves **is** the distribution — there is no proposal, no submit, no
+approve.
+
+So do not build: a `SUBMITTED` or `APPROVED` status, an approver id, an approval
+screen, or a комісія role. The controls that remain are the ones already decided
+and they are enough:
+
+- **`Кст` is set centrally** — the head can only divide what ADMIN gave them;
+- **the pool is a hard ceiling** on term 1 — overspending cannot be saved;
+- **the per-person min/max caps are ADMIN-only** — a head cannot cap a colleague
+  down and themselves up;
+- **the audit log records every change**, including a head's allocation to
+  themselves (Q11).
+
+Two consequences to carry into the code:
+
+- `StakeDistribution.status` collapses to whether the head has touched it at all
+  — see the note under «Per-person caps» about an untouched draft being
+  indistinguishable from a refusal in the 2025 file. That distinction still
+  matters and still needs storing; «approved by whom» does not.
+- The rule about **«which row is official» living behind a single function**
+  survives and gets easier, not harder: there is now exactly one row per
+  кафедра per year, and the function returns it.
 
 Додаток 2 has **two columns** — «Розподілений обсяг ставки» and «Обсяг ставки за
 формулою» — plus «Обґрунтування». The grid must show the formula result beside
@@ -356,8 +384,10 @@ and three mechanisms explain the gap, none of which the формула mentions:
 A caution about that last row: a third кафедра also shows `Кст = 0`, but it has
 a second draft from Дудар with `Кст = 5` — so the zero is an **unfilled draft**,
 not a decision. In the old data «never filled in» and «given nothing» look
-identical. That is an argument for the DRAFT / SUBMITTED / APPROVED status
-already decided: an untouched draft will never be read as a refusal.
+identical. That is the argument for storing whether the head has touched the
+distribution at all: an untouched one must never be read as a refusal. (It was
+an argument for DRAFT / SUBMITTED / APPROVED when this was written; the approval
+half is retracted, the touched/untouched half is not.)
 
 2025 almost certainly predates the formula (the положення is 2024, and the 2026
 recruitment values are exactly computed while 2025's vary by hand). But the
@@ -504,19 +534,25 @@ StudentClaim      { staffId, year,                    // who claims, which year
 
 StaffStakeLimits  { staffId, year, minHundredths, maxHundredths }  // ADMIN only
 
+// One row per кафедра per year — there is no approval, so no second version
 StakeDistribution { departmentId, year,
-                    status: DRAFT | SUBMITTED | APPROVED,
-                    authorId, approvedById, approvedAt }
+                    filledAt?, filledById? }   // null = the head has not touched it
 StakeAllocation   { distributionId, staffId,
                     formulaHundredths Int,     // what the formula said
-                    proposedHundredths Int,    // what the кафедра asks for
+                    proposedHundredths Int,    // what the head decided
                     justification String? }    // required when they differ
 ```
 
+`filledAt` is the touched/untouched distinction and nothing more — it is not a
+status and grants nobody a veto. Its whole job is that a кафедра nobody has
+opened reads as «не заповнено» rather than as «everyone gets the formula» or
+«everyone gets nothing».
+
 **One rule to keep the workflow cheap to change:** "which row is official" lives
-behind a single function. Downstream code asks that function, never
-`status === 'APPROVED'` scattered in ten places. If the approval step is ever
-dropped (see Q1), that is one edit.
+behind a single function. Downstream code asks that function rather than
+reasoning about statuses itself. Today the answer is simply «the row for this
+кафедра and year» — keep the indirection anyway, because it is what made
+dropping the approval step (Q1) a one-line change instead of ten.
 
 ---
 
@@ -524,7 +560,7 @@ dropped (see Q1), that is one edit.
 
 | #   | Decision                                                                                                                                                                                                                                                                                                  |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q1  | **Approval step.** Head proposes → комісія/віце-ректор approves. Only the approved version is official.                                                                                                                                                                                                   |
+| Q1  | ~~**Approval step.** Head proposes → комісія/віце-ректор approves.~~ **RETRACTED 2026-08-10** — there is no approval. ADMIN sets the pool, the head spreads it, and that is final. See «There is no approval step».                                                                                       |
 | Q3  | **1С stays the payroll truth.** EduRank plans and approves; the result is exported for 1С as **Excel**. We define the column set ourselves — ПІБ, кафедра, pool share, bonus, total, year — and adjust if 1С rejects it (confirmed 2026-08-07). No sample file is being chased first.                     |
 | Q4  | **Bonus on top — the original reading was right** (confirmed 2026-08-07). An earlier note here called it "superseded" on the grounds that both terms belong to one formula. They do, but only term 1 is bounded by `Кст`; the recruitment sum is paid over it. See «The pool bounds the first term only». |
 | Q5  | **A head sees their own кафедра properly**: staff, profiles, ставка, rating results, plus the distribution grid. Derived from `Department.headId`, **not** a new `Role` — one person can be head, НПП and editor at once.                                                                                 |
