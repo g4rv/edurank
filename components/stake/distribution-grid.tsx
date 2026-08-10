@@ -26,10 +26,15 @@ import {
  * Додаток 2 — the head spreads the pool by hand, with the formula's own answer
  * beside each row and «нерозподілено» falling as they type.
  *
- * The whole grid saves at once, not row by row. The ceiling is a property of
- * the set: a head moving 0.10 from one person to another would be blocked on
- * the first half of the move if each row saved independently. So the total may
- * go over while they work — it turns red — and the SAVE is what refuses.
+ * A change is written when the field is left — there is no save button. But it
+ * writes the WHOLE grid, never the one row, because `Кст` bounds the set: a
+ * head moving 0.10 from one person to another would be refused on the first
+ * half of the move if rows saved on their own.
+ *
+ * So a blur does not always write. While the grid as a whole is invalid — over
+ * the pool, or a departure from the formula with no обґрунтування yet — the
+ * change is kept locally and the footer says it is being held and why. That is
+ * the difference between «autosave» and «autosave that silently drops work».
  *
  * Ліміти are shown to everyone and editable only by ADMIN, on these same rows.
  * A head who could raise their own cap and drop a colleague's would make the
@@ -55,6 +60,7 @@ export function DistributionGrid({
     Object.fromEntries(view.rows.map((r) => [r.staffId, r.justification ?? '']))
   );
   const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
   const kst = view.kstHundredths;
@@ -84,7 +90,38 @@ export function DistributionGrid({
     setError(null);
   }
 
-  function save() {
+  /**
+   * Rows that departed from the formula and have not been explained yet.
+   *
+   * Checked before saving rather than after: the server refuses these, and
+   * auto-saving on every blur would mean the head sees «вкажіть обґрунтування»
+   * the instant they change a number, before they have had any chance to type
+   * one. The red field already says which row is waiting.
+   */
+  const unexplained = view.rows.filter(
+    (r) => values[r.staffId] !== r.formulaHundredths && !justifications[r.staffId]?.trim()
+  );
+
+  /** Why an autosave is being held back, or null when it can go ahead */
+  const blockedBy: string | null =
+    kst === null
+      ? 'Кст ще не встановлено — зверніться до адміністратора'
+      : overspent
+        ? `Перевищення пулу на ${formatStake(-(remaining ?? 0))} — зменште чиюсь ставку`
+        : unexplained.length > 0
+          ? 'Вкажіть обґрунтування там, де ставка відрізняється від формули'
+          : null;
+
+  /**
+   * Saves the whole кафедра, on leaving a field.
+   *
+   * The whole grid and not the one row, because `Кст` bounds the SET: a head
+   * moving 0.10 from one person to another would be refused on the first half
+   * of the move if rows saved on their own. So a change is kept locally until
+   * the grid as a whole is valid, and then written.
+   */
+  function saveOnBlur() {
+    if (!canEdit || !dirty || blockedBy) return;
     setError(null);
     startTransition(async () => {
       const result = await saveDistribution({
@@ -97,7 +134,10 @@ export function DistributionGrid({
         })),
       });
       if (result && 'error' in result) setError(result.error);
-      else toast.success('Розподіл збережено');
+      else {
+        setSavedAt(Date.now());
+        toast.success('Збережено');
+      }
     });
   }
 
@@ -173,6 +213,7 @@ export function DistributionGrid({
                 disabled={pending}
                 onChange={(next) => setValue(row, next)}
                 onJustify={(text) => setJustifications((j) => ({ ...j, [row.staffId]: text }))}
+                onBlur={saveOnBlur}
               />
             ))}
             {view.rows.length === 0 && (
@@ -197,18 +238,28 @@ export function DistributionGrid({
 
       {canEdit && view.rows.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={save} disabled={pending || !dirty || kst === null}>
-            {pending ? 'Збереження…' : 'Зберегти розподіл'}
-          </Button>
           <Button variant="outline" onClick={reset} disabled={pending}>
             <RotateCcw className="size-4" />
             Повернути до формули
           </Button>
-          {kst === null && (
-            <span className="text-xs text-muted-foreground">
-              Кст ще не встановлено — зверніться до адміністратора
-            </span>
-          )}
+
+          {/* There is no save button: a change is written when the field is
+              left. What this line does is say what state that leaves things
+              in, because a silent autosave is indistinguishable from a lost
+              edit — especially while a change is being HELD BACK, which is the
+              one case where leaving a field does not write anything. */}
+          <span className="text-xs">
+            {pending ? (
+              <span className="text-muted-foreground">Збереження…</span>
+            ) : blockedBy && dirty ? (
+              <span className="text-destructive">Не збережено: {blockedBy}</span>
+            ) : dirty ? (
+              <span className="text-muted-foreground">Незбережені зміни</span>
+            ) : savedAt ? (
+              <span className="text-emerald-700 dark:text-emerald-400">Збережено</span>
+            ) : null}
+          </span>
+
           {view.filledAt && (
             <span className="ml-auto text-xs text-muted-foreground">
               Заповнив: {view.filledBy ?? '—'}, {view.filledAt.toLocaleDateString('uk-UA')}
@@ -252,10 +303,13 @@ function Totals({
     <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-xl border bg-card px-5 py-4">
       <Figure label="Кст (пул)" value={kst === null ? '—' : formatStake(kst)} />
       <Figure label="Розподілено" value={formatStake(distributed)} />
+      {/* Green whenever the pool holds, red only when it does not. A leftover
+          is a normal state — the head has budget still to place — so it reads
+          as «fine», not as «unfinished». */}
       <Figure
         label="Нерозподілено"
         value={remaining === null ? '—' : formatStake(remaining)}
-        tone={overspent ? 'bad' : remaining === 0 ? 'good' : undefined}
+        tone={overspent ? 'bad' : 'good'}
       />
       <Figure label="Бонус за здобувачів" value={formatBonus(bonusTotal)} muted />
       <Figure
@@ -379,6 +433,7 @@ function Row({
   disabled,
   onChange,
   onJustify,
+  onBlur,
 }: {
   row: StakeRow;
   value: number;
@@ -389,6 +444,7 @@ function Row({
   disabled: boolean;
   onChange: (next: number) => void;
   onJustify: (text: string) => void;
+  onBlur: () => void;
 }) {
   // What the person types, kept separately so the field is not fighting them
   // mid-keystroke. It is snapped to the ladder on blur, per the sketch.
@@ -411,14 +467,27 @@ function Row({
     <tr className="transition-colors hover:bg-muted/20">
       <td className="border border-border px-3 py-2 align-middle">
         <span className="whitespace-nowrap">{row.name}</span>
-        {!row.qualifies && (
-          <span
-            className="ml-2 text-xs text-muted-foreground"
-            title={`${row.positions} із 20 позицій ліцензійних умов — не входить до Кнпп, але ставку отримує`}
-          >
-            {row.positions}/20
-          </span>
-        )}
+        {/* «позицій із 20» on every row, not only the ones falling short: the
+            head is looking at who counts towards Кнпп, and a badge that appears
+            only on failures makes its absence the message, which is easy to
+            read as «not measured». Green clears the licence bar, red does not.
+
+            Red here does NOT mean this person is paid less. Кнпп is a divisor
+            in the formula and nothing else — everybody on the кафедра receives
+            a ставка, which the title says in full. */}
+        <span
+          className={cn(
+            'ml-2 text-xs font-medium tabular-nums',
+            row.qualifies ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'
+          )}
+          title={
+            row.qualifies
+              ? `${row.positions} із 20 позицій ліцензійних умов — входить до Кнпп`
+              : `${row.positions} із 20 позицій ліцензійних умов — не входить до Кнпп, але ставку отримує`
+          }
+        >
+          {row.positions}/20
+        </span>
       </td>
 
       <td
@@ -466,11 +535,14 @@ function Row({
           <Input
             value={draft ?? formatStake(value)}
             onChange={(e) => setDraft(e.target.value)}
-            onBlur={commit}
+            onBlur={() => {
+              commit();
+              onBlur();
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                commit();
+                e.currentTarget.blur();
               }
             }}
             disabled={!canEdit || disabled}
@@ -517,6 +589,7 @@ function Row({
           <Input
             value={justification}
             onChange={(e) => onJustify(e.target.value)}
+            onBlur={onBlur}
             disabled={!canEdit || disabled}
             placeholder="Чому не за формулою"
             aria-label={`Обґрунтування для ${row.name}`}

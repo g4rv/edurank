@@ -163,9 +163,9 @@ export default async function MyDepartmentPage() {
 /**
  * «позицій із 20» for one person, marked when it clears the licence bar.
  *
- * Green here means «counts towards Кнпп», not «is doing well» — everybody
- * receives a ставка regardless, which is why the number below the bar is shown
- * plainly rather than in red.
+ * Green means «counts towards Кнпп», red means it does not. Neither is about
+ * pay: Кнпп is a divisor inside the ставка formula and nothing else, and
+ * everybody on the кафедра receives a ставка either way.
  */
 function PositionCount({ entry }: { entry?: { metCount: number; qualifies: boolean } }) {
   if (!entry) return <span className="text-muted-foreground">—</span>;
@@ -176,7 +176,7 @@ function PositionCount({ entry }: { entry?: { metCount: number; qualifies: boole
         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
         entry.qualifies
           ? 'bg-emerald-600/10 text-emerald-700 dark:text-emerald-400'
-          : 'text-muted-foreground'
+          : 'bg-destructive/10 text-destructive'
       )}
     >
       {entry.metCount}
