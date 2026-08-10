@@ -239,6 +239,21 @@ here in 2025. If a real need for overrides surfaces later, add it then; the cost
 of adding it is far lower than the cost of an unnecessary path through which
 someone can quietly change a number that decides pay.
 
+### A recruiter may recruit onto any programme (confirmed 2026-08-10)
+
+An НПП is not limited to the speciality their own кафедра teaches. They may
+bring a student onto **any** programme in the university, and the bonus follows
+the **recruiter**, not the programme — it appears on the recruiter's own кафедра
+in the distribution grid whatever the student ends up studying.
+
+Consequences for the build:
+
+- `Speciality` carries no `departmentId`, and must not gain one.
+- The speciality picker on «Мої залучені здобувачі» offers the **whole** list.
+  Filtering it to the recruiter's кафедра would quietly make most of their work
+  unclaimable, and the person would have no way to tell why.
+- The норматив is the **student's** speciality's, never the recruiter's.
+
 **Сумісництво (Q12) — assumed, not confirmed.** A student lands in the recruiter's
 **primary** кафедра, and a сумісник gets one Vc, computed on their primary кафедра
 only. Reason: `Кст`, `Кнпп` and `<Rк>` are all per кафедра, so counting someone in

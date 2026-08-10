@@ -1,9 +1,9 @@
 'use client';
 
-import { useActionState, useEffect, useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Check, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,6 @@ import { StakeTermHint, type StakeTerm } from '@/components/stake/stake-term-hin
 import {
   saveDistribution,
   setStaffLimits,
-  type DistributionState,
 } from '@/app/(dashboard)/departments/[id]/stakes/actions';
 
 /**
@@ -71,6 +70,64 @@ export function DistributionGrid({
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // The caps live here rather than in the cell, because the two bounds are one
+  // database row: leaving either field has to write both.
+  const [limits, setLimits] = useState<Record<string, { min: string; max: string }>>(() =>
+    Object.fromEntries(
+      view.rows.map((r) => [
+        r.staffId,
+        { min: formatStake(r.minHundredths), max: formatStake(r.maxHundredths) },
+      ])
+    )
+  );
+  const [limitErrors, setLimitErrors] = useState<Record<string, string>>({});
+  const [limitsPending, startLimitsTransition] = useTransition();
+  const router = useRouter();
+
+  /**
+   * Writes one person's bounds, on leaving either field.
+   *
+   * Skipped when nothing changed, so tabbing across a row does not fire a save
+   * per column. A cap moves what the formula proposes, so a success refreshes
+   * the route — and the grid's key remounts it with the recomputed numbers.
+   */
+  function commitLimits(row: StakeRow) {
+    const next = limits[row.staffId];
+    if (!next) return;
+    const unchanged =
+      next.min === formatStake(row.minHundredths) && next.max === formatStake(row.maxHundredths);
+    if (unchanged) {
+      // Back to what is stored, so there is nothing to write — but a refused
+      // value may have left a message on the row, and typing the old number
+      // back is exactly how somebody undoes the mistake. Without this the
+      // error outlived the thing it was about.
+      setLimitErrors((e) => {
+        if (!e[row.staffId]) return e;
+        const { [row.staffId]: _cleared, ...rest } = e;
+        return rest;
+      });
+      return;
+    }
+
+    startLimitsTransition(async () => {
+      const form = new FormData();
+      form.set('staffId', row.staffId);
+      form.set('year', String(view.year));
+      form.set('min', next.min);
+      form.set('max', next.max);
+      const result = await setStaffLimits(null, form);
+      if (result && 'error' in result) {
+        setLimitErrors((e) => ({ ...e, [row.staffId]: result.error }));
+      } else {
+        setLimitErrors((e) => {
+          const { [row.staffId]: _dropped, ...rest } = e;
+          return rest;
+        });
+        router.refresh();
+      }
+    });
+  }
 
   const kst = view.kstHundredths;
 
@@ -217,13 +274,21 @@ export function DistributionGrid({
               <th
                 className={cn(
                   'border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground',
-                  canEditLimits ? 'w-40' : 'w-24 text-right'
+                  canEditLimits ? 'w-28' : 'w-20 text-right'
                 )}
               >
                 <span className="inline-flex items-center gap-1">
-                  Мін / Макс
+                  Мін
                   <StakeTermHint term="limits" />
                 </span>
+              </th>
+              <th
+                className={cn(
+                  'border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground',
+                  canEditLimits ? 'w-28' : 'w-20 text-right'
+                )}
+              >
+                Макс
               </th>
               <th className="w-40 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 Розподілено
@@ -252,17 +317,26 @@ export function DistributionGrid({
                 canEdit={canEdit}
                 canEditLimits={canEditLimits}
                 canOpenStaffProfile={canOpenStaffProfile}
-                year={view.year}
                 disabled={pending}
+                limits={limits[row.staffId] ?? { min: '', max: '' }}
+                limitError={limitErrors[row.staffId] ?? null}
+                limitsPending={limitsPending}
                 onChange={(next) => setValue(row, next)}
                 onJustify={(text) => setJustifications((j) => ({ ...j, [row.staffId]: text }))}
                 onBlur={saveOnBlur}
+                onLimitChange={(bound, next) =>
+                  setLimits((l) => ({
+                    ...l,
+                    [row.staffId]: { ...l[row.staffId], [bound]: next },
+                  }))
+                }
+                onLimitCommit={() => commitLimits(row)}
               />
             ))}
             {view.rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   className="border border-border px-3 py-10 text-center text-muted-foreground"
                 >
                   На кафедрі немає НПП
@@ -313,7 +387,7 @@ export function DistributionGrid({
 
       <p className="text-xs text-muted-foreground">
         {canEditLimits
-          ? 'Межі зберігаються окремо від розподілу — після зміни формула перераховується. «Стандартні» означає 0,10 / 1,50.'
+          ? 'Мін і Макс зберігаються окремо від розподілу — після зміни формула перераховується. Бліді значення означають стандартні межі 0,10 / 1,50.'
           : 'Мінімальну і максимальну ставку встановлює адміністратор.'}
       </p>
     </div>
@@ -360,10 +434,14 @@ function Totals({
         tone={overspent ? 'bad' : 'good'}
       />
       <Figure label="Бонус за здобувачів" term="bonus" value={formatBonus(bonusTotal)} muted />
+      {/* The sum, not the expression. «12,65 + 0,000» as the headline number is
+          arithmetic the reader has to finish themselves; the two parts stay
+          visible underneath, which is the thing that must not be lost. */}
       <Figure
         label="Разом до виплати"
         term="total"
-        value={`${formatStake(distributed)} + ${formatBonus(bonusTotal)}`}
+        value={formatBonus(distributed / 100 + bonusTotal)}
+        note={`${formatStake(distributed)} + ${formatBonus(bonusTotal)}`}
         muted
       />
       <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -378,6 +456,7 @@ function Figure({
   label,
   value,
   term,
+  note,
   tone,
   muted,
 }: {
@@ -385,6 +464,8 @@ function Figure({
   value: string;
   /** Which entry of STAKE_TERMS explains this number */
   term?: StakeTerm;
+  /** How the number is made up, under the label */
+  note?: string;
   tone?: 'good' | 'bad';
   muted?: boolean;
 }) {
@@ -404,78 +485,82 @@ function Figure({
         {label}
         {term && <StakeTermHint term={term} />}
       </p>
+      {note && <p className="text-xs text-muted-foreground/70 tabular-nums">{note}</p>}
     </div>
   );
 }
 
 /**
- * One person's floor and ceiling — ADMIN only.
+ * One bound — either the floor or the ceiling — for one person. ADMIN only.
  *
- * Its own form, saved on its own, unlike the distribution below it. The two are
- * different decisions by different people: the caps are the university's
- * standing limits on a person, the distribution is one year's split inside
- * them. Changing a cap also changes what the formula proposes, so this reloads
- * the route rather than leaving a stale «За формулою» beside a new bound.
+ * Its own column and its own field, saved when the field is left, like every
+ * other editable number on this grid. The two bounds are one database row, so
+ * leaving either one writes both: whichever the person just edited, plus the
+ * other as it currently stands.
+ *
+ * Kept separate from the distribution's own save because they are different
+ * decisions by different people — the caps are the university's standing limits
+ * on a person, the distribution is one year's split inside them. Changing a cap
+ * also changes what the formula proposes, so a successful write refreshes the
+ * route rather than leaving a stale «За формулою» beside a bound that moved.
  */
-function LimitsCell({ row, year, disabled }: { row: StakeRow; year: number; disabled: boolean }) {
-  const router = useRouter();
-  const [state, formAction, pending] = useActionState<DistributionState, FormData>(
-    setStaffLimits,
-    null
-  );
+function LimitCell({
+  row,
+  bound,
+  value,
+  editable,
+  disabled,
+  error,
+  onChange,
+  onCommit,
+}: {
+  row: StakeRow;
+  bound: 'min' | 'max';
+  value: string;
+  editable: boolean;
+  disabled: boolean;
+  error: string | null;
+  onChange: (next: string) => void;
+  onCommit: () => void;
+}) {
+  const label = bound === 'min' ? 'Мінімальна' : 'Максимальна';
 
-  useEffect(() => {
-    if (state && 'success' in state) router.refresh();
-  }, [state, router]);
-
-  const error = state && 'error' in state ? state.error : null;
+  if (!editable) {
+    // A head sees the bounds they are working inside but cannot move them.
+    return (
+      <td className="border border-border px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
+        {value}
+      </td>
+    );
+  }
 
   return (
-    <form action={formAction} className="space-y-1">
-      <input type="hidden" name="staffId" value={row.staffId} />
-      <input type="hidden" name="year" value={year} />
-      <div className="flex items-center gap-1">
-        <Input
-          name="min"
-          defaultValue={formatStake(row.minHundredths)}
-          disabled={disabled || pending}
-          inputMode="decimal"
-          aria-label={`Мінімальна ставка для ${row.name}`}
-          className={cn(
-            'h-8 w-14 text-right tabular-nums',
-            // Dimmed while these are the 0,10 / 1,50 defaults, so «set for this
-            // person» still reads differently from «nobody has decided» without
-            // a word of text repeated down every row.
-            !row.hasOwnLimits && 'text-muted-foreground'
-          )}
-        />
-        <span className="text-xs text-muted-foreground">/</span>
-        <Input
-          name="max"
-          defaultValue={formatStake(row.maxHundredths)}
-          disabled={disabled || pending}
-          inputMode="decimal"
-          aria-label={`Максимальна ставка для ${row.name}`}
-          className={cn(
-            'h-8 w-14 text-right tabular-nums',
-            !row.hasOwnLimits && 'text-muted-foreground'
-          )}
-        />
-        <button
-          type="submit"
-          disabled={disabled || pending}
-          title="Зберегти межі"
-          aria-label={`Зберегти межі для ${row.name}`}
-          className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-        >
-          <Check className="size-3.5" />
-        </button>
-      </div>
-      {/* No «стандартні» label: it repeated down sixteen of eighteen rows and
-          added a line to each. The dimmed fields say the same thing quietly,
-          and the footnote under the table gives the two numbers. */}
-      {error && <p className="max-w-52 text-xs text-destructive">{error}</p>}
-    </form>
+    <td className="border border-border px-3 py-2">
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+        disabled={disabled}
+        inputMode="decimal"
+        aria-label={`${label} ставка для ${row.name}`}
+        aria-invalid={!!error}
+        className={cn(
+          'h-8 w-16 text-right tabular-nums',
+          // Dimmed while these are the 0,10 / 1,50 defaults, so «set for this
+          // person» still reads differently from «nobody has decided» without
+          // a word of text repeated down every row.
+          !row.hasOwnLimits && 'text-muted-foreground',
+          error && 'border-destructive'
+        )}
+      />
+      {error && <p className="mt-1 max-w-40 text-xs text-destructive">{error}</p>}
+    </td>
   );
 }
 
@@ -486,11 +571,15 @@ function Row({
   canEdit,
   canEditLimits,
   canOpenStaffProfile,
-  year,
   disabled,
+  limits,
+  limitError,
+  limitsPending,
   onChange,
   onJustify,
   onBlur,
+  onLimitChange,
+  onLimitCommit,
 }: {
   row: StakeRow;
   value: number;
@@ -498,11 +587,15 @@ function Row({
   canEdit: boolean;
   canEditLimits: boolean;
   canOpenStaffProfile: boolean;
-  year: number;
   disabled: boolean;
+  limits: { min: string; max: string };
+  limitError: string | null;
+  limitsPending: boolean;
   onChange: (next: number) => void;
   onJustify: (text: string) => void;
   onBlur: () => void;
+  onLimitChange: (bound: 'min' | 'max', next: string) => void;
+  onLimitCommit: () => void;
 }) {
   // What the person types, kept separately so the field is not fighting them
   // mid-keystroke. It is snapped to the ladder on blur, per the sketch.
@@ -518,8 +611,14 @@ function Row({
     setDraft(null);
   }
 
-  const atMin = value <= Math.max(row.minHundredths, MIN_STAKE);
-  const atMax = value >= row.maxHundredths;
+  const lower = Math.max(row.minHundredths, MIN_STAKE);
+  const upper = Math.max(row.maxHundredths, lower);
+  const atMin = value <= lower;
+  const atMax = value >= upper;
+  // A saved allocation can fall outside its bounds without anybody touching it
+  // — ADMIN lowers a cap under a number the head already agreed. The save
+  // refuses it, so say so on the field instead of only at the moment of saving.
+  const outOfRange = value < lower || value > upper;
 
   return (
     <tr className="transition-colors hover:bg-muted/20">
@@ -589,22 +688,26 @@ function Row({
         )}
       </td>
 
-      <td className="border border-border px-3 py-2">
-        {canEditLimits ? (
-          <LimitsCell row={row} year={year} disabled={disabled} />
-        ) : (
-          // A head sees the bounds they are working inside but cannot move
-          // them — the whole point of the caps being ADMIN-only.
-          <p className="text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-            {formatStake(row.minHundredths)} / {formatStake(row.maxHundredths)}
-            {!row.hasOwnLimits && (
-              <span className="ml-1" title="Стандартні межі — окремих не встановлено">
-                *
-              </span>
-            )}
-          </p>
-        )}
-      </td>
+      <LimitCell
+        row={row}
+        bound="min"
+        value={limits.min}
+        editable={canEditLimits}
+        disabled={disabled || limitsPending}
+        error={limitError}
+        onChange={(next) => onLimitChange('min', next)}
+        onCommit={onLimitCommit}
+      />
+      <LimitCell
+        row={row}
+        bound="max"
+        value={limits.max}
+        editable={canEditLimits}
+        disabled={disabled || limitsPending}
+        error={limitError}
+        onChange={(next) => onLimitChange('max', next)}
+        onCommit={onLimitCommit}
+      />
 
       <td className="border border-border px-3 py-2">
         <div className="flex items-center gap-1">
@@ -624,7 +727,15 @@ function Row({
             disabled={!canEdit || disabled}
             inputMode="decimal"
             aria-label={`Ставка для ${row.name}`}
-            className={cn('h-8 w-20 text-right tabular-nums', differs && 'font-medium')}
+            aria-invalid={outOfRange}
+            title={
+              outOfRange ? `Поза межами ${formatStake(lower)} – ${formatStake(upper)}` : undefined
+            }
+            className={cn(
+              'h-8 w-20 text-right tabular-nums',
+              differs && 'font-medium',
+              outOfRange && 'border-destructive text-destructive'
+            )}
           />
           <div className="flex flex-col">
             <button

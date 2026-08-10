@@ -74,6 +74,14 @@ export const DEFAULT_CONTRACT_COEFFICIENT = 0.175;
 /**
  * Додаток 5, verbatim — speciality name and its base норматив.
  *
+ * **A speciality belongs to no кафедра.** An НПП may recruit a student onto any
+ * programme in the university, not only the ones their own кафедра teaches
+ * (confirmed 2026-08-10), and the bonus follows the RECRUITER wherever the
+ * student ends up studying. That is why there is no `departmentId` on
+ * `Speciality` and why the picker on «Мої залучені здобувачі» must offer the
+ * whole list — filtering it to the recruiter's own кафедра would silently make
+ * most of their work unclaimable.
+ *
  * Seed data, not constants: the вчена рада approves this table every year and
  * the app must follow whatever it approves, so at runtime the `SpecialityNorm`
  * rows decide.
