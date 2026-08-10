@@ -5,7 +5,6 @@ import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listMyClaims, listSpecialities } from '@/lib/queries/list-student-claims';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { MyClaims } from '@/components/stake/my-claims';
-import { MyRatingTabs } from '@/components/kharakterystyka/my-rating-tabs';
 
 /**
  * «Мої залучені здобувачі» — the НПП's own list.
@@ -52,8 +51,6 @@ export default async function MyStudentsPage() {
           {template.status !== 'OPEN' && ' Рік закрито, додавати вже не можна.'}
         </p>
       </div>
-
-      <MyRatingTabs active="students" />
 
       <MyClaims
         claims={claims}

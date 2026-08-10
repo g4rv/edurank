@@ -19,6 +19,7 @@ import {
   CalendarCog,
   ChartColumn,
   Scale,
+  FileCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -82,7 +83,12 @@ export function Sidebar({
   const link = (item: NavItem) => <NavLink key={item.href} item={item} pathname={pathname} />;
 
   // Top block: own profile, the structure entities, then (for an НПП) their own
-  // rating links — one visual group, no dividers inside.
+  // three views — rating, Характеристика, recruited students — one visual group,
+  // no dividers inside.
+  //
+  // These three used to ALSO carry a tab bar on the pages themselves, which was
+  // the same navigation twice on one screen. The sidebar is where navigation
+  // lives in this app; the tabs are gone.
   const topBlock: React.ReactNode[] = [];
   if (user.staffId) {
     topBlock.push(
@@ -98,6 +104,12 @@ export function Sidebar({
         icon: Award,
         roles: [user.role],
         exact: true,
+      }),
+      link({
+        href: '/achievements/kharakterystyka',
+        label: 'Характеристика',
+        icon: FileCheck,
+        roles: [user.role],
       }),
       link({
         href: '/achievements/students',

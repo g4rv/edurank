@@ -5,7 +5,6 @@ import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka } from '@/lib/queries/get-kharakterystyka';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { KharakterystykaTable } from '@/components/kharakterystyka/kharakterystyka-table';
-import { MyRatingTabs } from '@/components/kharakterystyka/my-rating-tabs';
 import { DownloadButton } from '@/components/ui/download-button';
 
 /**
@@ -61,8 +60,6 @@ export default async function MyKharakterystykaPage() {
           title="Характеристика_РНПАВ у форматі документа"
         />
       </div>
-
-      <MyRatingTabs active="kharakterystyka" />
 
       <KharakterystykaTable data={data} />
     </AnimatedPage>

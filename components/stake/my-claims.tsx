@@ -112,7 +112,10 @@ function AddClaimForm({
     <form action={formAction} className="space-y-3 rounded-xl border bg-card p-5">
       <h2 className="text-sm font-semibold">Додати здобувача — {year}</h2>
 
-      <div key={token} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {/* Two rows on purpose: the name and the speciality carry text and need
+          the width, the three pickers are short. Squeezed into one row the
+          speciality placeholder was clipped mid-word. */}
+      <div key={token} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
           <Input
             name="studentName"
@@ -125,7 +128,9 @@ function AddClaimForm({
         {/* The WHOLE university's list. An НПП may recruit onto any programme,
             and filtering this to their own кафедра would quietly make most of
             their work unclaimable. */}
-        <SpecialityPicker specialities={specialities} disabled={pending} />
+        <div className="lg:col-span-2">
+          <SpecialityPicker specialities={specialities} disabled={pending} />
+        </div>
 
         <PickOne name="degree" placeholder="Рівень" options={DEGREE} disabled={pending} />
         <PickOne name="form" placeholder="Форма" options={FORM} disabled={pending} />
