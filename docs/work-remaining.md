@@ -19,8 +19,8 @@ here with a strikethrough.
 ## Where the app is now
 
 Phase 1 (structure, staff, permissions, auth) and Phase 2 (the whole rating
-system) are complete and stable, **B1 Характеристика** is built, and **B2's
-settings layer** is in: **584 tests**, type-check clean, one
+system) are complete and stable, and **both big features — B1 Характеристика and
+B2 Розподіл ставок — are built**: **651 tests**, type-check clean, one
 deliberate lint warning (`watch()` in `activity-type-dialog`). The audit of
 2026-07-29 is fully closed.
 
@@ -44,9 +44,8 @@ remains splits three ways:
 
 - **Rating UI rework** — new, requested by the owner after using the app. Small
   pieces, high visibility, all unblocked.
-- **The two big features** — Характеристика and Розподіл ставок. Both fully
-  specced. B1 is built bar two pieces; B2's settings layer is done and the
-  distribution itself is next.
+- **The two big features** — Характеристика and Розподіл ставок. Both built.
+  What is left of them is listed under B1 and B2 and is small.
 - **Adoption** — import, instructions, invites, reminders. Less visible, and
   the reason a working system still fails.
 
@@ -124,6 +123,38 @@ because a bare minimum does not tell somebody whether to raise the pool or check
 the roster. A saved `Кст` can also fall under the floor without anybody touching
 it, when a person joins the кафедра, so the page flags that rather than waiting
 for the next save to fail.
+
+### 2026-08-10 — the distribution grid and student claims
+
+| Commit    | What                                                                                   |
+| --------- | -------------------------------------------------------------------------------------- |
+| `3dfd745` | The додаток 2 grid: formula column, editable share, live «нерозподілено», hard ceiling |
+| `396a8e6` | `Кнпп` per кафедра                                                                     |
+| `6a6ca7a` | ADMIN edits the per-person caps on the grid                                            |
+| `731e2f9` | Save on unfocus; «нерозподілено» green unless overspent; licence count coloured        |
+| `2e79b2b` | `STAKE_TERMS` — tooltips saying what «Кст» and «Кнпп» mean, and what they do NOT       |
+| `42333be` | «виділені ставки» instead of «пул»                                                     |
+| `9ecfdac` | Reset now actually saves — it only changed the screen before                           |
+| `e9f616a` | Мін and Макс as their own columns                                                      |
+| `7d4a386` | Обґрунтування made optional again                                                      |
+| `96d943b` | `StudentClaim`: claims, the head's review, and the real bonus                          |
+| `a6a569e` | One navigation for an НПП — the sidebar, not sidebar + tabs                            |
+| `e3a702b` | The rating table names WHICH відділ fills a row                                        |
+
+Four things worth not rediscovering:
+
+- **The formula overspends most кафедри.** `Σ term1 = 0.5 × N / Кнпп × Кст`, so
+  it balances only when `Кнпп` is half the headcount. Not a defect; still
+  undecided what the screen should do about it (see B2).
+- **A dev server serves stale bundles after a schema change.** Three separate
+  confusions today traced to it, one throwing `ReferenceError` from an old
+  chunk. Hard-reload before believing a symptom.
+- **`pnpm test` intermittently exits non-zero on Windows** with
+  «Timeout terminating forks worker» and no failing test. `--pool=threads`
+  passes. Not a real failure.
+- **A change that only touches the screen is invisible as a bug.** «Повернути
+  до формули» moved the numbers and saved nothing; it looked identical to a
+  save until the page was reloaded.
 
 ### Lessons worth keeping
 
@@ -350,27 +381,58 @@ Decided 2026-08-07 and easy to get wrong later:
 - **We never add, remove or re-price a rating indicator.** The catalogue belongs
   to the вчена рада and moves only by their vote.
 
-### B2. Розподіл ставок — **settings layer DONE 2026-08-10**
+### B2. Розподіл ставок — **BUILT 2026-08-10**, two pieces left
 
-Spec: [`stake-distribution.md`](./stake-distribution.md).
+Spec: [`stake-distribution.md`](./stake-distribution.md). The feature works end
+to end: settings → `Кст` → formula → the head's grid → student claims → bonus.
 
-**Built — the half ADMIN owns:**
+| What                                                                | Where                                  |
+| ------------------------------------------------------------------- | -------------------------------------- |
+| Integer hundredths, the 0.05 ladder (ties **down**), bonus rounding | `lib/stake/units.ts`                   |
+| Додаток 5 — 38 specialities, one base each, seeded                  | `lib/stake/norms.ts`                   |
+| The formula, clamping, uncomputable cases                           | `lib/stake/formula.ts`                 |
+| Duplicate detection and the bonus                                   | `lib/stake/claims.ts`                  |
+| `Кст` per кафедра, норматив table, year coefficient                 | `/admin/stakes`, `/admin/stakes/norms` |
+| The distribution grid — додаток 2, autosaving                       | `/departments/[id]/stakes`             |
+| Per-person caps, ADMIN-editable on the grid                         | same page, Мін / Макс columns          |
+| «Мої залучені здобувачі»                                            | `/achievements/students`               |
+| The head's claim review                                             | `/my-department/students`              |
 
-| What                                                                                       | Where                          |
-| ------------------------------------------------------------------------------------------ | ------------------------------ |
-| `Speciality`, `SpecialityNorm`, `StakeYearSettings`, `DepartmentStake`, `StaffStakeLimits` | migration `20260810160000`     |
-| Hundredths, the 0.05 ladder with ties **down**, bonus rounding                             | `lib/stake/units.ts`, 20 tests |
-| Додаток 5 — 38 specialities, one base each, seeded                                         | `lib/stake/norms.ts`, 13 tests |
-| `Кст` per кафедра with the `≥ 0.1 × N` floor enforced at save                              | `/admin/stakes`, 21 tests      |
-| The норматив table, one editable number per speciality                                     | `/admin/stakes/norms`          |
+**Still to build:**
 
-**Still to build:** `StudentClaim` and the НПП's «Мої залучені здобувачі», the
-head's duplicate-review screen, the distribution grid itself (formula column +
-editable pool share + live «нерозподілено» + hard ceiling), per-person caps UI,
-and the 1С Excel export.
+- **The 1С Excel export.** Q3 settled the shape — our own column set (ПІБ,
+  кафедра, pool share, bonus, total, year), adjusted if 1С rejects it. Nothing
+  written yet.
+- **Bulk entry for the per-person caps.** ADMIN sets them one кафедра at a time
+  on the distribution grid. Fine for a кафедра, tedious for a university.
 
-**`StaffStakeLimits` has a table but no screen yet** — the caps belong beside the
-distribution grid, so they are built with it.
+**One decision still open, and it is not a code question.** The formula hands out
+more than the allocation on most кафедри, so a head opens the grid already over
+budget:
+
+```
+Σ term1 = 0.5 × N / Кнпп × Кст
+```
+
+It equals `Кст` only when `Кнпп` is exactly half the headcount, and the 0.1 floor
+pushes it higher still. Measured on Кафедра вищої математики (18 НПП, Кнпп 8,
+Кст 4.00): the formula totals **4.90**. The screen says so plainly rather than
+hiding it, and the head cuts by hand — which is what the положення describes. The
+alternatives are to open the editable column pre-scaled to fit (keeping «За
+формулою» truthful), or to ask the вчена рада whether the flat `0,5` is what they
+meant. **Owner has not decided.**
+
+Decisions made while building, easy to undo by accident:
+
+- **No approval step** (retracts Q1) — the head's saved split is final.
+- **Обґрунтування is optional.** Додаток 2 has the column and the положення
+  describes justifying a deviation, but nothing establishes that the app must
+  refuse a save without one. It was briefly enforced and removed 2026-08-10.
+- **Adding a student claim is silent.** No warning, no block, whoever else has
+  claimed them. The duplicate is the head's evidence, not the two claimants'.
+- **A recruiter may recruit onto any programme**, so `Speciality` has no
+  `departmentId` and the picker offers the whole list.
+- **Caps are ADMIN-only**, shown read-only to the head.
 
 ---
 
@@ -546,25 +608,24 @@ re-asked:
 
 ## Suggested order
 
-1. **Column picker on /division-data** — the last piece of A5, and the biggest
-   remaining win for anyone actually using that screen.
-2. **The owner picks a look** at `/admin/design`; applying it is a token edit.
-3. **C1 staff import** — unblocks judgement on everything else and makes the
-   next demo real. Note `Дані ННВ`'s `Дані` sheet is a second source for the
-   same profile fields, so reconcile the two rather than importing both blindly.
-4. **A3–A4** — the section 3 form and the Публікації report.
-5. ~~**B1 Характеристика**~~ — **derivation and pages done 2026-08-10**; the
-   remainder (admin editor for the mapping, manual п.15/п.20, export, `Кнпп`
-   per кафедра) is listed under B1 above.
-6. **B2 Розподіл ставок** — the settings layer is done (`/admin/stakes`). Next
-   is `StudentClaim`: the НПП's «Мої залучені здобувачі» and the head's
-   duplicate-review screen. Then the distribution grid, which is the piece the
-   whole feature is for.
-7. **A6 remaining visual work**, then **C2–C4** — the adoption set.
-8. **E deployment**, with the pilot before the rollout.
+Both big features are done, so what remains is adoption and polish — and the
+adoption half is the one that decides whether any of this gets used.
 
-The critical path is unchanged: **staff import → Характеристика (it carries
-`Кнпп`) → Розподіл ставок.** Nothing on it waits on anybody. The import files
-arriving ~12.08 affect only how much of the Характеристика fills itself — and
-now that the derivation exists, the import's value is measurable: every
-per-item row it brings in is a позиція nobody has to type.
+1. **The owner picks a look** at `/admin/design`; applying it is a token edit.
+   Waiting on a decision, not on work.
+2. **C1 staff import** — the real ~300 people instead of 200 invented ones.
+   Everything downstream becomes testable against reality, and a demo becomes
+   convincing. Note `Дані ННВ`'s `Дані` sheet is a second source for the same
+   profile fields, so reconcile the two rather than importing both blindly.
+3. **C2–C4 the adoption set** — instructions, bulk invite, reminders. There is
+   still **no notification code in the app at all**: nothing tells an НПП that
+   submissions are open or that something of theirs was discarded.
+4. **Column picker on /division-data** — the last piece of A5.
+5. **A3–A4** — the section 3 form and the Публікації report.
+6. **The leftovers of B1 and B2** — the п.38 mapping editor, manual п.15/п.20,
+   the 1С export, bulk caps. All small, none blocking.
+7. **E deployment**, with a pilot before the rollout.
+
+The critical path is finished. **The risk is no longer the engine — it is that
+nobody fills it in**, which makes the import and the adoption set the things
+that matter most now.
