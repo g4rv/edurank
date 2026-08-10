@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useForm, type FieldValues, type Resolver } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { Search, Trash2 } from 'lucide-react';
@@ -11,6 +11,7 @@ import {
 } from '@/app/(dashboard)/division-data/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Pagination } from '@/components/ui/pagination';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -82,8 +83,8 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('name');
   const [filled, setFilled] = useState<Filled>('all');
-  const [fullHeaders, setFullHeaders] = useState(false);
   const [page, setPage] = useState(0);
+  const scrollBox = useRef<HTMLDivElement>(null);
 
   const matching = useMemo(() => {
     /** How many of this division's columns already hold a value for one person */
@@ -124,11 +125,19 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
   const current = Math.min(page, pageCount - 1);
   const visibleStaff = matching.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE);
 
+  // The grid scrolls inside its own box, so a new page would otherwise open at
+  // whatever offset the last one was left at — halfway down a list of names you
+  // have never seen. Every change of what is shown starts at the top.
+  function show(nextPage: number) {
+    setPage(nextPage);
+    scrollBox.current?.scrollTo({ top: 0 });
+  }
+
   // Narrowing the list must not leave you stranded on a page that no longer exists
   function change<T>(set: (v: T) => void) {
     return (v: T) => {
       set(v);
-      setPage(0);
+      show(0);
     };
   }
 
@@ -172,19 +181,6 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
           </SelectContent>
         </Select>
 
-        {/* The labels are long enough that a clamped header hides which
-            indicator a column is. Off by default so the grid stays compact,
-            because most of the time the item number is enough. */}
-        <Button
-          type="button"
-          variant={fullHeaders ? 'secondary' : 'outline'}
-          size="sm"
-          onClick={() => setFullHeaders((v) => !v)}
-          aria-pressed={fullHeaders}
-        >
-          {fullHeaders ? 'Стислі назви' : 'Повні назви'}
-        </Button>
-
         <span className="ml-auto text-sm whitespace-nowrap text-muted-foreground">
           {matching.length} із {staff.length}
         </span>
@@ -195,7 +191,10 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
           a grid this wide you then cannot tell which indicator a cell belongs
           to. Sticky only resolves against a scrollport, so the height cap is
           what makes the header stick at all — not decoration. */}
-      <div className="max-h-[calc(100vh-16rem)] overflow-auto rounded-xl border bg-card">
+      <div
+        ref={scrollBox}
+        className="max-h-[calc(100vh-16rem)] overflow-auto rounded-xl border bg-card"
+      >
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left">
@@ -206,15 +205,10 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
               {types.map((t) => (
                 <th
                   key={t.id}
-                  className={cn(
-                    'sticky top-0 z-20 border-b bg-muted px-3 py-3 align-bottom font-medium',
-                    fullHeaders ? 'min-w-48' : 'min-w-32'
-                  )}
+                  className="sticky top-0 z-20 min-w-48 border-b bg-muted px-3 py-3 align-top font-medium"
                 >
                   <span className="block text-xs text-muted-foreground">{t.itemNumber}</span>
-                  <span className={cn(!fullHeaders && 'line-clamp-2')} title={t.label}>
-                    {t.label}
-                  </span>
+                  <span>{t.label}</span>
                 </th>
               ))}
             </tr>
@@ -254,33 +248,8 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
         </table>
       </div>
 
-      {pageCount > 1 && (
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm text-muted-foreground">
-            Стор. {current + 1} з {pageCount}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(current - 1)}
-              disabled={current === 0}
-            >
-              Назад
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(current + 1)}
-              disabled={current >= pageCount - 1}
-            >
-              Далі
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* The shared pager is 1-based; `page` here is a 0-based slice index */}
+      <Pagination page={current + 1} totalPages={pageCount} onPageChange={(p) => show(p - 1)} />
     </div>
   );
 }
