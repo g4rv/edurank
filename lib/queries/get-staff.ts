@@ -24,6 +24,7 @@ export async function getStaff(id: string, includeConfidential = false) {
       academicRank: true,
       scientificDegree: true,
       degreeMatchesDepartment: true,
+      degreeDefenceDate: true,
       adminPosition: true,
       basicEducationMatch: true,
       basicEducationSpecialty: true,

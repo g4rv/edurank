@@ -10,6 +10,7 @@
 import { ACTIVITY_TYPES_2026, type ActivityTypeDef } from './activity-types';
 import { EVIDENCE_FIELDS, type EvidenceField } from './evidence-fields';
 import type { ScorableType, ScoringSpec } from './scoring';
+import type { LicencePositionLink } from '@/lib/kharakterystyka/positions';
 import { schemaForFields } from '@/validations/activity-evidence';
 
 /**
@@ -116,6 +117,103 @@ export const MOODLE_MODE_POINTS = { development: 150, update: 50 } as const;
 /** MULT/SELECT_MULT codes whose value = друковані аркуші: (pages / 24) / coAuthors */
 export const PAGE_BASED_CODES = new Set(['monograph_ua', 'monograph_eu', 'edition_publication']);
 
+/**
+ * Which п.38 positions of the Характеристика each indicator's entries satisfy
+ * (the positions themselves: `lib/kharakterystyka/positions.ts`).
+ *
+ * Seed input only, exactly like SELECT_OPTION_POINTS above. At runtime the
+ * `ActivityType.licencePositions` column decides — so an admin can point a
+ * newly voted indicator at a position in /admin/rating/[year] without a deploy,
+ * which is the whole reason it is a column and not this map.
+ *
+ * A code absent from the map satisfies no position. That is right for most of
+ * the ~67 indicators, and it is the DELIBERATE answer for two of them:
+ *
+ *   patent_application     — a submitted application is not a patent
+ *   intl_grant_application — an unwon proposal is not a project
+ *
+ * Both still score in the rating, because the rating rewards the effort. They
+ * just close no licence position, because the licence asks for a finished thing
+ * (decided 2026-08-07). Do not "complete" the map by adding them.
+ */
+export const LICENCE_POSITION_LINKS: Record<string, LicencePositionLink[]> = {
+  // п.1 — не менше п'яти публікацій у фахових виданнях / Scopus / WoS
+  publication_cat_a: [{ position: 1 }],
+  publication_cat_b: [{ position: 1 }],
+
+  // п.2 — один патент АБО п'ять свідоцтв авторського права. Two different bars,
+  // so two groups; the position is met when either alternative is reached.
+  // «П'ять деклараційних патентів» is the law's third route and has no
+  // indicator of its own — add a third group the day one exists.
+  patent_granted: [{ position: 2, group: 'patent' }],
+  copyright_registration: [{ position: 2, group: 'copyright' }],
+
+  // п.3 — підручник / навчальний посібник / монографія, ≥5 авт. аркушів
+  // п.4 — навчально-методичні праці, три найменування
+  //
+  // 2.2 is ONE indicator feeding BOTH, split by the option chosen on the form.
+  // This is the case the `when` condition exists for: without it the same
+  // методичка would count towards a підручник requirement.
+  monograph_ua: [{ position: 3 }],
+  monograph_eu: [{ position: 3 }],
+  edition_publication: [
+    { position: 3, when: { field: 'option', in: ['textbook', 'study_guide'] } },
+    { position: 4, when: { field: 'option', in: ['methodical_guide', 'recommendations'] } },
+  ],
+  // «електронних курсів на освітніх платформах ліцензіатів» — Moodle is exactly that
+  moodle_course: [{ position: 4 }],
+
+  // п.5 is the defence date on the profile, not an indicator — see PositionFill.
+
+  // п.6 — наукове керівництво здобувачем, який захистився
+  defense_supervision: [{ position: 6 }],
+
+  // п.7 — офіційний опонент або член спеціалізованої вченої ради
+  specialized_council: [{ position: 7 }],
+  dissertation_opponent: [{ position: 7 }],
+
+  // п.8 — керівник/виконавець наукової теми, або редколегія фахового видання
+  ndr_execution: [{ position: 8 }],
+  initiative_topic: [{ position: 8 }],
+  journal_editorial_a: [{ position: 8 }],
+  journal_editorial_b: [{ position: 8 }],
+
+  // п.9 — експертна рада МОН / галузева експертна рада НАЗЯВО
+  mon_nazyavo_councils: [{ position: 9 }],
+  mon_textbook_expertise: [{ position: 9 }],
+
+  // п.10 — міжнародні проєкти, міжнародна експертиза
+  intl_grant_won: [{ position: 10 }],
+  intl_program_participation: [{ position: 10 }],
+  intl_open_lectures: [{ position: 10 }],
+
+  // п.11 — наукове консультування установ ≥3 років. 3.18 carries the three-year
+  // condition inside itself, so an entry existing means the condition held.
+  org_consulting: [{ position: 11 }],
+
+  // п.12 — не менше п'яти апробаційних / науково-популярних публікацій
+  conf_abroad: [{ position: 12 }],
+  conf_ukraine: [{ position: 12 }],
+
+  // п.13 — заняття іноземною мовою. The rating's own bar is 30 hours where the
+  // licence asks 50, so a row is necessary but not sufficient — the position
+  // carries a note telling the reader to check the hours.
+  foreign_language_teaching: [{ position: 13 }],
+
+  // п.14 — призер студентської олімпіади, журі, або науковий гурток
+  intl_olympiad_winners: [{ position: 14 }],
+  ukr_olympiad_winners: [{ position: 14 }],
+  olympiad_jury: [{ position: 14 }],
+  scientific_school: [{ position: 14 }],
+
+  // п.15 (школярі) and п.20 (практичний досвід) are typed by hand — no indicator
+  // exists and none is being added: the catalogue moves only by a вчена рада
+  // vote. п.16–18 are military and never apply here.
+
+  // п.19 — участь у професійних та громадських об'єднаннях
+  prof_associations: [{ position: 19 }],
+};
+
 export interface ActivityTypeSpecs {
   itemNumber: string;
   maxPerYear: number | null;
@@ -123,6 +221,7 @@ export interface ActivityTypeSpecs {
   entityFirstEntry: boolean;
   evidenceFields: EvidenceField[];
   scoring: ScoringSpec;
+  licencePositions: LicencePositionLink[];
 }
 
 function withPoints(
@@ -174,6 +273,9 @@ export function dbSpecs(def: ActivityTypeDef): ActivityTypeSpecs {
       kind: def.kind,
       ...(PAGE_BASED_CODES.has(def.code) ? { pageBased: true } : {}),
     },
+    // Absent = satisfies no licence position, which is the common and correct
+    // case. See LICENCE_POSITION_LINKS for the two codes where it is deliberate.
+    licencePositions: LICENCE_POSITION_LINKS[def.code] ?? [],
   };
 }
 

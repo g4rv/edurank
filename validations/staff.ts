@@ -16,6 +16,24 @@ const boolStr = (v: unknown) =>
   v === '' || v === null || v === undefined ? null : v === true || v === 'true' ? true : false;
 
 /**
+ * A calendar date from an `<input type="date">` («2024-05-20»), stored as a
+ * `DateTime`. Parsed as UTC midnight rather than through `new Date(string)`'s
+ * local-timezone path, so a defence on the 1st does not become the 30th of the
+ * previous month for anyone east of UTC — the Характеристика reads the YEAR off
+ * this, and a year boundary is exactly where that slip would land.
+ */
+const dateStr = (v: unknown) => {
+  if (v === '' || v === null || v === undefined) return null;
+  if (v instanceof Date) return v;
+  if (typeof v !== 'string') return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim());
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/**
  * An optional profile link that must point at the right service. Empty stays
  * null — these are optional — but a filled value has to be a real URL on that
  * site, otherwise the profile page renders a dead link nobody notices.
@@ -48,6 +66,19 @@ export const staffUpdateSchema = z
     ),
     scientificDegree: z.preprocess(str, z.enum(['CANDIDATE', 'DOCTOR']).nullable()),
     degreeMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+    // Характеристика п.5 — one date, for the highest degree only. Bounded so a
+    // typo cannot land a defence in 1024 or 2924: the document tests whether it
+    // falls inside a five-year window, and either extreme would silently answer
+    // «no» with nothing on screen to explain it.
+    degreeDefenceDate: z.preprocess(
+      dateStr,
+      z
+        .date()
+        .refine((d) => d.getUTCFullYear() >= 1950 && d.getUTCFullYear() <= 2100, {
+          error: 'Некоректна дата',
+        })
+        .nullable()
+    ),
     adminPosition: z.preprocess(
       str,
       z

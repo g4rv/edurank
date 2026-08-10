@@ -166,8 +166,18 @@ const GUARANTOR_PERIOD_OPTIONS = [
 /**
  * Short human-readable line for lists and audit views,
  * e.g. «Квартиль Q1 · Nature 2026 · https://doi.org/…».
+ *
+ * `maxParts` caps how much is shown, because a table cell has a width. Pass
+ * `Infinity` where the text is the deliverable rather than a preview — the
+ * Характеристика's «Дані підтвердження показника» column is read against the
+ * Ліцензійні умови, and quietly dropping a sixth field there would understate
+ * what somebody actually did.
  */
-export function summarizeEvidence(fields: readonly EvidenceField[], evidence: unknown): string {
+export function summarizeEvidence(
+  fields: readonly EvidenceField[],
+  evidence: unknown,
+  maxParts = 5
+): string {
   if (typeof evidence !== 'object' || evidence === null) return '';
   const e = evidence as Record<string, unknown>;
 
@@ -221,7 +231,7 @@ export function summarizeEvidence(fields: readonly EvidenceField[], evidence: un
         break;
     }
   }
-  return parts.slice(0, 5).join(' · ');
+  return parts.slice(0, maxParts).join(' · ');
 }
 
 /** Empty form default values for a field set (RHF-friendly) */

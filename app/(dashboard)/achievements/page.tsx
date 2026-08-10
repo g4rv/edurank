@@ -7,6 +7,7 @@ import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingTable } from '@/components/rating/rating-table';
 import { YearSelect } from '@/components/rating/year-select';
+import { MyRatingTabs } from '@/components/kharakterystyka/my-rating-tabs';
 import { getRatingEntry } from '@/lib/queries/get-rating';
 import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-rows';
 
@@ -78,6 +79,8 @@ export default async function MyRatingPage({
         </div>
         <YearSelect years={years} value={selectedYear} />
       </div>
+
+      <MyRatingTabs active="rating" />
 
       <RatingTable groups={groups} />
     </AnimatedPage>

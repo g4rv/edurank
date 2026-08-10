@@ -46,6 +46,7 @@ export const FIELD_LABELS: Record<string, string> = {
   academicRank: 'Вчене звання',
   scientificDegree: 'Науковий ступінь',
   degreeMatchesDepartment: 'Відповідність ступеня кафедрі',
+  degreeDefenceDate: 'Дата захисту дисертації',
   adminPosition: 'Адміністративна посада',
   basicEducationMatch: 'Базова освіта за спеціальністю кафедри',
   basicEducationSpecialty: 'Спеціальність за дипломом',

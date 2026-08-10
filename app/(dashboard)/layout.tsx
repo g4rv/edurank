@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { canModerateRating } from '@/lib/rating/moderation';
 import { getEditorDivisionId } from '@/lib/permissions';
 import { listEntryDivisions } from '@/lib/queries/list-division-data';
+import { scopeOf } from '@/lib/queries/scope';
 import { Sidebar } from '@/components/sidebar';
 import { Toaster } from '@/components/ui/sonner';
 
@@ -25,6 +26,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const canModerate = await canModerateRating(session.user);
   const canEnterData = await canEnterDivisionData(session.user);
 
+  // Headship is derived from Department.headId / Faculty.deanId rather than
+  // from a Role, so the nav has to ask rather than read it off the session.
+  const headsDepartment = (await scopeOf(session.user.staffId)).length > 0;
+
   // Fresh from DB, not the session token: an admin may flip НПП/адміністративний
   // mid-session, and the rating nav must follow immediately.
   const staff = session.user.staffId
@@ -41,6 +46,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         isNpp={staff?.isNpp ?? false}
         canModerate={canModerate}
         canEnterData={canEnterData}
+        headsDepartment={headsDepartment}
       />
       <main className="flex-1 overflow-auto p-6">{children}</main>
       <Toaster position="bottom-right" richColors />

@@ -207,6 +207,13 @@ model Staff {
   scientificDegree        ScientificDegree?
   degreeMatchesDepartment Boolean?
 
+  // Характеристика п.5 — «Захист дисертації на здобуття наукового ступеня».
+  // ONE date, for the highest degree only (decided 2026-08-07), not one per
+  // ступінь. That is enough for the licence's «within the last five years» test:
+  // the highest degree is also the most recent, so if this date falls outside
+  // the window, no earlier defence falls inside it either.
+  degreeDefenceDate DateTime?
+
   // Rating item 1.6 — administrative position (profile-derived indicator)
   adminPosition AdminPosition?
 
@@ -366,6 +373,18 @@ model ActivityType {
   // which left an admin-built indicator of the same shape stuck on the
   // one-cell-at-a-time grid with nothing to explain why.
   entityFirstEntry Boolean @default(false)
+
+  // Which п.38 positions of the Характеристика this indicator's entries satisfy:
+  // LicencePositionLink[] — see validations/licence-positions.ts. Empty for most
+  // indicators, and empty ON PURPOSE for patent_application and
+  // intl_grant_application: an application scores in the rating but closes no
+  // licence position.
+  //
+  // A column rather than a list in code for the same reason requiresVerification
+  // and entityFirstEntry became columns — a code list silently excludes every
+  // indicator an admin builds themselves, and the вчена рада votes new
+  // indicators in yearly.
+  licencePositions Json @default("[]")
 
   activities Activity[]
 

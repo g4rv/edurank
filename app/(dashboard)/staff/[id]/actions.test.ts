@@ -53,6 +53,7 @@ const fullPayload: StaffUpdateSchema = {
   isNpp: false,
   employmentRate: 0.25, // confidential — EDITOR/USER must never write it
   pedagogicalExperience: 30,
+  degreeDefenceDate: null,
   academicRank: 'PROFESSOR',
   scientificDegree: 'DOCTOR',
   degreeMatchesDepartment: true,

@@ -19,9 +19,9 @@ here with a strikethrough.
 ## Where the app is now
 
 Phase 1 (structure, staff, permissions, auth) and Phase 2 (the whole rating
-system) are complete and stable: **455 tests**, type-check clean, one deliberate
-lint warning (`watch()` in `activity-type-dialog`). The audit of 2026-07-29 is
-fully closed.
+system) are complete and stable, and **B1 Характеристика now derives and
+renders**: **500 tests**, type-check clean, one deliberate lint warning
+(`watch()` in `activity-type-dialog`). The audit of 2026-07-29 is fully closed.
 
 **Two real bugs were found and fixed**, both by looking at the university's own
 files rather than at the code:
@@ -44,7 +44,7 @@ remains splits three ways:
 - **Rating UI rework** — new, requested by the owner after using the app. Small
   pieces, high visibility, all unblocked.
 - **The two big features** — Характеристика and Розподіл ставок. Both fully
-  specced, neither started.
+  specced. B1 now derives and renders; B2 is not started.
 - **Adoption** — import, instructions, invites, reminders. Less visible, and
   the reason a working system still fails.
 
@@ -79,6 +79,28 @@ Recorded so a new session does not re-derive any of it.
 | `972ef00` | `CopyButton`, used on the staff list's email column.                                    |
 | `6466ae1` | Several records per cell in /division-data; the 20260729 unique index dropped.          |
 
+### 2026-08-10 — Характеристика (п.38)
+
+Built after the owner reordered the plan: `Кнпп` comes from this document, so it
+goes before Розподіл ставок rather than beside it.
+
+| What                                                                             |
+| -------------------------------------------------------------------------------- |
+| `lib/kharakterystyka/positions.ts` — the 20 positions, law text verbatim         |
+| `lib/kharakterystyka/build.ts` — the derivation, 32 tests                        |
+| `ActivityType.licencePositions` (JSON) + `Staff.degreeDefenceDate`               |
+| `/staff/[id]/kharakterystyka`, `/achievements/kharakterystyka`, `/my-department` |
+| `lib/queries/scope.ts` — `scopeOf()` and `canViewAcademicRecord()`, 13 tests     |
+
+Two facts measured while doing it, both correcting a doc:
+
+- **The норматив table is not stuck in the PDF.** `НормативЧисельності` in
+  `Рейтинг_Профорієнтація.xlsx` has **38 specialities**, not the 34 the ставка
+  spec claims, and all 38 confirm the single-base rule. B2's seed is ready.
+- **`summarizeEvidence` capped output at five parts.** Right for a table cell,
+  wrong for a document read against the law, so it now takes a `maxParts` and
+  the Характеристика passes `Infinity`.
+
 ### Lessons worth keeping
 
 1. **Changing a scoring kind is a data migration.** `scoring` and
@@ -95,6 +117,14 @@ Recorded so a new session does not re-derive any of it.
 5. **A constraint usually has a reason.** The one-row-per-cell index looked like
    an accident of the grid's shape; it was a deliberate fix for a double-count
    race. Read the migration before reversing one.
+6. **Never dedupe records by their display text.** The Характеристика's first
+   version collapsed entries whose summaries matched, which would have cost
+   somebody a publication against a threshold that counts to five. Dedupe on
+   identity; text is a coincidence.
+7. **A permission without a route is not access.** A завідувач is an ordinary
+   `USER`, so granting them the Характеристика meant nothing until
+   `/my-department` existed — `/staff` redirects them away, and the tabs on the
+   page pointed at two more pages that would.
 
 ---
 
@@ -230,12 +260,51 @@ do the clear work first, then bring a list of the genuinely ambiguous ones.
 
 Both fully specced. Neither started.
 
-### B1. Характеристика / п.38 — [`kharakterystyka.md`](./kharakterystyka.md)
+### B1. Характеристика / п.38 — **derivation + page DONE 2026-08-10**
 
-It is п.38 of the Ліцензійні умови and the source of `Кнпп`. 14 of 20 positions
-fill themselves from rating data; 3 are military and never apply; 2 are manual
-(п.15 школярі — such НПП exist; п.20 practical experience — nobody qualifies
-today); 1 needs a defence date on the profile.
+Spec: [`kharakterystyka.md`](./kharakterystyka.md). It is п.38 of the Ліцензійні
+умови and the source of `Кнпп`. 14 of 20 positions fill themselves from rating
+data; 3 are military and never apply; 2 are manual (п.15 школярі — such НПП
+exist; п.20 practical experience — nobody qualifies today); 1 needs a defence
+date on the profile.
+
+**Built:**
+
+| What                                                        | Where                                     |
+| ----------------------------------------------------------- | ----------------------------------------- |
+| The 20 positions, law text verbatim + threshold rules       | `lib/kharakterystyka/positions.ts`        |
+| Derivation engine, 32 tests                                 | `lib/kharakterystyka/build.ts`            |
+| Indicator → position mapping, seeded                        | `LICENCE_POSITION_LINKS` in `db-specs.ts` |
+| `ActivityType.licencePositions` + `Staff.degreeDefenceDate` | migration `20260810140000`                |
+| Admin/editor view                                           | `/staff/[id]/kharakterystyka` (tab)       |
+| The НПП's own view                                          | `/achievements/kharakterystyka` (tab)     |
+| Head's / dean's view                                        | `/my-department`, `lib/queries/scope.ts`  |
+
+Three decisions embedded in that code, easy to undo by accident:
+
+1. **The mapping is a DB column, not a code list.** `licencePositions` on
+   `ActivityType`, JSON, seeded from `LICENCE_POSITION_LINKS`. An indicator the
+   вчена рада votes in must be pointable at a position without a deploy — the
+   same lesson `requiresVerification` and `entityFirstEntry` already taught.
+   `LICENCE_POSITION_LINKS` is **seed input only**; at runtime the row decides.
+2. **Applications map to nothing on purpose** — `patent_application` and
+   `intl_grant_application` are absent from the map and must stay absent.
+3. **Headship is `Department.headId` / `Faculty.deanId`, never a `Role`.**
+   `scopeOf(staffId) → departmentIds[]` is the one place that resolves it, and
+   the ставка grid will reuse it unchanged.
+
+**Still to do on B1:**
+
+- **The п.38 mapping is not editable in the UI yet.** The column exists and the
+  seed fills it; `/admin/rating/[year]` has no control for it, so a new
+  indicator today needs a seed edit. `licencePositionProblems()` is written and
+  waiting for the form.
+- **Manual entry for п.15 and п.20** — both render as empty rows with a reason.
+  Nothing stores a typed value yet.
+- **The printed document / export.** The page reproduces the three-column
+  layout; there is no Word/Excel output.
+- **`Кнпп` per кафедра** — `qualifies` is computed per person; nothing counts
+  them up per кафедра yet. That is the first thing B2 needs.
 
 Decided 2026-08-07 and easy to get wrong later:
 
@@ -262,6 +331,17 @@ Also decided: `Кст ≥ 0.1 × every НПП on the кафедра` as an input
 rounding is two rules (pool share to 0.05 with ties **down**; bonus to 3
 decimals); no hand-override of a student's value; no dispute arbitration, no
 claim cancellation, no past-year storage, no mid-year-leaving handling.
+
+**No approval step (decided 2026-08-10, retracts Q1).** ADMIN sets the pool, the
+head spreads it, and what the head saves is final. No комісія, no submit, no
+approve, no `SUBMITTED`/`APPROVED` status, no approver id. The controls are the
+central `Кст`, the hard ceiling at save, ADMIN-only caps, and the audit log.
+
+**Two things B2 can now build on:** the норматив table is not locked in the PDF —
+it is a live sheet, `НормативЧисельності` in `Рейтинг_Профорієнтація.xlsx`, with
+**38 specialities** (the spec says 34), all confirming the single-base rule
+(магістр = base × 0.5, заочна = base × 4). And `scopeOf()` already resolves which
+кафедри a head or dean may act for.
 
 ---
 
@@ -415,12 +495,16 @@ re-asked:
    next demo real. Note `Дані ННВ`'s `Дані` sheet is a second source for the
    same profile fields, so reconcile the two rather than importing both blindly.
 4. **A3–A4** — the section 3 form and the Публікації report.
-5. **B1 Характеристика** — the report they produce by hand today, and the source
-   of `Кнпп`. Build it before the formula needs it.
-6. **B2 Розподіл ставок** — the biggest, and fully specced.
+5. ~~**B1 Характеристика**~~ — **derivation and pages done 2026-08-10**; the
+   remainder (admin editor for the mapping, manual п.15/п.20, export, `Кнпп`
+   per кафедра) is listed under B1 above.
+6. **B2 Розподіл ставок** — the biggest, and fully specced. Start with `Кнпп`
+   per кафедра, which is a small step from what B1 already computes.
 7. **A6 remaining visual work**, then **C2–C4** — the adoption set.
 8. **E deployment**, with the pilot before the rollout.
 
 The critical path is unchanged: **staff import → Характеристика (it carries
 `Кнпп`) → Розподіл ставок.** Nothing on it waits on anybody. The import files
-arriving ~12.08 affect only how much of the Характеристика fills itself.
+arriving ~12.08 affect only how much of the Характеристика fills itself — and
+now that the derivation exists, the import's value is measurable: every
+per-item row it brings in is a позиція nobody has to type.

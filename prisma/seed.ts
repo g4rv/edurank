@@ -291,6 +291,7 @@ async function main() {
       entityFirstEntry: specs.entityFirstEntry,
       evidenceFields: specs.evidenceFields as unknown as Prisma.InputJsonValue,
       scoring: specs.scoring as unknown as Prisma.InputJsonValue,
+      licencePositions: specs.licencePositions as unknown as Prisma.InputJsonValue,
       coefficient: def.coefficient,
       coefficientNote: def.coefficientNote ?? null,
       inputSource: def.inputSource,

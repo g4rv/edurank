@@ -1,0 +1,31 @@
+-- Характеристика (п.38 of the Ліцензійні умови) — the two columns it needs.
+--
+-- 1. ActivityType.licencePositions — which of the 20 licence positions this
+--    indicator's entries satisfy, as LicencePositionLink[] JSON:
+--
+--      [{ "position": 3, "when": { "field": "option", "in": ["textbook"] } }]
+--
+--    A column and not a list in code, deliberately. `requiresVerification` and
+--    `entityFirstEntry` were both hardcoded code lists first, and each one
+--    silently excluded any indicator an admin built themselves. The вчена рада
+--    votes new indicators in every year; pointing one at position 1 must not
+--    need a deploy.
+--
+--    Defaults to an empty array, which is also the correct value for most
+--    indicators — and the deliberate value for `patent_application` and
+--    `intl_grant_application`. An application scores in the rating, because the
+--    rating rewards the effort, but it closes no licence position, because the
+--    licence asks for a finished thing (decided 2026-08-07). The seed sets the
+--    real mapping; nothing here needs backfilling.
+ALTER TABLE "ActivityType" ADD COLUMN "licencePositions" JSONB NOT NULL DEFAULT '[]';
+
+-- 2. Staff.degreeDefenceDate — position 5, «Захист дисертації».
+--
+--    ONE date, for the highest degree only (decided 2026-08-07), not one per
+--    ступінь. Enough for the licence's «within the last five years» test,
+--    because the highest degree is also the most recent one: if this date is
+--    outside the window, no earlier defence is inside it.
+--
+--    Nullable with no default — unknown is the honest starting state for ~300
+--    people, and it renders as «не вказано» rather than as a wrong date.
+ALTER TABLE "Staff" ADD COLUMN "degreeDefenceDate" TIMESTAMP(3);

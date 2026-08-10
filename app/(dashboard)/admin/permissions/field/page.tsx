@@ -18,6 +18,7 @@ const FIELD_GROUPS = [
       'academicRank',
       'scientificDegree',
       'degreeMatchesDepartment',
+      'degreeDefenceDate',
       'pedagogicalExperience',
       'adminPosition',
       'basicEducationMatch',

@@ -233,6 +233,17 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
                       : 'Ні'
                 }
               />
+              <Field
+                label="Дата захисту дисертації"
+                value={
+                  // Formatted in UTC, matching how the column is written — a
+                  // local-calendar render would show the previous day for any
+                  // deployment west of UTC.
+                  staff.degreeDefenceDate
+                    ? staff.degreeDefenceDate.toLocaleDateString('uk-UA', { timeZone: 'UTC' })
+                    : '—'
+                }
+              />
             </InfoCard>
           )}
 

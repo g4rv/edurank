@@ -17,6 +17,7 @@ const ALLOWED_FIELD_NAMES = new Set([
   'academicRank',
   'scientificDegree',
   'degreeMatchesDepartment',
+  'degreeDefenceDate',
   'pedagogicalExperience',
   'adminPosition',
   'basicEducationMatch',

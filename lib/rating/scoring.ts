@@ -82,6 +82,14 @@ function optionPoints(type: ScorableType, selectName: string, evidence: unknown)
   return option.points;
 }
 
+/**
+ * Pages in one друкований аркуш. Exported because the Характеристика's п.3 has
+ * to measure the same thing the scoring does — «не менше 5 авторських аркушів»
+ * is the licence's threshold over the figure computed here — and two copies of
+ * 24 would drift the day the university changes it.
+ */
+export const PAGES_PER_AUTHOR_SHEET = 24;
+
 /** Друковані аркуші: pages / 24, split between co-authors (default 1 = sole author) */
 function authorSheets(evidence: unknown, code: string): number {
   const e = asRecord(evidence, code);
@@ -90,7 +98,7 @@ function authorSheets(evidence: unknown, code: string): number {
   if (typeof coAuthors !== 'number' || !Number.isInteger(coAuthors) || coAuthors < 1) {
     throw new Error(`${code}: "coAuthors" must be an integer >= 1`);
   }
-  return pages / 24 / coAuthors;
+  return pages / PAGES_PER_AUTHOR_SHEET / coAuthors;
 }
 
 // Sum of the ticked checkboxes' own points, read from the column the chosen

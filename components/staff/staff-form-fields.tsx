@@ -52,6 +52,7 @@ export type RawStaffFormValues = {
   academicRank: string;
   scientificDegree: string;
   degreeMatchesDepartment: string;
+  degreeDefenceDate: string;
   adminPosition: string;
   basicEducationMatch: string;
   basicEducationSpecialty: string;
@@ -79,6 +80,7 @@ export const EMPTY_STAFF_FORM_VALUES: RawStaffFormValues = {
   academicRank: '',
   scientificDegree: '',
   degreeMatchesDepartment: '',
+  degreeDefenceDate: '',
   adminPosition: '',
   basicEducationMatch: '',
   basicEducationSpecialty: '',
@@ -99,6 +101,9 @@ export function staffToFormValues(staff: StaffDetail): RawStaffFormValues {
   const numberOrEmpty = (v: number | null | undefined) => (v != null ? String(v) : '');
   const boolOrEmpty = (v: boolean | null | undefined) =>
     v !== null && v !== undefined ? String(v) : '';
+  // `<input type="date">` wants «YYYY-MM-DD», and the column holds UTC
+  // midnight — sliced in UTC so the value round-trips unchanged.
+  const dateOrEmpty = (v: Date | null | undefined) => (v ? v.toISOString().slice(0, 10) : '');
 
   return {
     lastName: staff.lastName,
@@ -112,6 +117,7 @@ export function staffToFormValues(staff: StaffDetail): RawStaffFormValues {
     academicRank: staff.academicRank ?? '',
     scientificDegree: staff.scientificDegree ?? '',
     degreeMatchesDepartment: boolOrEmpty(staff.degreeMatchesDepartment),
+    degreeDefenceDate: dateOrEmpty(staff.degreeDefenceDate),
     adminPosition: staff.adminPosition ?? '',
     basicEducationMatch: boolOrEmpty(staff.basicEducationMatch),
     basicEducationSpecialty: staff.basicEducationSpecialty ?? '',
@@ -409,6 +415,24 @@ export function StaffFormFields({
                 disabled={isPending}
                 {...register('pedagogicalExperience')}
               />
+            </FormField>
+            <FormField
+              htmlFor="degreeDefenceDate"
+              label="Дата захисту дисертації"
+              error={errors.degreeDefenceDate}
+            >
+              <Input
+                id="degreeDefenceDate"
+                type="date"
+                disabled={isPending}
+                {...register('degreeDefenceDate')}
+              />
+              {/* One date, for the HIGHEST degree — п.5 of the Характеристика
+                  asks for a defence in the last five years, and the highest
+                  degree is also the most recent one. */}
+              <p className="mt-1 text-xs text-muted-foreground">
+                За найвищим науковим ступенем — для характеристики (п.5)
+              </p>
             </FormField>
             <FormField
               label="Ступінь відповідає кафедрі"

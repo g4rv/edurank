@@ -33,6 +33,7 @@ const payload: StaffCreateSchema = {
   isNpp: false,
   employmentRate: null,
   pedagogicalExperience: null,
+  degreeDefenceDate: null,
   academicRank: null,
   scientificDegree: null,
   degreeMatchesDepartment: null,

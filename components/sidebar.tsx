@@ -60,6 +60,8 @@ interface SidebarProps {
   isNpp?: boolean;
   canModerate?: boolean;
   canEnterData?: boolean;
+  /** Heads a кафедра or a факультет — derived from headId/deanId, never a Role */
+  headsDepartment?: boolean;
 }
 
 export function Sidebar({
@@ -67,6 +69,7 @@ export function Sidebar({
   isNpp = false,
   canModerate = false,
   canEnterData = false,
+  headsDepartment = false,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -99,7 +102,14 @@ export function Sidebar({
   }
 
   // Direct-entry grid — its own band between structure and the rating group.
+  // «Моя кафедра» sits here too: it is the head's own working screen, and a
+  // head is usually an ordinary USER for whom /staff does not open at all.
   const dataEntry: React.ReactNode[] = [];
+  if (headsDepartment) {
+    dataEntry.push(
+      link({ href: '/my-department', label: 'Моя кафедра', icon: BookOpen, roles: [user.role] })
+    );
+  }
   if (canEnterData) {
     dataEntry.push(
       link({ href: '/division-data', label: 'Дані відділу', icon: Table2, roles: [user.role] })

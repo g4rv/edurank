@@ -99,6 +99,10 @@ export async function cloneTemplate(fromYear: number): Promise<RatingAdminState>
             maxPerYear: type.maxPerYear,
             evidenceFields: type.evidenceFields as Prisma.InputJsonValue,
             scoring: type.scoring as Prisma.InputJsonValue,
+            // Copied like the other specs: a year owns its structure, so the
+            // п.38 mapping the clone starts from is last year's, and reshaping
+            // 2027 cannot reach back into 2026's Характеристики.
+            licencePositions: type.licencePositions as Prisma.InputJsonValue,
             coefficient: type.coefficient,
             coefficientNote: type.coefficientNote,
             inputSource: type.inputSource,
@@ -620,6 +624,7 @@ export async function addActivityType(templateId: string, code: string): Promise
           entityFirstEntry: specs.entityFirstEntry,
           evidenceFields: specs.evidenceFields as unknown as Prisma.InputJsonValue,
           scoring: specs.scoring as unknown as Prisma.InputJsonValue,
+          licencePositions: specs.licencePositions as unknown as Prisma.InputJsonValue,
           coefficient: def.coefficient,
           coefficientNote: def.coefficientNote ?? null,
           inputSource: def.inputSource,
