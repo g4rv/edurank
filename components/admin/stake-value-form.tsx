@@ -73,8 +73,11 @@ export function StakeValueForm({
           inputMode="decimal"
           className={cn(
             'h-8 w-24 text-right tabular-nums',
-            // The hint has to read as a hint, not as a faded value
-            'placeholder:text-muted-foreground/60 placeholder:italic',
+            // The hint has to read as a hint, not as a faded value — but NOT
+            // in italic. The field is right-aligned, so the last glyph sits
+            // flush against the padding and an italic slant shears it off:
+            // «мін. 1,80» rendered as «мін. 1,8|». Colour alone does the job.
+            'placeholder:text-muted-foreground/60',
             (error || invalid) && 'border-destructive'
           )}
         />
