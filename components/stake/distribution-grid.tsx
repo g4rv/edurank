@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
-import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { useActionState, useEffect, useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { Check, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,11 @@ import {
   snapToStep,
 } from '@/lib/stake/units';
 import type { StakeDistributionView, StakeRow } from '@/lib/queries/get-stake-distribution';
-import { saveDistribution } from '@/app/(dashboard)/departments/[id]/stakes/actions';
+import {
+  saveDistribution,
+  setStaffLimits,
+  type DistributionState,
+} from '@/app/(dashboard)/departments/[id]/stakes/actions';
 
 /**
  * Додаток 2 — the head spreads the pool by hand, with the formula's own answer
@@ -26,9 +31,11 @@ import { saveDistribution } from '@/app/(dashboard)/departments/[id]/stakes/acti
  * the first half of the move if each row saved independently. So the total may
  * go over while they work — it turns red — and the SAVE is what refuses.
  *
- * Ліміти are shown to everyone and editable by nobody here. A head who could
- * raise their own cap and drop a colleague's would make the caps meaningless,
- * which is the reason they are ADMIN-only (decided 2026-08-05).
+ * Ліміти are shown to everyone and editable only by ADMIN, on these same rows.
+ * A head who could raise their own cap and drop a colleague's would make the
+ * caps meaningless, which is why they are ADMIN-only (decided 2026-08-05) —
+ * and why the head still SEES them: bounds you cannot see are bounds you file
+ * a bug about when a button stops moving.
  */
 export function DistributionGrid({
   view,
@@ -38,7 +45,7 @@ export function DistributionGrid({
   view: StakeDistributionView;
   /** The кафедра's head, its dean, or ADMIN */
   canEdit: boolean;
-  /** ADMIN only — the caps column becomes editable elsewhere */
+  /** ADMIN only — turns the Мін/Макс column into two editable fields */
   canEditLimits: boolean;
 }) {
   const [values, setValues] = useState<Record<string, number>>(() =>
@@ -126,7 +133,12 @@ export function DistributionGrid({
               <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
                 За формулою
               </th>
-              <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
+              <th
+                className={cn(
+                  'border border-border px-3 py-2 font-medium text-muted-foreground',
+                  canEditLimits ? 'w-52' : 'w-24 text-right'
+                )}
+              >
                 Мін / Макс
               </th>
               <th className="w-52 border border-border px-3 py-2 font-medium text-muted-foreground">
@@ -151,6 +163,8 @@ export function DistributionGrid({
                 value={values[row.staffId]}
                 justification={justifications[row.staffId] ?? ''}
                 canEdit={canEdit}
+                canEditLimits={canEditLimits}
+                year={view.year}
                 disabled={pending}
                 onChange={(next) => setValue(row, next)}
                 onJustify={(text) => setJustifications((j) => ({ ...j, [row.staffId]: text }))}
@@ -198,11 +212,11 @@ export function DistributionGrid({
         </div>
       )}
 
-      {!canEditLimits && (
-        <p className="text-xs text-muted-foreground">
-          Мінімальну і максимальну ставку встановлює адміністратор.
-        </p>
-      )}
+      <p className="text-xs text-muted-foreground">
+        {canEditLimits
+          ? 'Межі зберігаються окремо від розподілу — після зміни формула перераховується. «Стандартні» означає 0,10 / 1,50.'
+          : 'Мінімальну і максимальну ставку встановлює адміністратор.'}
+      </p>
     </div>
   );
 }
@@ -279,11 +293,73 @@ function Figure({
   );
 }
 
+/**
+ * One person's floor and ceiling — ADMIN only.
+ *
+ * Its own form, saved on its own, unlike the distribution below it. The two are
+ * different decisions by different people: the caps are the university's
+ * standing limits on a person, the distribution is one year's split inside
+ * them. Changing a cap also changes what the formula proposes, so this reloads
+ * the route rather than leaving a stale «За формулою» beside a new bound.
+ */
+function LimitsCell({ row, year, disabled }: { row: StakeRow; year: number; disabled: boolean }) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState<DistributionState, FormData>(
+    setStaffLimits,
+    null
+  );
+
+  useEffect(() => {
+    if (state && 'success' in state) router.refresh();
+  }, [state, router]);
+
+  const error = state && 'error' in state ? state.error : null;
+
+  return (
+    <form action={formAction} className="space-y-1">
+      <input type="hidden" name="staffId" value={row.staffId} />
+      <input type="hidden" name="year" value={year} />
+      <div className="flex items-center gap-1">
+        <Input
+          name="min"
+          defaultValue={formatStake(row.minHundredths)}
+          disabled={disabled || pending}
+          inputMode="decimal"
+          aria-label={`Мінімальна ставка для ${row.name}`}
+          className="h-8 w-16 text-right tabular-nums"
+        />
+        <span className="text-xs text-muted-foreground">/</span>
+        <Input
+          name="max"
+          defaultValue={formatStake(row.maxHundredths)}
+          disabled={disabled || pending}
+          inputMode="decimal"
+          aria-label={`Максимальна ставка для ${row.name}`}
+          className="h-8 w-16 text-right tabular-nums"
+        />
+        <button
+          type="submit"
+          disabled={disabled || pending}
+          title="Зберегти межі"
+          aria-label={`Зберегти межі для ${row.name}`}
+          className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+        >
+          <Check className="size-3.5" />
+        </button>
+      </div>
+      {!row.hasOwnLimits && !error && <p className="text-xs text-muted-foreground">стандартні</p>}
+      {error && <p className="max-w-52 text-xs text-destructive">{error}</p>}
+    </form>
+  );
+}
+
 function Row({
   row,
   value,
   justification,
   canEdit,
+  canEditLimits,
+  year,
   disabled,
   onChange,
   onJustify,
@@ -292,6 +368,8 @@ function Row({
   value: number;
   justification: string;
   canEdit: boolean;
+  canEditLimits: boolean;
+  year: number;
   disabled: boolean;
   onChange: (next: number) => void;
   onJustify: (text: string) => void;
@@ -347,13 +425,20 @@ function Row({
         )}
       </td>
 
-      {/* Read-only for everyone on this screen — ADMIN edits caps on /admin/stakes */}
-      <td className="border border-border px-3 py-2 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-        {formatStake(row.minHundredths)} / {formatStake(row.maxHundredths)}
-        {!row.hasOwnLimits && (
-          <span className="ml-1" title="Стандартні межі — окремих не встановлено">
-            *
-          </span>
+      <td className="border border-border px-3 py-2">
+        {canEditLimits ? (
+          <LimitsCell row={row} year={year} disabled={disabled} />
+        ) : (
+          // A head sees the bounds they are working inside but cannot move
+          // them — the whole point of the caps being ADMIN-only.
+          <p className="text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+            {formatStake(row.minHundredths)} / {formatStake(row.maxHundredths)}
+            {!row.hasOwnLimits && (
+              <span className="ml-1" title="Стандартні межі — окремих не встановлено">
+                *
+              </span>
+            )}
+          </p>
         )}
       </td>
 
