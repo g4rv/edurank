@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Check, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -47,12 +48,19 @@ export function DistributionGrid({
   view,
   canEdit,
   canEditLimits,
+  canOpenStaffProfile,
 }: {
   view: StakeDistributionView;
   /** The кафедра's head, its dean, or ADMIN */
   canEdit: boolean;
   /** ADMIN only — turns the Мін/Макс column into two editable fields */
   canEditLimits: boolean;
+  /**
+   * May this viewer open `/staff/[id]`? ADMIN can; a завідувач is an ordinary
+   * `USER` and would be redirected away, so their names link to the
+   * Характеристика instead — the page about that person they CAN open.
+   */
+  canOpenStaffProfile: boolean;
 }) {
   const [values, setValues] = useState<Record<string, number>>(() =>
     Object.fromEntries(view.rows.map((r) => [r.staffId, r.proposedHundredths]))
@@ -219,6 +227,7 @@ export function DistributionGrid({
                 justification={justifications[row.staffId] ?? ''}
                 canEdit={canEdit}
                 canEditLimits={canEditLimits}
+                canOpenStaffProfile={canOpenStaffProfile}
                 year={view.year}
                 disabled={pending}
                 onChange={(next) => setValue(row, next)}
@@ -452,6 +461,7 @@ function Row({
   justification,
   canEdit,
   canEditLimits,
+  canOpenStaffProfile,
   year,
   disabled,
   onChange,
@@ -463,6 +473,7 @@ function Row({
   justification: string;
   canEdit: boolean;
   canEditLimits: boolean;
+  canOpenStaffProfile: boolean;
   year: number;
   disabled: boolean;
   onChange: (next: number) => void;
@@ -489,7 +500,25 @@ function Row({
   return (
     <tr className="transition-colors hover:bg-muted/20">
       <td className="border border-border px-3 py-2 align-middle">
-        <span className="whitespace-nowrap">{row.name}</span>
+        {/* Opens in a new tab on purpose: this grid holds unsaved work that
+            is being HELD BACK — over the pool, or waiting for an
+            обґрунтування — and navigating away in place would drop exactly the
+            edits the head has not finished explaining yet. */}
+        <Link
+          href={
+            canOpenStaffProfile ? `/staff/${row.staffId}` : `/staff/${row.staffId}/kharakterystyka`
+          }
+          target="_blank"
+          rel="noopener noreferrer"
+          title={
+            canOpenStaffProfile
+              ? 'Відкрити профіль НПП у новій вкладці'
+              : 'Відкрити характеристику НПП у новій вкладці'
+          }
+          className="whitespace-nowrap underline-offset-4 hover:underline"
+        >
+          {row.name}
+        </Link>
         {/* «позицій із 20» on every row, not only the ones falling short: the
             head is looking at who counts towards Кнпп, and a badge that appears
             only on failures makes its absence the message, which is easy to

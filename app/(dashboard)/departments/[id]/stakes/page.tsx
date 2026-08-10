@@ -88,7 +88,12 @@ export default async function DepartmentStakesPage({
         </p>
       )}
 
-      <DistributionGrid view={view} canEdit={heads} canEditLimits={isAdmin} />
+      <DistributionGrid
+        view={view}
+        canEdit={heads}
+        canEditLimits={isAdmin}
+        canOpenStaffProfile={isAdmin}
+      />
     </AnimatedPage>
   );
 }
