@@ -555,8 +555,16 @@ StakeDistribution { departmentId, year,
 StakeAllocation   { distributionId, staffId,
                     formulaHundredths Int,     // what the formula said
                     proposedHundredths Int,    // what the head decided
-                    justification String? }    // required when they differ
+                    justification String? }    // optional — see the note below
 ```
+
+**«Обґрунтування» is optional (2026-08-10).** Додаток 2 has the column and the
+положення says the head justifies a deviation, so the field exists and the grid
+offers it on any row that departs from the formula. But **nothing establishes
+that the app must refuse a save without one**, and it does not: an earlier note
+here read «required when they differ», which was a model-sketch comment rather
+than a decision anybody took. If it is ever made mandatory, do it on the server
+action and the grid together.
 
 `filledAt` is the touched/untouched distinction and nothing more — it is not a
 status and grants nobody a veto. Its whole job is that a кафедра nobody has

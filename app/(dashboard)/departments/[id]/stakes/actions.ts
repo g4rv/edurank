@@ -162,24 +162,14 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   });
   const formulaByStaff = new Map(formula.shares.map((s) => [s.staffId, s.hundredths]));
 
-  // Додаток 2 has an «Обґрунтування» column, and it is the whole reason a head
-  // is allowed to depart from the formula at all: the deviation has to be
-  // defensible in writing. A blank one turns an unexplained cut into an
-  // official document, so it is refused rather than warned about.
-  const unexplained = allocations.filter(
-    (a) => a.hundredths !== (formulaByStaff.get(a.staffId) ?? a.hundredths) && !a.justification
-  );
-  if (unexplained.length > 0) {
-    const names = unexplained
-      .map((a) => {
-        const p = byId.get(a.staffId);
-        return p ? `${p.lastName} ${p.firstName}` : a.staffId;
-      })
-      .join(', ');
-    return {
-      error: `Вкажіть обґрунтування там, де ставка відрізняється від формули: ${names}`,
-    };
-  }
+  // Обґрунтування is OPTIONAL. Додаток 2 has the column and the положення says
+  // the head justifies a deviation, but nobody has established that the app
+  // must refuse a save without one — so it does not. A head who wants to write
+  // nothing writes nothing, and the empty cell is what reaches додаток 2.
+  //
+  // If that is ever tightened, tighten it here and in `blockedBy` on the grid
+  // together: refusing on the server while the client saves cheerfully is the
+  // worst of both.
 
   try {
     await db.$transaction(async (tx) => {

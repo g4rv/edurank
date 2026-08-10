@@ -51,12 +51,7 @@ function roster(n = 3) {
   }));
 }
 
-/**
- * With Кнпп = 0 in these mocks the formula is uncomputable and proposes the
- * 0.10 floor for everyone, so most values here count as a departure from it.
- * A justification is therefore supplied by default — the tests that care about
- * the justification rule build their payload explicitly instead.
- */
+/** A plain payload; the justification is optional and defaulted to null. */
 function payload(values: number[], departmentId = DEPT) {
   return {
     departmentId,
@@ -64,7 +59,7 @@ function payload(values: number[], departmentId = DEPT) {
     allocations: values.map((hundredths, i) => ({
       staffId: `s${i}`,
       hundredths,
-      justification: 'обґрунтування',
+      justification: null,
     })),
   };
 }
@@ -148,9 +143,10 @@ describe('saveDistribution — the pool ceiling', () => {
   });
 });
 
-describe('saveDistribution — обґрунтування', () => {
-  // 3 people, 1000 each, Кст 3.00, Кнпп 0 (no Характеристика data in these
-  // mocks) — so the formula is uncomputable and every share is the 0.10 floor.
+describe('saveDistribution — обґрунтування is optional', () => {
+  // Додаток 2 has the column and the положення says the head justifies a
+  // deviation, but nothing establishes that the APP must refuse a save without
+  // one. It does not, and these pin that down so it is not quietly tightened.
   const unexplained = (values: number[]) => ({
     departmentId: DEPT,
     year: YEAR,
@@ -161,17 +157,15 @@ describe('saveDistribution — обґрунтування', () => {
     })),
   });
 
-  it('refuses a departure from the formula with no reason given', async () => {
-    const result = await saveDistribution(unexplained([100, 10, 10]));
-    expect(result).toMatchObject({ error: expect.stringContaining('обґрунтування') });
+  it('saves a departure from the formula with no reason given', async () => {
+    expect(await saveDistribution(unexplained([100, 10, 10]))).toEqual({ success: true });
   });
 
-  it('names who is missing one', async () => {
-    const result = await saveDistribution(unexplained([100, 10, 10]));
-    expect(result).toMatchObject({ error: expect.stringContaining('Прізвище0') });
+  it('saves a row that matches the formula, also with no reason', async () => {
+    expect(await saveDistribution(unexplained([10, 10, 10]))).toEqual({ success: true });
   });
 
-  it('accepts the same departure once it is explained', async () => {
+  it('keeps a reason when one is given', async () => {
     const result = await saveDistribution({
       departmentId: DEPT,
       year: YEAR,
@@ -182,11 +176,6 @@ describe('saveDistribution — обґрунтування', () => {
       ],
     });
     expect(result).toEqual({ success: true });
-  });
-
-  it('asks for nothing on a row that matches the formula', async () => {
-    // All three on the floor, which is what the formula gives here
-    expect(await saveDistribution(unexplained([10, 10, 10]))).toEqual({ success: true });
   });
 });
 

@@ -176,26 +176,19 @@ export function DistributionGrid({
   }
 
   /**
-   * Rows that departed from the formula and have not been explained yet.
+   * Why an autosave is being held back, or null when it can go ahead.
    *
-   * Checked before saving rather than after: the server refuses these, and
-   * auto-saving on every blur would mean the head sees «вкажіть обґрунтування»
-   * the instant they change a number, before they have had any chance to type
-   * one. The red field already says which row is waiting.
+   * Only two things hold it: no allocation to spread, and spending more than
+   * there is. An обґрунтування is NOT one of them — додаток 2 has the column
+   * and the head may fill it, but nothing requires them to, so a row that
+   * departs from the formula with an empty reason saves like any other.
    */
-  const unexplained = view.rows.filter(
-    (r) => values[r.staffId] !== r.formulaHundredths && !justifications[r.staffId]?.trim()
-  );
-
-  /** Why an autosave is being held back, or null when it can go ahead */
   const blockedBy: string | null =
     kst === null
       ? 'Кст ще не встановлено — зверніться до адміністратора'
       : overspent
         ? `Перевищено виділені ставки на ${formatStake(-(remaining ?? 0))} — зменште чиюсь ставку`
-        : unexplained.length > 0
-          ? 'Вкажіть обґрунтування там, де ставка відрізняється від формули'
-          : null;
+        : null;
 
   /**
    * Saves the whole кафедра, on leaving a field.
@@ -778,12 +771,9 @@ function Row({
             onChange={(e) => onJustify(e.target.value)}
             onBlur={onBlur}
             disabled={!canEdit || disabled}
-            placeholder="Чому не за формулою"
+            placeholder="Чому не за формулою (необов’язково)"
             aria-label={`Обґрунтування для ${row.name}`}
-            // Required, not optional: it is додаток 2's own column and the
-            // reason a departure from the formula is allowed at all.
-            aria-invalid={justification.trim() === ''}
-            className={cn('h-8', justification.trim() === '' && 'border-destructive')}
+            className="h-8"
           />
         ) : (
           <span className="text-xs text-muted-foreground">за формулою</span>
