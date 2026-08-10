@@ -123,11 +123,19 @@ The owner's words: not intuitive, and not all data visible as intended.
   now sits beside sort (ПІБ / кафедра / spершу заповнені / спершу порожні), a
   data filter (усі / із даними / без даних), a «Повні назви» toggle for the
   clamped column headings, a «N із M» counter and 40-per-page paging.
-- **Low contrast across most pages.** Fields are barely distinguishable from
-  the background — a consequence of the monochrome direction in CLAUDE.md.
-- **Wanted: a test page** rendering the same components in several
-  styles/designs to choose from. Explicitly scheduled **after** the crucial
-  items, not now.
+- ~~**Low contrast across most pages.**~~ **DONE 2026-08-10.** It was
+  measurable, not taste: the input boundary sat at **1.26:1** where WCAG 1.4.11
+  wants 3.0, and placeholders at 2.49 where AA wants 4.5. `--border` and
+  `--input` had held the same value, so a control's edge was drawn no harder
+  than a table rule. They are now separate jobs — `--input` is the lightest grey
+  reaching 3.0 (measured 3.03 light, 3.57 dark), `--border` rises only enough to
+  be seen. Values solved by binary search against real paint.
+- ~~**Wanted: a test page**~~ **DONE 2026-08-10 — awaiting the owner's pick.**
+  `/admin/design` renders the same sample under five candidates (Поточний,
+  Теплий, Прохолодний, Чіткіший, М'якший) side by side, in both themes, each
+  carrying its measured contrast so a failing candidate is visible as failing.
+  All five stay inside the monochrome direction; none introduces a brand hue.
+  **Nothing is applied until the owner chooses.**
 
 ### A7a. Who fills the division-managed indicators — **deferred 2026-08-10**
 
@@ -149,6 +157,27 @@ change, one row at a time, in `/admin/rating/[year]`.
 
 The full 31, grouped by whether the НПП plainly knows it, is in this
 conversation's history; regenerate with a filter on `inputSource`.
+
+### A7a. Who fills the division-managed indicators — **deferred 2026-08-10**
+
+31 indicators are `DIVISION_MANAGED`, and ~19 are things the НПП plainly knows
+about themselves (гарант ОП, НДР, редколегії, спецради, міжнародні проєкти,
+виставки, експертиза МОН…). The owner considered moving them to self-entry with
+the division moderating — the model the old `Звіти ННВ` used — and **decided
+against it for now**: the business logic behind that split is not understood
+well enough to change it, and the university had reasons not visible from here.
+A field marked for a division stays filled by that division.
+
+Worth knowing when this is picked up: **both halves of the old model already
+exist.** `/division-data` is `Дані ННВ`; `/moderation` already lists every НПП
+self-submission across all sections and lets ННВ discard with a reason the
+person sees. Nothing structural would need building — only `inputSource`, one
+row at a time, in `/admin/rating/[year]`.
+
+A related point the owner raised and answered: item 3.17 has both «технічний
+секретар» (a seat on the editorial board, 140/120) and «Внесення даних та
+супровід сайту наукового збірника» (a separate job, flat 100). They are
+different things and can be held by the same person at once.
 
 ### A7. Field-by-field pass — deferred, its own session
 
