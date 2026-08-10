@@ -78,6 +78,37 @@ enum SubmittedByRole {
   SYSTEM // profile-derived rows written by syncProfileDerived
 }
 
+// ─── Розподіл ставок: a recruited student ────────────────────────────────────
+
+enum StudentDegree {
+  BACHELOR // бакалавр
+  MASTER // магістр — норматив halves, so the student is worth twice as much
+}
+
+enum StudyForm {
+  FULL_TIME // денна
+  PART_TIME // заочна — норматив ×4, so the student is worth a quarter
+}
+
+enum StudentFunding {
+  STATE // бюджет — counted in full
+  CONTRACT // контракт — multiplied by the year's узгоджуючий коефіцієнт
+}
+
+// This is the app's FIRST approval queue, and deliberately so. The rating has
+// none: a submission is APPROVED on save and oversight is post-moderation. A
+// student claim is the opposite — nothing counts until a human confirms it —
+// because a rating entry only affects its own author, while a student claim
+// takes a bonus away from a colleague who may have recruited the same person.
+//
+// `ActivityStatus.PENDING` stays unused; this is a separate status for a
+// separate model.
+enum ClaimStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
 // Year lifecycle — lives on RatingTemplate (one flag per year, checked by all actions)
 enum RatingYearStatus {
   OPEN
@@ -249,6 +280,8 @@ model Staff {
   ratingEntries RatingEntry[]
   stakeLimits   StaffStakeLimits[]
   allocations   StakeAllocation[]
+  studentClaims     StudentClaim[] @relation("ClaimAuthor")
+  confirmedClaims   StudentClaim[] @relation("ClaimConfirmer")
   filledDistributions StakeDistribution[] @relation("StakeDistributionAuthor")
 
   auditLogs          AuditLog[]
@@ -491,7 +524,8 @@ model Speciality {
   name String  @unique
   code String?
 
-  norms SpecialityNorm[]
+  norms  SpecialityNorm[]
+  claims StudentClaim[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -518,6 +552,55 @@ model SpecialityNorm {
 
   @@unique([specialityId, year])
   @@index([year])
+}
+
+// One student an НПП says they recruited — term 2 of the ставка formula.
+//
+// **Adding is silent on purpose.** An НПП is never told that somebody else has
+// already claimed the same student, and nothing is blocked at save. The
+// duplicate IS the evidence, and it is shown only to the person who can judge
+// it. Blocking the second claim was considered and rejected: it would hand the
+// ставка to whoever typed first rather than to whoever did the work, and would
+// leave the head with one row and no conflict to see.
+//
+// A speciality belongs to no кафедра — an НПП may recruit onto any programme in
+// the university, and the bonus follows the RECRUITER wherever the student ends
+// up studying (confirmed 2026-08-10).
+model StudentClaim {
+  id      String @id @default(cuid())
+  staffId String
+  staff   Staff  @relation("ClaimAuthor", fields: [staffId], references: [id], onDelete: Cascade)
+  year    Int
+
+  studentName String
+  /// Trimmed, lower-cased, spaces collapsed — the key duplicates are found on.
+  /// Stored rather than computed at query time so the index can be used.
+  studentNameNormalised String
+
+  specialityId String
+  speciality   Speciality @relation(fields: [specialityId], references: [id])
+
+  degree  StudentDegree
+  form    StudyForm
+  funding StudentFunding
+
+  status       ClaimStatus @default(PENDING)
+  rejectReason String?
+
+  confirmedById String?
+  confirmedBy   Staff?    @relation("ClaimConfirmer", fields: [confirmedById], references: [id])
+  confirmedAt   DateTime?
+
+  /// «Who was first» — evidence for the head, never an automatic winner
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// The same НПП adding the same student twice is their own slip, and blocked.
+  /// Two DIFFERENT people claiming one student is the case this feature exists
+  /// for and must stay possible.
+  @@unique([staffId, year, studentNameNormalised, specialityId])
+  @@index([year, studentNameNormalised])
+  @@index([staffId, year])
 }
 
 // What the вчена рада approves for the year, beyond the norms themselves.

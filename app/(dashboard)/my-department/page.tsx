@@ -66,12 +66,20 @@ export default async function MyDepartmentPage() {
           )}
 
           {template && (
-            <Link
-              href={`/departments/${department.id}/stakes`}
-              className="inline-flex text-sm underline-offset-4 hover:underline"
-            >
-              Розподіл ставок на {template.year} рік →
-            </Link>
+            <div className="flex flex-wrap gap-4">
+              <Link
+                href={`/departments/${department.id}/stakes`}
+                className="text-sm underline-offset-4 hover:underline"
+              >
+                Розподіл ставок на {template.year} рік →
+              </Link>
+              <Link
+                href={`/my-department/students?department=${department.id}`}
+                className="text-sm underline-offset-4 hover:underline"
+              >
+                Залучені здобувачі →
+              </Link>
+            </div>
           )}
 
           <div className="overflow-x-auto rounded-xl border bg-card">

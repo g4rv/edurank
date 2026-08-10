@@ -2,11 +2,11 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 /**
- * The НПП's two read-only views of their own record — the rating and the
- * Характеристика built from it. Same visual pattern as `StaffTabs`, which does
+ * The НПП's own three views: the rating, the Характеристика built from it, and
+ * the students they recruited. Same visual pattern as `StaffTabs`, which does
  * the same job on the admin-facing side of the app.
  */
-export function MyRatingTabs({ active }: { active: 'rating' | 'kharakterystyka' }) {
+export function MyRatingTabs({ active }: { active: 'rating' | 'kharakterystyka' | 'students' }) {
   const tabs = [
     { key: 'rating' as const, label: 'Мій рейтинг', href: '/achievements' },
     {
@@ -14,6 +14,7 @@ export function MyRatingTabs({ active }: { active: 'rating' | 'kharakterystyka' 
       label: 'Характеристика',
       href: '/achievements/kharakterystyka',
     },
+    { key: 'students' as const, label: 'Залучені здобувачі', href: '/achievements/students' },
   ];
 
   return (

@@ -4,6 +4,7 @@ import { getKharakterystykaMany } from './get-kharakterystyka';
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { minimumKstHundredths } from '@/lib/stake/units';
+import { bonusForStaff } from './list-student-claims';
 
 /**
  * Everything the distribution grid for one кафедра needs, in one read.
@@ -38,11 +39,10 @@ export interface StakeRow {
   /**
    * Term 2 — the recruitment bonus, in ставки.
    *
-   * Always 0 today: `StudentClaim` is not built yet, so nobody has recruited
-   * anybody as far as the app knows. The column exists from the start
-   * deliberately — the spec's central warning is that merging it into the pool
-   * share breaks the ceiling, and a column added later is a column somebody
-   * merges in the meantime.
+   * Only CONFIRMED student claims pay, and the value follows the STUDENT's
+   * speciality wherever they enrolled. Kept a separate number from the pool
+   * share and never folded into it: `Кст` bounds the share alone, so a кафедра
+   * whose total exceeds it is correct exactly when the difference is this.
    */
   bonus: number;
 }
@@ -93,7 +93,7 @@ export async function getStakeDistribution(
     },
   });
 
-  const [stake, distribution, documents] = await Promise.all([
+  const [stake, distribution, documents, bonuses] = await Promise.all([
     db.departmentStake.findUnique({
       where: { departmentId_year: { departmentId, year } },
       select: { kstHundredths: true },
@@ -109,6 +109,10 @@ export async function getStakeDistribution(
       },
     }),
     getKharakterystykaMany(
+      staff.map((s) => s.id),
+      year
+    ),
+    bonusForStaff(
       staff.map((s) => s.id),
       year
     ),
@@ -156,7 +160,7 @@ export async function getStakeDistribution(
         // blanks somebody has to fill in from nothing.
         proposedHundredths: allocation?.proposedHundredths ?? share.hundredths,
         justification: allocation?.justification ?? null,
-        bonus: 0,
+        bonus: bonuses.get(s.id) ?? 0,
       };
     })
     // The order the formula spreads in, which is the order a head already

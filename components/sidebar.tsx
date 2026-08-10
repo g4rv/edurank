@@ -99,6 +99,12 @@ export function Sidebar({
         roles: [user.role],
         exact: true,
       }),
+      link({
+        href: '/achievements/students',
+        label: 'Залучені здобувачі',
+        icon: GraduationCap,
+        roles: [user.role],
+      }),
       <AddActivityNav key="add-activity" pathname={pathname} />
     );
   }
@@ -110,6 +116,16 @@ export function Sidebar({
   if (headsDepartment) {
     dataEntry.push(
       link({ href: '/my-department', label: 'Моя кафедра', icon: BookOpen, roles: [user.role] })
+    );
+  }
+  if (headsDepartment || user.role === 'ADMIN') {
+    dataEntry.push(
+      link({
+        href: '/my-department/students',
+        label: 'Залучені здобувачі',
+        icon: GraduationCap,
+        roles: [user.role],
+      })
     );
   }
   if (canEnterData) {
