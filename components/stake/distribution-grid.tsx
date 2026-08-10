@@ -125,34 +125,37 @@ export function DistributionGrid({
           <thead>
             <tr className="bg-muted/60 text-left">
               {/* НПП and Обґрунтування carry text and take what is left; every
-                  other column is a number or a control of known size. */}
-              <th className="min-w-52 border border-border px-3 py-2 font-medium text-muted-foreground">
+                  other column is a number or a control of known size.
+                  `whitespace-nowrap` on the headings is the point: a heading
+                  that wraps sets the height of the whole row, and the widths
+                  below are chosen to hold each label on one line. */}
+              <th className="min-w-44 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 НПП
               </th>
-              <th className="w-20 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
+              <th className="w-24 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 Рейтинг
               </th>
-              <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
+              <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 За формулою
               </th>
               <th
                 className={cn(
-                  'border border-border px-3 py-2 font-medium text-muted-foreground',
-                  canEditLimits ? 'w-44' : 'w-24 text-right'
+                  'border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground',
+                  canEditLimits ? 'w-40' : 'w-24 text-right'
                 )}
               >
                 Мін / Макс
               </th>
-              <th className="w-40 border border-border px-3 py-2 font-medium text-muted-foreground">
+              <th className="w-40 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 Розподілено
               </th>
-              <th className="w-20 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
+              <th className="w-20 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 Бонус
               </th>
-              <th className="w-20 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
+              <th className="w-20 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 Разом
               </th>
-              <th className="min-w-56 border border-border px-3 py-2 font-medium text-muted-foreground">
+              <th className="min-w-52 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 Обґрунтування
               </th>
             </tr>
@@ -329,7 +332,7 @@ function LimitsCell({ row, year, disabled }: { row: StakeRow; year: number; disa
           inputMode="decimal"
           aria-label={`Мінімальна ставка для ${row.name}`}
           className={cn(
-            'h-8 w-16 text-right tabular-nums',
+            'h-8 w-14 text-right tabular-nums',
             // Dimmed while these are the 0,10 / 1,50 defaults, so «set for this
             // person» still reads differently from «nobody has decided» without
             // a word of text repeated down every row.
@@ -344,7 +347,7 @@ function LimitsCell({ row, year, disabled }: { row: StakeRow; year: number; disa
           inputMode="decimal"
           aria-label={`Максимальна ставка для ${row.name}`}
           className={cn(
-            'h-8 w-16 text-right tabular-nums',
+            'h-8 w-14 text-right tabular-nums',
             !row.hasOwnLimits && 'text-muted-foreground'
           )}
         />
