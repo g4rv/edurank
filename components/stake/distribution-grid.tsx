@@ -416,7 +416,10 @@ function Row({
             disabled={!canEdit || disabled}
             placeholder="Чому не за формулою"
             aria-label={`Обґрунтування для ${row.name}`}
-            className="h-8"
+            // Required, not optional: it is додаток 2's own column and the
+            // reason a departure from the formula is allowed at all.
+            aria-invalid={justification.trim() === ''}
+            className={cn('h-8', justification.trim() === '' && 'border-destructive')}
           />
         ) : (
           <span className="text-xs text-muted-foreground">за формулою</span>

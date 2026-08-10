@@ -161,7 +161,10 @@ export default async function StakeSettingsPage() {
                           ? ''
                           : String(fromHundredths(d.kstHundredths)).replace('.', ',')
                       }
-                      placeholder={formatStake(d.minimumHundredths)}
+                      // Not the bare minimum: a greyed «1,60» sitting in an
+                      // empty box reads as a value that is already set, and the
+                      // «Без Кст» counter was the only thing saying otherwise.
+                      placeholder={`мін. ${formatStake(d.minimumHundredths)}`}
                       ariaLabel={`Кст для кафедри ${d.name}`}
                       invalid={d.belowMinimum}
                     />

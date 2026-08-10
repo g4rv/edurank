@@ -105,7 +105,7 @@ export default async function SpecialityNormsPage() {
                     action={setSpecialityNorm}
                     hidden={{ specialityId: n.id, year }}
                     name="base"
-                    defaultValue={n.base === null ? '' : String(n.base)}
+                    defaultValue={n.base === null ? '' : decimal(n.base)}
                     suffix="осіб"
                     ariaLabel={`Норматив для спеціальності ${n.name}`}
                     invalid={n.base === null}
@@ -162,6 +162,11 @@ export default async function SpecialityNormsPage() {
   );
 }
 
+/** Ukrainian decimal comma — «10,5», not «10.5», to match every other number here */
+function decimal(value: number): string {
+  return String(value).replace('.', ',');
+}
+
 /** A derived column — read-only, because it is computed from the base beside it */
 function Derived({
   base,
@@ -174,7 +179,7 @@ function Derived({
 }) {
   return (
     <td className="border border-border px-3 py-2 text-right text-muted-foreground tabular-nums">
-      {base === null ? '—' : normFor(base, degree, form)}
+      {base === null ? '—' : decimal(normFor(base, degree, form))}
     </td>
   );
 }

@@ -162,6 +162,25 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   });
   const formulaByStaff = new Map(formula.shares.map((s) => [s.staffId, s.hundredths]));
 
+  // Додаток 2 has an «Обґрунтування» column, and it is the whole reason a head
+  // is allowed to depart from the formula at all: the deviation has to be
+  // defensible in writing. A blank one turns an unexplained cut into an
+  // official document, so it is refused rather than warned about.
+  const unexplained = allocations.filter(
+    (a) => a.hundredths !== (formulaByStaff.get(a.staffId) ?? a.hundredths) && !a.justification
+  );
+  if (unexplained.length > 0) {
+    const names = unexplained
+      .map((a) => {
+        const p = byId.get(a.staffId);
+        return p ? `${p.lastName} ${p.firstName}` : a.staffId;
+      })
+      .join(', ');
+    return {
+      error: `Вкажіть обґрунтування там, де ставка відрізняється від формули: ${names}`,
+    };
+  }
+
   try {
     await db.$transaction(async (tx) => {
       const distribution = await tx.stakeDistribution.upsert({

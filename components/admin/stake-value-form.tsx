@@ -73,6 +73,8 @@ export function StakeValueForm({
           inputMode="decimal"
           className={cn(
             'h-8 w-24 text-right tabular-nums',
+            // The hint has to read as a hint, not as a faded value
+            'placeholder:text-muted-foreground/60 placeholder:italic',
             (error || invalid) && 'border-destructive'
           )}
         />
