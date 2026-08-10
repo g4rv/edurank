@@ -65,6 +65,15 @@ export default async function MyDepartmentPage() {
             <KnppSummary data={knppByDepartment.get(department.id)!} year={template.year} />
           )}
 
+          {template && (
+            <Link
+              href={`/departments/${department.id}/stakes`}
+              className="inline-flex text-sm underline-offset-4 hover:underline"
+            >
+              Розподіл ставок на {template.year} рік →
+            </Link>
+          )}
+
           <div className="overflow-x-auto rounded-xl border bg-card">
             <table className="w-full border-collapse text-sm">
               <thead>

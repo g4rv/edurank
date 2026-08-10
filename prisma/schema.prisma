@@ -125,6 +125,7 @@ model Department {
   primaryStaff  Staff[]           @relation("PrimaryDepartment")
   partTimeStaff StaffDepartment[]
   stakes        DepartmentStake[]
+  distributions StakeDistribution[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -247,6 +248,8 @@ model Staff {
   activities    Activity[]
   ratingEntries RatingEntry[]
   stakeLimits   StaffStakeLimits[]
+  allocations   StakeAllocation[]
+  filledDistributions StakeDistribution[] @relation("StakeDistributionAuthor")
 
   auditLogs          AuditLog[]
   approvedActivities Activity[]       @relation("ActivityApprover")
@@ -576,6 +579,56 @@ model StaffStakeLimits {
 
   @@unique([staffId, year])
   @@index([year])
+}
+
+// One кафедра's distribution for one year. There is exactly one — there is no
+// approval step (decided 2026-08-10, retracting Q1), so no second version to
+// compare against and no approver to record.
+//
+// `filledAt` is NOT a status and grants nobody a veto. Its whole job is that a
+// кафедра nobody has opened reads as «не заповнено» rather than as «everyone
+// gets nothing» — in the 2025 file those two were indistinguishable and both
+// zeroed a whole кафедра.
+model StakeDistribution {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  year         Int
+
+  filledAt   DateTime?
+  filledById String?
+  filledBy   Staff?    @relation("StakeDistributionAuthor", fields: [filledById], references: [id])
+
+  allocations StakeAllocation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([departmentId, year])
+  @@index([year])
+}
+
+// One person's row in it — додаток 2's «Обсяг ставки за формулою», «Розподілений
+// обсяг ставки» and «Обґрунтування», which is why both numbers are kept.
+model StakeAllocation {
+  id             String            @id @default(cuid())
+  distributionId String
+  distribution   StakeDistribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  staffId        String
+  staff          Staff             @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// What the formula proposed, frozen at save. Kept because додаток 2 prints
+  /// it beside the head's number — the document IS the comparison.
+  formulaHundredths Int
+  /// What the head decided. Σ of these may never exceed `Кст`.
+  proposedHundredths Int
+  /// Required when the two differ — додаток 2's «Обґрунтування» column
+  justification String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([distributionId, staffId])
 }
 
 // ─── Audit log ───────────────────────────────────────────────────────────────

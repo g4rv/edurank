@@ -67,6 +67,24 @@ export function snapToStep(hundredths: number): number {
 }
 
 /**
+ * The largest ladder value at or below `hundredths`, and the smallest at or
+ * above it.
+ *
+ * Used where a bound must not be crossed. A per-person cap is absolute — in the
+ * whole 2025 distribution not one person exceeds theirs — so a share that would
+ * round up past it steps down to the ladder instead of sitting on an off-ladder
+ * number. In practice every recorded cap is already a multiple of 0.05 and the
+ * two agree; this only decides the awkward case.
+ */
+export function floorToStep(hundredths: number): number {
+  return Math.floor(hundredths / STAKE_STEP) * STAKE_STEP;
+}
+
+export function ceilToStep(hundredths: number): number {
+  return Math.ceil(hundredths / STAKE_STEP) * STAKE_STEP;
+}
+
+/**
  * The recruitment bonus, rounded to three decimals for display and export.
  *
  * Three, not two, and not the 0.05 ladder: it is the precision the university

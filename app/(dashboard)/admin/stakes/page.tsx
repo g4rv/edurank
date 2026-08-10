@@ -130,6 +130,12 @@ export default async function StakeSettingsPage() {
                       {d.name}
                     </Link>
                     <span className="ml-2 text-xs text-muted-foreground">{d.faculty}</span>
+                    <Link
+                      href={`/departments/${d.id}/stakes`}
+                      className="ml-2 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      розподіл →
+                    </Link>
                   </td>
                   <td className="border border-border px-3 py-2 text-right tabular-nums">
                     {d.headcount}
