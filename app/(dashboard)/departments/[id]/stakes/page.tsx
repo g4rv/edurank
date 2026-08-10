@@ -72,8 +72,7 @@ export default async function DepartmentStakesPage({
             <StakeTermHint term="knpp" />
           </span>
           · середній рейтинг {Math.round(view.averageRating)}
-          {view.kstHundredths !== null &&
-            ` · мінімальний пул ${formatStake(view.minimumKstHundredths)}`}
+          {view.kstHundredths !== null && ` · мінімум ${formatStake(view.minimumKstHundredths)}`}
         </p>
       </div>
 
@@ -83,8 +82,9 @@ export default async function DepartmentStakesPage({
       {view.kstHundredths !== null && view.computable && (
         <p className="max-w-3xl text-xs text-muted-foreground">
           Формула пропонує, скільки дати кожному — пропорційно до рейтингу. Її сума майже ніколи не
-          дорівнює пулу: це властивість формули, а не помилка. Різницю закриває завідувач вручну,
-          вказуючи обґрунтування. Бонус за залучених здобувачів виплачується понад пул.
+          дорівнює виділеним ставкам: це властивість формули, а не помилка. Різницю закриває
+          завідувач вручну, вказуючи обґрунтування. Бонус за залучених здобувачів виплачується понад
+          виділені ставки.
         </p>
       )}
 

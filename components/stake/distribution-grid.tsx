@@ -108,7 +108,7 @@ export function DistributionGrid({
     kst === null
       ? 'Кст ще не встановлено — зверніться до адміністратора'
       : overspent
-        ? `Перевищення пулу на ${formatStake(-(remaining ?? 0))} — зменште чиюсь ставку`
+        ? `Перевищено виділені ставки на ${formatStake(-(remaining ?? 0))} — зменште чиюсь ставку`
         : unexplained.length > 0
           ? 'Вкажіть обґрунтування там, де ставка відрізняється від формули'
           : null;
@@ -311,13 +311,17 @@ function Totals({
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-xl border bg-card px-5 py-4">
-      <Figure label="Пул кафедри (Кст)" term="kst" value={kst === null ? '—' : formatStake(kst)} />
+      <Figure
+        label="Виділені ставки (Кст)"
+        term="kst"
+        value={kst === null ? '—' : formatStake(kst)}
+      />
       <Figure label="Розподілено" term="distributed" value={formatStake(distributed)} />
       {/* Green whenever the pool holds, red only when it does not. A leftover
           is a normal state — the head has budget still to place — so it reads
           as «fine», not as «unfinished». */}
       <Figure
-        label="Залишок пулу"
+        label="Нерозподілено"
         term="remaining"
         value={remaining === null ? '—' : formatStake(remaining)}
         tone={overspent ? 'bad' : 'good'}

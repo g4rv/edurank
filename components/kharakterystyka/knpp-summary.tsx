@@ -29,8 +29,8 @@ export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number
         <Figure value={data.headcount} label="НПП усього" hint="на кафедрі, крім архівних" />
         <Figure
           value={minimumKst(data.headcount).toFixed(2).replace('.', ',')}
-          label="Мінімальний пул ставок"
-          hint={`${data.headcount} осіб × 0,10 — менший пул не покриє мінімальну ставку для всіх`}
+          label="Мінімум ставок на кафедру"
+          hint={`${data.headcount} осіб × 0,10 — менше виділити не можна, інакше не всім вистачить`}
         />
       </div>
 

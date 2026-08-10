@@ -68,7 +68,7 @@ export async function setDepartmentStake(
     return {
       error:
         `Мінімальний Кст для цієї кафедри — ${formatStake(minimum)} ` +
-        `(${headcount} осіб × 0,10). Менший пул не покриє мінімальну ставку для всіх.`,
+        `(${headcount} осіб × 0,10). Менше виділити не можна — не всім вистачить на мінімальну ставку.`,
     };
   }
 
