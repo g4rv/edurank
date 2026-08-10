@@ -53,11 +53,17 @@ const divisionType = {
 
 const npp = { isNpp: true, lastName: 'Франко', firstName: 'Іван', patronymic: 'Якович' };
 
-function mockTx(existing: { id: string; score: number; evidence: unknown } | null = null) {
+function mockTx(live: { id: string; score: number; evidence: unknown }[] = []) {
   const tx = {
     activity: {
-      findFirst: vi.fn().mockResolvedValue(existing),
-      findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(live[0] ?? null),
+      // Two different reads share findMany now: the per-cell one looking for an
+      // evidence match, and the rollup that rebuilds a RatingEntry. Telling them
+      // apart by `select` rather than by `where` — the rollup joins activityType
+      // and both can be scoped to a single staffId.
+      findMany: vi.fn().mockImplementation(async (args?: { select?: Record<string, unknown> }) => {
+        return args?.select?.activityType ? [] : live;
+      }),
       create: vi.fn().mockResolvedValue({ id: 'activity-new' }),
       update: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
@@ -134,7 +140,7 @@ describe('upsertDivisionActivity', () => {
   });
 
   it('creates an APPROVED DIVISION row when none exists, audits, recomputes', async () => {
-    const tx = mockTx(null);
+    const tx = mockTx();
     expect(await upsertDivisionActivity('staff-1', 'type-1', { value: 20 })).toEqual({
       success: true,
       score: 20,
@@ -153,17 +159,49 @@ describe('upsertDivisionActivity', () => {
     expect(tx.ratingEntry.upsert).toHaveBeenCalled();
   });
 
-  it('updates the existing live row instead of creating a second one', async () => {
-    const tx = mockTx({ id: 'activity-old', score: 15, evidence: { value: 15 } });
+  // One person genuinely holds two of the same indicator — two editorial boards,
+  // two НДР — so a save that names no row adds another rather than replacing.
+  it('adds another row when no activityId is given, even though one exists', async () => {
+    const tx = mockTx([{ id: 'activity-old', score: 15, evidence: { value: 15 } }]);
     expect(await upsertDivisionActivity('staff-1', 'type-1', { value: 20 })).toEqual({
       success: true,
       score: 20,
     });
+    expect(tx.activity.create).toHaveBeenCalled();
+    expect(tx.activity.update).not.toHaveBeenCalled();
+  });
+
+  it('updates exactly the row named by activityId', async () => {
+    const tx = mockTx([
+      { id: 'activity-old', score: 15, evidence: { value: 15 } },
+      { id: 'activity-other', score: 5, evidence: { value: 5 } },
+    ]);
+    expect(
+      await upsertDivisionActivity('staff-1', 'type-1', { value: 20 }, 'activity-old')
+    ).toEqual({ success: true, score: 20 });
     expect(tx.activity.update).toHaveBeenCalledWith({
       where: { id: 'activity-old' },
       data: expect.objectContaining({ score: 20 }),
     });
     expect(tx.activity.create).not.toHaveBeenCalled();
+  });
+
+  // The guard that replaced the unique index: a double-click or a resubmitted
+  // form must not quietly count the same work twice.
+  it('refuses a row whose evidence repeats one already stored', async () => {
+    const tx = mockTx([{ id: 'activity-old', score: 20, evidence: { value: 20 } }]);
+    expect(await upsertDivisionActivity('staff-1', 'type-1', { value: 20 })).toEqual({
+      error: 'Такий самий запис уже додано',
+    });
+    expect(tx.activity.create).not.toHaveBeenCalled();
+    expect(tx.activity.update).not.toHaveBeenCalled();
+  });
+
+  it('reports a row that was deleted while the form was open', async () => {
+    mockTx([{ id: 'activity-old', score: 15, evidence: { value: 15 } }]);
+    expect(await upsertDivisionActivity('staff-1', 'type-1', { value: 20 }, 'gone-id')).toEqual({
+      error: 'Запис уже видалено. Оновіть сторінку',
+    });
   });
 
   it('rejects invalid evidence', async () => {
@@ -286,7 +324,7 @@ describe('batchUpsertDivisionActivity', () => {
   });
 
   it('creates one row per person with role-based scores and one rollup pass', async () => {
-    const tx = mockTx(null);
+    const tx = mockTx();
     expect(await batchUpsertDivisionActivity('type-ndr', rows)).toEqual({
       success: true,
       saved: 2,
@@ -302,7 +340,10 @@ describe('batchUpsertDivisionActivity', () => {
     // Everyone in the batch still gets their entry rewritten…
     expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(2);
     // …but off ONE read of the batch's activities, not one per person
-    expect(tx.activity.findMany).toHaveBeenCalledTimes(1);
+    const rollupReads = tx.activity.findMany.mock.calls.filter(
+      (c) => typeof (c[0] as { where?: { staffId?: unknown } })?.where?.staffId === 'object'
+    );
+    expect(rollupReads).toHaveLength(1);
     expect(tx.activity.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ staffId: { in: ['staff-1', 'staff-2'] } }),
@@ -310,13 +351,29 @@ describe('batchUpsertDivisionActivity', () => {
     );
   });
 
-  it('updates the live row for a person who already has one', async () => {
-    const tx = mockTx({ id: 'activity-old', score: 200, evidence: rows[1].evidence });
+  // Re-running the same batch corrects its own rows instead of doubling them:
+  // the match is on the evidence, so the row it wrote last time is the row it
+  // finds. A person's other project, being different evidence, is untouched.
+  it('updates the row it already wrote rather than adding a second', async () => {
+    const tx = mockTx([{ id: 'activity-old', score: 200, evidence: rows[1].evidence }]);
     expect(await batchUpsertDivisionActivity('type-ndr', rows)).toEqual({
       success: true,
       saved: 2,
     });
-    expect(tx.activity.update).toHaveBeenCalledTimes(2);
-    expect(tx.activity.create).not.toHaveBeenCalled();
+    // staff-2's row matches by evidence and is corrected; staff-1's is new
+    expect(tx.activity.update).toHaveBeenCalledTimes(1);
+    expect(tx.activity.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds a row for a person who already holds a different project', async () => {
+    const tx = mockTx([
+      { id: 'other-project', score: 300, evidence: { topic: 'Інша тема', option: 'lead' } },
+    ]);
+    expect(await batchUpsertDivisionActivity('type-ndr', rows)).toEqual({
+      success: true,
+      saved: 2,
+    });
+    expect(tx.activity.create).toHaveBeenCalledTimes(2);
+    expect(tx.activity.update).not.toHaveBeenCalled();
   });
 });

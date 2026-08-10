@@ -16,13 +16,19 @@ import { recomputeRatingEntries, recomputeRatingEntry } from '@/lib/rating/recom
 
 export type UpsertDivisionActivityState = { error: string } | { success: true; score: number };
 
-// A division enters (or corrects) its managed value for one NPP in the active
-// year. One live row per staff/type/year: find-then-update inside the
-// transaction — there is no DB unique constraint (repeatable NPP types forbid one).
+// A division enters (or corrects) one of its managed values for one NPP in the
+// active year. Several rows per (staff, indicator, year) are allowed — one
+// person genuinely sits on two editorial boards or runs two НДР — so the row to
+// change is named explicitly by `activityId`; without one this creates another.
+//
+// What is still refused is a row whose evidence repeats one already stored.
+// That is the double-click and the resubmitted form, which is what actually
+// happens now that the unique index is gone (see the 20260810 migration).
 export async function upsertDivisionActivity(
   staffId: string,
   activityTypeId: string,
-  evidence: unknown
+  evidence: unknown,
+  activityId?: string
 ): Promise<UpsertDivisionActivityState> {
   const session = await auth();
   if (!session) redirect('/login');
@@ -92,16 +98,25 @@ export async function upsertDivisionActivity(
   const evidenceSummary = summarizeEvidence(specs.fields, parsed.data);
   const staffLabel = `${staff.lastName} ${staff.firstName} ${staff.patronymic}`;
 
-  // Find-then-write is a race: two editors saving the same cell both see no row
-  // and both insert. The partial unique index stops the duplicate reaching the
-  // table; running the same body again then finds the winner's row and takes the
-  // update path, which is what the loser meant to do anyway.
   const save = () =>
     db.$transaction(async (tx) => {
-      const existing = await tx.activity.findFirst({
+      const live = await tx.activity.findMany({
         where: { staffId, activityTypeId: type.id, year, status: { not: 'REMOVED' } },
         select: { id: true, score: true, evidence: true },
       });
+
+      // Named row wins; otherwise this is a new record for the same cell
+      const existing = activityId ? live.find((a) => a.id === activityId) : undefined;
+      if (activityId && !existing) return { gone: true as const };
+
+      // Compared on the summary rather than the raw JSON: key order and absent
+      // vs empty-string differ between a form submit and a stored row, and two
+      // entries that read identically to a person are the duplicate we mean.
+      const clash = live.some(
+        (a) =>
+          a.id !== existing?.id && summarizeEvidence(specs.fields, a.evidence) === evidenceSummary
+      );
+      if (clash) return { duplicate: true as const };
 
       const data = {
         evidence: parsed.data as Prisma.InputJsonValue,
@@ -151,34 +166,27 @@ export async function upsertDivisionActivity(
       }
 
       await recomputeRatingEntry(tx, staffId, year);
+      return { ok: true as const };
     });
 
+  // The retry-on-unique-violation that used to live here is gone with the index
+  // it recovered from — there is no longer a constraint to lose a race against.
+  let result;
   try {
-    await save();
+    result = await save();
   } catch (e) {
-    if (!isUniqueViolation(e)) {
-      return {
-        error: parseDbError(
-          e,
-          'Не вдалося зберегти дані. Зміни не застосовано',
-          'divisionData.upsertDivisionActivity',
-          { userId: session.user.id }
-        ),
-      };
-    }
-    try {
-      await save();
-    } catch (retryError) {
-      return {
-        error: parseDbError(
-          retryError,
-          'Не вдалося зберегти дані. Зміни не застосовано',
-          'divisionData.upsertDivisionActivity',
-          { userId: session.user.id }
-        ),
-      };
-    }
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти дані. Зміни не застосовано',
+        'divisionData.upsertDivisionActivity',
+        { userId: session.user.id }
+      ),
+    };
   }
+
+  if ('duplicate' in result) return { error: 'Такий самий запис уже додано' };
+  if ('gone' in result) return { error: 'Запис уже видалено. Оновіть сторінку' };
 
   revalidatePath('/division-data');
   return { success: true, score };
@@ -372,13 +380,14 @@ export async function batchUpsertDivisionActivity(
 
   const year = type.template.year;
 
-  // Same lost-race handling as the single-cell save above: the whole batch is
-  // one transaction, so a collision on any one row rolls all of them back and
-  // the retry re-reads every row, updating the ones that now exist.
+  // Entity-first is the path where multiples arise: one журнал or one НДР is
+  // entered once and fanned out, and a person may already hold a different one
+  // under the same indicator. So a row is matched on its evidence, not on the
+  // person — matching on the person would silently replace their other project.
   const saveAll = () =>
     db.$transaction(async (tx) => {
       for (const row of prepared) {
-        const existing = await tx.activity.findFirst({
+        const live = await tx.activity.findMany({
           where: {
             staffId: row.staffId,
             activityTypeId: type.id,
@@ -387,6 +396,11 @@ export async function batchUpsertDivisionActivity(
           },
           select: { id: true, score: true, evidence: true },
         });
+        // Re-running the same batch corrects its own rows rather than doubling
+        // them; a different project for the same person becomes a new row.
+        const existing = live.find(
+          (a) => summarizeEvidence(specs.fields, a.evidence) === row.summary
+        );
 
         const data = {
           evidence: row.evidence,

@@ -1,0 +1,20 @@
+-- Allow several division-entered rows per (staff, indicator, year).
+--
+-- Reverses 20260729140000_one_live_division_row_per_cell. That index existed to
+-- stop a race: two editors saving the same cell both find no row and both
+-- insert, and the indicator is then counted twice in an official number.
+--
+-- It also, unintentionally, made a real case impossible. In the ННВ working
+-- file one person routinely holds several records of the same indicator —
+-- Коцур Надія sits on two editorial boards under item 3.17, головний редактор
+-- of «Scientia et societus» and член редколегії of «Український літопис». 37
+-- people in the 2025 sheet are like this. Under the index the second one
+-- silently replaced the first.
+--
+-- The race is not being ignored, it is being weighed: in practice one editor
+-- per division enters this data, so two simultaneous saves of the same cell is
+-- close to hypothetical, while multiple records is everyday. The cheap half of
+-- the protection stays in the action, which refuses a row whose evidence
+-- matches one already stored — that covers the double-click and the repeated
+-- submit, which is what actually happens.
+DROP INDEX IF EXISTS "Activity_one_live_division_row";

@@ -79,13 +79,12 @@ export default async function DivisionDataPage({
     listDivisionEntries(divisionId, template.year),
   ]);
 
-  const entryMap: Record<string, EntryGridCell> = {};
+  // A list per cell, not one value: the same person really does hold two
+  // editorial seats or two НДР under one indicator.
+  const entryMap: Record<string, EntryGridCell[]> = {};
   for (const e of entries) {
-    entryMap[`${e.staffId}:${e.activityTypeId}`] = {
-      id: e.id,
-      score: e.score,
-      evidence: e.evidence,
-    };
+    const key = `${e.staffId}:${e.activityTypeId}`;
+    (entryMap[key] ??= []).push({ id: e.id, score: e.score, evidence: e.evidence });
   }
 
   const gridTypes = types.map((t) => ({

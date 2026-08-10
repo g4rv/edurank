@@ -469,19 +469,19 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       opt('member', 'член ради'),
     ]),
     text('council', 'Назва / шифр ради'),
-    url('mentionLink', 'Посилання на сторінку, де вказано НПП'),
+    url('mentionLink', 'Посилання на склад ради'),
     // Informational only — same points as a permanent council (decision 2026-07-07)
     checkbox('oneTime', 'Разова рада (одноразовий захист)'),
   ],
   journal_editorial_a: [
     select('option', ROLE_OPTION, EDITORIAL_OPTIONS),
     text('journal', 'Назва видання'),
-    url('mentionLink', 'Посилання на сторінку, де вказано НПП'),
+    url('mentionLink', 'Посилання на редколегію'),
   ],
   journal_editorial_b: [
     select('option', ROLE_OPTION, EDITORIAL_OPTIONS),
     text('journal', 'Назва видання'),
-    url('mentionLink', 'Посилання на сторінку, де вказано НПП'),
+    url('mentionLink', 'Посилання на редколегію'),
   ],
   // Same checkable-link field, but this indicator is about maintaining the site
   // rather than being named on it, so the label asks for what actually applies.
@@ -492,7 +492,7 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   org_consulting: [
     text('organization', 'Назва установи / організації'),
     text('basis', 'Договір / підстава', { optional: true }),
-    url('mentionLink', 'Посилання на сторінку, де вказано НПП'),
+    url('mentionLink', 'Посилання на підтвердження'),
   ],
   conf_abroad: [
     select('option', 'Форма участі', [

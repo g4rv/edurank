@@ -3,16 +3,25 @@
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { useForm, type FieldValues, type Resolver } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { Search, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   upsertDivisionActivity,
   clearDivisionActivity,
 } from '@/app/(dashboard)/division-data/actions';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pagination } from '@/components/ui/pagination';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -21,7 +30,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
-import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
+import {
+  evidenceDefaults,
+  summarizeEvidence,
+  type EvidenceField,
+} from '@/lib/rating/evidence-fields';
 import type { ScoringSpec } from '@/lib/rating/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { cn } from '@/lib/utils';
@@ -52,8 +65,8 @@ export interface EntryGridCell {
 interface DivisionEntryGridProps {
   types: EntryGridType[];
   staff: EntryGridStaff[];
-  /** key = `${staffId}:${activityTypeId}` */
-  entries: Record<string, EntryGridCell>;
+  /** key = `${staffId}:${activityTypeId}` — several records per cell are normal */
+  entries: Record<string, EntryGridCell[]>;
   readOnly?: boolean;
 }
 
@@ -87,7 +100,7 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
   const matching = useMemo(() => {
     /** How many of this division's columns already hold a value for one person */
     const countFor = (staffId: string) =>
-      types.reduce((n, t) => (entries[`${staffId}:${t.id}`] ? n + 1 : n), 0);
+      types.reduce((n, t) => ((entries[`${staffId}:${t.id}`]?.length ?? 0) > 0 ? n + 1 : n), 0);
 
     const q = query.trim().toLowerCase();
     const byName = (a: EntryGridStaff, b: EntryGridStaff) => a.name.localeCompare(b.name, 'uk');
@@ -225,7 +238,7 @@ export function DivisionEntryGrid({ types, staff, entries, readOnly }: DivisionE
                       type={t}
                       staffId={s.id}
                       staffName={s.name}
-                      entry={entries[`${s.id}:${t.id}`]}
+                      entries={entries[`${s.id}:${t.id}`] ?? []}
                       readOnly={readOnly}
                     />
                   </td>
@@ -256,16 +269,21 @@ function EntryCell({
   type,
   staffId,
   staffName,
-  entry,
+  entries,
   readOnly,
 }: {
   type: EntryGridType;
   staffId: string;
   staffName: string;
-  entry?: EntryGridCell;
+  entries: EntryGridCell[];
   readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // `null` = the list; a cell = editing that one; 'new' = adding another
+  const [editing, setEditing] = useState<EntryGridCell | 'new' | null>(null);
+
+  const total = entries.reduce((sum, e) => sum + e.score, 0);
+  const many = entries.length > 1;
 
   const valueButton = (
     <button
@@ -273,51 +291,162 @@ function EntryCell({
       disabled={readOnly}
       className={cn(
         'min-w-14 rounded-md border px-2.5 py-1 text-left tabular-nums transition-colors',
-        entry
+        entries.length > 0
           ? 'border-transparent bg-primary/10 font-medium text-primary'
           : 'border-dashed text-muted-foreground',
         !readOnly && 'cursor-pointer hover:border-primary/50'
       )}
-      aria-label={`${type.label} — ${staffName}`}
+      aria-label={
+        entries.length > 0
+          ? `${type.label} — ${staffName}: ${entries.length} зап., разом ${total}`
+          : `${type.label} — ${staffName}`
+      }
     >
-      {entry ? entry.score : '—'}
+      {entries.length > 0 ? total : '—'}
+      {/* Without the count a cell holding two records is indistinguishable from
+          one holding a single larger score, and the second one stays hidden. */}
+      {many && <span className="ml-1 text-xs font-normal opacity-70">×{entries.length}</span>}
     </button>
   );
 
   if (readOnly) return valueButton;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{valueButton}</PopoverTrigger>
-      <PopoverContent align="start" className="w-96">
-        {/* key remounts the form each open so stale values never linger */}
-        {open && (
+    <AlertDialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        // Always reopen on the list, never on whatever was last edited
+        if (!v) setEditing(null);
+        else setEditing(entries.length === 0 ? 'new' : null);
+      }}
+    >
+      <AlertDialogTrigger asChild>{valueButton}</AlertDialogTrigger>
+      <AlertDialogContent className="max-w-xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{type.label}</AlertDialogTitle>
+          <AlertDialogDescription>{staffName}</AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {editing === null ? (
+          <>
+            <EntryList
+              type={type}
+              entries={entries}
+              onEdit={setEditing}
+              onAdd={() => setEditing('new')}
+              onDone={() => setOpen(false)}
+            />
+            <AlertDialogFooter>
+              <AlertDialogCancel>Закрити</AlertDialogCancel>
+            </AlertDialogFooter>
+          </>
+        ) : (
+          // No «Закрити» beside the form: it would sit next to «Назад» meaning
+          // something almost but not quite the same, and the two rows of
+          // buttons read as two separate footers.
           <CellForm
-            key={entry?.id ?? 'new'}
+            // Remounts per record so a previous one's values never linger
+            key={editing === 'new' ? 'new' : editing.id}
             type={type}
             staffId={staffId}
-            staffName={staffName}
-            entry={entry}
-            onDone={() => setOpen(false)}
+            entry={editing === 'new' ? undefined : editing}
+            onDone={() => (entries.length > 0 ? setEditing(null) : setOpen(false))}
+            onCancel={() => (entries.length === 0 ? setOpen(false) : setEditing(null))}
           />
         )}
-      </PopoverContent>
-    </Popover>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/** What this person already has under this indicator, with a way to add another */
+function EntryList({
+  type,
+  entries,
+  onEdit,
+  onAdd,
+  onDone,
+}: {
+  type: EntryGridType;
+  entries: EntryGridCell[];
+  onEdit: (e: EntryGridCell) => void;
+  onAdd: () => void;
+  onDone: () => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  function remove(id: string) {
+    startTransition(async () => {
+      const result = await clearDivisionActivity(id);
+      if ('error' in result) toast.error(result.error);
+      else {
+        toast.success('Запис видалено');
+        if (entries.length <= 1) onDone();
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      <ul className="space-y-2">
+        {entries.map((e) => (
+          <li key={e.id} className="flex items-center gap-3 rounded-lg border px-3 py-2">
+            {/* The description takes the slack so the score, the action and the
+                bin land on the same x across every row — a ragged right edge
+                here reads as three unrelated controls rather than one set. */}
+            <p className="min-w-0 flex-1 text-sm break-words">
+              {summarizeEvidence(type.fields, e.evidence) || 'Без опису'}
+            </p>
+            <span className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums">
+              {e.score}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isPending}
+              onClick={() => onEdit(e)}
+              className="shrink-0"
+            >
+              Змінити
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={isPending}
+              onClick={() => remove(e.id)}
+              aria-label="Видалити запис"
+              className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      <Button type="button" variant="outline" size="sm" onClick={onAdd} disabled={isPending}>
+        <Plus className="size-4" />
+        Додати запис
+      </Button>
+    </div>
   );
 }
 
 function CellForm({
   type,
   staffId,
-  staffName,
   entry,
   onDone,
+  onCancel,
 }: {
   type: EntryGridType;
   staffId: string;
-  staffName: string;
+  /** Absent = adding another record rather than correcting one */
   entry?: EntryGridCell;
   onDone: () => void;
+  onCancel: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   // useState initializer: fields are static for this mount (form remounts per open)
@@ -339,7 +468,7 @@ function CellForm({
 
   function onSubmit(data: FieldValues) {
     startTransition(async () => {
-      const result = await upsertDivisionActivity(staffId, type.id, data);
+      const result = await upsertDivisionActivity(staffId, type.id, data, entry?.id);
       if ('error' in result) {
         toast.error(result.error);
       } else {
@@ -349,46 +478,19 @@ function CellForm({
     });
   }
 
-  function onClear() {
-    if (!entry) return;
-    startTransition(async () => {
-      const result = await clearDivisionActivity(entry.id);
-      if ('error' in result) {
-        toast.error(result.error);
-      } else {
-        toast.success('Запис видалено');
-        onDone();
-      }
-    });
-  }
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold">{type.label}</p>
-        <p className="text-xs text-muted-foreground">{staffName}</p>
-      </div>
       {type.coefficientNote && (
         <p className="text-xs whitespace-pre-line text-muted-foreground">{type.coefficientNote}</p>
       )}
       <EvidenceFields fields={type.fields} register={register} control={control} errors={errors} />
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
         <Button type="submit" size="sm" disabled={isPending}>
           {isPending ? 'Збереження…' : 'Зберегти'}
         </Button>
-        {entry && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={isPending}
-            onClick={onClear}
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="size-4" />
-            Видалити
-          </Button>
-        )}
+        <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={onCancel}>
+          Назад
+        </Button>
       </div>
     </form>
   );
