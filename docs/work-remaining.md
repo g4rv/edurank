@@ -1,6 +1,6 @@
 # Work remaining
 
-State as of **2026-08-07**. This is the single list of what is left to build. It
+State as of **2026-08-10**. This is the single list of what is left to build. It
 replaces reading four documents at once: `audit-2026-07-29.md` is now a
 historical snapshot (accurate for its date, wrong about current code in several
 places), `ui-fixes-plan.md` is done except for one item,
@@ -19,13 +19,20 @@ here with a strikethrough.
 ## Where the app is now
 
 Phase 1 (structure, staff, permissions, auth) and Phase 2 (the whole rating
-system) are complete and stable: **447 tests**, type-check clean, one deliberate
-lint warning. The audit of 2026-07-29 is fully closed.
+system) are complete and stable: **455 tests**, type-check clean, one deliberate
+lint warning (`watch()` in `activity-type-dialog`). The audit of 2026-07-29 is
+fully closed.
 
-**One real bug was found and fixed on 2026-08-07** — item 5.1 scored a course
-with five of six materials as **0** instead of 120, because the catalogue
-described it as all-or-nothing. See «Shipped today» below. Nothing else in the
-app is known-broken.
+**Two real bugs were found and fixed**, both by looking at the university's own
+files rather than at the code:
+
+- **Item 5.1 scored 0** for a course with five of six Moodle materials instead
+  of 120 — the catalogue described it as all-or-nothing (2026-08-07).
+- **A division could hold only one record per person per indicator**, so a
+  second editorial board or a second НДР silently replaced the first
+  (2026-08-10).
+
+Nothing else in the app is known-broken.
 
 ---
 
@@ -46,9 +53,11 @@ worth nothing.
 
 ---
 
-## Shipped today (2026-08-07)
+## Session log — what shipped and why
 
-Recorded so the next session does not re-derive it.
+Recorded so a new session does not re-derive any of it.
+
+### 2026-08-07 — item 5.1
 
 | Commit    | What                                                                                       |
 | --------- | ------------------------------------------------------------------------------------------ |
@@ -56,8 +65,21 @@ Recorded so the next session does not re-derive it.
 | `aede590` | `pnpm db:gate-to-check-sum` for stored rows; `computeValue` throws on an unknown kind.     |
 | `d10eff4` | «Tick at least one» rule; two label renames; client forms now apply rule-level checks.     |
 | `6726d0f` | A grouped checkbox set summarises as one part listing its ticked labels.                   |
+| `684591c` | Rating table shows every indicator; `mentionLink` added to 3.16–3.18.                      |
+| `4fbb032` | /division-data header sticks while scrolling.                                              |
+| `f8bd154` | /division-data: sort, data filter, counter, paging.                                        |
 
-Three lessons worth keeping:
+### 2026-08-10 — contrast, the grid, multiple records
+
+| Commit    | What                                                                                    |
+| --------- | --------------------------------------------------------------------------------------- |
+| `7022124` | Control boundaries reach WCAG 1.4.11; `--border` and `--input` split.                   |
+| `20bc9ee` | `/admin/design` — five candidate token sets side by side.                               |
+| `75840b1` | Shared pager instead of a hand-rolled one; full headings; scroll resets on page change. |
+| `972ef00` | `CopyButton`, used on the staff list's email column.                                    |
+| `6466ae1` | Several records per cell in /division-data; the 20260729 unique index dropped.          |
+
+### Lessons worth keeping
 
 1. **Changing a scoring kind is a data migration.** `scoring` and
    `evidenceFields` are JSON columns — editing `lib/rating/` changes nothing
@@ -68,6 +90,11 @@ Three lessons worth keeping:
    three forms; `entity-entry-dialog` is the deliberate exception.
 3. **`docs/` beats `edu-reference/`.** The latter is the old Google-Sheets
    system. A 2025 file there described a model 2026 had deliberately replaced.
+4. **Check for an existing component before writing one.** A hand-rolled pager
+   went in beside `components/ui/pagination`, which was better in every respect.
+5. **A constraint usually has a reason.** The one-row-per-cell index looked like
+   an accident of the grid's shape; it was a deliberate fix for a double-count
+   race. Read the migration before reversing one.
 
 ---
 
@@ -105,10 +132,39 @@ bulk paste.
 citation pasted as free text into the column of its indicator (3.7 укр, 3.7 ЄС,
 3.8 A, 3.9 Б, одноосібно, 3.10), with a running count in the header.
 
-### A5. /division-data closer to `Дані ННВ`
+### A5. /division-data — mostly done, one piece left
 
-`edu-reference/csv/Дані ННВ - 2025.csv`: one wide grid, one row per НПП, paired
-`Назва` / `Роль` columns per indicator. Today's grid is shaped differently.
+**What `Дані ННВ.xlsx` actually is** (measured 2026-08-10, three sheets):
+
+| Sheet  | Shape                                                                                                                                                                                                             |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Дані` | 317 people, **no duplicates**. Profile data — ПІБ, кафедра, ставка, стаж, звання, ступінь, email, ORCID, plus WoS/Scopus/Scholar counts (that is indicator 3.24). Maps to the Staff profile, **not** to the grid. |
+| `2025` | 209 rows / 93 people — the indicator grid, `Назва`/`Роль` per column                                                                                                                                              |
+| `2024` | 242 rows / 105 people — same shape                                                                                                                                                                                |
+
+**It is one row per record, not per person**, which is why somebody occupies
+four rows. Done since: multiple records per cell, the record list behind a cell,
+sort/filter/paging, sticky header, full headings.
+
+**Still open — a column picker.** 202 rows × 8–12 columns is unreadable when an
+editor is working on one indicator. Letting them show only 3.4 and 3.17 would
+help more than anything else left on this list.
+
+### A5b. Duplicates in that file — decided 2026-08-10
+
+The same sheets carry a lot of noise as well as real multiples:
+
+| Sheet  | People with >1 row | …genuinely different | Rows that exactly repeat another |
+| ------ | ------------------ | -------------------- | -------------------------------- |
+| `2025` | 53                 | **37**               | 65                               |
+| `2024` | 68                 | **33**               | 95                               |
+
+**The importer strips exact repeats automatically** and reports how many and for
+whom — they read as data-entry slips, not as two achievements. Genuine multiples
+(different journal, different НДР) import as separate records.
+
+The app now enforces the same rule at write time: a save is refused when its
+evidence repeats a row already stored.
 
 ### A6. Visual pass — **after** the items above
 
@@ -120,9 +176,12 @@ The owner's words: not intuitive, and not all data visible as intended.
   sticky work at all — `position: sticky` resolves against a scrollport, and a
   page-level scroll gave it none.
 - ~~**/division-data is unusable at 200 people.**~~ **DONE 2026-08-07.** Search
-  now sits beside sort (ПІБ / кафедра / spершу заповнені / спершу порожні), a
-  data filter (усі / із даними / без даних), a «Повні назви» toggle for the
-  clamped column headings, a «N із M» counter and 40-per-page paging.
+  now sits beside sort (ПІБ / кафедра / спершу заповнені / спершу порожні), a
+  data filter (усі / із даними / без даних), a «N із M» counter, and paging via
+  the shared `components/ui/pagination`. Column headings show in full and
+  top-aligned — a toggle was tried and removed, since a label you have to ask
+  for is one people will not read. Changing page or filter scrolls back to the
+  top; the grid scrolls in its own box, so it used to open mid-list.
 - ~~**Low contrast across most pages.**~~ **DONE 2026-08-10.** It was
   measurable, not taste: the input boundary sat at **1.26:1** where WCAG 1.4.11
   wants 3.0, and placeholders at 2.49 where AA wants 4.5. `--border` and
@@ -136,27 +195,6 @@ The owner's words: not intuitive, and not all data visible as intended.
   carrying its measured contrast so a failing candidate is visible as failing.
   All five stay inside the monochrome direction; none introduces a brand hue.
   **Nothing is applied until the owner chooses.**
-
-### A7a. Who fills the division-managed indicators — **deferred 2026-08-10**
-
-31 indicators are `DIVISION_MANAGED`, and ~19 of them are things the НПП plainly
-knows about themselves (гарант ОП, НДР, редколегії, спецради, міжнародні
-проєкти, виставки, експертиза МОН…). The owner asked whether they should move to
-self-entry with the division moderating — the model the old `Звіти ННВ` used.
-
-**Decision: leave them as they are for now.** The reasoning was honest — the
-business logic and the background processes behind that split are not yet
-understood well enough to change it, and the university had reasons we cannot
-see. A field marked for a division stays filled by that division.
-
-Worth knowing when this is picked up again: **the app already has both halves of
-the old model.** `/division-data` is `Дані ННВ`; `/moderation` already lists
-every НПП self-submission across all sections and lets ННВ discard with a reason
-the person sees. Nothing structural needs building — only `inputSource` would
-change, one row at a time, in `/admin/rating/[year]`.
-
-The full 31, grouped by whether the НПП plainly knows it, is in this
-conversation's history; regenerate with a filter on `inputSource`.
 
 ### A7a. Who fills the division-managed indicators — **deferred 2026-08-10**
 
@@ -345,6 +383,18 @@ re-asked:
 - `prisma migrate dev` does **not** drop the partial unique index it cannot
   express.
 
+**Reversed on purpose — do not restore:**
+
+- **`Activity_one_live_division_row`** (migration 20260729) is dropped as of 20260810. It enforced one division row per (staff, indicator, year) to close a
+  race where two editors saving one cell both insert and the score doubles in an
+  official number. It also made a real case impossible: one person holds two
+  editorial boards or two НДР, and 37 people in the ННВ 2025 sheet do. The owner
+  weighed it — one editor per division in practice, so the race is close to
+  hypothetical while multiples are everyday. **The protection was not discarded,
+  it moved**: `upsertDivisionActivity` and `batchUpsertDivisionActivity` refuse a
+  save whose evidence repeats a stored row, which covers the double-click and
+  the resubmitted form. Re-adding the index would break the ННВ import.
+
 **Known and accepted:**
 
 - One lint warning in `activity-type-dialog.tsx` — `watch()` is a subscription.
@@ -358,18 +408,19 @@ re-asked:
 
 ## Suggested order
 
-1. **A1–A2** — rating table visibility and the 3.16–3.18 link field. Both small,
-   both visible, and they finish what was started today.
-2. **C1 staff import** — unblocks judgement on everything else, and makes the
-   next demo real.
-3. **A3–A5** — the section 3 and /division-data reshaping.
-4. **B1 Характеристика** — the report they produce by hand today, and the source
+1. **Column picker on /division-data** — the last piece of A5, and the biggest
+   remaining win for anyone actually using that screen.
+2. **The owner picks a look** at `/admin/design`; applying it is a token edit.
+3. **C1 staff import** — unblocks judgement on everything else and makes the
+   next demo real. Note `Дані ННВ`'s `Дані` sheet is a second source for the
+   same profile fields, so reconcile the two rather than importing both blindly.
+4. **A3–A4** — the section 3 form and the Публікації report.
+5. **B1 Характеристика** — the report they produce by hand today, and the source
    of `Кнпп`. Build it before the formula needs it.
-5. **B2 Розподіл ставок** — the biggest, and fully specced.
-6. **A6 visual pass** — after the above, as the owner asked.
-7. **C2–C4** — the adoption set.
+6. **B2 Розподіл ставок** — the biggest, and fully specced.
+7. **A6 remaining visual work**, then **C2–C4** — the adoption set.
 8. **E deployment**, with the pilot before the rollout.
 
 The critical path is unchanged: **staff import → Характеристика (it carries
-`Кнпп`) → Розподіл ставок.** Nothing on it waits on anybody now. The import
-files arriving ~12.08 affect only how much of the Характеристика fills itself.
+`Кнпп`) → Розподіл ставок.** Nothing on it waits on anybody. The import files
+arriving ~12.08 affect only how much of the Характеристика fills itself.
