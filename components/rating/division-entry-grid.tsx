@@ -57,8 +57,6 @@ interface DivisionEntryGridProps {
   readOnly?: boolean;
 }
 
-// Staff-first grid: one row per НПП, one column per division-managed item.
-// Click a cell to enter/correct the value for the open year.
 const PAGE_SIZE = 40;
 
 type SortKey = 'name' | 'department' | 'filled-desc' | 'filled-asc';

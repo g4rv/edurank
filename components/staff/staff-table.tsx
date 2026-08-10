@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
+import { CopyButton } from '@/components/ui/copy-button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { cn } from '@/lib/utils';
 import { ACADEMIC_RANK_LABELS, ROLE_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
@@ -54,7 +55,12 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
                 </span>
               )}
             </RowLinkCell>
-            <td className="px-4 py-3 text-muted-foreground">{member.email}</td>
+            <td className="px-4 py-3 text-muted-foreground">
+              <span className="inline-flex items-center gap-0.5">
+                {member.email}
+                <CopyButton value={member.email} what="email" />
+              </span>
+            </td>
             <td className="px-4 py-3">
               <span
                 className={cn(
