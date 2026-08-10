@@ -19,8 +19,8 @@ here with a strikethrough.
 ## Where the app is now
 
 Phase 1 (structure, staff, permissions, auth) and Phase 2 (the whole rating
-system) are complete and stable, and **B1 Характеристика derives, renders,
-exports to Excel and yields `Кнпп`**: **530 tests**, type-check clean, one
+system) are complete and stable, **B1 Характеристика** is built, and **B2's
+settings layer** is in: **584 tests**, type-check clean, one
 deliberate lint warning (`watch()` in `activity-type-dialog`). The audit of
 2026-07-29 is fully closed.
 
@@ -45,8 +45,8 @@ remains splits three ways:
 - **Rating UI rework** — new, requested by the owner after using the app. Small
   pieces, high visibility, all unblocked.
 - **The two big features** — Характеристика and Розподіл ставок. Both fully
-  specced. B1 is built bar two pieces (see below); B2 is not started, and its
-  one dependency — `Кнпп` — is now done.
+  specced. B1 is built bar two pieces; B2's settings layer is done and the
+  distribution itself is next.
 - **Adoption** — import, instructions, invites, reminders. Less visible, and
   the reason a working system still fails.
 
@@ -104,13 +104,26 @@ Two facts measured while doing it, both correcting a doc:
 - **`summarizeEvidence` capped output at five parts.** Right for a table cell,
   wrong for a document read against the law, so it now takes a `maxParts` and
   the Характеристика passes `Infinity`.
-
-Two more worth not rediscovering:
-
 - **`Content-Disposition` is latin-1 and every name here is Cyrillic.** The
   filename goes through `filename*` (RFC 5987) with an ASCII fallback, in
   `lib/export/file-names.ts`. Without it the browser mangles or drops the name.
 - **Never dedupe records by their display text** — see lesson 6 below.
+
+### 2026-08-10 — Розподіл ставок, the settings layer
+
+| What                                                                                       |
+| ------------------------------------------------------------------------------------------ |
+| `lib/stake/units.ts` — integer hundredths, the 0.05 ladder (ties **down**), bonus rounding |
+| `lib/stake/norms.ts` — додаток 5's 38 specialities, one base each; `studentValue()`        |
+| migration `20260810160000` — the five settings tables                                      |
+| `/admin/stakes` — `Кст` per кафедра, with the `≥ 0.1 × N` floor refused at save            |
+| `/admin/stakes/norms` — the норматив table, one editable number per speciality             |
+
+The floor message carries its own arithmetic — «мінімум 1,80 (18 осіб × 0,10)» —
+because a bare minimum does not tell somebody whether to raise the pool or check
+the roster. A saved `Кст` can also fall under the floor without anybody touching
+it, when a person joins the кафедра, so the page flags that rather than waiting
+for the next save to fail.
 
 ### Lessons worth keeping
 
@@ -337,7 +350,31 @@ Decided 2026-08-07 and easy to get wrong later:
 - **We never add, remove or re-price a rating indicator.** The catalogue belongs
   to the вчена рада and moves only by their vote.
 
-### B2. Розподіл ставок — [`stake-distribution.md`](./stake-distribution.md)
+### B2. Розподіл ставок — **settings layer DONE 2026-08-10**
+
+Spec: [`stake-distribution.md`](./stake-distribution.md).
+
+**Built — the half ADMIN owns:**
+
+| What                                                                                       | Where                          |
+| ------------------------------------------------------------------------------------------ | ------------------------------ |
+| `Speciality`, `SpecialityNorm`, `StakeYearSettings`, `DepartmentStake`, `StaffStakeLimits` | migration `20260810160000`     |
+| Hundredths, the 0.05 ladder with ties **down**, bonus rounding                             | `lib/stake/units.ts`, 20 tests |
+| Додаток 5 — 38 specialities, one base each, seeded                                         | `lib/stake/norms.ts`, 13 tests |
+| `Кст` per кафедра with the `≥ 0.1 × N` floor enforced at save                              | `/admin/stakes`, 21 tests      |
+| The норматив table, one editable number per speciality                                     | `/admin/stakes/norms`          |
+
+**Still to build:** `StudentClaim` and the НПП's «Мої залучені здобувачі», the
+head's duplicate-review screen, the distribution grid itself (formula column +
+editable pool share + live «нерозподілено» + hard ceiling), per-person caps UI,
+and the 1С Excel export.
+
+**`StaffStakeLimits` has a table but no screen yet** — the caps belong beside the
+distribution grid, so they are built with it.
+
+---
+
+#### Reference — the spec's own summary
 
 The formula, corrected against the положення in two places (денна divisor is
 `Nд` with no factor of 2; the floor is 0.1, not 0.5).
@@ -358,10 +395,10 @@ head spreads it, and what the head saves is final. No комісія, no submit,
 approve, no `SUBMITTED`/`APPROVED` status, no approver id. The controls are the
 central `Кст`, the hard ceiling at save, ADMIN-only caps, and the audit log.
 
-**Two things B2 can now build on:** the норматив table is not locked in the PDF —
-it is a live sheet, `НормативЧисельності` in `Рейтинг_Профорієнтація.xlsx`, with
-**38 specialities** (the spec says 34), all confirming the single-base rule
-(магістр = base × 0.5, заочна = base × 4). And `scopeOf()` already resolves which
+**The норматив table was never locked in the PDF** — it is a live sheet,
+`НормативЧисельності` in `Рейтинг_Профорієнтація.xlsx`, with **38 specialities**
+(this spec says 34), all 38 confirming the single-base rule (магістр = base ×
+0.5, заочна = base × 4). Now seeded. And `scopeOf()` already resolves which
 кафедри a head or dean may act for.
 
 ---
@@ -519,10 +556,10 @@ re-asked:
 5. ~~**B1 Характеристика**~~ — **derivation and pages done 2026-08-10**; the
    remainder (admin editor for the mapping, manual п.15/п.20, export, `Кнпп`
    per кафедра) is listed under B1 above.
-6. **B2 Розподіл ставок** — the biggest, and fully specced. `Кнпп` is already
-   done (`getDepartmentsKnpp`), so start at the schema: specialities and their
-   norms (seed the 38 rows from `Рейтинг_Профорієнтація.xlsx`), the year
-   settings, and `Кст` per кафедра with its `≥ 0.1 × headcount` validation.
+6. **B2 Розподіл ставок** — the settings layer is done (`/admin/stakes`). Next
+   is `StudentClaim`: the НПП's «Мої залучені здобувачі» and the head's
+   duplicate-review screen. Then the distribution grid, which is the piece the
+   whole feature is for.
 7. **A6 remaining visual work**, then **C2–C4** — the adoption set.
 8. **E deployment**, with the pilot before the rollout.
 

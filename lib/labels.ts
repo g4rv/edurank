@@ -96,4 +96,13 @@ export const FIELD_LABELS: Record<string, string> = {
   entityFirstEntry: 'Внесення групою',
   closedAt: 'Рік закрито',
   code: 'Код показника',
+  licencePositions: 'Позиції ліцензійних умов',
+  // Розподіл ставок. `kstHundredths` and the limits are stored as integer
+  // hundredths, so the audit diff shows 135 rather than 1,35 — the label says
+  // so instead of the reader guessing at a suspicious-looking number.
+  kstHundredths: 'Кст (сотих)',
+  minHundredths: 'Мінімальна ставка (сотих)',
+  maxHundredths: 'Максимальна ставка (сотих)',
+  base: 'Норматив (бакалавр, денна)',
+  contractCoefficient: 'Узгоджуючий коефіцієнт',
 };

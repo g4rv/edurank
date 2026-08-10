@@ -18,6 +18,7 @@ import {
   Trophy,
   CalendarCog,
   ChartColumn,
+  Scale,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -45,6 +46,7 @@ const STRUCTURE_NAV: NavItem[] = [
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: '/admin/rating', label: 'Рейтингові роки', icon: CalendarCog, roles: ['ADMIN'] },
+  { href: '/admin/stakes', label: 'Розподіл ставок', icon: Scale, roles: ['ADMIN'] },
   { href: '/admin/permissions/field', label: 'Поля доступу', icon: KeyRound, roles: ['ADMIN'] },
   { href: '/admin/permissions/entity', label: 'Дії доступу', icon: ShieldCheck, roles: ['ADMIN'] },
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList, roles: ['ADMIN'] },

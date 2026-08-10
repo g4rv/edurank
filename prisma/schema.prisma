@@ -124,6 +124,7 @@ model Department {
 
   primaryStaff  Staff[]           @relation("PrimaryDepartment")
   partTimeStaff StaffDepartment[]
+  stakes        DepartmentStake[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -245,6 +246,7 @@ model Staff {
 
   activities    Activity[]
   ratingEntries RatingEntry[]
+  stakeLimits   StaffStakeLimits[]
 
   auditLogs          AuditLog[]
   approvedActivities Activity[]       @relation("ActivityApprover")
@@ -458,6 +460,122 @@ model RatingEntry {
   updatedAt DateTime @updatedAt
 
   @@unique([staffId, year])
+}
+
+// ─── Розподіл ставок ─────────────────────────────────────────────────────────
+//
+// Full specification: docs/stake-distribution.md. Three facts that shape every
+// model here and are easy to lose:
+//
+//   1. EVERY ставка value is stored as INTEGER HUNDREDTHS, never as a float.
+//      The old system used floats and produced negative «нерозподілено» — a
+//      кафедра that had overspent according to a subtraction and had not
+//      according to the people in it. See lib/stake/units.ts.
+//
+//   2. `Кст` bounds the FIRST TERM ONLY. The pool is spread by rating and the
+//      head may never exceed it; recruitment bonuses are paid ON TOP, outside
+//      the pool. A кафедра total above `Кст` is correct if and only if the
+//      difference is exactly the bonuses.
+//
+//   3. There is NO APPROVAL STEP (decided 2026-08-10, retracting Q1). ADMIN
+//      sets the pool, the завідувач spreads it, and that is final. Do not add a
+//      SUBMITTED/APPROVED status or an approver id.
+
+// A speciality students are recruited into. The name is what a claim is matched
+// against; the code («012», «015.05») is documentation and may be absent.
+model Speciality {
+  id   String  @id @default(cuid())
+  name String  @unique
+  code String?
+
+  norms SpecialityNorm[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Норматив чисельності здобувачів на 1 ставку — додаток 5, per year.
+//
+// ONE number per speciality, not four. Verified across all 38 rows: every
+// printed column follows the law's multipliers off a single base
+// (магістр ×0.5, заочна ×4), so storing four would be four chances to disagree.
+// Yearly data rather than a constant, because the вчена рада re-approves the
+// table each year and the app must follow whatever it approves.
+model SpecialityNorm {
+  id           String     @id @default(cuid())
+  specialityId String
+  speciality   Speciality @relation(fields: [specialityId], references: [id], onDelete: Cascade)
+  year         Int
+
+  /// Бакалавр, денна. Everything else is derived — see lib/stake/norms.ts
+  base Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([specialityId, year])
+  @@index([year])
+}
+
+// What the вчена рада approves for the year, beyond the norms themselves.
+model StakeYearSettings {
+  year Int @id
+
+  /// Узгоджуючий коефіцієнт for контракт students — 0.175 for 2026 (confirmed
+  /// 2026-08-07). A per-year setting, not a constant: the вчена рада can move it.
+  contractCoefficient Float @default(0.175)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// `Кст` — the pool of ставки a кафедра has to spread, set centrally by
+// ADMIN/проректор and never by the head.
+//
+// `Кнпп` is deliberately NOT stored: it is derived from the Характеристика
+// (lib/queries/get-department-knpp.ts) and would go stale the moment somebody
+// submits an achievement. Freezing it belongs with the distribution grid, where
+// there is a distribution to freeze it against.
+model DepartmentStake {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  year         Int
+
+  /// Integer hundredths. Validated against 0.1 × (НПП on the кафедра): a pool
+  /// that cannot pay the floor to everyone is bad input, not a decision.
+  kstHundredths Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([departmentId, year])
+  @@index([year])
+}
+
+// Per-person floor and ceiling, applied AFTER the formula: final = clamp(Vc, min, max).
+//
+// The формула alone cannot reproduce what the university actually does — 39 % of
+// the 2025 distribution sits exactly on a per-person cap and none exceeds one.
+//
+// ADMIN only, deliberately: a завідувач distributes inside limits they cannot
+// change, which is what stops a head capping colleagues down and themselves up.
+model StaffStakeLimits {
+  id      String @id @default(cuid())
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  year    Int
+
+  /// Integer hundredths. The lowest a floor may go is 10 (0.1), never 0 — a
+  /// deliberate override of the положення's «менше 0,5 → встановлюється 0,5».
+  minHundredths Int
+  maxHundredths Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, year])
+  @@index([year])
 }
 
 // ─── Audit log ───────────────────────────────────────────────────────────────

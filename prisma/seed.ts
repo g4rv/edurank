@@ -12,6 +12,7 @@ import { dbSpecs } from '../lib/rating/db-specs';
 import type { EvidenceField } from '../lib/rating/evidence-fields';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
+import { SPECIALITY_NORMS_2026, DEFAULT_CONTRACT_COEFFICIENT } from '../lib/stake/norms';
 import { recomputeRatingEntry } from '../lib/rating/recompute';
 import type { InputSource, Prisma } from '../lib/generated/prisma/client';
 
@@ -368,6 +369,33 @@ async function main() {
     await syncProfileDerived(prisma, id);
   }
 
+  // ─── Розподіл ставок — додаток 5 and the year's coefficient ────────────────
+  //
+  // Seed data, not constants: the вчена рада re-approves the норматив table and
+  // the узгоджуючий коефіцієнт every year, and an admin edits them in the app.
+  // Upserted on the speciality name, so re-running never duplicates a row, and
+  // an edited `base` is left alone — only a missing row is created.
+  for (const [name, base] of SPECIALITY_NORMS_2026) {
+    const speciality = await prisma.speciality.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+    await prisma.specialityNorm.upsert({
+      where: { specialityId_year: { specialityId: speciality.id, year: template.year } },
+      update: {},
+      create: { specialityId: speciality.id, year: template.year, base },
+    });
+  }
+
+  await prisma.stakeYearSettings.upsert({
+    where: { year: template.year },
+    update: {},
+    create: { year: template.year, contractCoefficient: DEFAULT_CONTRACT_COEFFICIENT },
+  });
+
+  const specialityCount = await prisma.speciality.count();
+
   console.log('\nSeeded (logins live on Staff now):');
   console.log(`  ADMIN   ${admin.email}              password: admin123`);
   console.log(`  EDITOR  ${editorStaff.email}       password: editor123  division: ${nnv.name}`);
@@ -381,6 +409,9 @@ async function main() {
   console.log(`  Department: ${department.name}`);
   console.log(
     `  Rating template: ${template.name} (${template.year}, active) — ${activityTypeCount} activity types`
+  );
+  console.log(
+    `  Розподіл ставок: ${specialityCount} спеціальностей, узгоджуючий коефіцієнт ${DEFAULT_CONTRACT_COEFFICIENT}`
   );
 }
 
