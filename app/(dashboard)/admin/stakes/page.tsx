@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import { SlidersHorizontal } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getStakeYearSettings, listDepartmentStakes } from '@/lib/queries/list-stake-settings';
 import { formatStake, fromHundredths } from '@/lib/stake/units';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { Button } from '@/components/ui/button';
 import { StakeValueForm } from '@/components/admin/stake-value-form';
 import { setDepartmentStake, setStakeYearSettings } from './actions';
 import { cn } from '@/lib/utils';
@@ -117,6 +119,9 @@ export default async function StakeSettingsPage() {
                 <th className="w-64 border border-border px-3 py-2 font-medium text-muted-foreground">
                   Кст
                 </th>
+                <th className="w-40 border border-border px-3 py-2 font-medium text-muted-foreground">
+                  Розподіл
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -130,12 +135,6 @@ export default async function StakeSettingsPage() {
                       {d.name}
                     </Link>
                     <span className="ml-2 text-xs text-muted-foreground">{d.faculty}</span>
-                    <Link
-                      href={`/departments/${d.id}/stakes`}
-                      className="ml-2 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                    >
-                      розподіл →
-                    </Link>
                   </td>
                   <td className="border border-border px-3 py-2 text-right tabular-nums">
                     {d.headcount}
@@ -177,12 +176,27 @@ export default async function StakeSettingsPage() {
                       </p>
                     )}
                   </td>
+                  <td className="border border-border px-3 py-2">
+                    {/* A кафедра with no pool has nothing to spread, so the
+                        button says why instead of leading to a grid whose Save
+                        is disabled for a reason nobody explained. */}
+                    {d.kstHundredths === null ? (
+                      <span className="text-xs text-muted-foreground">Спочатку вкажіть Кст</span>
+                    ) : (
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/departments/${d.id}/stakes`}>
+                          <SlidersHorizontal className="size-4" />
+                          Розподілити
+                        </Link>
+                      </Button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {departments.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="border border-border px-3 py-10 text-center text-muted-foreground"
                   >
                     Кафедр ще немає

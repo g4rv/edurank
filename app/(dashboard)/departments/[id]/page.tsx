@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Pencil } from 'lucide-react';
+import { ChevronLeft, Pencil, SlidersHorizontal } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getDepartmentKnpp } from '@/lib/queries/get-department-knpp';
+import { scopeOf } from '@/lib/queries/scope';
 import { KnppSummary } from '@/components/kharakterystyka/knpp-summary';
 
 function fullName(p: { lastName: string; firstName: string; patronymic: string }) {
@@ -84,6 +85,10 @@ export default async function DepartmentDetailPage({
   // computed once the page is known to render — after the notFound above.
   const template = await getActiveTemplate();
   const knpp = template ? await getDepartmentKnpp(id, template.year) : null;
+
+  // Same rule the grid itself enforces: ADMIN, or this кафедра's own head /
+  // its dean. An EDITOR may read the кафедра but never decide its pay.
+  const canDistribute = isAdmin || (await scopeOf(session.user.staffId)).includes(id);
 
   const primaryIds = new Set(department.primaryStaff.map((s) => s.id));
   const allStaff = [
@@ -158,7 +163,21 @@ export default async function DepartmentDetailPage({
 
       {/* Кнпп and the pool's own minimum — the two ставка inputs this кафедра
           contributes. Only where a rating year exists to measure them over. */}
-      {knpp && template && <KnppSummary data={knpp} year={template.year} />}
+      {knpp && template && (
+        <div className="space-y-3">
+          <KnppSummary data={knpp} year={template.year} />
+          {/* The кафедра's page is where somebody looks for its distribution,
+              so the way in lives here rather than only on /admin/stakes. */}
+          {canDistribute && (
+            <Button asChild variant="outline">
+              <Link href={`/departments/${id}/stakes`}>
+                <SlidersHorizontal className="size-4" />
+                Розподіл ставок на {template.year} рік
+              </Link>
+            </Button>
+          )}
+        </div>
+      )}
 
       {allStaff.length > 0 && (
         <div className="rounded-xl border bg-card">
