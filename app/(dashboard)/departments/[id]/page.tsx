@@ -12,6 +12,9 @@ import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { cn } from '@/lib/utils';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
+import { getActiveTemplate } from '@/lib/queries/get-active-template';
+import { getDepartmentKnpp } from '@/lib/queries/get-department-knpp';
+import { KnppSummary } from '@/components/kharakterystyka/knpp-summary';
 
 function fullName(p: { lastName: string; firstName: string; patronymic: string }) {
   return `${p.lastName} ${p.firstName} ${p.patronymic}`;
@@ -76,6 +79,11 @@ export default async function DepartmentDetailPage({
     canEdit = perms.canUpdate;
     canDelete = perms.canDelete;
   }
+
+  // Кнпп needs five years of activities for everyone here, so it is only
+  // computed once the page is known to render — after the notFound above.
+  const template = await getActiveTemplate();
+  const knpp = template ? await getDepartmentKnpp(id, template.year) : null;
 
   const primaryIds = new Set(department.primaryStaff.map((s) => s.id));
   const allStaff = [
@@ -147,6 +155,10 @@ export default async function DepartmentDetailPage({
           )}
         </div>
       </div>
+
+      {/* Кнпп and the pool's own minimum — the two ставка inputs this кафедра
+          contributes. Only where a rating year exists to measure them over. */}
+      {knpp && template && <KnppSummary data={knpp} year={template.year} />}
 
       {allStaff.length > 0 && (
         <div className="rounded-xl border bg-card">

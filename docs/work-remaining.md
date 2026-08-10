@@ -19,9 +19,10 @@ here with a strikethrough.
 ## Where the app is now
 
 Phase 1 (structure, staff, permissions, auth) and Phase 2 (the whole rating
-system) are complete and stable, and **B1 Характеристика now derives and
-renders**: **500 tests**, type-check clean, one deliberate lint warning
-(`watch()` in `activity-type-dialog`). The audit of 2026-07-29 is fully closed.
+system) are complete and stable, and **B1 Характеристика derives, renders,
+exports to Excel and yields `Кнпп`**: **530 tests**, type-check clean, one
+deliberate lint warning (`watch()` in `activity-type-dialog`). The audit of
+2026-07-29 is fully closed.
 
 **Two real bugs were found and fixed**, both by looking at the university's own
 files rather than at the code:
@@ -44,7 +45,8 @@ remains splits three ways:
 - **Rating UI rework** — new, requested by the owner after using the app. Small
   pieces, high visibility, all unblocked.
 - **The two big features** — Характеристика and Розподіл ставок. Both fully
-  specced. B1 now derives and renders; B2 is not started.
+  specced. B1 is built bar two pieces (see below); B2 is not started, and its
+  one dependency — `Кнпп` — is now done.
 - **Adoption** — import, instructions, invites, reminders. Less visible, and
   the reason a working system still fails.
 
@@ -84,13 +86,15 @@ Recorded so a new session does not re-derive any of it.
 Built after the owner reordered the plan: `Кнпп` comes from this document, so it
 goes before Розподіл ставок rather than beside it.
 
-| What                                                                             |
-| -------------------------------------------------------------------------------- |
-| `lib/kharakterystyka/positions.ts` — the 20 positions, law text verbatim         |
-| `lib/kharakterystyka/build.ts` — the derivation, 32 tests                        |
-| `ActivityType.licencePositions` (JSON) + `Staff.degreeDefenceDate`               |
-| `/staff/[id]/kharakterystyka`, `/achievements/kharakterystyka`, `/my-department` |
-| `lib/queries/scope.ts` — `scopeOf()` and `canViewAcademicRecord()`, 13 tests     |
+| What                                                                                  |
+| ------------------------------------------------------------------------------------- |
+| `lib/kharakterystyka/positions.ts` — the 20 positions, law text verbatim              |
+| `lib/kharakterystyka/build.ts` — the derivation, 32 tests                             |
+| `ActivityType.licencePositions` (JSON) + `Staff.degreeDefenceDate`                    |
+| `/staff/[id]/kharakterystyka`, `/achievements/kharakterystyka`, `/my-department`      |
+| `lib/queries/scope.ts` — `scopeOf()` and `canViewAcademicRecord()`, 13 tests          |
+| `/api/export/kharakterystyka` — one .xlsx or an archive; ratings gained `staffId` too |
+| `lib/queries/get-department-knpp.ts` — `Кнпп` and headcount per кафедра, 12 tests     |
 
 Two facts measured while doing it, both correcting a doc:
 
@@ -100,6 +104,13 @@ Two facts measured while doing it, both correcting a doc:
 - **`summarizeEvidence` capped output at five parts.** Right for a table cell,
   wrong for a document read against the law, so it now takes a `maxParts` and
   the Характеристика passes `Infinity`.
+
+Two more worth not rediscovering:
+
+- **`Content-Disposition` is latin-1 and every name here is Cyrillic.** The
+  filename goes through `filename*` (RFC 5987) with an ASCII fallback, in
+  `lib/export/file-names.ts`. Without it the browser mangles or drops the name.
+- **Never dedupe records by their display text** — see lesson 6 below.
 
 ### Lessons worth keeping
 
@@ -279,6 +290,19 @@ date on the profile.
 | Admin/editor view                                           | `/staff/[id]/kharakterystyka` (tab)       |
 | The НПП's own view                                          | `/achievements/kharakterystyka` (tab)     |
 | Head's / dean's view                                        | `/my-department`, `lib/queries/scope.ts`  |
+| Excel export, single + archive                              | `/api/export/kharakterystyka`             |
+| **`Кнпп` per кафедра**                                      | `lib/queries/get-department-knpp.ts`      |
+
+**`Кнпп` is done and B2 can consume it.** `getDepartmentsKnpp()` returns, per
+кафедра, the count meeting ≥4 of 20 **and** the roster headcount — measured at
+147 ms for all 16 кафедри / 204 people. It shows on `/departments/[id]` and
+`/my-department`.
+
+The one thing to carry into B2 without re-deriving it: **those are two different
+numbers and must not be conflated.** `knpp` is a **divisor inside the formula**;
+`headcount` is a **validation bound on the input** (`Кст ≥ 0.1 × headcount`).
+Somebody below 4/20 is not excluded from the distribution — everyone gets a Vc
+and nobody falls below the 0.1 floor.
 
 Three decisions embedded in that code, easy to undo by accident:
 
@@ -300,11 +324,8 @@ Three decisions embedded in that code, easy to undo by accident:
   indicator today needs a seed edit. `licencePositionProblems()` is written and
   waiting for the form.
 - **Manual entry for п.15 and п.20** — both render as empty rows with a reason.
-  Nothing stores a typed value yet.
-- **The printed document / export.** The page reproduces the three-column
-  layout; there is no Word/Excel output.
-- **`Кнпп` per кафедра** — `qualifies` is computed per person; nothing counts
-  them up per кафедра yet. That is the first thing B2 needs.
+  Nothing stores a typed value yet, so a person who does prepare школярі cannot
+  record it.
 
 Decided 2026-08-07 and easy to get wrong later:
 
@@ -498,8 +519,10 @@ re-asked:
 5. ~~**B1 Характеристика**~~ — **derivation and pages done 2026-08-10**; the
    remainder (admin editor for the mapping, manual п.15/п.20, export, `Кнпп`
    per кафедра) is listed under B1 above.
-6. **B2 Розподіл ставок** — the biggest, and fully specced. Start with `Кнпп`
-   per кафедра, which is a small step from what B1 already computes.
+6. **B2 Розподіл ставок** — the biggest, and fully specced. `Кнпп` is already
+   done (`getDepartmentsKnpp`), so start at the schema: specialities and their
+   norms (seed the 38 rows from `Рейтинг_Профорієнтація.xlsx`), the year
+   settings, and `Кст` per кафедра with its `≥ 0.1 × headcount` validation.
 7. **A6 remaining visual work**, then **C2–C4** — the adoption set.
 8. **E deployment**, with the pilot before the rollout.
 

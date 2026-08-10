@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listMyDepartments } from '@/lib/queries/list-my-department';
+import { getDepartmentsKnpp } from '@/lib/queries/get-department-knpp';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { KnppSummary } from '@/components/kharakterystyka/knpp-summary';
 import { cn } from '@/lib/utils';
 
 /**
@@ -30,6 +32,15 @@ export default async function MyDepartmentPage() {
   // and their own profile is where they were going.
   if (departments.length === 0) redirect('/profile');
 
+  // Кнпп and «позицій із 20» per person, in three queries for every кафедра at
+  // once rather than three per кафедра.
+  const knppList = await getDepartmentsKnpp(
+    departments.map((d) => d.id),
+    template?.year ?? 0
+  );
+  const knppByDepartment = new Map(knppList.map((k) => [k.departmentId, k]));
+  const positionsByStaff = new Map(knppList.flatMap((k) => k.staff.map((s) => [s.id, s] as const)));
+
   return (
     <AnimatedPage className="space-y-6">
       <div>
@@ -50,6 +61,10 @@ export default async function MyDepartmentPage() {
             </h2>
           )}
 
+          {template && knppByDepartment.has(department.id) && (
+            <KnppSummary data={knppByDepartment.get(department.id)!} year={template.year} />
+          )}
+
           <div className="overflow-x-auto rounded-xl border bg-card">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -63,6 +78,9 @@ export default async function MyDepartmentPage() {
                   <th className="w-28 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
                     Бали
                   </th>
+                  <th className="w-32 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
+                    Позицій із 20
+                  </th>
                   <th className="w-44 border border-border px-3 py-2 font-medium text-muted-foreground">
                     Характеристика
                   </th>
@@ -72,7 +90,7 @@ export default async function MyDepartmentPage() {
                 {department.staff.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="border border-border px-3 py-6 text-center text-muted-foreground"
                     >
                       На кафедрі немає НПП
@@ -97,6 +115,9 @@ export default async function MyDepartmentPage() {
                         )}
                       >
                         {person.total}
+                      </td>
+                      <td className="border border-border px-3 py-2 text-right tabular-nums">
+                        <PositionCount entry={positionsByStaff.get(person.id)} />
                       </td>
                       <td className="border border-border px-3 py-2">
                         <div className="flex items-center gap-3 text-sm">
@@ -127,5 +148,29 @@ export default async function MyDepartmentPage() {
         </section>
       ))}
     </AnimatedPage>
+  );
+}
+
+/**
+ * «позицій із 20» for one person, marked when it clears the licence bar.
+ *
+ * Green here means «counts towards Кнпп», not «is doing well» — everybody
+ * receives a ставка regardless, which is why the number below the bar is shown
+ * plainly rather than in red.
+ */
+function PositionCount({ entry }: { entry?: { metCount: number; qualifies: boolean } }) {
+  if (!entry) return <span className="text-muted-foreground">—</span>;
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        entry.qualifies
+          ? 'bg-emerald-600/10 text-emerald-700 dark:text-emerald-400'
+          : 'text-muted-foreground'
+      )}
+    >
+      {entry.metCount}
+    </span>
   );
 }
