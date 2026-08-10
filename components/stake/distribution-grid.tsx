@@ -124,10 +124,12 @@ export function DistributionGrid({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-muted/60 text-left">
-              <th className="border border-border px-3 py-2 font-medium text-muted-foreground">
+              {/* НПП and Обґрунтування carry text and take what is left; every
+                  other column is a number or a control of known size. */}
+              <th className="min-w-52 border border-border px-3 py-2 font-medium text-muted-foreground">
                 НПП
               </th>
-              <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
+              <th className="w-20 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
                 Рейтинг
               </th>
               <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
@@ -136,21 +138,21 @@ export function DistributionGrid({
               <th
                 className={cn(
                   'border border-border px-3 py-2 font-medium text-muted-foreground',
-                  canEditLimits ? 'w-52' : 'w-24 text-right'
+                  canEditLimits ? 'w-44' : 'w-24 text-right'
                 )}
               >
                 Мін / Макс
               </th>
-              <th className="w-52 border border-border px-3 py-2 font-medium text-muted-foreground">
+              <th className="w-40 border border-border px-3 py-2 font-medium text-muted-foreground">
                 Розподілено
               </th>
-              <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
+              <th className="w-20 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
                 Бонус
               </th>
-              <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
+              <th className="w-20 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
                 Разом
               </th>
-              <th className="border border-border px-3 py-2 font-medium text-muted-foreground">
+              <th className="min-w-56 border border-border px-3 py-2 font-medium text-muted-foreground">
                 Обґрунтування
               </th>
             </tr>
@@ -326,7 +328,13 @@ function LimitsCell({ row, year, disabled }: { row: StakeRow; year: number; disa
           disabled={disabled || pending}
           inputMode="decimal"
           aria-label={`Мінімальна ставка для ${row.name}`}
-          className="h-8 w-16 text-right tabular-nums"
+          className={cn(
+            'h-8 w-16 text-right tabular-nums',
+            // Dimmed while these are the 0,10 / 1,50 defaults, so «set for this
+            // person» still reads differently from «nobody has decided» without
+            // a word of text repeated down every row.
+            !row.hasOwnLimits && 'text-muted-foreground'
+          )}
         />
         <span className="text-xs text-muted-foreground">/</span>
         <Input
@@ -335,7 +343,10 @@ function LimitsCell({ row, year, disabled }: { row: StakeRow; year: number; disa
           disabled={disabled || pending}
           inputMode="decimal"
           aria-label={`Максимальна ставка для ${row.name}`}
-          className="h-8 w-16 text-right tabular-nums"
+          className={cn(
+            'h-8 w-16 text-right tabular-nums',
+            !row.hasOwnLimits && 'text-muted-foreground'
+          )}
         />
         <button
           type="submit"
@@ -347,7 +358,9 @@ function LimitsCell({ row, year, disabled }: { row: StakeRow; year: number; disa
           <Check className="size-3.5" />
         </button>
       </div>
-      {!row.hasOwnLimits && !error && <p className="text-xs text-muted-foreground">стандартні</p>}
+      {/* No «стандартні» label: it repeated down sixteen of eighteen rows and
+          added a line to each. The dimmed fields say the same thing quietly,
+          and the footnote under the table gives the two numbers. */}
       {error && <p className="max-w-52 text-xs text-destructive">{error}</p>}
     </form>
   );
@@ -393,8 +406,8 @@ function Row({
 
   return (
     <tr className="transition-colors hover:bg-muted/20">
-      <td className="border border-border px-3 py-2">
-        {row.name}
+      <td className="border border-border px-3 py-2 align-middle">
+        <span className="whitespace-nowrap">{row.name}</span>
         {!row.qualifies && (
           <span
             className="ml-2 text-xs text-muted-foreground"
@@ -405,8 +418,11 @@ function Row({
         )}
       </td>
 
-      <td className="border border-border px-3 py-2 text-right text-muted-foreground tabular-nums">
-        {row.rating}
+      <td
+        className="border border-border px-3 py-2 text-right text-muted-foreground tabular-nums"
+        title={`${row.rating} балів`}
+      >
+        {Math.round(row.rating)}
       </td>
 
       <td className="border border-border px-3 py-2 text-right tabular-nums">
