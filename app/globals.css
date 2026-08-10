@@ -62,14 +62,24 @@
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  /* Deliberately fainter than --muted-foreground: a placeholder is an example
-     of what to type, and must never read as a value already filled in */
-  --placeholder: oklch(0.72 0 0);
+  /* Fainter than --muted-foreground — a placeholder is an example of what to
+     type and must never read as a value already filled in — but still text, so
+     it holds WCAG AA (4.5:1). At the old 0.72 it measured 2.49 and vanished. */
+  --placeholder: oklch(0.568 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  /* --border draws separators (table rules, card edges) and --input draws the
+     boundary of a control. They were the same value, and at oklch(0.922) both
+     measured 1.26:1 against the page — which is why fields were "barely
+     different from the background".
+     --input now meets WCAG 1.4.11 for non-text contrast: 3.0:1 is the point at
+     which a control's boundary is reliably visible, and oklch(0.668) is the
+     lightest grey that reaches it on white. Separators are not controls and
+     need no such floor, so --border is only lifted enough to be seen (≈1.5:1)
+     without turning every table into a cage. */
+  --border: oklch(0.87 0 0);
+  --input: oklch(0.668 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -108,13 +118,17 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  /* On dark, fainter means closer to the background, so lower rather than higher */
-  --placeholder: oklch(0.52 0 0);
+  /* On dark, fainter means closer to the background, so lower rather than
+     higher — but still AA against the card (0.52 measured 3.27, now 4.92) */
+  --placeholder: oklch(0.62 0 0);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  /* Same split as light, expressed as white overlays: 10%/15% measured
+     1.32 and 1.58 against the card. 38% reaches 3.57 over the card and 3.5
+     over the page, so a control's edge clears 1.4.11 on both surfaces. */
+  --border: oklch(1 0 0 / 18%);
+  --input: oklch(1 0 0 / 38%);
   --ring: oklch(0.556 0 0);
   /* Stepped for this surface, not flipped from light: the card here is
      oklch(0.205), so the light ramp's dark end would sink into it. Step 1 stays

@@ -129,6 +129,27 @@ The owner's words: not intuitive, and not all data visible as intended.
   styles/designs to choose from. Explicitly scheduled **after** the crucial
   items, not now.
 
+### A7a. Who fills the division-managed indicators — **deferred 2026-08-10**
+
+31 indicators are `DIVISION_MANAGED`, and ~19 of them are things the НПП plainly
+knows about themselves (гарант ОП, НДР, редколегії, спецради, міжнародні
+проєкти, виставки, експертиза МОН…). The owner asked whether they should move to
+self-entry with the division moderating — the model the old `Звіти ННВ` used.
+
+**Decision: leave them as they are for now.** The reasoning was honest — the
+business logic and the background processes behind that split are not yet
+understood well enough to change it, and the university had reasons we cannot
+see. A field marked for a division stays filled by that division.
+
+Worth knowing when this is picked up again: **the app already has both halves of
+the old model.** `/division-data` is `Дані ННВ`; `/moderation` already lists
+every НПП self-submission across all sections and lets ННВ discard with a reason
+the person sees. Nothing structural needs building — only `inputSource` would
+change, one row at a time, in `/admin/rating/[year]`.
+
+The full 31, grouped by whether the НПП plainly knows it, is in this
+conversation's history; regenerate with a filter on `inputSource`.
+
 ### A7. Field-by-field pass — deferred, its own session
 
 The rule: **everything an НПП can be expected to know about themselves, they
