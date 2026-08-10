@@ -17,6 +17,8 @@ export async function listTemplateIndicators(year: number) {
       itemNumber: true,
       label: true,
       inputSource: true,
+      // So the table can say WHICH відділ fills a row, not just «відділ»
+      verifyingDivision: { select: { name: true, registryKey: true } },
       section: { select: { number: true, title: true } },
     },
     orderBy: [{ section: { number: 'asc' } }, { order: 'asc' }],

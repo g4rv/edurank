@@ -27,6 +27,9 @@ export async function listStaffActivities(staffId: string, year: number, section
           code: true,
           label: true,
           itemNumber: true,
+          inputSource: true,
+          // Named on the row so «this number is wrong» has an addressee
+          verifyingDivision: { select: { name: true, registryKey: true } },
           evidenceFields: true,
           section: { select: { number: true, title: true } },
         },

@@ -149,19 +149,24 @@ describe('toAchievementGroups', () => {
       id: string,
       itemNumber: string,
       section: number,
-      inputSource: TemplateIndicator['inputSource'] = 'NPP_SUBMISSION'
+      inputSource: TemplateIndicator['inputSource'] = 'NPP_SUBMISSION',
+      verifyingDivision: TemplateIndicator['verifyingDivision'] = null
     ): TemplateIndicator => ({
       id,
       itemNumber,
       label: `Показник ${itemNumber}`,
       inputSource,
+      verifyingDivision,
       section: { number: section, title: `Розділ ${section}` },
     });
 
     const catalogue = [
       indicator('t-3', '3.1', 3),
       indicator('t-other', '3.2', 3),
-      indicator('t-div', '3.3', 3, 'DIVISION_MANAGED'),
+      indicator('t-div', '3.3', 3, 'DIVISION_MANAGED', {
+        name: 'Навчально-науковий відділ',
+        registryKey: 'NNV',
+      }),
     ];
 
     it('adds a zero row for every indicator with no activity', () => {
@@ -174,6 +179,19 @@ describe('toAchievementGroups', () => {
       expect(items[0].score).toBe(10);
       expect(items[1]).toMatchObject({ isEmpty: true, score: 0, statusLabel: '' });
       expect(items[2]).toMatchObject({ isEmpty: true, inputSource: 'DIVISION_MANAGED' });
+    });
+
+    it('names WHICH відділ fills a division-managed row', () => {
+      // «Вносить відділ» told an НПП the row was not theirs but not who to ask,
+      // which is the only thing they can act on.
+      const groups = toAchievementGroups([], [3], false, catalogue);
+      const divisionRow = groups[0].items.find((i) => i.itemNumber === '3.3');
+      expect(divisionRow?.division).toBe('ННВ');
+    });
+
+    it('leaves the division empty on a row the person fills themselves', () => {
+      const groups = toAchievementGroups([], [3], false, catalogue);
+      expect(groups[0].items.find((i) => i.itemNumber === '3.1')?.division).toBeNull();
     });
 
     it('never duplicates an indicator the person already has', () => {

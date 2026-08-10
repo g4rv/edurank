@@ -1,6 +1,10 @@
 import ExcelJS from 'exceljs';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
-import { SECTION_TITLES, type RatingDivisionKey } from '@/lib/rating/activity-types';
+import {
+  RATING_DIVISION_SHORT as DIVISION_SHORT,
+  SECTION_TITLES,
+  type RatingDivisionKey,
+} from '@/lib/rating/activity-types';
 import { personFileNames } from '@/lib/export/file-names';
 
 // Replicates the official per-teacher rating workbook
@@ -10,15 +14,6 @@ import { personFileNames } from '@/lib/export/file-names';
 // vertically across its option rows, gray section bands.
 
 // Short division names as they appear in the sheet's «Дані внесені» column
-const DIVISION_SHORT: Record<RatingDivisionKey, string> = {
-  KADRY: 'Відділ кадрів',
-  NAVCH: 'Навч. відділ',
-  NNV: 'ННВ',
-  NNCZYAO: 'ННЦЗЯО',
-  VMZ: 'ВМЗ',
-  VA: 'ВА',
-};
-
 export interface ExportActivityType {
   code: string;
   label: string;

@@ -7,12 +7,26 @@ const STATUS_STYLES = {
   REMOVED: 'bg-destructive/10 text-destructive',
 } as const;
 
-/** Who fills an indicator in — shown on a row that has nothing under it yet */
-const EMPTY_HINTS = {
-  NPP_SUBMISSION: 'Подаєте самостійно',
-  DIVISION_MANAGED: 'Вносить відділ',
-  PROFILE_DERIVED: 'З профілю',
-} as const;
+/**
+ * Who fills an indicator in.
+ *
+ * A division-managed row names the DIVISION rather than saying «відділ»: an
+ * НПП who sees a wrong number, or none, can do exactly one useful thing about
+ * it — ask the people who enter it — and the generic word did not tell them
+ * who those people are.
+ */
+function whoFills(row: { inputSource?: string; division?: string | null }): string {
+  switch (row.inputSource) {
+    case 'NPP_SUBMISSION':
+      return 'Подаєте самостійно';
+    case 'PROFILE_DERIVED':
+      return 'З профілю';
+    case 'DIVISION_MANAGED':
+      return row.division ? `Вносить ${row.division}` : 'Вносить відділ';
+    default:
+      return '—';
+  }
+}
 
 /** Only APPROVED items count toward totals */
 function sectionTotal(group: AchievementGroup): number {
@@ -101,9 +115,7 @@ function SectionRows({ group }: { group: AchievementGroup }) {
               {/* An empty row has no status to report — the hint says whose job
                   it is instead, which is the useful thing at that moment. */}
               {item.isEmpty ? (
-                <span className="text-xs whitespace-nowrap">
-                  {item.inputSource ? EMPTY_HINTS[item.inputSource] : '—'}
-                </span>
+                <span className="text-xs whitespace-nowrap">{whoFills(item)}</span>
               ) : (
                 <span
                   className={cn(
@@ -113,6 +125,13 @@ function SectionRows({ group }: { group: AchievementGroup }) {
                 >
                   {item.statusLabel}
                 </span>
+              )}
+              {/* Named on a filled row too: «this number is wrong» needs an
+                  addressee just as much as «this row is empty» does. */}
+              {!item.isEmpty && item.inputSource === 'DIVISION_MANAGED' && item.division && (
+                <p className="mt-0.5 text-xs whitespace-nowrap text-muted-foreground">
+                  {item.division}
+                </p>
               )}
             </td>
             <td

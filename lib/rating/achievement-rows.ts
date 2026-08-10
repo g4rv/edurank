@@ -1,5 +1,5 @@
 import type { AchievementGroup, AchievementRow } from '@/components/rating/achievements-list';
-import { SECTION_TITLES } from '@/lib/rating/activity-types';
+import { SECTION_TITLES, shortDivisionName } from '@/lib/rating/activity-types';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
@@ -33,6 +33,10 @@ function toRow(a: StaffActivity, canManage: boolean): AchievementRow {
     statusLabel: ACTIVITY_STATUS_LABELS[a.status],
     removeReason: a.removeReason,
     date: a.createdAt.toLocaleDateString('uk-UA'),
+    inputSource: a.activityType.inputSource,
+    division: a.activityType.verifyingDivision
+      ? shortDivisionName(a.activityType.verifyingDivision)
+      : null,
     // NPP may delete only their own self-report, and only while the year is open
     canDelete: canManage && a.submittedByRole === 'NPP' && a.status === 'APPROVED',
   };
@@ -127,6 +131,7 @@ export function toAchievementGroups(
       canDelete: false,
       isEmpty: true,
       inputSource: indicator.inputSource,
+      division: indicator.verifyingDivision ? shortDivisionName(indicator.verifyingDivision) : null,
     });
     rowsBySection.set(n, rows);
     titleBySection.set(n, indicator.section.title);

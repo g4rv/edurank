@@ -18,8 +18,14 @@ export interface AchievementRow {
    * the rating table and never listed among actual achievements.
    */
   isEmpty?: boolean;
-  /** Who fills this one in; only meaningful on an empty row */
+  /** Who fills this one in */
   inputSource?: 'NPP_SUBMISSION' | 'DIVISION_MANAGED' | 'PROFILE_DERIVED';
+  /**
+   * WHICH відділ fills it, short form. «Вносить відділ» told an НПП that the
+   * row was not theirs but not who to ask about it, which is the only thing
+   * they can act on.
+   */
+  division?: string | null;
 }
 
 export interface AchievementGroup {

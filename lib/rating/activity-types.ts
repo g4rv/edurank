@@ -19,6 +19,29 @@ export const RATING_DIVISIONS = {
 
 export type RatingDivisionKey = keyof typeof RATING_DIVISIONS;
 
+/**
+ * How a division is named where space is short — the rating table's «хто
+ * вносить» hint and the export's «Дані внесені» column.
+ *
+ * Keyed by `registryKey`, never by name: the name is what an admin edits on
+ * /divisions, and matching on it has already broken two things once.
+ * A division an admin created themselves has no key and keeps its full name.
+ */
+export const RATING_DIVISION_SHORT: Record<RatingDivisionKey, string> = {
+  KADRY: 'Відділ кадрів',
+  NAVCH: 'Навч. відділ',
+  NNV: 'ННВ',
+  NNCZYAO: 'ННЦЗЯО',
+  VMZ: 'ВМЗ',
+  VA: 'ВА',
+};
+
+/** Short name for a division row, falling back to its own name */
+export function shortDivisionName(division: { name: string; registryKey: string | null }): string {
+  const key = division.registryKey as RatingDivisionKey | null;
+  return (key && RATING_DIVISION_SHORT[key]) || division.name;
+}
+
 export const SECTION_TITLES: Record<number, string> = {
   1: 'Показники професійного розвитку',
   2: 'Показники навчальної діяльності',
