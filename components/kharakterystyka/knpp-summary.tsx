@@ -23,14 +23,14 @@ export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number
       <div className="flex flex-wrap gap-x-8 gap-y-3">
         <Figure
           value={data.knpp}
-          label="Кнпп"
-          hint={`НПП із ${REQUIRED_POSITIONS}+ позиціями з 20`}
+          label="Відповідають ліцензійним умовам"
+          hint={`НПП із ${REQUIRED_POSITIONS}+ позиціями з 20 — це дільник Кнпп у формулі ставок`}
         />
-        <Figure value={data.headcount} label="НПП всього" hint="на кафедрі, крім архівних" />
+        <Figure value={data.headcount} label="НПП усього" hint="на кафедрі, крім архівних" />
         <Figure
           value={minimumKst(data.headcount).toFixed(2).replace('.', ',')}
-          label="Мінімальний Кст"
-          hint={`${data.headcount} × 0,1 — менший пул не покриє мінімальну ставку`}
+          label="Мінімальний пул ставок"
+          hint={`${data.headcount} осіб × 0,10 — менший пул не покриє мінімальну ставку для всіх`}
         />
       </div>
 

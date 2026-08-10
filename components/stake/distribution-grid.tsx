@@ -16,6 +16,7 @@ import {
   snapToStep,
 } from '@/lib/stake/units';
 import type { StakeDistributionView, StakeRow } from '@/lib/queries/get-stake-distribution';
+import { StakeTermHint, type StakeTerm } from '@/components/stake/stake-term-hint';
 import {
   saveDistribution,
   setStaffLimits,
@@ -176,7 +177,10 @@ export function DistributionGrid({
                 Рейтинг
               </th>
               <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
-                За формулою
+                <span className="inline-flex items-center gap-1">
+                  За формулою
+                  <StakeTermHint term="formula" />
+                </span>
               </th>
               <th
                 className={cn(
@@ -184,7 +188,10 @@ export function DistributionGrid({
                   canEditLimits ? 'w-40' : 'w-24 text-right'
                 )}
               >
-                Мін / Макс
+                <span className="inline-flex items-center gap-1">
+                  Мін / Макс
+                  <StakeTermHint term="limits" />
+                </span>
               </th>
               <th className="w-40 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 Розподілено
@@ -195,8 +202,11 @@ export function DistributionGrid({
               <th className="w-20 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 Разом
               </th>
-              <th className="min-w-52 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
-                Обґрунтування
+              <th className="min-w-48 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  Обґрунтування
+                  <StakeTermHint term="justification" />
+                </span>
               </th>
             </tr>
           </thead>
@@ -301,24 +311,27 @@ function Totals({
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-xl border bg-card px-5 py-4">
-      <Figure label="Кст (пул)" value={kst === null ? '—' : formatStake(kst)} />
-      <Figure label="Розподілено" value={formatStake(distributed)} />
+      <Figure label="Пул кафедри (Кст)" term="kst" value={kst === null ? '—' : formatStake(kst)} />
+      <Figure label="Розподілено" term="distributed" value={formatStake(distributed)} />
       {/* Green whenever the pool holds, red only when it does not. A leftover
           is a normal state — the head has budget still to place — so it reads
           as «fine», not as «unfinished». */}
       <Figure
-        label="Нерозподілено"
+        label="Залишок пулу"
+        term="remaining"
         value={remaining === null ? '—' : formatStake(remaining)}
         tone={overspent ? 'bad' : 'good'}
       />
-      <Figure label="Бонус за здобувачів" value={formatBonus(bonusTotal)} muted />
+      <Figure label="Бонус за здобувачів" term="bonus" value={formatBonus(bonusTotal)} muted />
       <Figure
-        label="Разом"
+        label="Разом до виплати"
+        term="total"
         value={`${formatStake(distributed)} + ${formatBonus(bonusTotal)}`}
         muted
       />
-      <span className="ml-auto text-xs text-muted-foreground">
-        Сума за формулою: {formatStake(formulaTotal)}
+      <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
+        Формула пропонує: {formatStake(formulaTotal)}
+        <StakeTermHint term="formula" />
       </span>
     </div>
   );
@@ -327,11 +340,14 @@ function Totals({
 function Figure({
   label,
   value,
+  term,
   tone,
   muted,
 }: {
   label: string;
   value: string;
+  /** Which entry of STAKE_TERMS explains this number */
+  term?: StakeTerm;
   tone?: 'good' | 'bad';
   muted?: boolean;
 }) {
@@ -347,7 +363,10 @@ function Figure({
       >
         {value}
       </p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        {label}
+        {term && <StakeTermHint term={term} />}
+      </p>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { scopeOf } from '@/lib/queries/scope';
 import { formatStake } from '@/lib/stake/units';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DistributionGrid } from '@/components/stake/distribution-grid';
+import { StakeTermHint } from '@/components/stake/stake-term-hint';
 
 /**
  * Розподіл ставок for one кафедра — додаток 2.
@@ -64,11 +65,15 @@ export default async function DepartmentStakesPage({
 
       <div>
         <h1 className="text-2xl font-semibold">Розподіл ставок — {view.departmentName}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {view.year} рік · {view.headcount} НПП · Кнпп {view.knpp} · середній рейтинг{' '}
-          {Math.round(view.averageRating)}
+        <p className="mt-1 inline-flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
+          {view.year} рік · {view.headcount} НПП ·{' '}
+          <span className="inline-flex items-center gap-1">
+            відповідають ліцензійним умовам: {view.knpp}
+            <StakeTermHint term="knpp" />
+          </span>
+          · середній рейтинг {Math.round(view.averageRating)}
           {view.kstHundredths !== null &&
-            ` · мінімальний Кст ${formatStake(view.minimumKstHundredths)}`}
+            ` · мінімальний пул ${formatStake(view.minimumKstHundredths)}`}
         </p>
       </div>
 
@@ -77,9 +82,9 @@ export default async function DepartmentStakesPage({
           otherwise it looks like an arithmetic bug the first time it is seen. */}
       {view.kstHundredths !== null && view.computable && (
         <p className="max-w-3xl text-xs text-muted-foreground">
-          Формула розподіляє пул пропорційно рейтингу, але її сума майже ніколи не дорівнює Кст — це
-          властивість формули, а не помилка. Різницю закриває завідувач вручну, вказуючи
-          обґрунтування. Бонус за залучених здобувачів виплачується понад Кст і не входить до пулу.
+          Формула пропонує, скільки дати кожному — пропорційно до рейтингу. Її сума майже ніколи не
+          дорівнює пулу: це властивість формули, а не помилка. Різницю закриває завідувач вручну,
+          вказуючи обґрунтування. Бонус за залучених здобувачів виплачується понад пул.
         </p>
       )}
 

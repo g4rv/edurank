@@ -8,6 +8,7 @@ import { formatStake, fromHundredths } from '@/lib/stake/units';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { StakeValueForm } from '@/components/admin/stake-value-form';
+import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { setDepartmentStake, setStakeYearSettings } from './actions';
 import { cn } from '@/lib/utils';
 
@@ -84,9 +85,10 @@ export default async function StakeSettingsPage() {
         <div>
           <h2 className="text-sm font-semibold">Кст — пул ставок по кафедрах</h2>
           <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
-            Пул, який завідувач розподіляє між НПП кафедри. Мінімум — 0,10 на кожного НПП: пул,
-            менший за це, не покриє мінімальну ставку для всіх, тому його не можна зберегти. Кнпп
-            впливає лише на формулу і не обмежує пул.
+            <strong>Кст</strong> — пул ставок, який завідувач кафедри розподіляє між своїми НПП.
+            Мінімум — 0,10 на кожного НПП: менший пул не покриє мінімальну ставку для всіх, тому
+            його не можна зберегти. <strong>Кнпп</strong> — скільки НПП відповідають ліцензійним
+            умовам (4+ позиції з 20); це лише дільник у формулі, ставку отримують усі.
           </p>
         </div>
 
@@ -111,13 +113,19 @@ export default async function StakeSettingsPage() {
                   НПП
                 </th>
                 <th className="w-20 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
-                  Кнпп
+                  <span className="inline-flex items-center gap-1">
+                    Кнпп
+                    <StakeTermHint term="knpp" />
+                  </span>
                 </th>
                 <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
                   Мінімум
                 </th>
                 <th className="w-64 border border-border px-3 py-2 font-medium text-muted-foreground">
-                  Кст
+                  <span className="inline-flex items-center gap-1">
+                    Кст
+                    <StakeTermHint term="kst" />
+                  </span>
                 </th>
                 <th className="w-40 border border-border px-3 py-2 font-medium text-muted-foreground">
                   Розподіл
