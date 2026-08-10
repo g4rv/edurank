@@ -94,9 +94,28 @@ export function DistributionGrid({
     setError(null);
   }
 
+  /**
+   * Back to what the formula proposes, and SAVED.
+   *
+   * Two things this has to do beyond setting the numbers, both of which it
+   * missed before:
+   *
+   * - **Clear the justifications.** Every row now matches the formula, so
+   *   there is nothing left to justify — and додаток 2 carrying «asd» against a
+   *   row that agrees with the formula is a document contradicting itself.
+   * - **Write it.** There is no save button any more; every other edit is
+   *   written when a field is left, and this one has no field to leave. A reset
+   *   that only changed the screen looked identical to a saved one until the
+   *   page was reloaded and the old numbers came back.
+   */
   function reset() {
-    setValues(Object.fromEntries(view.rows.map((r) => [r.staffId, r.formulaHundredths])));
+    const values = Object.fromEntries(view.rows.map((r) => [r.staffId, r.formulaHundredths]));
+    setValues(values);
+    setJustifications(Object.fromEntries(view.rows.map((r) => [r.staffId, ''])));
     setError(null);
+    // Saved from the values just computed, not from state — a setState is not
+    // visible to the call that follows it.
+    save(values, {});
   }
 
   /**
@@ -129,8 +148,8 @@ export function DistributionGrid({
    * of the move if rows saved on their own. So a change is kept locally until
    * the grid as a whole is valid, and then written.
    */
-  function saveOnBlur() {
-    if (!canEdit || !dirty || blockedBy) return;
+  function save(nextValues: Record<string, number>, nextJustifications: Record<string, string>) {
+    if (!canEdit) return;
     setError(null);
     startTransition(async () => {
       const result = await saveDistribution({
@@ -138,8 +157,8 @@ export function DistributionGrid({
         year: view.year,
         allocations: view.rows.map((r) => ({
           staffId: r.staffId,
-          hundredths: values[r.staffId],
-          justification: justifications[r.staffId]?.trim() || null,
+          hundredths: nextValues[r.staffId],
+          justification: nextJustifications[r.staffId]?.trim() || null,
         })),
       });
       if (result && 'error' in result) setError(result.error);
@@ -148,6 +167,11 @@ export function DistributionGrid({
         toast.success('Збережено');
       }
     });
+  }
+
+  function saveOnBlur() {
+    if (!dirty || blockedBy) return;
+    save(values, justifications);
   }
 
   return (

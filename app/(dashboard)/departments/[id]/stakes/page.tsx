@@ -88,7 +88,20 @@ export default async function DepartmentStakesPage({
         </p>
       )}
 
+      {/* The key forces the grid to re-read the server's numbers whenever they
+          change. The grid keeps the typed values in local state, seeded once
+          from `view` — so after ADMIN saves a cap and the route refreshes, «За
+          формулою» updated while «Розподілено» and «Нерозподілено» went on
+          showing the old totals. Raising a cap from 1,50 to 1,80 moved the
+          formula from 12,35 to 12,65 and left «нерозподілено» at 3,65, which is
+          simply a wrong number on screen.
+
+          Remounting is the fix rather than an effect that syncs state: the
+          bounds have moved, so every derived figure has to be recomputed, and
+          «keep what the user typed unless it conflicts» is a rule with more
+          edge cases than the thing it saves. */}
       <DistributionGrid
+        key={stateKey(view)}
         view={view}
         canEdit={heads}
         canEditLimits={isAdmin}
@@ -96,4 +109,23 @@ export default async function DepartmentStakesPage({
       />
     </AnimatedPage>
   );
+}
+
+/**
+ * Everything on the screen that the SERVER decides, as one string.
+ *
+ * Used as the grid's React key, so the grid remounts — and re-seeds its local
+ * state — exactly when one of these changes, and not on every render. The
+ * allocation is in here too: after a save the route refreshes, and without it
+ * the grid would keep its own copy of numbers the server has since rewritten.
+ */
+function stateKey(view: NonNullable<Awaited<ReturnType<typeof getStakeDistribution>>>): string {
+  return [
+    view.kstHundredths,
+    ...view.rows.map((r) =>
+      [r.staffId, r.formulaHundredths, r.proposedHundredths, r.minHundredths, r.maxHundredths].join(
+        ':'
+      )
+    ),
+  ].join('|');
 }
