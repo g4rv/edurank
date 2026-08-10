@@ -6,6 +6,7 @@ import { getKharakterystyka } from '@/lib/queries/get-kharakterystyka';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { KharakterystykaTable } from '@/components/kharakterystyka/kharakterystyka-table';
 import { MyRatingTabs } from '@/components/kharakterystyka/my-rating-tabs';
+import { DownloadButton } from '@/components/ui/download-button';
 
 /**
  * The НПП's own Характеристика.
@@ -46,12 +47,19 @@ export default async function MyKharakterystykaPage() {
 
   return (
     <AnimatedPage className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Моя характеристика</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Рівень наукової та професійної активності за {data.from}–{data.to} рр. Заповнюється
-          автоматично з ваших досягнень.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Моя характеристика</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Рівень наукової та професійної активності за {data.from}–{data.to} рр. Заповнюється
+            автоматично з ваших досягнень.
+          </p>
+        </div>
+        <DownloadButton
+          href={`/api/export/kharakterystyka?year=${template.year}&staffId=${staffId}`}
+          label="Завантажити (Excel)"
+          title="Характеристика_РНПАВ у форматі документа"
+        />
       </div>
 
       <MyRatingTabs active="kharakterystyka" />

@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import { SECTION_TITLES, type RatingDivisionKey } from '@/lib/rating/activity-types';
+import { personFileNames } from '@/lib/export/file-names';
 
 // Replicates the official per-teacher rating workbook
 // (edu-reference/Фінансів/Таблиці_Викладачів/*.xlsx): columns
@@ -47,24 +48,12 @@ export interface ExportStaffData {
   activities: ExportActivity[];
 }
 
-/** Characters Windows refuses in a filename */
-const FORBIDDEN_FILENAME_CHARS = /[\\/:*?"<>|]/g;
-
 /**
  * One .xlsx filename per staff member, in the same order as the input.
- * Two people can share a ПІБ, and a zip keyed by name alone would silently
- * keep only the last of them — repeats therefore get a numeric suffix.
+ * Thin wrapper over the shared helper, which the Характеристика export uses too.
  */
 export function ratingFileNames(fullNames: string[]): string[] {
-  const usedCount = new Map<string, number>();
-
-  return fullNames.map((fullName) => {
-    const safe = fullName.replace(FORBIDDEN_FILENAME_CHARS, ' ').replace(/\s+/g, ' ').trim();
-    const base = safe || 'Без імені';
-    const seen = (usedCount.get(base) ?? 0) + 1;
-    usedCount.set(base, seen);
-    return seen === 1 ? `${base}.xlsx` : `${base} (${seen}).xlsx`;
-  });
+  return personFileNames(fullNames);
 }
 
 /** The select whose options become sub-rows (role `option` or moodle `mode`) */

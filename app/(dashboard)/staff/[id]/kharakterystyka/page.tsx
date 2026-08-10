@@ -9,6 +9,7 @@ import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StaffTabs } from '@/components/staff/staff-tabs';
 import { KharakterystykaTable } from '@/components/kharakterystyka/kharakterystyka-table';
+import { DownloadButton } from '@/components/ui/download-button';
 
 /**
  * «Характеристика рівня наукової та професійної активності викладача» — п.38 of
@@ -72,13 +73,20 @@ export default async function StaffKharakterystykaPage({
         {back.label}
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-semibold">
-          {staff.lastName} {staff.firstName} {staff.patronymic}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Характеристика рівня наукової та професійної активності — {data.from}–{data.to} рр.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">
+            {staff.lastName} {staff.firstName} {staff.patronymic}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Характеристика рівня наукової та професійної активності — {data.from}–{data.to} рр.
+          </p>
+        </div>
+        <DownloadButton
+          href={`/api/export/kharakterystyka?year=${template.year}&staffId=${id}`}
+          label="Завантажити (Excel)"
+          title="Характеристика_РНПАВ у форматі документа"
+        />
       </div>
 
       <StaffTabs staffId={id} active="kharakterystyka" showRating showStaffPages={seesStaffPages} />

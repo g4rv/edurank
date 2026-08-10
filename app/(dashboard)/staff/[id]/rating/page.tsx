@@ -10,6 +10,7 @@ import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingTable } from '@/components/rating/rating-table';
 import { StaffTabs } from '@/components/staff/staff-tabs';
+import { DownloadButton } from '@/components/ui/download-button';
 
 export default async function StaffRatingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -54,14 +55,21 @@ export default async function StaffRatingPage({ params }: { params: Promise<{ id
         Персонал
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-semibold">
-          {staff.lastName} {staff.firstName} {staff.patronymic}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Рейтинг — {template.year} рік
-          {template.status === 'CLOSED' && ' (рік закрито)'}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">
+            {staff.lastName} {staff.firstName} {staff.patronymic}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Рейтинг — {template.year} рік
+            {template.status === 'CLOSED' && ' (рік закрито)'}
+          </p>
+        </div>
+        <DownloadButton
+          href={`/api/export/ratings?year=${template.year}&staffId=${id}`}
+          label="Завантажити (Excel)"
+          title="Офіційна форма рейтингового оцінювання для цього НПП"
+        />
       </div>
 
       <StaffTabs staffId={id} active="rating" showRating />

@@ -99,12 +99,24 @@ export default async function MyDepartmentPage() {
                         {person.total}
                       </td>
                       <td className="border border-border px-3 py-2">
-                        <Link
-                          href={`/staff/${person.id}/kharakterystyka`}
-                          className="text-sm underline-offset-4 hover:underline"
-                        >
-                          Переглянути
-                        </Link>
+                        <div className="flex items-center gap-3 text-sm">
+                          <Link
+                            href={`/staff/${person.id}/kharakterystyka`}
+                            className="underline-offset-4 hover:underline"
+                          >
+                            Переглянути
+                          </Link>
+                          {template && (
+                            <a
+                              href={`/api/export/kharakterystyka?year=${template.year}&staffId=${person.id}`}
+                              download
+                              className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                              title="Завантажити Характеристику (Excel)"
+                            >
+                              Excel
+                            </a>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

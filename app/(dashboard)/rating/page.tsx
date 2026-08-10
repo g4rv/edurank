@@ -4,9 +4,8 @@ import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listRatings, type RatingSortField } from '@/lib/queries/list-ratings';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { listDepartments } from '@/lib/queries/list-departments';
-import { FileDown } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { Button } from '@/components/ui/button';
+import { DownloadButton } from '@/components/ui/download-button';
 import { RatingFilters } from '@/components/rating/rating-filters';
 import { SortTh } from '@/components/ui/sort-th';
 import { DataTable } from '@/components/ui/data-table';
@@ -97,12 +96,18 @@ export default async function RatingRollupPage({
             {template.status === 'CLOSED' && ' (рік закрито)'}
           </p>
         </div>
-        <Button asChild variant="outline">
-          <a href={`/api/export/ratings?year=${template.year}`} download>
-            <FileDown className="size-4" />
-            Завантажити архів (Excel)
-          </a>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <DownloadButton
+            href={`/api/export/ratings?year=${template.year}`}
+            label="Рейтинги (архів)"
+            title="Офіційна форма рейтингового оцінювання для кожного НПП"
+          />
+          <DownloadButton
+            href={`/api/export/kharakterystyka?year=${template.year}`}
+            label="Характеристики (архів)"
+            title="Характеристика_РНПАВ для кожного НПП за останні 5 років"
+          />
+        </div>
       </div>
 
       <RatingFilters
