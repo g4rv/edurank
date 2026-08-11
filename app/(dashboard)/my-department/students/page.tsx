@@ -55,6 +55,7 @@ export default async function DepartmentStudentsPage({
   if (!selected) redirect('/profile');
 
   const claims = await listClaimsForReview(selected.id, template.year);
+  const canSwitch = departments.length > 1;
 
   return (
     <AnimatedPage className="space-y-6">
@@ -68,20 +69,31 @@ export default async function DepartmentStudentsPage({
         </Link>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Whoever names the кафедра does it once. With the picker on screen the
+          heading printed the same words the select already showed, side by
+          side, and the control read as a stray duplicate label rather than
+          something to press. A head who has only one кафедра has no picker, so
+          for them the heading is the only place it can be said. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div>
-          <h1 className="text-2xl font-semibold">Залучені здобувачі — {selected.name}</h1>
+          <h1 className="text-2xl font-semibold">
+            Залучені здобувачі
+            {!canSwitch && ` — ${selected.name}`}
+          </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {template.year} рік · підтверджені заявки додають ставку понад виділені кафедрі
           </p>
         </div>
 
-        {departments.length > 1 && (
-          <DepartmentSelect
-            departments={departments}
-            value={selected.id}
-            basePath="/my-department/students"
-          />
+        {canSwitch && (
+          <div className="space-y-1">
+            <span className="block text-xs font-medium text-muted-foreground">Кафедра</span>
+            <DepartmentSelect
+              departments={departments}
+              value={selected.id}
+              basePath="/my-department/students"
+            />
+          </div>
         )}
       </div>
 
