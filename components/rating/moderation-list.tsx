@@ -19,6 +19,7 @@ import { DiscardActivityButton } from '@/components/rating/discard-activity-butt
 import { VerifyActivityButton } from '@/components/rating/verify-activity-button';
 import { SubmissionPanel } from '@/components/rating/submission-panel';
 import { compareItemNumbers } from '@/lib/rating/achievement-rows';
+import { sumScores } from '@/lib/round';
 
 export interface ModerationRow {
   id: string;
@@ -596,7 +597,7 @@ function GroupedView({
         // Inside a card the submissions read as the catalogue does: 1.1, 1.2, … 3.14
         items: [...items].sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber)),
         // Only counted rows add up — the total mirrors the rating
-        total: items.filter((i) => i.status === 'APPROVED').reduce((s, i) => s + i.score, 0),
+        total: sumScores(items.filter((i) => i.status === 'APPROVED').map((i) => i.score)),
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'uk'));
   }, [rows]);
@@ -618,7 +619,7 @@ function GroupedView({
                 )}
               </div>
               <span className="text-xs text-muted-foreground">{person.items.length} подань</span>
-              <span className="text-sm font-semibold tabular-nums">{round2(person.total)}</span>
+              <span className="text-sm font-semibold tabular-nums">{person.total}</span>
             </summary>
 
             <ul className="divide-y border-t">
@@ -770,8 +771,6 @@ function Pager({
     />
   );
 }
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Distinct non-empty values, alphabetical in Ukrainian — for the filter dropdowns */
 function uniqueSorted(values: string[]): string[] {

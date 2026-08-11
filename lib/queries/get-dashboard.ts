@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
+import { round2 } from '@/lib/round';
 
 // Everything the overview page draws, from three queries and arithmetic in JS.
 // At ~300 НПП the whole set fits in memory comfortably, and doing the maths here
@@ -118,18 +119,22 @@ export async function getDashboard(year: number): Promise<DashboardData> {
   const sectionTotals = [1, 2, 3, 4, 5].map((section) => ({
     section,
     title: SECTION_TITLES[section],
-    total: npp.reduce((acc, s) => {
-      const entry = s.ratingEntries[0];
-      if (!entry) return acc;
-      const scores = [
-        entry.section1Score,
-        entry.section2Score,
-        entry.section3Score,
-        entry.section4Score,
-        entry.section5Score,
-      ];
-      return acc + scores[section - 1];
-    }, 0),
+    // Rounded once at the end — a few hundred stored 2-decimal scores added
+    // together still drift, and this figure goes straight onto a chart label.
+    total: round2(
+      npp.reduce((acc, s) => {
+        const entry = s.ratingEntries[0];
+        if (!entry) return acc;
+        const scores = [
+          entry.section1Score,
+          entry.section2Score,
+          entry.section3Score,
+          entry.section4Score,
+          entry.section5Score,
+        ];
+        return acc + scores[section - 1];
+      }, 0)
+    ),
   }));
 
   // Один прохід по НПП: скільки їх на кафедрі і скільки балів разом
@@ -151,7 +156,8 @@ export async function getDashboard(year: number): Promise<DashboardData> {
           name: department.name,
           faculty: faculty.name,
           nppCount: bucket?.count ?? 0,
-          average: bucket && bucket.count > 0 ? bucket.sum / bucket.count : 0,
+          // A division rarely lands on two decimals by itself
+          average: bucket && bucket.count > 0 ? round2(bucket.sum / bucket.count) : 0,
         };
       })
     )

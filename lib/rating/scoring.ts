@@ -11,6 +11,7 @@
 
 import type { ActivityKind } from './activity-types';
 import type { EvidenceField } from './evidence-fields';
+import { round2 } from '@/lib/round';
 
 export interface ScoreResult {
   computedValue: number;
@@ -43,10 +44,6 @@ const SCORING_KINDS = new Set<string>([
   'SELECT_MULT',
   'CHECK_SUM',
 ] satisfies ActivityKind[]);
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
 
 function asRecord(evidence: unknown, code: string): Record<string, unknown> {
   if (typeof evidence !== 'object' || evidence === null || Array.isArray(evidence)) {

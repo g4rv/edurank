@@ -38,6 +38,7 @@ import {
 import type { ScoringSpec } from '@/lib/rating/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { cn } from '@/lib/utils';
+import { sumScores } from '@/lib/round';
 
 export interface EntryGridType {
   id: string;
@@ -282,7 +283,9 @@ function EntryCell({
   // `null` = the list; a cell = editing that one; 'new' = adding another
   const [editing, setEditing] = useState<EntryGridCell | 'new' | null>(null);
 
-  const total = entries.reduce((sum, e) => sum + e.score, 0);
+  // Rounded for the same reason as the rating table's subtotals: this is
+  // summed on every render, so rounding the stored scores never reached it.
+  const total = sumScores(entries.map((e) => e.score));
   const many = entries.length > 1;
 
   const valueButton = (

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { sumScores } from '@/lib/round';
 import type { AchievementGroup } from '@/components/rating/achievements-list';
 
 const STATUS_STYLES = {
@@ -28,9 +29,15 @@ function whoFills(row: { inputSource?: string; division?: string | null }): stri
   }
 }
 
-/** Only APPROVED items count toward totals */
+/**
+ * Only APPROVED items count toward totals.
+ *
+ * Rounded here, not only in the database. These subtotals are added up fresh on
+ * every render, so the stored-value fix never reached them — «404,17 + 480»
+ * printed as 884,1700000000001 in the Розділ 2 row.
+ */
 function sectionTotal(group: AchievementGroup): number {
-  return group.items.filter((i) => i.status === 'APPROVED').reduce((sum, i) => sum + i.score, 0);
+  return sumScores(group.items.filter((i) => i.status === 'APPROVED').map((i) => i.score));
 }
 
 const cell = 'border border-border px-3 py-2';
@@ -41,7 +48,7 @@ const cell = 'border border-border px-3 py-2';
  * `groups` should include every section (even empty ones) for the complete picture.
  */
 export function RatingTable({ groups }: { groups: AchievementGroup[] }) {
-  const grandTotal = groups.reduce((sum, g) => sum + sectionTotal(g), 0);
+  const grandTotal = sumScores(groups.map(sectionTotal));
 
   return (
     <div className="overflow-x-auto rounded-xl border bg-card">

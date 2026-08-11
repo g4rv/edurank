@@ -1,4 +1,5 @@
 import type { Prisma } from '@/lib/generated/prisma/client';
+import { round2 } from '@/lib/round';
 
 // Rolls approved activity scores up into the cached RatingEntry for one staff/year.
 // Called inside the same transaction as the mutation that changed the activities
@@ -25,10 +26,6 @@ export interface SectionTotals {
  * the DB only ever holds clean 2-decimal values — the fix is on the stored value,
  * not the display.
  */
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
 /** Pure rollup: sums scores into the five section buckets (unknown sections are ignored) */
 export function sumBySection(rows: SectionScoreRow[]): SectionTotals {
   const sections = [0, 0, 0, 0, 0];

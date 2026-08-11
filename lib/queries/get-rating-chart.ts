@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
+import { round2 } from '@/lib/round';
 
 // The two datasets behind the PDF charts. Both read RatingEntry, which already
 // holds the per-section scores, so neither needs to touch Activity.
@@ -148,8 +149,6 @@ export async function getDepartmentStaffChart(
       .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'uk')),
   };
 }
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export interface ReportStaff {
   name: string;
