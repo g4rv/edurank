@@ -10,16 +10,25 @@
 // number (.03), which is the rule this file encodes and the reason a legacy
 // code is worth keeping beside the new one rather than being thrown away.
 //
-// Sub-numbers come from:
-//   наказ МОН № 260 від 2024-03-04 (z0405-24) — 014.xx and 015.xx
-//   https://zakon.rada.gov.ua/laws/show/z0405-24
+// The A4.xx and A5.xx sub-codes are the law's own, not a convention of ours:
+//
+//   наказ МОН № 192 від 2025-02-12 (z0322-25)
+//   https://zakon.rada.gov.ua/laws/show/z0322-25
+//
+// Every code below was checked against that наказ, and each one it lists agrees.
+// It also settles the two things guesswork would have got wrong: the five 015
+// спеціалізації really are gone (A5 runs .31–.39 and no further), and A4.02
+// really does exist in its own right rather than only as the parent of the
+// per-language codes — see LANGUAGE_SPECIALISATIONS.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// NOT YET CONFIRMED BY THE UNIVERSITY. Every row below was read off the two
-// laws above and matched to our own speciality names by hand. The names in
-// `SPECIALITY_NORMS_2026` are the university's, not the law's, and five of them
-// no longer have an equivalent at all (see `note`). Have somebody check this
-// table once before it appears on a printed document.
+// The CODES are confirmed. The MATCHING is not: the left-hand names are the
+// university's, from `SPECIALITY_NORMS_2026`, and they are not the law's words.
+// The law calls A4.03 «Історія та громадянська освіта», A4.10 «Технології» and
+// A4.12 «Мистецтво. Образотворче мистецтво», where додаток 5 says «історія»,
+// «трудове навчання і технології» and «образотворче мистецтво». Those are the
+// same speciality under a different name — but somebody who knows the кафедри
+// should confirm that once before a code reaches a printed document.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Галузь знань — the letter that starts every code */
@@ -38,6 +47,29 @@ export const KNOWLEDGE_BRANCHES = {
 } as const;
 
 export type BranchLetter = keyof typeof KNOWLEDGE_BRANCHES;
+
+/**
+ * A4.02's per-language спеціалізації, from наказ 192.
+ *
+ * Our own list has one row — «Середня освіта (іноземна мова і література)» —
+ * which maps to the parent A4.02, «Мова та зарубіжна література (із зазначенням
+ * мови)». That is correct and complete for a norm table, where every foreign
+ * language shares one норматив.
+ *
+ * It stops being enough the moment a code has to name WHICH language, which is
+ * what an official form asks for. Kept here so that day is a lookup rather than
+ * a return trip to the законодавство. Note 025 is absent from the наказ itself.
+ */
+export const LANGUAGE_SPECIALISATIONS = {
+  'A4.021': 'Англійська мова та зарубіжна література',
+  'A4.022': 'Німецька мова та зарубіжна література',
+  'A4.023': 'Французька мова та зарубіжна література',
+  'A4.024': 'Іспанська мова та зарубіжна література',
+  'A4.026': 'Угорська мова та зарубіжна література',
+  'A4.027': 'Румунська мова та зарубіжна література',
+  'A4.028': 'Польська мова та зарубіжна література',
+  'A4.029': 'Інші мови та зарубіжна література',
+} as const;
 
 export interface SpecialityCodes {
   /** Постанова 1021-2024, e.g. «A4.03». Null where nothing maps — see `note` */
@@ -70,6 +102,8 @@ export const SPECIALITY_CODES: Readonly<Record<string, SpecialityCodes>> = {
   // from the numeric перелік, which is what makes «A4.03» readable to anybody
   // who knew «014.03».
   'Середня освіта (українська мова і література)': { code: 'A4.01', legacy: '014.01' },
+  // The parent code. A form naming the language wants A4.021…A4.029 instead —
+  // see LANGUAGE_SPECIALISATIONS.
   'Середня освіта (іноземна мова і література)': { code: 'A4.02', legacy: '014.02' },
   'Середня освіта (історія)': { code: 'A4.03', legacy: '014.03' },
   'Середня освіта (математика)': { code: 'A4.04', legacy: '014.04' },

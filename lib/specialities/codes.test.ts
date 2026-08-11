@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SPECIALITY_NORMS_2026 } from '@/lib/stake/norms';
 import {
   KNOWLEDGE_BRANCHES,
+  LANGUAGE_SPECIALISATIONS,
   SPECIALITY_CODES,
   baseCode,
   branchOf,
@@ -61,6 +62,43 @@ describe('codes are well formed', () => {
 
   it('branch letters are the eleven of постанова 1021', () => {
     expect(Object.keys(KNOWLEDGE_BRANCHES)).toHaveLength(11);
+  });
+
+  // Checked line by line against наказ МОН 192 (z0322-25). Pinned because these
+  // are the law's own numbers: if one changes here, it changed by accident.
+  it('matches наказ 192 on every A4 code we carry', () => {
+    const expected: Record<string, string> = {
+      'Середня освіта (українська мова і література)': 'A4.01',
+      'Середня освіта (іноземна мова і література)': 'A4.02',
+      'Середня освіта (історія)': 'A4.03',
+      'Середня освіта (математика)': 'A4.04',
+      'Середня освіта (біологія та здоров’я людини)': 'A4.05',
+      'Середня освіта (географія)': 'A4.07',
+      'Середня освіта (інформатика)': 'A4.09',
+      'Середня освіта (трудове навчання і технології)': 'A4.10',
+      'Середня освіта (фізична культура)': 'A4.11',
+      'Середня освіта (образотворче мистецтво)': 'A4.12',
+      'Середня освіта (музичне мистецтво)': 'A4.13',
+      'Середня освіта (природничі науки)': 'A4.15',
+      'Середня освіта (захист України)': 'A4.16',
+    };
+    for (const [name, code] of Object.entries(expected)) {
+      expect(SPECIALITY_CODES[name]?.code, name).toBe(code);
+    }
+  });
+
+  // A5 runs .31–.39 and no further, which is why the other five are unmapped
+  it('carries only the two A5 спеціалізації that наказ 192 still lists', () => {
+    const a5 = Object.entries(SPECIALITY_CODES)
+      .filter(([, e]) => e.code?.startsWith('A5'))
+      .map(([, e]) => e.code);
+    expect(a5.sort()).toEqual(['A5.38', 'A5.39']);
+  });
+
+  it('knows the per-language codes under A4.02', () => {
+    expect(LANGUAGE_SPECIALISATIONS['A4.021']).toContain('Англійська');
+    // 025 is absent from the наказ — a gap in the law, not in this table
+    expect(Object.keys(LANGUAGE_SPECIALISATIONS)).not.toContain('A4.025');
   });
 });
 
