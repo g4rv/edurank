@@ -15,15 +15,23 @@ const STATUS_STYLES = {
  * НПП who sees a wrong number, or none, can do exactly one useful thing about
  * it — ask the people who enter it — and the generic word did not tell them
  * who those people are.
+ *
+ * Worded for both readers. This table is the НПП's own rating AND what an
+ * editor opens on /staff/[id]/rating, so the second person was addressing the
+ * wrong one half the time: an editor reading «Подаєте самостійно» about
+ * somebody else's row is being told they submit it.
  */
 function whoFills(row: { inputSource?: string; division?: string | null }): string {
   switch (row.inputSource) {
     case 'NPP_SUBMISSION':
-      return 'Подаєте самостійно';
+      return 'Самостійне подання';
     case 'PROFILE_DERIVED':
       return 'З профілю';
     case 'DIVISION_MANAGED':
-      return row.division ? `Вносить ${row.division}` : 'Вносить відділ';
+      // The name alone. In a column that answers «звідки це число» the verb was
+      // repeated on every division row and carried nothing the heading and the
+      // other two values did not already imply.
+      return row.division ?? 'Відділ';
     default:
       return '—';
   }
@@ -118,36 +126,30 @@ function SectionRows({ group }: { group: AchievementGroup }) {
                 </p>
               )}
             </td>
+            {/* One question for every row: where does this number come from.
+                It used to be answered only on empty rows, so once «Зараховано»
+                stopped being printed a filled row had an empty cell — «Науково-
+                педагогічний стаж 26» with nothing beside it. Whether a row is
+                filled has never been what this column is for; the score says
+                that. Who to ask about it is the same on both. */}
             <td className={cn(cell, 'align-top')}>
-              {/* An empty row has no status to report — the hint says whose job
-                  it is instead, which is the useful thing at that moment. */}
-              {item.isEmpty ? (
-                <span className="text-xs whitespace-nowrap">{whoFills(item)}</span>
-              ) : (
-                // «Зараховано» is the ordinary case — almost every filled row
-                // has it, and a badge repeated down the whole column tells the
-                // reader nothing while making the one «Відхилено» hard to spot.
-                // The score in Бали already says the row counts. Only a status
-                // worth reacting to is printed. The moderation page keeps the
-                // full set, because sorting and filtering by state is its job.
-                item.status !== 'APPROVED' && (
-                  <span
-                    className={cn(
-                      'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
-                      STATUS_STYLES[item.status]
-                    )}
-                  >
-                    {item.statusLabel}
-                  </span>
-                )
+              {/* Only a state worth reacting to. «Зараховано» sat on nearly
+                  every row, told the reader nothing, and buried the rare
+                  «Відхилено» among identical pills. /moderation keeps the full
+                  set — filtering by state is that page's job. */}
+              {item.status !== 'APPROVED' && (
+                <span
+                  className={cn(
+                    'mb-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+                    STATUS_STYLES[item.status]
+                  )}
+                >
+                  {item.statusLabel}
+                </span>
               )}
-              {/* Named on a filled row too: «this number is wrong» needs an
-                  addressee just as much as «this row is empty» does. */}
-              {!item.isEmpty && item.inputSource === 'DIVISION_MANAGED' && item.division && (
-                <p className="mt-0.5 text-xs whitespace-nowrap text-muted-foreground">
-                  {item.division}
-                </p>
-              )}
+              <span className="block text-xs whitespace-nowrap text-muted-foreground">
+                {whoFills(item)}
+              </span>
             </td>
             <td
               className={cn(
