@@ -93,6 +93,19 @@ describe('formatSpeciality', () => {
     expect(formatSpeciality(history, 'both')).toBe('014.03 / A4.03');
   });
 
+  // The surviving 015 спеціалізації have a real legacy code and must show it
+  it('shows both codes for a Професійна освіта row that survived 2024', () => {
+    expect(formatSpeciality('Професійна освіта (транспорт)', 'both')).toBe('015.38 / A5.38');
+    expect(formatSpeciality('Професійна освіта (цифрові технології)', 'both')).toBe(
+      '015.39 / A5.39'
+    );
+  });
+
+  // …while a merged one has nothing to pair, and must not print «015 / —»
+  it('shows the bare legacy code where the спеціалізація was merged away', () => {
+    expect(formatSpeciality('Професійна освіта (товарознавство)', 'both')).toBe('015');
+  });
+
   it('falls back to the name where nothing maps, never to an empty cell', () => {
     const merged = 'Професійна освіта (охорона праці)';
     expect(formatSpeciality(merged, 'full')).toBe(merged);

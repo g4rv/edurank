@@ -188,7 +188,11 @@ export function formatSpeciality(name: string, style: CodeStyle = 'name'): strin
     }
     case 'both': {
       const legacy = codes?.legacy;
-      if (code && legacy && !legacy.startsWith('015')) return `${legacy} / ${code}`;
+      // A row with no new code falls through to its legacy one on its own —
+      // `code &&` is the whole guard. An earlier extra test for «015» was meant
+      // to stop the five merged спеціалізації printing «015 / —» and instead
+      // only ever hid the legacy code of the two that survived.
+      if (code && legacy) return `${legacy} / ${code}`;
       return code ?? legacy ?? name;
     }
   }
