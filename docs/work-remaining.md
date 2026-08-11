@@ -274,12 +274,47 @@ The owner's words: not intuitive, and not all data visible as intended.
   than a table rule. They are now separate jobs — `--input` is the lightest grey
   reaching 3.0 (measured 3.03 light, 3.57 dark), `--border` rises only enough to
   be seen. Values solved by binary search against real paint.
-- ~~**Wanted: a test page**~~ **DONE 2026-08-10 — awaiting the owner's pick.**
-  `/admin/design` renders the same sample under five candidates (Поточний,
-  Теплий, Прохолодний, Чіткіший, М'якший) side by side, in both themes, each
-  carrying its measured contrast so a failing candidate is visible as failing.
-  All five stay inside the monochrome direction; none introduces a brand hue.
-  **Nothing is applied until the owner chooses.**
+- ~~**Wanted: a test page**~~ **DONE — and the direction is now CHOSEN.**
+  `/admin/design` renders the same screen («Розподіл ставок») on one shared
+  sample under every candidate. It began as five palette swaps, which the owner
+  rejected twice — correctly, since token variation can only ever produce token
+  variation, and three print-era directions (Відомість / Кафедра / Пульт) were
+  rejected too and are deleted. See **A6a**.
+
+### A6a. «Аврора» — the chosen design, applied LAST — decided 2026-08-11
+
+The owner picked **Аврора** (`components/admin/concepts-glass.tsx`) and set the
+order explicitly: **finish the functional work and all required features first,
+then move the app onto this design.** It is a target, not the next task. Do not
+start converting screens because a design page exists.
+
+What Аврора is, so it can be rebuilt from this file alone:
+
+- **Glass over a Stripe wash.** Five radial colour blooms (blue `#4472C4`,
+  violet `#7C5CD6`, teal `#2BB3A3`) at 24–34px blur — two of them low down,
+  because a panel with no light behind it reads as grey plastic, not glass.
+- **Fractal-noise grain at 3.5 %** over the whole wash. Not decoration: screens
+  quantise a slow colour ramp into visible bands and the grain hides the steps.
+- **Frosted planes.** White at 72 %, `blur(24px) saturate(1.6)`, a specular
+  hairline along the top edge, and a shadow that is tight and wide at once.
+- **The accent stays #4472C4** — the blue already in the university's circulated
+  Word reports — so screen, print and PDF stay one system.
+- **Type: Manrope**, Cyrillic-first.
+- Composition: fund **ring** left (blue arc = distributed, pale amber = the
+  overspend past the fund), three sparkline figures right, roster below with
+  gradient avatars and inline rating bars.
+
+Consequences to plan for when the time comes:
+
+- `--radius`, `--border`, `--input` and the surface tokens in `app/globals.css`
+  all change; the fonts move from the preview page into `app/layout.tsx`.
+- **CLAUDE.md's «polished SaaS feel» line and the strict monochrome rule get
+  rewritten** — Аврора uses a blue→violet gradient on avatars and bars, which
+  the current rule forbids outside charts and status pills.
+- `backdrop-filter` needs checking on the weakest laptop in the department
+  before this ships. There is no fallback in the concept yet.
+- The other concepts (Кристал, Панель, Скло, Ніч, Бенто) stay on the page only
+  as reference and can be deleted with it.
 
 ### A7a. Who fills the division-managed indicators — **deferred 2026-08-10**
 
