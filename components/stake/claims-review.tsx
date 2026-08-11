@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatBonus } from '@/lib/stake/units';
+import { formatSpeciality, specialityCodeSortKey } from '@/lib/specialities/codes';
 import { cn } from '@/lib/utils';
 import type { ReviewClaim } from '@/lib/queries/list-student-claims';
 import { decideStudentClaim } from '@/app/(dashboard)/my-department/students/actions';
@@ -14,12 +15,13 @@ const DEGREE = { BACHELOR: 'Бакалавр', MASTER: 'Магістр' } as con
 const FORM = { FULL_TIME: 'Денна', PART_TIME: 'Заочна' } as const;
 const FUNDING = { STATE: 'Бюджет', CONTRACT: 'Контракт' } as const;
 
-/** Columns the head can order by; «Спеціальність» and «Рішення» are not useful */
-type SortKey = 'student' | 'claimant' | 'value' | 'date';
+/** Every column except «Рішення», which has no order worth putting rows in */
+type SortKey = 'student' | 'claimant' | 'speciality' | 'value' | 'date';
 
 const SORT_LABEL: Record<SortKey, string> = {
   student: 'Здобувач',
   claimant: 'Хто вказав',
+  speciality: 'Спеціальність',
   value: 'Ставка',
   date: 'Подано',
 };
@@ -63,6 +65,16 @@ export function ClaimsReview({ claims, year }: { claims: ReviewClaim[]; year: nu
           return dir * a.studentName.localeCompare(b.studentName, 'uk');
         case 'claimant':
           return dir * a.claimedBy.localeCompare(b.claimedBy, 'uk');
+        // By CODE, not alphabetically: the перелік's own order groups A4.01…
+        // A4.16 together, which is what somebody scanning for «усі Середні
+        // освіти» is actually looking for. Ties fall back to the name.
+        case 'speciality':
+          return (
+            dir *
+            (specialityCodeSortKey(a.speciality).localeCompare(
+              specialityCodeSortKey(b.speciality)
+            ) || a.speciality.localeCompare(b.speciality, 'uk'))
+          );
         case 'value':
           return dir * (a.value - b.value);
         case 'date':
@@ -116,9 +128,7 @@ export function ClaimsReview({ claims, year }: { claims: ReviewClaim[]; year: nu
             <tr className="bg-muted/60 text-left">
               <SortableHead sortKey="student" sort={sort} onToggle={toggle} />
               <SortableHead sortKey="claimant" sort={sort} onToggle={toggle} />
-              <th className="border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
-                Спеціальність
-              </th>
+              <SortableHead sortKey="speciality" sort={sort} onToggle={toggle} />
               <SortableHead
                 sortKey="value"
                 sort={sort}
@@ -251,8 +261,13 @@ function ClaimRow({ claim }: { claim: ReviewClaim }) {
         )}
       </td>
 
+      {/* «compact» because this column is narrow and thirteen of our
+          specialities begin with the same two words. The style is the only
+          thing to change if a fuller form reads better here. */}
       <td className="border border-border px-3 py-2 text-xs text-muted-foreground">
-        {claim.speciality}
+        <span className="text-foreground" title={claim.speciality}>
+          {formatSpeciality(claim.speciality, 'compact')}
+        </span>
         <span className="block">
           {DEGREE[claim.degree]} · {FORM[claim.form]} · {FUNDING[claim.funding]}
         </span>
