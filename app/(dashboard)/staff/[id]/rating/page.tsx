@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
 import { listStaffActivities } from '@/lib/queries/list-activities';
+import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
 import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-rows';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingTable } from '@/components/rating/rating-table';
@@ -41,9 +42,23 @@ export default async function StaffRatingPage({ params }: { params: Promise<{ id
     template.status === 'CLOSED'
       ? snapshotToGroups((await getRatingEntry(id, template.year))?.snapshot)
       : null;
+  // The same whole-rating view the НПП gets of themselves. Without the
+  // catalogue this table listed only the indicators already filled, so an
+  // editor could not tell «this person has nothing under 3.7» from «3.7 does
+  // not exist» — and the two people looking at one rating saw different tables.
+  //
+  // Open years only. A closed year renders from its snapshot, which is frozen
+  // history: «could still be filled» is not a thing to say about it.
+  const catalogue = snapshotGroups ? undefined : await listTemplateIndicators(template.year);
+
   const groups =
     snapshotGroups ??
-    toAchievementGroups(await listStaffActivities(id, template.year), [1, 2, 3, 4, 5]);
+    toAchievementGroups(
+      await listStaffActivities(id, template.year),
+      [1, 2, 3, 4, 5],
+      false,
+      catalogue
+    );
 
   return (
     <AnimatedPage className="space-y-6">
