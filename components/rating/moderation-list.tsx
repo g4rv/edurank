@@ -439,18 +439,34 @@ function TableView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <DataTable fill>
+      {/* `table-fixed` is what stops the overflow. On auto layout the widest
+          «Показник» label sets the column's width, the table grows past its
+          container, and everything after it — бали, статус, and both action
+          buttons — ends up off screen behind a horizontal scrollbar. Fixed
+          layout makes the declared widths binding and the long label wrap
+          instead. Every column is sized except «Показник», which takes whatever
+          is left. */}
+      {/* The floor matters as much as the fixed layout. The seven sized columns
+          come to ~61rem; without a minimum, a 1280px laptop leaves «Показник»
+          about one character wide and the label wraps a letter per line. Below
+          this width the wrapper scrolls sideways instead — a scrollbar is a far
+          smaller price than an unreadable column. */}
+      <DataTable fill className="min-w-[78rem] table-fixed">
         <thead>
           <tr className="border-b bg-muted/40">
-            <Th label="ПІБ" k="name" sort={sort} onSort={toggleSort} />
-            <Th label="Кафедра" k="department" sort={sort} onSort={toggleSort} />
+            {/* Wide enough for «Прізвище Ім'я По-батькові» on two lines; at the
+                old width every Ukrainian full name wrapped onto three. */}
+            <Th label="ПІБ" k="name" sort={sort} onSort={toggleSort} className="w-56" />
+            <Th label="Кафедра" k="department" sort={sort} onSort={toggleSort} className="w-36" />
+            {/* Sized for the heading and its sort arrow, not for the one digit
+                underneath — «Розділ» clipped to «Розд» at w-16. */}
             <Th
               label="Розділ"
               k="section"
               sort={sort}
               onSort={toggleSort}
               align="right"
-              className="w-20"
+              className="w-24"
             />
             <Th label="Показник" k="item" sort={sort} onSort={toggleSort} />
             <Th
@@ -461,22 +477,27 @@ function TableView({
               align="right"
               className="w-20"
             />
-            <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Статус</th>
-            <Th label="Дата" k="date" sort={sort} onSort={toggleSort} className="w-28" />
-            <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Дії</th>
+            <th className="w-28 px-3 py-2.5 text-left font-medium text-muted-foreground">Статус</th>
+            <Th label="Дата" k="date" sort={sort} onSort={toggleSort} className="w-24" />
+            {/* Two buttons with words on them — «Перевірити» and «Відхилити» */}
+            <th className="w-56 px-3 py-2.5 text-right font-medium text-muted-foreground">Дії</th>
           </tr>
         </thead>
         <tbody>
           {slice.map((row) => (
             <tr key={row.id} className="align-top transition-colors">
-              <td className="px-3 py-2.5 font-medium">{row.staffName}</td>
-              <td className="px-3 py-2.5 text-muted-foreground">{row.department || '—'}</td>
+              <td className="px-3 py-2.5 font-medium break-words hyphens-auto">{row.staffName}</td>
+              <td className="px-3 py-2.5 break-words text-muted-foreground">
+                {row.department || '—'}
+              </td>
               <td className="px-3 py-2.5 text-right text-muted-foreground tabular-nums">
                 {row.section}
               </td>
-              <td className="px-3 py-2.5">
+              <td className="px-3 py-2.5 break-words">
                 <span className="mr-1.5 text-muted-foreground tabular-nums">{row.itemNumber}</span>
                 {row.label}
+                {/* Truncation needs a bounded width to mean anything — under the
+                    old auto layout this line simply widened the whole table. */}
                 {row.summary && (
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                     {row.summary}
