@@ -124,14 +124,22 @@ function SectionRows({ group }: { group: AchievementGroup }) {
               {item.isEmpty ? (
                 <span className="text-xs whitespace-nowrap">{whoFills(item)}</span>
               ) : (
-                <span
-                  className={cn(
-                    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
-                    STATUS_STYLES[item.status]
-                  )}
-                >
-                  {item.statusLabel}
-                </span>
+                // «Зараховано» is the ordinary case — almost every filled row
+                // has it, and a badge repeated down the whole column tells the
+                // reader nothing while making the one «Відхилено» hard to spot.
+                // The score in Бали already says the row counts. Only a status
+                // worth reacting to is printed. The moderation page keeps the
+                // full set, because sorting and filtering by state is its job.
+                item.status !== 'APPROVED' && (
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+                      STATUS_STYLES[item.status]
+                    )}
+                  >
+                    {item.statusLabel}
+                  </span>
+                )
               )}
               {/* Named on a filled row too: «this number is wrong» needs an
                   addressee just as much as «this row is empty» does. */}

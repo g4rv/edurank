@@ -78,14 +78,19 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <span className="text-xs text-muted-foreground">{item.date}</span>
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        STATUS_STYLES[item.status]
-                      )}
-                    >
-                      {item.statusLabel}
-                    </span>
+                    {/* Same rule as the rating table: «Зараховано» on every row
+                        says nothing and buries the one «Відхилено», which is
+                        the only state an НПП has to do something about. */}
+                    {item.status !== 'APPROVED' && (
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                          STATUS_STYLES[item.status]
+                        )}
+                      >
+                        {item.statusLabel}
+                      </span>
+                    )}
                     <span
                       className={cn(
                         'text-sm font-semibold tabular-nums',
