@@ -63,7 +63,6 @@ export default async function ModerationPage({
     statusLabel: ACTIVITY_STATUS_LABELS[a.status],
     removeReason: a.removeReason,
     date: a.createdAt.toLocaleDateString('uk-UA'),
-    ts: a.createdAt.getTime(),
     canDiscard: yearOpen && a.status === 'APPROVED',
     verified: a.verifiedAt !== null,
     canVerify: yearOpen && a.status === 'APPROVED' && a.activityType.requiresVerification,

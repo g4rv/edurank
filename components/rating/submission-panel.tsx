@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, Eye } from 'lucide-react';
+import { ExternalLink, Eye } from 'lucide-react';
 import Link from 'next/link';
 import {
   Sheet,
@@ -11,7 +11,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { DiscardActivityButton } from '@/components/rating/discard-activity-button';
@@ -37,17 +36,10 @@ export function SubmissionPanel({
   row,
   open,
   onOpenChange,
-  onPrev,
-  onNext,
-  position,
 }: {
   row: ModerationRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPrev: () => void;
-  onNext: () => void;
-  /** «3 з 50» — where this record sits in the page being worked through */
-  position: { index: number; total: number } | null;
 }) {
   // What was loaded, and WHICH record it belongs to. Keeping the id with the
   // payload is what makes «this is somebody else's evidence» impossible: moving
@@ -88,11 +80,6 @@ export function SubmissionPanel({
                 <span className="tabular-nums">п. {row.itemNumber}</span>
                 <span>·</span>
                 <span>Розділ {row.section}</span>
-                {position && (
-                  <span className="ml-auto tabular-nums">
-                    {position.index + 1} з {position.total}
-                  </span>
-                )}
               </div>
               <SheetTitle>{row.label}</SheetTitle>
               <SheetDescription asChild>
@@ -214,29 +201,6 @@ export function SubmissionPanel({
                     Рік закрито — редагування недоступне.
                   </span>
                 )}
-
-                {/* Moving on without going back to the table is the point of a
-                    panel rather than a dialog: fifty publications, fifty DOIs. */}
-                <div className="ml-auto flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onPrev}
-                    disabled={!position || position.index === 0}
-                    aria-label="Попереднє подання"
-                  >
-                    <ChevronLeft className="size-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onNext}
-                    disabled={!position || position.index >= position.total - 1}
-                    aria-label="Наступне подання"
-                  >
-                    <ChevronRight className="size-4" />
-                  </Button>
-                </div>
               </div>
             </SheetFooter>
           </>

@@ -36,9 +36,8 @@ export interface ModerationRow {
   status: 'PENDING' | 'APPROVED' | 'REMOVED';
   statusLabel: string;
   removeReason: string | null;
+  /** Display form; shown in the panel, no longer a column */
   date: string;
-  /** createdAt millis — for sorting; `date` is the display form */
-  ts: number;
   canDiscard: boolean;
   verified: boolean;
   canVerify: boolean;
@@ -54,7 +53,7 @@ const SECTIONS = [1, 2, 3, 4, 5];
 const PAGE_ROWS = 50;
 const PAGE_PEOPLE = 20;
 
-type SortKey = 'name' | 'department' | 'section' | 'item' | 'score' | 'date';
+type SortKey = 'name' | 'department' | 'section' | 'item' | 'score';
 type StatusFilter = 'all' | 'approved' | 'removed' | 'unverified';
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -64,7 +63,9 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'unverified', label: 'Публікації без перевірки' },
 ];
 
-const SORT_KEYS: readonly SortKey[] = ['name', 'department', 'section', 'item', 'score', 'date'];
+// A `?sort=date` link from before the Дата column was removed falls back to
+// «name» rather than breaking, because the parse checks membership here.
+const SORT_KEYS: readonly SortKey[] = ['name', 'department', 'section', 'item', 'score'];
 
 export function ModerationList({ rows }: { rows: ModerationRow[] }) {
   const router = useRouter();
@@ -183,8 +184,6 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
           return compareItemNumbers(a.itemNumber, b.itemNumber);
         case 'score':
           return a.score - b.score;
-        case 'date':
-          return a.ts - b.ts;
       }
     };
     return [...list].sort((a, b) => {
@@ -450,18 +449,22 @@ function TableView({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {/* `table-fixed` is what stops the overflow. On auto layout the widest
-          «Показник» label sets the column's width, the table grows past its
-          container, and everything after it — бали, статус, and both action
-          buttons — ends up off screen behind a horizontal scrollbar. Fixed
-          layout makes the declared widths binding and the long label wrap
-          instead. Every column is sized except «Показник», which takes whatever
-          is left. */}
-      {/* The floor matters as much as the fixed layout. The seven sized columns
-          come to ~46rem; without a minimum, a narrow laptop leaves «Показник»
+          «Показник» label sets the column's width and the table grows past its
+          container; fixed layout makes the declared widths binding and the long
+          label wrap instead. Every column is sized except «Показник», which
+          takes whatever is left.
+
+          The table carries only what somebody scans for — who, where, which
+          indicator, how much, and whether it counts. Everything else about a
+          submission, and everything that can be DONE to it, lives in the panel
+          a row click opens: a date nobody reads while scanning and two buttons
+          per row cost more width than they were worth. */}
+      {/* The floor matters as much as the fixed layout. The five sized columns
+          come to ~31rem; without a minimum, a narrow laptop leaves «Показник»
           about one character wide and the label wraps a letter per line. Below
           this width the wrapper scrolls sideways instead — a scrollbar is a far
           smaller price than an unreadable column. */}
-      <DataTable fill className="min-w-[62rem] table-fixed">
+      <DataTable fill className="min-w-[48rem] table-fixed">
         <thead>
           <tr className="border-b bg-muted/40">
             {/* Holds «Прізвище І. П.» on one line. The full name is the cell's
@@ -492,9 +495,6 @@ function TableView({
               className="w-20"
             />
             <th className="w-28 px-3 py-2.5 text-left font-medium text-muted-foreground">Статус</th>
-            <Th label="Дата" k="date" sort={sort} onSort={toggleSort} className="w-24" />
-            {/* The two buttons stack, so this holds one of them, not both */}
-            <th className="w-32 px-3 py-2.5 text-right font-medium text-muted-foreground">Дії</th>
           </tr>
         </thead>
         <tbody>
@@ -550,14 +550,6 @@ function TableView({
               <td className="px-3 py-2.5">
                 <StatusPill row={row} />
               </td>
-              <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">{row.date}</td>
-              {/* Stacked, not in a row. Side by side the two buttons were wider
-                  than any sane column and spilled left over «Дата». */}
-              <td className="px-3 py-2.5">
-                <div className="flex flex-col items-stretch gap-1.5">
-                  <RowActions row={row} />
-                </div>
-              </td>
             </tr>
           ))}
         </tbody>
@@ -575,9 +567,6 @@ function TableView({
         row={openRow}
         open={openIndex !== null}
         onOpenChange={(next) => !next && setOpenIndex(null)}
-        onPrev={() => setOpenIndex((i) => (i === null ? null : Math.max(0, i - 1)))}
-        onNext={() => setOpenIndex((i) => (i === null ? null : Math.min(slice.length - 1, i + 1)))}
-        position={openIndex === null ? null : { index: openIndex, total: slice.length }}
       />
     </div>
   );
