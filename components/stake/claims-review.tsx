@@ -14,6 +14,16 @@ const DEGREE = { BACHELOR: 'Бакалавр', MASTER: 'Магістр' } as con
 const FORM = { FULL_TIME: 'Денна', PART_TIME: 'Заочна' } as const;
 const FUNDING = { STATE: 'Бюджет', CONTRACT: 'Контракт' } as const;
 
+/** Columns the head can order by; «Спеціальність» and «Рішення» are not useful */
+type SortKey = 'student' | 'claimant' | 'value' | 'date';
+
+const SORT_LABEL: Record<SortKey, string> = {
+  student: 'Здобувач',
+  claimant: 'Хто вказав',
+  value: 'Ставка',
+  date: 'Подано',
+};
+
 /**
  * The завідувач's view of the students their staff claim.
  *
@@ -25,16 +35,6 @@ const FUNDING = { STATE: 'Бюджет', CONTRACT: 'Контракт' } as const
  * claim at a time, are the only controls, and every temptation to add a
  * resolution control here should be resisted.
  */
-/** Columns the head can order by; «Спеціальність» and «Рішення» are not useful */
-type SortKey = 'student' | 'claimant' | 'value' | 'date';
-
-const SORT_LABEL: Record<SortKey, string> = {
-  student: 'Здобувач',
-  claimant: 'Хто вказав',
-  value: 'Ставка',
-  date: 'Подано',
-};
-
 export function ClaimsReview({ claims, year }: { claims: ReviewClaim[]; year: number }) {
   const contested = claims.filter((c) => c.contested && c.status === 'PENDING');
   const pending = claims.filter((c) => c.status === 'PENDING');
