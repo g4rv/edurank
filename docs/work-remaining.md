@@ -435,9 +435,19 @@ to end: settings → `Кст` → formula → the head's grid → student claims
 
 **Still to build:**
 
-- **The 1С Excel export.** Q3 settled the shape — our own column set (ПІБ,
-  кафедра, pool share, bonus, total, year), adjusted if 1С rejects it. Nothing
-  written yet.
+- ~~**The 1С Excel export.**~~ **NOT REQUESTED — skipped 2026-08-11.** Nobody
+  has asked for it; it came from an assumption that payroll would need a file.
+  Do not build it speculatively.
+
+  If it is ever asked for, the thing to get **first** is one existing import
+  file from the accounting department — any month's payroll upload. That single
+  sample settles the columns, the encoding, the decimal format, and whether they
+  key on a табельний номер, which `Staff` does not currently store. Without it
+  any export is a guess. Also worth confirming they are on **1С** at all: it is
+  Russian software, Ukraine sanctioned it, and most institutions moved to
+  **BAS** after 2022 while still saying «1С» out of habit — the two want
+  different files.
+
 - **Bulk entry for the per-person caps.** ADMIN sets them one кафедра at a time
   on the distribution grid. Fine for a кафедра, tedious for a university.
 

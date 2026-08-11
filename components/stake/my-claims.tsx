@@ -107,6 +107,10 @@ function AddClaimForm({
   const error = state && 'error' in state ? state.error : null;
   // A new token means the last submit succeeded, so the fields remount empty.
   const token = state && 'success' in state ? state.token : 'new';
+  // React 19 resets an uncontrolled form once the action resolves, so a rejected
+  // submit would otherwise wipe the name — the one thing here worth retyping.
+  // Handing it back as the default is what the reset then restores it to.
+  const typedName = state && 'error' in state ? (state.studentName ?? '') : '';
 
   return (
     <form action={formAction} className="space-y-3 rounded-xl border bg-card p-5">
@@ -121,6 +125,7 @@ function AddClaimForm({
             name="studentName"
             placeholder="ПІБ здобувача"
             aria-label="ПІБ здобувача"
+            defaultValue={typedName}
             disabled={pending}
           />
         </div>

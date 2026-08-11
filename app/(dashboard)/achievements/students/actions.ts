@@ -24,7 +24,18 @@ import { studentClaimSchema } from '@/validations/student-claim';
  * setState — React refuses to memoise a component that does that, and a
  * cascading render on every save is a real cost for a cosmetic reset.
  */
-export type ClaimState = { error: string } | { success: true; token: string } | null;
+/**
+ * `studentName` comes back on failure so the form can put it back.
+ *
+ * React 19 resets an uncontrolled form once its action resolves, so a rejected
+ * submit wipes every plain input — here, the one field nobody wants to retype.
+ * The three pickers hold their own React state and survive on their own; only
+ * this one needs handing back.
+ */
+export type ClaimState =
+  | { error: string; studentName?: string }
+  | { success: true; token: string }
+  | null;
 
 function revalidateClaims() {
   revalidatePath('/achievements/students');
@@ -41,8 +52,12 @@ export async function addStudentClaim(_prev: ClaimState, formData: FormData): Pr
   const session = await auth();
   if (!session) redirect('/login');
 
+  // Whatever they typed, handed back with every failure below
+  const typed = String(formData.get('studentName') ?? '');
+  const failed = (error: string): ClaimState => ({ error, studentName: typed });
+
   const staffId = session.user.staffId;
-  if (!staffId) return { error: 'Профіль не знайдено' };
+  if (!staffId) return failed('Профіль не знайдено');
 
   const parsed = studentClaimSchema.safeParse({
     studentName: formData.get('studentName'),
@@ -51,17 +66,17 @@ export async function addStudentClaim(_prev: ClaimState, formData: FormData): Pr
     form: formData.get('form'),
     funding: formData.get('funding'),
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Невірні дані' };
+  if (!parsed.success) return failed(parsed.error.issues[0]?.message ?? 'Невірні дані');
 
   const year = await activeYear();
-  if (!year) return { error: 'Рейтинговий рік закрито або ще не налаштовано' };
+  if (!year) return failed('Рейтинговий рік закрито або ще не налаштовано');
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
     select: { isNpp: true, archivedAt: true, lastName: true, firstName: true },
   });
-  if (!staff?.isNpp) return { error: 'Залучення здобувачів обліковується лише для НПП' };
-  if (staff.archivedAt) return { error: 'Запис архівовано' };
+  if (!staff?.isNpp) return failed('Залучення здобувачів обліковується лише для НПП');
+  if (staff.archivedAt) return failed('Запис архівовано');
 
   try {
     const claim = await db.studentClaim.create({
@@ -93,13 +108,13 @@ export async function addStudentClaim(_prev: ClaimState, formData: FormData): Pr
     // person adding the same student twice, their own slip. Somebody ELSE
     // claiming the same student is not a violation and never reaches here.
     if (isUniqueViolation(e)) {
-      return { error: 'Ви вже додали цього здобувача на цю спеціальність' };
+      return failed('Ви вже додали цього здобувача на цю спеціальність');
     }
-    return {
-      error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'claims.add', {
+    return failed(
+      parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'claims.add', {
         userId: session.user.id,
-      }),
-    };
+      })
+    );
   }
 
   revalidateClaims();
