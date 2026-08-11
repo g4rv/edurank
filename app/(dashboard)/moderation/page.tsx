@@ -7,6 +7,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { YearSelect } from '@/components/rating/year-select';
 import { ModerationList } from '@/components/rating/moderation-list';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
+import { fullStaffName, shortStaffName } from '@/lib/staff-name';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 
@@ -48,7 +49,9 @@ export default async function ModerationPage({
   const activities = await listNppActivities(selectedYear);
   const rows = activities.map((a) => ({
     id: a.id,
-    staffName: `${a.staff.lastName} ${a.staff.firstName} ${a.staff.patronymic}`,
+    // Both forms: the table shows the short one and hovers the full one.
+    staffName: fullStaffName(a.staff),
+    staffShortName: shortStaffName(a.staff),
     department: a.staff.department?.name ?? '',
     faculty: a.staff.department?.faculty.name ?? '',
     section: a.activityType.section.number,

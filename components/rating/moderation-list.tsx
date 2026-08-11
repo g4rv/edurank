@@ -21,7 +21,10 @@ import { compareItemNumbers } from '@/lib/rating/achievement-rows';
 
 export interface ModerationRow {
   id: string;
+  /** Full — used for search, sorting, the discard dialog and the cell's tooltip */
   staffName: string;
+  /** «Прізвище І. П.» — what the table column shows, so it fits on one line */
+  staffShortName: string;
   department: string;
   faculty: string;
   section: number;
@@ -447,26 +450,30 @@ function TableView({
           instead. Every column is sized except «Показник», which takes whatever
           is left. */}
       {/* The floor matters as much as the fixed layout. The seven sized columns
-          come to ~61rem; without a minimum, a 1280px laptop leaves «Показник»
+          come to ~46rem; without a minimum, a narrow laptop leaves «Показник»
           about one character wide and the label wraps a letter per line. Below
           this width the wrapper scrolls sideways instead — a scrollbar is a far
           smaller price than an unreadable column. */}
-      <DataTable fill className="min-w-[78rem] table-fixed">
+      <DataTable fill className="min-w-[62rem] table-fixed">
         <thead>
           <tr className="border-b bg-muted/40">
-            {/* Wide enough for «Прізвище Ім'я По-батькові» on two lines; at the
-                old width every Ukrainian full name wrapped onto three. */}
-            <Th label="ПІБ" k="name" sort={sort} onSort={toggleSort} className="w-56" />
+            {/* Holds «Прізвище І. П.» on one line. The full name is the cell's
+                tooltip — see the note on the cell itself. */}
+            <Th label="ПІБ" k="name" sort={sort} onSort={toggleSort} className="w-44" />
             <Th label="Кафедра" k="department" sort={sort} onSort={toggleSort} className="w-36" />
-            {/* Sized for the heading and its sort arrow, not for the one digit
-                underneath — «Розділ» clipped to «Розд» at w-16. */}
+            {/* The heading is the only thing needing width here — the values are
+                single digits — so it is abbreviated, with the word on hover.
+                «Розд.» plus its sort arrow measures 59px, which is why the
+                padding drops to px-2: at px-3 the column would have to be w-24
+                to avoid clipping, and that is visibly too much for one digit. */}
             <Th
-              label="Розділ"
+              label="Розд."
+              title="Розділ"
               k="section"
               sort={sort}
               onSort={toggleSort}
               align="right"
-              className="w-24"
+              className="w-20 px-2"
             />
             <Th label="Показник" k="item" sort={sort} onSort={toggleSort} />
             <Th
@@ -479,18 +486,25 @@ function TableView({
             />
             <th className="w-28 px-3 py-2.5 text-left font-medium text-muted-foreground">Статус</th>
             <Th label="Дата" k="date" sort={sort} onSort={toggleSort} className="w-24" />
-            {/* Two buttons with words on them — «Перевірити» and «Відхилити» */}
-            <th className="w-56 px-3 py-2.5 text-right font-medium text-muted-foreground">Дії</th>
+            {/* The two buttons stack, so this holds one of them, not both */}
+            <th className="w-32 px-3 py-2.5 text-right font-medium text-muted-foreground">Дії</th>
           </tr>
         </thead>
         <tbody>
           {slice.map((row) => (
             <tr key={row.id} className="align-top transition-colors">
-              <td className="px-3 py-2.5 font-medium break-words hyphens-auto">{row.staffName}</td>
+              {/* Short form so a full Ukrainian ПІБ stops wrapping onto two and
+                  three lines. The full name is one hover away, and is still
+                  what search, sorting and the discard dialog use. */}
+              <td className="truncate px-3 py-2.5 font-medium" title={row.staffName}>
+                {row.staffShortName}
+              </td>
               <td className="px-3 py-2.5 break-words text-muted-foreground">
                 {row.department || '—'}
               </td>
-              <td className="px-3 py-2.5 text-right text-muted-foreground tabular-nums">
+              {/* px-2 to match its header, or the digit and the heading above it
+                  would sit on two different right edges */}
+              <td className="px-2 py-2.5 text-right text-muted-foreground tabular-nums">
                 {row.section}
               </td>
               <td className="px-3 py-2.5 break-words">
@@ -521,8 +535,10 @@ function TableView({
                 <StatusPill row={row} />
               </td>
               <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">{row.date}</td>
+              {/* Stacked, not in a row. Side by side the two buttons were wider
+                  than any sane column and spilled left over «Дата». */}
               <td className="px-3 py-2.5">
-                <div className="flex items-center justify-end gap-2">
+                <div className="flex flex-col items-stretch gap-1.5">
                   <RowActions row={row} />
                 </div>
               </td>
@@ -631,6 +647,7 @@ function GroupedView({
 
 function Th({
   label,
+  title,
   k,
   sort,
   onSort,
@@ -638,6 +655,8 @@ function Th({
   className,
 }: {
   label: string;
+  /** Spelled out on hover where `label` had to be abbreviated to fit */
+  title?: string;
   k: SortKey;
   sort: { key: SortKey; dir: 'asc' | 'desc' };
   onSort: (key: SortKey) => void;
@@ -655,6 +674,7 @@ function Th({
     >
       <button
         type="button"
+        title={title}
         onClick={() => onSort(k)}
         className={cn(
           'inline-flex items-center gap-1 transition-colors hover:text-foreground',
