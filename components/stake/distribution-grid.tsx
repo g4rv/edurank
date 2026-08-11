@@ -16,6 +16,7 @@ import {
   parseStake,
   snapToStep,
 } from '@/lib/stake/units';
+import { DEFAULT_LIMITS } from '@/lib/stake/formula';
 import type { StakeDistributionView, StakeRow } from '@/lib/queries/get-stake-distribution';
 import { StakeTermHint, type StakeTerm } from '@/components/stake/stake-term-hint';
 import {
@@ -380,7 +381,7 @@ export function DistributionGrid({
 
       <p className="text-xs text-muted-foreground">
         {canEditLimits
-          ? 'Мін і Макс зберігаються окремо від розподілу — після зміни формула перераховується. Бліді значення означають стандартні межі 0,10 / 1,50.'
+          ? `Мін і Макс зберігаються окремо від розподілу — після зміни формула перераховується. Бліді значення означають стандартні межі ${formatStake(DEFAULT_LIMITS.minHundredths)} / ${formatStake(DEFAULT_LIMITS.maxHundredths)}; Макс можна піднімати вище.`
           : 'Мінімальну і максимальну ставку встановлює адміністратор.'}
       </p>
     </div>
