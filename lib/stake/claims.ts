@@ -121,7 +121,7 @@ export function duplicateKey(claim: {
  * first, and how many of a person's claims are contested — and the resolution
  * happens in a conversation off-screen (decided 2026-08-07).
  */
-export function firstClaimIds(claims: readonly GroupableClaim[]): Set<string> {
+export function firstClaimByKey(claims: readonly GroupableClaim[]): Map<string, GroupableClaim> {
   const earliest = new Map<string, GroupableClaim>();
   for (const c of claims) {
     if (c.status === 'REJECTED') continue;
@@ -136,7 +136,11 @@ export function firstClaimIds(claims: readonly GroupableClaim[]): Set<string> {
       earliest.set(key, c);
     }
   }
-  return new Set([...earliest.values()].map((c) => c.id));
+  return earliest;
+}
+
+export function firstClaimIds(claims: readonly GroupableClaim[]): Set<string> {
+  return new Set([...firstClaimByKey(claims).values()].map((c) => c.id));
 }
 
 /**

@@ -7,7 +7,7 @@ import {
   contestedCountByStaff,
   contestedKeys,
   duplicateKey,
-  firstClaimIds,
+  firstClaimByKey,
 } from '@/lib/stake/claims';
 import type { ClaimStatus } from '@/lib/generated/prisma/client';
 
@@ -110,6 +110,19 @@ export interface ReviewClaim extends MyClaim {
   wasFirst: boolean;
   /** How many of THIS person's claims are contested — the pattern, not the row */
   claimantContestedCount: number;
+  /**
+   * Who got in first, on a contested row that is NOT the first one. Null on
+   * every other row.
+   *
+   * Naming them is the point: «спірна» on its own tells the head there is a
+   * problem and gives them nowhere to go. The first claimant can sit in any
+   * кафедра in the university, which is why `firstClaimedByDepartment` is
+   * carried too — «talk to the other claimant» is unactionable if the head
+   * cannot tell where to find them.
+   */
+  firstClaimedBy: string | null;
+  /** Set only when that person is outside the кафедра being reviewed */
+  firstClaimedByDepartment: string | null;
 }
 
 /**
@@ -167,11 +180,41 @@ export async function listClaimsForReview(
   ]);
 
   const contested = contestedKeys(everyone);
-  const first = firstClaimIds(everyone);
+  const firstByKey = firstClaimByKey(everyone);
+  const first = new Set([...firstByKey.values()].map((c) => c.id));
   const perStaff = contestedCountByStaff(everyone);
+
+  // Name whoever filed first on each contested row. They can be anybody in the
+  // university, so `nameById` (this кафедра only) is not enough — the missing
+  // ones are looked up in one extra query rather than N.
+  const outsiderIds = new Set(
+    [...firstByKey.values()].map((c) => c.staffId).filter((id) => !nameById.has(id))
+  );
+  const outsiders =
+    outsiderIds.size > 0
+      ? await db.staff.findMany({
+          where: { id: { in: [...outsiderIds] } },
+          select: {
+            id: true,
+            lastName: true,
+            firstName: true,
+            patronymic: true,
+            department: { select: { name: true } },
+          },
+        })
+      : [];
+  const outsiderById = new Map(outsiders.map((s) => [s.id, s]));
 
   return own.map((r) => {
     const base = baseFor(r, year);
+    const key = duplicateKey(r);
+    const isContested = contested.has(key);
+    const winner = firstByKey.get(key);
+    // Only worth naming on a row that lost the race — on the first row itself
+    // the answer is «you», and on an uncontested row there is nobody to name.
+    const loserToFirst = isContested && winner && winner.id !== r.id ? winner : null;
+    const outsider = loserToFirst ? outsiderById.get(loserToFirst.staffId) : undefined;
+
     return {
       id: r.id,
       studentName: r.studentName,
@@ -196,9 +239,16 @@ export async function listClaimsForReview(
       createdAt: r.createdAt,
       claimedBy: nameById.get(r.staffId) ?? '—',
       claimedByStaffId: r.staffId,
-      contested: contested.has(duplicateKey(r)),
+      contested: isContested,
       wasFirst: first.has(r.id),
       claimantContestedCount: perStaff.get(r.staffId) ?? 0,
+      firstClaimedBy: loserToFirst
+        ? (nameById.get(loserToFirst.staffId) ??
+          (outsider
+            ? `${outsider.lastName} ${outsider.firstName} ${outsider.patronymic}`
+            : 'інший працівник'))
+        : null,
+      firstClaimedByDepartment: outsider?.department?.name ?? null,
     };
   });
 }

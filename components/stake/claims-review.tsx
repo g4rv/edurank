@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { AlertTriangle, Check, X } from 'lucide-react';
+import { useMemo, useState, useTransition } from 'react';
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronsUpDown, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,9 +25,58 @@ const FUNDING = { STATE: 'Бюджет', CONTRACT: 'Контракт' } as const
  * claim at a time, are the only controls, and every temptation to add a
  * resolution control here should be resisted.
  */
+/** Columns the head can order by; «Спеціальність» and «Рішення» are not useful */
+type SortKey = 'student' | 'claimant' | 'value' | 'date';
+
+const SORT_LABEL: Record<SortKey, string> = {
+  student: 'Здобувач',
+  claimant: 'Хто вказав',
+  value: 'Ставка',
+  date: 'Подано',
+};
+
 export function ClaimsReview({ claims, year }: { claims: ReviewClaim[]; year: number }) {
   const contested = claims.filter((c) => c.contested && c.status === 'PENDING');
   const pending = claims.filter((c) => c.status === 'PENDING');
+
+  // Default: the rows that need a decision, disputed ones first, oldest first.
+  // That is the order the page exists to produce — sorting is for looking
+  // something up, not for finding the work.
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean } | null>(null);
+
+  const sorted = useMemo(() => {
+    const rows = [...claims];
+    if (!sort) {
+      return rows.sort((a, b) => {
+        const decided = (c: ReviewClaim) => (c.status === 'PENDING' ? 0 : 1);
+        return (
+          decided(a) - decided(b) ||
+          Number(b.contested) - Number(a.contested) ||
+          a.createdAt.getTime() - b.createdAt.getTime()
+        );
+      });
+    }
+    const dir = sort.desc ? -1 : 1;
+    return rows.sort((a, b) => {
+      switch (sort.key) {
+        case 'student':
+          return dir * a.studentName.localeCompare(b.studentName, 'uk');
+        case 'claimant':
+          return dir * a.claimedBy.localeCompare(b.claimedBy, 'uk');
+        case 'value':
+          return dir * (a.value - b.value);
+        case 'date':
+          return dir * (a.createdAt.getTime() - b.createdAt.getTime());
+      }
+    });
+  }, [claims, sort]);
+
+  function toggle(key: SortKey) {
+    setSort((current) =>
+      // Third click clears it, back to the working order the page opens in.
+      current?.key !== key ? { key, desc: false } : current.desc ? null : { key, desc: true }
+    );
+  }
 
   if (claims.length === 0) {
     return (
@@ -55,9 +104,9 @@ export function ClaimsReview({ claims, year }: { claims: ReviewClaim[]; year: nu
 
       {contested.length > 0 && (
         <p className="max-w-3xl rounded-lg border border-amber-600/30 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
-          Спірна заявка означає, що цього здобувача на цю саму спеціальність вказав ще хтось. Хто
-          подав першим — видно нижче, але це не робить його правим. Система лише показує збіг;
-          рішення ухвалюєте ви, поговоривши з людиною.
+          Позначку «спірна» має лише та заявка, яку подали пізніше — поряд із нею вказано, хто подав
+          цього здобувача першим і на якій він кафедрі. Раніше — не означає правіше: система лише
+          показує збіг, а рішення ухвалюєте ви, поговоривши з обома.
         </p>
       )}
 
@@ -65,34 +114,75 @@ export function ClaimsReview({ claims, year }: { claims: ReviewClaim[]; year: nu
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-muted/60 text-left">
-              <th className="border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
-                Здобувач
-              </th>
-              <th className="border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
-                Хто вказав
-              </th>
+              <SortableHead sortKey="student" sort={sort} onToggle={toggle} />
+              <SortableHead sortKey="claimant" sort={sort} onToggle={toggle} />
               <th className="border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 Спеціальність
               </th>
-              <th className="w-20 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
-                Ставка
-              </th>
-              <th className="w-28 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
-                Подано
-              </th>
+              <SortableHead
+                sortKey="value"
+                sort={sort}
+                onToggle={toggle}
+                align="right"
+                width="w-20"
+              />
+              <SortableHead sortKey="date" sort={sort} onToggle={toggle} width="w-28" />
               <th className="w-64 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 Рішення
               </th>
             </tr>
           </thead>
           <tbody>
-            {claims.map((claim) => (
+            {sorted.map((claim) => (
               <ClaimRow key={claim.id} claim={claim} />
             ))}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+/**
+ * A header cell that sorts. The arrow only appears on the active column — an
+ * icon on every header is noise that says nothing about the current state.
+ */
+function SortableHead({
+  sortKey,
+  sort,
+  onToggle,
+  align = 'left',
+  width,
+}: {
+  sortKey: SortKey;
+  sort: { key: SortKey; desc: boolean } | null;
+  onToggle: (key: SortKey) => void;
+  align?: 'left' | 'right';
+  width?: string;
+}) {
+  const active = sort?.key === sortKey;
+  const Icon = !active ? ChevronsUpDown : sort.desc ? ArrowDown : ArrowUp;
+
+  return (
+    <th
+      className={cn(
+        'border border-border p-0 font-medium whitespace-nowrap text-muted-foreground',
+        width
+      )}
+      aria-sort={!active ? 'none' : sort.desc ? 'descending' : 'ascending'}
+    >
+      <button
+        type="button"
+        onClick={() => onToggle(sortKey)}
+        className={cn(
+          'flex w-full items-center gap-1 px-3 py-2 hover:text-foreground',
+          align === 'right' && 'justify-end'
+        )}
+      >
+        {SORT_LABEL[sortKey]}
+        <Icon className={cn('size-3', !active && 'opacity-40')} />
+      </button>
+    </th>
   );
 }
 
@@ -120,16 +210,32 @@ function ClaimRow({ claim }: { claim: ReviewClaim }) {
   }
 
   return (
-    <tr className={cn('transition-colors hover:bg-muted/20', claim.contested && 'bg-amber-600/5')}>
+    // Tinted on the same rule as the tag: the row that got in first is not the
+    // questionable one, so colouring it amber contradicted its own label.
+    <tr
+      className={cn(
+        'transition-colors hover:bg-muted/20',
+        claim.contested && !claim.wasFirst && 'bg-amber-600/5'
+      )}
+    >
       <td className="border border-border px-3 py-2">
         {claim.studentName}
-        {claim.contested && (
+        {/* Only the later claim is flagged. Marking both said «there is a
+            problem here» twice and gave the head nowhere to start; the row that
+            got in first is not the questionable one. */}
+        {claim.contested && !claim.wasFirst && (
           <span
             className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500"
-            title="Цього здобувача вказав ще хтось"
+            title="Цього здобувача раніше вказала інша людина"
           >
             <AlertTriangle className="size-3" />
             спірна
+          </span>
+        )}
+        {claim.firstClaimedBy && (
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            першим подав {claim.firstClaimedBy}
+            {claim.firstClaimedByDepartment && ` · ${claim.firstClaimedByDepartment}`}
           </span>
         )}
       </td>

@@ -8,6 +8,7 @@ import { listClaimsForReview } from '@/lib/queries/list-student-claims';
 import { scopeOf } from '@/lib/queries/scope';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { ClaimsReview } from '@/components/stake/claims-review';
+import { DepartmentSelect } from '@/components/department-select';
 
 /**
  * The завідувач rules on the students their staff claim.
@@ -76,21 +77,11 @@ export default async function DepartmentStudentsPage({
         </div>
 
         {departments.length > 1 && (
-          <div className="flex flex-wrap gap-1">
-            {departments.map((d) => (
-              <Link
-                key={d.id}
-                href={`/my-department/students?department=${d.id}`}
-                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
-                  d.id === selected.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-              >
-                {d.name}
-              </Link>
-            ))}
-          </div>
+          <DepartmentSelect
+            departments={departments}
+            value={selected.id}
+            basePath="/my-department/students"
+          />
         )}
       </div>
 
