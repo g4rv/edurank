@@ -76,15 +76,17 @@ export default async function DepartmentStakesPage({
         </p>
       </div>
 
-      {/* The formula rarely spends the pool exactly: Σ(R/<R>) is the headcount,
-          so its total comes to 0.5 × N / Кнпп × Кст. Said plainly here, because
-          otherwise it looks like an arithmetic bug the first time it is seen. */}
+      {/* The proposal now lands ON the pool — each person gets a share of Кст —
+          so the old warning that its total «майже ніколи» matches is no longer
+          true and would read as an excuse for an arithmetic bug. What is left
+          is a few hundredths of ladder rounding, which is worth saying because
+          it is the number in «Нерозподілено». */}
       {view.kstHundredths !== null && view.computable && (
         <p className="max-w-3xl text-xs text-muted-foreground">
-          Формула пропонує, скільки дати кожному — пропорційно до рейтингу. Її сума майже ніколи не
-          дорівнює виділеним ставкам: це властивість формули, а не помилка. Різницю закриває
-          завідувач вручну, вказуючи обґрунтування. Бонус за залучених здобувачів виплачується понад
-          виділені ставки.
+          Формула пропонує, скільки дати кожному — частку від виділених ставок, пропорційно до
+          рейтингу. Сума майже дорівнює виділеному: різниця в кілька сотих виникає через округлення
+          до 0,05. Завідувач вільно змінює будь-яке значення, вказуючи обґрунтування. Бонус за
+          залучених здобувачів виплачується понад виділені ставки.
         </p>
       )}
 

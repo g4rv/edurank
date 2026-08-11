@@ -133,7 +133,7 @@ export async function getStakeDistribution(
     };
   });
 
-  const formula = formulaShares({ people, kstHundredths: kstHundredths ?? 0, knpp });
+  const formula = formulaShares({ people, kstHundredths: kstHundredths ?? 0 });
   const shareByStaff = new Map(formula.shares.map((s) => [s.staffId, s]));
   const allocationByStaff = new Map((distribution?.allocations ?? []).map((a) => [a.staffId, a]));
 

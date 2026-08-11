@@ -9,8 +9,6 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { scopeOf } from '@/lib/queries/scope';
-import { getKharakterystykaMany } from '@/lib/queries/get-kharakterystyka';
-import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { MIN_STAKE, STAKE_STEP, formatStake } from '@/lib/stake/units';
 import { staffStakeLimitsSchema } from '@/validations/stake';
@@ -143,13 +141,6 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   // Recomputed server-side, not taken from the client: додаток 2 prints the
   // formula's number beside the head's, so storing the head's in both columns
   // would make the document assert that they agreed when they did not.
-  const documents = await getKharakterystykaMany(
-    staff.map((s) => s.id),
-    year
-  );
-  const knpp = staff.filter(
-    (s) => (documents.get(s.id)?.metCount ?? 0) >= REQUIRED_POSITIONS
-  ).length;
   const formula = formulaShares({
     people: staff.map((s) => ({
       staffId: s.id,
@@ -158,7 +149,6 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
       maxHundredths: s.stakeLimits[0]?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
     })),
     kstHundredths: stake.kstHundredths,
-    knpp,
   });
   const formulaByStaff = new Map(formula.shares.map((s) => [s.staffId, s.hundredths]));
 

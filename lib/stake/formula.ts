@@ -1,19 +1,39 @@
 // The first term of the ставка formula — a кафедра's pool spread by rating.
 //
-//                Rнпп      Кст
-//   term 1 = 0.5 ⋅ ──── ⋅ ─────
-//                 <Rк>     Кнпп
+// This follows the university's OWN working sheet (the Apps Script behind
+// «Облік ставок кафедри», edu-reference/rating_spread_example.txt), not the
+// положення's printed formula. Two passes:
 //
-// Pure, no DB. The SECOND term — the recruitment bonus — is not here and must
-// never be folded in: `Кст` bounds this term only, the bonus is paid on top of
-// it, and merging the two makes the pool ceiling impossible to enforce.
+//                    ⎛      Rᵢ    Кст ⎞
+//   prelimᵢ = clamp  ⎜ 0.5 ⋅── + ─── ⎟   between 0.5 and the person's cap
+//                    ⎝     <R>     n  ⎠
 //
-// Order of operations, and it matters: compute at full precision → clamp to the
-// person's own limits → snap to the 0.05 ladder → make sure rounding did not
-// push anybody under their floor. Rounding a share and then summing is what
-// produced the old system's negative «нерозподілено».
+//              ⎛ prelimᵢ     Rᵢ  ⎞
+//   Vcᵢ = min ⎜ ───────── + ──── ⎟ ÷ 2 ⋅ Кст ,  capped at the person's max
+//              ⎝ Σprelim     ΣR  ⎠
+//
+// WHY THIS RATHER THAN THE ПОЛОЖЕННЯ. The положення gives each person a value
+// and nothing makes those values add up to `Кст`: it is a weighting rule, not
+// an allocation. Computed literally it overspends — 4.90 against a pool of
+// 4.00 on Кафедра вищої математики. The second pass here is the missing step:
+// both bracketed terms are SHARES that each sum to 1, so their average does
+// too, and multiplying by `Кст` lands the кафедра on its pool by construction.
+// Whatever is left over is ladder dust of a few hundredths, never a deficit.
+//
+// Verified against the university's own output for Кафедра історії — seven
+// people, `Кст` 6.00 — reproducing all seven ставки and their «не розподілено»
+// of 0.10 exactly. See the test.
+//
+// `Кнпп` does NOT appear. The sheet divides by the headcount and normalises;
+// the п.38 licence count sizes nothing here. It remains what it always was — a
+// figure the кафедра is judged on — and the page still shows it.
+//
+// Order of operations, and it matters: compute at full precision → round to
+// kopecks → snap to the 0.05 ladder → cap. Rounding a share and then summing is
+// what produced the old system's negative «нерозподілено».
 
-import { MIN_STAKE, ceilToStep, floorToStep, snapToStep, toHundredths } from './units';
+import { MIN_STAKE, ceilToStep, snapToStep, toHundredths } from './units';
+import { round2 } from '@/lib/round';
 
 /** What the formula needs about one person */
 export interface FormulaPerson {
@@ -28,92 +48,106 @@ export interface FormulaPerson {
 export interface FormulaShare {
   staffId: string;
   rating: number;
-  /** Before clamping and rounding — kept so the UI can explain a clamped row */
+  /** Before rounding and capping — kept so the UI can explain a clamped row */
   rawHundredths: number;
-  /** What the formula proposes: clamped, then snapped to the 0.05 ladder */
+  /** What the formula proposes: rounded to the 0.05 ladder, then bounded */
   hundredths: number;
-  /** Which bound bit, if either. Null means the raw value survived untouched. */
+  /** Which bound bit, if either. Null means the value survived untouched. */
   clampedTo: 'min' | 'max' | null;
 }
 
 export interface FormulaResult {
   shares: FormulaShare[];
-  /** <Rк> — the кафедра's average rating */
+  /** <R> — the кафедра's average rating */
   averageRating: number;
   /**
-   * False when the formula cannot be evaluated at all: `Кнпп` is zero (nobody
-   * on the кафедра meets four of the twenty licence positions) or every rating
-   * is zero. Everyone then lands on their floor, which is a defensible answer —
-   * but the screen must say WHY rather than present a floor as a calculation.
+   * False when the formula cannot be evaluated at all: nobody on the кафедра,
+   * or every rating is zero. Everyone then lands on their floor, which is a
+   * defensible answer — but the screen must say WHY rather than present a floor
+   * as a calculation.
    */
   computable: boolean;
   /**
-   * What the formula's own proposal adds up to, in hundredths.
+   * What the proposal adds up to, in hundredths.
    *
-   * **This does not generally equal `Кст`**, and that is a property of the
-   * formula rather than a bug here. Σ(Rнпп/<Rк>) is exactly the headcount, so
-   * the untouched total comes to `0.5 × N / Кнпп × Кст` — under the pool when
-   * `Кнпп > N/2`, over it when `Кнпп < N/2`. The head closes the gap by hand,
-   * which is what додаток 2's «Обґрунтування» column is for.
+   * Unlike the положення's formula this lands ON the pool: the shares sum to 1
+   * before being multiplied by `Кст`. It can still differ from `Кст` by a few
+   * hundredths, because each person is snapped to the 0.05 ladder and because a
+   * cap can hold somebody below their share. That remainder is what the head
+   * hands out by hand, and it is what «не розподілено» shows.
    */
   totalHundredths: number;
 }
 
+/** The preliminary weight's own floor, from the sheet — NOT a floor on the ставка */
+const PRELIM_FLOOR = 0.5;
+
 /**
  * The pool share the formula proposes for everyone on one кафедра.
  *
- * `knpp` is the count meeting ≥4 of the 20 п.38 positions — a divisor, and NOT
- * the same number as the headcount. The headcount bounds the pool
- * (`Кст ≥ 0.1 × N`); this scales each person's slice of it.
+ * `people` must be every НПП on the кафедра: both passes divide by counts and
+ * sums over the whole кафедра, so leaving somebody out changes everyone else's
+ * number.
  */
 export function formulaShares({
   people,
   kstHundredths,
-  knpp,
 }: {
   people: readonly FormulaPerson[];
   kstHundredths: number;
-  knpp: number;
 }): FormulaResult {
+  const n = people.length;
   const totalRating = people.reduce((sum, p) => sum + p.rating, 0);
-  const averageRating = people.length > 0 ? totalRating / people.length : 0;
-  const computable = people.length > 0 && knpp > 0 && averageRating > 0;
+  const averageRating = n > 0 ? totalRating / n : 0;
+  const computable = n > 0 && totalRating > 0;
 
-  const shares = people.map((person) => {
-    // Raw value in hundredths, at full precision — no rounding until the end.
-    const rawHundredths = computable
-      ? 0.5 * (person.rating / averageRating) * (kstHundredths / knpp)
-      : 0;
+  const kst = kstHundredths / 100;
 
-    // The absolute floor of 0.1 outranks a per-person minimum below it, and
-    // `max >= min` is a validation on the caps — but a hand-inserted row could
-    // still break it, so the bounds are made coherent before anything is
-    // clamped into them.
-    const lower = Math.max(person.minHundredths, MIN_STAKE);
-    const upper = Math.max(person.maxHundredths, lower);
+  // ── Pass 1: a preliminary weight per person ──
+  // Somebody with no rating is left out of both sums entirely rather than
+  // carried as a zero: they would otherwise dilute everyone else's share.
+  // Note the order — the cap is applied first and the 0.5 floor second, so a
+  // cap below 0.5 does not drag the WEIGHT under it. The cap still binds the
+  // final ставка in pass 2, which is where it belongs.
+  const prelim = people.map((p) =>
+    computable && p.rating > 0
+      ? Math.max(
+          PRELIM_FLOOR,
+          Math.min(p.maxHundredths / 100, 0.5 * (p.rating / averageRating) + kst / n)
+        )
+      : 0
+  );
+  const totalPrelim = prelim.reduce((sum, v) => sum + v, 0);
 
-    // Clamp before rounding: the caps are the university's decision and the
-    // ladder is presentation, so a rounding step must never cross one.
+  // ── Pass 2: turn the weights into shares of the pool ──
+  const shares = people.map((person, i) => {
+    const scoring = computable && person.rating > 0 && totalPrelim > 0;
+
+    // Half by adjusted weight, half by raw rating. Each bracket sums to 1
+    // across the кафедра, so the total lands on `Кст`.
+    const share = scoring ? (prelim[i] / totalPrelim + person.rating / totalRating) / 2 : 0;
+    const rawHundredths = share * kst * 100;
+
+    // Kopecks first, then the ladder — the sheet rounds in that order, and the
+    // two-step is why an exact ladder tie can never arise.
+    let hundredths = scoring ? snapToStep(toHundredths(round2(share * kst))) : 0;
+
     let clampedTo: 'min' | 'max' | null = null;
-    let value = rawHundredths;
-    if (value < lower) {
-      value = lower;
-      clampedTo = 'min';
-    } else if (value > upper) {
-      value = upper;
+    if (hundredths > person.maxHundredths) {
+      hundredths = person.maxHundredths;
       clampedTo = 'max';
     }
 
-    // Snap once, at the end — never per-step. A cap that is itself off the
-    // ladder (0.72) sends the share DOWN to the ladder rather than leaving it
-    // on an off-ladder number: in the whole 2025 distribution nobody exceeds
-    // their cap, so the cap wins and the ladder bends.
-    let hundredths = snapToStep(value);
-    if (hundredths > upper) hundredths = floorToStep(upper);
-    if (hundredths < lower) hundredths = ceilToStep(lower);
-    // Pathological caps only — a floor above the ceiling. The floor wins,
-    // because nobody may be paid below theirs.
-    if (hundredths < MIN_STAKE) hundredths = MIN_STAKE;
+    // Ours, not the sheet's: the per-person minimum an ADMIN may set, and the
+    // положення's «nobody gets zero». Skipped for a person the кафедра has
+    // capped at zero, for anyone with no rating, and when there is no pool at
+    // all — a floor is a share of something, and a кафедра whose `Кст` has not
+    // been set yet is not handing out 0.1 to everybody on the strength of it.
+    const floor = Math.max(person.minHundredths, MIN_STAKE);
+    if (scoring && kstHundredths > 0 && person.maxHundredths > 0 && hundredths < floor) {
+      hundredths = ceilToStep(Math.min(floor, person.maxHundredths));
+      clampedTo = 'min';
+    }
 
     return { staffId: person.staffId, rating: person.rating, rawHundredths, hundredths, clampedTo };
   });
@@ -126,9 +160,14 @@ export function formulaShares({
   };
 }
 
-/** The floor and ceiling to use when ADMIN has set none for this person */
+/**
+ * The floor and ceiling to use when ADMIN has set none for this person.
+ *
+ * The ceiling is 1.00, which is the sheet's default — one full ставка. 1.5 is
+ * not a default there but the hard ceiling on a HAND-typed value, which is a
+ * different rule and belongs with the input, not here.
+ */
 export const DEFAULT_LIMITS = {
   minHundredths: MIN_STAKE,
-  /** 1.5 — the top of the ladder every 2025 cap sits on or below */
-  maxHundredths: toHundredths(1.5),
+  maxHundredths: toHundredths(1),
 } as const;

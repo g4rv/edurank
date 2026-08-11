@@ -1,159 +1,190 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { DEFAULT_LIMITS, formulaShares, type FormulaPerson } from './formula';
+import { fromHundredths, minimumKstHundredths, toHundredths } from './units';
 
-function person(staffId: string, rating: number, limits?: Partial<FormulaPerson>): FormulaPerson {
-  return { staffId, rating, ...DEFAULT_LIMITS, ...limits };
+function person(rating: number, max = 1, min = 0.1): FormulaPerson {
+  return {
+    staffId: `s${rating}`,
+    rating,
+    minHundredths: toHundredths(min),
+    maxHundredths: toHundredths(max),
+  };
 }
 
-/** Everyone equal — the simplest case to reason about */
-const EVEN = [person('a', 1000), person('b', 1000), person('c', 1000), person('d', 1000)];
+const stakes = (r: ReturnType<typeof formulaShares>) =>
+  r.shares.map((s) => fromHundredths(s.hundredths));
 
-describe('formulaShares', () => {
-  it('gives identical ratings identical shares', () => {
-    const { shares } = formulaShares({ people: EVEN, kstHundredths: 400, knpp: 2 });
-    expect(new Set(shares.map((s) => s.hundredths)).size).toBe(1);
+/**
+ * The university's own «Облік ставок кафедри» sheet, for Кафедра історії і
+ * культури України: seven people, Кст 6.00, every cap at 1.00. Its screen shows
+ * these seven ставки and «не розподілена кількість» of 0.10.
+ *
+ * This is the reason the formula was rewritten, so it is the test that matters
+ * most: if it fails, we are no longer computing what the university computes.
+ */
+describe('the university’s own кафедра', () => {
+  const people = [
+    person(5629.57),
+    person(3517.32),
+    person(5245.09),
+    person(4103.3),
+    person(2481),
+    person(3419),
+    person(1325.75),
+  ];
+
+  it('reproduces all seven ставки', () => {
+    const result = formulaShares({ people, kstHundredths: toHundredths(6) });
+    expect(stakes(result)).toEqual([1.0, 0.85, 1.0, 0.9, 0.7, 0.85, 0.6]);
   });
 
-  it('scales with the person’s rating', () => {
-    const people = [person('high', 3000), person('low', 1000)];
-    const { shares } = formulaShares({ people, kstHundredths: 400, knpp: 2 });
-    const high = shares.find((s) => s.staffId === 'high')!;
-    const low = shares.find((s) => s.staffId === 'low')!;
-    // Three times the rating, three times the raw share
-    expect(high.rawHundredths).toBeCloseTo(low.rawHundredths * 3, 6);
-  });
-
-  it('computes 0.5 · (R/<R>) · (Кст/Кнпп)', () => {
-    // <R> = 1000, Кст = 4.00, Кнпп = 2 → 0.5 × 1 × 200 = 100 hundredths = 1.00
-    const { shares } = formulaShares({ people: EVEN, kstHundredths: 400, knpp: 2 });
-    expect(shares[0].rawHundredths).toBeCloseTo(100, 6);
-    expect(shares[0].hundredths).toBe(100);
-  });
-
-  it('lands every share on the 0.05 ladder', () => {
-    const people = [person('a', 1234), person('b', 987), person('c', 4321)];
-    const { shares } = formulaShares({ people, kstHundredths: 273, knpp: 2 });
-    for (const s of shares) expect(s.hundredths % 5).toBe(0);
-  });
-});
-
-describe('the pool is not generally exhausted — a property of the formula', () => {
-  // Σ(R/<R>) is exactly the headcount, so the untouched total comes to
-  // 0.5 × N / Кнпп × Кст. The head closes the gap by hand.
-  it('spends the whole pool exactly when Кнпп is half the headcount', () => {
-    const { totalHundredths } = formulaShares({ people: EVEN, kstHundredths: 400, knpp: 2 });
-    expect(totalHundredths).toBe(400);
-  });
-
-  it('leaves some of it when Кнпп is more than half', () => {
-    const { totalHundredths } = formulaShares({ people: EVEN, kstHundredths: 400, knpp: 4 });
-    expect(totalHundredths).toBeLessThan(400);
-  });
-
-  it('OVERSPENDS when Кнпп is less than half — the grid must show this', () => {
-    // 18 people, Кнпп 8, as on Кафедра вищої математики: factor 1.125
-    const people = Array.from({ length: 18 }, (_, i) => person(`s${i}`, 1000));
-    const { totalHundredths } = formulaShares({ people, kstHundredths: 400, knpp: 8 });
-    expect(totalHundredths).toBeGreaterThan(400);
+  it('leaves exactly the 0.10 their screen shows as «не розподілено»', () => {
+    const result = formulaShares({ people, kstHundredths: toHundredths(6) });
+    expect(toHundredths(6) - result.totalHundredths).toBe(10);
   });
 });
 
-describe('per-person limits', () => {
-  it('clamps a high earner down to their cap and says so', () => {
-    const people = [person('star', 10000, { maxHundredths: 100 }), person('rest', 1000)];
-    const { shares } = formulaShares({ people, kstHundredths: 400, knpp: 2 });
-    const star = shares.find((s) => s.staffId === 'star')!;
-    expect(star.hundredths).toBe(100);
-    expect(star.clampedTo).toBe('max');
+/**
+ * The property the положення's formula did not have: the proposal is a set of
+ * SHARES of the pool, so it lands on `Кст` instead of drifting away from it.
+ *
+ * «Lands on» is not «never exceeds». Every person is snapped to the 0.05
+ * ladder, and a кафедра where several round up finishes a few hundredths over
+ * — the university's own sheet does this too, which is what its «Перевищення
+ * розподілу!» warning exists for. What cannot happen any more is being over by
+ * a fifth of the pool.
+ */
+describe('the proposal lands on the pool', () => {
+  it('stays within ladder dust of Кст, across a range of кафедри', () => {
+    for (let n = 2; n <= 30; n++) {
+      const people = Array.from({ length: n }, (_, i) => person(500 + i * 317));
+      for (const kst of [1, 4, 6, 12, 25]) {
+        // Only pools the app would accept: below 0.1 × headcount the кафедра
+        // cannot pay everyone their floor, and `minimumKstHundredths` refuses
+        // the input. See the test below for what happens if it did not.
+        if (toHundredths(kst) < minimumKstHundredths(n)) continue;
+        const result = formulaShares({ people, kstHundredths: toHundredths(kst) });
+        // At worst every person rounds up half a rung
+        const dust = Math.ceil(n * 2.5);
+        expect(result.totalHundredths, `n=${n} Кст=${kst}`).toBeLessThanOrEqual(
+          toHundredths(kst) + dust
+        );
+      }
+    }
   });
 
-  it('lifts a low earner up to their floor and says so', () => {
-    const people = [person('star', 100000), person('quiet', 1)];
-    const { shares } = formulaShares({ people, kstHundredths: 400, knpp: 2 });
-    const quiet = shares.find((s) => s.staffId === 'quiet')!;
-    expect(quiet.hundredths).toBe(DEFAULT_LIMITS.minHundredths);
-    expect(quiet.clampedTo).toBe('min');
+  // Why `Кст ≥ 0.1 × headcount` is validated on input rather than trusted: the
+  // floor is a promise to each person, so a pool too small to keep it is
+  // overspent before the head touches anything.
+  it('overshoots a pool too small to pay everyone their floor', () => {
+    const people = Array.from({ length: 13 }, (_, i) => person(500 + i * 317));
+    const kst = toHundredths(1);
+    expect(kst).toBeLessThan(minimumKstHundredths(13));
+
+    const result = formulaShares({ people, kstHundredths: kst });
+    expect(result.totalHundredths).toBeGreaterThan(kst);
   });
 
-  it('reports no clamping when the raw value survives', () => {
-    const { shares } = formulaShares({ people: EVEN, kstHundredths: 400, knpp: 2 });
-    expect(shares.every((s) => s.clampedTo === null)).toBe(true);
-  });
-
-  it('never rounds anybody below the absolute 0.1 floor', () => {
-    const people = [person('star', 100000), person('quiet', 1)];
-    const { shares } = formulaShares({ people, kstHundredths: 20, knpp: 10 });
-    for (const s of shares) expect(s.hundredths).toBeGreaterThanOrEqual(10);
-  });
-
-  it('never rounds a share above a cap that is off the ladder', () => {
-    // A cap of 0.72 must not become 0.75 through snapping. The cap wins and
-    // the share steps down to 0.70 — on the ladder and under the cap.
-    const people = [person('capped', 100000, { maxHundredths: 72 }), person('rest', 1)];
-    const { shares } = formulaShares({ people, kstHundredths: 400, knpp: 2 });
-    const capped = shares.find((s) => s.staffId === 'capped')!;
-    expect(capped.hundredths).toBeLessThanOrEqual(72);
-    expect(capped.hundredths).toBe(70);
-  });
-
-  it('never rounds a share below a floor that is off the ladder', () => {
-    const people = [person('floored', 1, { minHundredths: 22 }), person('star', 100000)];
-    const { shares } = formulaShares({ people, kstHundredths: 400, knpp: 2 });
-    const floored = shares.find((s) => s.staffId === 'floored')!;
-    expect(floored.hundredths).toBeGreaterThanOrEqual(22);
-    expect(floored.hundredths).toBe(25);
-  });
-
-  it('lets the absolute 0.1 floor outrank a lower per-person minimum', () => {
-    const people = [person('a', 1, { minHundredths: 0 }), person('b', 100000)];
-    const { shares } = formulaShares({ people, kstHundredths: 400, knpp: 2 });
-    // No route to zero exists — not through a cap, not through the formula
-    expect(shares.find((s) => s.staffId === 'a')!.hundredths).toBe(10);
-  });
-
-  it('defaults are 0.1 and 1.5', () => {
-    expect(DEFAULT_LIMITS).toEqual({ minHundredths: 10, maxHundredths: 150 });
+  // Кафедра вищої математики, the case that exposed the положення's formula:
+  // 18 people and Кст 4.00 produced 4.90, opening the grid 0.90 over budget.
+  it('is 0.05 over where the положення’s formula was 0.90 over', () => {
+    const people = Array.from({ length: 18 }, (_, i) => person(1000 + i * 400));
+    const result = formulaShares({ people, kstHundredths: toHundredths(4) });
+    expect(result.totalHundredths - toHundredths(4)).toBe(5);
   });
 });
 
-describe('cases the formula cannot evaluate', () => {
-  it('is not computable when Кнпп is zero, and everyone lands on their floor', () => {
-    // Nobody on the кафедра meets four of the twenty licence positions
-    const result = formulaShares({ people: EVEN, kstHundredths: 400, knpp: 0 });
+describe('order', () => {
+  it('never gives a lower-rated person more, when the caps are equal', () => {
+    const people = [person(9000), person(6000), person(3000), person(1200), person(400)];
+    const result = formulaShares({ people, kstHundredths: toHundredths(5) });
+    const values = result.shares.map((s) => s.hundredths);
+    for (let i = 1; i < values.length; i++) expect(values[i - 1]).toBeGreaterThanOrEqual(values[i]);
+  });
+
+  // …but a cap is allowed to invert it, because that is what a cap is for
+  it('lets a cap hold a higher-rated person below a lower-rated one', () => {
+    const people = [person(9000, 0.5), person(3000, 1.5)];
+    const result = formulaShares({ people, kstHundredths: toHundredths(3) });
+    expect(result.shares[0].hundredths).toBeLessThan(result.shares[1].hundredths);
+    expect(result.shares[0].clampedTo).toBe('max');
+  });
+});
+
+describe('bounds', () => {
+  it('caps a person at their maximum', () => {
+    const people = [person(9000, 0.75), person(1000)];
+    const result = formulaShares({ people, kstHundredths: toHundredths(3) });
+    expect(fromHundredths(result.shares[0].hundredths)).toBe(0.75);
+    expect(result.shares[0].clampedTo).toBe('max');
+  });
+
+  // A big кафедра on the smallest pool it is allowed (0.1 × headcount) is where
+  // shares actually fall under the floor; on an ordinary кафедра the sheet's
+  // own 0.5 weight floor already keeps everybody well clear of it.
+  it('lifts a share that falls under the floor', () => {
+    const people = [person(90000), ...Array.from({ length: 19 }, (_, i) => person(i + 1))];
+    const result = formulaShares({ people, kstHundredths: toHundredths(2) });
+    const floored = result.shares.filter((s) => s.clampedTo === 'min');
+    expect(floored.length).toBeGreaterThan(0);
+    for (const s of floored) expect(s.hundredths).toBe(toHundredths(0.1));
+  });
+
+  it('never pays a rated person less than the floor', () => {
+    const people = Array.from({ length: 12 }, (_, i) => person(200 + i * 900));
+    const result = formulaShares({ people, kstHundredths: toHundredths(6) });
+    for (const s of result.shares) expect(s.hundredths).toBeGreaterThanOrEqual(toHundredths(0.1));
+  });
+
+  // A кафедра that has decided somebody holds no ставка this year
+  it('pays nothing to a person capped at zero', () => {
+    const people = [person(5000), person(4000, 0)];
+    const result = formulaShares({ people, kstHundredths: toHundredths(2) });
+    expect(result.shares[1].hundredths).toBe(0);
+  });
+
+  it('every value sits on the 0.05 ladder', () => {
+    const people = Array.from({ length: 11 }, (_, i) => person(137 * (i + 1) + i * i));
+    const result = formulaShares({ people, kstHundredths: toHundredths(7) });
+    for (const s of result.shares) expect(s.hundredths % 5).toBe(0);
+  });
+});
+
+describe('cases where nothing can be computed', () => {
+  it('says so when every rating is zero', () => {
+    const result = formulaShares({ people: [person(0), person(0)], kstHundredths: 400 });
     expect(result.computable).toBe(false);
-    // A division by zero would otherwise make every share Infinity
-    expect(result.shares.every((s) => s.hundredths === 10)).toBe(true);
+    expect(result.totalHundredths).toBe(0);
   });
 
-  it('is not computable when nobody has any rating', () => {
-    const people = [person('a', 0), person('b', 0)];
-    const result = formulaShares({ people, kstHundredths: 400, knpp: 1 });
+  it('says so for an empty кафедра', () => {
+    const result = formulaShares({ people: [], kstHundredths: 400 });
     expect(result.computable).toBe(false);
-    expect(result.shares.every((s) => Number.isFinite(s.hundredths))).toBe(true);
-  });
-
-  it('handles an empty кафедра', () => {
-    const result = formulaShares({ people: [], kstHundredths: 400, knpp: 0 });
-    expect(result).toMatchObject({ computable: false, totalHundredths: 0 });
     expect(result.shares).toEqual([]);
   });
 
-  it('gives everyone their floor when the pool is zero', () => {
-    const { shares } = formulaShares({ people: EVEN, kstHundredths: 0, knpp: 2 });
-    expect(shares.every((s) => s.hundredths === 10)).toBe(true);
+  // A pool that has not been set yet is not the same as a кафедра with no
+  // people: the formula is computable, it simply has nothing to hand out.
+  it('proposes nothing when Кст is zero', () => {
+    const result = formulaShares({ people: [person(5000), person(3000)], kstHundredths: 0 });
+    expect(result.computable).toBe(true);
+    expect(result.totalHundredths).toBe(0);
   });
 
-  it('never produces NaN or Infinity', () => {
-    const cases = [
-      { people: EVEN, kstHundredths: 400, knpp: 0 },
-      { people: [], kstHundredths: 0, knpp: 0 },
-      { people: [person('a', 0)], kstHundredths: 100, knpp: 1 },
-    ];
-    for (const c of cases) {
-      for (const s of formulaShares(c).shares) {
-        expect(Number.isFinite(s.hundredths)).toBe(true);
-        expect(Number.isFinite(s.rawHundredths)).toBe(true);
-      }
-    }
+  it('leaves a single person with no rating out of the sums', () => {
+    const result = formulaShares({
+      people: [person(5000), person(0)],
+      kstHundredths: toHundredths(1),
+    });
+    expect(result.shares[1].hundredths).toBe(0);
+    expect(result.shares[0].hundredths).toBeGreaterThan(0);
+  });
+});
+
+describe('DEFAULT_LIMITS', () => {
+  // The sheet's own default. 1.5 is the ceiling on a hand-typed value, which is
+  // an input rule and not a default.
+  it('gives a person one full ставка as their cap', () => {
+    expect(fromHundredths(DEFAULT_LIMITS.maxHundredths)).toBe(1);
   });
 });

@@ -125,12 +125,23 @@ describe('saveDistribution — the pool ceiling', () => {
     expect(await saveDistribution(payload([100, 100, 50]))).toEqual({ success: true });
   });
 
+  // Caps raised out of the way on purpose: the default is one full ставка, so
+  // without this the per-person cap refuses these values first and the pool
+  // rule under test never runs.
+  function uncapped() {
+    const staff = roster();
+    for (const s of staff) s.stakeLimits = [{ minHundredths: 10, maxHundredths: 150 }] as never;
+    mockStaff.mockResolvedValue(staff);
+  }
+
   it('REFUSES one that overspends, by any amount', async () => {
+    uncapped();
     const result = await saveDistribution(payload([100, 100, 105]));
     expect(result).toMatchObject({ error: expect.stringContaining('Перевищення') });
   });
 
   it('says how much the overspend is', async () => {
+    uncapped();
     const result = await saveDistribution(payload([150, 150, 150]));
     // 4.50 against a 3.00 pool — over by 1.50
     expect(result).toMatchObject({ error: expect.stringContaining('1,50') });
