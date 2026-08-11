@@ -7,11 +7,24 @@ import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
 import { canManageEntity, isEditorWritableField } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
+import { logWarning } from '@/lib/log';
+import { issueAndEmailLink } from '@/lib/mail/invite';
 import { syncProfileDerived } from '@/lib/rating/profile-derived';
 
-export type StaffCreateState = { error: string } | { redirectTo: string };
+export type StaffCreateState =
+  | { error: string }
+  /**
+   * `inviteWarning` means the person WAS created and only the mail failed. The
+   * two must stay separable: losing a filled-in record because SMTP was down
+   * would be the worse failure by far, and the invite can be resent from the
+   * person's own page at any time.
+   */
+  | { redirectTo: string; inviteWarning?: string };
 
-export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateState> {
+export async function createStaff(
+  data: StaffCreateSchema,
+  options?: { sendInvite?: boolean }
+): Promise<StaffCreateState> {
   const session = await auth();
   if (!session) redirect('/login');
 
@@ -84,5 +97,38 @@ export async function createStaff(data: StaffCreateSchema): Promise<StaffCreateS
   }
 
   if (dbError) return { error: dbError };
+
+  // Invite immediately, if asked. Deliberately after the transaction and
+  // outside it: mail is not rollback-able, and holding a DB transaction open
+  // across an SMTP round-trip is how a slow mail server becomes a lock.
+  //
+  // ADMIN only, matching `sendInvite` on the person's own page — an editor may
+  // create a record but has never been able to hand out an account, and the
+  // checkbox is hidden from them for the same reason.
+  if (options?.sendInvite && session.user.role === 'ADMIN') {
+    try {
+      await issueAndEmailLink(
+        {
+          id: createdId,
+          email: parsed.data.email,
+          lastName: parsed.data.lastName,
+          firstName: parsed.data.firstName,
+          patronymic: parsed.data.patronymic,
+        },
+        'invite'
+      );
+    } catch (e) {
+      logWarning('staff.createStaff', 'Не вдалося надіслати запрошення', {
+        userId: session.user.id,
+        entityId: createdId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return {
+        redirectTo: `/staff/${createdId}`,
+        inviteWarning: 'Запис створено, але лист не надіслано. Надішліть запрошення ще раз',
+      };
+    }
+  }
+
   return { redirectTo: `/staff/${createdId}` };
 }

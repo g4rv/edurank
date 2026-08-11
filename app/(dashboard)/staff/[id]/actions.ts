@@ -12,9 +12,7 @@ import {
   type SetPasswordSchema,
   type ChangeRoleSchema,
 } from '@/validations/account';
-import { issueActivationToken, ACTIVATION_TOKEN_DAYS } from '@/lib/activation';
-import { sendMail } from '@/lib/mail/mailer';
-import { inviteEmail, passwordResetEmail } from '@/lib/mail/templates';
+import { issueAndEmailLink, staffFullName } from '@/lib/mail/invite';
 import { diffChanges } from '@/lib/audit';
 import {
   canManageEntity,
@@ -356,27 +354,6 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
 // ─── Account actions (ADMIN only) ────────────────────────────────────────────
 
 export type AccountActionState = { error: string } | { success: true; message?: string };
-
-function staffFullName(s: { lastName: string; firstName: string; patronymic: string }) {
-  return `${s.lastName} ${s.firstName} ${s.patronymic}`;
-}
-
-async function issueAndEmailLink(
-  staff: { id: string; email: string; lastName: string; firstName: string; patronymic: string },
-  kind: 'invite' | 'reset'
-): Promise<void> {
-  const token = await issueActivationToken(staff.id);
-  const link = `${process.env.APP_URL ?? 'http://localhost:3000'}/activate/${token}`;
-  const input = {
-    fullName: staffFullName(staff),
-    link,
-    expiresDays: ACTIVATION_TOKEN_DAYS,
-  };
-  await sendMail({
-    to: staff.email,
-    ...(kind === 'invite' ? inviteEmail(input) : passwordResetEmail(input)),
-  });
-}
 
 // Invite (or re-invite) a not-yet-activated person: new token + email
 export async function sendInvite(id: string): Promise<AccountActionState> {

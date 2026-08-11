@@ -13,9 +13,11 @@ vi.mock('@/lib/db', () => ({
     $transaction: vi.fn(),
   },
 }));
+vi.mock('@/lib/mail/invite', () => ({ issueAndEmailLink: vi.fn() }));
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { issueAndEmailLink } from '@/lib/mail/invite';
 import type { StaffCreateSchema } from '@/validations/staff';
 import { createStaff } from './actions';
 
@@ -23,6 +25,7 @@ const mockAuth = auth as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
 const mockEntityPerm = db.divisionEntityPermission.findFirst as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
+const mockInvite = issueAndEmailLink as unknown as Mock;
 
 const payload: StaffCreateSchema = {
   lastName: 'Франко',
@@ -130,5 +133,59 @@ describe('createStaff field filtering', () => {
     const data = tx.staff.create.mock.calls[0][0].data;
     expect(data.employmentRate).toBe(0.75);
     expect(data.divisionId).toBe('div-nnv');
+  });
+});
+
+// Creating the person and inviting them are two outcomes, and only one of them
+// can be rolled back. A mail server that is down must never cost somebody the
+// record they just filled in.
+describe('createStaff invite on create', () => {
+  it('does not send anything unless asked', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockTx();
+
+    expect(await createStaff(payload)).toEqual({ redirectTo: '/staff/staff-new' });
+    expect(mockInvite).not.toHaveBeenCalled();
+  });
+
+  it('mails the new person when asked', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockTx();
+    mockInvite.mockResolvedValue(undefined);
+
+    expect(await createStaff(payload, { sendInvite: true })).toEqual({
+      redirectTo: '/staff/staff-new',
+    });
+    expect(mockInvite).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'staff-new', email: 'ivan@univ.ua', lastName: 'Франко' }),
+      'invite'
+    );
+  });
+
+  it('still creates the person when SMTP fails, and says so', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    const tx = mockTx();
+    mockInvite.mockRejectedValue(new Error('SMTP down'));
+
+    const result = await createStaff(payload, { sendInvite: true });
+    expect(tx.staff.create).toHaveBeenCalled();
+    expect(result).toEqual({
+      redirectTo: '/staff/staff-new',
+      inviteWarning: 'Запис створено, але лист не надіслано. Надішліть запрошення ще раз',
+    });
+  });
+
+  // An editor may create a record but has never been able to hand out an
+  // account. The switch is hidden from them; this is the server saying no too.
+  it('ignores the flag for an EDITOR', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 's1' } });
+    mockStaffFind.mockResolvedValue({ divisionId: 'div-1' });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockTx();
+
+    expect(await createStaff(payload, { sendInvite: true })).toEqual({
+      redirectTo: '/staff/staff-new',
+    });
+    expect(mockInvite).not.toHaveBeenCalled();
   });
 });

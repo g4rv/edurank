@@ -20,6 +20,7 @@ import {
   ChartColumn,
   Scale,
   FileCheck,
+  MailPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -50,6 +51,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: '/admin/stakes', label: 'Розподіл ставок', icon: Scale, roles: ['ADMIN'] },
   { href: '/admin/permissions/field', label: 'Поля доступу', icon: KeyRound, roles: ['ADMIN'] },
   { href: '/admin/permissions/entity', label: 'Дії доступу', icon: ShieldCheck, roles: ['ADMIN'] },
+  { href: '/admin/invites', label: 'Запрошення', icon: MailPlus, roles: ['ADMIN'] },
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList, roles: ['ADMIN'] },
 ];
 
