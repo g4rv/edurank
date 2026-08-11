@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { DiscardActivityButton } from '@/components/rating/discard-activity-button';
 import { VerifyActivityButton } from '@/components/rating/verify-activity-button';
+import { SubmissionPanel } from '@/components/rating/submission-panel';
 import { compareItemNumbers } from '@/lib/rating/achievement-rows';
 
 export interface ModerationRow {
@@ -440,6 +441,12 @@ function TableView({
   const current = Math.min(page, totalPages);
   const slice = rows.slice((current - 1) * PAGE_ROWS, current * PAGE_ROWS);
 
+  // Which row the panel is showing, as an index into the page being worked
+  // through. Kept as an index rather than an id so «next» is one line, and
+  // scoped to the page so the arrows never walk past the pager.
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const openRow = openIndex === null ? null : (slice[openIndex] ?? null);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {/* `table-fixed` is what stops the overflow. On auto layout the widest
@@ -491,8 +498,17 @@ function TableView({
           </tr>
         </thead>
         <tbody>
-          {slice.map((row) => (
-            <tr key={row.id} className="align-top transition-colors">
+          {slice.map((row, i) => (
+            <tr
+              key={row.id}
+              className="cursor-pointer align-top transition-colors"
+              onClick={(e) => {
+                // The action cell has its own controls, and a dialog opened from
+                // one of them must not also open the panel behind it.
+                if ((e.target as HTMLElement).closest('button, a, [role="dialog"]')) return;
+                setOpenIndex(i);
+              }}
+            >
               {/* Short form so a full Ukrainian ПІБ stops wrapping onto two and
                   three lines. The full name is one hover away, and is still
                   what search, sorting and the discard dialog use. */}
@@ -553,6 +569,15 @@ function TableView({
         onPage={onPage}
         unit="подань"
         total={rows.length}
+      />
+
+      <SubmissionPanel
+        row={openRow}
+        open={openIndex !== null}
+        onOpenChange={(next) => !next && setOpenIndex(null)}
+        onPrev={() => setOpenIndex((i) => (i === null ? null : Math.max(0, i - 1)))}
+        onNext={() => setOpenIndex((i) => (i === null ? null : Math.min(slice.length - 1, i + 1)))}
+        position={openIndex === null ? null : { index: openIndex, total: slice.length }}
       />
     </div>
   );

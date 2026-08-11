@@ -8,6 +8,10 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { canModerateRating } from '@/lib/rating/moderation';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
+import { evidenceItems, type EvidenceItem } from '@/lib/rating/evidence-detail';
+import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
+import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
+import { fullStaffName } from '@/lib/staff-name';
 
 export type RemoveActivityState = { error: string } | { success: true };
 
@@ -172,4 +176,97 @@ export async function setActivityVerified(
 
   revalidatePath('/moderation');
   return { success: true, verified };
+}
+
+// ─── Detail panel ────────────────────────────────────────────────────────────
+
+export interface SubmissionDetail {
+  id: string;
+  staffName: string;
+  staffId: string;
+  department: string;
+  itemNumber: string;
+  label: string;
+  section: number;
+  sectionTitle: string;
+  score: number;
+  statusLabel: string;
+  status: 'PENDING' | 'APPROVED' | 'REMOVED';
+  removeReason: string | null;
+  date: string;
+  verified: boolean;
+  verifiedAt: string | null;
+  items: EvidenceItem[];
+}
+
+export type SubmissionDetailState = { error: string } | { detail: SubmissionDetail };
+
+/**
+ * Everything about one submission, for the side panel.
+ *
+ * Loaded per record rather than sent with the table: a year holds thousands of
+ * rows and their evidence is the biggest thing on each one, so shipping it all
+ * to render a list nobody reads in full would be paid on every page load.
+ *
+ * Read-only, but still permission-checked — a query that returns what somebody
+ * wrote about themselves is not public just because it changes nothing.
+ */
+export async function getSubmissionDetail(activityId: string): Promise<SubmissionDetailState> {
+  const session = await auth();
+  if (!session) redirect('/login');
+  if (!(await canModerateRating(session.user))) return { error: 'Недостатньо прав' };
+
+  const activity = await db.activity.findUnique({
+    where: { id: activityId },
+    select: {
+      id: true,
+      evidence: true,
+      score: true,
+      status: true,
+      removeReason: true,
+      createdAt: true,
+      verifiedAt: true,
+      staff: {
+        select: {
+          id: true,
+          lastName: true,
+          firstName: true,
+          patronymic: true,
+          department: { select: { name: true } },
+        },
+      },
+      activityType: {
+        select: {
+          label: true,
+          itemNumber: true,
+          evidenceFields: true,
+          section: { select: { number: true, title: true } },
+        },
+      },
+    },
+  });
+  if (!activity) return { error: 'Запис не знайдено' };
+
+  const parsed = evidenceFieldsSpecSchema.safeParse(activity.activityType.evidenceFields);
+
+  return {
+    detail: {
+      id: activity.id,
+      staffName: fullStaffName(activity.staff),
+      staffId: activity.staff.id,
+      department: activity.staff.department?.name ?? '',
+      itemNumber: activity.activityType.itemNumber,
+      label: activity.activityType.label,
+      section: activity.activityType.section.number,
+      sectionTitle: activity.activityType.section.title,
+      score: activity.score,
+      status: activity.status,
+      statusLabel: ACTIVITY_STATUS_LABELS[activity.status],
+      removeReason: activity.removeReason,
+      date: activity.createdAt.toLocaleDateString('uk-UA'),
+      verified: activity.verifiedAt !== null,
+      verifiedAt: activity.verifiedAt?.toLocaleDateString('uk-UA') ?? null,
+      items: evidenceItems(parsed.success ? parsed.data : [], activity.evidence),
+    },
+  };
 }
