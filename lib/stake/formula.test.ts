@@ -182,9 +182,19 @@ describe('cases where nothing can be computed', () => {
 });
 
 describe('DEFAULT_LIMITS', () => {
-  // The sheet's own default. 1.5 is the ceiling on a hand-typed value, which is
-  // an input rule and not a default.
-  it('gives a person one full ставка as their cap', () => {
-    expect(fromHundredths(DEFAULT_LIMITS.maxHundredths)).toBe(1);
+  // Higher than the sheet's 1.00 on purpose: the cap clamps the preliminary
+  // weight, so a low default holds a кафедра under its own pool.
+  it('gives a person one and a half ставки as their cap', () => {
+    expect(fromHundredths(DEFAULT_LIMITS.maxHundredths)).toBe(1.5);
+  });
+
+  it('lets more of the pool reach people than a 1.00 cap would', () => {
+    const people = Array.from({ length: 16 }, (_, i) => person(400 + i * 550, 1.5));
+    const capped = Array.from({ length: 16 }, (_, i) => person(400 + i * 550, 1));
+    const kstHundredths = toHundredths(16);
+
+    const wide = formulaShares({ people, kstHundredths }).totalHundredths;
+    const narrow = formulaShares({ people: capped, kstHundredths }).totalHundredths;
+    expect(wide).toBeGreaterThan(narrow);
   });
 });

@@ -163,11 +163,17 @@ export function formulaShares({
 /**
  * The floor and ceiling to use when ADMIN has set none for this person.
  *
- * The ceiling is 1.00, which is the sheet's default — one full ставка. 1.5 is
- * not a default there but the hard ceiling on a HAND-typed value, which is a
- * different rule and belongs with the input, not here.
+ * 1.5, not the sheet's 1.00. The cap is not decoration here — it clamps the
+ * preliminary weight, so a default that is too low quietly holds a кафедра
+ * under its own pool: measured across the 2026 data, 1.00 left Кафедра біології
+ * proposing 13.95 of its 16.00 and Кафедра комп'ютерних наук 2.40 of 3.00, with
+ * the difference going nowhere. At 1.5 they propose 15.55 and 2.85.
+ *
+ * It also matches the 2025 file, where every cap the university actually set
+ * sits on or below 1.5. A person who needs a lower ceiling gets one typed for
+ * them; a default's job is to not decide anything on its own.
  */
 export const DEFAULT_LIMITS = {
   minHundredths: MIN_STAKE,
-  maxHundredths: toHundredths(1),
+  maxHundredths: toHundredths(1.5),
 } as const;
