@@ -54,7 +54,7 @@ export default async function DepartmentStakesPage({
     : { href: '/my-department', label: 'Моя кафедра' };
 
   return (
-    <AnimatedPage className="space-y-6">
+    <AnimatedPage className="flex h-full min-h-0 flex-col gap-6">
       <Link
         href={back.href}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -85,8 +85,9 @@ export default async function DepartmentStakesPage({
         <p className="max-w-3xl text-xs text-muted-foreground">
           Формула пропонує, скільки дати кожному — частку від виділених ставок, пропорційно до
           рейтингу. Сума майже дорівнює виділеному: різниця в кілька сотих виникає через округлення
-          до 0,05. Завідувач вільно змінює будь-яке значення, вказуючи обґрунтування. Бонус за
-          залучених здобувачів виплачується понад виділені ставки.
+          до 0,05. Запропоновану ставку можна лише збільшити. Якщо разом вийде більше за виділене,
+          збереження не блокується — але це треба врахувати у протоколі. Бонус за залучених
+          здобувачів виплачується понад виділені ставки.
         </p>
       )}
 

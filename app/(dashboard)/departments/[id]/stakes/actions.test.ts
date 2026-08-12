@@ -134,17 +134,18 @@ describe('saveDistribution — the pool ceiling', () => {
     mockStaff.mockResolvedValue(staff);
   }
 
-  it('REFUSES one that overspends, by any amount', async () => {
+  // Overspending is the кафедра's decision to make and the протокол's to
+  // record, so the save takes it. It used to be refused, which deadlocked with
+  // «тільки збільшити»: nothing could be raised and nothing could be lowered.
+  it('ACCEPTS one that overspends by a rounding hundredth', async () => {
     uncapped();
-    const result = await saveDistribution(payload([100, 100, 105]));
-    expect(result).toMatchObject({ error: expect.stringContaining('Перевищення') });
+    expect(await saveDistribution(payload([100, 100, 105]))).toEqual({ success: true });
   });
 
-  it('says how much the overspend is', async () => {
+  it('accepts a large overspend too — the протокол settles it, not the form', async () => {
     uncapped();
-    const result = await saveDistribution(payload([150, 150, 150]));
-    // 4.50 against a 3.00 pool — over by 1.50
-    expect(result).toMatchObject({ error: expect.stringContaining('1,50') });
+    // 4.50 against a 3.00 pool
+    expect(await saveDistribution(payload([150, 150, 150]))).toEqual({ success: true });
   });
 
   it('refuses when no Кст has been set at all', async () => {

@@ -35,7 +35,6 @@ export interface StakeRow {
   clampedTo: 'min' | 'max' | null;
   /** What the head has decided, falling back to the formula until they touch it */
   proposedHundredths: number;
-  justification: string | null;
   /**
    * Term 2 — the recruitment bonus, in ставки.
    *
@@ -104,7 +103,7 @@ export async function getStakeDistribution(
         filledAt: true,
         filledBy: { select: { lastName: true, firstName: true, patronymic: true } },
         allocations: {
-          select: { staffId: true, proposedHundredths: true, justification: true },
+          select: { staffId: true, proposedHundredths: true },
         },
       },
     }),
@@ -159,7 +158,6 @@ export async function getStakeDistribution(
         // the screen opens on a defensible split rather than on a column of
         // blanks somebody has to fill in from nothing.
         proposedHundredths: allocation?.proposedHundredths ?? share.hundredths,
-        justification: allocation?.justification ?? null,
         bonus: bonuses.get(s.id) ?? 0,
       };
     })

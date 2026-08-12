@@ -35,7 +35,6 @@ async function canDistribute(
 const allocationSchema = z.object({
   staffId: z.string().min(1),
   hundredths: z.number().int().min(0),
-  justification: z.string().trim().max(2000).nullable(),
 });
 
 const savePayloadSchema = z.object({
@@ -101,7 +100,6 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     return { error: 'Список НПП змінився. Оновіть сторінку та спробуйте ще раз' };
   }
 
-  let total = 0;
   for (const allocation of allocations) {
     const person = byId.get(allocation.staffId);
     if (!person) {
@@ -123,20 +121,20 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     if (allocation.hundredths % STAKE_STEP !== 0) {
       return { error: `${who}: ставка має бути кратною 0,05` };
     }
-
-    total += allocation.hundredths;
   }
 
-  // THE hard block. `Кст` bounds the pool share and nothing else — the
-  // recruitment bonus is paid on top and is not part of this sum. With no
-  // approval step behind it, the save is the only place left to enforce it.
-  if (total > stake.kstHundredths) {
-    return {
-      error:
-        `Розподілено ${formatStake(total)} із ${formatStake(stake.kstHundredths)}. ` +
-        `Перевищення на ${formatStake(total - stake.kstHundredths)} — зменште чиюсь ставку.`,
-    };
-  }
+  // Overspending the pool is ALLOWED, and shown rather than refused — the
+  // university's own sheet does the same, turning «не розподілено» red beside
+  // «не забудьте врахувати у протоколі» (2026-08-12).
+  //
+  // Refusing was not a stricter version of that, it was a deadlock. A head may
+  // only raise a value above the formula, never lower it, and the proposal can
+  // already sit a few hundredths over `Кст` from ladder rounding alone — so
+  // with a hard block there was nothing they could legally do to the grid at
+  // all. Кафедра географії was in exactly that state: 2.10 proposed against a
+  // pool of 2.00, unsaveable.
+  //
+  // Where the number is settled is the протокол, not this input.
 
   // Recomputed server-side, not taken from the client: додаток 2 prints the
   // formula's number beside the head's, so storing the head's in both columns
@@ -152,14 +150,12 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   });
   const formulaByStaff = new Map(formula.shares.map((s) => [s.staffId, s.hundredths]));
 
-  // Обґрунтування is OPTIONAL. Додаток 2 has the column and the положення says
-  // the head justifies a deviation, but nobody has established that the app
-  // must refuse a save without one — so it does not. A head who wants to write
-  // nothing writes nothing, and the empty cell is what reaches додаток 2.
-  //
-  // If that is ever tightened, tighten it here and in `blockedBy` on the grid
-  // together: refusing on the server while the client saves cheerfully is the
-  // worst of both.
+  // No обґрунтування. Додаток 2 prints the column and the положення describes
+  // justifying a deviation, but the university says nobody will ever fill it in
+  // (2026-08-12), and a field nobody completes is worse than no field: it takes
+  // a column of the widest screen and teaches people that empty is normal. The
+  // `StakeAllocation.justification` column is left in the database, unused and
+  // nullable, so the text already typed is not destroyed by this decision.
 
   try {
     await db.$transaction(async (tx) => {
@@ -192,7 +188,6 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
           // side by side — the document IS the comparison.
           formulaHundredths: formulaByStaff.get(a.staffId) ?? 0,
           proposedHundredths: a.hundredths,
-          justification: a.justification,
         })),
       });
 

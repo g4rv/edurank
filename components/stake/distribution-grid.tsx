@@ -65,9 +65,6 @@ export function DistributionGrid({
   const [values, setValues] = useState<Record<string, number>>(() =>
     Object.fromEntries(view.rows.map((r) => [r.staffId, r.proposedHundredths]))
   );
-  const [justifications, setJustifications] = useState<Record<string, string>>(() =>
-    Object.fromEntries(view.rows.map((r) => [r.staffId, r.justification ?? '']))
-  );
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
@@ -137,18 +134,30 @@ export function DistributionGrid({
   const overspent = remaining !== null && remaining < 0;
   const bonusTotal = view.rows.reduce((sum, r) => sum + r.bonus, 0);
 
-  const dirty = view.rows.some(
-    (r) =>
-      values[r.staffId] !== r.proposedHundredths ||
-      (justifications[r.staffId] ?? '') !== (r.justification ?? '')
-  );
+  const dirty = view.rows.some((r) => values[r.staffId] !== r.proposedHundredths);
 
   function setValue(row: StakeRow, next: number) {
     // The caps are absolute — clamped here as well as on the server, so the
     // ▲▼ buttons simply stop rather than producing a value the save rejects.
     const lower = Math.max(row.minHundredths, MIN_STAKE);
     const upper = Math.max(row.maxHundredths, lower);
-    setValues((v) => ({ ...v, [row.staffId]: Math.min(Math.max(next, lower), upper) }));
+    const clamped = Math.min(Math.max(next, lower), upper);
+
+    // «Початкову (автоматичну) ставку можна тільки збільшити» — the sheet's own
+    // rule. The formula's number is the floor a head works up from; talking
+    // somebody DOWN from what the rating earned them is a decision the
+    // положення does not give them.
+    //
+    // Lifted while the кафедра is over its pool, exactly as the sheet lifts it:
+    // otherwise the only way out of an overspend would be forbidden.
+    if (!overspent && clamped < row.formulaHundredths) {
+      setError(
+        `${row.name}: ставку за формулою (${formatStake(row.formulaHundredths)}) можна лише збільшити`
+      );
+      return;
+    }
+
+    setValues((v) => ({ ...v, [row.staffId]: clamped }));
     setError(null);
   }
 
@@ -158,9 +167,6 @@ export function DistributionGrid({
    * Two things this has to do beyond setting the numbers, both of which it
    * missed before:
    *
-   * - **Clear the justifications.** Every row now matches the formula, so
-   *   there is nothing left to justify — and додаток 2 carrying «asd» against a
-   *   row that agrees with the formula is a document contradicting itself.
    * - **Write it.** There is no save button any more; every other edit is
    *   written when a field is left, and this one has no field to leave. A reset
    *   that only changed the screen looked identical to a saved one until the
@@ -169,11 +175,10 @@ export function DistributionGrid({
   function reset() {
     const values = Object.fromEntries(view.rows.map((r) => [r.staffId, r.formulaHundredths]));
     setValues(values);
-    setJustifications(Object.fromEntries(view.rows.map((r) => [r.staffId, ''])));
     setError(null);
     // Saved from the values just computed, not from state — a setState is not
     // visible to the call that follows it.
-    save(values, {});
+    save(values);
   }
 
   /**
@@ -185,11 +190,19 @@ export function DistributionGrid({
    * departs from the formula with an empty reason saves like any other.
    */
   const blockedBy: string | null =
-    kst === null
-      ? 'Кст ще не встановлено — зверніться до адміністратора'
-      : overspent
-        ? `Перевищено виділені ставки на ${formatStake(-(remaining ?? 0))} — зменште чиюсь ставку`
-        : null;
+    kst === null ? 'Кст ще не встановлено — зверніться до адміністратора' : null;
+
+  /**
+   * Over the pool — allowed, and said out loud.
+   *
+   * Not a блок: the sheet the кафедри already use permits it and asks for it to
+   * be written into the протокол, and refusing it here left a head with nothing
+   * they could do once «тільки збільшити» was in force.
+   */
+  const overspendWarning =
+    overspent && remaining !== null
+      ? `Перевищення розподілу на ${formatStake(-remaining)} — не забудьте врахувати у протоколі`
+      : null;
 
   /**
    * Saves the whole кафедра, on leaving a field.
@@ -199,7 +212,7 @@ export function DistributionGrid({
    * of the move if rows saved on their own. So a change is kept locally until
    * the grid as a whole is valid, and then written.
    */
-  function save(nextValues: Record<string, number>, nextJustifications: Record<string, string>) {
+  function save(nextValues: Record<string, number>) {
     if (!canEdit) return;
     setError(null);
     startTransition(async () => {
@@ -209,7 +222,6 @@ export function DistributionGrid({
         allocations: view.rows.map((r) => ({
           staffId: r.staffId,
           hundredths: nextValues[r.staffId],
-          justification: nextJustifications[r.staffId]?.trim() || null,
         })),
       });
       if (result && 'error' in result) setError(result.error);
@@ -222,11 +234,15 @@ export function DistributionGrid({
 
   function saveOnBlur() {
     if (!dirty || blockedBy) return;
-    save(values, justifications);
+    save(values);
   }
 
   return (
-    <div className="space-y-4">
+    // A column that fills the page rather than growing past it: the summary,
+    // the controls and the note stay put and the ROWS scroll, so a кафедра of
+    // thirty people still shows «нерозподілено» and «Повернути до формули»
+    // without scrolling the window.
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <Totals
         kst={kst}
         distributed={distributed}
@@ -244,10 +260,68 @@ export function DistributionGrid({
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-xl border bg-card">
-        <table className="w-full border-collapse text-sm">
+      {error && (
+        <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
+      {/* Amber, not red: the кафедра is over its pool and that is a fact to
+          carry into the протокол, not a mistake to correct before saving. */}
+      {overspendWarning && (
+        <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-4 py-2 text-sm text-amber-700 dark:text-amber-500">
+          ⚠️ {overspendWarning}
+        </p>
+      )}
+
+      {canEdit && view.rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="outline" onClick={reset} disabled={pending}>
+            <RotateCcw className="size-4" />
+            Повернути до формули
+          </Button>
+
+          {/* There is no save button: a change is written when the field is
+              left. What this line does is say what state that leaves things
+              in, because a silent autosave is indistinguishable from a lost
+              edit — especially while a change is being HELD BACK, which is the
+              one case where leaving a field does not write anything. */}
+          <span className="text-xs">
+            {pending ? (
+              <span className="text-muted-foreground">Збереження…</span>
+            ) : blockedBy && dirty ? (
+              <span className="text-destructive">Не збережено: {blockedBy}</span>
+            ) : dirty ? (
+              <span className="text-muted-foreground">Незбережені зміни</span>
+            ) : savedAt ? (
+              <span className="text-emerald-700 dark:text-emerald-400">Збережено</span>
+            ) : null}
+          </span>
+
+          {view.filledAt && (
+            <span className="ml-auto text-xs text-muted-foreground">
+              Заповнив: {view.filledBy ?? '—'}, {view.filledAt.toLocaleDateString('uk-UA')}
+            </span>
+          )}
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        {canEditLimits
+          ? `Мін і Макс зберігаються окремо від розподілу — після зміни формула перераховується. Бліді значення означають стандартні межі ${formatStake(DEFAULT_LIMITS.minHundredths)} / ${formatStake(DEFAULT_LIMITS.maxHundredths)}; Макс можна піднімати вище.`
+          : 'Мінімальну і максимальну ставку встановлює адміністратор.'}
+      </p>
+
+      {/* The only part that scrolls. `min-h-0` is what lets a flex child be
+          shorter than its content instead of pushing the page down. */}
+      <div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-card">
+        {/* Headings are pinned, because scrolling a кафедра of thirty carries
+            «Розподілено» and «Макс» off the top otherwise, and the columns are
+            all numbers that look alike. Each cell needs its own background:
+            rows would show through the row's translucent tint. */}
+        <table className="w-full border-collapse text-sm [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted">
           <thead>
-            <tr className="bg-muted/60 text-left">
+            <tr className="text-left">
               {/* НПП and Обґрунтування carry text and take what is left; every
                   other column is a number or a control of known size.
                   `whitespace-nowrap` on the headings is the point: a heading
@@ -293,12 +367,6 @@ export function DistributionGrid({
               <th className="w-20 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 Разом
               </th>
-              <th className="min-w-48 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  Обґрунтування
-                  <StakeTermHint term="justification" />
-                </span>
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -307,7 +375,6 @@ export function DistributionGrid({
                 key={row.staffId}
                 row={row}
                 value={values[row.staffId]}
-                justification={justifications[row.staffId] ?? ''}
                 canEdit={canEdit}
                 canEditLimits={canEditLimits}
                 canOpenStaffProfile={canOpenStaffProfile}
@@ -316,7 +383,6 @@ export function DistributionGrid({
                 limitError={limitErrors[row.staffId] ?? null}
                 limitsPending={limitsPending}
                 onChange={(next) => setValue(row, next)}
-                onJustify={(text) => setJustifications((j) => ({ ...j, [row.staffId]: text }))}
                 onBlur={saveOnBlur}
                 onLimitChange={(bound, next) =>
                   setLimits((l) => ({
@@ -340,50 +406,6 @@ export function DistributionGrid({
           </tbody>
         </table>
       </div>
-
-      {error && (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      {canEdit && view.rows.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="outline" onClick={reset} disabled={pending}>
-            <RotateCcw className="size-4" />
-            Повернути до формули
-          </Button>
-
-          {/* There is no save button: a change is written when the field is
-              left. What this line does is say what state that leaves things
-              in, because a silent autosave is indistinguishable from a lost
-              edit — especially while a change is being HELD BACK, which is the
-              one case where leaving a field does not write anything. */}
-          <span className="text-xs">
-            {pending ? (
-              <span className="text-muted-foreground">Збереження…</span>
-            ) : blockedBy && dirty ? (
-              <span className="text-destructive">Не збережено: {blockedBy}</span>
-            ) : dirty ? (
-              <span className="text-muted-foreground">Незбережені зміни</span>
-            ) : savedAt ? (
-              <span className="text-emerald-700 dark:text-emerald-400">Збережено</span>
-            ) : null}
-          </span>
-
-          {view.filledAt && (
-            <span className="ml-auto text-xs text-muted-foreground">
-              Заповнив: {view.filledBy ?? '—'}, {view.filledAt.toLocaleDateString('uk-UA')}
-            </span>
-          )}
-        </div>
-      )}
-
-      <p className="text-xs text-muted-foreground">
-        {canEditLimits
-          ? `Мін і Макс зберігаються окремо від розподілу — після зміни формула перераховується. Бліді значення означають стандартні межі ${formatStake(DEFAULT_LIMITS.minHundredths)} / ${formatStake(DEFAULT_LIMITS.maxHundredths)}; Макс можна піднімати вище.`
-          : 'Мінімальну і максимальну ставку встановлює адміністратор.'}
-      </p>
     </div>
   );
 }
@@ -561,7 +583,6 @@ function LimitCell({
 function Row({
   row,
   value,
-  justification,
   canEdit,
   canEditLimits,
   canOpenStaffProfile,
@@ -570,14 +591,12 @@ function Row({
   limitError,
   limitsPending,
   onChange,
-  onJustify,
   onBlur,
   onLimitChange,
   onLimitCommit,
 }: {
   row: StakeRow;
   value: number;
-  justification: string;
   canEdit: boolean;
   canEditLimits: boolean;
   canOpenStaffProfile: boolean;
@@ -586,7 +605,6 @@ function Row({
   limitError: string | null;
   limitsPending: boolean;
   onChange: (next: number) => void;
-  onJustify: (text: string) => void;
   onBlur: () => void;
   onLimitChange: (bound: 'min' | 'max', next: string) => void;
   onLimitCommit: () => void;
@@ -760,25 +778,6 @@ function Row({
 
       <td className="border border-border px-3 py-2 text-right font-medium tabular-nums">
         {formatBonus(value / 100 + row.bonus)}
-      </td>
-
-      <td className="border border-border px-3 py-2">
-        {/* Додаток 2's «Обґрунтування» — asked for only when the head departs
-            from the formula, because a justification for agreeing with it is
-            noise the reader has to skip. */}
-        {differs ? (
-          <Input
-            value={justification}
-            onChange={(e) => onJustify(e.target.value)}
-            onBlur={onBlur}
-            disabled={!canEdit || disabled}
-            placeholder="Чому не за формулою (необов’язково)"
-            aria-label={`Обґрунтування для ${row.name}`}
-            className="h-8"
-          />
-        ) : (
-          <span className="text-xs text-muted-foreground">за формулою</span>
-        )}
       </td>
     </tr>
   );
