@@ -50,7 +50,7 @@ export default async function SpecialityNormsPage() {
   return (
     <AnimatedPage className="space-y-6">
       <Link
-        href="/admin/stakes"
+        href="/stakes"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ChevronLeft className="size-4" />

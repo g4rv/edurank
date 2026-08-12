@@ -54,8 +54,8 @@ This is the single most load-bearing fact about the whole feature, and the
 pool covers all of it. It does not:
 
 ```
-term 1  — the pool share       Σ over the кафедра = Кст     HARD CEILING
-term 2  — the recruitment bonus  paid ON TOP of Кст          not bounded by it
+term 1  — the pool share       Σ over the кафедра ≈ Кст     the pool's own budget
+term 2  — the recruitment bonus  paid OUTSIDE Кст            but capped by Макс
 ```
 
 So the order of operations is:
@@ -64,26 +64,49 @@ So the order of operations is:
 2. **The formula spreads that pool**, `0.5 · (Rнпп/<Rк>) · (Кст/Кнпп)` per person.
    This is the _initial, fair_ split: proportional to rating, nobody's opinion in it.
 3. **The head adjusts by hand** who gets what, and that is the final answer —
-   nobody approves it after them (see «There is no approval step»). **The sum may
-   never exceed `Кст`**: a hard block, not a warning, and with no approval stage
-   behind it, the save is the only place left to enforce it.
+   nobody approves it after them (see «There is no approval step»).
 4. **Recruitment bonuses are added afterwards, outside the pool.** A person who
    brought in students gets their `Σ Nзд/Nд + Σ Nзз/Nз` on top. This money does
    not come out of `Кст` and does not compete with colleagues.
 
-**Consequence — a person's total ставка can exceed their pool share, and the
-кафедра's total can exceed `Кст`, but only ever through term 2.** Never through
-the head's pen. If you are looking at a sum bigger than `Кст`, the difference must
-be exactly the recruitment bonuses; anything else is a bug.
+**Overspending `Кст` is allowed** (2026-08-12, revising point 3). It is shown as
+an amber warning to carry into the протокол, not refused. Refusing it was a
+deadlock rather than a stricter rule: a head may only ever RAISE a value above
+the formula, and ladder rounding can already put the proposal a few hundredths
+over the pool, so there was nothing they could legally do to the grid at all.
+Кафедра географії sat in exactly that state — 2.10 proposed against a pool of
+2.00, unsaveable.
+
+**The bonus does not lift anybody above their own Макс** (2026-08-12). This
+revises «not bounded by it» above, and it matters:
+
+```
+Разом = розподілено + min(бонус, Макс − розподілено)
+```
+
+Somebody already at their ceiling from the pool gets nothing extra from
+recruitment, however many students they brought in. If they should hold more,
+they ask the проректор, who tells the head to raise that one person's number.
+The practical consequence is that term 2 behaves more like an extra rating score
+than like extra money — and a column promising ставки that will never be paid is
+worse than no column. `lib/stake/total.ts` applies this, and the ceiling bites
+the BONUS, never the pool share: when ADMIN lowers a cap under an allocation the
+head already saved, the right thing on screen is a distributed number flagged out
+of range, not a «Разом» quietly smaller than what the кафедра agreed.
+
+**Consequence — a кафедра's total can still exceed `Кст`**, by whatever part of
+the bonuses fits under the caps, plus whatever the head deliberately overspent.
 
 This retracts the earlier open question «чи може сума перевищувати Кст», which
 was malformed — it asked about one number where there are two, and the answer
 differs per term.
 
-**Consequence for the UI.** The grid needs two columns, not one: the pool share
-(editable by the head, with a live «нерозподілено» against `Кст`) and the
-recruitment bonus (read-only, computed from confirmed students). A single merged
-number would make the hard ceiling impossible to enforce or explain.
+**Consequence for the UI.** The grid needs separate columns, not one: the pool
+share (editable by the head, with a live «нерозподілено» against `Кст`), the
+recruitment bonus (read-only, computed from confirmed students) and «Разом»
+(their capped sum). A single merged number would make none of the three
+explainable. The bonus that did not fit is shown beside «Разом» rather than
+dropped — it is the number somebody takes to the проректор.
 
 ### The norms table is one number per speciality
 
@@ -254,6 +277,18 @@ Consequences for the build:
   unclaimable, and the person would have no way to tell why.
 - The норматив is the **student's** speciality's, never the recruiter's.
 
+**There is nevertheless a випускова-кафедра map, and it changes nothing above.**
+`lib/specialities/departments.ts` is a hardcoded constant, transcribed from the
+кафедра pages on uhsp.edu.ua (2026-08-12). Its only job is the «Бонус» column on
+`/stakes`: a завідувач sees each recruit's speciality colour-coded — **green** for
+their own кафедра's programmes, **amber** for somebody else's, **gray** when the
+кафедра is not in the довідник at all. Filling another кафедра's programme is real
+work, but it is not the same work as filling your own, and only the head can weigh
+that. It is display, never a restriction, which is why it lives in code rather
+than on `Speciality`. Gray is a real third answer: the demo кафедри are invented,
+and reporting those as somebody else's programme would be a claim we cannot
+support.
+
 **Сумісництво (Q12) — assumed, not confirmed.** A student lands in the recruiter's
 **primary** кафедра, and a сумісник gets one Vc, computed on their primary кафедра
 only. Reason: `Кст`, `Кнпп` and `<Rк>` are all per кафедра, so counting someone in
@@ -353,11 +388,19 @@ screen, or a комісія role. The controls that remain are the ones already 
 and they are enough:
 
 - **`Кст` is set centrally** — the head can only divide what ADMIN gave them;
-- **the pool is a hard ceiling** on term 1 — overspending cannot be saved;
+- **a value can only be raised above the formula, never lowered** — talking
+  somebody down from what their rating earned is not a decision the положення
+  gives the head. An overspend past `Кст` is allowed but warned about, and goes
+  into the протокол (2026-08-12);
 - **the per-person min/max caps are ADMIN-only** — a head cannot cap a colleague
   down and themselves up;
+- **ADMIN cannot write the split either** — they own `Кст` and the caps, and
+  experiment in a per-admin sandbox (`StakeSandbox`) that touches no real row.
+  Both directions are closed, so «завідувач розподіляє» is true of the code and
+  not only of the положення (2026-08-12);
 - **the audit log records every change**, including a head's allocation to
-  themselves (Q11).
+  themselves (Q11). The sandbox writes no audit entry — it is a scratch pad, not
+  a decision.
 
 Two consequences to carry into the code:
 
@@ -556,6 +599,12 @@ StakeAllocation   { distributionId, staffId,
                     formulaHundredths Int,     // what the formula said
                     proposedHundredths Int,    // what the head decided
                     justification String? }    // optional — see the note below
+
+// ADMIN's scratch pad. Nothing else reads it; nothing in it is ever paid.
+StakeSandbox      { userId, departmentId, year,
+                    kstHundredths Int?,        // the pool being tried; null = the real one
+                    values Json,               // { staffId: hundredths }
+                    limits Json }              // { staffId: { min, max } }
 ```
 
 **«Обґрунтування» is optional (2026-08-10).** Додаток 2 has the column and the
@@ -581,17 +630,17 @@ dropping the approval step (Q1) a one-line change instead of ten.
 
 ## Decisions taken (2026-08-04, with the owner)
 
-| #   | Decision                                                                                                                                                                                                                                                                                                  |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q1  | ~~**Approval step.** Head proposes → комісія/віце-ректор approves.~~ **RETRACTED 2026-08-10** — there is no approval. ADMIN sets the pool, the head spreads it, and that is final. See «There is no approval step».                                                                                       |
-| Q3  | **1С stays the payroll truth.** EduRank plans and approves; the result is exported for 1С as **Excel**. We define the column set ourselves — ПІБ, кафедра, pool share, bonus, total, year — and adjust if 1С rejects it (confirmed 2026-08-07). No sample file is being chased first.                     |
-| Q4  | **Bonus on top — the original reading was right** (confirmed 2026-08-07). An earlier note here called it "superseded" on the grounds that both terms belong to one formula. They do, but only term 1 is bounded by `Кст`; the recruitment sum is paid over it. See «The pool bounds the first term only». |
-| Q5  | **A head sees their own кафедра properly**: staff, profiles, ставка, rating results, plus the distribution grid. Derived from `Department.headId`, **not** a new `Role` — one person can be head, НПП and editor at once.                                                                                 |
-| Q11 | **A head may allocate to themselves**, as an ordinary row. Approval and the audit log are the control.                                                                                                                                                                                                    |
-| Q14 | **A dean gets the same, across every кафедра of their faculty.** One `scopeOf(person) → departmentIds[]`.                                                                                                                                                                                                 |
-| —   | **Кст is set centrally** (віце-ректор/admin), never by the head.                                                                                                                                                                                                                                          |
-| —   | **Both contract and state students count**, contract × узгоджуючий коефіцієнт.                                                                                                                                                                                                                            |
-| —   | **`Кнпп` comes from the Характеристика dataset**, not a typed number.                                                                                                                                                                                                                                     |
+| #   | Decision                                                                                                                                                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1  | ~~**Approval step.** Head proposes → комісія/віце-ректор approves.~~ **RETRACTED 2026-08-10** — there is no approval. ADMIN sets the pool, the head spreads it, and that is final. See «There is no approval step».                                                                                                                                                                 |
+| Q3  | **1С stays the payroll truth.** EduRank plans and approves; the result is exported for 1С as **Excel**. We define the column set ourselves — ПІБ, кафедра, pool share, bonus, total, year — and adjust if 1С rejects it (confirmed 2026-08-07). No sample file is being chased first.                                                                                               |
+| Q4  | **Bonus on top — the original reading was right** (confirmed 2026-08-07). Only term 1 is bounded by `Кст`; the recruitment sum is paid over it. **Amended 2026-08-12:** it is bounded by the person's own **Макс**. Somebody already at their ceiling gains nothing from recruiting more, and needs a проректор's decision to be raised. See «The pool bounds the first term only». |
+| Q5  | **A head sees their own кафедра properly**: staff, profiles, ставка, rating results, plus the distribution grid. Derived from `Department.headId`, **not** a new `Role` — one person can be head, НПП and editor at once.                                                                                                                                                           |
+| Q11 | **A head may allocate to themselves**, as an ordinary row. Approval and the audit log are the control.                                                                                                                                                                                                                                                                              |
+| Q14 | **A dean gets the same, across every кафедра of their faculty.** One `scopeOf(person) → departmentIds[]`.                                                                                                                                                                                                                                                                           |
+| —   | **Кст is set centrally** (віце-ректор/admin), never by the head.                                                                                                                                                                                                                                                                                                                    |
+| —   | **Both contract and state students count**, contract × узгоджуючий коефіцієнт.                                                                                                                                                                                                                                                                                                      |
+| —   | **`Кнпп` comes from the Характеристика dataset**, not a typed number.                                                                                                                                                                                                                                                                                                               |
 
 ## Still open
 

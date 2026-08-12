@@ -170,7 +170,7 @@ export default async function DepartmentDetailPage({
               so the way in lives here rather than only on /admin/stakes. */}
           {canDistribute && (
             <Button asChild variant="outline">
-              <Link href={`/departments/${id}/stakes`}>
+              <Link href={`/stakes?d=${id}`}>
                 <SlidersHorizontal className="size-4" />
                 Розподіл ставок на {template.year} рік
               </Link>

@@ -17,18 +17,22 @@ import type { Role } from '@/lib/generated/prisma/client';
 export type DistributionState = { error: string } | { success: true } | null;
 
 /**
- * Who may spread a кафедра's pool: its завідувач, the декан of its факультет,
- * and ADMIN. Derived from `Department.headId` / `Faculty.deanId`, never from a
- * `Role` — one person is routinely a head, an НПП and a division editor at once.
+ * Who may spread a кафедра's pool: its завідувач and the декан of its факультет.
+ * Derived from `Department.headId` / `Faculty.deanId`, never from a `Role` — one
+ * person is routinely a head, an НПП and a division editor at once.
  *
- * EDITOR is deliberately NOT here. A division editor may read any rating (W6),
- * but deciding who on a кафедра is paid what is the head's job.
+ * **ADMIN is not here** (decided 2026-08-12). ADMIN owns `Кст` and the caps but
+ * must never write a кафедра's actual split: that is the head's decision, and an
+ * ADMIN who could quietly overwrite it would make «завідувач розподіляє»
+ * untrue. What ADMIN gets instead is the sandbox below.
+ *
+ * EDITOR is not here either, and never was. A division editor may read any
+ * rating (W6), but deciding who on a кафедра is paid what is the head's job.
  */
 async function canDistribute(
   user: { role: Role; staffId?: string | null },
   departmentId: string
 ): Promise<boolean> {
-  if (user.role === 'ADMIN') return true;
   return (await scopeOf(user.staffId)).includes(departmentId);
 }
 
@@ -42,6 +46,12 @@ const savePayloadSchema = z.object({
   year: z.number().int(),
   allocations: z.array(allocationSchema).min(1),
 });
+
+function revalidateStakes(departmentId: string) {
+  revalidatePath('/stakes');
+  revalidatePath(`/departments/${departmentId}`);
+  revalidatePath('/my-department');
+}
 
 /**
  * Saves the whole кафедра at once.
@@ -63,7 +73,12 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   const { departmentId, year, allocations } = parsed.data;
 
   if (!(await canDistribute(session.user, departmentId))) {
-    return { error: 'Недостатньо прав' };
+    return {
+      error:
+        session.user.role === 'ADMIN'
+          ? 'Розподіл зберігає завідувач кафедри. Адміністратор може перевірити варіанти у пісочниці'
+          : 'Недостатньо прав',
+    };
   }
 
   const [department, stake, staff] = await Promise.all([
@@ -225,8 +240,7 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     };
   }
 
-  revalidatePath(`/departments/${departmentId}/stakes`);
-  revalidatePath('/admin/stakes');
+  revalidateStakes(departmentId);
   return { success: true };
 }
 
@@ -296,11 +310,162 @@ export async function setStaffLimits(
         e,
         'Не вдалося зберегти ліміти. Зміни не застосовано',
         'stake.setLimits',
-        { userId: session.user.id, entityId: staffId }
+        {
+          userId: session.user.id,
+          entityId: staffId,
+        }
       ),
     };
   }
 
-  if (person.departmentId) revalidatePath(`/departments/${person.departmentId}/stakes`);
+  if (person.departmentId) revalidateStakes(person.departmentId);
+  return { success: true };
+}
+
+// ─── The sandbox ─────────────────────────────────────────────────────────────
+//
+// ADMIN's «що буде, якщо». Everything below writes `StakeSandbox` and nothing
+// else — no `StakeAllocation`, no `StakeDistribution`, no `StaffStakeLimits`,
+// no `AuditLog`. That is the guarantee the whole design rests on, so it is
+// checked here rather than implied by which page called.
+
+const sandboxLimitSchema = z.object({
+  min: z.number().int().min(0),
+  max: z.number().int().min(0),
+});
+
+const sandboxPayloadSchema = z.object({
+  departmentId: z.string().min(1),
+  year: z.number().int(),
+  values: z.record(z.string(), z.number().int().min(0)),
+  limits: z.record(z.string(), sandboxLimitSchema),
+});
+
+type SandboxGuard = { error: string } | { userId: string };
+
+/** ADMIN, and a кафедра that exists. Shared by all three sandbox actions. */
+async function requireSandbox(departmentId: string): Promise<SandboxGuard> {
+  const session = await auth();
+  if (!session) redirect('/login');
+  if (session.user.role !== 'ADMIN') return { error: 'Пісочниця доступна лише адміністратору' };
+
+  const department = await db.department.findUnique({
+    where: { id: departmentId },
+    select: { id: true },
+  });
+  if (!department) return { error: 'Кафедру не знайдено' };
+
+  return { userId: session.user.id };
+}
+
+/**
+ * ADMIN's typed numbers for one кафедра, kept so they survive a reload.
+ *
+ * Keyed per admin, so two people comparing two pools do not overwrite each
+ * other. Written wholesale like the real grid, and for the same reason: the
+ * numbers only mean anything as a set.
+ */
+export async function saveSandbox(payload: unknown): Promise<DistributionState> {
+  const parsed = sandboxPayloadSchema.safeParse(payload);
+  if (!parsed.success) return { error: 'Невірні дані форми' };
+  const { departmentId, year, values, limits } = parsed.data;
+
+  const guard = await requireSandbox(departmentId);
+  if ('error' in guard) return guard;
+
+  for (const [, bounds] of Object.entries(limits)) {
+    if (bounds.min < MIN_STAKE) {
+      return { error: 'Мінімум не може бути меншим за 0,10 — ставку отримують усі' };
+    }
+    if (bounds.max < bounds.min) {
+      return { error: 'Максимум не може бути меншим за мінімум' };
+    }
+  }
+
+  try {
+    await db.stakeSandbox.upsert({
+      where: { userId_departmentId_year: { userId: guard.userId, departmentId, year } },
+      update: { values, limits },
+      create: { userId: guard.userId, departmentId, year, values, limits },
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(e, 'Не вдалося зберегти пісочницю', 'stake.saveSandbox', {
+        userId: guard.userId,
+        entityId: departmentId,
+      }),
+    };
+  }
+
+  revalidatePath('/stakes');
+  return { success: true };
+}
+
+const sandboxKstSchema = z.object({
+  departmentId: z.string().min(1),
+  year: z.number().int(),
+  /** Null puts the кафедра's real `Кст` back */
+  kstHundredths: z.number().int().min(0).nullable(),
+});
+
+/**
+ * The pool ADMIN is trying.
+ *
+ * Deliberately not validated against `0.1 × headcount` the way the real `Кст`
+ * is: a sandbox exists to show what a pool that is too small would do, and
+ * refusing to model it would hide the answer somebody opened the page for.
+ */
+export async function setSandboxKst(payload: unknown): Promise<DistributionState> {
+  const parsed = sandboxKstSchema.safeParse(payload);
+  if (!parsed.success) return { error: 'Вкажіть число, напр. 6,00' };
+  const { departmentId, year, kstHundredths } = parsed.data;
+
+  const guard = await requireSandbox(departmentId);
+  if ('error' in guard) return guard;
+
+  try {
+    await db.stakeSandbox.upsert({
+      where: { userId_departmentId_year: { userId: guard.userId, departmentId, year } },
+      update: { kstHundredths },
+      create: { userId: guard.userId, departmentId, year, kstHundredths },
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(e, 'Не вдалося зберегти пісочницю', 'stake.setSandboxKst', {
+        userId: guard.userId,
+        entityId: departmentId,
+      }),
+    };
+  }
+
+  revalidatePath('/stakes');
+  return { success: true };
+}
+
+/** Throws the scratch pad away — the tab falls back to the кафедра's real numbers */
+export async function resetSandbox(payload: unknown): Promise<DistributionState> {
+  const parsed = z
+    .object({ departmentId: z.string().min(1), year: z.number().int() })
+    .safeParse(payload);
+  if (!parsed.success) return { error: 'Невірні дані форми' };
+  const { departmentId, year } = parsed.data;
+
+  const guard = await requireSandbox(departmentId);
+  if ('error' in guard) return guard;
+
+  try {
+    await db.stakeSandbox.deleteMany({
+      where: { userId: guard.userId, departmentId, year },
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(e, 'Не вдалося очистити пісочницю', 'stake.resetSandbox', {
+        userId: guard.userId,
+        entityId: departmentId,
+      }),
+    };
+  }
+
+  revalidatePath('/stakes');
   return { success: true };
 }

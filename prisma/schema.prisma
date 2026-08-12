@@ -157,6 +157,7 @@ model Department {
   partTimeStaff StaffDepartment[]
   stakes        DepartmentStake[]
   distributions StakeDistribution[]
+  stakeSandboxes StakeSandbox[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -283,6 +284,7 @@ model Staff {
   studentClaims     StudentClaim[] @relation("ClaimAuthor")
   confirmedClaims   StudentClaim[] @relation("ClaimConfirmer")
   filledDistributions StakeDistribution[] @relation("StakeDistributionAuthor")
+  stakeSandboxes      StakeSandbox[]
 
   auditLogs          AuditLog[]
   approvedActivities Activity[]       @relation("ActivityApprover")
@@ -712,6 +714,44 @@ model StakeAllocation {
   updatedAt DateTime @updatedAt
 
   @@unique([distributionId, staffId])
+}
+
+// ADMIN's scratch pad for one кафедра — «що буде, якщо».
+//
+// ADMIN owns `Кст` and the per-person caps but must never write a кафедра's
+// actual split: that is the head's decision, and an ADMIN who could quietly
+// overwrite it would make «завідувач розподіляє» untrue (decided 2026-08-12).
+// Yet ADMIN is the one person who needs to see what a different pool or a
+// different cap would do — so the trying-out happens here, in a table nothing
+// else reads.
+//
+// Per (admin, кафедра, year): two admins comparing two pools do not overwrite
+// each other, and neither of them retypes a кафедра after a reload.
+//
+// One row for the whole кафедра rather than one per person, and JSON rather
+// than columns, because nothing ever queries inside it. The grid already saves
+// the кафедра in a single write; a row per person would turn a scratch pad into
+// N writes per keystroke-batch.
+model StakeSandbox {
+  id           String     @id @default(cuid())
+  userId       String
+  user         Staff      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  year         Int
+
+  /// The pool being tried, in hundredths. Null = the кафедра's real `Кст`.
+  kstHundredths Int?
+  /// `{ staffId: hundredths }` — what was typed into «Розподілено»
+  values Json @default("{}")
+  /// `{ staffId: { min, max } }` — caps being tried, overriding StaffStakeLimits
+  limits Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, departmentId, year])
+  @@index([year])
 }
 
 // ─── Audit log ───────────────────────────────────────────────────────────────

@@ -48,7 +48,7 @@ const STRUCTURE_NAV: NavItem[] = [
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: '/admin/rating', label: 'Рейтингові роки', icon: CalendarCog, roles: ['ADMIN'] },
-  { href: '/admin/stakes', label: 'Розподіл ставок', icon: Scale, roles: ['ADMIN'] },
+  { href: '/stakes', label: 'Розподіл ставок', icon: Scale, roles: ['ADMIN'] },
   { href: '/admin/permissions/field', label: 'Поля доступу', icon: KeyRound, roles: ['ADMIN'] },
   { href: '/admin/permissions/entity', label: 'Дії доступу', icon: ShieldCheck, roles: ['ADMIN'] },
   { href: '/admin/invites', label: 'Запрошення', icon: MailPlus, roles: ['ADMIN'] },
@@ -140,6 +140,13 @@ export function Sidebar({
         icon: GraduationCap,
         roles: [user.role],
       })
+    );
+  }
+  // The head's own way into /stakes. ADMIN already has it under «Адміністрування»
+  // and would otherwise get the same link twice when they also head a кафедра.
+  if (headsDepartment && user.role !== 'ADMIN') {
+    dataEntry.push(
+      link({ href: '/stakes', label: 'Розподіл ставок', icon: Scale, roles: [user.role] })
     );
   }
   if (canEnterData) {

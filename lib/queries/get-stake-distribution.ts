@@ -4,19 +4,20 @@ import { getKharakterystykaMany } from './get-kharakterystyka';
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { minimumKstHundredths } from '@/lib/stake/units';
-import { bonusForStaff } from './list-student-claims';
+import { isKnownDepartment } from '@/lib/specialities/departments';
+import { EMPTY_BONUS, bonusForStaff, type StaffBonus } from './list-student-claims';
 
 /**
  * Everything the distribution grid for one кафедра needs, in one read.
  *
  * The grid is додаток 2: «Обсяг ставки за формулою» beside «Розподілений обсяг
- * ставки», with «Обґрунтування» explaining any gap — so both numbers travel
- * together and the formula value is never thrown away.
+ * ставки», so both numbers travel together and the formula value is never
+ * thrown away.
  *
  * The recruitment bonus is a SEPARATE column and must stay one. `Кст` bounds the
- * pool share only; the bonus is paid on top of it, so a кафедра total above the
- * pool is correct exactly when the difference is the bonuses. Merging them makes
- * the ceiling impossible to enforce or to explain.
+ * pool share only. What the bonus may NOT do is lift somebody above their own
+ * Макс (2026-08-12) — that ceiling is applied in `payableStake`, at the edge,
+ * because the head is moving «Розподілено» as they look at it.
  */
 export interface StakeRow {
   staffId: string;
@@ -27,7 +28,7 @@ export interface StakeRow {
   qualifies: boolean;
   minHundredths: number;
   maxHundredths: number;
-  /** Has ADMIN set limits, or are these the 0.1 / 1.5 defaults? */
+  /** Has somebody set limits for this person, or are these the defaults? */
   hasOwnLimits: boolean;
   /** What the formula proposes, clamped and on the 0.05 ladder */
   formulaHundredths: number;
@@ -36,14 +37,28 @@ export interface StakeRow {
   /** What the head has decided, falling back to the formula until they touch it */
   proposedHundredths: number;
   /**
-   * Term 2 — the recruitment bonus, in ставки.
+   * Term 2 — the recruitment bonus, with the specialities it came from.
    *
-   * Only CONFIRMED student claims pay, and the value follows the STUDENT's
-   * speciality wherever they enrolled. Kept a separate number from the pool
-   * share and never folded into it: `Кст` bounds the share alone, so a кафедра
-   * whose total exceeds it is correct exactly when the difference is this.
+   * Only CONFIRMED claims pay, and the value follows the STUDENT's speciality
+   * wherever they enrolled. Kept a separate number from the pool share: `Кст`
+   * bounds the share alone.
    */
-  bonus: number;
+  bonus: StaffBonus;
+}
+
+/**
+ * What ADMIN is trying out, laid over the real numbers.
+ *
+ * Every field is an override and every one is optional, so an untouched sandbox
+ * renders exactly the real кафедра — which is what makes the tab safe to open.
+ */
+export interface StakeSandboxOverlay {
+  /** The pool being tried. Null = the кафедра's real `Кст`. */
+  kstHundredths: number | null;
+  /** staffId → hundredths typed into «Розподілено» */
+  values: Record<string, number>;
+  /** staffId → the caps being tried, overriding `StaffStakeLimits` */
+  limits: Record<string, { min: number; max: number }>;
 }
 
 export interface StakeDistributionView {
@@ -68,11 +83,22 @@ export interface StakeDistributionView {
   /** Null until somebody has saved this кафедра's distribution */
   filledAt: Date | null;
   filledBy: string | null;
+  /** True while the numbers are ADMIN's sandbox rather than the кафедра's own */
+  sandbox: boolean;
+  /**
+   * Is this кафедра in `lib/specialities/departments.ts`?
+   *
+   * False turns the бонус chips gray instead of amber and puts a line under the
+   * table saying why. The demo кафедри are invented, and amber there would
+   * assert that everyone recruits for other кафедри — a claim we cannot support.
+   */
+  knownDepartment: boolean;
 }
 
 export async function getStakeDistribution(
   departmentId: string,
-  year: number
+  year: number,
+  overlay?: StakeSandboxOverlay | null
 ): Promise<StakeDistributionView | null> {
   const department = await db.department.findUnique({
     where: { id: departmentId },
@@ -117,22 +143,36 @@ export async function getStakeDistribution(
     ),
   ]);
 
-  const kstHundredths = stake?.kstHundredths ?? null;
+  // The sandbox's pool wins where it has one; everything else falls through to
+  // the кафедра's real numbers, so an untouched sandbox is the truth.
+  const kstHundredths = overlay?.kstHundredths ?? stake?.kstHundredths ?? null;
   const knpp = staff.filter(
     (s) => (documents.get(s.id)?.metCount ?? 0) >= REQUIRED_POSITIONS
   ).length;
 
-  const people = staff.map((s) => {
+  /** This person's bounds, sandbox first, then their own row, then the defaults */
+  function boundsFor(s: (typeof staff)[number]) {
+    const tried = overlay?.limits[s.id];
     const own = s.stakeLimits[0];
     return {
+      minHundredths: tried?.min ?? own?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
+      maxHundredths: tried?.max ?? own?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
+      // The REAL row, never the sandbox's. A sandbox stores a number for
+      // everybody the moment anything is saved, so counting those would make
+      // every row look individually set and the dimming would stop meaning
+      // «somebody decided this for this person».
+      hasOwnLimits: !!own,
+    };
+  }
+
+  const formula = formulaShares({
+    people: staff.map((s) => ({
       staffId: s.id,
       rating: s.ratingEntries[0]?.totalScore ?? 0,
-      minHundredths: own?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
-      maxHundredths: own?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
-    };
+      ...boundsFor(s),
+    })),
+    kstHundredths: kstHundredths ?? 0,
   });
-
-  const formula = formulaShares({ people, kstHundredths: kstHundredths ?? 0 });
   const shareByStaff = new Map(formula.shares.map((s) => [s.staffId, s]));
   const allocationByStaff = new Map((distribution?.allocations ?? []).map((a) => [a.staffId, a]));
 
@@ -140,7 +180,6 @@ export async function getStakeDistribution(
     .map((s) => {
       const share = shareByStaff.get(s.id)!;
       const allocation = allocationByStaff.get(s.id);
-      const own = s.stakeLimits[0];
       const metCount = documents.get(s.id)?.metCount ?? 0;
 
       return {
@@ -149,16 +188,17 @@ export async function getStakeDistribution(
         rating: share.rating,
         positions: metCount,
         qualifies: metCount >= REQUIRED_POSITIONS,
-        minHundredths: own?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
-        maxHundredths: own?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
-        hasOwnLimits: !!own,
+        ...boundsFor(s),
         formulaHundredths: share.hundredths,
         clampedTo: share.clampedTo,
-        // Until the head touches a row, the formula's proposal IS the proposal —
+        // Until somebody touches a row, the formula's proposal IS the proposal —
         // the screen opens on a defensible split rather than on a column of
-        // blanks somebody has to fill in from nothing.
-        proposedHundredths: allocation?.proposedHundredths ?? share.hundredths,
-        bonus: bonuses.get(s.id) ?? 0,
+        // blanks somebody has to fill in from nothing. A sandbox falls through
+        // to the кафедра's real split before it falls through to the formula,
+        // so ADMIN starts from what the head actually did.
+        proposedHundredths:
+          overlay?.values[s.id] ?? allocation?.proposedHundredths ?? share.hundredths,
+        bonus: bonuses.get(s.id) ?? EMPTY_BONUS,
       };
     })
     // The order the formula spreads in, which is the order a head already
@@ -181,7 +221,14 @@ export async function getStakeDistribution(
     computable: formula.computable,
     formulaTotalHundredths: formula.totalHundredths,
     proposedTotalHundredths: rows.reduce((sum, r) => sum + r.proposedHundredths, 0),
-    filledAt: distribution?.filledAt ?? null,
-    filledBy: filledBy ? `${filledBy.lastName} ${filledBy.firstName} ${filledBy.patronymic}` : null,
+    // A sandbox has no author and no date. Showing the head's would credit them
+    // with numbers they never typed.
+    filledAt: overlay ? null : (distribution?.filledAt ?? null),
+    filledBy:
+      overlay || !filledBy
+        ? null
+        : `${filledBy.lastName} ${filledBy.firstName} ${filledBy.patronymic}`,
+    sandbox: !!overlay,
+    knownDepartment: isKnownDepartment(department.name),
   };
 }

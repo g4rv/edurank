@@ -21,9 +21,10 @@ import {
 export type StakeActionState = { error: string } | { success: true } | null;
 
 function revalidateStakes() {
-  revalidatePath('/admin/stakes');
+  revalidatePath('/stakes');
   revalidatePath('/admin/stakes/norms');
   revalidatePath('/departments');
+  revalidatePath('/my-department');
 }
 
 /**

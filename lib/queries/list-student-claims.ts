@@ -9,6 +9,8 @@ import {
   duplicateKey,
   firstClaimByKey,
 } from '@/lib/stake/claims';
+import { roundBonus } from '@/lib/stake/units';
+import { SPECIALITY_CODES, specialityCodeSortKey } from '@/lib/specialities/codes';
 import type { ClaimStatus } from '@/lib/generated/prisma/client';
 
 const CLAIM_SELECT = {
@@ -253,17 +255,48 @@ export async function listClaimsForReview(
   });
 }
 
+/** One speciality's share of somebody's bonus */
+export interface BonusBySpeciality {
+  speciality: string;
+  /** «A4.01», or null for the five 015 rows the 2024 renumbering merged away */
+  code: string | null;
+  count: number;
+  value: number;
+}
+
+/**
+ * One person's recruitment bonus, with its provenance.
+ *
+ * A single number answered neither question anybody asks of this column. ADMIN
+ * is judging how much somebody brings in, so they get the headcount beside the
+ * score. A завідувач is judging WHERE they bring it — recruiting onto another
+ * кафедра's programme is not the same work as filling their own — so they get
+ * the speciality breakdown (2026-08-12).
+ */
+export interface StaffBonus {
+  /** Ставки, three decimals */
+  total: number;
+  /** How many CONFIRMED claims paid into it */
+  students: number;
+  /** Ordered the way the перелік orders codes; uncoded rows last */
+  bySpeciality: BonusBySpeciality[];
+}
+
+export const EMPTY_BONUS: StaffBonus = { total: 0, students: 0, bySpeciality: [] };
+
 /**
  * Confirmed bonus per person, for the distribution grid's «Бонус» column.
  *
  * Only CONFIRMED claims pay — that is the whole point of the queue. A claim on
  * a speciality with no норматив for the year pays nothing either, and shows as
- * unpriced on the person's own list rather than silently as zero.
+ * unpriced on the person's own list rather than silently as zero. Such a claim
+ * is still COUNTED here: the person did recruit the student, and a headcount
+ * that skipped them would read as work they never did.
  */
 export async function bonusForStaff(
   staffIds: readonly string[],
   year: number
-): Promise<Map<string, number>> {
+): Promise<Map<string, StaffBonus>> {
   if (staffIds.length === 0) return new Map();
 
   const [claims, settings] = await Promise.all([
@@ -275,13 +308,13 @@ export async function bonusForStaff(
         degree: true,
         form: true,
         funding: true,
-        speciality: { select: { norms: true } },
+        speciality: { select: { name: true, norms: true } },
       },
     }),
     getStakeYearSettings(year),
   ]);
 
-  return bonusByStaff(
+  const totals = bonusByStaff(
     claims.map((c) => ({
       staffId: c.staffId,
       status: c.status,
@@ -292,6 +325,54 @@ export async function bonusForStaff(
     })),
     settings.contractCoefficient
   );
+
+  // Summed at full precision per speciality and rounded once at the end, for
+  // the same reason the totals are: a заочний контрактний здобувач is worth
+  // about 0.004, and three of them rounded first are worth nothing.
+  const groups = new Map<string, Map<string, { count: number; value: number }>>();
+  for (const claim of claims) {
+    const perStaff = groups.get(claim.staffId) ?? new Map();
+    const name = claim.speciality.name;
+    const entry = perStaff.get(name) ?? { count: 0, value: 0 };
+    entry.count += 1;
+    entry.value += claimValue(
+      {
+        staffId: claim.staffId,
+        status: claim.status,
+        degree: claim.degree,
+        form: claim.form,
+        funding: claim.funding,
+        base: baseFor(claim, year),
+      },
+      settings.contractCoefficient
+    );
+    perStaff.set(name, entry);
+    groups.set(claim.staffId, perStaff);
+  }
+
+  const bonuses = new Map<string, StaffBonus>();
+  for (const [staffId, perStaff] of groups) {
+    const bySpeciality = [...perStaff]
+      .map(([speciality, { count, value }]) => ({
+        speciality,
+        code: SPECIALITY_CODES[speciality]?.code ?? null,
+        count,
+        value: roundBonus(value),
+      }))
+      .sort(
+        (a, b) =>
+          specialityCodeSortKey(a.speciality).localeCompare(specialityCodeSortKey(b.speciality)) ||
+          a.speciality.localeCompare(b.speciality, 'uk')
+      );
+
+    bonuses.set(staffId, {
+      total: totals.get(staffId) ?? 0,
+      students: bySpeciality.reduce((sum, s) => sum + s.count, 0),
+      bySpeciality,
+    });
+  }
+
+  return bonuses;
 }
 
 /** The whole speciality list — never filtered to the recruiter's own кафедра */

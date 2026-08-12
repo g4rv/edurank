@@ -15,6 +15,7 @@ vi.mock('@/lib/db', () => ({
     departmentStake: { findUnique: vi.fn() },
     staff: { findMany: vi.fn(), findUnique: vi.fn() },
     staffStakeLimits: { findUnique: vi.fn(), upsert: vi.fn() },
+    stakeSandbox: { upsert: vi.fn(), deleteMany: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -24,7 +25,13 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { scopeOf } from '@/lib/queries/scope';
 import { getKharakterystykaMany } from '@/lib/queries/get-kharakterystyka';
-import { saveDistribution, setStaffLimits } from './actions';
+import {
+  resetSandbox,
+  saveDistribution,
+  saveSandbox,
+  setSandboxKst,
+  setStaffLimits,
+} from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockScope = scopeOf as unknown as Mock;
@@ -35,12 +42,18 @@ const mockStaff = db.staff.findMany as unknown as Mock;
 const mockStaffOne = db.staff.findUnique as unknown as Mock;
 const mockLimitsFind = db.staffStakeLimits.findUnique as unknown as Mock;
 const mockLimitsUpsert = db.staffStakeLimits.upsert as unknown as Mock;
+const mockSandboxUpsert = db.stakeSandbox.upsert as unknown as Mock;
+const mockSandboxDelete = db.stakeSandbox.deleteMany as unknown as Mock;
+const mockAudit = db.auditLog.create as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 
 const DEPT = 'dept-1';
 const YEAR = 2026;
 
-/** Three people, 1000 points each, on default limits (0.10 – 1.50) */
+const ADMIN = { user: { id: 'a1', role: 'ADMIN', staffId: 'a1' } };
+const HEAD = { user: { id: 'h1', role: 'USER', staffId: 'h1' } };
+
+/** Three people, 1000 points each, on default limits (0.10 – 1.00) */
 function roster(n = 3) {
   return Array.from({ length: n }, (_, i) => ({
     id: `s${i}`,
@@ -66,10 +79,11 @@ function payload(values: number[], departmentId = DEPT) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'ADMIN', staffId: 'u1' } });
-  mockScope.mockResolvedValue([]);
+  // The head is the default caller now: ADMIN cannot save a distribution at all.
+  mockAuth.mockResolvedValue(HEAD);
+  mockScope.mockResolvedValue([DEPT]);
   mockDocs.mockResolvedValue(new Map());
-  mockDepartment.mockResolvedValue({ name: 'Кафедра фізики' });
+  mockDepartment.mockResolvedValue({ id: DEPT, name: 'Кафедра фізики' });
   mockStake.mockResolvedValue({ kstHundredths: 300 }); // 3.00
   mockStaff.mockResolvedValue(roster());
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
@@ -86,18 +100,21 @@ beforeEach(() => {
 });
 
 describe('saveDistribution — who may', () => {
-  it('lets ADMIN save any кафедра', async () => {
+  it('lets the кафедра’s own head save', async () => {
     expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ success: true });
   });
 
-  it('lets the кафедра’s own head save', async () => {
-    mockAuth.mockResolvedValue({ user: { id: 'h1', role: 'USER', staffId: 'h1' } });
-    mockScope.mockResolvedValue([DEPT]);
-    expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ success: true });
+  // The rule the sandbox exists for. ADMIN owns Кст and the caps but must never
+  // write a кафедра's split — otherwise «завідувач розподіляє» is not true.
+  it('refuses ADMIN, and says where to go instead', async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockScope.mockResolvedValue([]);
+    const result = await saveDistribution(payload([100, 100, 100]));
+    expect(result).toMatchObject({ error: expect.stringContaining('пісочниц') });
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 
   it('refuses a head from a different кафедра', async () => {
-    mockAuth.mockResolvedValue({ user: { id: 'h2', role: 'USER', staffId: 'h2' } });
     mockScope.mockResolvedValue(['other-dept']);
     expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ error: 'Недостатньо прав' });
   });
@@ -250,6 +267,7 @@ describe('setStaffLimits — ADMIN only', () => {
   }
 
   beforeEach(() => {
+    mockAuth.mockResolvedValue(ADMIN);
     mockStaffOne.mockResolvedValue({
       lastName: 'Прізвище',
       firstName: 'Ім’я',
@@ -265,8 +283,7 @@ describe('setStaffLimits — ADMIN only', () => {
   });
 
   it('refuses a head — this is exactly the escalation the caps prevent', async () => {
-    mockAuth.mockResolvedValue({ user: { id: 'h1', role: 'USER', staffId: 'h1' } });
-    mockScope.mockResolvedValue([DEPT]);
+    mockAuth.mockResolvedValue(HEAD);
     const result = await setStaffLimits(null, limitsForm('0,10', '1,50'));
     // A head who could drop a colleague's cap and raise their own would make
     // the caps meaningless
@@ -283,5 +300,117 @@ describe('setStaffLimits — ADMIN only', () => {
   it('refuses a ceiling below the floor', async () => {
     const result = await setStaffLimits(null, limitsForm('1,00', '0,50'));
     expect(result).toHaveProperty('error');
+  });
+});
+
+// The guarantee the whole sandbox rests on: it writes its own table and nothing
+// else. Not «can but shouldn't» — there is no path from here to a real ставка.
+describe('the sandbox writes nothing real', () => {
+  const sandbox = {
+    departmentId: DEPT,
+    year: YEAR,
+    values: { s0: 100, s1: 50, s2: 25 },
+    limits: { s0: { min: 10, max: 200 } },
+  };
+
+  beforeEach(() => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockSandboxUpsert.mockResolvedValue({ id: 'sb-1' });
+  });
+
+  it('saves ADMIN’s numbers to StakeSandbox alone', async () => {
+    expect(await saveSandbox(sandbox)).toEqual({ success: true });
+    expect(mockSandboxUpsert).toHaveBeenCalledTimes(1);
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockLimitsUpsert).not.toHaveBeenCalled();
+  });
+
+  // It is a scratch pad, not a decision — an audit line would make it look like
+  // one, and 40 кафедри of experimenting would bury the real entries.
+  it('writes no audit entry', async () => {
+    await saveSandbox(sandbox);
+    expect(mockAudit).not.toHaveBeenCalled();
+  });
+
+  it('is refused to a head, however much of a head they are', async () => {
+    mockAuth.mockResolvedValue(HEAD);
+    mockScope.mockResolvedValue([DEPT]);
+    const result = await saveSandbox(sandbox);
+    expect(result).toMatchObject({ error: expect.stringContaining('адміністратор') });
+    expect(mockSandboxUpsert).not.toHaveBeenCalled();
+  });
+
+  it('is refused to an EDITOR', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'e1' } });
+    expect(await saveSandbox(sandbox)).toHaveProperty('error');
+    expect(mockSandboxUpsert).not.toHaveBeenCalled();
+  });
+
+  it('refuses a floor under 0,10 even in a sandbox', async () => {
+    const result = await saveSandbox({ ...sandbox, limits: { s0: { min: 5, max: 200 } } });
+    expect(result).toMatchObject({ error: expect.stringContaining('0,10') });
+    expect(mockSandboxUpsert).not.toHaveBeenCalled();
+  });
+
+  it('refuses a ceiling under the floor', async () => {
+    const result = await saveSandbox({ ...sandbox, limits: { s0: { min: 100, max: 50 } } });
+    expect(result).toHaveProperty('error');
+  });
+
+  it('refuses a кафедра that does not exist', async () => {
+    mockDepartment.mockResolvedValue(null);
+    expect(await saveSandbox(sandbox)).toMatchObject({ error: 'Кафедру не знайдено' });
+  });
+});
+
+describe('setSandboxKst', () => {
+  beforeEach(() => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockSandboxUpsert.mockResolvedValue({ id: 'sb-1' });
+  });
+
+  it('stores the pool being tried without touching DepartmentStake', async () => {
+    expect(await setSandboxKst({ departmentId: DEPT, year: YEAR, kstHundredths: 600 })).toEqual({
+      success: true,
+    });
+    expect(mockSandboxUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes null — that is how ADMIN puts the real Кст back', async () => {
+    expect(await setSandboxKst({ departmentId: DEPT, year: YEAR, kstHundredths: null })).toEqual({
+      success: true,
+    });
+  });
+
+  // A sandbox exists to show what a pool that is too small would do; refusing
+  // to model it would hide the answer somebody opened the page for.
+  it('accepts a pool below 0,10 × headcount, unlike the real one', async () => {
+    expect(await setSandboxKst({ departmentId: DEPT, year: YEAR, kstHundredths: 5 })).toEqual({
+      success: true,
+    });
+  });
+
+  it('is refused to a head', async () => {
+    mockAuth.mockResolvedValue(HEAD);
+    expect(
+      await setSandboxKst({ departmentId: DEPT, year: YEAR, kstHundredths: 600 })
+    ).toHaveProperty('error');
+    expect(mockSandboxUpsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('resetSandbox', () => {
+  it('deletes only this admin’s row for this кафедра and year', async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    expect(await resetSandbox({ departmentId: DEPT, year: YEAR })).toEqual({ success: true });
+    expect(mockSandboxDelete).toHaveBeenCalledWith({
+      where: { userId: 'a1', departmentId: DEPT, year: YEAR },
+    });
+  });
+
+  it('is refused to a head', async () => {
+    mockAuth.mockResolvedValue(HEAD);
+    expect(await resetSandbox({ departmentId: DEPT, year: YEAR })).toHaveProperty('error');
+    expect(mockSandboxDelete).not.toHaveBeenCalled();
   });
 });

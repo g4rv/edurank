@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,15 +14,19 @@ import {
   formatBonus,
   formatStake,
   parseStake,
+  roundBonus,
   snapToStep,
 } from '@/lib/stake/units';
 import { DEFAULT_LIMITS } from '@/lib/stake/formula';
+import { payableStake } from '@/lib/stake/total';
 import type { StakeDistributionView, StakeRow } from '@/lib/queries/get-stake-distribution';
 import { StakeTermHint, type StakeTerm } from '@/components/stake/stake-term-hint';
-import {
-  saveDistribution,
-  setStaffLimits,
-} from '@/app/(dashboard)/departments/[id]/stakes/actions';
+import { StakeStepper } from '@/components/stake/stake-stepper';
+import { BonusCell } from '@/components/stake/bonus-cell';
+import { saveDistribution, saveSandbox, setStaffLimits } from '@/app/(dashboard)/stakes/actions';
+
+/** The two bounds of one row, as typed */
+type LimitDraft = { min: string; max: string };
 
 /**
  * Додаток 2 — the head spreads the pool by hand, with the formula's own answer
@@ -33,10 +37,11 @@ import {
  * head moving 0.10 from one person to another would be refused on the first
  * half of the move if rows saved on their own.
  *
- * So a blur does not always write. While the grid as a whole is invalid — over
- * the pool, or a departure from the formula with no обґрунтування yet — the
- * change is kept locally and the footer says it is being held and why. That is
- * the difference between «autosave» and «autosave that silently drops work».
+ * The same grid renders ADMIN's sandbox (`view.sandbox`). What changes is where
+ * a blur lands — `StakeSandbox` instead of `StakeAllocation` — and that the
+ * «only upwards» rule is lifted, because trying a lower number is the entire
+ * point of a sandbox. ADMIN never writes a real distribution from here or
+ * anywhere else (decided 2026-08-12).
  *
  * Ліміти are shown to everyone and editable only by ADMIN, on these same rows.
  * A head who could raise their own cap and drop a colleague's would make the
@@ -49,9 +54,10 @@ export function DistributionGrid({
   canEdit,
   canEditLimits,
   canOpenStaffProfile,
+  audience,
 }: {
   view: StakeDistributionView;
-  /** The кафедра's head, its dean, or ADMIN */
+  /** The кафедра's head on the real tab, or ADMIN in their own sandbox */
   canEdit: boolean;
   /** ADMIN only — turns the Мін/Макс column into two editable fields */
   canEditLimits: boolean;
@@ -61,6 +67,8 @@ export function DistributionGrid({
    * Характеристика instead — the page about that person they CAN open.
    */
   canOpenStaffProfile: boolean;
+  /** Which «Бонус» cell to render — see `BonusCell` */
+  audience: 'admin' | 'head';
 }) {
   const [values, setValues] = useState<Record<string, number>>(() =>
     Object.fromEntries(view.rows.map((r) => [r.staffId, r.proposedHundredths]))
@@ -71,7 +79,7 @@ export function DistributionGrid({
 
   // The caps live here rather than in the cell, because the two bounds are one
   // database row: leaving either field has to write both.
-  const [limits, setLimits] = useState<Record<string, { min: string; max: string }>>(() =>
+  const [limits, setLimits] = useState<Record<string, LimitDraft>>(() =>
     Object.fromEntries(
       view.rows.map((r) => [
         r.staffId,
@@ -84,15 +92,17 @@ export function DistributionGrid({
   const router = useRouter();
 
   /**
-   * Writes one person's bounds, on leaving either field.
+   * Writes one person's bounds, on leaving either field or clicking a ▲▼.
+   *
+   * The next pair is passed in rather than read from state, because a stepper
+   * click has to write the value it just produced — a `setState` is not visible
+   * to the call that follows it.
    *
    * Skipped when nothing changed, so tabbing across a row does not fire a save
    * per column. A cap moves what the formula proposes, so a success refreshes
    * the route — and the grid's key remounts it with the recomputed numbers.
    */
-  function commitLimits(row: StakeRow) {
-    const next = limits[row.staffId];
-    if (!next) return;
+  function commitLimits(row: StakeRow, next: LimitDraft) {
     const unchanged =
       next.min === formatStake(row.minHundredths) && next.max === formatStake(row.maxHundredths);
     if (unchanged) {
@@ -109,12 +119,15 @@ export function DistributionGrid({
     }
 
     startLimitsTransition(async () => {
-      const form = new FormData();
-      form.set('staffId', row.staffId);
-      form.set('year', String(view.year));
-      form.set('min', next.min);
-      form.set('max', next.max);
-      const result = await setStaffLimits(null, form);
+      const result = view.sandbox
+        ? await saveSandbox({
+            departmentId: view.departmentId,
+            year: view.year,
+            values,
+            limits: parseLimits({ ...limits, [row.staffId]: next }),
+          })
+        : await setStaffLimits(null, limitsFormData(row.staffId, view.year, next));
+
       if (result && 'error' in result) {
         setLimitErrors((e) => ({ ...e, [row.staffId]: result.error }));
       } else {
@@ -132,7 +145,26 @@ export function DistributionGrid({
   const distributed = useMemo(() => Object.values(values).reduce((sum, v) => sum + v, 0), [values]);
   const remaining = kst === null ? null : kst - distributed;
   const overspent = remaining !== null && remaining < 0;
-  const bonusTotal = view.rows.reduce((sum, r) => sum + r.bonus, 0);
+
+  /**
+   * The bonuses, before and after each person's ceiling has had its say.
+   *
+   * `earned` is what the recruiting actually came to; `paid` is what of it fits
+   * under the caps. Both are on screen, because the gap is the thing somebody
+   * will ask about — and it is the number the проректор is asked to fix.
+   */
+  const bonusTotals = useMemo(() => {
+    let earned = 0;
+    let paid = 0;
+    let total = 0;
+    for (const row of view.rows) {
+      const payable = payableStake(values[row.staffId] ?? 0, row.bonus.total, row.maxHundredths);
+      earned += row.bonus.total;
+      paid += payable.paidBonus;
+      total += payable.total;
+    }
+    return { earned: roundBonus(earned), paid: roundBonus(paid), total: roundBonus(total) };
+  }, [view.rows, values]);
 
   const dirty = view.rows.some((r) => values[r.staffId] !== r.proposedHundredths);
 
@@ -149,8 +181,10 @@ export function DistributionGrid({
     // положення does not give them.
     //
     // Lifted while the кафедра is over its pool, exactly as the sheet lifts it:
-    // otherwise the only way out of an overspend would be forbidden.
-    if (!overspent && clamped < row.formulaHundredths) {
+    // otherwise the only way out of an overspend would be forbidden. Lifted in
+    // the sandbox too — trying a smaller number is what a sandbox is for, and
+    // nothing there is paid to anybody.
+    if (!view.sandbox && !overspent && clamped < row.formulaHundredths) {
       setError(
         `${row.name}: ставку за формулою (${formatStake(row.formulaHundredths)}) можна лише збільшити`
       );
@@ -164,33 +198,29 @@ export function DistributionGrid({
   /**
    * Back to what the formula proposes, and SAVED.
    *
-   * Two things this has to do beyond setting the numbers, both of which it
-   * missed before:
-   *
-   * - **Write it.** There is no save button any more; every other edit is
-   *   written when a field is left, and this one has no field to leave. A reset
-   *   that only changed the screen looked identical to a saved one until the
-   *   page was reloaded and the old numbers came back.
+   * There is no save button any more; every other edit is written when a field
+   * is left, and this one has no field to leave. A reset that only changed the
+   * screen looked identical to a saved one until the page was reloaded and the
+   * old numbers came back.
    */
   function reset() {
-    const values = Object.fromEntries(view.rows.map((r) => [r.staffId, r.formulaHundredths]));
-    setValues(values);
+    const next = Object.fromEntries(view.rows.map((r) => [r.staffId, r.formulaHundredths]));
+    setValues(next);
     setError(null);
     // Saved from the values just computed, not from state — a setState is not
     // visible to the call that follows it.
-    save(values);
+    save(next);
   }
 
   /**
    * Why an autosave is being held back, or null when it can go ahead.
    *
-   * Only two things hold it: no allocation to spread, and spending more than
-   * there is. An обґрунтування is NOT one of them — додаток 2 has the column
-   * and the head may fill it, but nothing requires them to, so a row that
-   * departs from the formula with an empty reason saves like any other.
+   * Only one thing holds it: no allocation to spread. An обґрунтування is NOT
+   * one of them — додаток 2 has the column and the head may fill it, but nothing
+   * requires them to. Nor is an overspend, which is allowed and merely said.
    */
   const blockedBy: string | null =
-    kst === null ? 'Кст ще не встановлено — зверніться до адміністратора' : null;
+    kst === null && !view.sandbox ? 'Кст ще не встановлено — зверніться до адміністратора' : null;
 
   /**
    * Over the pool — allowed, and said out loud.
@@ -209,25 +239,32 @@ export function DistributionGrid({
    *
    * The whole grid and not the one row, because `Кст` bounds the SET: a head
    * moving 0.10 from one person to another would be refused on the first half
-   * of the move if rows saved on their own. So a change is kept locally until
-   * the grid as a whole is valid, and then written.
+   * of the move if rows saved independently.
    */
   function save(nextValues: Record<string, number>) {
     if (!canEdit) return;
     setError(null);
     startTransition(async () => {
-      const result = await saveDistribution({
-        departmentId: view.departmentId,
-        year: view.year,
-        allocations: view.rows.map((r) => ({
-          staffId: r.staffId,
-          hundredths: nextValues[r.staffId],
-        })),
-      });
+      const result = view.sandbox
+        ? await saveSandbox({
+            departmentId: view.departmentId,
+            year: view.year,
+            values: nextValues,
+            limits: parseLimits(limits),
+          })
+        : await saveDistribution({
+            departmentId: view.departmentId,
+            year: view.year,
+            allocations: view.rows.map((r) => ({
+              staffId: r.staffId,
+              hundredths: nextValues[r.staffId],
+            })),
+          });
+
       if (result && 'error' in result) setError(result.error);
       else {
         setSavedAt(Date.now());
-        toast.success('Збережено');
+        toast.success(view.sandbox ? 'Збережено в пісочниці' : 'Збережено');
       }
     });
   }
@@ -248,7 +285,7 @@ export function DistributionGrid({
         distributed={distributed}
         remaining={remaining}
         overspent={overspent}
-        bonusTotal={bonusTotal}
+        bonus={bonusTotals}
         formulaTotal={view.formulaTotalHundredths}
       />
 
@@ -308,13 +345,20 @@ export function DistributionGrid({
 
       <p className="text-xs text-muted-foreground">
         {canEditLimits
-          ? `Мін і Макс зберігаються окремо від розподілу — після зміни формула перераховується. Бліді значення означають стандартні межі ${formatStake(DEFAULT_LIMITS.minHundredths)} / ${formatStake(DEFAULT_LIMITS.maxHundredths)}; Макс можна піднімати вище.`
+          ? `Мін і Макс ${view.sandbox ? 'у пісочниці не змінюють справжніх лімітів' : 'зберігаються окремо від розподілу'} — після зміни формула перераховується. Бліді значення означають стандартні межі ${formatStake(DEFAULT_LIMITS.minHundredths)} / ${formatStake(DEFAULT_LIMITS.maxHundredths)}; Макс можна піднімати вище.`
           : 'Мінімальну і максимальну ставку встановлює адміністратор.'}
       </p>
 
       {/* The only part that scrolls. `min-h-0` is what lets a flex child be
-          shorter than its content instead of pushing the page down. */}
-      <div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-card">
+          shorter than its content instead of pushing the page down. Dashed
+          while this is a sandbox, so a screenshot of it can never be mistaken
+          for the кафедра's actual distribution. */}
+      <div
+        className={cn(
+          'min-h-0 flex-1 overflow-auto rounded-xl border bg-card',
+          view.sandbox && 'border-2 border-dashed'
+        )}
+      >
         {/* Headings are pinned, because scrolling a кафедра of thirty carries
             «Розподілено» and «Макс» off the top otherwise, and the columns are
             all numbers that look alike. Each cell needs its own background:
@@ -322,11 +366,11 @@ export function DistributionGrid({
         <table className="w-full border-collapse text-sm [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted">
           <thead>
             <tr className="text-left">
-              {/* НПП and Обґрунтування carry text and take what is left; every
-                  other column is a number or a control of known size.
-                  `whitespace-nowrap` on the headings is the point: a heading
-                  that wraps sets the height of the whole row, and the widths
-                  below are chosen to hold each label on one line. */}
+              {/* НПП carries text and takes what is left; every other column is
+                  a number or a control of known size. `whitespace-nowrap` on the
+                  headings is the point: a heading that wraps sets the height of
+                  the whole row, and the widths below are chosen to hold each
+                  label on one line. */}
               <th className="min-w-44 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 НПП
               </th>
@@ -342,30 +386,47 @@ export function DistributionGrid({
               <th
                 className={cn(
                   'border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground',
-                  canEditLimits ? 'w-28' : 'w-20 text-right'
+                  canEditLimits ? 'w-32' : 'w-20 text-right'
                 )}
               >
                 <span className="inline-flex items-center gap-1">
                   Мін
-                  <StakeTermHint term="limits" />
+                  <StakeTermHint term="min" />
                 </span>
               </th>
               <th
                 className={cn(
                   'border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground',
-                  canEditLimits ? 'w-28' : 'w-20 text-right'
+                  canEditLimits ? 'w-32' : 'w-20 text-right'
                 )}
               >
-                Макс
+                {/* Макс had no explanation at all, and it is the one bound that
+                    also moves the formula — a lower ceiling makes the proposal
+                    smaller, which is not guessable from the column. */}
+                <span className="inline-flex items-center gap-1">
+                  Макс
+                  <StakeTermHint term="max" />
+                </span>
               </th>
               <th className="w-40 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 Розподілено
               </th>
-              <th className="w-20 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
-                Бонус
+              <th
+                className={cn(
+                  'border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground',
+                  audience === 'head' ? 'w-52' : 'w-28'
+                )}
+              >
+                <span className="inline-flex items-center gap-1">
+                  Бонус
+                  <StakeTermHint term="bonus" />
+                </span>
               </th>
-              <th className="w-20 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
-                Разом
+              <th className="w-24 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  Разом
+                  <StakeTermHint term="total" />
+                </span>
               </th>
             </tr>
           </thead>
@@ -374,6 +435,8 @@ export function DistributionGrid({
               <Row
                 key={row.staffId}
                 row={row}
+                view={view}
+                audience={audience}
                 value={values[row.staffId]}
                 canEdit={canEdit}
                 canEditLimits={canEditLimits}
@@ -390,13 +453,13 @@ export function DistributionGrid({
                     [row.staffId]: { ...l[row.staffId], [bound]: next },
                   }))
                 }
-                onLimitCommit={() => commitLimits(row)}
+                onLimitCommit={(next) => commitLimits(row, next)}
               />
             ))}
             {view.rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={8}
                   className="border border-border px-3 py-10 text-center text-muted-foreground"
                 >
                   На кафедрі немає НПП
@@ -406,32 +469,69 @@ export function DistributionGrid({
           </tbody>
         </table>
       </div>
+
+      {/* Only for the head, and only when the довідник cannot place their
+          кафедра. Without it a column of gray chips is an unexplained absence
+          of colour rather than an answer. */}
+      {audience === 'head' && !view.knownDepartment && (
+        <p className="text-xs text-muted-foreground">
+          Спеціальності у колонці «Бонус» показані сірим: цієї кафедри немає в довіднику випускових
+          кафедр, тому визначити «своя / чужа» неможливо.
+        </p>
+      )}
     </div>
   );
 }
 
+/** The drafts as hundredths, dropping anything unparseable rather than sending NaN */
+function parseLimits(
+  drafts: Record<string, LimitDraft>
+): Record<string, { min: number; max: number }> {
+  const parsed: Record<string, { min: number; max: number }> = {};
+  for (const [staffId, draft] of Object.entries(drafts)) {
+    const min = parseStake(draft.min);
+    const max = parseStake(draft.max);
+    if (min === null || max === null) continue;
+    parsed[staffId] = { min, max };
+  }
+  return parsed;
+}
+
+function limitsFormData(staffId: string, year: number, next: LimitDraft): FormData {
+  const form = new FormData();
+  form.set('staffId', staffId);
+  form.set('year', String(year));
+  form.set('min', next.min);
+  form.set('max', next.max);
+  return form;
+}
+
 /**
- * The three totals, separately — «разом» can exceed `Кст` and be correct.
+ * The totals, separately — and «разом» is no longer a free addition.
  *
- * `Кст` bounds the pool share and nothing else. If the head saw one merged
- * number above their pool they would read it as an overspend every time
- * somebody on the кафедра had recruited a student.
+ * `Кст` bounds the pool share and nothing else, so the bonus stays its own
+ * figure. What changed on 2026-08-12 is that the bonus has a ceiling of its own:
+ * it cannot lift anybody above their Макс. When some of it does not fit, both
+ * numbers are shown — what was earned and what is paid — because the difference
+ * is exactly what somebody takes to the проректор.
  */
 function Totals({
   kst,
   distributed,
   remaining,
   overspent,
-  bonusTotal,
+  bonus,
   formulaTotal,
 }: {
   kst: number | null;
   distributed: number;
   remaining: number | null;
   overspent: boolean;
-  bonusTotal: number;
+  bonus: { earned: number; paid: number; total: number };
   formulaTotal: number;
 }) {
+  const capped = roundBonus(bonus.earned - bonus.paid) > 0;
+
   return (
     <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-xl border bg-card px-5 py-4">
       <Figure
@@ -449,20 +549,26 @@ function Totals({
         value={remaining === null ? '—' : formatStake(remaining)}
         tone={overspent ? 'bad' : 'good'}
       />
-      <Figure label="Бонус за здобувачів" term="bonus" value={formatBonus(bonusTotal)} muted />
+      <Figure
+        label="Бонус за здобувачів"
+        term="bonus"
+        value={formatBonus(bonus.earned)}
+        note={capped ? `у межах Макс: ${formatBonus(bonus.paid)}` : undefined}
+        muted
+      />
       {/* The sum, not the expression. «12,65 + 0,000» as the headline number is
           arithmetic the reader has to finish themselves; the two parts stay
           visible underneath, which is the thing that must not be lost. */}
       <Figure
         label="Разом до виплати"
         term="total"
-        value={formatBonus(distributed / 100 + bonusTotal)}
-        note={`${formatStake(distributed)} + ${formatBonus(bonusTotal)}`}
+        value={formatBonus(bonus.total)}
+        note={`${formatStake(distributed)} + ${formatBonus(bonus.paid)}`}
         muted
       />
       <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
         Формула пропонує: {formatStake(formulaTotal)}
-        <StakeTermHint term="formula" />
+        <StakeTermHint term="formulaTotal" />
       </span>
     </div>
   );
@@ -509,8 +615,8 @@ function Figure({
 /**
  * One bound — either the floor or the ceiling — for one person. ADMIN only.
  *
- * Its own column and its own field, saved when the field is left, like every
- * other editable number on this grid. The two bounds are one database row, so
+ * Its own column and its own field, with ▲▼ like every other ставка on the
+ * grid, saved when the field is left. The two bounds are one database row, so
  * leaving either one writes both: whichever the person just edited, plus the
  * other as it currently stands.
  *
@@ -523,7 +629,7 @@ function Figure({
 function LimitCell({
   row,
   bound,
-  value,
+  draft,
   editable,
   disabled,
   error,
@@ -532,14 +638,15 @@ function LimitCell({
 }: {
   row: StakeRow;
   bound: 'min' | 'max';
-  value: string;
+  draft: LimitDraft;
   editable: boolean;
   disabled: boolean;
   error: string | null;
   onChange: (next: string) => void;
-  onCommit: () => void;
+  onCommit: (next: LimitDraft) => void;
 }) {
   const label = bound === 'min' ? 'Мінімальна' : 'Максимальна';
+  const value = draft[bound];
 
   if (!editable) {
     // A head sees the bounds they are working inside but cannot move them.
@@ -550,31 +657,51 @@ function LimitCell({
     );
   }
 
+  const stored = bound === 'min' ? row.minHundredths : row.maxHundredths;
+  // A ▲▼ has to write the value it just produced, so it builds the next pair
+  // itself instead of waiting for state that has not been applied yet.
+  function step(next: number) {
+    const text = formatStake(next);
+    onChange(text);
+    onCommit({ ...draft, [bound]: text });
+  }
+
   return (
     <td className="border border-border px-3 py-2">
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onCommit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            e.currentTarget.blur();
-          }
-        }}
-        disabled={disabled}
-        inputMode="decimal"
-        aria-label={`${label} ставка для ${row.name}`}
-        aria-invalid={!!error}
-        className={cn(
-          'h-8 w-16 text-right tabular-nums',
-          // Dimmed while these are the 0,10 / 1,50 defaults, so «set for this
-          // person» still reads differently from «nobody has decided» without
-          // a word of text repeated down every row.
-          !row.hasOwnLimits && 'text-muted-foreground',
-          error && 'border-destructive'
-        )}
-      />
+      <div className="flex items-center gap-1">
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => onCommit(draft)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
+          }}
+          disabled={disabled}
+          inputMode="decimal"
+          aria-label={`${label} ставка для ${row.name}`}
+          aria-invalid={!!error}
+          className={cn(
+            'h-8 w-16 text-right tabular-nums',
+            // Dimmed while these are the defaults, so «set for this person»
+            // still reads differently from «nobody has decided» without a word
+            // of text repeated down every row.
+            !row.hasOwnLimits && 'text-muted-foreground',
+            error && 'border-destructive'
+          )}
+        />
+        <StakeStepper
+          value={parseStake(value) ?? stored}
+          onChange={step}
+          disabled={disabled}
+          // A floor never goes under 0,10 — nobody is left without a ставка.
+          // A ceiling has no upper bound here: raising it is the point.
+          min={bound === 'min' ? MIN_STAKE : MIN_STAKE}
+          label={`${label.toLowerCase()} ставку для ${row.name}`}
+        />
+      </div>
       {error && <p className="mt-1 max-w-40 text-xs text-destructive">{error}</p>}
     </td>
   );
@@ -582,6 +709,8 @@ function LimitCell({
 
 function Row({
   row,
+  view,
+  audience,
   value,
   canEdit,
   canEditLimits,
@@ -596,18 +725,20 @@ function Row({
   onLimitCommit,
 }: {
   row: StakeRow;
+  view: StakeDistributionView;
+  audience: 'admin' | 'head';
   value: number;
   canEdit: boolean;
   canEditLimits: boolean;
   canOpenStaffProfile: boolean;
   disabled: boolean;
-  limits: { min: string; max: string };
+  limits: LimitDraft;
   limitError: string | null;
   limitsPending: boolean;
   onChange: (next: number) => void;
   onBlur: () => void;
   onLimitChange: (bound: 'min' | 'max', next: string) => void;
-  onLimitCommit: () => void;
+  onLimitCommit: (next: LimitDraft) => void;
 }) {
   // What the person types, kept separately so the field is not fighting them
   // mid-keystroke. It is snapped to the ladder on blur, per the sketch.
@@ -625,20 +756,18 @@ function Row({
 
   const lower = Math.max(row.minHundredths, MIN_STAKE);
   const upper = Math.max(row.maxHundredths, lower);
-  const atMin = value <= lower;
-  const atMax = value >= upper;
   // A saved allocation can fall outside its bounds without anybody touching it
   // — ADMIN lowers a cap under a number the head already agreed. The save
   // refuses it, so say so on the field instead of only at the moment of saving.
   const outOfRange = value < lower || value > upper;
 
+  const payable = payableStake(value, row.bonus.total, row.maxHundredths);
+
   return (
     <tr className="transition-colors hover:bg-muted/20">
       <td className="border border-border px-3 py-2 align-middle">
-        {/* Opens in a new tab on purpose: this grid holds unsaved work that
-            is being HELD BACK — over the pool, or waiting for an
-            обґрунтування — and navigating away in place would drop exactly the
-            edits the head has not finished explaining yet. */}
+        {/* Opens in a new tab on purpose: this grid holds unsaved work, and
+            navigating away in place would drop it. */}
         <Link
           href={
             canOpenStaffProfile ? `/staff/${row.staffId}` : `/staff/${row.staffId}/kharakterystyka`
@@ -703,7 +832,7 @@ function Row({
       <LimitCell
         row={row}
         bound="min"
-        value={limits.min}
+        draft={limits}
         editable={canEditLimits}
         disabled={disabled || limitsPending}
         error={limitError}
@@ -713,7 +842,7 @@ function Row({
       <LimitCell
         row={row}
         bound="max"
-        value={limits.max}
+        draft={limits}
         editable={canEditLimits}
         disabled={disabled || limitsPending}
         error={limitError}
@@ -749,35 +878,40 @@ function Row({
               outOfRange && 'border-destructive text-destructive'
             )}
           />
-          <div className="flex flex-col">
-            <button
-              type="button"
-              aria-label="Збільшити на 0,05"
-              disabled={!canEdit || disabled || atMax}
-              onClick={() => onChange(value + STAKE_STEP)}
-              className="rounded px-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-            >
-              <ChevronUp className="size-3.5" />
-            </button>
-            <button
-              type="button"
-              aria-label="Зменшити на 0,05"
-              disabled={!canEdit || disabled || atMin}
-              onClick={() => onChange(value - STAKE_STEP)}
-              className="rounded px-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-            >
-              <ChevronDown className="size-3.5" />
-            </button>
-          </div>
+          <StakeStepper
+            value={value}
+            onChange={onChange}
+            disabled={!canEdit || disabled}
+            min={lower}
+            max={upper}
+            step={STAKE_STEP}
+            label={`ставку для ${row.name}`}
+          />
         </div>
       </td>
 
-      <td className="border border-border px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
-        {row.bonus === 0 ? '—' : formatBonus(row.bonus)}
+      <td className="border border-border px-3 py-2 text-right text-xs tabular-nums">
+        <BonusCell
+          bonus={row.bonus}
+          audience={audience}
+          departmentName={view.departmentName}
+          knownDepartment={view.knownDepartment}
+        />
       </td>
 
       <td className="border border-border px-3 py-2 text-right font-medium tabular-nums">
-        {formatBonus(value / 100 + row.bonus)}
+        {formatBonus(payable.total)}
+        {/* The bonus that did not fit. Shown rather than dropped: it is what
+            somebody takes to the проректор when they think they should hold
+            more, and a silently missing 0,14 looks like an arithmetic bug. */}
+        {payable.overflow > 0 && (
+          <span
+            className="block text-[10px] font-normal text-muted-foreground"
+            title={`Бонус ${formatBonus(row.bonus.total)} не вміщується під Макс ${formatStake(row.maxHundredths)}`}
+          >
+            +{formatBonus(payable.overflow)} понад межу
+          </span>
+        )}
       </td>
     </tr>
   );
