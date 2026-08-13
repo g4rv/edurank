@@ -398,6 +398,11 @@ and they are enough:
   experiment in a per-admin sandbox (`StakeSandbox`) that touches no real row.
   Both directions are closed, so «завідувач розподіляє» is true of the code and
   not only of the положення (2026-08-12);
+- **nor can a декан** (2026-08-13). They oversee every кафедра of their faculty
+  and may READ all of it, but retyping a split would be doing the head's job
+  over their head. This is the difference between `scopeOf` (may I look) and
+  `headOf` (may I decide) in `lib/queries/scope.ts` — the page uses the first,
+  `saveDistribution` the second;
 - **the audit log records every change**, including a head's allocation to
   themselves (Q11). The sandbox writes no audit entry — it is a scratch pad, not
   a decision.

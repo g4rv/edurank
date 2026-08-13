@@ -8,7 +8,7 @@ import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { ON_ROSTER } from '@/lib/queries/roster';
-import { scopeOf } from '@/lib/queries/scope';
+import { headOf } from '@/lib/queries/scope';
 import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { MIN_STAKE, STAKE_STEP, formatStake } from '@/lib/stake/units';
 import { staffStakeLimitsSchema } from '@/validations/stake';
@@ -17,23 +17,26 @@ import type { Role } from '@/lib/generated/prisma/client';
 export type DistributionState = { error: string } | { success: true } | null;
 
 /**
- * Who may spread a кафедра's pool: its завідувач and the декан of its факультет.
- * Derived from `Department.headId` / `Faculty.deanId`, never from a `Role` — one
- * person is routinely a head, an НПП and a division editor at once.
+ * Who may spread a кафедра's pool: its завідувач, and nobody else at all.
+ * Derived from `Department.headId`, never from a `Role` — one person is
+ * routinely a head, an НПП and a division editor at once.
  *
- * **ADMIN is not here** (decided 2026-08-12). ADMIN owns `Кст` and the caps but
- * must never write a кафедра's actual split: that is the head's decision, and an
- * ADMIN who could quietly overwrite it would make «завідувач розподіляє»
- * untrue. What ADMIN gets instead is the sandbox below.
+ * Three exclusions, each deliberate:
  *
- * EDITOR is not here either, and never was. A division editor may read any
- * rating (W6), but deciding who on a кафедра is paid what is the head's job.
+ * - **ADMIN** (2026-08-12) owns `Кст` and the caps but must never write a
+ *   кафедра's actual split, or «завідувач розподіляє» is not true of the code.
+ *   What they get instead is the sandbox below.
+ * - **A декан** (2026-08-13) oversees every кафедра of their faculty and may
+ *   read all of it — `scopeOf` still grants that — but retyping a split would
+ *   be doing the head's job over their head. Hence `headOf`, not `scopeOf`.
+ * - **EDITOR**, and never otherwise. A division editor may read any rating
+ *   (W6); deciding who on a кафедра is paid what is not reading.
  */
 async function canDistribute(
   user: { role: Role; staffId?: string | null },
   departmentId: string
 ): Promise<boolean> {
-  return (await scopeOf(user.staffId)).includes(departmentId);
+  return (await headOf(user.staffId)).includes(departmentId);
 }
 
 const allocationSchema = z.object({
@@ -77,7 +80,7 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
       error:
         session.user.role === 'ADMIN'
           ? 'Розподіл зберігає завідувач кафедри. Адміністратор може перевірити варіанти у пісочниці'
-          : 'Недостатньо прав',
+          : 'Розподіл зберігає завідувач кафедри',
     };
   }
 

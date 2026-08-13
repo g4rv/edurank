@@ -32,6 +32,26 @@ export async function scopeOf(staffId: string | null | undefined): Promise<strin
 }
 
 /**
+ * Which кафедри does this person actually LEAD — `Department.headId`, nothing else.
+ *
+ * Deliberately narrower than `scopeOf`, and the difference is a декан
+ * (2026-08-13). A декан oversees every кафедра of their faculty and must be
+ * able to READ all of it — that is what `scopeOf` is for. But the ставка split
+ * is the завідувач's decision: a декан who could retype it would be doing the
+ * head's job over their head, and nothing in the положення gives them that.
+ *
+ * So: `scopeOf` answers «may I look», `headOf` answers «may I decide».
+ */
+export async function headOf(staffId: string | null | undefined): Promise<string[]> {
+  if (!staffId) return [];
+  const headed = await db.department.findMany({
+    where: { headId: staffId },
+    select: { id: true },
+  });
+  return headed.map((d) => d.id);
+}
+
+/**
  * May this person look at that person's academic record — rating tab,
  * Характеристика?
  *

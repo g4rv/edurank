@@ -7,7 +7,7 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
-vi.mock('@/lib/queries/scope', () => ({ scopeOf: vi.fn() }));
+vi.mock('@/lib/queries/scope', () => ({ scopeOf: vi.fn(), headOf: vi.fn() }));
 vi.mock('@/lib/queries/get-kharakterystyka', () => ({ getKharakterystykaMany: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
@@ -23,7 +23,7 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { scopeOf } from '@/lib/queries/scope';
+import { headOf, scopeOf } from '@/lib/queries/scope';
 import { getKharakterystykaMany } from '@/lib/queries/get-kharakterystyka';
 import {
   resetSandbox,
@@ -35,6 +35,7 @@ import {
 
 const mockAuth = auth as unknown as Mock;
 const mockScope = scopeOf as unknown as Mock;
+const mockHeadOf = headOf as unknown as Mock;
 const mockDocs = getKharakterystykaMany as unknown as Mock;
 const mockDepartment = db.department.findUnique as unknown as Mock;
 const mockStake = db.departmentStake.findUnique as unknown as Mock;
@@ -82,6 +83,7 @@ beforeEach(() => {
   // The head is the default caller now: ADMIN cannot save a distribution at all.
   mockAuth.mockResolvedValue(HEAD);
   mockScope.mockResolvedValue([DEPT]);
+  mockHeadOf.mockResolvedValue([DEPT]);
   mockDocs.mockResolvedValue(new Map());
   mockDepartment.mockResolvedValue({ id: DEPT, name: 'Кафедра фізики' });
   mockStake.mockResolvedValue({ kstHundredths: 300 }); // 3.00
@@ -109,26 +111,52 @@ describe('saveDistribution — who may', () => {
   it('refuses ADMIN, and says where to go instead', async () => {
     mockAuth.mockResolvedValue(ADMIN);
     mockScope.mockResolvedValue([]);
+    mockHeadOf.mockResolvedValue([]);
     const result = await saveDistribution(payload([100, 100, 100]));
     expect(result).toMatchObject({ error: expect.stringContaining('пісочниц') });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
+  // A декан sees every кафедра of their faculty — `scopeOf` says so, and that
+  // is what the page uses to let them read one. Deciding the split is still
+  // the завідувач's, so the ACTION asks `headOf` instead (2026-08-13).
+  it('refuses a декан on a кафедра of their faculty they do not lead', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'dean', role: 'USER', staffId: 'dean' } });
+    mockScope.mockResolvedValue([DEPT, 'other-dept']);
+    mockHeadOf.mockResolvedValue([]);
+    const result = await saveDistribution(payload([100, 100, 100]));
+    expect(result).toMatchObject({ error: expect.stringContaining('завідувач') });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('still lets a декан save the кафедра they DO lead', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'dean', role: 'USER', staffId: 'dean' } });
+    mockScope.mockResolvedValue([DEPT, 'other-dept']);
+    mockHeadOf.mockResolvedValue([DEPT]);
+    expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ success: true });
+  });
+
   it('refuses a head from a different кафедра', async () => {
-    mockScope.mockResolvedValue(['other-dept']);
-    expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ error: 'Недостатньо прав' });
+    mockHeadOf.mockResolvedValue(['other-dept']);
+    expect(await saveDistribution(payload([100, 100, 100]))).toMatchObject({
+      error: expect.stringContaining('завідувач'),
+    });
   });
 
   it('refuses an EDITOR — reading a rating is not deciding pay', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'e1' } });
-    mockScope.mockResolvedValue([]);
-    expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ error: 'Недостатньо прав' });
+    mockHeadOf.mockResolvedValue([]);
+    expect(await saveDistribution(payload([100, 100, 100]))).toMatchObject({
+      error: expect.stringContaining('завідувач'),
+    });
   });
 
   it('refuses an ordinary НПП', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'n1', role: 'USER', staffId: 'n1' } });
-    mockScope.mockResolvedValue([]);
-    expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ error: 'Недостатньо прав' });
+    mockHeadOf.mockResolvedValue([]);
+    expect(await saveDistribution(payload([100, 100, 100]))).toMatchObject({
+      error: expect.stringContaining('завідувач'),
+    });
   });
 });
 
@@ -284,6 +312,7 @@ describe('setStaffLimits — ADMIN only', () => {
 
   it('refuses a head — this is exactly the escalation the caps prevent', async () => {
     mockAuth.mockResolvedValue(HEAD);
+    mockHeadOf.mockResolvedValue([DEPT]);
     const result = await setStaffLimits(null, limitsForm('0,10', '1,50'));
     // A head who could drop a colleague's cap and raise their own would make
     // the caps meaningless
@@ -334,7 +363,7 @@ describe('the sandbox writes nothing real', () => {
 
   it('is refused to a head, however much of a head they are', async () => {
     mockAuth.mockResolvedValue(HEAD);
-    mockScope.mockResolvedValue([DEPT]);
+    mockHeadOf.mockResolvedValue([DEPT]);
     const result = await saveSandbox(sandbox);
     expect(result).toMatchObject({ error: expect.stringContaining('адміністратор') });
     expect(mockSandboxUpsert).not.toHaveBeenCalled();

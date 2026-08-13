@@ -5,12 +5,13 @@ import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getStakeDistribution } from '@/lib/queries/get-stake-distribution';
 import { getStakeSandbox, EMPTY_SANDBOX } from '@/lib/queries/get-stake-sandbox';
 import { getStakeYearSettings, listDepartmentStakes } from '@/lib/queries/list-stake-settings';
-import { scopeOf } from '@/lib/queries/scope';
+import { headOf, scopeOf } from '@/lib/queries/scope';
 import { formatStake, fromHundredths } from '@/lib/stake/units';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StakeValueForm } from '@/components/admin/stake-value-form';
 import { DistributionGrid } from '@/components/stake/distribution-grid';
 import { DepartmentSelect } from '@/components/department-select';
+import { AllDepartmentsDialog } from '@/components/stake/all-departments-dialog';
 import { SandboxControls } from '@/components/stake/sandbox-controls';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { setDepartmentStake, setStakeYearSettings } from '@/app/(dashboard)/admin/stakes/actions';
@@ -47,7 +48,14 @@ export default async function StakesPage({
 
   const { d, tab } = await searchParams;
   const isAdmin = session.user.role === 'ADMIN';
-  const scope = isAdmin ? [] : await scopeOf(session.user.staffId);
+
+  // Two different questions, and a декан answers them differently: `scopeOf`
+  // covers every кафедра of their faculty and decides what they may READ,
+  // `headOf` only the ones they lead and decides what they may CHANGE
+  // (2026-08-13). For a завідувач the two are the same list.
+  const [scope, led] = isAdmin
+    ? [[], []]
+    : await Promise.all([scopeOf(session.user.staffId), headOf(session.user.staffId)]);
   if (!isAdmin && scope.length === 0) notFound();
 
   const template = await getActiveTemplate();
@@ -85,23 +93,50 @@ export default async function StakesPage({
   ]);
   if (!view) notFound();
 
+  // The завідувач of THIS кафедра, and only them. A декан reading one of their
+  // faculty's кафедри lands here as a viewer, like ADMIN on the real tab.
+  const canEditAllocation = led.includes(departmentId) || sandbox;
   const heads = !isAdmin;
 
   return (
     <AnimatedPage className="space-y-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h1 className="text-2xl font-semibold">Розподіл ставок</h1>
-        <div className="flex items-baseline gap-4 text-sm text-muted-foreground">
-          <span>{year} рік</span>
-          {isAdmin && (
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-2xl font-semibold">Розподіл ставок</h1>
+          <span className="text-sm text-muted-foreground">{year} рік</span>
+        </div>
+
+        {isAdmin && settings && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            {/* University-wide, not per кафедра — which is exactly why it sits
+                up here beside the year and not in the кафедра toolbar below.
+                It used to be folded into a «Налаштування року» dropdown under
+                the grid, where it read as another per-кафедра setting. */}
+            <label className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                Узгоджуючий коефіцієнт
+                <StakeTermHint term="contractCoefficient" />
+              </span>
+              <StakeValueForm
+                action={setStakeYearSettings}
+                hidden={{ year }}
+                name="contractCoefficient"
+                defaultValue={String(settings.contractCoefficient)}
+                ariaLabel="Узгоджуючий коефіцієнт на весь університет"
+                className="w-20"
+              />
+            </label>
+
+            <AllDepartmentsDialog departments={departments} selectedId={departmentId} year={year} />
+
             <Link
               href="/admin/stakes/norms"
-              className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
             >
-              Нормативи чисельності →
+              Нормативи →
             </Link>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── One toolbar: which кафедра, what its pool is, which tab.
@@ -111,11 +146,12 @@ export default async function StakesPage({
              control strip, and the кафедра's figures are its second line. ── */}
       <div className="rounded-xl border bg-card">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-          {isAdmin ? (
-            // The кафедра's own pool rides along as a tag. The faculty used to
-            // sit here and paid for its width badly — it repeats down every
-            // кафедра of one faculty and is already on the line below, whereas
-            // «which кафедри still have no Кст» is the thing ADMIN is hunting.
+          {/* One control for everybody who has a choice — ADMIN across the
+              university, a декан across their faculty. The кафедра's own pool
+              rides along as a tag; the faculty used to sit there and paid for
+              its width badly, repeating down every кафедра of one faculty when
+              it already sits on the line below. */}
+          {available.length > 1 ? (
             <DepartmentSelect
               departments={available.map((x) => ({
                 id: x.id,
@@ -129,25 +165,6 @@ export default async function StakesPage({
               extraParams={sandbox ? { tab: 'sandbox' } : undefined}
               className="w-full sm:w-80"
             />
-          ) : available.length > 1 ? (
-            // A декан oversees several. Links rather than a select: there are a
-            // handful, and seeing them all at once is part of the job.
-            <div className="flex flex-wrap gap-1">
-              {available.map((x) => (
-                <Link
-                  key={x.id}
-                  href={`/stakes?d=${x.id}`}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 text-sm transition-colors',
-                    x.id === departmentId
-                      ? 'bg-muted font-medium'
-                      : 'text-muted-foreground hover:bg-muted/50'
-                  )}
-                >
-                  {x.name}
-                </Link>
-              ))}
-            </div>
           ) : (
             <span className="text-sm font-medium">{view.departmentName}</span>
           )}
@@ -187,14 +204,17 @@ export default async function StakesPage({
             )}
           </label>
 
-          {isAdmin && (
-            <div className="ml-auto inline-flex items-center gap-2">
-              {!sandbox && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
-                  лише перегляд
-                  <StakeTermHint term="realReadonly" />
-                </span>
-              )}
+          <div className="ml-auto inline-flex items-center gap-2">
+            {/* Shown to anybody who cannot type in «Розподілено» — ADMIN on the
+                real tab, and a декан on any кафедра they do not lead. A greyed
+                column with no explanation reads as a broken page. */}
+            {!canEditAllocation && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                лише перегляд
+                <StakeTermHint term={isAdmin ? 'realReadonly' : 'deanReadonly'} />
+              </span>
+            )}
+            {isAdmin && (
               <div className="inline-flex rounded-lg border p-0.5">
                 <TabLink href={`/stakes?d=${departmentId}`} active={!sandbox}>
                   Реальний
@@ -203,8 +223,8 @@ export default async function StakesPage({
                   Пісочниця
                 </TabLink>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-1 border-t px-4 py-2 text-xs text-muted-foreground">
@@ -271,119 +291,11 @@ export default async function StakesPage({
       <DistributionGrid
         key={stateKey(view)}
         view={view}
-        canEdit={heads || sandbox}
+        canEdit={canEditAllocation}
         canEditLimits={isAdmin}
         canOpenStaffProfile={isAdmin}
         audience={isAdmin ? 'admin' : 'head'}
       />
-
-      {/* ── ADMIN: everything else, folded away ── */}
-      {isAdmin && settings && (
-        <div className="space-y-3 pt-1">
-          <details className="rounded-xl border bg-card">
-            <summary className="cursor-pointer px-5 py-3 text-sm font-medium">
-              Усі кафедри
-              <span className="ml-2 font-normal text-muted-foreground">
-                {departments.length} · разом {formatStake(totalKst(departments))}
-                {unset(departments) > 0 && ` · без Кст: ${unset(departments)}`}
-                {belowMinimum(departments) > 0 && ` · нижче мінімуму: ${belowMinimum(departments)}`}
-              </span>
-            </summary>
-            <div className="overflow-x-auto border-t">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-muted/60 text-left">
-                    <th className="border border-border px-3 py-2 font-medium text-muted-foreground">
-                      Кафедра
-                    </th>
-                    <th className="w-20 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
-                      НПП
-                    </th>
-                    <th className="w-20 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        Кнпп
-                        <StakeTermHint term="knpp" />
-                      </span>
-                    </th>
-                    <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
-                      Мінімум
-                    </th>
-                    <th className="w-24 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
-                      Кст
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {departments.map((x) => (
-                    <tr
-                      key={x.id}
-                      className={cn(
-                        'transition-colors hover:bg-muted/20',
-                        x.id === departmentId && 'bg-muted/40'
-                      )}
-                    >
-                      <td className="border border-border px-3 py-2">
-                        <Link
-                          href={`/stakes?d=${x.id}`}
-                          className="underline-offset-4 hover:underline"
-                        >
-                          {x.name}
-                        </Link>
-                        <span className="ml-2 text-xs text-muted-foreground">{x.faculty}</span>
-                      </td>
-                      <td className="border border-border px-3 py-2 text-right tabular-nums">
-                        {x.headcount}
-                      </td>
-                      <td className="border border-border px-3 py-2 text-right tabular-nums">
-                        {x.knpp}
-                      </td>
-                      <td
-                        className={cn(
-                          'border border-border px-3 py-2 text-right tabular-nums',
-                          x.belowMinimum ? 'font-medium text-destructive' : 'text-muted-foreground'
-                        )}
-                      >
-                        {formatStake(x.minimumHundredths)}
-                      </td>
-                      <td
-                        className={cn(
-                          'border border-border px-3 py-2 text-right tabular-nums',
-                          x.kstHundredths === null && 'text-muted-foreground'
-                        )}
-                      >
-                        {x.kstHundredths === null ? 'не задано' : formatStake(x.kstHundredths)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-          <details className="rounded-xl border bg-card">
-            <summary className="cursor-pointer px-5 py-3 text-sm font-medium">
-              Налаштування року
-              <span className="ml-2 font-normal text-muted-foreground">
-                узгоджуючий коефіцієнт {settings.contractCoefficient}
-                {!settings.saved && ' — ще не підтверджено'}
-              </span>
-            </summary>
-            <div className="border-t px-5 py-4">
-              <p className="mb-3 max-w-2xl text-xs text-muted-foreground">
-                Множник для здобувачів, які навчаються за контрактом. Бюджетний здобувач
-                зараховується повністю, контрактний — із цим коефіцієнтом. На {year} рік — 0,175.
-              </p>
-              <StakeValueForm
-                action={setStakeYearSettings}
-                hidden={{ year }}
-                name="contractCoefficient"
-                defaultValue={String(settings.contractCoefficient)}
-                ariaLabel="Узгоджуючий коефіцієнт"
-              />
-            </div>
-          </details>
-        </div>
-      )}
     </AnimatedPage>
   );
 }
@@ -410,13 +322,6 @@ function TabLink({
     </Link>
   );
 }
-
-type DepartmentRow = Awaited<ReturnType<typeof listDepartmentStakes>>[number];
-
-const totalKst = (rows: DepartmentRow[]) =>
-  rows.reduce((sum, x) => sum + (x.kstHundredths ?? 0), 0);
-const unset = (rows: DepartmentRow[]) => rows.filter((x) => x.kstHundredths === null).length;
-const belowMinimum = (rows: DepartmentRow[]) => rows.filter((x) => x.belowMinimum).length;
 
 /**
  * Everything on the screen that the SERVER decides, as one string.
