@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toast } from 'sonner';
-import { KeyRound, LogOut, MailPlus, RotateCcw } from 'lucide-react';
+import { KeyRound, LockOpen, LogOut, MailPlus, RotateCcw } from 'lucide-react';
 import {
   sendInvite,
   resetPassword,
   setPasswordManually,
   forceLogout,
   changeRole,
+  unlockLogin,
   type AccountActionState,
 } from '@/app/(dashboard)/staff/[id]/actions';
 import {
@@ -114,7 +115,32 @@ export function AccountCard({ staffId, account, isSelf }: AccountCardProps) {
           </p>
         )}
 
+        {/* Only while it is actually locked. A permanent «не заблоковано» line
+            would be noise on 300 pages to serve the rare one. */}
+        {account.lockedUntil && (
+          <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
+            Вхід заблоковано після невдалих спроб — до{' '}
+            {account.lockedUntil.toLocaleTimeString('uk-UA', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+            . Людина може зачекати або ви знімаєте блокування зараз.
+          </p>
+        )}
+
         <div className="flex flex-col gap-2">
+          {account.lockedUntil && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isPending}
+              onClick={() => run(() => unlockLogin(staffId))}
+            >
+              <LockOpen className="size-4" />
+              Зняти блокування входу
+            </Button>
+          )}
+
           {!account.isActivated && (
             <Button
               variant="outline"

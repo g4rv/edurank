@@ -754,6 +754,43 @@ model StakeSandbox {
   @@index([year])
 }
 
+// Failed sign-in counters, one row per subject.
+//
+// On a university LAN an unthrottled password form was tolerable; on a public
+// VPS with a real domain it is not, and the 2026-07-29 audit called it a
+// deployment blocker (S4).
+//
+// A table rather than memory, deliberately: an in-process counter resets on
+// every redeploy, and a redeploy is exactly the moment somebody probing would
+// like it to. ~300 people means a handful of rows.
+//
+// `subject` carries its own kind — «email:…» or «ip:…» — because both are
+// counted and each closes a hole the other leaves open. Per-email alone lets
+// somebody spray one password across every address they can guess; per-IP alone
+// lets a botnet grind one account from a thousand hosts. Neither is enough on
+// its own, and the two never need to be joined, so one table with a prefixed
+// key beats two tables or a nullable pair.
+model LoginThrottle {
+  id      String @id @default(cuid())
+  /// «email:kovalenko@uhsp.edu.ua» or «ip:203.0.113.4», lower-cased
+  subject String @unique
+
+  /// Failures since the last success or the last lockout expiry
+  failures Int @default(0)
+  /// How many lockouts this subject has already served. Drives the escalation
+  /// (1 → 5 → 15 → 60 minutes) and is what makes a persistent guesser pay more
+  /// than somebody who mistyped their password twice in a bad morning.
+  lockLevel   Int       @default(0)
+  lockedUntil DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Swept by `pruneLoginThrottles` — a row nobody has touched for a day is
+  /// somebody who got their password right eventually.
+  @@index([updatedAt])
+}
+
 // ─── Audit log ───────────────────────────────────────────────────────────────
 
 model AuditLog {

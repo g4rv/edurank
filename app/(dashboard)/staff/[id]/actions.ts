@@ -13,6 +13,7 @@ import {
   type ChangeRoleSchema,
 } from '@/validations/account';
 import { issueAndEmailLink, staffFullName } from '@/lib/mail/invite';
+import { unlockEmail } from '@/lib/auth/throttle';
 import { diffChanges } from '@/lib/audit';
 import {
   canManageEntity,
@@ -479,6 +480,53 @@ export async function forceLogout(id: string): Promise<AccountActionState> {
 
   revalidatePath(`/staff/${id}`);
   return { success: true, message: 'Всі сесії завершено' };
+}
+
+/**
+ * Clears a person's failed-login lockout.
+ *
+ * Needed because the lockout escalates to an hour and, until mail works,
+ * nobody can reset their own password — so «я не можу зайти» has no answer
+ * except waiting. Audited: it is a security control being switched off for
+ * somebody, and «who unlocked this account» is a question worth being able to
+ * answer.
+ *
+ * Only the email counter is cleared, never the IP one. An admin unlocking a
+ * colleague must not also clear the counter for whatever address has been
+ * grinding the login all morning.
+ */
+export async function unlockLogin(id: string): Promise<AccountActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const staff = await db.staff.findUnique({
+    where: { id },
+    select: { email: true, lastName: true, firstName: true, patronymic: true },
+  });
+  if (!staff) return { error: 'Запис не знайдено' };
+
+  try {
+    await unlockEmail(staff.email);
+    await db.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'Staff',
+        entityId: id,
+        label: `${staffFullName(staff)} — знято блокування входу`,
+        userId: session.user.id,
+      },
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(e, 'Не вдалося зняти блокування', 'staff.unlockLogin', {
+        userId: session.user.id,
+        entityId: id,
+      }),
+    };
+  }
+
+  revalidatePath(`/staff/${id}`);
+  return { success: true, message: 'Блокування знято' };
 }
 
 export async function changeRole(id: string, data: ChangeRoleSchema): Promise<AccountActionState> {

@@ -2,6 +2,7 @@ import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { compare } from 'bcryptjs';
 import { db } from '@/lib/db';
+import { clearFailures, lockedUntil, recordFailure, subjectsFor } from '@/lib/auth/throttle';
 import type { Role } from '@/lib/generated/prisma/client';
 
 // NextAuth reads AUTH_SECRET on its own and, when it is missing, fails at the
@@ -32,9 +33,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
+        const email = credentials.email as string;
+
+        // Throttling is enforced HERE rather than in the login server action,
+        // because NextAuth also exposes /api/auth/callback/credentials — a
+        // check only the form performs is one anybody can POST straight past.
+        // The action re-reads this state afterwards, but only to say something
+        // more useful than «невірні дані» on screen.
+        const subjects = await subjectsFor(email);
+        if (await lockedUntil(subjects)) return null;
 
         const staff = await db.staff.findUnique({
-          where: { email: credentials.email as string },
+          where: { email },
           select: {
             id: true,
             email: true,
@@ -45,18 +55,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
+        // Every rejection below counts as a failure and returns the same
+        // `null`, on purpose. If «no such account» were cheaper or quieter than
+        // «wrong password», the form would answer whether somebody works here.
+        //
         // passwordHash === null → account not activated yet (no password to check)
-        if (!staff?.passwordHash) return null;
-
+        //
         // Archived = off the roster, which includes the login. Someone who left
         // the university keeps no access; someone on декретна відпустка gets it
         // back when an admin restores them, which has to happen anyway to put
-        // them back in the rating.
-        if (staff.archivedAt) return null;
+        // them back in the rating. A returning person who locked themselves out
+        // while archived is unlocked from their staff page.
+        if (!staff?.passwordHash || staff.archivedAt) {
+          await recordFailure(subjects);
+          return null;
+        }
 
         const valid = await compare(credentials.password as string, staff.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          await recordFailure(subjects);
+          return null;
+        }
 
+        await clearFailures(subjects);
         return {
           id: staff.id,
           email: staff.email,
