@@ -16,6 +16,14 @@ if (!process.env.AUTH_SECRET) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Behind Coolify's Traefik the app sees `http://0.0.0.0:3000`, not
+  // `https://edurank.uhsp.edu.ua`. NextAuth v5 refuses to build a callback URL
+  // from a host it has not been told to trust, so without this every sign-in
+  // fails on a correct deployment — and fails in a way that looks like wrong
+  // credentials rather than like a proxy problem.
+  //
+  // `AUTH_URL` is what it trusts; this says the forwarded headers may set it.
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {

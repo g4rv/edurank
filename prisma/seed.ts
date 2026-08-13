@@ -2,17 +2,13 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import bcrypt from 'bcryptjs';
-import {
-  ACTIVITY_TYPES_2026,
-  RATING_DIVISIONS,
-  SECTION_TITLES,
-} from '../lib/rating/activity-types';
+import { RATING_DIVISIONS } from '../lib/rating/activity-types';
 import { syncProfileDerived } from '../lib/rating/profile-derived';
-import { dbSpecs } from '../lib/rating/db-specs';
 import type { EvidenceField } from '../lib/rating/evidence-fields';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
-import { SPECIALITY_NORMS_2026, DEFAULT_CONTRACT_COEFFICIENT } from '../lib/stake/norms';
+import { DEFAULT_CONTRACT_COEFFICIENT } from '../lib/stake/norms';
+import { seedCatalogue } from './catalogue';
 import { recomputeRatingEntry } from '../lib/rating/recompute';
 import type { InputSource, Prisma } from '../lib/generated/prisma/client';
 
@@ -109,31 +105,18 @@ async function seedDemoRating(staffId: string, templateId: string, sources: Inpu
 }
 
 async function main() {
-  // ─── Divisions ────────────────────────────────────────────────────────────
-
-  // Rating divisions (Phase 2) — all 6, incl. the two new 2026 ones (відділ
-  // кадрів, навчальний відділ). Upserted on the catalogue's stable key rather
-  // than the name: the name is what an admin may rename on /divisions, and
-  // re-seeding after a rename must find the same row instead of trying to
-  // create a second one beside it.
+  // ─── Catalogue ────────────────────────────────────────────────────────────
   //
-  // ННВ is the division that moderates the rating. Its flag is set on update
-  // too, so a database seeded before the column arrived does not keep a ННВ
-  // that cannot moderate anything.
-  const ratingDivisions: Record<string, { id: string; name: string }> = {};
-  for (const [key, name] of Object.entries(RATING_DIVISIONS)) {
-    const canModerateRating = key === 'NNV';
-    const division = await prisma.division.upsert({
-      where: { registryKey: key },
-      update: { canModerateRating },
-      create: { name, registryKey: key, canModerateRating },
-    });
-    ratingDivisions[key] = { id: division.id, name: division.name };
-  }
-  const ratingDivisionIds: Record<string, string> = Object.fromEntries(
-    Object.entries(ratingDivisions).map(([key, d]) => [key, d.id])
-  );
-  const nnv = ratingDivisions.NNV;
+  // Divisions, ННВ's permissions, the rating template with its indicators and
+  // додаток 5 — everything a real installation needs, shared with
+  // `seed-production.ts` so the two can never drift. What follows below is the
+  // DEMO half, which production must never receive.
+  const catalogue = await seedCatalogue(prisma);
+  const activityTypeCount = catalogue.activityTypeCount;
+  const template = await prisma.ratingTemplate.findUniqueOrThrow({
+    where: { year: catalogue.year },
+  });
+  const nnv = await prisma.division.findUniqueOrThrow({ where: { registryKey: 'NNV' } });
 
   // ─── Faculty ──────────────────────────────────────────────────────────────
 
@@ -213,103 +196,6 @@ async function main() {
     },
   });
 
-  // ─── Division permissions (ННВ) ───────────────────────────────────────────
-
-  // Field permissions — which Staff fields ННВ editors can edit.
-  // Deliberately excludes employmentRate (confidential) and divisionId (decides
-  // editor scope): both are ADMIN-only and setFieldPermission refuses to grant
-  // them, so seeding a row here would only create an inert, confusing grant.
-  const nnvFields = [
-    'academicRank',
-    'scientificDegree',
-    'degreeMatchesDepartment',
-    'pedagogicalExperience',
-    'wosUrl',
-    'wosCitationCount',
-    'scopusUrl',
-    'scopusCitationCount',
-    'googleScholarUrl',
-    'googleScholarCitationCount',
-    'orcidId',
-  ];
-
-  for (const fieldName of nnvFields) {
-    await prisma.divisionFieldPermission.upsert({
-      where: { divisionId_fieldName: { divisionId: nnv.id, fieldName } },
-      update: {},
-      create: { divisionId: nnv.id, fieldName },
-    });
-  }
-
-  // Entity permissions — ННВ can fully manage staff, departments, and faculties
-  const nnvEntityPermissions = [
-    { entity: 'STAFF' as const, action: 'CREATE' as const },
-    { entity: 'STAFF' as const, action: 'UPDATE' as const },
-    { entity: 'STAFF' as const, action: 'DELETE' as const },
-    { entity: 'DEPARTMENT' as const, action: 'CREATE' as const },
-    { entity: 'DEPARTMENT' as const, action: 'UPDATE' as const },
-    { entity: 'DEPARTMENT' as const, action: 'DELETE' as const },
-    { entity: 'FACULTY' as const, action: 'CREATE' as const },
-    { entity: 'FACULTY' as const, action: 'UPDATE' as const },
-    { entity: 'FACULTY' as const, action: 'DELETE' as const },
-  ];
-
-  for (const { entity, action } of nnvEntityPermissions) {
-    await prisma.divisionEntityPermission.upsert({
-      where: { divisionId_entity_action: { divisionId: nnv.id, entity, action } },
-      update: {},
-      create: { divisionId: nnv.id, entity, action },
-    });
-  }
-
-  // ─── Rating template 2026 (Phase 2) ───────────────────────────────────────
-
-  const template = await prisma.ratingTemplate.upsert({
-    where: { year: 2026 },
-    update: { isActive: true },
-    create: { year: 2026, name: 'Рейтинг НПП 2026', isActive: true },
-  });
-
-  const sectionIds: Record<number, string> = {};
-  for (const [number, title] of Object.entries(SECTION_TITLES)) {
-    const section = await prisma.ratingSection.upsert({
-      where: { templateId_number: { templateId: template.id, number: Number(number) } },
-      update: { title },
-      create: { templateId: template.id, number: Number(number), title },
-    });
-    sectionIds[Number(number)] = section.id;
-  }
-
-  for (const def of ACTIVITY_TYPES_2026) {
-    const specs = dbSpecs(def);
-    const data = {
-      sectionId: sectionIds[def.section],
-      order: def.order,
-      label: def.label,
-      itemNumber: specs.itemNumber,
-      maxPerYear: specs.maxPerYear,
-      requiresVerification: specs.requiresVerification,
-      entityFirstEntry: specs.entityFirstEntry,
-      evidenceFields: specs.evidenceFields as unknown as Prisma.InputJsonValue,
-      scoring: specs.scoring as unknown as Prisma.InputJsonValue,
-      licencePositions: specs.licencePositions as unknown as Prisma.InputJsonValue,
-      coefficient: def.coefficient,
-      coefficientNote: def.coefficientNote ?? null,
-      inputSource: def.inputSource,
-      verifyingDivisionId: def.verifyingDivision ? ratingDivisionIds[def.verifyingDivision] : null,
-      isActive: true,
-    };
-    await prisma.activityType.upsert({
-      where: { templateId_code: { templateId: template.id, code: def.code } },
-      update: data,
-      create: { templateId: template.id, code: def.code, ...data },
-    });
-  }
-
-  const activityTypeCount = await prisma.activityType.count({
-    where: { templateId: template.id },
-  });
-
   // ─── Demo НПП with pre-filled ratings ─────────────────────────────────────
 
   // 1) Only self-reported (NPP_SUBMISSION) achievements; profile-derived fields empty
@@ -368,31 +254,6 @@ async function main() {
   for (const { id } of allStaff) {
     await syncProfileDerived(prisma, id);
   }
-
-  // ─── Розподіл ставок — додаток 5 and the year's coefficient ────────────────
-  //
-  // Seed data, not constants: the вчена рада re-approves the норматив table and
-  // the узгоджуючий коефіцієнт every year, and an admin edits them in the app.
-  // Upserted on the speciality name, so re-running never duplicates a row, and
-  // an edited `base` is left alone — only a missing row is created.
-  for (const [name, base] of SPECIALITY_NORMS_2026) {
-    const speciality = await prisma.speciality.upsert({
-      where: { name },
-      update: {},
-      create: { name },
-    });
-    await prisma.specialityNorm.upsert({
-      where: { specialityId_year: { specialityId: speciality.id, year: template.year } },
-      update: {},
-      create: { specialityId: speciality.id, year: template.year, base },
-    });
-  }
-
-  await prisma.stakeYearSettings.upsert({
-    where: { year: template.year },
-    update: {},
-    create: { year: template.year, contractCoefficient: DEFAULT_CONTRACT_COEFFICIENT },
-  });
 
   const specialityCount = await prisma.speciality.count();
 

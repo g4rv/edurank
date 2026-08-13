@@ -10,6 +10,15 @@ const TUNNEL_ORIGINS = ['*.ngrok-free.dev', '*.ngrok-free.app', '*.ngrok.io', '*
 const isDev = process.env.NODE_ENV !== 'production';
 
 const nextConfig: NextConfig = {
+  // Ships a self-contained server in `.next/standalone` — its own minimal
+  // node_modules and a `server.js` to run. Without it the production image
+  // needs the whole dependency tree and `next start`, which is several hundred
+  // megabytes of build tooling nobody runs at runtime.
+  //
+  // Two things it does NOT copy, which the Dockerfile has to do by hand:
+  // `.next/static` and `public`. Miss them and the app boots and serves HTML
+  // with no CSS and no fonts — a working site that looks broken.
+  output: 'standalone',
   ...(isDev ? { allowedDevOrigins: TUNNEL_ORIGINS } : {}),
   experimental: {
     ...(isDev ? { serverActions: { allowedOrigins: TUNNEL_ORIGINS } } : {}),

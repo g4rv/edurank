@@ -1,0 +1,46 @@
+# What must never reach the build context.
+#
+# Two reasons, and the second is the one that matters: size, and secrets. The
+# build context is uploaded to the daemon and every COPY reads from it, so a
+# stray `.env` here is a database password inside an image layer.
+
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.husky
+
+node_modules
+.next
+out
+build
+
+# Generated at build time by `pnpm db:generate`. Copying a host-built client in
+# would overwrite it with one compiled for the wrong platform.
+lib/generated
+
+backups
+*.log
+
+# Documentation and source material. None of it is read at runtime, and
+# edu-reference alone is tens of megabytes of the university's own files.
+docs
+documentation
+edu-reference
+*.md
+!README.md
+
+# Local tooling and editor state
+.claude
+.vscode
+.idea
+.playwright-mcp
+coverage
+*.png
+!public/**/*.png
+
+Dockerfile
+.dockerignore
+docker-compose.yml

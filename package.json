@@ -2,6 +2,7 @@
   "name": "edurank",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.20.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,7 +21,9 @@
     "db:gate-to-check-sum": "tsx prisma/gate-to-check-sum.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
-    "db:reset": "prisma migrate reset --force"
+    "db:reset": "prisma migrate reset --force",
+    "db:seed-production": "tsx prisma/seed-production.ts",
+    "db:create-admin": "tsx prisma/create-admin.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
