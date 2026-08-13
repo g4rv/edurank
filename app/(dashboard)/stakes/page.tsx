@@ -24,19 +24,21 @@ import { cn } from '@/lib/utils';
  * /departments/[id]/stakes to see what that `Кст` had done, then back again to
  * change it. The number and its consequence were never on screen together.
  *
- * What each role gets (2026-08-12):
+ * What each role gets:
  *
- *   ADMIN — any кафедра, the pool, the caps, the year's coefficient, and a
- *           SANDBOX. They may not write a кафедра's split; the real tab is a
- *           read-only view of what the head decided, so «phone me about my
- *           ставка» is answerable without asking anybody to share a screen.
- *   Head  — their own кафедра, the split, and nothing else. `Кст` and the caps
- *           are shown because bounds you cannot see are bounds you file a bug
- *           about, and read-only because a head who could raise their own cap
- *           and drop a colleague's would make the caps meaningless.
+ *   ADMIN — any кафедра, the pool, the caps, the year's coefficient, a SANDBOX,
+ *           and — provisionally, see `canDistribute` — the split itself. Where
+ *           a head has already saved one, the page says so before ADMIN types
+ *           over it.
+ *   Head  — their own кафедра and its split. `Кст` and the caps are shown
+ *           because bounds you cannot see are bounds you file a bug about, and
+ *           read-only because a head who could raise their own cap and drop a
+ *           colleague's would make the caps meaningless.
+ *   Декан — every кафедра of their faculty, read-only. `scopeOf` says what they
+ *           may look at, `headOf` what they may change (2026-08-13).
  *
  * EDITOR is deliberately not here. A division editor may read any rating (W6),
- * but deciding who on a кафедра is paid what is the head's job.
+ * but deciding who on a кафедра is paid what is not reading.
  */
 export default async function StakesPage({
   searchParams,
@@ -93,10 +95,17 @@ export default async function StakesPage({
   ]);
   if (!view) notFound();
 
-  // The завідувач of THIS кафедра, and only them. A декан reading one of their
-  // faculty's кафедри lands here as a viewer, like ADMIN on the real tab.
-  const canEditAllocation = led.includes(departmentId) || sandbox;
+  // The завідувач of THIS кафедра, plus ADMIN — see `canDistribute`, where the
+  // ADMIN half is provisional and the argument is written out. A декан reading
+  // one of their faculty's кафедри lands here as a viewer.
+  const canEditAllocation = isAdmin || led.includes(departmentId) || sandbox;
   const heads = !isAdmin;
+
+  // ADMIN typing over a split a завідувач has already saved. Not blocked —
+  // ADMIN may do it — but never silent: this is the case the owner is unsure
+  // about, and «I did not realise I was overwriting him» is the way it goes
+  // wrong. `filledBy` records who typed it either way.
+  const overwritingHead = isAdmin && !sandbox && view.filledAt !== null;
 
   return (
     <AnimatedPage className="space-y-4">
@@ -211,7 +220,7 @@ export default async function StakesPage({
             {!canEditAllocation && (
               <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
                 лише перегляд
-                <StakeTermHint term={isAdmin ? 'realReadonly' : 'deanReadonly'} />
+                <StakeTermHint term="deanReadonly" />
               </span>
             )}
             {isAdmin && (
@@ -248,6 +257,20 @@ export default async function StakesPage({
           </p>
         )}
       </div>
+
+      {/* Amber, not red, and not a block: ADMIN is allowed to do this. It is
+          said out loud because the alternative is finding out from the
+          завідувач afterwards. «Пісочниця» is offered in the same breath,
+          since trying a number is usually what was actually wanted. */}
+      {overwritingHead && (
+        <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
+          {/* «заповнено», not «заповнив завідувач» — the last save may have been
+              another ADMIN's, and naming them as the head is simply false. */}
+          Розподіл цієї кафедри вже заповнено: {view.filledBy ?? '—'},{' '}
+          {view.filledAt?.toLocaleDateString('uk-UA')}. Ваші зміни перезапишуть його і будуть
+          записані на вас. Щоб лише перевірити інші числа, скористайтеся «Пісочницею».
+        </p>
+      )}
 
       {sandbox && (
         <SandboxControls

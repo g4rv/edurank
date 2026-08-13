@@ -394,15 +394,21 @@ and they are enough:
   into the протокол (2026-08-12);
 - **the per-person min/max caps are ADMIN-only** — a head cannot cap a colleague
   down and themselves up;
-- **ADMIN cannot write the split either** — they own `Кст` and the caps, and
-  experiment in a per-admin sandbox (`StakeSandbox`) that touches no real row.
-  Both directions are closed, so «завідувач розподіляє» is true of the code and
-  not only of the положення (2026-08-12);
-- **nor can a декан** (2026-08-13). They oversee every кафедра of their faculty
-  and may READ all of it, but retyping a split would be doing the head's job
-  over their head. This is the difference between `scopeOf` (may I look) and
-  `headOf` (may I decide) in `lib/queries/scope.ts` — the page uses the first,
-  `saveDistribution` the second;
+- **a декан cannot write the split** (2026-08-13). They oversee every кафедра of
+  their faculty and may READ all of it, but retyping a split would be doing the
+  head's job over their head. This is the difference between `scopeOf` (may I
+  look) and `headOf` (may I decide) in `lib/queries/scope.ts` — the page uses
+  the first, `saveDistribution` the second;
+- **ADMIN currently CAN — and this one is unsettled.** It was closed on
+  2026-08-12 (ADMIN owns `Кст` and the caps and experiments in `StakeSandbox`,
+  which writes no real row) and reopened on 2026-08-13 at the owner's request:
+  they are unsure, and the вице-ректор who actually holds the account has never
+  been asked. The competing rule is «ADMIN inspects, and asks the завідувач to
+  change it». Until somebody asks them, the looser rule stands with the write
+  made visible rather than quiet — `StakeDistribution.filledBy` records who
+  typed it, and the page warns ADMIN before overwriting a split a head has
+  already saved. **To close it again:** the `role === 'ADMIN'` line in
+  `canDistribute` and `isAdmin` in `canEditAllocation` on the page;
 - **the audit log records every change**, including a head's allocation to
   themselves (Q11). The sandbox writes no audit entry — it is a scratch pad, not
   a decision.

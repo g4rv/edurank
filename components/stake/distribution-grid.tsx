@@ -39,8 +39,9 @@ type LimitDraft = { min: string; max: string };
  * The same grid renders ADMIN's sandbox (`view.sandbox`). What changes is where
  * a blur lands — `StakeSandbox` instead of `StakeAllocation` — and that the
  * «only upwards» rule is lifted, because trying a lower number is the entire
- * point of a sandbox. ADMIN never writes a real distribution from here or
- * anywhere else (decided 2026-08-12).
+ * point of a sandbox. On the real tab ADMIN writes real allocations under the
+ * same rules as the head; see `canDistribute`, where that permission is marked
+ * provisional and the argument against it is written out.
  *
  * Ліміти are shown to everyone and editable only by ADMIN, on these same rows.
  * A head who could raise their own cap and drop a colleague's would make the

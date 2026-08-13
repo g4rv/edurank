@@ -108,13 +108,15 @@ describe('saveDistribution — who may', () => {
 
   // The rule the sandbox exists for. ADMIN owns Кст and the caps but must never
   // write a кафедра's split — otherwise «завідувач розподіляє» is not true.
-  it('refuses ADMIN, and says where to go instead', async () => {
+  // Provisional (2026-08-13): ADMIN was locked out of the real split on
+  // 2026-08-12 and let back in while the owner decides. The one thing that must
+  // stay true either way is that the write is recorded against whoever made it,
+  // which `filledById` and the audit entry already do.
+  it('lets ADMIN save a кафедра they do not head', async () => {
     mockAuth.mockResolvedValue(ADMIN);
     mockScope.mockResolvedValue([]);
     mockHeadOf.mockResolvedValue([]);
-    const result = await saveDistribution(payload([100, 100, 100]));
-    expect(result).toMatchObject({ error: expect.stringContaining('пісочниц') });
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ success: true });
   });
 
   // A декан sees every кафедра of their faculty — `scopeOf` says so, and that
@@ -361,6 +363,8 @@ describe('the sandbox writes nothing real', () => {
     expect(mockAudit).not.toHaveBeenCalled();
   });
 
+  // The sandbox stays ADMIN's alone even now that ADMIN may write the real
+  // split: a head has one кафедра and one real answer to give.
   it('is refused to a head, however much of a head they are', async () => {
     mockAuth.mockResolvedValue(HEAD);
     mockHeadOf.mockResolvedValue([DEPT]);
