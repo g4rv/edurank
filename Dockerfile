@@ -92,10 +92,16 @@ RUN apt-get update \
 RUN groupadd --system --gid 1001 nodejs \
     && useradd --system --uid 1001 --gid nodejs nextjs
 
-# `standalone` carries the server and its pruned node_modules but NOT these two,
-# which have to be placed by hand. Forget them and the app boots, serves, and
-# renders every page without a stylesheet or a font — a working site that looks
-# broken.
+# `standalone` carries the server and a pruned node_modules. The other two are
+# placed by hand, and for different reasons — both verified against a real build
+# on 2026-08-13:
+#
+#   .next/static  is genuinely absent from the standalone output. Forget it and
+#                 the app boots, serves, and renders every page with no
+#                 stylesheet — a working site that looks broken.
+#   public        is present but only PARTLY: Next traces it, so `public/fonts`
+#                 came through and the unreferenced files did not. Copying it
+#                 wholesale is what makes that difference stop mattering.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
