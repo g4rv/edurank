@@ -46,17 +46,17 @@ New resource → **Dockerfile** build pack → this git repository, branch `main
 Set these on the application resource. There is no `.env` file in the image —
 `.dockerignore` excludes it precisely so a password cannot end up in a layer.
 
-| Variable                  | Value                            | Why                                                                                                                     |
-| ------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | the internal string from §1      | The entrypoint refuses to start without it.                                                                             |
-| `AUTH_SECRET`             | `openssl rand -base64 32`        | Signs the session cookie. Changing it later logs everybody out.                                                         |
-| `AUTH_URL`                | `https://edurank.uhsp.edu.ua`    |                                                                                                                         |
-| `APP_URL`                 | `https://edurank.uhsp.edu.ua`    | **Every activation and reset link is built from this.** Wrong or missing, invites go out looking fine and open nothing. |
-| `SMTP_HOST`               | Mailjet: `in-v3.mailjet.com`     | See §6.                                                                                                                 |
-| `SMTP_PORT`               | `587`                            |                                                                                                                         |
-| `SMTP_USER` / `SMTP_PASS` | the Mailjet API key / secret key |                                                                                                                         |
-| `SMTP_FROM`               | `EduRank <no-reply@uhsp.edu.ua>` | The domain here must be one Mailjet has verified, or mail is refused or lands in spam.                                  |
-| `INVITE_DELAY_MS`         | leave unset (250)                | Pause between bulk-invite messages. Raise it if Mailjet starts refusing.                                                |
+| Variable                  | Value                                    | Why                                                                                                                     |
+| ------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`            | the internal string from §1              | The entrypoint refuses to start without it.                                                                             |
+| `AUTH_SECRET`             | `openssl rand -base64 32`                | Signs the session cookie. Changing it later logs everybody out.                                                         |
+| `AUTH_URL`                | `https://edurank.uhsp.edu.ua`            |                                                                                                                         |
+| `APP_URL`                 | `https://edurank.uhsp.edu.ua`            | **Every activation and reset link is built from this.** Wrong or missing, invites go out looking fine and open nothing. |
+| `SMTP_HOST`               | Mailjet: `in-v3.mailjet.com`             | See §6.                                                                                                                 |
+| `SMTP_PORT`               | `587`                                    |                                                                                                                         |
+| `SMTP_USER` / `SMTP_PASS` | the Mailjet API key / secret key         |                                                                                                                         |
+| `SMTP_FROM`               | `EduRank <no-reply@edurank.uhsp.edu.ua>` | The **subdomain** — see §6. Mailjet refuses a domain it has not authenticated.                                          |
+| `INVITE_DELAY_MS`         | leave unset (250)                        | Pause between bulk-invite messages. Raise it if Mailjet starts refusing.                                                |
 
 `AUTH_TRUST_HOST` is **not** needed: `lib/auth.ts` sets `trustHost: true`,
 because behind Traefik the app sees `0.0.0.0:3000` and would otherwise refuse
@@ -118,20 +118,46 @@ Then sign in at `https://edurank.uhsp.edu.ua/login` and build the structure:
 
 ## 6. Mail
 
-Nothing in the code names a provider; it is plain SMTP, so any will do. Mailjet
-is the choice, pending a corporate address to register with.
+Nothing in the code names a provider; it is plain SMTP. **Mailjet**, sending as
+**`edurank.uhsp.edu.ua`** — the subdomain, not the university's root domain.
 
-Two things that decide whether mail arrives at all, neither of them in this
-repo:
+**Why the subdomain** (decided 2026-08-13). The root domain already carries
 
-- **SPF and DKIM records on `uhsp.edu.ua`.** Mailjet gives you the exact records.
-  Without them, invites go to spam, and «I never got the email» is
-  indistinguishable from a broken app.
-- **`SMTP_FROM` must use a domain Mailjet has verified.** A `@edurank.local`
-  address is refused outright.
+```
+v=spf1 include:spf.protection.outlook.com -all
+```
 
-Until then the app runs fine and only the first admin can sign in: invites and
-password resets both need mail. See [`email-setup.md`](./email-setup.md).
+for Microsoft 365, and a domain may hold only **one** SPF record. Authorising
+Mailjet there means editing the live record every university mailbox depends on:
+a typo, or a dropped `include:spf.protection.outlook.com`, and staff mail starts
+failing SPF that afternoon. A subdomain needs no edit at all — it gets its own
+records, and it also keeps EduRank's sending reputation separate from the
+university's.
+
+**Two records, both new, on `edurank.uhsp.edu.ua`:**
+
+| Type | Host                         | Value                                                 |
+| ---- | ---------------------------- | ----------------------------------------------------- |
+| TXT  | `edurank`                    | `v=spf1 include:spf.mailjet.com -all`                 |
+| TXT  | `mailjet._domainkey.edurank` | the `k=rsa; p=…` Mailjet shows **for this subdomain** |
+
+The DKIM key is per domain — the one generated for the root domain will not
+work here. The same name also carries the **A record** pointing at the VPS; A
+and TXT coexist and you need both.
+
+Then set `SMTP_FROM="EduRank <no-reply@edurank.uhsp.edu.ua>"`. An address on a
+domain Mailjet has not authenticated is refused outright.
+
+Optional: `_dmarc.edurank` → `v=DMARC1; p=none;` reports without enforcing.
+Scoped to the subdomain, so it cannot affect university mail.
+
+Until mail works the app runs fine and only the first admin can sign in —
+invites and password resets both need it. See
+[`email-setup.md`](./email-setup.md).
+
+**A pre-existing thing, so it is not blamed on this change:** the root domain's
+MX lists `mail.uhsp.edu.ua` beside Microsoft, and the root SPF does not
+authorise it. Anything sending from that host is already failing SPF today.
 
 ## 7. Backups
 
@@ -168,12 +194,12 @@ Two things to know:
 
 Honest list, as of 2026-08-13.
 
-| Gap                        | Status                                                                |
-| -------------------------- | --------------------------------------------------------------------- |
-| Login throttling           | **Not built.** Blocks circulating the URL.                            |
-| Mailjet account            | Waiting on a corporate address.                                       |
-| Staff import (~300 people) | Not built. Deploy empty was the decision; import follows.             |
-| Instructions in Ukrainian  | None. Four audiences who have never seen the app.                     |
-| Reminders / notifications  | No notification code exists at all.                                   |
-| Restore drill              | Never performed.                                                      |
-| Support owner              | Nobody has been named. Decide who answers when an НПП cannot sign in. |
+| Gap                        | Status                                                                                               |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Login throttling           | **Not built.** Blocks circulating the URL.                                                           |
+| Mailjet DNS                | Account registered 2026-08-13. SPF + DKIM for the subdomain are with IT; unverified until published. |
+| Staff import (~300 people) | Not built. Deploy empty was the decision; import follows.                                            |
+| Instructions in Ukrainian  | None. Four audiences who have never seen the app.                                                    |
+| Reminders / notifications  | No notification code exists at all.                                                                  |
+| Restore drill              | Never performed.                                                                                     |
+| Support owner              | Nobody has been named. Decide who answers when an НПП cannot sign in.                                |
