@@ -21,6 +21,11 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # ── builder ───────────────────────────────────────────────────────────────────
+# Also the tools image. The runner below is the standalone build and has no
+# pnpm, no tsx and no TypeScript, so the one-off scripts — `db:seed-production`,
+# `db:create-admin` — cannot run there. Build this stage on its own when you
+# need them:  docker build --target builder -t edurank-tools .
+# See docs/deployment.md §4.
 FROM node:22-slim AS builder
 WORKDIR /app
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0

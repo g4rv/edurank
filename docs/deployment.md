@@ -68,18 +68,41 @@ Deploy. The entrypoint applies migrations, then starts. Watch the logs for
 `entrypoint: applying migrations…` followed by the ready line.
 
 The database is now correct and completely empty — no indicators, no
-specialities, no accounts. Two commands, from a terminal **inside the app
-container** (Coolify → the resource → Terminal):
+specialities, no accounts.
+
+**Not from the app container.** It runs the standalone build: no pnpm, no tsx,
+and none of the TypeScript these two scripts are written in. That image is
+deliberately just enough to serve the app.
+
+Run them from a **one-off container built from the `builder` stage**, which has
+the whole toolchain. On the VPS, in a checkout of this repo:
 
 ```sh
-pnpm db:seed-production   # divisions, the 2026 template with its 67 indicators, додаток 5
-pnpm db:create-admin      # asks for email, ПІБ and a password
+docker build --target builder -t edurank-tools .
+
+# The same Docker network as the Postgres resource — Coolify shows its name on
+# the resource page. Without it the container cannot see the database at all.
+docker run --rm -it --network <coolify-network> \
+  -e DATABASE_URL='<the internal string from §1>' \
+  edurank-tools pnpm db:seed-production
+
+docker run --rm -it --network <coolify-network> \
+  -e DATABASE_URL='<the internal string from §1>' \
+  edurank-tools pnpm db:create-admin
 ```
+
+`db:create-admin` asks for email, ПІБ and a password, so it needs `-it`. It
+refuses to run where an administrator already exists — pass `ADMIN_FORCE=1` if
+that is genuinely what you want. For a non-interactive run, set `ADMIN_EMAIL`,
+`ADMIN_PASSWORD` and `ADMIN_NAME` instead.
 
 `db:seed-production` is safe to run again after any upgrade — every write is an
 upsert on a stable key, and a value an admin has since edited is left alone.
 
 **Do not run `pnpm db:seed`.** That is the demo university.
+
+Delete the `edurank-tools` image afterwards if you want the disk back; it is
+only needed when the catalogue changes.
 
 Then sign in at `https://edurank.uhsp.edu.ua/login` and build the structure:
 факультети → кафедри → відділи → people, or wait for the staff import.
