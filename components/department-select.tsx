@@ -9,6 +9,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+
+export interface DepartmentOption {
+  id: string;
+  name: string;
+  /**
+   * A short figure shown as a tag after the name — on /stakes, the кафедра's
+   * `Кст`. The faculty used to sit here and earned its width poorly: it repeats
+   * across every кафедра of one faculty and is already on the line below.
+   */
+  tag?: string | null;
+  /**
+   * Amber when the tag reports something still to be done — «без Кст» is the
+   * project's «pending / needs attention», the same hue as an unactivated
+   * account. Grey otherwise.
+   */
+  tagTone?: 'muted' | 'warn';
+}
 
 /**
  * Pick a кафедра, and go there.
@@ -28,13 +46,22 @@ export function DepartmentSelect({
   basePath,
   param = 'department',
   label = 'Кафедра',
+  extraParams,
+  className,
 }: {
-  departments: { id: string; name: string }[];
+  departments: DepartmentOption[];
   value: string;
   basePath: string;
   param?: string;
   /** Screen-reader name for the trigger; the visible text is the department */
   label?: string;
+  /**
+   * Query params to carry across the switch. Without this, changing кафедра on
+   * /stakes silently dropped `?tab=sandbox` and dumped ADMIN back on the real
+   * distribution.
+   */
+  extraParams?: Record<string, string>;
+  className?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -45,18 +72,33 @@ export function DepartmentSelect({
       disabled={pending}
       onValueChange={(next) => {
         if (next === value) return;
+        const params = new URLSearchParams({ ...extraParams, [param]: next });
         startTransition(() => {
-          router.push(`${basePath}?${param}=${next}`);
+          router.push(`${basePath}?${params}`);
         });
       }}
     >
-      <SelectTrigger className="w-full sm:w-72" aria-label={label}>
+      <SelectTrigger className={className ?? 'w-full sm:w-72'} aria-label={label}>
         <SelectValue placeholder={label} />
       </SelectTrigger>
       <SelectContent>
         {departments.map((d) => (
           <SelectItem key={d.id} value={d.id}>
-            {d.name}
+            <span className="flex w-full items-center gap-2">
+              <span className="truncate">{d.name}</span>
+              {d.tag && (
+                <span
+                  className={cn(
+                    'ml-auto shrink-0 rounded px-1.5 py-px text-xs tabular-nums',
+                    d.tagTone === 'warn'
+                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-500'
+                      : 'bg-muted text-muted-foreground'
+                  )}
+                >
+                  {d.tag}
+                </span>
+              )}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>

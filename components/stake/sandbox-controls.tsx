@@ -7,11 +7,17 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatStake, parseStake } from '@/lib/stake/units';
+import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { resetSandbox, setSandboxKst } from '@/app/(dashboard)/stakes/actions';
 import { cn } from '@/lib/utils';
 
 /**
  * The sandbox's own bar: the pool being tried, and the way out of it.
+ *
+ * One row. The three sentences explaining what a sandbox is used to sit under
+ * it as a paragraph, which pushed the actual table another 60px down the page
+ * every single time — for text somebody reads once. They live in the tooltip
+ * now, where the rest of this screen's vocabulary already is.
  *
  * `Кст` sits here rather than in the grid because it is the кафедра's number,
  * not a person's — and because in the sandbox it is the first thing ADMIN
@@ -24,7 +30,6 @@ export function SandboxControls({
   kstHundredths,
   realKstHundredths,
   saved,
-  updatedAt,
 }: {
   departmentId: string;
   year: number;
@@ -34,7 +39,6 @@ export function SandboxControls({
   realKstHundredths: number | null;
   /** Has anything been saved into this sandbox at all? */
   saved: boolean;
-  updatedAt: Date | null;
 }) {
   const [draft, setDraft] = useState(kstHundredths === null ? '' : formatStake(kstHundredths));
   const [error, setError] = useState<string | null>(null);
@@ -74,14 +78,17 @@ export function SandboxControls({
   }
 
   return (
-    <div className="rounded-xl border-2 border-dashed bg-card px-5 py-4">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <span className="inline-flex items-center gap-2 text-sm font-medium">
+    <div className="rounded-xl border-2 border-dashed bg-card px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <span className="inline-flex items-center gap-1.5 font-medium">
           <FlaskConical className="size-4 text-muted-foreground" />
           Пісочниця
+          <StakeTermHint term="sandbox" />
         </span>
 
-        <label className="inline-flex items-center gap-2 text-sm">
+        <span className="h-5 w-px bg-border" aria-hidden />
+
+        <label className="inline-flex items-center gap-2">
           <span className="text-muted-foreground">Кст для розрахунку</span>
           <Input
             value={draft}
@@ -105,12 +112,8 @@ export function SandboxControls({
           />
         </label>
 
-        <span className="text-xs text-muted-foreground">
-          Справжній Кст:{' '}
-          <strong className="tabular-nums">
-            {realKstHundredths === null ? '—' : formatStake(realKstHundredths)}
-          </strong>
-          . Порожнє поле повертає його.
+        <span className="text-xs text-muted-foreground tabular-nums">
+          справжній {realKstHundredths === null ? '—' : formatStake(realKstHundredths)}
         </span>
 
         {saved && (
@@ -122,19 +125,12 @@ export function SandboxControls({
             className="ml-auto text-muted-foreground"
           >
             <RotateCcw className="size-4" />
-            Скинути пісочницю
+            Скинути
           </Button>
         )}
       </div>
 
-      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
-
-      <p className="mt-3 max-w-3xl text-xs text-muted-foreground">
-        Нічого з цієї вкладки не потрапляє до НПП: ставки, Мін і Макс тут існують лише для вас і
-        зберігаються, щоб не вводити їх щоразу заново. Розподіл зберігає завідувач кафедри — на
-        вкладці «Реальний» ви бачите те саме, що бачить він.
-        {updatedAt && ` Востаннє змінено ${updatedAt.toLocaleDateString('uk-UA')}.`}
-      </p>
+      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { formatStake, fromHundredths } from '@/lib/stake/units';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StakeValueForm } from '@/components/admin/stake-value-form';
 import { DistributionGrid } from '@/components/stake/distribution-grid';
-import { DepartmentPicker } from '@/components/stake/department-picker';
+import { DepartmentSelect } from '@/components/department-select';
 import { SandboxControls } from '@/components/stake/sandbox-controls';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { setDepartmentStake, setStakeYearSettings } from '@/app/(dashboard)/admin/stakes/actions';
@@ -88,105 +88,146 @@ export default async function StakesPage({
   const heads = !isAdmin;
 
   return (
-    <AnimatedPage className="flex h-full min-h-0 flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Розподіл ставок</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {year} рік · {view.facultyName}
-          </p>
+    <AnimatedPage className="space-y-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h1 className="text-2xl font-semibold">Розподіл ставок</h1>
+        <div className="flex items-baseline gap-4 text-sm text-muted-foreground">
+          <span>{year} рік</span>
+          {isAdmin && (
+            <Link
+              href="/admin/stakes/norms"
+              className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            >
+              Нормативи чисельності →
+            </Link>
+          )}
         </div>
-        {isAdmin && (
-          <Link href="/admin/stakes/norms" className="text-sm underline-offset-4 hover:underline">
-            Нормативи чисельності →
-          </Link>
-        )}
       </div>
 
-      {/* ── Which кафедра ── */}
-      {isAdmin ? (
-        <DepartmentPicker
-          departments={available.map((x) => ({ id: x.id, name: x.name, faculty: x.faculty }))}
-          value={departmentId}
-          tab={sandbox ? 'sandbox' : undefined}
-        />
-      ) : available.length > 1 ? (
-        // A декан oversees several. Tabs rather than a select: there are a
-        // handful, and seeing them all is part of the job.
-        <div className="flex flex-wrap gap-1">
-          {available.map((x) => (
-            <Link
-              key={x.id}
-              href={`/stakes?d=${x.id}`}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm transition-colors',
-                x.id === departmentId
-                  ? 'bg-muted font-medium'
-                  : 'text-muted-foreground hover:bg-muted/50'
-              )}
-            >
-              {x.name}
-            </Link>
-          ))}
-        </div>
-      ) : null}
+      {/* ── One toolbar: which кафедра, what its pool is, which tab.
+             These three used to be three separate bands stacked on top of each
+             other, with the кафедра's name repeated as a heading in between.
+             They are one decision — «show me this кафедра» — so they are one
+             control strip, and the кафедра's figures are its second line. ── */}
+      <div className="rounded-xl border bg-card">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+          {isAdmin ? (
+            // The кафедра's own pool rides along as a tag. The faculty used to
+            // sit here and paid for its width badly — it repeats down every
+            // кафедра of one faculty and is already on the line below, whereas
+            // «which кафедри still have no Кст» is the thing ADMIN is hunting.
+            <DepartmentSelect
+              departments={available.map((x) => ({
+                id: x.id,
+                name: x.name,
+                tag: x.kstHundredths === null ? 'без Кст' : formatStake(x.kstHundredths),
+                tagTone: x.kstHundredths === null || x.belowMinimum ? 'warn' : 'muted',
+              }))}
+              value={departmentId}
+              basePath="/stakes"
+              param="d"
+              extraParams={sandbox ? { tab: 'sandbox' } : undefined}
+              className="w-full sm:w-80"
+            />
+          ) : available.length > 1 ? (
+            // A декан oversees several. Links rather than a select: there are a
+            // handful, and seeing them all at once is part of the job.
+            <div className="flex flex-wrap gap-1">
+              {available.map((x) => (
+                <Link
+                  key={x.id}
+                  href={`/stakes?d=${x.id}`}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-sm transition-colors',
+                    x.id === departmentId
+                      ? 'bg-muted font-medium'
+                      : 'text-muted-foreground hover:bg-muted/50'
+                  )}
+                >
+                  {x.name}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <span className="text-sm font-medium">{view.departmentName}</span>
+          )}
 
-      <div>
-        <h2 className="text-lg font-medium">{view.departmentName}</h2>
-        <p className="mt-1 inline-flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
-          {view.headcount} НПП ·{' '}
+          <span className="hidden h-6 w-px bg-border sm:block" aria-hidden />
+
+          <label className="inline-flex items-center gap-2 text-sm">
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              Кст
+              <StakeTermHint term="kst" />
+            </span>
+            {isAdmin ? (
+              <StakeValueForm
+                action={setDepartmentStake}
+                hidden={{ departmentId, year }}
+                name="kst"
+                defaultValue={
+                  selected.kstHundredths === null
+                    ? ''
+                    : String(fromHundredths(selected.kstHundredths)).replace('.', ',')
+                }
+                // Not the bare minimum: a greyed «1,60» sitting in an empty box
+                // reads as a value that is already set.
+                placeholder={`мін. ${formatStake(selected.minimumHundredths)}`}
+                ariaLabel={`Кст для кафедри ${selected.name}`}
+                invalid={selected.belowMinimum}
+              />
+            ) : (
+              // The head sees the pool they are dividing and cannot move it —
+              // ADMIN sets it centrally. Shown, because a bound you cannot see
+              // is a bound you file a bug about.
+              <span className="font-medium tabular-nums">
+                {selected.kstHundredths === null
+                  ? 'не задано'
+                  : formatStake(selected.kstHundredths)}
+              </span>
+            )}
+          </label>
+
+          {isAdmin && (
+            <div className="ml-auto inline-flex items-center gap-2">
+              {!sandbox && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                  лише перегляд
+                  <StakeTermHint term="realReadonly" />
+                </span>
+              )}
+              <div className="inline-flex rounded-lg border p-0.5">
+                <TabLink href={`/stakes?d=${departmentId}`} active={!sandbox}>
+                  Реальний
+                </TabLink>
+                <TabLink href={`/stakes?d=${departmentId}&tab=sandbox`} active={sandbox}>
+                  Пісочниця
+                </TabLink>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-1 border-t px-4 py-2 text-xs text-muted-foreground">
+          <strong className="font-medium text-foreground">{view.departmentName}</strong>
+          <span>· {view.facultyName}</span>
+          <span>· {view.headcount} НПП</span>
           <span className="inline-flex items-center gap-1">
-            відповідають ліцензійним умовам: {view.knpp}
+            · ліцензійним умовам відповідають {view.knpp}
             <StakeTermHint term="knpp" />
           </span>
-          · середній рейтинг {Math.round(view.averageRating)} · мінімальний Кст{' '}
-          {formatStake(view.minimumKstHundredths)}
-        </p>
-      </div>
-
-      {/* ── ADMIN: the pool, and the two tabs ── */}
-      {isAdmin && (
-        <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-          <div>
-            <p className="mb-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-              Кст — виділені ставки
-              <StakeTermHint term="kst" />
-            </p>
-            <StakeValueForm
-              action={setDepartmentStake}
-              hidden={{ departmentId, year }}
-              name="kst"
-              defaultValue={
-                selected.kstHundredths === null
-                  ? ''
-                  : String(fromHundredths(selected.kstHundredths)).replace('.', ',')
-              }
-              // Not the bare minimum: a greyed «1,60» sitting in an empty box
-              // reads as a value that is already set.
-              placeholder={`мін. ${formatStake(selected.minimumHundredths)}`}
-              ariaLabel={`Кст для кафедри ${selected.name}`}
-              invalid={selected.belowMinimum}
-            />
-            {selected.belowMinimum && (
-              // A pool can fall under the floor without anybody touching it —
-              // somebody joined the кафедра since it was set.
-              <p className="mt-1 max-w-md text-xs text-destructive">
-                Нижче мінімуму: на кафедрі {selected.headcount} НПП, потрібно щонайменше{' '}
-                {formatStake(selected.minimumHundredths)}
-              </p>
-            )}
-          </div>
-
-          <div className="ml-auto inline-flex rounded-lg border bg-card p-1">
-            <TabLink href={`/stakes?d=${departmentId}`} active={!sandbox}>
-              Реальний
-            </TabLink>
-            <TabLink href={`/stakes?d=${departmentId}&tab=sandbox`} active={sandbox}>
-              Пісочниця
-            </TabLink>
-          </div>
+          <span>· середній рейтинг {Math.round(view.averageRating)}</span>
+          <span>· мінімальний Кст {formatStake(view.minimumKstHundredths)}</span>
         </div>
-      )}
+
+        {selected.belowMinimum && (
+          // A pool can fall under the floor without anybody touching it —
+          // somebody joined the кафедра since it was set.
+          <p className="border-t border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
+            Кст нижче мінімуму: на кафедрі {selected.headcount} НПП, потрібно щонайменше{' '}
+            {formatStake(selected.minimumHundredths)}
+          </p>
+        )}
+      </div>
 
       {sandbox && (
         <SandboxControls
@@ -195,29 +236,26 @@ export default async function StakesPage({
           kstHundredths={scratch.kstHundredths}
           realKstHundredths={selected.kstHundredths}
           saved={scratch.saved}
-          updatedAt={scratch.updatedAt}
         />
       )}
 
-      {isAdmin && !sandbox && (
-        <p className="max-w-3xl rounded-lg border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-          Це те, що зберіг завідувач кафедри — ви бачите його, але не змінюєте. Щоб перевірити, що
-          буде за іншого Кст чи інших меж, відкрийте «Пісочницю». Кст, Мін і Макс залишаються вашими
-          на обох вкладках.
-        </p>
-      )}
-
-      {/* The proposal lands ON the pool — each person gets a share of Кст — so
-          what is left is a few hundredths of ladder rounding, which is worth
-          saying because it is the number in «Нерозподілено». */}
+      {/* Folded away. A head reads this once a year and then never again, and
+          open by default it cost five lines above the only thing they came
+          for. */}
       {view.kstHundredths !== null && view.computable && heads && (
-        <p className="max-w-3xl text-xs text-muted-foreground">
-          Формула пропонує, скільки дати кожному — частку від виділених ставок, пропорційно до
-          рейтингу. Сума майже дорівнює виділеному: різниця в кілька сотих виникає через округлення
-          до 0,05. Запропоновану ставку можна лише збільшити. Якщо разом вийде більше за виділене,
-          збереження не блокується — але це треба врахувати у протоколі. Бонус за залучених
-          здобувачів не входить до виділених ставок, але й не піднімає людину вище її Макс.
-        </p>
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer underline-offset-4 hover:underline">
+            Як рахується ставка
+          </summary>
+          <p className="mt-2 max-w-3xl">
+            Формула пропонує, скільки дати кожному — частку від виділених ставок, пропорційно до
+            рейтингу. Сума майже дорівнює виділеному: різниця в кілька сотих виникає через
+            округлення до 0,05. Запропоновану ставку можна лише збільшити. Якщо разом вийде більше
+            за виділене, збереження не блокується — але це треба врахувати у протоколі. Бонус за
+            залучених здобувачів не входить до виділених ставок, але й не піднімає людину вище її
+            Макс. Мінімальну і максимальну ставку встановлює адміністратор.
+          </p>
+        </details>
       )}
 
       {/* The key forces the grid to re-read the server's numbers whenever they
@@ -241,7 +279,7 @@ export default async function StakesPage({
 
       {/* ── ADMIN: everything else, folded away ── */}
       {isAdmin && settings && (
-        <div className="space-y-4">
+        <div className="space-y-3 pt-1">
           <details className="rounded-xl border bg-card">
             <summary className="cursor-pointer px-5 py-3 text-sm font-medium">
               Усі кафедри
@@ -362,8 +400,9 @@ function TabLink({
   return (
     <Link
       href={href}
+      aria-current={active ? 'page' : undefined}
       className={cn(
-        'rounded-md px-4 py-1.5 text-sm transition-colors',
+        'rounded-md px-3 py-1 text-sm transition-colors',
         active ? 'bg-muted font-medium' : 'text-muted-foreground hover:text-foreground'
       )}
     >

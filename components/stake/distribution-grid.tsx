@@ -17,7 +17,6 @@ import {
   roundBonus,
   snapToStep,
 } from '@/lib/stake/units';
-import { DEFAULT_LIMITS } from '@/lib/stake/formula';
 import { payableStake } from '@/lib/stake/total';
 import type { StakeDistributionView, StakeRow } from '@/lib/queries/get-stake-distribution';
 import { StakeTermHint, type StakeTerm } from '@/components/stake/stake-term-hint';
@@ -275,18 +274,56 @@ export function DistributionGrid({
   }
 
   return (
-    // A column that fills the page rather than growing past it: the summary,
-    // the controls and the note stay put and the ROWS scroll, so a кафедра of
-    // thirty people still shows «нерозподілено» and «Повернути до формули»
-    // without scrolling the window.
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    // An ordinary block, NOT a `h-full` flex column. It used to be one, which
+    // worked only while the grid was the last thing on the page: the moment
+    // anything followed it, `flex-1` had nothing left to claim and the table
+    // collapsed to the height of its own scrollbar. The rows scroll inside a
+    // bounded box instead, which cannot be squeezed by a sibling.
+    <div className="flex flex-col gap-4">
       <Totals
         kst={kst}
         distributed={distributed}
         remaining={remaining}
         overspent={overspent}
+        // Attached to the number it is about rather than shouted in a band of
+        // its own. An overspend is allowed — it is a fact for the протокол, not
+        // a mistake to fix before saving — and a full-width amber row for it
+        // pushed the table another line down every time somebody typed.
+        remainingNote={overspendWarning}
         bonus={bonusTotals}
         formulaTotal={view.formulaTotalHundredths}
+        actions={
+          canEdit && view.rows.length > 0 ? (
+            <>
+              <Button variant="outline" size="sm" onClick={reset} disabled={pending}>
+                <RotateCcw className="size-4" />
+                Повернути до формули
+              </Button>
+
+              {/* There is no save button: a change is written when the field is
+                  left. What this says is what state that leaves things in,
+                  because a silent autosave is indistinguishable from a lost
+                  edit — especially while a change is being HELD BACK, which is
+                  the one case where leaving a field does not write anything. */}
+              <span className="text-xs">
+                {pending ? (
+                  <span className="text-muted-foreground">Збереження…</span>
+                ) : blockedBy && dirty ? (
+                  <span className="text-destructive">Не збережено: {blockedBy}</span>
+                ) : dirty ? (
+                  <span className="text-muted-foreground">Незбережені зміни</span>
+                ) : savedAt ? (
+                  <span className="text-emerald-700 dark:text-emerald-400">Збережено</span>
+                ) : null}
+              </span>
+            </>
+          ) : null
+        }
+        filled={
+          view.filledAt
+            ? `Заповнив: ${view.filledBy ?? '—'}, ${view.filledAt.toLocaleDateString('uk-UA')}`
+            : null
+        }
       />
 
       {!view.computable && (
@@ -303,59 +340,14 @@ export function DistributionGrid({
         </p>
       )}
 
-      {/* Amber, not red: the кафедра is over its pool and that is a fact to
-          carry into the протокол, not a mistake to correct before saving. */}
-      {overspendWarning && (
-        <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-4 py-2 text-sm text-amber-700 dark:text-amber-500">
-          ⚠️ {overspendWarning}
-        </p>
-      )}
-
-      {canEdit && view.rows.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="outline" onClick={reset} disabled={pending}>
-            <RotateCcw className="size-4" />
-            Повернути до формули
-          </Button>
-
-          {/* There is no save button: a change is written when the field is
-              left. What this line does is say what state that leaves things
-              in, because a silent autosave is indistinguishable from a lost
-              edit — especially while a change is being HELD BACK, which is the
-              one case where leaving a field does not write anything. */}
-          <span className="text-xs">
-            {pending ? (
-              <span className="text-muted-foreground">Збереження…</span>
-            ) : blockedBy && dirty ? (
-              <span className="text-destructive">Не збережено: {blockedBy}</span>
-            ) : dirty ? (
-              <span className="text-muted-foreground">Незбережені зміни</span>
-            ) : savedAt ? (
-              <span className="text-emerald-700 dark:text-emerald-400">Збережено</span>
-            ) : null}
-          </span>
-
-          {view.filledAt && (
-            <span className="ml-auto text-xs text-muted-foreground">
-              Заповнив: {view.filledBy ?? '—'}, {view.filledAt.toLocaleDateString('uk-UA')}
-            </span>
-          )}
-        </div>
-      )}
-
-      <p className="text-xs text-muted-foreground">
-        {canEditLimits
-          ? `Мін і Макс ${view.sandbox ? 'у пісочниці не змінюють справжніх лімітів' : 'зберігаються окремо від розподілу'} — після зміни формула перераховується. Бліді значення означають стандартні межі ${formatStake(DEFAULT_LIMITS.minHundredths)} / ${formatStake(DEFAULT_LIMITS.maxHundredths)}; Макс можна піднімати вище.`
-          : 'Мінімальну і максимальну ставку встановлює адміністратор.'}
-      </p>
-
-      {/* The only part that scrolls. `min-h-0` is what lets a flex child be
-          shorter than its content instead of pushing the page down. Dashed
-          while this is a sandbox, so a screenshot of it can never be mistaken
-          for the кафедра's actual distribution. */}
+      {/* The rows scroll inside this, with the headings pinned — a кафедра of
+          thirty does not push «Усі кафедри» off the bottom of the world, and a
+          кафедра of three takes only the height it needs. Dashed while this is
+          a sandbox, so a screenshot of it can never be mistaken for the
+          кафедра's actual distribution. */}
       <div
         className={cn(
-          'min-h-0 flex-1 overflow-auto rounded-xl border bg-card',
+          'max-h-[min(60vh,40rem)] overflow-auto rounded-xl border bg-card',
           view.sandbox && 'border-2 border-dashed'
         )}
       >
@@ -520,56 +512,76 @@ function Totals({
   distributed,
   remaining,
   overspent,
+  remainingNote,
   bonus,
   formulaTotal,
+  actions,
+  filled,
 }: {
   kst: number | null;
   distributed: number;
   remaining: number | null;
   overspent: boolean;
+  remainingNote: string | null;
   bonus: { earned: number; paid: number; total: number };
   formulaTotal: number;
+  /** «Повернути до формули» and the autosave status, when this viewer may edit */
+  actions: React.ReactNode;
+  filled: string | null;
 }) {
   const capped = roundBonus(bonus.earned - bonus.paid) > 0;
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-xl border bg-card px-5 py-4">
-      <Figure
-        label="Виділені ставки (Кст)"
-        term="kst"
-        value={kst === null ? '—' : formatStake(kst)}
-      />
-      <Figure label="Розподілено" term="distributed" value={formatStake(distributed)} />
-      {/* Green whenever the pool holds, red only when it does not. A leftover
-          is a normal state — the head has budget still to place — so it reads
-          as «fine», not as «unfinished». */}
-      <Figure
-        label="Нерозподілено"
-        term="remaining"
-        value={remaining === null ? '—' : formatStake(remaining)}
-        tone={overspent ? 'bad' : 'good'}
-      />
-      <Figure
-        label="Бонус за здобувачів"
-        term="bonus"
-        value={formatBonus(bonus.earned)}
-        note={capped ? `у межах Макс: ${formatBonus(bonus.paid)}` : undefined}
-        muted
-      />
-      {/* The sum, not the expression. «12,65 + 0,000» as the headline number is
-          arithmetic the reader has to finish themselves; the two parts stay
-          visible underneath, which is the thing that must not be lost. */}
-      <Figure
-        label="Разом до виплати"
-        term="total"
-        value={formatBonus(bonus.total)}
-        note={`${formatStake(distributed)} + ${formatBonus(bonus.paid)}`}
-        muted
-      />
-      <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
-        Формула пропонує: {formatStake(formulaTotal)}
-        <StakeTermHint term="formulaTotal" />
-      </span>
+    <div className="rounded-xl border bg-card">
+      <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3 px-5 py-4">
+        <Figure
+          label="Виділені ставки (Кст)"
+          term="kst"
+          value={kst === null ? '—' : formatStake(kst)}
+        />
+        <Figure label="Розподілено" term="distributed" value={formatStake(distributed)} />
+        {/* Green whenever the pool holds, red only when it does not. A leftover
+            is a normal state — the head has budget still to place — so it reads
+            as «fine», not as «unfinished». */}
+        <Figure
+          label="Нерозподілено"
+          term="remaining"
+          value={remaining === null ? '—' : formatStake(remaining)}
+          tone={overspent ? 'bad' : 'good'}
+          note={remainingNote ?? undefined}
+          noteTone={remainingNote ? 'warn' : undefined}
+        />
+        <Figure
+          label="Бонус за здобувачів"
+          term="bonus"
+          value={formatBonus(bonus.earned)}
+          note={capped ? `у межах Макс: ${formatBonus(bonus.paid)}` : undefined}
+          muted
+        />
+        {/* The sum, not the expression. «12,65 + 0,000» as the headline number is
+            arithmetic the reader has to finish themselves; the two parts stay
+            visible underneath, which is the thing that must not be lost. */}
+        <Figure
+          label="Разом до виплати"
+          term="total"
+          value={formatBonus(bonus.total)}
+          note={`${formatStake(distributed)} + ${formatBonus(bonus.paid)}`}
+          muted
+        />
+        <span className="ml-auto inline-flex items-center gap-1 self-center text-xs text-muted-foreground">
+          Формула пропонує: {formatStake(formulaTotal)}
+          <StakeTermHint term="formulaTotal" />
+        </span>
+      </div>
+
+      {/* The controls belong to these numbers, so they share the card instead
+          of taking a row of their own underneath it. */}
+      {(actions || filled) && (
+        <div className="flex flex-wrap items-center gap-3 border-t px-5 py-2.5">
+          {actions}
+          {filled && <span className="ml-auto text-xs text-muted-foreground">{filled}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -579,6 +591,7 @@ function Figure({
   value,
   term,
   note,
+  noteTone,
   tone,
   muted,
 }: {
@@ -588,6 +601,8 @@ function Figure({
   term?: StakeTerm;
   /** How the number is made up, under the label */
   note?: string;
+  /** Amber when the note is a condition to act on, not just arithmetic */
+  noteTone?: 'warn';
   tone?: 'good' | 'bad';
   muted?: boolean;
 }) {
@@ -607,7 +622,18 @@ function Figure({
         {label}
         {term && <StakeTermHint term={term} />}
       </p>
-      {note && <p className="text-xs text-muted-foreground/70 tabular-nums">{note}</p>}
+      {note && (
+        <p
+          className={cn(
+            'max-w-52 text-xs',
+            noteTone === 'warn'
+              ? 'text-amber-700 dark:text-amber-500'
+              : 'text-muted-foreground/70 tabular-nums'
+          )}
+        >
+          {note}
+        </p>
+      )}
     </div>
   );
 }
@@ -646,6 +672,10 @@ function LimitCell({
   onCommit: (next: LimitDraft) => void;
 }) {
   const label = bound === 'min' ? 'Мінімальна' : 'Максимальна';
+  // Ukrainian needs the accusative after «збільшити … ставку», so the stepper
+  // gets its own form rather than a lower-cased `label` — «збільшити
+  // мінімальна ставку» is not a sentence.
+  const accusative = bound === 'min' ? 'мінімальну' : 'максимальну';
   const value = draft[bound];
 
   if (!editable) {
@@ -698,8 +728,8 @@ function LimitCell({
           disabled={disabled}
           // A floor never goes under 0,10 — nobody is left without a ставка.
           // A ceiling has no upper bound here: raising it is the point.
-          min={bound === 'min' ? MIN_STAKE : MIN_STAKE}
-          label={`${label.toLowerCase()} ставку для ${row.name}`}
+          min={MIN_STAKE}
+          label={`${accusative} ставку для ${row.name}`}
         />
       </div>
       {error && <p className="mt-1 max-w-40 text-xs text-destructive">{error}</p>}
