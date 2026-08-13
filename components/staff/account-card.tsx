@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toast } from 'sonner';
 import { KeyRound, LockOpen, LogOut, MailPlus, RotateCcw } from 'lucide-react';
@@ -29,6 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { PassInput } from '@/components/ui/pass-input';
+import { PasswordRules } from '@/components/ui/password-rules';
 import {
   Select,
   SelectContent,
@@ -239,10 +240,14 @@ function ManualPasswordDialog({
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors },
   } = useForm<SetPasswordSchema>({
     resolver: standardSchemaResolver(setPasswordSchema),
   });
+  // `useWatch` rather than `watch()`: the latter returns a fresh function the
+  // React Compiler cannot memoize, and it warns about it.
+  const password = useWatch({ control, name: 'password' }) ?? '';
 
   function submit(data: SetPasswordSchema) {
     onSubmit(data);
@@ -268,6 +273,7 @@ function ManualPasswordDialog({
         <form onSubmit={handleSubmit(submit)} className="space-y-4">
           <FormField htmlFor="manual-password" label="Новий пароль" error={errors.password}>
             <PassInput id="manual-password" autoComplete="new-password" {...register('password')} />
+            <PasswordRules value={password} className="mt-2" />
           </FormField>
           <FormField
             htmlFor="manual-confirm"

@@ -24,7 +24,7 @@ const staff = {
   patronymic: 'Петрович',
 };
 
-const validData = { password: 'password1', confirmPassword: 'password1' };
+const validData = { password: 'Parol123!', confirmPassword: 'Parol123!' };
 
 function mockTx() {
   const tx = {
@@ -55,7 +55,7 @@ describe('activateAction', () => {
       error: 'Некоректні дані',
     });
     expect(
-      await activateAction('token', { password: 'password1', confirmPassword: 'password2' })
+      await activateAction('token', { password: 'Parol123!', confirmPassword: 'Parol456!' })
     ).toEqual({ error: 'Некоректні дані' });
     expect(mockTransaction).not.toHaveBeenCalled();
   });

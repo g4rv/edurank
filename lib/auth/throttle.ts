@@ -71,17 +71,31 @@ export async function subjectsFor(email: string): Promise<string[]> {
 export async function lockedUntil(subjects: readonly string[]): Promise<Date | null> {
   if (subjects.length === 0) return null;
 
-  const now = new Date();
-  const rows = await db.loginThrottle.findMany({
-    where: { subject: { in: [...subjects] }, lockedUntil: { gt: now } },
-    select: { lockedUntil: true },
-    orderBy: { lockedUntil: 'desc' },
-  });
+  try {
+    const now = new Date();
+    const rows = await db.loginThrottle.findMany({
+      where: { subject: { in: [...subjects] }, lockedUntil: { gt: now } },
+      select: { lockedUntil: true },
+      orderBy: { lockedUntil: 'desc' },
+    });
 
-  // The LATEST of the locks, not the earliest: a subject is usable only once
-  // every lock covering it has expired, and telling somebody to come back in
-  // one minute when their email is locked for sixty is a lie they will discover.
-  return rows[0]?.lockedUntil ?? null;
+    // The LATEST of the locks, not the earliest: a subject is usable only once
+    // every lock covering it has expired, and telling somebody to come back in
+    // one minute when their email is locked for sixty is a lie they will
+    // discover.
+    return rows[0]?.lockedUntil ?? null;
+  } catch (e) {
+    // FAIL OPEN, deliberately. A throttle that cannot be read must not become a
+    // throttle that refuses everybody: the table missing — a migration not yet
+    // applied — would otherwise turn the login page into a 500 for every
+    // visitor, which is a far worse outage than a temporarily uncounted
+    // password attempt. Nothing is granted by this either; the password still
+    // has to be right, and if the database is down it cannot be checked anyway.
+    logWarning('auth.lockedUntil', 'could not read login throttle — allowing the attempt', {
+      error: e,
+    });
+    return null;
+  }
 }
 
 /**
@@ -138,12 +152,20 @@ export async function unlockEmail(email: string): Promise<void> {
 
 /** What the staff page shows: is this account locked, and until when */
 export async function emailLockedUntil(email: string): Promise<Date | null> {
-  const row = await db.loginThrottle.findUnique({
-    where: { subject: emailSubject(email) },
-    select: { failures: true, lockLevel: true, lockedUntil: true },
-  });
-  if (!row) return null;
-  return isLocked(row, new Date()) ? row.lockedUntil : null;
+  try {
+    const row = await db.loginThrottle.findUnique({
+      where: { subject: emailSubject(email) },
+      select: { failures: true, lockLevel: true, lockedUntil: true },
+    });
+    if (!row) return null;
+    return isLocked(row, new Date()) ? row.lockedUntil : null;
+  } catch (e) {
+    // Same reasoning as `lockedUntil`: a staff page that cannot render because
+    // a lockout could not be looked up is a bigger problem than not showing the
+    // banner.
+    logWarning('auth.emailLockedUntil', 'could not read login throttle', { error: e });
+    return null;
+  }
 }
 
 function blank(): ThrottleState {

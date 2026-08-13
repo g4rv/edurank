@@ -520,7 +520,7 @@ describe('setPasswordManually', () => {
   it('rejects non-admin', async () => {
     mockAuth.mockResolvedValue(editorSession);
     expect(
-      await setPasswordManually('staff-1', { password: 'password1', confirmPassword: 'password1' })
+      await setPasswordManually('staff-1', { password: 'Parol123!', confirmPassword: 'Parol123!' })
     ).toEqual({ error: 'Недостатньо прав' });
   });
 
@@ -530,7 +530,7 @@ describe('setPasswordManually', () => {
       await setPasswordManually('staff-1', { password: 'short', confirmPassword: 'short' })
     ).toEqual({ error: 'Некоректні дані' });
     expect(
-      await setPasswordManually('staff-1', { password: 'password1', confirmPassword: 'password2' })
+      await setPasswordManually('staff-1', { password: 'Parol123!', confirmPassword: 'Parol456!' })
     ).toEqual({ error: 'Некоректні дані' });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
@@ -540,7 +540,7 @@ describe('setPasswordManually', () => {
     mockStaffFind.mockResolvedValue(person);
     const tx = mockTx();
     expect(
-      await setPasswordManually('staff-1', { password: 'password1', confirmPassword: 'password1' })
+      await setPasswordManually('staff-1', { password: 'Parol123!', confirmPassword: 'Parol123!' })
     ).toEqual({ success: true, message: 'Пароль встановлено' });
     expect(tx.staff.update).toHaveBeenCalledWith({
       where: { id: 'staff-1' },

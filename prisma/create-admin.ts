@@ -4,6 +4,7 @@ import { stdin, stdout } from 'node:process';
 import bcrypt from 'bcryptjs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
+import { MIN_PASSWORD_LENGTH, passwordProblem } from '../lib/auth/password-rules';
 
 // The first account on a fresh production database.
 //
@@ -23,8 +24,6 @@ import { PrismaClient } from '../lib/generated/prisma/client';
 //
 //   ADMIN_EMAIL=… ADMIN_PASSWORD=… ADMIN_NAME='Прізвище Ім’я По батькові' \
 //     pnpm db:create-admin
-
-const MIN_PASSWORD = 12;
 
 async function main() {
   const db = new PrismaClient({
@@ -53,8 +52,11 @@ async function main() {
       process.exitCode = 1;
       return;
     }
-    if (password.length < MIN_PASSWORD) {
-      console.error(`Password must be at least ${MIN_PASSWORD} characters.`);
+    // The same rules the app enforces on everybody else. The one account that
+    // can do anything is a poor place to make an exception.
+    const problem = passwordProblem(password);
+    if (problem) {
+      console.error(problem);
       process.exitCode = 1;
       return;
     }
@@ -100,7 +102,9 @@ async function collect() {
     const fullName = await rl.question('ПІБ (Прізвище Ім’я По батькові): ');
     // Not hidden. `readline` cannot mask input without fighting the terminal,
     // and this runs once, on a server, by the person choosing the password.
-    const password = await rl.question(`Password (min ${MIN_PASSWORD} chars): `);
+    const password = await rl.question(
+      `Password (min ${MIN_PASSWORD_LENGTH} chars, one capital, one digit, one symbol): `
+    );
     return { email, password, fullName };
   } finally {
     rl.close();

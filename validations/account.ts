@@ -1,11 +1,25 @@
 import { z } from 'zod';
+import { passwordProblem } from '@/lib/auth/password-rules';
 
+/**
+ * A new password, wherever one is set — activation, self-service reset, and
+ * ADMIN setting one by hand.
+ *
+ * The rules live in `lib/auth/password-rules.ts` because the form renders them
+ * as a live checklist from the same list that validates them. Two copies would
+ * eventually disagree, and the form would refuse a password whose checklist was
+ * fully ticked.
+ */
 export const setPasswordSchema = z
   .object({
-    password: z.string().min(8, { error: 'Мінімум 8 символів' }),
+    password: z.string(),
     confirmPassword: z.string(),
   })
   .superRefine((data, ctx) => {
+    const problem = passwordProblem(data.password);
+    if (problem) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem, path: ['password'] });
+    }
     if (data.password !== data.confirmPassword) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

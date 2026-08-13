@@ -1,13 +1,14 @@
 'use client';
 
 import { useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { PassInput } from '@/components/ui/pass-input';
+import { PasswordRules } from '@/components/ui/password-rules';
 import { setPasswordSchema, type SetPasswordSchema } from '@/validations/account';
 import { activateAction } from './actions';
 
@@ -25,10 +26,14 @@ export function ActivateForm({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<SetPasswordSchema>({
     resolver: standardSchemaResolver(setPasswordSchema),
   });
+  // `useWatch` rather than `watch()`: the latter returns a fresh function the
+  // React Compiler cannot memoize, and it warns about it.
+  const password = useWatch({ control, name: 'password' }) ?? '';
 
   function onSubmit(data: SetPasswordSchema) {
     startTransition(async () => {
@@ -59,6 +64,9 @@ export function ActivateForm({
                 disabled={isPending}
                 {...register('password')}
               />
+              {/* Under the field and visible from the start: this is the one
+                  screen where somebody meets our rules for the first time. */}
+              <PasswordRules value={password} className="mt-2" />
             </FormField>
 
             <FormField
