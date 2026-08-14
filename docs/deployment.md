@@ -16,7 +16,7 @@ open Coolify and a terminal.
 | **The database**         | A **Coolify Postgres resource**, not `docker-compose.yml`.                                                                                                                                        |
 | **`docker-compose.yml`** | **Dev only. Never deploy it.** It publishes Postgres on `5432` with the password `password`, runs Adminer unauthenticated on `8080`, and runs Mailpit, whose own comment says never to deploy it. |
 | **Migrations**           | `docker/entrypoint.sh` runs `prisma migrate deploy` before the server starts. Nothing to do by hand.                                                                                              |
-| **Demo data**            | Never. `pnpm db:seed` writes an invented university and five accounts with published passwords.                                                                                                   |
+| **Demo data**            | Never — but the danger moved. `pnpm db:seed` is now the catalogue alone and is safe here; it is `--base` and `--rater` that invent a university, and they wipe before they write.                 |
 
 ---
 
@@ -117,12 +117,14 @@ Then sign in at `https://edurank.uhsp.edu.ua/login` and build the structure:
 
 ## 5. Before anybody else gets the URL
 
-- **Login throttling is not built yet.** The audit called it a deployment
-  blocker and it is right: a public host with an unthrottled password form.
-  Until it lands, do not circulate the address.
 - Confirm HTTPS, and that a wrong password says «невірні дані» rather than
   hanging.
 - Check a page that reads the database — `/staff` — actually renders.
+- **Prove the throttle is alive.** Get a password wrong half a dozen times and
+  confirm the lockout arrives. This is worth doing by hand because failure here
+  is silent by design: every throttle query falls back to allowing the attempt,
+  so a missing `LoginThrottle` table looks exactly like a working login page.
+  The only other symptom is an `auth.recordFailure` warning in the logs.
 
 ## 6. Mail
 
@@ -142,16 +144,33 @@ failing SPF that afternoon. A subdomain needs no edit at all — it gets its own
 records, and it also keeps EduRank's sending reputation separate from the
 university's.
 
-**Two records, both new, on `edurank.uhsp.edu.ua`:**
+**Three records on `edurank.uhsp.edu.ua`. All published and verified 2026-08-14:**
 
 | Type | Host                         | Value                                                 |
 | ---- | ---------------------------- | ----------------------------------------------------- |
-| TXT  | `edurank`                    | `v=spf1 include:spf.mailjet.com -all`                 |
+| TXT  | `mailjet._<code>.edurank`    | the ownership string Mailjet issues                   |
+| TXT  | `edurank`                    | `v=spf1 include:spf.mailjet.com ?all`                 |
 | TXT  | `mailjet._domainkey.edurank` | the `k=rsa; p=…` Mailjet shows **for this subdomain** |
 
 The DKIM key is per domain — the one generated for the root domain will not
 work here. The same name also carries the **A record** pointing at the VPS; A
 and TXT coexist and you need both.
+
+**DNS lives at thehost.com.ua**, and the registry confirms it: `.edu.ua`
+delegates `uhsp.edu.ua` to `ns1`–`ns4.thehost.com.ua` and nowhere else. A
+Cloudflare pair appears inside the zone as a broken leftover — it serves
+nothing, and records added there are invisible.
+
+**Their panel appends the zone to whatever you type in the Host field.** So the
+host is `mailjet._domainkey.edurank`, never the full name — typing that gives
+`…edurank.uhsp.edu.ua.uhsp.edu.ua`. Both mistakes were made on the way here: the
+ownership record first landed on the root because the name was trimmed too far.
+The zone still holds a `uhsp.edu.ua.uhsp.edu.ua` record from an older attempt.
+
+The SPF ends in `?all` (neutral), not the `-all` originally planned. Mailjet
+suggests it and it validates fine. Tightening to `-all` is worth doing once real
+invites have arrived — but not on the same day, or a delivery failure has two
+possible causes instead of one.
 
 Then set `SMTP_FROM="EduRank <no-reply@edurank.uhsp.edu.ua>"`. An address on a
 domain Mailjet has not authenticated is refused outright.
@@ -200,13 +219,13 @@ Two things to know:
 
 ## Known gaps
 
-Honest list, as of 2026-08-13.
+Honest list, as of 2026-08-14.
 
 | Gap                        | Status                                                                                               |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Login throttling           | **Not built.** Blocks circulating the URL.                                                           |
-| Mailjet DNS                | Account registered 2026-08-13. SPF + DKIM for the subdomain are with IT; unverified until published. |
-| Staff import (~300 people) | Not built. Deploy empty was the decision; import follows.                                            |
+| Login throttling           | **Built** — escalating lockout, `LoginThrottle`. Never yet exercised against the deployed app; §5.   |
+| Mailjet DNS                | **Live, verified 2026-08-14.** Ownership, SPF and DKIM all resolve on `edurank.uhsp.edu.ua`. See §6. |
+| Staff import (~300 people) | **Built, not run.** `pnpm db:seed:prod`, from a maintainer's machine — see §4.                       |
 | Instructions in Ukrainian  | None. Four audiences who have never seen the app.                                                    |
 | Reminders / notifications  | No notification code exists at all.                                                                  |
 | Restore drill              | Never performed.                                                                                     |
