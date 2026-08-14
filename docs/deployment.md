@@ -84,7 +84,7 @@ docker build --target builder -t edurank-tools .
 # the resource page. Without it the container cannot see the database at all.
 docker run --rm -it --network <coolify-network> \
   -e DATABASE_URL='<the internal string from §1>' \
-  edurank-tools pnpm db:seed-production
+  edurank-tools pnpm db:seed
 
 docker run --rm -it --network <coolify-network> \
   -e DATABASE_URL='<the internal string from §1>' \
@@ -96,10 +96,18 @@ refuses to run where an administrator already exists — pass `ADMIN_FORCE=1` if
 that is genuinely what you want. For a non-interactive run, set `ADMIN_EMAIL`,
 `ADMIN_PASSWORD` and `ADMIN_NAME` instead.
 
-`db:seed-production` is safe to run again after any upgrade — every write is an
-upsert on a stable key, and a value an admin has since edited is left alone.
+`db:seed` with no flag is the catalogue and nothing else — divisions, the rating
+template with its indicators, and додаток 5's specialities. No people, no
+факультети, no кафедри, no passwords. It is safe to run again after any upgrade:
+every write is an upsert on a stable key, and a value an admin has since edited
+is left alone.
 
-**Do not run `pnpm db:seed`.** That is the demo university.
+**The bare command is the safe one on purpose.** `pnpm db:seed:base` and
+`pnpm db:seed:rater` create invented people and **wipe** whatever is there
+first — never run either against production. `pnpm db:seed:prod` imports the
+real НПП, and it reads `edu-reference/УГСП_Дані.xlsx`, which is gitignored and
+therefore absent from this image; run it from a maintainer's machine against the
+production `DATABASE_URL`, not from a container.
 
 Delete the `edurank-tools` image afterwards if you want the disk back; it is
 only needed when the catalogue changes.

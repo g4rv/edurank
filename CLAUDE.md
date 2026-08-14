@@ -138,10 +138,11 @@ pnpm type-check       # tsc --noEmit
 pnpm test             # Vitest (--passWithNoTests until tests exist)
 
 pnpm db:migrate       # prisma migrate dev (pass --name <x> to skip prompt)
-pnpm db:seed          # prisma db seed
+pnpm db:seed          # catalogue only — no people, no structure. Safe, idempotent.
+pnpm db:seed:base     # + real 8 факультети / 31 кафедра + 9 invented accounts
+pnpm db:seed:rater    # + ~200 invented НПП with ratings, so the charts have data
+pnpm db:seed:prod     # + the real НПП from edu-reference/, accounts locked
 pnpm db:reset         # prisma migrate reset --force (wipe + reapply, dev only)
-pnpm db:demo          # add ~200 demo НПП across 4 faculties, so the charts have data
-pnpm db:demo --clear  # remove them again (matches on the @demo.local email domain)
 pnpm db:fix-rounding  # one-off repair: re-round RatingEntry totals to 2 decimals
 pnpm db:gate-to-check-sum  # one-off: convert retired GATE indicator rows to CHECK_SUM
 pnpm db:generate      # prisma generate (run after any schema change)

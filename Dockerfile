@@ -22,7 +22,7 @@ RUN pnpm install --frozen-lockfile
 
 # ── builder ───────────────────────────────────────────────────────────────────
 # Also the tools image. The runner below is the standalone build and has no
-# pnpm, no tsx and no TypeScript, so the one-off scripts — `db:seed-production`,
+# pnpm, no tsx and no TypeScript, so the one-off scripts — `db:seed`,
 # `db:create-admin` — cannot run there. Build this stage on its own when you
 # need them:  docker build --target builder -t edurank-tools .
 # See docs/deployment.md §4.

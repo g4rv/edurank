@@ -1,5 +1,3 @@
-import 'dotenv/config';
-import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
@@ -7,18 +5,17 @@ import { recomputeRatingEntries } from '../lib/rating/recompute';
 import type { EvidenceField } from '../lib/rating/evidence-fields';
 import type { Prisma } from '../lib/generated/prisma/client';
 
-// Demo population — a university-shaped data set so the charts on «Огляд» have
-// something to say. Kept out of prisma/seed.ts on purpose: a reset should give
-// you a clean system, not 200 invented people.
+// The `--rater` population — a university-shaped data set so the charts on
+// «Огляд», the rating pages and the ставка grid have something to say.
 //
-//   pnpm db:demo         add / refresh the demo population
-//   pnpm db:demo --clear remove it and leave the real records alone
+//   pnpm db:seed --rater
 //
-// Every demo person's email ends in @demo.local, which is what makes both the
-// refresh and the removal safe: nothing else in the database matches.
-
-const adapter = new PrismaPg(process.env.DATABASE_URL!);
-const prisma = new PrismaClient({ adapter });
+// Invented people on the REAL кафедри. Every one of them gets an @demo.local
+// address, which is what makes them identifiable as fake at a glance and
+// removable in one query if they ever land somewhere they should not.
+//
+// They have no password: these are records to look at, not accounts to log in
+// with. The nine accounts you actually sign in as come from sample-people.ts.
 
 const DEMO_DOMAIN = '@demo.local';
 
@@ -36,44 +33,6 @@ function makeRandom(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-
-const FACULTIES: { name: string; departments: string[] }[] = [
-  {
-    name: 'Факультет інформаційних технологій',
-    departments: [
-      'Кафедра програмної інженерії',
-      'Кафедра комп’ютерних систем',
-      'Кафедра кібербезпеки',
-      'Кафедра штучного інтелекту',
-    ],
-  },
-  {
-    name: 'Фізико-математичний факультет',
-    departments: [
-      'Кафедра вищої математики',
-      'Кафедра теоретичної фізики',
-      'Кафедра прикладної механіки',
-    ],
-  },
-  {
-    name: 'Природничий факультет',
-    departments: [
-      'Кафедра біології',
-      'Кафедра хімії',
-      'Кафедра екології',
-      'Кафедра географії та геології',
-    ],
-  },
-  {
-    name: 'Факультет економіки та управління',
-    departments: [
-      'Кафедра фінансів і банківської справи',
-      'Кафедра менеджменту',
-      'Кафедра маркетингу',
-      'Кафедра обліку та оподаткування',
-    ],
-  },
-];
 
 const SURNAMES = [
   'Мельник',
@@ -230,30 +189,19 @@ function sampleEvidence(fields: readonly EvidenceField[], random: () => number) 
   return out;
 }
 
-async function clearDemo() {
-  const demoStaff = await prisma.staff.findMany({
-    where: { email: { endsWith: DEMO_DOMAIN } },
-    select: { id: true },
-  });
-  const ids = demoStaff.map((s) => s.id);
-  if (ids.length === 0) return 0;
-
-  await prisma.activity.deleteMany({ where: { staffId: { in: ids } } });
-  await prisma.ratingEntry.deleteMany({ where: { staffId: { in: ids } } });
-  await prisma.staff.deleteMany({ where: { id: { in: ids } } });
-  return ids.length;
-}
-
-async function main() {
-  const clearOnly = process.argv.includes('--clear');
-
-  const removed = await clearDemo();
-  if (removed > 0) console.log(`Прибрано попередніх демо-НПП: ${removed}`);
-  if (clearOnly) {
-    console.log('Готово — демо-дані видалено.');
-    return;
-  }
-
+/**
+ * Fills the given кафедри with invented НПП and scores them.
+ *
+ * The caller has already wiped and rebuilt the structure, so there is nothing
+ * to clear here — `--rater` is destructive by way of the dispatcher, not by way
+ * of a `--clear` flag this file used to own.
+ *
+ * Returns how many people were created.
+ */
+export async function seedRaterPopulation(
+  prisma: PrismaClient,
+  departmentIds: string[]
+): Promise<number> {
   const template = await prisma.ratingTemplate.findFirst({
     where: { status: 'OPEN' },
     select: { id: true, year: true },
@@ -278,25 +226,6 @@ async function main() {
   }
 
   const random = makeRandom(20260722);
-
-  // ─── Структура ──────────────────────────────────────────────────────────
-  const departmentIds: string[] = [];
-  for (const faculty of FACULTIES) {
-    const facultyRow = await prisma.faculty.upsert({
-      where: { name: faculty.name },
-      update: {},
-      create: { name: faculty.name },
-    });
-    for (const name of faculty.departments) {
-      const department = await prisma.department.upsert({
-        where: { name_facultyId: { name, facultyId: facultyRow.id } },
-        update: {},
-        create: { name, facultyId: facultyRow.id },
-      });
-      departmentIds.push(department.id);
-    }
-  }
-  console.log(`Структура: ${FACULTIES.length} факультетів, ${departmentIds.length} кафедр`);
 
   // ─── НПП ────────────────────────────────────────────────────────────────
   const taken = new Set<string>();
@@ -375,13 +304,5 @@ async function main() {
   console.log(`Створено НПП: ${staffIds.length}. Рахуємо бали…`);
   await recomputeRatingEntries(prisma, staffIds, template.year);
 
-  console.log(`Готово. Демо-рейтинг за ${template.year} рік заповнено.`);
-  console.log('Прибрати: pnpm db:demo --clear');
+  return staffIds.length;
 }
-
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
