@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
-import { listMyClaims, listSpecialities } from '@/lib/queries/list-student-claims';
+import { listMyClaims } from '@/lib/queries/list-student-claims';
+import { registerOptions } from '@/lib/students/accepted';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { MyClaims } from '@/components/stake/my-claims';
 
@@ -36,18 +37,17 @@ export default async function MyStudentsPage() {
     );
   }
 
-  const [{ claims, potential, confirmed }, specialities] = await Promise.all([
-    listMyClaims(staffId, template.year),
-    listSpecialities(),
-  ]);
+  const { claims, potential, confirmed } = await listMyClaims(staffId, template.year);
+  // The picker's tree, not the register itself — a few KB against ~130.
+  const register = registerOptions();
 
   return (
     <AnimatedPage className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Мої залучені здобувачі</h1>
         <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
-          Вступники {template.year} року, яких ви залучили. Можна вказати будь-яку спеціальність
-          університету — не лише ті, що веде ваша кафедра.
+          Вступники {template.year} року, яких ви залучили. Обирати можна з-поміж усіх зарахованих
+          до університету — не лише тих, хто вступив на спеціальності вашої кафедри.
           {template.status !== 'OPEN' && ' Рік закрито, додавати вже не можна.'}
         </p>
       </div>
@@ -56,7 +56,7 @@ export default async function MyStudentsPage() {
         claims={claims}
         potential={potential}
         confirmed={confirmed}
-        specialities={specialities}
+        register={register}
         year={template.year}
         canAdd={template.status === 'OPEN'}
       />

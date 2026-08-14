@@ -1,24 +1,25 @@
 import { z } from 'zod';
 
-// What an НПП types when they add a recruited student.
+// What an НПП picks when they add a recruited student.
 //
 // The speciality list is the WHOLE university's, never filtered to the
 // recruiter's own кафедра: an НПП may bring a student onto any programme, and
 // the bonus follows the recruiter (confirmed 2026-08-10).
+//
+// Every field is now a choice from `lib/students/accepted.ts` rather than
+// something typed. This schema only checks the SHAPE of what arrived; the four
+// criteria plus the ПІБ are then looked up in the register, and the claim is
+// saved from what the register says — see `addStudentClaim`. A form value is
+// never evidence of anything, whatever the picker in front of it allows.
 
 export const studentClaimSchema = z.object({
-  /**
-   * Free text, as the наказ has it. Not matched against a roster of students,
-   * because there is no such roster in the app — the наказ arrives as paper.
-   * Duplicate detection normalises this rather than constraining it.
-   */
+  /** Chosen from the register's candidates, so it is a ПІБ that exists there */
   studentName: z
     .string()
     .trim()
-    .min(3, { error: 'Вкажіть ПІБ здобувача' })
+    .min(3, { error: 'Оберіть здобувача' })
     .max(200, { error: 'Занадто довге значення' }),
-  specialityId: z.string().min(1, { error: 'Оберіть спеціальність' }),
-  degree: z.enum(['BACHELOR', 'MASTER'], { error: 'Оберіть освітній рівень' }),
+  speciality: z.string().trim().min(1, { error: 'Оберіть спеціальність' }),
   form: z.enum(['FULL_TIME', 'PART_TIME'], { error: 'Оберіть форму навчання' }),
   funding: z.enum(['STATE', 'CONTRACT'], { error: 'Оберіть джерело фінансування' }),
 });

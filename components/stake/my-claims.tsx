@@ -4,7 +4,6 @@ import { useActionState, useState, useTransition } from 'react';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Combobox,
   ComboboxContent,
@@ -23,9 +22,11 @@ import {
 import { formatBonus } from '@/lib/stake/units';
 import { cn } from '@/lib/utils';
 import type { MyClaim } from '@/lib/queries/list-student-claims';
+import type { RegisterBranch, RegisterSpeciality } from '@/lib/students/accepted';
 import {
   addStudentClaim,
   deleteStudentClaim,
+  listStudentCandidates,
   type ClaimState,
 } from '@/app/(dashboard)/achievements/students/actions';
 
@@ -58,14 +59,15 @@ export function MyClaims({
   claims,
   potential,
   confirmed,
-  specialities,
+  register,
   year,
   canAdd,
 }: {
   claims: MyClaim[];
   potential: number;
   confirmed: number;
-  specialities: { id: string; name: string }[];
+  /** The admitted-students register, as a спеціальність → спеціалізація → умови tree */
+  register: RegisterSpeciality[];
   year: number;
   /** False once the rating year is closed */
   canAdd: boolean;
@@ -89,132 +91,315 @@ export function MyClaims({
         </p>
       </div>
 
-      {canAdd && <AddClaimForm specialities={specialities} year={year} />}
+      {canAdd && <AddClaimForm register={register} year={year} />}
 
       <ClaimsTable claims={claims} canDelete={canAdd} />
     </div>
   );
 }
 
-function AddClaimForm({
-  specialities,
-  year,
-}: {
-  specialities: { id: string; name: string }[];
-  year: number;
-}) {
+function AddClaimForm({ register, year }: { register: RegisterSpeciality[]; year: number }) {
   const [state, formAction, pending] = useActionState<ClaimState, FormData>(addStudentClaim, null);
   const error = state && 'error' in state ? state.error : null;
   // A new token means the last submit succeeded, so the fields remount empty.
   const token = state && 'success' in state ? state.token : 'new';
-  // React 19 resets an uncontrolled form once the action resolves, so a rejected
-  // submit would otherwise wipe the name — the one thing here worth retyping.
-  // Handing it back as the default is what the reset then restores it to.
-  const typedName = state && 'error' in state ? (state.studentName ?? '') : '';
 
   return (
     <form action={formAction} className="space-y-3 rounded-xl border bg-card p-5">
-      <h2 className="text-sm font-semibold">Додати здобувача — {year}</h2>
-
-      {/* Two rows on purpose: the name and the speciality carry text and need
-          the width, the three pickers are short. Squeezed into one row the
-          speciality placeholder was clipped mid-word. */}
-      <div key={token} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="lg:col-span-2">
-          <Input
-            name="studentName"
-            placeholder="ПІБ здобувача"
-            aria-label="ПІБ здобувача"
-            defaultValue={typedName}
-            disabled={pending}
-          />
-        </div>
-
-        {/* The WHOLE university's list. An НПП may recruit onto any programme,
-            and filtering this to their own кафедра would quietly make most of
-            their work unclaimable. */}
-        <div className="lg:col-span-2">
-          <SpecialityPicker specialities={specialities} disabled={pending} />
-        </div>
-
-        <PickOne name="degree" placeholder="Рівень" options={DEGREE} disabled={pending} />
-        <PickOne name="form" placeholder="Форма" options={FORM} disabled={pending} />
-        <PickOne name="funding" placeholder="Фінансування" options={FUNDING} disabled={pending} />
+      <div>
+        <h2 className="text-sm font-semibold">Додати здобувача — {year}</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Спочатку вкажіть умови вступу, потім оберіть здобувача зі списку зарахованих.
+        </p>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      <Button type="submit" disabled={pending}>
-        {pending ? 'Збереження…' : 'Додати'}
-      </Button>
+      <CascadeFields key={token} register={register} pending={pending} error={error} />
     </form>
   );
 }
 
-/** The WHOLE university's speciality list — see the note in lib/stake/norms.ts */
-function SpecialityPicker({
-  specialities,
-  disabled,
+/** What the four selects hold. `branch` is the FULL speciality name — what is claimed. */
+interface Selection {
+  speciality: string;
+  branch: string;
+  form: string;
+  funding: string;
+}
+
+const EMPTY: Selection = { speciality: '', branch: '', form: '', funding: '' };
+
+const unique = <T,>(values: T[]): T[] => [...new Set(values)];
+
+function branchesOf(register: RegisterSpeciality[], speciality: string) {
+  return register.find((s) => s.name === speciality)?.branches ?? [];
+}
+
+function formsOf(branches: readonly RegisterBranch[], branch: string) {
+  const variants = branches.find((b) => b.speciality === branch)?.variants ?? [];
+  return unique(variants.map((v) => v.form));
+}
+
+function fundingsOf(branches: readonly RegisterBranch[], branch: string, form: string) {
+  const variants = branches.find((b) => b.speciality === branch)?.variants ?? [];
+  return unique(variants.filter((v) => v.form === form).map((v) => v.funding));
+}
+
+/**
+ * Fills in every level that has only one possible answer.
+ *
+ * A select with one option is a click that decides nothing, and it hides the
+ * real question behind it — «Філологія» has exactly one спеціалізація, and
+ * plenty of specialities were only offered денна, or only on контракт. Resolving
+ * runs downward and cascades: choosing a speciality can settle the
+ * спеціалізація, which settles the форма, which settles the фінансування, and
+ * the candidate list loads straight away.
+ */
+function resolve(register: RegisterSpeciality[], selection: Selection): Selection {
+  const branches = branchesOf(register, selection.speciality);
+
+  const branch = selection.branch || (branches.length === 1 ? branches[0]!.speciality : '');
+  if (!branch) return { ...selection, branch: '', form: '', funding: '' };
+
+  const forms = formsOf(branches, branch);
+  const form = selection.form || (forms.length === 1 ? forms[0]! : '');
+  if (!form) return { ...selection, branch, form: '', funding: '' };
+
+  const fundings = fundingsOf(branches, branch, form);
+  const funding = selection.funding || (fundings.length === 1 ? fundings[0]! : '');
+
+  return { ...selection, branch, form, funding };
+}
+
+/**
+ * Спеціальність → [спеціалізація] → форма → фінансування → здобувач.
+ *
+ * Each step offers only values the register still has students under, and
+ * clears every step below it, so a half-changed combination can never be
+ * submitted. Anything with a single possible answer is filled in and locked
+ * rather than asked. The names arrive from the server once the combination is
+ * complete — see `listStudentCandidates` for why they are not shipped with the
+ * page.
+ *
+ * There is no факультет step: a claim does not record one, and «Психологія» is
+ * taught on two of them, so asking split one speciality's students across two
+ * lists that each looked complete.
+ *
+ * There is no free-text fallback anywhere here, on purpose: a student who is
+ * not in the наказ cannot be claimed, and the fix for a missing one is to
+ * import the updated list, not to let one person type a name nobody can check.
+ */
+function CascadeFields({
+  register,
+  pending,
+  error,
 }: {
-  specialities: { id: string; name: string }[];
-  disabled: boolean;
+  register: RegisterSpeciality[];
+  pending: boolean;
+  error: string | null;
 }) {
-  const [value, setValue] = useState('');
+  const [selection, setSelection] = useState<Selection>(EMPTY);
+  const [student, setStudent] = useState('');
+  const [candidates, setCandidates] = useState<string[]>([]);
+  const [loading, startLoading] = useTransition();
+
+  const { speciality, branch, form, funding } = selection;
+  const branches = branchesOf(register, speciality);
+  // One unnamed branch means the спеціальність has no спеціалізації at all.
+  const hasSpecialisations = branches.some((b) => b.name !== null);
+  const chosen = branches.find((b) => b.speciality === branch);
+  const forms = formsOf(branches, branch);
+  const fundings = fundingsOf(branches, branch, form);
+
+  const disabled = pending || loading;
+
+  /** Applies a change, resolves everything it settles, and loads the names if complete */
+  function choose(next: Selection) {
+    const resolved = resolve(register, next);
+    setSelection(resolved);
+    setStudent('');
+    setCandidates([]);
+
+    if (!resolved.funding) return;
+    startLoading(async () => {
+      const names = await listStudentCandidates({
+        speciality: resolved.branch,
+        form: resolved.form as 'FULL_TIME' | 'PART_TIME',
+        funding: resolved.funding as 'STATE' | 'CONTRACT',
+      });
+      setCandidates(names);
+    });
+  }
+
   return (
-    <>
-      <input type="hidden" name="specialityId" value={value} />
-      <Combobox
-        items={specialities}
-        value={value}
-        onChange={setValue}
-        filter={(sp, q) => sp.name.toLowerCase().includes(q.toLowerCase())}
-        displayValue={specialities.find((sp) => sp.id === value)?.name ?? ''}
-        disabled={disabled}
-      >
-        <ComboboxInput placeholder="Спеціальність" />
-        <ComboboxContent>
-          <ComboboxEmpty>Спеціальність не знайдено</ComboboxEmpty>
-          <ComboboxList<{ id: string; name: string }>>
-            {(sp) => (
-              <ComboboxItem key={sp.id} value={sp.id}>
-                {sp.name}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
-    </>
+    <div className="space-y-3">
+      <input type="hidden" name="speciality" value={branch} />
+      <input type="hidden" name="form" value={form} />
+      <input type="hidden" name="funding" value={funding} />
+      <input type="hidden" name="studentName" value={student} />
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* The WHOLE university's list. An НПП may recruit onto any programme,
+            and filtering this to their own кафедра would quietly make most of
+            their work unclaimable. */}
+        <div className="lg:col-span-2">
+          <PickOne
+            label="Спеціальність"
+            value={speciality}
+            onChange={(value) => choose({ ...EMPTY, speciality: value })}
+            options={register.map((s) => ({
+              value: s.name,
+              label: s.code ? `${s.code} · ${s.name}` : s.name,
+            }))}
+            disabled={disabled}
+          />
+        </div>
+
+        {hasSpecialisations && (
+          <div className="lg:col-span-2">
+            <PickOne
+              label="Спеціалізація"
+              value={branch}
+              onChange={(value) => choose({ ...selection, branch: value, form: '', funding: '' })}
+              options={branches.map((b) => ({
+                value: b.speciality,
+                label: b.code ? `${b.code} · ${b.name}` : (b.name ?? b.speciality),
+              }))}
+              disabled={disabled || !speciality}
+            />
+          </div>
+        )}
+
+        <PickOne
+          label="Форма навчання"
+          value={form}
+          onChange={(value) => choose({ ...selection, form: value, funding: '' })}
+          options={forms.map((f) => ({ value: f, label: FORM[f] }))}
+          disabled={disabled || !branch}
+        />
+
+        <PickOne
+          label="Фінансування"
+          value={funding}
+          onChange={(value) => choose({ ...selection, funding: value })}
+          options={fundings.map((f) => ({ value: f, label: FUNDING[f] }))}
+          disabled={disabled || !form}
+        />
+
+        <div className="sm:col-span-2">
+          <StudentPicker
+            candidates={candidates}
+            value={student}
+            onChange={setStudent}
+            ready={Boolean(funding)}
+            loading={loading}
+            disabled={pending}
+          />
+        </div>
+      </div>
+
+      {/* The кафедра is not in the наказ — this is the випускова кафедра of the
+          programme, which is what tells a завідувач whether the student went
+          onto their own кафедра's programme or somebody else's. */}
+      {chosen && chosen.departments.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {chosen.departments.length > 1 ? 'Випускові кафедри: ' : 'Випускова кафедра: '}
+          {chosen.departments.join(' · ')}
+        </p>
+      )}
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <Button type="submit" disabled={disabled || !student}>
+        {pending ? 'Збереження…' : 'Додати'}
+      </Button>
+    </div>
   );
 }
 
+/** Searchable, because one combination can hold a few dozen people */
+function StudentPicker({
+  candidates,
+  value,
+  onChange,
+  ready,
+  loading,
+  disabled,
+}: {
+  candidates: string[];
+  value: string;
+  onChange: (value: string) => void;
+  /** All four criteria are chosen */
+  ready: boolean;
+  loading: boolean;
+  disabled: boolean;
+}) {
+  const items = candidates.map((name) => ({ id: name, name }));
+  const placeholder = !ready
+    ? 'Спочатку вкажіть умови вступу'
+    : loading
+      ? 'Завантаження…'
+      : `Здобувач (${candidates.length})`;
+
+  return (
+    <Combobox
+      items={items}
+      value={value}
+      onChange={onChange}
+      filter={(item, q) => item.name.toLowerCase().includes(q.toLowerCase())}
+      displayValue={value}
+      disabled={disabled || !ready || loading}
+    >
+      <ComboboxInput placeholder={placeholder} aria-label="Здобувач" />
+      <ComboboxContent>
+        <ComboboxEmpty>Здобувача не знайдено</ComboboxEmpty>
+        <ComboboxList<{ id: string; name: string }>>
+          {(item) => (
+            <ComboboxItem key={item.id} value={item.id}>
+              {item.name}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  );
+}
+
+/**
+ * A single option is shown, already chosen, and cannot be changed.
+ *
+ * `resolve` has filled it in by then, so the select is only reporting what the
+ * register left no choice about. Kept visible rather than hidden: «Заочна» is
+ * part of what the person is claiming, and a field that disappears is one they
+ * cannot check before pressing «Додати».
+ */
 function PickOne({
-  name,
-  placeholder,
+  label,
+  value,
+  onChange,
   options,
   disabled,
 }: {
-  name: string;
-  placeholder: string;
-  options: Record<string, string>;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
   disabled: boolean;
 }) {
-  const [value, setValue] = useState('');
+  const settled = options.length === 1 && value !== '';
+
   return (
-    <>
-      <input type="hidden" name={name} value={value} />
-      <Select value={value} onValueChange={setValue} disabled={disabled}>
-        <SelectTrigger className="w-full" aria-label={placeholder}>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.entries(options).map(([key, label]) => (
-            <SelectItem key={key} value={key}>
-              {label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </>
+    <Select value={value} onValueChange={onChange} disabled={disabled || settled}>
+      <SelectTrigger className="w-full" aria-label={label}>
+        <SelectValue placeholder={label} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

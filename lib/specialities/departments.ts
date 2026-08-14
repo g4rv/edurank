@@ -121,6 +121,22 @@ export const SPECIALITY_DEPARTMENTS: Readonly<Record<string, readonly string[]>>
   'Професійна освіта (товарознавство)': ['Кафедра професійної освіти'],
   'Професійна освіта (сфера обслуговування)': ['Кафедра професійної освіти'],
   'Туризм і рекреація': ['Кафедра професійної освіти'],
+
+  // ── Admitted onto in 2026, випускова кафедра not established ─────────────
+  //
+  // Empty ON PURPOSE, not forgotten. Both programmes took students in 2026 but
+  // appear nowhere in `uhsp-specialnosti-kafedry.html`, and guessing here would
+  // be worse than saying nothing: `specialityOrigin` answers `unknown` for an
+  // empty list, and the screen then says we do not know — whereas a wrong
+  // кафедра tells a завідувач their people recruited for somebody else.
+  //
+  // The likely answers, to check rather than to assume: «Комп'ютерні науки» is
+  // admitted under ФГОСТ, whose «Кафедра цифрових технологій навчання» is the
+  // one кафедра there that graduates nobody in this map; «Музичне мистецтво»
+  // under ФММПП points at «Кафедра мистецької освіти і візуально-музичних
+  // практик». Fill these in once somebody confirms it.
+  "Комп'ютерні науки": [],
+  'Музичне мистецтво': [],
 };
 
 /**

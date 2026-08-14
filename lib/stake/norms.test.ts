@@ -69,8 +69,26 @@ describe('studentValue', () => {
 });
 
 describe('SPECIALITY_NORMS_2026', () => {
-  it('holds all 38 rows of додаток 5', () => {
-    expect(SPECIALITY_NORMS_2026).toHaveLength(38);
+  // 38 from додаток 5, plus the two programmes it omits and the university
+  // admitted students onto anyway — «Комп'ютерні науки» and «Музичне
+  // мистецтво», taken from постанова 1134, which додаток 5 is itself copied
+  // from. Counted separately so that adding a row to either group is a
+  // deliberate act.
+  it('holds all 38 rows of додаток 5, plus the 2 taken from постанова 1134', () => {
+    expect(SPECIALITY_NORMS_2026).toHaveLength(40);
+
+    const fromLaw = ["Комп'ютерні науки", 'Музичне мистецтво'];
+    for (const name of fromLaw) {
+      expect(SPECIALITY_NORMS_2026.map(([n]) => n)).toContain(name);
+    }
+  });
+
+  // The law separates the performer from the teacher, and so must we: mixing
+  // them up would score a Музичне мистецтво student at 5 instead of 3.5.
+  it('keeps «Музичне мистецтво» (3.5) apart from «Середня освіта (музичне мистецтво)» (5)', () => {
+    const by = (name: string) => SPECIALITY_NORMS_2026.find(([n]) => n === name)?.[1];
+    expect(by('Музичне мистецтво')).toBe(3.5);
+    expect(by('Середня освіта (музичне мистецтво)')).toBe(5);
   });
 
   it('has no duplicate names — the name is what a claim matches on', () => {

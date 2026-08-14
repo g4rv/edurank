@@ -135,4 +135,29 @@ export const SPECIALITY_NORMS_2026: readonly (readonly [name: string, base: numb
   ['Філософія', 12.5],
   ['Середня освіта (інформатика)', 11.5],
   ['Середня освіта (захист України)', 11.5],
+
+  // ── Not in додаток 5. Taken from постанова 1134 itself (added 2026-08-13) ──
+  //
+  // The university admitted 8 people in 2026 onto two programmes додаток 5 does
+  // not list, so there was no норматив to score them by and nobody who recruited
+  // them could record it. Both have a row in the law:
+  //
+  //   0804  Комп'ютерні науки   9,5 → 10
+  //   0202  музичне мистецтво   4,5 → 3,5
+  //
+  // The right-hand column is the 2004/05 one, and that it is the right column is
+  // not a guess: додаток 5's own «Середня освіта (образотворче мистецтво)» = 5.5
+  // and «(музичне мистецтво)» = 5 are that column's values for 0202 verbatim.
+  //
+  // «Музичне мистецтво» is NOT «Середня освіта (музичне мистецтво)». The law
+  // separates them — «музична педагогіка і виховання» (5) is the teacher, this
+  // row (3.5) is the performer — and the ЄДЕБО export codes them B5 and A4.13.
+  // 3.5 is low, so each such student is worth roughly three times an ordinary
+  // one; that is the law's number, not a rounding of ours.
+  //
+  // CONFIRM WITH ННВ before the year is closed. Додаток 5 wins wherever it
+  // speaks (see Менеджмент above) — it simply does not speak here, and the
+  // вчена рада may set its own value when it next approves the table.
+  ["Комп'ютерні науки", 10],
+  ['Музичне мистецтво', 3.5],
 ];

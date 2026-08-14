@@ -158,6 +158,15 @@ export const SPECIALITY_CODES: Readonly<Record<string, SpecialityCodes>> = {
 
   // ── J. Транспорт та послуги ──
   'Туризм і рекреація': { code: 'J3', legacy: '242' },
+
+  // ── B. Мистецтво — the performer's degree, not the teacher's ──
+  // Distinct from «Середня освіта (музичне мистецтво)» (A4.13) above: постанова
+  // 1134 gives them separate rows and separate нормативи, and the ЄДЕБО export
+  // codes them B5 and A4.13.
+  'Музичне мистецтво': { code: 'B5', legacy: '025' },
+
+  // ── F. Інформаційні технології ──
+  "Комп'ютерні науки": { code: 'F3', legacy: '122' },
 };
 
 /** The branch letter a code belongs to, or null for «015» / anything unparsable */

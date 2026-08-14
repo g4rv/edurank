@@ -374,11 +374,3 @@ export async function bonusForStaff(
 
   return bonuses;
 }
-
-/** The whole speciality list — never filtered to the recruiter's own кафедра */
-export async function listSpecialities() {
-  return db.speciality.findMany({
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-  });
-}
