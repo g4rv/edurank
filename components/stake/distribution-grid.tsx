@@ -657,7 +657,14 @@ function Totals({
           label="Залишок"
           term="remaining"
           value={kst === null ? '—' : formatStake(leftTotal)}
-          note={kst === null ? undefined : `${formatStake(leftBase)} + ${formatStake(leftBonus)}`}
+          // Named, not just added. «0,00 + 1,00» made the reader work out which
+          // half was which from the two cards to its left; saying it costs one
+          // wrapped line and removes the guess.
+          note={
+            kst === null
+              ? undefined
+              : `основний ${formatStake(leftBase)} + бонусний ${formatStake(leftBonus)}`
+          }
           tone={overspent ? 'bad' : 'good'}
         />
 
