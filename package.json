@@ -26,6 +26,7 @@
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force",
     "students:build": "tsx scripts/build-accepted-students.ts",
+    "staff:roster": "tsx scripts/build-staff-roster.ts",
     "db:create-admin": "tsx prisma/create-admin.ts"
   },
   "pnpm": {
