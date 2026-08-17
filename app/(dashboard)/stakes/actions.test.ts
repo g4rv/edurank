@@ -341,7 +341,40 @@ describe('setStaffLimits — ADMIN only', () => {
   });
 
   it('lets ADMIN set them', async () => {
-    expect(await setStaffLimits(null, limitsForm('0,25', '1,00'))).toEqual({ success: true });
+    expect(await setStaffLimits(null, limitsForm('0,25', '1,00'))).toMatchObject({
+      success: true,
+    });
+  });
+
+  // The grid needs this to move the ставка when a cap moves: the row would
+  // otherwise be left holding a number the next save refuses (2026-08-17). It
+  // is the whole кафедра's formula, because both passes divide by sums over
+  // everyone — one person's cap changes what every share comes to.
+  it('returns the share recomputed against the bounds just written', async () => {
+    const result = await setStaffLimits(null, limitsForm('0,10', '1,00'));
+    expect(result).toMatchObject({ success: true });
+    expect(result && 'formulaHundredths' in result && result.formulaHundredths).toBeGreaterThan(0);
+  });
+
+  it('returns a null share when the кафедра has no Кст to spread', async () => {
+    mockStake.mockResolvedValue(null);
+    expect(await setStaffLimits(null, limitsForm('0,10', '1,00'))).toEqual({
+      success: true,
+      formulaHundredths: null,
+    });
+  });
+
+  it('returns a null share for somebody on no кафедра at all', async () => {
+    mockStaffOne.mockResolvedValue({
+      lastName: 'Прізвище',
+      firstName: 'Ім’я',
+      patronymic: 'По батькові',
+      departmentId: null,
+    });
+    expect(await setStaffLimits(null, limitsForm('0,10', '1,00'))).toEqual({
+      success: true,
+      formulaHundredths: null,
+    });
   });
 
   it('refuses a head — this is exactly the escalation the caps prevent', async () => {
