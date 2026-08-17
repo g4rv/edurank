@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MIN_STAKE, parseStake } from '@/lib/stake/units';
+import { MIN_STAKE, parseStake, snapToStep } from '@/lib/stake/units';
 
 // Everything a person types into the ставка settings.
 //
@@ -67,6 +67,12 @@ export type BonusPoolSchema = z.infer<typeof bonusPoolSchema>;
 /**
  * What one administrative position is worth.
  *
+ * **Snapped to the 0,05 ladder**, like every other ставка in the app (owner,
+ * 2026-08-17). A надбавка is a slice of a ставка and lands in «Рекомендовано»
+ * beside numbers that are all multiples of 0,05; letting it be 0,023 would put
+ * a figure on screen that no field anywhere accepts. Ties go DOWN, the same
+ * rule the pool share follows, so a кафедра is never rounded quietly upward.
+ *
  * Capped at one ставка: these are top-ups on a rating, and a position worth more
  * than a whole ставка is a typed decimal point, not a decision.
  */
@@ -81,12 +87,14 @@ export const statusBonusSchema = z.object({
     'DEPUTY_ADMISSION_SECRETARY',
     'LAB_OR_CENTER_HEAD',
   ]),
-  valueHundredths: stakeField('Значення').pipe(
-    z
-      .number()
-      .min(0, { error: 'Значення не може бути відʼємним' })
-      .max(100, { error: 'Значення не може перевищувати 1,00' })
-  ),
+  valueHundredths: stakeField('Значення')
+    .pipe(
+      z
+        .number()
+        .min(0, { error: 'Значення не може бути відʼємним' })
+        .max(100, { error: 'Значення не може перевищувати 1,00' })
+    )
+    .transform(snapToStep),
 });
 export type StatusBonusSchema = z.infer<typeof statusBonusSchema>;
 

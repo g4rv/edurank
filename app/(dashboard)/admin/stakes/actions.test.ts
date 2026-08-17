@@ -10,6 +10,7 @@ vi.mock('@/lib/db', () => ({
     departmentStake: { findUnique: vi.fn(), upsert: vi.fn() },
     specialityNorm: { findUnique: vi.fn(), upsert: vi.fn() },
     stakeYearSettings: { findUnique: vi.fn(), upsert: vi.fn() },
+    stakeStatusBonus: { findUnique: vi.fn(), upsert: vi.fn() },
     ratingTemplate: { findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
   },
@@ -17,7 +18,12 @@ vi.mock('@/lib/db', () => ({
 
 import { db } from '@/lib/db';
 import { requireAdmin } from '@/lib/permissions';
-import { setDepartmentStake, setSpecialityNorm, setStakeYearSettings } from './actions';
+import {
+  setDepartmentStake,
+  setSpecialityNorm,
+  setStakeYearSettings,
+  setStatusBonus,
+} from './actions';
 
 const mockAdmin = requireAdmin as unknown as Mock;
 /** What `activeYear()` reads — every ставка write is pinned to it */
@@ -31,6 +37,8 @@ const mockNormFind = db.specialityNorm.findUnique as unknown as Mock;
 const mockNormUpsert = db.specialityNorm.upsert as unknown as Mock;
 const mockSettingsFind = db.stakeYearSettings.findUnique as unknown as Mock;
 const mockSettingsUpsert = db.stakeYearSettings.upsert as unknown as Mock;
+const mockStatusFind = db.stakeStatusBonus.findUnique as unknown as Mock;
+const mockStatusUpsert = db.stakeStatusBonus.upsert as unknown as Mock;
 
 const SESSION = { user: { id: 'admin-1', role: 'ADMIN' } };
 
@@ -58,6 +66,51 @@ beforeEach(() => {
 // A year arrives in the payload and used to be written against without ever
 // being checked. A request made outside the UI could name any year that had a
 // `Кст` row — one already closed and reported — and rewrite pay for it.
+// A надбавка is a slice of a ставка and lands in «Рекомендовано» beside numbers
+// that are all multiples of 0,05, so it rides the same ladder (owner,
+// 2026-08-17). Ties go DOWN, like the pool share, so nothing rounds quietly up.
+describe('setStatusBonus — the 0,05 ladder', () => {
+  beforeEach(() => {
+    mockStatusFind.mockResolvedValue(null);
+    mockStatusUpsert.mockResolvedValue({ id: 'sb-1' });
+  });
+
+  function statusForm(value: string) {
+    return form({ year: 2026, position: 'DEAN', value });
+  }
+
+  it('keeps a value already on the ladder', async () => {
+    await setStatusBonus(null, statusForm('0,10'));
+    expect(mockStatusUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { valueHundredths: 10 } })
+    );
+  });
+
+  it('snaps 0,023 down to 0,00', async () => {
+    await setStatusBonus(null, statusForm('0,023'));
+    expect(mockStatusUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { valueHundredths: 0 } })
+    );
+  });
+
+  it('snaps 0,03 up to 0,05', async () => {
+    await setStatusBonus(null, statusForm('0,03'));
+    expect(mockStatusUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { valueHundredths: 5 } })
+    );
+  });
+
+  // No test for an exact tie: `snapToStep` takes INTEGER hundredths, so a
+  // half-step (2,5 hundredths) cannot arrive through this field at all —
+  // `parseStake` has already rounded it. The tie rule is exercised where it can
+  // be reached, in `units.test.ts`.
+
+  it('refuses more than a whole ставка', async () => {
+    expect(await setStatusBonus(null, statusForm('1,50'))).toHaveProperty('error');
+    expect(mockStatusUpsert).not.toHaveBeenCalled();
+  });
+});
+
 describe('the year is pinned to the active template', () => {
   it('refuses a Кст for a year that is not the active one', async () => {
     mockTemplate.mockResolvedValue({ year: 2027 });

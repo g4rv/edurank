@@ -43,33 +43,45 @@ export function DepartmentPools({
     // sticky` resolves against a scrollport, and a page-level scroll gives it
     // none.
     //
-    // **No scroll-snap.** It was asked for and tried, and it made the list feel
-    // broken: `proximity` re-grabs the scroll as the pointer moves, so the
-    // wheel worked in some places and not others. Snapping earns its keep on a
-    // few full-width panels, not on thirty-five rows somebody is scanning.
-    <div className="max-h-[33rem] overflow-auto rounded-xl border bg-card">
+    // Ten rows, then it scrolls in its own box. Thirty-five кафедри ran the page
+    // past two screens and buried the position settings underneath it — an ADMIN
+    // had no way of knowing they were there (owner, 2026-08-17). The cap is also
+    // what makes the sticky heading work: `position: sticky` resolves against a
+    // scrollport, and a page-level scroll gives it none.
+    //
+    // **No scroll-snap, and both modes were tried.** `proximity` let the browser
+    // decide per gesture, so the wheel caught on some rows and not others;
+    // `mandatory` allows one snap point per gesture, and with a point on every
+    // row that means one row per wheel tick. Snapping is for full-width panels
+    // and carousels, not for thirty-five rows somebody is scanning.
+    //
+    // The tidy bottom edge comes from the height instead, and the numbers are
+    // measured rather than estimated: the heading is 37px and every row is 53px
+    // (name over faculty, always two lines), so ten rows is 37 + 530 = 567. A
+    // rem-based guess landed on 565 and sliced the tenth row by two pixels.
+    <div className="max-h-[567px] overflow-auto rounded-xl border bg-card">
       <table className="w-full border-collapse text-sm">
-        <thead className="sticky top-0 z-20 bg-muted">
+        <thead>
           <tr>
-            <th className="border border-border px-3 py-2 text-left font-medium text-muted-foreground">
+            <th className="sticky -top-px z-20 border border-border bg-muted px-3 py-2 text-left font-medium text-muted-foreground">
               Кафедра
             </th>
-            <th className="w-20 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="sticky -top-px z-20 w-20 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               НПП
             </th>
-            <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="sticky -top-px z-20 w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 Основний фонд
                 <StakeTermHint term="kst" />
               </span>
             </th>
-            <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="sticky -top-px z-20 w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 Бонусний фонд
                 <StakeTermHint term="bonusPool" />
               </span>
             </th>
-            <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="sticky -top-px z-20 w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 Нерозподілено
                 <StakeTermHint term="remaining" />
