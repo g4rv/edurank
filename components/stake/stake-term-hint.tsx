@@ -96,7 +96,9 @@ export const STAKE_TERMS = {
     title: 'Мінімальна ставка',
     lines: [
       'Нижче цього значення людина отримати не може. Ніколи не буває меншим за 0,10 — без ставки не залишається ніхто.',
-      'Встановлює лише адміністратор.',
+      // The Макс hint has carried this since it was written; Мін did not, and
+      // the dimming reads as a rendering fault without it.
+      `Встановлює лише адміністратор. Бліде значення означає стандартну межу ${formatStake(DEFAULT_LIMITS.minHundredths)} — для цієї людини її ніхто окремо не задавав.`,
     ],
   },
   max: {

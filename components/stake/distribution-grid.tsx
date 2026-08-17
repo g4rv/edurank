@@ -70,6 +70,9 @@ export function DistributionGrid({
   canOpenStaffProfile,
   audience,
   statusValues,
+  warnOverwrite = false,
+  filledBy,
+  filledAt,
 }: {
   view: StakeDistributionView;
   /** The кафедра's head, or ADMIN */
@@ -86,6 +89,10 @@ export function DistributionGrid({
   audience: 'admin' | 'head';
   /** What ADMIN priced each administrative position at, in hundredths */
   statusValues: Record<AdminPosition, number | undefined>;
+  /** ADMIN is about to type over a split somebody else already saved */
+  warnOverwrite?: boolean;
+  filledBy?: string | null;
+  filledAt?: Date | null;
 }) {
   /**
    * Seeded from the stored proposal, but never outside the person's bounds.
@@ -226,7 +233,30 @@ export function DistributionGrid({
 
   const dirty = view.rows.some((r) => values[r.staffId] !== r.proposedHundredths);
 
+  /**
+   * The overwrite confirmation, asked once and at the moment it matters.
+   *
+   * A standing banner sat above the table saying somebody else had filled this
+   * кафедра in. It was there while ADMIN was only reading, and it repeated what
+   * the toolbar's «Заповнив: …» already said. Asking on the first edit puts the
+   * warning where the decision is (owner, 2026-08-17).
+   *
+   * The pending change is held rather than applied, so declining leaves the
+   * grid exactly as it was — a dialog that had already changed the number would
+   * be an announcement, not a question.
+   */
+  const [askOverwrite, setAskOverwrite] = useState<null | (() => void)>(null);
+  const [overwriteOk, setOverwriteOk] = useState(!warnOverwrite);
+
   function setValue(row: StakeRow, next: number) {
+    if (!overwriteOk) {
+      setAskOverwrite(() => () => applyValue(row, next));
+      return;
+    }
+    applyValue(row, next);
+  }
+
+  function applyValue(row: StakeRow, next: number) {
     // The caps are absolute — clamped here as well as on the server, so the
     // ▲▼ buttons simply stop rather than producing a value the save rejects.
     const lower = Math.max(row.minHundredths, MIN_STAKE);
@@ -418,6 +448,41 @@ export function DistributionGrid({
           {error}
         </p>
       )}
+
+      {/* Raised by the first edit, not shown beside the table. Asked once: after
+          «Продовжити» the rest of the session edits freely, because repeating it
+          per keystroke would be the banner again, only worse. */}
+      <AlertDialog
+        open={askOverwrite !== null}
+        onOpenChange={(open) => !open && setAskOverwrite(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Розподіл уже заповнено</AlertDialogTitle>
+            <AlertDialogDescription>
+              Цю кафедру заповнив {filledBy ?? '—'}
+              {filledAt ? `, ${filledAt.toLocaleDateString('uk-UA')}` : ''}. Ваші зміни перезапишуть
+              його розподіл і будуть записані на вас.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" onClick={() => setAskOverwrite(null)}>
+              Скасувати
+            </AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              onClick={() => {
+                const apply = askOverwrite;
+                setOverwriteOk(true);
+                setAskOverwrite(null);
+                apply?.();
+              }}
+            >
+              Продовжити
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* The rows scroll inside this, with the headings pinned — a кафедра of
           thirty does not push «Усі кафедри» off the bottom of the world, and a

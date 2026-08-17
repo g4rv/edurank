@@ -53,7 +53,12 @@ export default async function DepartmentStakesPage({
 
   const selected = rows.find((r) => r.id === departmentId);
   const canEditAllocation = isAdmin || led.includes(departmentId);
-  const overwritingHead = isAdmin && view.filledAt !== null;
+  // ADMIN typing over a split somebody has already saved. It used to be a
+  // standing amber band above the table, which sat there while they were only
+  // reading and repeated what the toolbar's «Заповнив: …» already says. It is
+  // now a confirmation raised by the first edit — at the moment of the act
+  // rather than beside it (owner, 2026-08-17).
+  const warnOverwrite = isAdmin && view.filledAt !== null;
 
   const statusValues = Object.fromEntries(
     POSITION_ORDER.map((p) => [p, statuses.get(p)])
@@ -117,14 +122,6 @@ export default async function DepartmentStakesPage({
         </p>
       )}
 
-      {overwritingHead && (
-        <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
-          Розподіл цієї кафедри вже заповнено: {view.filledBy ?? '—'},{' '}
-          {view.filledAt?.toLocaleDateString('uk-UA')}. Ваші зміни перезапишуть його і будуть
-          записані на вас.
-        </p>
-      )}
-
       <DistributionGrid
         key={departmentId}
         view={view}
@@ -133,6 +130,9 @@ export default async function DepartmentStakesPage({
         canOpenStaffProfile={isAdmin}
         audience={isAdmin ? 'admin' : 'head'}
         statusValues={statusValues}
+        warnOverwrite={warnOverwrite}
+        filledBy={view.filledBy}
+        filledAt={view.filledAt}
       />
     </AnimatedPage>
   );
