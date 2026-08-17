@@ -47,8 +47,12 @@ type LimitDraft = { min: string; max: string };
  * Додаток 2 — the head spreads the pool by hand, with the formula's own answer
  * beside each row and «нерозподілено» falling as they type.
  *
- * A change is written when the field is left — there is no save button. But it
- * writes the WHOLE grid, never the one row, because `Кст` bounds the set: a
+ * A change is written as soon as it happens — there is no save button. Both
+ * ways of changing a ставка go through `applyValue`: the ▲▼ buttons directly,
+ * and a typed value when the field is left. Saving used to hang off the field's
+ * blur alone, so the buttons changed the screen and wrote nothing.
+ *
+ * It writes the WHOLE grid, never the one row, because `Кст` bounds the set: a
  * head moving 0.10 from one person to another would be refused on the first
  * half of the move if rows saved on their own.
  *
@@ -108,7 +112,7 @@ export function DistributionGrid({
    * alone until something saves; the screen simply stops showing a figure
    * nobody can commit.
    */
-  const [values, setValues] = useState<Record<string, number>>(() =>
+  const seed = () =>
     Object.fromEntries(
       view.rows.map((r) => {
         const lower = Math.max(r.minHundredths, MIN_STAKE);
@@ -116,8 +120,17 @@ export function DistributionGrid({
         const stored = r.proposedHundredths;
         return [r.staffId, stored < lower || stored > upper ? r.formulaHundredths : stored];
       })
-    )
-  );
+    );
+
+  const [values, setValues] = useState<Record<string, number>>(seed);
+  /**
+   * What is known to be on the server, so «Незбережені зміни» can be honest.
+   *
+   * Compared against this rather than against `view.rows[].proposedHundredths`:
+   * a save does not refresh the route, so the props keep the pre-save numbers
+   * and the toolbar read «Незбережені зміни» forever after a successful write.
+   */
+  const [savedValues, setSavedValues] = useState<Record<string, number>>(seed);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
@@ -231,7 +244,7 @@ export function DistributionGrid({
     [view.rows]
   );
 
-  const dirty = view.rows.some((r) => values[r.staffId] !== r.proposedHundredths);
+  const dirty = view.rows.some((r) => values[r.staffId] !== savedValues[r.staffId]);
 
   /**
    * The overwrite confirmation, asked once and at the moment it matters.
@@ -256,6 +269,23 @@ export function DistributionGrid({
     applyValue(row, next);
   }
 
+  /**
+   * Puts one row's ставка in range and WRITES it.
+   *
+   * Saving is driven by the map this function builds, never by `values` — a
+   * `setState` is not visible to the call that follows it, which is the same
+   * trap `commitLimits` above was already written around. Two bugs came from
+   * missing it here (2026-08-17, reported from the screen):
+   *
+   * - **▲▼ never saved at all.** The stepper called this, this called
+   *   `setValues`, and nothing wrote. A head who spread a whole кафедра with
+   *   the buttons and navigated away lost every number.
+   * - **The first typed edit was dropped too.** The field saved on blur through
+   *   a `dirty` flag computed during render, so on a freshly loaded grid — where
+   *   nothing differs yet — `dirty` was still false when the blur handler ran and
+   *   the save was skipped. It only appeared to work because any LATER blur saw
+   *   the earlier change and wrote everything at once.
+   */
   function applyValue(row: StakeRow, next: number) {
     // The caps are absolute — clamped here as well as on the server, so the
     // ▲▼ buttons simply stop rather than producing a value the save rejects.
@@ -277,8 +307,17 @@ export function DistributionGrid({
     // and a typed value settles on it, which says the same thing without an
     // error for something nobody did wrong.
     const floor = overspent ? lower : Math.max(lower, row.formulaHundredths);
-    setValues((v) => ({ ...v, [row.staffId]: Math.max(clamped, floor) }));
+    const settled = Math.max(clamped, floor);
+
     setError(null);
+    // Nothing moved — a ▼ already at the floor, or a typed value that parses
+    // back to what is on screen. Writing the whole кафедра for that would put a
+    // «Збережено» toast on the screen for a click that did nothing.
+    if (settled === values[row.staffId]) return;
+
+    const nextValues = { ...values, [row.staffId]: settled };
+    setValues(nextValues);
+    if (!blockedBy) save(nextValues);
   }
 
   /**
@@ -342,15 +381,11 @@ export function DistributionGrid({
 
       if (result && 'error' in result) setError(result.error);
       else {
+        setSavedValues(nextValues);
         setSavedAt(Date.now());
         toast.success('Збережено');
       }
     });
-  }
-
-  function saveOnBlur() {
-    if (!dirty || blockedBy) return;
-    save(values);
   }
 
   return (
@@ -405,8 +440,8 @@ export function DistributionGrid({
                 </AlertDialogContent>
               </AlertDialog>
 
-              {/* There is no save button: a change is written when the field is
-                  left. What this says is what state that leaves things in,
+              {/* There is no save button: a change is written as soon as it is
+                  made. What this says is what state that leaves things in,
                   because a silent autosave is indistinguishable from a lost
                   edit — especially while a change is being HELD BACK, which is
                   the one case where leaving a field does not write anything. */}
@@ -595,7 +630,6 @@ export function DistributionGrid({
                 limitError={limitErrors[row.staffId] ?? null}
                 limitsPending={limitsPending}
                 onChange={(next) => setValue(row, next)}
-                onBlur={saveOnBlur}
                 onLimitChange={(bound, next) =>
                   setLimits((l) => ({
                     ...l,
@@ -929,7 +963,6 @@ function Row({
   limitError,
   limitsPending,
   onChange,
-  onBlur,
   onLimitChange,
   onLimitCommit,
 }: {
@@ -950,7 +983,6 @@ function Row({
   limitError: string | null;
   limitsPending: boolean;
   onChange: (next: number) => void;
-  onBlur: () => void;
   onLimitChange: (bound: 'min' | 'max', next: string) => void;
   onLimitCommit: (next: LimitDraft) => void;
 }) {
@@ -1105,10 +1137,10 @@ function Row({
           <Input
             value={draft ?? formatStake(value)}
             onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => {
-              commit();
-              onBlur();
-            }}
+            // `commit` writes through `onChange`, which now saves by itself.
+            // There used to be a second `onBlur` call here that saved the whole
+            // grid again from state that had not been applied yet.
+            onBlur={commit}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
