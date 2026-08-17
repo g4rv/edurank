@@ -1,5 +1,13 @@
 // «Разом» — what one person is actually paid, once their ceiling has had its say.
 //
+// ── NOT IN USE as of 2026-08-17, and kept only until the boss confirms. ──
+// The owner described recruitment as a SECOND PHASE months later: the проректор
+// raises `Кст`, phase-1 numbers stay put, and the завідувач hands out the
+// increase by hand. Nothing is added automatically, so there is no «Разом» to
+// compute and the grid no longer calls this. If that reading is wrong and the
+// bonus really is paid automatically under a ceiling, this is the function to
+// wire back in. Do not treat the rule below as live in the meantime.
+//
 // The bonus for recruited students does NOT rise above a person's Макс
 // (2026-08-12). Somebody already at their ceiling from the pool gets nothing
 // more from recruitment, however many students they brought in; if they should

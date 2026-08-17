@@ -75,19 +75,31 @@ export function MyClaims({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-xl border bg-card px-5 py-4">
+        {/* «Можливе збільшення ставки» until 2026-08-17 — a label that named an
+            increase nobody had granted. These two say what they actually are:
+            everything filed, and the part the завідувач has agreed is real. */}
         <div>
           <p className="text-2xl font-semibold tabular-nums">{formatBonus(potential)}</p>
-          <p className="text-xs text-muted-foreground">Можливе збільшення ставки</p>
+          <p className="text-xs text-muted-foreground">Усього за заявками</p>
         </div>
         <div>
           <p className="text-2xl font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
             {formatBonus(confirmed)}
           </p>
-          <p className="text-xs text-muted-foreground">Уже підтверджено</p>
+          <p className="text-xs text-muted-foreground">Підтверджено завідувачем</p>
         </div>
+        {/* What this page may and may not promise (2026-08-17). Recruitment is
+            settled in a SECOND phase, months after the main розподіл: the
+            проректор raises the кафедра's pool and the завідувач hands out the
+            increase by hand. So a confirmed здобувач is an argument, not an
+            amount owed — somebody with no room may get nothing, and that is a
+            conversation, not a calculation. The page said «виплачується понад
+            виділені кафедрі ставки» until then, which promised money the grid
+            never paid. */}
         <p className="max-w-md text-xs text-muted-foreground">
-          Ставка додається лише після того, як завідувач кафедри підтвердить здобувача. Бонус
-          виплачується понад виділені кафедрі ставки.
+          Спершу завідувач кафедри підтверджує здобувача. Підтверджені здобувачі враховуються на
+          <strong className="font-medium"> 2 етапі розподілу ставок</strong>, який відбувається
+          пізніше — рішення про надбавку ухвалює завідувач разом з адміністрацією.
         </p>
       </div>
 

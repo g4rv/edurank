@@ -17,7 +17,7 @@ import {
   roundBonus,
   snapToStep,
 } from '@/lib/stake/units';
-import { payableStake } from '@/lib/stake/total';
+
 import type { StakeDistributionView, StakeRow } from '@/lib/queries/get-stake-distribution';
 import { StakeTermHint, type StakeTerm } from '@/components/stake/stake-term-hint';
 import { StakeStepper } from '@/components/stake/stake-stepper';
@@ -147,24 +147,21 @@ export function DistributionGrid({
   const overspent = remaining !== null && remaining < 0;
 
   /**
-   * The bonuses, before and after each person's ceiling has had its say.
+   * What the кафедра's people earned by recruiting — and nothing more.
    *
-   * `earned` is what the recruiting actually came to; `paid` is what of it fits
-   * under the caps. Both are on screen, because the gap is the thing somebody
-   * will ask about — and it is the number the проректор is asked to fix.
+   * **It is not added to anybody's ставка here (2026-08-17).** Recruitment is
+   * paid out in a SECOND phase, months later: the проректор raises `Кст`, the
+   * phase-1 numbers stay put, and the head hands out the increase by hand using
+   * these figures as the argument. Somebody who recruited fifty students but has
+   * no room gets nothing automatically — that conversation happens off-screen.
+   *
+   * So this figure is evidence, not money. The grid used to add it into a «Разом
+   * до виплати» and clip it at Макс, which stated a payment nobody had decided.
    */
-  const bonusTotals = useMemo(() => {
-    let earned = 0;
-    let paid = 0;
-    let total = 0;
-    for (const row of view.rows) {
-      const payable = payableStake(values[row.staffId] ?? 0, row.bonus.total, row.maxHundredths);
-      earned += row.bonus.total;
-      paid += payable.paidBonus;
-      total += payable.total;
-    }
-    return { earned: roundBonus(earned), paid: roundBonus(paid), total: roundBonus(total) };
-  }, [view.rows, values]);
+  const bonusEarned = useMemo(
+    () => roundBonus(view.rows.reduce((sum, row) => sum + row.bonus.total, 0)),
+    [view.rows]
+  );
 
   const dirty = view.rows.some((r) => values[r.staffId] !== r.proposedHundredths);
 
@@ -291,7 +288,7 @@ export function DistributionGrid({
         // a mistake to fix before saving — and a full-width amber row for it
         // pushed the table another line down every time somebody typed.
         remainingNote={overspendWarning}
-        bonus={bonusTotals}
+        bonusEarned={bonusEarned}
         formulaTotal={view.formulaTotalHundredths}
         actions={
           canEdit && view.rows.length > 0 ? (
@@ -415,12 +412,6 @@ export function DistributionGrid({
                   <StakeTermHint term="bonus" />
                 </span>
               </th>
-              <th className="w-24 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  Разом
-                  <StakeTermHint term="total" />
-                </span>
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -500,13 +491,13 @@ function limitsFormData(staffId: string, year: number, next: LimitDraft): FormDa
 }
 
 /**
- * The totals, separately — and «разом» is no longer a free addition.
+ * The totals — and there is deliberately no «разом» among them.
  *
- * `Кст` bounds the pool share and nothing else, so the bonus stays its own
- * figure. What changed on 2026-08-12 is that the bonus has a ceiling of its own:
- * it cannot lift anybody above their Макс. When some of it does not fit, both
- * numbers are shown — what was earned and what is paid — because the difference
- * is exactly what somebody takes to the проректор.
+ * `Кст` bounds the pool share and nothing else, and the recruitment figure is
+ * not part of this phase at all: it is settled months later, when the проректор
+ * raises the pool and the head hands out the increase by hand (2026-08-17). So
+ * the two never add up here. A «Разом до виплати» tile existed until then and
+ * asserted a payment nobody had decided.
  */
 function Totals({
   kst,
@@ -514,7 +505,7 @@ function Totals({
   remaining,
   overspent,
   remainingNote,
-  bonus,
+  bonusEarned,
   formulaTotal,
   actions,
   filled,
@@ -524,14 +515,13 @@ function Totals({
   remaining: number | null;
   overspent: boolean;
   remainingNote: string | null;
-  bonus: { earned: number; paid: number; total: number };
+  /** What the кафедра's people earned by recruiting — evidence, never added here */
+  bonusEarned: number;
   formulaTotal: number;
   /** «Повернути до формули» and the autosave status, when this viewer may edit */
   actions: React.ReactNode;
   filled: string | null;
 }) {
-  const capped = roundBonus(bonus.earned - bonus.paid) > 0;
-
   return (
     <div className="rounded-xl border bg-card">
       <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3 px-5 py-4">
@@ -552,21 +542,14 @@ function Totals({
           note={remainingNote ?? undefined}
           noteTone={remainingNote ? 'warn' : undefined}
         />
+        {/* Evidence for the second phase, not part of this one. The note says so
+            on the tile, because a number sitting beside «Розподілено» reads as
+            money already handed out unless it is told otherwise. */}
         <Figure
-          label="Бонус за здобувачів"
+          label="Зароблено за здобувачів"
           term="bonus"
-          value={formatBonus(bonus.earned)}
-          note={capped ? `у межах Макс: ${formatBonus(bonus.paid)}` : undefined}
-          muted
-        />
-        {/* The sum, not the expression. «12,65 + 0,000» as the headline number is
-            arithmetic the reader has to finish themselves; the two parts stay
-            visible underneath, which is the thing that must not be lost. */}
-        <Figure
-          label="Разом до виплати"
-          term="total"
-          value={formatBonus(bonus.total)}
-          note={`${formatStake(distributed)} + ${formatBonus(bonus.paid)}`}
+          value={formatBonus(bonusEarned)}
+          note={bonusEarned > 0 ? 'розподіляється на 2 етапі' : undefined}
           muted
         />
         <span className="ml-auto inline-flex items-center gap-1 self-center text-xs text-muted-foreground">
@@ -792,8 +775,6 @@ function Row({
   // refuses it, so say so on the field instead of only at the moment of saving.
   const outOfRange = value < lower || value > upper;
 
-  const payable = payableStake(value, row.bonus.total, row.maxHundredths);
-
   return (
     <tr className="transition-colors hover:bg-muted/20">
       <td className="border border-border px-3 py-2 align-middle">
@@ -928,21 +909,6 @@ function Row({
           departmentName={view.departmentName}
           knownDepartment={view.knownDepartment}
         />
-      </td>
-
-      <td className="border border-border px-3 py-2 text-right font-medium tabular-nums">
-        {formatBonus(payable.total)}
-        {/* The bonus that did not fit. Shown rather than dropped: it is what
-            somebody takes to the проректор when they think they should hold
-            more, and a silently missing 0,14 looks like an arithmetic bug. */}
-        {payable.overflow > 0 && (
-          <span
-            className="block text-[10px] font-normal text-muted-foreground"
-            title={`Бонус ${formatBonus(row.bonus.total)} не вміщується під Макс ${formatStake(row.maxHundredths)}`}
-          >
-            +{formatBonus(payable.overflow)} понад межу
-          </span>
-        )}
       </td>
     </tr>
   );
