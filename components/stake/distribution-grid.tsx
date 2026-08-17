@@ -37,6 +37,7 @@ import { StakeStepper } from '@/components/stake/stake-stepper';
 import { BonusCell } from '@/components/stake/bonus-cell';
 import { StatusCell } from '@/components/stake/status-cell';
 import { recommendedStake, statusValue } from '@/lib/stake/status-bonus';
+import { settleStake, stakeCeiling, type StakeBounds } from '@/lib/stake/settle';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 import { saveDistribution, setStaffLimits } from '@/app/(dashboard)/stakes/actions';
 
@@ -228,6 +229,33 @@ export function DistributionGrid({
   const overspent = remaining !== null && remaining < 0;
 
   /**
+   * How much more the кафедра may hand out — never below zero.
+   *
+   * **A raise stops at what is left** (owner, 2026-08-17): «better that 0,05 is
+   * left over than that it goes to −100». A ▲ that would cross the funds greys
+   * out, and a typed 1,50 settles on whatever actually fits.
+   *
+   * Zero when the кафедра is ALREADY over, which is the case this has to be
+   * careful about. Refusing an overspend outright was tried and deadlocked the
+   * grid (see `saveDistribution`): the formula's own proposal can sit a few
+   * hundredths above `Кст` from ladder rounding alone, and a head may only raise
+   * a value, so кафедра географії opened at 2,10 against a pool of 2,00 with no
+   * legal move at all. So the rule is «you may not make it worse», not «it may
+   * never be negative» — going DOWN stays open, because `stakeFloor` drops to
+   * the person's Мін while the кафедра is over.
+   */
+  const headroom = remaining === null ? 0 : Math.max(0, remaining);
+
+  /** Every bound that applies to one row, gathered for `settleStake` */
+  const boundsFor = (row: StakeRow): StakeBounds => ({
+    minHundredths: row.minHundredths,
+    maxHundredths: row.maxHundredths,
+    formulaHundredths: row.formulaHundredths,
+    headroom,
+    overspent,
+  });
+
+  /**
    * What the кафедра's people earned by recruiting — and nothing more.
    *
    * **It is not added to anybody's ставка here (2026-08-17).** Recruitment is
@@ -287,33 +315,22 @@ export function DistributionGrid({
    *   the earlier change and wrote everything at once.
    */
   function applyValue(row: StakeRow, next: number) {
-    // The caps are absolute — clamped here as well as on the server, so the
-    // ▲▼ buttons simply stop rather than producing a value the save rejects.
-    const lower = Math.max(row.minHundredths, MIN_STAKE);
-    const upper = Math.max(row.maxHundredths, lower);
-    const clamped = Math.min(Math.max(next, lower), upper);
-
-    // «Початкову (автоматичну) ставку можна тільки збільшити» — the sheet's own
-    // rule. The formula's number is the floor a head works up from; talking
-    // somebody DOWN from what the rating earned them is a decision the
-    // положення does not give them.
+    // Every bound at once — caps, «тільки збільшити», the funds and the ladder.
+    // They interact, so they are decided together in `lib/stake/settle.ts` and
+    // tested there rather than being four expressions in a component.
     //
-    // Lifted while the кафедра is over its pool, exactly as the sheet lifts it:
-    // otherwise the only way out of an overspend would be forbidden.
-    //
-    // **Enforced by the floor, not by a message** (2026-08-17). It used to raise
-    // a red banner above the table naming the person and the number. A rule the
-    // control simply obeys does not need announcing: the ▼ stops at the formula
-    // and a typed value settles on it, which says the same thing without an
-    // error for something nobody did wrong.
-    const floor = overspent ? lower : Math.max(lower, row.formulaHundredths);
-    const settled = Math.max(clamped, floor);
+    // **Enforced by the value, not by a message.** A rule the control simply
+    // obeys does not need announcing: the ▼ stops at the formula, the ▲ stops at
+    // what is left, and a typed value settles between them — which says the same
+    // thing without an error for something nobody did wrong.
+    const current = values[row.staffId];
+    const settled = settleStake(next, current, boundsFor(row));
 
     setError(null);
-    // Nothing moved — a ▼ already at the floor, or a typed value that parses
-    // back to what is on screen. Writing the whole кафедра for that would put a
-    // «Збережено» toast on the screen for a click that did nothing.
-    if (settled === values[row.staffId]) return;
+    // Nothing moved — a ▼ already at the floor, a ▲ against a spent fund, or a
+    // typed value that parses back to what is on screen. Writing the whole
+    // кафедра for that would put a «Збережено» toast on a click that did nothing.
+    if (settled === current) return;
 
     const nextValues = { ...values, [row.staffId]: settled };
     setValues(nextValues);
@@ -626,6 +643,7 @@ export function DistributionGrid({
                 // not need a pool, and ADMIN may legitimately set bounds before
                 // the проректор funds the кафедра.
                 distributionBlocked={!!blockedBy}
+                headroom={headroom}
                 limits={limits[row.staffId] ?? { min: '', max: '' }}
                 limitError={limitErrors[row.staffId] ?? null}
                 limitsPending={limitsPending}
@@ -957,6 +975,7 @@ function Row({
   canOpenStaffProfile,
   disabled,
   distributionBlocked,
+  headroom,
   overspent,
   statusValues,
   limits,
@@ -976,6 +995,8 @@ function Row({
   disabled: boolean;
   /** No Кст — the ставка field cannot be saved, though the limits still can */
   distributionBlocked: boolean;
+  /** What is left of both funds, never below zero — bounds the ▲ */
+  headroom: number;
   /** The кафедра is over both funds, which lifts «тільки збільшити» */
   overspent: boolean;
   statusValues: Record<AdminPosition, number | undefined>;
@@ -1018,6 +1039,17 @@ function Row({
   // Lifted while the кафедра is over its funds — otherwise the only way out of
   // an overspend would be the one move the head is not allowed to make.
   const stakeFloor = overspent ? lower : Math.max(lower, row.formulaHundredths);
+  // The ▲ stops at the person's Макс or at what the funds still hold, whichever
+  // comes first, so a head cannot walk «нерозподілено» negative one click at a
+  // time. `atMax` greys the button out exactly there — the same way «тільки
+  // збільшити» is stated by the ▼ rather than by an error message.
+  const ceiling = stakeCeiling(value, {
+    minHundredths: row.minHundredths,
+    maxHundredths: row.maxHundredths,
+    formulaHundredths: row.formulaHundredths,
+    headroom,
+    overspent,
+  });
 
   // Built on «за формулою», never on `value`: a target that moved every time
   // the head typed would be a target they were chasing rather than aiming at.
@@ -1168,7 +1200,7 @@ function Row({
             // збільшити». `atMin` on the stepper then greys ▼ out exactly where
             // the rule bites, which is why the rule needs no error message.
             min={stakeFloor}
-            max={upper}
+            max={ceiling}
             step={STAKE_STEP}
             label={`ставку для ${row.name}`}
           />
