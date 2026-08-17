@@ -32,6 +32,64 @@ export const departmentStakeSchema = z.object({
 });
 export type DepartmentStakeSchema = z.infer<typeof departmentStakeSchema>;
 
+/**
+ * The bonus pool — the кафедра's second allocation, handed out by hand.
+ *
+ * No floor, unlike `Кст`. That rule exists because everybody must get a minimum
+ * ставка from the first pool; the second one is a top-up for the people who
+ * earned it, and a кафедра whose staff recruited nobody legitimately gets zero.
+ *
+ * Empty clears it — the проректор may take back an allocation they have not yet
+ * spent, and there is no other way to say «none» once a number is typed.
+ */
+export const bonusPoolSchema = z.object({
+  departmentId: z.string().min(1),
+  year: z.number().int(),
+  bonusPoolHundredths: z
+    .string()
+    .transform((value, ctx) => {
+      if (value.trim() === '') return null;
+      const hundredths = parseStake(value);
+      if (hundredths === null) {
+        ctx.addIssue({ code: 'custom', message: 'Бонусний пул: вкажіть число, напр. 1,00' });
+        return z.NEVER;
+      }
+      if (hundredths < 0) {
+        ctx.addIssue({ code: 'custom', message: 'Бонусний пул не може бути відʼємним' });
+        return z.NEVER;
+      }
+      return hundredths;
+    })
+    .nullable(),
+});
+export type BonusPoolSchema = z.infer<typeof bonusPoolSchema>;
+
+/**
+ * What one administrative position is worth.
+ *
+ * Capped at one ставка: these are top-ups on a rating, and a position worth more
+ * than a whole ставка is a typed decimal point, not a decision.
+ */
+export const statusBonusSchema = z.object({
+  year: z.number().int(),
+  position: z.enum([
+    'VICE_RECTOR',
+    'DEAN',
+    'VICE_DEAN_OR_SECRETARY',
+    'DEPARTMENT_OR_UNIT_HEAD',
+    'DEPUTY_DEPARTMENT_HEAD',
+    'DEPUTY_ADMISSION_SECRETARY',
+    'LAB_OR_CENTER_HEAD',
+  ]),
+  valueHundredths: stakeField('Значення').pipe(
+    z
+      .number()
+      .min(0, { error: 'Значення не може бути відʼємним' })
+      .max(100, { error: 'Значення не може перевищувати 1,00' })
+  ),
+});
+export type StatusBonusSchema = z.infer<typeof statusBonusSchema>;
+
 /** The норматив for one speciality — бакалавр/денна; everything else derives */
 export const specialityNormSchema = z.object({
   specialityId: z.string().min(1),

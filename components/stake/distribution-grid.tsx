@@ -13,6 +13,7 @@ import {
   STAKE_STEP,
   formatBonus,
   formatStake,
+  fromHundredths,
   parseStake,
   roundBonus,
   snapToStep,
@@ -22,6 +23,9 @@ import type { StakeDistributionView, StakeRow } from '@/lib/queries/get-stake-di
 import { StakeTermHint, type StakeTerm } from '@/components/stake/stake-term-hint';
 import { StakeStepper } from '@/components/stake/stake-stepper';
 import { BonusCell } from '@/components/stake/bonus-cell';
+import { StatusCell } from '@/components/stake/status-cell';
+import { recommendedStake, statusValue } from '@/lib/stake/status-bonus';
+import type { AdminPosition } from '@/lib/generated/prisma/client';
 import { saveDistribution, saveSandbox, setStaffLimits } from '@/app/(dashboard)/stakes/actions';
 
 /** The two bounds of one row, as typed */
@@ -55,6 +59,7 @@ export function DistributionGrid({
   canEditLimits,
   canOpenStaffProfile,
   audience,
+  statusValues,
 }: {
   view: StakeDistributionView;
   /** The кафедра's head on the real tab, or ADMIN in their own sandbox */
@@ -67,8 +72,10 @@ export function DistributionGrid({
    * Характеристика instead — the page about that person they CAN open.
    */
   canOpenStaffProfile: boolean;
-  /** Which «Бонус» cell to render — see `BonusCell` */
+  /** Which «Здобувачі» cell to render — see `BonusCell` */
   audience: 'admin' | 'head';
+  /** What ADMIN priced each administrative position at, in hundredths */
+  statusValues: Record<AdminPosition, number | undefined>;
 }) {
   const [values, setValues] = useState<Record<string, number>>(() =>
     Object.fromEntries(view.rows.map((r) => [r.staffId, r.proposedHundredths]))
@@ -412,8 +419,23 @@ export function DistributionGrid({
                 )}
               >
                 <span className="inline-flex items-center gap-1">
-                  Бонус
+                  Здобувачі
                   <StakeTermHint term="bonus" />
+                </span>
+              </th>
+              <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  Статуси
+                  <StakeTermHint term="status" />
+                </span>
+              </th>
+              {/* Last, because the result belongs at the end of the sentence:
+                  who → what the rating earned → what was given → why more is
+                  due → what they should have. */}
+              <th className="w-28 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  Рекомендовано
+                  <StakeTermHint term="recommended" />
                 </span>
               </th>
             </tr>
@@ -430,6 +452,7 @@ export function DistributionGrid({
                 canEditLimits={canEditLimits}
                 canOpenStaffProfile={canOpenStaffProfile}
                 disabled={pending}
+                statusValues={statusValues}
                 // Only the ставка field. With no Кст the distribution cannot be
                 // saved, so an enabled field there is an invitation to lose
                 // work — but Мін/Макс write through `setStaffLimits`, which does
@@ -741,6 +764,7 @@ function Row({
   canOpenStaffProfile,
   disabled,
   distributionBlocked,
+  statusValues,
   limits,
   limitError,
   limitsPending,
@@ -759,6 +783,7 @@ function Row({
   disabled: boolean;
   /** No Кст — the ставка field cannot be saved, though the limits still can */
   distributionBlocked: boolean;
+  statusValues: Record<AdminPosition, number | undefined>;
   limits: LimitDraft;
   limitError: string | null;
   limitsPending: boolean;
@@ -796,6 +821,19 @@ function Row({
   // typing a Кст, which the toolbar now says instead.
   const noPool = view.kstHundredths === null;
   const outOfRange = !noPool && (value < lower || value > upper);
+
+  // Built on «за формулою», never on `value`: a target that moved every time
+  // the head typed would be a target they were chasing rather than aiming at.
+  const statusMap = new Map(
+    Object.entries(statusValues)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [k as AdminPosition, v as number])
+  );
+  const recommended = recommendedStake({
+    formulaHundredths: row.formulaHundredths,
+    studentBonus: row.bonus.total,
+    status: statusValue(row.adminPosition, statusMap),
+  });
 
   return (
     <tr className="transition-colors hover:bg-muted/20">
@@ -931,6 +969,32 @@ function Row({
           departmentName={view.departmentName}
           knownDepartment={view.knownDepartment}
         />
+      </td>
+
+      <td className="border border-border px-3 py-2 text-right text-xs">
+        <StatusCell position={row.adminPosition} values={statusValues} />
+      </td>
+
+      {/* «за формулою + здобувачі + посада» — what the objective figures say
+          this person earned. It may exceed Макс, and when it does the row says
+          so rather than quietly showing the ceiling: that gap is exactly what a
+          завідувач takes to the проректор. Nothing is applied from it. */}
+      <td className="border border-border px-3 py-2 text-right font-medium tabular-nums">
+        <span
+          className={cn(
+            recommended > fromHundredths(row.maxHundredths) && 'text-amber-700 dark:text-amber-500'
+          )}
+        >
+          {formatBonus(recommended)}
+        </span>
+        {recommended > fromHundredths(row.maxHundredths) && (
+          <span
+            className="block text-[10px] font-normal text-muted-foreground"
+            title={`Понад Макс ${formatStake(row.maxHundredths)} — щоб дати більше, потрібно підняти межу`}
+          >
+            понад Макс
+          </span>
+        )}
       </td>
     </tr>
   );

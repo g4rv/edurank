@@ -1,64 +1,44 @@
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
-import { getStakeDistribution } from '@/lib/queries/get-stake-distribution';
-import { getStakeSandbox, EMPTY_SANDBOX } from '@/lib/queries/get-stake-sandbox';
-import { getStakeYearSettings, listDepartmentStakes } from '@/lib/queries/list-stake-settings';
-import { headOf, scopeOf } from '@/lib/queries/scope';
-import { formatStake, fromHundredths } from '@/lib/stake/units';
+import {
+  getStakeYearSettings,
+  listDepartmentStakes,
+  listStatusBonuses,
+} from '@/lib/queries/list-stake-settings';
+import { scopeOf } from '@/lib/queries/scope';
+import { formatStake } from '@/lib/stake/units';
+import { POSITION_ORDER } from '@/lib/stake/status-bonus';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StakeValueForm } from '@/components/admin/stake-value-form';
-import { DistributionGrid } from '@/components/stake/distribution-grid';
-import { DepartmentSelect } from '@/components/department-select';
-import { AllDepartmentsDialog } from '@/components/stake/all-departments-dialog';
-import { SandboxControls } from '@/components/stake/sandbox-controls';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
-import { setDepartmentStake, setStakeYearSettings } from '@/app/(dashboard)/admin/stakes/actions';
-import { cn } from '@/lib/utils';
+import { DepartmentPools } from '@/components/stake/department-pools';
+import { StatusBonusSettings } from '@/components/stake/status-bonus-settings';
+import { setStakeYearSettings } from '@/app/(dashboard)/admin/stakes/actions';
+import type { AdminPosition } from '@/lib/generated/prisma/client';
 
 /**
- * Розподіл ставок — one page for the whole thing.
+ * Розподіл ставок — every кафедра and its two pools.
  *
- * It used to be two: ADMIN typed `Кст` on /admin/stakes, then clicked through to
- * /departments/[id]/stakes to see what that `Кст` had done, then back again to
- * change it. The number and its consequence were never on screen together.
+ * **This is the allocation page, not the distribution page** (2026-08-17). It
+ * used to be a picker showing one кафедра at a time, which suited a завідувач
+ * and suited the проректор not at all: their job is to look across all 31 and
+ * decide where ставки go, and a select made that thirty-one page loads. The
+ * spreading itself lives one click away, at `/stakes/[id]`, because it is a
+ * different person's work.
  *
- * What each role gets:
- *
- *   ADMIN — any кафедра, the pool, the caps, the year's coefficient, a SANDBOX,
- *           and — provisionally, see `canDistribute` — the split itself. Where
- *           a head has already saved one, the page says so before ADMIN types
- *           over it.
- *   Head  — their own кафедра and its split. `Кст` and the caps are shown
- *           because bounds you cannot see are bounds you file a bug about, and
- *           read-only because a head who could raise their own cap and drop a
- *           colleague's would make the caps meaningless.
- *   Декан — every кафедра of their faculty, read-only. `scopeOf` says what they
- *           may look at, `headOf` what they may change (2026-08-13).
- *
- * EDITOR is deliberately not here. A division editor may read any rating (W6),
- * but deciding who on a кафедра is paid what is not reading.
+ * ADMIN sets both pools, the year's coefficient and the position values here. A
+ * завідувач or декан reaching this page sees their own кафедри, read-only, and
+ * clicks through to the one they actually work on.
  */
-export default async function StakesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ d?: string; tab?: string }>;
-}) {
+export default async function StakesPage() {
   const session = await auth();
   if (!session) redirect('/login');
 
-  const { d, tab } = await searchParams;
   const isAdmin = session.user.role === 'ADMIN';
-
-  // Two different questions, and a декан answers them differently: `scopeOf`
-  // covers every кафедра of their faculty and decides what they may READ,
-  // `headOf` only the ones they lead and decides what they may CHANGE
-  // (2026-08-13). For a завідувач the two are the same list.
-  const [scope, led] = isAdmin
-    ? [[], []]
-    : await Promise.all([scopeOf(session.user.staffId), headOf(session.user.staffId)]);
-  if (!isAdmin && scope.length === 0) notFound();
+  const scope = isAdmin ? [] : await scopeOf(session.user.staffId);
+  if (!isAdmin && scope.length === 0) redirect('/profile');
 
   const template = await getActiveTemplate();
   if (!template) {
@@ -73,54 +53,34 @@ export default async function StakesPage({
   }
   const year = template.year;
 
-  // ADMIN picks from everything; a head from what they oversee — which is more
-  // than one кафедра for a декан, so it is still a list and not an assumption.
-  const departments = await listDepartmentStakes(year);
-  const available = isAdmin ? departments : departments.filter((x) => scope.includes(x.id));
-  if (available.length === 0) notFound();
-
-  const selected = available.find((x) => x.id === d) ?? available[0];
-  const departmentId = selected.id;
-
-  // The sandbox is ADMIN's and nobody else's — a head reaching for `?tab=sandbox`
-  // simply gets their own кафедра, which is the only thing they came for.
-  const sandbox = isAdmin && tab === 'sandbox';
-  const scratch = sandbox
-    ? await getStakeSandbox(session.user.id, departmentId, year)
-    : EMPTY_SANDBOX;
-
-  const [view, settings] = await Promise.all([
-    getStakeDistribution(departmentId, year, sandbox ? scratch : null),
-    isAdmin ? getStakeYearSettings(year) : null,
+  const [allRows, settings, statuses] = await Promise.all([
+    listDepartmentStakes(year),
+    getStakeYearSettings(year),
+    listStatusBonuses(year),
   ]);
-  if (!view) notFound();
 
-  // The завідувач of THIS кафедра, plus ADMIN — see `canDistribute`, where the
-  // ADMIN half is provisional and the argument is written out. A декан reading
-  // one of their faculty's кафедри lands here as a viewer.
-  const canEditAllocation = isAdmin || led.includes(departmentId) || sandbox;
-  const heads = !isAdmin;
+  const rows = isAdmin ? allRows : allRows.filter((r) => scope.includes(r.id));
 
-  // ADMIN typing over a split a завідувач has already saved. Not blocked —
-  // ADMIN may do it — but never silent: this is the case the owner is unsure
-  // about, and «I did not realise I was overwriting him» is the way it goes
-  // wrong. `filledBy` records who typed it either way.
-  const overwritingHead = isAdmin && !sandbox && view.filledAt !== null;
+  // `Record` rather than the Map, because this crosses into a client component
+  // and a Map does not survive serialisation.
+  const statusValues = Object.fromEntries(
+    POSITION_ORDER.map((p) => [p, statuses.get(p)])
+  ) as Record<AdminPosition, number | undefined>;
+
+  const totalKst = rows.reduce((sum, r) => sum + (r.kstHundredths ?? 0), 0);
+  const totalBonus = rows.reduce((sum, r) => sum + (r.bonusPoolHundredths ?? 0), 0);
+  const unset = rows.filter((r) => r.kstHundredths === null).length;
 
   return (
-    <AnimatedPage className="space-y-4">
+    <AnimatedPage className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-semibold">Розподіл ставок</h1>
           <span className="text-sm text-muted-foreground">{year} рік</span>
         </div>
 
-        {isAdmin && settings && (
+        {isAdmin && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            {/* University-wide, not per кафедра — which is exactly why it sits
-                up here beside the year and not in the кафедра toolbar below.
-                It used to be folded into a «Налаштування року» dropdown under
-                the grid, where it read as another per-кафедра setting. */}
             <label className="inline-flex items-center gap-2">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 Узгоджуючий коефіцієнт
@@ -135,12 +95,9 @@ export default async function StakesPage({
                 className="w-20"
               />
             </label>
-
-            <AllDepartmentsDialog departments={departments} selectedId={departmentId} year={year} />
-
             <Link
               href="/admin/stakes/norms"
-              className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
               Нормативи →
             </Link>
@@ -148,221 +105,28 @@ export default async function StakesPage({
         )}
       </div>
 
-      {/* ── One toolbar: which кафедра, what its pool is, which tab.
-             These three used to be three separate bands stacked on top of each
-             other, with the кафедра's name repeated as a heading in between.
-             They are one decision — «show me this кафедра» — so they are one
-             control strip, and the кафедра's figures are its second line. ── */}
-      <div className="rounded-xl border bg-card">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-          {/* One control for everybody who has a choice — ADMIN across the
-              university, a декан across their faculty. The кафедра's own pool
-              rides along as a tag; the faculty used to sit there and paid for
-              its width badly, repeating down every кафедра of one faculty when
-              it already sits on the line below. */}
-          {available.length > 1 ? (
-            <DepartmentSelect
-              departments={available.map((x) => ({
-                id: x.id,
-                name: x.name,
-                tag: x.kstHundredths === null ? 'без Кст' : formatStake(x.kstHundredths),
-                tagTone: x.kstHundredths === null || x.belowMinimum ? 'warn' : 'muted',
-              }))}
-              value={departmentId}
-              basePath="/stakes"
-              param="d"
-              extraParams={sandbox ? { tab: 'sandbox' } : undefined}
-              className="w-full sm:w-80"
-            />
-          ) : (
-            <span className="text-sm font-medium">{view.departmentName}</span>
-          )}
-
-          <span className="hidden h-6 w-px bg-border sm:block" aria-hidden />
-
-          <label className="inline-flex items-center gap-2 text-sm">
-            <span className="inline-flex items-center gap-1 text-muted-foreground">
-              Кст
-              <StakeTermHint term="kst" />
-            </span>
-            {isAdmin ? (
-              <StakeValueForm
-                action={setDepartmentStake}
-                hidden={{ departmentId, year }}
-                name="kst"
-                defaultValue={
-                  selected.kstHundredths === null
-                    ? ''
-                    : String(fromHundredths(selected.kstHundredths)).replace('.', ',')
-                }
-                // Not the bare minimum: a greyed «1,60» sitting in an empty box
-                // reads as a value that is already set.
-                placeholder={`мін. ${formatStake(selected.minimumHundredths)}`}
-                ariaLabel={`Кст для кафедри ${selected.name}`}
-                invalid={selected.belowMinimum}
-              />
-            ) : (
-              // The head sees the pool they are dividing and cannot move it —
-              // ADMIN sets it centrally. Shown, because a bound you cannot see
-              // is a bound you file a bug about.
-              <span className="font-medium tabular-nums">
-                {selected.kstHundredths === null
-                  ? 'не задано'
-                  : formatStake(selected.kstHundredths)}
-              </span>
-            )}
-          </label>
-
-          <div className="ml-auto inline-flex items-center gap-2">
-            {/* Shown to anybody who cannot type in «Розподілено» — ADMIN on the
-                real tab, and a декан on any кафедра they do not lead. A greyed
-                column with no explanation reads as a broken page. */}
-            {!canEditAllocation && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
-                лише перегляд
-                <StakeTermHint term="deanReadonly" />
-              </span>
-            )}
-            {isAdmin && (
-              <div className="inline-flex rounded-lg border p-0.5">
-                <TabLink href={`/stakes?d=${departmentId}`} active={!sandbox}>
-                  Реальний
-                </TabLink>
-                <TabLink href={`/stakes?d=${departmentId}&tab=sandbox`} active={sandbox}>
-                  Пісочниця
-                </TabLink>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-1 border-t px-4 py-2 text-xs text-muted-foreground">
-          <strong className="font-medium text-foreground">{view.departmentName}</strong>
-          <span>· {view.facultyName}</span>
-          <span>· {view.headcount} НПП</span>
-          <span className="inline-flex items-center gap-1">
-            · ліцензійним умовам відповідають {view.knpp}
-            <StakeTermHint term="knpp" />
-          </span>
-          <span>· середній рейтинг {Math.round(view.averageRating)}</span>
-          <span>· мінімальний Кст {formatStake(view.minimumKstHundredths)}</span>
-        </div>
-
-        {selected.belowMinimum && (
-          // A pool can fall under the floor without anybody touching it —
-          // somebody joined the кафедра since it was set.
-          <p className="border-t border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
-            Кст нижче мінімуму: на кафедрі {selected.headcount} НПП, потрібно щонайменше{' '}
-            {formatStake(selected.minimumHundredths)}
-          </p>
-        )}
+      {/* The two totals the проректор is actually accountable for, and how many
+          кафедри they have not funded yet — the one number that says whether
+          this page still has work on it. */}
+      <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-xl border bg-card px-5 py-3 text-sm">
+        <span>
+          <span className="text-muted-foreground">Кафедр: </span>
+          <span className="font-medium tabular-nums">{rows.length}</span>
+        </span>
+        <span>
+          <span className="text-muted-foreground">Початкові пули разом: </span>
+          <span className="font-medium tabular-nums">{formatStake(totalKst)}</span>
+        </span>
+        <span>
+          <span className="text-muted-foreground">Бонусні пули разом: </span>
+          <span className="font-medium tabular-nums">{formatStake(totalBonus)}</span>
+        </span>
+        {unset > 0 && <span className="text-amber-700 dark:text-amber-500">без пулу: {unset}</span>}
       </div>
 
-      {/* Amber, not red, and not a block: ADMIN is allowed to do this. It is
-          said out loud because the alternative is finding out from the
-          завідувач afterwards. «Пісочниця» is offered in the same breath,
-          since trying a number is usually what was actually wanted. */}
-      {overwritingHead && (
-        <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
-          {/* «заповнено», not «заповнив завідувач» — the last save may have been
-              another ADMIN's, and naming them as the head is simply false. */}
-          Розподіл цієї кафедри вже заповнено: {view.filledBy ?? '—'},{' '}
-          {view.filledAt?.toLocaleDateString('uk-UA')}. Ваші зміни перезапишуть його і будуть
-          записані на вас. Щоб лише перевірити інші числа, скористайтеся «Пісочницею».
-        </p>
-      )}
+      <DepartmentPools rows={rows} year={year} canEdit={isAdmin} />
 
-      {sandbox && (
-        <SandboxControls
-          departmentId={departmentId}
-          year={year}
-          kstHundredths={scratch.kstHundredths}
-          realKstHundredths={selected.kstHundredths}
-          saved={scratch.saved}
-        />
-      )}
-
-      {/* Folded away. A head reads this once a year and then never again, and
-          open by default it cost five lines above the only thing they came
-          for. */}
-      {view.kstHundredths !== null && view.computable && heads && (
-        <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer underline-offset-4 hover:underline">
-            Як рахується ставка
-          </summary>
-          <p className="mt-2 max-w-3xl">
-            Формула пропонує, скільки дати кожному — частку від виділених ставок, пропорційно до
-            рейтингу. Сума майже дорівнює виділеному: різниця в кілька сотих виникає через
-            округлення до 0,05. Запропоновану ставку можна лише збільшити. Якщо разом вийде більше
-            за виділене, збереження не блокується — але це треба врахувати у протоколі. Бонус за
-            залучених здобувачів не входить до виділених ставок, але й не піднімає людину вище її
-            Макс. Мінімальну і максимальну ставку встановлює адміністратор.
-          </p>
-        </details>
-      )}
-
-      {/* The key forces the grid to re-read the server's numbers whenever they
-          change. The grid keeps the typed values in local state, seeded once
-          from `view` — so after ADMIN saves a cap and the route refreshes, «За
-          формулою» updated while «Розподілено» and «Нерозподілено» went on
-          showing the old totals.
-
-          Remounting is the fix rather than an effect that syncs state: the
-          bounds have moved, so every derived figure has to be recomputed, and
-          «keep what the user typed unless it conflicts» is a rule with more
-          edge cases than the thing it saves. */}
-      <DistributionGrid
-        key={stateKey(view)}
-        view={view}
-        canEdit={canEditAllocation}
-        canEditLimits={isAdmin}
-        canOpenStaffProfile={isAdmin}
-        audience={isAdmin ? 'admin' : 'head'}
-      />
+      {isAdmin && <StatusBonusSettings values={statusValues} year={year} />}
     </AnimatedPage>
   );
-}
-
-function TabLink({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'rounded-md px-3 py-1 text-sm transition-colors',
-        active ? 'bg-muted font-medium' : 'text-muted-foreground hover:text-foreground'
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
-
-/**
- * Everything on the screen that the SERVER decides, as one string.
- *
- * Used as the grid's React key, so the grid remounts — and re-seeds its local
- * state — exactly when one of these changes, and not on every render. The
- * allocation is in here too: after a save the route refreshes, and without it
- * the grid would keep its own copy of numbers the server has since rewritten.
- */
-function stateKey(view: NonNullable<Awaited<ReturnType<typeof getStakeDistribution>>>): string {
-  return [
-    view.departmentId,
-    view.sandbox ? 'sandbox' : 'real',
-    view.kstHundredths,
-    ...view.rows.map((r) =>
-      [r.staffId, r.formulaHundredths, r.proposedHundredths, r.minHundredths, r.maxHundredths].join(
-        ':'
-      )
-    ),
-  ].join('|');
 }

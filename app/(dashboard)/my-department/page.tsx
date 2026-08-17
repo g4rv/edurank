@@ -68,7 +68,7 @@ export default async function MyDepartmentPage() {
           {template && (
             <div className="flex flex-wrap gap-4">
               <Link
-                href={`/stakes?d=${department.id}`}
+                href={`/stakes/${department.id}`}
                 className="text-sm underline-offset-4 hover:underline"
               >
                 Розподіл ставок на {template.year} рік →

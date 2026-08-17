@@ -634,10 +634,51 @@ model DepartmentStake {
   /// that cannot pay the floor to everyone is bad input, not a decision.
   kstHundredths Int
 
+  /// The second pool, handed out months after the first (2026-08-17).
+  ///
+  /// **The formula must never read this.** `Кст` is spread by rating and lands
+  /// on itself by construction; this one is spread by hand, using recruited
+  /// students and administrative positions as the argument. Keeping them as two
+  /// columns is what protects the first distribution — a re-run of the formula
+  /// cannot reach a pool it does not know about, so there is no phase to freeze
+  /// and no lock to get wrong.
+  ///
+  /// Null until the проректор allocates it, which is a different day from `Кст`.
+  bonusPoolHundredths Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([departmentId, year])
+  @@index([year])
+}
+
+/// What an administrative position is worth in ставки, per year.
+///
+/// **Automatic, not ticked.** `Staff.adminPosition` is already on every profile
+/// and already drives the Характеристика, so a person's positions are known —
+/// nobody re-enters them here. ADMIN sets a value per position once and every
+/// кафедра's grid shows it.
+///
+/// Keyed on the enum rather than free text on purpose: the seven positions are
+/// the university's own fixed list, and a table where anybody can invent an
+/// eighth is a table that grows a «дуже важлива людина» worth 0,5.
+///
+/// This is **information, never money**. The grid shows what a person's
+/// positions and recruited students add up to, and the head still types the
+/// ставка. See `docs/stake-distribution.md`.
+model StakeStatusBonus {
+  id       String        @id @default(cuid())
+  year     Int
+  position AdminPosition
+
+  /// Integer hundredths, like every other ставка figure
+  valueHundredths Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, position])
   @@index([year])
 }
 

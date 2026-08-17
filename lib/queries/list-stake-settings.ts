@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import type { AdminPosition } from '@/lib/generated/prisma/client';
 import { getDepartmentsKnpp } from './get-department-knpp';
 import { DEFAULT_CONTRACT_COEFFICIENT } from '@/lib/stake/norms';
 import { minimumKstHundredths } from '@/lib/stake/units';
@@ -21,24 +22,45 @@ export async function listDepartmentStakes(year: number) {
     orderBy: { name: 'asc' },
   });
 
-  const [stakes, knpp] = await Promise.all([
+  const [stakes, knpp, allocations] = await Promise.all([
     db.departmentStake.findMany({
       where: { year },
-      select: { departmentId: true, kstHundredths: true },
+      select: { departmentId: true, kstHundredths: true, bonusPoolHundredths: true },
     }),
     getDepartmentsKnpp(
       departments.map((d) => d.id),
       year
     ),
+    // What each кафедра has actually handed out, so the overview can show a
+    // remainder per row. One grouped read rather than a query per кафедра —
+    // this page lists all 31 and would otherwise be 31 round trips.
+    db.stakeAllocation.groupBy({
+      by: ['distributionId'],
+      _sum: { proposedHundredths: true },
+    }),
   ]);
 
-  const kstByDepartment = new Map(stakes.map((s) => [s.departmentId, s.kstHundredths]));
+  const distributions = await db.stakeDistribution.findMany({
+    where: { year },
+    select: { id: true, departmentId: true },
+  });
+  const distributedByDepartment = new Map(
+    distributions.map((d) => [
+      d.departmentId,
+      allocations.find((a) => a.distributionId === d.id)?._sum.proposedHundredths ?? 0,
+    ])
+  );
+
+  const stakeByDepartment = new Map(stakes.map((s) => [s.departmentId, s]));
   const knppByDepartment = new Map(knpp.map((k) => [k.departmentId, k]));
 
   return departments.map((d) => {
     const counts = knppByDepartment.get(d.id);
     const headcount = counts?.headcount ?? 0;
-    const kstHundredths = kstByDepartment.get(d.id) ?? null;
+    const stake = stakeByDepartment.get(d.id);
+    const kstHundredths = stake?.kstHundredths ?? null;
+    const bonusPoolHundredths = stake?.bonusPoolHundredths ?? null;
+    const distributedHundredths = distributedByDepartment.get(d.id) ?? 0;
     const minimumHundredths = minimumKstHundredths(headcount);
 
     return {
@@ -48,6 +70,21 @@ export async function listDepartmentStakes(year: number) {
       headcount,
       knpp: counts?.knpp ?? 0,
       kstHundredths,
+      bonusPoolHundredths,
+      distributedHundredths,
+      /**
+       * What is left of BOTH pools together — the figure the overview leads
+       * with, because a проректор scanning 31 rows wants one number per кафедра
+       * and the split on hover.
+       *
+       * Null when no `Кст` is set: «нерозподілено» of a pool that does not exist
+       * is not zero, it is unanswerable, and printing 0,00 would read as «all
+       * spent».
+       */
+      remainingHundredths:
+        kstHundredths === null
+          ? null
+          : kstHundredths + (bonusPoolHundredths ?? 0) - distributedHundredths,
       minimumHundredths,
       /**
        * A pool saved before somebody joined the кафедра can fall under the
@@ -85,6 +122,22 @@ export async function listSpecialityNorms(year: number) {
 }
 
 export type SpecialityNormRow = Awaited<ReturnType<typeof listSpecialityNorms>>[number];
+
+/**
+ * What each administrative position is worth this year, in hundredths.
+ *
+ * Every position is returned, priced or not — ADMIN needs to see the whole list
+ * to set it, and the grid's tooltip shows all seven with a tick on the one that
+ * counts. A missing row means «not priced», which is zero for arithmetic and
+ * «—» on screen; the two must stay distinguishable.
+ */
+export async function listStatusBonuses(year: number): Promise<Map<AdminPosition, number>> {
+  const rows = await db.stakeStatusBonus.findMany({
+    where: { year },
+    select: { position: true, valueHundredths: true },
+  });
+  return new Map(rows.map((r) => [r.position, r.valueHundredths]));
+}
 
 /** The year's settings, falling back to the confirmed 2026 defaults */
 export async function getStakeYearSettings(year: number) {

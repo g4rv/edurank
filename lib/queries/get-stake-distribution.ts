@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import type { AdminPosition } from '@/lib/generated/prisma/client';
 import { ON_ROSTER } from './roster';
 import { getKharakterystykaMany } from './get-kharakterystyka';
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
@@ -23,6 +24,8 @@ export interface StakeRow {
   staffId: string;
   name: string;
   rating: number;
+  /** Their administrative position, or null — priced by ADMIN per year */
+  adminPosition: AdminPosition | null;
   /** «позицій із 20» — whether this person counts towards Кнпп */
   positions: number;
   qualifies: boolean;
@@ -113,6 +116,10 @@ export async function getStakeDistribution(
       lastName: true,
       firstName: true,
       patronymic: true,
+      // Drives the «Статуси» column. Read from the profile rather than ticked
+      // per year: the position is already recorded there and already drives the
+      // Характеристика (2026-08-17).
+      adminPosition: true,
       ratingEntries: { where: { year }, select: { totalScore: true } },
       stakeLimits: { where: { year }, select: { minHundredths: true, maxHundredths: true } },
     },
@@ -186,6 +193,7 @@ export async function getStakeDistribution(
         staffId: s.id,
         name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
         rating: share.rating,
+        adminPosition: s.adminPosition,
         positions: metCount,
         qualifies: metCount >= REQUIRED_POSITIONS,
         ...boundsFor(s),

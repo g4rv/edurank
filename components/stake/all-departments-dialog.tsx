@@ -101,7 +101,7 @@ export function AllDepartmentsDialog({
                   )}
                 >
                   <td className="border border-border px-3 py-2">
-                    <Link href={`/stakes?d=${d.id}`} className="underline-offset-4 hover:underline">
+                    <Link href={`/stakes/${d.id}`} className="underline-offset-4 hover:underline">
                       {d.name}
                     </Link>
                     <span className="ml-2 text-xs text-muted-foreground">{d.faculty}</span>
