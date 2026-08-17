@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Wallet } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getStakeDistribution } from '@/lib/queries/get-stake-distribution';
@@ -53,6 +53,23 @@ export default async function DepartmentStakesPage({
 
   const selected = rows.find((r) => r.id === departmentId);
   const canEditAllocation = isAdmin || led.includes(departmentId);
+
+  /**
+   * No fund yet — the завідувач gets an explanation instead of the grid.
+   *
+   * Nothing on that grid works before the проректор allocates: the formula
+   * proposes nothing (`formulaShares` skips the floor entirely at `Кст` 0,
+   * because a кафедра nobody has funded does not hand out 0,10 apiece) and
+   * `saveDistribution` refuses every write. What the head met was a full table
+   * of zeroes they could type into and never save — and the one person who
+   * could fix it was somebody else (owner, 2026-08-17).
+   *
+   * **ADMIN still sees the grid.** They are the person who sets the fund, and
+   * they set the Мін/Макс limits, which write through `setStaffLimits` and need
+   * no fund at all — sending them to an empty state would take away work they
+   * can legitimately do before the money is decided.
+   */
+  const noPool = view.kstHundredths === null;
   // ADMIN typing over a split somebody has already saved. It used to be a
   // standing amber band above the table, which sat there while they were only
   // reading and repeated what the toolbar's «Заповнив: …» already says. It is
@@ -122,18 +139,38 @@ export default async function DepartmentStakesPage({
         </p>
       )}
 
-      <DistributionGrid
-        key={departmentId}
-        view={view}
-        canEdit={canEditAllocation}
-        canEditLimits={isAdmin}
-        canOpenStaffProfile={isAdmin}
-        audience={isAdmin ? 'admin' : 'head'}
-        statusValues={statusValues}
-        warnOverwrite={warnOverwrite}
-        filledBy={view.filledBy}
-        filledAt={view.filledAt}
-      />
+      {noPool && !isAdmin ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed bg-card px-6 py-16 text-center">
+          <Wallet className="size-8 text-muted-foreground/50" aria-hidden />
+          <h2 className="text-base font-medium">Основний фонд ще не встановлено</h2>
+          <p className="max-w-md text-sm text-muted-foreground">
+            Розподіл відкриється, щойно адміністратор виділить кафедрі фонд ставок на {year} рік.
+            Поки його немає, формула не рахується й зберегти розподіл неможливо.
+          </p>
+          {selected && (
+            // The number to ask for, not just «ask somebody». A head who has to
+            // request an allocation may as well be able to say how much the
+            // кафедра needs at minimum.
+            <p className="text-xs text-muted-foreground">
+              Кафедрі потрібно щонайменше {formatStake(selected.minimumHundredths)} —{' '}
+              {selected.headcount} НПП × 0,10.
+            </p>
+          )}
+        </div>
+      ) : (
+        <DistributionGrid
+          key={departmentId}
+          view={view}
+          canEdit={canEditAllocation}
+          canEditLimits={isAdmin}
+          canOpenStaffProfile={isAdmin}
+          audience={isAdmin ? 'admin' : 'head'}
+          statusValues={statusValues}
+          warnOverwrite={warnOverwrite}
+          filledBy={view.filledBy}
+          filledAt={view.filledAt}
+        />
+      )}
     </AnimatedPage>
   );
 }

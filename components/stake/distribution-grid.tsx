@@ -360,9 +360,18 @@ export function DistributionGrid({
    * Only one thing holds it: no allocation to spread. An обґрунтування is NOT
    * one of them — додаток 2 has the column and the head may fill it, but nothing
    * requires them to. Nor is an overspend, which is allowed and merely said.
+   *
+   * **Addressed to ADMIN, because nobody else gets here without a fund**
+   * (2026-08-17). A завідувач and a декан now meet an explanation on the page
+   * instead of this grid, so the old «зверніться до адміністратора» was telling
+   * the administrator to contact themselves. They can still set Мін/Макс here —
+   * those write through `setStaffLimits` and need no fund — which is why the
+   * grid is not simply hidden from them too.
    */
   const blockedBy: string | null =
-    kst === null ? 'Основний фонд ще не встановлено — зверніться до адміністратора' : null;
+    kst === null
+      ? 'Основний фонд не задано — ставки не збережуться. Задайте його на «Усі кафедри»'
+      : null;
 
   /**
    * Over the pool — allowed, and said out loud.
