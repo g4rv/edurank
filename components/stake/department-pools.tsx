@@ -39,21 +39,17 @@ export function DepartmentPools({
     // Ten rows, then it scrolls in its own box. Thirty-five кафедри ran the
     // page past two screens and buried the position settings underneath it —
     // an ADMIN had no way of knowing they were there (owner, 2026-08-17). The
-    // height cap is also what makes the sticky heading work at all: `position:
-    // sticky` resolves against a scrollport, and a page-level scroll gives it
-    // none.
     //
     // Ten rows, then it scrolls in its own box. Thirty-five кафедри ran the page
     // past two screens and buried the position settings underneath it — an ADMIN
-    // had no way of knowing they were there (owner, 2026-08-17). The cap is also
-    // what makes the sticky heading work: `position: sticky` resolves against a
-    // scrollport, and a page-level scroll gives it none.
+    // had no way of knowing they were there (owner, 2026-08-17).
     //
-    // **No scroll-snap, and both modes were tried.** `proximity` let the browser
-    // decide per gesture, so the wheel caught on some rows and not others;
-    // `mandatory` allows one snap point per gesture, and with a point on every
-    // row that means one row per wheel tick. Snapping is for full-width panels
-    // and carousels, not for thirty-five rows somebody is scanning.
+    // No scroll-snap: both modes were tried and both fought the wheel.
+    //
+    // The heading does not stick either. It was sticky, and sticky over
+    // collapsed table borders leaves a hairline the rows show through — two
+    // rounds of chasing a one-pixel strip for a table of thirty-five rows that
+    // fits on one screen. Not worth it.
     //
     // The tidy bottom edge comes from the height instead, and the numbers are
     // measured rather than estimated: the heading is 37px and every row is 53px
@@ -63,25 +59,25 @@ export function DepartmentPools({
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
-            <th className="sticky -top-px z-20 border border-border bg-muted px-3 py-2 text-left font-medium text-muted-foreground">
+            <th className="border border-border bg-muted px-3 py-2 text-left font-medium text-muted-foreground">
               Кафедра
             </th>
-            <th className="sticky -top-px z-20 w-20 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="w-20 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               НПП
             </th>
-            <th className="sticky -top-px z-20 w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 Основний фонд
                 <StakeTermHint term="kst" />
               </span>
             </th>
-            <th className="sticky -top-px z-20 w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 Бонусний фонд
                 <StakeTermHint term="bonusPool" />
               </span>
             </th>
-            <th className="sticky -top-px z-20 w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 Нерозподілено
                 <StakeTermHint term="remaining" />
