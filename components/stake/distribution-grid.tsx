@@ -293,7 +293,7 @@ export function DistributionGrid({
         actions={
           canEdit && view.rows.length > 0 ? (
             <>
-              <Button variant="outline" size="sm" onClick={reset} disabled={pending}>
+              <Button variant="outline" size="sm" onClick={reset} disabled={pending || !!blockedBy}>
                 <RotateCcw className="size-4" />
                 Повернути до формули
               </Button>
@@ -306,8 +306,12 @@ export function DistributionGrid({
               <span className="text-xs">
                 {pending ? (
                   <span className="text-muted-foreground">Збереження…</span>
-                ) : blockedBy && dirty ? (
-                  <span className="text-destructive">Не збережено: {blockedBy}</span>
+                ) : blockedBy ? (
+                  // Said BEFORE anything is typed, not after (2026-08-17). It
+                  // used to wait for `dirty`, so a head with no Кст met a grid
+                  // that looked ordinary, typed into it, and only then learned
+                  // nothing could be saved — and only they could not fix it.
+                  <span className="text-amber-700 dark:text-amber-500">{blockedBy}</span>
                 ) : dirty ? (
                   <span className="text-muted-foreground">Незбережені зміни</span>
                 ) : savedAt ? (
@@ -426,6 +430,12 @@ export function DistributionGrid({
                 canEditLimits={canEditLimits}
                 canOpenStaffProfile={canOpenStaffProfile}
                 disabled={pending}
+                // Only the ставка field. With no Кст the distribution cannot be
+                // saved, so an enabled field there is an invitation to lose
+                // work — but Мін/Макс write through `setStaffLimits`, which does
+                // not need a pool, and ADMIN may legitimately set bounds before
+                // the проректор funds the кафедра.
+                distributionBlocked={!!blockedBy}
                 limits={limits[row.staffId] ?? { min: '', max: '' }}
                 limitError={limitErrors[row.staffId] ?? null}
                 limitsPending={limitsPending}
@@ -730,6 +740,7 @@ function Row({
   canEditLimits,
   canOpenStaffProfile,
   disabled,
+  distributionBlocked,
   limits,
   limitError,
   limitsPending,
@@ -746,6 +757,8 @@ function Row({
   canEditLimits: boolean;
   canOpenStaffProfile: boolean;
   disabled: boolean;
+  /** No Кст — the ставка field cannot be saved, though the limits still can */
+  distributionBlocked: boolean;
   limits: LimitDraft;
   limitError: string | null;
   limitsPending: boolean;
@@ -773,7 +786,16 @@ function Row({
   // A saved allocation can fall outside its bounds without anybody touching it
   // — ADMIN lowers a cap under a number the head already agreed. The save
   // refuses it, so say so on the field instead of only at the moment of saving.
-  const outOfRange = value < lower || value > upper;
+  //
+  // **Not while there is no `Кст`** (2026-08-17). With no pool the formula
+  // proposes 0 for everybody — `formulaShares` skips the floor entirely when
+  // `kstHundredths` is 0, because a кафедра nobody has funded is not handing out
+  // 0,1 apiece on the strength of it. The field check did not know that rule, so
+  // every row rendered red for being under a minimum the formula had deliberately
+  // not applied. Six errors nobody on the кафедра can clear: the fix is an ADMIN
+  // typing a Кст, which the toolbar now says instead.
+  const noPool = view.kstHundredths === null;
+  const outOfRange = !noPool && (value < lower || value > upper);
 
   return (
     <tr className="transition-colors hover:bg-muted/20">
@@ -877,7 +899,7 @@ function Row({
                 e.currentTarget.blur();
               }
             }}
-            disabled={!canEdit || disabled}
+            disabled={!canEdit || disabled || distributionBlocked}
             inputMode="decimal"
             aria-label={`Ставка для ${row.name}`}
             aria-invalid={outOfRange}
@@ -893,7 +915,7 @@ function Row({
           <StakeStepper
             value={value}
             onChange={onChange}
-            disabled={!canEdit || disabled}
+            disabled={!canEdit || disabled || distributionBlocked}
             min={lower}
             max={upper}
             step={STAKE_STEP}
