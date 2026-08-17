@@ -100,3 +100,44 @@ export async function getKharakterystykaMany(
 
   return result;
 }
+
+/**
+ * Which indicators feed each п.38 position — «звідки береться це значення».
+ *
+ * Every derived position said nothing about its own source, so a person looking
+ * at «0 з 5» had no way of knowing what would count towards it (owner asked,
+ * 2026-08-17). The evidence column answers it once you HAVE entries; before
+ * that it is a dash, which is exactly when the question is asked.
+ *
+ * Read from the template rather than from this person's activities: the whole
+ * point is to name indicators they have nothing under yet. `licencePositions`
+ * is a column, so a mapping an admin changes shows up here without a deploy.
+ *
+ * Deactivated indicators are left out — one that scores nothing cannot satisfy
+ * anything either, and offering it as a route would be a wrong instruction.
+ */
+export async function licencePositionSources(
+  year: number
+): Promise<Map<number, { itemNumber: string; label: string }[]>> {
+  const types = await db.activityType.findMany({
+    where: { isActive: true, template: { year } },
+    select: { itemNumber: true, label: true, licencePositions: true },
+    orderBy: { order: 'asc' },
+  });
+
+  const byPosition = new Map<number, { itemNumber: string; label: string }[]>();
+  for (const type of types) {
+    const links = Array.isArray(type.licencePositions) ? type.licencePositions : [];
+    for (const link of links) {
+      const position = (link as { position?: unknown })?.position;
+      if (typeof position !== 'number') continue;
+      const list = byPosition.get(position) ?? [];
+      // The same indicator can serve one position through two alternatives
+      if (!list.some((x) => x.itemNumber === type.itemNumber)) {
+        list.push({ itemNumber: type.itemNumber, label: type.label });
+      }
+      byPosition.set(position, list);
+    }
+  }
+  return byPosition;
+}

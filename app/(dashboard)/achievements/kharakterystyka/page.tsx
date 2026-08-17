@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
-import { getKharakterystyka } from '@/lib/queries/get-kharakterystyka';
+import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { KharakterystykaTable } from '@/components/kharakterystyka/kharakterystyka-table';
 import { DownloadButton } from '@/components/ui/download-button';
@@ -41,7 +41,10 @@ export default async function MyKharakterystykaPage() {
     );
   }
 
-  const data = await getKharakterystyka(staffId, template.year);
+  const [data, positionSources] = await Promise.all([
+    getKharakterystyka(staffId, template.year),
+    licencePositionSources(template.year),
+  ]);
   if (!data) redirect('/profile');
 
   return (
@@ -61,7 +64,7 @@ export default async function MyKharakterystykaPage() {
         />
       </div>
 
-      <KharakterystykaTable data={data} />
+      <KharakterystykaTable data={data} sources={Object.fromEntries(positionSources)} />
     </AnimatedPage>
   );
 }

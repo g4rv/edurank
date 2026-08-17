@@ -4,7 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
-import { getKharakterystyka } from '@/lib/queries/get-kharakterystyka';
+import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StaffTabs } from '@/components/staff/staff-tabs';
@@ -53,7 +53,10 @@ export default async function StaffKharakterystykaPage({
     );
   }
 
-  const data = await getKharakterystyka(id, template.year);
+  const [data, positionSources] = await Promise.all([
+    getKharakterystyka(id, template.year),
+    licencePositionSources(template.year),
+  ]);
   if (!data) notFound();
 
   // A завідувач is an ordinary USER, so /staff redirects them away — send them
@@ -91,7 +94,7 @@ export default async function StaffKharakterystykaPage({
 
       <StaffTabs staffId={id} active="kharakterystyka" showRating showStaffPages={seesStaffPages} />
 
-      <KharakterystykaTable data={data} />
+      <KharakterystykaTable data={data} sources={Object.fromEntries(positionSources)} />
     </AnimatedPage>
   );
 }

@@ -12,7 +12,14 @@ import type { Kharakterystyka, KharakterystykaPosition } from '@/lib/kharakterys
 
 const cell = 'border border-border px-3 py-2 align-top';
 
-export function KharakterystykaTable({ data }: { data: Kharakterystyka }) {
+export function KharakterystykaTable({
+  data,
+  sources,
+}: {
+  data: Kharakterystyka;
+  /** Position number → the indicators that count towards it, from the template */
+  sources?: Record<number, { itemNumber: string; label: string }[]>;
+}) {
   return (
     <div className="space-y-4">
       <Summary data={data} />
@@ -31,7 +38,11 @@ export function KharakterystykaTable({ data }: { data: Kharakterystyka }) {
           </thead>
           <tbody>
             {data.positions.map((position) => (
-              <PositionRow key={position.number} position={position} />
+              <PositionRow
+                key={position.number}
+                position={position}
+                sources={sources?.[position.number]}
+              />
             ))}
           </tbody>
         </table>
@@ -75,7 +86,14 @@ function Summary({ data }: { data: Kharakterystyka }) {
   );
 }
 
-function PositionRow({ position }: { position: KharakterystykaPosition }) {
+function PositionRow({
+  position,
+  sources,
+}: {
+  position: KharakterystykaPosition;
+  /** Indicators that count towards this position, from the year's template */
+  sources?: { itemNumber: string; label: string }[];
+}) {
   // A military position is not a gap in this person's record — it belongs to a
   // different kind of institution — so it is dimmed rather than flagged.
   const inapplicable = position.fill === 'NOT_APPLICABLE';
@@ -87,6 +105,25 @@ function PositionRow({ position }: { position: KharakterystykaPosition }) {
       <td className={cell}>
         <p>{position.title}</p>
         {position.note && <p className="mt-1 text-xs text-muted-foreground">{position.note}</p>}
+        {/* Where this position takes its value from. Only the exceptions used to
+            say anything — «з профілю», «вручну», «для військових ЗВО» — so the
+            fourteen ordinary ones were silent, and «0 з 5» left somebody no way
+            of knowing what would count (2026-08-17). Shown whether or not the
+            position is met: it is most needed when the evidence column is a
+            dash, which is exactly when there is nothing else to read. */}
+        {position.fill === 'DERIVED' && sources && sources.length > 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Зараховуються показники:{' '}
+            {sources.map((s, i) => (
+              <span key={s.itemNumber}>
+                {i > 0 && ', '}
+                <span className="tabular-nums" title={s.label}>
+                  {s.itemNumber}
+                </span>
+              </span>
+            ))}
+          </p>
+        )}
       </td>
 
       <td className={cell}>
