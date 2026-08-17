@@ -70,11 +70,27 @@ beforeEach(() => {
 });
 
 describe('createActivity', () => {
-  it('rejects non-USER roles (an editor cannot submit for anyone)', async () => {
-    mockAuth.mockResolvedValue({ user: { id: 'u', role: 'EDITOR', staffId: 'staff-2' } });
-    const result = await createActivity('type-1', { title: 'X' });
-    expect(result).toEqual({ error: 'Недостатньо прав' });
-    expect(mockTransaction).not.toHaveBeenCalled();
+  // The role decides what somebody may do to OTHER people. It has no say over
+  // their own record — an ADMIN or EDITOR who also teaches is an НПП with a
+  // rating like anyone else, and used to be shut out of it (2026-08-17).
+  it('lets an EDITOR who is an НПП submit for themselves', async () => {
+    mockTx();
+    mockAuth.mockResolvedValue({ user: { id: 'u', role: 'EDITOR', staffId: 'staff-1' } });
+    expect(await createActivity('type-1', { title: 'Конференція' })).toEqual({
+      success: true,
+      score: 10,
+    });
+  });
+
+  // What actually keeps anybody out of somebody else's rating: the row is
+  // written for `session.user.staffId`, and there is no parameter to say whose.
+  it('writes against the signed-in person, never a staffId from the caller', async () => {
+    const tx = mockTx();
+    mockAuth.mockResolvedValue({ user: { id: 'u', role: 'ADMIN', staffId: 'staff-1' } });
+    await createActivity('type-1', { title: 'Конференція' });
+    expect(tx.activity.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ staffId: 'staff-1' }) })
+    );
   });
 
   it('rejects a USER without a linked staff record', async () => {
@@ -167,9 +183,25 @@ describe('deleteActivity', () => {
     mockActivityFind.mockResolvedValue(ownActivity);
   });
 
-  it('rejects non-USER roles', async () => {
-    mockAuth.mockResolvedValue({ user: { id: 'u', role: 'EDITOR', staffId: 'staff-2' } });
+  it('rejects a session with no linked staff record', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u', role: 'USER', staffId: null } });
     expect(await deleteActivity('activity-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  // Ownership is the whole rule; the role never was. An ADMIN who teaches must
+  // be able to remove their own mistyped submission (2026-08-17).
+  it('lets an ADMIN delete their own submission', async () => {
+    mockTx();
+    mockAuth.mockResolvedValue({ user: { id: 'u', role: 'ADMIN', staffId: 'staff-1' } });
+    expect(await deleteActivity('activity-1')).toEqual({ success: true });
+  });
+
+  // …and the same ADMIN gets nowhere near anybody else's, because the lookup
+  // is scoped to their own staffId.
+  it("does not let an ADMIN delete another person's submission", async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u', role: 'ADMIN', staffId: 'staff-2' } });
+    expect(await deleteActivity('activity-1')).toEqual({ error: 'Досягнення не знайдено' });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 

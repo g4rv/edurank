@@ -98,7 +98,10 @@ export function Sidebar({
     );
   }
   for (const item of structure) topBlock.push(link(item));
-  if (user.role === 'USER' && isNpp) {
+  // **`isNpp`, not the USER role** (2026-08-17). A проректор who teaches and a
+  // division editor who teaches are both ordinary here, and both used to get no
+  // way into their own rating at all — the pages redirected them too.
+  if (isNpp) {
     topBlock.push(
       link({
         href: '/achievements',
@@ -115,7 +118,9 @@ export function Sidebar({
       }),
       link({
         href: '/achievements/students',
-        label: 'Залучені здобувачі',
+        // «Мої», because a head who is also an НПП gets the review screen below
+        // under almost the same name, and two identical labels is a coin toss.
+        label: 'Мої здобувачі',
         icon: GraduationCap,
         roles: [user.role],
       }),

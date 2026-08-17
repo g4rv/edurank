@@ -24,7 +24,13 @@ export default async function MyKharakterystykaPage() {
   if (!session) redirect('/login');
 
   const staffId = session.user.staffId;
-  if (!staffId || session.user.role !== 'USER') redirect('/profile');
+  // **Being an НПП is what grants this, not the USER role** (2026-08-17). These
+  // are a person's own record, and the role decides what somebody may do to
+  // OTHER people — not whether they can see their own rating. A проректор who
+  // teaches, or a division editor who teaches, is ordinary here; `create-admin`
+  // already says «flip isNpp on their profile later if the person is also an
+  // НПП», and the pages used to bounce exactly that person.
+  if (!staffId) redirect('/profile');
 
   const staff = await getStaff(staffId, true);
   if (!staff?.isNpp) redirect('/profile');

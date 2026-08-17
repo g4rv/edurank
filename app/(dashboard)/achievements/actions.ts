@@ -29,9 +29,11 @@ export async function createActivity(
   const session = await auth();
   if (!session) redirect('/login');
 
-  // NPP self-report only: USER role submitting for their own staff record
+  // Self-report only — for their OWN staff record, whatever role they hold.
+  // `isNpp` below is the real gate; the USER role used to be required here too
+  // and shut out an ADMIN or EDITOR who also teaches (2026-08-17).
   const staffId = session.user.staffId;
-  if (session.user.role !== 'USER' || !staffId) return { error: 'Недостатньо прав' };
+  if (!staffId) return { error: 'Недостатньо прав' };
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
@@ -163,8 +165,11 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
   const session = await auth();
   if (!session) redirect('/login');
 
+  // Ownership is the check — the row below must be theirs. The USER role was
+  // also required and shut out an ADMIN or EDITOR who teaches from deleting
+  // their own mistyped submission (2026-08-17).
   const staffId = session.user.staffId;
-  if (session.user.role !== 'USER' || !staffId) return { error: 'Недостатньо прав' };
+  if (!staffId) return { error: 'Недостатньо прав' };
 
   const activity = await db.activity.findUnique({
     where: { id: activityId },
