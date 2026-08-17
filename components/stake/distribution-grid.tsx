@@ -239,16 +239,15 @@ export function DistributionGrid({
     // положення does not give them.
     //
     // Lifted while the кафедра is over its pool, exactly as the sheet lifts it:
-    // otherwise the only way out of an overspend would be forbidden. Lifted in
-    // nothing there is paid to anybody.
-    if (!overspent && clamped < row.formulaHundredths) {
-      setError(
-        `${row.name}: ставку за формулою (${formatStake(row.formulaHundredths)}) можна лише збільшити`
-      );
-      return;
-    }
-
-    setValues((v) => ({ ...v, [row.staffId]: clamped }));
+    // otherwise the only way out of an overspend would be forbidden.
+    //
+    // **Enforced by the floor, not by a message** (2026-08-17). It used to raise
+    // a red banner above the table naming the person and the number. A rule the
+    // control simply obeys does not need announcing: the ▼ stops at the formula
+    // and a typed value settles on it, which says the same thing without an
+    // error for something nobody did wrong.
+    const floor = overspent ? lower : Math.max(lower, row.formulaHundredths);
+    setValues((v) => ({ ...v, [row.staffId]: Math.max(clamped, floor) }));
     setError(null);
   }
 
@@ -519,6 +518,7 @@ export function DistributionGrid({
                 canEditLimits={canEditLimits}
                 canOpenStaffProfile={canOpenStaffProfile}
                 disabled={pending}
+                overspent={overspent}
                 statusValues={statusValues}
                 // Only the ставка field. With no Кст the distribution cannot be
                 // saved, so an enabled field there is an invitation to lose
@@ -858,6 +858,7 @@ function Row({
   canOpenStaffProfile,
   disabled,
   distributionBlocked,
+  overspent,
   statusValues,
   limits,
   limitError,
@@ -877,6 +878,8 @@ function Row({
   disabled: boolean;
   /** No Кст — the ставка field cannot be saved, though the limits still can */
   distributionBlocked: boolean;
+  /** The кафедра is over both funds, which lifts «тільки збільшити» */
+  overspent: boolean;
   statusValues: Record<AdminPosition, number | undefined>;
   limits: LimitDraft;
   limitError: string | null;
@@ -915,6 +918,9 @@ function Row({
   // typing a Кст, which the toolbar now says instead.
   const noPool = view.kstHundredths === null;
   const outOfRange = !noPool && (value < lower || value > upper);
+  // Lifted while the кафедра is over its funds — otherwise the only way out of
+  // an overspend would be the one move the head is not allowed to make.
+  const stakeFloor = overspent ? lower : Math.max(lower, row.formulaHundredths);
 
   // Built on «за формулою», never on `value`: a target that moved every time
   // the head typed would be a target they were chasing rather than aiming at.
@@ -1061,7 +1067,10 @@ function Row({
             value={value}
             onChange={onChange}
             disabled={!canEdit || disabled || distributionBlocked}
-            min={lower}
+            // The formula is the floor, not the person's Мін — «тільки
+            // збільшити». `atMin` on the stepper then greys ▼ out exactly where
+            // the rule bites, which is why the rule needs no error message.
+            min={stakeFloor}
             max={upper}
             step={STAKE_STEP}
             label={`ставку для ${row.name}`}
