@@ -16,6 +16,7 @@ vi.mock('@/lib/db', () => ({
     staff: { findMany: vi.fn(), findUnique: vi.fn() },
     staffStakeLimits: { findUnique: vi.fn(), upsert: vi.fn() },
     stakeSandbox: { upsert: vi.fn(), deleteMany: vi.fn() },
+    ratingTemplate: { findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -40,6 +41,8 @@ const mockDocs = getKharakterystykaMany as unknown as Mock;
 const mockDepartment = db.department.findUnique as unknown as Mock;
 const mockStake = db.departmentStake.findUnique as unknown as Mock;
 const mockStaff = db.staff.findMany as unknown as Mock;
+/** What `activeYear()` reads — every real ставка write is pinned to it */
+const mockTemplate = db.ratingTemplate.findFirst as unknown as Mock;
 const mockStaffOne = db.staff.findUnique as unknown as Mock;
 const mockLimitsFind = db.staffStakeLimits.findUnique as unknown as Mock;
 const mockLimitsUpsert = db.staffStakeLimits.upsert as unknown as Mock;
@@ -88,6 +91,7 @@ beforeEach(() => {
   mockDepartment.mockResolvedValue({ id: DEPT, name: 'Кафедра фізики' });
   mockStake.mockResolvedValue({ kstHundredths: 300 }); // 3.00
   mockStaff.mockResolvedValue(roster());
+  mockTemplate.mockResolvedValue({ year: YEAR });
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
     fn({
       stakeDistribution: { upsert: vi.fn().mockResolvedValue({ id: 'dist-1' }) },
@@ -99,6 +103,44 @@ beforeEach(() => {
       auditLog: { create: vi.fn() },
     })
   );
+});
+
+// The `year` in the payload used to be written against without ever being
+// checked, so a request made outside the UI could name a year that was closed
+// and reported and rewrite a кафедра's pay for it — with an audit entry that
+// looked perfectly ordinary. Both writes are now pinned to the active template.
+describe('the year is pinned to the active template', () => {
+  it('refuses a distribution for a year that is not the active one', async () => {
+    mockTemplate.mockResolvedValue({ year: 2025 });
+
+    const result = await saveDistribution(payload([100, 100, 100]));
+
+    expect(result).toEqual({ error: expect.stringContaining('2025') });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses per-person limits for a year that is not the active one', async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockTemplate.mockResolvedValue({ year: 2025 });
+
+    const fd = new FormData();
+    fd.set('staffId', 's1');
+    fd.set('year', String(YEAR));
+    fd.set('min', '0,10');
+    fd.set('max', '1,00');
+
+    expect(await setStaffLimits(null, fd)).toHaveProperty('error');
+    expect(mockLimitsUpsert).not.toHaveBeenCalled();
+  });
+
+  it('refuses a distribution when no template is active at all', async () => {
+    mockTemplate.mockResolvedValue(null);
+
+    expect(await saveDistribution(payload([100, 100, 100]))).toEqual({
+      error: 'Рейтинговий рік ще не налаштовано',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
 });
 
 describe('saveDistribution — who may', () => {

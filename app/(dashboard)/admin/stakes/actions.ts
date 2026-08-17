@@ -7,6 +7,7 @@ import { parseDbError } from '@/lib/db-error';
 import { requireAdmin } from '@/lib/permissions';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { formatStake, minimumKstHundredths } from '@/lib/stake/units';
+import { closedYearProblem } from '@/lib/stake/writable-year';
 import {
   departmentStakeSchema,
   specialityNormSchema,
@@ -51,6 +52,9 @@ export async function setDepartmentStake(
     return { error: parsed.error.issues[0]?.message ?? 'Невірні дані' };
   }
   const { departmentId, year, kstHundredths } = parsed.data;
+
+  const closed = await closedYearProblem(year);
+  if (closed) return { error: closed };
 
   const department = await db.department.findUnique({
     where: { id: departmentId },
@@ -126,6 +130,9 @@ export async function setSpecialityNorm(
   }
   const { specialityId, year, base } = parsed.data;
 
+  const closed = await closedYearProblem(year);
+  if (closed) return { error: closed };
+
   const speciality = await db.speciality.findUnique({
     where: { id: specialityId },
     select: { name: true },
@@ -185,6 +192,9 @@ export async function setStakeYearSettings(
     return { error: parsed.error.issues[0]?.message ?? 'Невірні дані' };
   }
   const { year, contractCoefficient } = parsed.data;
+
+  const closed = await closedYearProblem(year);
+  if (closed) return { error: closed };
 
   try {
     const existing = await db.stakeYearSettings.findUnique({

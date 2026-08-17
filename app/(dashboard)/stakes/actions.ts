@@ -11,6 +11,7 @@ import { ON_ROSTER } from '@/lib/queries/roster';
 import { headOf } from '@/lib/queries/scope';
 import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { MIN_STAKE, STAKE_STEP, formatStake } from '@/lib/stake/units';
+import { closedYearProblem } from '@/lib/stake/writable-year';
 import { staffStakeLimitsSchema } from '@/validations/stake';
 import type { Role } from '@/lib/generated/prisma/client';
 
@@ -88,6 +89,9 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   if (!(await canDistribute(session.user, departmentId))) {
     return { error: 'Розподіл зберігає завідувач кафедри' };
   }
+
+  const closed = await closedYearProblem(year);
+  if (closed) return { error: closed };
 
   const [department, stake, staff] = await Promise.all([
     db.department.findUnique({ where: { id: departmentId }, select: { name: true } }),
@@ -277,6 +281,9 @@ export async function setStaffLimits(
     return { error: parsed.error.issues[0]?.message ?? 'Невірні дані' };
   }
   const { staffId, year, minHundredths, maxHundredths } = parsed.data;
+
+  const closed = await closedYearProblem(year);
+  if (closed) return { error: closed };
 
   const person = await db.staff.findUnique({
     where: { id: staffId },

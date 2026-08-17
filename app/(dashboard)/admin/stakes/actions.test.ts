@@ -10,6 +10,7 @@ vi.mock('@/lib/db', () => ({
     departmentStake: { findUnique: vi.fn(), upsert: vi.fn() },
     specialityNorm: { findUnique: vi.fn(), upsert: vi.fn() },
     stakeYearSettings: { findUnique: vi.fn(), upsert: vi.fn() },
+    ratingTemplate: { findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
   },
 }));
@@ -19,6 +20,8 @@ import { requireAdmin } from '@/lib/permissions';
 import { setDepartmentStake, setSpecialityNorm, setStakeYearSettings } from './actions';
 
 const mockAdmin = requireAdmin as unknown as Mock;
+/** What `activeYear()` reads — every ставка write is pinned to it */
+const mockTemplate = db.ratingTemplate.findFirst as unknown as Mock;
 const mockDepartment = db.department.findUnique as unknown as Mock;
 const mockSpeciality = db.speciality.findUnique as unknown as Mock;
 const mockCount = db.staff.count as unknown as Mock;
@@ -49,6 +52,57 @@ beforeEach(() => {
   mockSettingsFind.mockResolvedValue(null);
   mockSettingsUpsert.mockResolvedValue({ year: 2026 });
   mockCount.mockResolvedValue(10);
+  mockTemplate.mockResolvedValue({ year: 2026 });
+});
+
+// A year arrives in the payload and used to be written against without ever
+// being checked. A request made outside the UI could name any year that had a
+// `Кст` row — one already closed and reported — and rewrite pay for it.
+describe('the year is pinned to the active template', () => {
+  it('refuses a Кст for a year that is not the active one', async () => {
+    mockTemplate.mockResolvedValue({ year: 2027 });
+
+    const result = await setDepartmentStake(
+      null,
+      form({ departmentId: 'd1', year: 2026, kst: '4' })
+    );
+
+    expect(result).toEqual({ error: expect.stringContaining('2027') });
+    expect(mockStakeUpsert).not.toHaveBeenCalled();
+  });
+
+  it('refuses a норматив for a year that is not the active one', async () => {
+    mockTemplate.mockResolvedValue({ year: 2027 });
+
+    const result = await setSpecialityNorm(
+      null,
+      form({ specialityId: 's1', year: 2026, base: '13' })
+    );
+
+    expect(result).toHaveProperty('error');
+    expect(mockNormUpsert).not.toHaveBeenCalled();
+  });
+
+  it('refuses a coefficient for a year that is not the active one', async () => {
+    mockTemplate.mockResolvedValue({ year: 2027 });
+
+    const result = await setStakeYearSettings(
+      null,
+      form({ year: 2026, contractCoefficient: '0.175' })
+    );
+
+    expect(result).toHaveProperty('error');
+    expect(mockSettingsUpsert).not.toHaveBeenCalled();
+  });
+
+  it('refuses everything when no template is active at all', async () => {
+    mockTemplate.mockResolvedValue(null);
+
+    expect(
+      await setDepartmentStake(null, form({ departmentId: 'd1', year: 2026, kst: '4' }))
+    ).toEqual({ error: 'Рейтинговий рік ще не налаштовано' });
+    expect(mockStakeUpsert).not.toHaveBeenCalled();
+  });
 });
 
 describe('setDepartmentStake — access', () => {
