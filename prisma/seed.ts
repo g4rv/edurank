@@ -7,6 +7,7 @@ import {
   DEMO_EMAILS,
   DEMO_PASSWORD,
   removeDemoUsers,
+  seedDemoPopulation,
   seedDemoUsers,
 } from './demo-users';
 import { seedRaterPopulation } from './population';
@@ -25,10 +26,14 @@ import { seedStructure, wipePeople, wipeTemplates } from './structure';
 //                            what a fresh PRODUCTION database wants: it turns
 //                            39 records somebody would otherwise type by hand
 //                            into one command, and it touches nobody's account.
-//   pnpm db:seed --demo      + six invented accounts that can actually sign in,
-//                            one per screen worth showing. UPSERTS them, so it
-//                            is safe beside real data and can be run twice.
-//                            `--demo-remove` takes them away again.
+//   pnpm db:seed --demo      + six named accounts, one per screen worth
+//                            showing, AND every кафедра filled: a завідувач
+//                            plus three НПП each, with ratings that differ, so
+//                            «Рейтинг НПП» and the charts have something to
+//                            compare. All can sign in. Idempotent by email —
+//                            somebody who already exists is left untouched,
+//                            activities included, so a second run cannot double
+//                            anybody's score. `--demo-remove` takes them away.
 //
 // DESTRUCTIVE. Each clears people, structure and rating templates first, so
 // running one twice gives the same database rather than a second copy layered
@@ -172,6 +177,13 @@ async function main() {
     if (mode === 'demo') {
       const demo = await seedDemoUsers(prisma);
       console.log(`Демо-акаунти: створено ${demo.created}, оновлено ${demo.updated}\n`);
+
+      const pop = await seedDemoPopulation(prisma);
+      console.log(
+        `Кафедри: ${pop.departments} · створено ${pop.created} осіб, пропущено ${pop.skipped} (вже були)`
+      );
+      console.log(`Завідувачів призначено: ${pop.headsSet}, залишено чужих: ${pop.headsTaken}\n`);
+
       if (demo.headTaken) {
         console.log(`  Завідувача НЕ змінено — кафедру вже веде ${demo.headTaken}`);
       }

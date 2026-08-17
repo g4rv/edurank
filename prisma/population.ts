@@ -23,7 +23,7 @@ const DEMO_DOMAIN = '@demo.local';
  * Deterministic PRNG (mulberry32). The same command gives the same university
  * every time, so a demo you showed last week looks the same today.
  */
-function makeRandom(seed: number) {
+export function makeRandom(seed: number) {
   let a = seed;
   return function random() {
     a |= 0;
@@ -34,7 +34,7 @@ function makeRandom(seed: number) {
   };
 }
 
-const SURNAMES = [
+export const SURNAMES = [
   'Мельник',
   'Шевченко',
   'Бондаренко',
@@ -77,7 +77,7 @@ const SURNAMES = [
   'Павленко',
 ];
 
-const MALE_NAMES = [
+export const MALE_NAMES = [
   'Олександр',
   'Андрій',
   'Володимир',
@@ -95,7 +95,7 @@ const MALE_NAMES = [
   'Артем',
 ];
 
-const FEMALE_NAMES = [
+export const FEMALE_NAMES = [
   'Олена',
   'Наталія',
   'Тетяна',
@@ -113,7 +113,7 @@ const FEMALE_NAMES = [
   'Дарина',
 ];
 
-const MALE_PATRONYMICS = [
+export const MALE_PATRONYMICS = [
   'Олександрович',
   'Андрійович',
   'Володимирович',
@@ -129,7 +129,7 @@ const MALE_PATRONYMICS = [
   'Павлович',
 ];
 
-const FEMALE_PATRONYMICS = [
+export const FEMALE_PATRONYMICS = [
   'Олександрівна',
   'Андріївна',
   'Володимирівна',
@@ -146,16 +146,16 @@ const FEMALE_PATRONYMICS = [
 ];
 
 /** Female surnames in -енко/-ук/-як do not change; -ов/-ев take -а */
-function feminine(surname: string): string {
+export function feminine(surname: string): string {
   return /(ов|ев|ів|ин)$/.test(surname) ? `${surname}а` : surname;
 }
 
-function pick<T>(random: () => number, list: T[]): T {
+export function pick<T>(random: () => number, list: T[]): T {
   return list[Math.floor(random() * list.length)];
 }
 
 /** Valid demo evidence for any activity type, built from its own field specs */
-function sampleEvidence(fields: readonly EvidenceField[], random: () => number) {
+export function sampleEvidence(fields: readonly EvidenceField[], random: () => number) {
   const out: Record<string, unknown> = {};
   for (const f of fields) {
     switch (f.kind) {
