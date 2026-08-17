@@ -11,6 +11,9 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
+/** Stands for «every кафедра». Not `''` — Radix reserves that for «no selection». */
+const ALL = '__all__';
+
 export interface DepartmentOption {
   id: string;
   name: string;
@@ -48,6 +51,7 @@ export function DepartmentSelect({
   label = 'Кафедра',
   extraParams,
   className,
+  allowAll,
 }: {
   departments: DepartmentOption[];
   value: string;
@@ -55,6 +59,18 @@ export function DepartmentSelect({
   param?: string;
   /** Screen-reader name for the trigger; the visible text is the department */
   label?: string;
+  /**
+   * Adds an «Усі кафедри» entry that drops the param instead of setting it.
+   *
+   * Off by default: /stakes and /my-department/students act on exactly one
+   * кафедра, and «усі» there would be a screen nobody makes a decision from.
+   * /admin/invites is the opposite — writing to everybody at once is its whole
+   * purpose, so «усі» is the state it opens in.
+   *
+   * The sentinel exists because Radix reserves the empty string: an item with
+   * `value=""` is how it marks «nothing selected», so it cannot also mean «all».
+   */
+  allowAll?: { label: string; tag?: string | null };
   /**
    * Query params to carry across the switch. Without this, changing кафедра on
    * /stakes silently dropped `?tab=sandbox` and dumped ADMIN back on the real
@@ -68,13 +84,15 @@ export function DepartmentSelect({
 
   return (
     <Select
-      value={value}
+      value={value || (allowAll ? ALL : '')}
       disabled={pending}
       onValueChange={(next) => {
         if (next === value) return;
-        const params = new URLSearchParams({ ...extraParams, [param]: next });
+        const params = new URLSearchParams(extraParams);
+        if (next !== ALL) params.set(param, next);
+        const query = params.toString();
         startTransition(() => {
-          router.push(`${basePath}?${params}`);
+          router.push(query ? `${basePath}?${query}` : basePath);
         });
       }}
     >
@@ -82,6 +100,18 @@ export function DepartmentSelect({
         <SelectValue placeholder={label} />
       </SelectTrigger>
       <SelectContent>
+        {allowAll && (
+          <SelectItem value={ALL}>
+            <span className="flex w-full items-center gap-2">
+              <span className="truncate">{allowAll.label}</span>
+              {allowAll.tag && (
+                <span className="ml-auto shrink-0 rounded bg-muted px-1.5 py-px text-xs text-muted-foreground tabular-nums">
+                  {allowAll.tag}
+                </span>
+              )}
+            </span>
+          </SelectItem>
+        )}
         {departments.map((d) => (
           <SelectItem key={d.id} value={d.id}>
             <span className="flex w-full items-center gap-2">

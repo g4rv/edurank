@@ -5,6 +5,7 @@ import { listPendingInvites } from '@/lib/queries/list-pending-invites';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { BulkInvite } from '@/components/admin/bulk-invite';
+import { DepartmentSelect } from '@/components/department-select';
 
 /**
  * «Запрошення» — everyone who still has no account, and one button to write to
@@ -60,7 +61,12 @@ export default async function InvitesPage({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+      {/* Three tabs stay links; thirty-two кафедри became a select (2026-08-17).
+          As chips they were a wall of text about 600px tall that pushed the
+          people — the thing the page is for — below the fold, on the screen an
+          admin uses to write to 300 colleagues. `DepartmentSelect` already
+          existed and /stakes already used it. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-3 text-sm">
         {kinds.map((k) => (
           <Link
             key={k.value}
@@ -75,31 +81,23 @@ export default async function InvitesPage({
           </Link>
         ))}
 
-        <span className="mx-1 h-5 w-px bg-border" />
+        <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
 
-        <Link
-          href={href({ department: '' })}
-          className={
-            department
-              ? 'rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted'
-              : 'rounded-lg bg-secondary px-3 py-1.5 font-medium'
-          }
-        >
-          Усі кафедри
-        </Link>
-        {departments.map((d) => (
-          <Link
-            key={d.id}
-            href={href({ department: d.id })}
-            className={
-              department === d.id
-                ? 'rounded-lg bg-secondary px-3 py-1.5 font-medium'
-                : 'rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted'
-            }
-          >
-            {d.name}
-          </Link>
-        ))}
+        <DepartmentSelect
+          departments={departments}
+          value={department ?? ''}
+          basePath="/admin/invites"
+          extraParams={kind ? { kind } : undefined}
+          allowAll={{ label: 'Усі кафедри' }}
+          className="w-full sm:w-80"
+        />
+
+        {/* The count belongs beside the filter that produced it — «Усі кафедри»
+            and «21 особа» together are the sentence somebody reads before
+            pressing a button that sends 21 emails. */}
+        <span className="text-muted-foreground">
+          {people.length === 0 ? 'нікого' : `${people.length} без облікового запису`}
+        </span>
       </div>
 
       <BulkInvite people={people} />
