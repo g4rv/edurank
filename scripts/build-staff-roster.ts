@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { normaliseDepartmentName } from '../lib/specialities/departments';
 import { DEPARTMENTS } from '../prisma/preprod-org';
+import { CONFIRMED_PATRONYMICS, PATRONYMICS } from './staff-patronymics';
 
 // Turns the university's 31 per-кафедра .docx lists into one roster JSON.
 //
@@ -258,6 +259,8 @@ async function main() {
 
   const noPatronymic: string[] = [];
   const ambiguous: string[] = [];
+  /** Filled from `staff-patronymics.ts` rather than the sheet — reported separately */
+  const fromSite: string[] = [];
   const perFile: {
     file: string;
     heading: string;
@@ -295,11 +298,20 @@ async function main() {
       const listed = row.listedName.trim().replace(/\s+/g, ' ');
       let fullName = listed;
       let hasPatronymic = false;
+
+      // The sheet first, then the hand-checked table. The sheet is the
+      // university's own record; `staff-patronymics.ts` only covers the people
+      // who joined after it was written and therefore are not in it at all.
+      const fromTable = CONFIRMED_PATRONYMICS.get(listed);
       if (unique.length === 1) {
         fullName = listed + ' ' + unique[0];
         hasPatronymic = true;
       } else if (unique.length > 1) {
         ambiguous.push(listed + ' — ' + unique.join(' / '));
+      } else if (fromTable) {
+        fullName = listed + ' ' + fromTable;
+        hasPatronymic = true;
+        fromSite.push(listed + ' → ' + fromTable);
       } else {
         noPatronymic.push(listed + ' (' + row.email + ') — ' + heading);
       }
@@ -359,9 +371,27 @@ async function main() {
 
   const withPatronymic = roster.filter((p) => p.hasPatronymic).length;
   console.log('\nЗ по батькові: ' + withPatronymic + ' з ' + roster.length);
+
+  if (fromSite.length > 0) {
+    console.log('\nДодано з сайту університету (staff-patronymics.ts): ' + fromSite.length);
+    for (const line of fromSite) console.log('  ' + line);
+  }
+
   if (noPatronymic.length > 0) {
-    console.log('Без по батькові (немає в УГСП_Дані — вписати вручну): ' + noPatronymic.length);
+    console.log('\nБез по батькові — спитати кафедру: ' + noPatronymic.length);
     for (const line of noPatronymic) console.log('  ' + line);
+  }
+
+  // The ones found but not trusted. Printed every run so they are not forgotten:
+  // each is one flag away from being applied, and each needs one question asked.
+  const pending = PATRONYMICS.filter((p) => !p.confirmed);
+  if (pending.length > 0) {
+    console.log('\nЗнайдено, але не підтверджено (не застосовано): ' + pending.length);
+    for (const p of pending) {
+      console.log('  ' + p.listedName + ' → ' + p.patronymic);
+      console.log('      ' + p.source);
+      if (p.doubt) console.log('      сумнів: ' + p.doubt);
+    }
   }
   if (ambiguous.length > 0) {
     console.log('\nНеоднозначні (кілька по батькові на одне прізвище+ім’я): ' + ambiguous.length);
