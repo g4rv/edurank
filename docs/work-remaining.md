@@ -1,10 +1,52 @@
 # Work remaining
 
-State as of **2026-08-10**. This is the single list of what is left to build. It
+State as of **2026-08-17**. This is the single list of what is left to build. It
 replaces reading four documents at once: `audit-2026-07-29.md` is now a
 historical snapshot (accurate for its date, wrong about current code in several
 places), `ui-fixes-plan.md` is done except for one item,
 `profile-account-merge.md` is finished.
+
+---
+
+## 2026-08-17 — read this first
+
+Three things changed that make parts of the text below wrong. They are corrected
+in place, but the headlines are worth having up front.
+
+**1. Ставки are spread in TWO phases, and the second is not built.** Phase 1 is
+what exists: `Кст` per кафедра, the formula, the head's grid. Phase 2 happens a
+couple of months later — the проректор **raises the same `Кст`** (10 → 15), the
+phase-1 numbers stay frozen, and the завідувач hands out the increase by hand to
+the people who recruited students. Somebody who recruited fifty students but has
+no room **gets nothing automatically**; it is discussed. So the recruitment
+figure is **evidence, not money**, and the app was paying it out by itself.
+Fixed in `20303a6`: the «Разом» column and «Разом до виплати» tile are gone, and
+`lib/stake/total.ts` is unused pending confirmation.
+
+**Still open, and it designs the whole phase:** when the pool is raised, may
+anybody's phase-1 ставка be reduced? Recommendation if not — freeze at the moment
+`Кст` is raised, with a dialog naming the old and new pool.
+
+**2. The formula overspend is SOLVED and the section below saying otherwise is
+wrong.** `5f6d9b7` (2026-08-12) rewrote it against the university's own working
+sheet: two passes, both bracketed terms are shares summing to 1, so the кафедра
+lands on its pool by construction. Verified against their output for Кафедра
+історії — seven people, `Кст` 6.00, all seven ставки and the «не розподілено» of
+0.10 reproduced exactly. What is left over is ladder dust of a few hundredths,
+never a deficit.
+
+**3. A декан inspects and does not decide.** `canDecide` on recruited-student
+claims used `scopeOf` and let a декан rule on кафедри they do not head, while
+being read-only on the grid that spends it. Now `headOf` (`a09afe1`).
+
+**Counts:** **827 tests** (not the 651 below), type-check clean, one deliberate
+lint warning.
+
+**Verified 2026-08-17, worth not re-deriving:** the student register is complete
+— 722 rows in `list_of_students.xlsx`, 722 in the app, all four накази mapped
+(1,3 = бюджет; 2,4 = контракт), no duplicate names, 32 specialities. But **every
+one of them is a бакалавр**. The app supports магістри and the source file has
+none, so a магістр cannot be claimed at all. Ask whether a second наказ exists.
 
 `open-questions.md` and the questions artifact are **closed** — every question
 was answered on 2026-08-06/07. The answers live in
@@ -20,9 +62,10 @@ here with a strikethrough.
 
 Phase 1 (structure, staff, permissions, auth) and Phase 2 (the whole rating
 system) are complete and stable, and **both big features — B1 Характеристика and
-B2 Розподіл ставок — are built**: **651 tests**, type-check clean, one
+B2 Розподіл ставок — are built**: **827 tests**, type-check clean, one
 deliberate lint warning (`watch()` in `activity-type-dialog`). The audit of
-2026-07-29 is fully closed.
+2026-07-29 is fully closed. Ставки phase 2 is the one substantial thing not
+built — see the note at the top of this file.
 
 **Two real bugs were found and fixed**, both by looking at the university's own
 files rather than at the code:
@@ -451,21 +494,22 @@ to end: settings → `Кст` → formula → the head's grid → student claims
 - **Bulk entry for the per-person caps.** ADMIN sets them one кафедра at a time
   on the distribution grid. Fine for a кафедра, tedious for a university.
 
-**One decision still open, and it is not a code question.** The formula hands out
-more than the allocation on most кафедри, so a head opens the grid already over
-budget:
+**~~One decision still open~~ — SOLVED 2026-08-12, `5f6d9b7`.** The paragraph
+that stood here described the формула handing out more than the allocation on
+most кафедри (4.90 against a pool of 4.00 on Кафедра вищої математики) and asked
+the owner to choose between pre-scaling and going back to the вчена рада.
 
-```
-Σ term1 = 0.5 × N / Кнпп × Кст
-```
+Neither was needed. The положення's printed formula is a **weighting rule, not an
+allocation** — nothing in it makes the values add up to `Кст`. The university's
+own working sheet has a second pass the PDF does not print, and that is what the
+app follows now: both bracketed terms are shares that each sum to 1 across the
+кафедра, so their average does too, and multiplying by `Кст` lands on the pool by
+construction. Reproduced against their output for Кафедра історії exactly — seven
+people, `Кст` 6.00, «не розподілено» 0.10.
 
-It equals `Кст` only when `Кнпп` is exactly half the headcount, and the 0.1 floor
-pushes it higher still. Measured on Кафедра вищої математики (18 НПП, Кнпп 8,
-Кст 4.00): the formula totals **4.90**. The screen says so plainly rather than
-hiding it, and the head cuts by hand — which is what the положення describes. The
-alternatives are to open the editable column pre-scaled to fit (keeping «За
-формулою» truthful), or to ask the вчена рада whether the flat `0,5` is what they
-meant. **Owner has not decided.**
+What remains is ladder dust of a few hundredths from snapping each person to
+0.05, never a deficit, and an overspend is shown rather than refused because the
+кафедри's own sheet permits it and asks for it in the протокол.
 
 Decisions made while building, easy to undo by accident:
 
@@ -514,14 +558,31 @@ central `Кст`, the hard ceiling at save, ADMIN-only caps, and the audit log.
 
 ### C1. Staff import — still the thing to do first
 
-From `edu-reference/csv/УГСП_Дані - НПП.csv`. The `Staff` model already carries
-every column. Needs a **dry-run report first** — rows to create / update / skip
-with a reason each — then commit, one audit-log entry per row.
+The parser exists and works: `prisma/staff-import.ts` reads `УГСП_Дані.xlsx` for
+ПІБ, кафедра, стаж, звання, ступінь and email, splits «за спеціальністю кафедри»
+into its own flag, and refuses to write anything at all when an address is
+missing or shared — it hands back the names to fix in the sheet instead.
 
-Why first: no unknowns, and it makes everything else testable against real
-people instead of 200 invented ones. Watch for name variants, missing or shared
-emails, department names that do not match, duplicates. The code is easy; the
-data is where the time goes.
+**Two things are still missing, and one of them was dangerous.**
+
+- **The destructive mode is no longer the only way in.** `--prod` called
+  `wipePeople()` first, so importing the real НПП onto production would have
+  deleted the administrator account, the structure and the audit log. Since
+  `7442c9a` a destructive mode refuses a database that already has accounts and
+  prints what it was about to destroy; `--structure` seeds the 8 факультети and
+  31 кафедри without deleting anything.
+- **There is still no re-runnable import and no dry-run report.** The import
+  creates and never updates, so a second run fails on the unique email. What is
+  wanted: rows to create / update / skip with a reason each, then commit, one
+  audit-log entry per row.
+
+**Waiting on the owner (2026-08-17): names and emails come from a different,
+newer file** — the complete and up-to-date НПП list — with everything else read
+from `УГСП_Дані.xlsx`. So the import must merge two sources, and it cannot be
+finished until that file arrives.
+
+Watch for name variants, department names that do not match the довідник (the
+form now warns while typing — see `6e751ae`), and duplicates.
 
 ### C2. Instructions in Ukrainian
 
@@ -530,18 +591,27 @@ division editors, ННВ moderators, admins. Plan: a `/help` page split by role
 plus contextual text on the 3–4 screens where people will certainly get stuck.
 **The wording must be reviewed by the owner.**
 
-### C3. Bulk invite
+### C3. Bulk invite — **DONE**
 
-300 people, one button per person today. Select a department or filter, send to
-everyone without a password, spread over the SMTP cap, per-person resend for
-bounces. The invite mechanics exist — this is the batch layer.
+`/admin/invites`, ADMIN only. Everybody without a password, filtered by кафедра
+and by НПП/адміністративні, sent a batch at a time with the client driving the
+loop so progress is visible and stopping halfway costs nothing. `INVITE_DELAY_MS`
+paces it under the provider's per-second limit; a refused address is reported per
+person and does not end the run.
+
+The кафедра filter was a wall of 32 text chips until `1e0d236` — it is a select
+now, and the count of people sits beside it.
 
 ### C4. Reminders / notifications
 
-**There is no notification code in the app at all.** Nothing tells an НПП that
-submissions are open, that the year closes soon, or that something of theirs was
-discarded. Biggest adoption risk. Minimum: an email on discard, and a «year
-closes on X» an admin can trigger.
+**There is no notification code in the app at all.** Mail does exactly two
+things — invitations and password resets. Nothing tells an НПП that submissions
+are open, that the year closes soon, that a rating entry of theirs was discarded,
+or that a здобувач they claimed was rejected. Biggest adoption risk, and it grew
+with the claims feature: somebody files and hears nothing back either way.
+
+Minimum: an email when a claim is rejected, one when a rating entry is discarded,
+and a «year closes on X» an admin can trigger.
 
 ### C5. E2E tests
 
@@ -653,24 +723,34 @@ re-asked:
 
 ## Suggested order
 
-Both big features are done, so what remains is adoption and polish — and the
-adoption half is the one that decides whether any of this gets used.
+Rewritten 2026-08-17, after a working pass over the whole app and the owner's
+answers. The deadline is **25 August**.
 
-1. **The owner picks a look** at `/admin/design`; applying it is a token edit.
-   Waiting on a decision, not on work.
-2. **C1 staff import** — the real ~300 people instead of 200 invented ones.
-   Everything downstream becomes testable against reality, and a demo becomes
-   convincing. Note `Дані ННВ`'s `Дані` sheet is a second source for the same
-   profile fields, so reconcile the two rather than importing both blindly.
-3. **C2–C4 the adoption set** — instructions, bulk invite, reminders. There is
-   still **no notification code in the app at all**: nothing tells an НПП that
-   submissions are open or that something of theirs was discarded.
-4. **Column picker on /division-data** — the last piece of A5.
-5. **A3–A4** — the section 3 form and the Публікації report.
-6. **The leftovers of B1 and B2** — the п.38 mapping editor, manual п.15/п.20,
-   the 1С export, bulk caps. All small, none blocking.
-7. **E deployment**, with a pilot before the rollout.
+1. **Ставки phase 2** — the раised pool, frozen phase-1 numbers, manual
+   distribution of the increase. The one substantial feature still missing, and
+   the owner wants it by the deadline. **Blocked on one answer:** may a phase-1
+   ставка be reduced when the pool is raised?
+2. **C1 staff import** — re-runnable, with a dry-run report. **Blocked on the
+   newer file** carrying names and emails; everything else comes from
+   `УГСП_Дані.xlsx`. The destructive-seed trap that sat in front of this is
+   closed (`7442c9a`).
+3. **C4 notifications** — at minimum a mail when a claim is rejected and when a
+   rating entry is discarded. Cheapest thing on this list with the largest effect
+   on whether people trust the system: today they act and hear nothing.
+4. **A pilot on two or three real people**, before the rollout. The 25th is the
+   date people start using it, not the date it compiles.
+5. **Column picker on /division-data** — the last piece of A5.
+6. **A3–A4** — the section 3 form and the Публікації report.
+7. **The leftovers of B1 and B2** — the п.38 mapping editor, manual п.15/п.20,
+   bulk caps. All small, none blocking. The 1С/додаток 2 export is **not
+   wanted** — confirmed 2026-08-17.
+8. **«Аврора»** at `/admin/design` — chosen, and explicitly last.
+
+**Done since the last revision of this list:** bulk invite (C3), the seed guard
+and `--structure` mode, the year pinned on every ставка write, the декан's read
+-only claims, the bonus stopped being paid automatically, and four UI fixes
+found by driving the app rather than reading it.
 
 The critical path is finished. **The risk is no longer the engine — it is that
-nobody fills it in**, which makes the import and the adoption set the things
+nobody fills it in**, which makes the import and the notifications the things
 that matter most now.
