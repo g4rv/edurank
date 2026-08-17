@@ -18,6 +18,21 @@ import type { Role } from '@/lib/generated/prisma/client';
 export type DistributionState = { error: string } | { success: true } | null;
 
 /**
+ * What `setStaffLimits` hands back.
+ *
+ * `formulaHundredths` is this person's share recomputed against the bounds that
+ * were just saved. The grid needs it: a lower Макс makes the formula propose
+ * less, and the ставка in the field has to follow — otherwise the row is left
+ * holding a number the next save will refuse. Returning it beats making the
+ * client wait for a refresh and then diff the props, which is a re-render loop
+ * dressed up as reconciliation.
+ */
+export type LimitsState =
+  | { error: string }
+  | { success: true; formulaHundredths: number | null }
+  | null;
+
+/**
  * Who may spread a кафедра's pool: its завідувач, and ADMIN.
  *
  * Headship comes from `Department.headId`, never from a `Role` — one person is
@@ -261,10 +276,7 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
  * inside limits they cannot change, which is what stops a head capping
  * colleagues down and themselves up (decided 2026-08-05).
  */
-export async function setStaffLimits(
-  _prev: DistributionState,
-  formData: FormData
-): Promise<DistributionState> {
+export async function setStaffLimits(_prev: LimitsState, formData: FormData): Promise<LimitsState> {
   const session = await auth();
   if (!session) redirect('/login');
   // Not `canDistribute`: a head may spread the pool but never move the bounds
@@ -333,6 +345,40 @@ export async function setStaffLimits(
     };
   }
 
-  if (person.departmentId) revalidateStakes(person.departmentId);
-  return { success: true };
+  if (!person.departmentId) return { success: true, formulaHundredths: null };
+  revalidateStakes(person.departmentId);
+
+  // Recomputed with the bounds that were just written, for the row the grid has
+  // to move. Whole-кафедра, because both passes of the formula divide by sums
+  // over everyone — one person's cap changes what every share comes to.
+  const [stake, roster] = await Promise.all([
+    db.departmentStake.findUnique({
+      where: { departmentId_year: { departmentId: person.departmentId, year } },
+      select: { kstHundredths: true },
+    }),
+    db.staff.findMany({
+      where: { ...ON_ROSTER, isNpp: true, departmentId: person.departmentId },
+      select: {
+        id: true,
+        ratingEntries: { where: { year }, select: { totalScore: true } },
+        stakeLimits: { where: { year }, select: { minHundredths: true, maxHundredths: true } },
+      },
+    }),
+  ]);
+  if (!stake) return { success: true, formulaHundredths: null };
+
+  const formula = formulaShares({
+    people: roster.map((s) => ({
+      staffId: s.id,
+      rating: s.ratingEntries[0]?.totalScore ?? 0,
+      minHundredths: s.stakeLimits[0]?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
+      maxHundredths: s.stakeLimits[0]?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
+    })),
+    kstHundredths: stake.kstHundredths,
+  });
+
+  return {
+    success: true,
+    formulaHundredths: formula.shares.find((x) => x.staffId === staffId)?.hundredths ?? null,
+  };
 }

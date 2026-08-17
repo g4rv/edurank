@@ -114,14 +114,6 @@ export function DistributionGrid({
     )
   );
   const [limitErrors, setLimitErrors] = useState<Record<string, string>>({});
-  /**
-   * Rows whose bounds have just changed and whose ставка must follow.
-   *
-   * `values` is seeded from props once and then owned by the person typing, so
-   * a `router.refresh()` alone does not move it — which is right for an ordinary
-   * refresh and wrong after a cap moved the formula underneath it.
-   */
-  const [resync, setResync] = useState<Record<string, boolean>>({});
   const [limitsPending, startLimitsTransition] = useTransition();
   const router = useRouter();
 
@@ -162,12 +154,24 @@ export function DistributionGrid({
           const { [row.staffId]: _dropped, ...rest } = e;
           return rest;
         });
+
         // A cap moves what the formula proposes, and the ставка has to follow.
-        // Lowering Макс to 1,35 under a saved 1,50 used to leave the field
-        // holding 1,50, red and unsaveable — a state nobody could get out of
-        // except by typing over it. The row is marked for re-sync and picks up
-        // the recomputed number when the refreshed props arrive (2026-08-17).
-        setResync((r) => ({ ...r, [row.staffId]: true }));
+        // Lowering Макс to 1,35 under a saved 1,50 left the field holding 1,50
+        // — red, refused by the server, and fixable only by typing over it
+        // (2026-08-17, reported from the screen).
+        //
+        // The action hands back the recomputed share, so the correction happens
+        // here, in the callback that already knows the save succeeded. Deriving
+        // it from refreshed props instead needed either a setState during
+        // render — which cannot also call `save`, since that opens a transition
+        // — or an effect that sets state, which cascades renders. Both were
+        // tried; asking the server for the number it just recomputed is simpler
+        // than either.
+        if (result && 'success' in result && result.formulaHundredths !== null) {
+          const next = { ...values, [row.staffId]: result.formulaHundredths };
+          setValues(next);
+          save(next);
+        }
         router.refresh();
       }
     });
@@ -195,25 +199,6 @@ export function DistributionGrid({
     () => roundBonus(view.rows.reduce((sum, row) => sum + row.bonus.total, 0)),
     [view.rows]
   );
-
-  // Adjusting state during render rather than in an effect: React documents this
-  // for exactly this case, and an effect would paint the stale number first.
-  const pending2 = Object.keys(resync).filter((id) => resync[id]);
-  if (pending2.length > 0) {
-    const fresh: Record<string, number> = {};
-    for (const id of pending2) {
-      const row = view.rows.find((r) => r.staffId === id);
-      // The FORMULA's number, not the stored proposal: the stored one is what
-      // the cap just invalidated, so re-reading it would put 1,50 back.
-      if (row && values[id] !== row.formulaHundredths) fresh[id] = row.formulaHundredths;
-    }
-    setResync({});
-    if (Object.keys(fresh).length > 0) {
-      setValues((v) => ({ ...v, ...fresh }));
-      // Persist it, or the grid and the database disagree until somebody types.
-      save({ ...values, ...fresh });
-    }
-  }
 
   const dirty = view.rows.some((r) => values[r.staffId] !== r.proposedHundredths);
 
