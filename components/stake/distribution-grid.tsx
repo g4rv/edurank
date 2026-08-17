@@ -372,13 +372,13 @@ export function DistributionGrid({
                   headings is the point: a heading that wraps sets the height of
                   the whole row, and the widths below are chosen to hold each
                   label on one line. */}
-              <th className="min-w-44 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
+              <th className="min-w-40 border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 НПП
               </th>
               <th className="w-24 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 Рейтинг
               </th>
-              <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+              <th className="w-24 border border-border px-2 py-2 text-right font-medium text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   За формулою
                   <StakeTermHint term="formula" />
@@ -423,7 +423,7 @@ export function DistributionGrid({
                   <StakeTermHint term="bonus" />
                 </span>
               </th>
-              <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+              <th className="w-28 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   Статуси
                   <StakeTermHint term="status" />
@@ -432,7 +432,7 @@ export function DistributionGrid({
               {/* Last, because the result belongs at the end of the sentence:
                   who → what the rating earned → what was given → why more is
                   due → what they should have. */}
-              <th className="w-28 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+              <th className="w-24 border border-border px-2 py-2 text-right font-medium text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   Рекомендовано
                   <StakeTermHint term="recommended" />
@@ -582,7 +582,7 @@ function Totals({
           label="Зароблено за здобувачів"
           term="bonus"
           value={formatBonus(bonusEarned)}
-          note={bonusEarned > 0 ? 'розподіляється на 2 етапі' : undefined}
+          note={bonusEarned > 0 ? 'з бонусного пулу, вручну' : undefined}
           muted
         />
         <span className="ml-auto inline-flex items-center gap-1 self-center text-xs text-muted-foreground">
@@ -945,7 +945,7 @@ function Row({
               outOfRange ? `Поза межами ${formatStake(lower)} – ${formatStake(upper)}` : undefined
             }
             className={cn(
-              'h-8 w-20 text-right tabular-nums',
+              'h-8 w-16 text-right tabular-nums',
               differs && 'font-medium',
               outOfRange && 'border-destructive text-destructive'
             )}
@@ -971,7 +971,7 @@ function Row({
         />
       </td>
 
-      <td className="border border-border px-3 py-2 text-right text-xs">
+      <td className="border border-border px-2 py-2 text-right text-xs">
         <StatusCell position={row.adminPosition} values={statusValues} />
       </td>
 

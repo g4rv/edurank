@@ -92,6 +92,22 @@ function PoolRow({
     row.bonusPoolHundredths === null ? '' : formatStake(row.bonusPoolHundredths)
   );
 
+  /**
+   * Has a PERSON typed in this row?
+   *
+   * `onBlur` fires for reasons that are not a decision — a re-render moving
+   * focus, Fast Refresh remounting the tree, a navigation. Comparing the field
+   * to the stored value is not enough on its own, because a remount can leave
+   * state and props briefly disagreeing and the comparison then reads as an
+   * edit. This page writes ставки for 31 кафедри, so a write nobody asked for is
+   * the one thing it must not do (2026-08-17: a bonus pool of 5,00 appeared on a
+   * кафедра nobody had typed into).
+   */
+  const [touched, setTouched] = useState<{ kst: boolean; bonus: boolean }>({
+    kst: false,
+    bonus: false,
+  });
+
   /** Written on leaving the field, like every other ставка input in the app */
   function commit(which: 'kst' | 'bonus', value: string) {
     const stored =
@@ -102,6 +118,7 @@ function PoolRow({
         : row.bonusPoolHundredths === null
           ? ''
           : formatStake(row.bonusPoolHundredths);
+    if (!touched[which]) return;
     if (value.trim() === stored) return;
     if (which === 'kst' && value.trim() === '') return; // Кст has no «none»
 
@@ -115,7 +132,10 @@ function PoolRow({
       const result =
         which === 'kst' ? await setDepartmentStake(null, form) : await setBonusPool(null, form);
       if (result && 'error' in result) setError(result.error);
-      else router.refresh();
+      else {
+        setTouched((t) => ({ ...t, [which]: false }));
+        router.refresh();
+      }
     });
   }
 
@@ -146,7 +166,10 @@ function PoolRow({
           {canEdit ? (
             <Input
               value={kst}
-              onChange={(e) => setKst(e.target.value)}
+              onChange={(e) => {
+                setKst(e.target.value);
+                setTouched((t) => ({ ...t, kst: true }));
+              }}
               onBlur={() => commit('kst', kst)}
               onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
               disabled={pending}
@@ -170,7 +193,10 @@ function PoolRow({
           {canEdit ? (
             <Input
               value={bonus}
-              onChange={(e) => setBonus(e.target.value)}
+              onChange={(e) => {
+                setBonus(e.target.value);
+                setTouched((t) => ({ ...t, bonus: true }));
+              }}
               onBlur={() => commit('bonus', bonus)}
               onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
               disabled={pending || row.kstHundredths === null}
