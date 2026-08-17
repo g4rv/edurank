@@ -10,13 +10,13 @@ open Coolify and a terminal.
 
 ## What ships, and what does not
 
-|                          |                                                                                                                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **The image**            | `Dockerfile` at the repo root. Four stages; the last one is Node, the standalone server, and a Prisma CLI for migrations.                                                                         |
-| **The database**         | A **Coolify Postgres resource**, not `docker-compose.yml`.                                                                                                                                        |
-| **`docker-compose.yml`** | **Dev only. Never deploy it.** It publishes Postgres on `5432` with the password `password`, runs Adminer unauthenticated on `8080`, and runs Mailpit, whose own comment says never to deploy it. |
-| **Migrations**           | `docker/entrypoint.sh` runs `prisma migrate deploy` before the server starts. Nothing to do by hand.                                                                                              |
-| **Demo data**            | Never — but the danger moved. `pnpm db:seed` is now the catalogue alone and is safe here; it is `--base` and `--rater` that invent a university, and they wipe before they write.                 |
+|                          |                                                                                                                                                                                                                |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **The image**            | `Dockerfile` at the repo root. Four stages; the last one is Node, the standalone server, and a Prisma CLI for migrations.                                                                                      |
+| **The database**         | A **Coolify Postgres resource**, not `docker-compose.yml`.                                                                                                                                                     |
+| **`docker-compose.yml`** | **Dev only. Never deploy it.** It publishes Postgres on `5432` with the password `password`, runs Adminer unauthenticated on `8080`, and runs Mailpit, whose own comment says never to deploy it.              |
+| **Migrations**           | `docker/entrypoint.sh` runs `prisma migrate deploy` before the server starts. Nothing to do by hand.                                                                                                           |
+| **Demo data**            | Never. `pnpm db:seed` and `db:seed:structure` delete nothing and are safe here; `--base`, `--rater` and `--prod` invent or import people and wipe first — and now refuse a database that already has accounts. |
 
 ---
 
@@ -88,6 +88,10 @@ docker run --rm -it --network <coolify-network> \
 
 docker run --rm -it --network <coolify-network> \
   -e DATABASE_URL='<the internal string from §1>' \
+  edurank-tools pnpm db:seed:structure
+
+docker run --rm -it --network <coolify-network> \
+  -e DATABASE_URL='<the internal string from §1>' \
   edurank-tools pnpm db:create-admin
 ```
 
@@ -102,9 +106,19 @@ template with its indicators, and додаток 5's specialities. No people, no
 every write is an upsert on a stable key, and a value an admin has since edited
 is left alone.
 
-**The bare command is the safe one on purpose.** `pnpm db:seed:base` and
+`db:seed:structure` adds the real 8 факультети and 31 кафедри on top. It is the
+same upsert the demo modes use and it **deletes nothing**, so it is safe here —
+and it saves typing 39 records by hand. Кафедра names must match
+`lib/specialities/departments.ts` byte for byte or `specialityOrigin` cannot
+place a speciality, so seeding them beats typing them.
+
+**The bare commands are the safe ones on purpose.** `pnpm db:seed:base` and
 `pnpm db:seed:rater` create invented people and **wipe** whatever is there
-first — never run either against production. `pnpm db:seed:prod` imports the
+first — never run either against production. Since 2026-08-17 they refuse a
+database that already has accounts in it and print what they were about to
+destroy, so a slip costs a message rather than the administrator account, the
+structure and the audit log; `--force` overrides that for a dev database.
+`pnpm db:seed:prod` imports the
 real НПП, and it reads `edu-reference/УГСП_Дані.xlsx`, which is gitignored and
 therefore absent from this image; run it from a maintainer's machine against the
 production `DATABASE_URL`, not from a container.
@@ -112,8 +126,9 @@ production `DATABASE_URL`, not from a container.
 Delete the `edurank-tools` image afterwards if you want the disk back; it is
 only needed when the catalogue changes.
 
-Then sign in at `https://edurank.uhsp.edu.ua/login` and build the structure:
-факультети → кафедри → відділи → people, or wait for the staff import.
+Then sign in at `https://edurank.uhsp.edu.ua/login`. Відділи come from the
+catalogue and факультети/кафедри from `db:seed:structure`, so what is left is
+people — added by hand, or by the staff import when it lands.
 
 ## 5. Before anybody else gets the URL
 

@@ -111,7 +111,21 @@ async function seedNnvPermissions(prisma: PrismaClient, nnvId: string): Promise<
   }
 }
 
-/** The year's template, its five sections, and all 67 indicators */
+/**
+ * The year's template, its five sections, and all 67 indicators.
+ *
+ * **`isActive` is set on CREATE only** (2026-08-17). It used to be forced true
+ * on every run, and `deployment.md` says — correctly — that `pnpm db:seed` is
+ * safe to re-run after any upgrade. Those two together are a trap the moment a
+ * second year exists: activate 2027, re-seed, and 2026 is active again beside
+ * it. Nothing in the schema forbids two, and `getActiveTemplate` does
+ * `findFirst` with no ordering, so which one wins is whatever Postgres returns
+ * first — the whole app silently scoring against the wrong year.
+ *
+ * Activation belongs to `activateYear` in /admin/rating, which already clears
+ * the flag from every other template inside one transaction. A seed must not
+ * have an opinion about which year is open.
+ */
 async function seedTemplate(
   prisma: PrismaClient,
   year: number,
@@ -119,7 +133,7 @@ async function seedTemplate(
 ): Promise<{ templateId: string; activityTypeCount: number }> {
   const template = await prisma.ratingTemplate.upsert({
     where: { year },
-    update: { isActive: true },
+    update: {},
     create: { year, name: `Рейтинг НПП ${year}`, isActive: true },
   });
 

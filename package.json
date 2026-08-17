@@ -16,6 +16,7 @@
     "prepare": "husky",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
+    "db:seed:structure": "tsx prisma/seed.ts --structure",
     "db:seed:base": "tsx prisma/seed.ts --base",
     "db:seed:rater": "tsx prisma/seed.ts --rater",
     "db:seed:prod": "tsx prisma/seed.ts --prod",

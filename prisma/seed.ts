@@ -7,60 +7,116 @@ import { SAMPLE_EMAILS, SAMPLE_PASSWORD, seedSamplePeople } from './sample-peopl
 import { importRealStaff } from './staff-import';
 import { seedStructure, wipePeople, wipeTemplates } from './structure';
 
-// One seed, four modes.
+// One seed, five modes — two safe, three destructive.
 //
-//   pnpm db:seed            catalogue only — divisions, the 2026 template with
-//                           its 67 indicators, додаток 5's specialities. No
-//                           people, no structure. Idempotent, destroys nothing.
-//   pnpm db:seed --base     + the real 8 факультети / 31 кафедри and nine
-//                           invented accounts, one per role.
-//   pnpm db:seed --rater    + ~200 invented НПП with ratings from zero to full,
-//                           so the charts and the rating pages have something
-//                           to say.
-//   pnpm db:seed --prod     + the real НПП from the university's spreadsheet,
-//                           every account locked until an ADMIN invites them.
+// SAFE. Nothing is deleted; every write is an upsert on a stable key.
+//
+//   pnpm db:seed             catalogue only — divisions, the 2026 template with
+//                            its 67 indicators, додаток 5's specialities. No
+//                            people, no structure.
+//   pnpm db:seed --structure + the real 8 факультети and 31 кафедри. This is
+//                            what a fresh PRODUCTION database wants: it turns
+//                            39 records somebody would otherwise type by hand
+//                            into one command, and it touches nobody's account.
+//
+// DESTRUCTIVE. Each clears people, structure and rating templates first, so
+// running one twice gives the same database rather than a second copy layered
+// on the first.
+//
+//   pnpm db:seed --base      + nine invented accounts, one per role.
+//   pnpm db:seed --rater     + ~200 invented НПП with ratings from zero to full,
+//                            so the charts and the rating pages have something
+//                            to say.
+//   pnpm db:seed --prod      + the real НПП from the university's spreadsheet,
+//                            every account locked until an ADMIN invites them.
 //
 // **The bare command is the safe one, deliberately.** `prisma db seed` also runs
 // as part of `pnpm db:reset`, which is the command people type without thinking
 // — so the mode it triggers must never be the one that loads 300 real
 // colleagues into whatever database happens to be configured.
 //
-// The three flagged modes are DESTRUCTIVE: they clear people, structure and
-// rating templates first, so running one twice gives the same database rather
-// than a second copy layered on the first. The bare mode is not.
+// **And a destructive mode now refuses a populated database** (2026-08-17). It
+// used to call `wipePeople()` on whatever `DATABASE_URL` pointed at, with no
+// question asked: `staff.deleteMany()`, `department.deleteMany()`,
+// `faculty.deleteMany()`, `auditLog.deleteMany()`. Run against production —
+// which is exactly where somebody would reach for `--prod` — that deletes the
+// administrator account, the structure typed in by hand, and the whole audit
+// log, and then creates people again on the bare floor. `--force` still does it
+// for the dev database it was written for.
 //
 // All modes share the same real факультети and кафедри, so the кафедра pickers,
 // the ставка grid and the випускова-кафедра colours behave the way they will on
 // the day.
 
-type Mode = 'catalogue' | 'base' | 'rater' | 'prod';
+type Mode = 'catalogue' | 'structure' | 'base' | 'rater' | 'prod';
 
 const MODES: Record<string, Mode> = {
+  '--structure': 'structure',
   '--base': 'base',
   '--rater': 'rater',
   '--prod': 'prod',
 };
 
-function parseMode(argv: string[]): Mode {
+/** The modes that call `wipePeople` before they write anything */
+const DESTRUCTIVE: ReadonlySet<Mode> = new Set<Mode>(['base', 'rater', 'prod']);
+
+function parseMode(argv: string[]): { mode: Mode; force: boolean } {
   const flags = argv.filter((arg) => arg.startsWith('--'));
-  const unknown = flags.filter((flag) => !(flag in MODES));
+  const force = flags.includes('--force');
+  const modeFlags = flags.filter((flag) => flag !== '--force');
+
+  const unknown = modeFlags.filter((flag) => !(flag in MODES));
   if (unknown.length > 0) {
-    throw new Error(`Unknown flag ${unknown.join(', ')}. Use --base, --rater or --prod.`);
+    throw new Error(
+      `Unknown flag ${unknown.join(', ')}. Use --structure, --base, --rater or --prod.`
+    );
   }
-  if (flags.length > 1) {
-    throw new Error(`Pick one mode, not ${flags.join(' and ')}.`);
+  if (modeFlags.length > 1) {
+    throw new Error(`Pick one mode, not ${modeFlags.join(' and ')}.`);
   }
-  return flags[0] ? MODES[flags[0]]! : 'catalogue';
+  return { mode: modeFlags[0] ? MODES[modeFlags[0]]! : 'catalogue', force };
+}
+
+/**
+ * Refuses to wipe a database that has people in it.
+ *
+ * The count is the test rather than an env var or a hostname: a database with
+ * 300 staff and an audit log is somebody's real work whatever it is called, and
+ * a database with none loses nothing. Says exactly what is there, because
+ * «refusing» without naming the thing it protected reads as a broken script.
+ */
+async function refuseIfPopulated(prisma: PrismaClient, mode: Mode): Promise<boolean> {
+  const [staff, faculties, logs] = await Promise.all([
+    prisma.staff.count(),
+    prisma.faculty.count(),
+    prisma.auditLog.count(),
+  ]);
+  if (staff === 0) return false;
+
+  console.error(`Відмовлено: у цій базі вже є дані, а режим --${mode} стирає їх.\n`);
+  console.error(`  облікових записів: ${staff}`);
+  console.error(`  факультетів:       ${faculties}`);
+  console.error(`  записів у журналі: ${logs}\n`);
+  console.error('Якщо це справді дев-база і ви хочете її очистити — додайте --force.');
+  console.error('Для порожньої продакшн-бази потрібен інший режим:');
+  console.error('  pnpm db:seed              каталог показників');
+  console.error('  pnpm db:seed:structure    + факультети і кафедри');
+  console.error('  pnpm db:create-admin      обліковий запис адміністратора');
+  return true;
 }
 
 async function main() {
-  const mode = parseMode(process.argv.slice(2));
+  const { mode, force } = parseMode(process.argv.slice(2));
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
   });
 
   try {
-    if (mode !== 'catalogue') {
+    if (DESTRUCTIVE.has(mode)) {
+      if (!force && (await refuseIfPopulated(prisma, mode))) {
+        process.exitCode = 1;
+        return;
+      }
       await wipePeople(prisma);
       await wipeTemplates(prisma);
     }
@@ -73,12 +129,19 @@ async function main() {
 
     if (mode === 'catalogue') {
       console.log('Готово. Людей і структури не створено — це режим за замовчуванням.');
-      console.log('Обліковий запис адміністратора: pnpm db:create-admin');
+      console.log('Факультети і кафедри:            pnpm db:seed:structure');
+      console.log('Обліковий запис адміністратора:  pnpm db:create-admin');
       return;
     }
 
     const { departmentIds } = await seedStructure(prisma);
     console.log(`Структура: 8 факультетів, ${departmentIds.length} кафедр\n`);
+
+    if (mode === 'structure') {
+      console.log('Готово. Нічого не видалено, людей не створено.');
+      console.log('Обліковий запис адміністратора: pnpm db:create-admin');
+      return;
+    }
 
     if (mode === 'prod') {
       await reportProd(prisma);
