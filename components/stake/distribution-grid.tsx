@@ -26,7 +26,7 @@ import { BonusCell } from '@/components/stake/bonus-cell';
 import { StatusCell } from '@/components/stake/status-cell';
 import { recommendedStake, statusValue } from '@/lib/stake/status-bonus';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
-import { saveDistribution, saveSandbox, setStaffLimits } from '@/app/(dashboard)/stakes/actions';
+import { saveDistribution, setStaffLimits } from '@/app/(dashboard)/stakes/actions';
 
 /** The two bounds of one row, as typed */
 type LimitDraft = { min: string; max: string };
@@ -40,12 +40,10 @@ type LimitDraft = { min: string; max: string };
  * head moving 0.10 from one person to another would be refused on the first
  * half of the move if rows saved on their own.
  *
- * The same grid renders ADMIN's sandbox (`view.sandbox`). What changes is where
- * a blur lands — `StakeSandbox` instead of `StakeAllocation` — and that the
- * «only upwards» rule is lifted, because trying a lower number is the entire
- * point of a sandbox. On the real tab ADMIN writes real allocations under the
- * same rules as the head; see `canDistribute`, where that permission is marked
- * provisional and the argument against it is written out.
+ * ADMIN writes real allocations under the same rules as the head; see
+ * `canDistribute`, where that permission is marked provisional and the argument
+ * against it is written out. The scratch tab that used to sit beside this one is
+ * gone (2026-08-17, owner's call).
  *
  * Ліміти are shown to everyone and editable only by ADMIN, on these same rows.
  * A head who could raise their own cap and drop a colleague's would make the
@@ -62,7 +60,7 @@ export function DistributionGrid({
   statusValues,
 }: {
   view: StakeDistributionView;
-  /** The кафедра's head on the real tab, or ADMIN in their own sandbox */
+  /** The кафедра's head, or ADMIN */
   canEdit: boolean;
   /** ADMIN only — turns the Мін/Макс column into two editable fields */
   canEditLimits: boolean;
@@ -77,8 +75,29 @@ export function DistributionGrid({
   /** What ADMIN priced each administrative position at, in hundredths */
   statusValues: Record<AdminPosition, number | undefined>;
 }) {
+  /**
+   * Seeded from the stored proposal, but never outside the person's bounds.
+   *
+   * A saved ставка can fall out of range without anybody touching it: ADMIN
+   * lowers Макс under a number the head already agreed, and the row is left
+   * holding a value the server will refuse. The grid used to open on that —
+   * red, unsaveable, and fixable only by typing over it — so a кафедра could be
+   * stuck with no legal edit at all (2026-08-17, reported from the screen).
+   *
+   * Out of range, it falls back to «за формулою», which is recomputed against
+   * the NEW bounds and is therefore always valid. The stored number is left
+   * alone until something saves; the screen simply stops showing a figure
+   * nobody can commit.
+   */
   const [values, setValues] = useState<Record<string, number>>(() =>
-    Object.fromEntries(view.rows.map((r) => [r.staffId, r.proposedHundredths]))
+    Object.fromEntries(
+      view.rows.map((r) => {
+        const lower = Math.max(r.minHundredths, MIN_STAKE);
+        const upper = Math.max(r.maxHundredths, lower);
+        const stored = r.proposedHundredths;
+        return [r.staffId, stored < lower || stored > upper ? r.formulaHundredths : stored];
+      })
+    )
   );
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -95,6 +114,14 @@ export function DistributionGrid({
     )
   );
   const [limitErrors, setLimitErrors] = useState<Record<string, string>>({});
+  /**
+   * Rows whose bounds have just changed and whose ставка must follow.
+   *
+   * `values` is seeded from props once and then owned by the person typing, so
+   * a `router.refresh()` alone does not move it — which is right for an ordinary
+   * refresh and wrong after a cap moved the formula underneath it.
+   */
+  const [resync, setResync] = useState<Record<string, boolean>>({});
   const [limitsPending, startLimitsTransition] = useTransition();
   const router = useRouter();
 
@@ -126,14 +153,7 @@ export function DistributionGrid({
     }
 
     startLimitsTransition(async () => {
-      const result = view.sandbox
-        ? await saveSandbox({
-            departmentId: view.departmentId,
-            year: view.year,
-            values,
-            limits: parseLimits({ ...limits, [row.staffId]: next }),
-          })
-        : await setStaffLimits(null, limitsFormData(row.staffId, view.year, next));
+      const result = await setStaffLimits(null, limitsFormData(row.staffId, view.year, next));
 
       if (result && 'error' in result) {
         setLimitErrors((e) => ({ ...e, [row.staffId]: result.error }));
@@ -142,6 +162,12 @@ export function DistributionGrid({
           const { [row.staffId]: _dropped, ...rest } = e;
           return rest;
         });
+        // A cap moves what the formula proposes, and the ставка has to follow.
+        // Lowering Макс to 1,35 under a saved 1,50 used to leave the field
+        // holding 1,50, red and unsaveable — a state nobody could get out of
+        // except by typing over it. The row is marked for re-sync and picks up
+        // the recomputed number when the refreshed props arrive (2026-08-17).
+        setResync((r) => ({ ...r, [row.staffId]: true }));
         router.refresh();
       }
     });
@@ -170,6 +196,25 @@ export function DistributionGrid({
     [view.rows]
   );
 
+  // Adjusting state during render rather than in an effect: React documents this
+  // for exactly this case, and an effect would paint the stale number first.
+  const pending2 = Object.keys(resync).filter((id) => resync[id]);
+  if (pending2.length > 0) {
+    const fresh: Record<string, number> = {};
+    for (const id of pending2) {
+      const row = view.rows.find((r) => r.staffId === id);
+      // The FORMULA's number, not the stored proposal: the stored one is what
+      // the cap just invalidated, so re-reading it would put 1,50 back.
+      if (row && values[id] !== row.formulaHundredths) fresh[id] = row.formulaHundredths;
+    }
+    setResync({});
+    if (Object.keys(fresh).length > 0) {
+      setValues((v) => ({ ...v, ...fresh }));
+      // Persist it, or the grid and the database disagree until somebody types.
+      save({ ...values, ...fresh });
+    }
+  }
+
   const dirty = view.rows.some((r) => values[r.staffId] !== r.proposedHundredths);
 
   function setValue(row: StakeRow, next: number) {
@@ -186,9 +231,8 @@ export function DistributionGrid({
     //
     // Lifted while the кафедра is over its pool, exactly as the sheet lifts it:
     // otherwise the only way out of an overspend would be forbidden. Lifted in
-    // the sandbox too — trying a smaller number is what a sandbox is for, and
     // nothing there is paid to anybody.
-    if (!view.sandbox && !overspent && clamped < row.formulaHundredths) {
+    if (!overspent && clamped < row.formulaHundredths) {
       setError(
         `${row.name}: ставку за формулою (${formatStake(row.formulaHundredths)}) можна лише збільшити`
       );
@@ -224,7 +268,7 @@ export function DistributionGrid({
    * requires them to. Nor is an overspend, which is allowed and merely said.
    */
   const blockedBy: string | null =
-    kst === null && !view.sandbox ? 'Кст ще не встановлено — зверніться до адміністратора' : null;
+    kst === null ? 'Кст ще не встановлено — зверніться до адміністратора' : null;
 
   /**
    * Over the pool — allowed, and said out loud.
@@ -249,26 +293,19 @@ export function DistributionGrid({
     if (!canEdit) return;
     setError(null);
     startTransition(async () => {
-      const result = view.sandbox
-        ? await saveSandbox({
-            departmentId: view.departmentId,
-            year: view.year,
-            values: nextValues,
-            limits: parseLimits(limits),
-          })
-        : await saveDistribution({
-            departmentId: view.departmentId,
-            year: view.year,
-            allocations: view.rows.map((r) => ({
-              staffId: r.staffId,
-              hundredths: nextValues[r.staffId],
-            })),
-          });
+      const result = await saveDistribution({
+        departmentId: view.departmentId,
+        year: view.year,
+        allocations: view.rows.map((r) => ({
+          staffId: r.staffId,
+          hundredths: nextValues[r.staffId],
+        })),
+      });
 
       if (result && 'error' in result) setError(result.error);
       else {
         setSavedAt(Date.now());
-        toast.success(view.sandbox ? 'Збережено в пісочниці' : 'Збережено');
+        toast.success('Збережено');
       }
     });
   }
@@ -288,7 +325,7 @@ export function DistributionGrid({
       <Totals
         kst={kst}
         distributed={distributed}
-        remaining={remaining}
+        bonusPool={view.bonusPoolHundredths}
         overspent={overspent}
         // Attached to the number it is about rather than shouted in a band of
         // its own. An overspend is allowed — it is a fact for the протокол, not
@@ -352,14 +389,8 @@ export function DistributionGrid({
       {/* The rows scroll inside this, with the headings pinned — a кафедра of
           thirty does not push «Усі кафедри» off the bottom of the world, and a
           кафедра of three takes only the height it needs. Dashed while this is
-          a sandbox, so a screenshot of it can never be mistaken for the
-          кафедра's actual distribution. */}
-      <div
-        className={cn(
-          'max-h-[min(60vh,40rem)] overflow-auto rounded-xl border bg-card',
-          view.sandbox && 'border-2 border-dashed'
-        )}
-      >
+*/}
+      <div className={cn('max-h-[min(60vh,40rem)] overflow-auto rounded-xl border bg-card')}>
         {/* Headings are pinned, because scrolling a кафедра of thirty carries
             «Розподілено» and «Макс» off the top otherwise, and the columns are
             all numbers that look alike. Each cell needs its own background:
@@ -367,54 +398,25 @@ export function DistributionGrid({
         <table className="w-full border-collapse text-sm [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted">
           <thead>
             <tr className="text-left">
-              {/* НПП carries text and takes what is left; every other column is
-                  a number or a control of known size. `whitespace-nowrap` on the
-                  headings is the point: a heading that wraps sets the height of
-                  the whole row, and the widths below are chosen to hold each
-                  label on one line. */}
+              {/* Column order is the owner's, given 2026-08-17 and not to be
+                  rearranged again: ПІБ → рейтинг → здобувачі → статуси → мін →
+                  макс → ставка → рекомендовано. It reads as one sentence — who
+                  they are, what they scored, what they brought in, what bounds
+                  them, what they get, what they were owed.
+
+                  «За формулою» is deliberately NOT a column of its own. It was
+                  added as one and taken out again: the owner's list does not
+                  have it, and the number matters in exactly one place — under
+                  the ставка it is the floor for. It sits there instead. */}
               <th className="min-w-40 border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground">
                 НПП
               </th>
-              <th className="w-24 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+              <th className="w-20 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 Рейтинг
               </th>
-              <th className="w-24 border border-border px-2 py-2 text-right font-medium text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  За формулою
-                  <StakeTermHint term="formula" />
-                </span>
-              </th>
               <th
                 className={cn(
-                  'border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground',
-                  canEditLimits ? 'w-32' : 'w-20 text-right'
-                )}
-              >
-                <span className="inline-flex items-center gap-1">
-                  Мін
-                  <StakeTermHint term="min" />
-                </span>
-              </th>
-              <th
-                className={cn(
-                  'border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground',
-                  canEditLimits ? 'w-32' : 'w-20 text-right'
-                )}
-              >
-                {/* Макс had no explanation at all, and it is the one bound that
-                    also moves the formula — a lower ceiling makes the proposal
-                    smaller, which is not guessable from the column. */}
-                <span className="inline-flex items-center gap-1">
-                  Макс
-                  <StakeTermHint term="max" />
-                </span>
-              </th>
-              <th className="w-40 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
-                Розподілено
-              </th>
-              <th
-                className={cn(
-                  'border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground',
+                  'border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground',
                   audience === 'head' ? 'w-52' : 'w-28'
                 )}
               >
@@ -429,9 +431,34 @@ export function DistributionGrid({
                   <StakeTermHint term="status" />
                 </span>
               </th>
-              {/* Last, because the result belongs at the end of the sentence:
-                  who → what the rating earned → what was given → why more is
-                  due → what they should have. */}
+              <th
+                className={cn(
+                  'border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground',
+                  canEditLimits ? 'w-28' : 'w-20 text-right'
+                )}
+              >
+                <span className="inline-flex items-center gap-1">
+                  Мін
+                  <StakeTermHint term="min" />
+                </span>
+              </th>
+              <th
+                className={cn(
+                  'border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground',
+                  canEditLimits ? 'w-28' : 'w-20 text-right'
+                )}
+              >
+                {/* Макс had no explanation at all, and it is the one bound that
+                    also moves the formula — a lower ceiling makes the proposal
+                    smaller, which is not guessable from the column. */}
+                <span className="inline-flex items-center gap-1">
+                  Макс
+                  <StakeTermHint term="max" />
+                </span>
+              </th>
+              <th className="w-36 border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground">
+                Ставка
+              </th>
               <th className="w-24 border border-border px-2 py-2 text-right font-medium text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   Рекомендовано
@@ -500,20 +527,6 @@ export function DistributionGrid({
   );
 }
 
-/** The drafts as hundredths, dropping anything unparseable rather than sending NaN */
-function parseLimits(
-  drafts: Record<string, LimitDraft>
-): Record<string, { min: number; max: number }> {
-  const parsed: Record<string, { min: number; max: number }> = {};
-  for (const [staffId, draft] of Object.entries(drafts)) {
-    const min = parseStake(draft.min);
-    const max = parseStake(draft.max);
-    if (min === null || max === null) continue;
-    parsed[staffId] = { min, max };
-  }
-  return parsed;
-}
-
 function limitsFormData(staffId: string, year: number, next: LimitDraft): FormData {
   const form = new FormData();
   form.set('staffId', staffId);
@@ -532,10 +545,27 @@ function limitsFormData(staffId: string, year: number, next: LimitDraft): FormDa
  * the two never add up here. A «Разом до виплати» tile existed until then and
  * asserted a payment nobody had decided.
  */
+/**
+ * The two pools as two cards, and what is left of them as a third.
+ *
+ * The owner's layout (2026-08-17): each pool shows its own size with its own
+ * leftover underneath, and the third card adds the two leftovers together and
+ * shows the addition rather than only the sum. A проректор asking «скільки ще
+ * можна дати» gets the answer without doing arithmetic, and can still see which
+ * pool the room is in.
+ *
+ * **How spending is attributed.** A person has one ставка, not two, so the app
+ * cannot know which pool a given 0,05 came from. The rule is: the base pool
+ * fills first, and only what exceeds it comes out of the bonus pool. It is the
+ * only rule that needs no extra column and no extra decision from the head —
+ * and it makes «залишок» on the first card mean «ще не роздано за рейтингом»,
+ * which is what it is for. If the two ever need to be spent independently, the
+ * grid needs a second editable column per person, not a different sum here.
+ */
 function Totals({
   kst,
+  bonusPool,
   distributed,
-  remaining,
   overspent,
   remainingNote,
   bonusEarned,
@@ -544,8 +574,9 @@ function Totals({
   filled,
 }: {
   kst: number | null;
+  /** The second pool, or null until the проректор allocates it */
+  bonusPool: number | null;
   distributed: number;
-  remaining: number | null;
   overspent: boolean;
   remainingNote: string | null;
   /** What the кафедра's people earned by recruiting — evidence, never added here */
@@ -555,44 +586,60 @@ function Totals({
   actions: React.ReactNode;
   filled: string | null;
 }) {
+  const base = kst ?? 0;
+  const bonus = bonusPool ?? 0;
+  const spentFromBase = Math.min(distributed, base);
+  const spentFromBonus = Math.max(0, distributed - base);
+  const leftBase = base - spentFromBase;
+  const leftBonus = bonus - spentFromBonus;
+  const leftTotal = leftBase + leftBonus;
+
   return (
     <div className="rounded-xl border bg-card">
-      <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3 px-5 py-4">
-        <Figure
-          label="Виділені ставки (Кст)"
+      <div className="flex flex-wrap items-stretch gap-3 px-5 py-4">
+        <PoolCard
+          label="Виділена ставка"
           term="kst"
           value={kst === null ? '—' : formatStake(kst)}
+          note={kst === null ? 'не задано' : `залишок ${formatStake(leftBase)}`}
+          noteTone={kst !== null && leftBase < 0 ? 'bad' : undefined}
         />
-        <Figure label="Розподілено" term="distributed" value={formatStake(distributed)} />
-        {/* Green whenever the pool holds, red only when it does not. A leftover
-            is a normal state — the head has budget still to place — so it reads
-            as «fine», not as «unfinished». */}
-        <Figure
-          label="Нерозподілено"
+        <PoolCard
+          label="Бонусна ставка"
+          term="bonusPool"
+          value={bonusPool === null ? '—' : formatStake(bonusPool)}
+          note={bonusPool === null ? 'не задано' : `залишок ${formatStake(leftBonus)}`}
+          noteTone={bonusPool !== null && leftBonus < 0 ? 'bad' : undefined}
+        />
+        {/* The addition is kept visible under the sum. «7,50» alone is a number
+            somebody has to trust; «6,25 + 1,25» is one they can check. */}
+        <PoolCard
+          label="Залишок"
           term="remaining"
-          value={remaining === null ? '—' : formatStake(remaining)}
+          value={kst === null ? '—' : formatStake(leftTotal)}
+          note={kst === null ? undefined : `${formatStake(leftBase)} + ${formatStake(leftBonus)}`}
           tone={overspent ? 'bad' : 'good'}
-          note={remainingNote ?? undefined}
-          noteTone={remainingNote ? 'warn' : undefined}
         />
-        {/* Evidence for the second phase, not part of this one. The note says so
-            on the tile, because a number sitting beside «Розподілено» reads as
-            money already handed out unless it is told otherwise. */}
-        <Figure
-          label="Зароблено за здобувачів"
-          term="bonus"
-          value={formatBonus(bonusEarned)}
-          note={bonusEarned > 0 ? 'з бонусного пулу, вручну' : undefined}
-          muted
-        />
-        <span className="ml-auto inline-flex items-center gap-1 self-center text-xs text-muted-foreground">
-          Формула пропонує: {formatStake(formulaTotal)}
-          <StakeTermHint term="formulaTotal" />
-        </span>
+
+        <div className="ml-auto flex flex-col justify-center gap-1 text-right text-xs text-muted-foreground">
+          <span>Розподілено: {formatStake(distributed)}</span>
+          <span className="inline-flex items-center justify-end gap-1">
+            Формула пропонує: {formatStake(formulaTotal)}
+            <StakeTermHint term="formulaTotal" />
+          </span>
+          <span className="inline-flex items-center justify-end gap-1">
+            Зароблено за здобувачів: {formatBonus(bonusEarned)}
+            <StakeTermHint term="bonus" />
+          </span>
+        </div>
       </div>
 
-      {/* The controls belong to these numbers, so they share the card instead
-          of taking a row of their own underneath it. */}
+      {remainingNote && (
+        <p className="border-t border-amber-600/30 bg-amber-600/5 px-5 py-2 text-xs text-amber-700 dark:text-amber-500">
+          {remainingNote}
+        </p>
+      )}
+
       {(actions || filled) && (
         <div className="flex flex-wrap items-center gap-3 border-t px-5 py-2.5">
           {actions}
@@ -603,49 +650,49 @@ function Totals({
   );
 }
 
-function Figure({
+/**
+ * One pool as a card: its name, its size, and what is left of it.
+ *
+ * A bordered box rather than a bare figure (owner's layout, 2026-08-17). Three
+ * numbers that mean different things sat in one row of the old design and read
+ * as one series; boxing each keeps «виділено» and «залишок» visibly paired, and
+ * the leftover is the number a проректор is actually looking for.
+ */
+function PoolCard({
   label,
   value,
   term,
   note,
   noteTone,
   tone,
-  muted,
 }: {
   label: string;
   value: string;
-  /** Which entry of STAKE_TERMS explains this number */
   term?: StakeTerm;
-  /** How the number is made up, under the label */
   note?: string;
-  /** Amber when the note is a condition to act on, not just arithmetic */
-  noteTone?: 'warn';
+  noteTone?: 'bad';
   tone?: 'good' | 'bad';
-  muted?: boolean;
 }) {
   return (
-    <div>
+    <div className="min-w-40 rounded-lg border px-4 py-3">
+      <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        {label}
+        {term && <StakeTermHint term={term} />}
+      </p>
       <p
         className={cn(
-          'text-xl font-semibold tabular-nums',
-          muted && 'text-base font-medium text-muted-foreground',
+          'mt-1 text-2xl font-semibold tabular-nums',
           tone === 'bad' && 'text-destructive',
           tone === 'good' && 'text-emerald-700 dark:text-emerald-400'
         )}
       >
         {value}
       </p>
-      <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-        {label}
-        {term && <StakeTermHint term={term} />}
-      </p>
       {note && (
         <p
           className={cn(
-            'max-w-52 text-xs',
-            noteTone === 'warn'
-              ? 'text-amber-700 dark:text-amber-500'
-              : 'text-muted-foreground/70 tabular-nums'
+            'mt-0.5 text-xs tabular-nums',
+            noteTone === 'bad' ? 'text-destructive' : 'text-muted-foreground'
           )}
         >
           {note}
@@ -885,20 +932,17 @@ function Row({
         {Math.round(row.rating)}
       </td>
 
-      <td className="border border-border px-3 py-2 text-right tabular-nums">
-        {formatStake(row.formulaHundredths)}
-        {row.clampedTo && (
-          <span
-            className="ml-1 text-xs text-muted-foreground"
-            title={
-              row.clampedTo === 'max'
-                ? 'Обмежено максимальною ставкою'
-                : 'Підняте до мінімальної ставки'
-            }
-          >
-            {row.clampedTo === 'max' ? '↓' : '↑'}
-          </span>
-        )}
+      <td className="border border-border px-2 py-2 text-right text-xs tabular-nums">
+        <BonusCell
+          bonus={row.bonus}
+          audience={audience}
+          departmentName={view.departmentName}
+          knownDepartment={view.knownDepartment}
+        />
+      </td>
+
+      <td className="border border-border px-2 py-2 text-right text-xs">
+        <StatusCell position={row.adminPosition} values={statusValues} />
       </td>
 
       <LimitCell
@@ -960,19 +1004,26 @@ function Row({
             label={`ставку для ${row.name}`}
           />
         </div>
-      </td>
 
-      <td className="border border-border px-3 py-2 text-right text-xs tabular-nums">
-        <BonusCell
-          bonus={row.bonus}
-          audience={audience}
-          departmentName={view.departmentName}
-          knownDepartment={view.knownDepartment}
-        />
-      </td>
-
-      <td className="border border-border px-2 py-2 text-right text-xs">
-        <StatusCell position={row.adminPosition} values={statusValues} />
+        {/* «За формулою» lives here rather than in a column of its own. It is
+            the floor this field cannot go below, so it belongs under the field
+            — and the owner's column list does not have it. The arrow says the
+            formula was clamped, which is why the number can look surprising. */}
+        <span className="mt-0.5 block text-[10px] text-muted-foreground">
+          за формулою {formatStake(row.formulaHundredths)}
+          {row.clampedTo && (
+            <span
+              className="ml-0.5"
+              title={
+                row.clampedTo === 'max'
+                  ? 'Обмежено максимальною ставкою'
+                  : 'Підняте до мінімальної ставки'
+              }
+            >
+              {row.clampedTo === 'max' ? '↓' : '↑'}
+            </span>
+          )}
+        </span>
       </td>
 
       {/* «за формулою + здобувачі + посада» — what the objective figures say

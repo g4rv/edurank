@@ -49,21 +49,6 @@ export interface StakeRow {
   bonus: StaffBonus;
 }
 
-/**
- * What ADMIN is trying out, laid over the real numbers.
- *
- * Every field is an override and every one is optional, so an untouched sandbox
- * renders exactly the real кафедра — which is what makes the tab safe to open.
- */
-export interface StakeSandboxOverlay {
-  /** The pool being tried. Null = the кафедра's real `Кст`. */
-  kstHundredths: number | null;
-  /** staffId → hundredths typed into «Розподілено» */
-  values: Record<string, number>;
-  /** staffId → the caps being tried, overriding `StaffStakeLimits` */
-  limits: Record<string, { min: number; max: number }>;
-}
-
 export interface StakeDistributionView {
   departmentId: string;
   departmentName: string;
@@ -72,6 +57,8 @@ export interface StakeDistributionView {
   rows: StakeRow[];
   /** `Кст`, or null when ADMIN has not set a pool for this кафедра */
   kstHundredths: number | null;
+  /** The second pool, or null until the проректор allocates it. The formula never reads it. */
+  bonusPoolHundredths: number | null;
   /** 0.1 × headcount — the pool's own minimum */
   minimumKstHundredths: number;
   knpp: number;
@@ -86,8 +73,6 @@ export interface StakeDistributionView {
   /** Null until somebody has saved this кафедра's distribution */
   filledAt: Date | null;
   filledBy: string | null;
-  /** True while the numbers are ADMIN's sandbox rather than the кафедра's own */
-  sandbox: boolean;
   /**
    * Is this кафедра in `lib/specialities/departments.ts`?
    *
@@ -100,8 +85,7 @@ export interface StakeDistributionView {
 
 export async function getStakeDistribution(
   departmentId: string,
-  year: number,
-  overlay?: StakeSandboxOverlay | null
+  year: number
 ): Promise<StakeDistributionView | null> {
   const department = await db.department.findUnique({
     where: { id: departmentId },
@@ -128,7 +112,7 @@ export async function getStakeDistribution(
   const [stake, distribution, documents, bonuses] = await Promise.all([
     db.departmentStake.findUnique({
       where: { departmentId_year: { departmentId, year } },
-      select: { kstHundredths: true },
+      select: { kstHundredths: true, bonusPoolHundredths: true },
     }),
     db.stakeDistribution.findUnique({
       where: { departmentId_year: { departmentId, year } },
@@ -150,24 +134,20 @@ export async function getStakeDistribution(
     ),
   ]);
 
-  // The sandbox's pool wins where it has one; everything else falls through to
-  // the кафедра's real numbers, so an untouched sandbox is the truth.
-  const kstHundredths = overlay?.kstHundredths ?? stake?.kstHundredths ?? null;
+  const kstHundredths = stake?.kstHundredths ?? null;
+  /** The second pool. The formula never reads it — it is spread by hand. */
+  const bonusPoolHundredths = stake?.bonusPoolHundredths ?? null;
   const knpp = staff.filter(
     (s) => (documents.get(s.id)?.metCount ?? 0) >= REQUIRED_POSITIONS
   ).length;
 
-  /** This person's bounds, sandbox first, then their own row, then the defaults */
+  /** This person's bounds — their own row, or the defaults */
   function boundsFor(s: (typeof staff)[number]) {
-    const tried = overlay?.limits[s.id];
     const own = s.stakeLimits[0];
     return {
-      minHundredths: tried?.min ?? own?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
-      maxHundredths: tried?.max ?? own?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
-      // The REAL row, never the sandbox's. A sandbox stores a number for
-      // everybody the moment anything is saved, so counting those would make
-      // every row look individually set and the dimming would stop meaning
-      // «somebody decided this for this person».
+      minHundredths: own?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
+      maxHundredths: own?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
+      /** Dimming keys off this: «somebody decided this for this person» */
       hasOwnLimits: !!own,
     };
   }
@@ -201,11 +181,8 @@ export async function getStakeDistribution(
         clampedTo: share.clampedTo,
         // Until somebody touches a row, the formula's proposal IS the proposal —
         // the screen opens on a defensible split rather than on a column of
-        // blanks somebody has to fill in from nothing. A sandbox falls through
-        // to the кафедра's real split before it falls through to the formula,
-        // so ADMIN starts from what the head actually did.
-        proposedHundredths:
-          overlay?.values[s.id] ?? allocation?.proposedHundredths ?? share.hundredths,
+        // blanks somebody has to fill in from nothing.
+        proposedHundredths: allocation?.proposedHundredths ?? share.hundredths,
         bonus: bonuses.get(s.id) ?? EMPTY_BONUS,
       };
     })
@@ -222,6 +199,7 @@ export async function getStakeDistribution(
     year,
     rows,
     kstHundredths,
+    bonusPoolHundredths,
     minimumKstHundredths: minimumKstHundredths(staff.length),
     knpp,
     headcount: staff.length,
@@ -229,14 +207,8 @@ export async function getStakeDistribution(
     computable: formula.computable,
     formulaTotalHundredths: formula.totalHundredths,
     proposedTotalHundredths: rows.reduce((sum, r) => sum + r.proposedHundredths, 0),
-    // A sandbox has no author and no date. Showing the head's would credit them
-    // with numbers they never typed.
-    filledAt: overlay ? null : (distribution?.filledAt ?? null),
-    filledBy:
-      overlay || !filledBy
-        ? null
-        : `${filledBy.lastName} ${filledBy.firstName} ${filledBy.patronymic}`,
-    sandbox: !!overlay,
+    filledAt: distribution?.filledAt ?? null,
+    filledBy: filledBy ? `${filledBy.lastName} ${filledBy.firstName} ${filledBy.patronymic}` : null,
     knownDepartment: isKnownDepartment(department.name),
   };
 }

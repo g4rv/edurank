@@ -15,7 +15,6 @@ vi.mock('@/lib/db', () => ({
     departmentStake: { findUnique: vi.fn() },
     staff: { findMany: vi.fn(), findUnique: vi.fn() },
     staffStakeLimits: { findUnique: vi.fn(), upsert: vi.fn() },
-    stakeSandbox: { upsert: vi.fn(), deleteMany: vi.fn() },
     ratingTemplate: { findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -26,13 +25,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { headOf, scopeOf } from '@/lib/queries/scope';
 import { getKharakterystykaMany } from '@/lib/queries/get-kharakterystyka';
-import {
-  resetSandbox,
-  saveDistribution,
-  saveSandbox,
-  setSandboxKst,
-  setStaffLimits,
-} from './actions';
+import { saveDistribution, setStaffLimits } from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockScope = scopeOf as unknown as Mock;
@@ -46,9 +39,6 @@ const mockTemplate = db.ratingTemplate.findFirst as unknown as Mock;
 const mockStaffOne = db.staff.findUnique as unknown as Mock;
 const mockLimitsFind = db.staffStakeLimits.findUnique as unknown as Mock;
 const mockLimitsUpsert = db.staffStakeLimits.upsert as unknown as Mock;
-const mockSandboxUpsert = db.stakeSandbox.upsert as unknown as Mock;
-const mockSandboxDelete = db.stakeSandbox.deleteMany as unknown as Mock;
-const mockAudit = db.auditLog.create as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 
 const DEPT = 'dept-1';
@@ -148,8 +138,8 @@ describe('saveDistribution — who may', () => {
     expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ success: true });
   });
 
-  // The rule the sandbox exists for. ADMIN owns Кст and the caps but must never
-  // write a кафедра's split — otherwise «завідувач розподіляє» is not true.
+  // ADMIN owns Кст and the caps; whether they may also write a кафедра's split
+  // is the open question.
   // Provisional (2026-08-13): ADMIN was locked out of the real split on
   // 2026-08-12 and let back in while the owner decides. The one thing that must
   // stay true either way is that the write is recorded against whoever made it,
@@ -373,119 +363,5 @@ describe('setStaffLimits — ADMIN only', () => {
   it('refuses a ceiling below the floor', async () => {
     const result = await setStaffLimits(null, limitsForm('1,00', '0,50'));
     expect(result).toHaveProperty('error');
-  });
-});
-
-// The guarantee the whole sandbox rests on: it writes its own table and nothing
-// else. Not «can but shouldn't» — there is no path from here to a real ставка.
-describe('the sandbox writes nothing real', () => {
-  const sandbox = {
-    departmentId: DEPT,
-    year: YEAR,
-    values: { s0: 100, s1: 50, s2: 25 },
-    limits: { s0: { min: 10, max: 200 } },
-  };
-
-  beforeEach(() => {
-    mockAuth.mockResolvedValue(ADMIN);
-    mockSandboxUpsert.mockResolvedValue({ id: 'sb-1' });
-  });
-
-  it('saves ADMIN’s numbers to StakeSandbox alone', async () => {
-    expect(await saveSandbox(sandbox)).toEqual({ success: true });
-    expect(mockSandboxUpsert).toHaveBeenCalledTimes(1);
-    expect(mockTransaction).not.toHaveBeenCalled();
-    expect(mockLimitsUpsert).not.toHaveBeenCalled();
-  });
-
-  // It is a scratch pad, not a decision — an audit line would make it look like
-  // one, and 40 кафедри of experimenting would bury the real entries.
-  it('writes no audit entry', async () => {
-    await saveSandbox(sandbox);
-    expect(mockAudit).not.toHaveBeenCalled();
-  });
-
-  // The sandbox stays ADMIN's alone even now that ADMIN may write the real
-  // split: a head has one кафедра and one real answer to give.
-  it('is refused to a head, however much of a head they are', async () => {
-    mockAuth.mockResolvedValue(HEAD);
-    mockHeadOf.mockResolvedValue([DEPT]);
-    const result = await saveSandbox(sandbox);
-    expect(result).toMatchObject({ error: expect.stringContaining('адміністратор') });
-    expect(mockSandboxUpsert).not.toHaveBeenCalled();
-  });
-
-  it('is refused to an EDITOR', async () => {
-    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'e1' } });
-    expect(await saveSandbox(sandbox)).toHaveProperty('error');
-    expect(mockSandboxUpsert).not.toHaveBeenCalled();
-  });
-
-  it('refuses a floor under 0,10 even in a sandbox', async () => {
-    const result = await saveSandbox({ ...sandbox, limits: { s0: { min: 5, max: 200 } } });
-    expect(result).toMatchObject({ error: expect.stringContaining('0,10') });
-    expect(mockSandboxUpsert).not.toHaveBeenCalled();
-  });
-
-  it('refuses a ceiling under the floor', async () => {
-    const result = await saveSandbox({ ...sandbox, limits: { s0: { min: 100, max: 50 } } });
-    expect(result).toHaveProperty('error');
-  });
-
-  it('refuses a кафедра that does not exist', async () => {
-    mockDepartment.mockResolvedValue(null);
-    expect(await saveSandbox(sandbox)).toMatchObject({ error: 'Кафедру не знайдено' });
-  });
-});
-
-describe('setSandboxKst', () => {
-  beforeEach(() => {
-    mockAuth.mockResolvedValue(ADMIN);
-    mockSandboxUpsert.mockResolvedValue({ id: 'sb-1' });
-  });
-
-  it('stores the pool being tried without touching DepartmentStake', async () => {
-    expect(await setSandboxKst({ departmentId: DEPT, year: YEAR, kstHundredths: 600 })).toEqual({
-      success: true,
-    });
-    expect(mockSandboxUpsert).toHaveBeenCalledTimes(1);
-  });
-
-  it('takes null — that is how ADMIN puts the real Кст back', async () => {
-    expect(await setSandboxKst({ departmentId: DEPT, year: YEAR, kstHundredths: null })).toEqual({
-      success: true,
-    });
-  });
-
-  // A sandbox exists to show what a pool that is too small would do; refusing
-  // to model it would hide the answer somebody opened the page for.
-  it('accepts a pool below 0,10 × headcount, unlike the real one', async () => {
-    expect(await setSandboxKst({ departmentId: DEPT, year: YEAR, kstHundredths: 5 })).toEqual({
-      success: true,
-    });
-  });
-
-  it('is refused to a head', async () => {
-    mockAuth.mockResolvedValue(HEAD);
-    expect(
-      await setSandboxKst({ departmentId: DEPT, year: YEAR, kstHundredths: 600 })
-    ).toHaveProperty('error');
-    expect(mockSandboxUpsert).not.toHaveBeenCalled();
-  });
-});
-
-describe('resetSandbox', () => {
-  it('deletes only this admin’s row for this кафедра and year', async () => {
-    mockAuth.mockResolvedValue(ADMIN);
-    expect(await resetSandbox({ departmentId: DEPT, year: YEAR })).toEqual({ success: true });
-    expect(mockSandboxDelete).toHaveBeenCalledWith({
-      where: { userId: 'a1', departmentId: DEPT, year: YEAR },
-    });
-  });
-
-  it('is refused to a head', async () => {
-    mockAuth.mockResolvedValue(HEAD);
-    expect(await resetSandbox({ departmentId: DEPT, year: YEAR })).toHaveProperty('error');
-    expect(mockSandboxDelete).not.toHaveBeenCalled();
   });
 });

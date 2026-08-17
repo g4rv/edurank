@@ -4,14 +4,12 @@ import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getStakeDistribution } from '@/lib/queries/get-stake-distribution';
-import { getStakeSandbox, EMPTY_SANDBOX } from '@/lib/queries/get-stake-sandbox';
 import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stake-settings';
 import { headOf, scopeOf } from '@/lib/queries/scope';
 import { formatStake } from '@/lib/stake/units';
 import { POSITION_ORDER } from '@/lib/stake/status-bonus';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DistributionGrid } from '@/components/stake/distribution-grid';
-import { SandboxControls } from '@/components/stake/sandbox-controls';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 
@@ -28,13 +26,10 @@ import type { AdminPosition } from '@/lib/generated/prisma/client';
  */
 export default async function DepartmentStakesPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id: departmentId } = await params;
-  const { tab } = await searchParams;
 
   const session = await auth();
   if (!session) redirect('/login');
@@ -49,21 +44,16 @@ export default async function DepartmentStakesPage({
   if (!template) notFound();
   const year = template.year;
 
-  const sandbox = isAdmin && tab === 'sandbox';
-  const scratch = sandbox
-    ? await getStakeSandbox(session.user.id, departmentId, year)
-    : EMPTY_SANDBOX;
-
   const [view, rows, statuses] = await Promise.all([
-    getStakeDistribution(departmentId, year, sandbox ? scratch : null),
+    getStakeDistribution(departmentId, year),
     listDepartmentStakes(year),
     listStatusBonuses(year),
   ]);
   if (!view) notFound();
 
   const selected = rows.find((r) => r.id === departmentId);
-  const canEditAllocation = isAdmin || led.includes(departmentId) || sandbox;
-  const overwritingHead = isAdmin && !sandbox && view.filledAt !== null;
+  const canEditAllocation = isAdmin || led.includes(departmentId);
+  const overwritingHead = isAdmin && view.filledAt !== null;
 
   const statusValues = Object.fromEntries(
     POSITION_ORDER.map((p) => [p, statuses.get(p)])
@@ -91,16 +81,6 @@ export default async function DepartmentStakesPage({
               лише перегляд
               <StakeTermHint term="deanReadonly" />
             </span>
-          )}
-          {isAdmin && (
-            <div className="inline-flex rounded-lg border p-0.5">
-              <TabLink href={`/stakes/${departmentId}`} active={!sandbox}>
-                Реальний
-              </TabLink>
-              <TabLink href={`/stakes/${departmentId}?tab=sandbox`} active={sandbox}>
-                Пісочниця
-              </TabLink>
-            </div>
           )}
         </div>
       </div>
@@ -141,22 +121,12 @@ export default async function DepartmentStakesPage({
         <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
           Розподіл цієї кафедри вже заповнено: {view.filledBy ?? '—'},{' '}
           {view.filledAt?.toLocaleDateString('uk-UA')}. Ваші зміни перезапишуть його і будуть
-          записані на вас. Щоб лише перевірити інші числа, скористайтеся «Пісочницею».
+          записані на вас.
         </p>
       )}
 
-      {sandbox && (
-        <SandboxControls
-          departmentId={departmentId}
-          year={year}
-          kstHundredths={scratch.kstHundredths}
-          realKstHundredths={selected?.kstHundredths ?? null}
-          saved={scratch.saved}
-        />
-      )}
-
       <DistributionGrid
-        key={`${departmentId}-${sandbox}`}
+        key={departmentId}
         view={view}
         canEdit={canEditAllocation}
         canEditLimits={isAdmin}
@@ -165,28 +135,5 @@ export default async function DepartmentStakesPage({
         statusValues={statusValues}
       />
     </AnimatedPage>
-  );
-}
-
-function TabLink({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className={
-        active
-          ? 'rounded-md bg-secondary px-3 py-1 text-xs font-medium'
-          : 'rounded-md px-3 py-1 text-xs text-muted-foreground hover:bg-muted'
-      }
-    >
-      {children}
-    </Link>
   );
 }
