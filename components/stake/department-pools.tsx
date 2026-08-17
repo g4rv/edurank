@@ -7,6 +7,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
+import { DataTable } from '@/components/ui/data-table';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { setBonusPool, setDepartmentStake } from '@/app/(dashboard)/admin/stakes/actions';
 import type { DepartmentStakeRow } from '@/lib/queries/list-stake-settings';
@@ -36,48 +37,37 @@ export function DepartmentPools({
   canEdit: boolean;
 }) {
   return (
-    // Ten rows, then it scrolls in its own box. Thirty-five кафедри ran the
-    // page past two screens and buried the position settings underneath it —
-    // an ADMIN had no way of knowing they were there (owner, 2026-08-17). The
+    // `DataTable fill` — the pattern every other list in this app already uses,
+    // and which this table should have used from the start. It keeps the
+    // headings in place while the rows scroll, and it does it without the
+    // hairline that a hand-rolled sticky `<thead>` leaves: the shared component
+    // draws column rules with `border-r` per cell instead of `border` on every
+    // cell, so there is no collapsed border for a row to show through.
     //
-    // Ten rows, then it scrolls in its own box. Thirty-five кафедри ran the page
-    // past two screens and buried the position settings underneath it — an ADMIN
-    // had no way of knowing they were there (owner, 2026-08-17).
-    //
-    // No scroll-snap: both modes were tried and both fought the wheel.
-    //
-    // The heading does not stick either. It was sticky, and sticky over
-    // collapsed table borders leaves a hairline the rows show through — two
-    // rounds of chasing a one-pixel strip for a table of thirty-five rows that
-    // fits on one screen. Not worth it.
-    //
-    // The tidy bottom edge comes from the height instead, and the numbers are
-    // measured rather than estimated: the heading is 37px and every row is 53px
-    // (name over faculty, always two lines), so ten rows is 37 + 530 = 567. A
-    // rem-based guess landed on 565 and sliced the tenth row by two pixels.
-    <div className="max-h-[567px] overflow-auto rounded-xl border bg-card">
-      <table className="w-full border-collapse text-sm">
+    // Ten rows tall. Thirty-five кафедри ran the page past two screens and
+    // buried the position settings underneath it — an ADMIN had no way of
+    // knowing they were there (owner, 2026-08-17).
+    <div className="flex h-[567px] min-h-0 flex-col">
+      <DataTable fill className="table-fixed">
         <thead>
-          <tr>
-            <th className="border border-border bg-muted px-3 py-2 text-left font-medium text-muted-foreground">
-              Кафедра
-            </th>
-            <th className="w-20 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+          <tr className="text-left">
+            <th className="px-3 py-2 font-medium text-muted-foreground">Кафедра</th>
+            <th className="w-20 px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               НПП
             </th>
-            <th className="w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="w-40 px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 Основний фонд
                 <StakeTermHint term="kst" />
               </span>
             </th>
-            <th className="w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="w-40 px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 Бонусний фонд
                 <StakeTermHint term="bonusPool" />
               </span>
             </th>
-            <th className="w-32 border border-border bg-muted px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+            <th className="w-36 px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 Нерозподілено
                 <StakeTermHint term="remaining" />
@@ -90,7 +80,7 @@ export function DepartmentPools({
             <PoolRow key={row.id} row={row} year={year} canEdit={canEdit} />
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </div>
   );
 }
@@ -169,7 +159,7 @@ function PoolRow({
             the whole cell is the target and an arrow sits on the name, so which
             cell opens something can be read without hunting for it. A separate
             chevron column stood here and was a second link to the same place. */}
-        <td className="relative border border-border px-3 py-2">
+        <td className="relative px-3 py-2">
           <Link href={`/stakes/${row.id}`} className="absolute inset-0" aria-label={row.name} />
           <span className="inline-flex items-center gap-1.5 font-medium underline-offset-4 group-hover/row:underline">
             {row.name}
@@ -181,9 +171,9 @@ function PoolRow({
           <span className="block text-xs text-muted-foreground">{row.faculty}</span>
         </td>
 
-        <td className="border border-border px-3 py-2 text-right tabular-nums">{row.headcount}</td>
+        <td className="px-3 py-2 text-right tabular-nums">{row.headcount}</td>
 
-        <td className="relative z-10 border border-border px-3 py-2 text-right">
+        <td className="px-3 py-2 text-right">
           {canEdit ? (
             <Input
               value={kst}
@@ -210,7 +200,7 @@ function PoolRow({
           )}
         </td>
 
-        <td className="relative z-10 border border-border px-3 py-2 text-right">
+        <td className="px-3 py-2 text-right">
           {canEdit ? (
             <Input
               value={bonus}
@@ -262,10 +252,7 @@ function PoolRow({
 
       {error && (
         <tr>
-          <td
-            colSpan={5}
-            className="border border-border bg-destructive/5 px-3 py-1.5 text-xs text-destructive"
-          >
+          <td colSpan={5} className="bg-destructive/5 px-3 py-1.5 text-xs text-destructive">
             {row.name}: {error}
           </td>
         </tr>
