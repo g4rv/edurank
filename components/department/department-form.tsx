@@ -4,7 +4,7 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { toast } from 'sonner';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from '@/components/ui/combobox';
+import { isKnownDepartment } from '@/lib/specialities/departments';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import type { DepartmentActionState } from '@/app/(dashboard)/departments/actions';
 
@@ -63,6 +64,28 @@ export function DepartmentForm({
     defaultValues: { name: '', facultyId: '', headId: null, ...defaultValues },
   });
 
+  /**
+   * Does the довідник recognise this name?
+   *
+   * A кафедра's name is free text, but three things match on it — випускові
+   * кафедри on the ставка grid, the staff import, and `specialityOrigin`. The
+   * matching forgives case, the word «кафедра» and runs of whitespace; it does
+   * NOT forgive «і» against «та», or initials written «І.П.» where the довідник
+   * has «І. П.». One space, and a завідувач's випускова-кафедра chips go grey
+   * with nothing to click and nobody knows why (2026-08-17: this had already
+   * happened to «імені професора І.П.Стогнія»).
+   *
+   * A warning, never a block. A university reorganises, and refusing to save a
+   * кафедра because a constant in the repo has not caught up would be the app
+   * telling the registrar they are wrong about their own structure.
+   *
+   * `useWatch` rather than `watch()`: the latter returns a fresh function every
+   * render and React Compiler refuses to memoise a component that uses it.
+   */
+  const name = useWatch({ control, name: 'name' });
+  const trimmed = (name ?? '').trim();
+  const unknownName = trimmed.length > 2 && !isKnownDepartment(trimmed);
+
   function onSubmit(data: DepartmentSchema) {
     startTransition(async () => {
       try {
@@ -85,6 +108,13 @@ export function DepartmentForm({
       <div className="space-y-4 rounded-xl border bg-card p-5">
         <FormField htmlFor="name" label="Назва" error={errors.name}>
           <Input id="name" disabled={isPending} {...register('name')} />
+          {unknownName && !errors.name && (
+            <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-500">
+              Такої назви немає в довіднику спеціальностей. Зберегти можна, але для цієї кафедри не
+              визначатимуться випускові спеціальності у розподілі ставок. Найчастіша причина — «і»
+              замість «та» або ініціали без пробілів.
+            </p>
+          )}
         </FormField>
 
         <FormField label="Факультет" error={errors.facultyId}>
