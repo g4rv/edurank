@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listClaimsForReview } from '@/lib/queries/list-student-claims';
-import { scopeOf } from '@/lib/queries/scope';
+import { headOf, scopeOf } from '@/lib/queries/scope';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { ClaimsReview } from '@/components/stake/claims-review';
 import { DepartmentSelect } from '@/components/department-select';
@@ -16,6 +16,11 @@ import { DepartmentSelect } from '@/components/department-select';
  * ADMIN picks a кафедра from the list, the same pattern as /division-data; a
  * head sees theirs. A декан sees every кафедра of their faculty, one section
  * each.
+ *
+ * **A декан reads and does not decide (2026-08-17).** `scopeOf` says which
+ * кафедри they may look at, `headOf` which they may rule on — the same split the
+ * ставка grid has used since 2026-08-13. The controls are hidden here and the
+ * action refuses independently; a hidden button is a courtesy, never the check.
  */
 export default async function DepartmentStudentsPage({
   searchParams,
@@ -27,7 +32,10 @@ export default async function DepartmentStudentsPage({
   if (!session) redirect('/login');
 
   const isAdmin = session.user.role === 'ADMIN';
-  const scope = await scopeOf(session.user.staffId);
+  const [scope, led] = await Promise.all([
+    scopeOf(session.user.staffId),
+    headOf(session.user.staffId),
+  ]);
   if (!isAdmin && scope.length === 0) redirect('/profile');
 
   const template = await getActiveTemplate();
@@ -56,6 +64,9 @@ export default async function DepartmentStudentsPage({
 
   const claims = await listClaimsForReview(selected.id, template.year);
   const canSwitch = departments.length > 1;
+  // Per кафедра, not per person: a декан heads one of their faculty's кафедри
+  // often enough, and they decide there and read everywhere else.
+  const canDecide = isAdmin || led.includes(selected.id);
 
   return (
     <AnimatedPage className="space-y-6">
@@ -81,7 +92,10 @@ export default async function DepartmentStudentsPage({
             {!canSwitch && ` — ${selected.name}`}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {template.year} рік · підтверджені заявки додають ставку понад виділені кафедрі
+            {template.year} рік ·{' '}
+            {canDecide
+              ? 'підтверджені заявки враховуються на 2 етапі розподілу ставок'
+              : 'лише перегляд — рішення ухвалює завідувач кафедри'}
           </p>
         </div>
 
@@ -97,7 +111,7 @@ export default async function DepartmentStudentsPage({
         )}
       </div>
 
-      <ClaimsReview claims={claims} year={template.year} />
+      <ClaimsReview claims={claims} year={template.year} canDecide={canDecide} />
     </AnimatedPage>
   );
 }

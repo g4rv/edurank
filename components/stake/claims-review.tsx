@@ -37,7 +37,16 @@ const SORT_LABEL: Record<SortKey, string> = {
  * claim at a time, are the only controls, and every temptation to add a
  * resolution control here should be resisted.
  */
-export function ClaimsReview({ claims, year }: { claims: ReviewClaim[]; year: number }) {
+export function ClaimsReview({
+  claims,
+  year,
+  canDecide,
+}: {
+  claims: ReviewClaim[];
+  year: number;
+  /** False for a декан, who oversees the кафедра but does not rule on it */
+  canDecide: boolean;
+}) {
   const contested = claims.filter((c) => c.contested && c.status === 'PENDING');
   const pending = claims.filter((c) => c.status === 'PENDING');
 
@@ -118,7 +127,10 @@ export function ClaimsReview({ claims, year }: { claims: ReviewClaim[]; year: nu
         <p className="max-w-3xl rounded-lg border border-amber-600/30 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
           Позначку «спірна» має лише та заявка, яку подали пізніше — поряд із нею вказано, хто подав
           цього здобувача першим і на якій він кафедрі. Раніше — не означає правіше: система лише
-          показує збіг, а рішення ухвалюєте ви, поговоривши з обома.
+          показує збіг,{' '}
+          {canDecide
+            ? 'а рішення ухвалюєте ви, поговоривши з обома.'
+            : 'а рішення ухвалює завідувач кафедри, поговоривши з обома.'}
         </p>
       )}
 
@@ -138,13 +150,13 @@ export function ClaimsReview({ claims, year }: { claims: ReviewClaim[]; year: nu
               />
               <SortableHead sortKey="date" sort={sort} onToggle={toggle} width="w-28" />
               <th className="w-64 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
-                Рішення
+                {canDecide ? 'Рішення' : 'Стан'}
               </th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((claim) => (
-              <ClaimRow key={claim.id} claim={claim} />
+              <ClaimRow key={claim.id} claim={claim} canDecide={canDecide} />
             ))}
           </tbody>
         </table>
@@ -196,7 +208,7 @@ function SortableHead({
   );
 }
 
-function ClaimRow({ claim }: { claim: ReviewClaim }) {
+function ClaimRow({ claim, canDecide }: { claim: ReviewClaim; canDecide: boolean }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -310,7 +322,13 @@ function ClaimRow({ claim }: { claim: ReviewClaim }) {
           </div>
         )}
 
-        {claim.status === 'PENDING' && !rejecting && (
+        {/* A декан sees the state and no controls. The action refuses them
+            anyway; this only stops offering a button that would fail. */}
+        {claim.status === 'PENDING' && !canDecide && (
+          <span className="text-xs text-muted-foreground">На розгляді</span>
+        )}
+
+        {claim.status === 'PENDING' && canDecide && !rejecting && (
           <div className="flex items-center gap-1">
             <Button
               size="sm"
@@ -328,7 +346,7 @@ function ClaimRow({ claim }: { claim: ReviewClaim }) {
           </div>
         )}
 
-        {claim.status === 'PENDING' && rejecting && (
+        {claim.status === 'PENDING' && canDecide && rejecting && (
           <div className="space-y-1">
             {/* The reason reaches the НПП, exactly as a discarded rating entry
                 does — «відхилено» with no word is the thing people escalate. */}

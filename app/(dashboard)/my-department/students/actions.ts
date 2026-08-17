@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
-import { scopeOf } from '@/lib/queries/scope';
+import { headOf } from '@/lib/queries/scope';
 import { claimDecisionSchema } from '@/validations/student-claim';
 import type { Role } from '@/lib/generated/prisma/client';
 
@@ -24,16 +24,23 @@ export type DecisionState = { error: string } | { success: true } | null;
 /**
  * May this person rule on that claim?
  *
- * The claim's AUTHOR must be on a кафедра this person heads — not the student's
- * programme, which may belong to anybody. A recruiter is answerable to their own
- * завідувач wherever they sent the student.
+ * The claim's AUTHOR must be on a кафедра this person **heads** — not the
+ * student's programme, which may belong to anybody. A recruiter is answerable to
+ * their own завідувач wherever they sent the student.
+ *
+ * **`headOf`, not `scopeOf` (2026-08-17).** A декан oversees every кафедра of
+ * their faculty and may READ all of it, but ruling on a claim is the завідувач's
+ * decision — confirmed by the owner: «admin/head can approve (dean can only
+ * inspect)». This now matches `canDistribute` on the ставка grid, which drew the
+ * same line on 2026-08-13; the two sides of one process had been giving a декан
+ * different powers.
  */
 async function canDecide(
   user: { role: Role; staffId?: string | null },
   claimAuthorId: string
 ): Promise<boolean> {
   if (user.role === 'ADMIN') return true;
-  const scope = await scopeOf(user.staffId);
+  const scope = await headOf(user.staffId);
   if (scope.length === 0) return false;
 
   const author = await db.staff.findUnique({
