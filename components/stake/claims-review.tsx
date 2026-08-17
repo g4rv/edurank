@@ -149,7 +149,14 @@ export function ClaimsReview({
                 width="w-20"
               />
               <SortableHead sortKey="date" sort={sort} onToggle={toggle} width="w-28" />
-              <th className="w-64 border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground">
+              <th
+                className={cn(
+                  'border border-border px-3 py-2 font-medium whitespace-nowrap text-muted-foreground',
+                  // A декан gets no buttons, so the column only ever holds a
+                  // word — reserving 16rem for it wasted a sixth of the table.
+                  canDecide ? 'w-64' : 'w-28'
+                )}
+              >
                 {canDecide ? 'Рішення' : 'Стан'}
               </th>
             </tr>
@@ -263,7 +270,12 @@ function ClaimRow({ claim, canDecide }: { claim: ReviewClaim; canDecide: boolean
       </td>
 
       <td className="border border-border px-3 py-2">
-        <span className="whitespace-nowrap">{claim.claimedBy}</span>
+        {/* Wraps (2026-08-17). A ПІБ held on one line is the widest cell in the
+            table, and it was pushing «Рішення» — the only thing anybody presses
+            here — off the right edge into a horizontal scrollbar at around
+            1024px. A name over two lines costs a row of height; a button nobody
+            can see costs the page its purpose. */}
+        <span>{claim.claimedBy}</span>
         {/* One contested claim is noise. «7 of this person's 9 are contested»
             is a pattern, and it is the number the head actually needs. */}
         {claim.claimantContestedCount > 1 && (
@@ -329,7 +341,7 @@ function ClaimRow({ claim, canDecide }: { claim: ReviewClaim; canDecide: boolean
         )}
 
         {claim.status === 'PENDING' && canDecide && !rejecting && (
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <Button
               size="sm"
               variant="outline"
