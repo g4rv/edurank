@@ -2,12 +2,19 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import { seedCatalogue } from './catalogue';
+import {
+  DEMO_DOMAIN,
+  DEMO_EMAILS,
+  DEMO_PASSWORD,
+  removeDemoUsers,
+  seedDemoUsers,
+} from './demo-users';
 import { seedRaterPopulation } from './population';
 import { SAMPLE_EMAILS, SAMPLE_PASSWORD, seedSamplePeople } from './sample-people';
 import { importRealStaff } from './staff-import';
 import { seedStructure, wipePeople, wipeTemplates } from './structure';
 
-// One seed, five modes — two safe, three destructive.
+// One seed, six modes — three safe, three destructive.
 //
 // SAFE. Nothing is deleted; every write is an upsert on a stable key.
 //
@@ -18,6 +25,10 @@ import { seedStructure, wipePeople, wipeTemplates } from './structure';
 //                            what a fresh PRODUCTION database wants: it turns
 //                            39 records somebody would otherwise type by hand
 //                            into one command, and it touches nobody's account.
+//   pnpm db:seed --demo      + six invented accounts that can actually sign in,
+//                            one per screen worth showing. UPSERTS them, so it
+//                            is safe beside real data and can be run twice.
+//                            `--demo-remove` takes them away again.
 //
 // DESTRUCTIVE. Each clears people, structure and rating templates first, so
 // running one twice gives the same database rather than a second copy layered
@@ -48,10 +59,12 @@ import { seedStructure, wipePeople, wipeTemplates } from './structure';
 // the ставка grid and the випускова-кафедра colours behave the way they will on
 // the day.
 
-type Mode = 'catalogue' | 'structure' | 'base' | 'rater' | 'prod';
+type Mode = 'catalogue' | 'structure' | 'demo' | 'base' | 'rater' | 'prod';
 
 const MODES: Record<string, Mode> = {
   '--structure': 'structure',
+  '--demo': 'demo',
+  '--demo-remove': 'demo',
   '--base': 'base',
   '--rater': 'rater',
   '--prod': 'prod',
@@ -60,21 +73,22 @@ const MODES: Record<string, Mode> = {
 /** The modes that call `wipePeople` before they write anything */
 const DESTRUCTIVE: ReadonlySet<Mode> = new Set<Mode>(['base', 'rater', 'prod']);
 
-function parseMode(argv: string[]): { mode: Mode; force: boolean } {
+function parseMode(argv: string[]): { mode: Mode; force: boolean; removeDemo: boolean } {
   const flags = argv.filter((arg) => arg.startsWith('--'));
   const force = flags.includes('--force');
+  const removeDemo = flags.includes('--demo-remove');
   const modeFlags = flags.filter((flag) => flag !== '--force');
 
   const unknown = modeFlags.filter((flag) => !(flag in MODES));
   if (unknown.length > 0) {
     throw new Error(
-      `Unknown flag ${unknown.join(', ')}. Use --structure, --base, --rater or --prod.`
+      `Unknown flag ${unknown.join(', ')}. Use --structure, --demo, --demo-remove, --base, --rater or --prod.`
     );
   }
   if (modeFlags.length > 1) {
     throw new Error(`Pick one mode, not ${modeFlags.join(' and ')}.`);
   }
-  return { mode: modeFlags[0] ? MODES[modeFlags[0]]! : 'catalogue', force };
+  return { mode: modeFlags[0] ? MODES[modeFlags[0]]! : 'catalogue', force, removeDemo };
 }
 
 /**
@@ -106,12 +120,24 @@ async function refuseIfPopulated(prisma: PrismaClient, mode: Mode): Promise<bool
 }
 
 async function main() {
-  const { mode, force } = parseMode(process.argv.slice(2));
+  const { mode, force, removeDemo } = parseMode(process.argv.slice(2));
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
   });
 
   try {
+    // Clearing up after a demo touches nothing else, so it runs on its own and
+    // does not need the catalogue rebuilt first.
+    if (removeDemo) {
+      const removed = await removeDemoUsers(prisma);
+      console.log(
+        removed === 0
+          ? 'Демо-акаунтів не знайдено — нічого не видалено.'
+          : `Видалено ${removed} демо-акаунтів (@${DEMO_DOMAIN}). Інших записів не торкалися.`
+      );
+      return;
+    }
+
     if (DESTRUCTIVE.has(mode)) {
       if (!force && (await refuseIfPopulated(prisma, mode))) {
         process.exitCode = 1;
@@ -140,6 +166,21 @@ async function main() {
     if (mode === 'structure') {
       console.log('Готово. Нічого не видалено, людей не створено.');
       console.log('Обліковий запис адміністратора: pnpm db:create-admin');
+      return;
+    }
+
+    if (mode === 'demo') {
+      const demo = await seedDemoUsers(prisma);
+      console.log(`Демо-акаунти: створено ${demo.created}, оновлено ${demo.updated}\n`);
+      if (demo.headTaken) {
+        console.log(`  Завідувача НЕ змінено — кафедру вже веде ${demo.headTaken}`);
+      }
+      if (demo.deanTaken) {
+        console.log(`  Декана НЕ змінено — факультет уже веде ${demo.deanTaken}`);
+      }
+      console.log(`Пароль для всіх: ${DEMO_PASSWORD}`);
+      for (const email of DEMO_EMAILS) console.log(`  ${email}`);
+      console.log('\nНічого не видалено. Прибрати після показу: pnpm db:seed:demo:remove');
       return;
     }
 
