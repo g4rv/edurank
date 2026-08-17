@@ -72,10 +72,18 @@ export async function setDepartmentStake(
   });
   const minimum = minimumKstHundredths(headcount);
 
+  // Zero is not an allocation (2026-08-17). It used to be accepted for a кафедра
+  // with nobody on it, where the floor computes to 0,00 — but «виділено 0,00»
+  // and «ще не виділено» then looked identical on screen while meaning quite
+  // different things. Leaving the field empty is how you say «not yet».
+  if (kstHundredths <= 0) {
+    return { error: 'Фонд не може бути нульовим. Залиште поле порожнім, якщо ще не виділено' };
+  }
+
   if (kstHundredths < minimum) {
     return {
       error:
-        `Мінімальний Кст для цієї кафедри — ${formatStake(minimum)} ` +
+        `Мінімальний основний фонд для цієї кафедри — ${formatStake(minimum)} ` +
         `(${headcount} осіб × 0,10). Менше виділити не можна — не всім вистачить на мінімальну ставку.`,
     };
   }
@@ -97,14 +105,14 @@ export async function setDepartmentStake(
         action: existing ? 'UPDATE' : 'CREATE',
         entity: 'DepartmentStake',
         entityId: row.id,
-        label: `${department.name} — Кст ${year}`,
+        label: `${department.name} — основний фонд ${year}`,
         userId: session.user.id,
         changes: diffChanges({ kstHundredths: existing?.kstHundredths ?? null }, { kstHundredths }),
       },
     });
   } catch (e) {
     return {
-      error: parseDbError(e, 'Не вдалося зберегти Кст. Зміни не застосовано', 'stake.setKst', {
+      error: parseDbError(e, 'Не вдалося зберегти фонд. Зміни не застосовано', 'stake.setKst', {
         userId: session.user.id,
         entityId: departmentId,
       }),
@@ -276,7 +284,7 @@ export async function setBonusPool(
   // Without `Кст` there is no distribution to top up, and a bonus pool alone
   // would sit on a кафедра nobody has funded.
   if (!existing) {
-    return { error: 'Спочатку встановіть Кст для цієї кафедри' };
+    return { error: 'Спочатку встановіть основний фонд для цієї кафедри' };
   }
 
   const department = await db.department.findUnique({
@@ -295,7 +303,7 @@ export async function setBonusPool(
         action: 'UPDATE',
         entity: 'DepartmentStake',
         entityId: existing.id,
-        label: `${department?.name ?? departmentId} — бонусний пул ${year}`,
+        label: `${department?.name ?? departmentId} — бонусний фонд ${year}`,
         userId: session.user.id,
         changes: diffChanges(
           { bonusPoolHundredths: existing.bonusPoolHundredths },
@@ -307,7 +315,7 @@ export async function setBonusPool(
     return {
       error: parseDbError(
         e,
-        'Не вдалося зберегти бонусний пул. Зміни не застосовано',
+        'Не вдалося зберегти бонусний фонд. Зміни не застосовано',
         'stake.setBonusPool',
         { userId: session.user.id, entityId: departmentId }
       ),

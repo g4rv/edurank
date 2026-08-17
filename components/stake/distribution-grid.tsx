@@ -6,6 +6,17 @@ import Link from 'next/link';
 import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
@@ -13,6 +24,7 @@ import {
   STAKE_STEP,
   formatBonus,
   formatStake,
+  formatStakeValue,
   fromHundredths,
   parseStake,
   roundBonus,
@@ -253,7 +265,7 @@ export function DistributionGrid({
    * requires them to. Nor is an overspend, which is allowed and merely said.
    */
   const blockedBy: string | null =
-    kst === null ? 'Кст ще не встановлено — зверніться до адміністратора' : null;
+    kst === null ? 'Основний фонд ще не встановлено — зверніться до адміністратора' : null;
 
   /**
    * Over the pool — allowed, and said out loud.
@@ -322,10 +334,35 @@ export function DistributionGrid({
         actions={
           canEdit && view.rows.length > 0 ? (
             <>
-              <Button variant="outline" size="sm" onClick={reset} disabled={pending || !!blockedBy}>
-                <RotateCcw className="size-4" />
-                Повернути до формули
-              </Button>
+              {/* Behind a confirmation, by request (2026-08-17). It overwrites
+                  every row on the кафедра at once, including numbers the
+                  завідувач argued over and typed by hand, and «Повернути» reads
+                  like an undo of the last thing rather than of all of them. The
+                  dialog says how many rows and what happens to them. */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={pending || !!blockedBy}>
+                    <RotateCcw className="size-4" />
+                    Повернути до формули
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Повернути до формули?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Ставки всіх {view.rows.length} НПП кафедри буде замінено на ті, що пропонує
+                      формула. Усе, що ви змінили вручну, буде втрачено. Формула розподілить{' '}
+                      {formatStake(view.formulaTotalHundredths)} з основного фонду.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
+                    <AlertDialogAction type="button" onClick={reset}>
+                      Повернути
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
               {/* There is no save button: a change is written when the field is
                   left. What this says is what state that leaves things in,
@@ -531,16 +568,16 @@ function limitsFormData(staffId: string, year: number, next: LimitDraft): FormDa
  * asserted a payment nobody had decided.
  */
 /**
- * The two pools as two cards, and what is left of them as a third.
+ * The two funds as two cards, and what is left of them as a third.
  *
- * The owner's layout (2026-08-17): each pool shows its own size with its own
+ * The owner's layout (2026-08-17): each fund shows its own size with its own
  * leftover underneath, and the third card adds the two leftovers together and
  * shows the addition rather than only the sum. A проректор asking «скільки ще
  * можна дати» gets the answer without doing arithmetic, and can still see which
  * pool the room is in.
  *
  * **How spending is attributed.** A person has one ставка, not two, so the app
- * cannot know which pool a given 0,05 came from. The rule is: the base pool
+ * cannot know which pool a given 0,05 came from. The rule is: the main fund
  * fills first, and only what exceeds it comes out of the bonus pool. It is the
  * only rule that needs no extra column and no extra decision from the head —
  * and it makes «залишок» on the first card mean «ще не роздано за рейтингом»,
@@ -583,14 +620,14 @@ function Totals({
     <div className="rounded-xl border bg-card">
       <div className="flex flex-wrap items-stretch gap-3 px-5 py-4">
         <PoolCard
-          label="Виділена ставка"
+          label="Основний фонд"
           term="kst"
           value={kst === null ? '—' : formatStake(kst)}
           note={kst === null ? 'не задано' : `залишок ${formatStake(leftBase)}`}
           noteTone={kst !== null && leftBase < 0 ? 'bad' : undefined}
         />
         <PoolCard
-          label="Бонусна ставка"
+          label="Бонусний фонд"
           term="bonusPool"
           value={bonusPool === null ? '—' : formatStake(bonusPool)}
           note={bonusPool === null ? 'не задано' : `залишок ${formatStake(leftBonus)}`}
@@ -1021,7 +1058,7 @@ function Row({
             recommended > fromHundredths(row.maxHundredths) && 'text-amber-700 dark:text-amber-500'
           )}
         >
-          {formatBonus(recommended)}
+          {formatStakeValue(recommended)}
         </span>
         {recommended > fromHundredths(row.maxHundredths) && (
           <span

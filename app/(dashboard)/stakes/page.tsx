@@ -2,20 +2,13 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
-import {
-  getStakeYearSettings,
-  listDepartmentStakes,
-  listStatusBonuses,
-} from '@/lib/queries/list-stake-settings';
+import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stake-settings';
 import { scopeOf } from '@/lib/queries/scope';
 import { formatStake } from '@/lib/stake/units';
 import { POSITION_ORDER } from '@/lib/stake/status-bonus';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { StakeValueForm } from '@/components/admin/stake-value-form';
-import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { DepartmentPools } from '@/components/stake/department-pools';
 import { StatusBonusSettings } from '@/components/stake/status-bonus-settings';
-import { setStakeYearSettings } from '@/app/(dashboard)/admin/stakes/actions';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 
 /**
@@ -28,7 +21,8 @@ import type { AdminPosition } from '@/lib/generated/prisma/client';
  * spreading itself lives one click away, at `/stakes/[id]`, because it is a
  * different person's work.
  *
- * ADMIN sets both pools, the year's coefficient and the position values here. A
+ * ADMIN sets both funds and the position values here; the year's coefficient
+ * moved to /admin/stakes/norms, beside the numbers it multiplies. A
  * завідувач or декан reaching this page sees their own кафедри, read-only, and
  * clicks through to the one they actually work on.
  */
@@ -53,9 +47,8 @@ export default async function StakesPage() {
   }
   const year = template.year;
 
-  const [allRows, settings, statuses] = await Promise.all([
+  const [allRows, statuses] = await Promise.all([
     listDepartmentStakes(year),
-    getStakeYearSettings(year),
     listStatusBonuses(year),
   ]);
 
@@ -81,20 +74,6 @@ export default async function StakesPage() {
 
         {isAdmin && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <label className="inline-flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                Узгоджуючий коефіцієнт
-                <StakeTermHint term="contractCoefficient" />
-              </span>
-              <StakeValueForm
-                action={setStakeYearSettings}
-                hidden={{ year }}
-                name="contractCoefficient"
-                defaultValue={String(settings.contractCoefficient)}
-                ariaLabel="Узгоджуючий коефіцієнт на весь університет"
-                className="w-20"
-              />
-            </label>
             <Link
               href="/admin/stakes/norms"
               className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
@@ -114,14 +93,16 @@ export default async function StakesPage() {
           <span className="font-medium tabular-nums">{rows.length}</span>
         </span>
         <span>
-          <span className="text-muted-foreground">Початкові пули разом: </span>
+          <span className="text-muted-foreground">Основні фонди разом: </span>
           <span className="font-medium tabular-nums">{formatStake(totalKst)}</span>
         </span>
         <span>
-          <span className="text-muted-foreground">Бонусні пули разом: </span>
+          <span className="text-muted-foreground">Бонусні фонди разом: </span>
           <span className="font-medium tabular-nums">{formatStake(totalBonus)}</span>
         </span>
-        {unset > 0 && <span className="text-amber-700 dark:text-amber-500">без пулу: {unset}</span>}
+        {unset > 0 && (
+          <span className="text-amber-700 dark:text-amber-500">без фонду: {unset}</span>
+        )}
       </div>
 
       <DepartmentPools rows={rows} year={year} canEdit={isAdmin} />

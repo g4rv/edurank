@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
@@ -12,7 +12,10 @@ import { setBonusPool, setDepartmentStake } from '@/app/(dashboard)/admin/stakes
 import type { DepartmentStakeRow } from '@/lib/queries/list-stake-settings';
 
 /**
- * Every кафедра, its two pools, and what is left of them.
+ * Every кафедра, its two funds, and what is left of them.
+ *
+ * «Фонд», not «пул» — there is no such word in Ukrainian and the проректор
+ * reading this page has never used it (owner, 2026-08-17).
  *
  * The list replaced a picker (2026-08-17). One кафедра at a time was right while
  * the page existed to spread a single pool; it is wrong for the проректор, whose
@@ -33,9 +36,20 @@ export function DepartmentPools({
   canEdit: boolean;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
+    // Ten rows, then it scrolls in its own box. Thirty-five кафедри ran the
+    // page past two screens and buried the position settings underneath it —
+    // an ADMIN had no way of knowing they were there (owner, 2026-08-17). The
+    // height cap is also what makes the sticky heading work at all: `position:
+    // sticky` resolves against a scrollport, and a page-level scroll gives it
+    // none.
+    //
+    // **No scroll-snap.** It was asked for and tried, and it made the list feel
+    // broken: `proximity` re-grabs the scroll as the pointer moves, so the
+    // wheel worked in some places and not others. Snapping earns its keep on a
+    // few full-width panels, not on thirty-five rows somebody is scanning.
+    <div className="max-h-[33rem] overflow-auto rounded-xl border bg-card">
       <table className="w-full border-collapse text-sm">
-        <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur">
+        <thead className="sticky top-0 z-20 bg-muted">
           <tr>
             <th className="border border-border px-3 py-2 text-left font-medium text-muted-foreground">
               Кафедра
@@ -45,14 +59,14 @@ export function DepartmentPools({
             </th>
             <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                Початковий
+                Основний фонд
                 <StakeTermHint term="kst" />
               </span>
             </th>
             <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                Бонусний
-                <StakeTermHint term="bonus" />
+                Бонусний фонд
+                <StakeTermHint term="bonusPool" />
               </span>
             </th>
             <th className="w-32 border border-border px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
@@ -61,7 +75,6 @@ export function DepartmentPools({
                 <StakeTermHint term="remaining" />
               </span>
             </th>
-            <th className="w-10 border border-border px-2 py-2" />
           </tr>
         </thead>
         <tbody>
@@ -143,26 +156,26 @@ function PoolRow({
 
   return (
     <>
-      <tr className="transition-colors hover:bg-muted/20">
-        <td className="border border-border px-3 py-2">
-          <Link
-            href={`/stakes/${row.id}`}
-            className="font-medium underline-offset-4 hover:underline"
-          >
+      <tr className="group/row transition-colors hover:bg-muted/20">
+        {/* The same treatment every other list in the app gives a row link:
+            the whole cell is the target and an arrow sits on the name, so which
+            cell opens something can be read without hunting for it. A separate
+            chevron column stood here and was a second link to the same place. */}
+        <td className="relative border border-border px-3 py-2">
+          <Link href={`/stakes/${row.id}`} className="absolute inset-0" aria-label={row.name} />
+          <span className="inline-flex items-center gap-1.5 font-medium underline-offset-4 group-hover/row:underline">
             {row.name}
-          </Link>
+            <ArrowUpRight
+              className="size-3.5 shrink-0 text-muted-foreground/70 transition-colors group-hover/row:text-foreground"
+              aria-hidden
+            />
+          </span>
           <span className="block text-xs text-muted-foreground">{row.faculty}</span>
         </td>
 
-        <td className="border border-border px-3 py-2 text-right tabular-nums">
-          {row.headcount}
-          {/* The floor the pool is measured against, on the row it constrains */}
-          <span className="block text-[10px] text-muted-foreground">
-            мін. {formatStake(row.minimumHundredths)}
-          </span>
-        </td>
+        <td className="border border-border px-3 py-2 text-right tabular-nums">{row.headcount}</td>
 
-        <td className="border border-border px-3 py-2 text-right">
+        <td className="relative z-10 border border-border px-3 py-2 text-right">
           {canEdit ? (
             <Input
               value={kst}
@@ -174,8 +187,8 @@ function PoolRow({
               onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
               disabled={pending}
               inputMode="decimal"
-              placeholder={`мін. ${formatStake(row.minimumHundredths)}`}
-              aria-label={`Початковий пул для ${row.name}`}
+              placeholder="—"
+              aria-label={`Основний фонд для ${row.name}`}
               aria-invalid={row.belowMinimum}
               className={cn(
                 'h-8 w-24 text-right tabular-nums',
@@ -189,7 +202,7 @@ function PoolRow({
           )}
         </td>
 
-        <td className="border border-border px-3 py-2 text-right">
+        <td className="relative z-10 border border-border px-3 py-2 text-right">
           {canEdit ? (
             <Input
               value={bonus}
@@ -202,11 +215,11 @@ function PoolRow({
               disabled={pending || row.kstHundredths === null}
               inputMode="decimal"
               placeholder="—"
-              aria-label={`Бонусний пул для ${row.name}`}
+              aria-label={`Бонусний фонд для ${row.name}`}
               title={
                 row.kstHundredths === null
-                  ? 'Спочатку встановіть початковий пул'
-                  : 'Другий пул — розподіляється вручну за здобувачів і посади'
+                  ? 'Спочатку встановіть основний фонд'
+                  : 'Другий фонд — розподіляється вручну за здобувачів і посади'
               }
               className="h-8 w-24 text-right tabular-nums"
             />
@@ -237,22 +250,12 @@ function PoolRow({
             formatStake(row.remainingHundredths)
           )}
         </td>
-
-        <td className="border border-border px-2 py-2 text-center">
-          <Link
-            href={`/stakes/${row.id}`}
-            aria-label={`Відкрити розподіл для ${row.name}`}
-            className="inline-flex text-muted-foreground hover:text-foreground"
-          >
-            <ChevronRight className="size-4" />
-          </Link>
-        </td>
       </tr>
 
       {error && (
         <tr>
           <td
-            colSpan={6}
+            colSpan={5}
             className="border border-border bg-destructive/5 px-3 py-1.5 text-xs text-destructive"
           >
             {row.name}: {error}

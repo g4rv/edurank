@@ -1,6 +1,7 @@
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 import { ADMIN_POSITION_LABELS } from '@/lib/labels';
-import { fromHundredths, roundBonus } from './units';
+import { fromHundredths } from './units';
+import { round2 } from '@/lib/round';
 
 // What an НПП's administrative position adds to what they have EARNED — never
 // to what they are paid.
@@ -85,6 +86,11 @@ export function statusValue(
  * moved every time somebody edited the field it is meant to be compared against
  * would be useless — the head would be chasing their own number.
  *
+ * **Two decimals**, because it is a ставка and not a bonus. The parts that make
+ * it up are finer — a заочний контрактний здобувач is worth about 0,004 — but
+ * the answer goes in a field that takes 0,05 steps, so «1,047» was a number
+ * nobody could enter. Summed at full precision and rounded once at the end.
+ *
  * **Not capped at Макс** (decided 2026-08-17). Where somebody has earned more
  * than their ceiling allows, the screen says so and ADMIN can raise the cap;
  * quietly showing 1,00 instead of 1,047 would hide the very thing the кафедра
@@ -99,5 +105,5 @@ export function recommendedStake({
   studentBonus: number;
   status: number;
 }): number {
-  return roundBonus(fromHundredths(formulaHundredths) + studentBonus + status);
+  return round2(fromHundredths(formulaHundredths) + studentBonus + status);
 }

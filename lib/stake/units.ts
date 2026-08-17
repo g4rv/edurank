@@ -1,3 +1,5 @@
+import { round2 } from '@/lib/round';
+
 // Ставки are stored as INTEGER HUNDREDTHS everywhere, never as floats.
 //
 // This is not fastidiousness. The old system kept them as floats and produced
@@ -102,6 +104,20 @@ export function roundBonus(value: number): number {
 /** «0,004» — three decimals, Ukrainian comma, trailing zeros trimmed to at least one */
 export function formatBonus(value: number): string {
   return roundBonus(value).toFixed(3).replace('.', ',');
+}
+
+/**
+ * A ставка held as a plain number rather than hundredths — «Рекомендовано».
+ *
+ * TWO decimals, like every other ставка on screen. Three is the precision a
+ * BONUS is recorded at, because a заочний контрактний здобувач is worth about
+ * 0,004 and rounding him to two makes him worth nothing. A recommendation is
+ * not a bonus: it is a ставка somebody may type into the field next to it, and
+ * that field takes two decimals in steps of 0,05. Showing «1,047» invited a
+ * number nobody can enter.
+ */
+export function formatStakeValue(value: number): string {
+  return round2(value).toFixed(2).replace('.', ',');
 }
 
 /**

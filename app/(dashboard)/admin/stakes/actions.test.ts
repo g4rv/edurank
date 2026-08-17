@@ -146,16 +146,17 @@ describe('setDepartmentStake — the pool floor', () => {
 
   it('says how the minimum was arrived at, not just what it is', async () => {
     mockCount.mockResolvedValue(18);
+    // Not «0» — that is refused earlier now, for being no allocation at all.
     const result = await setDepartmentStake(
       null,
-      form({ departmentId: 'd1', year: 2026, kst: '0' })
+      form({ departmentId: 'd1', year: 2026, kst: '0,50' })
     );
     // «18 осіб × 0,10» is what tells somebody whether to raise the pool or
     // check the roster — a bare minimum tells them neither
     expect(result).toMatchObject({ error: expect.stringContaining('18 осіб') });
   });
 
-  it('makes Кст = 0 impossible, which the 2025 file had twice', async () => {
+  it('makes a fund of 0 impossible, which the 2025 file had twice', async () => {
     mockCount.mockResolvedValue(14);
     const result = await setDepartmentStake(
       null,
@@ -164,13 +165,18 @@ describe('setDepartmentStake — the pool floor', () => {
     expect(result).toHaveProperty('error');
   });
 
-  it('allows Кст = 0 only for a кафедра with nobody on it', async () => {
+  // It used to be allowed for a кафедра with nobody on it, where the floor
+  // computes to 0,00 — but «виділено 0,00» and «ще не виділено» then looked
+  // identical on screen while meaning quite different things (2026-08-17).
+  // Leaving the field empty is how «not yet» is said.
+  it('refuses 0 even for a кафедра with nobody on it', async () => {
     mockCount.mockResolvedValue(0);
     const result = await setDepartmentStake(
       null,
       form({ departmentId: 'd1', year: 2026, kst: '0' })
     );
-    expect(result).toEqual({ success: true });
+    expect(result).toMatchObject({ error: expect.stringContaining('порожнім') });
+    expect(mockStakeUpsert).not.toHaveBeenCalled();
   });
 
   it('lets the pool exceed the headcount — the bound is one-sided', async () => {

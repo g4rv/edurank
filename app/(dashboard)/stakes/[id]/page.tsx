@@ -96,13 +96,13 @@ export default async function DepartmentStakesPage({
         <span> · середній рейтинг {Math.round(view.averageRating)}</span>
         <span className="inline-flex items-center gap-1">
           {' '}
-          · початковий пул{' '}
+          · основний фонд{' '}
           {view.kstHundredths === null ? 'не задано' : formatStake(view.kstHundredths)}
           <StakeTermHint term="kst" />
         </span>
         <span className="inline-flex items-center gap-1">
           {' '}
-          · бонусний пул{' '}
+          · бонусний фонд{' '}
           {selected?.bonusPoolHundredths == null
             ? 'не задано'
             : formatStake(selected.bonusPoolHundredths)}
@@ -112,7 +112,7 @@ export default async function DepartmentStakesPage({
 
       {selected?.belowMinimum && (
         <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
-          Кст нижче мінімуму: на кафедрі {selected.headcount} НПП, потрібно щонайменше{' '}
+          Основний фонд нижче мінімуму: на кафедрі {selected.headcount} НПП, потрібно щонайменше{' '}
           {formatStake(selected.minimumHundredths)}
         </p>
       )}

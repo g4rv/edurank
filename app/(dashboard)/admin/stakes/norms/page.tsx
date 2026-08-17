@@ -8,7 +8,8 @@ import { normFor, studentValue } from '@/lib/stake/norms';
 import { formatBonus } from '@/lib/stake/units';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StakeValueForm } from '@/components/admin/stake-value-form';
-import { setSpecialityNorm } from '../actions';
+import { StakeTermHint } from '@/components/stake/stake-term-hint';
+import { setSpecialityNorm, setStakeYearSettings } from '../actions';
 
 /**
  * Додаток 5 — норматив чисельності здобувачів на 1 ставку.
@@ -22,6 +23,15 @@ import { setSpecialityNorm } from '../actions';
  * student is worth — because a норматив on its own is an abstraction and its
  * effect is backwards: a SMALLER норматив makes each student worth MORE.
  */
+/**
+ * The норматив the tooltip's example is worked through.
+ *
+ * Thirteen because it is a real one — Історія та археологія, and Середня освіта
+ * (історія) — so the arithmetic in the hint matches a row somebody can see on
+ * the same screen.
+ */
+const EXAMPLE_NORM = 13;
+
 export default async function SpecialityNormsPage() {
   const session = await auth();
   if (!session) redirect('/login');
@@ -57,12 +67,36 @@ export default async function SpecialityNormsPage() {
         Розподіл ставок
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-semibold">Нормативи чисельності</h1>
-        <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
-          Скільки здобувачів припадає на одну ставку — додаток 5, {year} рік. Вводиться одне число:
-          бакалавр, денна форма. Магістратура і заочна форма рахуються від нього автоматично.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Нормативи чисельності</h1>
+          <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
+            Скільки здобувачів припадає на одну ставку — додаток 5, {year} рік. Вводиться одне
+            число: бакалавр, денна форма. Магістратура і заочна форма рахуються від нього
+            автоматично.
+          </p>
+        </div>
+
+        <label className="inline-flex shrink-0 items-center gap-2 text-sm">
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            Узгоджуючий коефіцієнт
+            <StakeTermHint
+              term="contractCoefficient"
+              extraLines={[
+                `Норматив ${EXAMPLE_NORM}: бюджет — 1 ÷ ${EXAMPLE_NORM} = ${formatBonus(1 / EXAMPLE_NORM)}`,
+                `Контракт — 1 ÷ ${EXAMPLE_NORM} × ${settings.contractCoefficient} = ${formatBonus((1 / EXAMPLE_NORM) * settings.contractCoefficient)}`,
+              ]}
+            />
+          </span>
+          <StakeValueForm
+            action={setStakeYearSettings}
+            hidden={{ year }}
+            name="contractCoefficient"
+            defaultValue={String(settings.contractCoefficient)}
+            ariaLabel="Узгоджуючий коефіцієнт на весь університет"
+            className="w-20"
+          />
+        </label>
       </div>
 
       {missing > 0 && (
@@ -79,7 +113,7 @@ export default async function SpecialityNormsPage() {
               <th className="border border-border px-3 py-2 font-medium text-muted-foreground">
                 Спеціальність
               </th>
-              <th className="w-56 border border-border px-3 py-2 font-medium text-muted-foreground">
+              <th className="w-28 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
                 Бакалавр, денна
               </th>
               <th className="w-28 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
@@ -100,13 +134,12 @@ export default async function SpecialityNormsPage() {
             {norms.map((n) => (
               <tr key={n.id} className="transition-colors hover:bg-muted/20">
                 <td className="border border-border px-3 py-2">{n.name}</td>
-                <td className="border border-border px-3 py-2">
+                <td className="border border-border px-3 py-2 text-right">
                   <StakeValueForm
                     action={setSpecialityNorm}
                     hidden={{ specialityId: n.id, year }}
                     name="base"
                     defaultValue={n.base === null ? '' : decimal(n.base)}
-                    suffix="осіб"
                     ariaLabel={`Норматив для спеціальності ${n.name}`}
                     invalid={n.base === null}
                   />

@@ -57,10 +57,11 @@ describe('statusLines', () => {
 
 describe('recommendedStake', () => {
   // The worked example from the design conversation: Ліщенко, formula 0,95,
-  // one recruited student worth 0,077, заступник декана worth 0,02.
+  // one recruited student worth 0,077, заступник декана worth 0,02 — which
+  // comes to 1,047 and is shown as 1,05.
   it('adds the students and the status to the formula', () => {
     expect(recommendedStake({ formulaHundredths: 95, studentBonus: 0.077, status: 0.02 })).toBe(
-      1.047
+      1.05
     );
   });
 
@@ -80,13 +81,24 @@ describe('recommendedStake', () => {
   it('ignores whatever the head has currently assigned', () => {
     const before = recommendedStake({ formulaHundredths: 95, studentBonus: 0.077, status: 0.02 });
     // nothing in the signature takes the head's value; this pins that
-    expect(before).toBe(1.047);
+    expect(before).toBe(1.05);
   });
 
-  it('rounds to three decimals, the precision a bonus is recorded at', () => {
-    // 1/50 = 0.02 exactly; three заочні контрактні at ~0.0035 each must not vanish
+  // TWO decimals, because the answer goes in a field that takes 0,05 steps —
+  // «1,047» was a number nobody could type. Three is the precision a BONUS is
+  // recorded at, and that is a different figure in a different column.
+  it('rounds to two decimals, the precision a ставка is entered at', () => {
+    expect(recommendedStake({ formulaHundredths: 95, studentBonus: 0.077, status: 0.02 })).toBe(
+      1.05
+    );
+    expect(recommendedStake({ formulaHundredths: 70, studentBonus: 0.004, status: 0 })).toBe(0.7);
+  });
+
+  // Rounded ONCE at the end. Three заочні контрактні at ~0.0035 are worth 0,01
+  // together and nothing at all if each is rounded first.
+  it('sums at full precision before rounding', () => {
     expect(recommendedStake({ formulaHundredths: 0, studentBonus: 0.0035 * 3, status: 0 })).toBe(
-      0.011
+      0.01
     );
   });
 });
