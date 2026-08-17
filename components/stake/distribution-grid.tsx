@@ -459,7 +459,7 @@ export function DistributionGrid({
                   <StakeTermHint term="bonus" />
                 </span>
               </th>
-              <th className="w-28 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
+              <th className="w-24 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   Статуси
                   <StakeTermHint term="status" />
@@ -467,8 +467,8 @@ export function DistributionGrid({
               </th>
               <th
                 className={cn(
-                  'border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground',
-                  canEditLimits ? 'w-28' : 'w-20 text-right'
+                  'border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground',
+                  canEditLimits ? 'w-28' : 'w-20'
                 )}
               >
                 <span className="inline-flex items-center gap-1">
@@ -478,8 +478,8 @@ export function DistributionGrid({
               </th>
               <th
                 className={cn(
-                  'border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground',
-                  canEditLimits ? 'w-28' : 'w-20 text-right'
+                  'border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground',
+                  canEditLimits ? 'w-28' : 'w-20'
                 )}
               >
                 {/* Макс had no explanation at all, and it is the one bound that
@@ -490,13 +490,13 @@ export function DistributionGrid({
                   <StakeTermHint term="max" />
                 </span>
               </th>
-              <th className="w-24 border border-border px-2 py-2 text-right font-medium text-muted-foreground">
+              <th className="w-28 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   За формулою
                   <StakeTermHint term="formula" />
                 </span>
               </th>
-              <th className="w-36 border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground">
+              <th className="w-32 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
                 Ставка
               </th>
               <th className="w-24 border border-border px-2 py-2 text-right font-medium text-muted-foreground">
@@ -808,8 +808,8 @@ function LimitCell({
   }
 
   return (
-    <td className="border border-border px-3 py-2">
-      <div className="flex items-center gap-1">
+    <td className="border border-border px-2 py-2">
+      <div className="flex items-center justify-end gap-1">
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -1029,8 +1029,8 @@ function Row({
         )}
       </td>
 
-      <td className="border border-border px-3 py-2">
-        <div className="flex items-center gap-1">
+      <td className="border border-border px-2 py-2">
+        <div className="flex items-center justify-end gap-1">
           <Input
             value={draft ?? formatStake(value)}
             onChange={(e) => setDraft(e.target.value)}
