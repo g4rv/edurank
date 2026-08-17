@@ -21,6 +21,7 @@ import {
   Scale,
   FileCheck,
   MailPlus,
+  UserPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -34,25 +35,27 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
-  roles: Role[];
+  /** Exact match — /achievements must not light up on /achievements/3 */
   exact?: boolean;
 }
 
-// The org structure: people first, then the containers they live in.
-const STRUCTURE_NAV: NavItem[] = [
-  { href: '/staff', label: 'Персонал', icon: Users, roles: ['ADMIN', 'EDITOR'] },
-  { href: '/departments', label: 'Кафедри', icon: BookOpen, roles: ['ADMIN', 'EDITOR'] },
-  { href: '/faculties', label: 'Факультети', icon: GraduationCap, roles: ['ADMIN', 'EDITOR'] },
-  { href: '/divisions', label: 'Відділи', icon: Building2, roles: ['ADMIN'] },
-];
-
-const ADMIN_NAV_ITEMS: NavItem[] = [
-  { href: '/admin/rating', label: 'Рейтингові роки', icon: CalendarCog, roles: ['ADMIN'] },
-  { href: '/stakes', label: 'Розподіл ставок', icon: Scale, roles: ['ADMIN'] },
-  { href: '/admin/permissions/field', label: 'Поля доступу', icon: KeyRound, roles: ['ADMIN'] },
-  { href: '/admin/permissions/entity', label: 'Дії доступу', icon: ShieldCheck, roles: ['ADMIN'] },
-  { href: '/admin/invites', label: 'Запрошення', icon: MailPlus, roles: ['ADMIN'] },
-  { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList, roles: ['ADMIN'] },
+/**
+ * ADMIN and nobody else. Settings for the system rather than work on people:
+ * which year is open, who may edit what, who has been invited, what was changed.
+ *
+ * «Відділи» sits here rather than beside Кафедри/Факультети, which is where it
+ * looks like it belongs. A відділ carries the permission rows — an editor who
+ * could touch one would be granting themselves rights — so its audience is a
+ * different one from the rest of the structure, and this list is grouped by
+ * audience.
+ */
+const ADMINISTRATION_NAV: NavItem[] = [
+  { href: '/divisions', label: 'Відділи', icon: Building2 },
+  { href: '/admin/rating', label: 'Рейтингові роки', icon: CalendarCog },
+  { href: '/admin/permissions/field', label: 'Поля доступу', icon: KeyRound },
+  { href: '/admin/permissions/entity', label: 'Дії доступу', icon: ShieldCheck },
+  { href: '/admin/invites', label: 'Запрошення', icon: MailPlus },
+  { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList },
 ];
 
 interface SidebarProps {
@@ -69,6 +72,22 @@ interface SidebarProps {
   headsDepartment?: boolean;
 }
 
+/**
+ * Three groups, split by WHOSE data a screen is about (owner, 2026-08-17).
+ *
+ * The old sidebar grouped by subject — structure, then data entry, then rating —
+ * and the same person's own record was scattered through it. One person routinely
+ * wears three hats here: a проректор who lectures is an ADMIN, an НПП and often a
+ * завідувач, and they need to know at a glance which hat a link belongs to.
+ *
+ * - **Особисте** — their own record. Nobody else can see any of it.
+ * - **Управління** — other people's records. ADMIN, a завідувач/декан, a division
+ *   editor; who sees which line still depends on their rights.
+ * - **Адміністрування** — the system itself. ADMIN only.
+ *
+ * Headings appear only when more than one group is present, so an ordinary НПП
+ * still sees a plain list rather than one heading over their whole sidebar.
+ */
 export function Sidebar({
   user,
   isNpp = false,
@@ -78,114 +97,76 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
 
-  const canSeeRating = user.role === 'ADMIN' || user.role === 'EDITOR';
-  const structure = STRUCTURE_NAV.filter((item) => item.roles.includes(user.role));
-  const adminNav = user.role === 'ADMIN' ? ADMIN_NAV_ITEMS : [];
+  const isAdmin = user.role === 'ADMIN';
+  // View access to other people's ratings and to the structure lists
+  const canSeeRating = isAdmin || user.role === 'EDITOR';
 
-  const link = (item: NavItem) => <NavLink key={item.href} item={item} pathname={pathname} />;
-
-  // Top block: own profile, the structure entities, then (for an НПП) their own
-  // three views — rating, Характеристика, recruited students — one visual group,
-  // no dividers inside.
-  //
-  // These three used to ALSO carry a tab bar on the pages themselves, which was
-  // the same navigation twice on one screen. The sidebar is where navigation
-  // lives in this app; the tabs are gone.
-  const topBlock: React.ReactNode[] = [];
+  // ── Особисте ───────────────────────────────────────────────────────────────
+  // A person's own record, and the only place they are the subject rather than
+  // the operator. `isNpp` opens the rating half — NOT the USER role, because an
+  // ADMIN or EDITOR who also lectures has a rating like everybody else.
+  const personal: NavItem[] = [];
   if (user.staffId) {
-    topBlock.push(
-      link({ href: '/profile', label: 'Мій профіль', icon: LayoutDashboard, roles: [user.role] })
-    );
+    personal.push({ href: '/profile', label: 'Мій профіль', icon: LayoutDashboard });
   }
-  for (const item of structure) topBlock.push(link(item));
-  // **`isNpp`, not the USER role** (2026-08-17). A проректор who teaches and a
-  // division editor who teaches are both ordinary here, and both used to get no
-  // way into their own rating at all — the pages redirected them too.
   if (isNpp) {
-    topBlock.push(
-      link({
-        href: '/achievements',
-        label: 'Мій рейтинг',
-        icon: Award,
-        roles: [user.role],
-        exact: true,
-      }),
-      link({
-        href: '/achievements/kharakterystyka',
-        label: 'Характеристика',
-        icon: FileCheck,
-        roles: [user.role],
-      }),
-      link({
-        href: '/achievements/students',
-        // «Мої», because a head who is also an НПП gets the review screen below
-        // under almost the same name, and two identical labels is a coin toss.
-        label: 'Мої здобувачі',
-        icon: GraduationCap,
-        roles: [user.role],
-      }),
-      <AddActivityNav key="add-activity" pathname={pathname} />
+    personal.push(
+      { href: '/achievements', label: 'Мій рейтинг', icon: Award, exact: true },
+      { href: '/achievements/kharakterystyka', label: 'Характеристика', icon: FileCheck },
+      // «Мої», because a завідувач who also lectures gets the review screen under
+      // «Залучені здобувачі» below, and two identical labels is a coin toss.
+      { href: '/achievements/students', label: 'Мої здобувачі', icon: UserPlus }
     );
   }
 
-  // Direct-entry grid — its own band between structure and the rating group.
-  // «Моя кафедра» sits here too: it is the head's own working screen, and a
-  // head is usually an ordinary USER for whom /staff does not open at all.
-  const dataEntry: React.ReactNode[] = [];
+  // ── Управління ─────────────────────────────────────────────────────────────
+  // Other people's records. Ordered structure → operations → rating, and every
+  // line is still gated on its own right: a завідувач who is an ordinary USER
+  // sees three of these, an ADMIN sees all of them.
+  const management: NavItem[] = [];
   if (headsDepartment) {
-    dataEntry.push(
-      link({ href: '/my-department', label: 'Моя кафедра', icon: BookOpen, roles: [user.role] })
+    // Exact — otherwise /my-department/students lights both lines at once
+    management.push({ href: '/my-department', label: 'Моя кафедра', icon: BookOpen, exact: true });
+  }
+  if (canSeeRating) {
+    management.push(
+      { href: '/staff', label: 'Персонал', icon: Users },
+      { href: '/departments', label: 'Кафедри', icon: BookOpen },
+      { href: '/faculties', label: 'Факультети', icon: GraduationCap }
     );
   }
-  if (headsDepartment || user.role === 'ADMIN') {
-    dataEntry.push(
-      link({
-        href: '/my-department/students',
-        label: 'Залучені здобувачі',
-        icon: GraduationCap,
-        roles: [user.role],
-      })
-    );
-  }
-  // The head's own way into /stakes. ADMIN already has it under «Адміністрування»
-  // and would otherwise get the same link twice when they also head a кафедра.
-  if (headsDepartment && user.role !== 'ADMIN') {
-    dataEntry.push(
-      link({ href: '/stakes', label: 'Розподіл ставок', icon: Scale, roles: [user.role] })
+  if (headsDepartment || isAdmin) {
+    management.push(
+      { href: '/my-department/students', label: 'Залучені здобувачі', icon: UserPlus },
+      // One entry for everyone who may open it. It used to be listed twice —
+      // once under «Адміністрування» and once for heads — which gave an ADMIN
+      // heading a кафедра the same link in two places.
+      { href: '/stakes', label: 'Розподіл ставок', icon: Scale }
     );
   }
   if (canEnterData) {
-    dataEntry.push(
-      link({ href: '/division-data', label: 'Дані відділу', icon: Table2, roles: [user.role] })
-    );
+    management.push({ href: '/division-data', label: 'Дані відділу', icon: Table2 });
   }
-
-  // Rating group at the bottom — the app's core job, kept together: the rollup,
-  // moderation, then the charts («Огляд» renamed «Графіки», route unchanged).
-  const ratingGroup: React.ReactNode[] = [];
   if (canSeeRating) {
-    ratingGroup.push(
-      link({ href: '/rating', label: 'Рейтинг НПП', icon: Trophy, roles: ['ADMIN', 'EDITOR'] })
-    );
+    management.push({ href: '/rating', label: 'Рейтинг НПП', icon: Trophy });
   }
   if (canModerate) {
-    ratingGroup.push(
-      link({
-        href: '/moderation',
-        label: 'Модерація рейтингу',
-        icon: BadgeCheck,
-        roles: [user.role],
-      })
-    );
+    management.push({ href: '/moderation', label: 'Модерація рейтингу', icon: BadgeCheck });
   }
   if (canSeeRating) {
-    ratingGroup.push(
-      link({ href: '/dashboard', label: 'Графіки', icon: ChartColumn, roles: ['ADMIN', 'EDITOR'] })
-    );
+    management.push({ href: '/dashboard', label: 'Графіки', icon: ChartColumn });
   }
 
-  // Only non-empty groups show, and a divider sits between each present pair.
-  const groups = [topBlock, dataEntry, ratingGroup].filter((g) => g.length > 0);
+  // ── Адміністрування ────────────────────────────────────────────────────────
+  const administration: NavItem[] = isAdmin ? ADMINISTRATION_NAV : [];
+
+  const sections = [
+    { label: 'Особисте', items: personal, showSections: isNpp },
+    { label: 'Управління', items: management, showSections: false },
+    { label: 'Адміністрування', items: administration, showSections: false },
+  ].filter((s) => s.items.length > 0);
+
+  const showHeadings = sections.length > 1;
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r bg-sidebar">
@@ -195,20 +176,24 @@ export function Sidebar({
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {groups.map((group, i) => (
-          <Fragment key={i}>
+        {sections.map((section, i) => (
+          <Fragment key={section.label}>
             {i > 0 && <div className="mx-2 my-1 border-t" />}
-            {group}
+            {/* Uppercase, like the card titles on every page, so a group heading
+                reads as a tier above «Додати активність» nested inside this one.
+                Both were the same style and the sub-heading looked like a
+                fourth group. */}
+            {showHeadings && (
+              <p className="px-2 py-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                {section.label}
+              </p>
+            )}
+            {section.items.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} />
+            ))}
+            {section.showSections && <AddActivityNav pathname={pathname} />}
           </Fragment>
         ))}
-
-        {adminNav.length > 0 && (
-          <>
-            <div className="mx-2 my-1 border-t" />
-            <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Адміністрування</p>
-            {adminNav.map((item) => link(item))}
-          </>
-        )}
       </nav>
 
       <div className="border-t p-3">
