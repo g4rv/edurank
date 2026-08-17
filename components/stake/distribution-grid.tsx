@@ -192,7 +192,19 @@ export function DistributionGrid({
   const kst = view.kstHundredths;
 
   const distributed = useMemo(() => Object.values(values).reduce((sum, v) => sum + v, 0), [values]);
-  const remaining = kst === null ? null : kst - distributed;
+  /**
+   * What is left of BOTH funds — and «перевищення» means past both of them.
+   *
+   * It used to measure against `Кст` alone, which was right while there was one
+   * fund and wrong the moment there were two: a кафедра with 2,00 основний and
+   * 1,00 бонусний that had handed out 2,25 was told it had overspent by 0,25
+   * while 0,75 sat unspent in the second fund (2026-08-17, seen on screen).
+   *
+   * The base fund fills first and only the excess comes from the bonus fund —
+   * the same attribution the cards use, so the three numbers agree.
+   */
+  const bonusPool = view.bonusPoolHundredths ?? 0;
+  const remaining = kst === null ? null : kst + bonusPool - distributed;
   const overspent = remaining !== null && remaining < 0;
 
   /**
@@ -276,7 +288,7 @@ export function DistributionGrid({
    */
   const overspendWarning =
     overspent && remaining !== null
-      ? `Перевищення розподілу на ${formatStake(-remaining)} — не забудьте врахувати у протоколі`
+      ? `Перевищення на ${formatStake(-remaining)} понад обидва фонди — не забудьте врахувати у протоколі`
       : null;
 
   /**
@@ -476,6 +488,12 @@ export function DistributionGrid({
                 <span className="inline-flex items-center gap-1">
                   Макс
                   <StakeTermHint term="max" />
+                </span>
+              </th>
+              <th className="w-24 border border-border px-2 py-2 text-right font-medium text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  За формулою
+                  <StakeTermHint term="formula" />
                 </span>
               </th>
               <th className="w-36 border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground">
@@ -988,6 +1006,22 @@ function Row({
         onCommit={onLimitCommit}
       />
 
+      <td className="border border-border px-2 py-2 text-right tabular-nums">
+        {formatStake(row.formulaHundredths)}
+        {row.clampedTo && (
+          <span
+            className="ml-1 text-xs text-muted-foreground"
+            title={
+              row.clampedTo === 'max'
+                ? 'Обмежено максимальною ставкою'
+                : 'Підняте до мінімальної ставки'
+            }
+          >
+            {row.clampedTo === 'max' ? '↓' : '↑'}
+          </span>
+        )}
+      </td>
+
       <td className="border border-border px-3 py-2">
         <div className="flex items-center gap-1">
           <Input
@@ -1026,26 +1060,6 @@ function Row({
             label={`ставку для ${row.name}`}
           />
         </div>
-
-        {/* «За формулою» lives here rather than in a column of its own. It is
-            the floor this field cannot go below, so it belongs under the field
-            — and the owner's column list does not have it. The arrow says the
-            formula was clamped, which is why the number can look surprising. */}
-        <span className="mt-0.5 block text-[10px] text-muted-foreground">
-          за формулою {formatStake(row.formulaHundredths)}
-          {row.clampedTo && (
-            <span
-              className="ml-0.5"
-              title={
-                row.clampedTo === 'max'
-                  ? 'Обмежено максимальною ставкою'
-                  : 'Підняте до мінімальної ставки'
-              }
-            >
-              {row.clampedTo === 'max' ? '↓' : '↑'}
-            </span>
-          )}
-        </span>
       </td>
 
       {/* «за формулою + здобувачі + посада» — what the objective figures say
