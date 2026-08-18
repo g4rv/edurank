@@ -45,8 +45,9 @@ export const SPECIALITY_DEPARTMENTS: Readonly<Record<string, readonly string[]>>
     'Кафедра соціальних комунікацій, документознавства та інформаційної діяльності',
   ],
   // Кафедра цифрових технологій навчання provides much of the teaching but is
-  // not випускова, so it is not here — the question this map answers is «whose
-  // programme did the student enrol on», not «who taught them».
+  // not випускова for THIS programme, so it is not here — the question this map
+  // answers is «whose programme did the student enrol on», not «who taught
+  // them». It is випускова for «Комп'ютерні науки», at the foot of this list.
   'Професійна освіта (цифрові технології)': [
     'Кафедра соціальних комунікацій, документознавства та інформаційної діяльності',
   ],
@@ -122,21 +123,20 @@ export const SPECIALITY_DEPARTMENTS: Readonly<Record<string, readonly string[]>>
   'Професійна освіта (сфера обслуговування)': ['Кафедра професійної освіти'],
   'Туризм і рекреація': ['Кафедра професійної освіти'],
 
-  // ── Admitted onto in 2026, випускова кафедра not established ─────────────
+  // ── Confirmed by the owner, 2026-08-18 ───────────────────────────────────
   //
-  // Empty ON PURPOSE, not forgotten. Both programmes took students in 2026 but
-  // appear nowhere in `uhsp-specialnosti-kafedry.html`, and guessing here would
-  // be worse than saying nothing: `specialityOrigin` answers `unknown` for an
-  // empty list, and the screen then says we do not know — whereas a wrong
-  // кафедра tells a завідувач their people recruited for somebody else.
+  // These two sat empty because `uhsp-specialnosti-kafedry.html` names no
+  // випускова кафедра for either, and a guess here is worse than silence: a
+  // wrong кафедра tells a завідувач their people recruited for somebody else,
+  // while an empty list makes `specialityOrigin` answer `unknown` and the
+  // screen say so. The file recorded both guesses and waited; the owner has
+  // now confirmed each, and both match.
   //
-  // The likely answers, to check rather than to assume: «Комп'ютерні науки» is
-  // admitted under ФГОСТ, whose «Кафедра цифрових технологій навчання» is the
-  // one кафедра there that graduates nobody in this map; «Музичне мистецтво»
-  // under ФММПП points at «Кафедра мистецької освіти і візуально-музичних
-  // практик». Fill these in once somebody confirms it.
-  "Комп'ютерні науки": [],
-  'Музичне мистецтво': [],
+  // «Музичне мистецтво» is додаток 5's name for what the owner calls «музична
+  // освіта» — the performer's degree under ФММПП, distinct from «Середня освіта
+  // (музичне мистецтво)» above, which the same кафедра also graduates.
+  "Комп'ютерні науки": ['Кафедра цифрових технологій навчання'],
+  'Музичне мистецтво': ['Кафедра мистецької освіти і візуально-музичних практик'],
 };
 
 /**

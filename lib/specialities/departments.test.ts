@@ -27,15 +27,16 @@ describe('SPECIALITY_DEPARTMENTS covers exactly the seeded specialities', () => 
     expect(missing).toEqual([]);
   });
 
-  // Two exceptions, both deliberate: the university admitted students onto these
-  // in 2026 and no source names their випускова кафедра. An empty list makes
-  // `specialityOrigin` answer `unknown`, which is the honest answer — the test
-  // names them so a THIRD empty list, which would be an omission, still fails.
-  it('gives every speciality at least one кафедра, bar the two with none established', () => {
+  // No exceptions any more. «Комп'ютерні науки» and «Музичне мистецтво» were the
+  // two the довідник does not cover, and the owner confirmed both on
+  // 2026-08-18. An empty list is now always an omission: it would make
+  // `specialityOrigin` answer `unknown` and grey out the завідувач's chips for
+  // a programme somebody really did recruit onto.
+  it('gives every speciality at least one кафедра', () => {
     const empty = Object.entries(SPECIALITY_DEPARTMENTS)
       .filter(([, owners]) => owners.length === 0)
       .map(([name]) => name);
-    expect(empty.sort()).toEqual(["Комп'ютерні науки", 'Музичне мистецтво'].sort());
+    expect(empty).toEqual([]);
   });
 });
 
@@ -128,21 +129,20 @@ it('isKnownDepartment ignores the word «кафедра» and spacing', () => {
 // `specialityOrigin`, and its завідувач's випускова-кафедра chips all go gray.
 // Nothing else fails, which is why it needs a test rather than a bug report.
 /**
- * The two кафедри that graduate nobody, so the довідник rightly omits them.
- * Both are documented at their place in `departments.ts`: ЦТН teaches across
- * ФГОСТ's programmes without being випускова for any, and the літературна
- * кафедра carries the літературний блок while лінгвістика is випускова.
+ * The кафедра that graduates nobody, so the довідник rightly omits it: the
+ * літературна кафедра carries the літературний блок while лінгвістика is
+ * випускова. Documented at its place in `departments.ts`.
  *
- * Named here so a THIRD one — which would really be a misspelling that fell out
- * of the довідник — fails instead of joining them quietly.
+ * «Кафедра цифрових технологій навчання» was the second until 2026-08-18, when
+ * the owner confirmed it is випускова for «Комп'ютерні науки».
+ *
+ * Named here so another one — which would really be a misspelling that fell out
+ * of the довідник — fails instead of joining it quietly.
  */
-const GRADUATE_NOBODY = [
-  'Кафедра цифрових технологій навчання',
-  'Кафедра української і зарубіжної літератури та методики навчання',
-];
+const GRADUATE_NOBODY = ['Кафедра української і зарубіжної літератури та методики навчання'];
 
 describe('the seeded кафедри', () => {
-  it('are all in the довідник, bar the two that graduate nobody', () => {
+  it('are all in the довідник, bar the one that graduates nobody', () => {
     const missing = DEPARTMENTS.filter((d) => !isKnownDepartment(d.name)).map((d) => d.name);
     expect(missing.sort()).toEqual([...GRADUATE_NOBODY].sort());
   });
