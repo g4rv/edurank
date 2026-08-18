@@ -48,5 +48,11 @@ next-env.d.ts
 
 /edu-reference
 
+# Real colleagues — ~300 names and corporate addresses, built from edu-reference
+# by `pnpm staff:build`. Untracked and unignored until 2026-08-18, which meant a
+# single `git add -A` would have put the whole university's contact list into
+# the repository's history, where it cannot be taken back out.
+/staff-roster*.json
+
 # Playwright MCP scratch output (page snapshots, console logs)
 /.playwright-mcp/
