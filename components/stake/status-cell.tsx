@@ -1,6 +1,6 @@
 'use client';
 
-import { formatBonus } from '@/lib/stake/units';
+import { formatStakeValue } from '@/lib/stake/units';
 import { statusLines } from '@/lib/stake/status-bonus';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 
@@ -32,13 +32,35 @@ export function StatusCell({
   const lines = statusLines(position, asMap);
   const held = lines.find((l) => l.counts);
 
+  // Two decimals, not three. A надбавка is a ставка on the 0,05 ladder, so
+  // «+0,050» claimed a precision the field cannot even accept — `formatBonus` is
+  // for the recruitment figure, where a заочний контрактний здобувач really is
+  // worth 0,004.
   const tooltip = lines
-    .map((l) => `${l.counts ? '✓' : '  '} ${l.label} — ${formatBonus(l.value)}`)
+    .map(
+      (l) =>
+        `${l.counts ? '✓' : '  '} ${l.label} — ` +
+        (l.value > 0 ? formatStakeValue(l.value) : 'не оцінено')
+    )
     .join('\n');
 
-  if (!held) {
+  // Nothing to show, in two cases that look the same in this column: no post at
+  // all, and a post ADMIN has not priced. Neither adds anything to
+  // «Рекомендовано», and this column exists to say what the надбавка is — so an
+  // unpriced post shows «—» like everybody else, with no number and no title
+  // (owner, 2026-08-18). It said «+0,000 Завідувач кафедри», which read as a
+  // надбавка that was calculated and came out at zero.
+  //
+  // The post is still on the profile and still on the Характеристика; it is
+  // only absent from the column about money. The tooltip keeps the whole table.
+  if (!held || held.value <= 0) {
     return (
-      <span className="text-muted-foreground" title={tooltip}>
+      <span
+        className="cursor-help text-muted-foreground"
+        title={
+          held ? `${tooltip}\n\nНадбавку за посаду «${held.label}» ще не встановлено` : tooltip
+        }
+      >
         —
       </span>
     );
@@ -46,8 +68,8 @@ export function StatusCell({
 
   return (
     <span title={tooltip} className="cursor-help">
-      <span className="tabular-nums">+{formatBonus(held.value)}</span>
-      {/* The position itself, small — «+0,02» alone makes the head look it up */}
+      <span className="tabular-nums">+{formatStakeValue(held.value)}</span>
+      {/* The position itself, small — «+0,05» alone makes the head look it up */}
       <span className="block text-[10px] text-muted-foreground">{shorten(held.label)}</span>
     </span>
   );
