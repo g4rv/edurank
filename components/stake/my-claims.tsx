@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState, useTransition } from 'react';
+import { useActionState, useId, useState, useTransition } from 'react';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -382,11 +382,14 @@ function StudentPicker({
   disabled: boolean;
 }) {
   const items = candidates.map((name) => ({ id: name, name }));
+  // The placeholder still carries the STATE — «not yet», «loading», «N to pick
+  // from» — because that changes as the form is filled and a fixed label cannot
+  // say it. The label above says what the field is.
   const placeholder = !ready
     ? 'Спочатку вкажіть умови вступу'
     : loading
       ? 'Завантаження…'
-      : `Здобувач (${candidates.length})`;
+      : `Почніть вводити прізвище (${candidates.length})`;
 
   return (
     <Combobox
@@ -397,6 +400,7 @@ function StudentPicker({
       displayValue={value}
       disabled={disabled || !ready || loading}
     >
+      <p className="mb-1 block text-xs font-medium text-muted-foreground">Здобувач</p>
       <ComboboxInput placeholder={placeholder} aria-label="Здобувач" />
       <ComboboxContent>
         <ComboboxEmpty>Здобувача не знайдено</ComboboxEmpty>
@@ -420,6 +424,15 @@ function StudentPicker({
  * part of what the person is claiming, and a field that disappears is one they
  * cannot check before pressing «Додати».
  */
+/**
+ * One select, with its name above it rather than only inside it.
+ *
+ * The label used to live in the placeholder alone, which meant it vanished the
+ * moment somebody chose something: a filled form read «B11 · Філологія» /
+ * «B11 · Переклад» / «Бакалавр» with nothing saying which field was which
+ * (owner, 2026-08-18). Placeholders are a hint, not a label — and this form has
+ * five of them in a row, two of which hold near-identical values.
+ */
 function PickOne({
   label,
   value,
@@ -433,21 +446,27 @@ function PickOne({
   options: { value: string; label: string }[];
   disabled: boolean;
 }) {
+  const id = useId();
   const settled = options.length === 1 && value !== '';
 
   return (
-    <Select value={value} onValueChange={onChange} disabled={disabled || settled}>
-      <SelectTrigger className="w-full" aria-label={label}>
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="space-y-1">
+      <label htmlFor={id} className="block text-xs font-medium text-muted-foreground">
+        {label}
+      </label>
+      <Select value={value} onValueChange={onChange} disabled={disabled || settled}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue placeholder="Оберіть…" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
