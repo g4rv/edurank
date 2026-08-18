@@ -298,9 +298,14 @@ export async function seedTestUniverse(prisma: PrismaClient): Promise<TestResult
 
       for (let n = 1; n <= size; n += 1) {
         const isHead = n === 1;
+        // Decided before the address, because the декан gets one of their own —
+        // `dean-01@` is legible at a projector in a way `npp-01-1@` is not.
+        const isDean = !isHead && n === 2 && deanId === null;
         const email = isHead
           ? `head-${slot}@${TEST_DOMAIN}`
-          : `npp-${slot}-${n - 1}@${TEST_DOMAIN}`;
+          : isDean
+            ? `dean-${String(result.deans + 1).padStart(2, '0')}@${TEST_DOMAIN}`
+            : `npp-${slot}-${n - 1}@${TEST_DOMAIN}`;
 
         const isFemale = random() < 0.55;
         const base = pick(random, SURNAMES);
@@ -315,11 +320,15 @@ export async function seedTestUniverse(prisma: PrismaClient): Promise<TestResult
         const inactive = n === size && size > 3;
         const share = inactive ? 0 : random() ** 2;
 
-        // The декан carries DEAN, a завідувач carries the head position, and
-        // the rest take one of the remaining five in turn until they run out.
-        // Annotated, because `deanId` is assigned from `person` further down and
-        // TypeScript otherwise chases the two through each other.
-        const wantsDean: boolean = isHead && deanId === null;
+        // **A завідувач is never the декан** (owner, 2026-08-18). The seed used
+        // to hand the deanship to the first кафедра's head, which made one
+        // account both — and then a завідувач appeared to «have access to other
+        // кафедри», because a декан reads the whole факультет. The roles are
+        // separate people at the university, so they are separate people here.
+        //
+        // The декан is the SECOND person on the факультет's first кафедра. Every
+        // кафедра has at least three, so there is always somebody to be it.
+        const wantsDean: boolean = isDean;
         const position: AdminPosition | null = wantsDean
           ? 'DEAN'
           : isHead
@@ -360,20 +369,20 @@ export async function seedTestUniverse(prisma: PrismaClient): Promise<TestResult
             data: { headId: person.id },
           });
           result.heads += 1;
+          result.logins.push({ email, role: 'HEAD', note: `завідувач ${departmentName}` });
+        } else if (wantsDean) {
+          await prisma.faculty.update({
+            where: { id: facultyRow.id },
+            data: { deanId: person.id },
+          });
+          deanId = person.id;
+          result.deans += 1;
           result.logins.push({
             email,
-            role: wantsDean ? 'DEAN' : 'HEAD',
-            note: wantsDean ? `декан + завідувач ${departmentName}` : `завідувач ${departmentName}`,
+            role: 'DEAN',
+            note: `декан ${faculty.name.replace('Факультет ', 'ф-ту ')} — лише перегляд`,
           });
-          if (wantsDean) {
-            await prisma.faculty.update({
-              where: { id: facultyRow.id },
-              data: { deanId: person.id },
-            });
-            deanId = person.id;
-            result.deans += 1;
-          }
-        } else if (result.logins.length < 8) {
+        } else if (result.logins.length < 9) {
           result.logins.push({ email, role: 'USER', note: `НПП ${departmentName}` });
         }
       }

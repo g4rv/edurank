@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 vi.mock('@/lib/db', () => ({
   db: {
-    department: { findMany: vi.fn() },
-    faculty: { findMany: vi.fn() },
+    department: { findMany: vi.fn(), findFirst: vi.fn() },
+    faculty: { findMany: vi.fn(), findFirst: vi.fn() },
     staff: { findUnique: vi.fn() },
   },
 }));
 
 import { db } from '@/lib/db';
-import { canViewAcademicRecord, scopeOf } from './scope';
+import { canViewAcademicRecord, headDeanConflict, scopeOf } from './scope';
 
 const mockDepartments = db.department.findMany as unknown as Mock;
 const mockFaculties = db.faculty.findMany as unknown as Mock;
@@ -114,5 +114,50 @@ describe('canViewAcademicRecord', () => {
     given({ headOf: ['dept-1'] });
     mockStaff.mockResolvedValue(null);
     expect(await canViewAcademicRecord({ role: 'USER', staffId: 'head' }, 'ghost')).toBe(false);
+  });
+});
+
+// A завідувач is never a декан (owner, 2026-08-18). Not a tidiness rule: a
+// декан reads every кафедра of the факультет, so one person holding both makes
+// a завідувач look like they have access to кафедри that are not theirs — which
+// is exactly how this was reported.
+describe('headDeanConflict', () => {
+  const departmentFirst = db.department.findFirst as unknown as Mock;
+  const facultyFirst = db.faculty.findFirst as unknown as Mock;
+
+  beforeEach(() => {
+    departmentFirst.mockReset().mockResolvedValue(null);
+    facultyFirst.mockReset().mockResolvedValue(null);
+  });
+
+  it('allows an empty post — clearing a декан is not a conflict', async () => {
+    expect(await headDeanConflict(null, 'DEAN')).toBeNull();
+    expect(await headDeanConflict(undefined, 'HEAD')).toBeNull();
+  });
+
+  it('allows somebody who holds neither post', async () => {
+    expect(await headDeanConflict('staff-1', 'DEAN')).toBeNull();
+    expect(await headDeanConflict('staff-1', 'HEAD')).toBeNull();
+  });
+
+  it('refuses to make a завідувач the декан, and names the кафедра', async () => {
+    departmentFirst.mockResolvedValue({ name: 'Кафедра економіки' });
+    const problem = await headDeanConflict('staff-1', 'DEAN');
+    expect(problem).toContain('Кафедра економіки');
+    expect(problem).toContain('не може бути деканом');
+  });
+
+  it('refuses to make a декан the завідувач, and names the факультет', async () => {
+    facultyFirst.mockResolvedValue({ name: 'Факультет економіки' });
+    const problem = await headDeanConflict('staff-1', 'HEAD');
+    expect(problem).toContain('Факультет економіки');
+    expect(problem).toContain('не може бути завідувачем');
+  });
+
+  // The two checks are separate queries on purpose: holding a кафедра says
+  // nothing about deanship and vice versa, so neither may answer for the other.
+  it('does not treat a завідувач as ineligible to stay a завідувач', async () => {
+    departmentFirst.mockResolvedValue({ name: 'Кафедра економіки' });
+    expect(await headDeanConflict('staff-1', 'HEAD')).toBeNull();
   });
 });

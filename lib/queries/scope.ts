@@ -52,6 +52,40 @@ export async function headOf(staffId: string | null | undefined): Promise<string
 }
 
 /**
+ * Ukrainian message if this person cannot hold that post, else null.
+ *
+ * **A завідувач is never a декан** (owner, 2026-08-18). They are different jobs
+ * at the university, and letting one person be both is not a harmless overlap:
+ * a декан reads every кафедра of the факультет, so the same account then appears
+ * to be a завідувач with access to кафедри that are not theirs — which is what
+ * the owner reported after seeing it in the seeded data.
+ *
+ * Checked here rather than in a Zod schema because it needs the database: the
+ * question is what this person ALREADY holds, not what the form said.
+ */
+export async function headDeanConflict(
+  staffId: string | null | undefined,
+  post: 'HEAD' | 'DEAN'
+): Promise<string | null> {
+  if (!staffId) return null;
+
+  if (post === 'DEAN') {
+    const heads = await db.department.findFirst({
+      where: { headId: staffId },
+      select: { name: true },
+    });
+    return heads
+      ? `Ця людина вже завідує кафедрою «${heads.name}». Завідувач не може бути деканом — спершу призначте іншого завідувача.`
+      : null;
+  }
+
+  const deans = await db.faculty.findFirst({ where: { deanId: staffId }, select: { name: true } });
+  return deans
+    ? `Ця людина вже декан факультету «${deans.name}». Декан не може бути завідувачем — спершу призначте іншого декана.`
+    : null;
+}
+
+/**
  * May this person look at that person's academic record — rating tab,
  * Характеристика?
  *

@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import { diffChanges } from '@/lib/audit';
 import { canManageEntity } from '@/lib/permissions';
+import { headDeanConflict } from '@/lib/queries/scope';
 import { parseDbError } from '@/lib/db-error';
 
 export type DepartmentActionState = { error: string } | { redirectTo: string };
@@ -19,6 +20,9 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
 
   const parsed = departmentSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
+
+  const conflict = await headDeanConflict(parsed.data.headId, 'HEAD');
+  if (conflict) return { error: conflict };
 
   let dbError: string | null = null;
 
@@ -77,6 +81,9 @@ export async function updateDepartment(
 
   const parsed = departmentSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
+
+  const conflict = await headDeanConflict(parsed.data.headId, 'HEAD');
+  if (conflict) return { error: conflict };
 
   let dbError: string | null = null;
 

@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { facultySchema, type FacultySchema } from '@/validations/faculty';
 import { diffChanges } from '@/lib/audit';
 import { canManageEntity } from '@/lib/permissions';
+import { headDeanConflict } from '@/lib/queries/scope';
 import { parseDbError } from '@/lib/db-error';
 
 export type FacultyActionState = { error: string } | { redirectTo: string };
@@ -19,6 +20,9 @@ export async function createFaculty(data: FacultySchema): Promise<FacultyActionS
 
   const parsed = facultySchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
+
+  const conflict = await headDeanConflict(parsed.data.deanId, 'DEAN');
+  if (conflict) return { error: conflict };
 
   let dbError: string | null = null;
 
@@ -63,6 +67,9 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
 
   const parsed = facultySchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
+
+  const conflict = await headDeanConflict(parsed.data.deanId, 'DEAN');
+  if (conflict) return { error: conflict };
 
   let dbError: string | null = null;
 
