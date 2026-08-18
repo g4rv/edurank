@@ -281,23 +281,59 @@ function CascadeFields({
           </div>
         )}
 
-        <PickOne
-          label="Форма навчання"
-          value={form}
-          onChange={(value) => choose({ ...selection, form: value, funding: '' })}
-          options={forms.map((f) => ({ value: f, label: FORM[f] }))}
-          disabled={disabled || !branch}
-        />
+        {/* Ступінь — fixed to бакалавр, and SHOWN rather than left out.
 
-        <PickOne
-          label="Фінансування"
-          value={funding}
-          onChange={(value) => choose({ ...selection, funding: value })}
-          options={fundings.map((f) => ({ value: f, label: FUNDING[f] }))}
-          disabled={disabled || !form}
-        />
+            Every one of the 722 people in the 2026 наказ is a бакалавр, so this
+            filters nothing today and the field could be dropped. It is here
+            because its absence would be read as «the app cannot do магістри»,
+            which is untrue in a way that matters: the норматив for a магістр is
+            already in `lib/stake/norms.ts` (their coefficient halves), the
+            import script already reads the column, and the day a наказ for
+            магістри arrives this becomes live with no code change.
 
-        <div className="sm:col-span-2">
+            Disabled rather than a single-option select, so it reads as a
+            constraint on the data rather than a control somebody failed to
+            fill in. The line underneath says whose constraint it is. */}
+        {/* The three narrow ones travel together — «Спеціалізація» appears only
+            for some programmes, and without this «Фінансування» was left
+            stranded on a row of its own whenever it did not. */}
+        <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3 lg:col-span-4">
+          <div>
+            <PickOne
+              label="Ступінь"
+              value="BACHELOR"
+              onChange={() => {}}
+              options={[
+                { value: 'BACHELOR', label: DEGREE.BACHELOR },
+                { value: 'MASTER', label: DEGREE.MASTER },
+              ]}
+              disabled
+            />
+            <p className="mt-1 text-[11px] leading-tight text-muted-foreground">
+              У наказі 2026 року лише бакалаври
+            </p>
+          </div>
+
+          <PickOne
+            label="Форма навчання"
+            value={form}
+            onChange={(value) => choose({ ...selection, form: value, funding: '' })}
+            options={forms.map((f) => ({ value: f, label: FORM[f] }))}
+            disabled={disabled || !branch}
+          />
+
+          <PickOne
+            label="Фінансування"
+            value={funding}
+            onChange={(value) => choose({ ...selection, funding: value })}
+            options={fundings.map((f) => ({ value: f, label: FUNDING[f] }))}
+            disabled={disabled || !form}
+          />
+        </div>
+
+        {/* Its own row: the three narrow selects above now fill one, and the
+            student search is the widest thing on the form. */}
+        <div className="sm:col-span-2 lg:col-span-4">
           <StudentPicker
             candidates={candidates}
             value={student}
