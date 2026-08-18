@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { passwordProblem } from '../lib/auth/password-rules';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
 import { recomputeRatingEntries } from '../lib/rating/recompute';
@@ -43,11 +44,32 @@ import type { Prisma, PrismaClient } from '../lib/generated/prisma/client';
 export const DEMO_DOMAIN = 'edurank.local';
 
 /**
- * Set `DEMO_PASSWORD` to something else before running this anywhere the URL
- * is public. The default is here so a demo is one command, not so it is a
- * secret — anybody reading this file knows it.
+ * One password per role, so «who am I signing in as» is obvious at a projector.
+ *
+ * Every one satisfies the app's own rules — eight characters, a capital, a
+ * digit and a special — which `assertUsable()` below checks rather than trusts,
+ * because a demo account the app itself would refuse to create is a confusing
+ * thing to discover live.
+ *
+ * These are DELIBERATELY weak and printed in the source. Set `DEMO_PASSWORD` to
+ * override all of them anywhere the URL is public — edurank.uhsp.edu.ua is.
  */
-export const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'EduRankDemo2026!';
+export const DEMO_PASSWORDS = {
+  ADMIN: 'Admin123!',
+  EDITOR: 'Editor123!',
+  HEAD: 'Head123!',
+  DEAN: 'Dean123!',
+  USER: 'User123!',
+} as const;
+
+export type DemoRole = keyof typeof DEMO_PASSWORDS;
+
+/** The override, or null when each role keeps its own */
+export const DEMO_PASSWORD_OVERRIDE = process.env.DEMO_PASSWORD ?? null;
+
+export function demoPassword(role: DemoRole): string {
+  return DEMO_PASSWORD_OVERRIDE ?? DEMO_PASSWORDS[role];
+}
 
 /** The кафедра the demo НПП sit on — a real one, so its спеціальності resolve */
 const DEMO_DEPARTMENT = 'Кафедра політології та журналістики';
@@ -69,6 +91,40 @@ interface DemoPerson {
   nnv?: boolean;
   profile?: 'high' | 'mid' | 'low';
   adminPosition?: 'DEAN' | 'DEPARTMENT_OR_UNIT_HEAD' | 'VICE_RECTOR';
+  /** Which of the five demo passwords this account uses */
+  pass: DemoRole;
+}
+
+/**
+ * Hashes each distinct password once, not once per person.
+ *
+ * bcrypt at cost 10 is ~100ms; the population is 140 people across five
+ * passwords, so caching turns fourteen seconds of hashing into half a second.
+ */
+function hasher() {
+  const cache = new Map<DemoRole, Promise<string>>();
+  return (role: DemoRole) => {
+    const hit = cache.get(role);
+    if (hit) return hit;
+    const made = bcrypt.hash(demoPassword(role), 10);
+    cache.set(role, made);
+    return made;
+  };
+}
+
+/**
+ * Refuses to seed a password the app itself would reject.
+ *
+ * These are typed straight into `DEMO_PASSWORDS`, where nothing validates them.
+ * Somebody shortening one to «Admin1!» would create accounts that work — bcrypt
+ * hashes anything — and then find the reset form refuses the same value, which
+ * is a confusing thing to hit in front of an audience.
+ */
+function assertUsable(): void {
+  for (const role of Object.keys(DEMO_PASSWORDS) as DemoRole[]) {
+    const problem = passwordProblem(demoPassword(role));
+    if (problem) throw new Error(`Пароль для ${role} не проходить правила: ${problem}`);
+  }
 }
 
 /**
@@ -87,6 +143,7 @@ const PEOPLE: readonly DemoPerson[] = [
     patronymic: 'Василівна',
     role: 'ADMIN',
     isNpp: false,
+    pass: 'ADMIN',
   },
   {
     local: 'nnv',
@@ -96,6 +153,7 @@ const PEOPLE: readonly DemoPerson[] = [
     role: 'EDITOR',
     isNpp: false,
     nnv: true,
+    pass: 'EDITOR',
   },
   {
     local: 'head',
@@ -107,6 +165,7 @@ const PEOPLE: readonly DemoPerson[] = [
     head: true,
     profile: 'high',
     adminPosition: 'DEPARTMENT_OR_UNIT_HEAD',
+    pass: 'HEAD',
   },
   {
     local: 'dean',
@@ -118,6 +177,7 @@ const PEOPLE: readonly DemoPerson[] = [
     dean: true,
     profile: 'high',
     adminPosition: 'DEAN',
+    pass: 'DEAN',
   },
   {
     local: 'npp1',
@@ -127,6 +187,7 @@ const PEOPLE: readonly DemoPerson[] = [
     role: 'USER',
     isNpp: true,
     profile: 'mid',
+    pass: 'USER',
   },
   {
     local: 'npp2',
@@ -136,10 +197,17 @@ const PEOPLE: readonly DemoPerson[] = [
     role: 'USER',
     isNpp: true,
     profile: 'low',
+    pass: 'USER',
   },
 ];
 
 export const DEMO_EMAILS = PEOPLE.map((p) => `${p.local}@${DEMO_DOMAIN}`);
+
+/** Each named account with the password it takes — what the seed prints */
+export const DEMO_LOGINS: readonly { email: string; role: DemoRole }[] = PEOPLE.map((p) => ({
+  email: `${p.local}@${DEMO_DOMAIN}`,
+  role: p.pass,
+}));
 
 /** Profile fields so the PROFILE_DERIVED indicators do not all score the same */
 function profileFor(level: DemoPerson['profile']) {
@@ -192,7 +260,8 @@ export interface DemoResult {
  * later.
  */
 export async function seedDemoUsers(prisma: PrismaClient): Promise<DemoResult> {
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  assertUsable();
+  const hash = hasher();
 
   const department = await prisma.department.findFirst({
     where: { name: DEMO_DEPARTMENT },
@@ -225,7 +294,7 @@ export async function seedDemoUsers(prisma: PrismaClient): Promise<DemoResult> {
       patronymic: person.patronymic,
       role: person.role,
       isNpp: person.isNpp,
-      passwordHash,
+      passwordHash: await hash(person.pass),
       // Never carried over from a previous run: an archived demo account that
       // silently stayed archived would look like a broken login.
       archivedAt: null,
@@ -309,7 +378,8 @@ export interface PopulationResult {
  * no passwords. The point here is showing the app AS these people.
  */
 export async function seedDemoPopulation(prisma: PrismaClient): Promise<PopulationResult> {
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  assertUsable();
+  const hash = hasher();
 
   const template = await prisma.ratingTemplate.findFirst({
     where: { status: 'OPEN' },
@@ -386,7 +456,9 @@ export async function seedDemoPopulation(prisma: PrismaClient): Promise<Populati
           patronymic,
           isNpp: true,
           role: 'USER',
-          passwordHash,
+          // A кафедра's завідувач signs in with the head password, like the
+          // named `head@` does — one password per ROLE, not per account.
+          passwordHash: await hash(isHead ? 'HEAD' : 'USER'),
           departmentId: department.id,
           adminPosition: isHead ? 'DEPARTMENT_OR_UNIT_HEAD' : null,
           pedagogicalExperience: 1 + Math.floor(random() * 35),

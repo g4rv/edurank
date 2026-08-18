@@ -4,8 +4,9 @@ import { PrismaClient } from '../lib/generated/prisma/client';
 import { seedCatalogue } from './catalogue';
 import {
   DEMO_DOMAIN,
-  DEMO_EMAILS,
-  DEMO_PASSWORD,
+  DEMO_LOGINS,
+  DEMO_PASSWORD_OVERRIDE,
+  demoPassword,
   removeDemoUsers,
   seedDemoPopulation,
   seedDemoUsers,
@@ -190,8 +191,23 @@ async function main() {
       if (demo.deanTaken) {
         console.log(`  Декана НЕ змінено — факультет уже веде ${demo.deanTaken}`);
       }
-      console.log(`Пароль для всіх: ${DEMO_PASSWORD}`);
-      for (const email of DEMO_EMAILS) console.log(`  ${email}`);
+      // Printed as a table rather than «пароль для всіх», because there is no
+      // longer one: each role has its own so «who am I signed in as» is
+      // readable from the login screen at a projector.
+      console.log(
+        DEMO_PASSWORD_OVERRIDE
+          ? `Пароль для всіх (DEMO_PASSWORD): ${DEMO_PASSWORD_OVERRIDE}\n`
+          : 'Паролі за ролями:\n'
+      );
+      for (const { email, role } of DEMO_LOGINS) {
+        console.log(`  ${email.padEnd(24)} ${demoPassword(role)}`);
+      }
+      console.log(
+        `  ${`head-01…head-${String(pop.departments).padStart(2, '0')}@${DEMO_DOMAIN}`.padEnd(24)} ${demoPassword('HEAD')}   завідувачі кафедр`
+      );
+      console.log(
+        `  ${`npp-01-1…npp-${String(pop.departments).padStart(2, '0')}-3@${DEMO_DOMAIN}`.padEnd(24)} ${demoPassword('USER')}   решта НПП`
+      );
       console.log('\nНічого не видалено. Прибрати після показу: pnpm db:seed:demo:remove');
       return;
     }
