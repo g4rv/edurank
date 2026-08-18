@@ -135,9 +135,16 @@ export const SPECIALITY_CODES: Readonly<Record<string, SpecialityCodes>> = {
   // ── B. Культура, мистецтво та гуманітарні науки ──
   'Історія та археологія': { code: 'B9', legacy: '032' },
   Філософія: { code: 'B10', legacy: '033' },
-  // «(переклад)» is the university's own specialisation label; B11 has no
-  // official sub-code for it, so the code stops at the speciality.
-  'Філологія (переклад)': { code: 'B11', legacy: '035' },
+  // «(переклад)» is додаток 5's own wording for what the ЄДЕБО export calls
+  // «B11.041 Германські мови та літератури (переклад включно), перша -
+  // англійська». This used to stop at `B11` on the assumption that B11 had no
+  // official sub-code — the owner's own export disproved it (2026-08-18), and
+  // it made Філологія the ONE speciality whose спеціальність and спеціалізація
+  // pickers showed the same code, because `baseCode('B11')` is also `B11`.
+  //
+  // Three digits, like the per-language codes under A4.02: the law numbers this
+  // level `.041` rather than `.04`.
+  'Філологія (переклад)': { code: 'B11.041', legacy: '035.041' },
   'Інформаційна, бібліотечна та архівна справа': { code: 'B13', legacy: '029' },
 
   // ── C. Соціальні науки, журналістика та інформація ──

@@ -37,10 +37,23 @@ describe('codes are well formed', () => {
     }
   });
 
+  // Three digits allowed since 2026-08-18: B11.041 numbers the програма level,
+  // the same depth the law gives A4.021 for a language.
   it('every code is a letter, a number, and an optional sub-number', () => {
     for (const [name, { code }] of Object.entries(SPECIALITY_CODES)) {
       if (!code) continue;
-      expect(code, name).toMatch(/^[A-K]\d{1,2}(\.\d{2})?$/);
+      expect(code, name).toMatch(/^[A-K]\d{1,2}(\.\d{2,3})?$/);
+    }
+  });
+
+  // The bug this caught: Філологія was the only speciality whose спеціальність
+  // and спеціалізація pickers showed the SAME code, because its entry stopped
+  // at B11 and `baseCode('B11')` is also B11.
+  it('gives every спеціалізація a code deeper than its спеціальність', () => {
+    for (const [name, { code }] of Object.entries(SPECIALITY_CODES)) {
+      // Only names that carry a parenthetical are a спеціалізація
+      if (!code || !/\([^)]+\)\s*$/.test(name)) continue;
+      expect(code, name).not.toBe(baseCode(code));
     }
   });
 
