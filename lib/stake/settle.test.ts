@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { settleStake, stakeCeiling, type StakeBounds } from './settle';
 
-/** An ordinary row: floor 0,10, ceiling 1,00, formula proposes 0,50 */
+/** An ordinary row: has a rating, floor 0,10, ceiling 1,00, formula says 0,50 */
 const bounds = (over: Partial<StakeBounds> = {}): StakeBounds => ({
+  rating: 120,
   minHundredths: 10,
   maxHundredths: 100,
   formulaHundredths: 50,
@@ -79,5 +80,36 @@ describe('settleStake', () => {
 
   it('never goes below the absolute 0,10, whatever Мін says', () => {
     expect(settleStake(0, 20, bounds({ minHundredths: 0, formulaHundredths: 0 }))).toBe(10);
+  });
+});
+
+// The floor means «nobody who works is left without a ставка», not «everybody
+// on the roster is paid». `formulaShares` always read it that way — it proposes
+// 0 for anyone with no rating and skips the floor — but the grid and the save
+// clamped back up to 0,10, so the formula offered a number the field refused to
+// hold (owner, 2026-08-18).
+describe('an НПП who scored nothing', () => {
+  const inactive = (over: Partial<StakeBounds> = {}) =>
+    bounds({ rating: 0, formulaHundredths: 0, ...over });
+
+  it('may be given zero', () => {
+    expect(settleStake(0, 0, inactive())).toBe(0);
+  });
+
+  it('is not pushed up to 0,10 by their own Мін', () => {
+    expect(settleStake(0, 0, inactive({ minHundredths: 50 }))).toBe(0);
+  });
+
+  it('can still be given a ставка by hand', () => {
+    expect(settleStake(25, 0, inactive())).toBe(25);
+  });
+
+  it('can be taken back down to zero again', () => {
+    expect(settleStake(0, 25, inactive())).toBe(0);
+  });
+
+  // Everybody else is untouched: the exception is the rating, not the кафедра.
+  it('leaves a colleague who scored on the 0,10 floor', () => {
+    expect(settleStake(0, 20, bounds({ rating: 1, formulaHundredths: 0 }))).toBe(10);
   });
 });

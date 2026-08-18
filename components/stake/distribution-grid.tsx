@@ -37,7 +37,13 @@ import { StakeStepper } from '@/components/stake/stake-stepper';
 import { BonusCell } from '@/components/stake/bonus-cell';
 import { StatusCell } from '@/components/stake/status-cell';
 import { recommendedStake, statusValue } from '@/lib/stake/status-bonus';
-import { settleStake, stakeCeiling, type StakeBounds } from '@/lib/stake/settle';
+import {
+  lowerBound,
+  settleStake,
+  stakeCeiling,
+  upperBound,
+  type StakeBounds,
+} from '@/lib/stake/settle';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 import { saveDistribution, setStaffLimits } from '@/app/(dashboard)/stakes/actions';
 
@@ -116,8 +122,8 @@ export function DistributionGrid({
   const seed = () =>
     Object.fromEntries(
       view.rows.map((r) => {
-        const lower = Math.max(r.minHundredths, MIN_STAKE);
-        const upper = Math.max(r.maxHundredths, lower);
+        const lower = lowerBound(r);
+        const upper = upperBound(r);
         const stored = r.proposedHundredths;
         return [r.staffId, stored < lower || stored > upper ? r.formulaHundredths : stored];
       })
@@ -248,6 +254,7 @@ export function DistributionGrid({
 
   /** Every bound that applies to one row, gathered for `settleStake` */
   const boundsFor = (row: StakeRow): StakeBounds => ({
+    rating: row.rating,
     minHundredths: row.minHundredths,
     maxHundredths: row.maxHundredths,
     formulaHundredths: row.formulaHundredths,
@@ -1030,8 +1037,8 @@ function Row({
     setDraft(null);
   }
 
-  const lower = Math.max(row.minHundredths, MIN_STAKE);
-  const upper = Math.max(row.maxHundredths, lower);
+  const lower = lowerBound(row);
+  const upper = upperBound(row);
   // A saved allocation can fall outside its bounds without anybody touching it
   // — ADMIN lowers a cap under a number the head already agreed. The save
   // refuses it, so say so on the field instead of only at the moment of saving.
@@ -1053,6 +1060,7 @@ function Row({
   // time. `atMax` greys the button out exactly there — the same way «тільки
   // збільшити» is stated by the ▼ rather than by an error message.
   const ceiling = stakeCeiling(value, {
+    rating: row.rating,
     minHundredths: row.minHundredths,
     maxHundredths: row.maxHundredths,
     formulaHundredths: row.formulaHundredths,

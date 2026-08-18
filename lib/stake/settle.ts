@@ -13,6 +13,16 @@ import { MIN_STAKE, floorToStep } from './units';
 // They interact, so they live together and are tested together.
 
 export interface StakeBounds {
+  /**
+   * This year's rating total. **Zero removes the 0,10 floor.**
+   *
+   * The floor exists so that nobody who works is left without a ставка, and
+   * `formulaShares` has always read it that way: it skips the floor entirely
+   * «for anyone with no rating», proposing 0. The grid and the server did not,
+   * so the formula offered 0, the field refused to hold it, and a кафедра with
+   * an inactive НПП had a row nobody could save (owner, 2026-08-18).
+   */
+  rating: number;
   /** The person's floor, before `MIN_STAKE` is applied */
   minHundredths: number;
   /** The person's ceiling */
@@ -32,13 +42,22 @@ export interface StakeBounds {
   overspent: boolean;
 }
 
-/** The person's floor, never under the university's absolute 0,10 */
-export function lowerBound(b: Pick<StakeBounds, 'minHundredths'>): number {
+/**
+ * The person's floor: 0,10 at the least — unless they scored nothing this year.
+ *
+ * A rating of zero drops it to zero. The floor is «nobody who works is left
+ * without a ставка», not «everybody on the roster is paid», and the формула
+ * already drew that line; this makes the field and the save agree with it.
+ */
+export function lowerBound(b: Pick<StakeBounds, 'minHundredths' | 'rating'>): number {
+  if (b.rating <= 0) return 0;
   return Math.max(b.minHundredths, MIN_STAKE);
 }
 
 /** The person's ceiling, never under their own floor */
-export function upperBound(b: Pick<StakeBounds, 'minHundredths' | 'maxHundredths'>): number {
+export function upperBound(
+  b: Pick<StakeBounds, 'minHundredths' | 'maxHundredths' | 'rating'>
+): number {
   return Math.max(b.maxHundredths, lowerBound(b));
 }
 

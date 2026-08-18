@@ -149,7 +149,14 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     }
 
     const limits = person.stakeLimits[0];
-    const min = Math.max(limits?.minHundredths ?? DEFAULT_LIMITS.minHundredths, MIN_STAKE);
+    // **Zero rating removes the floor** (owner, 2026-08-18). It exists so that
+    // nobody who works is left without a ставка, and `formulaShares` already
+    // read it that way — it proposes 0 for anyone with no rating and skips the
+    // floor. This check did not, so the formula offered a number the save then
+    // refused, and a кафедра with an inactive НПП had a row nobody could store.
+    const rating = person.ratingEntries[0]?.totalScore ?? 0;
+    const min =
+      rating > 0 ? Math.max(limits?.minHundredths ?? DEFAULT_LIMITS.minHundredths, MIN_STAKE) : 0;
     const max = Math.max(limits?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths, min);
     const who = `${person.lastName} ${person.firstName}`;
 
