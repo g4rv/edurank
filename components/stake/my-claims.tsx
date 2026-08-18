@@ -344,12 +344,16 @@ function CascadeFields({
 
       {/* The кафедра is not in the наказ — this is the випускова кафедра of the
           programme, which is what tells a завідувач whether the student went
-          onto their own кафедра's programme or somebody else's. */}
+          onto their own кафедра's programme or somebody else's.
+
+          Shown with NO label at all (owner, 2026-08-18). Every name in
+          `SPECIALITY_DEPARTMENTS` already begins with the word «Кафедра», so
+          any prefix read as «Кафедра: Кафедра політології та журналістики».
+          «Випускова» went too: it names a distinction only the завідувач's
+          review screen actually draws, and the НПП filling this in has exactly
+          one кафедра in mind — the one that teaches the programme. */}
       {chosen && chosen.departments.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {chosen.departments.length > 1 ? 'Випускові кафедри: ' : 'Випускова кафедра: '}
-          {chosen.departments.join(' · ')}
-        </p>
+        <p className="text-xs text-muted-foreground">{chosen.departments.join(' · ')}</p>
       )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
