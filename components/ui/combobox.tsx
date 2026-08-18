@@ -164,9 +164,13 @@ function ComboboxContent({
   className?: string;
 }) {
   return (
+    // `--radix-popover-trigger-width`, NOT `…-anchor-width` (2026-08-18). The
+    // latter does not exist — Popover re-namespaces popper's anchor width under
+    // «trigger», and the undefined variable left the width unset, so the list
+    // collapsed to the width of the longest name instead of matching the field.
     <PopoverContent
       align="start"
-      className={cn('w-[var(--radix-popover-anchor-width)] p-0', className)}
+      className={cn('w-(--radix-popover-trigger-width) p-0', className)}
       onOpenAutoFocus={(e) => e.preventDefault()}
     >
       {children}
@@ -230,8 +234,12 @@ function ComboboxItem({ value: itemValue, children, className }: ComboboxItemPro
         select(itemValue);
       }}
     >
-      <Check className={cn('size-4 shrink-0', isSelected ? 'opacity-100' : 'opacity-0')} />
+      {/* On the RIGHT, and only when it applies (2026-08-18). It used to sit
+          before the name at `opacity-0`, holding its space on every row — which
+          reads as an unexplained indent rather than as a reserved slot. `ml-auto`
+          means showing it moves nothing, so there is no jump on select either. */}
       {children}
+      {isSelected && <Check className="ml-auto size-4 shrink-0" />}
     </li>
   );
 }
