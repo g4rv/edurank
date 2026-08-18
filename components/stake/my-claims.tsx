@@ -293,26 +293,23 @@ function CascadeFields({
 
             Disabled rather than a single-option select, so it reads as a
             constraint on the data rather than a control somebody failed to
-            fill in. The line underneath says whose constraint it is. */}
+            fill in. A line explaining that the 2026 наказ holds only бакалаври
+            sat under it and was removed on the owner's request — the greyed
+            field says enough. */}
         {/* The three narrow ones travel together — «Спеціалізація» appears only
             for some programmes, and without this «Фінансування» was left
             stranded on a row of its own whenever it did not. */}
         <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3 lg:col-span-4">
-          <div>
-            <PickOne
-              label="Ступінь"
-              value="BACHELOR"
-              onChange={() => {}}
-              options={[
-                { value: 'BACHELOR', label: DEGREE.BACHELOR },
-                { value: 'MASTER', label: DEGREE.MASTER },
-              ]}
-              disabled
-            />
-            <p className="mt-1 text-[11px] leading-tight text-muted-foreground">
-              У наказі 2026 року лише бакалаври
-            </p>
-          </div>
+          <PickOne
+            label="Ступінь"
+            value="BACHELOR"
+            onChange={() => {}}
+            options={[
+              { value: 'BACHELOR', label: DEGREE.BACHELOR },
+              { value: 'MASTER', label: DEGREE.MASTER },
+            ]}
+            disabled
+          />
 
           <PickOne
             label="Форма навчання"
