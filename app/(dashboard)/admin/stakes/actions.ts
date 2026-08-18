@@ -24,6 +24,20 @@ import {
 
 export type StakeActionState = { error: string } | { success: true } | null;
 
+/**
+ * `setStatusBonus` hands back what it STORED, not what it was sent.
+ *
+ * The value is snapped to the 0,05 ladder on the way in, so 0,04 becomes 0,05 —
+ * and the field showed «0,04» afterwards, because its draft was seeded once and
+ * never followed the row. The number on screen was the one nobody had saved
+ * (owner, 2026-08-18). Returning it is cheaper than making the client re-derive
+ * a rounding rule the server owns.
+ */
+export type StatusBonusState =
+  | { error: string }
+  | { success: true; valueHundredths: number }
+  | null;
+
 function revalidateStakes() {
   revalidatePath('/stakes');
   revalidatePath('/admin/stakes/norms');
@@ -338,9 +352,9 @@ export async function setBonusPool(
  * завідувач compares against and may ignore.
  */
 export async function setStatusBonus(
-  _prev: StakeActionState,
+  _prev: StatusBonusState,
   formData: FormData
-): Promise<StakeActionState> {
+): Promise<StatusBonusState> {
   const session = await requireAdmin();
   if (!session) return { error: 'Недостатньо прав' };
 
@@ -392,5 +406,5 @@ export async function setStatusBonus(
   }
 
   revalidateStakes();
-  return { success: true };
+  return { success: true, valueHundredths };
 }

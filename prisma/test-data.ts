@@ -123,6 +123,24 @@ const SPARE_POSITIONS: readonly AdminPosition[] = [
   'LAB_OR_CENTER_HEAD',
 ];
 
+/**
+ * What each position is worth, in hundredths. **Every value on the 0,05 ladder**
+ * — the app snaps to it on write, and a seed that planted 0,02 would put a
+ * figure on screen that no field can produce.
+ *
+ * Priced at all because a position with no price contributes 0,00 to
+ * «Рекомендовано», which looks exactly like the надбавка being broken.
+ */
+const POSITION_VALUES: Record<AdminPosition, number> = {
+  VICE_RECTOR: 15,
+  DEAN: 10,
+  VICE_DEAN_OR_SECRETARY: 5,
+  DEPARTMENT_OR_UNIT_HEAD: 10,
+  DEPUTY_DEPARTMENT_HEAD: 5,
+  DEPUTY_ADMISSION_SECRETARY: 5,
+  LAB_OR_CENTER_HEAD: 5,
+};
+
 export interface TestResult {
   faculties: number;
   departments: number;
@@ -231,6 +249,18 @@ export async function seedTestUniverse(prisma: PrismaClient): Promise<TestResult
     role: 'EDITOR',
     note: 'ННВ — модерація, дані відділу',
   });
+
+  // Priced BEFORE the people, so «Статуси» has a number for every position the
+  // moment somebody holds one. `update` is included on purpose: a database
+  // carrying an off-ladder value from before the snapping existed is corrected
+  // rather than kept.
+  for (const [position, valueHundredths] of Object.entries(POSITION_VALUES)) {
+    await prisma.stakeStatusBonus.upsert({
+      where: { year_position: { year, position: position as AdminPosition } },
+      update: { valueHundredths },
+      create: { year, position: position as AdminPosition, valueHundredths },
+    });
+  }
 
   const scored: string[] = [];
   let spare = 0;

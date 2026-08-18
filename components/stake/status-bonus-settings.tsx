@@ -71,7 +71,15 @@ function StatusRow({
       form.set('value', draft);
       const result = await setStatusBonus(null, form);
       if (result && 'error' in result) setError(result.error);
-      else router.refresh();
+      else {
+        // Show what was SAVED, not what was typed. The value is snapped to the
+        // 0,05 ladder on the way in, so «0,04» is stored as 0,05 — and this
+        // field kept showing 0,04, because `draft` is seeded once and a
+        // `router.refresh()` does not reseed it. The number on screen was one
+        // nobody had saved (owner, 2026-08-18).
+        if (result) setDraft(formatStake(result.valueHundredths));
+        router.refresh();
+      }
     });
   }
 
