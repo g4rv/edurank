@@ -32,8 +32,15 @@ import type { Prisma, PrismaClient } from '../lib/generated/prisma/client';
 // thing, and every address ends in `@demo.edurank.local` so nobody can mistake
 // an account for a person — or miss one when clearing up.
 
-/** Findable, deletable, and obviously not a real mailbox */
-export const DEMO_DOMAIN = 'demo.edurank.local';
+/**
+ * Obviously not a real mailbox, and short enough to type at a demo.
+ *
+ * Was `demo.edurank.local` until 2026-08-18. Shortening it means these accounts
+ * now share a domain with `sample-people.ts`, which the destructive dev modes
+ * create — so the domain alone is no longer safe as a delete filter. See
+ * `isDemoEmail`.
+ */
+export const DEMO_DOMAIN = 'edurank.local';
 
 /**
  * Set `DEMO_PASSWORD` to something else before running this anywhere the URL
@@ -502,18 +509,33 @@ async function nameOf(prisma: PrismaClient, staffId: string): Promise<string> {
 }
 
 /**
+ * Is this one of OUR accounts?
+ *
+ * The domain used to be the whole filter. It cannot be any more: shortening it
+ * to `edurank.local` (2026-08-18) put these on the same domain as
+ * `sample-people.ts`, whose `editor@`, `npp3@`, `npp4@` and `npp5@` this must
+ * never touch. So the local part decides — the six named ones, plus the
+ * positional addresses the population generates.
+ */
+function isDemoEmail(email: string): boolean {
+  if (!email.endsWith(`@${DEMO_DOMAIN}`)) return false;
+  if (DEMO_EMAILS.includes(email)) return true;
+  return /^(head-\d{2}|npp-\d{2}-\d)@/.test(email);
+}
+
+/**
  * Removes every demo account, and nothing else.
  *
- * The domain is the whole filter, which is why the addresses are all on one.
  * A hard delete rather than an archive — the app never deletes a PERSON, and
  * that rule is about real careers and closed rating years. These are fixtures;
  * leaving them archived would keep them in the кафедра's history for no reason.
  */
 export async function removeDemoUsers(prisma: PrismaClient): Promise<number> {
-  const demo = await prisma.staff.findMany({
+  const onDomain = await prisma.staff.findMany({
     where: { email: { endsWith: `@${DEMO_DOMAIN}` } },
-    select: { id: true },
+    select: { id: true, email: true },
   });
+  const demo = onDomain.filter((s) => isDemoEmail(s.email));
   if (demo.length === 0) return 0;
   const ids = demo.map((d) => d.id);
 
