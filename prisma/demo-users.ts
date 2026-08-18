@@ -397,41 +397,7 @@ export async function seedDemoPopulation(prisma: PrismaClient): Promise<Populati
       result.created += 1;
       scored.push(staff.id);
 
-      // Most people hold a few indicators and a handful hold nearly all of
-      // them — squaring a uniform draw gives exactly that skew, so the rating
-      // table has a shape instead of a flat line.
-      const count = Math.round(share * types.length);
-      if (count > 0) {
-        const shuffled = [...types].sort(() => random() - 0.5).slice(0, count);
-        const rows: Prisma.ActivityCreateManyInput[] = [];
-
-        for (const type of shuffled) {
-          const specs = parseTypeSpecs(type);
-          // Through the real schema, so catalogue drift fails loudly here
-          const evidence = specs.schema.parse(sampleEvidence(specs.fields, random));
-          const { computedValue, score } = computeScore(
-            {
-              code: type.code,
-              coefficient: type.coefficient,
-              scoring: specs.scoring,
-              evidenceFields: specs.fields,
-            },
-            evidence
-          );
-          rows.push({
-            staffId: staff.id,
-            activityTypeId: type.id,
-            year: template.year,
-            evidence: evidence as Prisma.InputJsonValue,
-            computedValue,
-            score,
-            status: 'APPROVED',
-            submittedByRole: type.inputSource === 'DIVISION_MANAGED' ? 'DIVISION' : 'NPP',
-            approvedAt: new Date(),
-          });
-        }
-        await prisma.activity.createMany({ data: rows });
-      }
+      await giveActivities(prisma, staff.id, share, types, random, template.year);
 
       // Never over a real завідувач — on a live database that is somebody
       // losing their кафедра to a fixture.
@@ -448,10 +414,83 @@ export async function seedDemoPopulation(prisma: PrismaClient): Promise<Populati
     }
   }
 
+  // The six NAMED accounts get a rating too.
+  //
+  // They are the ones somebody actually signs in as during a demo — `head@` and
+  // `npp1@` are memorable in a way `npp-07-2@` is not — and «Мій рейтинг» with
+  // nothing in it is the worst first screen this app has. Only ever filled once:
+  // the check is «has no activity yet», so a second run leaves the score alone.
+  const named = await prisma.staff.findMany({
+    where: { email: { in: DEMO_EMAILS }, isNpp: true },
+    select: { id: true, _count: { select: { activities: true } } },
+  });
+  for (const person of named) {
+    if (person._count.activities > 0) continue;
+    // Not squared: these four should look like people who use the system, not
+    // like the median of a long tail.
+    await giveActivities(prisma, person.id, 0.4 + random() * 0.5, types, random, template.year);
+    scored.push(person.id);
+  }
+
   if (scored.length > 0) {
     await recomputeRatingEntries(prisma, scored, template.year);
   }
   return result;
+}
+
+/**
+ * Gives one person a slice of the year's indicators, scored the real way.
+ *
+ * `share` is the fraction of the catalogue they hold. Evidence goes through the
+ * type's own generated Zod schema, so a catalogue change that breaks the sample
+ * data fails loudly here instead of writing rows that score NaN.
+ */
+async function giveActivities(
+  prisma: PrismaClient,
+  staffId: string,
+  share: number,
+  types: {
+    id: string;
+    code: string;
+    coefficient: number;
+    inputSource: string;
+    evidenceFields: unknown;
+    scoring: unknown;
+  }[],
+  random: () => number,
+  year: number
+): Promise<void> {
+  const count = Math.round(share * types.length);
+  if (count <= 0) return;
+
+  const shuffled = [...types].sort(() => random() - 0.5).slice(0, count);
+  const rows: Prisma.ActivityCreateManyInput[] = [];
+
+  for (const type of shuffled) {
+    const specs = parseTypeSpecs(type);
+    const evidence = specs.schema.parse(sampleEvidence(specs.fields, random));
+    const { computedValue, score } = computeScore(
+      {
+        code: type.code,
+        coefficient: type.coefficient,
+        scoring: specs.scoring,
+        evidenceFields: specs.fields,
+      },
+      evidence
+    );
+    rows.push({
+      staffId,
+      activityTypeId: type.id,
+      year,
+      evidence: evidence as Prisma.InputJsonValue,
+      computedValue,
+      score,
+      status: 'APPROVED',
+      submittedByRole: type.inputSource === 'DIVISION_MANAGED' ? 'DIVISION' : 'NPP',
+      approvedAt: new Date(),
+    });
+  }
+  await prisma.activity.createMany({ data: rows });
 }
 
 async function nameOf(prisma: PrismaClient, staffId: string): Promise<string> {
