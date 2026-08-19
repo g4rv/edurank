@@ -56,3 +56,6 @@ next-env.d.ts
 
 # Playwright MCP scratch output (page snapshots, console logs)
 /.playwright-mcp/
+
+# Legacy-import survey output — 318 real colleagues, same reason as staff-roster
+/import-report/

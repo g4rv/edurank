@@ -139,25 +139,74 @@ Two things follow from how the app already works:
   have none. Either clone 2026 backwards, or build per-year templates from the
   old «Рейтинг» sheets — more faithful, more work.
 
-## Open questions
+## Decisions (owner, 2026-08-19)
 
-1. **Which years do we import?** All five, or 2021–2025 for the Характеристика
-   window and only 2025 for the rating?
-2. **Recompute scores, or keep the old ones?** Old scores reproduce the sheets
-   exactly; recomputed ones agree with our engine. They will not match.
-3. **What happens to a row we cannot map?** Refuse the whole import, skip and
-   report, or park it on a «не розпізнано» indicator for a human?
-4. **How do we match a person?** The file name is `ПІБ.xlsx`; our key is email.
-   `staff-roster.json` already links the two — is it complete for all 318?
-5. **Is an imported past year OPEN or CLOSED?** Closed is truthful, and means
-   those years render from a snapshot instead of being recomputed later.
+1. **Import every year we can**, for both the Характеристика and the rating.
+   The floor, if something proves impossible: the Характеристика in full, plus
+   at least the last year's rating VALUES — enough to spread the ставки.
+2. **Keep the old scores.** They were produced by the university's system, not
+   ours, and reproducing them is the point. Comparing them against what our
+   engine would compute is interesting and is its own task — not a reason to
+   overwrite what they recorded.
+3. **Print every row we cannot map** rather than guessing or refusing. An empty
+   score cell is not a problem to solve: it means no score for that item.
+4. **Import only people present in `staff-roster.json`.** Everyone else goes in
+   a separate list to be looked at by hand.
+5. **Imported years arrive CLOSED.** They render from a snapshot and are not
+   silently recomputed later.
 
-## Suggested order
+## What the survey found
 
-1. A **read-only reporter**: parse everything, map nothing, print what is there
-   and what will not map. It answers questions 3 and 4 with evidence instead of
-   guesses, and it is throwaway if we change our minds.
-2. Then a **label → indicator mapping table**, reviewed by a person, because the
-   numbering shift makes anything fully automatic untrustworthy.
-3. Then the import itself, one кафедра at a time, checked against «Загальна сума
-   балів» from the old sheet.
+`pnpm legacy:report` (read-only, writes to the gitignored `import-report/`):
+
+|                                   |                                                             |
+| --------------------------------- | ----------------------------------------------------------- |
+| activity rows parsed              | 19 418                                                      |
+| people with activities            | 294                                                         |
+| …matched to the roster            | **256**                                                     |
+| …not in the roster                | **38** → `not-in-roster.md`                                 |
+| labels mapped to a 2026 indicator | 9 423 rows                                                  |
+| labels NOT mapped                 | **9 995 rows, but only 21 distinct labels** → `unmapped.md` |
+
+Two things that were guesses and are now facts:
+
+- **`_` in a file name is a sanitised apostrophe.** `Дем_яненко` is
+  `Дем'яненко`, and the факультет folder «Фізичної культури, спорту і здоров_я»
+  says the same. A `(1)` suffix is a duplicated file, not a name. Normalising
+  both recovered 4 people who otherwise read as leavers.
+- **Of the 38 remaining, 4 are typos, not departures** — «Мізін Констянтин» for
+  «Костянтин», «Потапенко Олександер» for «Олександр», and two more, each one or
+  two letters out. The report now prints the closest roster name beside each, as
+  a suggestion for a person to accept or reject. It never matches on it: «Коцур
+  Дмитро» and «Коцур Роман» are one surname and two different people.
+
+### The unmapped 9 995 are 21 labels, and that is good news
+
+Almost all of it is a handful of very common indicators whose wording moved
+between the 2025 sheets and the 2026 catalogue:
+
+| rows  | the sheet says                        | almost certainly            |
+| ----- | ------------------------------------- | --------------------------- |
+| 2 913 | Публікації у виданнях категорії «Б»   | 3.9 publication_cat_b       |
+| 1 982 | Статті у наукових виданнях, збірниках | 3.10 in the OLD numbering   |
+| 1 641 | Участь у конференціях в Україні       | a 3.19–3.21 conference item |
+| 947   | Ініціативна тематика кафедри          | 3.5                         |
+| 454   | Публікації… категорії «А»             | 3.8 publication_cat_a       |
+
+Twenty-one decisions covers 9 995 rows, which is a review a person can actually
+do. It is deliberately NOT automated: prefix matching already fails here — the
+sheet's «Публікації у виданнях категорії Б» is not a prefix of the catalogue's
+«Публікації у фахових наукових виданнях України категорії Б» — and a fuzzy match
+that is wrong files somebody's article as a supervised dissertation.
+
+Curiosities worth keeping: one label is literally «Видання монографії
+(undefined)» — a JavaScript value that leaked into the old system's output and
+was saved 73 times — and «Підгтовка кадрів вищої кваліфікації» carries a typo
+across 224 rows.
+
+## Next
+
+1. Turn those 21 labels into a reviewed **label → indicator table**, checked in,
+   with a line per decision.
+2. Decide the 38 by hand: 4 typos to fold in, ~34 to record as departed.
+3. Then the import, one кафедра at a time, checked against «Загальна сума балів».

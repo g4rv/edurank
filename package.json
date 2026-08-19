@@ -26,6 +26,7 @@
     "db:reset": "prisma migrate reset --force",
     "students:build": "tsx scripts/build-accepted-students.ts",
     "staff:build": "tsx scripts/build-staff-roster.ts",
+    "legacy:report": "tsx scripts/legacy-report.ts",
     "db:create-admin": "tsx prisma/create-admin.ts",
     "mail:test": "tsx scripts/mail-test.ts"
   },
