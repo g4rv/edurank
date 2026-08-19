@@ -218,27 +218,68 @@ async function readSectionFile(path: string): Promise<ActivityRow[]> {
   return rows;
 }
 
-/** «Рейтинг» / «Рейтинг_2024»: the per-indicator score the old system produced */
-async function readRatingTotals(path: string) {
+interface SheetTotals {
+  sheet: string;
+  year: number | null;
+  /** Section number → «Всього балів по розділу N» */
+  sections: Record<number, number>;
+  /** «Загальна сума балів» — the figure at the very bottom */
+  total: number | null;
+  /** п.38 positions with evidence text against them, out of 20 */
+  positionsMet: number;
+}
+
+/**
+ * The computed half of a person's workbook.
+ *
+ * This is the FALLBACK path, and it matters more than it looks: if the activity
+ * rows cannot be mapped indicator by indicator, these five section totals and
+ * the grand total are still enough to fill `RatingEntry` — and `RatingEntry` is
+ * what `formulaShares` reads, so the ставки can be spread without a single
+ * `Activity` row existing (owner, 2026-08-19).
+ *
+ * `Характеристика_РНПАВ` is counted for the same reason: `Кнпп` is «how many
+ * people meet enough п.38 positions», and if the sheet already says who does,
+ * that number survives even when nothing else imports.
+ */
+async function readWorkbookTotals(path: string): Promise<SheetTotals[]> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(path);
-  const out: { sheet: string; year: number | null; total: number | null }[] = [];
+  const out: SheetTotals[] = [];
+
+  // п.38: column 3 carries the evidence; an empty cell is «not met», which is
+  // an answer rather than missing data.
+  let positionsMet = 0;
+  const kh = wb.worksheets.find((w) => w.name.startsWith('Характеристика'));
+  if (kh) {
+    kh.eachRow({ includeEmpty: false }, (row) => {
+      const n = Number(tidy(text(row.getCell(1).value)));
+      if (!Number.isInteger(n) || n < 1 || n > 20) return;
+      if (tidy(text(row.getCell(3).value))) positionsMet += 1;
+    });
+  }
+
   for (const ws of wb.worksheets) {
     if (!ws.name.startsWith('Рейтинг')) continue;
     let total: number | null = null;
     let year: number | null = null;
+    const sections: Record<number, number> = {};
+
     ws.eachRow({ includeEmpty: false }, (row) => {
-      const a = tidy(text(row.getCell(1).value));
-      if (a.startsWith('Загальна сума балів')) {
-        const v = Number(text(row.getCell(5).value));
-        if (Number.isFinite(v)) total = v;
-      }
-      if (!year) {
-        const y = Number(text(row.getCell(5).value));
-        if (Number.isInteger(y) && y > 2015 && y < 2100) year = y;
+      const label = tidy(text(row.getCell(1).value));
+      const value = Number(text(row.getCell(5).value));
+
+      const section = label.match(/^Всього балів по розділу\s*(\d)/)?.[1];
+      if (section && Number.isFinite(value)) sections[Number(section)] = value;
+      if (label.startsWith('Загальна сума балів') && Number.isFinite(value)) total = value;
+
+      // The year sits alone in column 5 of the title block, above the table
+      if (year === null && Number.isInteger(value) && value > 2015 && value < 2100) {
+        year = value;
       }
     });
-    out.push({ sheet: ws.name, year, total });
+
+    out.push({ sheet: ws.name, year, sections, total, positionsMet });
   }
   return out;
 }
@@ -306,17 +347,40 @@ async function main() {
   console.log(`  UNMAPPED        ${unmappedCount}  (${unmapped.size} distinct labels)`);
   console.log(`                  → ${OUT}/unmapped.md`);
 
-  // ── old totals, for reconciliation later ──
+  // ── the computed half: totals and п.38, the fallback import path ──
   const totals: string[] = [
-    '| person | sheet | year | Загальна сума балів |',
-    '| --- | --- | --- | --- |',
+    '| person | in roster | year | р.1 | р.2 | р.3 | р.4 | р.5 | Загальна сума | п.38 з 20 |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
+  const yearsSeen = new Map<number, number>();
+  const seenPeople = new Set<string>();
+  let withTotal = 0;
+  let khCovered = 0;
+
   for (const f of tableFiles) {
     const person = (f.split(/[\\/]/).pop() ?? '').replace(/\.xlsx$/, '');
-    for (const t of await readRatingTotals(f)) {
-      totals.push(`| ${person} | ${t.sheet} | ${t.year ?? '?'} | ${t.total ?? '—'} |`);
+    const inRoster = rosterByName.has(nameKey(person));
+    for (const t of await readWorkbookTotals(f)) {
+      const s = t.sections;
+      totals.push(
+        `| ${person} | ${inRoster ? 'так' : '**ні**'} | ${t.year ?? '?'} | ` +
+          `${s[1] ?? '—'} | ${s[2] ?? '—'} | ${s[3] ?? '—'} | ${s[4] ?? '—'} | ${s[5] ?? '—'} | ` +
+          `**${t.total ?? '—'}** | ${t.positionsMet} |`
+      );
+      if (t.total !== null) withTotal += 1;
+      if (t.year) yearsSeen.set(t.year, (yearsSeen.get(t.year) ?? 0) + 1);
+      if (!seenPeople.has(person)) {
+        seenPeople.add(person);
+        if (t.positionsMet > 0) khCovered += 1;
+      }
     }
   }
+
+  console.log('\nthe fallback path — the university’s own computed figures');
+  console.log(`  sheets carrying a grand total  ${withTotal}`);
+  console.log(`  people with any п.38 filled    ${khCovered} of ${seenPeople.size}`);
+  console.log('  totals exist for year:');
+  for (const [y, n] of [...yearsSeen].sort()) console.log(`    ${y}   ${n} sheets`);
 
   // ── files ──
   writeFileSync(

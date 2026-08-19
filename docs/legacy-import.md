@@ -204,7 +204,54 @@ Curiosities worth keeping: one label is literally «Видання моногр�
 was saved 73 times — and «Підгтовка кадрів вищої кваліфікації» carries a typo
 across 224 rows.
 
-## Next
+## The fallback path, measured
+
+The owner's point about «the total at the very bottom» is the safety net: if the
+activity rows cannot be mapped one by one, the university's own computed figures
+are still enough to fill `RatingEntry` — and `RatingEntry` is what
+`formulaShares` reads. **The ставки can be spread with no `Activity` row in the
+database at all.**
+
+Measured, it holds up:
+
+|                                       |                                   |
+| ------------------------------------- | --------------------------------- |
+| sheets carrying «Загальна сума балів» | **571**, none missing             |
+| with all five section subtotals       | yes — «Всього балів по розділу N» |
+| years covered                         | **2024 and 2025 only**            |
+
+Spot check against the university's live ставки screen: Коцур Віктор Петрович
+2025 = **3517.32** in the sheet, and 3517.32 on their screen. The figure is
+sound.
+
+### But the Характеристика is NOT in these files
+
+The «Характеристика_РНПАВ» sheet exists in all 319 workbooks and its layout is
+consistent (col 3 = «Дані підтвердження показника», two header spellings). It is
+also **empty for 294 of them** — only **25 people** have evidence against even
+one of the twenty positions.
+
+So it cannot be imported. The Характеристика has to be DERIVED from activities,
+the way the app already does it — which makes the 21-label mapping mandatory
+rather than a nicety, because `Кнпп` depends on it and `Кнпп` is on the ставка
+screen.
+
+### What that means for the «bare minimum»
+
+The two halves of the minimum have very different costs:
+
+- **Last year's rating values — available now.** The totals are parsed, complete
+  for 2024 and 2025, and need no mapping, no `Activity` rows and no decisions.
+- **Характеристика — needs the label mapping first.** There is no shortcut in
+  the data; the source sheets do not carry it.
+
+One consequence to decide on: a `RatingEntry` written from a total, with no
+activities behind it, is a number nothing can recompute. That is exactly why
+imported years land CLOSED — but it also means `closeYear` must never be run
+over them, because it rebuilds the snapshot from activities and would zero
+them.
+
+## Next## Next
 
 1. Turn those 21 labels into a reviewed **label → indicator table**, checked in,
    with a line per decision.
