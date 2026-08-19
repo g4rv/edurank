@@ -70,7 +70,7 @@ Rules:
 
 **Current:**
 
-- Next.js 16.2.4 (App Router, React 19, Turbopack for dev)
+- Next.js 16.2.10 (App Router, React 19)
 - TypeScript (strict mode)
 - Tailwind CSS v4 — configured via CSS `@theme` directive, no `tailwind.config.js`
 - ESLint with `eslint-config-next`
@@ -130,26 +130,38 @@ rule. The active nav and all chrome stay pure gray.
 ## Commands
 
 ```bash
-pnpm dev              # dev server (Turbopack)
+pnpm dev              # dev server
 pnpm build            # production build
 pnpm start            # production server
 pnpm lint             # ESLint
 pnpm type-check       # tsc --noEmit
-pnpm test             # Vitest (--passWithNoTests until tests exist)
+pnpm test             # Vitest (869 tests, colocated next to what they cover)
 
 pnpm db:migrate       # prisma migrate dev (pass --name <x> to skip prompt)
-pnpm db:seed           # catalogue only — no people, no structure. Safe, idempotent.
-pnpm db:seed:structure # + real 8 факультети / 31 кафедра. Also safe — deletes nothing.
-pnpm db:seed:base      # + 9 invented accounts.  DESTRUCTIVE ↓
-pnpm db:seed:rater     # + ~200 invented НПП with ratings, so the charts have data
-pnpm db:seed:prod      # + the real НПП from edu-reference/, accounts locked
-# The three destructive modes wipe people, structure and rating templates first,
-# and refuse a database that already has accounts unless you pass --force.
+
+# Three seeds, each answering a different question. The full reasoning, and what
+# each one guarantees, is in the header of prisma/seed.ts.
+pnpm db:seed          # PRODUCTION, safe, idempotent: the catalogue (відділи, the
+                      #   2026 template and its indicators, додаток 5's спеціальності)
+                      #   plus the real 8 факультети / 31 кафедра. Creates NO accounts.
+pnpm db:seed:staff    # safe: the real НПП from staff-roster.json, upserted on email.
+                      #   No passwords — invitations go out from /admin/invites.
+pnpm db:seed:test     # DESTRUCTIVE: wipes people, structure and templates, then builds
+                      #   a small complete university you can click every button in.
+                      #   Refuses a populated database unless you pass --force.
+# The bare command is the safe one on purpose — `prisma db seed` also runs as
+# part of `pnpm db:reset`, which people type without thinking.
+
+pnpm db:create-admin  # interactive: the first ADMIN account (db:seed makes none)
 pnpm db:reset         # prisma migrate reset --force (wipe + reapply, dev only)
 pnpm db:fix-rounding  # one-off repair: re-round RatingEntry totals to 2 decimals
 pnpm db:gate-to-check-sum  # one-off: convert retired GATE indicator rows to CHECK_SUM
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
+
+pnpm staff:build      # rebuild staff-roster.json from edu-reference/ (gitignored output)
+pnpm students:build   # rebuild lib/students/accepted-2026.json from the ЄДЕБО export
+
 docker compose up -d  # start all services
 ```
 
@@ -181,47 +193,68 @@ app/
         entity/                   ← configure DivisionEntityPermission per division
       rating/                     ← rating years: activate / clone / close / reopen
         [year]/                   ← per-section indicator editor
+      stakes/                     ← redirects to /stakes (merged 2026-08-12)
+        norms/                    ← додаток 5's норматив table + the year's contract coefficient
+      invites/                    ← bulk «надіслати запрошення» over people with no password
       rating-debug/               ← service page: renders every evidence form (no nav link)
+      design/                     ← service page: design concepts (no nav link)
       audit-log/
     staff/                        ← ADMIN + EDITOR (НПП + non-НПП unified list)
       [id]/
         edit/
         rating/                   ← the staff member's rating tab
+        kharakterystyka/          ← their Характеристика (п.38 licence positions)
       new/
     faculties/                    ← [id]/, [id]/edit/, new/
-    departments/                  ← same shape
+    departments/                  ← same shape; [id]/stakes/ redirects to /stakes/[id]
     divisions/                    ← same shape; create/delete is ADMIN-only
     profile/                      ← own profile (personal data only)
     achievements/                 ← USER: «Мій рейтинг» + submission forms
       [section]/                  ← add an activity from section 1–5
+      students/                   ← «Мої залучені здобувачі» — own StudentClaim list
+      kharakterystyka/            ← own Характеристика
     moderation/                   ← ННВ + ADMIN: discard self-reports, verify publications
     division-data/                ← EDITOR: their division's direct-entry grid
     rating/                       ← ADMIN + EDITOR: university-wide rollup
+    stakes/                       ← ADMIN/проректор: Кст + бонусний фонд across all кафедри
+      [id]/                       ← the завідувач's grid for ONE кафедра (додаток 2)
+    my-department/                ← завідувач/декан: their кафедра
+      students/                   ← the head rules on their staff's StudentClaims
     actions.ts                    ← sign-out
     layout.tsx                    ← dashboard shell (sidebar), redirects anonymous to /login
-  api/
+  api/                            ← NOT covered by proxy.ts — every route authenticates itself
     auth/[...nextauth]/           ← NextAuth handler
-    export/ratings/               ← zip of per-staff Excel forms; /api is NOT covered by proxy.ts,
-                                    so this route does its own auth check
+    export/ratings/               ← zip of per-staff Excel forms (or one, with ?staffId=)
+    export/kharakterystyka/       ← same shape, for the Характеристика
+    export/rating-chart/          ← ranked bar charts as PDF (@react-pdf/renderer)
   globals.css
   layout.tsx                      ← root layout
   page.tsx                        ← redirects by role
 
 components/
   ui/                             ← shadcn base components (Button, Input, etc.)
-  [feature]/                      ← admin/, staff/, rating/, faculty/, department/, division/
+  [feature]/                      ← admin/, staff/, rating/, stake/, kharakterystyka/,
+                                    dashboard/, faculty/, department/, division/, profile/
 
 lib/
   db.ts                           ← Prisma client singleton
   auth.ts                         ← NextAuth config (jwt callback re-reads Staff for role/tokenVersion)
+  auth/                           ← password rules + the login throttle (LoginThrottle)
   audit.ts                        ← diffChanges
   labels.ts                       ← FIELD_LABELS and enum label maps
   permissions.ts                  ← role/field/entity guards shared by actions
-  activation.ts                   ← activation + reset tokens
+  activation.ts                   ← invite + reset tokens (separate lifetimes)
+  log.ts                          ← logError / logWarning — see «Errors: never swallow one»
   utils.ts                        ← cn() and other shared utilities (shadcn convention)
-  mail/                           ← mailer + templates
+  mail/                           ← mailer, templates, validity phrasing
   queries/                        ← read-only DB functions, one file per entity
+    scope.ts                      ← who oversees whom: scopeOf (read) vs headOf (decide)
+    roster.ts                     ← ON_ROSTER — spread into every «current» query
   rating/                         ← scoring, recompute, db-specs, profile-derived, export
+  stake/                          ← ставки: units, formula, settle, claims, norms, status-bonus
+  kharakterystyka/                ← the п.38 licence document and its Excel export
+  specialities/                   ← speciality codes and their кафедри
+  students/                       ← the admitted-student register (server-only, ~240 KB JSON)
 
 validations/                      ← Zod schemas, one file per entity
 
@@ -229,7 +262,7 @@ types/                            ← next-auth.d.ts (session shape)
 
 prisma/
   schema.prisma
-  seed.ts
+  seed.ts                         ← three modes; read its header before changing a seed
 
 proxy.ts                          ← optimistic cookie gate only (see «Next.js 16 notes»)
 ```
@@ -271,6 +304,67 @@ Each `ActivityType` row carries its own form definition (`evidenceFields`) and s
 - `ACTIVITY_TYPES_2026` + `EVIDENCE_FIELDS` are now **seed input only**: `dbSpecs(def)` converts a catalogue def into the row columns. `catalogueType(code)` gives tests the same view the app builds from a row.
 - **What still needs code:** a new field kind (`lib/rating/evidence-fields.ts` + renderer + Zod generator), a new scoring kind (`lib/rating/scoring.ts`), and `PROFILE_DERIVED` indicators (they map to a Staff column). `specProblems()` is the contract between a field set and its rule — it guards both the builder and the seed.
 - **Changing a scoring kind is a data migration, not just a code change.** `scoring` and `evidenceFields` are JSON columns, so editing the catalogue in `lib/rating/` leaves every existing row untouched and the running app keeps the old behaviour. `pnpm db:seed` upserts the current template; a **cloned** template is not reseeded and needs a one-off script (see `prisma/gate-to-check-sum.ts`). `computeValue` throws on a kind it does not know, so a missed row fails loudly instead of scoring `NaN`.
+
+## Розподіл ставок (built)
+
+Full specification: `docs/stake-distribution.md`. Read it before changing anything here.
+
+Two people, two screens. ADMIN/проректор allocates pools across all 31 кафедри on
+`/stakes`; the завідувач spreads one pool among their own people on `/stakes/[id]`,
+which is додаток 2 on screen. A декан may **read** every кафедра of their faculty
+and write none of them.
+
+Three facts shape every model, and all three are easy to lose:
+
+1. **Every ставка is an INTEGER HUNDREDTHS.** Never a float, in the database or in
+   any sum. The old system used floats and produced negative «нерозподілено» — a
+   кафедра that had overspent according to a subtraction and had not according to
+   the people in it. See `lib/stake/units.ts`.
+2. **`Кст` bounds the first term only.** The pool is spread by rating; recruitment
+   bonuses are a second phase, months later, handed out by hand. `bonusPoolHundredths`
+   is a separate column and **the formula must never read it**.
+3. **There is no approval step** (decided 2026-08-10, retracting Q1). ADMIN sets the
+   pool, the завідувач spreads it, and that is final. Do not add a SUBMITTED/APPROVED
+   status or an approver id.
+
+Rules that are easy to get wrong:
+
+- **Headship is not a `Role`.** It is derived from `Department.headId` and
+  `Faculty.deanId`, because one person is routinely a head, an НПП and a division
+  editor at once. `scopeOf` answers «may I look», `headOf` answers «may I decide» —
+  the difference is a декан. A завідувач is never also a декан (`headDeanConflict`).
+- **The formula follows the university's own working sheet**, not the положення's
+  printed formula, which overspends when computed literally. Two passes, both
+  normalised, so the кафедра lands on its pool by construction. See
+  `lib/stake/formula.ts`.
+- **Four rules meet on one number** — the person's Мін/Макс, «тільки збільшити», what
+  is left of both funds, and the 0,05 ladder. They interact, so they live and are
+  tested together in `lib/stake/settle.ts`. Note that «тільки збільшити» is currently
+  enforced on the client only; the server checks bounds and the ladder.
+- **Overspending is allowed and shown, never refused.** The university's own sheet
+  does the same. Refusing it deadlocked the grid, because ladder rounding can put the
+  formula's own proposal above `Кст`.
+- **A year is never taken from client input.** Every ставка mutation compares the
+  submitted year against `activeYear()` and refuses a mismatch (`closedYearProblem`).
+- **A student claim is the app's first and only approval queue**, deliberately: a
+  rating entry affects its own author, but a claim takes a bonus from a colleague who
+  may have recruited the same person. Duplicates are shown to the завідувач as
+  evidence — there is no automatic winner and no «assign to».
+- **`StakeStatusBonus` is information, never money.** The grid shows what somebody's
+  positions and recruited students add up to; the head still types the ставка.
+
+## Характеристика (built)
+
+Full specification: `docs/kharakterystyka.md`. The п.38 licence document: twenty
+positions a person either satisfies or does not, derived from their activities over a
+five-year window. `Кнпп` — how many people on a кафедра meet enough of them — is
+**never stored**; it is computed in `lib/queries/get-department-knpp.ts`, because
+freezing it would go stale the moment somebody submits an achievement.
+
+Which indicators satisfy which position is `ActivityType.licencePositions`, a JSON
+column and not a list in code — for the same reason `requiresVerification` and
+`entityFirstEntry` are columns: a code list silently excludes every indicator an
+admin builds themselves, and the вчена рада votes new ones in yearly.
 
 ## Naming conventions
 
