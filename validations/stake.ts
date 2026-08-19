@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MIN_STAKE, parseStake, snapToStep } from '@/lib/stake/units';
+import { MIN_STAKE, ceilToStep, floorToStep, parseStake, snapToStep } from '@/lib/stake/units';
 
 // Everything a person types into the ставка settings.
 //
@@ -130,8 +130,19 @@ export const staffStakeLimitsSchema = z
   .object({
     staffId: z.string().min(1),
     year: z.number().int(),
-    minHundredths: stakeField('Мінімум'),
-    maxHundredths: stakeField('Максимум'),
+    // **Both snapped to the 0,05 ladder**, and in the direction that keeps the
+    // bound a bound: a Мінімум rounds UP so nobody ends below what was typed, a
+    // Максимум rounds DOWN so nobody ends above it.
+    //
+    // Left free, they produced a row that could not be saved at all. A Максимум
+    // of 0,93 is a ceiling no legal ставка can reach — every value must be a
+    // multiple of 0,05 — and `formulaShares` caps the share at exactly 0,93, so
+    // the формула proposed a number `saveDistribution` then refused as off the
+    // ladder. Only ADMIN can edit caps, so the завідувач staring at the row
+    // could not fix it either. `statusBonusSchema` already snaps for the same
+    // reason: a figure no field accepts should never reach the screen.
+    minHundredths: stakeField('Мінімум').transform(ceilToStep),
+    maxHundredths: stakeField('Максимум').transform(floorToStep),
   })
   .refine((v) => v.minHundredths >= MIN_STAKE, {
     // The положення says «менше 0,5 → встановлюється 0,5»; the university
