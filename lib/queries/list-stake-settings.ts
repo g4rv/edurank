@@ -34,8 +34,14 @@ export async function listDepartmentStakes(year: number) {
     // What each кафедра has actually handed out, so the overview can show a
     // remainder per row. One grouped read rather than a query per кафедра —
     // this page lists all 31 and would otherwise be 31 round trips.
+    //
+    // Scoped to the year, like every other read here. Without the filter the
+    // aggregate walked every allocation the university has ever recorded to
+    // answer a question about 31 rows of the current one — right, and a little
+    // more wrong with each year that closes.
     db.stakeAllocation.groupBy({
       by: ['distributionId'],
+      where: { distribution: { year } },
       _sum: { proposedHundredths: true },
     }),
   ]);
@@ -44,11 +50,13 @@ export async function listDepartmentStakes(year: number) {
     where: { year },
     select: { id: true, departmentId: true },
   });
+  // Indexed once rather than scanned per кафедра — the same answer without
+  // walking the allocation list 31 times.
+  const sumByDistribution = new Map(
+    allocations.map((a) => [a.distributionId, a._sum.proposedHundredths ?? 0])
+  );
   const distributedByDepartment = new Map(
-    distributions.map((d) => [
-      d.departmentId,
-      allocations.find((a) => a.distributionId === d.id)?._sum.proposedHundredths ?? 0,
-    ])
+    distributions.map((d) => [d.departmentId, sumByDistribution.get(d.id) ?? 0])
   );
 
   const stakeByDepartment = new Map(stakes.map((s) => [s.departmentId, s]));
