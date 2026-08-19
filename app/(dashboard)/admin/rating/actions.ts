@@ -12,6 +12,7 @@ import { dbSpecs } from '@/lib/rating/db-specs';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema, scoringSpecSchema } from '@/validations/activity-type-spec';
+import { parseLicencePositions } from '@/validations/licence-positions';
 import { recomputeRatingEntries } from '@/lib/rating/recompute';
 import {
   createActivityTypeSchema,
@@ -250,6 +251,23 @@ export async function activateTemplate(year: number): Promise<RatingAdminState> 
  * form definition is too big to diff usefully, but «SELECT · 4 поля» changing
  * to «SELECT · 5 полів» tells a reader the form was edited and how.
  */
+/**
+ * «позиції: 1, 20» — which points of the Характеристика an indicator closes.
+ *
+ * Its own line in the log rather than folded into the specs fingerprint,
+ * because this is the one setting that changes what somebody's Характеристика
+ * SAYS. Losing a position quietly is how a person stops meeting the licence
+ * without anybody having touched their record.
+ */
+function positionsFingerprint(value: unknown): string {
+  const links = parseLicencePositions(value);
+  if (links.length === 0) return 'жодної';
+  return `позиції: ${links
+    .map((l) => l.position)
+    .sort((a, b) => a - b)
+    .join(', ')}`;
+}
+
 function specsFingerprint(row: { evidenceFields: unknown; scoring: unknown }): string {
   const fields = evidenceFieldsSpecSchema.safeParse(row.evidenceFields);
   const scoring = scoringSpecSchema.safeParse(row.scoring);
@@ -281,6 +299,7 @@ export async function updateActivityType(
       coefficientNote: true,
       evidenceFields: true,
       scoring: true,
+      licencePositions: true,
       verifyingDivisionId: true,
       isActive: true,
       inputSource: true,
@@ -307,7 +326,14 @@ export async function updateActivityType(
     if (!division) return { error: 'Відділ не знайдено' };
   }
 
-  const { evidenceFields, scoring, maxPerYear, section: sectionNumber, ...plain } = parsed.data;
+  const {
+    evidenceFields,
+    scoring,
+    licencePositions,
+    maxPerYear,
+    section: sectionNumber,
+    ...plain
+  } = parsed.data;
 
   // Moving between розділи is allowed — it is how a misfiled indicator gets
   // corrected. The section must belong to this same year.
@@ -330,6 +356,7 @@ export async function updateActivityType(
             maxPerYear: maxPerYear ?? null,
             evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
             scoring: scoring as unknown as Prisma.InputJsonValue,
+            licencePositions: licencePositions as unknown as Prisma.InputJsonValue,
           },
         });
         await tx.auditLog.create({
@@ -352,12 +379,14 @@ export async function updateActivityType(
                 verifyingDivisionId: type.verifyingDivisionId,
                 isActive: type.isActive,
                 specs: specsFingerprint(type),
+                licencePositions: positionsFingerprint(type.licencePositions),
               },
               {
                 ...plain,
                 section: sectionNumber,
                 maxPerYear: maxPerYear ?? null,
                 specs: specsFingerprint({ evidenceFields, scoring }),
+                licencePositions: positionsFingerprint(licencePositions),
               }
             ),
           },
@@ -428,6 +457,7 @@ export async function createActivityType(
     section: sectionNumber,
     evidenceFields,
     scoring,
+    licencePositions,
     maxPerYear,
     ...plain
   } = parsed.data;
@@ -483,6 +513,7 @@ export async function createActivityType(
           maxPerYear: maxPerYear ?? null,
           evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
           scoring: scoring as unknown as Prisma.InputJsonValue,
+          licencePositions: licencePositions as unknown as Prisma.InputJsonValue,
         },
       });
       await tx.auditLog.create({

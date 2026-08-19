@@ -4,6 +4,7 @@ import {
   scoringSpecSchema,
   specProblems,
 } from '@/validations/activity-type-spec';
+import { licencePositionProblems, licencePositionsSchema } from '@/validations/licence-positions';
 
 /** The section an item number claims: «3.12» → 3 */
 export function itemNumberSection(itemNumber: string): number {
@@ -59,6 +60,17 @@ const base = {
 const specs = {
   evidenceFields: evidenceFieldsSpecSchema,
   scoring: scoringSpecSchema,
+  // Which points of the Характеристика this indicator's entries satisfy.
+  //
+  // The column and its validation existed from the start; nothing ever wrote
+  // it, so every one of the 67 indicators carried an empty list and the
+  // Характеристика showed 0 із 20 for everybody — which also made `Кнпп` zero
+  // on the ставки screen (found 2026-08-19).
+  //
+  // Empty stays valid and stays common: most indicators satisfy no point, and
+  // two satisfy none deliberately — an application scores in the rating but
+  // closes no licence point.
+  licencePositions: licencePositionsSchema,
 };
 
 const withCoherentSpecs = <T extends z.ZodTypeAny>(schema: T) =>
@@ -73,6 +85,14 @@ const withCoherentSpecs = <T extends z.ZodTypeAny>(schema: T) =>
     const problems = specProblems(value.evidenceFields as never, value.scoring as never);
     for (const problem of problems) {
       ctx.addIssue({ code: 'custom', message: problem, path: ['evidenceFields'] });
+    }
+
+    // The same point twice would count this indicator's entries twice against
+    // one threshold — five publications satisfying a bar of ten.
+    for (const problem of licencePositionProblems(
+      (value as { licencePositions?: never[] }).licencePositions ?? []
+    )) {
+      ctx.addIssue({ code: 'custom', message: problem, path: ['licencePositions'] });
     }
 
     // «3.12» belongs to розділ 3 and nowhere else. Item numbers are printed on

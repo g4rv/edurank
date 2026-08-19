@@ -249,6 +249,7 @@ describe('updateActivityType', () => {
     isActive: true,
     requiresVerification: false,
     entityFirstEntry: false,
+    licencePositions: [],
   };
 
   it('rejects non-admin', async () => {
@@ -318,6 +319,60 @@ describe('updateActivityType', () => {
       },
     });
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  // The column and its validation shipped with the feature and nothing ever
+  // wrote it, so a вчена рада that voted in a new publication indicator had no
+  // way to point it at position 1. The picker is the missing half.
+  it('writes which Характеристика positions the indicator closes', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+
+    await updateActivityType('type-1', {
+      ...valid,
+      licencePositions: [{ position: 1 }, { position: 3 }],
+    });
+
+    expect(tx.activityType.update.mock.calls[0][0].data.licencePositions).toEqual([
+      { position: 1 },
+      { position: 3 },
+    ]);
+  });
+
+  // Clearing them is a real edit, not a no-op: an indicator that stops feeding
+  // a position can drop somebody under the licence without their record moving.
+  it('accepts an empty list, which is most indicators', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+
+    await updateActivityType('type-1', { ...valid, licencePositions: [] });
+
+    expect(tx.activityType.update.mock.calls[0][0].data.licencePositions).toEqual([]);
+  });
+
+  // Twice against one threshold would let five publications satisfy a bar of ten
+  it('refuses the same position twice', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    const result = await updateActivityType('type-1', {
+      ...valid,
+      licencePositions: [{ position: 1 }, { position: 1 }],
+    });
+    expect(result).toHaveProperty('error');
+  });
+
+  // The log is the only place a changed link shows up — the indicator's own
+  // screen shows the new state and says nothing about the old one.
+  it('records the change in the audit log', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+
+    await updateActivityType('type-1', { ...valid, licencePositions: [{ position: 2 }] });
+
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes.licencePositions).toEqual({ from: 'жодної', to: 'позиції: 2' });
   });
 
   it('leaves ratings alone when isActive did not change', async () => {
@@ -426,6 +481,7 @@ describe('createActivityType', () => {
       },
       { kind: 'url' as const, name: 'link', label: 'Підтвердження' },
     ],
+    licencePositions: [],
   };
 
   it('rejects non-admin', async () => {

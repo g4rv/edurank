@@ -10,6 +10,7 @@ import { NewActivityType } from '@/components/admin/new-activity-type';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
 import { RATING_YEAR_STATUS_LABELS } from '@/lib/rating/labels';
 import { parseTypeSpecs } from '@/validations/activity-type-spec';
+import { parseLicencePositions } from '@/validations/licence-positions';
 import { cn } from '@/lib/utils';
 
 /**
@@ -71,6 +72,7 @@ export default async function RatingTemplatePage({
                 isActive: true,
                 requiresVerification: true,
                 entityFirstEntry: true,
+                licencePositions: true,
                 // Drives whether the row may be deleted or only deactivated
                 _count: { select: { activities: true } },
               },
@@ -185,6 +187,7 @@ export default async function RatingTemplatePage({
                         isActive: type.isActive,
                         requiresVerification: type.requiresVerification,
                         entityFirstEntry: type.entityFirstEntry,
+                        licencePositions: parseLicencePositions(type.licencePositions),
                         activityCount: type._count.activities,
                         fields,
                         scoring,

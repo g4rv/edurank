@@ -19,6 +19,8 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { LicencePositionPicker } from '@/components/admin/licence-position-picker';
+import type { LicencePositionLink } from '@/lib/kharakterystyka/positions';
 import {
   Select,
   SelectContent,
@@ -53,6 +55,7 @@ export interface ActivityTypeDraft {
   isActive: boolean;
   requiresVerification: boolean;
   entityFirstEntry: boolean;
+  licencePositions: LicencePositionLink[];
   fields: EvidenceField[];
   scoring: ScoringSpec;
 }
@@ -194,6 +197,7 @@ function ActivityTypeForm({
       isActive: draft.isActive,
       requiresVerification: draft.requiresVerification,
       entityFirstEntry: draft.entityFirstEntry,
+      licencePositions: draft.licencePositions,
       evidenceFields: draft.fields,
       scoring: draft.scoring,
     },
@@ -203,6 +207,7 @@ function ActivityTypeForm({
   const isActive = watch('isActive');
   const requiresVerification = watch('requiresVerification');
   const entityFirstEntry = watch('entityFirstEntry');
+  const licencePositions = watch('licencePositions');
   const inputSource = watch('inputSource') as ActivityTypeDraft['inputSource'];
   const divisionId = watch('verifyingDivisionId') as string;
   const section = String(watch('section') ?? draft.section);
@@ -438,6 +443,21 @@ function ActivityTypeForm({
             />
             <EvidencePreview fields={fields} />
           </div>
+        </FormSection>
+
+        <FormSection
+          title="Ліцензійні умови"
+          hint="Які пункти Характеристики закривають записи за цим показником"
+        >
+          <LicencePositionPicker
+            value={(licencePositions ?? []) as LicencePositionLink[]}
+            onChange={(next) => setValue('licencePositions', next as never, { shouldDirty: true })}
+          />
+          {errors.licencePositions?.message && (
+            <p className="mt-2 text-sm text-destructive">
+              {errors.licencePositions.message as string}
+            </p>
+          )}
         </FormSection>
       </div>
 

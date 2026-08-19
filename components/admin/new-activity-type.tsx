@@ -23,6 +23,7 @@ function blankDraft(section: number, itemNumber: string): ActivityTypeDraft {
     isActive: true,
     requiresVerification: false,
     entityFirstEntry: false,
+    licencePositions: [],
     scoring: { kind: 'FIXED' },
     fields: [{ kind: 'text', name: 'title', label: 'Назва' }],
   };
