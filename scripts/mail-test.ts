@@ -89,6 +89,29 @@ async function main() {
     console.log('\n  ! SMTP_USER is empty against a real host — that will be refused.');
   }
 
+  // Reserved TLDs (RFC 2606 / RFC 6761). Nobody can be shown to control one,
+  // so a letter sent AS one is taken at the SMTP door and dropped inside — which
+  // is precisely what «accepted by the provider» used to report as success. The
+  // shipped default is no-reply@edurank.local, so this is the state every fresh
+  // checkout is in the moment real keys are pasted in.
+  const UNROUTABLE = ['.local', '.localhost', '.invalid', '.test', '.example'];
+  const fromDomain = (s.from.match(/@([^>s]+)/)?.[1] ?? '').toLowerCase();
+  const unroutable = UNROUTABLE.some((tld) => fromDomain.endsWith(tld));
+  const realProvider = s.host !== 'localhost' && s.host !== '127.0.0.1';
+
+  if (unroutable && realProvider) {
+    console.log('\nSMTP_FROM cannot work');
+    console.log(`   «${fromDomain}» is a reserved domain — it can never be verified.`);
+    console.log('   A letter sent as it is accepted, then dropped. Nothing reaches the inbox.');
+    console.log('');
+    console.log('   Set SMTP_FROM to the sender you authenticated in Mailjet:');
+    console.log('     https://app.mailjet.com/account/sender');
+    console.log('   A verified DOMAIN covers every address on it.');
+    console.log('   A verified ADDRESS covers only that exact one.');
+    process.exitCode = 1;
+    return;
+  }
+
   console.log('\n1. Connect and authenticate');
   try {
     await verifyTransport();
@@ -129,8 +152,11 @@ async function main() {
     return;
   }
 
-  console.log('\nDone. «Accepted» means the provider took it, not that it landed —');
-  console.log("check the inbox, and the spam folder, and Mailjet's own event log.");
+  console.log('\nDone — though «accepted» means the provider took it, not that it arrived.');
+  console.log('If nothing lands in a minute or two, Mailjet itself has the reason:');
+  console.log('  https://app.mailjet.com/stats  →  Messages, or the event log');
+  console.log('A letter shown there as «blocked» is nearly always the sender address —');
+  console.log(`  ${s.from} must be one Mailjet has authenticated.`);
 }
 
 main().catch((e) => {
