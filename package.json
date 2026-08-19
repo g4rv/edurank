@@ -20,6 +20,7 @@
     "db:seed:test": "tsx prisma/seed.ts --test",
     "db:fix-rounding": "tsx prisma/fix-rating-rounding.ts",
     "db:gate-to-check-sum": "tsx prisma/gate-to-check-sum.ts",
+    "db:fix-stake-ladder": "tsx prisma/fix-stake-limit-ladder.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force",
