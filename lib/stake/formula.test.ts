@@ -45,6 +45,51 @@ describe('the university’s own кафедра', () => {
 });
 
 /**
+ * A second screen from the same live system, and a different regime entirely:
+ * eight people, `Кст` 15.00, every cap at 1.00 — a pool BIGGER than the sum of
+ * every ceiling on the кафедра. Their screen shows seven ставки of 1.00, an
+ * empty cell for the person with no rating, and «не розподілена кількість» of
+ * 8.00.
+ *
+ * Worth its own test because the кафедра історії case cannot reach it: there
+ * the pool binds and the caps mostly do not, here it is the other way round.
+ * The 8.00 left over is the correct answer, not a shortfall — there is nothing
+ * left to give anybody without breaking a ceiling.
+ *
+ * Ratings only, no names. The people are real colleagues and this file is in
+ * git; the same reason `staff-roster*.json` is ignored.
+ */
+describe('a pool larger than every cap on the кафедра', () => {
+  const people = [
+    person(2708.4),
+    person(3057.63),
+    person(3132.96),
+    person(1392.5),
+    person(766.2),
+    person(211),
+    person(475),
+    person(0),
+  ];
+
+  it('pins everybody who scored to their ceiling', () => {
+    const result = formulaShares({ people, kstHundredths: toHundredths(15) });
+    expect(stakes(result)).toEqual([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0]);
+  });
+
+  // Their screen leaves the cell blank; we print 0,00. Same number, and the
+  // person is still on the кафедра — see the zero-rating rule in settle.ts.
+  it('gives nothing to the person with no rating', () => {
+    const result = formulaShares({ people, kstHundredths: toHundredths(15) });
+    expect(result.shares.at(-1)!.hundredths).toBe(0);
+  });
+
+  it('leaves exactly the 8.00 their screen shows as «не розподілено»', () => {
+    const result = formulaShares({ people, kstHundredths: toHundredths(15) });
+    expect(toHundredths(15) - result.totalHundredths).toBe(toHundredths(8));
+  });
+});
+
+/**
  * The property the положення's formula did not have: the proposal is a set of
  * SHARES of the pool, so it lands on `Кст` instead of drifting away from it.
  *
