@@ -11,6 +11,29 @@ const transport = nodemailer.createTransport({
     : undefined,
 });
 
+/**
+ * Open the connection and authenticate, without sending anything.
+ *
+ * Exported for `pnpm mail:test`, and deliberately built on the SAME transport
+ * the app sends through: a check that constructed its own would be able to pass
+ * while the app still failed, which is worse than no check at all.
+ */
+export async function verifyTransport(): Promise<void> {
+  await transport.verify();
+}
+
+/** Exactly what the app will use, so a setup check can print it back */
+export function mailSettings() {
+  return {
+    host: process.env.SMTP_HOST ?? 'localhost',
+    port: Number(process.env.SMTP_PORT ?? 587),
+    secure: Number(process.env.SMTP_PORT) === 465,
+    user: process.env.SMTP_USER || null,
+    from: process.env.SMTP_FROM ?? 'EduRank <no-reply@edurank.local>',
+    appUrl: process.env.APP_URL ?? 'http://localhost:3000',
+  };
+}
+
 export interface MailMessage {
   to: string;
   subject: string;

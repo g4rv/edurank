@@ -25,40 +25,44 @@ looking perfectly normal, with a link nobody on earth can open.
 **`SMTP_FROM` must match the address the provider has verified.** Providers
 reject, or silently drop, a `From:` they have not been shown you control.
 
-## Choosing a provider
+## The provider: Mailjet (decided 2026-08-13)
 
-The real question is not the provider — it is **what address the letter comes
-from**, because that decides whether ~300 people see it or their spam folder
-does.
+```bash
+SMTP_HOST=in-v3.mailjet.com
+SMTP_PORT=587                    # 465 also works, and is worth trying if 587 is blocked
+SMTP_USER=<API key>              # NOT your account email
+SMTP_PASS=<Secret key>           # both at app.mailjet.com/account/apikeys
+SMTP_FROM="EduRank <no-reply@edurank.uhsp.edu.ua>"
+```
 
-| Option                    | Daily cap    | What it needs                        | From: address                       |
-| ------------------------- | ------------ | ------------------------------------ | ----------------------------------- |
-| **University SMTP relay** | usually none | one request to IT                    | the university's own                |
-| **Brevo**                 | 300 free     | click a link in a confirmation email | any address you can receive mail at |
-| **SendGrid**              | 100 free     | same                                 | same                                |
-| **Gmail / Workspace**     | 500 / 2000   | an app password                      | a gmail address                     |
+**The letters come from a SUBDOMAIN, `edurank.uhsp.edu.ua`, not the university's
+root domain.** The root already publishes a strict `-all` SPF for Microsoft 365,
+and editing a live record that every university mailbox depends on is a risk
+this app has no business taking. The subdomain gets its own SPF and DKIM and
+cannot affect the main one.
 
-**The university relay is the right answer** if IT will give it to you. Mail from
-the university domain to university mailboxes does not get filtered, there is no
-daily cap to spread a send across, and there is no third party holding the
-address list.
+That choice is the whole reason a third party is workable here. Normally the
+catch with any external sender is that its machines send mail _claiming_ to be
+your domain, and receiving servers notice — mail lands in spam, shows as
+«via mailjet.com», or is rejected outright where DMARC is strict. Authenticating
+a subdomain in Mailjet answers that properly, without touching the record the
+rest of the university runs on.
 
-### The catch with any third party
+### Watch the daily cap before an invite run
 
-You can put a university address in `SMTP_FROM` after verifying it by email —
-but the letters are then physically sent by Brevo's machines _claiming_ to be
-your domain. Receiving servers notice. Depending on the university's DNS you get
-mail marked spam, shown as **"via brevo.com"**, or rejected outright if the
-domain publishes a strict DMARC policy.
+Mailjet's free tier was **6 000 letters a month and 200 a day** when this was
+written — confirm it, tiers move. At ~300 НПП that is **two days** for a full
+invite run, which is worth knowing before the morning you plan to send. See
+«Sending to everyone» below.
 
-Fixing that properly means adding **SPF and DKIM records to the university's
-DNS** — which needs the same people who could have given you the relay. So:
+### The alternative, if it is ever offered
 
-> If you need the letters to come from the university's address, you need IT
-> either way. Asking for the relay is less work for them and the better outcome.
-
-Brevo with a personal or departmental address works and needs nobody's help. It
-just does not look official.
+**The university's own SMTP relay** remains the better outcome: no cap, no third
+party holding the address list, and mail from the university domain to
+university mailboxes is not filtered. It needs IT — but so does the DNS for the
+subdomain, so if you are talking to them anyway, ask for the relay first.
+Switching is five environment variables and a restart; nothing in the code names
+a provider.
 
 ## Sending to everyone
 
@@ -68,9 +72,28 @@ in batches of 20, with `INVITE_DELAY_MS` between messages — free tiers throttl
 halfway, and ends with a per-person result so failures can be retried on their
 own.
 
-At 300 people: fine in one sitting on the university relay or Gmail; **two days
-on Brevo** (300/day) and **three on SendGrid** (100/day). Worth knowing before
-the day you plan to send.
+At 300 people: **two days on Mailjet** at 200/day, and one sitting on the
+university relay. Worth knowing before the day you plan to send.
+
+## Is it actually configured?
+
+```bash
+pnpm mail:test                    # connect and authenticate only — sends nothing
+pnpm mail:test you@example.com    # …then send one real letter
+```
+
+It prints what the app will use, then does the two things that fail for
+different reasons: **connecting and authenticating**, which is about the keys,
+and **delivering**, which is about whether the provider will send as your
+`SMTP_FROM`. A failure names the setting to change rather than the exception —
+wrong host, blocked port, wrong key, unverified sender and a swapped TLS port
+each read differently.
+
+It runs through the same transport the app sends on, so it cannot pass while
+the app fails.
+
+«Accepted» means the provider took the letter, not that it arrived. Check the
+inbox, the spam folder, and Mailjet's own event log.
 
 ## Testing without sending anything
 
