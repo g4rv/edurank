@@ -74,57 +74,63 @@ export async function cloneTemplate(fromYear: number): Promise<RatingAdminState>
   if (existing) return { error: `Рік ${toYear} вже існує` };
 
   try {
-    await db.$transaction(async (tx) => {
-      const template = await tx.ratingTemplate.create({
-        data: { year: toYear, name: `Рейтинг НПП ${toYear}`, isActive: false },
-      });
-
-      const sectionIdMap = new Map<string, string>();
-      for (const section of source.sections) {
-        const created = await tx.ratingSection.create({
-          data: { templateId: template.id, number: section.number, title: section.title },
+    await db.$transaction(
+      async (tx) => {
+        const template = await tx.ratingTemplate.create({
+          data: { year: toYear, name: `Рейтинг НПП ${toYear}`, isActive: false },
         });
-        sectionIdMap.set(section.id, created.id);
-      }
 
-      for (const type of source.activityTypes) {
-        await tx.activityType.create({
+        const sectionIdMap = new Map<string, string>();
+        for (const section of source.sections) {
+          const created = await tx.ratingSection.create({
+            data: { templateId: template.id, number: section.number, title: section.title },
+          });
+          sectionIdMap.set(section.id, created.id);
+        }
+
+        for (const type of source.activityTypes) {
+          await tx.activityType.create({
+            data: {
+              templateId: template.id,
+              sectionId: sectionIdMap.get(type.sectionId)!,
+              order: type.order,
+              code: type.code,
+              label: type.label,
+              itemNumber: type.itemNumber,
+              maxPerYear: type.maxPerYear,
+              evidenceFields: type.evidenceFields as Prisma.InputJsonValue,
+              scoring: type.scoring as Prisma.InputJsonValue,
+              // Copied like the other specs: a year owns its structure, so the
+              // п.38 mapping the clone starts from is last year's, and reshaping
+              // 2027 cannot reach back into 2026's Характеристики.
+              licencePositions: type.licencePositions as Prisma.InputJsonValue,
+              coefficient: type.coefficient,
+              coefficientNote: type.coefficientNote,
+              inputSource: type.inputSource,
+              verifyingDivisionId: type.verifyingDivisionId,
+              isActive: type.isActive,
+              requiresVerification: type.requiresVerification,
+              entityFirstEntry: type.entityFirstEntry,
+            },
+          });
+        }
+
+        await tx.auditLog.create({
           data: {
-            templateId: template.id,
-            sectionId: sectionIdMap.get(type.sectionId)!,
-            order: type.order,
-            code: type.code,
-            label: type.label,
-            itemNumber: type.itemNumber,
-            maxPerYear: type.maxPerYear,
-            evidenceFields: type.evidenceFields as Prisma.InputJsonValue,
-            scoring: type.scoring as Prisma.InputJsonValue,
-            // Copied like the other specs: a year owns its structure, so the
-            // п.38 mapping the clone starts from is last year's, and reshaping
-            // 2027 cannot reach back into 2026's Характеристики.
-            licencePositions: type.licencePositions as Prisma.InputJsonValue,
-            coefficient: type.coefficient,
-            coefficientNote: type.coefficientNote,
-            inputSource: type.inputSource,
-            verifyingDivisionId: type.verifyingDivisionId,
-            isActive: type.isActive,
-            requiresVerification: type.requiresVerification,
-            entityFirstEntry: type.entityFirstEntry,
+            action: 'CREATE',
+            entity: 'RatingTemplate',
+            entityId: template.id,
+            label: `Рейтинг НПП ${toYear} (клон ${fromYear})`,
+            userId: session.user.id,
+            changes: diffChanges({}, { year: toYear, name: `Рейтинг НПП ${toYear}` }),
           },
         });
-      }
-
-      await tx.auditLog.create({
-        data: {
-          action: 'CREATE',
-          entity: 'RatingTemplate',
-          entityId: template.id,
-          label: `Рейтинг НПП ${toYear} (клон ${fromYear})`,
-          userId: session.user.id,
-          changes: diffChanges({}, { year: toYear, name: `Рейтинг НПП ${toYear}` }),
-        },
-      });
-    });
+      },
+      // ~73 sequential creates — five розділи and every indicator of the year — on
+      // the same 5 s default. Thinner than it looks for a once-a-year action whose
+      // failure is a template that half exists and then does not.
+      { timeout: 60_000 }
+    );
   } catch (e) {
     return {
       error: parseDbError(
@@ -715,94 +721,102 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
   const titleByNumber = new Map(template.sections.map((s) => [s.number, s.title]));
 
   try {
-    await db.$transaction(async (tx) => {
-      // 1. Purge discarded rows (decision 2026-07-07)
-      await tx.activity.deleteMany({ where: { year, status: 'REMOVED' } });
+    await db.$transaction(
+      async (tx) => {
+        // 1. Purge discarded rows (decision 2026-07-07)
+        await tx.activity.deleteMany({ where: { year, status: 'REMOVED' } });
 
-      // 2. Drop every snapshot this year already carries. The loop below only
-      // writes for staff who still hold a counting row, so without this a person
-      // whose entries were all discarded during a reopen would keep the snapshot
-      // from the previous close — their rating page would go on listing the
-      // discarded items while /rating, reading the recomputed columns, shows
-      // zero for the same closed year.
-      await tx.ratingEntry.updateMany({ where: { year }, data: { snapshot: Prisma.DbNull } });
+        // 2. Drop every snapshot this year already carries. The loop below only
+        // writes for staff who still hold a counting row, so without this a person
+        // whose entries were all discarded during a reopen would keep the snapshot
+        // from the previous close — their rating page would go on listing the
+        // discarded items while /rating, reading the recomputed columns, shows
+        // zero for the same closed year.
+        await tx.ratingEntry.updateMany({ where: { year }, data: { snapshot: Prisma.DbNull } });
 
-      // 3. Snapshot per staff: approved items with labels/scores as of close.
-      // Deactivated indicators score nothing, so they stay out of the snapshot too.
-      const activities = await tx.activity.findMany({
-        where: { year, status: 'APPROVED', activityType: { isActive: true } },
-        select: {
-          id: true,
-          staffId: true,
-          score: true,
-          evidence: true,
-          activityType: {
-            select: {
-              code: true,
-              label: true,
-              itemNumber: true,
-              evidenceFields: true,
-              section: { select: { number: true, title: true } },
+        // 3. Snapshot per staff: approved items with labels/scores as of close.
+        // Deactivated indicators score nothing, so they stay out of the snapshot too.
+        const activities = await tx.activity.findMany({
+          where: { year, status: 'APPROVED', activityType: { isActive: true } },
+          select: {
+            id: true,
+            staffId: true,
+            score: true,
+            evidence: true,
+            activityType: {
+              select: {
+                code: true,
+                label: true,
+                itemNumber: true,
+                evidenceFields: true,
+                section: { select: { number: true, title: true } },
+              },
             },
           },
-        },
-      });
-
-      const byStaff = new Map<string, typeof activities>();
-      for (const a of activities) {
-        const list = byStaff.get(a.staffId) ?? [];
-        list.push(a);
-        byStaff.set(a.staffId, list);
-      }
-
-      for (const [staffId, rows] of byStaff) {
-        const sections = [1, 2, 3, 4, 5].map((number) => {
-          const items: SnapshotItem[] = rows
-            .filter((r) => r.activityType.section.number === number)
-            .map((r) => ({
-              id: r.id,
-              itemNumber: r.activityType.itemNumber,
-              label: r.activityType.label,
-              summary: summarizeEvidence(fieldsOf(r.activityType), r.evidence),
-              score: r.score,
-              status: 'APPROVED' as const,
-              statusLabel: ACTIVITY_STATUS_LABELS.APPROVED,
-            }));
-          return {
-            number,
-            title: titleByNumber.get(number) ?? SECTION_TITLES[number] ?? '',
-            // round2: summing 2-decimal scores with + reintroduces float dust
-            // (0.1 + 0.2 = 0.30000000000000004); the snapshot is frozen, so keep it clean.
-            subtotal: round2(items.reduce((sum, i) => sum + i.score, 0)),
-            items,
-          };
         });
-        const total = round2(sections.reduce((sum, s) => sum + s.subtotal, 0));
 
-        const snapshot = { closedAt: new Date().toISOString(), total, sections };
-        await tx.ratingEntry.updateMany({
-          where: { staffId, year },
-          data: { snapshot: snapshot as unknown as Prisma.InputJsonValue },
+        const byStaff = new Map<string, typeof activities>();
+        for (const a of activities) {
+          const list = byStaff.get(a.staffId) ?? [];
+          list.push(a);
+          byStaff.set(a.staffId, list);
+        }
+
+        for (const [staffId, rows] of byStaff) {
+          const sections = [1, 2, 3, 4, 5].map((number) => {
+            const items: SnapshotItem[] = rows
+              .filter((r) => r.activityType.section.number === number)
+              .map((r) => ({
+                id: r.id,
+                itemNumber: r.activityType.itemNumber,
+                label: r.activityType.label,
+                summary: summarizeEvidence(fieldsOf(r.activityType), r.evidence),
+                score: r.score,
+                status: 'APPROVED' as const,
+                statusLabel: ACTIVITY_STATUS_LABELS.APPROVED,
+              }));
+            return {
+              number,
+              title: titleByNumber.get(number) ?? SECTION_TITLES[number] ?? '',
+              // round2: summing 2-decimal scores with + reintroduces float dust
+              // (0.1 + 0.2 = 0.30000000000000004); the snapshot is frozen, so keep it clean.
+              subtotal: round2(items.reduce((sum, i) => sum + i.score, 0)),
+              items,
+            };
+          });
+          const total = round2(sections.reduce((sum, s) => sum + s.subtotal, 0));
+
+          const snapshot = { closedAt: new Date().toISOString(), total, sections };
+          await tx.ratingEntry.updateMany({
+            where: { staffId, year },
+            data: { snapshot: snapshot as unknown as Prisma.InputJsonValue },
+          });
+        }
+
+        // 4. Flip the authoritative flag
+        await tx.ratingTemplate.update({
+          where: { id: template.id },
+          data: { status: 'CLOSED', closedAt: new Date(), closedByUserId: session.user.id },
         });
-      }
 
-      // 4. Flip the authoritative flag
-      await tx.ratingTemplate.update({
-        where: { id: template.id },
-        data: { status: 'CLOSED', closedAt: new Date(), closedByUserId: session.user.id },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          action: 'UPDATE',
-          entity: 'RatingTemplate',
-          entityId: template.id,
-          label: template.name,
-          userId: session.user.id,
-          changes: diffChanges({ status: 'OPEN' }, { status: 'CLOSED' }),
-        },
-      });
-    });
+        await tx.auditLog.create({
+          data: {
+            action: 'UPDATE',
+            entity: 'RatingTemplate',
+            entityId: template.id,
+            label: template.name,
+            userId: session.user.id,
+            changes: diffChanges({ status: 'OPEN' }, { status: 'CLOSED' }),
+          },
+        });
+      },
+      // ~300 sequential writes plus a read of every activity in the year, against
+      // Prisma's 5 s default. `updateActivityType` and `syncProfileDerived` already
+      // raise the budget for smaller jobs; this one closes the year for the whole
+      // university, and a rollback here leaves it OPEN with no snapshot written and
+      // nothing in the audit log to say why.
+      { timeout: 120_000 }
+    );
   } catch (e) {
     return {
       error: parseDbError(e, 'Не вдалося закрити рік. Зміни не застосовано', 'rating.closeYear', {
