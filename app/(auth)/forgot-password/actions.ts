@@ -1,9 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { issueActivationToken, ACTIVATION_TOKEN_DAYS } from '@/lib/activation';
-import { sendMail } from '@/lib/mail/mailer';
-import { passwordResetEmail } from '@/lib/mail/templates';
+import { issueAndEmailLink } from '@/lib/mail/invite';
 import { forgotPasswordSchema, type ForgotPasswordSchema } from '@/validations/account';
 import { logError } from '@/lib/log';
 
@@ -30,6 +28,8 @@ export async function requestPasswordReset(
       lastName: true,
       firstName: true,
       patronymic: true,
+      // Decides WHICH letter goes out — see below. Never leaves this function.
+      passwordHash: true,
       activationToken: { select: { createdAt: true } },
     },
   });
@@ -39,17 +39,20 @@ export async function requestPasswordReset(
     Date.now() - staff.activationToken.createdAt.getTime() < RESEND_COOLDOWN_MS;
 
   if (staff && !recentlySent) {
+    // An account with no password has never been activated, and there is one
+    // very ordinary way to arrive here: a new colleague cannot find the
+    // invitation and tries «Забули пароль?». Sending «Скидання паролю» to
+    // somebody who has never had one is wrong twice — it names a password that
+    // does not exist, and it ends «зверніться до адміністратора», which is
+    // precisely the detour the link in their hands already saves them.
+    //
+    // A token is still issued either way. It replaces whatever invitation was
+    // outstanding, and it has to: the raw token is never stored, only its hash,
+    // so the original link cannot be sent again. The person gets a working link
+    // under the heading that matches their situation.
+    const kind = staff.passwordHash ? 'reset' : 'invite';
     try {
-      const token = await issueActivationToken(staff.id);
-      const link = `${process.env.APP_URL ?? 'http://localhost:3000'}/activate/${token}`;
-      await sendMail({
-        to: staff.email,
-        ...passwordResetEmail({
-          fullName: `${staff.lastName} ${staff.firstName} ${staff.patronymic}`,
-          link,
-          expiresDays: ACTIVATION_TOKEN_DAYS,
-        }),
-      });
+      await issueAndEmailLink(staff, kind);
     } catch (e) {
       // The CALLER still learns nothing — the answer must look identical whether
       // or not the address exists. But it is logged: if SMTP is down, every

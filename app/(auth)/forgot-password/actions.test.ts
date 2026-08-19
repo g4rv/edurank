@@ -22,6 +22,7 @@ const staff = {
   lastName: 'Коваленко',
   firstName: 'Іван',
   patronymic: 'Петрович',
+  passwordHash: 'hashed',
   activationToken: null,
 };
 
@@ -45,11 +46,21 @@ describe('requestPasswordReset', () => {
     expect(mockSendMail).not.toHaveBeenCalled();
   });
 
-  it('emails a reset link to an existing account', async () => {
+  it('emails a reset link to an activated account', async () => {
     mockStaffFind.mockResolvedValue(staff);
     expect(await requestPasswordReset({ email: staff.email })).toEqual({ success: true });
     expect(mockSendMail).toHaveBeenCalledWith(expect.objectContaining({ to: staff.email }));
     expect(mockSendMail.mock.calls[0][0].text).toContain('/activate/raw-token');
+    expect(mockSendMail.mock.calls[0][0].subject).toContain('Скидання');
+  });
+
+  // A person who never set a password did not forget one. The most ordinary way
+  // to reach this action is a new colleague who cannot find their invitation.
+  it('emails an INVITE letter when the account was never activated', async () => {
+    mockStaffFind.mockResolvedValue({ ...staff, passwordHash: null });
+    expect(await requestPasswordReset({ email: staff.email })).toEqual({ success: true });
+    expect(mockSendMail.mock.calls[0][0].text).toContain('/activate/raw-token');
+    expect(mockSendMail.mock.calls[0][0].subject).not.toContain('Скидання');
   });
 
   it('skips sending during the cooldown but still answers success', async () => {
