@@ -89,9 +89,14 @@ function revalidateStakes(departmentId: string) {
  * property of the set: a head moving 0.10 from one person to another would be
  * blocked on the first half of the move if rows saved independently.
  *
- * Everything is re-derived and re-checked here. The client computes the same
- * numbers to keep the grid live, but a client total is a hint, not a fact —
- * this is the only place the pool is actually enforced.
+ * Everything is re-derived and re-checked here, and the list is worth naming
+ * because it used to be shorter than this sentence claimed: the person's
+ * Мін/Макс, the 0,05 ladder, and «тільки збільшити» — nothing may be saved
+ * below what the формула proposes for that person. The формула itself is
+ * recomputed from the roster, never taken from the payload.
+ *
+ * The client computes the same numbers to keep the grid live, but a client
+ * total is a hint, not a fact. This is where they are enforced.
  */
 export async function saveDistribution(payload: unknown): Promise<DistributionState> {
   const session = await auth();
@@ -112,7 +117,7 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     db.department.findUnique({ where: { id: departmentId }, select: { name: true } }),
     db.departmentStake.findUnique({
       where: { departmentId_year: { departmentId, year } },
-      select: { kstHundredths: true },
+      select: { kstHundredths: true, bonusPoolHundredths: true },
     }),
     db.staff.findMany({
       where: { ...ON_ROSTER, isNpp: true, departmentId },
@@ -133,6 +138,20 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     return { error: 'Для цієї кафедри ще не встановлено Кст. Зверніться до адміністратора' };
   }
 
+  // Recomputed server-side, not taken from the client: додаток 2 prints the
+  // formula's number beside the head's, so storing the head's in both columns
+  // would make the document assert that they agreed when they did not.
+  const formula = formulaShares({
+    people: staff.map((s) => ({
+      staffId: s.id,
+      rating: s.ratingEntries[0]?.totalScore ?? 0,
+      minHundredths: s.stakeLimits[0]?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
+      maxHundredths: s.stakeLimits[0]?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
+    })),
+    kstHundredths: stake.kstHundredths,
+  });
+  const formulaByStaff = new Map(formula.shares.map((s) => [s.staffId, s.hundredths]));
+
   const byId = new Map(staff.map((s) => [s.id, s]));
 
   // Everyone on the roster must appear, and nobody else may. A missing row is
@@ -141,6 +160,10 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   if (allocations.length !== staff.length) {
     return { error: 'Список НПП змінився. Оновіть сторінку та спробуйте ще раз' };
   }
+
+  // Already past both funds — the floor check below explains why that matters.
+  const funds = stake.kstHundredths + (stake.bonusPoolHundredths ?? 0);
+  const overspent = allocations.reduce((sum, a) => sum + a.hundredths, 0) > funds;
 
   for (const allocation of allocations) {
     const person = byId.get(allocation.staffId);
@@ -170,6 +193,31 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     if (allocation.hundredths % STAKE_STEP !== 0) {
       return { error: `${who}: ставка має бути кратною 0,05` };
     }
+
+    // «Початкову (автоматичну) ставку можна тільки збільшити» — the sheet's own
+    // rule, and the owner restating it (2026-08-19): the формула calculates, the
+    // завідувач adjusts, and nobody types a number below it. The ONE way a ставка
+    // comes down is ADMIN moving that person’s Мін/Макс, which changes what the
+    // формула itself proposes.
+    //
+    // The grid has enforced this since it was written (`settleStake`). The server
+    // did not — while its own docstring said it re-checked everything the client
+    // computed — so додаток 2 could print a distributed number under the formula
+    // column with no обґрунтування, which is the deviation the положення exists to
+    // make somebody justify.
+    //
+    // Lifted while the кафедра is over both funds, or there is no way out of an
+    // overspend: a head may only raise, and ladder rounding alone can put the
+    // formula’s own proposal above `Кст`. A hard floor then leaves no legal move at
+    // all — Кафедра географії sat in exactly that state, 2,10 against a pool of 2,00.
+    const floor = formulaByStaff.get(allocation.staffId) ?? 0;
+    if (!overspent && allocation.hundredths < floor) {
+      return {
+        error:
+          `${who}: ставка не може бути меншою за ${formatStake(floor)} — стільки дає формула. ` +
+          'Зменшити можна лише через Мін/Макс',
+      };
+    }
   }
 
   // Overspending the pool is ALLOWED, and shown rather than refused — the
@@ -184,20 +232,6 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   // pool of 2.00, unsaveable.
   //
   // Where the number is settled is the протокол, not this input.
-
-  // Recomputed server-side, not taken from the client: додаток 2 prints the
-  // formula's number beside the head's, so storing the head's in both columns
-  // would make the document assert that they agreed when they did not.
-  const formula = formulaShares({
-    people: staff.map((s) => ({
-      staffId: s.id,
-      rating: s.ratingEntries[0]?.totalScore ?? 0,
-      minHundredths: s.stakeLimits[0]?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
-      maxHundredths: s.stakeLimits[0]?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
-    })),
-    kstHundredths: stake.kstHundredths,
-  });
-  const formulaByStaff = new Map(formula.shares.map((s) => [s.staffId, s.hundredths]));
 
   // No обґрунтування. Додаток 2 prints the column and the положення describes
   // justifying a deviation, but the university says nobody will ever fill it in

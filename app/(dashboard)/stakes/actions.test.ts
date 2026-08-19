@@ -58,6 +58,19 @@ function roster(n = 3) {
   }));
 }
 
+/**
+ * Ratings 1500 / 1000 / 500 against a 3,00 pool, so the формула proposes
+ * 1,00 / 1,00 / 0,75 and the third row has room to be raised. With an even
+ * roster every share lands exactly on the 1,00 cap, and «тільки збільшити»
+ * then leaves no legal move to test with.
+ */
+function uneven() {
+  const staff = roster();
+  staff[0].ratingEntries = [{ totalScore: 1500 }];
+  staff[2].ratingEntries = [{ totalScore: 500 }];
+  mockStaff.mockResolvedValue(staff);
+}
+
 /** A plain payload; the justification is optional and defaulted to null. */
 function payload(values: number[], departmentId = DEPT) {
   return {
@@ -200,8 +213,12 @@ describe('saveDistribution — the pool ceiling', () => {
     expect(await saveDistribution(payload([100, 100, 100]))).toEqual({ success: true });
   });
 
+  // Money is left over because the формула itself leaves it — a cap holding
+  // somebody down, or ladder dust. It can no longer be left over by typing a
+  // smaller number, which is what this test used to do.
   it('accepts one that leaves some undistributed', async () => {
-    expect(await saveDistribution(payload([100, 100, 50]))).toEqual({ success: true });
+    uneven();
+    expect(await saveDistribution(payload([100, 100, 75]))).toEqual({ success: true });
   });
 
   // Caps raised out of the way on purpose: the default is one full ставка, so
@@ -248,25 +265,90 @@ describe('saveDistribution — обґрунтування is optional', () => {
     })),
   });
 
+  // A departure is upward now — «тільки збільшити» — so 0,80 against a
+  // proposed 0,75. It used to be downward, which the save no longer takes.
   it('saves a departure from the formula with no reason given', async () => {
-    expect(await saveDistribution(unexplained([100, 10, 10]))).toEqual({ success: true });
+    uneven();
+    expect(await saveDistribution(unexplained([100, 100, 80]))).toEqual({ success: true });
   });
 
   it('saves a row that matches the formula, also with no reason', async () => {
-    expect(await saveDistribution(unexplained([10, 10, 10]))).toEqual({ success: true });
+    uneven();
+    expect(await saveDistribution(unexplained([100, 100, 75]))).toEqual({ success: true });
   });
 
   it('keeps a reason when one is given', async () => {
+    uneven();
     const result = await saveDistribution({
       departmentId: DEPT,
       year: YEAR,
       allocations: [
         { staffId: 's0', hundredths: 100, justification: 'гарант освітньої програми' },
-        { staffId: 's1', hundredths: 10, justification: null },
-        { staffId: 's2', hundredths: 10, justification: null },
+        { staffId: 's1', hundredths: 100, justification: null },
+        { staffId: 's2', hundredths: 80, justification: null },
       ],
     });
     expect(result).toEqual({ success: true });
+  });
+});
+
+// «Початкову (автоматичну) ставку можна тільки збільшити». The owner restated
+// it on 2026-08-19: the формула calculates, the завідувач adjusts, and nobody
+// types a number below it — the only way a ставка comes down is ADMIN moving
+// that person's Мін/Макс, which changes what the формула proposes.
+//
+// The grid has enforced this since it was written. The server did not, so a
+// request made outside the UI could put додаток 2's «розподілено» column under
+// its own «за формулою» column.
+describe('saveDistribution — the формула is a floor', () => {
+  it('refuses a value below what the формула proposes', async () => {
+    uneven();
+    const result = await saveDistribution(payload([100, 100, 70]));
+    expect(result).toMatchObject({ error: expect.stringContaining('формула') });
+  });
+
+  it('accepts exactly the формула', async () => {
+    uneven();
+    expect(await saveDistribution(payload([100, 100, 75]))).toEqual({ success: true });
+  });
+
+  it('accepts a raise above it — that is the head’s whole job', async () => {
+    uneven();
+    expect(await saveDistribution(payload([100, 100, 95]))).toEqual({ success: true });
+  });
+
+  it('names the number and how to change it', async () => {
+    uneven();
+    const result = await saveDistribution(payload([100, 100, 70]));
+    expect(result).toMatchObject({ error: expect.stringContaining('0,75') });
+    expect(result).toMatchObject({ error: expect.stringContaining('Мін/Макс') });
+  });
+
+  // Refusing an overspend AND the floor together deadlocks the grid: ladder
+  // rounding alone can put the формула's own proposal above Кст, and a head who
+  // may only raise then has no legal move at all. Going down is the way out, so
+  // while the кафедра is over both funds the floor steps aside.
+  it('lifts the floor while the кафедра is over both funds', async () => {
+    uneven();
+    const staff = roster();
+    staff[0].ratingEntries = [{ totalScore: 1500 }];
+    staff[2].ratingEntries = [{ totalScore: 500 }];
+    for (const person of staff) {
+      person.stakeLimits = [{ minHundredths: 10, maxHundredths: 150 }] as never;
+    }
+    mockStaff.mockResolvedValue(staff);
+    // 3,55 against a 3,00 pool — over, so a row may be pulled back down
+    expect(await saveDistribution(payload([150, 150, 55]))).toEqual({ success: true });
+  });
+
+  // The бонусний фонд is part of what the кафедра has to spend, so it decides
+  // whether they are over — the same attribution the grid's cards use.
+  it('counts the бонусний фонд before calling it an overspend', async () => {
+    uneven();
+    mockStake.mockResolvedValue({ kstHundredths: 300, bonusPoolHundredths: 200 });
+    // 2,75 against 5,00 of funds: comfortably inside, so the floor still binds
+    const result = await saveDistribution(payload([100, 100, 70]));
+    expect(result).toMatchObject({ error: expect.stringContaining('формула') });
   });
 });
 
