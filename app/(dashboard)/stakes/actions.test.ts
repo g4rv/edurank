@@ -44,6 +44,7 @@ const mockLimitsUpsert = db.staffStakeLimits.upsert as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 const mockDistributionFind = db.stakeDistribution.findUnique as unknown as Mock;
 const mockAllocationUpdate = db.stakeAllocation.update as unknown as Mock;
+const mockAuditCreate = db.auditLog.create as unknown as Mock;
 
 const DEPT = 'dept-1';
 const YEAR = 2026;
@@ -521,10 +522,13 @@ describe('setStaffLimits — re-settles the кафедра’s saved split', () 
 
   const saved = (values: number[]) =>
     mockDistributionFind.mockResolvedValue({
+      id: 'dist-1',
+      department: { name: 'Кафедра фізики' },
       allocations: values.map((proposedHundredths, i) => ({
         id: `alloc-${i}`,
         staffId: `s${i}`,
         proposedHundredths,
+        staff: { lastName: `Прізвище${i}` },
       })),
     });
 
@@ -592,5 +596,77 @@ describe('setStaffLimits — re-settles the кафедра’s saved split', () 
         data: expect.objectContaining({ formulaHundredths: 100 }),
       })
     );
+  });
+});
+
+// ADMIN moves a cap and somebody else's ставка changes as a consequence. An
+// entry for the cap alone would show the decision and hide the money.
+describe('setStaffLimits — the re-settle is logged', () => {
+  function limitsForm(min: string, max: string, staffId = 's2') {
+    const fd = new FormData();
+    fd.set('staffId', staffId);
+    fd.set('year', String(YEAR));
+    fd.set('min', min);
+    fd.set('max', max);
+    return fd;
+  }
+
+  beforeEach(() => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockStaffOne.mockResolvedValue({
+      lastName: 'Прізвище',
+      firstName: 'Ім’я',
+      patronymic: 'По батькові',
+      departmentId: DEPT,
+    });
+    mockLimitsFind.mockResolvedValue(null);
+    mockLimitsUpsert.mockResolvedValue({ id: 'lim-1' });
+    mockStaff.mockResolvedValue(roster());
+    mockDistributionFind.mockResolvedValue({
+      id: 'dist-1',
+      department: { name: 'Кафедра фізики' },
+      allocations: [95, 100, 100].map((proposedHundredths, i) => ({
+        id: `alloc-${i}`,
+        staffId: `s${i}`,
+        proposedHundredths,
+        staff: { lastName: `Прізвище${i}` },
+      })),
+    });
+  });
+
+  it('writes one entry for the кафедра, naming what moved', async () => {
+    await setStaffLimits(null, limitsForm('0,10', '1,00'));
+
+    // Two entries go out: one for the cap itself (StaffStakeLimits) and one for
+    // the split it moved. This test is about the second.
+    const entries = mockAuditCreate.mock.calls
+      .map((c) => c[0].data)
+      .filter((d: { entity: string }) => d.entity === 'StakeDistribution');
+    expect(entries).toHaveLength(1);
+
+    const entry = entries[0];
+    expect(entry).toMatchObject({ action: 'UPDATE', entityId: 'dist-1', userId: 'a1' });
+    expect(entry.label).toContain('перерахунок');
+    // Only the row that actually moved, from 0,95 to the formula's 1,00
+    expect(entry.changes).toEqual({ Прізвище0: { from: 95, to: 100 } });
+  });
+
+  it('writes nothing when no row had to move', async () => {
+    mockDistributionFind.mockResolvedValue({
+      id: 'dist-1',
+      department: { name: 'Кафедра фізики' },
+      allocations: [100, 100, 100].map((proposedHundredths, i) => ({
+        id: `alloc-${i}`,
+        staffId: `s${i}`,
+        proposedHundredths,
+        staff: { lastName: `Прізвище${i}` },
+      })),
+    });
+    await setStaffLimits(null, limitsForm('0,10', '1,00'));
+    // The cap itself is still logged; there is simply no split entry beside it.
+    const entries = mockAuditCreate.mock.calls
+      .map((c) => c[0].data)
+      .filter((d: { entity: string }) => d.entity === 'StakeDistribution');
+    expect(entries).toHaveLength(0);
   });
 });

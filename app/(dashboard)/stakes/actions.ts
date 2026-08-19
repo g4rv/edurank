@@ -418,7 +418,7 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
     kstHundredths: stake.kstHundredths,
   });
 
-  await liftStoredAllocations(person.departmentId, year, roster, formula.shares);
+  await liftStoredAllocations(person.departmentId, year, roster, formula.shares, session.user.id);
 
   return {
     success: true,
@@ -452,17 +452,33 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
  * - **`formulaHundredths` is rewritten too.** Додаток 2 prints it beside the
  *   head's number, and a frozen column claiming the old proposal would make the
  *   document assert a comparison that never happened.
+ *
+ * **Logged, because it is pay that moved.** ADMIN edits a cap and somebody
+ * else's ставка changes as a consequence; without an entry the log would show
+ * the cap and stay silent about the money, which is the one thing an audit log
+ * exists to stop. One entry for the кафедра, like `saveDistribution`, listing
+ * only the rows that actually moved.
  */
 async function liftStoredAllocations(
   departmentId: string,
   year: number,
   roster: { id: string; ratingEntries: { totalScore: number }[] }[],
-  shares: { staffId: string; hundredths: number }[]
+  shares: { staffId: string; hundredths: number }[],
+  userId: string
 ): Promise<void> {
   const distribution = await db.stakeDistribution.findUnique({
     where: { departmentId_year: { departmentId, year } },
     select: {
-      allocations: { select: { id: true, staffId: true, proposedHundredths: true } },
+      id: true,
+      department: { select: { name: true } },
+      allocations: {
+        select: {
+          id: true,
+          staffId: true,
+          proposedHundredths: true,
+          staff: { select: { lastName: true } },
+        },
+      },
     },
   });
   // Nobody has spread this кафедра yet, so there is nothing to bring back in.
@@ -480,7 +496,13 @@ async function liftStoredAllocations(
     ])
   );
 
-  const edits: { id: string; proposedHundredths: number; formulaHundredths: number }[] = [];
+  const edits: {
+    id: string;
+    who: string;
+    was: number;
+    proposedHundredths: number;
+    formulaHundredths: number;
+  }[] = [];
   for (const allocation of distribution.allocations) {
     const share = shareByStaff.get(allocation.staffId);
     const person = limitsByStaff.get(allocation.staffId);
@@ -504,13 +526,19 @@ async function liftStoredAllocations(
 
     const settled = Math.min(Math.max(allocation.proposedHundredths, share, lower), upper);
     if (settled === allocation.proposedHundredths) continue;
-    edits.push({ id: allocation.id, proposedHundredths: settled, formulaHundredths: share });
+    edits.push({
+      id: allocation.id,
+      who: allocation.staff.lastName,
+      was: allocation.proposedHundredths,
+      proposedHundredths: settled,
+      formulaHundredths: share,
+    });
   }
 
   if (edits.length === 0) return;
 
-  await db.$transaction(
-    edits.map((edit) =>
+  await db.$transaction([
+    ...edits.map((edit) =>
       db.stakeAllocation.update({
         where: { id: edit.id },
         data: {
@@ -518,6 +546,19 @@ async function liftStoredAllocations(
           formulaHundredths: edit.formulaHundredths,
         },
       })
-    )
-  );
+    ),
+    db.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'StakeDistribution',
+        entityId: distribution.id,
+        label: `${distribution.department.name} — перерахунок після зміни лімітів ${year}`,
+        userId,
+        changes: diffChanges(
+          Object.fromEntries(edits.map((e) => [e.who, e.was])),
+          Object.fromEntries(edits.map((e) => [e.who, e.proposedHundredths]))
+        ),
+      },
+    }),
+  ]);
 }
