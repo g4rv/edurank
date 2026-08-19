@@ -4,7 +4,8 @@
 interface TemplateInput {
   fullName: string;
   link: string;
-  expiresDays: number;
+  /** Ready to print — «30 днів», «2 години». See ./validity.ts */
+  validFor: string;
 }
 
 interface RenderedEmail {
@@ -26,7 +27,7 @@ function linkButton(link: string): string {
   <p style="font-size:13px;color:#555">Або скопіюйте посилання у браузер:<br><a href="${link}" style="color:#2563eb;word-break:break-all">${link}</a></p>`;
 }
 
-export function inviteEmail({ fullName, link, expiresDays }: TemplateInput): RenderedEmail {
+export function inviteEmail({ fullName, link, validFor }: TemplateInput): RenderedEmail {
   const subject = 'Запрошення до системи EduRank';
   const text = `Вітаємо, ${fullName}!
 
@@ -35,18 +36,18 @@ export function inviteEmail({ fullName, link, expiresDays }: TemplateInput): Ren
 
 ${link}
 
-Посилання дійсне ${expiresDays} днів. Якщо ви не очікували цього листа, просто проігноруйте його.`;
+Посилання дійсне ${validFor}. Якщо ви не очікували цього листа, просто проігноруйте його.`;
   const html = layout(
     'Запрошення до системи EduRank',
     `<p>Вітаємо, <strong>${fullName}</strong>!</p>
      <p>Для вас створено обліковий запис у системі EduRank. Щоб активувати його, встановіть пароль за посиланням нижче.</p>
      ${linkButton(link)}
-     <p style="font-size:13px;color:#555">Посилання дійсне ${expiresDays} днів.</p>`
+     <p style="font-size:13px;color:#555">Посилання дійсне ${validFor}.</p>`
   );
   return { subject, text, html };
 }
 
-export function passwordResetEmail({ fullName, link, expiresDays }: TemplateInput): RenderedEmail {
+export function passwordResetEmail({ fullName, link, validFor }: TemplateInput): RenderedEmail {
   const subject = 'Скидання пароля — EduRank';
   const text = `Вітаємо, ${fullName}!
 
@@ -55,13 +56,13 @@ export function passwordResetEmail({ fullName, link, expiresDays }: TemplateInpu
 
 ${link}
 
-Посилання дійсне ${expiresDays} днів. Якщо ви не очікували цього листа, зверніться до адміністратора.`;
+Посилання дійсне ${validFor}. Якщо ви не очікували цього листа, зверніться до адміністратора.`;
   const html = layout(
     'Скидання пароля',
     `<p>Вітаємо, <strong>${fullName}</strong>!</p>
      <p>Для вашого облікового запису ініційовано скидання пароля. Встановіть новий пароль за посиланням нижче.</p>
      ${linkButton(link)}
-     <p style="font-size:13px;color:#555">Посилання дійсне ${expiresDays} днів. Якщо ви не очікували цього листа, зверніться до адміністратора.</p>`
+     <p style="font-size:13px;color:#555">Посилання дійсне ${validFor}. Якщо ви не очікували цього листа, зверніться до адміністратора.</p>`
   );
   return { subject, text, html };
 }

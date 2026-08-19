@@ -1,7 +1,20 @@
 import { createHash, randomBytes } from 'crypto';
 import { db } from '@/lib/db';
 
-export const ACTIVATION_TOKEN_DAYS = 30;
+/**
+ * How long an emailed link stays usable. Two numbers, not one.
+ *
+ * An INVITATION waits on paperwork and on somebody who has not started yet, so
+ * thirty days is the answer that saves an admin re-inviting half the intake.
+ *
+ * A RESET is the opposite: a key to a live account, lying in a mailbox. And
+ * `resetPassword` clears the password hash before sending, so for the whole
+ * window the link IS the account — anyone who reaches that mailbox owns the
+ * record, an ADMIN's included. A month of that was the invitation's number
+ * inherited by a case it never fitted.
+ */
+export const INVITE_TOKEN_HOURS = 30 * 24;
+export const RESET_TOKEN_HOURS = 2;
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -9,9 +22,9 @@ function hashToken(token: string): string {
 
 // Creates (or replaces) the staff member's activation token.
 // Returns the raw token — it is only ever known to the emailed link.
-export async function issueActivationToken(staffId: string): Promise<string> {
+export async function issueActivationToken(staffId: string, hours: number): Promise<string> {
   const token = randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + ACTIVATION_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
 
   await db.activationToken.upsert({
     where: { staffId },

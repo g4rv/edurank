@@ -4,7 +4,8 @@ vi.mock('@/lib/db', () => ({
   db: { staff: { findUnique: vi.fn() } },
 }));
 vi.mock('@/lib/activation', () => ({
-  ACTIVATION_TOKEN_DAYS: 30,
+  INVITE_TOKEN_HOURS: 30 * 24,
+  RESET_TOKEN_HOURS: 2,
   issueActivationToken: vi.fn().mockResolvedValue('raw-token'),
 }));
 vi.mock('@/lib/mail/mailer', () => ({ sendMail: vi.fn().mockResolvedValue(undefined) }));

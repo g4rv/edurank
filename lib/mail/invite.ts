@@ -1,6 +1,10 @@
-import { issueActivationToken, ACTIVATION_TOKEN_DAYS } from '@/lib/activation';
+import { INVITE_TOKEN_HOURS, RESET_TOKEN_HOURS, issueActivationToken } from '@/lib/activation';
 import { sendMail } from '@/lib/mail/mailer';
 import { inviteEmail, passwordResetEmail } from '@/lib/mail/templates';
+import { validityPhrase } from '@/lib/mail/validity';
+
+/** An invitation may wait a month; a key to a live account may not. */
+const LIFETIME_HOURS = { invite: INVITE_TOKEN_HOURS, reset: RESET_TOKEN_HOURS } as const;
 
 /**
  * Issue an activation token and mail the link.
@@ -35,12 +39,13 @@ export async function issueAndEmailLink(
   staff: InviteRecipient,
   kind: 'invite' | 'reset'
 ): Promise<void> {
-  const token = await issueActivationToken(staff.id);
+  const hours = LIFETIME_HOURS[kind];
+  const token = await issueActivationToken(staff.id, hours);
   const link = `${process.env.APP_URL ?? 'http://localhost:3000'}/activate/${token}`;
   const input = {
     fullName: staffFullName(staff),
     link,
-    expiresDays: ACTIVATION_TOKEN_DAYS,
+    validFor: validityPhrase(hours),
   };
   await sendMail({
     to: staff.email,
