@@ -284,6 +284,143 @@ async function readWorkbookTotals(path: string): Promise<SheetTotals[]> {
   return out;
 }
 
+// ── УГСП_Дані.xlsx — the profile half ───────────────────────────────────────
+
+/**
+ * The university's own staff sheet, and the one file that fills a `Staff` row.
+ *
+ * Its «НПП» sheet carries стаж, звання, ступінь, the four research-profile
+ * links with their citation counts, and ORCID — which is exactly the input to
+ * every `PROFILE_DERIVED` indicator (1.1 стаж, 1.2 звання, 1.3 ступінь, 3.24
+ * цитування). Without it those indicators score nothing however well the
+ * activities import.
+ *
+ * Restricted to people in `staff-roster.json`, per the owner: the sheet lists
+ * 317 people and the roster is the definition of who works here now.
+ */
+const RANKS: Record<string, string> = {
+  професор: 'PROFESSOR',
+  доцент: 'DOCENT',
+  'старший викладач': 'SENIOR_LECTURER',
+  викладач: 'LECTURER',
+};
+
+/**
+ * «…за спеціальністю кафедри» is not a fifth degree — it is the degree PLUS
+ * `degreeMatchesDepartment`, which is a separate boolean on Staff and worth
+ * 10 points more in indicator 1.3.
+ */
+function parseDegree(raw: string): { degree: string | null; matches: boolean } {
+  const s = raw.toLowerCase();
+  const matches = s.includes('за спеціальністю кафедри');
+  if (s.startsWith('доктор наук')) return { degree: 'DOCTOR', matches };
+  if (s.startsWith('кандидат наук')) return { degree: 'CANDIDATE', matches };
+  return { degree: null, matches: false };
+}
+
+async function reportProfiles(rosterByName: Map<string, { fullName: string; email: string }>) {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile('edu-reference/УГСП_Дані.xlsx');
+
+  const lines: string[] = [
+    '| ПІБ | our email | стаж | звання | ступінь | за спец. | ORCID | GS | Scopus | WoS |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  ];
+  const filled = new Map<string, number>();
+  const bump = (k: string, v: unknown) => {
+    if (v !== null && v !== undefined && v !== '') filled.set(k, (filled.get(k) ?? 0) + 1);
+  };
+  let listed = 0;
+  let ours = 0;
+  const unknownRank = new Set<string>();
+  const unknownDegree = new Set<string>();
+
+  wb.getWorksheet('НПП')?.eachRow({ includeEmpty: false }, (row, n) => {
+    if (n === 1) return;
+    const name = tidy(text(row.getCell(2).value));
+    if (!name) return;
+    listed += 1;
+
+    const mine = rosterByName.get(nameKey(name));
+    if (!mine) return; // not on the current roster — the owner's rule
+    ours += 1;
+
+    const rankRaw = tidy(text(row.getCell(6).value));
+    const degreeRaw = tidy(text(row.getCell(7).value));
+    const rank = RANKS[rankRaw.toLowerCase()] ?? null;
+    const { degree, matches } = parseDegree(degreeRaw);
+    if (rankRaw && !rank) unknownRank.add(rankRaw);
+    if (degreeRaw && !degree) unknownDegree.add(degreeRaw);
+
+    const experience = tidy(text(row.getCell(5).value));
+    const orcid = tidy(text(row.getCell(17).value));
+    const gs = tidy(text(row.getCell(16).value));
+    const scopus = tidy(text(row.getCell(14).value));
+    const wos = tidy(text(row.getCell(12).value));
+
+    bump('pedagogicalExperience', experience);
+    bump('academicRank', rank);
+    bump('scientificDegree', degree);
+    bump('orcidId', orcid);
+    bump('googleScholarUrl', gs);
+    bump('scopusUrl', scopus);
+    bump('wosUrl', wos);
+    bump('employmentRate', tidy(text(row.getCell(4).value)));
+
+    const yn = (s: string) => (s ? '✓' : '—');
+    lines.push(
+      `| ${name} | ${mine.email} | ${experience || '—'} | ${rank ?? '—'} | ${degree ?? '—'} | ` +
+        `${matches ? 'так' : '—'} | ${yn(orcid)} | ${yn(gs)} | ${yn(scopus)} | ${yn(wos)} |`
+    );
+  });
+
+  console.log('\nУГСП_Дані «НПП» — the profile half');
+  console.log(`  listed            ${listed}`);
+  console.log(`  on our roster     ${ours}`);
+  for (const [k, v] of [...filled].sort((a, b) => b[1] - a[1])) {
+    console.log(`    ${k.padEnd(22)} ${String(v).padStart(3)}  ${Math.round((v / ours) * 100)}%`);
+  }
+  if (unknownRank.size) console.log(`  ! unmapped звання: ${[...unknownRank].join(', ')}`);
+  if (unknownDegree.size) console.log(`  ! unmapped ступінь: ${[...unknownDegree].join(', ')}`);
+
+  // Who leads what — Department.headId and Faculty.deanId
+  const heads: string[] = ['| кафедра | завідувач | on our roster |', '| --- | --- | --- |'];
+  wb.getWorksheet('Кафедри')?.eachRow({ includeEmpty: false }, (row, n) => {
+    if (n === 1) return;
+    const dept = tidy(text(row.getCell(1).value));
+    const head = tidy(text(row.getCell(2).value));
+    if (!dept || !head) return;
+    heads.push(`| ${dept} | ${head} | ${rosterByName.has(nameKey(head)) ? 'так' : '**ні**'} |`);
+  });
+
+  writeFileSync(
+    join(OUT, 'profiles.md'),
+    [
+      '# Profile data from УГСП_Дані.xlsx, for people on the roster',
+      '',
+      'The «НПП» sheet fills the `Staff` columns that every `PROFILE_DERIVED`',
+      'indicator reads — стаж, звання, ступінь, citations. Without it those',
+      'indicators score nothing no matter how well the activities import.',
+      '',
+      `Listed in the sheet: ${listed} · on our roster: **${ours}** · the rest are skipped.`,
+      '',
+      '«за спец.» is `degreeMatchesDepartment` — the sheet folds it into the degree',
+      'text and it is worth 10 more points in indicator 1.3.',
+      '',
+      ...lines,
+      '',
+      '## Хто завідує кафедрою',
+      '',
+      'For `Department.headId`. A «ні» is somebody who leads a кафедра but is not on',
+      'the roster we seeded — worth checking before the import assigns nobody.',
+      '',
+      ...heads,
+      '',
+    ].join('\n'),
+    'utf8'
+  );
+}
+
 // ── main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -450,7 +587,11 @@ async function main() {
     'utf8'
   );
 
-  console.log(`\nwrote ${OUT}/not-in-roster.md, ${OUT}/unmapped.md, ${OUT}/old-totals.md`);
+  await reportProfiles(rosterByName);
+
+  console.log(
+    `\nwrote ${OUT}/not-in-roster.md, ${OUT}/unmapped.md, ${OUT}/old-totals.md, ${OUT}/profiles.md`
+  );
 }
 
 main().catch((e) => {
