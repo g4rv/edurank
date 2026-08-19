@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { round2 } from '@/lib/round';
 import {
   MIN_STAKE,
   STAKE_STEP,
@@ -1127,11 +1128,17 @@ function Row({
         </span>
       </td>
 
+      {/* The stored score, not a rounded one. A завідувач reads this column
+          beside the university's own «Облік ставок кафедри», which prints
+          5629.57 where we printed 5630 — close enough to look like the same
+          figure and different enough to make somebody doubt the ставка next to
+          it. `round2` only strips float dust; the value is already 2-decimal
+          in RatingEntry, and /profile has always shown it unrounded. */}
       <td
         className="border border-border px-3 py-2 text-right text-muted-foreground tabular-nums"
         title={`${row.rating} балів`}
       >
-        {Math.round(row.rating)}
+        {round2(row.rating)}
       </td>
 
       <td className="border border-border px-2 py-2 text-right text-xs tabular-nums">
