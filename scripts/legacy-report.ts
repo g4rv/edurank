@@ -284,6 +284,49 @@ async function readWorkbookTotals(path: string): Promise<SheetTotals[]> {
   return out;
 }
 
+/**
+ * Candidate indicators for a label we could not match, best first.
+ *
+ * Token overlap, not edit distance: «Публікації у виданнях категорії Б» and
+ * «Публікації у фахових наукових виданнях України категорії Б» share almost
+ * every word and differ by a third of their characters, so counting words finds
+ * what counting letters misses.
+ *
+ * A suggestion for a person to accept, never a match. Every one of these is a
+ * row that decides where somebody's article is filed.
+ */
+function candidatesFor(rawLabel: string, limit = 3): { indicator: Indicator; score: number }[] {
+  // Length > 2, not > 3. «А» and «Б» are the ENTIRE difference between
+  // publication_cat_a and publication_cat_b, and the longer filter dropped
+  // them — which ranked «категорії А» first for a row plainly saying «Б».
+  const tokens = (s: string) =>
+    new Set(
+      normalise(s)
+        .split(' ')
+        .filter((w) => w.length > 2)
+    );
+  const words = tokens(rawLabel);
+  if (words.size === 0) return [];
+
+  // The item number is worthless alone — the sheets and the catalogue disagree
+  // about 3.10 and 3.12. As a TIEBREAK between labels that already score alike
+  // it is fair corroboration, and small enough that it cannot outvote wording.
+  const sheetNumber = rawLabel.match(/^(\d+\.\d+)/)?.[1];
+
+  return CATALOGUE.map((indicator) => {
+    const theirs = tokens(indicator.label);
+    let shared = 0;
+    for (const w of words) if (theirs.has(w)) shared += 1;
+    // Divided by the smaller set, so a short sheet label matching a long
+    // catalogue one still scores high — which is the usual shape here.
+    const overlap = shared / Math.min(words.size, theirs.size || 1);
+    return { indicator, score: overlap + (indicator.itemNumber === sheetNumber ? 0.05 : 0) };
+  })
+    .filter((c) => c.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
 // ── УГСП_Дані.xlsx — the profile half ───────────────────────────────────────
 
 /**
@@ -586,6 +629,73 @@ async function main() {
     ['# «Загальна сума балів» as the old sheets report it', '', ...totals, ''].join('\n'),
     'utf8'
   );
+
+  // ── the decision sheet: one row per label, candidates offered ──
+  //
+  // 2025 first and counted separately, because it is the year that matters
+  // most: with every 2025 row mapped, the totals are computed from real
+  // activities and `closeYear` has something to re-add. The trap only exists
+  // while a RatingEntry stands on nothing.
+  const decisions: string[] = [];
+  const ranked = [...unmapped].sort((a, b) => b[1].length - a[1].length);
+  const in2025 = (rowsFor: ActivityRow[]) => rowsFor.filter((r) => r.year === 2025).length;
+  const labels2025 = ranked.filter(([, r]) => in2025(r) > 0);
+
+  for (const [, rowsFor] of ranked) {
+    const first = rowsFor[0];
+    const cands = candidatesFor(first.itemLabel);
+    const years = [...new Set(rowsFor.map((r) => r.year))].sort();
+    decisions.push(
+      `### ${first.itemLabel}`,
+      '',
+      `**${rowsFor.length} rows**${in2025(rowsFor) ? ` · **${in2025(rowsFor)} of them in 2025**` : ''} · розділ ${first.section} · роки ${years.join(', ')}`,
+      '',
+      'Options seen in column 2: ' +
+        ([...new Set(rowsFor.map((r) => r.option).filter(Boolean))].slice(0, 6).join(' · ') ||
+          '_(none — the row carries no option)_'),
+      '',
+      '| | 2026 indicator | item | code |',
+      '| --- | --- | --- | --- |',
+      ...cands.map(
+        (c, i) =>
+          `| ${i === 0 ? '**?**' : ' '} | ${c.indicator.label.slice(0, 60)} | ${c.indicator.itemNumber} | \`${c.indicator.code}\` |`
+      ),
+      cands.length ? '' : '_No candidate found — this may not be an indicator we carry._\n',
+      '**Рішення:** `____________`  (code, or `SKIP`)',
+      '',
+      '---',
+      ''
+    );
+  }
+
+  writeFileSync(
+    join(OUT, 'mapping-decisions.md'),
+    [
+      '# Which 2026 indicator is each of these?',
+      '',
+      'Every label below failed to match automatically, and each one decides where',
+      'real work gets filed — the sheets and our catalogue disagree about what 3.10',
+      'and 3.12 mean, so the number cannot be trusted and a fuzzy match that is',
+      'wrong files an article as a supervised dissertation.',
+      '',
+      `**${labels2025.length} of these ${ranked.length} labels appear in 2025.** Deciding just those`,
+      'takes 2025 to 100% mapped — which means its totals come from real activity',
+      'rows, and `closeYear` can never zero them.',
+      '',
+      'Candidates are ranked by shared words. **?** marks the best guess, which is a',
+      'suggestion and nothing more. Write the `code` on the Рішення line, or `SKIP`.',
+      '',
+      '---',
+      '',
+      ...decisions,
+    ].join('\n'),
+    'utf8'
+  );
+
+  console.log(
+    `\ndecisions needed    ${ranked.length} labels (${labels2025.length} of them in 2025)`
+  );
+  console.log(`                    → ${OUT}/mapping-decisions.md`);
 
   await reportProfiles(rosterByName);
 
