@@ -251,6 +251,46 @@ imported years land CLOSED — but it also means `closeYear` must never be run
 over them, because it rebuilds the snapshot from activities and would zero
 them.
 
+## The profile half — УГСП_Дані.xlsx
+
+A second source, and the only one that fills a `Staff` row. Its «НПП» sheet
+carries стаж, звання, ступінь, ORCID and the three research profiles with their
+citation counts — which is precisely the input to every `PROFILE_DERIVED`
+indicator (1.1 стаж, 1.2 звання, 1.3 ступінь, 3.24 цитування). Without it those
+score nothing however well the activities import.
+
+317 people listed, **276 on our roster**; the rest are skipped, per the owner.
+
+| field                     | filled |     |
+| ------------------------- | ------ | --- |
+| вчене звання              | 271    | 98% |
+| ORCID                     | 269    | 97% |
+| науково-педагогічний стаж | 264    | 96% |
+| Google Scholar            | 260    | 94% |
+| науковий ступінь          | 224    | 81% |
+| Web of Science            | 136    | 49% |
+| Scopus                    | 117    | 42% |
+
+Both vocabularies map 1:1 onto our enums with nothing left over — four ranks,
+four degrees — and the report says so rather than assuming it.
+
+**«кандидат наук (PhD) за спеціальністю кафедри» is not a fifth degree.** It is
+the degree plus `degreeMatchesDepartment`, which we store as a separate boolean
+and which is worth 10 more points in indicator 1.3.
+
+### employmentRate does not come from here
+
+The sheet has an «Обсяг ставки» column and it is empty for everybody. That is
+fine: **`employmentRate` is set by the розподіл ставок, not imported** (owner,
+2026-08-19).
+
+Worth knowing before relying on it: **nothing in the ставка flow writes
+`Staff.employmentRate` today.** The розподіл stores its decision in
+`StakeAllocation.proposedHundredths`, and `Staff.employmentRate` is a separate
+confidential field an ADMIN types on the staff form. The two are not connected
+yet — so the field stays empty after an import until either somebody fills it in
+by hand or the ставка flow is made to write it.
+
 ## Next## Next
 
 1. Turn those 21 labels into a reviewed **label → indicator table**, checked in,
