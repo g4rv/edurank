@@ -118,6 +118,13 @@ export function DistributionGrid({
    * the NEW bounds and is therefore always valid. The stored number is left
    * alone until something saves; the screen simply stops showing a figure
    * nobody can commit.
+   *
+   * It also never opens BELOW «за формулою». The формула is a floor — «тільки
+   * збільшити» — and since 2026-08-19 the server refuses anything under it, so
+   * a stored value below the proposal is another figure nobody can commit. A
+   * cap change moves every share on the кафедра, which is how an untouched row
+   * ends up there without anybody typing. `setStaffLimits` lifts the stored
+   * rows for the same reason; this keeps the screen honest if one slips past.
    */
   const seed = () =>
     Object.fromEntries(
@@ -125,7 +132,9 @@ export function DistributionGrid({
         const lower = lowerBound(r);
         const upper = upperBound(r);
         const stored = r.proposedHundredths;
-        return [r.staffId, stored < lower || stored > upper ? r.formulaHundredths : stored];
+        const inRange = stored >= lower && stored <= upper;
+        const base = inRange ? stored : r.formulaHundredths;
+        return [r.staffId, Math.min(Math.max(base, r.formulaHundredths, lower), upper)];
       })
     );
 
@@ -164,8 +173,13 @@ export function DistributionGrid({
    * to the call that follows it.
    *
    * Skipped when nothing changed, so tabbing across a row does not fire a save
-   * per column. A cap moves what the formula proposes, so a success refreshes
-   * the route — and the grid's key remounts it with the recomputed numbers.
+   * per column.
+   *
+   * A cap moves what the формула proposes for EVERY row, so a success refreshes
+   * the route and the grid remounts on its new key — see `limitsSignature` on
+   * the page. That claim used to be made here and was not true: the key was the
+   * кафедра id alone, which does not change across a refresh, so React kept the
+   * instance and every row's state with it.
    */
   function commitLimits(row: StakeRow, next: LimitDraft) {
     const unchanged =
@@ -194,23 +208,12 @@ export function DistributionGrid({
           return rest;
         });
 
-        // A cap moves what the formula proposes, and the ставка has to follow.
-        // Lowering Макс to 1,35 under a saved 1,50 left the field holding 1,50
-        // — red, refused by the server, and fixable only by typing over it
-        // (2026-08-17, reported from the screen).
-        //
-        // The action hands back the recomputed share, so the correction happens
-        // here, in the callback that already knows the save succeeded. Deriving
-        // it from refreshed props instead needed either a setState during
-        // render — which cannot also call `save`, since that opens a transition
-        // — or an effect that sets state, which cascades renders. Both were
-        // tried; asking the server for the number it just recomputed is simpler
-        // than either.
-        if (result && 'success' in result && result.formulaHundredths !== null) {
-          const next = { ...values, [row.staffId]: result.formulaHundredths };
-          setValues(next);
-          save(next);
-        }
+        // Correcting the one edited row here used to be the whole fix, and it
+        // only ever addressed the one row. `setStaffLimits` now re-settles the
+        // кафедра's stored allocations itself, so the refresh below brings back
+        // numbers that are already right for everybody — and the remount seeds
+        // from them. Nothing is lost by that: every edit autosaves, so there is
+        // no unsaved state for a remount to throw away.
         router.refresh();
       }
     });

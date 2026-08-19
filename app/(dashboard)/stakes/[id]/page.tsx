@@ -77,6 +77,23 @@ export default async function DepartmentStakesPage({
   // rather than beside it (owner, 2026-08-17).
   const warnOverwrite = isAdmin && view.filledAt !== null;
 
+  /**
+   * Remount the grid whenever anybody's Мін/Макс moves.
+   *
+   * `key={departmentId}` was stable across the `router.refresh()` that follows
+   * a cap change, so React kept the component and every row's typed state with
+   * it, while «за формулою» moved underneath in the props. Both passes of
+   * `formulaShares` divide by sums over the whole кафедра, so one person's new
+   * cap changes every share — and untouched rows were left sitting below their
+   * own proposal, which «тільки збільшити» forbids and the server now refuses.
+   *
+   * Safe to remount: every edit autosaves, so no typed state is waiting to be
+   * written when the key changes.
+   */
+  const limitsSignature = view.rows
+    .map((r) => `${r.staffId}:${r.minHundredths}:${r.maxHundredths}`)
+    .join('|');
+
   const statusValues = Object.fromEntries(
     POSITION_ORDER.map((p) => [p, statuses.get(p)])
   ) as Record<AdminPosition, number | undefined>;
@@ -159,7 +176,7 @@ export default async function DepartmentStakesPage({
         </div>
       ) : (
         <DistributionGrid
-          key={departmentId}
+          key={`${departmentId}:${limitsSignature}`}
           view={view}
           canEdit={canEditAllocation}
           canEditLimits={isAdmin}

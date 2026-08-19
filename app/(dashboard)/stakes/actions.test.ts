@@ -15,6 +15,8 @@ vi.mock('@/lib/db', () => ({
     departmentStake: { findUnique: vi.fn() },
     staff: { findMany: vi.fn(), findUnique: vi.fn() },
     staffStakeLimits: { findUnique: vi.fn(), upsert: vi.fn() },
+    stakeDistribution: { findUnique: vi.fn() },
+    stakeAllocation: { update: vi.fn() },
     ratingTemplate: { findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -40,6 +42,8 @@ const mockStaffOne = db.staff.findUnique as unknown as Mock;
 const mockLimitsFind = db.staffStakeLimits.findUnique as unknown as Mock;
 const mockLimitsUpsert = db.staffStakeLimits.upsert as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
+const mockDistributionFind = db.stakeDistribution.findUnique as unknown as Mock;
+const mockAllocationUpdate = db.stakeAllocation.update as unknown as Mock;
 
 const DEPT = 'dept-1';
 const YEAR = 2026;
@@ -95,16 +99,21 @@ beforeEach(() => {
   mockStake.mockResolvedValue({ kstHundredths: 300 }); // 3.00
   mockStaff.mockResolvedValue(roster());
   mockTemplate.mockResolvedValue({ year: YEAR });
-  mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-    fn({
-      stakeDistribution: { upsert: vi.fn().mockResolvedValue({ id: 'dist-1' }) },
-      stakeAllocation: {
-        findMany: vi.fn().mockResolvedValue([]),
-        deleteMany: vi.fn(),
-        createMany: vi.fn(),
-      },
-      auditLog: { create: vi.fn() },
-    })
+  mockDistributionFind.mockResolvedValue(null);
+  mockAllocationUpdate.mockImplementation((args: unknown) => args);
+  // saveDistribution passes a callback; liftStoredAllocations passes an array.
+  mockTransaction.mockImplementation(async (arg: unknown) =>
+    Array.isArray(arg)
+      ? arg
+      : (arg as (tx: unknown) => unknown)({
+          stakeDistribution: { upsert: vi.fn().mockResolvedValue({ id: 'dist-1' }) },
+          stakeAllocation: {
+            findMany: vi.fn().mockResolvedValue([]),
+            deleteMany: vi.fn(),
+            createMany: vi.fn(),
+          },
+          auditLog: { create: vi.fn() },
+        })
   );
 });
 
@@ -478,5 +487,110 @@ describe('setStaffLimits — ADMIN only', () => {
   it('refuses a ceiling below the floor', async () => {
     const result = await setStaffLimits(null, limitsForm('1,00', '0,50'));
     expect(result).toHaveProperty('error');
+  });
+});
+
+// A cap change moves what the формула proposes for EVERY row — both passes
+// divide by sums over the whole кафедра — and the формула is a floor the server
+// refuses to save under. So a stored allocation left below its new floor is not
+// stale, it is a number that can no longer be written. The client used to
+// correct only the one row that had been edited.
+describe('setStaffLimits — re-settles the кафедра’s saved split', () => {
+  function limitsForm(min: string, max: string, staffId = 's2') {
+    const fd = new FormData();
+    fd.set('staffId', staffId);
+    fd.set('year', String(YEAR));
+    fd.set('min', min);
+    fd.set('max', max);
+    return fd;
+  }
+
+  beforeEach(() => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockStaffOne.mockResolvedValue({
+      lastName: 'Прізвище',
+      firstName: 'Ім’я',
+      patronymic: 'По батькові',
+      departmentId: DEPT,
+    });
+    mockLimitsFind.mockResolvedValue(null);
+    mockLimitsUpsert.mockResolvedValue({ id: 'lim-1' });
+    // Even roster, 3,00 pool → the формула proposes 1,00 to each of the three
+    mockStaff.mockResolvedValue(roster());
+  });
+
+  const saved = (values: number[]) =>
+    mockDistributionFind.mockResolvedValue({
+      allocations: values.map((proposedHundredths, i) => ({
+        id: `alloc-${i}`,
+        staffId: `s${i}`,
+        proposedHundredths,
+      })),
+    });
+
+  it('does nothing when the кафедра has no saved split yet', async () => {
+    mockDistributionFind.mockResolvedValue(null);
+    await setStaffLimits(null, limitsForm('0,10', '1,00'));
+    expect(mockAllocationUpdate).not.toHaveBeenCalled();
+  });
+
+  it('leaves a split that already matches the формула alone', async () => {
+    saved([100, 100, 100]);
+    await setStaffLimits(null, limitsForm('0,10', '1,00'));
+    expect(mockAllocationUpdate).not.toHaveBeenCalled();
+  });
+
+  it('lifts a row that now sits under its new floor', async () => {
+    saved([95, 100, 100]);
+    await setStaffLimits(null, limitsForm('0,10', '1,00'));
+    expect(mockAllocationUpdate).toHaveBeenCalledTimes(1);
+    expect(mockAllocationUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'alloc-0' },
+        data: expect.objectContaining({ proposedHundredths: 100 }),
+      })
+    );
+  });
+
+  // «Тільки збільшити» cuts both ways: what the head added on top of the
+  // формула is their decision and survives a recompute untouched.
+  it('leaves a raise the head typed above the формула alone', async () => {
+    const staff = roster();
+    for (const person of staff) {
+      person.stakeLimits = [{ minHundredths: 10, maxHundredths: 150 }] as never;
+    }
+    mockStaff.mockResolvedValue(staff);
+    saved([140, 100, 100]);
+    await setStaffLimits(null, limitsForm('0,10', '1,50'));
+    const touched = mockAllocationUpdate.mock.calls.map((c) => c[0].where.id);
+    expect(touched).not.toContain('alloc-0');
+  });
+
+  // The red unsaveable row the grid used to open on: ADMIN drops a cap under a
+  // number the head already agreed.
+  it('brings a row above its new Макс back down to it', async () => {
+    const staff = roster();
+    staff[0].stakeLimits = [{ minHundredths: 10, maxHundredths: 50 }] as never;
+    mockStaff.mockResolvedValue(staff);
+    saved([100, 100, 100]);
+    await setStaffLimits(null, limitsForm('0,10', '0,50', 's0'));
+    expect(mockAllocationUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'alloc-0' },
+        data: expect.objectContaining({ proposedHundredths: 50 }),
+      })
+    );
+  });
+
+  // Додаток 2 prints «за формулою» beside the head's number. A frozen column
+  // still claiming the old proposal would assert a comparison never made.
+  it('rewrites the stored формула figure too', async () => {
+    saved([95, 100, 100]);
+    await setStaffLimits(null, limitsForm('0,10', '1,00'));
+    expect(mockAllocationUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ formulaHundredths: 100 }),
+      })
+    );
   });
 });

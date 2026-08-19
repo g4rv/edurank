@@ -10,7 +10,7 @@ import { parseDbError } from '@/lib/db-error';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { headOf } from '@/lib/queries/scope';
 import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
-import { MIN_STAKE, STAKE_STEP, formatStake } from '@/lib/stake/units';
+import { MIN_STAKE, STAKE_STEP, floorToStep, formatStake } from '@/lib/stake/units';
 import { closedYearProblem } from '@/lib/stake/writable-year';
 import { staffStakeLimitsSchema } from '@/validations/stake';
 import type { Role } from '@/lib/generated/prisma/client';
@@ -418,8 +418,106 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
     kstHundredths: stake.kstHundredths,
   });
 
+  await liftStoredAllocations(person.departmentId, year, roster, formula.shares);
+
   return {
     success: true,
     formulaHundredths: formula.shares.find((x) => x.staffId === staffId)?.hundredths ?? null,
   };
+}
+
+/**
+ * Bring a кафедра's saved split back inside the bounds a cap change just moved.
+ *
+ * One person's Мін/Макс moves what the формула proposes for EVERYBODY — both
+ * passes divide by sums over the whole roster — and since 2026-08-19 the
+ * формула is a floor the server refuses to save under. So after a cap is
+ * written, a stored allocation below its new floor is not merely stale: it is a
+ * number `saveDistribution` would now reject, sitting in the database with
+ * nothing to announce it.
+ *
+ * It used to be left there. The grid claimed its `key` remounted it with the
+ * recomputed numbers, which was not true — `departmentId` alone does not change
+ * across a refresh — so the client corrected the ONE row that had been edited
+ * and the rest kept their old figures against a formula that had moved beneath
+ * them.
+ *
+ * Mechanical, not a decision, which is why ADMIN may trigger it without doing
+ * the head's job:
+ *
+ * - **Up to the floor only.** A raise the завідувач typed on top of the formula
+ *   stays exactly where they put it — `Math.max` keeps the larger of the two.
+ * - **Down to the ceiling.** A value above somebody's new Макс has to come down;
+ *   that is the red unsaveable row the grid used to open on.
+ * - **`formulaHundredths` is rewritten too.** Додаток 2 prints it beside the
+ *   head's number, and a frozen column claiming the old proposal would make the
+ *   document assert a comparison that never happened.
+ */
+async function liftStoredAllocations(
+  departmentId: string,
+  year: number,
+  roster: { id: string; ratingEntries: { totalScore: number }[] }[],
+  shares: { staffId: string; hundredths: number }[]
+): Promise<void> {
+  const distribution = await db.stakeDistribution.findUnique({
+    where: { departmentId_year: { departmentId, year } },
+    select: {
+      allocations: { select: { id: true, staffId: true, proposedHundredths: true } },
+    },
+  });
+  // Nobody has spread this кафедра yet, so there is nothing to bring back in.
+  if (!distribution || distribution.allocations.length === 0) return;
+
+  const shareByStaff = new Map(shares.map((x) => [x.staffId, x.hundredths]));
+  const limitsByStaff = new Map(
+    roster.map((s) => [
+      s.id,
+      {
+        rating: s.ratingEntries[0]?.totalScore ?? 0,
+        limits: (s as { stakeLimits?: { minHundredths: number; maxHundredths: number }[] })
+          .stakeLimits?.[0],
+      },
+    ])
+  );
+
+  const edits: { id: string; proposedHundredths: number; formulaHundredths: number }[] = [];
+  for (const allocation of distribution.allocations) {
+    const share = shareByStaff.get(allocation.staffId);
+    const person = limitsByStaff.get(allocation.staffId);
+    // Off the roster since the split was saved — `saveDistribution` will make
+    // the head refresh before it takes anything, so leave the row alone.
+    if (share === undefined || !person) continue;
+
+    // Zero rating removes the 0,10 floor, the same rule the формула and the save
+    // already follow: it exists so nobody who works is unpaid, not so everybody
+    // on the roster is.
+    const lower =
+      person.rating > 0
+        ? Math.max(person.limits?.minHundredths ?? DEFAULT_LIMITS.minHundredths, MIN_STAKE)
+        : 0;
+    // Snapped down because a cap written before 2026-08-19 may still sit off the
+    // 0,05 ladder, and a value pinned to it would be refused on the step check.
+    const upper = floorToStep(
+      Math.max(person.limits?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths, lower)
+    );
+    if (upper < lower) continue;
+
+    const settled = Math.min(Math.max(allocation.proposedHundredths, share, lower), upper);
+    if (settled === allocation.proposedHundredths) continue;
+    edits.push({ id: allocation.id, proposedHundredths: settled, formulaHundredths: share });
+  }
+
+  if (edits.length === 0) return;
+
+  await db.$transaction(
+    edits.map((edit) =>
+      db.stakeAllocation.update({
+        where: { id: edit.id },
+        data: {
+          proposedHundredths: edit.proposedHundredths,
+          formulaHundredths: edit.formulaHundredths,
+        },
+      })
+    )
+  );
 }
