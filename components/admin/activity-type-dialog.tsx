@@ -199,6 +199,7 @@ function ActivityTypeForm({
     },
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const isActive = watch('isActive');
   const requiresVerification = watch('requiresVerification');
   const entityFirstEntry = watch('entityFirstEntry');
