@@ -19,6 +19,7 @@
     "db:seed:staff": "tsx prisma/seed.ts --staff",
     "db:seed:test": "tsx prisma/seed.ts --test",
     "db:fix-rounding": "tsx prisma/fix-rating-rounding.ts",
+    "db:recompute": "tsx prisma/recompute-year.ts",
     "db:gate-to-check-sum": "tsx prisma/gate-to-check-sum.ts",
     "db:fix-stake-ladder": "tsx prisma/fix-stake-limit-ladder.ts",
     "db:studio": "prisma studio",
