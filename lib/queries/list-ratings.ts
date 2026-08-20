@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { ON_ROSTER } from './roster';
+import { ON_ROSTER, REAL_PEOPLE } from './roster';
 
 export type RatingSortField = 'name' | 'department' | 's1' | 's2' | 's3' | 's4' | 's5' | 'total';
 
@@ -29,7 +29,9 @@ export async function listRatings(filters: RatingListFilters) {
       })
     )?.status === 'CLOSED';
 
-  const conditions: object[] = [{ isNpp: true }];
+  // REAL_PEOPLE rather than relying on `isNpp`: a closed year drops ON_ROSTER
+  // on purpose, and «not an НПП» is a different statement from «not a person».
+  const conditions: object[] = [{ isNpp: true }, REAL_PEOPLE];
   if (!closed) conditions.push(ON_ROSTER);
   if (filters.facultyId) conditions.push({ department: { facultyId: filters.facultyId } });
   if (filters.departmentId) conditions.push({ departmentId: filters.departmentId });

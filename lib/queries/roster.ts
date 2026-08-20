@@ -14,4 +14,20 @@ import type { Prisma } from '@/lib/generated/prisma/client';
  *
  *   where: { ...ON_ROSTER, isNpp: true }
  */
-export const ON_ROSTER = { archivedAt: null } satisfies Prisma.StaffWhereInput;
+export const ON_ROSTER = {
+  archivedAt: null,
+  // The seeded core administrator is not a colleague. It exists so a fresh
+  // database is never locked out, and it has no кафедра, no rating and no
+  // ставка — counting it would put a phantom person on somebody's кафедра and
+  // one extra head in every «N НПП».
+  isSystem: false,
+} satisfies Prisma.StaffWhereInput;
+
+/**
+ * Everyone who is a real person, archived or not.
+ *
+ * For the places `ON_ROSTER` is deliberately skipped — a CLOSED year keeps the
+ * people who were in it — where a service account still has no business
+ * appearing.
+ */
+export const REAL_PEOPLE = { isSystem: false } satisfies Prisma.StaffWhereInput;

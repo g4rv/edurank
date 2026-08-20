@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { ON_ROSTER } from './roster';
+import { ON_ROSTER, REAL_PEOPLE } from './roster';
 import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
 
 /** Columns listStaff can order by — the query owns this list; pages validate against it */
@@ -58,7 +58,10 @@ export async function listStaff(filters?: StaffFilters) {
             ]
           : [{ [sortField]: sortDir }];
 
-  const conditions: object[] = [];
+  // Never a person, in any of the three archive modes — ON_ROSTER carries this
+  // too, but it is only applied in «exclude», and the account must not appear
+  // under «Архівовані» or «Усі» either.
+  const conditions: object[] = [REAL_PEOPLE];
 
   const archived = filters?.archived ?? 'exclude';
   if (archived === 'exclude') conditions.push(ON_ROSTER);

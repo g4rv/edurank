@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import { seedCatalogue } from './catalogue';
+import { seedCoreAdmin } from './core-admin';
 import { importRealStaff } from './staff-import';
 import { seedStructure, wipePeople, wipeTemplates } from './structure';
 import { TEST_DOMAIN, seedTestUniverse, testPassword } from './test-data';
@@ -128,9 +129,20 @@ async function main() {
     if (mode === 'prod') {
       const { departmentIds } = await seedStructure(prisma);
       console.log(`Структура: 8 факультетів, ${departmentIds.length} кафедр\n`);
-      console.log('Готово. Нічого не видалено, людей не створено.');
+      // A service account, not a person — see prisma/core-admin.ts. It can sign
+      // in only when ADMIN_PASSWORD was given, so a production seed leaves the
+      // row without a way in until somebody sets one deliberately.
+      const admin = await seedCoreAdmin(prisma);
+      console.log(
+        `Основний адміністратор: ${admin.email} ` +
+          (admin.canSignIn ? '(пароль встановлено)' : '(БЕЗ ПАРОЛЯ — увійти неможливо)')
+      );
+
+      console.log('\nГотово. Нічого не видалено, людей не створено.');
       console.log('Далі:');
-      console.log('  pnpm db:create-admin    обліковий запис адміністратора');
+      if (!admin.canSignIn) {
+        console.log('  pnpm db:create-admin    задати пароль адміністратора');
+      }
       console.log('  pnpm db:seed:staff      реальні НПП з staff-roster.json');
       return;
     }

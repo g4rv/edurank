@@ -232,6 +232,20 @@ model Staff {
   archivedAt     DateTime?
   archiveReason  String? // free note: «декрет до 2029», «звільнення» …
 
+  // A service account, not a person. The core administrator the seed creates so
+  // that a fresh database is never locked out — it exists to sign in and
+  // nothing else.
+  //
+  // Kept OUT of every list that counts people: /staff, the rating, the ставки,
+  // Кнпп, the exports, the invite batch. `isNpp: false` could not express this,
+  // because administrative staff already use that and belong in the list under
+  // «Адміністративний»; this is a row that is not a colleague at all.
+  //
+  // It has no password until somebody sets one (`ADMIN_PASSWORD` for the seed,
+  // or `pnpm db:create-admin`), so a seeded production database has the account
+  // without anybody being able to sign in as it.
+  isSystem Boolean @default(false)
+
   // Confidential: ADMIN sees all, USER sees own, EDITOR never sees
   employmentRate Float?
 
