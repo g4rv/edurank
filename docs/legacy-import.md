@@ -291,12 +291,131 @@ confidential field an ADMIN types on the staff form. The two are not connected
 yet — so the field stays empty after an import until either somebody fills it in
 by hand or the ставка flow is made to write it.
 
-## Next## Next
+## What 2025 actually took — and what the sheets do not say (2026-08-20)
 
-1. Turn those 21 labels into a reviewed **label → indicator table**, checked in,
-   with a line per decision.
-2. Decide the 38 by hand: 4 typos to fold in, ~34 to record as departed.
-3. Then the import, one кафедра at a time, checked against «Загальна сума балів».
+The first import ran and came out at **72%** of the university's own total. Every
+step below is a thing the documents do that nobody could have guessed from
+reading one of them. `pnpm import:verify-2025` is the measurement; run it after
+any change here.
+
+| розділ | after the first import | now  |
+| ------ | ---------------------- | ---- |
+| 1      | 38%                    | 101% |
+| 2      | 40%                    | 100% |
+| 3      | 75%                    | 93%  |
+| 4      | 28%                    | 100% |
+| 5      | 113%                   | 100% |
+| разом  | **72%**                | 96%  |
+
+177 of 250 people now match their sheet **to the last 0.5 балів**.
+
+### The order to run them in
+
+```bash
+pnpm legacy:template                        # read the year's structure out of the sheets
+pnpm import:template-2025 --apply           # …add --replace to rebuild an existing year
+pnpm import:activities-2025 --apply         # the Розділ_* files — what НПП reported
+pnpm import:division-2025 --apply           # what only the «Рейтинг» sheet has
+pnpm db:recompute 2025
+pnpm import:verify-2025                     # against «Загальна сума балів»
+```
+
+`pnpm import:profiles --apply` is separate and fills `Staff` from `УГСП_Дані`.
+It does not touch 2025 — a 2025 стаж is a 2025 fact and comes from that year's
+sheet — but every `PROFILE_DERIVED` indicator of the **open** year depends on it.
+
+### 1. A «1» in the criteria column is a heading, not a price
+
+Fourteen indicators open with a group title that carries `1` where the points go.
+Read as a choice, it became an option worth one point — and because the Розділ
+files write the group's TITLE into their option column, the import then matched
+it for every row underneath. 399 conference-organiser rows scored 1 instead of
+20–100. Соловйова's розділ 4 came out at **3** against her sheet's 90.
+
+Every genuine first choice in the document is priced 10–500. Every «1» is a
+title. There is not one exception in the 53 indicators.
+
+### 2. One indicator can hold two groups at different prices
+
+4.1 organises Міжнародні conferences and Всеукраїнські ones, both with голова /
+заступник / член — worth 100/80/50 and 50/40/20. Flat, they are one label twice.
+`legacy:template` folds the group title into the choice («…Всеукраїнських… —
+член оргкомітету»), but only where an indicator has more than one group.
+
+### 3. Column 3 of a Розділ row means two different things
+
+It is the **quantity** when column 2 already named the choice — 1.11 «дистанційно
+(не менше 1 місяця)» × 2 стажування = 20. It is the **price** when column 2 named
+only the group, and is then the one thing identifying which choice it was.
+`resolveOption` tells them apart; getting it wrong loses either the multiplier or
+the choice.
+
+### 4. The unit is often on the choices, not on the indicator
+
+2.2 «Видання затверджені вченою радою» and 1.11 are headings with an empty
+column 4; «балів\* др.а./с.а.» and «балів кредит 10» sit on the rows beneath.
+Reading only the top row made both flat, so a textbook of six друкованих аркушів
+scored one textbook.
+
+Two more units are not obviously units at all:
+
+- **5.1's «за умови заповнення усіх обов'язкових пунктів» is a proportion.** A
+  Moodle course with every obligatory item pays 150 and a partly filled one pays
+  its share; the Розділ rows carry that share (0.175…). Priced flat, розділ 5
+  came to 113% of the sheet.
+- **2.1's price of `1` means «1 бал за одиницю».** 227 годин навантаження is 227
+  points — and, read as a flat award, 227 separate activity rows.
+
+### 5. Numbers drift between the two documents of the SAME year
+
+The Розділ files number патенти **3.28**; the «Рейтинг» sheet numbers it **3.29**
+and gives 3.28 to цитування. 60 patent rows were filed as citation counts. A
+label that matches an indicator outright now beats the number, including where
+one label is the opening of the other («…на об'єкти інтелектуальної власності»
+against «…власності за поточний рік») and exactly one indicator matches.
+
+### 6. Розділи 1 and 2 are not in the Розділ files at all
+
+A `Розділ_N` workbook is what the НПП reported about themselves. Everything ННВ,
+ННЦЗЯО and ВМЗ fill in — навантаження, гарант ОП, стаж, звання, ступінь,
+h-індекс, спецради — was typed straight into the «Рейтинг» sheet and exists
+nowhere else. That is **28% of the university's total**, and it is why розділи 1
+and 2 sat at 38% and 40% with every scoring bug already fixed.
+
+`pnpm import:division-2025` reads it back out: 2 451 rows, 176 302 points. It
+skips any indicator a person already holds, so nothing is counted twice, and it
+refuses any row whose arithmetic does not land back on the sheet's figure.
+
+### 7. «Отриманий рейтинг» is a merged cell
+
+The score spans a heading and every choice under it, and exceljs repeats it on
+each row. Read row by row, Ткаченко's 80 under 3.14 appears three times — as
+1 місце × 1, as 3 місце × 2, and on the heading — and two of those would have
+been written. The division import groups rows by their merge master.
+
+### What is still missing: 4%, and it is honest ambiguity
+
+Розділ 3 sits at 93%. Almost all of the remainder is **74 blocks** where the
+sheet records a total against a heading and never says which role earned it, and
+more than one price divides it:
+
+- 3.17 «Робота у спеціалізованих вчених радах» — 1 600 is член ради × 32 or
+  заступник × 16.
+- 3.1 «Участь у виконанні міжнародних програм» — 1 050 is учасник × 7 or
+  менеджер × 3.
+
+The import prints them rather than guessing (decision 3 above). Where exactly one
+price divides, it does take it and says so in the evidence text — «варіант
+визначено за сумою балів» — because голова and член is a claim about a person.
+170 rows are marked that way.
+
+## Next
+
+1. Decide the 74 ambiguous blocks above: leave them out, or take the largest
+   price that divides (fewest occurrences) and mark them inferred like the rest.
+2. Decide the 38 not on the roster by hand: 4 typos to fold in, ~34 departed.
+3. The other years. 2024 has the same shape and the same «Рейтинг» sheet;
+   2021–2023 have Розділ files but no per-year template to hang them off.
 
 ## The 2026 restructuring — noted, not applied
 
