@@ -1,11 +1,11 @@
 import 'dotenv/config';
-import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import ExcelJS from 'exceljs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Prisma } from '../lib/generated/prisma/client';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
+import { nameKey, readSheet, same, tidy, workbooks } from './rating-sheet-2025';
 
 // The half of 2025 that the `Розділ_*` workbooks do not contain.
 //
@@ -31,23 +31,9 @@ import { computeScore } from '../lib/rating/scoring';
 // sheet says more, the Розділ rows win — they carry the evidence text, and a
 // second row invented here would be a number with no source behind it.
 
-const ROOT = 'edu-reference/ФАКУЛЬТЕТИ';
 const OUT = 'import-report';
 const YEAR = 2025;
 
-function text(v: unknown): string {
-  if (v === null || v === undefined) return '';
-  if (v instanceof Date) return `${v.getUTCDate()}.${v.getUTCMonth() + 1}`;
-  if (typeof v === 'object') {
-    const o = v as { richText?: unknown[]; text?: unknown; result?: unknown };
-    if (Array.isArray(o.richText)) return o.richText.map(text).join('');
-    if (o.text !== undefined) return text(o.text);
-    if (o.result !== undefined) return text(o.result);
-    return '';
-  }
-  return String(v);
-}
-const tidy = (s: string) => s.replace(/\s+/g, ' ').trim();
 const norm = (s: string) =>
   tidy(s)
     .toLowerCase()
@@ -56,95 +42,6 @@ const norm = (s: string) =>
     .replace(/[.,:;()]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-const nameKey = (s: string) =>
-  tidy(s)
-    .toLowerCase()
-    .replace(/\(\d+\)\s*$/, '')
-    .replace(/[’`_]/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-
-function walk(dir: string, out: string[] = []): string[] {
-  for (const e of readdirSync(dir)) {
-    const p = join(dir, e);
-    if (statSync(p).isDirectory()) walk(p, out);
-    // `~$…` is Excel's lock file for an open workbook, not a workbook
-    else if (p.includes('Таблиці_Викладачів') && p.endsWith('.xlsx') && !e.startsWith('~$'))
-      out.push(p);
-  }
-  return out;
-}
-
-/**
- * One scored BLOCK of a person's «Рейтинг» sheet.
- *
- * «Отриманий рейтинг» is a merged cell spanning a heading and the choices under
- * it, so the score belongs to the group, not to any one line — exceljs repeats
- * the master's value on every row of the merge. Read row by row, Ткаченко's
- * «80» under 3.14 appeared three times: once as 1 місце × 1, once as 3 місце ×
- * 2, and once on the heading, and two of those would have been written.
- */
-interface Block {
-  itemNumber: string;
-  /** Column 2 of every line in the merge — the heading and its choices */
-  labels: string[];
-  /** Column 5 — what the person earned against the whole block */
-  earned: number;
-}
-
-async function readSheet(path: string): Promise<{ person: string; blocks: Block[] } | null> {
-  const person = (
-    path
-      .split('/')
-      .flatMap((x) => x.split(String.fromCharCode(92)))
-      .at(-1) ?? ''
-  ).replace(/\.xlsx$/, '');
-
-  const wb = new ExcelJS.Workbook();
-  try {
-    await wb.xlsx.readFile(path);
-  } catch {
-    return null;
-  }
-  const ws = wb.getWorksheet('Рейтинг');
-  if (!ws) return null;
-
-  const blocks = new Map<string, Block>();
-  let item: string | null = null;
-  ws.eachRow({ includeEmpty: false }, (row, n) => {
-    const a = tidy(text(row.getCell(1).value));
-    const label = tidy(text(row.getCell(2).value));
-
-    // The sheet's own sums, and the section headers between them. Both end the
-    // run of the item number merged down column 1 — without this, «Всього балів
-    // по розділу 3» lands on whatever indicator closed the section.
-    if (/^(Всього балів|Загальна сума)/.test(a) || /^(Всього балів|Загальна сума)/.test(label)) {
-      item = null;
-      return;
-    }
-    if (/^\d\.?$/.test(a)) {
-      item = null;
-      return;
-    }
-    const numbered = a.match(/^(\d+\.\d+)\.?$/);
-    if (numbered) item = numbered[1];
-    if (!item || !label) return;
-
-    const cell = row.getCell(5);
-    const earned = Number(tidy(text(cell.value)).replace(',', '.'));
-    if (!Number.isFinite(earned) || earned === 0) return;
-
-    // Rows of one merge share a master cell; an unmerged row is its own block
-    const key = `${item}|${cell.isMerged ? cell.master.address : `r${n}`}`;
-    const block = blocks.get(key) ?? { itemNumber: item, labels: [], earned };
-    block.labels.push(label);
-    blocks.set(key, block);
-  });
-  return { person, blocks: [...blocks.values()] };
-}
-
-/** Two floats agree to the cent — the sheet holds two decimals throughout */
-const same = (a: number, b: number) => Math.abs(a - b) < 0.005;
 
 async function main() {
   const apply = process.argv.includes('--apply');
@@ -199,7 +96,7 @@ async function main() {
       ).map((a) => `${a.staffId}|${a.activityTypeId}`)
     );
 
-    const files = walk(ROOT);
+    const files = workbooks();
     console.log(`workbooks: ${files.length}`);
 
     const ready: Prisma.ActivityCreateManyInput[] = [];

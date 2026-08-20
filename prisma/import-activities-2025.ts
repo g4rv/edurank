@@ -235,6 +235,16 @@ async function main() {
     for (const f of files) raw.push(...(await readRows(f, YEAR)));
     console.log(`Розділ files ${files.length} · rows in ${YEAR}: ${raw.length}`);
 
+    // ── A row that appears twice is imported twice, deliberately ──
+    //
+    // Шевчук Лариса Дмитрівна's Розділ_1 holds every one of her six rows a
+    // second time — she filled the form twice — and three people have a whole
+    // Розділ file saved again as «ПІБ(1).xlsx». Dropping the repeats is the
+    // obvious thing to do and it is wrong: measured over all 250 people it
+    // moved the year from 0.19% under the university's own total to 0.46%
+    // under, and dropped the count of people matching exactly from 215 to 195.
+    // Their pipeline counts a repeated submission, so ours has to.
+
     interface Ready {
       staffId: string;
       typeId: string;

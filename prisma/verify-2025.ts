@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import ExcelJS from 'exceljs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
+import { nameKey, readSheet, workbooks } from './rating-sheet-2025';
 
 // Checks the imported year against the university's own arithmetic.
 //
@@ -23,87 +23,8 @@ import { PrismaClient } from '../lib/generated/prisma/client';
 // this «Рейтинг» sheet — the `Розділ_*` workbooks the activities come from have
 // no row for them at all. See docs/legacy-import.md.
 
-const ROOT = 'edu-reference/ФАКУЛЬТЕТИ';
 const OUT = 'import-report';
 const YEAR = 2025;
-
-function text(v: unknown): string {
-  if (v === null || v === undefined) return '';
-  if (v instanceof Date) return `${v.getUTCDate()}.${v.getUTCMonth() + 1}`;
-  if (typeof v === 'object') {
-    const o = v as { richText?: unknown[]; text?: unknown; result?: unknown };
-    if (Array.isArray(o.richText)) return o.richText.map(text).join('');
-    if (o.text !== undefined) return text(o.text);
-    if (o.result !== undefined) return text(o.result);
-    return '';
-  }
-  return String(v);
-}
-const tidy = (s: string) => s.replace(/\s+/g, ' ').trim();
-const nameKey = (s: string) =>
-  tidy(s)
-    .toLowerCase()
-    .replace(/\(\d+\)\s*$/, '')
-    .replace(/[’`_]/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-
-function walk(dir: string, out: string[] = []): string[] {
-  for (const e of readdirSync(dir)) {
-    const p = join(dir, e);
-    if (statSync(p).isDirectory()) walk(p, out);
-    // `~$…` is Excel's lock file for an open workbook, not a workbook
-    else if (p.includes('Таблиці_Викладачів') && p.endsWith('.xlsx') && !e.startsWith('~$'))
-      out.push(p);
-  }
-  return out;
-}
-
-interface Sheet {
-  person: string;
-  sections: number[];
-  total: number;
-}
-
-/** The five «Всього балів по розділу N» and «Загальна сума балів» of one workbook */
-async function readTotals(path: string): Promise<Sheet | null> {
-  const person = (
-    path
-      .split('/')
-      .flatMap((x) => x.split(String.fromCharCode(92)))
-      .at(-1) ?? ''
-  ).replace(/\.xlsx$/, '');
-
-  const wb = new ExcelJS.Workbook();
-  try {
-    await wb.xlsx.readFile(path);
-  } catch {
-    return null;
-  }
-  const ws = wb.getWorksheet('Рейтинг');
-  if (!ws) return null;
-
-  const sections = [0, 0, 0, 0, 0];
-  let total = 0;
-  let seen = false;
-  ws.eachRow({ includeEmpty: false }, (row) => {
-    const label = tidy(text(row.getCell(2).value));
-    // The figure sits in column 5 with the rest of «Отриманий рейтинг»
-    const value = Number(tidy(text(row.getCell(5).value)).replace(',', '.'));
-    if (!Number.isFinite(value)) return;
-    const section = /^Всього балів по розділу (\d)/.exec(label);
-    if (section) {
-      sections[Number(section[1]) - 1] = value;
-      seen = true;
-      return;
-    }
-    if (/^Загальна сума балів/.test(label)) {
-      total = value;
-      seen = true;
-    }
-  });
-  return seen ? { person, sections, total } : null;
-}
 
 async function main() {
   mkdirSync(OUT, { recursive: true });
@@ -141,7 +62,7 @@ async function main() {
     });
     const byEmail = new Map(staff.map((s) => [s.email.toLowerCase(), s]));
 
-    const files = walk(ROOT);
+    const files = workbooks();
     console.log(`workbooks: ${files.length}`);
 
     interface Row {
@@ -157,7 +78,7 @@ async function main() {
     let unmatched = 0;
 
     for (const f of files) {
-      const sheet = await readTotals(f);
+      const sheet = await readSheet(f);
       // 30 of the workbooks are the untouched blank form — never a source
       if (!sheet || sheet.total === 0) {
         blank += 1;

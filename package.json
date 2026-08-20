@@ -33,6 +33,7 @@
     "import:activities-2025": "tsx prisma/import-activities-2025.ts",
     "import:profiles": "tsx prisma/import-profiles.ts",
     "import:division-2025": "tsx prisma/import-division-2025.ts",
+    "import:registers-2025": "tsx prisma/import-registers-2025.ts",
     "import:verify-2025": "tsx prisma/verify-2025.ts",
     "db:create-admin": "tsx prisma/create-admin.ts",
     "mail:test": "tsx scripts/mail-test.ts"

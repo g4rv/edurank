@@ -298,16 +298,17 @@ step below is a thing the documents do that nobody could have guessed from
 reading one of them. `pnpm import:verify-2025` is the measurement; run it after
 any change here.
 
-| розділ | after the first import | now  |
-| ------ | ---------------------- | ---- |
-| 1      | 38%                    | 101% |
-| 2      | 40%                    | 100% |
-| 3      | 75%                    | 93%  |
-| 4      | 28%                    | 100% |
-| 5      | 113%                   | 100% |
-| разом  | **72%**                | 96%  |
+| розділ | after the first import | now      |
+| ------ | ---------------------- | -------- |
+| 1      | 38%                    | 101%     |
+| 2      | 40%                    | 100%     |
+| 3      | 75%                    | 100%     |
+| 4      | 28%                    | 100%     |
+| 5      | 113%                   | 100%     |
+| разом  | **72%**                | **100%** |
 
-177 of 250 people now match their sheet **to the last 0.5 балів**.
+748 430 against their 749 846 — **0.19% short**. 215 of 250 people match their
+sheet **to the last 0.5 балів**.
 
 ### The order to run them in
 
@@ -315,7 +316,8 @@ any change here.
 pnpm legacy:template                        # read the year's structure out of the sheets
 pnpm import:template-2025 --apply           # …add --replace to rebuild an existing year
 pnpm import:activities-2025 --apply         # the Розділ_* files — what НПП reported
-pnpm import:division-2025 --apply           # what only the «Рейтинг» sheet has
+pnpm import:registers-2025 --apply          # the відділи' own Дані * registers
+pnpm import:division-2025 --apply           # the little the registers do not cover
 pnpm db:recompute 2025
 pnpm import:verify-2025                     # against «Загальна сума балів»
 ```
@@ -393,29 +395,93 @@ each row. Read row by row, Ткаченко's 80 under 3.14 appears three times 
 1 місце × 1, as 3 місце × 2, and on the heading — and two of those would have
 been written. The division import groups rows by their merge master.
 
-### What is still missing: 4%, and it is honest ambiguity
+### 8. The відділи keep their own registers, and they are the real source
 
-Розділ 3 sits at 93%. Almost all of the remainder is **74 blocks** where the
-sheet records a total against a heading and never says which role earned it, and
-more than one price divides it:
+The single biggest thing, found only because the owner pointed at it. The four
+`edu-reference/Дані *.xlsx` files are to the division half what the `Розділ_*`
+files are to the self-reported half. The «Рейтинг» sheet is a computed view of
+BOTH — which is why it carries totals and not reasons.
 
-- 3.17 «Робота у спеціалізованих вчених радах» — 1 600 is член ради × 32 or
-  заступник × 16.
-- 3.1 «Участь у виконанні міжнародних програм» — 1 050 is учасник × 7 or
-  менеджер × 3.
+| file                                             | what it holds                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------- |
+| `Дані Аспірантура` → «Спеціалізовані вчені ради» | 37 ради, роль per person → 3.17                                |
+| `Дані ННВ` → «2025»/«2024»                       | НДР, наукова школа, редколегії, виставки, експертиза           |
+| `Дані ВМіжнароднихЗ` → «2025»/«2024»             | проєкти, роль per person → 3.1–3.3                             |
+| `Дані ННЦЗЯО` → «Обовязки»                       | навантаження in hours, предметні комісії, сайт → 2.1, 2.6, 2.9 |
+| `Дані ННЦЗЯО` → «Відомості про ОП»               | гарант, склад, самоаналіз, оновлення ОП → 1.7, 2.4             |
+| `Дані ННЦЗЯО` → «Навчальні плани»                | розробка / оновлення плану → 2.5                               |
+| `Дані ННЦЗЯО` → «Ради»                           | методичні ради → 1.8                                           |
 
-The import prints them rather than guessing (decision 3 above). Where exactly one
-price divides, it does take it and says so in the evidence text — «варіант
-визначено за сумою балів» — because голова and член is a claim about a person.
-170 rows are marked that way.
+Seven sheets, two shapes: a person per row with indicators in columns (ННВ,
+«Обовязки»), or an entity per row with a comma-separated name list under each
+role. `pnpm import:registers-2025` reads both from one config table. 1 734 name
+mentions, 95% of which match the roster on the first try.
+
+This is what closed розділ 3. Сіропол's 1 600 under 3.17 is 16 rows of «ДФ
+27.053.012 — заступник, відповідальний секретар, вчений секретар»; the «Рейтинг»
+sheet records only the 1 600, and 1 600 is заступник × 16 and член ради × 32
+equally well. Онищенко's 600 under 3.18 is four випуски of «Scientia et societus»
+as член редакційної колегії, not one of the four readings the amount allows.
+
+Two things the registers do NOT settle:
+
+- **«балів / група розробників» divides.** Соловйова's 2.4 is 40 × (1/3 + 1/6 +
+  1/6 + 1/7) = 32.38 and her sheet says 32.4; her 2.5 is 60/2 = 30. Each member
+  of the розробників group gets an equal share, which is what the unit says and
+  nothing else in the document does.
+- **«Рік акредитації» is not the 1000-point bonus.** 1.7 prices a гарант at 1000
+  «на рік акредитації» against 100 otherwise, and the register has a column that
+  looks like the answer. The university awarded 100 to all three people whose ОП
+  carries 2025. The column records when accreditation is DUE.
+
+### The register decides the role, never the amount
+
+**A register group is imported only where its total equals what the «Рейтинг»
+sheet awarded that person for that indicator.** 262 groups worth 37 415 points
+fail that test and are printed instead, in `import-report/registers-2025.md`.
+
+Almost every one is the register being AHEAD of the rating — Сердюк is listed six
+times on «Професійна освіта» and her 2025 sheet has nothing under 3.18; Ржевська
+appears in four ННЦЗЯО registers and was scored for none of them. Importing those
+would hand people points the university did not give them, which is a worse error
+than a missing role. A few may be points a відділ forgot to pass on, and the
+report is where somebody can look.
+
+### A row that appears twice is imported twice, deliberately
+
+Шевчук Лариса Дмитрівна's Розділ_1 holds every one of her six rows a second time
+— she filled the form twice — and three people have a whole Розділ file saved
+again as «ПІБ(1).xlsx». Dropping the repeats is the obvious thing to do and it is
+wrong: measured over all 250 people it moved the year from 0.19% under the
+university's own total to **0.46% under**, and dropped the count of people
+matching exactly from **215 to 195**. Their pipeline counts a repeated
+submission, so ours has to.
+
+### What is still missing: 0.19%
+
+Розділ 3 is 1 870 short and розділ 1 is 683 over, out of 749 846. What remains is
+a handful of individual cases, not a pattern:
+
+- **Blocks no price divides.** Товкун's 3.18 is 680 and no combination of one
+  role at one price makes 680 — two different roles added together. Eight such.
+- **Blocks more than one price divides**, where the register has nothing either:
+  Ковтун Олександр's 3.1 = 1 350 is керівник × 3 or учасник × 9.
+- **Шевчук's double submission**, above, which is +330 on her розділ 1.
+
+All of them are listed by person in `import-report/ambiguous-2025.md` and
+`import-report/registers-2025.md`.
 
 ## Next
 
-1. Decide the 74 ambiguous blocks above: leave them out, or take the largest
-   price that divides (fewest occurrences) and mark them inferred like the rest.
+1. Close 2025 from /admin/rating so it renders from a frozen snapshot. It is
+   safe now: every `RatingEntry` is built from real `Activity` rows, so
+   `closeYear` rebuilds the snapshot correctly. Reopening is the appeals path.
 2. Decide the 38 not on the roster by hand: 4 typos to fold in, ~34 departed.
-3. The other years. 2024 has the same shape and the same «Рейтинг» sheet;
-   2021–2023 have Розділ files but no per-year template to hang them off.
+3. The other years. 2024 has the same shape, the same «Рейтинг» sheet and its own
+   tab in Дані ННВ and Дані ВМіжнароднихЗ — but «Спеціалізовані вчені ради» and
+   the ННЦЗЯО registers have no year and hold only the current one, so 2024's
+   division half would come from the «Рейтинг» sheet alone. 2021–2023 have Розділ
+   files but no per-year template to hang them off.
 
 ## The 2026 restructuring — noted, not applied
 
