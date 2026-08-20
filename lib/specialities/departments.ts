@@ -61,7 +61,7 @@ export const SPECIALITY_DEPARTMENTS: Readonly<Record<string, readonly string[]>>
 
   // ── ФПО ──
   'Середня освіта (біологія та здоров’я людини)': [
-    'Кафедра фізичної реабілітації, здоров’я і безпеки життєдіяльності',
+    'Кафедра здоров’я і безпеки життєдіяльності',
     'Кафедра природничих дисциплін і методики навчання',
   ],
   'Середня освіта (природничі науки)': ['Кафедра природничих дисциплін і методики навчання'],
@@ -72,7 +72,7 @@ export const SPECIALITY_DEPARTMENTS: Readonly<Record<string, readonly string[]>>
   'Середня освіта (захист України)': ['Кафедра освітології та педагогічної інноватики'],
   'Дошкільна освіта': ['Кафедра психології і педагогіки дошкільної освіти'],
   'Соціальна робота': ['Кафедра соціальної педагогіки і соціальної роботи'],
-  Філософія: ['Кафедра філософії і соціальної антропології імені професора І.П.Стогнія'],
+  Філософія: ['Кафедра філософії і соціальної антропології імені професора І. П. Стогнія'],
   // 053 is split across two факультети by ОП, not by level — both are випускові.
   Психологія: ['Кафедра психології', 'Кафедра практичної психології'],
 
@@ -85,8 +85,8 @@ export const SPECIALITY_DEPARTMENTS: Readonly<Record<string, readonly string[]>>
   ],
 
   // ── ФТМО ──
-  'Середня освіта (математика)': ['Кафедра математики, інформатики та методики навчання'],
-  'Середня освіта (інформатика)': ['Кафедра математики, інформатики та методики навчання'],
+  'Середня освіта (математика)': ['Кафедра математики, інформатики і методики навчання'],
+  'Середня освіта (інформатика)': ['Кафедра математики, інформатики і методики навчання'],
   'Середня освіта (трудове навчання і технології)': [
     'Кафедра теорії і методики технологічної освіти та комп’ютерної графіки',
   ],
@@ -97,7 +97,7 @@ export const SPECIALITY_DEPARTMENTS: Readonly<Record<string, readonly string[]>>
   // Випускова is the лінгвістика кафедра; Кафедра української і зарубіжної
   // літератури carries the літературний блок and is deliberately not listed.
   'Середня освіта (українська мова і література)': [
-    'Кафедра української лінгвістики і методики навчання',
+    'Кафедра української лінгвістики та методики навчання',
   ],
   'Середня освіта (іноземна мова і література)': [
     'Кафедра іноземної філології, перекладу та методики навчання',
@@ -147,42 +147,15 @@ export const SPECIALITY_DEPARTMENTS: Readonly<Record<string, readonly string[]>>
  * word «кафедра» at all. All three are the same кафедра, and a lookup that
  * misses turns every chip gray for no reason a user could act on.
  */
-/**
- * What a кафедра used to be called, and what it is called now.
- *
- * `new_deps.docx` (2026-08-20) renamed four of them. Everything written before
- * that date still says the old thing and always will: `staff-roster.json` puts
- * 32 people under the old names, and every folder under
- * `edu-reference/ФАКУЛЬТЕТИ/` is named the old way for good — those are last
- * year's files and nobody is going back to rename them.
- *
- * So a rename cannot be a find-and-replace. Both spellings have to keep leading
- * to the same кафедра, or 32 people import with no department and their
- * завідувач sees a кафедра that has lost a third of its staff.
- *
- * Keyed and valued in normalised form, so the map is about the кафедра and not
- * about punctuation.
- */
-const RENAMED_TO: Record<string, string> = {
-  'здоров’я і безпеки життєдіяльності': 'фізичної реабілітації, здоров’я і безпеки життєдіяльності',
-  'філософії і соціальної антропології імені професора і. п. стогнія':
-    'філософії і соціальної антропології імені професора і.п.стогнія',
-  'математики, інформатики і методики навчання': 'математики, інформатики та методики навчання',
-  'української лінгвістики та методики навчання': 'української лінгвістики і методики навчання',
-};
-
 export function normaliseDepartmentName(name: string): string {
   // Order matters: the «кафедра» prefix is stripped LAST, because the anchor
   // only matches once the leading whitespace is gone.
-  const key = name
+  return name
     .toLowerCase()
     .replace(/[’'`ʼ‘]/g, '’')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/^кафедра\s+/, '');
-
-  // An old name resolves to the current кафедра rather than to nothing
-  return RENAMED_TO[key] ?? key;
 }
 
 /** Every кафедра the довідник knows, normalised */
