@@ -73,8 +73,17 @@ function specsFor(i: Indicator): {
 } {
   const proof = { kind: 'text', name: 'title', label: 'Підтвердження', multiline: true };
 
-  // «бал за рік», «балів* др.а./с.а.», «балів*1ст./с.а.» — all say «× a number»
-  const multiplies = !!i.unit && /(за рік|\*|\/)/.test(i.unit);
+  // «бал за рік», «балів* др.а./с.а.», «балів кредит 10», «за кожну лекцію» —
+  // all say «× a number».
+  //
+  // So, less obviously, does 5.1's «за умови заповнення усіх обов'язкових
+  // пунктів». It reads like a condition and is a proportion: a Moodle course
+  // with every obligatory item pays the full 150, and a partly filled one pays
+  // its share. The Розділ rows carry that share in column 3 — Гуральчук's
+  // eleven disciplines are 0.175 each and her sheet says 295.35, which is
+  // 150 × 1.969 to the last digit. Priced flat they came to 1650. It is the
+  // same idea as 2026's CHECK_SUM, recorded as the fraction it worked out to.
+  const multiplies = !!i.unit && /(за рік|кредит|за кожну|за 1 |за умови|\*|\/)/.test(i.unit);
 
   const scored = i.options.filter((o) => o.points !== null);
   if (scored.length > 0) {
@@ -113,7 +122,12 @@ function specsFor(i: Indicator): {
     };
   }
 
-  if (multiplies && i.coefficient !== null) {
+  // A price of exactly 1 point is not a flat award. Nothing in the document
+  // pays one point for a thing done — it is the sheet's «1 бал за одиницю», and
+  // 2.1 «Виконання навчального навантаження» is the indicator that uses it:
+  // 227 годин is 227 points, not one. Priced flat it also produced 227 separate
+  // activity rows on the way to the same number (2026-08-20).
+  if ((multiplies || i.coefficient === 1) && i.coefficient !== null) {
     return {
       kind: 'MULT',
       coefficient: i.coefficient,
@@ -139,6 +153,7 @@ const DIVISION_KEYS: Record<string, string> = {
 
 async function main() {
   const apply = process.argv.includes('--apply');
+  const replace = process.argv.includes('--replace');
   const indicators = JSON.parse(readFileSync(OUT, 'utf8')) as Indicator[];
   if (indicators.length === 0) throw new Error(`${OUT} is empty — run pnpm legacy:template first`);
 
@@ -151,12 +166,43 @@ async function main() {
       where: { year: YEAR },
       select: { id: true, status: true, _count: { select: { activityTypes: true } } },
     });
-    if (existing) {
+    if (existing && !replace) {
       console.log(
         `Рік ${YEAR} вже існує (${existing.status}, ${existing._count.activityTypes} показників).`
       );
-      console.log('Nothing written. Delete it first if you mean to rebuild it.');
+      console.log('Nothing written. Pass --replace to rebuild it from the sheets.');
       return;
+    }
+    // Rebuilding the template means rebuilding its indicators, and every
+    // imported Activity points at one of those rows — so the year's activities
+    // go with it. Nothing is lost that the sheets cannot produce again, but a
+    // year somebody has been WORKING in is a different matter, and a CLOSED one
+    // is a reported result.
+    if (existing?.status === 'CLOSED') {
+      console.log(`Рік ${YEAR} закрито. Reopen it before rebuilding it.`);
+      process.exitCode = 1;
+      return;
+    }
+    if (existing && replace) {
+      const [acts, entries] = await Promise.all([
+        prisma.activity.count({ where: { year: YEAR } }),
+        prisma.ratingEntry.count({ where: { year: YEAR } }),
+      ]);
+      console.log(
+        `--replace: dropping рік ${YEAR} — ${existing._count.activityTypes} показників, ` +
+          `${acts} активностей, ${entries} рейтингів.`
+      );
+      if (apply) {
+        await prisma.$transaction(
+          async (tx) => {
+            await tx.activity.deleteMany({ where: { year: YEAR } });
+            await tx.ratingEntry.deleteMany({ where: { year: YEAR } });
+            // Sections and activity types cascade off the template
+            await tx.ratingTemplate.delete({ where: { year: YEAR } });
+          },
+          { timeout: 300_000 }
+        );
+      }
     }
 
     const divisions = await prisma.division.findMany({

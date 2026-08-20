@@ -177,7 +177,8 @@ function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const p = join(dir, entry);
     if (statSync(p).isDirectory()) walk(p, out);
-    else if (p.endsWith('.xlsx')) out.push(p);
+    // `~$…` is Excel's lock file for an open workbook, not a workbook
+    else if (p.endsWith('.xlsx') && !entry.startsWith('~$')) out.push(p);
   }
   return out;
 }

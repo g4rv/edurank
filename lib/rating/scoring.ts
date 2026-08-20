@@ -64,6 +64,24 @@ function requireNumber(
   return value;
 }
 
+/**
+ * The floor a numeric evidence field accepts, as its own spec declares it.
+ *
+ * Hard-coding this made the rule un-configurable: `min` is part of a number
+ * field's spec, an ADMIN sets it in /admin/rating, and SELECT_MULT ignored it
+ * and demanded 1 regardless. It showed up importing 2025, where the same
+ * `credits` field means a share of an author's sheet rather than кредити
+ * стажування — 37 monograph and textbook rows carrying 0.5 or 0.083 др.а. were
+ * refused by a rule about internships.
+ *
+ * The fallback keeps 2026 exactly as it was: `intl_internship` declares min 1,
+ * so zero credits is still refused.
+ */
+function declaredMin(type: ScorableType, name: string, fallback: number): number {
+  const field = type.evidenceFields.find((f) => f.kind === 'number' && f.name === name);
+  return field?.kind === 'number' && typeof field.min === 'number' ? field.min : fallback;
+}
+
 /** Points of the chosen option of the select named `selectName` */
 function optionPoints(type: ScorableType, selectName: string, evidence: unknown): number {
   const field = type.evidenceFields.find((f) => f.kind === 'select' && f.name === selectName);
@@ -148,7 +166,9 @@ function computeValue(type: ScorableType, evidence: unknown): number {
       const points = optionPoints(type, 'option', evidence);
       const units = pageBased
         ? authorSheets(evidence, type.code)
-        : requireNumber(asRecord(evidence, type.code).credits, 'credits', type.code, { min: 1 });
+        : requireNumber(asRecord(evidence, type.code).credits, 'credits', type.code, {
+            min: declaredMin(type, 'credits', 1),
+          });
       return points * units;
     }
     case 'CHECK_SUM':

@@ -77,6 +77,23 @@ function commonName(labels: string[]): string {
     .trim();
 }
 
+/**
+ * The unit is not always on the indicator's own row.
+ *
+ * 2.2 «Видання затверджені вченою радою» and 1.11 «Підвищення кваліфікації»
+ * are headings with nothing in column 4; «балів* др.а./с.а.» and «балів
+ * кредит 10» sit on the CHOICES underneath. Reading only the top row made both
+ * a flat SELECT, so a textbook of six друкованих аркушів scored one textbook
+ * and two months of стажування scored one — 4 300 points short over 54 people.
+ *
+ * The first unit under an indicator wins. Where the choices differ («балів
+ * кредит 10» beside «балів кредит 50») they differ in the price, which lives on
+ * the option, not in the unit.
+ */
+function adoptUnit(indicator: Indicator, unit: string): void {
+  if (!indicator.unit && unit) indicator.unit = unit;
+}
+
 async function extract(path: string): Promise<Indicator[]> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(path);
@@ -126,6 +143,7 @@ async function extract(path: string): Promise<Indicator[]> {
       if (current && current.itemNumber === item[1]) {
         // Same number as the row above — this is one of its choices
         if (label) current.options.push({ label, points: scored });
+        adoptUnit(current, unit);
         return;
       }
 
@@ -146,6 +164,7 @@ async function extract(path: string): Promise<Indicator[]> {
     // merged number instead of repeating it.
     if (!a && label && current) {
       current.options.push({ label, points: scored });
+      adoptUnit(current, unit);
     }
   });
 
@@ -160,11 +179,50 @@ async function extract(path: string): Promise<Indicator[]> {
   //
   // So: a first row that carries points is itself a choice, and the indicator
   // is named by what its choices have in common.
+  //
+  // **Except a «1».** That is the sheet's placeholder in the criteria column on
+  // a heading row, not a price. Treating it as a choice minted an option worth
+  // one point on 14 indicators — and because the Розділ files write the group's
+  // TITLE into their «option» column, the import then matched that option for
+  // every such row. 399 conference-organiser rows scored 1 instead of 20–100,
+  // and 4.1 came out at 3 points against the sheet's 90 (2026-08-20). Every
+  // genuine first choice in the document is priced 10–500; every «1» is a title.
   for (const i of out) {
-    if (i.coefficient === null || i.options.length === 0) continue;
-    i.options.unshift({ label: i.label, points: i.coefficient });
+    if (i.options.length === 0) continue;
+
+    const ownRowIsChoice = i.coefficient !== null && i.coefficient !== 1;
+    if (ownRowIsChoice) {
+      i.options.unshift({ label: i.label, points: i.coefficient });
+      i.label = commonName(i.options.map((o) => o.label)) || i.label;
+    }
     i.coefficient = null;
-    i.label = commonName(i.options.map((o) => o.label)) || i.label;
+
+    // ── Two groups under one number ──
+    //
+    // 4.1 organises Міжнародні conferences and Всеукраїнські ones, each with
+    // the same three roles at different prices: «член оргкомітету» is 50 in the
+    // first group and 20 in the second. Left flat, the two are one label twice
+    // and whichever comes first answers for both. The group title is folded in
+    // — but only where there is more than one, so «одноосібно» under 3.9 is not
+    // dressed up in the indicator's own name.
+    const groups: { title: string; options: Option[] }[] = [
+      { title: ownRowIsChoice ? '' : i.label.replace(/[\s:]+$/, ''), options: [] },
+    ];
+    for (const o of i.options) {
+      if (o.points === 1) {
+        groups.push({ title: o.label.replace(/[\s:]+$/, ''), options: [] });
+        continue;
+      }
+      groups[groups.length - 1].options.push(o);
+    }
+
+    const filled = groups.filter((g) => g.options.length > 0);
+    i.options = filled.flatMap((g) =>
+      g.options.map((o) => ({
+        label: filled.length > 1 && g.title ? `${g.title} — ${o.label}` : o.label,
+        points: o.points,
+      }))
+    );
   }
 
   return out;
@@ -174,7 +232,11 @@ function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const p = join(dir, entry);
     if (statSync(p).isDirectory()) walk(p, out);
-    else if (p.includes('Таблиці_Викладачів') && p.endsWith('.xlsx')) out.push(p);
+    // `~$…` is Excel's lock file for a workbook somebody has open. It is not a
+    // workbook and exceljs dies on it with «is this a zip file?», which reads
+    // like corrupt data rather than «close the spreadsheet».
+    else if (p.includes('Таблиці_Викладачів') && p.endsWith('.xlsx') && !entry.startsWith('~$'))
+      out.push(p);
   }
   return out;
 }

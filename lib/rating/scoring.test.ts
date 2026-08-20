@@ -160,6 +160,26 @@ describe('SELECT_MULT types', () => {
       '"credits"'
     );
   });
+
+  // The floor belongs to the field, not to SELECT_MULT. 2026's стажування
+  // declares min 1 and still refuses 0 (above); an indicator whose quantity is
+  // a share — the 2025 template prices a monograph by друковані аркуші — says
+  // min 0 and must be allowed to mean it.
+  it('honours a min the field spec declares, rather than always demanding 1', () => {
+    const base = catalogueType('intl_internship');
+    const shareable: ScorableType = {
+      ...base,
+      evidenceFields: base.evidenceFields.map((f) =>
+        f.kind === 'number' && f.name === 'credits' ? { ...f, min: 0 } : f
+      ),
+    };
+    expect(computeScore(shareable, { option: 'in_person', credits: 0.5 }).score).toBe(50);
+    expect(computeScore(shareable, { option: 'in_person', credits: 0 }).score).toBe(0);
+    // …while the catalogue's own min 1 refuses the same half credit
+    expect(() => score('intl_internship', { option: 'in_person', credits: 0.5 })).toThrow(
+      '"credits"'
+    );
+  });
 });
 
 describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {

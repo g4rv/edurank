@@ -12,10 +12,12 @@ import { computeScore } from '../lib/rating/scoring';
 //   pnpm import:activities-2025            report only, writes nothing
 //   pnpm import:activities-2025 --apply    writes them
 //
-// **Indicators are matched by item number**, which is safe here and would not
-// have been before: both sides now come from the SAME year's document. The
-// numbering only drifts BETWEEN years, and there is no crossing of years left
-// to do — 2025's rows go into 2025's template.
+// **Indicators are matched by item number, and by label where the two
+// disagree.** The number is safe here in a way it would not have been before:
+// both sides come from the SAME year's documents. But they are two documents,
+// and the Розділ files number патенти 3.28 where the «Рейтинг» sheet the
+// template was read from numbers it 3.29 — so a label that matches an indicator
+// outright wins, and every disagreement is counted in the report.
 //
 // **Scores are the university's own** (owner, 2026-08-19). Each row is priced
 // with 2025's coefficients through our own engine, so the arithmetic is ours
@@ -71,7 +73,8 @@ function walk(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir)) {
     const p = join(dir, e);
     if (statSync(p).isDirectory()) walk(p, out);
-    else if (p.includes('Розділ_') && p.endsWith('.xlsx')) out.push(p);
+    // `~$…` is Excel's lock file for an open workbook, not a workbook
+    else if (p.includes('Розділ_') && p.endsWith('.xlsx') && !e.startsWith('~$')) out.push(p);
   }
   return out;
 }
@@ -103,6 +106,69 @@ async function readRows(path: string, year: number): Promise<RawRow[]> {
     });
   });
   return rows;
+}
+
+interface Choice {
+  value: string;
+  label: string;
+  points?: number;
+}
+
+/**
+ * Which choice a Розділ row means — and whether column 3 was its quantity.
+ *
+ * The old form did not record the choice in one place. Column 2 holds either
+ * the choice itself («співавторство») or the TITLE OF ITS GROUP («Організація
+ * та проведення Всеукраїнських наукових конференцій…»), and in the second case
+ * the choice is identifiable only by its price in column 3, with the words
+ * repeated inside the free-text evidence («Роль: член оргкомітету»).
+ *
+ * Matching column 2 alone put 399 conference rows, 251 ініціативна тематика
+ * rows and 175 others on a group title, which the template import had minted as
+ * an option worth one point. Соловйова's розділ 4 came out at 3 against the
+ * sheet's 90 (2026-08-20).
+ *
+ * So column 3 has two meanings and they have to be told apart: it is the price
+ * when it is what picked the choice, and the quantity when the row already
+ * named one — 1.11 «дистанційно (не менше 1 місяця)» × 2 стажування = 20.
+ */
+function resolveOption(
+  options: readonly Choice[],
+  row: { option: string; quantity: string; evidence: string }
+): { chosen: Choice; thirdIsPoints: boolean } | null {
+  const said = norm(row.option);
+
+  // 1. The row names the choice outright. Column 3 is then a quantity.
+  const exact = options.find((o) => norm(o.label) === said);
+  if (exact) return { chosen: exact, thirdIsPoints: false };
+
+  // 2. It names the group. `legacy:template` writes «group — choice», so the
+  //    group's own members are the labels that start with it.
+  const group = said ? options.filter((o) => norm(o.label).startsWith(`${said} `)) : [];
+  const pool = group.length > 0 ? group : options;
+
+  // 3. Inside the group (or the whole list, for an indicator with only one
+  //    group), the price names the choice — but only where it names ONE.
+  const points = Number(row.quantity.replace(',', '.'));
+  if (Number.isFinite(points)) {
+    const byPoints = pool.filter((o) => o.points === points);
+    if (byPoints.length === 1) return { chosen: byPoints[0], thirdIsPoints: true };
+  }
+
+  // 4. The words are in the evidence text where the form put them.
+  const role = /(?:Роль|Вид роботи|Посада)\s*:\s*(.+?)(?:\s+(?:Дата|Наказ|Назва|ПІБ|Місце)\b|$)/u
+    .exec(row.evidence)?.[1]
+    ?.trim();
+  if (role) {
+    const wanted = norm(role);
+    const named = pool.filter((o) => norm(o.label).endsWith(wanted));
+    if (named.length === 1) return { chosen: named[0], thirdIsPoints: false };
+  }
+
+  // 5. A row that names no option, on an indicator with only one, means that
+  //    one — the sheet leaves it out when there is nothing to choose.
+  if (options.length === 1) return { chosen: options[0], thirdIsPoints: false };
+  return null;
 }
 
 async function main() {
@@ -139,6 +205,22 @@ async function main() {
     const byItem = new Map(template.activityTypes.map((t) => [t.itemNumber, t]));
     const byLabel = new Map(template.activityTypes.map((t) => [norm(t.label), t]));
 
+    /**
+     * One label is the opening of the other — the Розділ files write «…на
+     * об'єкти інтелектуальної власності» where the template has «…власності за
+     * поточний рік». The same indicator, one document trimmed.
+     *
+     * Only ever accepted when exactly ONE indicator matches. 3.13 and 3.14 open
+     * with the same twelve words and differ at the end, so a first-wins prefix
+     * would file somebody's всеукраїнський призер as an international one.
+     */
+    const labelled = template.activityTypes.map((t) => ({ key: norm(t.label), type: t }));
+    const uniquePrefix = (label: string) => {
+      if (label.length < 20) return undefined;
+      const hits = labelled.filter((l) => l.key.startsWith(label) || label.startsWith(l.key));
+      return hits.length === 1 ? hits[0].type : undefined;
+    };
+
     const roster = JSON.parse(readFileSync('staff-roster.json', 'utf8')) as {
       fullName: string;
       email: string;
@@ -164,6 +246,8 @@ async function main() {
     const noPerson = new Map<string, number>();
     const noIndicator = new Map<string, number>();
     const noOption = new Map<string, number>();
+    /** Rows whose number and label name different indicators — the label wins */
+    const renumbered = new Map<string, number>();
     const failed = new Map<string, number>();
     const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
 
@@ -177,7 +261,19 @@ async function main() {
 
       // Number first — it is this same year's own numbering, so it identifies
       // the indicator exactly. The label is the fallback for a row that lost it.
-      const type = (r.itemNumber && byItem.get(r.itemNumber)) || byLabel.get(norm(r.itemLabel));
+      //
+      // **Unless the two disagree.** The Розділ files number патенти 3.28 and
+      // the «Рейтинг» sheet the template came from numbers it 3.29 — so the
+      // drift the docs warn about between years happens inside one year too,
+      // between its own two documents. 60 patent rows were filed as citation
+      // counts and then refused for naming an option that indicator has not
+      // got. A label that matches an indicator outright is the stronger claim.
+      const named = byLabel.get(norm(r.itemLabel)) ?? uniquePrefix(norm(r.itemLabel));
+      const numbered = r.itemNumber ? byItem.get(r.itemNumber) : undefined;
+      const type = named ?? numbered;
+      if (named && numbered && named.id !== numbered.id) {
+        bump(renumbered, `${r.itemNumber} → ${named.itemNumber} «${named.label.slice(0, 40)}»`);
+      }
       if (!type) {
         bump(noIndicator, r.itemLabel.slice(0, 70));
         continue;
@@ -194,21 +290,21 @@ async function main() {
       // The sheet names the choice in words; the field stores a value
       const evidence: Record<string, unknown> = { title: r.evidence || r.itemLabel };
       const select = specs.fields.find((f) => f.kind === 'select' && f.name === 'option');
+      let thirdIsPoints = false;
       if (select && select.kind === 'select') {
-        const chosen =
-          select.options.find((o) => norm(o.label) === norm(r.option)) ??
-          // A row that names no option, on an indicator with only one, means
-          // that one — the sheet leaves it out when there is nothing to choose.
-          (select.options.length === 1 ? select.options[0] : undefined);
-        if (!chosen) {
-          bump(noOption, `${type.itemNumber} «${r.option.slice(0, 40)}»`);
+        const found = resolveOption(select.options, r);
+        if (!found) {
+          bump(noOption, `${type.itemNumber} «${r.option.slice(0, 40)}» ×${r.quantity}`);
           continue;
         }
-        evidence.option = chosen.value;
+        evidence.option = found.chosen.value;
+        thirdIsPoints = found.thirdIsPoints;
       }
 
+      // Column 3 is a quantity — unless it was what identified the choice, and
+      // then the row is a single occurrence priced by that choice.
       const quantity = Number(r.quantity.replace(',', '.'));
-      const amount = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+      const amount = thirdIsPoints || !(Number.isFinite(quantity) && quantity > 0) ? 1 : quantity;
       if (specs.fields.some((f) => f.name === 'value')) evidence.value = amount;
       if (specs.fields.some((f) => f.name === 'credits')) evidence.credits = amount;
 
@@ -234,6 +330,7 @@ async function main() {
       ['person not on the roster', noPerson],
       ['indicator not in the 2025 template', noIndicator],
       ['option not recognised', noOption],
+      ['number and label disagreed — filed by label', renumbered],
       ['scoring refused the row', failed],
     ] as const;
     for (const [what, m] of lost) {
