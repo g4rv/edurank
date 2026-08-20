@@ -111,7 +111,13 @@ export default async function DepartmentStakesPage({
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <div className="flex flex-wrap items-baseline gap-3">
           <h1 className="text-2xl font-semibold">{view.departmentName}</h1>
-          <span className="text-sm text-muted-foreground">{year} рік</span>
+          {/* Both years, whenever they differ. The ставки are for one year and
+              the rating that ranked them comes from another, and an all-zero
+              column is only explainable once the screen says which. */}
+          <span className="text-sm text-muted-foreground">
+            {year} рік
+            {view.ratingYear !== year && ` · за рейтингом ${view.ratingYear}`}
+          </span>
         </div>
 
         <div className="inline-flex items-center gap-2">
@@ -132,7 +138,10 @@ export default async function DepartmentStakesPage({
           · ліцензійним умовам відповідають {view.knpp}
           <StakeTermHint term="knpp" />
         </span>
-        <span> · середній рейтинг {Math.round(view.averageRating)}</span>
+        <span>
+          {' '}
+          · середній рейтинг {Math.round(view.averageRating)} за {view.ratingYear}
+        </span>
         <span className="inline-flex items-center gap-1">
           {' '}
           · основний фонд{' '}

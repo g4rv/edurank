@@ -11,6 +11,7 @@ import { ON_ROSTER } from '@/lib/queries/roster';
 import { headOf } from '@/lib/queries/scope';
 import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { MIN_STAKE, STAKE_STEP, floorToStep, formatStake } from '@/lib/stake/units';
+import { ratingYearFor } from '@/lib/stake/rating-year';
 import { closedYearProblem } from '@/lib/stake/writable-year';
 import { staffStakeLimitsSchema } from '@/validations/stake';
 import type { Role } from '@/lib/generated/prisma/client';
@@ -113,6 +114,12 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   const closed = await closedYearProblem(year);
   if (closed) return { error: closed };
 
+  // Same rule the page ran, run again here rather than taken from the payload:
+  // this action recomputes «за формулою» and stores it beside the head's
+  // number, so a year that arrived from the browser could file a split the
+  // screen never showed.
+  const ratingYear = await ratingYearFor(year);
+
   const [department, stake, staff] = await Promise.all([
     db.department.findUnique({ where: { id: departmentId }, select: { name: true } }),
     db.departmentStake.findUnique({
@@ -125,7 +132,7 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
         id: true,
         lastName: true,
         firstName: true,
-        ratingEntries: { where: { year }, select: { totalScore: true } },
+        ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
         stakeLimits: { where: { year }, select: { minHundredths: true, maxHundredths: true } },
       },
     }),
@@ -389,6 +396,9 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
   if (!person.departmentId) return { success: true, formulaHundredths: null };
   revalidateStakes(person.departmentId);
 
+  // The share handed back has to be ranked on the same year the grid is showing
+  const ratingYear = await ratingYearFor(year);
+
   // Recomputed with the bounds that were just written, for the row the grid has
   // to move. Whole-кафедра, because both passes of the formula divide by sums
   // over everyone — one person's cap changes what every share comes to.
@@ -401,7 +411,7 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
       where: { ...ON_ROSTER, isNpp: true, departmentId: person.departmentId },
       select: {
         id: true,
-        ratingEntries: { where: { year }, select: { totalScore: true } },
+        ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
         stakeLimits: { where: { year }, select: { minHundredths: true, maxHundredths: true } },
       },
     }),

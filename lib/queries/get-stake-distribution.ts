@@ -7,6 +7,7 @@ import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { minimumKstHundredths } from '@/lib/stake/units';
 import { isKnownDepartment } from '@/lib/specialities/departments';
 import { EMPTY_BONUS, bonusForStaff, type StaffBonus } from './list-student-claims';
+import { ratingYearFor } from '@/lib/stake/rating-year';
 
 /**
  * Everything the distribution grid for one кафедра needs, in one read.
@@ -59,6 +60,13 @@ export interface StakeDistributionView {
   kstHundredths: number | null;
   /** The second pool, or null until the проректор allocates it. The formula never reads it. */
   bonusPoolHundredths: number | null;
+  /**
+   * Which year's rating this split was ranked on — usually `year - 1`.
+   *
+   * On the view rather than implied, because an all-zero rating column is only
+   * explainable once the screen says which year it came from.
+   */
+  ratingYear: number;
   /** 0.1 × headcount — the pool's own minimum */
   minimumKstHundredths: number;
   knpp: number;
@@ -93,6 +101,9 @@ export async function getStakeDistribution(
   });
   if (!department) return null;
 
+  // The ставки are for `year`; the work they reward was done in this one.
+  const ratingYear = await ratingYearFor(year);
+
   const staff = await db.staff.findMany({
     where: { ...ON_ROSTER, isNpp: true, departmentId },
     select: {
@@ -104,7 +115,7 @@ export async function getStakeDistribution(
       // per year: the position is already recorded there and already drives the
       // Характеристика (2026-08-17).
       adminPosition: true,
-      ratingEntries: { where: { year }, select: { totalScore: true } },
+      ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
       stakeLimits: { where: { year }, select: { minHundredths: true, maxHundredths: true } },
     },
   });
@@ -197,6 +208,7 @@ export async function getStakeDistribution(
     departmentName: department.name,
     facultyName: department.faculty.name,
     year,
+    ratingYear,
     rows,
     kstHundredths,
     bonusPoolHundredths,

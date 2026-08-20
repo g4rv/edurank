@@ -17,7 +17,8 @@ vi.mock('@/lib/db', () => ({
     staffStakeLimits: { findUnique: vi.fn(), upsert: vi.fn() },
     stakeDistribution: { findUnique: vi.fn() },
     stakeAllocation: { update: vi.fn() },
-    ratingTemplate: { findFirst: vi.fn() },
+    ratingTemplate: { findFirst: vi.fn(), findMany: vi.fn() },
+    ratingEntry: { findMany: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -38,6 +39,9 @@ const mockStake = db.departmentStake.findUnique as unknown as Mock;
 const mockStaff = db.staff.findMany as unknown as Mock;
 /** What `activeYear()` reads — every real ставка write is pinned to it */
 const mockTemplate = db.ratingTemplate.findFirst as unknown as Mock;
+/** ratingYearFor(): no earlier template, so the ставка year ranks on itself */
+const mockEarlierTemplates = db.ratingTemplate.findMany as unknown as Mock;
+const mockScoredYears = db.ratingEntry.findMany as unknown as Mock;
 const mockStaffOne = db.staff.findUnique as unknown as Mock;
 const mockLimitsFind = db.staffStakeLimits.findUnique as unknown as Mock;
 const mockLimitsUpsert = db.staffStakeLimits.upsert as unknown as Mock;
@@ -100,6 +104,8 @@ beforeEach(() => {
   mockStake.mockResolvedValue({ kstHundredths: 300 }); // 3.00
   mockStaff.mockResolvedValue(roster());
   mockTemplate.mockResolvedValue({ year: YEAR });
+  mockEarlierTemplates.mockResolvedValue([]);
+  mockScoredYears.mockResolvedValue([]);
   mockDistributionFind.mockResolvedValue(null);
   mockAllocationUpdate.mockImplementation((args: unknown) => args);
   // saveDistribution passes a callback; liftStoredAllocations passes an array.
