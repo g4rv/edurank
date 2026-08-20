@@ -297,3 +297,41 @@ by hand or the ставка flow is made to write it.
    with a line per decision.
 2. Decide the 38 by hand: 4 typos to fold in, ~34 to record as departed.
 3. Then the import, one кафедра at a time, checked against «Загальна сума балів».
+
+## The 2026 restructuring — noted, not applied
+
+`edu-reference/new_deps.docx` (2026-08-20) regroups the university: **8
+факультети become 6 plus a навчально-науковий інститут**, 21 of the 31 кафедри
+change parent, and four are renamed.
+
+**Deliberately not applied** (owner, 2026-08-20): the owner and the boss will
+make these changes by hand in the app. What is recorded here is what the
+document says, so nobody has to read it again:
+
+| кафедра                                 | today                   | in the document                                                                                   |
+| --------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------- |
+| Здоров'я і безпеки життєдіяльності      | Природничої освіти      | renamed **Фізичної реабілітації, здоров'я і безпеки життєдіяльності**, moved to Фізичної культури |
+| Математики, інформатики **і** методики  | —                       | «…**та** методики»                                                                                |
+| Української лінгвістики **та** методики | —                       | «…**і** методики»                                                                                 |
+| Філософії… **І. П.** Стогнія            | Соціально-психологічний | «**І.П.**Стогнія», moved to Української та іноземної філології                                    |
+| **Професійної освіти**                  | Фінансово-економічної   | **absent from the document entirely**                                                             |
+
+Only one факультет keeps its name: «Української та іноземної філології».
+
+Two things to settle before anybody applies it:
+
+- **Кафедра професійної освіти** has staff and 2025 activities. Closed, merged
+  into «Теорії та методики професійної підготовки», or simply left out?
+- The **навчально-науковий інститут** is not a факультет, and the app has only
+  `Faculty`. It would sit in that table under a name that says otherwise.
+
+None of this blocks the import: `staff-roster.json` and the `ФАКУЛЬТЕТИ`
+folders are keyed on **кафедра**, never on факультет.
+
+**If the кафедра names are ever changed** — in the app or in the seed — the old
+spellings have to keep resolving. 32 people in the roster carry them, and every
+folder under `edu-reference/ФАКУЛЬТЕТИ/` is named the old way permanently.
+`normaliseDepartmentName` forgives case, apostrophes and the «Кафедра» prefix
+but NOT «і» against «та», so a rename without an alias silently leaves those
+people with no кафедра. This was tried and reverted in `9400c1d` / `c1ba555`;
+the alias map there is worth reading before doing it again.

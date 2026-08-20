@@ -29,6 +29,7 @@
     "legacy:report": "tsx scripts/legacy-report.ts",
     "legacy:template": "tsx scripts/legacy-template.ts",
     "import:template-2025": "tsx prisma/import-template-2025.ts",
+    "import:activities-2025": "tsx prisma/import-activities-2025.ts",
     "db:create-admin": "tsx prisma/create-admin.ts",
     "mail:test": "tsx scripts/mail-test.ts"
   },
