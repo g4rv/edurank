@@ -300,15 +300,15 @@ any change here.
 
 | розділ | after the first import | now      |
 | ------ | ---------------------- | -------- |
-| 1      | 38%                    | 101%     |
+| 1      | 38%                    | 100%     |
 | 2      | 40%                    | 100%     |
 | 3      | 75%                    | 100%     |
 | 4      | 28%                    | 100%     |
 | 5      | 113%                   | 100%     |
 | разом  | **72%**                | **100%** |
 
-748 430 against their 749 846 — **0.19% short**. 215 of 250 people match their
-sheet **to the last 0.5 балів**.
+747 880 against their 749 846, and **every розділ at 100%**. 217 of 250 people
+match their sheet **to the last 0.5 балів**.
 
 ### The order to run them in
 
@@ -318,6 +318,7 @@ pnpm import:template-2025 --apply           # …add --replace to rebuild an exi
 pnpm import:activities-2025 --apply         # the Розділ_* files — what НПП reported
 pnpm import:registers-2025 --apply          # the відділи' own Дані * registers
 pnpm import:division-2025 --apply           # the little the registers do not cover
+pnpm import:trim-2025 --apply               # back to their figure where somebody submitted twice
 pnpm db:recompute 2025
 pnpm import:verify-2025                     # against «Загальна сума балів»
 ```
@@ -447,6 +448,30 @@ would hand people points the university did not give them, which is a worse erro
 than a missing role. A few may be points a відділ forgot to pass on, and the
 report is where somebody can look.
 
+### 9. Some people submitted the same thing twice, after the sheet was made
+
+Гончаренко Олексій's Розділ_1 holds «декана» twice, «Базова освіта» twice,
+«Всеукраїнська Асоціація…» twice — one capital letter apart — and «здобуття
+другої вищої освіти» three times. His sheet awards 60, 50, 10 and 200; ours came
+to 120, 100, 20 and 300, which is exactly the 220 he was over by.
+
+**And that is not «count each thing once».** His three identical 1.11 rows are
+worth **200** on their sheet, not 100 — they counted two of the three. The
+reading that fits is that a «Рейтинг» workbook is a **snapshot**: when his was
+generated he had 1.11 twice and 1.6 once, and he re-submitted afterwards. The
+`Розділ_*` files are the current state; his workbook was never regenerated.
+
+The same lag shows from the other side, and this is why it must not be «fixed»
+by deduplication: Коцур Надія's nine publications under 3.9 are nine DIFFERENT
+papers and her sheet counts eight; Юхименко's four Moodle courses are four
+different disciplines and her sheet counts three. That is real work added after
+the snapshot, and a fuzzy match would delete it to fit a stale figure.
+
+`pnpm import:trim-2025` therefore trims to the FIGURE, never by a rule about
+repeats. It only removes, only where the surplus is made of copies whose scores
+close the difference exactly, and it prints everything else. 12 rows, 550 points,
+4 people — which is all of what розділ 1 was over by.
+
 ### A row that appears twice is imported twice, deliberately
 
 Шевчук Лариса Дмитрівна's Розділ_1 holds every one of her six rows a second time
@@ -457,16 +482,18 @@ university's own total to **0.46% under**, and dropped the count of people
 matching exactly from **215 to 195**. Their pipeline counts a repeated
 submission, so ours has to.
 
-### What is still missing: 0.19%
+### What is still missing: 0.26%
 
-Розділ 3 is 1 870 short and розділ 1 is 683 over, out of 749 846. What remains is
-a handful of individual cases, not a pattern:
+Розділ 3 is 1 870 short, out of 749 846. What remains is a handful of individual
+cases, not a pattern:
 
 - **Blocks no price divides.** Товкун's 3.18 is 680 and no combination of one
   role at one price makes 680 — two different roles added together. Eight such.
 - **Blocks more than one price divides**, where the register has nothing either:
   Ковтун Олександр's 3.1 = 1 350 is керівник × 3 or учасник × 9.
-- **Шевчук's double submission**, above, which is +330 on her розділ 1.
+- **Ten people over their sheet by something that is not a copy** — Коцур's
+  ninth paper, Юхименко's fourth course. Real work the snapshot predates, left
+  in and listed in `import-report/trim-2025.md`.
 
 All of them are listed by person in `import-report/ambiguous-2025.md` and
 `import-report/registers-2025.md`.

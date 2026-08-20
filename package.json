@@ -34,6 +34,7 @@
     "import:profiles": "tsx prisma/import-profiles.ts",
     "import:division-2025": "tsx prisma/import-division-2025.ts",
     "import:registers-2025": "tsx prisma/import-registers-2025.ts",
+    "import:trim-2025": "tsx prisma/trim-to-sheet-2025.ts",
     "import:verify-2025": "tsx prisma/verify-2025.ts",
     "db:create-admin": "tsx prisma/create-admin.ts",
     "mail:test": "tsx scripts/mail-test.ts"
