@@ -17,6 +17,9 @@ export const WOS_HOSTS = [
   'webofknowledge.com',
   'isiknowledge.com',
   'clarivate.com',
+  // Publons was folded into the Web of Science researcher profile; the old
+  // links still resolve and colleagues still have them on file
+  'publons.com',
 ] as const;
 
 export const SCHOLAR_HOSTS = ['scholar.google.'] as const;
