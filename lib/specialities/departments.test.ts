@@ -59,6 +59,46 @@ it('spells each кафедра one way only', () => {
   expect(duplicated).toEqual([]);
 });
 
+// new_deps.docx renamed four кафедри on 2026-08-20. Everything written before
+// that says the old thing and always will — staff-roster.json puts 32 people
+// under the old names, and the ФАКУЛЬТЕТИ folders are last year's files. Both
+// spellings have to keep reaching the same кафедра.
+describe('кафедри renamed in 2026', () => {
+  const renamed: [string, string][] = [
+    [
+      'Кафедра здоров’я і безпеки життєдіяльності',
+      'Кафедра фізичної реабілітації, здоров’я і безпеки життєдіяльності',
+    ],
+    [
+      'Кафедра філософії і соціальної антропології імені професора І. П. Стогнія',
+      'Кафедра філософії і соціальної антропології імені професора І.П.Стогнія',
+    ],
+    [
+      'Кафедра математики, інформатики і методики навчання',
+      'Кафедра математики, інформатики та методики навчання',
+    ],
+    [
+      'Кафедра української лінгвістики та методики навчання',
+      'Кафедра української лінгвістики і методики навчання',
+    ],
+  ];
+
+  it.each(renamed)('the old name still reaches the кафедра: %s', (was, now) => {
+    expect(normaliseDepartmentName(was)).toBe(normaliseDepartmentName(now));
+  });
+
+  // «і» against «та» is the one difference the normaliser does NOT forgive, so
+  // an alias that stopped working would fail silently rather than loudly.
+  it('the new names are the ones actually seeded', () => {
+    const seeded = new Set(DEPARTMENTS.map((d) => normaliseDepartmentName(d.name)));
+    for (const [, now] of renamed) expect(seeded).toContain(normaliseDepartmentName(now));
+  });
+
+  it('leaves a кафедра nobody renamed alone', () => {
+    expect(normaliseDepartmentName('Кафедра економіки')).toBe('економіки');
+  });
+});
+
 describe('normaliseDepartmentName', () => {
   it('folds case, spacing and the word «кафедра»', () => {
     expect(normaliseDepartmentName('  Кафедра   Економіки ')).toBe('економіки');

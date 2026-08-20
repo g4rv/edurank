@@ -24,15 +24,25 @@
 // ставок — Кафедра біології» — and without the prefix those read as fragments.
 // Matching is unaffected: `normaliseDepartmentName` strips it.
 //
-// Three кафедри are spelled the way uhsp.edu.ua/…/kafedry spells them rather
-// than the way УГСП_Дані.xlsx does — «математики, інформатики І методики»,
-// «української лінгвістики ТА методики», and «І. П. Стогнія» with its spaces.
-// The two sources genuinely disagree, and the довідник in
-// lib/specialities/departments.ts follows the site. `normaliseDepartmentName`
-// forgives case, apostrophes and the prefix but NOT «і» against «та», so a
-// кафедра spelled the sheet's way is `unknown` to `specialityOrigin` and its
-// завідувач sees every випускова-кафедра chip go gray with nothing to click.
-// A test pins all 31 against the довідник.
+// Four names follow `edu-reference/new_deps.docx` (2026-08-20), the university's
+// own restructuring document, which is newer than the website these used to
+// follow. Where the two disagree, the document wins:
+//
+//   математики, інформатики ТА методики    (site said «і»)
+//   української лінгвістики І методики     (site said «та»)
+//   І.П.Стогнія                            (site spaced it «І. П.»)
+//   Кафедра ФІЗИЧНОЇ РЕАБІЛІТАЦІЇ, здоров’я і безпеки життєдіяльності
+//
+// `normaliseDepartmentName` forgives case, apostrophes and the prefix but NOT
+// «і» against «та», so a кафедра spelled the other way is `unknown` to
+// `specialityOrigin` and its завідувач sees every випускова-кафедра chip go
+// gray with nothing to click. The довідник in lib/specialities/departments.ts
+// therefore had to move in the same commit, and a test pins all 31 against it.
+//
+// The document also REGROUPS the факультети — 8 become 6 plus a навчально-
+// науковий інститут, and 26 кафедри change parent. That half is deliberately
+// NOT applied yet (owner, 2026-08-20): the кафедра names are what the roster
+// and the 2025 folders are matched on, and the факультет is only a heading.
 
 export const FACULTIES: readonly { name: string; short: string }[] = [
   { name: 'Факультет соціально-психологічний', short: 'СП' },
@@ -64,23 +74,23 @@ export const DEPARTMENTS: readonly { name: string; faculty: string }[] = [
   { name: 'Кафедра менеджменту', faculty: 'ММПП' },
   { name: 'Кафедра екології, географії і методики навчання', faculty: 'ПО' },
   { name: 'Кафедра природничих дисциплін і методики навчання', faculty: 'ПО' },
-  { name: 'Кафедра здоров’я і безпеки життєдіяльності', faculty: 'ПО' },
+  { name: 'Кафедра фізичної реабілітації, здоров’я і безпеки життєдіяльності', faculty: 'ПО' },
   { name: 'Кафедра психології і педагогіки дошкільної освіти', faculty: 'СП' },
   { name: 'Кафедра психології', faculty: 'СП' },
   { name: 'Кафедра соціальної педагогіки і соціальної роботи', faculty: 'СП' },
   { name: 'Кафедра освітології та педагогічної інноватики', faculty: 'СП' },
   {
-    name: 'Кафедра філософії і соціальної антропології імені професора І. П. Стогнія',
+    name: 'Кафедра філософії і соціальної антропології імені професора І.П.Стогнія',
     faculty: 'СП',
   },
-  { name: 'Кафедра математики, інформатики і методики навчання', faculty: 'ТМО' },
+  { name: 'Кафедра математики, інформатики та методики навчання', faculty: 'ТМО' },
   {
     name: 'Кафедра теорії і методики технологічної освіти та комп’ютерної графіки',
     faculty: 'ТМО',
   },
   { name: 'Кафедра теорії та методики професійної підготовки', faculty: 'ТМО' },
   { name: 'Кафедра української і зарубіжної літератури та методики навчання', faculty: 'УІФ' },
-  { name: 'Кафедра української лінгвістики та методики навчання', faculty: 'УІФ' },
+  { name: 'Кафедра української лінгвістики і методики навчання', faculty: 'УІФ' },
   { name: 'Кафедра іноземної філології, перекладу та методики навчання', faculty: 'УІФ' },
   { name: 'Кафедра професійної освіти', faculty: 'ФЕПО' },
   { name: 'Кафедра економіки', faculty: 'ФЕПО' },
