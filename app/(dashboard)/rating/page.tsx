@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { getActiveTemplate } from '@/lib/queries/get-active-template';
+import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { listRatings, type RatingSortField } from '@/lib/queries/list-ratings';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DownloadButton } from '@/components/ui/download-button';
 import { RatingFilters } from '@/components/rating/rating-filters';
+import { YearSelect } from '@/components/rating/year-select';
 import { SortTh } from '@/components/ui/sort-th';
 import { DataTable } from '@/components/ui/data-table';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
@@ -35,6 +36,16 @@ export default async function RatingRollupPage({
     );
   }
 
+  // Which year is on screen. The active one by default; any template year on
+  // request — a закритий рік is frozen history and worth being able to look at,
+  // which is the whole reason `listRatings` keeps archived people in one.
+  const activeYear = template.year;
+  const templateYears = await listTemplateYears();
+  const years = templateYears.map((t) => t.year);
+  const asked = Number(params.year);
+  const year = years.includes(asked) ? asked : activeYear;
+  const shown = templateYears.find((t) => t.year === year);
+
   const { q, faculty, dept, sort, dir } = params;
 
   const VALID_SORTS: readonly RatingSortField[] = [
@@ -55,7 +66,7 @@ export default async function RatingRollupPage({
 
   const [rows, faculties, departments] = await Promise.all([
     listRatings({
-      year: template.year,
+      year,
       q: typeof q === 'string' ? q : undefined,
       facultyId: typeof faculty === 'string' ? faculty : undefined,
       departmentId: typeof dept === 'string' ? dept : undefined,
@@ -78,6 +89,9 @@ export default async function RatingRollupPage({
           ? 'desc'
           : 'asc';
     const sp = new URLSearchParams();
+    // Carried, or clicking a column header would drop you back into the active
+    // year with the sort applied — the table would change under the click.
+    if (year !== activeYear) sp.set('year', String(year));
     if (typeof q === 'string' && q) sp.set('q', q);
     if (typeof faculty === 'string' && faculty) sp.set('faculty', faculty);
     if (typeof dept === 'string' && dept) sp.set('dept', dept);
@@ -92,18 +106,19 @@ export default async function RatingRollupPage({
         <div>
           <h1 className="text-2xl font-semibold">Рейтинг НПП</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {template.year} рік — {rows.length} НПП
-            {template.status === 'CLOSED' && ' (рік закрито)'}
+            {rows.length} НПП
+            {shown?.status === 'CLOSED' && ' · рік закрито'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <YearSelect years={years} value={year} />
           <DownloadButton
-            href={`/api/export/ratings?year=${template.year}`}
+            href={`/api/export/ratings?year=${year}`}
             label="Рейтинги (архів)"
             title="Офіційна форма рейтингового оцінювання для кожного НПП"
           />
           <DownloadButton
-            href={`/api/export/kharakterystyka?year=${template.year}`}
+            href={`/api/export/kharakterystyka?year=${year}`}
             label="Характеристики (архів)"
             title="Характеристика_РНПАВ для кожного НПП за останні 5 років"
           />
