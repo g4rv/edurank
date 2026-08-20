@@ -245,7 +245,10 @@ describe('setDepartmentStake — the pool floor', () => {
   it('counts every НПП on the roster, not just those meeting the licence bar', async () => {
     await setDepartmentStake(null, form({ departmentId: 'd1', year: 2026, kst: '5' }));
     expect(mockCount).toHaveBeenCalledWith({
-      where: { archivedAt: null, isNpp: true, departmentId: 'd1' },
+      // ON_ROSTER, spread verbatim: archived people are off it, and so is the
+      // seeded core administrator, which is a service account rather than a
+      // person and must not add a head to the кафедра's floor.
+      where: { archivedAt: null, isSystem: false, isNpp: true, departmentId: 'd1' },
     });
   });
 
