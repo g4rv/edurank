@@ -56,6 +56,27 @@ interface Indicator {
   options: Option[];
 }
 
+/**
+ * What a set of choices are all called — «Видання монографії» out of
+ * «Видання монографії (українською мовою)» and «… (мовою країн ЄС)».
+ *
+ * Whole words only, so a shared prefix cannot cut one in half, and trailing
+ * punctuation is dropped. Returns '' when they share nothing useful, and the
+ * caller then keeps the first label rather than inventing a name.
+ */
+function commonName(labels: string[]): string {
+  if (labels.length === 0) return '';
+  const words = labels.map((l) => l.split(' '));
+  const first = words[0];
+  let n = 0;
+  while (n < first.length && words.every((w) => w[n] === first[n])) n += 1;
+  return first
+    .slice(0, n)
+    .join(' ')
+    .replace(/[\s(,:;-]+$/, '')
+    .trim();
+}
+
 async function extract(path: string): Promise<Indicator[]> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(path);
@@ -128,9 +149,24 @@ async function extract(path: string): Promise<Indicator[]> {
     }
   });
 
-  // An indicator whose own row carries no coefficient AND no options is a
-  // heading like «Вчене звання:» whose choices failed to attach — worth seeing
-  // rather than silently dropping.
+  // ── Is the indicator's own row a heading, or already a choice? ──
+  //
+  // Most groups open with a heading and no points — «Вчене звання:» then
+  // професор / доцент / … But some have no heading at all: 3.7 is two priced
+  // rows, «Видання монографії (українською мовою)» 150 and «(мовою країн
+  // Європейського союзу)» 250. Reading the first as the heading made the
+  // Ukrainian edition the indicator's NAME and left the year with a monograph
+  // indicator that only knew about the European one.
+  //
+  // So: a first row that carries points is itself a choice, and the indicator
+  // is named by what its choices have in common.
+  for (const i of out) {
+    if (i.coefficient === null || i.options.length === 0) continue;
+    i.options.unshift({ label: i.label, points: i.coefficient });
+    i.coefficient = null;
+    i.label = commonName(i.options.map((o) => o.label)) || i.label;
+  }
+
   return out;
 }
 
@@ -215,20 +251,38 @@ async function main() {
   withCounts.sort(
     (a, b) => b.template.length - a.template.length || b.group.length - a.group.length
   );
-  const canonical = withCounts[0].template;
-  console.log(
-    `\nfullest reading: ${canonical.length} indicators, from a group of ${withCounts[0].group.length} workbooks`
-  );
+  const skeleton = withCounts[0].template;
+
   const filled: string[] = [];
   const blank: string[] = [];
   for (const f of files) ((await hasScores(f)) ? filled : blank).push(f);
-  console.log(`
-workbooks with scores: ${filled.length} · blank: ${blank.length}`);
+  console.log(`\nworkbooks with scores: ${filled.length} · blank: ${blank.length}`);
   if (blank.length) {
     console.log('  blank ones are the template, never a source of scores:');
-    for (const f of blank.slice(0, 3)) console.log(`    ${f.split(/[\/]/).slice(-1)[0]}`);
+    for (const f of blank.slice(0, 3)) console.log(`    ${f.split(/[\\/]/).slice(-1)[0]}`);
     if (blank.length > 3) console.log(`    …and ${blank.length - 3} more`);
   }
+
+  // Structure from the blank form, UNITS from a filled one.
+  //
+  // «Критерії (балів)» spans two columns, and what sits in the second differs
+  // between the two: a filled workbook says «бал за рік», a blank one holds a
+  // stray number left over from whoever last opened it. Reading units off the
+  // blank form gave 1.1 a note of «8» and found exactly one MULT indicator in
+  // the whole year — the multiplying ones are recognised BY that text.
+  //
+  // So each half comes from the copy that has it right, joined on the item
+  // number. An indicator the filled copies do not number — 3.13, 3.14 — simply
+  // keeps no unit, which is true: there is nowhere to read one from.
+  const fromFilled = filled.length ? await extract(filled[0]) : [];
+  const unitByItem = new Map(fromFilled.map((i) => [i.itemNumber, i.unit]));
+  const canonical = skeleton.map((i) => ({
+    ...i,
+    unit: unitByItem.get(i.itemNumber) ?? null,
+  }));
+  console.log(
+    `\nfullest reading: ${canonical.length} indicators, from a group of ${withCounts[0].group.length} workbooks`
+  );
 
   const bySection = new Map<number, Indicator[]>();
   for (const i of canonical) bySection.set(i.section, [...(bySection.get(i.section) ?? []), i]);
