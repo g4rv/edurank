@@ -206,15 +206,72 @@ authorise it. Anything sending from that host is already failing SPF today.
 Coolify's scheduled backups of the Postgres resource are the baseline. Set a
 retention you can live with and a destination that is not the same disk.
 
-**Then restore one.** Take a dump, restore it into a scratch database, point a
-local app at it and sign in. Until that has been done once, the backup is a
-hope. This is the single item on this page most likely to be skipped and most
-expensive to have skipped.
+**Then restore one.** Until that has been done once, the backup is a hope. This
+is the single item on this page most likely to be skipped and most expensive to
+have skipped.
 
 The repo's `backup` service in `docker-compose.yml` writes plain `pg_dump`
 files to `BACKUP_PATH` and was written with a NAS in mind. If the NAS is still
 the plan, either mount it and point Coolify's backup there, or run that one
 service against the Coolify database. Do not deploy the rest of that file.
+
+### The restore drill
+
+Run this on a quiet day, not during an incident — the point is that you have
+done it before you need it. It touches nothing but a throwaway database, so it
+is safe to repeat any time. Performed on dev 2026-08-22; every step below is
+the one that actually ran.
+
+```bash
+# 1. A scratch database beside the real one. Never restore over the live DB.
+docker compose exec -T postgres psql -U postgres   -c "DROP DATABASE IF EXISTS edurank_restore_test;"   -c "CREATE DATABASE edurank_restore_test;"
+
+# 2. Restore the newest backup the service wrote.
+gunzip -c backups/daily/edurank-latest.sql.gz   | docker compose exec -T postgres psql -U postgres -d edurank_restore_test -q
+
+# 3. Is the data there?
+docker compose exec -T postgres psql -U postgres -d edurank_restore_test -t -c "
+  select 'Staff', count(*) from \"Staff\"
+  union all select 'Activity', count(*) from \"Activity\"
+  union all select 'RatingEntry', count(*) from \"RatingEntry\"
+  union all select 'migrations', count(*) from _prisma_migrations
+    where finished_at is not null;"
+
+# 4. Can somebody sign in? Point the app's own code at it — a row count does
+#    not prove a login works, and a login is what people will be doing.
+#    On the server, run the app container with DATABASE_URL pointing here.
+#    Locally, Next 16 refuses a second dev server in the same folder, so
+#    exercise the real query layer instead:
+DATABASE_URL="<the same URL, ending /edurank_restore_test>" npx tsx <<'TS'
+import 'dotenv/config';
+import { compare } from 'bcryptjs';
+import { db } from './lib/db';
+const email = 'admin@uhsp.edu.ua';
+const s = await db.staff.findUnique({
+  where: { email },
+  select: { role: true, passwordHash: true, archivedAt: true },
+});
+const ok = !!s?.passwordHash && !s.archivedAt
+  && (await compare(process.env.ADMIN_PASSWORD ?? '', s.passwordHash));
+console.log(`login ${email}: ${ok ? 'WORKS' : 'FAILS'} · ${s?.role}`);
+console.log('people:', await db.staff.count({ where: { isSystem: false } }));
+await db.$disconnect();
+TS
+
+# 5. Throw it away.
+docker compose exec -T postgres psql -U postgres   -c "DROP DATABASE edurank_restore_test;"
+```
+
+Two things the first drill turned up, neither fatal:
+
+- **`ERROR: unrecognized configuration parameter "transaction_timeout"`** on
+  restore is expected and harmless. The backup image's `pg_dump` is newer than
+  the `postgres:16` server, so the dump opens with a `SET` that 16 does not
+  know. It fails, the restore continues, and the data is complete. Pin the
+  backup image to a 16 build if you want the noise gone.
+- **The backup is daily.** Restoring loses everything since the last run — up
+  to 24 hours. Decide whether that is acceptable once real data is in, and
+  raise the frequency in Coolify if it is not.
 
 ## 8. Upgrades
 
@@ -243,5 +300,5 @@ Honest list, as of 2026-08-14.
 | Staff import (~300 people) | **Built, not run.** `pnpm db:seed:prod`, from a maintainer's machine — see §4.                       |
 | Instructions in Ukrainian  | None. Four audiences who have never seen the app.                                                    |
 | Reminders / notifications  | No notification code exists at all.                                                                  |
-| Restore drill              | Never performed.                                                                                     |
+| Restore drill              | **Done 2026-08-22** on dev, from the `backup` service's own file. See §7.                            |
 | Support owner              | Nobody has been named. Decide who answers when an НПП cannot sign in.                                |
