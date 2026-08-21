@@ -216,10 +216,21 @@ async function main() {
         let fromAmount = false;
         if (select && select.kind === 'select') {
           const named = r.labels.map(norm);
-          const inBlock = select.options.filter(
-            (o) =>
-              named.includes(norm(o.label)) ||
-              named.some((l) => l.length > 0 && norm(o.label).startsWith(`${l} `))
+          // Three ways a line can name a choice: outright, by the group it
+          // opens, or by the choice's own short name where the template's label
+          // carries the group in front of it. Товкун Лідія's «Внесення даних та
+          // супровід сайту наукового збірника» is the third — the template
+          // spells it «Робота по виданню… категорії "Б" (видань університету) —
+          // Внесення даних…», so neither of the first two matched and her 200
+          // points were dropped without a word.
+          const inBlock = select.options.filter((o) =>
+            named.some(
+              (l) =>
+                l.length > 0 &&
+                (norm(o.label) === l ||
+                  norm(o.label).startsWith(`${l} `) ||
+                  norm(o.label).endsWith(` ${l}`))
+            )
           );
           // Some indicators put the figure on the heading alone and never on
           // a choice — 3.17 спецради, 1.8 методичні ради, 3.1 and 3.4. There
