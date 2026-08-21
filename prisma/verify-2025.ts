@@ -4,6 +4,7 @@ import { join } from 'path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import { nameKey, readSheet, workbooks } from './rating-sheet-2025';
+import { round2 } from '../lib/round';
 
 // Checks the imported year against the university's own arithmetic.
 //
@@ -72,6 +73,22 @@ async function main() {
       ours: number[];
       theirTotal: number;
       ourTotal: number;
+      /**
+       * What the workbook's OWN rows add up to, section by section.
+       *
+       * Not the same as its «Всього балів по розділу N» in nine of them, and
+       * that is the sheet being wrong rather than us: Ващенко's розділ 2 says
+       * 201 where its two rows are 63 and 40, because the formula range starts
+       * a row too high and swallows «Всього балів по розділу 1» — his own 98.
+       * Гагаріна and Бережна have the identical fault; six others leave a row
+       * out of the range instead, four of them exactly 100.
+       *
+       * Where the two disagree the ROWS are what the source files contain and
+       * what we reproduce, so a difference against the published subtotal is
+       * not a defect to chase.
+       */
+      theirRows: number[];
+      theirRowTotal: number;
     }
     const rows: Row[] = [];
     let blank = 0;
@@ -91,7 +108,16 @@ async function main() {
         continue;
       }
       const e = person.ratingEntries[0];
+      const theirRows = [1, 2, 3, 4, 5].map((n) =>
+        round2(
+          sheet.blocks
+            .filter((b) => Number(b.itemNumber.split('.')[0]) === n)
+            .reduce((t, b) => t + b.earned, 0)
+        )
+      );
       rows.push({
+        theirRows,
+        theirRowTotal: round2(theirRows.reduce((a, b) => a + b, 0)),
         name: `${person.lastName} ${person.firstName} ${person.patronymic}`.trim(),
         department: person.department?.name ?? '—',
         theirs: sheet.sections,
@@ -125,11 +151,26 @@ async function main() {
     );
 
     const close = rows.filter((r) => Math.abs(r.ourTotal - r.theirTotal) < 0.51).length;
-    console.log(`\nexact to the last 0.5:  ${close} of ${rows.length}`);
-
-    const worst = [...rows].sort(
-      (a, b) => Math.abs(b.ourTotal - b.theirTotal) - Math.abs(a.ourTotal - a.theirTotal)
+    // Their published total is not always their own arithmetic. Where it is
+    // not, matching their ROWS is the right answer and matching the total would
+    // be the wrong one.
+    const brokenSheet = rows.filter(
+      (r) =>
+        Math.abs(r.ourTotal - r.theirTotal) >= 0.51 && Math.abs(r.ourTotal - r.theirRowTotal) < 0.51
     );
+    console.log(`\nexact against their published total: ${close} of ${rows.length}`);
+    console.log('…plus exact against their own ROWS, where their subtotal does');
+    console.log(`   not add up — their arithmetic, not ours: ${brokenSheet.length}`);
+    console.log(`   → correct: ${close + brokenSheet.length} of ${rows.length}`);
+    for (const r of brokenSheet)
+      console.log(
+        `     ${r.name.padEnd(34)} rows ${r.theirRowTotal.toFixed(2).padStart(9)} · published ${r.theirTotal.toFixed(2).padStart(9)}`
+      );
+
+    const bust = new Set(brokenSheet);
+    const worst = [...rows]
+      .filter((r) => !bust.has(r))
+      .sort((a, b) => Math.abs(b.ourTotal - b.theirTotal) - Math.abs(a.ourTotal - a.theirTotal));
     console.log('\nfurthest apart:');
     for (const r of worst.slice(0, 10)) {
       console.log(
