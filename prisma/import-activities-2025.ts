@@ -309,8 +309,18 @@ async function main() {
 
       // Column 3 is a quantity — unless it was what identified the choice, and
       // then the row is a single occurrence priced by that choice.
-      const quantity = Number(r.quantity.replace(',', '.'));
-      const amount = thirdIsPoints || !(Number.isFinite(quantity) && quantity > 0) ? 1 : quantity;
+      //
+      // **A written zero is a zero.** Коцур Надія's eighth 3.10 article carries
+      // 0 сторінок and her sheet scores it 0; read as «no quantity given» it
+      // became 1 and paid her 10 points she was never awarded. The fallback to
+      // one is for a cell that is EMPTY or unreadable, which is a different
+      // thing from a cell that says none.
+      const written = r.quantity.replace(',', '.').trim();
+      const quantity = Number(written);
+      const amount =
+        thirdIsPoints || written === '' || !Number.isFinite(quantity) || quantity < 0
+          ? 1
+          : quantity;
       if (specs.fields.some((f) => f.name === 'value')) evidence.value = amount;
       if (specs.fields.some((f) => f.name === 'credits')) evidence.credits = amount;
 
