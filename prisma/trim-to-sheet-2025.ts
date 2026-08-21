@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
-import { itemTotals, nameKey, readSheet, same, workbooks } from './rating-sheet-2025';
+import { byFullName, itemTotals, nameKey, readSheet, same, workbooks } from './rating-sheet-2025';
 
 // Trims a person's indicator back to what the university actually awarded.
 //
@@ -75,13 +75,10 @@ async function main() {
     if (template.status !== 'OPEN')
       throw new Error(`${YEAR} is ${template.status}; reopen it first`);
 
-    const roster = JSON.parse(readFileSync('staff-roster.json', 'utf8')) as {
-      fullName: string;
-      email: string;
-    }[];
-    const emailByName = new Map(roster.map((r) => [nameKey(r.fullName), r.email.toLowerCase()]));
-    const staff = await prisma.staff.findMany({ select: { id: true, email: true } });
-    const idByEmail = new Map(staff.map((s) => [s.email.toLowerCase(), s.id]));
+    const staff = await prisma.staff.findMany({
+      select: { id: true, lastName: true, firstName: true, patronymic: true },
+    });
+    const byName = byFullName(staff);
 
     type Row = {
       id: string;
@@ -117,8 +114,7 @@ async function main() {
       const sheet = await readSheet(f);
       // A blank workbook is not a statement that somebody earned nothing
       if (!sheet || sheet.total === 0) continue;
-      const email = emailByName.get(nameKey(sheet.person));
-      const staffId = email ? idByEmail.get(email) : undefined;
+      const staffId = byName.get(nameKey(sheet.person))?.id;
       if (!staffId) continue;
 
       const theirs = itemTotals(sheet.blocks);

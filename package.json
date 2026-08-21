@@ -31,6 +31,7 @@
     "legacy:template": "tsx scripts/legacy-template.ts",
     "import:template-2025": "tsx prisma/import-template-2025.ts",
     "import:activities-2025": "tsx prisma/import-activities-2025.ts",
+    "import:missing-staff": "tsx prisma/import-missing-staff.ts",
     "import:profiles": "tsx prisma/import-profiles.ts",
     "import:division-2025": "tsx prisma/import-division-2025.ts",
     "import:registers-2025": "tsx prisma/import-registers-2025.ts",

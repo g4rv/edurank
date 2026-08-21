@@ -51,6 +51,41 @@ describe('inviteBatch authorization', () => {
   });
 });
 
+describe('inviteBatch without an address', () => {
+  it('refuses a placeholder and says what to do, without sending', async () => {
+    const p = person('s1');
+    p.email = 'hbur.zoriana@no-email.invalid';
+    mockFindMany.mockResolvedValue([p]);
+
+    const state = await inviteBatch(['s1']);
+
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(state).toEqual({
+      results: [
+        {
+          id: 's1',
+          fullName: 'Франко Іван Якович',
+          email: 'hbur.zoriana@no-email.invalid',
+          ok: false,
+          error: 'Немає адреси — вкажіть її на сторінці працівника',
+        },
+      ],
+    });
+  });
+
+  it('does not stop the rest of the batch', async () => {
+    const without = person('s1');
+    without.email = 'x@no-email.invalid';
+    mockFindMany.mockResolvedValue([without, person('s2')]);
+    mockSend.mockResolvedValue(undefined);
+
+    const state = await inviteBatch(['s1', 's2']);
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect('results' in state && state.results.map((r) => r.ok)).toEqual([false, true]);
+  });
+});
+
 describe('inviteBatch sending', () => {
   it('mails everyone who has no account', async () => {
     mockFindMany.mockResolvedValue([person('s1'), person('s2')]);

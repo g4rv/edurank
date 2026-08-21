@@ -1,12 +1,12 @@
 import 'dotenv/config';
-import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'fs';
+import { readdirSync, statSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import ExcelJS from 'exceljs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Prisma } from '../lib/generated/prisma/client';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
-import { nameKey } from './rating-sheet-2025';
+import { byFullName, nameKey } from './rating-sheet-2025';
 
 // Imports one year of activities out of the `Розділ_*` workbooks.
 //
@@ -222,14 +222,10 @@ async function main() {
       return hits.length === 1 ? hits[0].type : undefined;
     };
 
-    const roster = JSON.parse(readFileSync('staff-roster.json', 'utf8')) as {
-      fullName: string;
-      email: string;
-    }[];
-    const emailByName = new Map(roster.map((r) => [nameKey(r.fullName), r.email]));
-
-    const staff = await prisma.staff.findMany({ select: { id: true, email: true } });
-    const idByEmail = new Map(staff.map((s) => [s.email.toLowerCase(), s.id]));
+    const staff = await prisma.staff.findMany({
+      select: { id: true, lastName: true, firstName: true, patronymic: true },
+    });
+    const byName = byFullName(staff);
 
     const files = walk(ROOT);
     const raw: RawRow[] = [];
@@ -263,8 +259,7 @@ async function main() {
     const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
 
     for (const r of raw) {
-      const email = emailByName.get(nameKey(r.person));
-      const staffId = email ? idByEmail.get(email.toLowerCase()) : undefined;
+      const staffId = byName.get(nameKey(r.person))?.id;
       if (!staffId) {
         bump(noPerson, r.person);
         continue;
@@ -338,7 +333,7 @@ async function main() {
     const pct = (n: number) => `${Math.round((n / raw.length) * 100)}%`;
     console.log(`\nready to import  ${ready.length}  (${pct(ready.length)})`);
     const lost = [
-      ['person not on the roster', noPerson],
+      ['person not in the system', noPerson],
       ['indicator not in the 2025 template', noIndicator],
       ['option not recognised', noOption],
       ['number and label disagreed — filed by label', renumbered],

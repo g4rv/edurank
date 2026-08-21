@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
-import { nameKey, readSheet, workbooks } from './rating-sheet-2025';
+import { byFullName, nameKey, readSheet, workbooks } from './rating-sheet-2025';
 import { round2 } from '../lib/round';
 
 // Checks the imported year against the university's own arithmetic.
@@ -34,12 +34,6 @@ async function main() {
   });
 
   try {
-    const roster = JSON.parse(readFileSync('staff-roster.json', 'utf8')) as {
-      fullName: string;
-      email: string;
-    }[];
-    const emailByName = new Map(roster.map((r) => [nameKey(r.fullName), r.email.toLowerCase()]));
-
     const staff = await prisma.staff.findMany({
       select: {
         id: true,
@@ -61,7 +55,7 @@ async function main() {
         },
       },
     });
-    const byEmail = new Map(staff.map((s) => [s.email.toLowerCase(), s]));
+    const byName = byFullName(staff);
 
     const files = workbooks();
     console.log(`workbooks: ${files.length}`);
@@ -101,8 +95,7 @@ async function main() {
         blank += 1;
         continue;
       }
-      const email = emailByName.get(nameKey(sheet.person));
-      const person = email ? byEmail.get(email) : undefined;
+      const person = byName.get(nameKey(sheet.person));
       if (!person) {
         unmatched += 1;
         continue;
@@ -186,7 +179,7 @@ async function main() {
       `# ${YEAR}: our totals against the university's own`,
       '',
       `Compared **${rows.length}** people. Blank or unscored workbooks: ${blank}. ` +
-        `In the folder but not on our roster: ${unmatched}.`,
+        `In the folder but not in the system: ${unmatched}.`,
       '',
       `Exact to the last 0.5: **${close}**.`,
       '',

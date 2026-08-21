@@ -1,11 +1,11 @@
 import 'dotenv/config';
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Prisma } from '../lib/generated/prisma/client';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
-import { nameKey, readSheet, same, tidy, workbooks } from './rating-sheet-2025';
+import { byFullName, nameKey, readSheet, same, tidy, workbooks } from './rating-sheet-2025';
 
 // The half of 2025 that the `Розділ_*` workbooks do not contain.
 //
@@ -77,13 +77,10 @@ async function main() {
 
     const byItem = new Map(template.activityTypes.map((t) => [t.itemNumber, t]));
 
-    const roster = JSON.parse(readFileSync('staff-roster.json', 'utf8')) as {
-      fullName: string;
-      email: string;
-    }[];
-    const emailByName = new Map(roster.map((r) => [nameKey(r.fullName), r.email.toLowerCase()]));
-    const staff = await prisma.staff.findMany({ select: { id: true, email: true } });
-    const idByEmail = new Map(staff.map((s) => [s.email.toLowerCase(), s.id]));
+    const staff = await prisma.staff.findMany({
+      select: { id: true, lastName: true, firstName: true, patronymic: true },
+    });
+    const byName = byFullName(staff);
 
     // What the Розділ import already gave each person. One query, because the
     // alternative is 300 people × 53 indicators of round trips.
@@ -135,8 +132,7 @@ async function main() {
       const sheet = await readSheet(f);
       if (!sheet) continue;
 
-      const email = emailByName.get(nameKey(sheet.person));
-      const staffId = email ? idByEmail.get(email) : undefined;
+      const staffId = byName.get(nameKey(sheet.person))?.id;
       if (!staffId) {
         if (sheet.blocks.length > 0) bump(noPerson, sheet.person);
         continue;
@@ -352,7 +348,7 @@ async function main() {
     console.log(`points they carry: ${Math.round(total)}`);
     console.log(`choice worked out from the amount: ${inferred} of them`);
     const lost = [
-      ['person not on the roster', noPerson],
+      ['person not in the system', noPerson],
       ['already imported from a Розділ file', alreadyHeld],
       ['no such indicator in the template', noIndicator],
       ['the line names no choice we know', noChoice],

@@ -6,7 +6,7 @@ import { requireAdmin } from '@/lib/permissions';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { issueAndEmailLink, staffFullName } from '@/lib/mail/invite';
 import { logWarning } from '@/lib/log';
-import { INVITE_BATCH_SIZE, type InviteBatchState, type InviteOutcome } from './shared';
+import { INVITE_BATCH_SIZE, hasNoEmail, type InviteBatchState, type InviteOutcome } from './shared';
 
 /**
  * Bulk invite, sent a batch at a time.
@@ -79,6 +79,20 @@ export async function inviteBatch(ids: string[]): Promise<InviteBatchState> {
         email: person.email,
         ok: false,
         error: 'Обліковий запис вже активовано',
+      });
+      continue;
+    }
+
+    // A placeholder address cannot receive anything, and a bulk send would
+    // otherwise fail thirty-four times over with «Лист не надіслано», which
+    // says nothing about what to do.
+    if (hasNoEmail(person.email)) {
+      results.push({
+        id,
+        fullName,
+        email: person.email,
+        ok: false,
+        error: 'Немає адреси — вкажіть її на сторінці працівника',
       });
       continue;
     }

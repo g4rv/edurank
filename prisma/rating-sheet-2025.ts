@@ -85,6 +85,24 @@ export const nameKey = (s: string) => {
   return ALIASES[key] ?? key;
 };
 
+/**
+ * ПІБ → the person, taken from the DATABASE rather than from the roster.
+ *
+ * The importers used to go name → `staff-roster.json` → email → Staff, which
+ * quietly excluded anybody the roster does not list. That mattered the moment
+ * 34 people were created FROM the folders precisely because the кафедра lists
+ * had left them out: their accounts existed and their rating still went
+ * nowhere. The database is the thing being written to, so it is the thing to
+ * match against; `nameKey` already folds in the five spellings that differ.
+ */
+export function byFullName<T extends { lastName: string; firstName: string; patronymic: string }>(
+  rows: readonly T[]
+): Map<string, T> {
+  return new Map(
+    rows.map((s) => [nameKey(`${s.lastName} ${s.firstName} ${s.patronymic}`.trim()), s])
+  );
+}
+
 /** Every scored workbook under ФАКУЛЬТЕТИ */
 export function workbooks(dir: string = ROOT, out: string[] = []): string[] {
   for (const e of readdirSync(dir)) {

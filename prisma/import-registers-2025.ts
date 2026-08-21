@@ -1,12 +1,12 @@
 import 'dotenv/config';
-import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'fs';
+import { readdirSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import ExcelJS from 'exceljs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Prisma } from '../lib/generated/prisma/client';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
-import { itemTotals, nameKey, readSheet, same, workbooks } from './rating-sheet-2025';
+import { byFullName, itemTotals, nameKey, readSheet, same, workbooks } from './rating-sheet-2025';
 
 // The відділи' own registers — the source behind розділи 1 and 2.
 //
@@ -414,13 +414,10 @@ async function main() {
       throw new Error(`${YEAR} is ${template.status}; reopen it first`);
     const byItem = new Map(template.activityTypes.map((t) => [t.itemNumber, t]));
 
-    const roster = JSON.parse(readFileSync('staff-roster.json', 'utf8')) as {
-      fullName: string;
-      email: string;
-    }[];
-    const emailByName = new Map(roster.map((r) => [nameKey(r.fullName), r.email.toLowerCase()]));
-    const staff = await prisma.staff.findMany({ select: { id: true, email: true } });
-    const idByEmail = new Map(staff.map((s) => [s.email.toLowerCase(), s.id]));
+    const staff = await prisma.staff.findMany({
+      select: { id: true, lastName: true, firstName: true, patronymic: true },
+    });
+    const byName = byFullName(staff);
 
     const entries: Entry[] = [];
     const notNames: string[] = [];
@@ -468,8 +465,7 @@ async function main() {
     const groups = new Map<string, Group>();
 
     for (const e of entries) {
-      const email = emailByName.get(nameKey(e.person));
-      const staffId = email ? idByEmail.get(email) : undefined;
+      const staffId = byName.get(nameKey(e.person))?.id;
       if (!staffId) {
         bump(noPerson, e.person);
         continue;
@@ -639,7 +635,7 @@ async function main() {
         ` (${Math.round(disagreed.reduce((t, d) => t + d.ours, 0))} points left out)`
     );
     const lost = [
-      ['person not on the roster', noPerson],
+      ['person not in the system', noPerson],
       ['no such indicator in the template', noIndicator],
       ['the register names a choice the template has not got', noOption],
       ['scoring refused the row', failed],
