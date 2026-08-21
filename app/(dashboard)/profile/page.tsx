@@ -10,6 +10,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
+import { formatStakeValue } from '@/lib/stake/units';
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -215,7 +216,7 @@ export default async function ProfilePage() {
           {staff.division && <Field label="Відділ" value={staff.division.name} />}
           <Field
             label="Ставка"
-            value={staff.employmentRate !== null ? `${staff.employmentRate}` : '—'}
+            value={staff.employmentRate !== null ? formatStakeValue(staff.employmentRate) : '—'}
           />
         </InfoCard>
 

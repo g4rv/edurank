@@ -9,6 +9,7 @@ import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import type { StaffListItem } from '@/lib/queries/list-staff';
+import { formatStakeValue } from '@/lib/stake/units';
 
 function fullName(s: Pick<TableStaffItem, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -106,7 +107,7 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
                     every staff member without a ставка, which is most of them —
                     at that density it reads as decoration, not as a warning. */}
                 {'employmentRate' in member && member.employmentRate != null
-                  ? member.employmentRate
+                  ? formatStakeValue(member.employmentRate)
                   : '—'}
               </td>
             )}
