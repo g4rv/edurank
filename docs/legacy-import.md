@@ -307,8 +307,9 @@ any change here.
 | 5      | 113%                   | 100%     |
 | разом  | **72%**                | **100%** |
 
-747 880 against their 749 846, and **every розділ at 100%**. 217 of 250 people
-match their sheet **to the last 0.5 балів**.
+749 530 against their 749 846, and **every розділ at 100%**. 219 of 250 people
+match their sheet **to the last 0.5 балів**; the differences that remain add up
+to 2 550 in absolute terms, **0.34%**.
 
 ### The order to run them in
 
@@ -437,9 +438,19 @@ Two things the registers do NOT settle:
 
 ### The register decides the role, never the amount
 
-**A register group is imported only where its total equals what the «Рейтинг»
-sheet awarded that person for that indicator.** 262 groups worth 37 415 points
-fail that test and are printed instead, in `import-report/registers-2025.md`.
+**A register group is imported only up to what the «Рейтинг» sheet awarded that
+person for that indicator.** Where the register has more — it kept going after
+the workbook was made — whole entries are dropped until the two agree, and the
+roles are still the відділ's own. 252 groups worth 26 585 points cannot be made
+to agree that way and are printed instead, in `import-report/registers-2025.md`.
+
+**Ковтун Олександр is the case that shows why this beats arithmetic.** The
+register gives him four Erasmus+ projects as менеджер (350) and two as учасник
+(150) — 1 700. His sheet says 1 350, which is three менеджер plus two учасник.
+Read from the amount alone, 1 350 is «керівник × 3» or «учасник × 9» and BOTH
+are wrong: it is a mix of two roles, and no single price lands on it. Dropping
+one менеджер entry reproduces his sheet exactly. He was missing **half his own
+rating** before this; he is now exact.
 
 Almost every one is the register being AHEAD of the rating — Сердюк is listed six
 times on «Професійна освіта» and her 2025 sheet has nothing under 3.18; Ржевська
@@ -482,18 +493,23 @@ university's own total to **0.46% under**, and dropped the count of people
 matching exactly from **215 to 195**. Their pipeline counts a repeated
 submission, so ours has to.
 
-### What is still missing: 0.26%
+### What is still missing: 0.34%, over 31 people
 
-Розділ 3 is 1 870 short, out of 749 846. What remains is a handful of individual
-cases, not a pattern:
+Nobody is short by more than 8.3% of their own total any more. What remains:
 
-- **Blocks no price divides.** Товкун's 3.18 is 680 and no combination of one
-  role at one price makes 680 — two different roles added together. Eight such.
-- **Blocks more than one price divides**, where the register has nothing either:
-  Ковтун Олександр's 3.1 = 1 350 is керівник × 3 or учасник × 9.
-- **Ten people over their sheet by something that is not a copy** — Коцур's
-  ninth paper, Юхименко's fourth course. Real work the snapshot predates, left
-  in and listed in `import-report/trim-2025.md`.
+- **Товкун Лідія, −680 on 3.18** — the largest single case. Her register has 420
+  (Scientia et societus, заступник twice, plus внесення даних) and her sheet says
+  680; the register is BELOW, so there is nothing to trim, and no single role at
+  one price makes 680. One question to ННВ settles it.
+- **Eleven workbooks whose section subtotal disagrees with its own rows**, from
+  −98 to +100 — Рибакова's розділ 3 says 640 where its rows add to 740. We match
+  the rows, because the rows are what the source files contain. Nothing to fix on
+  our side.
+- **The snapshot lag, both ways** — Коцур's ninth paper and Юхименко's fourth
+  Moodle course are ours and not theirs; Бочаріна and Вінс have courses on 5.1
+  that the Розділ files do not carry. Listed in `import-report/trim-2025.md`.
+- **A handful of ±5 to ±50**, mostly workbooks that merge 3.12/3.13/3.14 into one
+  column.
 
 All of them are listed by person in `import-report/ambiguous-2025.md` and
 `import-report/registers-2025.md`.

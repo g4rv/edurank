@@ -584,19 +584,56 @@ async function main() {
       theirs: number;
       what: string[];
     }[] = [];
+    /** Register entries dropped so a group lands on the sheet's own figure */
+    let trimmedIn = 0;
     for (const g of groups.values()) {
       const theirs = awarded.get(nameKey(g.person))?.get(g.item) ?? 0;
-      if (!same(theirs, g.points)) {
+
+      // ── Where the register has MORE than the sheet awarded ──
+      //
+      // Almost always because it kept going after the workbook was made. Drop
+      // whole entries until the two agree, and the roles are still the відділ's
+      // own — which is the whole point, and is not something the amount can
+      // work out on its own.
+      //
+      // Ковтун Олександр is the case that shows why. The register gives him
+      // four Erasmus+ projects as менеджер (350) and two as учасник (150) —
+      // 1700. His sheet says 1350, which is three менеджер plus two учасник.
+      // Read from the amount alone, 1350 is «керівник × 3» or «учасник × 9»,
+      // and BOTH are wrong: it is a mix of two roles, and no single price can
+      // land on it. Dropping one менеджер entry reproduces the sheet exactly.
+      let rows = g.rows;
+      let points = g.points;
+      if (points > theirs && theirs > 0) {
+        let excess = points - theirs;
+        const keep = [...rows].sort((a, b) => b.score - a.score);
+        const dropped: typeof rows = [];
+        for (const r of keep) {
+          if (r.score > excess + 0.005) continue;
+          dropped.push(r);
+          excess -= r.score;
+          if (same(excess, 0)) break;
+        }
+        if (same(excess, 0)) {
+          const gone = new Set(dropped);
+          rows = rows.filter((r) => !gone.has(r));
+          points = theirs;
+          trimmedIn += dropped.length;
+        }
+      }
+
+      if (!same(theirs, points)) {
         disagreed.push({ person: g.person, item: g.item, ours: g.points, theirs, what: g.what });
         continue;
       }
-      ready.push(...g.rows);
-      gained.set(g.item, (gained.get(g.item) ?? 0) + g.points);
+      ready.push(...rows);
+      gained.set(g.item, (gained.get(g.item) ?? 0) + points);
     }
 
     const total = [...gained.values()].reduce((s, v) => s + v, 0);
     console.log(`\nrows to write: ${ready.length}`);
     console.log(`points they carry: ${Math.round(total)}`);
+    console.log(`entries dropped to land on the sheet's figure: ${trimmedIn}`);
     console.log(
       `groups the sheet does not confirm: ${disagreed.length}` +
         ` (${Math.round(disagreed.reduce((t, d) => t + d.ours, 0))} points left out)`
