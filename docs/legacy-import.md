@@ -493,26 +493,86 @@ university's own total to **0.46% under**, and dropped the count of people
 matching exactly from **215 to 195**. Their pipeline counts a repeated
 submission, so ours has to.
 
-### What is still missing: 0.34%, over 31 people
+### Where 2025 finished, and what was decided (owner, 2026-08-21)
 
-Nobody is short by more than 8.3% of their own total any more. What remains:
+**749 832 against the university's 749 846 — fourteen points, 0.002%.** The
+absolute differences add up to 1 830, or **0.244%**, and they fall into four
+kinds:
 
-- **Товкун Лідія, −680 on 3.18** — the largest single case. Her register has 420
-  (Scientia et societus, заступник twice, plus внесення даних) and her sheet says
-  680; the register is BELOW, so there is nothing to trim, and no single role at
-  one price makes 680. One question to ННВ settles it.
-- **Eleven workbooks whose section subtotal disagrees with its own rows**, from
-  −98 to +100 — Рибакова's розділ 3 says 640 where its rows add to 740. We match
-  the rows, because the rows are what the source files contain. Nothing to fix on
-  our side.
-- **The snapshot lag, both ways** — Коцур's ninth paper and Юхименко's fourth
-  Moodle course are ours and not theirs; Бочаріна and Вінс have courses on 5.1
-  that the Розділ files do not carry. Listed in `import-report/trim-2025.md`.
-- **A handful of ±5 to ±50**, mostly workbooks that merge 3.12/3.13/3.14 into one
-  column.
+|                                      | people  |                                   |
+| ------------------------------------ | ------- | --------------------------------- |
+| exact against their published total  | **221** | verified, number for number       |
+| exact against their own ROWS         | 6       | their subtotal contradicts itself |
+| we have MORE than their sheet        | 16      | real work their snapshot predates |
+| their sheet has more than any source | 7       | accepted as theirs                |
 
-All of them are listed by person in `import-report/ambiguous-2025.md` and
-`import-report/registers-2025.md`.
+**Two things follow, and both are decisions rather than findings.**
+
+**Where their document contradicts ITSELF, we are right and it is wrong.** Six
+workbooks have a section subtotal that does not equal the rows above it —
+Ващенко's розділ 2 says 201 where its only two rows are 63 and 40, because the
+formula range starts a row too high and swallows «Всього балів по розділу 1»,
+his own 98. Гагаріна and Бережна have the identical fault; three more leave a row
+out of the range. We reproduce the rows, and `import:verify-2025` reports them
+separately so they never look like defects of ours.
+
+**Where their sheet awards more than any source we can read, we let it go.** Seven
+people, 1 830 points, no evidence anywhere in `edu-reference/`:
+
+| ПІБ                | п.        | бракує  |
+| ------------------ | --------- | ------- |
+| Товкун Лідія       | 3.18      | 480     |
+| Бочаріна Наталія   | 5.1       | 150     |
+| Вінс Вікторія      | 5.1       | 123.75  |
+| Пархоменко-Куцевіл | 3.5, 3.12 | 10, 100 |
+| Ніколаєв Леонід    | 4.1       | 80      |
+| Тонконог Олександр | 3.20      | 20      |
+| Кузнєцова Тетяна   | 1.11      | 5       |
+
+Each is one occurrence their sheet counted and the source file does not hold —
+an eighth Moodle course, a third випуск, a конференція with no `Розділ_4` file
+behind it at all. Only the відділ or the person could say, nobody was reachable
+before the deadline, and the mistakes are the previous system's rather than
+anything we introduced. **Accepted as they are.** They are listed by person in
+`import-report/registers-2025.md` and `ambiguous-2025.md` if anyone ever asks.
+
+Товкун is the one that got a partial answer: the owner confirms **two випуски**,
+not the three her sheet prices, so her 480 is her sheet over-counting. It is left
+alone with the rest.
+
+### The four reader bugs found by arguing with the numbers
+
+Every one of these was ours, and every one was found by somebody looking at a
+single person and asking why:
+
+1. **Scored rows with no item number.** Перхайло Неля's розділ 1 has an empty
+   column 1 throughout — «Науково-педагогічний стаж» (14) and «доцент» (30) were
+   dropped and her correct subtotal of 364 looked broken. An orphan belongs to
+   the розділ of the next numbered row beneath it.
+2. **The document title carries the YEAR** in the «Отриманий рейтинг» column.
+   Read as data it added 2 025 points to розділ 1. Reading now starts at «Зміст
+   показників».
+3. **An item number Excel left as a raw serial.** Потапенко Руслана's 1.1 is the
+   string «44562.0» — 1 January 2022, which is «1.1».
+4. **`` cannot match after a Cyrillic letter.** JavaScript defines a word
+   boundary on `[A-Za-z0-9_]`, so the branch that reads «Роль: голова
+   оргкомітету» out of the evidence had never once fired, and Карпа Марта's
+   голова scored 50 instead of 100.
+
+And a fifth, in the matching rather than the reading: a group title is folded
+into its choices, so the template spells 3.18's last option «Робота по виданню…
+категорії "Б" (видань університету) — Внесення даних…» while the sheet writes the
+short name alone. Matching only the whole label and the group prefix dropped
+Товкун's 200 points without a word. Розділ 3 was 220 short and is now 20.
+
+### One rule that sounded right and measured wrong
+
+«Where the register has less than the sheet, the register wins» is true for
+Товкун and false in general. Applied to all 61 such groups it took exact matches
+from **221 down to 201** and the year from 14 points short to 3 006, because for
+the other sixty the division pass already resolved the sheet's own block exactly.
+Товкун is the exception precisely because her block is ambiguous — 480 is
+160 × 3 or 120 × 4 — so the sheet offers no answer at all. Not adopted.
 
 ## Next
 
