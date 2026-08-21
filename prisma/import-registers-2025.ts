@@ -441,10 +441,19 @@ async function main() {
     // What the university awarded each person against each indicator. Read
     // once, here, because the answer decides whether a register group is
     // written at all — see the gate below.
+    //
+    // **A blank workbook is skipped, and that is not a detail.** Two people
+    // have two workbooks: Рибакова Тетяна is a сумісник with an empty form
+    // under Менеджменту and a filled one under Практичної психології, and
+    // Грейліх Ольга has a «(1)» copy beside her own. Keyed by name, the last
+    // file read wins — and for Грейліх that is the empty one, which silently
+    // emptied her awarded figures and made the gate below refuse everything
+    // she had.
     const awarded = new Map<string, Map<string, number>>();
     for (const f of workbooks()) {
       const sheet = await readSheet(f);
-      if (sheet) awarded.set(nameKey(sheet.person), itemTotals(sheet.blocks));
+      if (!sheet || sheet.total === 0) continue;
+      awarded.set(nameKey(sheet.person), itemTotals(sheet.blocks));
     }
     console.log(`«Рейтинг» sheets read: ${awarded.size}`);
 
