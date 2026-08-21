@@ -17,6 +17,7 @@ import {
   WOS_HOSTS,
 } from '../lib/link-hosts';
 import { backfillProfileDerived } from '../lib/rating/profile-derived';
+import { nameKey } from './rating-sheet-2025';
 
 // Fills the `Staff` profile from the university's own staff sheet.
 //
@@ -61,14 +62,6 @@ function text(v: unknown): string {
   return String(v);
 }
 const tidy = (s: string) => s.replace(/\s+/g, ' ').trim();
-/** `_` in a file name is a sanitised apostrophe; `(1)` is a duplicate file */
-const nameKey = (s: string) =>
-  tidy(s)
-    .toLowerCase()
-    .replace(/\(\d+\)\s*$/, '')
-    .replace(/[’`_]/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
 
 const RANKS: Record<string, AcademicRank> = {
   професор: 'PROFESSOR',

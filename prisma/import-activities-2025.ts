@@ -6,6 +6,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Prisma } from '../lib/generated/prisma/client';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
+import { nameKey } from './rating-sheet-2025';
 
 // Imports one year of activities out of the `Розділ_*` workbooks.
 //
@@ -47,14 +48,6 @@ const norm = (s: string) =>
     .replace(/^\d+\.\d+\.?\s*/, '')
     .replace(/[«»"'’`]/g, '')
     .replace(/[.,:;()]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-/** `_` in a file name is a sanitised apostrophe; `(1)` is a duplicate file */
-const nameKey = (s: string) =>
-  tidy(s)
-    .toLowerCase()
-    .replace(/\(\d+\)\s*$/, '')
-    .replace(/[’`_]/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
 

@@ -53,14 +53,37 @@ export function itemCell(v: unknown): string {
   return raw;
 }
 
+/**
+ * Five people are spelled differently in `edu-reference/` from the way the
+ * roster spells them, and the roster is right: `pnpm staff:build` takes it from
+ * the university's current lists, while every folder under `ФАКУЛЬТЕТИ` was
+ * named once and never renamed (owner, 2026-08-21).
+ *
+ * Left unmatched they had no 2025 rating at all — **13 550 points across five
+ * people, all showing zero**, Мізін Костянтин alone 7 196. And it is never
+ * inferred: «Коцур Дмитро» and «Коцур Роман» are one surname and two people, so
+ * a near-miss is only ever folded in by name, one line at a time.
+ */
+const ALIASES: Record<string, string> = {
+  'мізін констянтин іванович': 'мізін костянтин іванович',
+  'семенко олена газисівна': 'семененко олена газисівна',
+  'потапенко олександер іванович': 'потапенко олександр іванович',
+  'захаренко алла василівна': 'захарченко алла василівна',
+  // The roster carries no patronymic for him — that is how `staff:build`
+  // records somebody found only on a кафедра page
+  'лященко юрій миколайович': 'ляшенко юрій',
+};
+
 /** `_` in a file name is a sanitised apostrophe; `(1)` is a duplicate file */
-export const nameKey = (s: string) =>
-  tidy(s)
+export const nameKey = (s: string) => {
+  const key = tidy(s)
     .toLowerCase()
     .replace(/\(\d+\)\s*$/, '')
     .replace(/[’`_]/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
+  return ALIASES[key] ?? key;
+};
 
 /** Every scored workbook under ФАКУЛЬТЕТИ */
 export function workbooks(dir: string = ROOT, out: string[] = []): string[] {
