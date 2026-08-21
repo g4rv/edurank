@@ -32,6 +32,27 @@ export function text(v: unknown): string {
 
 export const tidy = (s: string) => s.replace(/\s+/g, ' ').trim();
 
+/**
+ * Column 1 of the «Рейтинг» sheet — the item number, or what Excel left of it.
+ *
+ * «3.5» was read as a Ukrainian date (day 3, month 5) when these workbooks were
+ * built, so `x.1`–`x.12` are dates and everything above survived as text. Most
+ * come back as a Date and `text` already decodes them. Потапенко Руслана's
+ * carries the raw serial instead — 44562, which is 1 January 2022, which is
+ * «1.1» — and read as a number it named an indicator called «44562.0» and lost
+ * her 8 points for стаж.
+ */
+export function itemCell(v: unknown): string {
+  const raw = tidy(text(v));
+  // A number, or the text of one — hers is the string «44562.0»
+  const serial = Number(raw);
+  if (Number.isFinite(serial) && serial > 40000 && serial < 50000) {
+    const d = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+    return `${d.getUTCDate()}.${d.getUTCMonth() + 1}`;
+  }
+  return raw;
+}
+
 /** `_` in a file name is a sanitised apostrophe; `(1)` is a duplicate file */
 export const nameKey = (s: string) =>
   tidy(s)
@@ -148,7 +169,7 @@ export async function readSheet(path: string): Promise<Sheet | null> {
   };
 
   ws.eachRow({ includeEmpty: false }, (row, n) => {
-    const a = tidy(text(row.getCell(1).value));
+    const a = itemCell(row.getCell(1).value);
     const label = tidy(text(row.getCell(2).value));
     const value = Number(tidy(text(row.getCell(5).value)).replace(',', '.'));
 
