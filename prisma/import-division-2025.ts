@@ -5,7 +5,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Prisma } from '../lib/generated/prisma/client';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
-import { byFullName, nameKey, readSheet, same, tidy, workbooks } from './rating-sheet-2025';
+import { byFullName, readSheet, resolvePerson, same, tidy, workbooks } from './rating-sheet-2025';
 
 // The half of 2025 that the `Розділ_*` workbooks do not contain.
 //
@@ -78,7 +78,13 @@ async function main() {
     const byItem = new Map(template.activityTypes.map((t) => [t.itemNumber, t]));
 
     const staff = await prisma.staff.findMany({
-      select: { id: true, lastName: true, firstName: true, patronymic: true },
+      select: {
+        id: true,
+        lastName: true,
+        firstName: true,
+        patronymic: true,
+        department: { select: { name: true } },
+      },
     });
     const byName = byFullName(staff);
 
@@ -132,7 +138,12 @@ async function main() {
       const sheet = await readSheet(f);
       if (!sheet) continue;
 
-      const staffId = byName.get(nameKey(sheet.person))?.id;
+      const found = resolvePerson(byName, sheet.person, sheet.department);
+      if (found.ambiguous) {
+        bump(noPerson, `${sheet.person} — двоє з таким ПІБ`);
+        continue;
+      }
+      const staffId = found.person?.id;
       if (!staffId) {
         if (sheet.blocks.length > 0) bump(noPerson, sheet.person);
         continue;

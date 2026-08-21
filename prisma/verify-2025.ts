@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
-import { byFullName, nameKey, readSheet, workbooks } from './rating-sheet-2025';
+import { byFullName, readSheet, resolvePerson, workbooks } from './rating-sheet-2025';
 import { round2 } from '../lib/round';
 
 // Checks the imported year against the university's own arithmetic.
@@ -95,7 +95,7 @@ async function main() {
         blank += 1;
         continue;
       }
-      const person = byName.get(nameKey(sheet.person));
+      const person = resolvePerson(byName, sheet.person, sheet.department).person;
       if (!person) {
         unmatched += 1;
         continue;

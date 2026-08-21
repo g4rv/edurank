@@ -5,7 +5,7 @@ import ExcelJS from 'exceljs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import { normaliseDepartmentName } from '../lib/specialities/departments';
-import { byFullName, nameKey, tidy, text } from './rating-sheet-2025';
+import { byFullName, resolvePerson, tidy, text } from './rating-sheet-2025';
 
 // Who leads what — from the university's own two lists.
 //
@@ -71,7 +71,13 @@ async function main() {
   try {
     const staff = await prisma.staff.findMany({
       where: { isSystem: false, archivedAt: null },
-      select: { id: true, lastName: true, firstName: true, patronymic: true },
+      select: {
+        id: true,
+        lastName: true,
+        firstName: true,
+        patronymic: true,
+        department: { select: { name: true } },
+      },
     });
     const byName = byFullName(staff);
 
@@ -100,7 +106,15 @@ async function main() {
         skipped.push(`кафедра «${unit}» — такої кафедри в системі немає (завідувач ${written})`);
         return;
       }
-      const person = byName.get(nameKey(written));
+      // The кафедра is right there in the same row, so a shared ПІБ costs
+      // nothing here — and a завідувач is exactly the kind of person who also
+      // teaches on a second кафедра under the same name.
+      const found = resolvePerson(byName, written, unit);
+      if (found.ambiguous) {
+        skipped.push(`${written} — двоє з таким ПІБ, кафедра «${unit}» не розрізнила їх`);
+        return;
+      }
+      const person = found.person;
       if (!person) {
         skipped.push(`${written} — особи немає в системі (кафедра «${unit}»)`);
         return;

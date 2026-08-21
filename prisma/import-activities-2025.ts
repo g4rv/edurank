@@ -6,7 +6,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Prisma } from '../lib/generated/prisma/client';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
-import { byFullName, nameKey } from './rating-sheet-2025';
+import { byFullName, resolvePerson } from './rating-sheet-2025';
 
 // Imports one year of activities out of the `Розділ_*` workbooks.
 //
@@ -223,7 +223,13 @@ async function main() {
     };
 
     const staff = await prisma.staff.findMany({
-      select: { id: true, lastName: true, firstName: true, patronymic: true },
+      select: {
+        id: true,
+        lastName: true,
+        firstName: true,
+        patronymic: true,
+        department: { select: { name: true } },
+      },
     });
     const byName = byFullName(staff);
 
@@ -251,6 +257,8 @@ async function main() {
     }
     const ready: Ready[] = [];
     const noPerson = new Map<string, number>();
+    /** Two people share this ПІБ and the кафедра did not separate them */
+    const sameName = new Map<string, number>();
     const noIndicator = new Map<string, number>();
     const noOption = new Map<string, number>();
     /** Rows whose number and label name different indicators — the label wins */
@@ -259,7 +267,12 @@ async function main() {
     const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
 
     for (const r of raw) {
-      const staffId = byName.get(nameKey(r.person))?.id;
+      const found = resolvePerson(byName, r.person, r.department);
+      if (found.ambiguous) {
+        bump(sameName, `${r.person} — ${r.department}`);
+        continue;
+      }
+      const staffId = found.person?.id;
       if (!staffId) {
         bump(noPerson, r.person);
         continue;
@@ -344,6 +357,7 @@ async function main() {
     console.log(`\nready to import  ${ready.length}  (${pct(ready.length)})`);
     const lost = [
       ['person not in the system', noPerson],
+      ['two people share this name — not assigned to either', sameName],
       ['indicator not in the 2025 template', noIndicator],
       ['option not recognised', noOption],
       ['number and label disagreed — filed by label', renumbered],

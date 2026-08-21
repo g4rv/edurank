@@ -17,7 +17,7 @@ import {
   WOS_HOSTS,
 } from '../lib/link-hosts';
 import { backfillProfileDerived } from '../lib/rating/profile-derived';
-import { nameKey } from './rating-sheet-2025';
+import { byFullName, nameKey, resolvePerson, tidy as trim } from './rating-sheet-2025';
 
 // Fills the `Staff` profile from the university's own staff sheet.
 //
@@ -121,6 +121,7 @@ function parseIndex(raw: string): number | null {
 /** The columns of the «НПП» sheet, by their header row */
 const COL = {
   name: 2,
+  department: 3,
   experience: 5,
   rank: 6,
   degree: 7,
@@ -178,7 +179,10 @@ async function main() {
       fullName: string;
       email: string;
     }[];
-    const emailByName = new Map(roster.map((r) => [nameKey(r.fullName), r.email.toLowerCase()]));
+    // Membership only. WHICH person a name means is settled against the
+    // database and the sheet's own кафедра column: a name→email map silently
+    // keeps one row when a ПІБ repeats, and writes somebody else's профіль.
+    const onRoster = new Set(roster.map((r) => nameKey(r.fullName)));
 
     const staff = await prisma.staff.findMany({
       where: { isSystem: false },
@@ -199,9 +203,10 @@ async function main() {
         googleScholarUrl: true,
         googleScholarCitationCount: true,
         orcidId: true,
+        department: { select: { name: true } },
       },
     });
-    const byEmail = new Map(staff.map((s) => [s.email.toLowerCase(), s]));
+    const byName = byFullName(staff);
 
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.readFile(SOURCE);
@@ -231,14 +236,19 @@ async function main() {
       if (!name) return;
       listed += 1;
 
-      const email = emailByName.get(nameKey(name));
-      if (!email) {
+      if (!onRoster.has(nameKey(name))) {
         notOnRoster.push(name);
         return;
       }
-      const person = byEmail.get(email);
+      const unit = trim(text(row.getCell(COL.department).value));
+      const found = resolvePerson(byName, name, unit);
+      if (found.ambiguous) {
+        noAccount.push(`${name} — двоє з таким ПІБ, кафедра «${unit}» не розрізнила їх`);
+        return;
+      }
+      const person = found.person;
       if (!person) {
-        noAccount.push(`${name} — ${email}`);
+        noAccount.push(name);
         return;
       }
 

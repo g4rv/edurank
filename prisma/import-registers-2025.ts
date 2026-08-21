@@ -6,7 +6,15 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Prisma } from '../lib/generated/prisma/client';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
-import { byFullName, itemTotals, nameKey, readSheet, same, workbooks } from './rating-sheet-2025';
+import {
+  byFullName,
+  itemTotals,
+  nameKey,
+  readSheet,
+  resolvePerson,
+  same,
+  workbooks,
+} from './rating-sheet-2025';
 
 // The відділи' own registers — the source behind розділи 1 and 2.
 //
@@ -415,7 +423,13 @@ async function main() {
     const byItem = new Map(template.activityTypes.map((t) => [t.itemNumber, t]));
 
     const staff = await prisma.staff.findMany({
-      select: { id: true, lastName: true, firstName: true, patronymic: true },
+      select: {
+        id: true,
+        lastName: true,
+        firstName: true,
+        patronymic: true,
+        department: { select: { name: true } },
+      },
     });
     const byName = byFullName(staff);
 
@@ -447,10 +461,13 @@ async function main() {
     // emptied her awarded figures and made the gate below refuse everything
     // she had.
     const awarded = new Map<string, Map<string, number>>();
+    /** The кафедра whose folder that person's workbook sits in */
+    const sheetDept = new Map<string, string>();
     for (const f of workbooks()) {
       const sheet = await readSheet(f);
       if (!sheet || sheet.total === 0) continue;
       awarded.set(nameKey(sheet.person), itemTotals(sheet.blocks));
+      if (sheet.department) sheetDept.set(nameKey(sheet.person), sheet.department);
     }
     console.log(`«Рейтинг» sheets read: ${awarded.size}`);
 
@@ -465,7 +482,18 @@ async function main() {
     const groups = new Map<string, Group>();
 
     for (const e of entries) {
-      const staffId = byName.get(nameKey(e.person))?.id;
+      // A register row names a person and never their кафедра — but the gate
+      // below confirms the row against that person's «Рейтинг» workbook, and
+      // the workbook sits in a кафедра folder. So the кафедра is the sheet's,
+      // which is the only reading under which the row and its confirmation
+      // describe the same person. Where a ПІБ is shared and no workbook
+      // settles it, the row is reported rather than given to either.
+      const found = resolvePerson(byName, e.person, sheetDept.get(nameKey(e.person)));
+      if (found.ambiguous) {
+        bump(noPerson, `${e.person} — двоє з таким ПІБ, реєстр не каже, хто саме`);
+        continue;
+      }
+      const staffId = found.person?.id;
       if (!staffId) {
         bump(noPerson, e.person);
         continue;

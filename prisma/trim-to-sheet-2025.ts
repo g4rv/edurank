@@ -3,7 +3,14 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
-import { byFullName, itemTotals, nameKey, readSheet, same, workbooks } from './rating-sheet-2025';
+import {
+  byFullName,
+  itemTotals,
+  readSheet,
+  resolvePerson,
+  same,
+  workbooks,
+} from './rating-sheet-2025';
 
 // Trims a person's indicator back to what the university actually awarded.
 //
@@ -76,7 +83,13 @@ async function main() {
       throw new Error(`${YEAR} is ${template.status}; reopen it first`);
 
     const staff = await prisma.staff.findMany({
-      select: { id: true, lastName: true, firstName: true, patronymic: true },
+      select: {
+        id: true,
+        lastName: true,
+        firstName: true,
+        patronymic: true,
+        department: { select: { name: true } },
+      },
     });
     const byName = byFullName(staff);
 
@@ -114,7 +127,7 @@ async function main() {
       const sheet = await readSheet(f);
       // A blank workbook is not a statement that somebody earned nothing
       if (!sheet || sheet.total === 0) continue;
-      const staffId = byName.get(nameKey(sheet.person))?.id;
+      const staffId = resolvePerson(byName, sheet.person, sheet.department).person?.id;
       if (!staffId) continue;
 
       const theirs = itemTotals(sheet.blocks);

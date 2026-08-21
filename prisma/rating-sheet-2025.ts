@@ -85,22 +85,101 @@ export const nameKey = (s: string) => {
   return ALIASES[key] ?? key;
 };
 
+/** What every importer needs of a person to place them */
+export interface Named {
+  lastName: string;
+  firstName: string;
+  patronymic: string;
+  department?: { name: string } | null;
+}
+
 /**
- * ПІБ → the person, taken from the DATABASE rather than from the roster.
+ * ПІБ → the people who bear it, taken from the DATABASE rather than the roster.
  *
  * The importers used to go name → `staff-roster.json` → email → Staff, which
- * quietly excluded anybody the roster does not list. That mattered the moment
- * 34 people were created FROM the folders precisely because the кафедра lists
- * had left them out: their accounts existed and their rating still went
- * nowhere. The database is the thing being written to, so it is the thing to
- * match against; `nameKey` already folds in the five spellings that differ.
+ * quietly excluded anybody the roster does not list — and that mattered the
+ * moment 34 people were created FROM the folders precisely because the кафедра
+ * lists had left them out. The database is the thing being written to, so it is
+ * the thing to match against.
+ *
+ * **A list, not a person, and that is the point.** The roster briefly held two
+ * «Перчук Оксана Володимирівна» — she heads обліку and teaches on соціальних
+ * комунікацій, and the per-кафедра lists gave her a second address, so she was
+ * split in two. Returning one row silently sent her 7 050 points, her профіль
+ * and headship of her own кафедра to the half that had neither. That split is
+ * fixed in `scripts/build-staff-roster.ts`, but the map was the thing that
+ * turned it into wrong data instead of a visible duplicate — and two genuine
+ * namesakes are perfectly possible here. A map that quietly picks a winner is
+ * worse than no map.
  */
-export function byFullName<T extends { lastName: string; firstName: string; patronymic: string }>(
-  rows: readonly T[]
-): Map<string, T> {
-  return new Map(
-    rows.map((s) => [nameKey(`${s.lastName} ${s.firstName} ${s.patronymic}`.trim()), s])
-  );
+export function byFullName<T extends Named>(rows: readonly T[]): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const s of rows) {
+    const k = nameKey(`${s.lastName} ${s.firstName} ${s.patronymic}`.trim());
+    out.set(k, [...(out.get(k) ?? []), s]);
+  }
+  return out;
+}
+
+/** «Кафедра обліку…» and «Обліку…» are the same кафедра */
+const deptKey = (name: string) =>
+  tidy(name)
+    .toLowerCase()
+    .replace(/[’'`ʼ‘]/g, '’')
+    .replace(/^кафедра\s+/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/(^|\s)(і|та|й)(\s|$)/g, '$1&$3');
+
+/**
+ * The one person a name means, using the кафедра to break a tie.
+ *
+ * Every source carries the кафедра somewhere — a `Розділ_*` file sits in its
+ * folder, `УГСП_Дані` has a column, the «Кафедри» sheet is a list of them — so
+ * an ambiguous ПІБ is almost always answerable. Where it is not, this returns
+ * nothing and the caller reports it; nothing is ever assigned to a coin toss.
+ *
+ * **The кафедра outranks the ПІБ, which is only ever written two ways.** A
+ * source names a кафедра because it means that кафедра's person, so a unique
+ * exact ПІБ is NOT allowed to win over it. Perchuk is why: she is on two
+ * кафедри and her по батькові is spelled the same on both, so the кафедра is
+ * the only thing in the row that says which half of her the source is about.
+ *
+ * The кафедра is only a tie-breaker, never a filter: it is left out of many
+ * sources and people move, so when it matches nobody the exact ПІБ still wins.
+ */
+export function resolvePerson<T extends Named>(
+  index: Map<string, T[]>,
+  fullName: string,
+  departmentName?: string | null
+): { person?: T; ambiguous?: T[] } {
+  const exact = index.get(nameKey(fullName)) ?? [];
+
+  if (departmentName) {
+    const want = deptKey(departmentName);
+    const onDept = (s: T) => s.department && deptKey(s.department.name) === want;
+
+    const sameDept = exact.filter(onDept);
+    if (sameDept.length === 1) return { person: sameDept[0] };
+
+    // Nobody by that exact ПІБ on that кафедра — try surname and first name,
+    // which is what finds a person whose по батькові the source spelled wrong.
+    if (sameDept.length === 0) {
+      const [last, first] = tidy(fullName).split(/\s+/);
+      const loose = [...index.values()]
+        .flat()
+        .filter(
+          (s) =>
+            s.lastName.toLowerCase() === (last ?? '').toLowerCase() &&
+            s.firstName.toLowerCase() === (first ?? '').toLowerCase() &&
+            onDept(s)
+        );
+      if (loose.length === 1) return { person: loose[0] };
+    }
+  }
+
+  if (exact.length === 1) return { person: exact[0] };
+  return exact.length > 1 ? { ambiguous: exact } : {};
 }
 
 /** Every scored workbook under ФАКУЛЬТЕТИ */
@@ -166,6 +245,8 @@ export interface Orphan {
 
 export interface Sheet {
   person: string;
+  /** the кафедра folder the workbook sits in — the tie-breaker for a namesake */
+  department: string;
   blocks: Block[];
   /** scored rows with no readable indicator — see Orphan */
   orphans: Orphan[];
@@ -263,7 +344,18 @@ export async function readSheet(path: string): Promise<Sheet | null> {
     blocks.set(key, block);
   });
 
-  return { person: personOf(path), blocks: [...blocks.values()], orphans, sections, total };
+  return {
+    person: personOf(path),
+    department:
+      path
+        .split('/')
+        .flatMap((x) => x.split(String.fromCharCode(92)))
+        .slice(-3)[0] ?? '',
+    blocks: [...blocks.values()],
+    orphans,
+    sections,
+    total,
+  };
 }
 
 /** What the sheet awarded this person against each indicator */

@@ -13,6 +13,7 @@ import {
   same,
   text,
   tidy,
+  resolvePerson,
   workbooks,
 } from './rating-sheet-2025';
 import { round2 } from '../lib/round';
@@ -219,7 +220,7 @@ async function main() {
     for (const f of workbooks()) {
       const sheetData = await readSheet(f);
       if (!sheetData || sheetData.total === 0) continue;
-      const person = byName.get(nameKey(sheetData.person));
+      const person = resolvePerson(byName, sheetData.person, sheetData.department).person;
       if (!person) continue;
       scored.add(person.id);
 
