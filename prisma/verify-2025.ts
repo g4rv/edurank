@@ -108,11 +108,15 @@ async function main() {
         continue;
       }
       const e = person.ratingEntries[0];
+      // Orphans count towards their section: their indicator cannot be read,
+      // but the section can, and leaving them out made Перхайло's correct
+      // subtotal look like an error of ours.
       const theirRows = [1, 2, 3, 4, 5].map((n) =>
         round2(
           sheet.blocks
             .filter((b) => Number(b.itemNumber.split('.')[0]) === n)
-            .reduce((t, b) => t + b.earned, 0)
+            .reduce((t, b) => t + b.earned, 0) +
+            sheet.orphans.filter((o) => o.section === n).reduce((t, o) => t + o.earned, 0)
         )
       );
       rows.push({

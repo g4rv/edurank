@@ -81,9 +81,32 @@ export interface Block {
   earned: number;
 }
 
+/**
+ * A scored row whose indicator cannot be read.
+ *
+ * The item number is merged down its options, so a row with an empty column 1
+ * belongs to the number above it — unless nothing is above it yet. Перхайло
+ * Неля's «Науково-педагогічний стаж» (14) and «доцент» (30) open her розділ 1
+ * with no number in column 1 at all, and dropping them made her sheet look as
+ * though it did not add up: 320 of rows against a subtotal of 364, when 364 was
+ * right all along.
+ *
+ * The section is recoverable — an orphan belongs to the same розділ as the next
+ * numbered row beneath it — so the arithmetic can still be checked, and the
+ * division import resolves the indicator by matching the label inside that
+ * section. Where that is ambiguous, nothing is invented and the row is reported.
+ */
+export interface Orphan {
+  section: number;
+  label: string;
+  earned: number;
+}
+
 export interface Sheet {
   person: string;
   blocks: Block[];
+  /** scored rows with no readable indicator — see Orphan */
+  orphans: Orphan[];
   /** the five «Всього балів по розділу N» */
   sections: number[];
   /** «Загальна сума балів» */
@@ -101,9 +124,28 @@ export async function readSheet(path: string): Promise<Sheet | null> {
   if (!ws) return null;
 
   const blocks = new Map<string, Block>();
+  const orphans: Orphan[] = [];
   const sections = [0, 0, 0, 0, 0];
   let total = 0;
   let item: string | null = null;
+  /**
+   * Orphans seen since the last numbered row. Her whole розділ 1 has an empty
+   * column 1 — there is not even a section number to latch onto — so the
+   * section is taken from whatever numbered row comes NEXT, or from the
+   * «Всього балів по розділу N» line that closes the розділ.
+   */
+  let pending: { label: string; earned: number }[] = [];
+  /**
+   * The table starts at «Зміст показників». Above it sit the document title,
+   * the кафедра and the person's name — and the title row carries the YEAR in
+   * the «Отриманий рейтинг» column, so read as data it adds 2025 points to
+   * розділ 1 for all 272 of them.
+   */
+  let started = false;
+  const flush = (section: number) => {
+    for (const o of pending) orphans.push({ section, ...o });
+    pending = [];
+  };
 
   ws.eachRow({ includeEmpty: false }, (row, n) => {
     const a = tidy(text(row.getCell(1).value));
@@ -113,9 +155,15 @@ export async function readSheet(path: string): Promise<Sheet | null> {
     // The sheet's own sums, and the section headers between them. Both end the
     // run of the item number merged down column 1 — without this, «Всього балів
     // по розділу 3» lands on whatever indicator closed the section.
-    const section = /^Всього балів по розділу (\d)/.exec(label);
-    if (section) {
-      if (Number.isFinite(value)) sections[Number(section[1]) - 1] = value;
+    if (!started) {
+      if (/Зміст показників/i.test(label)) started = true;
+      return;
+    }
+
+    const subtotal = /^Всього балів по розділу (\d)/.exec(label);
+    if (subtotal) {
+      if (Number.isFinite(value)) sections[Number(subtotal[1]) - 1] = value;
+      flush(Number(subtotal[1]));
       item = null;
       return;
     }
@@ -134,9 +182,16 @@ export async function readSheet(path: string): Promise<Sheet | null> {
     }
 
     const numbered = a.match(/^(\d+\.\d+)\.?$/);
-    if (numbered) item = numbered[1];
-    if (!item || !label) return;
+    if (numbered) {
+      item = numbered[1];
+      flush(Number(item.split('.')[0]));
+    }
+    if (!label) return;
     if (!Number.isFinite(value) || value === 0) return;
+    if (!item) {
+      pending.push({ label, earned: value });
+      return;
+    }
 
     const cell = row.getCell(5);
     // Rows of one merge share a master cell; an unmerged row is its own block
@@ -146,7 +201,7 @@ export async function readSheet(path: string): Promise<Sheet | null> {
     blocks.set(key, block);
   });
 
-  return { person: personOf(path), blocks: [...blocks.values()], sections, total };
+  return { person: personOf(path), blocks: [...blocks.values()], orphans, sections, total };
 }
 
 /** What the sheet awarded this person against each indicator */

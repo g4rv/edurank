@@ -66,6 +66,7 @@ async function main() {
             coefficient: true,
             evidenceFields: true,
             scoring: true,
+            section: { select: { number: true } },
           },
         },
       },
@@ -141,7 +142,34 @@ async function main() {
         continue;
       }
 
-      for (const r of sheet.blocks) {
+      // A scored row whose column 1 is empty cannot say which indicator it is,
+      // but it does say which розділ, and its label is usually the indicator's
+      // own or one of its choices. Перхайло Неля's розділ 1 opens with
+      // «Науково-педагогічний стаж» (14) and «доцент» (30) and no number beside
+      // either. Matched by label inside the section, and only where exactly one
+      // indicator answers, they read as 1.1 and 1.2 — which is what her subtotal
+      // of 364 has always said.
+      const recovered = sheet.orphans.flatMap((o) => {
+        const hits = template.activityTypes.filter((t) => {
+          if (t.section.number !== o.section) return false;
+          if (norm(t.label) === norm(o.label)) return true;
+          const specs = parseTypeSpecs(t);
+          const select = specs.fields.find((f) => f.kind === 'select' && f.name === 'option');
+          return (
+            select?.kind === 'select' && select.options.some((x) => norm(x.label) === norm(o.label))
+          );
+        });
+        if (hits.length !== 1) {
+          bump(
+            noIndicator,
+            `розділ ${o.section} «${o.label.slice(0, 40)}» (no number in the sheet)`
+          );
+          return [];
+        }
+        return [{ itemNumber: hits[0].itemNumber!, labels: [o.label], earned: o.earned }];
+      });
+
+      for (const r of [...sheet.blocks, ...recovered]) {
         const shown = r.labels[0] ?? '';
         const type = byItem.get(r.itemNumber);
         if (!type) {
