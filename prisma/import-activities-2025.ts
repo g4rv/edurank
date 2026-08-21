@@ -147,22 +147,30 @@ function resolveOption(
   const group = said ? options.filter((o) => norm(o.label).startsWith(`${said} `)) : [];
   const pool = group.length > 0 ? group : options;
 
-  // 3. Inside the group (or the whole list, for an indicator with only one
-  //    group), the price names the choice — but only where it names ONE.
-  const points = Number(row.quantity.replace(',', '.'));
-  if (Number.isFinite(points)) {
-    const byPoints = pool.filter((o) => o.points === points);
-    if (byPoints.length === 1) return { chosen: byPoints[0], thirdIsPoints: true };
-  }
-
-  // 4. The words are in the evidence text where the form put them.
-  const role = /(?:Роль|Вид роботи|Посада)\s*:\s*(.+?)(?:\s+(?:Дата|Наказ|Назва|ПІБ|Місце)\b|$)/u
+  // 3. The words are in the evidence text where the form put them, and they
+  //    beat the price. Карпа Марта's second 4.1 row says «Роль: голова
+  //    оргкомітету» and carries 50 in column 3, but a голова of a Міжнародна
+  //    конференція is worth 100 — which is what her sheet awarded. Column 3 is
+  //    not always the price, so where the row says the role in words, the words
+  //    win and the row counts once.
+  // No `` after the keyword: JavaScript defines a word boundary on
+  // [A-Za-z0-9_], so it can never match after a Cyrillic letter — with one
+  // there the alternation always fell through to `$` and swallowed the whole
+  // cell, which is why this branch had never once fired.
+  const role = /(?:Роль|Вид роботи|Посада)\s*:\s*(.+?)(?:\s+(?:Дата|Наказ|Назва|ПІБ|Місце)|$)/u
     .exec(row.evidence)?.[1]
     ?.trim();
   if (role) {
     const wanted = norm(role);
     const named = pool.filter((o) => norm(o.label).endsWith(wanted));
-    if (named.length === 1) return { chosen: named[0], thirdIsPoints: false };
+    if (named.length === 1) return { chosen: named[0], thirdIsPoints: true };
+  }
+
+  // 4. Failing that, the price names the choice — but only where it names ONE.
+  const points = Number(row.quantity.replace(',', '.'));
+  if (Number.isFinite(points)) {
+    const byPoints = pool.filter((o) => o.points === points);
+    if (byPoints.length === 1) return { chosen: byPoints[0], thirdIsPoints: true };
   }
 
   // 5. A row that names no option, on an indicator with only one, means that
