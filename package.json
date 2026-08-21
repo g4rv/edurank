@@ -38,6 +38,7 @@
     "import:trim-2025": "tsx prisma/trim-to-sheet-2025.ts",
     "import:verify-2025": "tsx prisma/verify-2025.ts",
     "report:missing": "tsx prisma/report-missing-people.ts",
+    "report:differences": "tsx prisma/report-differences-2025.ts",
     "db:create-admin": "tsx prisma/create-admin.ts",
     "mail:test": "tsx scripts/mail-test.ts"
   },
