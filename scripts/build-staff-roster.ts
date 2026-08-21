@@ -22,15 +22,22 @@ import { CONFIRMED_PATRONYMICS, PATRONYMICS } from './staff-patronymics';
 // the РНОКПП and passport numbers out of the ЄДЕБО export. Nothing downstream
 // has any use for them, and EduRank issues its own activation links.
 //
-// **The output is NOT committed.** `edu-reference/` is gitignored on purpose and
-// this file belongs beside it: 300 colleagues' names and addresses must not
+// **The output is NOT committed.** `.gitignore` covers `/staff-roster*.json`
+// alongside `/edu-reference`: 300 colleagues' names and addresses must not
 // enter the repository to get into a database. That is already the rule
 // `prisma/staff-import.ts` follows, and it is why `--prod` only runs from a
 // maintainer's machine.
 
 const DOCX_DIR = 'edu-reference/names-emails';
 const SHEET_PATH = 'edu-reference/УГСП_Дані.xlsx';
-const DEFAULT_OUT = 'edu-reference/staff-roster.json';
+// The repo root, because that is where every reader looks —
+// `prisma/staff-import.ts`, `import-profiles.ts`, `import-missing-staff.ts`,
+// `report-missing-people.ts` and `scripts/legacy-report.ts` all open
+// `staff-roster.json` there. Writing it beside `edu-reference/` instead left a
+// second, older copy at the root, and the importers went on reading that one
+// for five days. `.gitignore` covers `/staff-roster*.json`, so the rule that
+// 300 colleagues' addresses never enter the repository still holds.
+const DEFAULT_OUT = 'staff-roster.json';
 
 /** «НПП» sheet columns, 1-based as exceljs numbers them */
 const NPP = { pib: 2, department: 3 } as const;
@@ -328,6 +335,35 @@ async function main() {
     }
   }
 
+  // ── The same person under two ADDRESSES ──
+  //
+  // Сумісництво above is found by email, and that misses the one case where
+  // the university issued a second address. Перчук Оксана Володимирівна heads
+  // обліку and teaches on соціальних комунікацій, so she is in both documents;
+  // the обліку list gives her `o.perchuk@` because `oksana.perchuk@` was
+  // already taken by her own row in the документознавства list. Keyed by
+  // email, one woman became two people, and the rating, the profile and the
+  // headship of a кафедра split between them.
+  //
+  // A full ПІБ is the merge key here, and only where the по батькові is known:
+  // «Перчук Оксана» alone could be two women, «Перчук Оксана Володимирівна»
+  // twice over is one. Two genuine namesakes would be merged wrongly, so every
+  // merge is printed below — check it when the number changes.
+  const merged: string[] = [];
+  const byPib = new Map<string, RosterPerson>();
+  for (const person of [...people.values()]) {
+    if (!person.hasPatronymic) continue;
+    const first = byPib.get(person.fullName);
+    if (!first) {
+      byPib.set(person.fullName, person);
+      continue;
+    }
+    if (person.department !== first.department) first.alsoIn.push(person.department);
+    first.listedUnder.push(...person.listedUnder);
+    merged.push(person.fullName + ' — ' + first.email + ' + ' + person.email);
+    people.delete(person.email);
+  }
+
   // The primary кафедра for somebody listed twice comes from the sheet, which
   // records one each; the documents cannot say which of the two it is. Where the
   // sheet does not know them, the first document wins and `alsoIn` carries the
@@ -361,6 +397,11 @@ async function main() {
   const unresolved = perFile.filter((f) => f.resolved === null);
   if (unresolved.length > 0) {
     console.log('\nБез відповідника в довіднику: ' + unresolved.length + ' кафедр');
+  }
+
+  if (merged.length > 0) {
+    console.log('\nОдна особа під двома адресами: ' + merged.length);
+    for (const m of merged) console.log('  ' + m);
   }
 
   const shared = roster.filter((p) => p.alsoIn.length > 0);
