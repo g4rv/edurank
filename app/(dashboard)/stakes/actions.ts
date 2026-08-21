@@ -10,7 +10,7 @@ import { parseDbError } from '@/lib/db-error';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { headOf } from '@/lib/queries/scope';
 import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
-import { MIN_STAKE, STAKE_STEP, floorToStep, formatStake } from '@/lib/stake/units';
+import { MIN_STAKE, STAKE_STEP, floorToStep, formatStake, fromHundredths } from '@/lib/stake/units';
 import { ratingYearFor } from '@/lib/stake/rating-year';
 import { closedYearProblem } from '@/lib/stake/writable-year';
 import { staffStakeLimitsSchema } from '@/validations/stake';
@@ -280,6 +280,28 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
           proposedHundredths: a.hundredths,
         })),
       });
+
+      // ── The ставка lands on the person ──
+      //
+      // The head's number IS that person's ставка, and until now it stopped at
+      // `StakeAllocation`. `Staff.employmentRate` was a separate field an ADMIN
+      // typed by hand, so the профіль and the розподіл could disagree with
+      // nobody able to say which was real — and after the 2025 import it was
+      // empty for everybody, because УГСП_Дані's «Обсяг ставки» column is blank.
+      //
+      // Written in the SAME transaction as the allocations, so the two cannot
+      // come apart. `closedYearProblem` above has already refused every year but
+      // the active one, so this can only ever be the current year's figure —
+      // reopening an old розподіл can never quietly rewrite somebody's pay.
+      //
+      // A loop rather than one statement because each person gets a different
+      // number; a кафедра is twenty people, not twenty thousand.
+      for (const a of allocations) {
+        await tx.staff.update({
+          where: { id: a.staffId },
+          data: { employmentRate: fromHundredths(a.hundredths) },
+        });
+      }
 
       // One entry for the кафедра, not one per person: the distribution is a
       // single decision, and 18 log lines would bury it.

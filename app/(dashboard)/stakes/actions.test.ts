@@ -13,7 +13,7 @@ vi.mock('@/lib/db', () => ({
   db: {
     department: { findUnique: vi.fn() },
     departmentStake: { findUnique: vi.fn() },
-    staff: { findMany: vi.fn(), findUnique: vi.fn() },
+    staff: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     staffStakeLimits: { findUnique: vi.fn(), upsert: vi.fn() },
     stakeDistribution: { findUnique: vi.fn() },
     stakeAllocation: { update: vi.fn() },
@@ -49,6 +49,8 @@ const mockTransaction = db.$transaction as unknown as Mock;
 const mockDistributionFind = db.stakeDistribution.findUnique as unknown as Mock;
 const mockAllocationUpdate = db.stakeAllocation.update as unknown as Mock;
 const mockAuditCreate = db.auditLog.create as unknown as Mock;
+/** The distribution writes each person's ставка onto their profile */
+const mockStaffUpdate = db.staff.update as unknown as Mock;
 
 const DEPT = 'dept-1';
 const YEAR = 2026;
@@ -119,6 +121,7 @@ beforeEach(() => {
             deleteMany: vi.fn(),
             createMany: vi.fn(),
           },
+          staff: { update: mockStaffUpdate },
           auditLog: { create: vi.fn() },
         })
   );
@@ -264,6 +267,29 @@ describe('saveDistribution — the pool ceiling', () => {
     mockStake.mockResolvedValue(null);
     const result = await saveDistribution(payload([100, 100, 100]));
     expect(result).toMatchObject({ error: expect.stringContaining('Кст') });
+  });
+});
+
+describe('saveDistribution — the ставка lands on the profile', () => {
+  it('writes each person’s ставка onto their Staff record, in ставки not hundredths', async () => {
+    uneven();
+    const state = await saveDistribution(payload([100, 100, 75]));
+
+    expect(state).toEqual({ success: true });
+    expect(mockStaffUpdate).toHaveBeenCalledTimes(3);
+    expect(mockStaffUpdate.mock.calls.map(([a]) => a)).toEqual([
+      { where: { id: 's0' }, data: { employmentRate: 1 } },
+      { where: { id: 's1' }, data: { employmentRate: 1 } },
+      { where: { id: 's2' }, data: { employmentRate: 0.75 } },
+    ]);
+  });
+
+  it('writes nothing when the save is refused', async () => {
+    mockHeadOf.mockResolvedValue([]);
+    const state = await saveDistribution(payload([100, 100, 100]));
+
+    expect(state).toEqual({ error: 'Розподіл зберігає завідувач кафедри' });
+    expect(mockStaffUpdate).not.toHaveBeenCalled();
   });
 });
 
