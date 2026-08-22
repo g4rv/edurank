@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import { seedCatalogue } from './catalogue';
 import { seedCoreAdmin } from './core-admin';
+import { importCoreData, readCoreData } from './core-import';
 import { importRealStaff } from './staff-import';
 import { seedStructure, wipePeople, wipeTemplates } from './structure';
 import { TEST_DOMAIN, seedTestUniverse, testPassword } from './test-data';
@@ -35,6 +36,21 @@ import { TEST_DOMAIN, seedTestUniverse, testPassword } from './test-data';
 //                        Nobody can sign in — no passwords are set; invitations
 //                        go out from /admin/invites.
 //
+//   pnpm db:seed:core    PRODUCTION, and the only way it gets the real numbers.
+//                        Reads `prod-core.json` — the catalogue first, then the
+//                        university itself: відділи, факультети, кафедри, every
+//                        person with their profile, both rating templates, and
+//                        the activities and totals behind them. Upserts on
+//                        natural keys and carries no passwords, so re-running it
+//                        after a correction updates the numbers and leaves
+//                        everybody's login alone.
+//
+//                        The file is produced by `pnpm data:export` on a machine
+//                        that has `edu-reference/`, because the server does not:
+//                        those 142 MB of the university's own workbooks are
+//                        gitignored, so neither the roster import nor the 2025
+//                        chain can run there. See `core-export.ts`.
+//
 // ── DESTRUCTIVE ──────────────────────────────────────────────────────────────
 //
 //   pnpm db:seed:test    Wipes people, structure and rating templates, then
@@ -46,10 +62,11 @@ import { TEST_DOMAIN, seedTestUniverse, testPassword } from './test-data';
 // runs as part of `pnpm db:reset`, the command people type without thinking, so
 // the mode it triggers must never be the one that deletes anything.
 
-type Mode = 'prod' | 'staff' | 'test';
+type Mode = 'prod' | 'staff' | 'core' | 'test';
 
 const MODES: Record<string, Mode> = {
   '--staff': 'staff',
+  '--core': 'core',
   '--test': 'test',
 };
 
@@ -60,7 +77,7 @@ function parseMode(argv: string[]): { mode: Mode; force: boolean } {
 
   const unknown = modeFlags.filter((flag) => !(flag in MODES));
   if (unknown.length > 0) {
-    throw new Error(`Unknown flag ${unknown.join(', ')}. Use --staff or --test.`);
+    throw new Error(`Unknown flag ${unknown.join(', ')}. Use --staff, --core or --test.`);
   }
   if (modeFlags.length > 1) {
     throw new Error(`Pick one mode, not ${modeFlags.join(' and ')}.`);
@@ -93,6 +110,7 @@ async function refuseIfPopulated(prisma: PrismaClient): Promise<boolean> {
   console.error('  pnpm db:seed              каталог + факультети і кафедри');
   console.error('  pnpm db:create-admin      обліковий запис адміністратора');
   console.error('  pnpm db:seed:staff        реальні НПП з staff-roster.json');
+  console.error('  pnpm db:seed:core         уся кафедральна структура і рейтинги');
   return true;
 }
 
@@ -107,6 +125,11 @@ async function main() {
     // rebuilding the catalogue first would say nothing useful about it.
     if (mode === 'staff') {
       await reportStaff(prisma);
+      return;
+    }
+
+    if (mode === 'core') {
+      await reportCore(prisma);
       return;
     }
 
@@ -163,6 +186,57 @@ async function main() {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+/**
+ * The catalogue, then the real university on top of it.
+ *
+ * The catalogue runs first because `prod-core.json` carries the university and
+ * not the parts that are the same everywhere: додаток 5's спеціальності and the
+ * норматив table behind them. A student claim matches on a speciality, so
+ * importing people without it leaves the ставки half-built.
+ */
+async function reportCore(prisma: PrismaClient) {
+  const data = readCoreData();
+
+  const catalogue = await seedCatalogue(prisma);
+  console.log(
+    `Каталог: ${catalogue.activityTypeCount} показників (${catalogue.year}), ` +
+      `${Object.keys(catalogue.divisionIds).length} відділів, ` +
+      `${catalogue.specialityCount} спеціальностей\n`
+  );
+
+  const r = await importCoreData(prisma, data);
+  console.log(`Дані з ${new Date(data.exportedAt).toLocaleString('uk-UA')}:\n`);
+  console.log(`  відділів:     ${r.divisions}`);
+  console.log(`  факультетів:  ${r.faculties} (деканів ${r.deans})`);
+  console.log(`  кафедр:       ${r.departments} (завідувачів ${r.heads})`);
+  console.log(`  людей:        ${r.staff}`);
+  console.log(`  шаблонів:     ${r.templates}, показників ${r.activityTypes}`);
+  console.log(
+    `  досягнень:    ${r.activities}` +
+      (r.activitiesDeleted > 0 ? ` (замінено ${r.activitiesDeleted})` : '')
+  );
+  console.log(`  рейтингів:    ${r.ratingEntries}, сума ${r.totalScore}`);
+
+  // Anything unresolved is printed rather than thrown: a single indicator that
+  // did not match should not cost the other 11 800 rows their import.
+  if (r.missingStaff.length > 0) {
+    console.log(`\nНе знайдено людей (${r.missingStaff.length}):`);
+    for (const email of r.missingStaff) console.log(`  ${email}`);
+  }
+  if (r.missingTypes.length > 0) {
+    console.log(`\nНе знайдено показників (${r.missingTypes.length}):`);
+    for (const key of r.missingTypes) console.log(`  ${key}`);
+  }
+
+  console.log('\nПаролів не імпортовано — увійти поки не може ніхто.');
+  if (r.admins.length > 0) {
+    console.log(`Адміністратори (${r.admins.length}):`);
+    for (const email of r.admins) console.log(`  ${email}`);
+    console.log('\nЗадайте пароль першому:  ADMIN_FORCE=1 pnpm db:create-admin');
+  }
+  console.log('Решті — запрошення з /admin/invites.');
 }
 
 /**

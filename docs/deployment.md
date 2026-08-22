@@ -10,13 +10,13 @@ open Coolify and a terminal.
 
 ## What ships, and what does not
 
-|                          |                                                                                                                                                                                                                |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **The image**            | `Dockerfile` at the repo root. Four stages; the last one is Node, the standalone server, and a Prisma CLI for migrations.                                                                                      |
-| **The database**         | A **Coolify Postgres resource**, not `docker-compose.yml`.                                                                                                                                                     |
-| **`docker-compose.yml`** | **Dev only. Never deploy it.** It publishes Postgres on `5432` with the password `password`, runs Adminer unauthenticated on `8080`, and runs Mailpit, whose own comment says never to deploy it.              |
-| **Migrations**           | `docker/entrypoint.sh` runs `prisma migrate deploy` before the server starts. Nothing to do by hand.                                                                                                           |
-| **Demo data**            | Never. `pnpm db:seed` and `db:seed:structure` delete nothing and are safe here; `--base`, `--rater` and `--prod` invent or import people and wipe first — and now refuse a database that already has accounts. |
+|                          |                                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **The image**            | `Dockerfile` at the repo root. Four stages; the last one is Node, the standalone server, and a Prisma CLI for migrations.                                                                         |
+| **The database**         | A **Coolify Postgres resource**, not `docker-compose.yml`.                                                                                                                                        |
+| **`docker-compose.yml`** | **Dev only. Never deploy it.** It publishes Postgres on `5432` with the password `password`, runs Adminer unauthenticated on `8080`, and runs Mailpit, whose own comment says never to deploy it. |
+| **Migrations**           | `docker/entrypoint.sh` runs `prisma migrate deploy` before the server starts. Nothing to do by hand.                                                                                              |
+| **Demo data**            | Never. `pnpm db:seed` and `db:seed:core` delete nothing and are safe here; `db:seed:test` invents people and wipes first — and refuses a database that already has accounts.                      |
 
 ---
 
@@ -82,53 +82,71 @@ docker build --target builder -t edurank-tools .
 
 # The same Docker network as the Postgres resource — Coolify shows its name on
 # the resource page. Without it the container cannot see the database at all.
-docker run --rm -it --network <coolify-network> \
+# Everything: the catalogue, the university, the people, the ratings.
+docker run --rm -i --network <coolify-network> \
+  -v /root/prod-core.json:/app/prod-core.json:ro \
   -e DATABASE_URL='<the internal string from §1>' \
-  edurank-tools pnpm db:seed
+  edurank-tools pnpm db:seed:core
 
+# A password for the first administrator.
 docker run --rm -it --network <coolify-network> \
   -e DATABASE_URL='<the internal string from §1>' \
-  edurank-tools pnpm db:seed:structure
-
-docker run --rm -it --network <coolify-network> \
-  -e DATABASE_URL='<the internal string from §1>' \
+  -e ADMIN_FORCE=1 \
   edurank-tools pnpm db:create-admin
 ```
 
+### Where `prod-core.json` comes from
+
+**The server cannot build the university itself.** `db:seed:staff` reads
+`staff-roster.json` and the 2025 import chain reads `edu-reference/ФАКУЛЬТЕТИ` —
+142 MB of the university's own workbooks. Both are gitignored, so a container
+built from this repo has neither. The numbers are assembled and checked on a
+maintainer's machine and carried over as one file:
+
+```sh
+# On the maintainer's machine, where edu-reference/ exists:
+pnpm data:export                 # writes prod-core.json (~14 MB)
+scp prod-core.json root@<vps>:/root/prod-core.json
+```
+
+`db:seed:core` then runs the catalogue first and the file on top of it: 6
+відділи, 8 факультети, 31 кафедра with their завідувачі, every person with their
+profile, both rating templates with all their indicators, and every activity and
+total behind them.
+
+It is **idempotent** — every row is matched on a natural key (an email, a
+кафедра's name, an indicator's `code`), so running it again after a correction
+updates what it wrote instead of doubling it. Activities are the one exception
+and are replaced wholesale, because `Activity` deliberately has no unique key to
+upsert against; the delete is scoped to the people and years the file actually
+carries.
+
+It imports **no passwords**, and re-running it does not touch `passwordHash` or
+`tokenVersion`. Somebody who has already been invited and set a password keeps
+it when the rating numbers are re-imported. Nor does it touch what the live
+system owns: StudentClaim, the ставка pools and grids, the audit log.
+
 `db:create-admin` asks for email, ПІБ and a password, so it needs `-it`. It
-refuses to run where an administrator already exists — pass `ADMIN_FORCE=1` if
-that is genuinely what you want. For a non-interactive run, set `ADMIN_EMAIL`,
-`ADMIN_PASSWORD` and `ADMIN_NAME` instead.
+refuses to run where an administrator already exists — `ADMIN_FORCE=1` is needed
+after `db:seed:core`, because the seed's own service account is already there.
+For a non-interactive run, set `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_NAME`
+instead. Everybody else gets an invitation from `/admin/invites` and sets their
+own.
 
-`db:seed` with no flag is the catalogue and nothing else — divisions, the rating
-template with its indicators, and додаток 5's specialities. No people, no
-факультети, no кафедри, no passwords. It is safe to run again after any upgrade:
-every write is an upsert on a stable key, and a value an admin has since edited
-is left alone.
+`db:seed` with no flag is the catalogue plus the 8 факультети and 31 кафедри and
+nothing else — no people, no ratings, no passwords. `db:seed:core` runs it for
+you, so you only need it on its own to refresh the catalogue after an upgrade.
 
-`db:seed:structure` adds the real 8 факультети and 31 кафедри on top. It is the
-same upsert the demo modes use and it **deletes nothing**, so it is safe here —
-and it saves typing 39 records by hand. Кафедра names must match
-`lib/specialities/departments.ts` byte for byte or `specialityOrigin` cannot
-place a speciality, so seeding them beats typing them.
-
-**The bare commands are the safe ones on purpose.** `pnpm db:seed:base` and
-`pnpm db:seed:rater` create invented people and **wipe** whatever is there
-first — never run either against production. Since 2026-08-17 they refuse a
-database that already has accounts in it and print what they were about to
+**The bare commands are the safe ones on purpose.** `pnpm db:seed:test` invents
+people and **wipes** whatever is there first — never run it against production.
+It refuses a database that already has accounts and prints what it was about to
 destroy, so a slip costs a message rather than the administrator account, the
 structure and the audit log; `--force` overrides that for a dev database.
-`pnpm db:seed:prod` imports the
-real НПП, and it reads `edu-reference/УГСП_Дані.xlsx`, which is gitignored and
-therefore absent from this image; run it from a maintainer's machine against the
-production `DATABASE_URL`, not from a container.
 
 Delete the `edurank-tools` image afterwards if you want the disk back; it is
-only needed when the catalogue changes.
+only needed when the data changes.
 
-Then sign in at `https://edurank.uhsp.edu.ua/login`. Відділи come from the
-catalogue and факультети/кафедри from `db:seed:structure`, so what is left is
-people — added by hand, or by the staff import when it lands.
+Then sign in at `https://edurank.uhsp.edu.ua/login`.
 
 ## 5. Before anybody else gets the URL
 
@@ -297,7 +315,7 @@ Honest list, as of 2026-08-14.
 | -------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Login throttling           | **Built** — escalating lockout, `LoginThrottle`. Never yet exercised against the deployed app; §5.   |
 | Mailjet DNS                | **Live, verified 2026-08-14.** Ownership, SPF and DKIM all resolve on `edurank.uhsp.edu.ua`. See §6. |
-| Staff import (~300 people) | **Built, not run.** `pnpm db:seed:prod`, from a maintainer's machine — see §4.                       |
+| Staff import (~300 people) | **Built.** `pnpm data:export` here, `pnpm db:seed:core` there — see §4.                              |
 | Instructions in Ukrainian  | None. Four audiences who have never seen the app.                                                    |
 | Reminders / notifications  | No notification code exists at all.                                                                  |
 | Restore drill              | **Done 2026-08-22** on dev, from the `backup` service's own file. See §7.                            |

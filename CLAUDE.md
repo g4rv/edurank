@@ -139,13 +139,21 @@ pnpm test             # Vitest (869 tests, colocated next to what they cover)
 
 pnpm db:migrate       # prisma migrate dev (pass --name <x> to skip prompt)
 
-# Three seeds, each answering a different question. The full reasoning, and what
+# Four seeds, each answering a different question. The full reasoning, and what
 # each one guarantees, is in the header of prisma/seed.ts.
 pnpm db:seed          # PRODUCTION, safe, idempotent: the catalogue (відділи, the
                       #   2026 template and its indicators, додаток 5's спеціальності)
                       #   plus the real 8 факультети / 31 кафедра. Creates NO accounts.
 pnpm db:seed:staff    # safe: the real НПП from staff-roster.json, upserted on email.
                       #   No passwords — invitations go out from /admin/invites.
+pnpm db:seed:core     # PRODUCTION, safe, idempotent: the catalogue, then the whole
+                      #   real university from prod-core.json — структура, people,
+                      #   both templates, every activity and total. This is the ONLY
+                      #   way production gets the real numbers: the server has neither
+                      #   staff-roster.json nor edu-reference/, so nothing there can
+                      #   rebuild them. Carries no passwords and never overwrites one.
+pnpm data:export      # the other half: writes prod-core.json (~14 MB, gitignored)
+                      #   from THIS database. Run on a maintainer's machine, scp it up.
 pnpm db:seed:test     # DESTRUCTIVE: wipes people, structure and templates, then builds
                       #   a small complete university you can click every button in.
                       #   Refuses a populated database unless you pass --force.

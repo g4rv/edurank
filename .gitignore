@@ -54,6 +54,11 @@ next-env.d.ts
 # the repository's history, where it cannot be taken back out.
 /staff-roster*.json
 
+# The production payload — `pnpm data:export` writes it, `pnpm db:seed:core`
+# reads it. Everything staff-roster.json holds, plus every score: it IS the
+# university. Carried to the server by hand, never through the repository.
+/prod-core.json
+
 # Playwright MCP scratch output (page snapshots, console logs)
 /.playwright-mcp/
 
