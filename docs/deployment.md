@@ -244,8 +244,22 @@ the one that actually ran.
 # 1. A scratch database beside the real one. Never restore over the live DB.
 docker compose exec -T postgres psql -U postgres   -c "DROP DATABASE IF EXISTS edurank_restore_test;"   -c "CREATE DATABASE edurank_restore_test;"
 
-# 2. Restore the newest backup the service wrote.
+# 2. Restore the newest backup. THE TWO BACKUP WRITERS USE DIFFERENT FORMATS,
+#    and the wrong command fails in a way that looks like a corrupt file:
+#
+#      dev, the compose `backup` service → plain SQL, gzipped → psql
+#      production, Coolify               → pg_dump custom (PGDMP) → pg_restore
+#
+#    Check before you start, because during an incident you will not want to:
+#      head -c 5 <file>   →  "PGDMP" = custom,  "--"/"SET" = plain SQL
+
+# dev (plain SQL):
 gunzip -c backups/daily/edurank-latest.sql.gz   | docker compose exec -T postgres psql -U postgres -d edurank_restore_test -q
+
+# production (custom format). Coolify writes to
+# /data/coolify/backups/databases/<team>/<resource>/pg-dump-<db>-<epoch>.dmp
+# and its database is named `postgres`, not `edurank`.
+docker exec -i <postgres-container> pg_restore -U postgres   -d edurank_restore_test --no-owner --no-privileges   < pg-dump-postgres-<epoch>.dmp
 
 # 3. Is the data there?
 docker compose exec -T postgres psql -U postgres -d edurank_restore_test -t -c "
@@ -280,7 +294,12 @@ TS
 docker compose exec -T postgres psql -U postgres   -c "DROP DATABASE edurank_restore_test;"
 ```
 
-Two things the first drill turned up, neither fatal:
+Three things these drills turned up, none fatal:
+
+- **Production backups are `pg_dump` custom format, not plain SQL** (confirmed
+  against the real file on 2026-08-22). `psql` cannot read one: it reports
+  something that looks like corruption, on a backup that is perfectly good. Use
+  `pg_restore`. This is the whole reason step 2 above has two commands.
 
 - **`ERROR: unrecognized configuration parameter "transaction_timeout"`** on
   restore is expected and harmless. The backup image's `pg_dump` is newer than
