@@ -10,7 +10,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { SortTh } from '@/components/ui/sort-th';
 import { StaffFilters } from '@/components/staff/staff-filters';
 import { StaffTable } from '@/components/staff/staff-table';
-import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
+import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
 
 const VALID_RANKS = new Set<string>(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
 const VALID_DEGREES = new Set<string>(['CANDIDATE', 'DOCTOR']);
@@ -34,36 +34,20 @@ export default async function StaffPage({
 
   const isAdmin = role === 'ADMIN';
 
-  const {
-    roles,
-    sort,
-    dir,
-    q,
-    faculty,
-    dept,
-    rank,
-    degree,
-    partTime,
-    degreeMatch,
-    page,
-    archived,
-  } = params;
+  const { type, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch, page, archived } =
+    params;
 
   // ?archived=1 is how an archived person is found again to be restored — they
   // are out of the ordinary list by design.
   const archivedView = archived === '1';
 
-  // Role checkboxes (?roles=USER,EDITOR). Absent = НПП default; 'all' = no filter.
-  const VALID_ROLES = new Set(['USER', 'EDITOR', 'ADMIN']);
-  const rolesParam = typeof roles === 'string' ? roles : undefined;
-  const roleFilter: Role[] | undefined = !rolesParam
-    ? ['USER']
-    : rolesParam === 'all'
-      ? undefined
-      : (() => {
-          const picked = rolesParam.split(',').filter((r) => VALID_ROLES.has(r)) as Role[];
-          return picked.length > 0 ? picked : undefined;
-        })();
+  // ?type=npp|adm|all, keyed on isNpp — not Role. A vice-rector or the rector
+  // can hold role ADMIN while still being isNpp:true, so filtering by role hid
+  // them from the default view. Absent = НПП default.
+  const VALID_TYPES = new Set(['npp', 'adm', 'all']);
+  const typeParam = typeof type === 'string' && VALID_TYPES.has(type) ? type : 'npp';
+  const isNppFilter: boolean | undefined =
+    typeParam === 'npp' ? true : typeParam === 'adm' ? false : undefined;
   const sortField: StaffSortField =
     typeof sort === 'string' && (STAFF_SORT_FIELDS as readonly string[]).includes(sort)
       ? (sort as StaffSortField)
@@ -81,7 +65,7 @@ export default async function StaffPage({
 
   const [staff, faculties, departments] = await Promise.all([
     listStaff({
-      roles: roleFilter,
+      isNpp: isNppFilter,
       includeAccount: isAdmin,
       sort: effectiveSortField,
       dir: sortDir,
@@ -117,7 +101,7 @@ export default async function StaffPage({
   function buildHref(overrides: Record<string, string | undefined>) {
     const sp = new URLSearchParams();
     const base: Record<string, string | undefined> = {
-      roles: rolesParam,
+      type: typeParam !== 'npp' ? typeParam : undefined,
       sort: effectiveSortField !== 'lastName' ? effectiveSortField : undefined,
       dir: sortDir !== 'asc' ? sortDir : undefined,
       q: typeof q === 'string' ? q : undefined,
@@ -192,7 +176,7 @@ export default async function StaffPage({
 
   // Key changes with every filter/sort combination so the table animates in fresh
   const tableKey = [
-    rolesParam,
+    typeParam,
     effectiveSortField,
     sortDir,
     q,
