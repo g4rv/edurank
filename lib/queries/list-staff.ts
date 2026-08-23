@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { nameSearch } from './name-search';
 import { ON_ROSTER, REAL_PEOPLE } from './roster';
 import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
 
@@ -76,16 +77,15 @@ export async function listStaff(filters?: StaffFilters) {
   if (filters?.partTime) conditions.push({ partTimeDepartments: { some: {} } });
   if (filters?.degreeMatch) conditions.push({ degreeMatchesDepartment: true });
   if (filters?.q) {
-    const q = filters.q;
-    conditions.push({
-      OR: [
-        { lastName: { contains: q, mode: 'insensitive' } },
-        { firstName: { contains: q, mode: 'insensitive' } },
-        { patronymic: { contains: q, mode: 'insensitive' } },
-        { email: { contains: q, mode: 'insensitive' } },
-        { orcidId: { contains: q, mode: 'insensitive' } },
-      ],
-    });
+    // Word by word — see `nameSearch`. «Дудар Василь» used to find nobody.
+    const search = nameSearch(filters.q, [
+      'lastName',
+      'firstName',
+      'patronymic',
+      'email',
+      'orcidId',
+    ]);
+    if (search) conditions.push(search);
   }
 
   const rows = await db.staff.findMany({

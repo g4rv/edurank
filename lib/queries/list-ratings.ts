@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { nameSearch } from './name-search';
 import { ON_ROSTER, REAL_PEOPLE } from './roster';
 
 export type RatingSortField = 'name' | 'department' | 's1' | 's2' | 's3' | 's4' | 's5' | 'total';
@@ -36,14 +37,9 @@ export async function listRatings(filters: RatingListFilters) {
   if (filters.facultyId) conditions.push({ department: { facultyId: filters.facultyId } });
   if (filters.departmentId) conditions.push({ departmentId: filters.departmentId });
   if (filters.q) {
-    const q = filters.q;
-    conditions.push({
-      OR: [
-        { lastName: { contains: q, mode: 'insensitive' } },
-        { firstName: { contains: q, mode: 'insensitive' } },
-        { patronymic: { contains: q, mode: 'insensitive' } },
-      ],
-    });
+    // Word by word — see `nameSearch`. «Ігнатенко Микола» used to find nobody.
+    const search = nameSearch(filters.q, ['lastName', 'firstName', 'patronymic']);
+    if (search) conditions.push(search);
   }
 
   const staff = await db.staff.findMany({
