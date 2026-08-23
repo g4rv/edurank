@@ -2,10 +2,11 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { auth } from '@/lib/auth';
-import { getActiveTemplate } from '@/lib/queries/get-active-template';
+import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { getDashboard } from '@/lib/queries/get-dashboard';
 import { getReportData } from '@/lib/queries/get-rating-chart';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { YearSelect } from '@/components/rating/year-select';
 import { StatStrip } from '@/components/dashboard/stat-strip';
 import { OrgTree } from '@/components/dashboard/org-tree';
 import { ScoreDistribution } from '@/components/dashboard/score-distribution';
@@ -44,7 +45,12 @@ function Panel({
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
   const session = await auth();
   if (!session) redirect('/login');
   // НПП have their own rating page; the university-wide picture is not theirs
@@ -74,10 +80,16 @@ export default async function DashboardPage() {
     );
   }
 
-  const [data, reportData] = await Promise.all([
-    getDashboard(template.year),
-    getReportData(template.year),
-  ]);
+  // Which year the charts describe. The active one by default; any template
+  // year on request — a closed year is frozen history and is exactly what
+  // somebody comparing «this year against last» came here to see.
+  const templateYears = await listTemplateYears();
+  const years = templateYears.map((t) => t.year);
+  const asked = Number(params.year);
+  const year = years.includes(asked) ? asked : template.year;
+  const shown = templateYears.find((t) => t.year === year) ?? template;
+
+  const [data, reportData] = await Promise.all([getDashboard(year), getReportData(year)]);
 
   return (
     <AnimatedPage className="space-y-4">
@@ -85,16 +97,21 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-semibold">Графіки</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {template.year} рік · {template.status === 'CLOSED' ? 'закрито' : 'активний'}
+            {year} рік · {shown.status === 'CLOSED' ? 'закрито' : 'активний'}
           </p>
         </div>
-        <Link
-          href="/rating"
-          className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
-        >
-          Повний рейтинг
-          <ArrowRight className="size-4" />
-        </Link>
+        <div className="flex items-center gap-3">
+          <YearSelect years={years} value={year} />
+          {/* Carries the year across, so «Повний рейтинг» opens the same one
+              that is on screen rather than jumping back to the active year. */}
+          <Link
+            href={year === template.year ? '/rating' : `/rating?year=${year}`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
+          >
+            Повний рейтинг
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
       </div>
 
       <StatStrip
@@ -140,11 +157,7 @@ export default async function DashboardPage() {
       {/* The report is the hero: filters in a left rail drive the big preview.
           The department ranking lives inside it (кафедра by кафедра, any
           показник, with a PDF), so no separate static «Кафедри» card. */}
-      <ReportsView
-        year={template.year}
-        departments={reportData}
-        universityAverage={data.averageScore}
-      />
+      <ReportsView year={year} departments={reportData} universityAverage={data.averageScore} />
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Panel title="Бали за розділами" hint="Сума по всіх НПП, розділи 1–5 офіційної форми">
