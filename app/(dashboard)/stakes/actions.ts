@@ -79,6 +79,12 @@ const savePayloadSchema = z.object({
 
 function revalidateStakes(departmentId: string) {
   revalidatePath('/stakes');
+  // The grid itself — the page the завідувач actually edits. Missing it meant
+  // an autosave stored the right numbers and then served the old ones back on
+  // the next load, which is indistinguishable from a save that did not work
+  // (2026-08-23). `/departments/[id]` below is the кафедра's detail page, a
+  // different route that merely shows the totals.
+  revalidatePath(`/stakes/${departmentId}`);
   revalidatePath(`/departments/${departmentId}`);
   revalidatePath('/my-department');
 }
@@ -168,9 +174,25 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     return { error: 'Список НПП змінився. Оновіть сторінку та спробуйте ще раз' };
   }
 
-  // Already past both funds — the floor check below explains why that matters.
+  // Can the формула's own proposal fit inside the funds at all? When it
+  // cannot, «тільки збільшити» steps aside for the whole кафедра.
+  //
+  // **A property of the формула against the pool — never of the incoming
+  // allocations.** Ladder rounding alone can put the proposal above `Кст`
+  // (3,05 against 3,00 is an ordinary кафедра), and then SOMEBODY has to end
+  // up under their own share: there is no split inside the funds where
+  // everyone is at or above a proposal that oversubscribes them. Judging this
+  // from the allocations being saved made the rule bite the fix — a head
+  // pulling one row down by exactly the 0,05 overspend produced a total that
+  // no longer looked overspent, so the floor came back and refused the very
+  // decrease that got the кафедра back on budget, and the same value could
+  // never be re-saved afterwards (2026-08-23, Кафедра соціальних комунікацій).
+  //
+  // A head who overspends by RAISING people is not covered by this, and
+  // should not be: the формула fits, so coming back down to it is the way
+  // out and the floor still means something.
   const funds = stake.kstHundredths + (stake.bonusPoolHundredths ?? 0);
-  const overspent = allocations.reduce((sum, a) => sum + a.hundredths, 0) > funds;
+  const overspent = formula.totalHundredths > funds;
 
   for (const allocation of allocations) {
     const person = byId.get(allocation.staffId);

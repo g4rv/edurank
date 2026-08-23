@@ -392,6 +392,28 @@ describe('saveDistribution — the формула is a floor', () => {
     const result = await saveDistribution(payload([100, 100, 70]));
     expect(result).toMatchObject({ error: expect.stringContaining('формула') });
   });
+
+  // Found on Кафедра соціальних комунікацій (2026-08-23): a decrease that
+  // brought the кафедра EXACTLY back to its pool made itself look no-longer-
+  // overspent by the old measure (the incoming allocations), so «тільки
+  // збільшити» reasserted itself against the very edit that fixed things — a
+  // head could never resolve an overspend down to the last hundredth. Whether
+  // the floor lifts must be decided from what was there BEFORE this save.
+  it('accepts a decrease that lands exactly back on a formerly-overspent pool', async () => {
+    const staff = roster();
+    staff[0].ratingEntries = [{ totalScore: 1500 }];
+    staff[2].ratingEntries = [{ totalScore: 500 }];
+    for (const person of staff) {
+      person.stakeLimits = [{ minHundredths: 10, maxHundredths: 150 }] as never;
+    }
+    mockStaff.mockResolvedValue(staff);
+    // Nobody hits a cap here — this is pure 0,05-ladder rounding, each of the
+    // three rounding UP: формула proposes 1,30 / 1,05 / 0,70, landing on 3,05
+    // against a 3,00 pool. Pulling the first row down by exactly the 0,05
+    // overspend lands the кафедра precisely on its fund — the old code called
+    // that no-longer-overspent and refused the very row that fixed it.
+    expect(await saveDistribution(payload([125, 105, 70]))).toEqual({ success: true });
+  });
 });
 
 describe('saveDistribution — per-person rules', () => {

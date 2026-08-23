@@ -107,6 +107,19 @@ export function DistributionGrid({
   filledAt?: Date | null;
 }) {
   /**
+   * The формула's own proposal does not fit inside the two funds.
+   *
+   * Ladder rounding alone can do it — 3,05 proposed against a 3,00 pool — and
+   * then no split inside the funds can keep everybody at or above their own
+   * share. «Тільки збільшити» therefore steps aside for the whole кафедра, on
+   * this screen and in `saveDistribution` alike; otherwise the head has no
+   * legal move that gets them back on budget.
+   */
+  const formulaOverspends =
+    view.kstHundredths !== null &&
+    view.formulaTotalHundredths > view.kstHundredths + (view.bonusPoolHundredths ?? 0);
+
+  /**
    * Seeded from the stored proposal, but never outside the person's bounds.
    *
    * A saved ставка can fall out of range without anybody touching it: ADMIN
@@ -120,12 +133,20 @@ export function DistributionGrid({
    * alone until something saves; the screen simply stops showing a figure
    * nobody can commit.
    *
-   * It also never opens BELOW «за формулою». The формула is a floor — «тільки
-   * збільшити» — and since 2026-08-19 the server refuses anything under it, so
-   * a stored value below the proposal is another figure nobody can commit. A
-   * cap change moves every share on the кафедра, which is how an untouched row
-   * ends up there without anybody typing. `setStaffLimits` lifts the stored
-   * rows for the same reason; this keeps the screen honest if one slips past.
+   * It also never opens BELOW «за формулою» — EXCEPT on a кафедра whose stored
+   * split is already over both funds. The формула is a floor — «тільки
+   * збільшити» — and the server refuses anything under it, so a stored value
+   * below the proposal is normally a figure nobody can commit. A cap change
+   * moves every share on the кафедра, which is how an untouched row ends up
+   * there without anybody typing. `setStaffLimits` lifts the stored rows for
+   * the same reason; this keeps the screen honest if one slips past.
+   *
+   * The exception matters because the floor is lifted for the whole кафедра —
+   * here, in `settleStake`, and in `saveDistribution` — whenever the формула
+   * cannot fit inside the funds, so that a head has a legal way back on
+   * budget. Without it the grid saved that decrease correctly and then
+   * redisplayed the формула's number on the next load, which reads exactly
+   * like a save that did not work (2026-08-23, Кафедра соціальних комунікацій).
    */
   const seed = () =>
     Object.fromEntries(
@@ -135,7 +156,8 @@ export function DistributionGrid({
         const stored = r.proposedHundredths;
         const inRange = stored >= lower && stored <= upper;
         const base = inRange ? stored : r.formulaHundredths;
-        return [r.staffId, Math.min(Math.max(base, r.formulaHundredths, lower), upper)];
+        const floor = formulaOverspends ? lower : Math.max(lower, r.formulaHundredths);
+        return [r.staffId, Math.min(Math.max(base, floor), upper)];
       })
     );
 
@@ -256,6 +278,18 @@ export function DistributionGrid({
    */
   const headroom = remaining === null ? 0 : Math.max(0, remaining);
 
+  /**
+   * Is «тільки збільшити» lifted?
+   *
+   * Two ways in, and they are not the same thing. The кафедра being over right
+   * now needs a way back down. A формула that oversubscribes the funds needs it
+   * permanently: somebody has to sit below their share for the кафедра to be on
+   * budget at all, and once the head puts them there the total is no longer
+   * over — so a check on the live total alone would take the floor away again
+   * and refuse to re-save the very split it just accepted.
+   */
+  const floorLifted = overspent || formulaOverspends;
+
   /** Every bound that applies to one row, gathered for `settleStake` */
   const boundsFor = (row: StakeRow): StakeBounds => ({
     rating: row.rating,
@@ -263,7 +297,7 @@ export function DistributionGrid({
     maxHundredths: row.maxHundredths,
     formulaHundredths: row.formulaHundredths,
     headroom,
-    overspent,
+    overspent: floorLifted,
   });
 
   /**
@@ -655,7 +689,7 @@ export function DistributionGrid({
                 canEditLimits={canEditLimits}
                 canOpenStaffProfile={canOpenStaffProfile}
                 disabled={pending}
-                overspent={overspent}
+                overspent={floorLifted}
                 statusValues={statusValues}
                 // Only the ставка field. With no Кст the distribution cannot be
                 // saved, so an enabled field there is an invitation to lose
