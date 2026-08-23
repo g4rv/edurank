@@ -179,10 +179,6 @@ async function main() {
       fullName: string;
       email: string;
     }[];
-    // Membership only. WHICH person a name means is settled against the
-    // database and the sheet's own кафедра column: a name→email map silently
-    // keeps one row when a ПІБ repeats, and writes somebody else's профіль.
-    const onRoster = new Set(roster.map((r) => nameKey(r.fullName)));
 
     const staff = await prisma.staff.findMany({
       where: { isSystem: false },
@@ -207,6 +203,19 @@ async function main() {
       },
     });
     const byName = byFullName(staff);
+
+    // Membership: the docx roster, PLUS whoever already exists as Staff — the
+    // 34 people `import:missing-staff` created on a `.invalid` placeholder
+    // (no corporate address, so `staff:build` could never have listed them)
+    // are real staff with a filled 2025 rating table, and their профіль data
+    // sits in this same sheet. Excluding them left «not on roster» skip every
+    // one, so nobody without a real email ever got стаж/звання/ступінь/ORCID.
+    // WHICH person a name means is still settled against the database and the
+    // sheet's own кафедра column below — this set only decides membership.
+    const onRoster = new Set([
+      ...roster.map((r) => nameKey(r.fullName)),
+      ...staff.map((s) => nameKey(`${s.lastName} ${s.firstName} ${s.patronymic}`.trim())),
+    ]);
 
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.readFile(SOURCE);
