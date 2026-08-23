@@ -30,9 +30,50 @@ import { CORE_DATA_FILE, type CoreData } from './core-data';
 //   StudentClaim    2026 recruitment, decided by завідувачі on the live system.
 //   Stake*          The ставка pools and grids are this year's live work.
 //   LoginThrottle   Failed logins from a laptop.
+//   Operator logins See `holdsAPlace` — accounts that are not part of the
+//                   university's record.
 //
 // The output is gitignored for the same reason `staff-roster.json` is: ~300
 // real colleagues, their corporate addresses and their scores.
+
+/**
+ * Does this person hold a place in the university's record?
+ *
+ * The file carries the UNIVERSITY, not this machine's logins, and the two are
+ * easy to mix up because they live in one table. Somebody is part of the
+ * record when they sit on a кафедра or in a відділ, head one, or have a
+ * rating history. An account with none of those is an OPERATOR LOGIN — the
+ * `isSystem` service row, or an admin invented on a laptop
+ * (`admin@edurank.admin`) — and every environment makes its own:
+ * `pnpm db:seed` writes the service row, `pnpm db:create-admin` the first
+ * real administrator. Neither is ever carried between databases.
+ *
+ * It matters beyond tidiness: production already has its own administrators,
+ * created by hand. Carrying a dev admin over would add a second account for a
+ * real person under an address nobody can receive mail at — the same «one
+ * person, two accounts» fault that cost Перчук her rating and her headship.
+ *
+ * Silently dropping somebody is the worst thing this file could do, so every
+ * skipped row is printed and counted.
+ */
+function holdsAPlace(s: {
+  isSystem: boolean;
+  departmentId: string | null;
+  divisionId: string | null;
+  headOfDepartment: unknown;
+  deanOfFaculty: unknown;
+  _count: { activities: number; ratingEntries: number };
+}): boolean {
+  if (s.isSystem) return false;
+  return (
+    s.departmentId !== null ||
+    s.divisionId !== null ||
+    s.headOfDepartment !== null ||
+    s.deanOfFaculty !== null ||
+    s._count.activities > 0 ||
+    s._count.ratingEntries > 0
+  );
+}
 
 async function main() {
   const prisma = new PrismaClient({
@@ -57,6 +98,10 @@ async function main() {
             department: { select: { name: true } },
             division: { select: { name: true } },
             partTimeDepartments: { include: { department: { select: { name: true } } } },
+            // Only to decide `holdsAPlace` — none of these are written out.
+            headOfDepartment: { select: { id: true } },
+            deanOfFaculty: { select: { id: true } },
+            _count: { select: { activities: true, ratingEntries: true } },
           },
         }),
         prisma.ratingTemplate.findMany({
@@ -85,6 +130,12 @@ async function main() {
         }),
       ]);
 
+    const core = staff.filter(holdsAPlace);
+    const skipped = staff.filter((s) => !holdsAPlace(s));
+    // Their rows travel with them. An activity whose owner is not in the file
+    // would be an unresolvable email on import, and a rating entry for nobody.
+    const carried = new Set(core.map((s) => s.email));
+
     const data: CoreData = {
       exportedAt: new Date().toISOString(),
       divisions: divisions.map((d) => ({
@@ -98,7 +149,7 @@ async function main() {
         facultyName: d.faculty.name,
         headEmail: d.head?.email ?? null,
       })),
-      staff: staff.map((s) => ({
+      staff: core.map((s) => ({
         email: s.email,
         lastName: s.lastName,
         firstName: s.firstName,
@@ -155,33 +206,37 @@ async function main() {
           licencePositions: a.licencePositions,
         })),
       })),
-      activities: activities.map((a) => ({
-        staffEmail: a.staff.email,
-        typeYear: a.activityType.template.year,
-        typeCode: a.activityType.code,
-        year: a.year,
-        evidence: a.evidence,
-        computedValue: a.computedValue,
-        score: a.score,
-        status: a.status,
-        submittedByRole: a.submittedByRole,
-        approvedAt: iso(a.approvedAt),
-        removedAt: iso(a.removedAt),
-        removeReason: a.removeReason,
-        verifiedAt: iso(a.verifiedAt),
-        createdAt: iso(a.createdAt)!,
-      })),
-      ratingEntries: ratingEntries.map((r) => ({
-        staffEmail: r.staff.email,
-        year: r.year,
-        section1Score: r.section1Score,
-        section2Score: r.section2Score,
-        section3Score: r.section3Score,
-        section4Score: r.section4Score,
-        section5Score: r.section5Score,
-        totalScore: r.totalScore,
-        snapshot: r.snapshot,
-      })),
+      activities: activities
+        .filter((a) => carried.has(a.staff.email))
+        .map((a) => ({
+          staffEmail: a.staff.email,
+          typeYear: a.activityType.template.year,
+          typeCode: a.activityType.code,
+          year: a.year,
+          evidence: a.evidence,
+          computedValue: a.computedValue,
+          score: a.score,
+          status: a.status,
+          submittedByRole: a.submittedByRole,
+          approvedAt: iso(a.approvedAt),
+          removedAt: iso(a.removedAt),
+          removeReason: a.removeReason,
+          verifiedAt: iso(a.verifiedAt),
+          createdAt: iso(a.createdAt)!,
+        })),
+      ratingEntries: ratingEntries
+        .filter((r) => carried.has(r.staff.email))
+        .map((r) => ({
+          staffEmail: r.staff.email,
+          year: r.year,
+          section1Score: r.section1Score,
+          section2Score: r.section2Score,
+          section3Score: r.section3Score,
+          section4Score: r.section4Score,
+          section5Score: r.section5Score,
+          totalScore: r.totalScore,
+          snapshot: r.snapshot,
+        })),
     };
 
     writeFileSync(CORE_DATA_FILE, JSON.stringify(data));
@@ -200,6 +255,18 @@ async function main() {
     console.log(`  досягнень:     ${data.activities.length}`);
     console.log(`  рейтингів:     ${data.ratingEntries.length}`);
     console.log(`  сума балів:    ${round2(total)}`);
+
+    // Never silently. Somebody reading this must be able to see that the
+    // people left behind are logins and not colleagues.
+    if (skipped.length > 0) {
+      console.log(`\nНе експортовано — службові облікові записи (${skipped.length}):`);
+      for (const s of skipped) {
+        const why = s.isSystem ? 'isSystem' : 'без кафедри, відділу та рейтингу';
+        console.log(`  ${s.email}  — ${s.lastName} ${s.firstName} (${s.role}, ${why})`);
+      }
+      console.log('  Адміністраторів створює `pnpm db:create-admin` на кожному сервері окремо.');
+    }
+
     console.log('\nПаролів у файлі немає — нікого не запросили, ніхто не увійде.');
   } finally {
     await prisma.$disconnect();
