@@ -4,10 +4,11 @@ import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   NATIONAL_LENGTH,
+  PHONE_PLACEHOLDER,
   formatNational,
   fromStoredPhone,
   nationalDigits,
-  toStoredPhone,
+  toPhoneValue,
 } from '@/lib/phone';
 
 /**
@@ -36,9 +37,9 @@ export function TelInput({
   className,
   'aria-invalid': ariaInvalid,
 }: {
-  /** The stored form, «+380441234567», or null */
+  /** «+380441234567», or «+38044» while it is being typed, or empty */
   value: string | null | undefined;
-  onChange: (next: string | null) => void;
+  onChange: (next: string) => void;
   disabled?: boolean;
   id?: string;
   className?: string;
@@ -46,6 +47,7 @@ export function TelInput({
 }) {
   const digits = fromStoredPhone(value);
   const complete = digits.length === NATIONAL_LENGTH;
+  const shown = formatNational(digits);
 
   return (
     <div className="space-y-1">
@@ -60,7 +62,7 @@ export function TelInput({
       >
         {/* Part of the field, not of the value. Nobody can delete it, so no
             number can be stored without a country code. */}
-        <span className="mr-1.5 shrink-0 text-sm text-muted-foreground select-none">+380</span>
+        <span className="mr-1.5 shrink-0 text-sm select-none">+380</span>
         <input
           id={id}
           type="tel"
@@ -68,9 +70,14 @@ export function TelInput({
           autoComplete="tel"
           disabled={disabled}
           aria-invalid={ariaInvalid}
-          placeholder="44 123 45 67"
-          value={formatNational(digits)}
-          onChange={(e) => onChange(toStoredPhone(nationalDigits(e.target.value)))}
+          placeholder={PHONE_PLACEHOLDER}
+          value={shown}
+          // The field renders what it last reported, so a PARTIAL has to
+          // survive that round trip. It first reported null below nine digits,
+          // which came back as an empty string and threw away every keystroke —
+          // nothing could be typed at all (2026-08-24, reported from the
+          // screen). The schema refuses the fragment on submit instead.
+          onChange={(e) => onChange(toPhoneValue(nationalDigits(e.target.value)))}
           className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none disabled:cursor-not-allowed"
         />
         {complete && <Check className="size-4 shrink-0 text-green-600 dark:text-green-500" />}

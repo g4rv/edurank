@@ -382,7 +382,7 @@ export function StaffFormFields({
                 <TelInput
                   id="phone"
                   value={field.value}
-                  onChange={(next) => field.onChange(next ?? '')}
+                  onChange={field.onChange}
                   disabled={isPending}
                   aria-invalid={!!errors.phone}
                 />

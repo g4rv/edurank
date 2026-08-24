@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
+import { formatPhoneDisplay } from '@/lib/phone';
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -214,7 +215,7 @@ export default async function ProfilePage() {
 
         <InfoCard title="Контакти">
           <Field label="Email" value={staff.email} />
-          <Field label="Телефон" value={staff.phone ?? '—'} />
+          <Field label="Телефон" value={formatPhoneDisplay(staff.phone) ?? '—'} />
           {staff.division && <Field label="Відділ" value={staff.division.name} />}
           <Field
             label="Ставка"

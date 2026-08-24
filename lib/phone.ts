@@ -34,27 +34,55 @@ export function nationalDigits(input: string): string {
   return digits.slice(0, NATIONAL_LENGTH);
 }
 
-/** «441234567» → «44 123 45 67», grouped as it is read aloud */
+/** What an empty field shows after the fixed «+380»: «__-___-____» */
+export const PHONE_PLACEHOLDER = '__-___-____';
+
+/** «441234567» → «44-123-4567» — the grouping the owner asked for (2026-08-24) */
 export function formatNational(digits: string): string {
   const d = digits.slice(0, NATIONAL_LENGTH);
-  const parts = [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)];
-  return parts.filter((p) => p.length > 0).join(' ');
+  return [d.slice(0, 2), d.slice(2, 5), d.slice(5, 9)].filter((p) => p.length > 0).join('-');
 }
 
 /**
- * What goes in the database: «+380441234567», or null for an empty field.
+ * What the FORM holds while somebody types — «+380» plus whatever digits exist.
  *
- * One canonical form, so a future export or SMS gateway never has to guess. A
- * half-typed number stores as null rather than as a fragment — a phone number
- * that cannot be dialled is not worth keeping, and Zod reports it on submit.
+ * Deliberately not `toStoredPhone`, which returns null below nine digits. The
+ * field is controlled: it renders what it last reported, so reporting null for
+ * a fragment threw away every keystroke and nothing could be typed at all
+ * (2026-08-24, caught on the screen). A partial is carried instead, and the
+ * schema refuses it on submit — the same way a half-typed email is.
  */
-export function toStoredPhone(digits: string): string | null {
-  return digits.length === NATIONAL_LENGTH ? `+380${digits}` : null;
+export function toPhoneValue(digits: string): string {
+  return digits.length > 0 ? `+380${digits}` : '';
 }
 
-/** «+380441234567» → «441234567», for putting a stored value back in the field */
+/**
+ * «+380441234567» → «+380 44-123-4567», for reading rather than editing.
+ *
+ * The column holds one canonical run of digits so nothing downstream has to
+ * guess; a person reading a profile should not have to. Anything that is not
+ * our own shape — there is none today, but an import could bring some — is
+ * shown exactly as stored rather than reformatted into a number it might not be.
+ */
+export function formatPhoneDisplay(stored: string | null | undefined): string | null {
+  if (!stored) return null;
+  const digits = fromStoredPhone(stored);
+  if (digits.length !== NATIONAL_LENGTH) return stored;
+  return `+380 ${formatNational(digits)}`;
+}
+
+/**
+ * «+380441234567» → «441234567», for putting a value back in the field.
+ *
+ * Our own shape is read EXACTLY — «+380» then whatever follows — so a partial
+ * survives the round trip the controlled field depends on. Anything else went
+ * through a human or a clipboard and falls back to the tolerant parse.
+ */
 export function fromStoredPhone(stored: string | null | undefined): string {
-  return stored ? nationalDigits(stored) : '';
+  if (!stored) return '';
+  if (stored.startsWith('+380'))
+    return stored.slice(4).replace(/\D/g, '').slice(0, NATIONAL_LENGTH);
+  return nationalDigits(stored);
 }
 
 /** Complete, or empty. A partial number is the one thing the field must refuse. */

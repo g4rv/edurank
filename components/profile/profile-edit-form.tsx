@@ -64,7 +64,7 @@ export function ProfileEditForm({ defaultValues }: { defaultValues: FormValues }
                 <TelInput
                   id="phone"
                   value={field.value}
-                  onChange={(next) => field.onChange(next ?? '')}
+                  onChange={field.onChange}
                   disabled={isPending}
                   aria-invalid={!!errors.phone}
                 />

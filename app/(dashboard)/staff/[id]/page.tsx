@@ -15,6 +15,7 @@ import { ArchiveStaffButton, RestoreStaffButton } from '@/components/staff/archi
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
+import { formatPhoneDisplay } from '@/lib/phone';
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -196,7 +197,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         <div className="flex flex-1 flex-col gap-4">
           <InfoCard title="Контакти">
             <Field label="Email" value={staff.email} />
-            <Field label="Телефон" value={staff.phone ?? '—'} />
+            <Field label="Телефон" value={formatPhoneDisplay(staff.phone) ?? '—'} />
             {staff.division && <Field label="Відділ" value={staff.division.name} />}
             {showConfidential && (
               <Field

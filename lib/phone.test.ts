@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatNational,
+  formatPhoneDisplay,
+  toPhoneValue,
   fromStoredPhone,
   isCompleteOrEmpty,
   nationalDigits,
-  toStoredPhone,
 } from './phone';
 
 describe('nationalDigits', () => {
@@ -46,34 +47,22 @@ describe('nationalDigits', () => {
 });
 
 describe('formatNational', () => {
-  it('groups the way the number is read aloud', () => {
-    expect(formatNational('441234567')).toBe('44 123 45 67');
+  it('groups 2-3-4, matching the «+380-__-___-____» mask', () => {
+    expect(formatNational('441234567')).toBe('44-123-4567');
   });
 
   it('formats as far as the person has typed, with no trailing separator', () => {
     expect(formatNational('44')).toBe('44');
-    expect(formatNational('441')).toBe('44 1');
-    expect(formatNational('44123')).toBe('44 123');
-    expect(formatNational('4412345')).toBe('44 123 45');
+    expect(formatNational('441')).toBe('44-1');
+    expect(formatNational('44123')).toBe('44-123');
+    expect(formatNational('4412345')).toBe('44-123-45');
     expect(formatNational('')).toBe('');
   });
 });
 
-describe('toStoredPhone', () => {
-  it('stores one canonical form', () => {
-    expect(toStoredPhone('441234567')).toBe('+380441234567');
-  });
-
-  it('stores nothing for a half-typed number', () => {
-    // A number that cannot be dialled is not worth keeping.
-    expect(toStoredPhone('4412')).toBeNull();
-    expect(toStoredPhone('')).toBeNull();
-  });
-});
-
 describe('fromStoredPhone', () => {
-  it('round-trips what toStoredPhone wrote', () => {
-    expect(fromStoredPhone(toStoredPhone('441234567'))).toBe('441234567');
+  it('round-trips what the field reported', () => {
+    expect(fromStoredPhone(toPhoneValue('441234567'))).toBe('441234567');
   });
 
   it('is empty for a person with no number', () => {
@@ -90,5 +79,56 @@ describe('isCompleteOrEmpty', () => {
 
   it('refuses a fragment — the one case the field exists to stop', () => {
     expect(isCompleteOrEmpty('4412')).toBe(false);
+  });
+});
+
+// The field is CONTROLLED: what it shows is parsed back out of what it last
+// reported. If a half-typed number cannot survive that round trip, every
+// keystroke is discarded and nothing can be typed at all — which is exactly
+// what shipped on 2026-08-24 and was caught on the screen, not by a test.
+describe('the round trip a controlled field depends on', () => {
+  it('survives a half-typed number', () => {
+    for (const typed of ['4', '44', '441', '44123', '4412345', '44123456']) {
+      expect(fromStoredPhone(toPhoneValue(typed))).toBe(typed);
+    }
+  });
+
+  it('survives a complete number', () => {
+    expect(fromStoredPhone(toPhoneValue('441234567'))).toBe('441234567');
+  });
+
+  it('survives an emptied field', () => {
+    expect(toPhoneValue('')).toBe('');
+    expect(fromStoredPhone('')).toBe('');
+  });
+});
+
+describe('toPhoneValue', () => {
+  it('carries a partial so the schema can refuse it on submit', () => {
+    // Reporting null for a fragment would silently clear the column instead of
+    // telling the person their number is incomplete.
+    expect(toPhoneValue('4412')).toBe('+3804412');
+  });
+
+  it('is empty when nothing is typed', () => {
+    expect(toPhoneValue('')).toBe('');
+  });
+});
+
+describe('formatPhoneDisplay', () => {
+  it('reads as a phone number, not as a run of digits', () => {
+    expect(formatPhoneDisplay('+380124123124')).toBe('+380 12-412-3124');
+  });
+
+  it('is null for somebody with no number', () => {
+    expect(formatPhoneDisplay(null)).toBeNull();
+    expect(formatPhoneDisplay('')).toBeNull();
+  });
+
+  // There is none today, but an import could bring one. Reformatting a string
+  // that is not our shape would assert it is a number when it may not be.
+  it('shows anything unexpected exactly as stored', () => {
+    expect(formatPhoneDisplay('внутрішній 42')).toBe('внутрішній 42');
+    expect(formatPhoneDisplay('+38044')).toBe('+38044');
   });
 });
