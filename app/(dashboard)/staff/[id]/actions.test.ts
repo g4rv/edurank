@@ -100,6 +100,8 @@ function mockTx() {
       // fail here loudly instead of quietly passing a mock.
     },
     staffDepartment: { deleteMany: vi.fn(), createMany: vi.fn() },
+    // The audit diff resolves сумісництво ids to кафедра names
+    department: { findMany: vi.fn().mockResolvedValue([]) },
     activationToken: { deleteMany: vi.fn().mockResolvedValue({}) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
     // no active template → syncProfileDerived no-ops
@@ -213,6 +215,75 @@ describe('updateStaff field filtering', () => {
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
     expect(writtenFields(tx)).toContain('employmentRate');
     expect(writtenFields(tx)).toContain('divisionId');
+  });
+});
+
+// Сумісництво is written outside `updateData`, so `diffChanges` never saw it:
+// an edit that only moved somebody's additional кафедра produced an audit row
+// with an empty «Зміни» column. You could see that something changed and never
+// what — and сумісництво now decides who appears in a second кафедра's ставка
+// grid (2026-08-24).
+describe('updateStaff records сумісництво in the audit log', () => {
+  function auditChanges(tx: ReturnType<typeof mockTx>): Record<string, unknown> {
+    return tx.auditLog.create.mock.calls[0][0].data.changes;
+  }
+
+  it('names the кафедра that was added', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
+    const tx = mockTx();
+    tx.staff.findUnique.mockResolvedValue({ partTimeDepartments: [] });
+    tx.department.findMany.mockResolvedValue([{ name: 'Кафедра екології' }]);
+
+    await updateStaff('staff-1', { ...fullPayload, partTimeDepartmentIds: ['d2'] });
+
+    expect(auditChanges(tx).partTimeDepartmentIds).toEqual({
+      from: null,
+      to: 'Кафедра екології',
+    });
+  });
+
+  it('names the кафедра that was removed', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
+    const tx = mockTx();
+    tx.staff.findUnique.mockResolvedValue({
+      partTimeDepartments: [{ department: { name: 'Кафедра екології' } }],
+    });
+
+    await updateStaff('staff-1', { ...fullPayload, partTimeDepartmentIds: [] });
+
+    expect(auditChanges(tx).partTimeDepartmentIds).toEqual({
+      from: 'Кафедра екології',
+      to: null,
+    });
+  });
+
+  it('says nothing when the сумісництво did not move', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
+    const tx = mockTx();
+    tx.staff.findUnique.mockResolvedValue({
+      partTimeDepartments: [{ department: { name: 'Кафедра екології' } }],
+    });
+    tx.department.findMany.mockResolvedValue([{ name: 'Кафедра екології' }]);
+
+    await updateStaff('staff-1', { ...fullPayload, partTimeDepartmentIds: ['d2'] });
+
+    expect(auditChanges(tx)).not.toHaveProperty('partTimeDepartmentIds');
+  });
+
+  it('does not look at сумісництво for an EDITOR, who cannot change it', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockStaffLookups();
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'academicRank' }]);
+    const tx = mockTx();
+
+    await updateStaff('staff-1', { ...fullPayload, partTimeDepartmentIds: ['d2'] });
+
+    expect(tx.department.findMany).not.toHaveBeenCalled();
+    expect(auditChanges(tx)).not.toHaveProperty('partTimeDepartmentIds');
   });
 });
 

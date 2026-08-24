@@ -100,12 +100,17 @@ export const FIELD_LABELS: Record<string, string> = {
   closedAt: 'Рік закрито',
   code: 'Код показника',
   licencePositions: 'Позиції ліцензійних умов',
-  // Розподіл ставок. `kstHundredths` and the limits are stored as integer
-  // hundredths, so the audit diff shows 135 rather than 1,35 — the label says
-  // so instead of the reader guessing at a suspicious-looking number.
-  kstHundredths: 'Кст (сотих)',
-  minHundredths: 'Мінімальна ставка (сотих)',
-  maxHundredths: 'Максимальна ставка (сотих)',
+  // Розподіл ставок. All of these are stored as integer hundredths. The label
+  // used to say «(сотих)» and print the raw 135; the audit log now formats the
+  // VALUE instead — «1,35» — because a reader should not have to divide by a
+  // hundred in their head to check a ставка (2026-08-24). See `resolve` in
+  // app/(dashboard)/admin/audit-log/page.tsx; adding a field here means adding
+  // it there too.
+  kstHundredths: 'Кст',
+  minHundredths: 'Мінімальна ставка',
+  maxHundredths: 'Максимальна ставка',
+  bonusPoolHundredths: 'Бонусний пул',
+  valueHundredths: 'Надбавка за посаду',
   base: 'Норматив (бакалавр, денна)',
   contractCoefficient: 'Узгоджуючий коефіцієнт',
 };

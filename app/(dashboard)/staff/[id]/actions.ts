@@ -288,6 +288,12 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
           orcidId: true,
           departmentId: true,
           divisionId: true,
+          // Not a scalar, so `diffChanges` cannot see it — and сумісництво is
+          // written further down, outside `updateData`. Without this an edit
+          // that only moved somebody's additional кафедра produced an audit row
+          // with an EMPTY «Зміни» column: you could see that something changed
+          // and never what (2026-08-24).
+          partTimeDepartments: { select: { department: { select: { name: true } } } },
         },
       });
 
@@ -303,6 +309,32 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
         beforeFiltered,
         updateData as Record<string, string | number | boolean | null>
       );
+
+      // Сумісництво, as кафедра NAMES rather than ids: the audit is read by a
+      // person, and «Кафедра екології → —» says what a pair of cuids does not.
+      // Only ADMIN can change it, so only ADMIN's saves are compared.
+      if (isAdmin) {
+        const departmentNames = async (ids: readonly string[]) =>
+          ids.length === 0
+            ? null
+            : (
+                await tx.department.findMany({
+                  where: { id: { in: [...ids] } },
+                  select: { name: true },
+                  orderBy: { name: 'asc' },
+                })
+              )
+                .map((d) => d.name)
+                .join(', ') || null;
+
+        const before =
+          existing?.partTimeDepartments
+            .map((p) => p.department.name)
+            .sort((a, b) => a.localeCompare(b, 'uk'))
+            .join(', ') || null;
+        const after = await departmentNames(partTimeDepartmentIds);
+        if (before !== after) changes.partTimeDepartmentIds = { from: before, to: after };
+      }
 
       await tx.staff.update({ where: { id }, data: updateData });
 

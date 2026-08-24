@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { FIELD_LABELS } from '@/lib/labels';
+import { formatStake } from '@/lib/stake/units';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
@@ -197,6 +198,16 @@ export default async function AuditLogPage({
     const str = String(value);
     if (VALUE_LABELS[str]) return VALUE_LABELS[str];
     switch (field) {
+      // Every ставка in the database is INTEGER HUNDREDTHS. Printing the raw
+      // 105 made an ordinary edit look like a broken one, and left the reader
+      // doing the division themselves. The labels no longer say «(сотих)»
+      // because the value now says it (2026-08-24).
+      case 'kstHundredths':
+      case 'minHundredths':
+      case 'maxHundredths':
+      case 'bonusPoolHundredths':
+      case 'valueHundredths':
+        return Number.isFinite(Number(value)) ? formatStake(Number(value)) : str;
       case 'divisionId':
         return divisionMap.get(str) ?? str;
       case 'departmentId':
