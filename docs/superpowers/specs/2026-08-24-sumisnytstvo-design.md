@@ -99,11 +99,18 @@ model StaffStakeLimits {
 index, so a nullable `departmentId` meaning «primary» would allow two rows that
 both claim to be the primary bound.
 
-**Migration.** Add the column nullable → backfill from `Staff.departmentId` →
-delete any row whose staff has no кафедра (a non-НПП should never have had
-limits; if any exist they are noise) → set NOT NULL → drop the old unique → add
-the new unique and the foreign key. One migration, written by hand rather than
+**Migration.** Add the column nullable → backfill from `Staff.departmentId` → set NOT NULL → drop
+the old unique → add the new unique and the foreign key. One migration, written by hand rather than
 generated, because the backfill sits in the middle of it.
+
+**No `DELETE` anywhere in it.** An earlier draft deleted rows whose staff has no кафедра, on the
+argument that a non-НПП should never have had limits. That is a silent destructive statement in a
+production migration to save a case that should not exist, and it is not worth it. Instead the
+`SET NOT NULL` is left to fail: if any row cannot be backfilled, the migration aborts, the deploy
+stops, and a person looks at it. Nothing is destroyed by a wrong assumption.
+
+Every statement in the migration is therefore additive or a constraint change. The only destructive
+verb in the whole feature would have been that `DELETE`, and it is gone.
 
 ### Defaults
 
@@ -121,6 +128,13 @@ export const PART_TIME_LIMITS = {
 | ------------------- | ---- | ---- |
 | primary (unchanged) | 0.10 | 1.00 |
 | additional          | 0.10 | 0.25 |
+
+**The additional кафедра never inherits the primary кафедра's bounds.** Two things guarantee it, and
+both matter: the limits lookup is scoped `{ year, departmentId }`, so it cannot see the other
+кафедра's row at all, and the fallback when no row exists is `PART_TIME_LIMITS`, not
+`DEFAULT_LIMITS`. If ADMIN types a Макс of 1,50 for somebody on their main кафедра, their additional
+кафедра still opens at 0,25. The two rows are independent in both directions, and neither `Мін` nor
+`Макс` is ever copied from one to the other.
 
 ## The formula
 
@@ -371,6 +385,40 @@ Colocated, as the project requires.
   The кадри office enters them through the new select, one person at a time, and
   every screen above shows nothing different until they do. That is the intended
   rollout: the feature is inert on today's data.
+
+## Risk to existing production data
+
+Asked directly by the owner on 2026-08-24, before planning. Gone through statement by statement.
+
+**Nothing in this change destroys data.** The migration is `ADD COLUMN` + `UPDATE` + `SET NOT NULL`
+
+- index and foreign-key changes. There is no `DROP COLUMN`, no `DROP TABLE`, no type change and — as
+  of the revision above — no `DELETE`. If the backfill misses a row the migration aborts and the
+  deploy stops, which is loud and reversible by fixing the row.
+
+Untouched entirely: `Activity`, `RatingEntry`, `StudentClaim`, `AuditLog`, `passwordHash`,
+`tokenVersion`, `DepartmentStake`, `StakeDistribution`, `StakeAllocation`.
+
+Four behaviour changes that are **not** data loss but will be noticed:
+
+| What                                                  | Why it is safe                                                                                                                                                                                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A saved distribution's numbers                        | `StakeAllocation.proposedHundredths` and `formulaHundredths` are stored and frozen at save. Nothing in this change rewrites them, and nothing re-saves without a person typing.                                                       |
+| «тільки збільшити» on a кафедра that gains a сумісник | The floor a head may not go below is the **live** formula, not the frozen one. Once a сумісник joins, the live proposal for their colleagues drops, so the floor drops with it. A head reopening the grid gets more room, never less. |
+| `Кст` validation                                      | Tightens by 0.10 per сумісник (D6). No stored `Кст` is modified; an ADMIN **editing** that кафедра's pool may be refused until they raise it, and `belowMinimum` already flags it on read.                                            |
+| `/departments/[id]` counts                            | The roster fix makes «N основних · M сумісників» smaller where archived people were being counted. The old number was wrong.                                                                                                          |
+
+One thing to check against production **before** deploying, because validation gets stricter:
+
+```sql
+-- D1 caps a person at one additional кафедра. Anyone already over it could not
+-- be saved from the staff form until fixed. Expected result: zero rows.
+SELECT "staffId", count(*) FROM "StaffDepartment" GROUP BY "staffId" HAVING count(*) > 1;
+```
+
+No seed or import has ever written a `StaffDepartment` row — `staff-import.ts`, `structure.ts` and
+`test-data.ts` create none, and `core-export.ts` only reads them — so a row exists only if somebody
+typed it in the UI. The query is cheap insurance, not an expected problem.
 
 ## Out of scope
 
