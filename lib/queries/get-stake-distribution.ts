@@ -1,9 +1,9 @@
 import { db } from '@/lib/db';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
-import { ON_ROSTER } from './roster';
+import { ON_ROSTER, onDepartment } from './roster';
 import { getKharakterystykaMany } from './get-kharakterystyka';
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
-import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
+import { DEFAULT_LIMITS, PART_TIME_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { minimumKstHundredths } from '@/lib/stake/units';
 import { isKnownDepartment } from '@/lib/specialities/departments';
 import { EMPTY_BONUS, bonusForStaff, type StaffBonus } from './list-student-claims';
@@ -27,6 +27,14 @@ export interface StakeRow {
   rating: number;
   /** Their administrative position, or null — priced by ADMIN per year */
   adminPosition: AdminPosition | null;
+  /**
+   * This кафедра is their ADDITIONAL one — they sit primarily elsewhere.
+   *
+   * Drives three things and nothing else: the «Сумісник» badge, the sort to the
+   * bottom, and which default bounds apply. Their rating, their bonus and their
+   * place in the formula are exactly the same as anybody else's (2026-08-24).
+   */
+  isPartTime: boolean;
   /** «позицій із 20» — whether this person counts towards Кнпп */
   positions: number;
   qualifies: boolean;
@@ -105,9 +113,12 @@ export async function getStakeDistribution(
   const ratingYear = await ratingYearFor(year);
 
   const staff = await db.staff.findMany({
-    where: { ...ON_ROSTER, isNpp: true, departmentId },
+    where: { ...ON_ROSTER, isNpp: true, ...onDepartment(departmentId) },
     select: {
       id: true,
+      // Compared against the кафедра being viewed — this is what tells a
+      // primary row from a сумісник's, and no extra column is needed for it.
+      departmentId: true,
       lastName: true,
       firstName: true,
       patronymic: true,
@@ -116,7 +127,12 @@ export async function getStakeDistribution(
       // Характеристика (2026-08-17).
       adminPosition: true,
       ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
-      stakeLimits: { where: { year }, select: { minHundredths: true, maxHundredths: true } },
+      // Scoped to THIS кафедра: bounds are per-кафедра since 2026-08-24, and an
+      // unscoped read would hand a сумісник their own кафедра's 1,00 ceiling.
+      stakeLimits: {
+        where: { year, departmentId },
+        select: { minHundredths: true, maxHundredths: true },
+      },
     },
   });
 
@@ -139,6 +155,13 @@ export async function getStakeDistribution(
       staff.map((s) => s.id),
       year
     ),
+    // Every id, сумісники included — and that is the whole rule (2026-08-24).
+    // A сумісник's recruited students show on BOTH кафедри's grids, because the
+    // bonus is a signal about the person rather than a fixed sum, and a head who
+    // sees that this person filled their OWN programmes can weigh it. The
+    // green/amber colouring resolves against the кафедра being viewed, so both
+    // heads get the right picture from the same data. Do not add a per-кафедра
+    // bonus rule; there deliberately is none.
     bonusForStaff(
       staff.map((s) => s.id),
       year
@@ -148,16 +171,28 @@ export async function getStakeDistribution(
   const kstHundredths = stake?.kstHundredths ?? null;
   /** The second pool. The formula never reads it — it is spread by hand. */
   const bonusPoolHundredths = stake?.bonusPoolHundredths ?? null;
+  /** Is this кафедра their additional one? */
+  const isPartTime = (s: (typeof staff)[number]) => s.departmentId !== departmentId;
+
+  // Primary кафедра only — Кнпп is the п.38 licence figure and one person
+  // cannot be claimed by two кафедри. `headcount` below deliberately differs.
   const knpp = staff.filter(
-    (s) => (documents.get(s.id)?.metCount ?? 0) >= REQUIRED_POSITIONS
+    (s) => !isPartTime(s) && (documents.get(s.id)?.metCount ?? 0) >= REQUIRED_POSITIONS
   ).length;
 
-  /** This person's bounds — their own row, or the defaults */
+  /**
+   * This person's bounds on THIS кафедра — their own row, or the defaults.
+   *
+   * The fallback differs by row type and never crosses кафедри: a сумісник with
+   * no row of their own gets 0,10–0,25, not whatever ADMIN typed for them on
+   * their primary кафедра.
+   */
   function boundsFor(s: (typeof staff)[number]) {
     const own = s.stakeLimits[0];
+    const fallback = isPartTime(s) ? PART_TIME_LIMITS : DEFAULT_LIMITS;
     return {
-      minHundredths: own?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
-      maxHundredths: own?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
+      minHundredths: own?.minHundredths ?? fallback.minHundredths,
+      maxHundredths: own?.maxHundredths ?? fallback.maxHundredths,
       /** Dimming keys off this: «somebody decided this for this person» */
       hasOwnLimits: !!own,
     };
@@ -185,6 +220,7 @@ export async function getStakeDistribution(
         name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
         rating: share.rating,
         adminPosition: s.adminPosition,
+        isPartTime: isPartTime(s),
         positions: metCount,
         qualifies: metCount >= REQUIRED_POSITIONS,
         ...boundsFor(s),
@@ -197,9 +233,15 @@ export async function getStakeDistribution(
         bonus: bonuses.get(s.id) ?? EMPTY_BONUS,
       };
     })
-    // The order the formula spreads in, which is the order a head already
-    // thinks in — highest rating first, name as the tie-break so it never wobbles.
-    .sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name, 'uk'));
+    // Сумісники last as a block, then the order the formula spreads in — which
+    // is the order a head already thinks in. Display only: the formula does not
+    // read this. Name as the final tie-break so it never wobbles.
+    .sort(
+      (a, b) =>
+        Number(a.isPartTime) - Number(b.isPartTime) ||
+        b.rating - a.rating ||
+        a.name.localeCompare(b.name, 'uk')
+    );
 
   const filledBy = distribution?.filledBy;
 
