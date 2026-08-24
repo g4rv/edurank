@@ -95,6 +95,21 @@ remains splits three ways:
 The third group is still the risk. A perfect rating engine nobody fills in is
 worth nothing.
 
+### Known and deliberately deferred
+
+**The Мін/Макс stepper writes one audit row per click** (owner, 2026-08-24 —
+«keep as is, will fix it later»). In `components/stake/distribution-grid.tsx`
+the `LimitCell` stepper calls `onCommit` on every ▲▼ press, so raising a ceiling
+from 0,25 to 0,50 leaves five entries in the журнал аудиту instead of one. The
+text input beside it is fine — it commits on blur — and the ставка stepper is
+fine too, it only moves local state.
+
+Not wrong, just noisy: every row records a real save, and the numbers are right.
+The fix is to debounce the commit ~800ms after the last click, so a burst becomes
+one save reading the true 0,25 → 0,50. Rejected alternatives: committing on blur
+(a two-button group makes «left the cell» fiddly, and a closed tab loses the
+edit) and merging rows server-side (an audit log must not rewrite itself).
+
 ---
 
 ## Session log — what shipped and why

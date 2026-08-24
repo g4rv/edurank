@@ -984,6 +984,14 @@ function LimitCell({
   const stored = bound === 'min' ? row.minHundredths : row.maxHundredths;
   // A ▲▼ has to write the value it just produced, so it builds the next pair
   // itself instead of waiting for state that has not been applied yet.
+  //
+  // KNOWN, DEFERRED (owner, 2026-08-24): this commits on EVERY press, so
+  // raising a ceiling from 0,25 to 0,50 leaves five rows in the журнал аудиту
+  // instead of one. Not wrong — each row records a real save — just noisy. The
+  // fix is to debounce ~800ms after the last press so a burst becomes one save.
+  // The text input below is fine (it commits on blur), and so is the ставка
+  // stepper (it only moves local state). See «Known and deliberately deferred»
+  // in docs/work-remaining.md before changing this.
   function step(next: number) {
     const text = formatStake(next);
     onChange(text);
