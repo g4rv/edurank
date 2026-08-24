@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, X } from 'lucide-react';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
@@ -100,12 +100,26 @@ interface ComboboxInputProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /**
+   * Offer a × to unset the value (2026-08-24).
+   *
+   * The primitive had no way back to «nothing» once a value was picked:
+   * emptying the text box only edits the search, which is discarded on close.
+   * That was invisible while every field using it was one where a value is
+   * required, and it bit the moment a field replaced a `<Select>` whose «—»
+   * row people relied on.
+   *
+   * Opt-in, because on a required field a clear button is an offer to create
+   * an invalid state.
+   */
+  clearable?: boolean;
 }
 
 function ComboboxInput({
   placeholder = '—',
   disabled: disabledProp,
   className,
+  clearable = false,
 }: ComboboxInputProps) {
   const {
     open,
@@ -114,11 +128,13 @@ function ComboboxInput({
     setSearch,
     displayValue,
     value,
+    select,
     disabled: ctxDisabled,
   } = useCombobox();
   const isDisabled = disabledProp ?? ctxDisabled;
 
   const shownValue = open ? search : value ? displayValue || value : '';
+  const showClear = clearable && !!value && !isDisabled;
 
   return (
     <PopoverAnchor asChild>
@@ -138,11 +154,28 @@ function ComboboxInput({
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
           className={cn(
-            'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-xs',
+            'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs',
+            showClear ? 'pr-14' : 'pr-8',
             'focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-50'
           )}
         />
+        {showClear && (
+          <button
+            type="button"
+            aria-label="Очистити"
+            // `onMouseDown` with preventDefault, like ComboboxItem: a plain
+            // click fires after the input's focus handler has already reopened
+            // the popover, so the field cleared and then flew open again.
+            onMouseDown={(e) => {
+              e.preventDefault();
+              select('');
+            }}
+            className="absolute top-2 right-8 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <X className="size-4" />
+          </button>
+        )}
         <ChevronDown
           className={cn(
             'pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground transition-transform duration-150',

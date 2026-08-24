@@ -13,6 +13,14 @@ import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { FieldGroup } from '@/components/ui/field';
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@/components/ui/combobox';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -197,10 +205,24 @@ export function StaffFormFields({
   numbered = false,
   canEditType,
 }: StaffFormFieldsProps) {
-  // Watched so «Додаткова кафедра» can drop whichever кафедра is the main one
-  // the moment it changes.
+  // Each кафедра field drops whatever the other one holds, so the same кафедра
+  // is never offered twice and cannot be chosen in both (owner, 2026-08-24).
+  // Filtering only one way let somebody pick B as additional, then B as main,
+  // and have the additional silently cleared out from under them.
   const primaryDepartmentId = useWatch({ control, name: 'departmentId' });
   const partTimeIds = useWatch({ control, name: 'partTimeDepartmentIds' });
+  const additionalDepartmentId = partTimeIds?.[0] ?? '';
+
+  const primaryOptions = departments.filter((dept) => dept.id !== additionalDepartmentId);
+  const additionalOptions = departments.filter((dept) => dept.id !== primaryDepartmentId);
+
+  /** «Природничий факультет — Кафедра ботаніки» */
+  const departmentLabel = (dept: DepartmentOption) =>
+    dept.faculty?.name ? `${dept.faculty.name} — ${dept.name}` : dept.name;
+
+  /** Matches the кафедра OR its факультет, so either half finds it */
+  const departmentMatches = (dept: DepartmentOption, query: string) =>
+    departmentLabel(dept).toLowerCase().includes(query.toLowerCase());
 
   // Picking кафедра B as the additional one and THEN making B the main one
   // would leave the form holding a value the schema refuses, with the offending
@@ -263,22 +285,34 @@ export function StaffFormFields({
               <Controller
                 name="departmentId"
                 control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="—" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value=" ">—</SelectItem>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>
-                          {dept.faculty?.name ? `${dept.faculty.name} — ` : ''}
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const selected = departments.find((d) => d.id === field.value);
+                  return (
+                    // A combobox, not a select: 31 кафедри is a scroll, and
+                    // typing three letters of the name or of the факультет
+                    // beats hunting through it (owner, 2026-08-24).
+                    <Combobox
+                      items={primaryOptions}
+                      value={field.value?.trim() ? field.value : ''}
+                      onChange={field.onChange}
+                      filter={departmentMatches}
+                      displayValue={selected ? departmentLabel(selected) : ''}
+                      disabled={isPending}
+                    >
+                      <ComboboxInput placeholder="—" clearable />
+                      <ComboboxContent>
+                        <ComboboxEmpty>Кафедру не знайдено</ComboboxEmpty>
+                        <ComboboxList<DepartmentOption>>
+                          {(dept) => (
+                            <ComboboxItem key={dept.id} value={dept.id}>
+                              {departmentLabel(dept)}
+                            </ComboboxItem>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                  );
+                }}
               />
             </FormField>
             {/* Beside «Основна кафедра» because that is the shape the rule
@@ -291,31 +325,31 @@ export function StaffFormFields({
                 <Controller
                   name="partTimeDepartmentIds"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value[0] ?? ' '}
-                      onValueChange={(next) => field.onChange(next === ' ' ? [] : [next])}
-                      disabled={isPending}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="—" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value=" ">—</SelectItem>
-                        {departments
-                          // Never their own кафедра: the schema refuses it, and
-                          // offering a choice that cannot be saved is worse
-                          // than not offering it at all.
-                          .filter((dept) => dept.id !== primaryDepartmentId)
-                          .map((dept) => (
-                            <SelectItem key={dept.id} value={dept.id}>
-                              {dept.faculty?.name ? `${dept.faculty.name} — ` : ''}
-                              {dept.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  render={({ field }) => {
+                    const selected = departments.find((d) => d.id === field.value[0]);
+                    return (
+                      <Combobox
+                        items={additionalOptions}
+                        value={field.value[0] ?? ''}
+                        onChange={(next) => field.onChange(next ? [next] : [])}
+                        filter={departmentMatches}
+                        displayValue={selected ? departmentLabel(selected) : ''}
+                        disabled={isPending}
+                      >
+                        <ComboboxInput placeholder="—" clearable />
+                        <ComboboxContent>
+                          <ComboboxEmpty>Кафедру не знайдено</ComboboxEmpty>
+                          <ComboboxList<DepartmentOption>>
+                            {(dept) => (
+                              <ComboboxItem key={dept.id} value={dept.id}>
+                                {departmentLabel(dept)}
+                              </ComboboxItem>
+                            )}
+                          </ComboboxList>
+                        </ComboboxContent>
+                      </Combobox>
+                    );
+                  }}
                 />
               </FormField>
             )}
