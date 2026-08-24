@@ -51,6 +51,8 @@ const mockAllocationUpdate = db.stakeAllocation.update as unknown as Mock;
 const mockAuditCreate = db.auditLog.create as unknown as Mock;
 /** The distribution writes each person's ставка onto their profile */
 const mockStaffUpdate = db.staff.update as unknown as Mock;
+/** What the кафедра's OTHER кафедри already pay each person this year */
+const mockAllocationAggregate = vi.fn();
 
 const DEPT = 'dept-1';
 const YEAR = 2026;
@@ -62,6 +64,9 @@ const HEAD = { user: { id: 'h1', role: 'USER', staffId: 'h1' } };
 function roster(n = 3) {
   return Array.from({ length: n }, (_, i) => ({
     id: `s${i}`,
+    // Their own кафедра. Compared against the one being saved to tell a
+    // primary row from a сумісник's, so it can never be left off.
+    departmentId: DEPT,
     lastName: `Прізвище${i}`,
     firstName: 'Ім’я',
     ratingEntries: [{ totalScore: 1000 }],
@@ -109,6 +114,8 @@ beforeEach(() => {
   mockEarlierTemplates.mockResolvedValue([]);
   mockScoredYears.mockResolvedValue([]);
   mockDistributionFind.mockResolvedValue(null);
+  // Nobody else pays them, unless a test says otherwise.
+  mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: 0 } });
   mockAllocationUpdate.mockImplementation((args: unknown) => args);
   // saveDistribution passes a callback; liftStoredAllocations passes an array.
   mockTransaction.mockImplementation(async (arg: unknown) =>
@@ -120,6 +127,7 @@ beforeEach(() => {
             findMany: vi.fn().mockResolvedValue([]),
             deleteMany: vi.fn(),
             createMany: vi.fn(),
+            aggregate: mockAllocationAggregate,
           },
           staff: { update: mockStaffUpdate },
           auditLog: { create: vi.fn() },
@@ -734,5 +742,112 @@ describe('setStaffLimits — the re-settle is logged', () => {
       .map((c) => c[0].data)
       .filter((d: { entity: string }) => d.entity === 'StakeDistribution');
     expect(entries).toHaveLength(0);
+  });
+});
+
+/** `roster()` plus a fourth person whose primary кафедра is elsewhere. */
+function withGuest() {
+  const staff = roster();
+  staff.push({
+    id: 'guest',
+    departmentId: 'dept-2',
+    lastName: 'Гість',
+    firstName: 'Ім’я',
+    ratingEntries: [{ totalScore: 1000 }],
+    stakeLimits: [],
+  });
+  mockStaff.mockResolvedValue(staff);
+}
+
+/** The three own rows on the формула's own proposal, plus the сумісник. */
+const withGuestPayload = (guestHundredths: number) => ({
+  departmentId: DEPT,
+  year: YEAR,
+  allocations: [
+    { staffId: 's0', hundredths: 100, justification: null },
+    { staffId: 's1', hundredths: 100, justification: null },
+    { staffId: 's2', hundredths: 100, justification: null },
+    { staffId: 'guest', hundredths: guestHundredths, justification: null },
+  ],
+});
+
+describe('a сумісник on the кафедра', () => {
+  it('is asked for by the roster read, or the save rejects the whole кафедра', async () => {
+    withGuest();
+    await saveDistribution(withGuestPayload(25));
+
+    expect(mockStaff.mock.calls[0][0].where.OR).toEqual([
+      { departmentId: DEPT },
+      { partTimeDepartments: { some: { departmentId: DEPT } } },
+    ]);
+  });
+
+  it('is bounded at 0,25 here, not at the 1,00 their own кафедра gives them', async () => {
+    withGuest();
+    const result = await saveDistribution(withGuestPayload(50));
+
+    expect(result).toEqual({ error: expect.stringContaining('Гість') });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('accepts 0,25 for them', async () => {
+    withGuest();
+    expect(await saveDistribution(withGuestPayload(25))).toEqual({ success: true });
+  });
+
+  it('reads their bounds from THIS кафедра, never from their own', async () => {
+    withGuest();
+    await saveDistribution(withGuestPayload(25));
+
+    expect(mockStaff.mock.calls[0][0].select.stakeLimits.where).toEqual({
+      year: YEAR,
+      departmentId: DEPT,
+    });
+  });
+});
+
+describe('employmentRate is the person’s TOTAL, not this кафедра’s share', () => {
+  it('adds what other кафедри already pay them', async () => {
+    withGuest();
+    // Кафедра B has already saved 0,25 for the same person this year.
+    mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: 25 } });
+
+    await saveDistribution(withGuestPayload(25));
+
+    const written = mockStaffUpdate.mock.calls.find((c) => c[0].where.id === 'guest')![0];
+    // 0,25 here + 0,25 already elsewhere. Before this, the second head to save
+    // overwrote the first and the person's profile showed one кафедра's share.
+    expect(written.data.employmentRate).toBeCloseTo(0.5, 5);
+  });
+
+  it('excludes THIS кафедра’s own previous allocation from the sum', async () => {
+    mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: 0 } });
+
+    await saveDistribution(payload([100, 100, 100]));
+
+    const written = mockStaffUpdate.mock.calls.find((c) => c[0].where.id === 's0')![0];
+    expect(written.data.employmentRate).toBeCloseTo(1, 5);
+    // The aggregate must exclude this distribution, or re-saving a кафедра
+    // would double every ставка on it.
+    expect(mockAllocationAggregate.mock.calls[0][0].where.distributionId).toEqual({
+      not: 'dist-1',
+    });
+  });
+
+  it('is just this кафедра’s number when nobody else pays them', async () => {
+    mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: null } });
+
+    await saveDistribution(payload([100, 100, 100]));
+
+    const written = mockStaffUpdate.mock.calls.find((c) => c[0].where.id === 's2')![0];
+    expect(written.data.employmentRate).toBeCloseTo(1, 5);
+  });
+
+  it('scopes the sum to this year — last year’s ставка is not added on', async () => {
+    mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: 0 } });
+
+    await saveDistribution(payload([100, 100, 100]));
+
+    expect(mockAllocationAggregate.mock.calls[0][0].where.distribution).toEqual({ year: YEAR });
   });
 });

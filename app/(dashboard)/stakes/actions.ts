@@ -7,9 +7,9 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
-import { ON_ROSTER } from '@/lib/queries/roster';
+import { ON_ROSTER, onDepartment } from '@/lib/queries/roster';
 import { headOf } from '@/lib/queries/scope';
-import { DEFAULT_LIMITS, formulaShares } from '@/lib/stake/formula';
+import { DEFAULT_LIMITS, PART_TIME_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { MIN_STAKE, STAKE_STEP, floorToStep, formatStake, fromHundredths } from '@/lib/stake/units';
 import { ratingYearFor } from '@/lib/stake/rating-year';
 import { closedYearProblem } from '@/lib/stake/writable-year';
@@ -64,6 +64,18 @@ async function canDistribute(
 ): Promise<boolean> {
   if (user.role === 'ADMIN') return true;
   return (await headOf(user.staffId)).includes(departmentId);
+}
+
+/**
+ * Whose кафедра is this row on, and therefore which defaults apply.
+ *
+ * 1,00 on somebody's own кафедра, 0,25 on an additional one (2026-08-24). The
+ * two never inherit from one another, so every place that falls back to a
+ * default has to know which кафедра it is looking at.
+ */
+function boundsFallbackFor(departmentId: string) {
+  return (s: { departmentId: string | null }) =>
+    s.departmentId === departmentId ? DEFAULT_LIMITS : PART_TIME_LIMITS;
 }
 
 const allocationSchema = z.object({
@@ -133,13 +145,17 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
       select: { kstHundredths: true, bonusPoolHundredths: true },
     }),
     db.staff.findMany({
-      where: { ...ON_ROSTER, isNpp: true, departmentId },
+      where: { ...ON_ROSTER, isNpp: true, ...onDepartment(departmentId) },
       select: {
         id: true,
+        departmentId: true,
         lastName: true,
         firstName: true,
         ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
-        stakeLimits: { where: { year }, select: { minHundredths: true, maxHundredths: true } },
+        stakeLimits: {
+          where: { year, departmentId },
+          select: { minHundredths: true, maxHundredths: true },
+        },
       },
     }),
   ]);
@@ -154,12 +170,21 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   // Recomputed server-side, not taken from the client: додаток 2 prints the
   // formula's number beside the head's, so storing the head's in both columns
   // would make the document assert that they agreed when they did not.
+  /**
+   * The defaults for this person ON THIS кафедра.
+   *
+   * A сумісник's ceiling is 0,25 here and 1,00 on their own кафедра, and the
+   * two must never be confused: the grid offers the narrower one, so a server
+   * still reaching for `DEFAULT_LIMITS` would accept a number the head never saw.
+   */
+  const fallbackFor = boundsFallbackFor(departmentId);
+
   const formula = formulaShares({
     people: staff.map((s) => ({
       staffId: s.id,
       rating: s.ratingEntries[0]?.totalScore ?? 0,
-      minHundredths: s.stakeLimits[0]?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
-      maxHundredths: s.stakeLimits[0]?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
+      minHundredths: s.stakeLimits[0]?.minHundredths ?? fallbackFor(s).minHundredths,
+      maxHundredths: s.stakeLimits[0]?.maxHundredths ?? fallbackFor(s).maxHundredths,
     })),
     kstHundredths: stake.kstHundredths,
   });
@@ -208,8 +233,10 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     // refused, and a кафедра with an inactive НПП had a row nobody could store.
     const rating = person.ratingEntries[0]?.totalScore ?? 0;
     const min =
-      rating > 0 ? Math.max(limits?.minHundredths ?? DEFAULT_LIMITS.minHundredths, MIN_STAKE) : 0;
-    const max = Math.max(limits?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths, min);
+      rating > 0
+        ? Math.max(limits?.minHundredths ?? fallbackFor(person).minHundredths, MIN_STAKE)
+        : 0;
+    const max = Math.max(limits?.maxHundredths ?? fallbackFor(person).maxHundredths, min);
     const who = `${person.lastName} ${person.firstName}`;
 
     // Каps are absolute — in the whole 2025 distribution nobody exceeds theirs.
@@ -318,10 +345,30 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
       //
       // A loop rather than one statement because each person gets a different
       // number; a кафедра is twenty people, not twenty thousand.
+      //
+      // **The SUM across every кафедра, not this one's share** (2026-08-24).
+      // Since a сумісник is paid by two кафедри, writing this кафедра's number
+      // alone meant the second head to save overwrote the first: somebody on
+      // 0,90 + 0,25 showed 0,25, and which figure survived depended on who
+      // saved last. The other кафедри's rows are read fresh inside the same
+      // transaction, so the total is right whichever order the heads work in.
       for (const a of allocations) {
+        const elsewhere = await tx.stakeAllocation.aggregate({
+          where: {
+            staffId: a.staffId,
+            distribution: { year },
+            // Not this кафедра's own previous rows — they are being replaced by
+            // `a.hundredths`, and counting them would double every ставка here
+            // on a re-save.
+            distributionId: { not: distribution.id },
+          },
+          _sum: { proposedHundredths: true },
+        });
         await tx.staff.update({
           where: { id: a.staffId },
-          data: { employmentRate: fromHundredths(a.hundredths) },
+          data: {
+            employmentRate: fromHundredths((elsewhere._sum.proposedHundredths ?? 0) + a.hundredths),
+          },
         });
       }
 
@@ -446,6 +493,8 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
   // The share handed back has to be ranked on the same year the grid is showing
   const ratingYear = await ratingYearFor(year);
 
+  const boundsFallback = boundsFallbackFor(departmentId);
+
   // Recomputed with the bounds that were just written, for the row the grid has
   // to move. Whole-кафедра, because both passes of the formula divide by sums
   // over everyone — one person's cap changes what every share comes to.
@@ -455,9 +504,10 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
       select: { kstHundredths: true },
     }),
     db.staff.findMany({
-      where: { ...ON_ROSTER, isNpp: true, departmentId },
+      where: { ...ON_ROSTER, isNpp: true, ...onDepartment(departmentId) },
       select: {
         id: true,
+        departmentId: true,
         ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
         stakeLimits: {
           where: { year, departmentId },
@@ -472,8 +522,8 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
     people: roster.map((s) => ({
       staffId: s.id,
       rating: s.ratingEntries[0]?.totalScore ?? 0,
-      minHundredths: s.stakeLimits[0]?.minHundredths ?? DEFAULT_LIMITS.minHundredths,
-      maxHundredths: s.stakeLimits[0]?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths,
+      minHundredths: s.stakeLimits[0]?.minHundredths ?? boundsFallback(s).minHundredths,
+      maxHundredths: s.stakeLimits[0]?.maxHundredths ?? boundsFallback(s).maxHundredths,
     })),
     kstHundredths: stake.kstHundredths,
   });
@@ -522,7 +572,12 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
 async function liftStoredAllocations(
   departmentId: string,
   year: number,
-  roster: { id: string; ratingEntries: { totalScore: number }[] }[],
+  roster: {
+    id: string;
+    /** Their own кафедра — decides whether 1,00 or 0,25 is their default */
+    departmentId: string | null;
+    ratingEntries: { totalScore: number }[];
+  }[],
   shares: { staffId: string; hundredths: number }[],
   userId: string
 ): Promise<void> {
@@ -544,6 +599,7 @@ async function liftStoredAllocations(
   // Nobody has spread this кафедра yet, so there is nothing to bring back in.
   if (!distribution || distribution.allocations.length === 0) return;
 
+  const fallbackFor = boundsFallbackFor(departmentId);
   const shareByStaff = new Map(shares.map((x) => [x.staffId, x.hundredths]));
   const limitsByStaff = new Map(
     roster.map((s) => [
@@ -552,6 +608,7 @@ async function liftStoredAllocations(
         rating: s.ratingEntries[0]?.totalScore ?? 0,
         limits: (s as { stakeLimits?: { minHundredths: number; maxHundredths: number }[] })
           .stakeLimits?.[0],
+        fallback: fallbackFor(s),
       },
     ])
   );
@@ -575,12 +632,12 @@ async function liftStoredAllocations(
     // on the roster is.
     const lower =
       person.rating > 0
-        ? Math.max(person.limits?.minHundredths ?? DEFAULT_LIMITS.minHundredths, MIN_STAKE)
+        ? Math.max(person.limits?.minHundredths ?? person.fallback.minHundredths, MIN_STAKE)
         : 0;
     // Snapped down because a cap written before 2026-08-19 may still sit off the
     // 0,05 ladder, and a value pinned to it would be refused on the step check.
     const upper = floorToStep(
-      Math.max(person.limits?.maxHundredths ?? DEFAULT_LIMITS.maxHundredths, lower)
+      Math.max(person.limits?.maxHundredths ?? person.fallback.maxHundredths, lower)
     );
     if (upper < lower) continue;
 
