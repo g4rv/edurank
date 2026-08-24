@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { nameSearch } from './name-search';
-import { ON_ROSTER, REAL_PEOPLE } from './roster';
+import { ON_ROSTER, REAL_PEOPLE, onDepartment } from './roster';
 import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
 
 /** Columns listStaff can order by — the query owns this list; pages validate against it */
@@ -71,7 +71,9 @@ export async function listStaff(filters?: StaffFilters) {
   if (filters?.isNpp !== undefined) conditions.push({ isNpp: filters.isNpp });
   if (filters?.roles?.length) conditions.push({ role: { in: filters.roles } });
   if (filters?.facultyId) conditions.push({ department: { facultyId: filters.facultyId } });
-  if (filters?.departmentId) conditions.push({ departmentId: filters.departmentId });
+  // Primary or сумісник — filtering by кафедра must find everyone the кафедра
+  // actually has, which is everyone its ставка grid will show.
+  if (filters?.departmentId) conditions.push(onDepartment(filters.departmentId));
   if (filters?.rank) conditions.push({ academicRank: filters.rank });
   if (filters?.degree) conditions.push({ scientificDegree: filters.degree });
   if (filters?.partTime) conditions.push({ partTimeDepartments: { some: {} } });
@@ -104,6 +106,7 @@ export async function listStaff(filters?: StaffFilters) {
       ...(filters?.includeAccount ? { role: true, passwordHash: true } : {}),
       department: { select: { name: true } },
       division: { select: { name: true } },
+      partTimeDepartments: { select: { department: { select: { name: true } } } },
     },
     orderBy,
   });

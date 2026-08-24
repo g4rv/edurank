@@ -74,6 +74,14 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
             </td>
             <td className="px-4 py-3 text-muted-foreground">
               {member.department?.name ?? member.division?.name ?? '—'}
+              {/* Their second кафедра, which also pays them a ставка. Named
+                  rather than badged: the cell already answers «where», and a
+                  bare «Сумісник» here would not say where. */}
+              {member.partTimeDepartments.length > 0 && (
+                <span className="ml-1.5 text-xs">
+                  + {member.partTimeDepartments[0].department.name}
+                </span>
+              )}
             </td>
             <td className="px-4 py-3 text-muted-foreground">
               {member.academicRank
