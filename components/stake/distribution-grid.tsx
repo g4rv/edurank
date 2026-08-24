@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { RotateCcw } from 'lucide-react';
+import { Save, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -170,6 +170,13 @@ export function DistributionGrid({
    * and the toolbar read «Незбережені зміни» forever after a successful write.
    */
   const [savedValues, setSavedValues] = useState<Record<string, number>>(seed);
+  /**
+   * Who has been written THIS session, so a row that arrived without an
+   * allocation stops counting as unsaved once «Зберегти» has stored it. The
+   * props keep saying `hasAllocation: false` until the route is refetched.
+   */
+  const [savedRows, setSavedRows] = useState<ReadonlySet<string>>(new Set());
+
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
@@ -320,29 +327,57 @@ export function DistributionGrid({
     [view.rows]
   );
 
-  const dirty = view.rows.some((r) => values[r.staffId] !== savedValues[r.staffId]);
+  /**
+   * People whose row has never been written — the формула drew their number and
+   * nothing stored it. They count as unsaved work even though nobody typed
+   * anything, which is the whole point: a кафедра that gained a сумісник after
+   * it was spread otherwise looked finished (2026-08-24).
+   */
+  const neverStored = view.rows.filter((r) => !r.hasAllocation && !savedRows.has(r.staffId));
+
+  const dirty =
+    neverStored.length > 0 || view.rows.some((r) => values[r.staffId] !== savedValues[r.staffId]);
+
+  // Nothing is written until «Зберегти», so closing the tab or refreshing now
+  // throws work away. The browser shows its own wording — a custom message has
+  // been ignored by every browser for years — and the Back button cannot be
+  // guarded at all. That gap is the cost of dropping autosave, accepted by the
+  // owner on 2026-08-24.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   /**
    * The overwrite confirmation, asked once and at the moment it matters.
    *
    * A standing banner sat above the table saying somebody else had filled this
    * кафедра in. It was there while ADMIN was only reading, and it repeated what
-   * the toolbar's «Заповнив: …» already said. Asking on the first edit puts the
-   * warning where the decision is (owner, 2026-08-17).
+   * the toolbar's «Заповнив: …» already said. Asking at the decision is the
+   * point (owner, 2026-08-17).
    *
-   * The pending change is held rather than applied, so declining leaves the
-   * grid exactly as it was — a dialog that had already changed the number would
-   * be an announcement, not a question.
+   * **Moved from the first edit to the save** (2026-08-24). It guarded editing
+   * because editing was what wrote; now nothing writes until «Зберегти», so a
+   * dialog on the first keystroke would warn about an overwrite that might
+   * never happen — and say nothing at the moment it does.
    */
   const [askOverwrite, setAskOverwrite] = useState<null | (() => void)>(null);
   const [overwriteOk, setOverwriteOk] = useState(!warnOverwrite);
 
+  /** Editing changes the proposal only, so it needs no confirmation any more. */
   function setValue(row: StakeRow, next: number) {
+    applyValue(row, next);
+  }
+
+  /** The save, behind the overwrite question when somebody else filled this кафедра. */
+  function guardedSave(nextValues: Record<string, number>) {
     if (!overwriteOk) {
-      setAskOverwrite(() => () => applyValue(row, next));
+      setAskOverwrite(() => () => save(nextValues));
       return;
     }
-    applyValue(row, next);
+    save(nextValues);
   }
 
   /**
@@ -380,9 +415,10 @@ export function DistributionGrid({
     // кафедра for that would put a «Збережено» toast on a click that did nothing.
     if (settled === current) return;
 
-    const nextValues = { ...values, [row.staffId]: settled };
-    setValues(nextValues);
-    if (!blockedBy) save(nextValues);
+    // Changed on screen only. Nothing reaches the database until «Зберегти»
+    // (owner, 2026-08-24) — autosave-per-edit wrote a row for every ▲ press and
+    // gave a кафедра nobody had committed the look of a saved one.
+    setValues({ ...values, [row.staffId]: settled });
   }
 
   /**
@@ -394,12 +430,11 @@ export function DistributionGrid({
    * old numbers came back.
    */
   function reset() {
-    const next = Object.fromEntries(view.rows.map((r) => [r.staffId, r.formulaHundredths]));
-    setValues(next);
+    // Proposes, and stops there. It used to save, because there was no button
+    // to press afterwards; now there is one, and a reset that wrote itself
+    // while an ordinary edit did not would be the odd one out.
+    setValues(Object.fromEntries(view.rows.map((r) => [r.staffId, r.formulaHundredths])));
     setError(null);
-    // Saved from the values just computed, not from state — a setState is not
-    // visible to the call that follows it.
-    save(next);
   }
 
   /**
@@ -456,6 +491,7 @@ export function DistributionGrid({
       if (result && 'error' in result) setError(result.error);
       else {
         setSavedValues(nextValues);
+        setSavedRows(new Set(view.rows.map((r) => r.staffId)));
         setSavedAt(Date.now());
         toast.success('Збережено');
       }
@@ -484,6 +520,27 @@ export function DistributionGrid({
         actions={
           canEdit && view.rows.length > 0 ? (
             <>
+              {/* The one thing that writes to the database (owner, 2026-08-24).
+                  Everything else on this screen changes the proposal only.
+
+                  Disabled when there is genuinely nothing to store — and note
+                  `dirty` counts a row that has NEVER been written, not only a
+                  value somebody typed. Without that half, a сумісник added to
+                  an already-spread кафедра would leave the button greyed out on
+                  exactly the case it exists for. */}
+              <Button
+                size="sm"
+                onClick={() => guardedSave(values)}
+                disabled={pending || !dirty || !!blockedBy}
+                title={
+                  neverStored.length > 0
+                    ? `Незбережено: ${neverStored.map((r) => r.name).join(', ')}`
+                    : undefined
+                }
+              >
+                <Save className="size-4" />
+                {pending ? 'Збереження…' : 'Зберегти ставки'}
+              </Button>
               {/* Behind a confirmation, by request (2026-08-17). It overwrites
                   every row on the кафедра at once, including numbers the
                   завідувач argued over and typed by hand, and «Повернути» reads

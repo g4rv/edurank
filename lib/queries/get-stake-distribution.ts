@@ -35,6 +35,17 @@ export interface StakeRow {
    * place in the formula are exactly the same as anybody else's (2026-08-24).
    */
   isPartTime: boolean;
+  /**
+   * Is there a stored `StakeAllocation` for this person, or is the number below
+   * only what the формула proposes?
+   *
+   * The two look identical on screen and the grid could not tell them apart, so
+   * a кафедра that gained a сумісник after it was spread reported «Розподілено»
+   * including a figure stored nowhere. This is what «Зберегти» keys off: a row
+   * without an allocation is unsaved work even though nobody typed anything
+   * (2026-08-24).
+   */
+  hasAllocation: boolean;
   /** «позицій із 20» — whether this person counts towards Кнпп */
   positions: number;
   qualifies: boolean;
@@ -221,6 +232,7 @@ export async function getStakeDistribution(
         rating: share.rating,
         adminPosition: s.adminPosition,
         isPartTime: isPartTime(s),
+        hasAllocation: !!allocation,
         positions: metCount,
         qualifies: metCount >= REQUIRED_POSITIONS,
         ...boundsFor(s),

@@ -12,6 +12,9 @@ vi.mock('@/lib/db', () => ({
     staff: { findUnique: vi.fn(), update: vi.fn(), count: vi.fn() },
     divisionEntityPermission: { findFirst: vi.fn() },
     divisionFieldPermission: { findMany: vi.fn() },
+    // activeYear(), read when сумісництво is removed so the кафедра it drops
+    // an allocation from is the current one
+    ratingTemplate: { findFirst: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -102,6 +105,11 @@ function mockTx() {
     staffDepartment: { deleteMany: vi.fn(), createMany: vi.fn() },
     // The audit diff resolves сумісництво ids to кафедра names
     department: { findMany: vi.fn().mockResolvedValue([]) },
+    // Removing сумісництво drops that кафедра's allocation and re-sums the rate
+    stakeAllocation: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      groupBy: vi.fn().mockResolvedValue([]),
+    },
     activationToken: { deleteMany: vi.fn().mockResolvedValue({}) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
     // no active template → syncProfileDerived no-ops
@@ -117,6 +125,7 @@ function writtenFields(tx: ReturnType<typeof mockTx>): string[] {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  (db.ratingTemplate.findFirst as unknown as Mock).mockResolvedValue({ year: 2026 });
 });
 
 describe('updateStaff field filtering', () => {

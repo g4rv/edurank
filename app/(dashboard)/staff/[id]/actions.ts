@@ -15,6 +15,8 @@ import {
 import { issueAndEmailLink, staffFullName } from '@/lib/mail/invite';
 import { unlockEmail } from '@/lib/auth/throttle';
 import { diffChanges } from '@/lib/audit';
+import { activeYear } from '@/lib/queries/get-active-template';
+import { syncEmploymentRate } from '@/lib/stake/employment-rate';
 import {
   canManageEntity,
   canMutateStaffRecord,
@@ -360,6 +362,38 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
             data: partTimeDepartmentIds.map((deptId) => ({ staffId: id, departmentId: deptId })),
             skipDuplicates: true,
           });
+        }
+
+        // ── A кафедра they left stops paying them, now ──
+        //
+        // Removing сумісництво used to delete the `StaffDepartment` row and
+        // nothing else, so the `StakeAllocation` its завідувач had made
+        // survived: the кафедра went on paying somebody who was no longer on
+        // it, and their «Ставка» still counted it (2026-08-24, reported from
+        // the screen). Deliberate that it is silent — it is in the audit log,
+        // and «off the кафедра» and «paid by the кафедра» must not disagree.
+        //
+        // Scoped to the кафедри they are no longer on: their primary one and
+        // any remaining сумісництво keep whatever their heads decided.
+        const keeps = [
+          ...(updateData.departmentId === undefined
+            ? [existing?.departmentId]
+            : [updateData.departmentId as string | null]),
+          ...partTimeDepartmentIds,
+        ].filter((d): d is string => typeof d === 'string' && d.length > 0);
+
+        const year = await activeYear();
+        if (year !== null) {
+          const removed = await tx.stakeAllocation.deleteMany({
+            where: {
+              staffId: id,
+              distribution: { year, departmentId: { notIn: keeps } },
+            },
+          });
+          // Only when something actually went: the sum is unchanged otherwise,
+          // and this writes to `Staff` inside a transaction that has just
+          // written to it.
+          if (removed.count > 0) await syncEmploymentRate(tx, [id], year);
         }
       }
 

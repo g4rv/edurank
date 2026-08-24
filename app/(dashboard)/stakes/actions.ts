@@ -10,8 +10,9 @@ import { parseDbError } from '@/lib/db-error';
 import { ON_ROSTER, onDepartment } from '@/lib/queries/roster';
 import { headOf } from '@/lib/queries/scope';
 import { DEFAULT_LIMITS, PART_TIME_LIMITS, formulaShares } from '@/lib/stake/formula';
-import { MIN_STAKE, STAKE_STEP, floorToStep, formatStake, fromHundredths } from '@/lib/stake/units';
+import { MIN_STAKE, STAKE_STEP, floorToStep, formatStake } from '@/lib/stake/units';
 import { ratingYearFor } from '@/lib/stake/rating-year';
+import { syncEmploymentRate } from '@/lib/stake/employment-rate';
 import { closedYearProblem } from '@/lib/stake/writable-year';
 import { staffStakeLimitsSchema } from '@/validations/stake';
 import type { Role } from '@/lib/generated/prisma/client';
@@ -332,45 +333,25 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
 
       // ── The ставка lands on the person ──
       //
-      // The head's number IS that person's ставка, and until now it stopped at
-      // `StakeAllocation`. `Staff.employmentRate` was a separate field an ADMIN
-      // typed by hand, so the профіль and the розподіл could disagree with
-      // nobody able to say which was real — and after the 2025 import it was
-      // empty for everybody, because УГСП_Дані's «Обсяг ставки» column is blank.
+      // The head's number IS that person's ставка, and until commit d0f92e8 it
+      // stopped at `StakeAllocation`. `Staff.employmentRate` was a separate
+      // field an ADMIN typed by hand, so the профіль and the розподіл could
+      // disagree with nobody able to say which was real.
       //
-      // Written in the SAME transaction as the allocations, so the two cannot
-      // come apart. `closedYearProblem` above has already refused every year but
-      // the active one, so this can only ever be the current year's figure —
-      // reopening an old розподіл can never quietly rewrite somebody's pay.
+      // **Everyone whose allocations moved, not only the rows being written**
+      // (2026-08-24). The old loop walked `allocations`, so a person DROPPED
+      // from the кафедра — сумісництво removed, archived — was never in it and
+      // kept a sum that still counted the кафедра they had left. `previous` is
+      // already loaded above for the audit diff, so the dropped ids are free.
       //
-      // A loop rather than one statement because each person gets a different
-      // number; a кафедра is twenty people, not twenty thousand.
-      //
-      // **The SUM across every кафедра, not this one's share** (2026-08-24).
-      // Since a сумісник is paid by two кафедри, writing this кафедра's number
-      // alone meant the second head to save overwrote the first: somebody on
-      // 0,90 + 0,25 showed 0,25, and which figure survived depended on who
-      // saved last. The other кафедри's rows are read fresh inside the same
-      // transaction, so the total is right whichever order the heads work in.
-      for (const a of allocations) {
-        const elsewhere = await tx.stakeAllocation.aggregate({
-          where: {
-            staffId: a.staffId,
-            distribution: { year },
-            // Not this кафедра's own previous rows — they are being replaced by
-            // `a.hundredths`, and counting them would double every ставка here
-            // on a re-save.
-            distributionId: { not: distribution.id },
-          },
-          _sum: { proposedHundredths: true },
-        });
-        await tx.staff.update({
-          where: { id: a.staffId },
-          data: {
-            employmentRate: fromHundredths((elsewhere._sum.proposedHundredths ?? 0) + a.hundredths),
-          },
-        });
-      }
+      // In the SAME transaction as the allocations, so the two cannot come
+      // apart. `closedYearProblem` has already refused every year but the
+      // active one, so reopening an old розподіл can never rewrite somebody's
+      // pay.
+      const touched = [
+        ...new Set([...allocations.map((a) => a.staffId), ...previousByStaff.keys()]),
+      ];
+      await syncEmploymentRate(tx, touched, year);
 
       // One entry for the кафедра, not one per person: the distribution is a
       // single decision, and 18 log lines would bury it.

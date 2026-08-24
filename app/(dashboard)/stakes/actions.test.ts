@@ -53,6 +53,8 @@ const mockAuditCreate = db.auditLog.create as unknown as Mock;
 const mockStaffUpdate = db.staff.update as unknown as Mock;
 /** What the кафедра's OTHER кафедри already pay each person this year */
 const mockAllocationAggregate = vi.fn();
+/** What syncEmploymentRate reads: each person's total across every кафедра */
+const mockAllocationGroupBy = vi.fn();
 
 const DEPT = 'dept-1';
 const YEAR = 2026;
@@ -116,6 +118,7 @@ beforeEach(() => {
   mockDistributionFind.mockResolvedValue(null);
   // Nobody else pays them, unless a test says otherwise.
   mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: 0 } });
+  mockAllocationGroupBy.mockResolvedValue([]);
   mockAllocationUpdate.mockImplementation((args: unknown) => args);
   // saveDistribution passes a callback; liftStoredAllocations passes an array.
   mockTransaction.mockImplementation(async (arg: unknown) =>
@@ -128,6 +131,8 @@ beforeEach(() => {
             deleteMany: vi.fn(),
             createMany: vi.fn(),
             aggregate: mockAllocationAggregate,
+            // syncEmploymentRate sums every кафедра that pays each person
+            groupBy: mockAllocationGroupBy,
           },
           staff: { update: mockStaffUpdate },
           auditLog: { create: vi.fn() },
@@ -281,6 +286,13 @@ describe('saveDistribution — the pool ceiling', () => {
 describe('saveDistribution — the ставка lands on the profile', () => {
   it('writes each person’s ставка onto their Staff record, in ставки not hundredths', async () => {
     uneven();
+    // Read back after the allocations are rewritten — the column is the SUM
+    // across every кафедра that pays them, not the payload's own numbers.
+    mockAllocationGroupBy.mockResolvedValue([
+      { staffId: 's0', _sum: { proposedHundredths: 100 } },
+      { staffId: 's1', _sum: { proposedHundredths: 100 } },
+      { staffId: 's2', _sum: { proposedHundredths: 75 } },
+    ]);
     const state = await saveDistribution(payload([100, 100, 75]));
 
     expect(state).toEqual({ success: true });
@@ -807,47 +819,73 @@ describe('a сумісник on the кафедра', () => {
 });
 
 describe('employmentRate is the person’s TOTAL, not this кафедра’s share', () => {
-  it('adds what other кафедри already pay them', async () => {
+  /** What syncEmploymentRate reads back after the allocations are rewritten */
+  const totals = (byStaff: Record<string, number>) =>
+    mockAllocationGroupBy.mockResolvedValue(
+      Object.entries(byStaff).map(([staffId, sum]) => ({
+        staffId,
+        _sum: { proposedHundredths: sum },
+      }))
+    );
+
+  it('writes the sum across every кафедра, not this one’s share', async () => {
     withGuest();
-    // Кафедра B has already saved 0,25 for the same person this year.
-    mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: 25 } });
+    // 0,25 here plus 0,25 the guest already holds elsewhere.
+    totals({ s0: 100, s1: 100, s2: 100, guest: 50 });
 
     await saveDistribution(withGuestPayload(25));
 
     const written = mockStaffUpdate.mock.calls.find((c) => c[0].where.id === 'guest')![0];
-    // 0,25 here + 0,25 already elsewhere. Before this, the second head to save
-    // overwrote the first and the person's profile showed one кафедра's share.
+    // Before this, the second head to save overwrote the first and the person's
+    // profile showed one кафедра's share.
     expect(written.data.employmentRate).toBeCloseTo(0.5, 5);
   });
 
-  it('excludes THIS кафедра’s own previous allocation from the sum', async () => {
-    mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: 0 } });
+  it('reads the totals for this year only', async () => {
+    totals({ s0: 100, s1: 100, s2: 100 });
 
     await saveDistribution(payload([100, 100, 100]));
 
-    const written = mockStaffUpdate.mock.calls.find((c) => c[0].where.id === 's0')![0];
-    expect(written.data.employmentRate).toBeCloseTo(1, 5);
-    // The aggregate must exclude this distribution, or re-saving a кафедра
-    // would double every ставка on it.
-    expect(mockAllocationAggregate.mock.calls[0][0].where.distributionId).toEqual({
-      not: 'dist-1',
-    });
+    expect(mockAllocationGroupBy.mock.calls[0][0].where.distribution).toEqual({ year: YEAR });
   });
 
-  it('is just this кафедра’s number when nobody else pays them', async () => {
-    mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: null } });
+  it('writes zero for somebody with no allocation left anywhere', async () => {
+    // Not «leave it alone»: dropped from their only кафедра, nobody pays them.
+    totals({ s0: 100, s1: 100 });
 
     await saveDistribution(payload([100, 100, 100]));
 
     const written = mockStaffUpdate.mock.calls.find((c) => c[0].where.id === 's2')![0];
-    expect(written.data.employmentRate).toBeCloseTo(1, 5);
+    expect(written.data.employmentRate).toBe(0);
   });
 
-  it('scopes the sum to this year — last year’s ставка is not added on', async () => {
-    mockAllocationAggregate.mockResolvedValue({ _sum: { proposedHundredths: 0 } });
+  // The bug this helper exists for: the old loop walked the payload, so a person
+  // DROPPED from the кафедра was never in it and kept a sum that still counted
+  // the кафедра they had left (2026-08-24, reported from the screen).
+  it('recomputes people DROPPED from the кафедра, not only those saved', async () => {
+    mockTransaction.mockImplementation(async (arg: unknown) =>
+      Array.isArray(arg)
+        ? arg
+        : (arg as (tx: unknown) => unknown)({
+            stakeDistribution: { upsert: vi.fn().mockResolvedValue({ id: 'dist-1' }) },
+            stakeAllocation: {
+              // `s3` held a row here before and is not in the payload any more
+              findMany: vi.fn().mockResolvedValue([{ staffId: 's3', proposedHundredths: 40 }]),
+              deleteMany: vi.fn(),
+              createMany: vi.fn(),
+              aggregate: mockAllocationAggregate,
+              groupBy: mockAllocationGroupBy,
+            },
+            staff: { update: mockStaffUpdate },
+            auditLog: { create: vi.fn() },
+          })
+    );
+    totals({ s0: 100, s1: 100, s2: 100 });
 
     await saveDistribution(payload([100, 100, 100]));
 
-    expect(mockAllocationAggregate.mock.calls[0][0].where.distribution).toEqual({ year: YEAR });
+    const dropped = mockStaffUpdate.mock.calls.find((c) => c[0].where.id === 's3');
+    expect(dropped).toBeDefined();
+    expect(dropped![0].data.employmentRate).toBe(0);
   });
 });
