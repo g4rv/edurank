@@ -97,6 +97,38 @@ worth nothing.
 
 ### Known and deliberately deferred
 
+**A сумісник added to an already-spread кафедра looks saved and is not**
+(found 2026-08-24, deferred the same day). Кадри ticks an additional кафедра;
+that кафедра's grid immediately shows the new person with the формула's
+proposal, and «Розподілено» and «Залишок» include it. Nothing is stored for
+them until the завідувач saves — and the toolbar does not say so, because
+`savedValues` is seeded from the same `seed()` as `values`, so a brand-new row
+is never «dirty».
+
+Real example: Горденко Світлана holds 0,70 on Кафедра здоров'я (saved) and
+shows 0,25 on Кафедра соціальної педагогіки (not saved). Her profile correctly
+reports 0,70; the second grid asserts 4,35 розподілено, of which 0,25 exists
+nowhere.
+
+Why it is new: before сумісництво a кафедра's roster changed only when somebody
+was hired or archived. Now кадри can change it, which silently makes a saved
+distribution incomplete.
+
+**The owner's chosen fix (2026-08-24): replace autosave with a «Зберегти
+розподіл» button, disabled when there is nothing to save.** Two things that fix
+must get right:
+
+1. «Nothing to save» cannot mean «values match savedValues» alone — a new row
+   matches by construction, so the button would be disabled on exactly the case
+   it exists for. It has to be «values differ **OR** some row has no stored
+   allocation». `StakeRow` needs `hasAllocation` (`!!allocation` in
+   `getStakeDistribution`) to express that.
+2. A manual save can lose typed work, which is why the button was deferred on
+   2026-08-17 in the first place. `beforeunload` covers the tab closing and a
+   refresh, an in-app guard covers clicking away — the browser Back button
+   cannot be guarded reliably, and that gap is the reason to think before
+   removing autosave.
+
 **The Мін/Макс stepper writes one audit row per click** (owner, 2026-08-24 —
 «keep as is, will fix it later»). In `components/stake/distribution-grid.tsx`
 the `LimitCell` stepper calls `onCommit` on every ▲▼ press, so raising a ceiling
