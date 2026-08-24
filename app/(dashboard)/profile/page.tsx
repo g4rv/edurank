@@ -11,7 +11,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
-import { formatStake, formatStakeValue } from '@/lib/stake/units';
+import { formatStake } from '@/lib/stake/units';
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -220,7 +220,17 @@ export default async function ProfilePage() {
             label="Ставка"
             value={
               <>
-                {staff.employmentRate !== null ? formatStakeValue(staff.employmentRate) : '—'}
+                {/* The SUM of what each кафедра allocated — the same rows the
+                    note below breaks down, so the two can never disagree.
+                    `Staff.employmentRate` holds this too, but as a cache that
+                    lists and exports read: it was NULL for everybody spread
+                    before commit d0f92e8, and `liftStoredAllocations` still
+                    does not refresh it when a cap moves a saved split. Reading
+                    the allocations here means the profile is right whatever
+                    state the column is in (2026-08-24). */}
+                {stakeParts.length > 0
+                  ? formatStake(stakeParts.reduce((sum, part) => sum + part.hundredths, 0))
+                  : '—'}
                 {/* `employmentRate` is not a hand-typed contract rate: the
                     distribution writes it, and since 2026-08-24 it is the SUM
                     across every кафедра that pays this person. This says which

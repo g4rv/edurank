@@ -24,6 +24,7 @@
     "db:recompute": "tsx prisma/recompute-year.ts",
     "db:gate-to-check-sum": "tsx prisma/gate-to-check-sum.ts",
     "db:fix-stake-ladder": "tsx prisma/fix-stake-limit-ladder.ts",
+    "db:fix-employment-rate": "tsx prisma/fix-employment-rate.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force",
