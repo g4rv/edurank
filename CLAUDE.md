@@ -20,7 +20,14 @@ Division (відділ)                — separate cross-cutting structure, uni
     Examples: ННВ (навчально-науковий відділ), ННЦЗЯО (Навчально-науковий центр забезпечення якості освіти)
 ```
 
-- Staff has **one primary department** and can be part-time (сумісництво) in others via a `StaffDepartment` join table.
+- Staff has **one primary department** and can be part-time (сумісництво) in **one**
+  other via a `StaffDepartment` join table — at most two кафедри per person,
+  enforced in `validations/staff.ts`.
+- **A сумісник is paid a ставка by BOTH кафедри** (2026-08-24, reversing Q12). They
+  appear in both кафедри's lists and both distribution grids, badged «Сумісник» and
+  sorted last, with their **whole** university rating and a 0,25 default ceiling on
+  the additional one. Spread `onDepartment` from `lib/queries/roster.ts` into every
+  «who is on this кафедра» query — `departmentId` alone no longer answers it.
 - Staff is split into two types via `isNpp: boolean`:
   - `true` — НПП (науково-педагогічний працівник): academic staff, must belong to a department, have profiles with ratings/achievements
   - `false` — non-НПП: administrative staff (e.g. division employees), department is optional
@@ -360,6 +367,15 @@ Rules that are easy to get wrong:
   evidence — there is no automatic winner and no «assign to».
 - **`StakeStatusBonus` is information, never money.** The grid shows what somebody's
   positions and recruited students add up to; the head still types the ставка.
+- **A person's Мін/Макс is per кафедра, not per person.** `StaffStakeLimits` carries
+  a `departmentId`, and the additional кафедра never inherits the primary one's
+  bounds — the lookup is scoped and the fallback is `PART_TIME_LIMITS` (0,10–0,25),
+  not `DEFAULT_LIMITS`.
+- **`Staff.employmentRate` is the SUM across every кафедра that pays somebody.**
+  `saveDistribution` writes it, adding what the other кафедри already allocated this
+  year. Writing only this кафедра's share meant the second head to save overwrote
+  the first. `headcount` counts сумісники so `Кст ≥ 0,1 × N` covers them; `Кнпп`
+  never does.
 
 ## Характеристика (built)
 

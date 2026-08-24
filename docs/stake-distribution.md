@@ -289,11 +289,31 @@ than on `Speciality`. Gray is a real third answer: the demo кафедри are i
 and reporting those as somebody else's programme would be a claim we cannot
 support.
 
-**Сумісництво (Q12) — assumed, not confirmed.** A student lands in the recruiter's
-**primary** кафедра, and a сумісник gets one Vc, computed on their primary кафедра
-only. Reason: `Кст`, `Кнпп` and `<Rк>` are all per кафедра, so counting someone in
-two кафедри would put them in two averages and two pools and produce two Vc values
-that nothing reconciles before 1С. Revisit if сумісники turn out to recruit often.
+**Сумісництво — an НПП on two кафедри (2026-08-24).** Both кафедри pay them. The
+сумісник joins the second кафедра's formula with their **whole** university
+rating — there is no per-кафедра rating and nothing extra to type — and is capped
+at **0,25** there by default, a bound ADMIN sets per person per кафедра.
+`StaffStakeLimits` carries a `departmentId` for exactly this: the two ceilings
+never inherit from one another, so raising somebody to 1,50 on their own кафедра
+leaves their additional one at 0,25.
+
+Two figures part company over it. `headcount` counts сумісники, because they get a
+row in the grid and a 0,10 floor, so `Кст ≥ 0,1 × N` has to cover them — a кафедра
+that gains one may fall below its own minimum and need a bigger pool. `Кнпп` does
+not: it is the п.38 licence figure and one person cannot be claimed by two кафедри.
+
+The бонус appears on **both** grids. It is a signal about the person rather than a
+fixed sum, and a head who sees that this сумісник filled their own programmes can
+weigh that; the green/amber speciality colouring resolves against whichever
+кафедра is being viewed, so both heads get the right picture from the same data.
+Nothing stops both paying it, which is accepted — like an overspend, it is shown
+rather than refused.
+
+The two ставки are independent and may add up to more than 1,00. Neither head
+reads the other's grid.
+
+This replaces the primary-only assumption recorded on 2026-08-04, which was never
+confirmed and was reported wrong by the university.
 
 ### Four things we are deliberately not building (decided 2026-08-07)
 

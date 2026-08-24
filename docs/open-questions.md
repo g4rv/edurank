@@ -194,11 +194,17 @@ that is intended.
 
 ### Good to know — we can pick a default
 
-**Q12.** Сумісництво — if an НПП works in two departments, which one gets a bonus? ⚠️ ASSUMED 2026-08-04
+**Q12.** Сумісництво — if an НПП works in two departments, which one gets a bonus? ✅ ANSWERED 2026-08-24
 
-> **Primary only**, and one Vc per person. Not confirmed with the boss — recorded as an
-> assumption because `Кст`/`Кнпп`/`<Rк>` are per кафедра and two Vc values would have
-> nothing to reconcile them before 1С.
+> **Both.** Reported by the university as missing functionality: an НПП may hold posts on two
+> кафедри and both are expected to pay them a ставка. The 2026-08-04 answer — primary only, one
+> Vc — was recorded as an assumption and turned out wrong.
+>
+> The сумісник is a full member of the second кафедра's formula with their whole university
+> rating, capped at 0,25 by default; the two ставки are independent and may exceed 1,00; they
+> count toward `Кст ≥ 0,1 × N` but never toward `Кнпп`; and the бонус shows on both grids so each
+> head sees the whole picture. Design:
+> [`superpowers/specs/2026-08-24-sumisnytstvo-design.md`](./superpowers/specs/2026-08-24-sumisnytstvo-design.md).
 
 **Q13.** Can a granted bonus be cancelled? By whom, and does it need a written reason?
 
