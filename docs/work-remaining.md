@@ -114,6 +114,16 @@ Why it is new: before сумісництво a кафедра's roster changed o
 was hired or archived. Now кадри can change it, which silently makes a saved
 distribution incomplete.
 
+**And the head can be left with no way to save it at all** (owner, 2026-08-24).
+Горденко's формула proposal was 0,25 and her Макс was 0,25, so ▲ was disabled at
+the ceiling and ▼ was disabled by «тільки збільшити» — both steppers dead, and
+her «Ставка» field is the only thing on her row that triggers the autosave. The
+only way through was to nudge a DIFFERENT person's ставка down and back up,
+which saves the whole кафедра as a side effect. That is not a workflow anybody
+should have to discover, and it is the strongest argument for the save button:
+committing a distribution needs an action of its own, not a side effect of
+editing somebody.
+
 **The owner's chosen fix (2026-08-24): replace autosave with a «Зберегти
 розподіл» button, disabled when there is nothing to save.** Two things that fix
 must get right:
