@@ -173,7 +173,20 @@ export default async function RatingRollupPage({
             <tr key={row.id} className="group/row transition-colors">
               <td className="px-4 py-3 text-muted-foreground tabular-nums">{index + 1}</td>
               <RowLinkCell href={`/staff/${row.id}/rating`}>{row.name}</RowLinkCell>
-              <td className="px-4 py-3 text-muted-foreground">{row.department ?? '—'}</td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {row.department ?? '—'}
+                {/* Another кафедра also pays them a ставка (2026-08-24). Shown
+                    on every row, filtered or not, so the кафедра column never
+                    tells only half the story. */}
+                {row.partTimeDepartments.length > 0 && (
+                  <span
+                    className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                    title={`Також працює за сумісництвом: ${row.partTimeDepartments.join(', ')}`}
+                  >
+                    Сумісник
+                  </span>
+                )}
+              </td>
               {row.sections.map((score, i) => (
                 <td
                   key={i}

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { nameSearch } from './name-search';
-import { ON_ROSTER, REAL_PEOPLE } from './roster';
+import { ON_ROSTER, REAL_PEOPLE, onDepartment } from './roster';
 
 export type RatingSortField = 'name' | 'department' | 's1' | 's2' | 's3' | 's4' | 's5' | 'total';
 
@@ -35,7 +35,11 @@ export async function listRatings(filters: RatingListFilters) {
   const conditions: object[] = [{ isNpp: true }, REAL_PEOPLE];
   if (!closed) conditions.push(ON_ROSTER);
   if (filters.facultyId) conditions.push({ department: { facultyId: filters.facultyId } });
-  if (filters.departmentId) conditions.push({ departmentId: filters.departmentId });
+  // Primary or сумісник. This only widens the FILTERED view — the unfiltered
+  // university ranking is still one row per person, because a `some` filter
+  // selects people rather than multiplying them. Listing somebody twice would
+  // break the ranking, which is the whole point of the page.
+  if (filters.departmentId) conditions.push(onDepartment(filters.departmentId));
   if (filters.q) {
     // Word by word — see `nameSearch`. «Ігнатенко Микола» used to find nobody.
     const search = nameSearch(filters.q, ['lastName', 'firstName', 'patronymic']);
@@ -50,6 +54,7 @@ export async function listRatings(filters: RatingListFilters) {
       firstName: true,
       patronymic: true,
       department: { select: { name: true, faculty: { select: { name: true } } } },
+      partTimeDepartments: { select: { department: { select: { name: true } } } },
       ratingEntries: {
         where: { year: filters.year },
         select: {
@@ -71,6 +76,8 @@ export async function listRatings(filters: RatingListFilters) {
       name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
       department: s.department?.name ?? null,
       faculty: s.department?.faculty?.name ?? null,
+      /** Кафедри that also pay them — the «Сумісник» badge keys off this */
+      partTimeDepartments: s.partTimeDepartments.map((p) => p.department.name),
       sections: entry
         ? [
             entry.section1Score,
