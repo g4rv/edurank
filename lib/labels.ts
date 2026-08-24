@@ -58,6 +58,9 @@ export const FIELD_LABELS: Record<string, string> = {
   googleScholarCitationCount: 'Google Scholar цитувань',
   orcidId: 'ORCID',
   departmentId: 'Кафедра (основна)',
+  // Had no label at all, so every сумісництво change ever recorded rendered in
+  // the audit log as a raw field name (2026-08-24).
+  partTimeDepartmentIds: 'Додаткова кафедра',
   divisionId: 'Відділ',
   archivedAt: 'Архівовано',
   archiveReason: 'Причина архівування',

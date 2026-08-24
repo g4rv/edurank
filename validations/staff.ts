@@ -107,7 +107,14 @@ export const staffUpdateSchema = z
     orcidId: z.preprocess(str, z.string().max(50, { error: 'Занадто довге значення' }).nullable()),
     departmentId: z.preprocess(str, z.string().nullable()),
     divisionId: z.preprocess(str, z.string().nullable()),
-    partTimeDepartmentIds: z.array(z.string()).default([]),
+    // At most one. A person holds two кафедри in total — their own and one
+    // more (owner, 2026-08-24). Kept an array rather than a nullable string:
+    // the join table is many-to-many, the action already diffs it as a set,
+    // and «two» is a policy that can change without a migration.
+    partTimeDepartmentIds: z
+      .array(z.string())
+      .max(1, { error: 'НПП може працювати щонайбільше на двох кафедрах' })
+      .default([]),
   })
   .superRefine((data, ctx) => {
     if (data.isNpp && !data.departmentId) {
@@ -115,6 +122,16 @@ export const staffUpdateSchema = z
         code: z.ZodIssueCode.custom,
         message: 'НПП повинен мати основну кафедру',
         path: ['departmentId'],
+      });
+    }
+
+    // Saved, it would put the same person in one кафедра's grid twice — once as
+    // its own staff and once as a сумісник — with two different ceilings.
+    if (data.departmentId && data.partTimeDepartmentIds.includes(data.departmentId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Додаткова кафедра не може збігатися з основною',
+        path: ['partTimeDepartmentIds'],
       });
     }
   });

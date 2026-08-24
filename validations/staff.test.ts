@@ -87,3 +87,29 @@ describe('free-text length limits', () => {
     expect(result.success && result.data.phone).toBeNull();
   });
 });
+
+describe('partTimeDepartmentIds — at most one additional кафедра', () => {
+  /** An НПП, who must have a primary кафедра before any of this applies. */
+  const npp = (partTimeDepartmentIds: string[]) =>
+    parse({ isNpp: 'true', departmentId: 'd1', partTimeDepartmentIds });
+
+  it('accepts none', () => {
+    expect(npp([]).success).toBe(true);
+  });
+
+  it('accepts exactly one', () => {
+    expect(npp(['d2']).success).toBe(true);
+  });
+
+  it('refuses two — a person holds at most two кафедри in total', () => {
+    const result = npp(['d2', 'd3']);
+    expect(result.success).toBe(false);
+    expect(result.error!.issues[0].message).toBe('НПП може працювати щонайбільше на двох кафедрах');
+  });
+
+  it('refuses the primary кафедра as the additional one', () => {
+    const result = npp(['d1']);
+    expect(result.success).toBe(false);
+    expect(result.error!.issues.some((i) => i.path[0] === 'partTimeDepartmentIds')).toBe(true);
+  });
+});
