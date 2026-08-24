@@ -1,6 +1,14 @@
 'use client';
 
-import { Controller, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
+import { useEffect } from 'react';
+import {
+  Controller,
+  useWatch,
+  type Control,
+  type FieldErrors,
+  type UseFormRegister,
+  type UseFormSetValue,
+} from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { FieldGroup } from '@/components/ui/field';
@@ -162,6 +170,8 @@ interface StaffFormFieldsProps {
   register: UseFormRegister<RawStaffFormValues>;
   control: Control<RawStaffFormValues>;
   errors: FieldErrors<RawStaffFormValues>;
+  /** Needed to clear «Додаткова кафедра» when it becomes the primary one */
+  setValue: UseFormSetValue<RawStaffFormValues>;
   isPending: boolean;
   isAdmin: boolean;
   /** Watched isNpp — the academic and profile sections only apply to НПП */
@@ -178,6 +188,7 @@ export function StaffFormFields({
   register,
   control,
   errors,
+  setValue,
   isPending,
   isAdmin,
   isNpp,
@@ -186,6 +197,20 @@ export function StaffFormFields({
   numbered = false,
   canEditType,
 }: StaffFormFieldsProps) {
+  // Watched so «Додаткова кафедра» can drop whichever кафедра is the main one
+  // the moment it changes.
+  const primaryDepartmentId = useWatch({ control, name: 'departmentId' });
+  const partTimeIds = useWatch({ control, name: 'partTimeDepartmentIds' });
+
+  // Picking кафедра B as the additional one and THEN making B the main one
+  // would leave the form holding a value the schema refuses, with the offending
+  // option no longer in the list to clear by hand.
+  useEffect(() => {
+    if (primaryDepartmentId && partTimeIds?.includes(primaryDepartmentId)) {
+      setValue('partTimeDepartmentIds', [], { shouldDirty: true });
+    }
+  }, [primaryDepartmentId, partTimeIds, setValue]);
+
   // Numbers skip sections that are not rendered, so they always read 01, 02, 03…
   let sectionNumber = 0;
   const step = () => (numbered ? String(++sectionNumber).padStart(2, '0') : undefined);
@@ -256,11 +281,52 @@ export function StaffFormFields({
                 )}
               />
             </FormField>
-            {/* ADMIN only: a person's відділ decides which permissions their
-                EDITOR role would carry, so the server takes it from nobody else.
-                Showing the control to an editor would collect a choice that is
-                then dropped without a word. */}
+            {/* Beside «Основна кафедра» because that is the shape the rule
+                now has: one person, at most two кафедри (2026-08-24). ADMIN
+                only — сумісництво decides who appears in a second кафедра's
+                ставка grid, which is money, so an editor may see it and never
+                set it. */}
             {isAdmin && (
+              <FormField label="Додаткова кафедра" error={errors.partTimeDepartmentIds}>
+                <Controller
+                  name="partTimeDepartmentIds"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value[0] ?? ' '}
+                      onValueChange={(next) => field.onChange(next === ' ' ? [] : [next])}
+                      disabled={isPending}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value=" ">—</SelectItem>
+                        {departments
+                          // Never their own кафедра: the schema refuses it, and
+                          // offering a choice that cannot be saved is worse
+                          // than not offering it at all.
+                          .filter((dept) => dept.id !== primaryDepartmentId)
+                          .map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.faculty?.name ? `${dept.faculty.name} — ` : ''}
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </FormField>
+            )}
+          </div>
+
+          {/* ADMIN only: a person's відділ decides which permissions their
+              EDITOR role would carry, so the server takes it from nobody else.
+              Showing the control to an editor would collect a choice that is
+              then dropped without a word. */}
+          {isAdmin && (
+            <div className="grid grid-cols-2 gap-4">
               <FormField label="Відділ" error={errors.divisionId}>
                 <Controller
                   name="divisionId"
@@ -282,50 +348,6 @@ export function StaffFormFields({
                   )}
                 />
               </FormField>
-            )}
-          </div>
-
-          {isAdmin && (
-            <div>
-              <p className="mb-2 text-xs text-muted-foreground">Сумісництво</p>
-              <Controller
-                name="partTimeDepartmentIds"
-                control={control}
-                render={({ field }) => (
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {departments.map((dept) => {
-                      const checked = field.value.includes(dept.id);
-                      return (
-                        <label
-                          key={dept.id}
-                          className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
-                        >
-                          <input
-                            type="checkbox"
-                            className="accent-primary"
-                            checked={checked}
-                            onChange={() => {
-                              if (checked) {
-                                field.onChange(field.value.filter((id) => id !== dept.id));
-                              } else {
-                                field.onChange([...field.value, dept.id]);
-                              }
-                            }}
-                          />
-                          <span className="leading-tight">
-                            {dept.faculty?.name && (
-                              <span className="text-xs text-muted-foreground">
-                                {dept.faculty.name} —{' '}
-                              </span>
-                            )}
-                            {dept.name}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-              />
             </div>
           )}
         </FieldGroup>

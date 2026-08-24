@@ -40,6 +40,7 @@ export function StaffEditForm({
   const {
     register,
     control,
+    setValue,
     watch,
     handleSubmit,
     formState: { errors },
@@ -74,6 +75,7 @@ export function StaffEditForm({
         register={register}
         control={control}
         errors={errors}
+        setValue={setValue}
         isPending={isPending}
         isAdmin={isAdmin}
         isNpp={isNppValue}

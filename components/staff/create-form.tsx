@@ -32,6 +32,7 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
   const {
     register,
     control,
+    setValue,
     watch,
     handleSubmit,
     formState: { errors },
@@ -74,6 +75,7 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
         register={register}
         control={control}
         errors={errors}
+        setValue={setValue}
         isPending={isPending}
         isAdmin={isAdmin}
         isNpp={isNppValue}
