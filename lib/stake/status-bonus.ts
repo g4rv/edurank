@@ -28,6 +28,22 @@ export const POSITION_ORDER: readonly AdminPosition[] = [
   'LAB_OR_CENTER_HEAD',
 ];
 
+/**
+ * The positions a ставка надбавка may be set for — everything except проректор
+ * and декан (owner, 2026-08-24).
+ *
+ * Those two are paid through their own arrangements outside EduRank, so pricing
+ * them here would invite somebody to pay the same надбавка twice. They keep
+ * their RATING points — item 1.6 still scores проректор 100 and декан 80, which
+ * is the положення and is untouched by this.
+ *
+ * `POSITION_ORDER` stays the full list: it is the label order for the profile
+ * field and for anything that has to name a position.
+ */
+export const PRICED_POSITIONS: readonly AdminPosition[] = POSITION_ORDER.filter(
+  (position) => position !== 'VICE_RECTOR' && position !== 'DEAN'
+);
+
 /** One line of the tooltip: every position, and whether this person holds it */
 export interface StatusLine {
   position: AdminPosition;
@@ -51,7 +67,10 @@ export function statusLines(
   held: AdminPosition | null | undefined,
   valuesByPosition: ReadonlyMap<AdminPosition, number>
 ): StatusLine[] {
-  return POSITION_ORDER.map((position) => ({
+  // `PRICED_POSITIONS`, not the full list: this tooltip explains a надбавка,
+  // and a row for a position nobody may be paid for here is noise on the one
+  // screen where the head is deciding money.
+  return PRICED_POSITIONS.map((position) => ({
     position,
     label: ADMIN_POSITION_LABELS[position],
     value: fromHundredths(valuesByPosition.get(position) ?? 0),

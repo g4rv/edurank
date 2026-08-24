@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { formatStake } from '@/lib/stake/units';
-import { POSITION_ORDER } from '@/lib/stake/status-bonus';
+import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
 import { ADMIN_POSITION_LABELS } from '@/lib/labels';
 import { setStatusBonus } from '@/app/(dashboard)/admin/stakes/actions';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
@@ -36,7 +36,7 @@ export function StatusBonusSettings({
         </p>
       </div>
       <div className="divide-y">
-        {POSITION_ORDER.map((position) => (
+        {PRICED_POSITIONS.map((position) => (
           <StatusRow key={position} position={position} value={values[position]} year={year} />
         ))}
       </div>

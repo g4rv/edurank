@@ -207,14 +207,29 @@ describe('updateStaff field filtering', () => {
     ]);
   });
 
-  it('ADMIN writes all schema fields including employmentRate', async () => {
+  it('ADMIN writes every schema field they own', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
     mockStaffLookups();
     const tx = mockTx();
 
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx)).toContain('employmentRate');
     expect(writtenFields(tx)).toContain('divisionId');
+    expect(writtenFields(tx)).toContain('academicRank');
+  });
+
+  // Was «ADMIN writes all schema fields including employmentRate» until
+  // 2026-08-24. `saveDistribution` now owns that column — it is the sum across
+  // every кафедра that pays this person — and the edit form shows it per
+  // кафедра instead of asking for it. A profile save that still carried the
+  // field would overwrite a ставка two завідувачі had agreed, and an empty
+  // form field would NULL it.
+  it('nobody writes employmentRate from a profile save, not even ADMIN', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
+    expect(writtenFields(tx)).not.toContain('employmentRate');
   });
 });
 

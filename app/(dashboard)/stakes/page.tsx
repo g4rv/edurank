@@ -5,7 +5,7 @@ import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stake-settings';
 import { scopeOf } from '@/lib/queries/scope';
 import { formatStake } from '@/lib/stake/units';
-import { POSITION_ORDER } from '@/lib/stake/status-bonus';
+import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DepartmentPools } from '@/components/stake/department-pools';
 import { StatusBonusSettings } from '@/components/stake/status-bonus-settings';
@@ -57,7 +57,7 @@ export default async function StakesPage() {
   // `Record` rather than the Map, because this crosses into a client component
   // and a Map does not survive serialisation.
   const statusValues = Object.fromEntries(
-    POSITION_ORDER.map((p) => [p, statuses.get(p)])
+    PRICED_POSITIONS.map((p) => [p, statuses.get(p)])
   ) as Record<AdminPosition, number | undefined>;
 
   const totalKst = rows.reduce((sum, r) => sum + (r.kstHundredths ?? 0), 0);

@@ -7,7 +7,7 @@ import { getStakeDistribution } from '@/lib/queries/get-stake-distribution';
 import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stake-settings';
 import { headOf, scopeOf } from '@/lib/queries/scope';
 import { formatStake } from '@/lib/stake/units';
-import { POSITION_ORDER } from '@/lib/stake/status-bonus';
+import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DistributionGrid } from '@/components/stake/distribution-grid';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
@@ -95,7 +95,7 @@ export default async function DepartmentStakesPage({
     .join('|');
 
   const statusValues = Object.fromEntries(
-    POSITION_ORDER.map((p) => [p, statuses.get(p)])
+    PRICED_POSITIONS.map((p) => [p, statuses.get(p)])
   ) as Record<AdminPosition, number | undefined>;
 
   return (

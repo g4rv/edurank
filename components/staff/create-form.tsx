@@ -76,6 +76,9 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
         control={control}
         errors={errors}
         setValue={setValue}
+        // No person yet, so no distribution to show — the typed «Ставка»
+        // field is what `null` turns back on.
+        stakeBreakdown={null}
         isPending={isPending}
         isAdmin={isAdmin}
         isNpp={isNppValue}

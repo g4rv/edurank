@@ -13,6 +13,7 @@ import { updateStaff } from '@/app/(dashboard)/staff/[id]/actions';
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
+import type { StakePart } from '@/lib/queries/get-stake-breakdown';
 import {
   StaffFormFields,
   staffToFormValues,
@@ -25,6 +26,8 @@ interface StaffEditFormProps {
   divisions: DivisionOption[];
   isAdmin: boolean;
   staffId: string;
+  /** What each кафедра allocated this person — shown under its own select */
+  stakeBreakdown: StakePart[];
 }
 
 export function StaffEditForm({
@@ -33,6 +36,7 @@ export function StaffEditForm({
   divisions,
   isAdmin,
   staffId,
+  stakeBreakdown,
 }: StaffEditFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -76,6 +80,7 @@ export function StaffEditForm({
         control={control}
         errors={errors}
         setValue={setValue}
+        stakeBreakdown={stakeBreakdown}
         isPending={isPending}
         isAdmin={isAdmin}
         isNpp={isNppValue}

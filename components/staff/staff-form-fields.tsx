@@ -32,6 +32,8 @@ import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
+import type { StakePart } from '@/lib/queries/get-stake-breakdown';
+import { formatStake } from '@/lib/stake/units';
 
 // The staff create and edit forms render exactly the same fields; only their
 // defaults, submit handler and framing differ. Those fields live here so a
@@ -180,6 +182,18 @@ interface StaffFormFieldsProps {
   errors: FieldErrors<RawStaffFormValues>;
   /** Needed to clear «Додаткова кафедра» when it becomes the primary one */
   setValue: UseFormSetValue<RawStaffFormValues>;
+  /**
+   * What each кафедра has actually allocated this person, or `null` on a NEW
+   * profile (2026-08-24).
+   *
+   * `null` is not «nothing allocated» — it is «there is no person yet», and it
+   * is what puts the typed «Ставка» field back on the create form. Once the
+   * record exists the number belongs to the heads: `saveDistribution` writes
+   * `employmentRate` as the sum across both кафедри, so the edit form SHOWS it
+   * per кафедра instead of asking for it. Two writers on one field is what let
+   * the профіль and the розподіл disagree.
+   */
+  stakeBreakdown: StakePart[] | null;
   isPending: boolean;
   isAdmin: boolean;
   /** Watched isNpp — the academic and profile sections only apply to НПП */
@@ -192,11 +206,46 @@ interface StaffFormFieldsProps {
   canEditType: boolean;
 }
 
+/**
+ * What one кафедра allocated this person, under that кафедра's own select.
+ *
+ * Declared at module level, not inside `StaffFormFields`: a component created
+ * during render is a new type on every render, so React remounts it and it
+ * loses any state it holds. ESLint's `react-hooks/static-components` catches
+ * this, and it caught it here.
+ *
+ * `breakdown === null` means a NEW profile — nothing to show, because the
+ * typed «Ставка» field is doing the job instead.
+ */
+function AllocatedStake({
+  departmentId,
+  breakdown,
+}: {
+  departmentId: string | undefined;
+  breakdown: StakePart[] | null;
+}) {
+  if (breakdown === null || !departmentId?.trim()) return null;
+  const part = breakdown.find((p) => p.departmentId === departmentId);
+  return (
+    <p className="mt-1 text-xs text-muted-foreground">
+      Ставка:{' '}
+      {part ? (
+        <span className="font-medium text-foreground">{formatStake(part.hundredths)}</span>
+      ) : (
+        // Not «0,00» — a кафедра nobody has spread yet is not a кафедра paying
+        // nothing, and only its завідувач can change that.
+        <span title="Завідувач ще не розподілив ставки цієї кафедри">—</span>
+      )}
+    </p>
+  );
+}
+
 export function StaffFormFields({
   register,
   control,
   errors,
   setValue,
+  stakeBreakdown,
   isPending,
   isAdmin,
   isNpp,
@@ -314,6 +363,7 @@ export function StaffFormFields({
                   );
                 }}
               />
+              <AllocatedStake departmentId={primaryDepartmentId} breakdown={stakeBreakdown} />
             </FormField>
             {/* Beside «Основна кафедра» because that is the shape the rule
                 now has: one person, at most two кафедри (2026-08-24). ADMIN
@@ -351,6 +401,7 @@ export function StaffFormFields({
                     );
                   }}
                 />
+                <AllocatedStake departmentId={additionalDepartmentId} breakdown={stakeBreakdown} />
               </FormField>
             )}
           </div>
@@ -387,7 +438,12 @@ export function StaffFormFields({
         </FieldGroup>
       </SectionCard>
 
-      {isAdmin && (
+      {/* Only when CREATING somebody (2026-08-24). On an existing record the
+          ставка belongs to the завідувачі — `saveDistribution` writes it as the
+          sum across both кафедри — and it is shown under each кафедра above
+          rather than typed here. A new person has no distribution yet, so
+          somebody has to say what they were hired at. */}
+      {isAdmin && stakeBreakdown === null && (
         <SectionCard title="Конфіденційно" step={step()}>
           <FormField htmlFor="employmentRate" label="Ставка" error={errors.employmentRate}>
             <Input

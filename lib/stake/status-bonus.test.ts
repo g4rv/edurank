@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { POSITION_ORDER, recommendedStake, statusLines, statusValue } from './status-bonus';
+import {
+  POSITION_ORDER,
+  PRICED_POSITIONS,
+  recommendedStake,
+  statusLines,
+  statusValue,
+} from './status-bonus';
 
 const VALUES = new Map([
   ['VICE_RECTOR', 10] as const,
   ['DEAN', 5] as const,
   ['VICE_DEAN_OR_SECRETARY', 2] as const,
+  ['DEPARTMENT_OR_UNIT_HEAD', 6] as const,
 ]);
 
 describe('statusValue', () => {
@@ -26,25 +33,41 @@ describe('statusValue', () => {
 });
 
 describe('statusLines', () => {
-  it('returns every position, not only the one held', () => {
-    const lines = statusLines('DEAN', VALUES);
-    expect(lines).toHaveLength(POSITION_ORDER.length);
-    expect(lines.map((l) => l.position)).toEqual([...POSITION_ORDER]);
+  it('returns every PRICED position, not only the one held', () => {
+    const lines = statusLines('VICE_DEAN_OR_SECRETARY', VALUES);
+    expect(lines).toHaveLength(PRICED_POSITIONS.length);
+    expect(lines.map((l) => l.position)).toEqual([...PRICED_POSITIONS]);
+  });
+
+  // Проректор and декан are paid outside EduRank (owner, 2026-08-24), so a row
+  // for them on the надбавка tooltip would invite paying the same thing twice.
+  it('never lists проректор or декан, even when the year prices them', () => {
+    const shown = statusLines(null, VALUES).map((l) => l.position);
+    expect(shown).not.toContain('VICE_RECTOR');
+    expect(shown).not.toContain('DEAN');
   });
 
   it('marks exactly the position held', () => {
-    const lines = statusLines('DEAN', VALUES);
-    expect(lines.filter((l) => l.counts).map((l) => l.position)).toEqual(['DEAN']);
+    const lines = statusLines('VICE_DEAN_OR_SECRETARY', VALUES);
+    expect(lines.filter((l) => l.counts).map((l) => l.position)).toEqual([
+      'VICE_DEAN_OR_SECRETARY',
+    ]);
   });
 
   it('marks nothing when the person holds no position', () => {
     expect(statusLines(null, VALUES).some((l) => l.counts)).toBe(false);
   });
 
+  it('marks nothing for a декан — their position is not on this list at all', () => {
+    expect(statusLines('DEAN', VALUES).some((l) => l.counts)).toBe(false);
+  });
+
   // The point of showing unheld positions: «what would this have been worth».
   it('carries the value of positions the person does not hold', () => {
-    const rector = statusLines('DEAN', VALUES).find((l) => l.position === 'VICE_RECTOR');
-    expect(rector).toMatchObject({ value: 0.1, counts: false });
+    const head = statusLines('VICE_DEAN_OR_SECRETARY', VALUES).find(
+      (l) => l.position === 'DEPARTMENT_OR_UNIT_HEAD'
+    );
+    expect(head).toMatchObject({ value: 0.06, counts: false });
   });
 
   it('labels every line in Ukrainian', () => {
@@ -100,5 +123,26 @@ describe('recommendedStake', () => {
     expect(recommendedStake({ formulaHundredths: 0, studentBonus: 0.0035 * 3, status: 0 })).toBe(
       0.01
     );
+  });
+});
+
+describe('PRICED_POSITIONS', () => {
+  it('is POSITION_ORDER without проректор and декан', () => {
+    expect(PRICED_POSITIONS).not.toContain('VICE_RECTOR');
+    expect(PRICED_POSITIONS).not.toContain('DEAN');
+    expect(PRICED_POSITIONS).toHaveLength(POSITION_ORDER.length - 2);
+  });
+
+  it('keeps the university’s own order', () => {
+    expect([...PRICED_POSITIONS]).toEqual(
+      POSITION_ORDER.filter((p) => p !== 'VICE_RECTOR' && p !== 'DEAN')
+    );
+  });
+
+  it('leaves POSITION_ORDER alone — the rating still scores both', () => {
+    // Item 1.6 pays проректор 100 and декан 80. That is the положення, and
+    // dropping them from the надбавка list must not reach it.
+    expect(POSITION_ORDER).toContain('VICE_RECTOR');
+    expect(POSITION_ORDER).toContain('DEAN');
   });
 });

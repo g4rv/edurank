@@ -230,7 +230,14 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
   const parsed = staffUpdateSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
 
-  const { partTimeDepartmentIds, ...fields } = parsed.data;
+  // `employmentRate` is dropped on the way in, whoever is saving (2026-08-24).
+  // It is no longer a field anybody types on this form: `saveDistribution`
+  // writes it, as the sum across every кафедра that pays this person, and the
+  // edit page shows that number rather than asking for it. Leaving it in the
+  // payload would let a profile save overwrite — or with an empty form field,
+  // NULL out — a ставка two heads had agreed. It is still accepted when a
+  // person is CREATED, where no distribution exists yet to supply it.
+  const { partTimeDepartmentIds, employmentRate: _ignored, ...fields } = parsed.data;
 
   let updateData: Record<string, unknown> = {};
 

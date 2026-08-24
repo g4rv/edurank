@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
+import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listDivisions } from '@/lib/queries/list-divisions';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
@@ -25,13 +26,17 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
     if (!perms.canUpdate) redirect(`/staff/${id}`);
   }
 
-  const [staff, departments, divisions] = await Promise.all([
+  const [staff, departments, divisions, stakeBreakdown] = await Promise.all([
     getStaff(id, isAdmin),
     listDepartments(),
     // Only ADMIN may assign a відділ, and the names must not reach anyone else:
     // a prop is serialised into the page payload whether the control that would
     // use it is rendered or not.
     isAdmin ? listDivisions() : Promise.resolve([]),
+    // The ставка each кафедра allocated, shown under its own select instead of
+    // being typed. Confidential like `employmentRate` itself, so ADMIN only —
+    // a prop reaches the page payload whether or not it is rendered.
+    isAdmin ? getStakeBreakdown(id) : Promise.resolve([]),
   ]);
 
   if (!staff) notFound();
@@ -66,6 +71,7 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
         divisions={divisions}
         isAdmin={isAdmin}
         staffId={id}
+        stakeBreakdown={stakeBreakdown}
       />
     </div>
   );
