@@ -56,6 +56,29 @@ const ENTRY_SELECT = {
   totalScore: true,
 } as const;
 
+/**
+ * Everyone a кафедра's chart should plot: its own НПП plus its сумісники.
+ *
+ * Since 2026-08-24 both кафедри pay a сумісник, and both count them — so both
+ * average their score in. Read as two relations rather than one staff query
+ * because the three chart functions differ in what else they select.
+ *
+ * Deduped by id: validation forbids somebody being both primary and сумісник on
+ * the same кафедра, but a chart that silently double-weighted one person would
+ * be very hard to notice.
+ */
+function onKafedra<T extends { id: string }>(d: {
+  primaryStaff: T[];
+  partTimeStaff: { staff: T }[];
+}): T[] {
+  const seen = new Set<string>();
+  return [...d.primaryStaff, ...d.partTimeStaff.map((p) => p.staff)].filter((s) => {
+    if (seen.has(s.id)) return false;
+    seen.add(s.id);
+    return true;
+  });
+}
+
 export interface DepartmentBar {
   name: string;
   /** Average per НПП, which is what the reference chart plots */
@@ -77,19 +100,26 @@ export async function getDepartmentChart(
       name: true,
       primaryStaff: {
         where: { ...ON_ROSTER, isNpp: true },
-        select: { ratingEntries: { where: { year }, select: ENTRY_SELECT } },
+        select: { id: true, ratingEntries: { where: { year }, select: ENTRY_SELECT } },
+      },
+      partTimeStaff: {
+        where: { staff: { ...ON_ROSTER, isNpp: true } },
+        select: {
+          staff: { select: { id: true, ratingEntries: { where: { year }, select: ENTRY_SELECT } } },
+        },
       },
     },
   });
 
   return departments
-    .filter((d) => d.primaryStaff.length > 0)
+    .map((d) => ({ name: d.name, people: onKafedra(d) }))
+    .filter((d) => d.people.length > 0)
     .map((d) => {
-      const sum = d.primaryStaff.reduce((acc, s) => acc + valueOf(s.ratingEntries[0], metric), 0);
+      const sum = d.people.reduce((acc, s) => acc + valueOf(s.ratingEntries[0], metric), 0);
       return {
         name: d.name,
-        value: sum / d.primaryStaff.length,
-        nppCount: d.primaryStaff.length,
+        value: sum / d.people.length,
+        nppCount: d.people.length,
       };
     })
     .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'uk'));
@@ -125,10 +155,25 @@ export async function getDepartmentStaffChart(
       primaryStaff: {
         where: { ...ON_ROSTER, isNpp: true },
         select: {
+          id: true,
           lastName: true,
           firstName: true,
           patronymic: true,
           ratingEntries: { where: { year }, select: ENTRY_SELECT },
+        },
+      },
+      partTimeStaff: {
+        where: { staff: { ...ON_ROSTER, isNpp: true } },
+        select: {
+          staff: {
+            select: {
+              id: true,
+              lastName: true,
+              firstName: true,
+              patronymic: true,
+              ratingEntries: { where: { year }, select: ENTRY_SELECT },
+            },
+          },
         },
       },
     },
@@ -137,7 +182,7 @@ export async function getDepartmentStaffChart(
 
   return {
     departmentName: department.name,
-    staff: department.primaryStaff
+    staff: onKafedra(department)
       .map((s) => {
         const entry = s.ratingEntries[0];
         return {
@@ -184,19 +229,35 @@ export async function getReportData(year: number): Promise<ReportDepartment[]> {
       primaryStaff: {
         where: { ...ON_ROSTER, isNpp: true },
         select: {
+          id: true,
           lastName: true,
           firstName: true,
           patronymic: true,
           ratingEntries: { where: { year }, select: ENTRY_SELECT },
         },
       },
+      partTimeStaff: {
+        where: { staff: { ...ON_ROSTER, isNpp: true } },
+        select: {
+          staff: {
+            select: {
+              id: true,
+              lastName: true,
+              firstName: true,
+              patronymic: true,
+              ratingEntries: { where: { year }, select: ENTRY_SELECT },
+            },
+          },
+        },
+      },
     },
   });
 
   return departments
-    .filter((d) => d.primaryStaff.length > 0)
+    .map((d) => ({ id: d.id, name: d.name, people: onKafedra(d) }))
+    .filter((d) => d.people.length > 0)
     .map((d) => {
-      const staff: ReportStaff[] = d.primaryStaff
+      const staff: ReportStaff[] = d.people
         .map((s) => {
           const e = s.ratingEntries[0];
           return {

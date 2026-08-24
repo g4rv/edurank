@@ -96,6 +96,7 @@ export async function getDashboard(year: number): Promise<DashboardData> {
       where: { ...ON_ROSTER, isNpp: true },
       select: {
         departmentId: true,
+        partTimeDepartments: { select: { departmentId: true } },
         ratingEntries: {
           where: { year },
           select: {
@@ -138,13 +139,24 @@ export async function getDashboard(year: number): Promise<DashboardData> {
   }));
 
   // Один прохід по НПП: скільки їх на кафедрі і скільки балів разом
+  //
+  // A сумісник lands in TWO buckets (2026-08-24): both кафедри pay them, both
+  // count them, and both average their score in. The university-wide figures
+  // above are computed from `npp` directly, so nobody is double-counted there.
   const byDepartment = new Map<string, { count: number; sum: number }>();
-  for (const [i, member] of npp.entries()) {
-    if (!member.departmentId) continue;
-    const bucket = byDepartment.get(member.departmentId) ?? { count: 0, sum: 0 };
+  const addTo = (departmentId: string, total: number) => {
+    const bucket = byDepartment.get(departmentId) ?? { count: 0, sum: 0 };
     bucket.count += 1;
-    bucket.sum += totals[i];
-    byDepartment.set(member.departmentId, bucket);
+    bucket.sum += total;
+    byDepartment.set(departmentId, bucket);
+  };
+
+  for (const [i, member] of npp.entries()) {
+    if (member.departmentId) addTo(member.departmentId, totals[i]);
+    for (const { departmentId } of member.partTimeDepartments) {
+      if (departmentId === member.departmentId) continue;
+      addTo(departmentId, totals[i]);
+    }
   }
 
   const departments: DepartmentScore[] = faculties

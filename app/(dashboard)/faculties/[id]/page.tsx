@@ -33,7 +33,19 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
       name: true,
       dean: { select: { id: true, lastName: true, firstName: true, patronymic: true } },
       departments: {
-        select: { id: true, name: true, _count: { select: { primaryStaff: true } } },
+        select: {
+          id: true,
+          name: true,
+          // Both counts filtered: the unfiltered one included archived people
+          // and the seeded service account. Сумісники are counted because this
+          // кафедра also pays them a ставка (2026-08-24).
+          _count: {
+            select: {
+              primaryStaff: { where: ON_ROSTER },
+              partTimeStaff: { where: { staff: ON_ROSTER } },
+            },
+          },
+        },
         orderBy: { name: 'asc' },
       },
     },
@@ -127,7 +139,7 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
                     {dept.name}
                   </Link>
                   <span className="text-xs text-muted-foreground">
-                    {dept._count.primaryStaff} НПП
+                    {dept._count.primaryStaff + dept._count.partTimeStaff} НПП
                   </span>
                 </li>
               ))}

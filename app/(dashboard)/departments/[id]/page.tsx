@@ -15,6 +15,7 @@ import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getDepartmentKnpp } from '@/lib/queries/get-department-knpp';
 import { scopeOf } from '@/lib/queries/scope';
+import { ON_ROSTER } from '@/lib/queries/roster';
 import { KnppSummary } from '@/components/kharakterystyka/knpp-summary';
 
 function fullName(p: { lastName: string; firstName: string; patronymic: string }) {
@@ -42,6 +43,11 @@ export default async function DepartmentDetailPage({
       faculty: { select: { id: true, name: true } },
       head: { select: { id: true, lastName: true, firstName: true, patronymic: true } },
       primaryStaff: {
+        // Archived people — someone on декретна відпустка — are off the roster
+        // and out of every other list in the app. This page never filtered
+        // them, so they showed here and in «N основних · M сумісників»
+        // (2026-08-24). `ON_ROSTER` also keeps the seeded service account out.
+        where: ON_ROSTER,
         select: {
           id: true,
           lastName: true,
@@ -53,6 +59,7 @@ export default async function DepartmentDetailPage({
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       },
       partTimeStaff: {
+        where: { staff: ON_ROSTER },
         select: {
           staff: {
             select: {
