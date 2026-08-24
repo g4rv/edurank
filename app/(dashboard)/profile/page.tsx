@@ -5,12 +5,13 @@ import { auth } from '@/lib/auth';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
+import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Button } from '@/components/ui/button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
-import { formatStakeValue } from '@/lib/stake/units';
+import { formatStake, formatStakeValue } from '@/lib/stake/units';
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -115,6 +116,7 @@ export default async function ProfilePage() {
   if (!staff) notFound();
 
   // Compact rating summary (M6) — the full table lives on «Мій рейтинг»
+  const stakeParts = await getStakeBreakdown(staffId);
   const template = staff.isNpp ? await getActiveTemplate() : null;
   const rating = template ? await getRatingEntry(staffId, template.year) : null;
 
@@ -216,7 +218,27 @@ export default async function ProfilePage() {
           {staff.division && <Field label="Відділ" value={staff.division.name} />}
           <Field
             label="Ставка"
-            value={staff.employmentRate !== null ? formatStakeValue(staff.employmentRate) : '—'}
+            value={
+              <>
+                {staff.employmentRate !== null ? formatStakeValue(staff.employmentRate) : '—'}
+                {/* `employmentRate` is not a hand-typed contract rate: the
+                    distribution writes it, and since 2026-08-24 it is the SUM
+                    across every кафедра that pays this person. This says which
+                    кафедри those are, read from the same allocations the sum
+                    came from — so the parts always add up to the whole.
+
+                    Nothing renders until a head has filled a grid: a кафедра
+                    nobody has spread yet is not a кафедра paying 0,00. */}
+                {stakeParts.length > 0 && (
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Розподілено:{' '}
+                    {stakeParts
+                      .map((part) => `${part.department} — ${formatStake(part.hundredths)}`)
+                      .join(' + ')}
+                  </span>
+                )}
+              </>
+            }
           />
         </InfoCard>
 

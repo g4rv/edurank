@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
+import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { getStaffAccount } from '@/lib/queries/get-staff-account';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { canMutateStaffRecord } from '@/lib/permissions';
@@ -13,7 +14,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
 import { ArchiveStaffButton, RestoreStaffButton } from '@/components/staff/archive-button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
-import { formatStakeValue } from '@/lib/stake/units';
+import { formatStake, formatStakeValue } from '@/lib/stake/units';
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -100,6 +101,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const showConfidential = isAdmin || session.user.staffId === id;
 
   const staff = await getStaff(id, showConfidential);
+  const stakeParts = showConfidential ? await getStakeBreakdown(id) : [];
 
   if (!staff) notFound();
 
@@ -199,7 +201,27 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             {showConfidential && (
               <Field
                 label="Ставка"
-                value={staff.employmentRate != null ? formatStakeValue(staff.employmentRate) : '—'}
+                value={
+                  <>
+                    {staff.employmentRate != null ? formatStakeValue(staff.employmentRate) : '—'}
+                    {/* `employmentRate` is not a hand-typed contract rate: the
+                        distribution writes it, and since 2026-08-24 it is the SUM
+                        across every кафедра that pays this person. This says which
+                        кафедри those are, read from the same allocations the sum
+                        came from — so the parts always add up to the whole.
+
+                        Nothing renders until a head has filled a grid: a кафедра
+                        nobody has spread yet is not a кафедра paying 0,00. */}
+                    {stakeParts.length > 0 && (
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Розподілено:{' '}
+                        {stakeParts
+                          .map((part) => `${part.department} — ${formatStake(part.hundredths)}`)
+                          .join(' + ')}
+                      </span>
+                    )}
+                  </>
+                }
               />
             )}
           </InfoCard>
