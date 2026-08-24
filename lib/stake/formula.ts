@@ -176,3 +176,24 @@ export const DEFAULT_LIMITS = {
   minHundredths: MIN_STAKE,
   maxHundredths: toHundredths(1),
 } as const;
+
+/**
+ * The bounds for a row on somebody's ADDITIONAL кафедра (owner, 2026-08-24).
+ *
+ * A сумісник is a full member of the second кафедра's formula — their whole
+ * university rating counts in `<Rк>` and `ΣR` there — but they hold a part of a
+ * post, not a post, so 0,25 is where the кафедра's own share of them stops.
+ * ADMIN may type something else for one person on one кафедра.
+ *
+ * **Never inherited from the primary кафедра.** The limits lookup is scoped by
+ * `departmentId`, so a Макс of 1,50 typed on somebody's own кафедра cannot
+ * reach this row; with no row of its own the additional кафедра falls back
+ * here, not to `DEFAULT_LIMITS`.
+ *
+ * The floor is the same 0,10 everybody gets: «nobody who works is left without
+ * a ставка» does not have a part-time exception.
+ */
+export const PART_TIME_LIMITS = {
+  minHundredths: MIN_STAKE,
+  maxHundredths: toHundredths(0.25),
+} as const;

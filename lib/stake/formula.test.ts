@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LIMITS, formulaShares, type FormulaPerson } from './formula';
+import { DEFAULT_LIMITS, PART_TIME_LIMITS, formulaShares, type FormulaPerson } from './formula';
 import { fromHundredths, minimumKstHundredths, toHundredths } from './units';
 
 function person(rating: number, max = 1, min = 0.1): FormulaPerson {
@@ -240,5 +240,66 @@ describe('DEFAULT_LIMITS', () => {
     const atOne = formulaShares({ people: build(1), kstHundredths }).totalHundredths;
     const atOneAndAHalf = formulaShares({ people: build(1.5), kstHundredths }).totalHundredths;
     expect(kstHundredths - atOne).toBeGreaterThan(kstHundredths - atOneAndAHalf);
+  });
+});
+
+describe('a сумісник on their additional кафедра', () => {
+  const people = [
+    { staffId: 'own-a', rating: 1000, minHundredths: 10, maxHundredths: 100 },
+    { staffId: 'own-b', rating: 500, minHundredths: 10, maxHundredths: 100 },
+    // The сумісник brings their WHOLE university rating (D2) and the 0,25 cap.
+    { staffId: 'part', rating: 3000, ...PART_TIME_LIMITS },
+  ];
+
+  it('caps them at 0,25 however high their rating', () => {
+    const { shares } = formulaShares({ people, kstHundredths: 300 });
+    const part = shares.find((s) => s.staffId === 'part')!;
+    expect(part.hundredths).toBe(25);
+    expect(part.clampedTo).toBe('max');
+  });
+
+  it('leaves the excess in the pool rather than giving it to somebody else', () => {
+    const { shares, totalHundredths } = formulaShares({ people, kstHundredths: 300 });
+    // Σ of the proposal is below Кст: the capped share is not redistributed,
+    // it becomes «не розподілено» for the head to hand out.
+    expect(totalHundredths).toBe(shares.reduce((sum, s) => sum + s.hundredths, 0));
+    expect(totalHundredths).toBeLessThan(300);
+  });
+
+  it('does not drag their preliminary WEIGHT under the 0,5 floor', () => {
+    // Pass 1 applies the cap BEFORE the 0,5 floor, so a 0,25 ceiling gives a
+    // weight of 0,5. If that order ever flips, the сумісник's presence stops
+    // moving <Rк> the way the design assumes and everyone else's share shifts.
+    const withPartTimer = formulaShares({ people, kstHundredths: 300 });
+    const withoutPartTimer = formulaShares({ people: people.slice(0, 2), kstHundredths: 300 });
+    const ownA = (r: ReturnType<typeof formulaShares>) =>
+      r.shares.find((s) => s.staffId === 'own-a')!.hundredths;
+    expect(ownA(withPartTimer)).toBeLessThan(ownA(withoutPartTimer));
+  });
+
+  it('still gives them the 0,10 floor when their share rounds under it', () => {
+    // A 0,30 pool against a colleague on 100 000 points: the сумісник's own
+    // share comes to 0,05, and the floor lifts it. «Nobody who works is left
+    // without a ставка» has no part-time exception.
+    const { shares } = formulaShares({
+      people: [
+        { staffId: 'own-a', rating: 100000, minHundredths: 10, maxHundredths: 100 },
+        { staffId: 'part', rating: 1, ...PART_TIME_LIMITS },
+      ],
+      kstHundredths: 30,
+    });
+    const part = shares.find((s) => s.staffId === 'part')!;
+    expect(part.hundredths).toBe(10);
+    expect(part.clampedTo).toBe('min');
+  });
+});
+
+describe('PART_TIME_LIMITS', () => {
+  it('is 0,10 to 0,25 in hundredths', () => {
+    expect(PART_TIME_LIMITS).toEqual({ minHundredths: 10, maxHundredths: 25 });
+  });
+
+  it('shares its floor with everybody else — a сумісник is not paid less than the minimum', () => {
+    expect(PART_TIME_LIMITS.minHundredths).toBe(DEFAULT_LIMITS.minHundredths);
   });
 });
