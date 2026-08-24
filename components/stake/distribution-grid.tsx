@@ -221,7 +221,10 @@ export function DistributionGrid({
     }
 
     startLimitsTransition(async () => {
-      const result = await setStaffLimits(null, limitsFormData(row.staffId, view.year, next));
+      const result = await setStaffLimits(
+        null,
+        limitsFormData(row.staffId, view.departmentId, view.year, next)
+      );
 
       if (result && 'error' in result) {
         setLimitErrors((e) => ({ ...e, [row.staffId]: result.error }));
@@ -738,9 +741,18 @@ export function DistributionGrid({
   );
 }
 
-function limitsFormData(staffId: string, year: number, next: LimitDraft): FormData {
+function limitsFormData(
+  staffId: string,
+  departmentId: string,
+  year: number,
+  next: LimitDraft
+): FormData {
   const form = new FormData();
   form.set('staffId', staffId);
+  // WHICH кафедра's bounds these are. Bounds are per-кафедра since 2026-08-24
+  // and a сумісник's row is on a кафедра that is not their own, so the server
+  // cannot derive it — without this every cap edit is «Невірні дані».
+  form.set('departmentId', departmentId);
   form.set('year', String(year));
   form.set('min', next.min);
   form.set('max', next.max);
@@ -1139,6 +1151,19 @@ function Row({
         >
           {row.name}
         </Link>
+        {/* Their кафедра is elsewhere and this one also pays them (2026-08-24).
+            A muted pill rather than a coloured row: hue is for a chart series
+            or a small state indicator, and «works here part-time» is neither an
+            error nor a warning. Their bounds and their sort differ; nothing
+            else about the row does. */}
+        {row.isPartTime && (
+          <span
+            className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+            title="Основна кафедра цієї людини — інша. Тут вона працює за сумісництвом, і ця кафедра теж призначає їй ставку."
+          >
+            Сумісник
+          </span>
+        )}
         {/* «позицій із 20» on every row, not only the ones falling short: the
             head is looking at who counts towards Кнпп, and a badge that appears
             only on failures makes its absence the message, which is easy to
