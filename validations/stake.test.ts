@@ -4,6 +4,8 @@ import { staffStakeLimitsSchema } from './stake';
 const parse = (min: string, max: string) =>
   staffStakeLimitsSchema.safeParse({
     staffId: 's1',
+    // Bounds are per-кафедра, so every payload names one.
+    departmentId: 'd1',
     year: 2026,
     minHundredths: min,
     maxHundredths: max,

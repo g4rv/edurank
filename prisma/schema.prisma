@@ -156,6 +156,7 @@ model Department {
   primaryStaff  Staff[]           @relation("PrimaryDepartment")
   partTimeStaff StaffDepartment[]
   stakes        DepartmentStake[]
+  stakeLimits   StaffStakeLimits[]
   distributions StakeDistribution[]
   stakeSandboxes StakeSandbox[]
 
@@ -707,7 +708,20 @@ model StaffStakeLimits {
   id      String @id @default(cuid())
   staffId String
   staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  year    Int
+
+  /// WHICH кафедра these bounds apply to. Required, never nullable.
+  ///
+  /// Since 2026-08-24 a сумісник gets a row in TWO кафедри's grids, with a
+  /// different ceiling in each — 1,00 on their own кафедра, 0,25 on the other.
+  /// Per-person bounds could not express that: capping the second кафедра would
+  /// have capped the first.
+  ///
+  /// Not nullable-meaning-primary, because Postgres does not deduplicate NULLs
+  /// in a unique index, so two rows could both claim to be the primary bound.
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  year Int
 
   /// Integer hundredths. The lowest a floor may go is 10 (0.1), never 0 — a
   /// deliberate override of the положення's «менше 0,5 → встановлюється 0,5».
@@ -717,8 +731,9 @@ model StaffStakeLimits {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([staffId, year])
+  @@unique([staffId, departmentId, year])
   @@index([year])
+  @@index([departmentId])
 }
 
 // One кафедра's distribution for one year. There is exactly one — there is no

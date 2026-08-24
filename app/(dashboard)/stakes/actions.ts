@@ -377,6 +377,10 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
 
   const parsed = staffStakeLimitsSchema.safeParse({
     staffId: formData.get('staffId'),
+    // Which кафедра's row this is. Taken from the form, not from
+    // `person.departmentId`: a сумісник has a row on a кафедра that is not
+    // their primary one, and deriving it would always write the wrong one.
+    departmentId: formData.get('departmentId'),
     year: Number(formData.get('year')),
     minHundredths: formData.get('min'),
     maxHundredths: formData.get('max'),
@@ -384,7 +388,7 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Невірні дані' };
   }
-  const { staffId, year, minHundredths, maxHundredths } = parsed.data;
+  const { staffId, departmentId, year, minHundredths, maxHundredths } = parsed.data;
 
   const closed = await closedYearProblem(year);
   if (closed) return { error: closed };
@@ -397,14 +401,14 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
 
   try {
     const existing = await db.staffStakeLimits.findUnique({
-      where: { staffId_year: { staffId, year } },
+      where: { staffId_departmentId_year: { staffId, departmentId, year } },
       select: { minHundredths: true, maxHundredths: true },
     });
 
     const row = await db.staffStakeLimits.upsert({
-      where: { staffId_year: { staffId, year } },
+      where: { staffId_departmentId_year: { staffId, departmentId, year } },
       update: { minHundredths, maxHundredths },
-      create: { staffId, year, minHundredths, maxHundredths },
+      create: { staffId, departmentId, year, minHundredths, maxHundredths },
     });
 
     await db.auditLog.create({
@@ -437,8 +441,7 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
     };
   }
 
-  if (!person.departmentId) return { success: true, formulaHundredths: null };
-  revalidateStakes(person.departmentId);
+  revalidateStakes(departmentId);
 
   // The share handed back has to be ranked on the same year the grid is showing
   const ratingYear = await ratingYearFor(year);
@@ -448,15 +451,18 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
   // over everyone — one person's cap changes what every share comes to.
   const [stake, roster] = await Promise.all([
     db.departmentStake.findUnique({
-      where: { departmentId_year: { departmentId: person.departmentId, year } },
+      where: { departmentId_year: { departmentId, year } },
       select: { kstHundredths: true },
     }),
     db.staff.findMany({
-      where: { ...ON_ROSTER, isNpp: true, departmentId: person.departmentId },
+      where: { ...ON_ROSTER, isNpp: true, departmentId },
       select: {
         id: true,
         ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
-        stakeLimits: { where: { year }, select: { minHundredths: true, maxHundredths: true } },
+        stakeLimits: {
+          where: { year, departmentId },
+          select: { minHundredths: true, maxHundredths: true },
+        },
       },
     }),
   ]);
@@ -472,7 +478,7 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
     kstHundredths: stake.kstHundredths,
   });
 
-  await liftStoredAllocations(person.departmentId, year, roster, formula.shares, session.user.id);
+  await liftStoredAllocations(departmentId, year, roster, formula.shares, session.user.id);
 
   return {
     success: true,

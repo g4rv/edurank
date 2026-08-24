@@ -129,6 +129,9 @@ export type StakeYearSettingsSchema = z.infer<typeof stakeYearSettingsSchema>;
 export const staffStakeLimitsSchema = z
   .object({
     staffId: z.string().min(1),
+    // Bounds are per-кафедра since 2026-08-24: a сумісник has a different
+    // ceiling on their additional кафедра than on their own.
+    departmentId: z.string().min(1),
     year: z.number().int(),
     // **Both snapped to the 0,05 ladder**, and in the direction that keeps the
     // bound a bound: a Мінімум rounds UP so nobody ends below what was typed, a

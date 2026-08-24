@@ -468,6 +468,9 @@ describe('setStaffLimits — ADMIN only', () => {
   function limitsForm(min: string, max: string) {
     const fd = new FormData();
     fd.set('staffId', 's0');
+    // WHICH кафедра's bounds these are. A сумісник has a row on a кафедра
+    // that is not their primary one, so it can never be derived.
+    fd.set('departmentId', DEPT);
     fd.set('year', String(YEAR));
     fd.set('min', min);
     fd.set('max', max);
@@ -510,16 +513,23 @@ describe('setStaffLimits — ADMIN only', () => {
     });
   });
 
-  it('returns a null share for somebody on no кафедра at all', async () => {
+  // Replaces «returns a null share for somebody on no кафедра at all», which
+  // described the old rule: the кафедра used to be read off the person, so
+  // somebody without one had nothing to recompute. It comes from the form now,
+  // and that is the whole point — a сумісник's bounds belong to a кафедра that
+  // is NOT their own, and deriving it would always have written the wrong row.
+  it('writes the row for the кафедра named in the form, not the person’s own', async () => {
     mockStaffOne.mockResolvedValue({
-      lastName: 'Прізвище',
+      lastName: 'Гість',
       firstName: 'Ім’я',
       patronymic: 'По батькові',
-      departmentId: null,
+      departmentId: 'dept-2',
     });
-    expect(await setStaffLimits(null, limitsForm('0,10', '1,00'))).toEqual({
-      success: true,
-      formulaHundredths: null,
+
+    await setStaffLimits(null, limitsForm('0,10', '0,25'));
+
+    expect(mockLimitsUpsert.mock.calls[0][0].where).toEqual({
+      staffId_departmentId_year: { staffId: 's0', departmentId: DEPT, year: YEAR },
     });
   });
 
@@ -554,6 +564,7 @@ describe('setStaffLimits — re-settles the кафедра’s saved split', () 
   function limitsForm(min: string, max: string, staffId = 's2') {
     const fd = new FormData();
     fd.set('staffId', staffId);
+    fd.set('departmentId', DEPT);
     fd.set('year', String(YEAR));
     fd.set('min', min);
     fd.set('max', max);
@@ -659,6 +670,7 @@ describe('setStaffLimits — the re-settle is logged', () => {
   function limitsForm(min: string, max: string, staffId = 's2') {
     const fd = new FormData();
     fd.set('staffId', staffId);
+    fd.set('departmentId', DEPT);
     fd.set('year', String(YEAR));
     fd.set('min', min);
     fd.set('max', max);
