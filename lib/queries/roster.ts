@@ -31,3 +31,31 @@ export const ON_ROSTER = {
  * appearing.
  */
 export const REAL_PEOPLE = { isSystem: false } satisfies Prisma.StaffWhereInput;
+
+/**
+ * Everyone attached to this кафедра — primary or сумісник.
+ *
+ * Since 2026-08-24 an НПП may hold posts on two кафедри and BOTH pay them a
+ * ставка, so «who is on this кафедра» is no longer `departmentId` alone. Eight
+ * queries used to write that filter by hand; spread this instead, so the rule
+ * is one greppable thing rather than eight copies that drift apart:
+ *
+ *   where: { ...ON_ROSTER, isNpp: true, ...onDepartment(id) }
+ *
+ * A row's own `departmentId` compared against the кафедра being viewed is what
+ * tells primary from сумісник — no extra column is needed anywhere.
+ *
+ * Note it produces an `OR`, so it cannot be spread beside another top-level
+ * `OR` in the same object. Where a query already has one, put both inside `AND`.
+ */
+export const onDepartment = (departmentId: string) => ({
+  OR: [{ departmentId }, { partTimeDepartments: { some: { departmentId } } }],
+});
+
+/** The same for several кафедри at once — one query, not one per кафедра. */
+export const onDepartments = (departmentIds: readonly string[]) => ({
+  OR: [
+    { departmentId: { in: [...departmentIds] } },
+    { partTimeDepartments: { some: { departmentId: { in: [...departmentIds] } } } },
+  ],
+});
