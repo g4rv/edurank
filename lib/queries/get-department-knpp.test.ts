@@ -17,9 +17,16 @@ function documents(byId: Record<string, number>) {
   );
 }
 
-function staffRows(rows: { id: string; departmentId: string }[]) {
+function staffRows(rows: { id: string; departmentId: string | null; partTimeIn?: string[] }[]) {
   mockStaff.mockResolvedValue(
-    rows.map((r) => ({ ...r, lastName: r.id, firstName: 'І', patronymic: 'П' }))
+    rows.map((r) => ({
+      id: r.id,
+      departmentId: r.departmentId,
+      partTimeDepartments: (r.partTimeIn ?? []).map((departmentId) => ({ departmentId })),
+      lastName: r.id,
+      firstName: 'І',
+      patronymic: 'П',
+    }))
   );
 }
 
@@ -148,5 +155,71 @@ describe('minimumKst', () => {
     // 7 × 0.1 in floats is 0.7000000000000001
     expect(minimumKst(7)).toBe(0.7);
     expect(minimumKst(29)).toBe(2.9);
+  });
+});
+
+describe('a сумісник on somebody else’s кафедра', () => {
+  it('counts in headcount, because the pool must pay them a floor too', async () => {
+    staffRows([
+      { id: 'a', departmentId: 'd1' },
+      { id: 'b', departmentId: 'd1' },
+      { id: 'guest', departmentId: 'd2', partTimeIn: ['d1'] },
+    ]);
+    documents({ a: 7, b: 7, guest: 9 });
+
+    const [d1] = await getDepartmentsKnpp(['d1'], 2026);
+    expect(d1).toMatchObject({ primaryHeadcount: 2, partTimeHeadcount: 1, headcount: 3 });
+  });
+
+  it('never counts in Кнпп — that is the licence figure, primary кафедра only', async () => {
+    staffRows([
+      { id: 'a', departmentId: 'd1' },
+      { id: 'guest', departmentId: 'd2', partTimeIn: ['d1'] },
+    ]);
+    documents({ a: 7, guest: 20 });
+
+    const [d1] = await getDepartmentsKnpp(['d1'], 2026);
+    expect(d1.knpp).toBe(1);
+  });
+
+  it('is not in the п.38 staff list either', async () => {
+    staffRows([
+      { id: 'a', departmentId: 'd1' },
+      { id: 'guest', departmentId: 'd2', partTimeIn: ['d1'] },
+    ]);
+    documents({ a: 7, guest: 20 });
+
+    const [d1] = await getDepartmentsKnpp(['d1'], 2026);
+    expect(d1.staff.map((s) => s.id)).toEqual(['a']);
+  });
+
+  it('counts on their own кафедра exactly as before', async () => {
+    staffRows([{ id: 'guest', departmentId: 'd2', partTimeIn: ['d1'] }]);
+    documents({ guest: 20 });
+
+    const [d2] = await getDepartmentsKnpp(['d2'], 2026);
+    expect(d2).toMatchObject({ primaryHeadcount: 1, partTimeHeadcount: 0, headcount: 1, knpp: 1 });
+  });
+
+  it('raises the pool minimum by 0,10 for each of them', async () => {
+    staffRows([
+      { id: 'a', departmentId: 'd1' },
+      { id: 'guest', departmentId: 'd2', partTimeIn: ['d1'] },
+    ]);
+    documents({ a: 7, guest: 7 });
+
+    const [d1] = await getDepartmentsKnpp(['d1'], 2026);
+    expect(minimumKst(d1.headcount)).toBeCloseTo(0.2, 5);
+  });
+
+  it('asks the database for сумісники as well as primary staff', async () => {
+    staffRows([{ id: 'a', departmentId: 'd1' }]);
+    documents({ a: 4 });
+    await getDepartmentsKnpp(['d1'], 2026);
+
+    expect(mockStaff.mock.calls[0][0].where.OR).toEqual([
+      { departmentId: { in: ['d1'] } },
+      { partTimeDepartments: { some: { departmentId: { in: ['d1'] } } } },
+    ]);
   });
 });

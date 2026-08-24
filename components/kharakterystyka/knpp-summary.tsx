@@ -12,7 +12,10 @@ import { minimumKst, type DepartmentKnpp } from '@/lib/queries/get-department-kn
  * where a reader would otherwise assume the smaller one bounds the pool.
  */
 export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number }) {
-  const belowBar = data.headcount - data.knpp;
+  // Against the кафедра's OWN staff: `headcount` now includes сумісники, who
+  // are not in `knpp` by design, so subtracting from it would report every one
+  // of them as failing the licence positions.
+  const belowBar = data.primaryHeadcount - data.knpp;
 
   return (
     <div className="rounded-xl border bg-card p-5">
@@ -26,7 +29,11 @@ export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number
           label="Відповідають ліцензійним умовам"
           hint={`НПП із ${REQUIRED_POSITIONS}+ позиціями з 20 — це дільник Кнпп у формулі ставок`}
         />
-        <Figure value={data.headcount} label="НПП усього" hint="на кафедрі, крім архівних" />
+        <Figure
+          value={data.headcount}
+          label="НПП усього"
+          hint="на кафедрі разом із сумісниками, крім архівних"
+        />
         <Figure
           value={minimumKst(data.headcount).toFixed(2).replace('.', ',')}
           label="Мінімум ставок на кафедру"
@@ -40,6 +47,14 @@ export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number
         <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
           {belowBar} {belowBar === 1 ? 'працівник не досягає' : 'працівників не досягають'}{' '}
           {REQUIRED_POSITIONS} позицій. Це впливає лише на дільник Кнпп — ставку отримують усі.
+        </p>
+      )}
+
+      {data.partTimeHeadcount > 0 && (
+        <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+          Із них {data.partTimeHeadcount} {data.partTimeHeadcount === 1 ? 'сумісник' : 'сумісників'}{' '}
+          з інших кафедр. Вони входять у мінімум ставок, бо теж отримують ставку тут, але не входять
+          у Кнпп — ліцензійні позиції рахує основна кафедра.
         </p>
       )}
     </div>

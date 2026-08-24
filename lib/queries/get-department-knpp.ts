@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { ON_ROSTER } from './roster';
+import { ON_ROSTER, onDepartments } from './roster';
 import { getKharakterystykaMany } from './get-kharakterystyka';
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 
@@ -26,15 +26,31 @@ import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
  * a Vc and nobody falls below the 0.1 floor — which is why staff who do not
  * meet the licence positions keep working normally.
  *
- * Primary кафедра only. A сумісник gets one Vc, computed on their primary
- * кафедра, because `Кст`, `Кнпп` and `<Rк>` are all per кафедра and counting
- * one person in two of them produces two Vc values nothing reconciles.
+ * ── Сумісники (2026-08-24, reversing Q12) ──────────────────────────────────
+ *
+ * An НПП may hold posts on two кафедри and BOTH pay them a ставка. The two
+ * counts here part company over that, and the split is deliberate:
+ *
+ *   headcount   INCLUDES сумісники. They get a row in this кафедра's grid and
+ *               a 0,10 floor like everybody else, so the pool has to be able
+ *               to pay them: `Кст ≥ 0.1 × headcount` counts everyone in the
+ *               grid, not just the кафедра's own staff.
+ *
+ *   knpp        PRIMARY кафедра only, and `staff[]` with it. `Кнпп` is the
+ *               п.38 licence figure the ministry sees. Counting one person
+ *               toward two кафедри's licence numbers is a claim EduRank's data
+ *               does not support, and `Кнпп` sizes nothing in the formula
+ *               anyway, so it costs nothing to be strict here.
  */
 export interface DepartmentKnpp {
   departmentId: string;
-  /** Every НПП on the roster — the N in `Кст ≥ 0.1 × N` */
+  /** The кафедра's OWN staff — the population the п.38 figures describe */
+  primaryHeadcount: number;
+  /** Сумісники from other кафедри — in the grid, never in the licence figure */
+  partTimeHeadcount: number;
+  /** primary + сумісники. The N in `Кст ≥ 0.1 × N`. */
   headcount: number;
-  /** Those meeting ≥4 of 20 — the divisor in the formula */
+  /** Those meeting ≥4 of 20 — the divisor in the formula. PRIMARY ONLY. */
   knpp: number;
   staff: {
     id: string;
@@ -57,7 +73,16 @@ export async function getDepartmentKnpp(
   year: number
 ): Promise<DepartmentKnpp> {
   const [result] = await getDepartmentsKnpp([departmentId], year);
-  return result ?? { departmentId, headcount: 0, knpp: 0, staff: [] };
+  return (
+    result ?? {
+      departmentId,
+      primaryHeadcount: 0,
+      partTimeHeadcount: 0,
+      headcount: 0,
+      knpp: 0,
+      staff: [],
+    }
+  );
 }
 
 /**
@@ -71,8 +96,15 @@ export async function getDepartmentsKnpp(
   if (departmentIds.length === 0) return [];
 
   const staff = await db.staff.findMany({
-    where: { ...ON_ROSTER, isNpp: true, departmentId: { in: [...departmentIds] } },
-    select: { id: true, departmentId: true, lastName: true, firstName: true, patronymic: true },
+    where: { ...ON_ROSTER, isNpp: true, ...onDepartments(departmentIds) },
+    select: {
+      id: true,
+      departmentId: true,
+      partTimeDepartments: { select: { departmentId: true } },
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
   });
 
@@ -83,26 +115,44 @@ export async function getDepartmentsKnpp(
 
   const byDepartment = new Map<string, DepartmentKnpp>();
   for (const id of departmentIds) {
-    byDepartment.set(id, { departmentId: id, headcount: 0, knpp: 0, staff: [] });
+    byDepartment.set(id, {
+      departmentId: id,
+      primaryHeadcount: 0,
+      partTimeHeadcount: 0,
+      headcount: 0,
+      knpp: 0,
+      staff: [],
+    });
   }
 
   for (const person of staff) {
-    // `departmentId` cannot be null here — it is what the query filtered on —
-    // but the column is nullable for non-НПП, so TypeScript still asks.
-    const bucket = person.departmentId ? byDepartment.get(person.departmentId) : undefined;
-    if (!bucket) continue;
-
     const metCount = documents.get(person.id)?.metCount ?? 0;
     const qualifies = metCount >= REQUIRED_POSITIONS;
 
-    bucket.headcount += 1;
-    if (qualifies) bucket.knpp += 1;
-    bucket.staff.push({
-      id: person.id,
-      name: `${person.lastName} ${person.firstName} ${person.patronymic}`,
-      metCount,
-      qualifies,
-    });
+    // Their own кафедра: the full treatment — licence figure and п.38 list.
+    // `departmentId` is nullable for non-НПП, so TypeScript still asks.
+    const primary = person.departmentId ? byDepartment.get(person.departmentId) : undefined;
+    if (primary) {
+      primary.primaryHeadcount += 1;
+      primary.headcount += 1;
+      if (qualifies) primary.knpp += 1;
+      primary.staff.push({
+        id: person.id,
+        name: `${person.lastName} ${person.firstName} ${person.patronymic}`,
+        metCount,
+        qualifies,
+      });
+    }
+
+    // Every additional кафедра: headcount only. They are in that grid and get
+    // a floor there, but they are not part of its licence population.
+    for (const { departmentId } of person.partTimeDepartments) {
+      if (departmentId === person.departmentId) continue;
+      const extra = byDepartment.get(departmentId);
+      if (!extra) continue;
+      extra.partTimeHeadcount += 1;
+      extra.headcount += 1;
+    }
   }
 
   return [...byDepartment.values()];
