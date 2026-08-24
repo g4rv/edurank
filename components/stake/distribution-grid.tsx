@@ -1158,7 +1158,7 @@ function Row({
             else about the row does. */}
         {row.isPartTime && (
           <span
-            className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+            className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500"
             title="Основна кафедра цієї людини — інша. Тут вона працює за сумісництвом, і ця кафедра теж призначає їй ставку."
           >
             Сумісник

@@ -78,7 +78,7 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
                   rather than badged: the cell already answers «where», and a
                   bare «Сумісник» here would not say where. */}
               {member.partTimeDepartments.length > 0 && (
-                <span className="ml-1.5 text-xs">
+                <span className="ml-1.5 text-xs text-amber-700 dark:text-amber-500">
                   + {member.partTimeDepartments[0].department.name}
                 </span>
               )}

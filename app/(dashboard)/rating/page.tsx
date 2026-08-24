@@ -180,7 +180,7 @@ export default async function RatingRollupPage({
                     tells only half the story. */}
                 {row.partTimeDepartments.length > 0 && (
                   <span
-                    className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                    className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500"
                     title={`Також працює за сумісництвом: ${row.partTimeDepartments.join(', ')}`}
                   >
                     Сумісник

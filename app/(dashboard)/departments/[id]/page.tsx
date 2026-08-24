@@ -226,7 +226,10 @@ export default async function DepartmentDetailPage({
                         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
                         member.type === 'primary'
                           ? 'bg-primary/10 text-primary'
-                          : 'bg-muted text-muted-foreground'
+                          : // Amber: a сумісник is the row on this кафедра that
+                            // needs a second look — their ставка comes out of two
+                            // pools and they raise this кафедра's own minimum.
+                            'bg-amber-500/10 text-amber-700 dark:text-amber-500'
                       )}
                     >
                       {member.type === 'primary' ? 'Основний' : 'Сумісник'}

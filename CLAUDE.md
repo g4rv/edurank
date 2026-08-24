@@ -126,11 +126,14 @@ sidebar, tables, and text are gray. A small badge or icon that reports **state**
 place hue is allowed off the chart palette, because it encodes one condition, not a category:
 
 - **green** — ok / verified / valid (activation done, «Перевірено», a valid DOI/ISBN)
-- **amber** — pending / needs attention (not activated, «не вказано»)
+- **amber** — pending / needs attention (not activated, «не вказано», «Сумісник»)
 - **red** (`--destructive`) — destructive / error (delete, discard)
 
 Examples live in `staff-table`, `account-card`, `moderation-list`, `audit-log`,
-`admin/rating`, and the `doi-input` / `isbn-input` checkmarks. This is deliberately narrow:
+`admin/rating`, and the `doi-input` / `isbn-input` checkmarks. The «Сумісник»
+pill is amber for the same reason (owner, 2026-08-24): that row's ставка comes
+out of two pools, it does not count toward this кафедра's `Кнпп`, and it raises
+the кафедра's own pool minimum — a head scanning the grid has to notice it. This is deliberately narrow:
 anything larger than a pill/icon, and colouring a **table row** by value, still breaks the
 rule. The active nav and all chrome stay pure gray.
 
