@@ -115,7 +115,14 @@ function SectionRows({ group }: { group: AchievementGroup }) {
             <td className={cn(cell, 'align-top text-muted-foreground tabular-nums')}>
               {item.itemNumber}
             </td>
-            <td className={cn(cell, 'align-top')}>
+            {/* `wrap-anywhere`, not `break-words`. A DOI or a реєстраційний
+                номер has no spaces, so with `auto` table layout the browser
+                sizes this column to that unbreakable token and the whole table
+                runs past 2 800px — you had to drag a scrollbar to read a row.
+                `overflow-wrap: anywhere` is the one that also lowers the
+                min-content width the layout algorithm uses, so the column can
+                actually shrink (2026-08-24). */}
+            <td className={cn(cell, 'align-top wrap-anywhere')}>
               <p>{item.label}</p>
               {item.summary && (
                 <p className="mt-0.5 text-xs text-muted-foreground">{item.summary}</p>
@@ -147,7 +154,13 @@ function SectionRows({ group }: { group: AchievementGroup }) {
                   {item.statusLabel}
                 </span>
               )}
-              <span className="block text-xs whitespace-nowrap text-muted-foreground">
+              {/* Wraps. It used to be `whitespace-nowrap`, which forced a
+                  publication title or a тема's full name onto one line and
+                  stretched the whole table past 2 800px — the box scrolls, so
+                  nothing overflowed the page, but reading a row meant dragging
+                  a scrollbar (2026-08-24). The status pill above keeps its own
+                  nowrap: it is three words and breaking it looks broken. */}
+              <span className="block text-xs wrap-anywhere text-muted-foreground">
                 {whoFills(item)}
               </span>
             </td>

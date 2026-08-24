@@ -34,6 +34,26 @@ const dateStr = (v: unknown) => {
 };
 
 /**
+ * A Ukrainian mobile number, stored as «+380XXXXXXXXX» or not at all.
+ *
+ * Enforced here and not only in `TelInput`, like every other rule in this app:
+ * the field makes a wrong number hard to type, the schema makes it impossible
+ * to save. It refuses a FRAGMENT specifically — the field hands out null until
+ * all nine digits are there, so a half-typed number arrives as empty and is
+ * simply not stored, but a request made outside the UI could still carry one.
+ *
+ * There is no legacy format to accept: `Staff.phone` held nothing at all on any
+ * of the 330 rows when this was written (2026-08-24).
+ */
+const phoneField = z.preprocess(
+  str,
+  z
+    .string()
+    .regex(/^\+380\d{9}$/, { error: 'Вкажіть номер повністю: +380 та 9 цифр' })
+    .nullable()
+);
+
+/**
  * An optional profile link that must point at the right service. Empty stays
  * null — these are optional — but a filled value has to be a real URL on that
  * site, otherwise the profile page renders a dead link nobody notices.
@@ -56,7 +76,7 @@ export const staffUpdateSchema = z
     firstName: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     patronymic: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     email: z.email({ error: 'Некоректний email' }).trim(),
-    phone: z.preprocess(str, z.string().max(50, { error: 'Занадто довге значення' }).nullable()),
+    phone: phoneField,
     isNpp: z.preprocess((v) => v === true || v === 'true', z.boolean()),
     employmentRate: z.preprocess(num, z.number().nonnegative().nullable()),
     pedagogicalExperience: z.preprocess(num, z.number().int().nonnegative().nullable()),
@@ -152,7 +172,7 @@ export type StaffCreateSchema = StaffUpdateSchema;
  * filters the write again on the server.
  */
 export const ownProfileSchema = z.object({
-  phone: z.preprocess(str, z.string().max(50, { error: 'Занадто довге значення' }).nullable()),
+  phone: phoneField,
   wosUrl: profileLink(WOS_HOSTS, 'Очікується посилання на Web of Science'),
   scopusUrl: profileLink(SCOPUS_HOSTS, 'Очікується посилання на Scopus'),
   googleScholarUrl: profileLink(SCHOLAR_HOSTS, 'Очікується посилання на Google Scholar'),

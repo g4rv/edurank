@@ -10,6 +10,7 @@ import {
   type UseFormSetValue,
 } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
+import { TelInput } from '@/components/ui/tel-input';
 import { FormField } from '@/components/ui/form-field';
 import { FieldGroup } from '@/components/ui/field';
 import {
@@ -224,19 +225,81 @@ function AllocatedStake({
   departmentId: string | undefined;
   breakdown: StakePart[] | null;
 }) {
-  if (breakdown === null || !departmentId?.trim()) return null;
-  const part = breakdown.find((p) => p.departmentId === departmentId);
+  // Only the CREATE form has no ставка at all — there is no person yet.
+  if (breakdown === null) return null;
+
+  // **The slot stays even when it is empty** (owner, 2026-08-24). It used to
+  // vanish until a кафедра was chosen, so «Додаткова кафедра» sat full width
+  // while «Основна» was short, and choosing one made the field jump narrower
+  // under the cursor. Reserving the space costs nothing and stops the row
+  // resizing as somebody uses it.
+  const part = departmentId?.trim()
+    ? breakdown.find((p) => p.departmentId === departmentId)
+    : undefined;
   return (
-    <p className="mt-1 text-xs text-muted-foreground">
-      Ставка:{' '}
+    <p className="w-28 shrink-0 pt-2 text-sm whitespace-nowrap">
+      <span className="text-muted-foreground">Ставка: </span>
       {part ? (
-        <span className="font-medium text-foreground">{formatStake(part.hundredths)}</span>
+        <span className="font-medium">{formatStake(part.hundredths)}</span>
       ) : (
         // Not «0,00» — a кафедра nobody has spread yet is not a кафедра paying
         // nothing, and only its завідувач can change that.
-        <span title="Завідувач ще не розподілив ставки цієї кафедри">—</span>
+        <span
+          className="text-muted-foreground"
+          title="Завідувач ще не розподілив ставки цієї кафедри"
+        >
+          —
+        </span>
       )}
     </p>
+  );
+}
+
+/**
+ * One кафедра row: the picker, the ставка that кафедра pays, and the факультет
+ * underneath as context.
+ *
+ * The факультет used to be a prefix inside the control — «Факультет природничої
+ * освіти — Кафедра здоров'я…» — which is longer than the field and cut the
+ * кафедра off mid-word, so the one thing somebody needs to read was the one
+ * thing they could not. It is context, not identity: it belongs under the
+ * field, quiet, where it answers «which факультет is that?» without competing
+ * (owner's sketch, 2026-08-24).
+ *
+ * Module level, not nested in the form: a component created during render is a
+ * new type each time, so React remounts it and it loses its state.
+ */
+function DepartmentField({
+  label,
+  error,
+  selected,
+  breakdown,
+  children,
+}: {
+  label: string;
+  /** Structural, like `FormField` itself — an array field's error is not a plain FieldError */
+  error?: { message?: string };
+  selected: DepartmentOption | undefined;
+  breakdown: StakePart[] | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <FormField label={label} error={error}>
+      <div className="flex items-start gap-4">
+        <div className="min-w-0 flex-1">
+          {children}
+          {selected?.faculty?.name && (
+            <p
+              className="mt-1 truncate text-xs text-muted-foreground"
+              title={selected.faculty.name}
+            >
+              {selected.faculty.name}
+            </p>
+          )}
+        </div>
+        <AllocatedStake departmentId={selected?.id} breakdown={breakdown} />
+      </div>
+    </FormField>
   );
 }
 
@@ -265,13 +328,19 @@ export function StaffFormFields({
   const primaryOptions = departments.filter((dept) => dept.id !== additionalDepartmentId);
   const additionalOptions = departments.filter((dept) => dept.id !== primaryDepartmentId);
 
-  /** «Природничий факультет — Кафедра ботаніки» */
-  const departmentLabel = (dept: DepartmentOption) =>
-    dept.faculty?.name ? `${dept.faculty.name} — ${dept.name}` : dept.name;
+  const selectedPrimary = departments.find((d) => d.id === primaryDepartmentId);
+  const selectedAdditional = departments.find((d) => d.id === additionalDepartmentId);
 
-  /** Matches the кафедра OR its факультет, so either half finds it */
+  /**
+   * Кафедра name only — the факультет is shown under the field instead.
+   *
+   * Searching «природнич» no longer finds Кафедра здоров'я, which is the trade
+   * the owner asked for (2026-08-24): every кафедра name is unique, and typing
+   * three letters of the one you want beats reading a факультет prefix on all
+   * thirty-one.
+   */
   const departmentMatches = (dept: DepartmentOption, query: string) =>
-    departmentLabel(dept).toLowerCase().includes(query.toLowerCase());
+    dept.name.toLowerCase().includes(query.toLowerCase());
 
   // Picking кафедра B as the additional one and THEN making B the main one
   // would leave the form holding a value the schema refuses, with the offending
@@ -303,7 +372,22 @@ export function StaffFormFields({
             <Input id="email" type="email" disabled={isPending} {...register('email')} />
           </FormField>
           <FormField htmlFor="phone" label="Телефон" error={errors.phone}>
-            <Input id="phone" disabled={isPending} {...register('phone')} />
+            {/* Through a Controller, not `register`: the field rewrites what is
+                typed on every keystroke, which an uncontrolled input cannot do
+                without the caret jumping. */}
+            <Controller
+              name="phone"
+              control={control}
+              render={({ field }) => (
+                <TelInput
+                  id="phone"
+                  value={field.value}
+                  onChange={(next) => field.onChange(next ?? '')}
+                  disabled={isPending}
+                  aria-invalid={!!errors.phone}
+                />
+              )}
+            />
           </FormField>
           {canEditType && (
             <FormField label="Тип" error={errors.isNpp}>
@@ -328,83 +412,85 @@ export function StaffFormFields({
       </SectionCard>
 
       <SectionCard title="Місця роботи" step={step()}>
-        <FieldGroup className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Основна кафедра" error={errors.departmentId}>
+        <FieldGroup className="space-y-5">
+          {/* One кафедра per ROW, not two across (owner's sketch, 2026-08-24).
+              Side by side, the факультет prefix ate the field and the selected
+              кафедра was cut off mid-word. The name alone now fills the control,
+              the факультет sits under it as context, and the ставка that кафедра
+              pays sits beside it — which is the question somebody opening this
+              form is usually answering. */}
+          <DepartmentField
+            label="Основна кафедра"
+            error={errors.departmentId}
+            selected={selectedPrimary}
+            breakdown={stakeBreakdown}
+          >
+            <Controller
+              name="departmentId"
+              control={control}
+              render={({ field }) => (
+                <Combobox
+                  items={primaryOptions}
+                  value={field.value?.trim() ? field.value : ''}
+                  onChange={field.onChange}
+                  filter={departmentMatches}
+                  displayValue={selectedPrimary?.name ?? ''}
+                  disabled={isPending}
+                >
+                  <ComboboxInput placeholder="—" clearable />
+                  <ComboboxContent>
+                    <ComboboxEmpty>Кафедру не знайдено</ComboboxEmpty>
+                    <ComboboxList<DepartmentOption>>
+                      {(dept) => (
+                        <ComboboxItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+              )}
+            />
+          </DepartmentField>
+
+          {/* ADMIN only — сумісництво decides who appears in a second кафедра's
+              ставка grid, which is money, so an editor may see it and never
+              set it. */}
+          {isAdmin && (
+            <DepartmentField
+              label="Додаткова кафедра"
+              error={errors.partTimeDepartmentIds}
+              selected={selectedAdditional}
+              breakdown={stakeBreakdown}
+            >
               <Controller
-                name="departmentId"
+                name="partTimeDepartmentIds"
                 control={control}
-                render={({ field }) => {
-                  const selected = departments.find((d) => d.id === field.value);
-                  return (
-                    // A combobox, not a select: 31 кафедри is a scroll, and
-                    // typing three letters of the name or of the факультет
-                    // beats hunting through it (owner, 2026-08-24).
-                    <Combobox
-                      items={primaryOptions}
-                      value={field.value?.trim() ? field.value : ''}
-                      onChange={field.onChange}
-                      filter={departmentMatches}
-                      displayValue={selected ? departmentLabel(selected) : ''}
-                      disabled={isPending}
-                    >
-                      <ComboboxInput placeholder="—" clearable />
-                      <ComboboxContent>
-                        <ComboboxEmpty>Кафедру не знайдено</ComboboxEmpty>
-                        <ComboboxList<DepartmentOption>>
-                          {(dept) => (
-                            <ComboboxItem key={dept.id} value={dept.id}>
-                              {departmentLabel(dept)}
-                            </ComboboxItem>
-                          )}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
-                  );
-                }}
+                render={({ field }) => (
+                  <Combobox
+                    items={additionalOptions}
+                    value={field.value[0] ?? ''}
+                    onChange={(next) => field.onChange(next ? [next] : [])}
+                    filter={departmentMatches}
+                    displayValue={selectedAdditional?.name ?? ''}
+                    disabled={isPending}
+                  >
+                    <ComboboxInput placeholder="—" clearable />
+                    <ComboboxContent>
+                      <ComboboxEmpty>Кафедру не знайдено</ComboboxEmpty>
+                      <ComboboxList<DepartmentOption>>
+                        {(dept) => (
+                          <ComboboxItem key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </ComboboxItem>
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+                )}
               />
-              <AllocatedStake departmentId={primaryDepartmentId} breakdown={stakeBreakdown} />
-            </FormField>
-            {/* Beside «Основна кафедра» because that is the shape the rule
-                now has: one person, at most two кафедри (2026-08-24). ADMIN
-                only — сумісництво decides who appears in a second кафедра's
-                ставка grid, which is money, so an editor may see it and never
-                set it. */}
-            {isAdmin && (
-              <FormField label="Додаткова кафедра" error={errors.partTimeDepartmentIds}>
-                <Controller
-                  name="partTimeDepartmentIds"
-                  control={control}
-                  render={({ field }) => {
-                    const selected = departments.find((d) => d.id === field.value[0]);
-                    return (
-                      <Combobox
-                        items={additionalOptions}
-                        value={field.value[0] ?? ''}
-                        onChange={(next) => field.onChange(next ? [next] : [])}
-                        filter={departmentMatches}
-                        displayValue={selected ? departmentLabel(selected) : ''}
-                        disabled={isPending}
-                      >
-                        <ComboboxInput placeholder="—" clearable />
-                        <ComboboxContent>
-                          <ComboboxEmpty>Кафедру не знайдено</ComboboxEmpty>
-                          <ComboboxList<DepartmentOption>>
-                            {(dept) => (
-                              <ComboboxItem key={dept.id} value={dept.id}>
-                                {departmentLabel(dept)}
-                              </ComboboxItem>
-                            )}
-                          </ComboboxList>
-                        </ComboboxContent>
-                      </Combobox>
-                    );
-                  }}
-                />
-                <AllocatedStake departmentId={additionalDepartmentId} breakdown={stakeBreakdown} />
-              </FormField>
-            )}
-          </div>
+            </DepartmentField>
+          )}
 
           {/* ADMIN only: a person's відділ decides which permissions their
               EDITOR role would carry, so the server takes it from nobody else.

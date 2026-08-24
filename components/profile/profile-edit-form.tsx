@@ -3,11 +3,12 @@
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TelInput } from '@/components/ui/tel-input';
 import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
@@ -28,6 +29,7 @@ export function ProfileEditForm({ defaultValues }: { defaultValues: FormValues }
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>({
@@ -55,7 +57,19 @@ export function ProfileEditForm({ defaultValues }: { defaultValues: FormValues }
       <div className="rounded-xl border bg-card p-5">
         <FieldGroup className="flex flex-col gap-4">
           <FormField htmlFor="phone" label="Телефон" error={errors.phone}>
-            <Input id="phone" placeholder="+380..." disabled={isPending} {...register('phone')} />
+            <Controller
+              name="phone"
+              control={control}
+              render={({ field }) => (
+                <TelInput
+                  id="phone"
+                  value={field.value}
+                  onChange={(next) => field.onChange(next ?? '')}
+                  disabled={isPending}
+                  aria-invalid={!!errors.phone}
+                />
+              )}
+            />
           </FormField>
 
           <FormField

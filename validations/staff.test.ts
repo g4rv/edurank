@@ -70,9 +70,12 @@ describe('staff profile links', () => {
 // disagreeing is how one form ends up storing what the other rejects.
 describe('free-text length limits', () => {
   it('accepts ordinary values', () => {
-    expect(parse({ phone: '+380 44 123 45 67', orcidId: '0000-0002-1825-0097' }).success).toBe(
-      true
-    );
+    // The phone is the CANONICAL form now, «+380» and nine digits with nothing
+    // between them (2026-08-24). It used to be free text capped at 50, and this
+    // line read «+380 44 123 45 67» — spaces and all — which is what the field
+    // displays, not what it stores. `TelInput` formats for the eye and hands
+    // the form one shape, so there is exactly one thing in the column.
+    expect(parse({ phone: '+380441234567', orcidId: '0000-0002-1825-0097' }).success).toBe(true);
   });
 
   it('refuses an overlong phone, ORCID or specialty', () => {
@@ -111,5 +114,33 @@ describe('partTimeDepartmentIds — at most one additional кафедра', () =
     const result = npp(['d1']);
     expect(result.success).toBe(false);
     expect(result.error!.issues.some((i) => i.path[0] === 'partTimeDepartmentIds')).toBe(true);
+  });
+});
+
+describe('phone', () => {
+  const withPhone = (phone: unknown) => parse({ phone });
+
+  it('accepts nothing — a phone number is optional', () => {
+    expect(withPhone('').success).toBe(true);
+    expect(withPhone(null).success).toBe(true);
+  });
+
+  it('accepts a complete number in the stored form', () => {
+    expect(withPhone('+380441234567').success).toBe(true);
+  });
+
+  // The field hands out null until all nine digits are there, so this can only
+  // arrive from outside the UI — which is exactly why the schema checks it.
+  it('refuses a half-typed number', () => {
+    expect(withPhone('+38044').success).toBe(false);
+  });
+
+  it('refuses a number without the country code', () => {
+    expect(withPhone('0441234567').success).toBe(false);
+    expect(withPhone('441234567').success).toBe(false);
+  });
+
+  it('refuses anything that is not a number at all', () => {
+    expect(withPhone('телефон кафедри').success).toBe(false);
   });
 });
