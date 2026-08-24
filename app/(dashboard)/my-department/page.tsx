@@ -116,7 +116,19 @@ export default async function MyDepartmentPage() {
                 ) : (
                   department.staff.map((person) => (
                     <tr key={person.id} className="transition-colors hover:bg-muted/20">
-                      <td className="border border-border px-3 py-2">{person.name}</td>
+                      <td className="border border-border px-3 py-2">
+                        {person.name}
+                        {/* Their кафедра is elsewhere and this one also pays
+                            them a ставка (2026-08-24). */}
+                        {person.isPartTime && (
+                          <span
+                            className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                            title="Основна кафедра цієї людини — інша. Тут вона працює за сумісництвом."
+                          >
+                            Сумісник
+                          </span>
+                        )}
+                      </td>
                       <td className="border border-border px-3 py-2 text-muted-foreground">
                         {[
                           person.academicRank && ACADEMIC_RANK_LABELS[person.academicRank],
