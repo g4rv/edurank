@@ -25,7 +25,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from '@/components/ui/combobox';
-import { isKnownDepartment } from '@/lib/specialities/departments';
+import { normaliseDepartmentName } from '@/lib/specialities/departments';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import type { DepartmentActionState } from '@/app/(dashboard)/departments/actions';
 
@@ -40,6 +40,8 @@ interface DepartmentFormProps {
   defaultValues?: Partial<DepartmentSchema>;
   faculties: FacultyOption[];
   staff: StaffOption[];
+  /** Every кафедра name the довідник already links to a спеціальність. */
+  knownNames: readonly string[];
   action: (data: DepartmentSchema) => Promise<DepartmentActionState>;
   submitLabel: string;
 }
@@ -48,6 +50,7 @@ export function DepartmentForm({
   defaultValues,
   faculties,
   staff,
+  knownNames,
   action,
   submitLabel,
 }: DepartmentFormProps) {
@@ -84,7 +87,8 @@ export function DepartmentForm({
    */
   const name = useWatch({ control, name: 'name' });
   const trimmed = (name ?? '').trim();
-  const unknownName = trimmed.length > 2 && !isKnownDepartment(trimmed);
+  const known = new Set(knownNames.map(normaliseDepartmentName));
+  const unknownName = trimmed.length > 2 && !known.has(normaliseDepartmentName(trimmed));
 
   function onSubmit(data: DepartmentSchema) {
     startTransition(async () => {
@@ -110,9 +114,9 @@ export function DepartmentForm({
           <Input id="name" disabled={isPending} {...register('name')} />
           {unknownName && !errors.name && (
             <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-500">
-              Такої назви немає в довіднику спеціальностей. Зберегти можна, але для цієї кафедри не
-              визначатимуться випускові спеціальності у розподілі ставок. Найчастіша причина — «і»
-              замість «та» або ініціали без пробілів.
+              Для цієї кафедри ще не вказано випускових спеціальностей. Зберегти можна — у розподілі
+              ставок здобувачі просто не позначатимуться як «своя спеціальність». Вказати їх можна
+              пізніше на сторінці «Нормативи чисельності».
             </p>
           )}
         </FormField>

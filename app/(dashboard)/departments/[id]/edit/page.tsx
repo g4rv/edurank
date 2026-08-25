@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
+import { getSpecialityOwnerNames } from '@/lib/queries/get-speciality-departments';
 import { DepartmentForm } from '@/components/department/department-form';
 import { updateDepartment } from '@/app/(dashboard)/departments/actions';
 
@@ -66,6 +67,9 @@ export default async function EditDepartmentPage({ params }: { params: Promise<{
   if (department?.headId) takenIds.delete(department.headId);
   const staff = allStaff.filter((s) => !takenIds.has(s.id));
 
+  const owners = await getSpecialityOwnerNames();
+  const knownNames = [...new Set([...owners.values()].flat())];
+
   if (!department) notFound();
 
   return (
@@ -83,6 +87,7 @@ export default async function EditDepartmentPage({ params }: { params: Promise<{
       <DepartmentForm
         faculties={faculties}
         staff={staff}
+        knownNames={knownNames}
         defaultValues={{
           name: department.name,
           facultyId: department.facultyId,
