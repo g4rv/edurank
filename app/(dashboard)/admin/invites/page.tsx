@@ -22,20 +22,22 @@ import { DomainFilter } from '@/components/admin/domain-filter';
 export default async function InvitesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ department?: string; kind?: string; domain?: string }>;
+  searchParams: Promise<{ department?: string; kind?: string; domain?: string; invited?: string }>;
 }) {
   const session = await auth();
   if (!session) redirect('/login');
   if (session.user.role !== 'ADMIN') redirect('/');
 
-  const { department, kind, domain } = await searchParams;
+  const { department, kind, domain, invited } = await searchParams;
   const isNpp = kind === 'npp' ? true : kind === 'staff' ? false : undefined;
+  const wasInvited = invited === 'yes' ? true : invited === 'no' ? false : undefined;
 
   const [invites, departments] = await Promise.all([
     listPendingInvites({
       departmentId: department || undefined,
       isNpp,
       domain: domain || undefined,
+      invited: wasInvited,
     }),
     listDepartments(),
   ]);
@@ -49,14 +51,32 @@ export default async function InvitesPage({
     { value: 'staff', label: 'Адміністративні' },
   ];
 
-  function href(next: { department?: string; kind?: string; domain?: string }) {
+  /**
+   * A run of 300 is a browser tab held open for minutes, and refreshing it
+   * stops the loop halfway (owner, 2026-08-25). «Не надсилалося» is how the
+   * rest go out on their own: sending to the whole list again would give the
+   * people who already hold a link a second one and quietly break the first,
+   * because issuing a token replaces it.
+   *
+   * It asks «did a letter go out», never «did they activate» — finishing an
+   * interrupted run must not wait on anybody opening their mail.
+   */
+  const sendStates = [
+    { value: '', label: 'Усі' },
+    { value: 'no', label: 'Не надсилалося' },
+    { value: 'yes', label: 'Вже надсилалося' },
+  ];
+
+  function href(next: { department?: string; kind?: string; domain?: string; invited?: string }) {
     const params = new URLSearchParams();
     const dep = next.department ?? department ?? '';
     const k = next.kind ?? kind ?? '';
     const d = next.domain ?? domain ?? '';
+    const i = next.invited ?? invited ?? '';
     if (dep) params.set('department', dep);
     if (k) params.set('kind', k);
     if (d) params.set('domain', d);
+    if (i) params.set('invited', i);
     const query = params.toString();
     return query ? `/admin/invites?${query}` : '/admin/invites';
   }
@@ -65,10 +85,16 @@ export default async function InvitesPage({
   function carry(except: 'department' | 'domain') {
     const params: Record<string, string> = {};
     if (kind) params.kind = kind;
+    if (invited) params.invited = invited;
     if (except !== 'department' && department) params.department = department;
     if (except !== 'domain' && domain) params.domain = domain;
     return Object.keys(params).length > 0 ? params : undefined;
   }
+
+  const tab = (active: boolean) =>
+    active
+      ? 'rounded-lg bg-secondary px-3 py-1.5 font-medium'
+      : 'rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted';
 
   return (
     <AnimatedPage className="space-y-6">
@@ -90,13 +116,21 @@ export default async function InvitesPage({
           <Link
             key={k.value}
             href={href({ kind: k.value })}
-            className={
-              (kind ?? '') === k.value
-                ? 'rounded-lg bg-secondary px-3 py-1.5 font-medium'
-                : 'rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted'
-            }
+            className={tab((kind ?? '') === k.value)}
           >
             {k.label}
+          </Link>
+        ))}
+
+        <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
+
+        {sendStates.map((s) => (
+          <Link
+            key={s.value}
+            href={href({ invited: s.value })}
+            className={tab((invited ?? '') === s.value)}
+          >
+            {s.label}
           </Link>
         ))}
 
@@ -138,6 +172,15 @@ export default async function InvitesPage({
         <p className="text-sm text-amber-700 dark:text-amber-500">
           {undeliverable.count} без робочої адреси — цим людям лист не піде. Виберіть домен пошти
           вище, щоб надіслати лише тим, у кого адресу вже вказано.
+        </p>
+      )}
+
+      {/* A second letter replaces the link the person already holds, so it is
+          said beside the button and not left to be discovered. */}
+      {wasInvited === true && people.length > 0 && (
+        <p className="text-sm text-amber-700 dark:text-amber-500">
+          Цим людям лист уже надсилали. Повторний лист замінює попереднє посилання — старе перестане
+          працювати.
         </p>
       )}
 

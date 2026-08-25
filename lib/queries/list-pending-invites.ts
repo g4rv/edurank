@@ -52,14 +52,30 @@ export interface PendingInviteFilter {
    * 2026-08-25).
    */
   domain?: string;
+  /**
+   * `false` — only people no letter has ever gone to. `true` — only people one
+   * has. Undefined means both.
+   *
+   * A run of 300 is a browser tab held open for minutes, and closing or
+   * refreshing it stops the loop halfway (owner, 2026-08-25). Nothing is lost —
+   * every letter that went out left an ActivationToken — but resending to the
+   * whole list would write to the people who already hold a link AND replace
+   * that link, because `issueActivationToken` upserts. So the rest have to be
+   * sendable on their own.
+   *
+   * This asks «did a letter go out», never «did they activate»: an invitation
+   * may sit unopened for a month, and finishing an interrupted run must not
+   * wait on anybody.
+   */
+  invited?: boolean;
 }
 
 export interface PendingInvites {
   people: PendingInvite[];
   /**
-   * Every domain in the кафедра/kind selection, counted BEFORE `filter.domain`
-   * is applied — otherwise choosing one domain would leave the picker holding
-   * only that domain and no way back to the others.
+   * Every domain in the кафедра/kind/invited selection, counted BEFORE
+   * `filter.domain` is applied — otherwise choosing one domain would leave the
+   * picker holding only that domain and no way back to the others.
    */
   domains: InviteDomain[];
 }
@@ -101,6 +117,32 @@ export function inviteDomains(emails: readonly string[]): InviteDomain[] {
     );
 }
 
+/**
+ * The two filters the database does not do, and the order they go in.
+ *
+ * `invited` narrows first and the domain counts are taken from what it leaves,
+ * so «уже писали» + «uhsp.edu.ua: 12» is one sentence about one group. `domain`
+ * is applied last, for the reason on `PendingInvites.domains`.
+ *
+ * Pure and exported so both orderings are testable — there are ~300 rows in the
+ * whole university, so neither belongs in the `where`.
+ */
+export function narrowInvites(
+  all: readonly PendingInvite[],
+  filter: Pick<PendingInviteFilter, 'domain' | 'invited'> = {}
+): PendingInvites {
+  const selected =
+    filter.invited === undefined
+      ? [...all]
+      : all.filter((p) => (p.invitedAt !== null) === filter.invited);
+
+  const domain = filter.domain?.trim().toLowerCase();
+  return {
+    people: domain ? selected.filter((p) => emailDomain(p.email) === domain) : selected,
+    domains: inviteDomains(selected.map((p) => p.email)),
+  };
+}
+
 export async function listPendingInvites(
   filter: PendingInviteFilter = {}
 ): Promise<PendingInvites> {
@@ -135,12 +177,5 @@ export async function listPendingInvites(
     })
   );
 
-  // The domain filter is applied in memory rather than in the `where`. There are
-  // ~300 rows in the whole university, the picker needs the counts of the OTHER
-  // domains anyway, and doing both from one read keeps the page at one query.
-  const domain = filter.domain?.trim().toLowerCase();
-  return {
-    people: domain ? all.filter((p) => emailDomain(p.email) === domain) : all,
-    domains: inviteDomains(all.map((p) => p.email)),
-  };
+  return narrowInvites(all, filter);
 }

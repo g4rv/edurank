@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { emailDomain, inviteDomains } from './list-pending-invites';
+import { emailDomain, inviteDomains, narrowInvites } from './list-pending-invites';
+import type { PendingInvite } from './list-pending-invites';
 
 describe('emailDomain', () => {
   it('takes the part after the «@», lower-cased', () => {
@@ -65,5 +66,67 @@ describe('inviteDomains', () => {
 
   it('is empty for no addresses', () => {
     expect(inviteDomains([])).toEqual([]);
+  });
+});
+
+describe('narrowInvites', () => {
+  const person = (name: string, email: string, invitedAt: Date | null): PendingInvite => ({
+    id: name,
+    fullName: name,
+    email,
+    isNpp: true,
+    departmentName: null,
+    invitedAt,
+  });
+
+  const sentAt = new Date('2026-08-25T09:00:00Z');
+  const all = [
+    person('Перчук', 'a@uhsp.edu.ua', sentAt),
+    person('Коваль', 'b@uhsp.edu.ua', null),
+    person('Мельник', 'c@gmail.com', null),
+  ];
+
+  it('keeps everybody when nothing is asked for', () => {
+    expect(narrowInvites(all).people).toHaveLength(3);
+  });
+
+  // The whole point: a run interrupted halfway has to be finishable without
+  // writing to the people who already hold a link.
+  it('«не надсилалося» is the people with no token at all', () => {
+    const { people } = narrowInvites(all, { invited: false });
+    expect(people.map((p) => p.fullName)).toEqual(['Коваль', 'Мельник']);
+  });
+
+  it('«вже надсилалося» is the other half', () => {
+    const { people } = narrowInvites(all, { invited: true });
+    expect(people.map((p) => p.fullName)).toEqual(['Перчук']);
+  });
+
+  // It asks whether a letter went out, never whether the person opened it —
+  // `listPendingInvites` already dropped everyone who has a password.
+  it('does not care how old the invitation is', () => {
+    const stale = [person('Давній', 'd@uhsp.edu.ua', new Date('2026-01-01T00:00:00Z'))];
+    expect(narrowInvites(stale, { invited: false }).people).toEqual([]);
+    expect(narrowInvites(stale, { invited: true }).people).toHaveLength(1);
+  });
+
+  it('counts the domains of what «invited» left, not of everybody', () => {
+    const { domains } = narrowInvites(all, { invited: false });
+    expect(domains).toEqual([
+      { domain: 'gmail.com', count: 1, undeliverable: false },
+      { domain: 'uhsp.edu.ua', count: 1, undeliverable: false },
+    ]);
+  });
+
+  // Otherwise picking one domain would leave the picker holding only that
+  // domain and no way back to the others.
+  it('still lists every domain after one of them is picked', () => {
+    const { people, domains } = narrowInvites(all, { invited: false, domain: 'uhsp.edu.ua' });
+    expect(people.map((p) => p.fullName)).toEqual(['Коваль']);
+    expect(domains.map((d) => d.domain)).toEqual(['gmail.com', 'uhsp.edu.ua']);
+  });
+
+  it('does not hand back the caller array to be mutated', () => {
+    expect(narrowInvites(all).people).not.toBe(all);
   });
 });
