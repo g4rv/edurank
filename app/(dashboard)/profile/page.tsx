@@ -8,6 +8,7 @@ import { getRatingEntry } from '@/lib/queries/get-rating';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { OrcidField } from '@/components/profile/orcid-field';
 import { Button } from '@/components/ui/button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
@@ -311,7 +312,7 @@ export default async function ProfilePage() {
           ) : (
             <Field label="Google Scholar" value="—" />
           )}
-          <Field label="ORCID" value={staff.orcidId ?? '—'} />
+          <OrcidField value={staff.orcidId} />
         </InfoCard>
 
         {(staff.headOfDepartment || staff.deanOfFaculty) && (

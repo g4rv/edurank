@@ -11,6 +11,7 @@ import { AccountCard } from '@/components/staff/account-card';
 import { StaffTabs } from '@/components/staff/staff-tabs';
 import { Button } from '@/components/ui/button';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { OrcidField } from '@/components/profile/orcid-field';
 import { ArchiveStaffButton, RestoreStaffButton } from '@/components/staff/archive-button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
@@ -312,7 +313,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             ) : (
               <Field label="Google Scholar" value="—" />
             )}
-            <Field label="ORCID" value={staff.orcidId ?? '—'} />
+            <OrcidField value={staff.orcidId} />
           </InfoCard>
         </div>
 
