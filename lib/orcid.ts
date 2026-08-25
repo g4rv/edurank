@@ -111,7 +111,42 @@ export function orcidState(raw: string): OrcidState {
   return orcidCheckDigit(value.slice(0, 15)) === value[15] ? 'valid' : 'invalid';
 }
 
+/** An ORCID is sixteen characters, written in four groups of four. */
+export const ORCID_LENGTH = 16;
+
+/**
+ * What the person has actually entered, reduced to the characters an ORCID can
+ * contain: sixteen at most, digits, and an `X` in the last place only.
+ *
+ * Anything else is dropped rather than reported — the same rule `TelInput`
+ * follows, where a wrong character never appears at all instead of being
+ * complained about later. A pasted `https://orcid.org/…` address survives it,
+ * because `core` strips the address before this sees it.
+ */
+export function orcidDigits(raw: string): string {
+  let out = '';
+  for (const character of core(raw).replace(/[^0-9X]/g, '')) {
+    if (out.length >= ORCID_LENGTH) break;
+    // `X` is the check character. In any other position it is a typo, and
+    // silently refusing it is kinder than accepting it and going red.
+    if (character === 'X' && out.length !== ORCID_LENGTH - 1) continue;
+    out += character;
+  }
+  return out;
+}
+
+/**
+ * The mask: what the field shows while it is being typed.
+ *
+ * Hyphens are put in by the field, never typed, so an ORCID cannot be stored in
+ * four different shapes and `0000000218250097` and `0000-0002-1825-0097` cannot
+ * both end up in the column.
+ */
+export function formatOrcid(raw: string): string {
+  return orcidDigits(raw).replace(/(.{4})(?=.)/g, '$1-');
+}
+
 /** How many of the 16 characters are in, ignoring hyphens — for the hint. */
 export function orcidLength(raw: string): number {
-  return core(raw).length;
+  return orcidDigits(raw).length;
 }

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { isValidOrcid, normaliseOrcid, orcidCheckDigit, orcidState, orcidUrl } from './orcid';
+import {
+  formatOrcid,
+  isValidOrcid,
+  normaliseOrcid,
+  orcidCheckDigit,
+  orcidDigits,
+  orcidState,
+  orcidUrl,
+} from './orcid';
 
 describe('normaliseOrcid', () => {
   it('keeps a canonical identifier', () => {
@@ -120,5 +128,75 @@ describe('orcidState', () => {
   // X is the check character and belongs in the sixteenth place only.
   it('rejects an X anywhere but the end', () => {
     expect(orcidState('0000-X002-1825-0097')).toBe('invalid');
+  });
+});
+
+describe('orcidDigits', () => {
+  it('keeps only what an ORCID can contain', () => {
+    expect(orcidDigits('0000-0002-1825-0097')).toBe('0000000218250097');
+    expect(orcidDigits('0000 0002 1825 0097')).toBe('0000000218250097');
+    expect(orcidDigits('abc0000def0002')).toBe('00000002');
+  });
+
+  it('reduces a pasted profile address to the identifier', () => {
+    expect(orcidDigits('https://orcid.org/0000-0002-1825-0097')).toBe('0000000218250097');
+  });
+
+  it('stops at sixteen, so a stray extra keystroke does nothing', () => {
+    expect(orcidDigits('00000002182500977777')).toBe('0000000218250097');
+  });
+
+  // X is the check character. Anywhere else it is a typo, and dropping it is
+  // kinder than accepting it and going red.
+  it('accepts X in the last place only', () => {
+    expect(orcidDigits('000000021694233X')).toBe('000000021694233X');
+    // The X is dropped, so fifteen characters are left — not padded back to 16.
+    expect(orcidDigits('0000X00216942330')).toBe('000000216942330');
+  });
+});
+
+describe('formatOrcid', () => {
+  it('groups in fours as the value grows', () => {
+    expect(formatOrcid('')).toBe('');
+    expect(formatOrcid('0000')).toBe('0000');
+    expect(formatOrcid('00000')).toBe('0000-0');
+    expect(formatOrcid('0000000218250097')).toBe('0000-0002-1825-0097');
+  });
+
+  // The field hands its own output straight back in on the next keystroke, so
+  // formatting an already-formatted value must not move anything.
+  it('is stable when applied to its own result', () => {
+    const once = formatOrcid('0000000218250097');
+    expect(formatOrcid(once)).toBe(once);
+    expect(formatOrcid(formatOrcid('00000'))).toBe('0000-0');
+  });
+
+  it('takes a pasted address down to the masked identifier', () => {
+    expect(formatOrcid('https://orcid.org/0000-0002-1694-233X')).toBe('0000-0002-1694-233X');
+  });
+});
+
+// A real ORCID ending in X, raised by the owner (2026-08-25). The check
+// character is 10 about one time in eleven, so a digits-only field would reject
+// one colleague in every eleven — which is why nothing here tests on `\d{16}`.
+describe('an ORCID ending in X', () => {
+  const id = '0000-0002-0481-850X';
+
+  it('is valid, and stays valid however it was entered', () => {
+    expect(isValidOrcid(id)).toBe(true);
+    expect(isValidOrcid('0000000204818 50x')).toBe(true);
+    expect(isValidOrcid(`https://orcid.org/${id}`)).toBe(true);
+  });
+
+  it('masks to the same thing from a lower-case or pasted form', () => {
+    expect(formatOrcid(id)).toBe(id);
+    expect(formatOrcid('0000000204818 50x')).toBe(id);
+    expect(formatOrcid(`https://orcid.org/${id}`)).toBe(id);
+  });
+
+  it('shows the tick and builds a link', () => {
+    expect(orcidState(id)).toBe('valid');
+    expect(normaliseOrcid(id)).toBe(id);
+    expect(orcidUrl(id)).toBe(`https://orcid.org/${id}`);
   });
 });

@@ -304,37 +304,6 @@ function DepartmentField({
   );
 }
 
-/**
- * ORCID, in its own component so the live check-digit hint costs one small
- * re-render rather than one of the whole form.
- *
- * `OrcidInput` is uncontrolled and mirrors its own state to drive the hint, so
- * it needs the stored value once, at mount, to show a tick on a record that
- * already has an ORCID. `useWatch` here reads exactly that field — watching it
- * from `StaffFormFields` would re-render every combobox on the page on every
- * keystroke.
- */
-function OrcidField({
-  control,
-  disabled,
-  error,
-  children,
-}: {
-  control: Control<RawStaffFormValues>;
-  disabled: boolean;
-  error?: FieldErrors<RawStaffFormValues>['orcidId'];
-  /** The `register('orcidId')` result — passed as children to keep the call site short */
-  children: ReturnType<UseFormRegister<RawStaffFormValues>>;
-}) {
-  const value = useWatch({ control, name: 'orcidId' });
-
-  return (
-    <FormField htmlFor="orcidId" label="ORCID" error={error}>
-      <OrcidInput id="orcidId" disabled={disabled} defaultValue={value ?? ''} {...children} />
-    </FormField>
-  );
-}
-
 export function StaffFormFields({
   register,
   control,
@@ -826,9 +795,23 @@ export function StaffFormFields({
               {...register('googleScholarCitationCount')}
             />
           </FormField>
-          <OrcidField control={control} disabled={isPending} error={errors.orcidId}>
-            {register('orcidId')}
-          </OrcidField>
+          <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
+            {/* Controlled through a `Controller`, like the phone field: the mask
+                reformats on every keystroke and an uncontrolled input would move
+                the caret. */}
+            <Controller
+              name="orcidId"
+              control={control}
+              render={({ field }) => (
+                <OrcidInput
+                  id="orcidId"
+                  disabled={isPending}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </FormField>
         </FieldGroup>
       </SectionCard>
     </>

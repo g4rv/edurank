@@ -101,11 +101,19 @@ export function ProfileEditForm({ defaultValues }: { defaultValues: FormValues }
           </FormField>
 
           <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
-            <OrcidInput
-              id="orcidId"
-              disabled={isPending}
-              defaultValue={defaultValues.orcidId}
-              {...register('orcidId')}
+            {/* Controlled: the field reformats on every keystroke, which an
+                uncontrolled input cannot do without the caret jumping. */}
+            <Controller
+              name="orcidId"
+              control={control}
+              render={({ field }) => (
+                <OrcidInput
+                  id="orcidId"
+                  disabled={isPending}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
             />
           </FormField>
         </FieldGroup>
