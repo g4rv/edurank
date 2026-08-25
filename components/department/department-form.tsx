@@ -68,19 +68,24 @@ export function DepartmentForm({
   });
 
   /**
-   * Does the довідник recognise this name?
+   * Does this кафедра already have any випускові спеціальності linked to it?
    *
-   * A кафедра's name is free text, but three things match on it — випускові
-   * кафедри on the ставка grid, the staff import, and `specialityOrigin`. The
-   * matching forgives case, the word «кафедра» and runs of whitespace; it does
-   * NOT forgive «і» against «та», or initials written «І.П.» where the довідник
-   * has «І. П.». One space, and a завідувач's випускова-кафедра chips go grey
-   * with nothing to click and nobody knows why (2026-08-17: this had already
-   * happened to «імені професора І.П.Стогнія»).
+   * This form is a client component and cannot query the database, so the
+   * page (`departments/new`, `departments/[id]/edit`) does that once and
+   * hands down `knownNames` — the names of кафедри that already have at
+   * least one `SpecialityDepartment` row. The comparison here only decides
+   * a MESSAGE; it never decides a link. Every actual link is by
+   * `departmentId`/`specialityId`, set on /admin/stakes/norms.
    *
-   * A warning, never a block. A university reorganises, and refusing to save a
-   * кафедра because a constant in the repo has not caught up would be the app
-   * telling the registrar they are wrong about their own structure.
+   * The matching forgives case, the word «кафедра» and runs of whitespace,
+   * so a rename alone does not make an already-linked кафедра look new. It
+   * does NOT need to forgive anything else, because nothing here creates or
+   * removes a row — worst case is a wrong hint on this form.
+   *
+   * What the warning means for the user: a кафедра with no links yet shows
+   * «своя / чужа спеціальність» as unknown on the ставка grid
+   * (`components/stake/bonus-cell.tsx`) until an ADMIN links it on
+   * /admin/stakes/norms — this notice is what points them there.
    *
    * `useWatch` rather than `watch()`: the latter returns a fresh function every
    * render and React Compiler refuses to memoise a component that uses it.

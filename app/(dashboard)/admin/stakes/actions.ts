@@ -412,11 +412,12 @@ export async function setStatusBonus(
 /**
  * Which кафедра graduates one спеціальність — `SpecialityDepartment`.
  *
- * Display only: the pair only colours chips on /stakes/[id] and
- * /my-department/students (`lib/specialities/origin.ts`), and decides nothing
- * about a ставка, a bonus or a claim. This is what makes the 2026 reorganisation
- * survivable without a developer — every other link in the app used to be a
- * name match against a hardcoded constant.
+ * Display only: `lib/specialities/origin.ts` reads this pair to colour the
+ * bonus chips (`components/stake/bonus-cell.tsx`, rendered from
+ * `components/stake/distribution-grid.tsx` on /stakes/[id]) and decides
+ * nothing about a ставка, a bonus or a claim. This is what makes the 2026
+ * reorganisation survivable without a developer — every other link in the
+ * app used to be a name match against a hardcoded constant.
  */
 export async function linkSpecialityDepartment(
   _prev: StakeActionState,
