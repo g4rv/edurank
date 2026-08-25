@@ -12,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { TelInput } from '@/components/ui/tel-input';
 import { FormField } from '@/components/ui/form-field';
+import { OrcidInput } from '@/components/ui/orcid-input';
 import { FieldGroup } from '@/components/ui/field';
 import {
   Combobox,
@@ -299,6 +300,37 @@ function DepartmentField({
         </div>
         <AllocatedStake departmentId={selected?.id} breakdown={breakdown} />
       </div>
+    </FormField>
+  );
+}
+
+/**
+ * ORCID, in its own component so the live check-digit hint costs one small
+ * re-render rather than one of the whole form.
+ *
+ * `OrcidInput` is uncontrolled and mirrors its own state to drive the hint, so
+ * it needs the stored value once, at mount, to show a tick on a record that
+ * already has an ORCID. `useWatch` here reads exactly that field — watching it
+ * from `StaffFormFields` would re-render every combobox on the page on every
+ * keystroke.
+ */
+function OrcidField({
+  control,
+  disabled,
+  error,
+  children,
+}: {
+  control: Control<RawStaffFormValues>;
+  disabled: boolean;
+  error?: FieldErrors<RawStaffFormValues>['orcidId'];
+  /** The `register('orcidId')` result — passed as children to keep the call site short */
+  children: ReturnType<UseFormRegister<RawStaffFormValues>>;
+}) {
+  const value = useWatch({ control, name: 'orcidId' });
+
+  return (
+    <FormField htmlFor="orcidId" label="ORCID" error={error}>
+      <OrcidInput id="orcidId" disabled={disabled} defaultValue={value ?? ''} {...children} />
     </FormField>
   );
 }
@@ -794,14 +826,9 @@ export function StaffFormFields({
               {...register('googleScholarCitationCount')}
             />
           </FormField>
-          <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
-            <Input
-              id="orcidId"
-              placeholder="0000-0000-0000-0000"
-              disabled={isPending}
-              {...register('orcidId')}
-            />
-          </FormField>
+          <OrcidField control={control} disabled={isPending} error={errors.orcidId}>
+            {register('orcidId')}
+          </OrcidField>
         </FieldGroup>
       </SectionCard>
     </>

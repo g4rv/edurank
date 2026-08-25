@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TelInput } from '@/components/ui/tel-input';
+import { OrcidInput } from '@/components/ui/orcid-input';
 import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
@@ -100,10 +101,10 @@ export function ProfileEditForm({ defaultValues }: { defaultValues: FormValues }
           </FormField>
 
           <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
-            <Input
+            <OrcidInput
               id="orcidId"
-              placeholder="0000-0000-0000-0000"
               disabled={isPending}
+              defaultValue={defaultValues.orcidId}
               {...register('orcidId')}
             />
           </FormField>

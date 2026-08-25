@@ -7,6 +7,7 @@ import {
   SCOPUS_HOSTS,
   WOS_HOSTS,
 } from '@/lib/link-hosts';
+import { isValidOrcid } from '@/lib/orcid';
 
 const str = (v: unknown) =>
   v === '' || v === undefined || (typeof v === 'string' && !v.trim()) ? null : v;
@@ -124,7 +125,18 @@ export const staffUpdateSchema = z
     scopusCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
     googleScholarUrl: profileLink(SCHOLAR_HOSTS, 'Очікується посилання на Google Scholar'),
     googleScholarCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
-    orcidId: z.preprocess(str, z.string().max(50, { error: 'Занадто довге значення' }).nullable()),
+    // Checksum-validated, the same treatment `isbn` gets in activity
+    // evidence: an ORCID carries an ISO 7064 check digit, so a mistyped one
+    // is detectable rather than merely wrong. The field stays optional —
+    // `str` turns an empty box into null, and `nullable` skips the refine.
+    orcidId: z.preprocess(
+      str,
+      z
+        .string()
+        .max(50, { error: 'Занадто довге значення' })
+        .refine(isValidOrcid, { error: 'Некоректний ORCID' })
+        .nullable()
+    ),
     departmentId: z.preprocess(str, z.string().nullable()),
     divisionId: z.preprocess(str, z.string().nullable()),
     // At most one. A person holds two кафедри in total — their own and one
@@ -176,7 +188,14 @@ export const ownProfileSchema = z.object({
   wosUrl: profileLink(WOS_HOSTS, 'Очікується посилання на Web of Science'),
   scopusUrl: profileLink(SCOPUS_HOSTS, 'Очікується посилання на Scopus'),
   googleScholarUrl: profileLink(SCHOLAR_HOSTS, 'Очікується посилання на Google Scholar'),
-  orcidId: z.preprocess(str, z.string().max(50, { error: 'Занадто довге значення' }).nullable()),
+  orcidId: z.preprocess(
+    str,
+    z
+      .string()
+      .max(50, { error: 'Занадто довге значення' })
+      .refine(isValidOrcid, { error: 'Некоректний ORCID' })
+      .nullable()
+  ),
 });
 
 export type OwnProfileSchema = z.infer<typeof ownProfileSchema>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normaliseOrcid, orcidUrl } from './orcid';
+import { isValidOrcid, normaliseOrcid, orcidCheckDigit, orcidState, orcidUrl } from './orcid';
 
 describe('normaliseOrcid', () => {
   it('keeps a canonical identifier', () => {
@@ -56,5 +56,69 @@ describe('orcidUrl', () => {
   it('is null when the value is not an ORCID', () => {
     expect(orcidUrl('щось інше')).toBeNull();
     expect(orcidUrl(null)).toBeNull();
+  });
+});
+
+describe('orcidCheckDigit', () => {
+  // Josiah Carberry, the identifier ORCID's own documentation uses.
+  it('computes the published example', () => {
+    expect(orcidCheckDigit('000000021825009')).toBe('7');
+  });
+
+  // 10 is written X, which is why an ORCID may end in a letter.
+  it('writes a remainder of 10 as X', () => {
+    expect(orcidCheckDigit('000000021694233')).toBe('X');
+  });
+});
+
+describe('isValidOrcid', () => {
+  it('accepts a correct identifier in any of its written forms', () => {
+    expect(isValidOrcid('0000-0002-1825-0097')).toBe(true);
+    expect(isValidOrcid('0000000218250097')).toBe(true);
+    expect(isValidOrcid('https://orcid.org/0000-0002-1825-0097')).toBe(true);
+    expect(isValidOrcid('0000-0002-1694-233X')).toBe(true);
+  });
+
+  // The whole reason the field checks a checksum rather than a length: one
+  // wrong digit is a person who does not exist, and only this catches it.
+  it('rejects a single mistyped digit', () => {
+    expect(isValidOrcid('0000-0002-1825-0098')).toBe(false);
+    expect(isValidOrcid('0000-0002-1825-0197')).toBe(false);
+  });
+
+  it('rejects what is not an ORCID at all', () => {
+    expect(isValidOrcid('не знаю')).toBe(false);
+    expect(isValidOrcid('')).toBe(false);
+    expect(isValidOrcid(null)).toBe(false);
+  });
+});
+
+describe('orcidState', () => {
+  it('says nothing about an empty field', () => {
+    expect(orcidState('')).toBe('empty');
+    expect(orcidState('   ')).toBe('empty');
+  });
+
+  // Never an error while it is still too short to judge: being told you are
+  // wrong halfway through typing sixteen digits is noise.
+  it('is partial while the value is still too short', () => {
+    expect(orcidState('0000')).toBe('partial');
+    expect(orcidState('0000-0002-1825-009')).toBe('partial');
+  });
+
+  it('is valid once the sixteenth character agrees', () => {
+    expect(orcidState('0000-0002-1825-0097')).toBe('valid');
+    expect(orcidState('https://orcid.org/0000-0002-1694-233X')).toBe('valid');
+  });
+
+  it('is invalid for a bad checksum, a stray letter, or too many digits', () => {
+    expect(orcidState('0000-0002-1825-0098')).toBe('invalid');
+    expect(orcidState('0000-0002-18a5-0097')).toBe('invalid');
+    expect(orcidState('0000-0002-1825-00977')).toBe('invalid');
+  });
+
+  // X is the check character and belongs in the sixteenth place only.
+  it('rejects an X anywhere but the end', () => {
+    expect(orcidState('0000-X002-1825-0097')).toBe('invalid');
   });
 });

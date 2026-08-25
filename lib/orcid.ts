@@ -32,6 +32,42 @@ const ORCID_RE = /^(\d{4})-?(\d{4})-?(\d{4})-?(\d{3}[\dX])$/i;
 export function normaliseOrcid(raw: string | null | undefined): string | null {
   if (!raw) return null;
 
+  // Format only — the check digit is NOT verified here. This function decides
+  // whether to render a link, and a transcription error in our own data should
+  // still show the reader what is stored rather than silently dropping it.
+  // `isValidOrcid` is the strict test, and it is what the forms use.
+  const match = ORCID_RE.exec(core(raw));
+  if (!match) return null;
+
+  return `${match[1]}-${match[2]}-${match[3]}-${match[4]}`;
+}
+
+/** The public profile page for that identifier, or null when it is not an ORCID. */
+export function orcidUrl(raw: string | null | undefined): string | null {
+  const id = normaliseOrcid(raw);
+  return id === null ? null : `https://${ORCID_HOST}/${id}`;
+}
+
+/**
+ * The 16th character an ORCID must end in, given its first 15 digits.
+ *
+ * ISO 7064 MOD 11-2, the scheme ORCID itself publishes. It is what makes a
+ * mistyped digit detectable rather than merely wrong: `0000-0002-1825-0097` is
+ * Josiah Carberry, `0000-0002-1825-0098` is nobody, and only the checksum can
+ * tell the two apart. `10` is written `X`, which is why an ORCID may end in a
+ * letter.
+ */
+export function orcidCheckDigit(first15: string): string {
+  let total = 0;
+  for (const character of first15) {
+    total = (total + Number(character)) * 2;
+  }
+  const result = (12 - (total % 11)) % 11;
+  return result === 10 ? 'X' : String(result);
+}
+
+/** The identifier stripped of its address, hyphens and spaces, upper-cased. */
+function core(raw: string): string {
   let value = raw
     .trim()
     .replace(/^https?:\/\//i, '')
@@ -39,16 +75,43 @@ export function normaliseOrcid(raw: string | null | undefined): string | null {
   if (value.toLowerCase().startsWith(ORCID_HOST + '/')) {
     value = value.slice(ORCID_HOST.length + 1);
   }
-  value = value.replace(/\/+$/, '');
-
-  const match = ORCID_RE.exec(value);
-  if (!match) return null;
-
-  return `${match[1]}-${match[2]}-${match[3]}-${match[4].toUpperCase()}`;
+  return value.replace(/\/+$/, '').replace(/[\s-]/g, '').toUpperCase();
 }
 
-/** The public profile page for that identifier, or null when it is not an ORCID. */
-export function orcidUrl(raw: string | null | undefined): string | null {
+/** True when the value is a well-formed ORCID whose check digit agrees. */
+export function isValidOrcid(raw: string | null | undefined): boolean {
   const id = normaliseOrcid(raw);
-  return id === null ? null : `https://${ORCID_HOST}/${id}`;
+  if (id === null) return false;
+  const digits = id.replace(/-/g, '');
+  return orcidCheckDigit(digits.slice(0, 15)) === digits[15];
+}
+
+/**
+ * What to tell somebody while they are typing.
+ *
+ * - `empty`    — nothing entered; the field is optional everywhere it appears
+ * - `partial`  — plausible so far but too short to judge. **Never an error**:
+ *                being told you are wrong halfway through typing is noise, the
+ *                same rule `isbnState` follows.
+ * - `valid`    — 16 characters and the check digit agrees
+ * - `invalid`  — a character that cannot belong, too long, or a failed checksum
+ */
+export type OrcidState = 'empty' | 'partial' | 'valid' | 'invalid';
+
+export function orcidState(raw: string): OrcidState {
+  const value = core(raw);
+  if (value.length === 0) return 'empty';
+
+  // `X` is the check character and belongs in the 16th place only.
+  if (!/^\d*X?$/.test(value)) return 'invalid';
+  if (value.includes('X') && value.length !== 16) return 'invalid';
+  if (value.length > 16) return 'invalid';
+  if (value.length < 16) return 'partial';
+
+  return orcidCheckDigit(value.slice(0, 15)) === value[15] ? 'valid' : 'invalid';
+}
+
+/** How many of the 16 characters are in, ignoring hyphens — for the hint. */
+export function orcidLength(raw: string): number {
+  return core(raw).length;
 }
