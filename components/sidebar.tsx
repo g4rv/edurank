@@ -27,6 +27,11 @@ import { cn } from '@/lib/utils';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
+import {
+  NPP_RATING_CLOSED_NAV_NOTE,
+  NPP_RATING_CLOSED_NOTE,
+  NPP_RATING_OPEN,
+} from '@/lib/rating/npp-access';
 import type { Role } from '@/lib/generated/prisma/client';
 
 const RATING_SECTIONS = [1, 2, 3, 4, 5];
@@ -37,6 +42,13 @@ interface NavItem {
   icon: React.ElementType;
   /** Exact match — /achievements must not light up on /achievements/3 */
   exact?: boolean;
+  /**
+   * Shown, greyed, and not a link. Only `NPP_RATING_OPEN` uses this: a person
+   * who had «Мій рейтинг» yesterday should see that it is still theirs and
+   * temporarily shut, rather than find the line silently gone and assume their
+   * account lost something.
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -111,8 +123,21 @@ export function Sidebar({
   }
   if (isNpp) {
     personal.push(
-      { href: '/achievements', label: 'Мій рейтинг', icon: Award, exact: true },
-      { href: '/achievements/kharakterystyka', label: 'Характеристика', icon: FileCheck },
+      // Both greyed while `NPP_RATING_OPEN` is false; «Мої здобувачі» is not,
+      // because claiming a recruited здобувач is not rating data and goes on.
+      {
+        href: '/achievements',
+        label: 'Мій рейтинг',
+        icon: Award,
+        exact: true,
+        disabled: !NPP_RATING_OPEN,
+      },
+      {
+        href: '/achievements/kharakterystyka',
+        label: 'Характеристика',
+        icon: FileCheck,
+        disabled: !NPP_RATING_OPEN,
+      },
       // «Мої», because a завідувач who also lectures gets the review screen under
       // «Залучені здобувачі» below, and two identical labels is a coin toss.
       { href: '/achievements/students', label: 'Мої здобувачі', icon: UserPlus }
@@ -161,9 +186,17 @@ export function Sidebar({
   const administration: NavItem[] = isAdmin ? ADMINISTRATION_NAV : [];
 
   const sections = [
-    { label: 'Особисте', items: personal, showSections: isNpp },
-    { label: 'Управління', items: management, showSections: false },
-    { label: 'Адміністрування', items: administration, showSections: false },
+    // «Додати активність» is the submission half and goes away entirely while
+    // the rating is closed — five more dead links say nothing the greyed
+    // «Мій рейтинг» above has not already said.
+    {
+      label: 'Особисте',
+      items: personal,
+      showSections: isNpp && NPP_RATING_OPEN,
+      note: isNpp && !NPP_RATING_OPEN ? NPP_RATING_CLOSED_NAV_NOTE : null,
+    },
+    { label: 'Управління', items: management, showSections: false, note: null },
+    { label: 'Адміністрування', items: administration, showSections: false, note: null },
   ].filter((s) => s.items.length > 0);
 
   const showHeadings = sections.length > 1;
@@ -192,6 +225,11 @@ export function Sidebar({
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}
             {section.showSections && <AddActivityNav pathname={pathname} />}
+            {section.note && (
+              <p className="px-2 pt-1 pb-1 text-[11px] leading-snug text-muted-foreground">
+                {section.note}
+              </p>
+            )}
           </Fragment>
         ))}
       </nav>
@@ -244,6 +282,22 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
     ? pathname === item.href
     : pathname === item.href || pathname.startsWith(item.href + '/');
   const Icon = item.icon;
+
+  // A span, not a styled `<Link>`: `pointer-events-none` still leaves the route
+  // in the DOM for a prefetch and for anything that walks links, and this one
+  // must not be followed at all.
+  if (item.disabled) {
+    return (
+      <span
+        title={NPP_RATING_CLOSED_NOTE}
+        aria-disabled
+        className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground/60"
+      >
+        <Icon className="size-4 shrink-0" />
+        {item.label}
+      </span>
+    );
+  }
 
   return (
     <Link

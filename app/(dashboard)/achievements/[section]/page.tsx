@@ -4,6 +4,8 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { listStaffActivities } from '@/lib/queries/list-activities';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { RatingClosedNote } from '@/components/rating/rating-closed-note';
+import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { AchievementsList } from '@/components/rating/achievements-list';
 import { AddAchievementForm } from '@/components/rating/add-achievement-form';
 import { YearSelect } from '@/components/rating/year-select';
@@ -54,6 +56,12 @@ export default async function AchievementsSectionPage({
 
   const staff = await getStaff(staffId, true);
   if (!staff?.isNpp) redirect('/profile');
+
+  // Frozen for НПП while `NPP_RATING_OPEN` is false. The note keeps this page's
+  // own heading rather than redirecting to /profile, so a bookmark still lands
+  // somewhere that explains itself.
+  if (!NPP_RATING_OPEN)
+    return <RatingClosedNote title={`Розділ ${section}. ${SECTION_TITLES[section]}`} />;
 
   const template = await getActiveTemplate();
   const templateYears = await listTemplateYears();

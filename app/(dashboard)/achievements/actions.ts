@@ -12,6 +12,7 @@ import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
 import { computeScore } from '@/lib/rating/scoring';
 import { logError } from '@/lib/log';
+import { NPP_RATING_CLOSED_DETAIL, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 
 export type CreateActivityState = { error: string } | { success: true; score: number };
 
@@ -28,6 +29,11 @@ export async function createActivity(
 ): Promise<CreateActivityState> {
   const session = await auth();
   if (!session) redirect('/login');
+
+  // Frozen for НПП while `NPP_RATING_OPEN` is false. Checked here as well as in
+  // the nav and the page, because a greyed link stops nobody with a tab still
+  // open from posting the form.
+  if (!NPP_RATING_OPEN) return { error: NPP_RATING_CLOSED_DETAIL };
 
   // Self-report only — for their OWN staff record, whatever role they hold.
   // `isNpp` below is the real gate; the USER role used to be required here too
@@ -164,6 +170,11 @@ export type DeleteActivityState = { error: string } | { success: true };
 export async function deleteActivity(activityId: string): Promise<DeleteActivityState> {
   const session = await auth();
   if (!session) redirect('/login');
+
+  // Frozen for НПП while `NPP_RATING_OPEN` is false. Checked here as well as in
+  // the nav and the page, because a greyed link stops nobody with a tab still
+  // open from posting the form.
+  if (!NPP_RATING_OPEN) return { error: NPP_RATING_CLOSED_DETAIL };
 
   // Ownership is the check — the row below must be theirs. The USER role was
   // also required and shut out an ADMIN or EDITOR who teaches from deleting

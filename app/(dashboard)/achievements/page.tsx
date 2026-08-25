@@ -5,6 +5,8 @@ import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-t
 import { listStaffActivities } from '@/lib/queries/list-activities';
 import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { RatingClosedNote } from '@/components/rating/rating-closed-note';
+import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { RatingTable } from '@/components/rating/rating-table';
 import { YearSelect } from '@/components/rating/year-select';
 import { DownloadButton } from '@/components/ui/download-button';
@@ -33,6 +35,11 @@ export default async function MyRatingPage({
 
   const staff = await getStaff(staffId, true);
   if (!staff?.isNpp) redirect('/profile');
+
+  // Frozen for НПП while `NPP_RATING_OPEN` is false. The note keeps this page's
+  // own heading rather than redirecting to /profile, so a bookmark still lands
+  // somewhere that explains itself.
+  if (!NPP_RATING_OPEN) return <RatingClosedNote title="Мій рейтинг" />;
 
   const template = await getActiveTemplate();
   const templateYears = await listTemplateYears();

@@ -12,6 +12,7 @@ import {
   type ExportActivityType,
   type ExportStaffData,
 } from '@/lib/rating/export-workbook';
+import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 
 // GET /api/export/ratings?year=2026[&staffId=…] — the official per-teacher form.
 //
@@ -22,6 +23,14 @@ import {
 export async function GET(request: Request) {
   const session = await auth();
   if (!session) return new Response('Unauthorized', { status: 401 });
+
+  // Frozen for НПП while `NPP_RATING_OPEN` is false. Cut at the USER role, not
+  // at `isNpp`: the only way a USER reaches this route is their own record —
+  // the whole archive is already forbidden to them below — while an ADMIN or an
+  // EDITOR is here doing management work through /staff/[id], which stays open.
+  if (!NPP_RATING_OPEN && session.user.role === 'USER') {
+    return new Response('Forbidden', { status: 403 });
+  }
 
   const url = new URL(request.url);
   // Read the raw param before converting: Number(null) is 0, and 0 is an

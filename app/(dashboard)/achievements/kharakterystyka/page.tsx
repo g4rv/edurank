@@ -4,6 +4,8 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { RatingClosedNote } from '@/components/rating/rating-closed-note';
+import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { KharakterystykaTable } from '@/components/kharakterystyka/kharakterystyka-table';
 import { DownloadButton } from '@/components/ui/download-button';
 
@@ -34,6 +36,11 @@ export default async function MyKharakterystykaPage() {
 
   const staff = await getStaff(staffId, true);
   if (!staff?.isNpp) redirect('/profile');
+
+  // Frozen for НПП while `NPP_RATING_OPEN` is false. The note keeps this page's
+  // own heading rather than redirecting to /profile, so a bookmark still lands
+  // somewhere that explains itself.
+  if (!NPP_RATING_OPEN) return <RatingClosedNote title="Моя характеристика" />;
 
   const template = await getActiveTemplate();
   if (!template) {

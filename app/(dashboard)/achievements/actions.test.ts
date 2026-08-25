@@ -7,6 +7,20 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+// `NPP_RATING_OPEN` ships as false — the rating is temporarily closed to НПП —
+// which would refuse every call in this file before it reaches the logic each
+// test is about. The flag is made switchable here instead: the suite runs with
+// the rating OPEN, and the two «закрито» tests flip it for themselves.
+const access = vi.hoisted(() => ({ open: true }));
+vi.mock('@/lib/rating/npp-access', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/rating/npp-access')>();
+  return {
+    ...actual,
+    get NPP_RATING_OPEN() {
+      return access.open;
+    },
+  };
+});
 vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn() },
@@ -64,6 +78,7 @@ function mockTx({ existingCount = 0 } = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  access.open = true;
   mockAuth.mockResolvedValue(userSession);
   mockStaffFind.mockResolvedValue(nppStaff);
   mockTypeFind.mockResolvedValue(confUkraineType);
@@ -242,5 +257,25 @@ describe('deleteActivity', () => {
         where: { staffId_year: { staffId: 'staff-1', year: 2026 } },
       })
     );
+  });
+});
+
+// The temporary freeze, checked on the server and not only in the nav: a person
+// with a tab still open, or one who types the URL, must not get a row in.
+describe('while the rating is closed to НПП', () => {
+  const closed = {
+    error: 'Заповнення рейтингу та характеристики тимчасово закрито. Розділ буде відкрито пізніше.',
+  };
+
+  it('refuses createActivity', async () => {
+    access.open = false;
+    expect(await createActivity('type-1', { title: 'Конференція' })).toEqual(closed);
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses deleteActivity', async () => {
+    access.open = false;
+    expect(await deleteActivity('activity-1')).toEqual(closed);
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });
