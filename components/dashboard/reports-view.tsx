@@ -14,6 +14,7 @@ import {
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import { cn } from '@/lib/utils';
 import type { ReportDepartment } from '@/lib/queries/get-rating-chart';
+import { DepartmentCombobox } from '@/components/department-combobox';
 
 // The report, native and themed: the two filters drive a live Recharts bar
 // chart, and «PDF» downloads exactly what the filters describe. It mirrors the
@@ -139,20 +140,18 @@ export function ReportsView({
           )}
 
           <div className="space-y-3">
-            <LabeledSelect
-              id="reportTarget"
-              label="Кафедра"
-              value={target}
-              onValueChange={setTarget}
-              wrapperClassName="w-full"
-            >
-              <SelectItem value="all">Усі кафедри</SelectItem>
-              {departments.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name}
-                </SelectItem>
-              ))}
-            </LabeledSelect>
+            <div className="w-full space-y-1">
+              <label htmlFor="reportTarget" className="text-xs font-medium text-muted-foreground">
+                Кафедра
+              </label>
+              <DepartmentCombobox
+                departments={departments}
+                value={target === 'all' ? '' : target}
+                onChange={(next) => setTarget(next || 'all')}
+                allowAll={{ label: 'Усі кафедри' }}
+                placeholder="Кафедра"
+              />
+            </div>
 
             <LabeledSelect
               id="reportMetric"

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
+import { DepartmentCombobox } from '@/components/department-combobox';
 
 // Staff type for the ?type= param, keyed on isNpp — not Role. A vice-rector or
 // the rector can hold role ADMIN while still being isNpp:true, so filtering by
@@ -179,23 +180,15 @@ export function StaffFilters({ faculties, departments }: Props) {
           </SelectContent>
         </Select>
 
-        <Select
-          key={departmentId || '__dept_reset__'}
-          value={departmentId || undefined}
-          onValueChange={(v) => setParam('dept', v === '__all__' ? undefined : v)}
-        >
-          <SelectTrigger size="sm">
-            <SelectValue placeholder="Кафедра" />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start">
-            <SelectItem value="__all__">Всі кафедри</SelectItem>
-            {visibleDepts.map((d) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* A combobox, not a select: thirty-one кафедри is a scan, not a
+            choice. Shared with every other кафедра picker in the app. */}
+        <DepartmentCombobox
+          departments={visibleDepts}
+          value={departmentId ?? ''}
+          onChange={(next) => setParam('dept', next || undefined)}
+          allowAll={{ label: 'Всі кафедри' }}
+          placeholder="Кафедра"
+        />
 
         <Select
           key={rank || '__rank_reset__'}

@@ -13,15 +13,8 @@ import { Input } from '@/components/ui/input';
 import { TelInput } from '@/components/ui/tel-input';
 import { FormField } from '@/components/ui/form-field';
 import { OrcidInput } from '@/components/ui/orcid-input';
+import { DepartmentCombobox } from '@/components/department-combobox';
 import { FieldGroup } from '@/components/ui/field';
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from '@/components/ui/combobox';
 import {
   Select,
   SelectContent,
@@ -332,17 +325,6 @@ export function StaffFormFields({
   const selectedPrimary = departments.find((d) => d.id === primaryDepartmentId);
   const selectedAdditional = departments.find((d) => d.id === additionalDepartmentId);
 
-  /**
-   * Кафедра name only — the факультет is shown under the field instead.
-   *
-   * Searching «природнич» no longer finds Кафедра здоров'я, which is the trade
-   * the owner asked for (2026-08-24): every кафедра name is unique, and typing
-   * three letters of the one you want beats reading a факультет prefix on all
-   * thirty-one.
-   */
-  const departmentMatches = (dept: DepartmentOption, query: string) =>
-    dept.name.toLowerCase().includes(query.toLowerCase());
-
   // Picking кафедра B as the additional one and THEN making B the main one
   // would leave the form holding a value the schema refuses, with the offending
   // option no longer in the list to clear by hand.
@@ -430,26 +412,13 @@ export function StaffFormFields({
               name="departmentId"
               control={control}
               render={({ field }) => (
-                <Combobox
-                  items={primaryOptions}
+                <DepartmentCombobox
+                  departments={primaryOptions}
                   value={field.value?.trim() ? field.value : ''}
                   onChange={field.onChange}
-                  filter={departmentMatches}
-                  displayValue={selectedPrimary?.name ?? ''}
                   disabled={isPending}
-                >
-                  <ComboboxInput placeholder="—" clearable />
-                  <ComboboxContent>
-                    <ComboboxEmpty>Кафедру не знайдено</ComboboxEmpty>
-                    <ComboboxList<DepartmentOption>>
-                      {(dept) => (
-                        <ComboboxItem key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </ComboboxItem>
-                      )}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
+                  clearable
+                />
               )}
             />
           </DepartmentField>
@@ -468,26 +437,13 @@ export function StaffFormFields({
                 name="partTimeDepartmentIds"
                 control={control}
                 render={({ field }) => (
-                  <Combobox
-                    items={additionalOptions}
+                  <DepartmentCombobox
+                    departments={additionalOptions}
                     value={field.value[0] ?? ''}
                     onChange={(next) => field.onChange(next ? [next] : [])}
-                    filter={departmentMatches}
-                    displayValue={selectedAdditional?.name ?? ''}
                     disabled={isPending}
-                  >
-                    <ComboboxInput placeholder="—" clearable />
-                    <ComboboxContent>
-                      <ComboboxEmpty>Кафедру не знайдено</ComboboxEmpty>
-                      <ComboboxList<DepartmentOption>>
-                        {(dept) => (
-                          <ComboboxItem key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </ComboboxItem>
-                        )}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
+                    clearable
+                  />
                 )}
               />
             </DepartmentField>

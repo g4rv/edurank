@@ -20,6 +20,7 @@ import { VerifyActivityButton } from '@/components/rating/verify-activity-button
 import { SubmissionPanel } from '@/components/rating/submission-panel';
 import { compareItemNumbers } from '@/lib/rating/achievement-rows';
 import { sumScores } from '@/lib/round';
+import { DepartmentCombobox } from '@/components/department-combobox';
 
 export interface ModerationRow {
   id: string;
@@ -361,19 +362,17 @@ function Filters({
           </SelectContent>
         </Select>
 
-        <Select value={department} onValueChange={setDepartment}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Кафедра" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Усі кафедри</SelectItem>
-            {departments.map((d) => (
-              <SelectItem key={d} value={d}>
-                {d}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* This list keys кафедри by NAME, not by id — it filters rows that
+            already carry the name — so each one is its own `id` here. */}
+        <div className="w-56">
+          <DepartmentCombobox
+            departments={departments.map((d) => ({ id: d, name: d }))}
+            value={department === 'all' ? '' : department}
+            onChange={(next) => setDepartment(next || 'all')}
+            allowAll={{ label: 'Усі кафедри' }}
+            placeholder="Кафедра"
+          />
+        </div>
 
         <Button
           variant={grouped ? 'secondary' : 'outline'}

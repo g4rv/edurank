@@ -6,6 +6,7 @@ import { listDepartments } from '@/lib/queries/list-departments';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { BulkInvite } from '@/components/admin/bulk-invite';
 import { DepartmentSelect } from '@/components/department-select';
+import { DomainFilter } from '@/components/admin/domain-filter';
 
 /**
  * «Запрошення» — everyone who still has no account, and one button to write to
@@ -40,16 +41,6 @@ export default async function InvitesPage({
   ]);
   const { people, domains } = invites;
 
-  // «no-email.invalid» is a placeholder, not a domain anybody would recognise,
-  // so it is named for what it means. The count rides along as the select's tag,
-  // amber for the undeliverable group — the project's «needs attention» hue, and
-  // here it is the one group an ADMIN must not send to.
-  const domainOptions = domains.map((d) => ({
-    id: d.domain,
-    name: d.undeliverable ? 'Без адреси' : d.domain,
-    tag: String(d.count),
-    tagTone: d.undeliverable ? ('warn' as const) : ('muted' as const),
-  }));
   const undeliverable = domains.find((d) => d.undeliverable);
 
   const kinds = [
@@ -123,21 +114,13 @@ export default async function InvitesPage({
         {/* Not every НПП has their corporate address on file, and a placeholder
             cannot receive anything — a bulk send to «Усі» fails once per person
             and says nothing about what to do. Picking the corporate domain sends
-            to exactly the people who are ready (owner, 2026-08-25).
-
-            `DepartmentSelect` is reused rather than copied: it is a
-            URL-param-driven picker with a tag column, and only its prop name
-            says «кафедра». */}
-        {domainOptions.length > 1 && (
-          <DepartmentSelect
-            departments={domainOptions}
+            to exactly the people who are ready (owner, 2026-08-25). */}
+        {domains.length > 1 && (
+          <DomainFilter
+            domains={domains}
             value={domain ?? ''}
             basePath="/admin/invites"
-            param="domain"
-            label="Домен пошти"
             extraParams={carry('domain')}
-            allowAll={{ label: 'Будь-яка пошта' }}
-            className="w-full sm:w-56"
           />
         )}
 

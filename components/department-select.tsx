@@ -3,45 +3,24 @@
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+  DepartmentCombobox,
+  type DepartmentComboboxOption,
+} from '@/components/department-combobox';
 
-/** Stands for «every кафедра». Not `''` — Radix reserves that for «no selection». */
-const ALL = '__all__';
-
-export interface DepartmentOption {
-  id: string;
-  name: string;
-  /**
-   * A short figure shown as a tag after the name — on /stakes, the кафедра's
-   * `Кст`. The faculty used to sit here and earned its width poorly: it repeats
-   * across every кафедра of one faculty and is already on the line below.
-   */
-  tag?: string | null;
-  /**
-   * Amber when the tag reports something still to be done — «без Кст» is the
-   * project's «pending / needs attention», the same hue as an unactivated
-   * account. Grey otherwise.
-   */
-  tagTone?: 'muted' | 'warn';
-}
+export type DepartmentOption = DepartmentComboboxOption;
 
 /**
  * Pick a кафедра, and go there.
  *
- * Replaces a row of one link per department. That worked while a person saw two
- * or three of them; an ADMIN sees every кафедра in the university, and sixteen
- * buttons wrapping over three lines pushed the actual table off the screen and
- * made finding one name a scan rather than a choice.
+ * The thin URL half of `DepartmentCombobox`: the picker itself lives there and
+ * is shared with the filters and the forms, so all six кафедра choosers in the
+ * app search the same way. This one only turns a choice into a navigation.
  *
- * The URL stays the source of truth — the choice is still a navigation, so it
- * is linkable, survives a refresh, and the server does the filtering. Only the
- * control changed.
+ * The URL stays the source of truth — the choice is linkable, survives a
+ * refresh, and the server does the filtering. It began as a row of one link per
+ * кафедра, became a `<Select>` when an ADMIN started seeing all thirty-one, and
+ * is now a combobox for the same reason the select replaced the links: at this
+ * length, finding a name is a scan rather than a choice.
  */
 export function DepartmentSelect({
   departments,
@@ -53,24 +32,13 @@ export function DepartmentSelect({
   className,
   allowAll,
 }: {
-  departments: DepartmentOption[];
+  departments: readonly DepartmentOption[];
   value: string;
   basePath: string;
   param?: string;
-  /** Screen-reader name for the trigger; the visible text is the department */
+  /** Screen-reader name for the field; the visible text is the кафедра */
   label?: string;
-  /**
-   * Adds an «Усі кафедри» entry that drops the param instead of setting it.
-   *
-   * Off by default: /stakes and /my-department/students act on exactly one
-   * кафедра, and «усі» there would be a screen nobody makes a decision from.
-   * /admin/invites is the opposite — writing to everybody at once is its whole
-   * purpose, so «усі» is the state it opens in.
-   *
-   * The sentinel exists because Radix reserves the empty string: an item with
-   * `value=""` is how it marks «nothing selected», so it cannot also mean «all».
-   */
-  allowAll?: { label: string; tag?: string | null };
+  allowAll?: { label: string };
   /**
    * Query params to carry across the switch. Without this, changing кафедра on
    * /stakes silently dropped `?tab=sandbox` and dumped ADMIN back on the real
@@ -83,55 +51,23 @@ export function DepartmentSelect({
   const [pending, startTransition] = useTransition();
 
   return (
-    <Select
-      value={value || (allowAll ? ALL : '')}
-      disabled={pending}
-      onValueChange={(next) => {
-        if (next === value) return;
-        const params = new URLSearchParams(extraParams);
-        if (next !== ALL) params.set(param, next);
-        const query = params.toString();
-        startTransition(() => {
-          router.push(query ? `${basePath}?${query}` : basePath);
-        });
-      }}
-    >
-      <SelectTrigger className={className ?? 'w-full sm:w-72'} aria-label={label}>
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        {allowAll && (
-          <SelectItem value={ALL}>
-            <span className="flex w-full items-center gap-2">
-              <span className="truncate">{allowAll.label}</span>
-              {allowAll.tag && (
-                <span className="ml-auto shrink-0 rounded bg-muted px-1.5 py-px text-xs text-muted-foreground tabular-nums">
-                  {allowAll.tag}
-                </span>
-              )}
-            </span>
-          </SelectItem>
-        )}
-        {departments.map((d) => (
-          <SelectItem key={d.id} value={d.id}>
-            <span className="flex w-full items-center gap-2">
-              <span className="truncate">{d.name}</span>
-              {d.tag && (
-                <span
-                  className={cn(
-                    'ml-auto shrink-0 rounded px-1.5 py-px text-xs tabular-nums',
-                    d.tagTone === 'warn'
-                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-500'
-                      : 'bg-muted text-muted-foreground'
-                  )}
-                >
-                  {d.tag}
-                </span>
-              )}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className={className ?? 'w-full sm:w-72'} aria-label={label}>
+      <DepartmentCombobox
+        departments={departments}
+        value={value}
+        allowAll={allowAll}
+        placeholder={label}
+        disabled={pending}
+        onChange={(next) => {
+          if (next === value) return;
+          const params = new URLSearchParams(extraParams);
+          if (next) params.set(param, next);
+          const query = params.toString();
+          startTransition(() => {
+            router.push(query ? `${basePath}?${query}` : basePath);
+          });
+        }}
+      />
+    </div>
   );
 }
