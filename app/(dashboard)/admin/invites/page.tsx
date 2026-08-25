@@ -43,7 +43,8 @@ export default async function InvitesPage({
   ]);
   const { people, domains } = invites;
 
-  const undeliverable = domains.find((d) => d.undeliverable);
+  // `count` is scoped to the invited tab, so it can be 0 — nothing to warn about
+  const undeliverable = domains.find((d) => d.undeliverable && d.count > 0);
 
   const kinds = [
     { value: '', label: 'Усі' },

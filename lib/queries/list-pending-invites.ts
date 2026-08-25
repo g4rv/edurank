@@ -73,9 +73,9 @@ export interface PendingInviteFilter {
 export interface PendingInvites {
   people: PendingInvite[];
   /**
-   * Every domain in the кафедра/kind/invited selection, counted BEFORE
-   * `filter.domain` is applied — otherwise choosing one domain would leave the
-   * picker holding only that domain and no way back to the others.
+   * Every domain in the кафедра/kind selection — the whole option list, so the
+   * picker never narrows itself out of existence and there is always a way back
+   * to the others. `count` is the people left after `invited`, and may be 0.
    */
   domains: InviteDomain[];
 }
@@ -122,7 +122,8 @@ export function inviteDomains(emails: readonly string[]): InviteDomain[] {
  *
  * `invited` narrows first and the domain counts are taken from what it leaves,
  * so «уже писали» + «uhsp.edu.ua: 12» is one sentence about one group. `domain`
- * is applied last, for the reason on `PendingInvites.domains`.
+ * is applied last, and neither filter may shrink the option list itself — see
+ * `PendingInvites.domains`.
  *
  * Pure and exported so both orderings are testable — there are ~300 rows in the
  * whole university, so neither belongs in the `where`.
@@ -136,10 +137,23 @@ export function narrowInvites(
       ? [...all]
       : all.filter((p) => (p.invitedAt !== null) === filter.invited);
 
+  // The option LIST comes from everybody, the counts from what `invited` left.
+  // Taking both from the narrowed set hid the picker whenever one tab happened
+  // to hold a single domain — and `DomainFilter` renders only above one domain,
+  // so an admin lost the filter and any way back to the others. The numbers
+  // still describe the group that would actually be written to.
+  const remaining = new Map(
+    inviteDomains(selected.map((p) => p.email)).map((d) => [d.domain, d.count])
+  );
+  const domains = inviteDomains(all.map((p) => p.email)).map((d) => ({
+    ...d,
+    count: remaining.get(d.domain) ?? 0,
+  }));
+
   const domain = filter.domain?.trim().toLowerCase();
   return {
     people: domain ? selected.filter((p) => emailDomain(p.email) === domain) : selected,
-    domains: inviteDomains(selected.map((p) => p.email)),
+    domains,
   };
 }
 

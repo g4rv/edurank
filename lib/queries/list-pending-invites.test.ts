@@ -113,9 +113,29 @@ describe('narrowInvites', () => {
   it('counts the domains of what «invited» left, not of everybody', () => {
     const { domains } = narrowInvites(all, { invited: false });
     expect(domains).toEqual([
-      { domain: 'gmail.com', count: 1, undeliverable: false },
       { domain: 'uhsp.edu.ua', count: 1, undeliverable: false },
+      { domain: 'gmail.com', count: 1, undeliverable: false },
     ]);
+  });
+
+  // `DomainFilter` renders only above one domain, so narrowing the option list
+  // to the tab took the whole email filter off the page — and with it any way
+  // back to the other domains.
+  it('keeps every domain in the list even when the tab holds none of them', () => {
+    const { domains } = narrowInvites(all, { invited: true });
+    expect(domains).toEqual([
+      { domain: 'uhsp.edu.ua', count: 1, undeliverable: false },
+      { domain: 'gmail.com', count: 0, undeliverable: false },
+    ]);
+  });
+
+  // The order comes from the whole selection, so the picker does not reshuffle
+  // itself under the cursor when somebody switches tab.
+  it('does not reorder the picker between tabs', () => {
+    const order = (invited?: boolean) =>
+      narrowInvites(all, { invited }).domains.map((d) => d.domain);
+    expect(order(true)).toEqual(order(undefined));
+    expect(order(false)).toEqual(order(undefined));
   });
 
   // Otherwise picking one domain would leave the picker holding only that
@@ -123,7 +143,7 @@ describe('narrowInvites', () => {
   it('still lists every domain after one of them is picked', () => {
     const { people, domains } = narrowInvites(all, { invited: false, domain: 'uhsp.edu.ua' });
     expect(people.map((p) => p.fullName)).toEqual(['Коваль']);
-    expect(domains.map((d) => d.domain)).toEqual(['gmail.com', 'uhsp.edu.ua']);
+    expect(domains.map((d) => d.domain)).toEqual(['uhsp.edu.ua', 'gmail.com']);
   });
 
   it('does not hand back the caller array to be mutated', () => {
