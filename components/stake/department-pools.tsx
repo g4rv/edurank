@@ -69,7 +69,7 @@ export function DepartmentPools({
             </th>
             <th className="w-36 px-3 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                Нерозподілено
+                Залишок
                 <StakeTermHint term="remaining" />
               </span>
             </th>
@@ -168,6 +168,21 @@ function PoolRow({
               aria-hidden
             />
           </span>
+          {/* Amber, not red: overspending is allowed and shown, never refused —
+              ladder rounding can put the формула's own proposal above `Кст`, so
+              this is «look at this row», not «something is broken».
+
+              A pill beside the name rather than a tooltip: the row-wide link
+              above covers this cell, so a `title` here would never surface. The
+              amount stays in «Залишок», which carries its own breakdown.
+
+              Outside the name span on purpose — inside it, the pill picked up
+              the row-hover underline. */}
+          {overspent && (
+            <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500">
+              Перевитрачено
+            </span>
+          )}
           <span className="block text-xs text-muted-foreground">{row.faculty}</span>
         </td>
 

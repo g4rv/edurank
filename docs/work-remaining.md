@@ -566,7 +566,8 @@ people, `Кст` 6.00, «не розподілено» 0.10.
 
 What remains is ladder dust of a few hundredths from snapping each person to
 0.05, never a deficit, and an overspend is shown rather than refused because the
-кафедри's own sheet permits it and asks for it in the протокол.
+кафедри's own sheet permits it. (It also asked for it in a протокол; there is
+no протокол — owner, 2026-08-25.)
 
 Decisions made while building, easy to undo by accident:
 

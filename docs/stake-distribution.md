@@ -70,7 +70,7 @@ So the order of operations is:
    not come out of `Кст` and does not compete with colleagues.
 
 **Overspending `Кст` is allowed** (2026-08-12, revising point 3). It is shown as
-an amber warning to carry into the протокол, not refused. Refusing it was a
+an amber warning, not refused. Refusing it was a
 deadlock rather than a stricter rule: a head may only ever RAISE a value above
 the formula, and ladder rounding can already put the proposal a few hundredths
 over the pool, so there was nothing they could legally do to the grid at all.
@@ -188,7 +188,7 @@ potential, not earned:
   Іваненко С. М.   Психологія, М, заочна, бюджет          +0.020
   ───────────────────────────────────────────────────────────────
   Можливе збільшення ставки                                +0.068
-  (після підтвердження завідувачем)
+  (після підтвердження адміністратором)
 ```
 
 The per-student figure comes from the formula's second term — but **what they
@@ -411,7 +411,7 @@ and they are enough:
 - **a value can only be raised above the formula, never lowered** — talking
   somebody down from what their rating earned is not a decision the положення
   gives the head. An overspend past `Кст` is allowed but warned about, and goes
-  into the протокол (2026-08-12);
+  and settled in conversation — there is no протокол (2026-08-12, 2026-08-25);
 - **the per-person min/max caps are ADMIN-only** — a head cannot cap a colleague
   down and themselves up;
 - **a декан cannot write the split** (2026-08-13). They oversee every кафедра of

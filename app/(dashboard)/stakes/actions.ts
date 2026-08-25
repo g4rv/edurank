@@ -278,8 +278,8 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   }
 
   // Overspending the pool is ALLOWED, and shown rather than refused — the
-  // university's own sheet does the same, turning «не розподілено» red beside
-  // «не забудьте врахувати у протоколі» (2026-08-12).
+  // university's own sheet does the same, turning «не розподілено» red
+  // (2026-08-12).
   //
   // Refusing was not a stricter version of that, it was a deadlock. A head may
   // only raise a value above the formula, never lower it, and the proposal can
@@ -288,7 +288,8 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   // all. Кафедра географії was in exactly that state: 2.10 proposed against a
   // pool of 2.00, unsaveable.
   //
-  // Where the number is settled is the протокол, not this input.
+  // Where the number is settled is a conversation, not this input. There is no
+  // протокол — that was the assumption until 2026-08-25 and it was wrong.
 
   // No обґрунтування. Додаток 2 prints the column and the положення describes
   // justifying a deviation, but the university says nobody will ever fill it in

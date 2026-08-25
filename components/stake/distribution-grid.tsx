@@ -38,6 +38,7 @@ import { StakeStepper } from '@/components/stake/stake-stepper';
 import { BonusCell } from '@/components/stake/bonus-cell';
 import { StatusCell } from '@/components/stake/status-cell';
 import { recommendedStake, statusValue } from '@/lib/stake/status-bonus';
+import { fundSplit } from '@/lib/stake/pool-totals';
 import {
   lowerBound,
   settleStake,
@@ -459,13 +460,16 @@ export function DistributionGrid({
   /**
    * Over the pool — allowed, and said out loud.
    *
-   * Not a блок: the sheet the кафедри already use permits it and asks for it to
-   * be written into the протокол, and refusing it here left a head with nothing
-   * they could do once «тільки збільшити» was in force.
+   * Not a блок: refusing it left a head with nothing they could do once «тільки
+   * збільшити» was in force.
+   *
+   * **There is no протокол** (owner, 2026-08-25). The sentence used to end «не
+   * забудьте врахувати у протоколі», which told the head to file something that
+   * does not exist. It states the fact and stops.
    */
   const overspendWarning =
     overspent && remaining !== null
-      ? `Перевищення на ${formatStake(-remaining)} понад обидва фонди — не забудьте врахувати у протоколі`
+      ? `Перевищення на ${formatStake(-remaining)} понад обидва фонди`
       : null;
 
   /**
@@ -511,7 +515,7 @@ export function DistributionGrid({
         bonusPool={view.bonusPoolHundredths}
         overspent={overspent}
         // Attached to the number it is about rather than shouted in a band of
-        // its own. An overspend is allowed — it is a fact for the протокол, not
+        // its own. An overspend is allowed — it is shown, not
         // a mistake to fix before saving — and a full-width amber row for it
         // pushed the table another line down every time somebody typed.
         remainingNote={overspendWarning}
@@ -841,6 +845,17 @@ function limitsFormData(
  * and it makes «залишок» on the first card mean «ще не роздано за рейтингом»,
  * which is what it is for. If the two ever need to be spent independently, the
  * grid needs a second editable column per person, not a different sum here.
+ *
+ * **The bonus fund can never be overdrawn** (owner, 2026-08-25). The bonus fund
+ * COMPENSATES the main one, never the other way round: it covers what the main
+ * fund could not, and once it is empty there is nothing more it can cover. An
+ * excess past both funds therefore lands on the MAIN card, which is where the
+ * spending actually happened.
+ *
+ * The bug this replaced: `Кст` 1,10, bonus fund 0,00, 1,30 handed out, and the
+ * cards read «Бонусний фонд 0,00 · залишок −0,20» — a fund that holds nothing
+ * reported as overspent, while the main fund it was covering for showed a tidy
+ * 0,00. The head could not act on either number.
  */
 function Totals({
   kst,
@@ -868,10 +883,15 @@ function Totals({
 }) {
   const base = kst ?? 0;
   const bonus = bonusPool ?? 0;
-  const spentFromBase = Math.min(distributed, base);
-  const spentFromBonus = Math.max(0, distributed - base);
-  const leftBase = base - spentFromBase;
-  const leftBonus = bonus - spentFromBonus;
+  // Shared with «Усі кафедри» so the two screens cannot drift — this same
+  // arithmetic was written out by hand in both and was wrong in both.
+  const split = fundSplit(base, bonus, distributed);
+  // `over` lands on the main card: this page has no «Перевитрачено» box to put
+  // it in, and the main fund is where the spending was.
+  const leftBase = base - split.fromBase - split.over;
+  const leftBonus = bonus - split.fromBonus;
+  // Still `base + bonus - distributed`, so this card and the «Залишок» column on
+  // «Усі кафедри» keep reporting the same number for the same кафедра.
   const leftTotal = leftBase + leftBonus;
 
   return (
@@ -889,7 +909,6 @@ function Totals({
           term="bonusPool"
           value={bonusPool === null ? '—' : formatStake(bonusPool)}
           note={bonusPool === null ? 'не задано' : `залишок ${formatStake(leftBonus)}`}
-          noteTone={bonusPool !== null && leftBonus < 0 ? 'bad' : undefined}
         />
         {/* The addition is kept visible under the sum. «7,50» alone is a number
             somebody has to trust; «6,25 + 1,25» is one they can check. */}
@@ -1300,19 +1319,12 @@ function Row({
       />
 
       <td className="border border-border px-2 py-2 text-right tabular-nums">
+        {/* `row.clampedTo` is deliberately NOT drawn here (owner, 2026-08-25).
+            A bare ↑ or ↓ beside the number said nothing a head could act on —
+            the Мін/Макс that caused it are two columns to the left and already
+            on screen. The flag itself stays on the formula result, which is
+            tested and read elsewhere. */}
         {formatStake(row.formulaHundredths)}
-        {row.clampedTo && (
-          <span
-            className="ml-1 text-xs text-muted-foreground"
-            title={
-              row.clampedTo === 'max'
-                ? 'Обмежено максимальною ставкою'
-                : 'Підняте до мінімальної ставки'
-            }
-          >
-            {row.clampedTo === 'max' ? '↓' : '↑'}
-          </span>
-        )}
       </td>
 
       <td className="border border-border px-2 py-2">

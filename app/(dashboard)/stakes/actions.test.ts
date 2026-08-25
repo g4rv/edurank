@@ -262,7 +262,7 @@ describe('saveDistribution — the pool ceiling', () => {
     mockStaff.mockResolvedValue(staff);
   }
 
-  // Overspending is the кафедра's decision to make and the протокол's to
+  // Overspending is the кафедра's decision to make and a conversation's to
   // record, so the save takes it. It used to be refused, which deadlocked with
   // «тільки збільшити»: nothing could be raised and nothing could be lowered.
   it('ACCEPTS one that overspends by a rounding hundredth', async () => {
@@ -270,7 +270,7 @@ describe('saveDistribution — the pool ceiling', () => {
     expect(await saveDistribution(payload([100, 100, 105]))).toEqual({ success: true });
   });
 
-  it('accepts a large overspend too — the протокол settles it, not the form', async () => {
+  it('accepts a large overspend too — people settle it, not the form', async () => {
     uncapped();
     // 4.50 against a 3.00 pool
     expect(await saveDistribution(payload([150, 150, 150]))).toEqual({ success: true });

@@ -4,10 +4,11 @@ import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stake-settings';
 import { scopeOf } from '@/lib/queries/scope';
-import { formatStake } from '@/lib/stake/units';
+import { poolTotals } from '@/lib/stake/pool-totals';
 import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { DepartmentPools } from '@/components/stake/department-pools';
+import { PoolSummary } from '@/components/stake/pool-summary';
 import { StatusBonusSettings } from '@/components/stake/status-bonus-settings';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 
@@ -22,9 +23,15 @@ import type { AdminPosition } from '@/lib/generated/prisma/client';
  * different person's work.
  *
  * ADMIN sets both funds and the position values here; the year's coefficient
- * moved to /admin/stakes/norms, beside the numbers it multiplies. A
- * завідувач or декан reaching this page sees their own кафедри, read-only, and
- * clicks through to the one they actually work on.
+ * moved to /admin/stakes/norms, beside the numbers it multiplies. A декан
+ * reaching this page sees every кафедра of their faculty, read-only, and clicks
+ * through to the one they want.
+ *
+ * **A завідувач never sees it at all** (owner, 2026-08-25). `scopeOf` resolves
+ * them to the single кафедра they head, so the list was a one-row table whose
+ * only function was the link inside it — and «Моя кафедра» already carries that
+ * same link. They are sent straight to the grid instead; nothing is lost,
+ * because /stakes/[id] prints Кст and the bonus fund at the top.
  */
 export default async function StakesPage() {
   const session = await auth();
@@ -33,6 +40,12 @@ export default async function StakesPage() {
   const isAdmin = session.user.role === 'ADMIN';
   const scope = isAdmin ? [] : await scopeOf(session.user.staffId);
   if (!isAdmin && scope.length === 0) redirect('/profile');
+  // One кафедра is not a list. Done here rather than by pointing the sidebar
+  // link somewhere else, so that typing the URL behaves the same way — and the
+  // nav has no кафедра id to build such a link from anyway. A декан whose
+  // faculty holds a single кафедра lands on the same read-only grid, which is
+  // the right screen for them too.
+  if (!isAdmin && scope.length === 1) redirect(`/stakes/${scope[0]}`);
 
   const template = await getActiveTemplate();
   if (!template) {
@@ -60,9 +73,11 @@ export default async function StakesPage() {
     PRICED_POSITIONS.map((p) => [p, statuses.get(p)])
   ) as Record<AdminPosition, number | undefined>;
 
-  const totalKst = rows.reduce((sum, r) => sum + (r.kstHundredths ?? 0), 0);
-  const totalBonus = rows.reduce((sum, r) => sum + (r.bonusPoolHundredths ?? 0), 0);
-  const unset = rows.filter((r) => r.kstHundredths === null).length;
+  // Both funds, what has been handed out of each, and what is left. The table
+  // below is ten rows tall against thirty-one кафедри, so anything only a row
+  // says sits under the fold with nothing on screen to announce it — which is
+  // why the overspend is counted up here as well as badged on its row.
+  const totals = poolTotals(rows);
 
   return (
     <AnimatedPage className="space-y-5">
@@ -84,26 +99,7 @@ export default async function StakesPage() {
         )}
       </div>
 
-      {/* The two totals the проректор is actually accountable for, and how many
-          кафедри they have not funded yet — the one number that says whether
-          this page still has work on it. */}
-      <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-xl border bg-card px-5 py-3 text-sm">
-        <span>
-          <span className="text-muted-foreground">Кафедр: </span>
-          <span className="font-medium tabular-nums">{rows.length}</span>
-        </span>
-        <span>
-          <span className="text-muted-foreground">Основні фонди разом: </span>
-          <span className="font-medium tabular-nums">{formatStake(totalKst)}</span>
-        </span>
-        <span>
-          <span className="text-muted-foreground">Бонусні фонди разом: </span>
-          <span className="font-medium tabular-nums">{formatStake(totalBonus)}</span>
-        </span>
-        {unset > 0 && (
-          <span className="text-amber-700 dark:text-amber-500">без фонду: {unset}</span>
-        )}
-      </div>
+      <PoolSummary totals={totals} />
 
       <DepartmentPools rows={rows} year={year} canEdit={isAdmin} />
 
