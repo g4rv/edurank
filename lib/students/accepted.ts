@@ -4,7 +4,6 @@ import {
   specialityCodeSortKey,
   subjectOf,
 } from '@/lib/specialities/codes';
-import { SPECIALITY_DEPARTMENTS } from '@/lib/specialities/departments';
 import type { Funding, StudentDegree, StudyForm } from '@/lib/stake/norms';
 import accepted2026 from './accepted-2026.json';
 
@@ -102,7 +101,9 @@ export interface RegisterSpeciality {
  * one норматив, and an НПП who picked the wrong факультет found their student
  * missing from a list that looked complete.
  */
-export function registerOptions(): RegisterSpeciality[] {
+export function registerOptions(
+  ownerNames: ReadonlyMap<string, readonly string[]>
+): RegisterSpeciality[] {
   // спеціальність → повна назва спеціальності → форма|фінансування
   const bySpeciality = new Map<string, Map<string, Set<string>>>();
 
@@ -127,7 +128,7 @@ export function registerOptions(): RegisterSpeciality[] {
           name: subjectOf(speciality),
           speciality,
           code: SPECIALITY_CODES[speciality]?.code ?? null,
-          departments: SPECIALITY_DEPARTMENTS[speciality] ?? [],
+          departments: ownerNames.get(speciality) ?? [],
           variants: [...variants].sort().map((key) => {
             const [form, funding] = key.split('|');
             return { form: form as StudyForm, funding: funding as Funding };

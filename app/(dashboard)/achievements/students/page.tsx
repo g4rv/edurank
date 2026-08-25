@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listMyClaims } from '@/lib/queries/list-student-claims';
+import { getSpecialityOwnerNames } from '@/lib/queries/get-speciality-departments';
 import { registerOptions } from '@/lib/students/accepted';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { MyClaims } from '@/components/stake/my-claims';
@@ -45,7 +46,7 @@ export default async function MyStudentsPage() {
 
   const { claims, potential, confirmed } = await listMyClaims(staffId, template.year);
   // The picker's tree, not the register itself — a few KB against ~130.
-  const register = registerOptions();
+  const register = registerOptions(await getSpecialityOwnerNames());
 
   return (
     <AnimatedPage className="space-y-6">
