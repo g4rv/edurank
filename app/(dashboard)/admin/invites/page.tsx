@@ -21,19 +21,36 @@ import { DepartmentSelect } from '@/components/department-select';
 export default async function InvitesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ department?: string; kind?: string }>;
+  searchParams: Promise<{ department?: string; kind?: string; domain?: string }>;
 }) {
   const session = await auth();
   if (!session) redirect('/login');
   if (session.user.role !== 'ADMIN') redirect('/');
 
-  const { department, kind } = await searchParams;
+  const { department, kind, domain } = await searchParams;
   const isNpp = kind === 'npp' ? true : kind === 'staff' ? false : undefined;
 
-  const [people, departments] = await Promise.all([
-    listPendingInvites({ departmentId: department || undefined, isNpp }),
+  const [invites, departments] = await Promise.all([
+    listPendingInvites({
+      departmentId: department || undefined,
+      isNpp,
+      domain: domain || undefined,
+    }),
     listDepartments(),
   ]);
+  const { people, domains } = invites;
+
+  // «no-email.invalid» is a placeholder, not a domain anybody would recognise,
+  // so it is named for what it means. The count rides along as the select's tag,
+  // amber for the undeliverable group — the project's «needs attention» hue, and
+  // here it is the one group an ADMIN must not send to.
+  const domainOptions = domains.map((d) => ({
+    id: d.domain,
+    name: d.undeliverable ? 'Без адреси' : d.domain,
+    tag: String(d.count),
+    tagTone: d.undeliverable ? ('warn' as const) : ('muted' as const),
+  }));
+  const undeliverable = domains.find((d) => d.undeliverable);
 
   const kinds = [
     { value: '', label: 'Усі' },
@@ -41,14 +58,25 @@ export default async function InvitesPage({
     { value: 'staff', label: 'Адміністративні' },
   ];
 
-  function href(next: { department?: string; kind?: string }) {
+  function href(next: { department?: string; kind?: string; domain?: string }) {
     const params = new URLSearchParams();
     const dep = next.department ?? department ?? '';
     const k = next.kind ?? kind ?? '';
+    const d = next.domain ?? domain ?? '';
     if (dep) params.set('department', dep);
     if (k) params.set('kind', k);
+    if (d) params.set('domain', d);
     const query = params.toString();
     return query ? `/admin/invites?${query}` : '/admin/invites';
+  }
+
+  /** The params a select must carry so switching one filter keeps the others */
+  function carry(except: 'department' | 'domain') {
+    const params: Record<string, string> = {};
+    if (kind) params.kind = kind;
+    if (except !== 'department' && department) params.department = department;
+    if (except !== 'domain' && domain) params.domain = domain;
+    return Object.keys(params).length > 0 ? params : undefined;
   }
 
   return (
@@ -87,10 +115,31 @@ export default async function InvitesPage({
           departments={departments}
           value={department ?? ''}
           basePath="/admin/invites"
-          extraParams={kind ? { kind } : undefined}
+          extraParams={carry('department')}
           allowAll={{ label: 'Усі кафедри' }}
           className="w-full sm:w-80"
         />
+
+        {/* Not every НПП has their corporate address on file, and a placeholder
+            cannot receive anything — a bulk send to «Усі» fails once per person
+            and says nothing about what to do. Picking the corporate domain sends
+            to exactly the people who are ready (owner, 2026-08-25).
+
+            `DepartmentSelect` is reused rather than copied: it is a
+            URL-param-driven picker with a tag column, and only its prop name
+            says «кафедра». */}
+        {domainOptions.length > 1 && (
+          <DepartmentSelect
+            departments={domainOptions}
+            value={domain ?? ''}
+            basePath="/admin/invites"
+            param="domain"
+            label="Домен пошти"
+            extraParams={carry('domain')}
+            allowAll={{ label: 'Будь-яка пошта' }}
+            className="w-full sm:w-56"
+          />
+        )}
 
         {/* The count belongs beside the filter that produced it — «Усі кафедри»
             and «21 особа» together are the sentence somebody reads before
@@ -99,6 +148,15 @@ export default async function InvitesPage({
           {people.length === 0 ? 'нікого' : `${people.length} без облікового запису`}
         </span>
       </div>
+
+      {/* Said before the button, not after 33 failures. Only while those people
+          are actually in the current selection. */}
+      {undeliverable && !domain && (
+        <p className="text-sm text-amber-700 dark:text-amber-500">
+          {undeliverable.count} без робочої адреси — цим людям лист не піде. Виберіть домен пошти
+          вище, щоб надіслати лише тим, у кого адресу вже вказано.
+        </p>
+      )}
 
       <BulkInvite people={people} />
 
