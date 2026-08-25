@@ -6,7 +6,12 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/activation', () => ({
   INVITE_TOKEN_HOURS: 30 * 24,
   RESET_TOKEN_HOURS: 2,
-  issueActivationToken: vi.fn().mockResolvedValue('raw-token'),
+  mintActivationToken: vi.fn(() => ({
+    token: 'raw-token',
+    tokenHash: 'raw-token-hash',
+    expiresAt: new Date('2026-09-24T00:00:00Z'),
+  })),
+  storeActivationToken: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('@/lib/mail/mailer', () => ({ sendMail: vi.fn().mockResolvedValue(undefined) }));
 

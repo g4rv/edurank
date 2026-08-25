@@ -14,7 +14,8 @@ import { hasNoEmail } from '@/app/(dashboard)/admin/invites/shared';
  * person (`staffId @unique`) and issuing a new one replaces it, so this is
  * «when the last invite went out», which is exactly what somebody deciding
  * whether to send again needs to see. Invites write no audit-log entry — the
- * token row is the trace.
+ * token row is the trace, and `issueAndEmailLink` writes it only once the mail
+ * server has accepted the message, so a date here means a letter really left.
  */
 
 export interface PendingInvite {
@@ -60,8 +61,8 @@ export interface PendingInviteFilter {
    * refreshing it stops the loop halfway (owner, 2026-08-25). Nothing is lost —
    * every letter that went out left an ActivationToken — but resending to the
    * whole list would write to the people who already hold a link AND replace
-   * that link, because `issueActivationToken` upserts. So the rest have to be
-   * sendable on their own.
+   * that link, because storing a token upserts. So the rest have to be sendable
+   * on their own.
    *
    * This asks «did a letter go out», never «did they activate»: an invitation
    * may sit unopened for a month, and finishing an interrupted run must not

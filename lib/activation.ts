@@ -20,19 +20,51 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-// Creates (or replaces) the staff member's activation token.
-// Returns the raw token — it is only ever known to the emailed link.
-export async function issueActivationToken(staffId: string, hours: number): Promise<string> {
-  const token = randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+/**
+ * A token that has been generated but not yet written down.
+ *
+ * Minting and storing are two steps on purpose, so that the link can be built
+ * and mailed BEFORE anything is saved — see `storeActivationToken`.
+ */
+export interface MintedToken {
+  /** The raw token. Only ever known to the emailed link — never stored. */
+  token: string;
+  tokenHash: string;
+  expiresAt: Date;
+}
 
+/** Generate a token and its hash. Writes nothing. */
+export function mintActivationToken(hours: number): MintedToken {
+  const token = randomBytes(32).toString('hex');
+  return {
+    token,
+    tokenHash: hashToken(token),
+    expiresAt: new Date(Date.now() + hours * 60 * 60 * 1000),
+  };
+}
+
+/**
+ * Write a minted token down, replacing whatever the person had.
+ *
+ * Call this ONLY once the mail server has accepted the message. The row is the
+ * app's sole record that a letter went out — /admin/invites shows its
+ * `createdAt` as «Останнє запрошення» and filters a bulk send on it — so
+ * storing it first counted people as written to whose mail had in fact been
+ * refused, and a later «не надсилалося» send skipped them for good (owner,
+ * 2026-08-25). It also threw away a link that was still working in exchange
+ * for one that was never delivered.
+ *
+ * The remaining gap is the opposite and much smaller: if this write fails
+ * after the mail is away, the person holds a link that resolves to nothing and
+ * has to be invited again. Better a wasted letter than a person nobody can
+ * see was missed.
+ */
+export async function storeActivationToken(staffId: string, minted: MintedToken): Promise<void> {
   await db.activationToken.upsert({
     where: { staffId },
-    update: { tokenHash: hashToken(token), expiresAt, createdAt: new Date() },
-    create: { staffId, tokenHash: hashToken(token), expiresAt },
+    update: { tokenHash: minted.tokenHash, expiresAt: minted.expiresAt, createdAt: new Date() },
+    create: { staffId, tokenHash: minted.tokenHash, expiresAt: minted.expiresAt },
   });
-
-  return token;
 }
 
 // Resolves a raw token from an activation link to its staff row.
