@@ -408,3 +408,104 @@ export async function setStatusBonus(
   revalidateStakes();
   return { success: true, valueHundredths };
 }
+
+/**
+ * Which кафедра graduates one спеціальність — `SpecialityDepartment`.
+ *
+ * Display only: the pair only colours chips on /stakes/[id] and
+ * /my-department/students (`lib/specialities/origin.ts`), and decides nothing
+ * about a ставка, a bonus or a claim. This is what makes the 2026 reorganisation
+ * survivable without a developer — every other link in the app used to be a
+ * name match against a hardcoded constant.
+ */
+export async function linkSpecialityDepartment(
+  _prev: StakeActionState,
+  formData: FormData
+): Promise<StakeActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const specialityId = String(formData.get('specialityId') ?? '');
+  const departmentId = String(formData.get('departmentId') ?? '');
+  if (!specialityId || !departmentId) return { error: 'Невірні дані' };
+
+  const [speciality, department] = await Promise.all([
+    db.speciality.findUnique({ where: { id: specialityId }, select: { name: true } }),
+    db.department.findUnique({ where: { id: departmentId }, select: { name: true } }),
+  ]);
+  if (!speciality || !department) return { error: 'Запис не знайдено' };
+
+  try {
+    await db.specialityDepartment.create({ data: { specialityId, departmentId } });
+    await db.auditLog.create({
+      data: {
+        action: 'CREATE',
+        entity: 'SpecialityDepartment',
+        entityId: `${specialityId}:${departmentId}`,
+        label: `${speciality.name} → ${department.name}`,
+        userId: session.user.id,
+        changes: diffChanges({}, { department: department.name }),
+      },
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'stakes.linkSpeciality', {
+        userId: session.user.id,
+        entityId: specialityId,
+      }),
+    };
+  }
+
+  revalidateStakes();
+  return { success: true };
+}
+
+/** The mirror of `linkSpecialityDepartment` — removes one кафедра from one спеціальність */
+export async function unlinkSpecialityDepartment(
+  _prev: StakeActionState,
+  formData: FormData
+): Promise<StakeActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  const specialityId = String(formData.get('specialityId') ?? '');
+  const departmentId = String(formData.get('departmentId') ?? '');
+  if (!specialityId || !departmentId) return { error: 'Невірні дані' };
+
+  const [speciality, department] = await Promise.all([
+    db.speciality.findUnique({ where: { id: specialityId }, select: { name: true } }),
+    db.department.findUnique({ where: { id: departmentId }, select: { name: true } }),
+  ]);
+  if (!speciality || !department) return { error: 'Запис не знайдено' };
+
+  try {
+    await db.specialityDepartment.delete({
+      where: { specialityId_departmentId: { specialityId, departmentId } },
+    });
+    await db.auditLog.create({
+      data: {
+        action: 'DELETE',
+        entity: 'SpecialityDepartment',
+        entityId: `${specialityId}:${departmentId}`,
+        label: `${speciality.name} → ${department.name}`,
+        userId: session.user.id,
+        changes: diffChanges({ department: department.name }, {}),
+      },
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'stakes.unlinkSpeciality',
+        {
+          userId: session.user.id,
+          entityId: specialityId,
+        }
+      ),
+    };
+  }
+
+  revalidateStakes();
+  return { success: true };
+}
