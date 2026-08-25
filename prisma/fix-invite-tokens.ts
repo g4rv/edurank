@@ -12,14 +12,12 @@ import { ON_ROSTER } from '../lib/queries/roster';
 // the app's only record that an invitation went out — /admin/invites shows its
 // createdAt as «Останнє запрошення» and the «не надсилалося» filter reads it —
 // so every message the mail server refused still left the person marked as
-// sent. In the run of 2026-08-25 the daily quota ran out part-way and the rest
-// of the batch was counted as invited with nothing delivered.
+// sent. In the run of 2026-08-25 the daily quota ran out after 200 messages and
+// the rest of the batch was counted as invited with nothing delivered.
 //
-// WHAT IT NEEDS. The addresses the mail server actually accepted, exported
-// from its own log — that is the only truthful list, because the app never
-// learned which of its sends succeeded. Any text file will do: every address
-// on every line is read, so a Mailjet CSV, a column pasted into a text file
-// and a plain list all work.
+// WHAT IT NEEDS. The addresses the mail server actually reached, exported from
+// its own log — that is the only truthful list, because the app never learned
+// which of its sends succeeded.
 //
 // WHAT IT WRITES. It DELETES the activation token of everyone who has one
 // issued inside the window, still has no password, and is not in that file.
@@ -45,11 +43,48 @@ import { ON_ROSTER } from '../lib/queries/roster';
 const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
 
-/** Every address anywhere in the file, lower-cased. Format-agnostic on purpose. */
+/** Columns that mean the message did NOT reach the person, whatever `sent` says */
+const FAILURE_COLUMNS = ['hard_bounce', 'soft_bounce', 'blocked', 'spam'];
+
+/**
+ * The addresses a letter actually reached, lower-cased.
+ *
+ * Mailjet's statistics export is a CSV with an `email` column and a `sent`
+ * count beside the ways a message can fail. Being IN that file is not the
+ * question — it lists every contact, including ones nothing was ever sent to
+ * and ones that bounced. So when those columns are present they are read: a row
+ * counts only with `sent` above zero and every failure column at zero.
+ *
+ * A bounce is deliberately «not delivered». That person gets another letter
+ * they may not need, which is the harmless direction — the other way round
+ * leaves somebody nobody can see was missed.
+ *
+ * A file without that header falls back to «every address on every line», so a
+ * column pasted into a text file still works.
+ */
 function readDelivered(path: string): Set<string> {
-  const text = readFileSync(path, 'utf8');
-  const found = text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
-  return new Set(found.map((a) => a.toLowerCase()));
+  const text = readFileSync(path, 'utf8').replace(/^﻿/, '');
+  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
+  const cells = (line: string) => line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+
+  const header = cells(lines[0] ?? '');
+  const emailAt = header.indexOf('email');
+  const sentAt = header.indexOf('sent');
+  if (emailAt === -1 || sentAt === -1) {
+    const found = text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
+    return new Set(found.map((a) => a.toLowerCase()));
+  }
+
+  const failureAt = FAILURE_COLUMNS.map((c) => header.indexOf(c)).filter((i) => i !== -1);
+  const delivered = new Set<string>();
+  for (const line of lines.slice(1)) {
+    const row = cells(line);
+    const email = (row[emailAt] ?? '').toLowerCase();
+    const sent = Number(row[sentAt] || 0);
+    const failed = failureAt.some((i) => Number(row[i] || 0) > 0);
+    if (email && sent > 0 && !failed) delivered.add(email);
+  }
+  return delivered;
 }
 
 /** `--since=…`, or midnight this morning — the run this is repairing was today */
@@ -83,7 +118,7 @@ async function main() {
 
   const delivered = readDelivered(file);
   if (delivered.size === 0) {
-    console.error(`У файлі ${file} не знайдено жодної адреси. Нічого не зроблено.`);
+    console.error(`У файлі ${file} не знайдено жодної доставленої адреси. Нічого не зроблено.`);
     process.exitCode = 1;
     return;
   }
@@ -104,14 +139,13 @@ async function main() {
       lastName: true,
       firstName: true,
       patronymic: true,
-      activationToken: { select: { createdAt: true } },
     },
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
   });
 
   const missed = marked.filter((p) => !delivered.has(p.email.trim().toLowerCase()));
 
-  console.log(`Доставлених адрес у файлі: ${delivered.size}`);
+  console.log(`Доставлено за журналом пошти: ${delivered.size}`);
   console.log(`Позначено як «надіслано» від ${since.toLocaleString('uk-UA')}: ${marked.length}`);
 
   if (missed.length === 0) {
