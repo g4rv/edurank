@@ -5,7 +5,8 @@ import { getKharakterystykaMany } from './get-kharakterystyka';
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import { DEFAULT_LIMITS, PART_TIME_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { minimumKstHundredths } from '@/lib/stake/units';
-import { isKnownDepartment } from '@/lib/specialities/departments';
+import { getSpecialityOwners } from './get-speciality-departments';
+import { originOf, type SpecialityOwners } from '@/lib/specialities/origin';
 import { EMPTY_BONUS, bonusForStaff, type StaffBonus } from './list-student-claims';
 import { ratingYearFor } from '@/lib/stake/rating-year';
 
@@ -100,14 +101,21 @@ export interface StakeDistributionView {
   /** Null until somebody has saved this кафедра's distribution */
   filledAt: Date | null;
   filledBy: string | null;
-  /**
-   * Is this кафедра in `lib/specialities/departments.ts`?
-   *
-   * False turns the бонус chips gray instead of amber and puts a line under the
-   * table saying why. The demo кафедри are invented, and amber there would
-   * assert that everyone recruits for other кафедри — a claim we cannot support.
-   */
-  knownDepartment: boolean;
+}
+
+/**
+ * Decides `origin` on every speciality chip in one bonus, against the кафедра
+ * being viewed. `owners` is `SpecialityOwners` — a спеціальність NAME to
+ * department-id map — loaded once per call, not per row.
+ */
+function withOrigin(bonus: StaffBonus, owners: SpecialityOwners, departmentId: string): StaffBonus {
+  return {
+    ...bonus,
+    bySpeciality: bonus.bySpeciality.map((entry) => ({
+      ...entry,
+      origin: originOf(owners, entry.speciality, departmentId),
+    })),
+  };
 }
 
 export async function getStakeDistribution(
@@ -147,7 +155,7 @@ export async function getStakeDistribution(
     },
   });
 
-  const [stake, distribution, documents, bonuses] = await Promise.all([
+  const [stake, distribution, documents, bonuses, owners] = await Promise.all([
     db.departmentStake.findUnique({
       where: { departmentId_year: { departmentId, year } },
       select: { kstHundredths: true, bonusPoolHundredths: true },
@@ -177,6 +185,7 @@ export async function getStakeDistribution(
       staff.map((s) => s.id),
       year
     ),
+    getSpecialityOwners(),
   ]);
 
   const kstHundredths = stake?.kstHundredths ?? null;
@@ -242,7 +251,11 @@ export async function getStakeDistribution(
         // the screen opens on a defensible split rather than on a column of
         // blanks somebody has to fill in from nothing.
         proposedHundredths: allocation?.proposedHundredths ?? share.hundredths,
-        bonus: bonuses.get(s.id) ?? EMPTY_BONUS,
+        // The decision is per-chip but the кафедра being viewed is the same for
+        // every row, so `owners` and `departmentId` are read once above and
+        // applied here rather than inside `bonusForStaff`, which has no
+        // department to decide against.
+        bonus: withOrigin(bonuses.get(s.id) ?? EMPTY_BONUS, owners, departmentId),
       };
     })
     // Сумісники last as a block, then the order the formula spreads in — which
@@ -275,6 +288,5 @@ export async function getStakeDistribution(
     proposedTotalHundredths: rows.reduce((sum, r) => sum + r.proposedHundredths, 0),
     filledAt: distribution?.filledAt ?? null,
     filledBy: filledBy ? `${filledBy.lastName} ${filledBy.firstName} ${filledBy.patronymic}` : null,
-    knownDepartment: isKnownDepartment(department.name),
   };
 }
