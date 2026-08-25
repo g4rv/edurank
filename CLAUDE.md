@@ -237,7 +237,7 @@ app/
     stakes/                       ← ADMIN/проректор: Кст + бонусний фонд across all кафедри
       [id]/                       ← the завідувач's grid for ONE кафедра (додаток 2)
     my-department/                ← завідувач/декан: their кафедра
-      students/                   ← the head rules on their staff's StudentClaims
+      students/                   ← ADMIN rules on StudentClaims; a head/декан reads
     actions.ts                    ← sign-out
     layout.tsx                    ← dashboard shell (sidebar), redirects anonymous to /login
   api/                            ← NOT covered by proxy.ts — every route authenticates itself
@@ -366,8 +366,14 @@ Rules that are easy to get wrong:
   submitted year against `activeYear()` and refuses a mismatch (`closedYearProblem`).
 - **A student claim is the app's first and only approval queue**, deliberately: a
   rating entry affects its own author, but a claim takes a bonus from a colleague who
-  may have recruited the same person. Duplicates are shown to the завідувач as
-  evidence — there is no automatic winner and no «assign to».
+  may have recruited the same person. Duplicates are shown as evidence — there is no
+  automatic winner and no «assign to».
+- **Only ADMIN confirms or rejects a claim** (2026-08-25, retracting «admin/head can
+  approve» of 2026-08-17). A confirmed claim pays a bonus out of a fund the завідувач
+  then spends, so the head is not the one confirming it. A head and a декан still READ
+  `/my-department/students` — the duplicate list is context for their own ставка
+  grid — and `canDecide` there is `isAdmin` alone. Headship is not consulted: the page
+  and the action no longer call `headOf`.
 - **`StakeStatusBonus` is information, never money.** The grid shows what somebody's
   positions and recruited students add up to; the head still types the ставка.
 - **A person's Мін/Макс is per кафедра, not per person.** `StaffStakeLimits` carries

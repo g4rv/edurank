@@ -12,7 +12,7 @@ import { MyClaims } from '@/components/stake/my-claims';
  *
  * They see every claim with what it would add and the total, including claims
  * a colleague has secretly made too. They are NOT told about conflicts: the
- * duplicate is shown only to the завідувач, who is the one who can judge it.
+ * duplicate is shown only on the review screen, where ADMIN rules on it.
  * So the total says «можливе», not «earned».
  */
 export default async function MyStudentsPage() {

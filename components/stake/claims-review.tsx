@@ -130,7 +130,7 @@ export function ClaimsReview({
           показує збіг,{' '}
           {canDecide
             ? 'а рішення ухвалюєте ви, поговоривши з обома.'
-            : 'а рішення ухвалює завідувач кафедри, поговоривши з обома.'}
+            : 'а рішення ухвалює адміністратор, поговоривши з обома.'}
         </p>
       )}
 
@@ -334,8 +334,9 @@ function ClaimRow({ claim, canDecide }: { claim: ReviewClaim; canDecide: boolean
           </div>
         )}
 
-        {/* A декан sees the state and no controls. The action refuses them
-            anyway; this only stops offering a button that would fail. */}
+        {/* Everyone but ADMIN sees the state and no controls — a завідувач as
+            well as a декан since 2026-08-25. The action refuses them anyway;
+            this only stops offering a button that would fail. */}
         {claim.status === 'PENDING' && !canDecide && (
           <span className="text-xs text-muted-foreground">На розгляді</span>
         )}

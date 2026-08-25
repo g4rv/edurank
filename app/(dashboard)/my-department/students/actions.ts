@@ -6,48 +6,36 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
-import { headOf } from '@/lib/queries/scope';
 import { claimDecisionSchema } from '@/validations/student-claim';
 import type { Role } from '@/lib/generated/prisma/client';
 
-// The завідувач rules on the students their staff claim.
+// ADMIN rules on the students staff claim.
 //
 // **This is not arbitration.** There is no in-system winner when two people
-// claim one student: the head SEES the duplicates, who was first, and how many
-// of each person's claims are contested — and then they talk to that person.
-// The resolution happens off-screen (decided 2026-08-07), which is why the only
-// controls here are confirm and reject, one claim at a time, and why there is
-// no «assign to» and no verdict field.
+// claim one student: the screen SHOWS the duplicates, who was first, and how
+// many of each person's claims are contested — and then somebody talks to those
+// people. The resolution happens off-screen (decided 2026-08-07), which is why
+// the only controls here are confirm and reject, one claim at a time, and why
+// there is no «assign to» and no verdict field.
 
 export type DecisionState = { error: string } | { success: true } | null;
 
 /**
- * May this person rule on that claim?
+ * May this person rule on that claim? **ADMIN, and nobody else** (owner,
+ * 2026-08-25).
  *
- * The claim's AUTHOR must be on a кафедра this person **heads** — not the
- * student's programme, which may belong to anybody. A recruiter is answerable to
- * their own завідувач wherever they sent the student.
+ * This retracts the rule of 2026-08-17, «admin/head can approve (dean can only
+ * inspect)». A завідувач could confirm their own кафедра's claims, and a claim
+ * pays a bonus out of a fund the same завідувач then spends — the person who
+ * benefits from a confirmation should not be the person making it. A декан was
+ * already refused; now a head is too.
  *
- * **`headOf`, not `scopeOf` (2026-08-17).** A декан oversees every кафедра of
- * their faculty and may READ all of it, but ruling on a claim is the завідувач's
- * decision — confirmed by the owner: «admin/head can approve (dean can only
- * inspect)». This now matches `canDistribute` on the ставка grid, which drew the
- * same line on 2026-08-13; the two sides of one process had been giving a декан
- * different powers.
+ * Headship therefore plays no part here any more, and `headOf` is not consulted
+ * at all. A head still READS the queue — see the page, which keeps them at
+ * `canDecide: false` exactly as it has always kept a декан.
  */
-async function canDecide(
-  user: { role: Role; staffId?: string | null },
-  claimAuthorId: string
-): Promise<boolean> {
-  if (user.role === 'ADMIN') return true;
-  const scope = await headOf(user.staffId);
-  if (scope.length === 0) return false;
-
-  const author = await db.staff.findUnique({
-    where: { id: claimAuthorId },
-    select: { departmentId: true },
-  });
-  return !!author?.departmentId && scope.includes(author.departmentId);
+function canDecide(user: { role: Role }): boolean {
+  return user.role === 'ADMIN';
 }
 
 export async function decideStudentClaim(
@@ -76,7 +64,7 @@ export async function decideStudentClaim(
   });
   if (!claim) return { error: 'Запис не знайдено' };
 
-  if (!(await canDecide(session.user, claim.staffId))) return { error: 'Недостатньо прав' };
+  if (!canDecide(session.user)) return { error: 'Недостатньо прав' };
 
   // Narrowed on the discriminant itself: a boolean derived from it does not
   // carry the narrowing, and `reason` only exists on the rejecting branch.

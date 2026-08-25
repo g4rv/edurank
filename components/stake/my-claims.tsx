@@ -48,9 +48,9 @@ const STATUS = {
  *
  * The person is **never told about a conflict**. If a colleague has claimed the
  * same student, nothing here says so and nothing is blocked — the duplicate is
- * shown only to the завідувач, who is the one who can judge it. Blocking or
- * warning would hand the ставка to whoever typed first rather than to whoever
- * did the work.
+ * shown on the review screen, to the ADMIN who rules on it and to the head who
+ * reads it. Blocking or warning would hand the ставка to whoever typed first
+ * rather than to whoever did the work.
  *
  * That is why the total is labelled as POSSIBLE. It is what these students
  * would be worth if every claim is confirmed, and some of them may not be.
@@ -77,7 +77,7 @@ export function MyClaims({
       <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 rounded-xl border bg-card px-5 py-4">
         {/* «Можливе збільшення ставки» until 2026-08-17 — a label that named an
             increase nobody had granted. These two say what they actually are:
-            everything filed, and the part the завідувач has agreed is real. */}
+            everything filed, and the part that has been agreed is real. */}
         <div>
           <p className="text-2xl font-semibold tabular-nums">{formatBonus(potential)}</p>
           <p className="text-xs text-muted-foreground">Усього за заявками</p>
@@ -86,7 +86,7 @@ export function MyClaims({
           <p className="text-2xl font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
             {formatBonus(confirmed)}
           </p>
-          <p className="text-xs text-muted-foreground">Підтверджено завідувачем</p>
+          <p className="text-xs text-muted-foreground">Підтверджено</p>
         </div>
         {/* What this page may and may not promise (2026-08-17). Recruitment is
             settled in a SECOND phase, months after the main розподіл: the
@@ -97,7 +97,7 @@ export function MyClaims({
             виділені кафедрі ставки» until then, which promised money the grid
             never paid. */}
         <p className="max-w-md text-xs text-muted-foreground">
-          Спершу завідувач кафедри підтверджує здобувача. Підтверджені здобувачі враховуються на
+          Спершу адміністратор підтверджує здобувача. Підтверджені здобувачі враховуються на
           <strong className="font-medium"> 2 етапі розподілу ставок</strong>, який відбувається
           пізніше — рішення про надбавку ухвалює завідувач разом з адміністрацією.
         </p>

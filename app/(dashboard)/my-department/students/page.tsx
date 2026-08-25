@@ -5,22 +5,27 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listClaimsForReview } from '@/lib/queries/list-student-claims';
-import { headOf, scopeOf } from '@/lib/queries/scope';
+import { scopeOf } from '@/lib/queries/scope';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { ClaimsReview } from '@/components/stake/claims-review';
 import { DepartmentSelect } from '@/components/department-select';
 
 /**
- * The завідувач rules on the students their staff claim.
+ * ADMIN rules on the students staff claim; everybody else reads.
  *
  * ADMIN picks a кафедра from the list, the same pattern as /division-data; a
  * head sees theirs. A декан sees every кафедра of their faculty, one section
  * each.
  *
- * **A декан reads and does not decide (2026-08-17).** `scopeOf` says which
- * кафедри they may look at, `headOf` which they may rule on — the same split the
- * ставка grid has used since 2026-08-13. The controls are hidden here and the
- * action refuses independently; a hidden button is a courtesy, never the check.
+ * **Only ADMIN decides (owner, 2026-08-25)**, retracting «admin/head can
+ * approve» of 2026-08-17. A confirmed claim pays a bonus out of a fund the
+ * завідувач then spends, so the head is no longer the one confirming it.
+ *
+ * A head keeps the page read-only, which is what a декан has always had:
+ * `scopeOf` still says which кафедри they may look at, and the duplicate list is
+ * the reason to keep looking — it is context for their own ставка grid. The
+ * controls are hidden here and the action refuses independently; a hidden button
+ * is a courtesy, never the check.
  */
 export default async function DepartmentStudentsPage({
   searchParams,
@@ -32,10 +37,9 @@ export default async function DepartmentStudentsPage({
   if (!session) redirect('/login');
 
   const isAdmin = session.user.role === 'ADMIN';
-  const [scope, led] = await Promise.all([
-    scopeOf(session.user.staffId),
-    headOf(session.user.staffId),
-  ]);
+  // `headOf` is deliberately not consulted: since 2026-08-25 headship grants
+  // nothing on this screen, so the only question left is who may LOOK.
+  const scope = await scopeOf(session.user.staffId);
   if (!isAdmin && scope.length === 0) redirect('/profile');
 
   const template = await getActiveTemplate();
@@ -64,9 +68,7 @@ export default async function DepartmentStudentsPage({
 
   const claims = await listClaimsForReview(selected.id, template.year);
   const canSwitch = departments.length > 1;
-  // Per кафедра, not per person: a декан heads one of their faculty's кафедри
-  // often enough, and they decide there and read everywhere else.
-  const canDecide = isAdmin || led.includes(selected.id);
+  const canDecide = isAdmin;
 
   return (
     <AnimatedPage className="space-y-6">
@@ -95,7 +97,7 @@ export default async function DepartmentStudentsPage({
             {template.year} рік ·{' '}
             {canDecide
               ? 'підтверджені заявки враховуються на 2 етапі розподілу ставок'
-              : 'лише перегляд — рішення ухвалює завідувач кафедри'}
+              : 'лише перегляд — рішення ухвалює адміністратор'}
           </p>
         </div>
 
