@@ -315,7 +315,12 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
           // that only moved somebody's additional кафедра produced an audit row
           // with an EMPTY «Зміни» column: you could see that something changed
           // and never what (2026-08-24).
-          partTimeDepartments: { select: { department: { select: { name: true } } } },
+          partTimeDepartments: {
+            // The id as well as the name: the name is for the audit diff, the id
+            // decides whether a placement kept its kind — see the allocation
+            // cleanup below.
+            select: { departmentId: true, department: { select: { name: true } } },
+          },
         },
       });
 
@@ -386,14 +391,30 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
         // the screen). Deliberate that it is silent — it is in the audit log,
         // and «off the кафедра» and «paid by the кафедра» must not disagree.
         //
-        // Scoped to the кафедри they are no longer on: their primary one and
-        // any remaining сумісництво keep whatever their heads decided.
+        // Scoped to the кафедри whose placement is unchanged — same кафедра AND
+        // same kind. Leaving one and changing status on it are the same event
+        // as far as the number is concerned: the bounds that produced it are
+        // gone either way.
+        //
+        // Keying on «left the кафедра» alone was not enough (owner, 2026-08-26,
+        // seen on screen). Somebody full-time on a кафедра was moved to
+        // сумісник on the SAME кафедра; it stayed in `keeps`, and the 0,50 its
+        // head had agreed survived under a 0,25 сумісник ceiling — «Ставка»
+        // and «Макс» disagreeing on one row, which is the disagreement this
+        // whole cleanup exists to prevent.
+        const primaryBefore = existing?.departmentId ?? null;
+        const primaryAfter =
+          updateData.departmentId === undefined
+            ? primaryBefore
+            : ((updateData.departmentId as string | null) ?? null);
+        const partTimeBefore = new Set(
+          (existing?.partTimeDepartments ?? []).map((p) => p.departmentId)
+        );
+
         const keeps = [
-          ...(updateData.departmentId === undefined
-            ? [existing?.departmentId]
-            : [updateData.departmentId as string | null]),
-          ...partTimeDepartmentIds,
-        ].filter((d): d is string => typeof d === 'string' && d.length > 0);
+          ...(primaryAfter !== null && primaryAfter === primaryBefore ? [primaryAfter] : []),
+          ...partTimeDepartmentIds.filter((d) => partTimeBefore.has(d)),
+        ].filter((d) => d.length > 0);
 
         const year = await activeYear();
         if (year !== null) {

@@ -788,3 +788,93 @@ describe('updateStaff — сумісництво is a grantable field', () => {
     expect(tx.staffDepartment.createMany).toHaveBeenCalled();
   });
 });
+
+/**
+ * Moving somebody between full-time and сумісник on the SAME кафедра.
+ *
+ * The 2026-08-24 rule dropped a кафедра's allocation when the person left it,
+ * so «off the кафедра» and «paid by the кафедра» could not disagree. It keyed
+ * on leaving, and a status change is not leaving — the кафедра stayed in
+ * `keeps`, and a 0,50 agreed while somebody was full staff survived their move
+ * to a 0,25 сумісник ceiling (owner, 2026-08-26, seen on screen).
+ *
+ * The basis for the number is gone either way, so the number goes with it and
+ * the head types a new one under the new bounds.
+ */
+describe('updateStaff — a placement that changes kind loses its allocation', () => {
+  function admin(existing: { departmentId: string | null; partTime: string[] }) {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'a1' } });
+    mockStaffLookups();
+    const tx = mockTx();
+    tx.staff.findUnique.mockResolvedValue({
+      lastName: 'Єрічева',
+      firstName: 'Тамара',
+      patronymic: 'Юріївна',
+      departmentId: existing.departmentId,
+      partTimeDepartments: existing.partTime.map((departmentId) => ({
+        departmentId,
+        department: { name: departmentId },
+      })),
+    });
+    return tx;
+  }
+
+  /** Which кафедри the delete was told to spare. */
+  function kept(tx: ReturnType<typeof mockTx>): string[] {
+    const call = tx.stakeAllocation.deleteMany.mock.calls[0][0];
+    return [...call.where.distribution.departmentId.notIn].sort();
+  }
+
+  it('drops it when full-time becomes сумісник on the same кафедра', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: [] });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: null,
+      partTimeDepartmentIds: ['dept-1'],
+    });
+
+    expect(kept(tx)).toEqual([]);
+  });
+
+  it('drops it when сумісник becomes full-time on the same кафедра', async () => {
+    const tx = admin({ departmentId: null, partTime: ['dept-1'] });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-1',
+      partTimeDepartmentIds: [],
+    });
+
+    expect(kept(tx)).toEqual([]);
+  });
+
+  it('spares a placement whose kind did not change', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: ['dept-2'] });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-1',
+      partTimeDepartmentIds: ['dept-2'],
+    });
+
+    expect(kept(tx)).toEqual(['dept-1', 'dept-2']);
+  });
+
+  // The two rules meeting: one кафедра swaps kind, the other is simply left.
+  it('spares only the untouched one when both change', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: ['dept-2'] });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-2',
+      partTimeDepartmentIds: ['dept-3'],
+    });
+
+    expect(kept(tx)).toEqual([]);
+  });
+});
