@@ -60,13 +60,27 @@ export function WorkplacesField({
   // in the form values: `toStorage` drops a кафедра-less row on purpose, so it
   // would vanish the moment it was added.
   const [addedRow, setAddedRow] = useState(false);
+  // THE ORDER ON SCREEN, which the storage cannot hold: it is a column plus an
+  // array, so `toWorkplaces` has to reconstruct an order and puts the full-time
+  // post first. Correct on open, wrong the instant somebody uses the switch —
+  // turning a row full-time made it jump to the top under the cursor.
+  const [order, setOrder] = useState<string[]>(() =>
+    toWorkplaces({ departmentId, partTimeDepartmentIds }).map((w) => w.departmentId)
+  );
   // Refusals this control makes itself — two full-time posts, one кафедра
   // twice. Separate from `error`, which comes from the schema on submit.
   const [problem, setProblem] = useState<string | null>(null);
 
   const saved = toWorkplaces({ departmentId, partTimeDepartmentIds });
+  const byId = new Map(saved.map((w) => [w.departmentId, w]));
+  // Whatever this control has seen, in the order it showed it; then anything
+  // that arrived from elsewhere — a form reset, a кафедра set on another screen.
+  const ordered: Workplace[] = [
+    ...order.map((id) => byId.get(id)).filter((w): w is Workplace => w !== undefined),
+    ...saved.filter((w) => !order.includes(w.departmentId)),
+  ];
   const rows: Workplace[] =
-    saved.length > 0 ? [...saved] : [{ departmentId: '', isPartTime: false }];
+    ordered.length > 0 ? [...ordered] : [{ departmentId: '', isPartTime: false }];
   const hasFullTime = rows.some((r) => r.departmentId !== '' && !r.isPartTime);
   if (addedRow && rows.length < 2) rows.push({ departmentId: '', isPartTime: hasFullTime });
 
@@ -76,6 +90,10 @@ export function WorkplacesField({
     // A refused change is not applied — the row stays as it was and says why,
     // rather than being silently rewritten into something legal.
     if (refusal) return;
+
+    // Remember the positions as they are on screen, before `toStorage` throws
+    // the order away.
+    setOrder(next.map((r) => r.departmentId).filter((id) => id !== ''));
 
     const storage = toStorage(next);
     onChange({
