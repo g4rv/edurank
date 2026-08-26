@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import {
   Controller,
   useWatch,
@@ -13,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { TelInput } from '@/components/ui/tel-input';
 import { FormField } from '@/components/ui/form-field';
 import { OrcidInput } from '@/components/ui/orcid-input';
-import { DepartmentCombobox } from '@/components/department-combobox';
+import { WorkplacesField } from '@/components/staff/workplaces-field';
 import { FieldGroup } from '@/components/ui/field';
 import {
   Select,
@@ -28,7 +27,6 @@ import type { StaffDetail } from '@/lib/queries/get-staff';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
 import type { StakePart } from '@/lib/queries/get-stake-breakdown';
-import { formatStake } from '@/lib/stake/units';
 
 // The staff create and edit forms render exactly the same fields; only their
 // defaults, submit handler and framing differ. Those fields live here so a
@@ -211,102 +209,6 @@ interface StaffFormFieldsProps {
   canEditType: boolean;
 }
 
-/**
- * What one кафедра allocated this person, under that кафедра's own select.
- *
- * Declared at module level, not inside `StaffFormFields`: a component created
- * during render is a new type on every render, so React remounts it and it
- * loses any state it holds. ESLint's `react-hooks/static-components` catches
- * this, and it caught it here.
- *
- * `breakdown === null` means a NEW profile — nothing to show, because the
- * typed «Ставка» field is doing the job instead.
- */
-function AllocatedStake({
-  departmentId,
-  breakdown,
-}: {
-  departmentId: string | undefined;
-  breakdown: StakePart[] | null;
-}) {
-  // Only the CREATE form has no ставка at all — there is no person yet.
-  if (breakdown === null) return null;
-
-  // **The slot stays even when it is empty** (owner, 2026-08-24). It used to
-  // vanish until a кафедра was chosen, so «Додаткова кафедра» sat full width
-  // while «Основна» was short, and choosing one made the field jump narrower
-  // under the cursor. Reserving the space costs nothing and stops the row
-  // resizing as somebody uses it.
-  const part = departmentId?.trim()
-    ? breakdown.find((p) => p.departmentId === departmentId)
-    : undefined;
-  return (
-    <p className="w-28 shrink-0 pt-2 text-sm whitespace-nowrap">
-      <span className="text-muted-foreground">Ставка: </span>
-      {part ? (
-        <span className="font-medium">{formatStake(part.hundredths)}</span>
-      ) : (
-        // Not «0,00» — a кафедра nobody has spread yet is not a кафедра paying
-        // nothing, and only its завідувач can change that.
-        <span
-          className="text-muted-foreground"
-          title="Завідувач ще не розподілив ставки цієї кафедри"
-        >
-          —
-        </span>
-      )}
-    </p>
-  );
-}
-
-/**
- * One кафедра row: the picker, the ставка that кафедра pays, and the факультет
- * underneath as context.
- *
- * The факультет used to be a prefix inside the control — «Факультет природничої
- * освіти — Кафедра здоров'я…» — which is longer than the field and cut the
- * кафедра off mid-word, so the one thing somebody needs to read was the one
- * thing they could not. It is context, not identity: it belongs under the
- * field, quiet, where it answers «which факультет is that?» without competing
- * (owner's sketch, 2026-08-24).
- *
- * Module level, not nested in the form: a component created during render is a
- * new type each time, so React remounts it and it loses its state.
- */
-function DepartmentField({
-  label,
-  error,
-  selected,
-  breakdown,
-  children,
-}: {
-  label: string;
-  /** Structural, like `FormField` itself — an array field's error is not a plain FieldError */
-  error?: { message?: string };
-  selected: DepartmentOption | undefined;
-  breakdown: StakePart[] | null;
-  children: React.ReactNode;
-}) {
-  return (
-    <FormField label={label} error={error}>
-      <div className="flex items-start gap-4">
-        <div className="min-w-0 flex-1">
-          {children}
-          {selected?.faculty?.name && (
-            <p
-              className="mt-1 truncate text-xs text-muted-foreground"
-              title={selected.faculty.name}
-            >
-              {selected.faculty.name}
-            </p>
-          )}
-        </div>
-        <AllocatedStake departmentId={selected?.id} breakdown={breakdown} />
-      </div>
-    </FormField>
-  );
-}
-
 export function StaffFormFields({
   register,
   control,
@@ -322,28 +224,11 @@ export function StaffFormFields({
   numbered = false,
   canEditType,
 }: StaffFormFieldsProps) {
-  // Each кафедра field drops whatever the other one holds, so the same кафедра
-  // is never offered twice and cannot be chosen in both (owner, 2026-08-24).
-  // Filtering only one way let somebody pick B as additional, then B as main,
-  // and have the additional silently cleared out from under them.
+  // The two columns «Місця роботи» is a view of. `WorkplacesField` owns the
+  // rules that used to live here — one кафедра cannot appear on two rows, and
+  // it drops taken options from the other row's list itself.
   const primaryDepartmentId = useWatch({ control, name: 'departmentId' });
   const partTimeIds = useWatch({ control, name: 'partTimeDepartmentIds' });
-  const additionalDepartmentId = partTimeIds?.[0] ?? '';
-
-  const primaryOptions = departments.filter((dept) => dept.id !== additionalDepartmentId);
-  const additionalOptions = departments.filter((dept) => dept.id !== primaryDepartmentId);
-
-  const selectedPrimary = departments.find((d) => d.id === primaryDepartmentId);
-  const selectedAdditional = departments.find((d) => d.id === additionalDepartmentId);
-
-  // Picking кафедра B as the additional one and THEN making B the main one
-  // would leave the form holding a value the schema refuses, with the offending
-  // option no longer in the list to clear by hand.
-  useEffect(() => {
-    if (primaryDepartmentId && partTimeIds?.includes(primaryDepartmentId)) {
-      setValue('partTimeDepartmentIds', [], { shouldDirty: true });
-    }
-  }, [primaryDepartmentId, partTimeIds, setValue]);
 
   // Numbers skip sections that are not rendered, so they always read 01, 02, 03…
   let sectionNumber = 0;
@@ -407,58 +292,29 @@ export function StaffFormFields({
 
       <SectionCard title="Місця роботи" step={step()}>
         <FieldGroup className="space-y-5">
-          {/* One кафедра per ROW, not two across (owner's sketch, 2026-08-24).
-              Side by side, the факультет prefix ate the field and the selected
-              кафедра was cut off mid-word. The name alone now fills the control,
-              the факультет sits under it as context, and the ставка that кафедра
-              pays sits beside it — which is the question somebody opening this
-              form is usually answering. */}
-          <DepartmentField
-            label="Основна кафедра"
-            error={errors.departmentId}
-            selected={selectedPrimary}
-            breakdown={stakeBreakdown}
-          >
-            <Controller
-              name="departmentId"
-              control={control}
-              render={({ field }) => (
-                <DepartmentCombobox
-                  departments={primaryOptions}
-                  value={field.value?.trim() ? field.value : ''}
-                  onChange={field.onChange}
-                  disabled={isPending}
-                  clearable
-                />
-              )}
-            />
-          </DepartmentField>
+          {/* One row per WORKPLACE (owner's sketch, 2026-08-26). «Основна» and
+              «Додаткова» were two controls for one fact and could not express
+              what the university needed: сумісництво is a part-time POST, so a
+              person whose main job is elsewhere holds one on two кафедри and a
+              full-time post on neither. Rows of the same shape can say that.
 
-          {/* Shown to whoever may write it — the server checks the same grant,
-              so an editor without it would otherwise fill in a choice that is
-              dropped without a word. */}
-          {canEditPartTime && (
-            <DepartmentField
-              label="Додаткова кафедра"
-              error={errors.partTimeDepartmentIds}
-              selected={selectedAdditional}
-              breakdown={stakeBreakdown}
-            >
-              <Controller
-                name="partTimeDepartmentIds"
-                control={control}
-                render={({ field }) => (
-                  <DepartmentCombobox
-                    departments={additionalOptions}
-                    value={field.value[0] ?? ''}
-                    onChange={(next) => field.onChange(next ? [next] : [])}
-                    disabled={isPending}
-                    clearable
-                  />
-                )}
-              />
-            </DepartmentField>
-          )}
+              `lib/staff/workplaces.ts` converts between this list and the two
+              columns it still lives in. */}
+          <WorkplacesField
+            departments={departments}
+            breakdown={stakeBreakdown}
+            departmentId={primaryDepartmentId ?? ''}
+            partTimeDepartmentIds={partTimeIds ?? []}
+            canEditPartTime={canEditPartTime}
+            disabled={isPending}
+            error={errors.departmentId ?? errors.partTimeDepartmentIds}
+            onChange={(next) => {
+              setValue('departmentId', next.departmentId, { shouldDirty: true });
+              setValue('partTimeDepartmentIds', next.partTimeDepartmentIds, {
+                shouldDirty: true,
+              });
+            }}
+          />
 
           {/* ADMIN only: a person's відділ decides which permissions their
               EDITOR role would carry, so the server takes it from nobody else.
