@@ -64,6 +64,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Ананченко Ксенія Сергіївна",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (географія)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Андрєєв Тарас Павлович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Професійна освіта (цифрові технології)",
@@ -75,6 +83,14 @@
     "name": "Андріанова Діана Ігорівна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Андріян Олег Сергійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -104,12 +120,36 @@
     "funding": "STATE"
   },
   {
+    "name": "Антонюк Влада Вікторівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Антонюк Влада Вікторівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Соціальна робота",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Антонюк Єлизавета Григорівна",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Середня освіта (українська мова і література)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Апаткін Дмитро Максимович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Артем`єв Юрій Олексійович",
@@ -136,9 +176,33 @@
     "funding": "STATE"
   },
   {
+    "name": "Асилгареєв Богдан Тахірович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Атамась Артем Сергійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Аштаменко Вадим Васильович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (географія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Аштема Поліна Дмитрівна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Комп'ютерні науки",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -150,6 +214,14 @@
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Бабич Даніела Михайлівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Багно Ілона Олегівна",
@@ -192,6 +264,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Баланович Йолана Сергіївна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Середня освіта (музичне мистецтво)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Баланович Назар Сергійович",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Середня освіта (музичне мистецтво)",
@@ -211,6 +291,14 @@
     "name": "Бандрівський Олег Ростиславович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Політологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Бар`єв Петро Миколайович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -240,11 +328,27 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Барук Віталій Васильович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Батва Вікторія Вікторівна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Психологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Батовкін Євгеній Ігорович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (трудове навчання і технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -264,11 +368,27 @@
     "funding": "STATE"
   },
   {
+    "name": "Бездітко Ярослав Вікторович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Бендюк Ярослав Олегович",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Середня освіта (українська мова і література)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Бенца Станіслав Васильович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -288,6 +408,30 @@
     "funding": "STATE"
   },
   {
+    "name": "Березанець Валерій Григорович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Березін Вячеслав Георгієвич",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Березюк Богдан Олександрович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Інформаційна, бібліотечна та архівна справа",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Березюк Вероніка Олександрівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Дошкільна освіта",
@@ -296,12 +440,28 @@
     "funding": "STATE"
   },
   {
+    "name": "Бистревський Ілля Володимирович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Бишовець Віталіна Сергіївна",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (географія)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Бишовець Віталіна Сергіївна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Біда Денис Олександрович",
@@ -336,11 +496,27 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Білодуб Віталій Володимирович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Білоус Андрій Віталійович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Професійна освіта (цифрові технології)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Білоус Валентин Васильович",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (українська мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -360,11 +536,35 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Бір Юрій Леонідович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Бланго Микита Колумбович",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Фінанси, банківська справа та страхування",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Блиндюк Олександр Володимирович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (математика)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Блощинський Павло Віталійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (трудове навчання і технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -376,11 +576,35 @@
     "funding": "STATE"
   },
   {
+    "name": "Бова Анастасія Денисівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Бовкун Денис Ігорович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Професійна освіта (транспорт)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Богатир Вікторія Русланівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Богуш Аліна Сергіївна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -432,9 +656,33 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Бойчура Іоанна Володимирівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Менеджмент",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Бокоч Ніколь Михайлівна",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Бокоч Ніколь Михайлівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Болілий Олександр Олександрович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -461,6 +709,22 @@
     "speciality": "Середня освіта (історія)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Бондаренко Віолетта Андріївна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Економіка",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Бондаренко Вячеслав Вікторович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -504,6 +768,22 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Борисенко Денис Володимирович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Борисов Владислав Ігорович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Борисова Валерія Олександрівна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Психологія",
@@ -528,6 +808,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Боярин Данило Олександрович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Брачун Людмила Анатоліївна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Початкова освіта",
@@ -542,6 +830,14 @@
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Бржестовський Ігор Валентинович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Брицун Марина Ігорівна",
@@ -579,6 +875,14 @@
     "name": "Бубісь Анна Юріївна",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Економіка",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Будайчик Ілля Іванович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -640,6 +944,30 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Бутович Олександр Дмитрович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (географія)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Буток Олександр Олександрович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Бухало Ілля Святославович",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Ваврик Серафім Сергійович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (математика)",
@@ -651,6 +979,14 @@
     "name": "Вакуленко Даніїл Анатолійович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Політологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Вакуленко Олег Юрійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -670,6 +1006,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Вареник Дмитро Романович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Васеленков Денис Олексійович",
@@ -704,6 +1048,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Васько Владислава Олександрівна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Журналістика",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Васянович Дмитро Вікторович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (трудове навчання і технології)",
@@ -723,6 +1075,14 @@
     "name": "Вдовиченко Павло Олексійович",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Величко Єлизавета Дмитрівна",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (географія)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -760,11 +1120,43 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Вергун Максим Андрійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Винник Ігор Ігорович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Вільгоцький Вадим Олегович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (трудове навчання і технології)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Вінтонів Антоніна Іванівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (іноземна мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Вірник Нікіта Дмитрович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -776,11 +1168,35 @@
     "funding": "STATE"
   },
   {
+    "name": "Вітряченко Назар Юрійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Влад Богдан Юрійович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Журналістика",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Владіміров Артем Васильович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Комп'ютерні науки",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Водолажський Юрій Юрійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -800,12 +1216,52 @@
     "funding": "STATE"
   },
   {
+    "name": "Волос Альвіна Олександрівна",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (природничі науки)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Волошин Руслан Олександрович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Волошко Євгеній Олександрович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Волощенко Євгеній Володимирович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Воробей Андрій Миколайович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Воробйов Кирило Андрійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Ворона Михайло Іванович",
@@ -821,6 +1277,14 @@
     "speciality": "Професійна освіта (транспорт)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Вошкулат Назар Євгенійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -856,6 +1320,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Гамза Олександр Олександрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Гандзюк Владислав Миколайович",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Психологія",
@@ -880,6 +1352,22 @@
     "funding": "STATE"
   },
   {
+    "name": "Герасимюк Вікторія Володимирівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (іноземна мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Герман Денис Ігорович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Герман Олександр Сергійович",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Середня освіта (захист України)",
@@ -891,6 +1379,14 @@
     "name": "Гибало Аделіна Олександрівна",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Глусь Тетяна Юріївна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -910,6 +1406,30 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Гнесь Вадим Андрійович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Гнидюк Максим Антонович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Гнідін Олексій Миколайович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Гоголь Максим Євгенійович",
@@ -944,6 +1464,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Головченко Максим Сергійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Голуб Дмитро Сергійович",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Облік і оподаткування",
@@ -960,9 +1488,25 @@
     "funding": "STATE"
   },
   {
+    "name": "Голубенко Юлія Михайлівна",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (трудове навчання і технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Голубка Ярослава Валеріївна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Менеджмент",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Голубка Ярослава Валеріївна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -992,11 +1536,27 @@
     "funding": "STATE"
   },
   {
+    "name": "Гопаца Микола Петрович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Гопкало Андрій Миколайович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Комп'ютерні науки",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Горб Володимир Вікторович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -1030,6 +1590,14 @@
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Горденко Тетяна Олегівна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Гордієнко Оксана Володимирівна",
@@ -1120,9 +1688,33 @@
     "funding": "STATE"
   },
   {
+    "name": "Гринаш Тарас Тарасович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Гриневич Володимир Володимирович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (інформатика)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Гринішин Сергій Володимирович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Грицай Владислав Віталійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -1192,9 +1784,25 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Гуменюк Андрій Сергійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (математика)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Гуменюк Олександр Олександрович",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Гундарева Аліна Денисівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Дошкільна освіта",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -1214,6 +1822,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Гуцол Євгеній Віталійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Давидов Дмитро Володимирович",
@@ -1240,9 +1856,25 @@
     "funding": "STATE"
   },
   {
+    "name": "Даневич Олександр Миколайович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (географія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Данчук Єлизавета Ігорівна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Девель Вікторія Олександрівна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Політологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -1288,12 +1920,28 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Демченко Олександр Костянтинович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Інформаційна, бібліотечна та архівна справа",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Денісов Костянтин Сергійович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Професійна освіта (транспорт)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Деордієв Дмитро Валерійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Деркач Дмитро Олегович",
@@ -1440,6 +2088,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Довгоброд Дмитро Олександрович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Довгопят Денис Олександрович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Середня освіта (фізична культура)",
@@ -1448,9 +2104,25 @@
     "funding": "STATE"
   },
   {
+    "name": "Докучаєв Денис Васильович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Долженко Володимир Сергійович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Політологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Должницький Олександр Вікторович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (трудове навчання і технології)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -1504,6 +2176,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Дрозд Тетяна Михайлівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Дубас Артем Сергійович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (географія)",
@@ -1520,6 +2200,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Дудинський Олександр Вікторович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Дудка Станіслав Сергійович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (біологія та здоров’я людини)",
@@ -1533,6 +2221,14 @@
     "speciality": "Менеджмент",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Дяченко Олександр Валерійович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -1584,12 +2280,44 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Єрьомін Дмитро Олександрович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Комп'ютерні науки",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Жариков Кирил Євгенович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Жданов Андрій Андрійович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (природничі науки)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Железняк Олександр Олександрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (трудове навчання і технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Жигун Сергій Миколайович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Жила Надія Михайлівна",
@@ -1688,6 +2416,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Заєць Олександр Васильович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Зайцева Катерина Сергіївна",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Облік і оподаткування",
@@ -1701,6 +2437,14 @@
     "speciality": "Облік і оподаткування",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Заплішній Роман Вікторович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Політологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -1760,6 +2504,22 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Зівер Олег Олексійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Зінченко Софія Іванівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Зінюк Світлана Вікторівна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Початкова освіта",
@@ -1774,6 +2534,22 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Зубець Іван Володимирович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Зубик Олександр Іванович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Зубцова Катерина Вікторівна",
@@ -1800,6 +2576,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Іванков Богдан Володимирович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Іванова Олександра Дмитрівна",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Фізична культура і спорт",
@@ -1824,12 +2608,28 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Івасюк Ірина Сергіївна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Івасюк Софія Петрівна",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Середня освіта (історія)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Іващенко Денис Олександрович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (географія)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Ізотов Ярослав Юрійович",
@@ -1843,6 +2643,14 @@
     "name": "Ільїн Ярослав Олексійович",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Менеджмент",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Іманов Васіф Худаш Огли",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -1864,6 +2672,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Калинчук Аліна Романівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Калініна Анна Андріївна",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Середня освіта (українська мова і література)",
@@ -1880,6 +2696,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Калініченко Володимир Андрійович",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Камишан Алла Вікторівна",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Економіка",
@@ -1893,6 +2717,14 @@
     "speciality": "Фінанси, банківська справа та страхування",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Канчій Микола Васильович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (трудове навчання і технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -1912,6 +2744,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Карацюба Денис Олександрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Кардашевська Валерія Володимирівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Дошкільна освіта",
@@ -1925,6 +2765,22 @@
     "speciality": "Фізична культура і спорт",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Карнафель Геннадій Валерійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (трудове навчання і технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Карпенко Артем Олексійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -1942,6 +2798,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Касьянчук Вікторія Костянтинівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Касянчук Владислав Сергійович",
@@ -2000,12 +2864,36 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Кизименко Кристина Сергіївна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кипіч Богдана Вікторівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Кириченко Руслан Олександрович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (інформатика)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Кисельов Денис Сергійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Інформаційна, бібліотечна та архівна справа",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Кисельов Сергій Вікторович",
@@ -2030,6 +2918,22 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Кізицька Наталія Андріївна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кінжаєв Роман Володимирович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Кіт Віталій Васильович",
@@ -2120,6 +3024,22 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Коваленко Софія Вадимівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Ковалівський Олександр Федорович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Коваль Альбіна Олександрівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Психологія",
@@ -2152,9 +3072,25 @@
     "funding": "STATE"
   },
   {
+    "name": "Ковальчук Анастасія Володимирівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Соціальна робота",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Ковальчук Анна Романівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Коваценко Олександр Анатолійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Філософія",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -2184,6 +3120,22 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Козак Павло Анатолійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Козаков Богдан Владиславович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Козаченко Роман Олександрович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Політологія",
@@ -2200,6 +3152,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Козлова Вікторія Валентинівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Кокуріна Анна Володимирівна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Початкова освіта",
@@ -2208,9 +3168,25 @@
     "funding": "STATE"
   },
   {
+    "name": "Колесник Андрій Дмитрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Колесник Юлія Сергіївна",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Економіка",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Колісниченко Артем Олегович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Політологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -2246,6 +3222,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Коломієць Анатолій Олексійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Коломієць Віалетта Андріївна",
@@ -2312,6 +3296,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Копил Анастасія Дмитрівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Корбут Максим Сергійович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (географія)",
@@ -2328,9 +3320,25 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Корнєйчук Вікторія Павлівна",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Корнійчук Владислав Олександрович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Корнута Тетяна Михайлівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -2352,12 +3360,44 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Костарев Олександр Олександрович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Костенко Вікторія Олександрівна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Журналістика",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Костенко Іван Андрійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Костичева Іванна Павлівна",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Середня освіта (українська мова і література)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Костюк Олександр Сергійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (математика)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Котов Данило Олександрович",
@@ -2384,12 +3424,44 @@
     "funding": "STATE"
   },
   {
+    "name": "Коцюра Олександра Дмитрівна",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Кочергін Георгій Сергійович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Кошевий Артем Олегович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кошель Роман Іванович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (математика)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кравець Олександр Юрійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Інформаційна, бібліотечна та архівна справа",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Кравець Ярослав Русланович",
@@ -2422,6 +3494,22 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Кравченко Данило Станіславович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кравченко Кіра Олександрівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Кравченко Роман Григорович",
@@ -2472,12 +3560,28 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Красноголовець Святояр Володимирович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Красюк Роман Олегович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (інформатика)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Красюк Роман Олегович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Комп'ютерні науки",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Кривенко Іван Андрійович",
@@ -2496,6 +3600,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Крикун Аліна Євгеніївна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Менеджмент",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Крилас Діана Василівна",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Середня освіта (українська мова і література)",
@@ -2512,12 +3624,28 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Кричковський Федір Олександрович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (біологія та здоров’я людини)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Крупина Оксана Сергіївна",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (біологія та здоров’я людини)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Крусь Юрій Олександрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (інформатика)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Кручок Вікторія Іванівна",
@@ -2552,6 +3680,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Кубинець Віталія Михайлівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Кубинець Крістіна Василівна",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (географія)",
@@ -2560,12 +3696,44 @@
     "funding": "STATE"
   },
   {
+    "name": "Кузів Роман Васильович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кузнєцов Михайло Олександрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кузьменко Євген Вікторович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Комп'ютерні науки",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Кузьменко Ігор Миколайович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (географія)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Кузьменчук Максим Сергійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Куїч Микола Дмитрович",
@@ -2589,6 +3757,30 @@
     "speciality": "Політологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кулічевська Каміла Олександрівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Куліченко Дмитро Анатолійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кундік Олександр Вікторович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -2616,6 +3808,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Курило Іван Русланович",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Менеджмент",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Курко Дмитро Федорович",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Середня освіта (захист України)",
@@ -2624,9 +3824,49 @@
     "funding": "STATE"
   },
   {
+    "name": "Кутєпова Ганна Олександрівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кухарчук Володимир Анатолійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Кучер Ксенія Олександрівна",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Середня освіта (українська мова і література)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кучер Олександр Володимирович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (математика)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Кучеренко Едуард Володимирович",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Менеджмент",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Лаврик Сніжана Євгеніївна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Комп'ютерні науки",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -2648,6 +3888,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Лазоренко Сергій Олександрович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Лебедюк Владислав Євгенович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Політологія",
@@ -2656,9 +3904,49 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Левашов Іван Олександрович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Соціальна робота",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Левіщенко Дар`я Вадимівна",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Інформаційна, бібліотечна та архівна справа",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Левіщенко Дар`я Вадимівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Менеджмент",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Левченко Діана Андріївна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Легейда Владислав Степанович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Інформаційна, бібліотечна та архівна справа",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Лелюк Орест Васильович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Політологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -2688,12 +3976,28 @@
     "funding": "STATE"
   },
   {
+    "name": "Лець Денис Сергійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Лещук Юлія Романівна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Початкова освіта",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Лисенко Валерія Вадимівна",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Лисенко Денис Олександрович",
@@ -2736,6 +4040,22 @@
     "funding": "STATE"
   },
   {
+    "name": "Литвиненко Катерина Андріївна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Литвинець Марія Андріївна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Комп'ютерні науки",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Литвинська Галина Богданівна",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (біологія та здоров’я людини)",
@@ -2744,9 +4064,33 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Литвинчук Наталія Євгенівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (українська мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Лихота Наталія Олексіївна",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Лишенко Олексій Валерійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Ліпасова Яна Миколаївна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -2766,6 +4110,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Лісовий Євген Анатолійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Літвінов Олександр Миколайович",
@@ -2800,11 +4152,35 @@
     "funding": "STATE"
   },
   {
+    "name": "Лобачова Ірина Володимирівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Лободзінський Кирило Костянтинович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Ловцова Анастасія Вікторівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Соціальна робота",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Лозовенко Олексій Сергійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -2822,6 +4198,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Льон Валерій Володимирович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Любіш Артем Віталійович",
@@ -2856,6 +4240,30 @@
     "funding": "STATE"
   },
   {
+    "name": "М`якушко Аліна Анатоліївна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (іноземна мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Магрело Максим Олександрович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Мазуренко Ярослав Васильович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Мазуров Богдан Юрійович",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Середня освіта (образотворче мистецтво)",
@@ -2880,6 +4288,22 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Майданюк Максим Миколайович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Майлашов Роман Шихалійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Майор Ангеліна Миколаївна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Початкова освіта",
@@ -2896,6 +4320,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Макаренко Аріна Ігорівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Соціальна робота",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Макаров Владислав Костянтинович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Середня освіта (фізична культура)",
@@ -2909,6 +4341,14 @@
     "speciality": "Психологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Малишенко Сергій Олегович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -2952,6 +4392,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Марек Владислав Миколайович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Марина Аліна Іванівна",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (біологія та здоров’я людини)",
@@ -2977,6 +4425,14 @@
   },
   {
     "name": "Мартинюк Вікторія Петрівна",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Мартинюк Ярослав Володимирович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Професійна освіта (транспорт)",
     "degree": "BACHELOR",
@@ -3040,6 +4496,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Матусевич Євгеній Русланович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Економіка",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Махмудова Лейла Русланівна",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Професійна освіта (транспорт)",
@@ -3064,6 +4528,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Мед Олександр Віталійович",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (іноземна мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Мелешко Віталій Ігорович",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Початкова освіта",
@@ -3080,11 +4552,35 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Мельник Антоніна Юріївна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Середня освіта (музичне мистецтво)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Мельник Артем Васильович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Мельник Вячеслав Вікторович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Комп'ютерні науки",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Мельник Олександр Вікторович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -3117,6 +4613,14 @@
     "speciality": "Професійна освіта (цифрові технології)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Мещеряков Олександр Сергійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -3160,6 +4664,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Мисан Олександр Вікторович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Мисюра Денис Олександрович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (географія)",
@@ -3179,6 +4691,14 @@
     "name": "Михайленко Леся Адамівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Михайлишина Карина Василівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Дошкільна освіта",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -3296,6 +4816,22 @@
     "funding": "STATE"
   },
   {
+    "name": "Моісєєв Яків Володимирович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Мойсеюк Анастасія Русланівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Мокряк Лілія Анатоліївна",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Фінанси, банківська справа та страхування",
@@ -3352,6 +4888,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Мороз Каріна Олегівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (іноземна мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Морська Софія Віталіївна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Психологія",
@@ -3384,6 +4928,22 @@
     "funding": "STATE"
   },
   {
+    "name": "Моток Олександр Андрійович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (біологія та здоров’я людини)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Мошенський Микола Володимирович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Мужаровська Поліна Сергіївна",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Філологія (переклад)",
@@ -3400,12 +4960,36 @@
     "funding": "STATE"
   },
   {
+    "name": "Мурашко Андрій Володимирович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Мурашко Віктор Геннадійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Мусієнко Ігор Олександрович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Професійна освіта (цифрові технології)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Мусієнко Ігор Олександрович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Політологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Мусійчук Василь Валер`янович",
@@ -3424,6 +5008,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Нагинай Данило Олександрович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Економіка",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Нагорна Аріна Вікторівна",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (трудове навчання і технології)",
@@ -3432,12 +5024,28 @@
     "funding": "STATE"
   },
   {
+    "name": "Назаренко Микола Володимирович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Назаренко Станіслав Андрійович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (географія)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Назарок Поліна Олексіївна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Наконечний Владислав Віталійович",
@@ -3480,6 +5088,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Нездатний Богдан Олегович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Нелеп Євгенія Миколаївна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Психологія",
@@ -3496,6 +5112,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Немеш Вікторія Іванівна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Немеш Іванна Василівна",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Середня освіта (іноземна мова і література)",
@@ -3504,9 +5128,41 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Непийвода Олексій Анатолійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Нестерович Олександр Сергійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Николенко Вячеслав Миколайович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Нігунь Владислав Русланович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Ніколайчук Віра Олександрівна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Політологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -3528,6 +5184,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Обльотов Євгеній Олександрович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Овчієв Давид Арсенович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Професійна освіта (транспорт)",
@@ -3541,6 +5205,14 @@
     "speciality": "Професійна освіта (цифрові технології)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Олексенко Ангеліна Андріївна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -3584,6 +5256,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Омельченко Валерій Іванович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Онешко Михайло Олександрович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (природничі науки)",
@@ -3595,6 +5275,14 @@
     "name": "Онищенко Анастасія Володимирівна",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Журналістика",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Онищенко Вячеслав Анатолійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -3643,6 +5331,14 @@
     "name": "Остапенко Юлія Ярославівна",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Остапець Павло Вячеславович",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Середня освіта (музичне мистецтво)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -3704,6 +5400,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Охріменко Тарас Олегович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Політологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Ошийко Аріанна Анатоліївна",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Інформаційна, бібліотечна та архівна справа",
@@ -3728,6 +5432,22 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Пагер Олексій Олексійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Падун Олексій Станіславович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Паламарчук Вікторія Олександрівна",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (математика)",
@@ -3744,12 +5464,36 @@
     "funding": "STATE"
   },
   {
+    "name": "Паляничка Максим Валентинович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Панасюк Олеся Олегівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Папенко Роман Миколайович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (біологія та здоров’я людини)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Парадний Володимир Петрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Пасічник Олег Володимирович",
@@ -3776,12 +5520,28 @@
     "funding": "STATE"
   },
   {
+    "name": "Пашенцев Антон Віталійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Пашковський Ілля Андрійович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (математика)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Пашковський Ростислав Андрійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (інформатика)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Педенко Дмитро Русланович",
@@ -3824,12 +5584,28 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Петрик Олег Олександрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Петрик Тетяна Олександрівна",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Петров Дмитро Євгенович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Петрук Діана Вікторівна",
@@ -3872,6 +5648,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Пивовар Олександр Миколайович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Пизик Надія Богданівна",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (інформатика)",
@@ -3880,9 +5664,33 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Пилип`юк Олег Сергійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Пилипенко Девора-Софія Ігорівна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Пилипчук Ярослав Миколайович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Пилипчук Ярослав Миколайович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -3910,6 +5718,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Пінчук Вячеслав Вікторович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Пірог Дмитро Володимирович",
@@ -3952,6 +5768,22 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Погурський Богдан Тарасович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (географія)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Подгурська Вікторія Євгеніївна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Дошкільна освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Подлєсна Інна Володимирівна",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Економіка",
@@ -3976,9 +5808,49 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Позняк Олександр Вікторович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Поліщук Артем Анатолійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Поліщук Еліна Ярославівна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Поліщук Євгенія Станіславівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Дошкільна освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Поліщук Назарій Олександрович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Поліщук Наталія Вікторівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -4144,6 +6016,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Притика Олександра Олександрівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Соціальна робота",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Приходько Володимир Олександрович",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Психологія",
@@ -4155,6 +6035,14 @@
     "name": "Приходько Давід Дмитрович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Пріхненко Владислав Анатолійович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -4176,9 +6064,25 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Процик Юлія Віталіївна",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Пузій Артем Юрійович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Інформаційна, бібліотечна та архівна справа",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Пузій Артем Юрійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -4222,6 +6126,22 @@
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Разіна Олександра Сергіївна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Дошкільна освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Рашко Дмитро Валентинович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Ревенко Володимир Андрійович",
@@ -4296,6 +6216,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Рипило Анастасія Анатоліївна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Роговський Антон Васильович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Професійна освіта (транспорт)",
@@ -4310,6 +6238,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Роман Ніколіна Миколаївна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (іноземна мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Роман Сергій Васильович",
@@ -4360,6 +6296,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Рубець Віталій Віталійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Рудківська Катерина Олександрівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Дошкільна освіта",
@@ -4398,6 +6342,22 @@
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Русских Кирило Віталійович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Економіка",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Рябущиць Дмитро Віталійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Савін Дмитрій Сергійович",
@@ -4480,9 +6440,33 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Самойленко Владислав Вадимович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Самойленко Владислав Олегович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (трудове навчання і технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Самсоненко Діана Андріївна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Самусік Артем Володимирович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -4512,11 +6496,27 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Сарканич Маргарита Михайлівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Саханов Олександр Васильович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (трудове навчання і технології)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Сахаров Вадим Віталійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -4560,12 +6560,36 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Семьонова Анжеліка Вікторівна",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Сергєєва Ніка Сергіївна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (іноземна мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Сердюк Ілля Андрійович",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Середня освіта (іноземна мова і література)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Сердюк Назар Миколайович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Інформаційна, бібліотечна та архівна справа",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Сердюченко Анастасія Сергіївна",
@@ -4600,6 +6624,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Сирота Анна Олексіївна",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Сіваков Олександр Сергійович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Середня освіта (фізична культура)",
@@ -4624,6 +6656,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Сіренко Сергій Вікторович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Сіркова Анастасія Олександрівна",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Фізична культура і спорт",
@@ -4632,11 +6672,27 @@
     "funding": "STATE"
   },
   {
+    "name": "Скіпидаров Артур Вікторович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (інформатика)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Скляренко Вячеслав Іванович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Професійна освіта (цифрові технології)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Склярук Дар`я Максимівна",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -4662,6 +6718,30 @@
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Скринник Олександр Анатолійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Скрипкін Ілля Володимирович",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Філологія (переклад)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Скрипкіна Вікторія Олександрівна",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (біологія та здоров’я людини)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Слабошпицький Філіп Вадимович",
@@ -4720,12 +6800,36 @@
     "funding": "STATE"
   },
   {
+    "name": "Соловей Сергій Михайлович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Соловйов Володимир Анатолійович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Сологуб Христина Володимирівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Сологуб Христина Володимирівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Солодкий Руслан Олександрович",
@@ -4792,6 +6896,22 @@
     "funding": "STATE"
   },
   {
+    "name": "Старець Катерина Анатоліївна",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Старко Тарас Володимирович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (природничі науки)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Старовойт Поліна Іванівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Психологія",
@@ -4824,6 +6944,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Степанов Олександр Олександрович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Степанюк Єлизавета Ігорівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Дошкільна освіта",
@@ -4832,11 +6960,35 @@
     "funding": "STATE"
   },
   {
+    "name": "Стечак Тарас Дмитрович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Стольницька Вікторія Андріївна",
+    "faculty": "Факультет української та іноземної філології",
+    "speciality": "Середня освіта (іноземна мова і література)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Столяр Олена Олексіївна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Початкова освіта",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Строкачук Максим Сергійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Комп'ютерні науки",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -4859,6 +7011,14 @@
     "name": "Сургальов Нікіта Сергійович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Суслинець Михайло Миколайович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -4912,12 +7072,28 @@
     "funding": "STATE"
   },
   {
+    "name": "Тарасенко Ярослав Миколайович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Політологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Тарасова Вікторія Володимирівна",
     "faculty": "Факультет української та іноземної філології",
     "speciality": "Середня освіта (українська мова і література)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Телелюхин Олександр Максимович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Терех Іван Олексійович",
@@ -4933,6 +7109,22 @@
     "speciality": "Економіка",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Тесля Антон Юрійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Тимофєєв Владислав Олександрович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -4981,6 +7173,14 @@
     "speciality": "Психологія",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Ткаченко Богдан Сергійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -5040,6 +7240,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Третьяков Анатолій Андрійович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Триполець Руслан Олександрович",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Філософія",
@@ -5072,11 +7280,35 @@
     "funding": "STATE"
   },
   {
+    "name": "Трушківський Володимир Леонідович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Тулін Богдан Євгенійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Туренко Єлизавета Віталіївна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Психологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Тяпкін Євген Петрович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -5086,6 +7318,22 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Удовик Станіслав Анатолійович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (географія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Уманський Олександр Миколайович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Усік Вікторія Андріївна",
@@ -5104,12 +7352,36 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Устінова Ольга Олексіївна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Журналістика",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Ушакова Анна Олександрівна",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Середня освіта (історія)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Ушакова Олена Михайлівна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Федис Михайло Васильович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Федоренко Олександр Володимирович",
@@ -5128,7 +7400,31 @@
     "funding": "STATE"
   },
   {
+    "name": "Федоров Олександр Павлович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Федота Наталія Василівна",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (трудове навчання і технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Федченко Дмитро Олександрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Федченко Олександр Сергійович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (трудове навчання і технології)",
     "degree": "BACHELOR",
@@ -5168,6 +7464,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Фесенко Олексій Сергійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Фецяк Андрій Степанович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (біологія та здоров’я людини)",
@@ -5181,6 +7485,14 @@
     "speciality": "Політологія",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Філіпюк Володимир Анатолійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -5240,6 +7552,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Харківець Аліна Станіславівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Харковець Микола Васильович",
     "faculty": "Факультет технологічної і математичної освіти",
     "speciality": "Середня освіта (трудове навчання і технології)",
@@ -5264,6 +7584,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Хатян Ангеліна Миколаївна",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Інформаційна, бібліотечна та архівна справа",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Химинець Назар Михайлович",
     "faculty": "Факультет природничої освіти",
     "speciality": "Середня освіта (природничі науки)",
@@ -5280,11 +7608,27 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Хоменко Тетяна Миколаївна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Соціальна робота",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Хоменко Ярослав Миколайович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Фізична культура і спорт",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Хомюк Юлія Олександрівна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Дошкільна освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -5368,6 +7712,22 @@
     "funding": "STATE"
   },
   {
+    "name": "Чалий Юрій Петрович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (інформатика)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Чалкін Ілля Олегович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Політологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Чаус В`ячеслав Петрович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Професійна освіта (цифрові технології)",
@@ -5382,6 +7742,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Черниш Максим Юрійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Чернобай Сергій Петрович",
@@ -5400,6 +7768,46 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Четверіков Тимофій Юрійович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Професійна освіта (транспорт)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Чижик Даніїл Сергійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Чикіна Альона Миколаївна",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Психологія",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Чмуневич Каміла Павлівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Чорнобай Ярослав Олександрович",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Чубінашвілі Тетяна Миколаївна",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Професійна освіта (цифрові технології)",
@@ -5411,6 +7819,14 @@
     "name": "Шалапчук Святослав Олександрович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Шанта Іван Михайлович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -5496,6 +7912,22 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Шерепа Анастасія Сергіївна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Шинкар Владислав Олександрович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (біологія та здоров’я людини)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Шинкар Дмитро Сергійович",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Філософія",
@@ -5528,6 +7960,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Шкобко Олександр Валерійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Шкондін Владислав Олександрович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Фізична культура і спорт",
@@ -5542,6 +7982,14 @@
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Шостаківська Анастасія Дмитрівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Шпачук Яна Віталіївна",
@@ -5573,6 +8021,14 @@
     "speciality": "Середня освіта (українська мова і література)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Штанько Артем Леонідович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Середня освіта (історія)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -5688,11 +8144,43 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Яковенко Єгор Юрійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Яковенко Олег Сергійович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Яковенко Руслан Валентинович",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Публічне управління та адміністрування",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Яковець Марія Віталіївна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Початкова освіта",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Янківський Владислав Володимирович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Професійна освіта (цифрові технології)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -5712,12 +8200,44 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Яременко Андрій Григорович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Яржемська Марія Романівна",
     "faculty": "Факультет соціально-психологічний",
     "speciality": "Дошкільна освіта",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "STATE"
+  },
+  {
+    "name": "Яржемська Марія Романівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Фінанси, банківська справа та страхування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Ярликов Віктор Вікторович",
+    "faculty": "Факультет технологічної і математичної освіти",
+    "speciality": "Середня освіта (трудове навчання і технології)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Ярмола Андрій Ігорович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Фізична культура і спорт",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
   },
   {
     "name": "Ярошенко Богдан Леонідович",
@@ -5741,6 +8261,14 @@
     "speciality": "Економіка",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Яхімович Ірина Вікторівна",
+    "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
+    "speciality": "Менеджмент",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {

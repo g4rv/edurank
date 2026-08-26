@@ -196,6 +196,7 @@ pnpm db:studio        # Prisma Studio at localhost:5555
 
 pnpm staff:build      # rebuild staff-roster.json from edu-reference/ (gitignored output)
 pnpm students:build   # rebuild lib/students/accepted-2026.json from the ЄДЕБО export
+                      #   AND the transcribed contract накази (students_specialties.xlsx)
 
 docker compose up -d  # start all services
 ```

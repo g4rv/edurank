@@ -10,15 +10,16 @@ import accepted2026 from './accepted-2026.json';
 
 // The register of admitted students — who an НПП is allowed to claim.
 //
-// Reference data, not a table. It is written once per admission campaign by
-// `pnpm students:build`, never edited in the app, and read by nobody but the
-// claim form; a model plus a migration plus an import UI would be three moving
-// parts maintaining a list that changes on one day of the year.
+// Reference data, not a table. It is written by `pnpm students:build` from the
+// ЄДЕБО export and the later contract накази, never edited in the app, and read
+// by nobody but the claim form; a model plus a migration plus an import UI
+// would be three moving parts maintaining a list that changes on a handful of
+// days in August.
 //
-// SERVER ONLY. The file is ~130 KB and no page needs all of it in a browser:
+// SERVER ONLY. The file is ~340 KB and no page needs all of it in a browser:
 // `registerOptions()` ships the picker's tree (a few KB) and the names arrive a
 // combination at a time. Importing this from a `'use client'` module would put
-// all 722 into the bundle, so don't.
+// all 1038 into the bundle, so don't.
 //
 // It is also the reason the claim form has no free-text field. Before it, the
 // name was typed, and «Ковальчук О.» / «Ковальчук Олена Ігорівна» were two
@@ -180,7 +181,7 @@ function matches(student: AcceptedStudent, criteria: RegisterCriteria): boolean 
 /**
  * The students admitted under one combination, in Ukrainian alphabetical order.
  *
- * A linear scan of 722 rows, deliberately. An index would be built on every
+ * A linear scan of 1038 rows, deliberately. An index would be built on every
  * cold start of every server instance to save under a millisecond on a list
  * somebody opens a handful of times a year.
  */
@@ -196,8 +197,11 @@ export function studentsMatching(criteria: RegisterCriteria): AcceptedStudent[] 
  * convenience for the person, not a guarantee to the server: the four fields
  * arrive as ordinary form values and anybody can post whichever four they like.
  *
- * ПІБ is the key because it is unique across all 722 rows of the 2026 register,
- * and a test fails the moment a future list makes that untrue.
+ * ПІБ is the key WITH the criteria, not on its own. Eighteen people are
+ * admitted onto two programmes at once — Немеш Вікторія Іванівна is on Фінанси
+ * and on Середня освіта (історія) — so a ПІБ alone names two register rows and
+ * two different claims. The four together are unique, and a test fails the
+ * moment a future list makes that untrue.
  */
 export function findAcceptedStudent(
   name: string,

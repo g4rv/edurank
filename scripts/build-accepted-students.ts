@@ -2,16 +2,24 @@ import 'dotenv/config';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ExcelJS from 'exceljs';
+import { SPECIALITY_DEPARTMENTS } from '@/lib/specialities/departments';
+import { DEPARTMENTS, FACULTIES } from '@/prisma/preprod-org';
 
-// Turns the admissions office's ЄДЕБО export into `lib/students/accepted-2026.json`.
+// Builds `lib/students/accepted-2026.json` from TWO sheets.
 //
 //   pnpm students:build [path/to/list.xlsx] [year]
 //
 // Run once per admission campaign; the JSON it writes is committed and is what
-// the app reads. This script is NOT part of the build — the sheet carries the
-// РНОКПП, passport number, phone and personal email of every applicant, and
+// the app reads. This script is NOT part of the build — the ЄДЕБО sheet carries
+// the РНОКПП, passport number, phone and personal email of every applicant, and
 // none of that may reach a server. Six columns come out; the other 81 are
 // dropped here, at the only point where they are ever in memory.
+//
+// The second sheet (`NAKAZ_SHEET`) is the later contract накази, transcribed.
+// It is a separate source and not an afterthought: the ЄДЕБО export was taken
+// on 13.08.2026 and накази №520 and №521 were signed on the 19th, so 316 people
+// exist in no export at all. Without them an НПП who recruited one has nobody
+// to pick and no way to say so.
 //
 // It refuses to write a partial file. An unknown speciality code or факультет
 // throws, because the alternative is a register that silently lost the students
@@ -134,6 +142,70 @@ const FUNDING_BY_ORDER: Readonly<Record<number, 'STATE' | 'CONTRACT'>> = {
   4: 'CONTRACT',
 };
 
+/**
+ * The transcribed накази — ПІБ, «код + назва спеціальності», форма, and nothing
+ * else.
+ *
+ * The наказ is published as a PDF whose table cells wrap mid-word, so it is the
+ * university's own transcription that is read here, not the PDF.
+ */
+const NAKAZ_SHEET = 'edu-reference/students_specialties.xlsx';
+
+/**
+ * What the накази say that their sheet does not have a column for.
+ *
+ * Both admit «студентами першого року навчання … за кошти фізичних та/або
+ * юридичних осіб», and every row of both is a бакалавр — so ступінь and
+ * фінансування are constants, not missing data. They live here, named after the
+ * накази they come from, so a sheet transcribed from some later наказ cannot
+ * quietly inherit them.
+ */
+const NAKAZ = {
+  file: NAKAZ_SHEET,
+  sheet: 'Студенти',
+  orders: '№520 (денна) та №521 (заочна) від 19.08.2026',
+  degree: 'BACHELOR',
+  funding: 'CONTRACT',
+} as const;
+
+/** Columns of the наказ sheet, 1-based. */
+const NAKAZ_COL = {
+  name: 2, // «Прізвище, ім'я, по батькові»
+  speciality: 3, // «A4 Середня освіта/A4.07 Географія»
+  form: 4, // «Денна (офлайн)» / «Заочна (онлайн)»
+} as const;
+
+const FORM_BY_NAKAZ_NAME: Readonly<Record<string, 'FULL_TIME' | 'PART_TIME'>> = {
+  'Денна (офлайн)': 'FULL_TIME',
+  'Заочна (онлайн)': 'PART_TIME',
+};
+
+const FACULTY_OF_SHORT = new Map(FACULTIES.map((f) => [f.short, f.name]));
+const FACULTY_OF_DEPARTMENT = new Map(
+  DEPARTMENTS.map((d) => [d.name, FACULTY_OF_SHORT.get(d.faculty)])
+);
+
+/**
+ * Speciality → факультет, through its випускова кафедра.
+ *
+ * The наказ names no факультет anywhere, and the register carries one per
+ * student. Derived rather than invented: run over the 722 rows of the ЄДЕБО
+ * export, this rule returns exactly the факультет the export itself gives for
+ * all 32 of its спеціальності — so it is checked against 722 people before it
+ * is trusted with 316.
+ *
+ * «Психологія» is the single exception, and the наказ cannot settle it: it is
+ * taught by Кафедра психології (СП) and Кафедра практичної психології (ММПП)
+ * under two конкурсні пропозиції the наказ prints under one name. Those
+ * students take the first випускова кафедра's факультет. Nothing in the app
+ * reads this field — `RegisterCriteria` leaves it out on purpose — so the cost
+ * of the guess is a wrong word beside a name, never a student nobody can claim.
+ */
+function facultyOfSpeciality(speciality: string): string | undefined {
+  const [department] = SPECIALITY_DEPARTMENTS[speciality] ?? [];
+  return department ? FACULTY_OF_DEPARTMENT.get(department) : undefined;
+}
+
 interface AcceptedStudent {
   name: string;
   faculty: string;
@@ -155,7 +227,6 @@ async function main() {
   if (!sheet) throw new Error(`No worksheet in ${sheetPath}`);
 
   const students: AcceptedStudent[] = [];
-  const seen = new Map<string, number>();
   const problems: string[] = [];
   /** Read, written, and reported — but not a reason to refuse the sheet */
   const warnings: string[] = [];
@@ -176,11 +247,6 @@ async function main() {
     }
 
     const name = studentName(rawName);
-    const previous = seen.get(name.toLowerCase());
-    if (previous) {
-      fail(`same ПІБ as row ${previous}`);
-      continue;
-    }
 
     const speciality = SPECIALITY_BY_CODE[codeOf(row)];
     if (!speciality) {
@@ -228,8 +294,30 @@ async function main() {
       );
     }
 
-    seen.set(name.toLowerCase(), rowNumber);
     students.push({ name, faculty, speciality, degree, form, funding });
+  }
+
+  students.push(...(await readNakaz(problems)));
+
+  // One person may be admitted onto TWO programmes — eighteen of them are, and
+  // sixteen of those sit one in each sheet — so a repeated ПІБ is not by itself
+  // an error. What must never repeat is the key the claim is saved by, because
+  // `findAcceptedStudent` looks a student up by exactly these four and would
+  // otherwise return whichever of two people it met first.
+  const seen = new Set<string>();
+  for (const student of students) {
+    const key = [
+      student.name.toLowerCase(),
+      student.speciality,
+      student.form,
+      student.funding,
+    ].join('|');
+    if (seen.has(key)) {
+      problems.push(
+        `${student.name}: listed twice on ${student.speciality} (${student.form}, ${student.funding})`
+      );
+    }
+    seen.add(key);
   }
 
   if (problems.length > 0) {
@@ -253,6 +341,69 @@ async function main() {
   report('Форма', students, (s) => s.form);
   report('Фінансування', students, (s) => s.funding);
   console.log(`\n  Спеціальностей: ${new Set(students.map((s) => s.speciality)).size}`);
+}
+
+/**
+ * The накази's own students, whose sheet has three columns and no ЄДЕБО row.
+ *
+ * Ступінь and фінансування come from `NAKAZ`, факультет from the speciality —
+ * see the notes on both. Everything else is refused rather than assumed: an
+ * unreadable форма or an unknown speciality code lands in `problems` and stops
+ * the write, the same as in the ЄДЕБО sheet.
+ */
+async function readNakaz(problems: string[]): Promise<AcceptedStudent[]> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(resolve(NAKAZ.file));
+  const sheet = workbook.getWorksheet(NAKAZ.sheet);
+  if (!sheet) throw new Error(`No «${NAKAZ.sheet}» worksheet in ${NAKAZ.file}`);
+
+  const students: AcceptedStudent[] = [];
+
+  for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber++) {
+    const row = sheet.getRow(rowNumber);
+    const name = studentName(text(row.getCell(NAKAZ_COL.name).text));
+    if (!name) continue; // trailing blank rows
+
+    const fail = (why: string) =>
+      problems.push(`${NAKAZ.sheet} row ${rowNumber} (${name}): ${why}`);
+
+    const rawSpeciality = text(row.getCell(NAKAZ_COL.speciality).text);
+    const speciality = SPECIALITY_BY_CODE[nakazCode(rawSpeciality)];
+    if (!speciality) {
+      fail(`unknown speciality «${rawSpeciality}»`);
+      continue;
+    }
+
+    const faculty = facultyOfSpeciality(speciality);
+    if (!faculty) {
+      fail(`no випускова кафедра for «${speciality}», so no факультет`);
+      continue;
+    }
+
+    const form = FORM_BY_NAKAZ_NAME[text(row.getCell(NAKAZ_COL.form).text)];
+    if (!form) {
+      fail(`unknown форма «${text(row.getCell(NAKAZ_COL.form).text)}»`);
+      continue;
+    }
+
+    students.push({
+      name,
+      faculty,
+      speciality,
+      degree: NAKAZ.degree,
+      form,
+      funding: NAKAZ.funding,
+    });
+  }
+
+  console.log(`Read ${students.length} students from ${NAKAZ.file} — накази ${NAKAZ.orders}`);
+  return students;
+}
+
+/** «A4 Середня освіта/A4.07 Географія» → «A4.07»; the sub-code wins */
+function nakazCode(speciality: string): string {
+  const parts = speciality.split('/');
+  return (parts[parts.length - 1] ?? '').trim().split(/\s+/)[0] ?? '';
 }
 
 /** «Дикий Андрій Михайлович 13.12.1991» → «Дикий Андрій Михайлович» */

@@ -42,11 +42,27 @@ being read-only on the grid that spends it. Now `headOf` (`a09afe1`).
 **Counts:** **827 tests** (not the 651 below), type-check clean, one deliberate
 lint warning.
 
-**Verified 2026-08-17, worth not re-deriving:** the student register is complete
-— 722 rows in `list_of_students.xlsx`, 722 in the app, all four накази mapped
-(1,3 = бюджет; 2,4 = контракт), no duplicate names, 32 specialities. But **every
-one of them is a бакалавр**. The app supports магістри and the source file has
-none, so a магістр cannot be claimed at all. Ask whether a second наказ exists.
+**Verified 2026-08-26:** the student register is complete — 1038 rows, 32
+specialities, from two sources. 722 come from the ЄДЕБО export
+(`list_of_students.xlsx`, all four накази mapped: 1,3 = бюджет; 2,4 = контракт)
+and 316 from накази №520 (денна) and №521 (заочна) of 19.08.2026, transcribed
+into `students_specialties.xlsx` — those were signed after the export was taken
+and appear in no export at all. Eighteen people hold two enrolments each; the
+register's unique key is ПІБ + спеціальність + форма + фінансування, not ПІБ.
+
+**Every one of them is a бакалавр, and that is correct for now** (owner,
+2026-08-26): the магістр наказ has not been signed yet. The app supports
+магістри, so when it is, transcribe it the same way and re-run
+`pnpm students:build`.
+
+**Eighteen ПІБ appear twice, and none is a duplicate row.** Each is one person
+on two programmes, checked against the education-document number in both
+sources — seventeen match exactly; «Яржемська Марія Романівна» carries a
+свідоцтво on one programme and a диплом фахового молодшого бакалавра on the
+other, so she is either one person admitted on two documents or two namesakes,
+and nothing distinguishes them. It does not matter to the claim either way: no
+ПІБ repeats within one спеціальність + форма + фінансування, which is the key
+`findAcceptedStudent` resolves and the key the duplicate check groups on.
 
 `open-questions.md` and the questions artifact are **closed** — every question
 was answered on 2026-08-06/07. The answers live in

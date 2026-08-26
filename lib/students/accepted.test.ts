@@ -13,8 +13,8 @@ import {
 // so what a schema would normally enforce is enforced here instead. Each of
 // these has a matching failure mode: a speciality the norms table does not know
 // makes a student unclaimable, a факультет spelled the sheet's way makes a whole
-// факультет's worth of them invisible, and a repeated ПІБ silently picks the
-// wrong person's speciality when the claim is saved.
+// факультет's worth of them invisible, and a repeated programme row silently
+// picks the wrong person's speciality when the claim is saved.
 
 const FACULTY_NAMES = new Set(FACULTIES.map((f) => f.name));
 const NORM_NAMES = new Set(SPECIALITY_NORMS_2026.map(([name]) => name));
@@ -27,12 +27,21 @@ const NORM_NAMES = new Set(SPECIALITY_NORMS_2026.map(([name]) => name));
 
 describe('the 2026 register', () => {
   it('holds every admitted student', () => {
-    expect(ACCEPTED_STUDENTS).toHaveLength(722);
+    // 722 from the ЄДЕБО export + 316 from накази №520 and №521 of 19.08.2026
+    expect(ACCEPTED_STUDENTS).toHaveLength(1038);
   });
 
-  it('names one person once', () => {
-    const names = ACCEPTED_STUDENTS.map((s) => s.name.toLowerCase());
-    expect(new Set(names).size).toBe(names.length);
+  // NOT one row per person. Eighteen people are admitted onto two programmes at
+  // once — Немеш Вікторія Іванівна is on Фінанси and on Середня освіта
+  // (історія), both on контракт — and each enrolment is a separate thing an НПП
+  // can be credited with recruiting. What must stay unique is the key the claim
+  // is actually saved by: ПІБ within one спеціальність, форма and фінансування.
+  // A repeat there would let findAcceptedStudent return either of two people.
+  it('names one person once per programme', () => {
+    const keys = ACCEPTED_STUDENTS.map((s) =>
+      [s.name.toLowerCase(), s.speciality, s.form, s.funding].join('|')
+    );
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it('carries no birth date, contact or document number', () => {
@@ -114,7 +123,7 @@ describe('registerOptions', () => {
     const students = psychology!.branches[0]!.variants.flatMap((variant) =>
       studentsMatching({ speciality: 'Психологія', ...variant })
     );
-    expect(students).toHaveLength(75);
+    expect(students).toHaveLength(97);
     expect(new Set(students.map((s) => s.faculty)).size).toBe(2);
   });
 
