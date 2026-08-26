@@ -20,16 +20,24 @@ Division (відділ)                — separate cross-cutting structure, uni
     Examples: ННВ (навчально-науковий відділ), ННЦЗЯО (Навчально-науковий центр забезпечення якості освіти)
 ```
 
-- Staff has **one primary department** and can be part-time (сумісництво) in **one**
-  other via a `StaffDepartment` join table — at most two кафедри per person,
-  enforced in `validations/staff.ts`.
+- Staff has **at least one кафедра and at most two** — enforced in
+  `validations/staff.ts`. Three shapes are legal: a primary one; a primary plus
+  one additional (сумісництво) via the `StaffDepartment` join table; or **only
+  the additional one** (owner, 2026-08-26). What is refused is an НПП attached
+  to nothing, which would be absent from every list, grid and `Кнпп` with no
+  screen to show the mistake.
+- **A null `departmentId` IS the сумісник marker.** Somebody with no primary
+  reads as a сумісник on every кафедра they are on, and that is the intent — the
+  0,10–0,25 bounds, the badge, sorted last, no place in that кафедра's `Кнпп`.
+  There is no extra column: every check compares the row's own `departmentId`
+  against the кафедра being viewed.
 - **A сумісник is paid a ставка by BOTH кафедри** (2026-08-24, reversing Q12). They
   appear in both кафедри's lists and both distribution grids, badged «Сумісник» and
   sorted last, with their **whole** university rating and a 0,25 default ceiling on
   the additional one. Spread `onDepartment` from `lib/queries/roster.ts` into every
   «who is on this кафедра» query — `departmentId` alone no longer answers it.
 - Staff is split into two types via `isNpp: boolean`:
-  - `true` — НПП (науково-педагогічний працівник): academic staff, must belong to a department, have profiles with ratings/achievements
+  - `true` — НПП (науково-педагогічний працівник): academic staff, must belong to at least one кафедра (primary or additional), have profiles with ratings/achievements
   - `false` — non-НПП: administrative staff (e.g. division employees), department is optional
 - Both types live in the same `Staff` table; the UI shows a unified list with a filter tab (НПП / Адміністративний / Всі).
 - Divisions operate university-wide — not scoped to faculty or department.
@@ -145,7 +153,7 @@ pnpm build            # production build
 pnpm start            # production server
 pnpm lint             # ESLint
 pnpm type-check       # tsc --noEmit
-pnpm test             # Vitest (1107 tests, colocated next to what they cover)
+pnpm test             # Vitest (1111 tests, colocated next to what they cover)
 
 pnpm db:migrate       # prisma migrate dev (pass --name <x> to skip prompt)
 

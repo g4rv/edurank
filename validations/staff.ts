@@ -149,10 +149,22 @@ export const staffUpdateSchema = z
       .default([]),
   })
   .superRefine((data, ctx) => {
-    if (data.isNpp && !data.departmentId) {
+    // AT LEAST ONE кафедра, not «a primary one» (owner, 2026-08-26). An НПП
+    // may hold only an additional post, and «основна» was then a box somebody
+    // had to tick rather than a fact about the person.
+    //
+    // With `departmentId` null every кафедра they are on reads as сумісник,
+    // which is the right answer and needs no new column: `boundsFallbackFor`
+    // gives them 0,10–0,25, `onDepartment` still finds them, the badge shows,
+    // and `get-department-knpp` already skips a null primary.
+    //
+    // The guard stays, because nothing replaces it: an НПП attached to no
+    // кафедра at all is absent from every list, grid and Кнпп, and there is no
+    // screen on which that mistake becomes visible.
+    if (data.isNpp && !data.departmentId && data.partTimeDepartmentIds.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'НПП повинен мати основну кафедру',
+        message: 'НПП повинен мати кафедру — основну або додаткову',
         path: ['departmentId'],
       });
     }

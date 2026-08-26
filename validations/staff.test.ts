@@ -91,8 +91,39 @@ describe('free-text length limits', () => {
   });
 });
 
+describe('an НПП needs a кафедра — primary or additional', () => {
+  const npp = (fields: Record<string, unknown>) => parse({ isNpp: 'true', ...fields });
+
+  it('accepts a primary кафедра on its own', () => {
+    expect(npp({ departmentId: 'd1' }).success).toBe(true);
+  });
+
+  // Owner, 2026-08-26: an НПП may hold ONLY an additional post — «основна» was
+  // a box somebody had to tick, not a fact about the person. Everything
+  // downstream then reads them as a сумісник on that кафедра, which is exactly
+  // right: the 0,10–0,25 bounds, the badge, sorted last, and no place in that
+  // кафедра's Кнпп. All of it falls out of `departmentId` being null, with no
+  // extra column anywhere.
+  it('accepts an additional кафедра on its own, with no primary', () => {
+    expect(npp({ departmentId: '', partTimeDepartmentIds: ['d2'] }).success).toBe(true);
+  });
+
+  // The rule that replaces «must have a primary». Without it an НПП could be
+  // saved attached to nothing — absent from every кафедра list, every ставка
+  // grid and every Кнпп, and visible nowhere that would show the mistake.
+  it('refuses an НПП with no кафедра at all', () => {
+    const result = npp({ departmentId: '' });
+    expect(result.success).toBe(false);
+    expect(result.error!.issues.some((i) => i.path[0] === 'departmentId')).toBe(true);
+  });
+
+  it('lets a non-НПП have none — a division employee needs no кафедра', () => {
+    expect(parse({ isNpp: 'false', departmentId: '' }).success).toBe(true);
+  });
+});
+
 describe('partTimeDepartmentIds — at most one additional кафедра', () => {
-  /** An НПП, who must have a primary кафедра before any of this applies. */
+  /** An НПП with a primary кафедра — the case this «at most one» rule bounds. */
   const npp = (partTimeDepartmentIds: string[]) =>
     parse({ isNpp: 'true', departmentId: 'd1', partTimeDepartmentIds });
 
