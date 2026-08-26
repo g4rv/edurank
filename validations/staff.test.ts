@@ -135,10 +135,38 @@ describe('partTimeDepartmentIds — at most one additional кафедра', () =
     expect(npp(['d2']).success).toBe(true);
   });
 
-  it('refuses two — a person holds at most two кафедри in total', () => {
+  it('refuses two beside a primary — three кафедри in total', () => {
     const result = npp(['d2', 'd3']);
     expect(result.success).toBe(false);
     expect(result.error!.issues[0].message).toBe('НПП може працювати щонайбільше на двох кафедрах');
+  });
+
+  // Owner, 2026-08-26: сумісництво is a part-time POST, not «a second
+  // кафедра». Somebody whose main job is not at the university can hold a
+  // part-time post on two кафедри and a full-time one on neither.
+  it('accepts two additional кафедри when there is no primary', () => {
+    expect(
+      parse({ isNpp: 'true', departmentId: '', partTimeDepartmentIds: ['d2', 'd3'] }).success
+    ).toBe(true);
+  });
+
+  it('refuses three additional кафедри, primary or not', () => {
+    const result = parse({
+      isNpp: 'true',
+      departmentId: '',
+      partTimeDepartmentIds: ['d2', 'd3', 'd4'],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  // Saved, it would put one person in one кафедра's grid twice.
+  it('refuses the same кафедра twice among the additional ones', () => {
+    const result = parse({
+      isNpp: 'true',
+      departmentId: '',
+      partTimeDepartmentIds: ['d2', 'd2'],
+    });
+    expect(result.success).toBe(false);
   });
 
   it('refuses the primary кафедра as the additional one', () => {

@@ -139,13 +139,13 @@ export const staffUpdateSchema = z
     ),
     departmentId: z.preprocess(str, z.string().nullable()),
     divisionId: z.preprocess(str, z.string().nullable()),
-    // At most one. A person holds two кафедри in total — their own and one
-    // more (owner, 2026-08-24). Kept an array rather than a nullable string:
-    // the join table is many-to-many, the action already diffs it as a set,
-    // and «two» is a policy that can change without a migration.
+    // Part-time POSTS, not «additional кафедри» (owner, 2026-08-26). A person
+    // whose main job is elsewhere can hold one on two кафедри and a full-time
+    // post on neither, so the array itself allows two — the total is what is
+    // capped, in the refine below.
     partTimeDepartmentIds: z
       .array(z.string())
-      .max(1, { error: 'НПП може працювати щонайбільше на двох кафедрах' })
+      .max(2, { error: 'НПП може працювати щонайбільше на двох кафедрах' })
       .default([]),
   })
   .superRefine((data, ctx) => {
@@ -169,12 +169,35 @@ export const staffUpdateSchema = z
       });
     }
 
+    // TWO WORKPLACES IN TOTAL, counting the full-time post. The array's own
+    // `.max(2)` covers somebody with no full-time post; this covers the rest.
+    if (
+      (data.departmentId ? 1 : 0) + data.partTimeDepartmentIds.length > 2 &&
+      data.partTimeDepartmentIds.length <= 2
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'НПП може працювати щонайбільше на двох кафедрах',
+        path: ['partTimeDepartmentIds'],
+      });
+    }
+
     // Saved, it would put the same person in one кафедра's grid twice — once as
     // its own staff and once as a сумісник — with two different ceilings.
     if (data.departmentId && data.partTimeDepartmentIds.includes(data.departmentId)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Додаткова кафедра не може збігатися з основною',
+        path: ['partTimeDepartmentIds'],
+      });
+    }
+
+    // The same reason, one level down: two part-time rows on one кафедра would
+    // be one person twice in that кафедра's grid.
+    if (new Set(data.partTimeDepartmentIds).size !== data.partTimeDepartmentIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Кафедра вказана двічі',
         path: ['partTimeDepartmentIds'],
       });
     }
