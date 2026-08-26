@@ -162,7 +162,7 @@ pnpm build            # production build
 pnpm start            # production server
 pnpm lint             # ESLint
 pnpm type-check       # tsc --noEmit
-pnpm test             # Vitest (1136 tests, colocated next to what they cover)
+pnpm test             # Vitest (1138 tests, colocated next to what they cover)
 
 pnpm db:migrate       # prisma migrate dev (pass --name <x> to skip prompt)
 

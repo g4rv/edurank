@@ -108,6 +108,9 @@ function mockTx() {
       // fail here loudly instead of quietly passing a mock.
     },
     staffDepartment: { deleteMany: vi.fn(), createMany: vi.fn() },
+    // Мін/Макс are per кафедра per year, and go the same way as the allocation
+    // when the placement they were typed for is gone.
+    staffStakeLimits: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     // The audit diff resolves сумісництво ids to кафедра names
     department: { findMany: vi.fn().mockResolvedValue([]) },
     // Removing сумісництво drops that кафедра's allocation and re-sums the rate
@@ -849,6 +852,41 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
     });
 
     expect(kept(tx)).toEqual([]);
+  });
+
+  // A Макс of 1,00 typed while somebody was full-time would otherwise survive
+  // their move to сумісник, overriding the 0,10–0,25 fallback and leaving them
+  // a full-time ceiling on a part-time post (owner, 2026-08-26).
+  it('drops the Мін/Макс of a placement that changed kind', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: [] });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: null,
+      partTimeDepartmentIds: ['dept-1'],
+    });
+
+    expect(tx.staffStakeLimits.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ staffId: 'staff-1', departmentId: { notIn: [] } }),
+      })
+    );
+  });
+
+  it('keeps the Мін/Макс of a placement that did not change', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: ['dept-2'] });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-1',
+      partTimeDepartmentIds: ['dept-2'],
+    });
+
+    expect(tx.staffStakeLimits.deleteMany.mock.calls[0][0].where.departmentId.notIn.sort()).toEqual(
+      ['dept-1', 'dept-2']
+    );
   });
 
   it('spares a placement whose kind did not change', async () => {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
 import { DepartmentCombobox } from '@/components/department-combobox';
 import { FormField } from '@/components/ui/form-field';
 import { Switch } from '@/components/ui/switch';
@@ -56,10 +55,11 @@ export function WorkplacesField({
   /** The schema's own complaint, e.g. «НПП повинен мати кафедру» */
   error?: { message?: string };
 }) {
-  // An empty row somebody asked for and has not filled in yet. It cannot live
-  // in the form values: `toStorage` drops a кафедра-less row on purpose, so it
-  // would vanish the moment it was added.
-  const [addedRow, setAddedRow] = useState(false);
+  // BOTH ROWS ARE ALWAYS THERE (owner, 2026-08-26). «додати кафедру» made an
+  // empty row appear and a cleared one linger, so the card changed height as it
+  // was used and it was never obvious whether a second кафедра existed or was
+  // merely offered. Two is the maximum anyway, so showing two is the whole
+  // truth: filled is a workplace, empty is not one.
   // THE ORDER ON SCREEN, which the storage cannot hold: it is a column plus an
   // array, so `toWorkplaces` has to reconstruct an order and puts the full-time
   // post first. Correct on open, wrong the instant somebody uses the switch —
@@ -79,10 +79,12 @@ export function WorkplacesField({
     ...order.map((id) => byId.get(id)).filter((w): w is Workplace => w !== undefined),
     ...saved.filter((w) => !order.includes(w.departmentId)),
   ];
-  const rows: Workplace[] =
-    ordered.length > 0 ? [...ordered] : [{ departmentId: '', isPartTime: false }];
-  const hasFullTime = rows.some((r) => r.departmentId !== '' && !r.isPartTime);
-  if (addedRow && rows.length < 2) rows.push({ departmentId: '', isPartTime: hasFullTime });
+  // An empty row starts as «Основне» only when nothing else claims it, which is
+  // the ordinary case: one кафедра, full-time.
+  const rows: Workplace[] = [...ordered];
+  while (rows.length < 2) {
+    rows.push({ departmentId: '', isPartTime: rows.some((r) => !r.isPartTime) });
+  }
 
   function commit(next: Workplace[]) {
     const refusal = workplaceProblem(next);
@@ -100,7 +102,6 @@ export function WorkplacesField({
       departmentId: storage.departmentId ?? '',
       partTimeDepartmentIds: storage.partTimeDepartmentIds,
     });
-    if (next.every((r) => r.departmentId !== '')) setAddedRow(false);
   }
 
   const replace = (index: number, row: Workplace) =>
@@ -141,18 +142,18 @@ export function WorkplacesField({
                 )}
               </div>
 
-              {/* Amber when on, matching the «Сумісник» pill this same person
-                  carries in the ставки grid. Not green/red: green means
-                  «verified» and red means «error» everywhere else here, and a
-                  part-time post is neither. */}
+              {/* «Основне», not «Сумісник» (owner, 2026-08-26). The switch asks
+                  the positive question — is this the person's main post — so on
+                  means yes and off means сумісництво, and the common case is the
+                  one that reads as set rather than as missing. */}
               <label className="flex w-20 shrink-0 flex-col items-center gap-1.5 pt-1">
-                <span className="text-xs text-muted-foreground">Сумісник</span>
+                <span className="text-xs text-muted-foreground">Основне</span>
                 <Switch
-                  checked={row.isPartTime}
-                  onCheckedChange={(next) => replace(index, { ...row, isPartTime: next })}
+                  checked={!row.isPartTime}
+                  onCheckedChange={(next) => replace(index, { ...row, isPartTime: !next })}
                   disabled={disabled || row.departmentId === '' || !canEditPartTime}
-                  className="data-[state=checked]:bg-amber-500"
-                  aria-label={`Сумісник на цій кафедрі`}
+                  className="data-[state=checked]:bg-green-600"
+                  aria-label="Основне місце роботи"
                 />
               </label>
 
@@ -177,17 +178,6 @@ export function WorkplacesField({
             </div>
           );
         })}
-
-        {rows.length < 2 && !disabled && canEditPartTime && (
-          <button
-            type="button"
-            onClick={() => setAddedRow(true)}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Plus className="size-4" />
-            додати кафедру
-          </button>
-        )}
       </div>
     </FormField>
   );

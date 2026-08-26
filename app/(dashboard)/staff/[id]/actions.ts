@@ -428,6 +428,16 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
           // and this writes to `Staff` inside a transaction that has just
           // written to it.
           if (removed.count > 0) await syncEmploymentRate(tx, [id], year);
+
+          // The bounds go the same way as the number they bounded. A Макс of
+          // 1,00 typed while somebody was full-time survived their move to
+          // сумісник and overrode the 0,10–0,25 fallback, so a part-time post
+          // carried a full-time ceiling (owner, 2026-08-26). An explicit row
+          // beats the fallback by design — which is exactly why a stale one is
+          // worse here than no row at all.
+          await tx.staffStakeLimits.deleteMany({
+            where: { staffId: id, year, departmentId: { notIn: keeps } },
+          });
         }
       }
 
