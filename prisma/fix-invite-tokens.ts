@@ -1,8 +1,8 @@
 import 'dotenv/config';
-import { readFileSync } from 'fs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import { ON_ROSTER } from '../lib/queries/roster';
+import { readDelivered } from './mail-log';
 
 // One-off repair for people the invite list believes were written to and who
 // never got a letter.
@@ -42,50 +42,6 @@ import { ON_ROSTER } from '../lib/queries/roster';
 
 const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
-
-/** Columns that mean the message did NOT reach the person, whatever `sent` says */
-const FAILURE_COLUMNS = ['hard_bounce', 'soft_bounce', 'blocked', 'spam'];
-
-/**
- * The addresses a letter actually reached, lower-cased.
- *
- * Mailjet's statistics export is a CSV with an `email` column and a `sent`
- * count beside the ways a message can fail. Being IN that file is not the
- * question — it lists every contact, including ones nothing was ever sent to
- * and ones that bounced. So when those columns are present they are read: a row
- * counts only with `sent` above zero and every failure column at zero.
- *
- * A bounce is deliberately «not delivered». That person gets another letter
- * they may not need, which is the harmless direction — the other way round
- * leaves somebody nobody can see was missed.
- *
- * A file without that header falls back to «every address on every line», so a
- * column pasted into a text file still works.
- */
-function readDelivered(path: string): Set<string> {
-  const text = readFileSync(path, 'utf8').replace(/^﻿/, '');
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
-  const cells = (line: string) => line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
-
-  const header = cells(lines[0] ?? '');
-  const emailAt = header.indexOf('email');
-  const sentAt = header.indexOf('sent');
-  if (emailAt === -1 || sentAt === -1) {
-    const found = text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
-    return new Set(found.map((a) => a.toLowerCase()));
-  }
-
-  const failureAt = FAILURE_COLUMNS.map((c) => header.indexOf(c)).filter((i) => i !== -1);
-  const delivered = new Set<string>();
-  for (const line of lines.slice(1)) {
-    const row = cells(line);
-    const email = (row[emailAt] ?? '').toLowerCase();
-    const sent = Number(row[sentAt] || 0);
-    const failed = failureAt.some((i) => Number(row[i] || 0) > 0);
-    if (email && sent > 0 && !failed) delivered.add(email);
-  }
-  return delivered;
-}
 
 /** `--since=…`, or midnight this morning — the run this is repairing was today */
 function windowStart(): Date {
