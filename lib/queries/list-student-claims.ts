@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { ON_ROSTER } from './roster';
+import { ON_ROSTER, onDepartments } from './roster';
 import { getStakeYearSettings } from './list-stake-settings';
 import {
   bonusByStaff,
@@ -125,10 +125,21 @@ export interface ReviewClaim extends MyClaim {
   firstClaimedBy: string | null;
   /** Set only when that person is outside the кафедра being reviewed */
   firstClaimedByDepartment: string | null;
+  /**
+   * The claimant's own кафедра, for the «Усі кафедри» view.
+   *
+   * Always carried, shown only when more than one кафедра is on screen. Without
+   * it a row across the whole university says who claimed whom and gives the
+   * reader nowhere to go — the same gap `firstClaimedByDepartment` closes on a
+   * contested row. A сумісник with no primary кафедра is named by the кафедра
+   * they hold a post on.
+   */
+  claimedByDepartment: string;
 }
 
 /**
- * Every claim filed by the staff of one кафедра, with the duplicates worked out.
+ * Every claim filed by the staff of the given кафедри, with the duplicates
+ * worked out.
  *
  * Deliberately a REPORT. There is no in-system winner: the head sees the
  * duplicates, who claimed first, and how many of each person's claims are
@@ -136,21 +147,41 @@ export interface ReviewClaim extends MyClaim {
  * off-screen, so there is no «assign to» button and no verdict field (decided
  * 2026-08-07). Confirm and reject are the only controls, one claim at a time.
  *
- * Duplicates are found across the WHOLE year, not just this кафедра: the
+ * Duplicates are found across the WHOLE year, not just these кафедри: the
  * colleague who claimed the same student may sit anywhere in the university.
+ *
+ * Takes a LIST because the screen offers «Усі кафедри» (owner, 2026-08-26).
+ * ADMIN passes every кафедра, a декан passes their faculty's, a head passes
+ * their own — one code path, and the caller stays the one place that decides
+ * who may look at what.
  */
 export async function listClaimsForReview(
-  departmentId: string,
+  departmentIds: readonly string[],
   year: number
 ): Promise<ReviewClaim[]> {
+  if (departmentIds.length === 0) return [];
+
+  // `onDepartments`, not `departmentId` — a сумісник is on this кафедра too and
+  // their claims belong in its review. The filter used to be the bare column,
+  // so somebody with no primary кафедра was reviewed by nobody at all.
   const staff = await db.staff.findMany({
-    where: { ...ON_ROSTER, isNpp: true, departmentId },
-    select: { id: true, lastName: true, firstName: true, patronymic: true },
+    where: { ...ON_ROSTER, isNpp: true, ...onDepartments(departmentIds) },
+    select: {
+      id: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+      department: { select: { name: true } },
+      partTimeDepartments: { select: { department: { select: { name: true } } } },
+    },
   });
   if (staff.length === 0) return [];
 
   const nameById = new Map(
     staff.map((s) => [s.id, `${s.lastName} ${s.firstName} ${s.patronymic}`])
+  );
+  const departmentById = new Map(
+    staff.map((s) => [s.id, s.department?.name ?? s.partTimeDepartments[0]?.department.name ?? '—'])
   );
 
   const own = await db.studentClaim.findMany({
@@ -251,6 +282,7 @@ export async function listClaimsForReview(
             : 'інший працівник'))
         : null,
       firstClaimedByDepartment: outsider?.department?.name ?? null,
+      claimedByDepartment: departmentById.get(r.staffId) ?? '—',
     };
   });
 }

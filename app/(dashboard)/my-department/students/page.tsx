@@ -60,15 +60,24 @@ export default async function DepartmentStudentsPage({
     orderBy: { name: 'asc' },
   });
 
-  // ADMIN works one кафедра at a time — a university-wide list of every claim
-  // is not a screen anybody makes a decision from.
-  const param = typeof query.department === 'string' ? query.department : undefined;
-  const selected = departments.find((d) => d.id === param) ?? departments[0];
-  if (!selected) redirect('/profile');
+  if (departments.length === 0) redirect('/profile');
 
-  const claims = await listClaimsForReview(selected.id, template.year);
+  // «Усі кафедри» is the default (owner, 2026-08-26), reversing «ADMIN works one
+  // кафедра at a time». Claims are sparse — most кафедри have none in a given
+  // year — so opening on one of thirty-one meant clicking through the empty
+  // ones to find the few with anything to decide. An absent `?department=` is
+  // all of them; picking one narrows.
+  const param = typeof query.department === 'string' ? query.department : undefined;
+  const selected = departments.find((d) => d.id === param) ?? null;
+
+  const claims = await listClaimsForReview(
+    selected ? [selected.id] : departments.map((d) => d.id),
+    template.year
+  );
   const canSwitch = departments.length > 1;
   const canDecide = isAdmin;
+  // Only worth a column when the rows can come from more than one of them.
+  const showDepartment = !selected && canSwitch;
 
   return (
     <AnimatedPage className="space-y-6">
@@ -91,7 +100,7 @@ export default async function DepartmentStudentsPage({
         <div>
           <h1 className="text-2xl font-semibold">
             Залучені здобувачі
-            {!canSwitch && ` — ${selected.name}`}
+            {!canSwitch && ` — ${departments[0]!.name}`}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {template.year} рік ·{' '}
@@ -106,14 +115,20 @@ export default async function DepartmentStudentsPage({
             <span className="block text-xs font-medium text-muted-foreground">Кафедра</span>
             <DepartmentSelect
               departments={departments}
-              value={selected.id}
+              value={selected?.id ?? ''}
+              allowAll={{ label: 'Усі кафедри' }}
               basePath="/my-department/students"
             />
           </div>
         )}
       </div>
 
-      <ClaimsReview claims={claims} year={template.year} canDecide={canDecide} />
+      <ClaimsReview
+        claims={claims}
+        year={template.year}
+        canDecide={canDecide}
+        showDepartment={showDepartment}
+      />
     </AnimatedPage>
   );
 }

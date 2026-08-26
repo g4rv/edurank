@@ -16,11 +16,12 @@ const FORM = { FULL_TIME: 'Денна', PART_TIME: 'Заочна' } as const;
 const FUNDING = { STATE: 'Бюджет', CONTRACT: 'Контракт' } as const;
 
 /** Every column except «Рішення», which has no order worth putting rows in */
-type SortKey = 'student' | 'claimant' | 'speciality' | 'value' | 'date';
+type SortKey = 'student' | 'claimant' | 'department' | 'speciality' | 'value' | 'date';
 
 const SORT_LABEL: Record<SortKey, string> = {
   student: 'Здобувач',
   claimant: 'Хто вказав',
+  department: 'Кафедра',
   speciality: 'Спеціальність',
   value: 'Ставка',
   date: 'Подано',
@@ -41,11 +42,19 @@ export function ClaimsReview({
   claims,
   year,
   canDecide,
+  showDepartment = false,
 }: {
   claims: ReviewClaim[];
   year: number;
   /** False for a декан, who oversees the кафедра but does not rule on it */
   canDecide: boolean;
+  /**
+   * «Усі кафедри» is selected, so a row can come from any of them.
+   *
+   * Off when one кафедра is chosen: a column repeating the same word on every
+   * row is a column that says nothing.
+   */
+  showDepartment?: boolean;
 }) {
   const contested = claims.filter((c) => c.contested && c.status === 'PENDING');
   const pending = claims.filter((c) => c.status === 'PENDING');
@@ -74,6 +83,14 @@ export function ClaimsReview({
           return dir * a.studentName.localeCompare(b.studentName, 'uk');
         case 'claimant':
           return dir * a.claimedBy.localeCompare(b.claimedBy, 'uk');
+        // Кафедра first, then who inside it — sorting by кафедра alone leaves
+        // one кафедра's people in whatever order they arrived.
+        case 'department':
+          return (
+            dir *
+            (a.claimedByDepartment.localeCompare(b.claimedByDepartment, 'uk') ||
+              a.claimedBy.localeCompare(b.claimedBy, 'uk'))
+          );
         // By CODE, not alphabetically: the перелік's own order groups A4.01…
         // A4.16 together, which is what somebody scanning for «усі Середні
         // освіти» is actually looking for. Ties fall back to the name.
@@ -102,7 +119,9 @@ export function ClaimsReview({
   if (claims.length === 0) {
     return (
       <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        За {year} рік ніхто з кафедри ще не додав залучених здобувачів.
+        {showDepartment
+          ? `За ${year} рік ніхто ще не додав залучених здобувачів.`
+          : `За ${year} рік ніхто з кафедри ще не додав залучених здобувачів.`}
       </div>
     );
   }
@@ -140,6 +159,9 @@ export function ClaimsReview({
             <tr className="bg-muted/60 text-left">
               <SortableHead sortKey="student" sort={sort} onToggle={toggle} />
               <SortableHead sortKey="claimant" sort={sort} onToggle={toggle} />
+              {showDepartment && (
+                <SortableHead sortKey="department" sort={sort} onToggle={toggle} />
+              )}
               <SortableHead sortKey="speciality" sort={sort} onToggle={toggle} />
               <SortableHead
                 sortKey="value"
@@ -163,7 +185,12 @@ export function ClaimsReview({
           </thead>
           <tbody>
             {sorted.map((claim) => (
-              <ClaimRow key={claim.id} claim={claim} canDecide={canDecide} />
+              <ClaimRow
+                key={claim.id}
+                claim={claim}
+                canDecide={canDecide}
+                showDepartment={showDepartment}
+              />
             ))}
           </tbody>
         </table>
@@ -215,7 +242,15 @@ function SortableHead({
   );
 }
 
-function ClaimRow({ claim, canDecide }: { claim: ReviewClaim; canDecide: boolean }) {
+function ClaimRow({
+  claim,
+  canDecide,
+  showDepartment,
+}: {
+  claim: ReviewClaim;
+  canDecide: boolean;
+  showDepartment: boolean;
+}) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -284,6 +319,12 @@ function ClaimRow({ claim, canDecide }: { claim: ReviewClaim; canDecide: boolean
           </p>
         )}
       </td>
+
+      {showDepartment && (
+        <td className="border border-border px-3 py-2 text-xs text-muted-foreground">
+          {claim.claimedByDepartment}
+        </td>
+      )}
 
       {/* «compact» because this column is narrow and thirteen of our
           specialities begin with the same two words. The style is the only
