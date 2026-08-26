@@ -723,3 +723,68 @@ describe('changeRole', () => {
     );
   });
 });
+
+/**
+ * Placing somebody on a second кафедра is structure, not money (owner,
+ * 2026-08-26). It was ADMIN-only on the argument that сумісництво decides who
+ * appears in a кафедра's ставка grid — but the money is guarded on its own:
+ * `employmentRate` is confidential and grantable to nobody, and `/stakes/[id]`
+ * refuses anybody who is not ADMIN, a head or a декан. So it becomes an
+ * ordinary grantable field: ННВ may be given it, another відділ not.
+ */
+describe('updateStaff — сумісництво is a grantable field', () => {
+  const withPartTime: StaffUpdateSchema = {
+    ...fullPayload,
+    isNpp: true,
+    departmentId: 'dept-1',
+    partTimeDepartmentIds: ['dept-2'],
+  };
+
+  function editor(grants: string[]) {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockStaffLookups();
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue(grants.map((fieldName) => ({ fieldName })));
+    return mockTx();
+  }
+
+  it('ADMIN writes it', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'a1' } });
+    mockStaffLookups();
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-1', withPartTime)).toEqual({ success: true });
+    expect(tx.staffDepartment.createMany).toHaveBeenCalled();
+  });
+
+  it('an EDITOR granted the field writes it', async () => {
+    const tx = editor(['academicRank', 'partTimeDepartmentIds']);
+
+    expect(await updateStaff('staff-1', withPartTime)).toEqual({ success: true });
+    expect(tx.staffDepartment.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [{ staffId: 'staff-1', departmentId: 'dept-2' }],
+      })
+    );
+  });
+
+  it('an EDITOR without the grant leaves сумісництво untouched', async () => {
+    const tx = editor(['academicRank']);
+
+    expect(await updateStaff('staff-1', withPartTime)).toEqual({ success: true });
+    expect(tx.staffDepartment.createMany).not.toHaveBeenCalled();
+    // Not even cleared: the row belongs to somebody else's permission.
+    expect(tx.staffDepartment.deleteMany).not.toHaveBeenCalled();
+  });
+
+  // The «no editable fields» guard counts scalar columns, and сумісництво is
+  // not one of them — it lives in a join table and is written separately. A
+  // division granted ONLY this field would otherwise be told it may edit
+  // nothing, which is exactly the grant ADMIN just gave it.
+  it('a division granted only this field may still save', async () => {
+    const tx = editor(['partTimeDepartmentIds']);
+
+    expect(await updateStaff('staff-1', withPartTime)).toEqual({ success: true });
+    expect(tx.staffDepartment.createMany).toHaveBeenCalled();
+  });
+});

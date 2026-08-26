@@ -72,6 +72,15 @@ Consequences to keep in mind:
 **Layer 1 — Field permissions (`DivisionFieldPermission` table)**
 Which fields on a `Staff` record each division's editors can edit. Example: ННВ can edit `academicRank` and `pedagogicalExperience`; another division might be granted only `orcidId`. (`employmentRate` is confidential and grantable to nobody — see `CONFIDENTIAL_STAFF_FIELDS`.)
 
+One grant is not a `Staff` column: **`partTimeDepartmentIds`** (сумісництво,
+grantable since 2026-08-26) lives in the `StaffDepartment` join table, so
+`updateStaff` checks it beside the field loop rather than inside it — including
+in the «no editable fields» guard, which counts scalar columns and would
+otherwise refuse a division granted only this one. Pages ask
+`editorHasFieldGrant` so the control is offered only where the save would keep
+it. It is structure, not money: `/stakes/[id]` still refuses anyone who is not
+ADMIN, a head or a декан.
+
 **Layer 2 — Entity permissions (`DivisionEntityPermission` table)**
 Which CRUD operations on top-level entities each division can perform. Example: ННВ can create/delete Staff, Departments, Faculties. Another division may have none of these.
 
@@ -153,7 +162,7 @@ pnpm build            # production build
 pnpm start            # production server
 pnpm lint             # ESLint
 pnpm type-check       # tsc --noEmit
-pnpm test             # Vitest (1111 tests, colocated next to what they cover)
+pnpm test             # Vitest (1115 tests, colocated next to what they cover)
 
 pnpm db:migrate       # prisma migrate dev (pass --name <x> to skip prompt)
 

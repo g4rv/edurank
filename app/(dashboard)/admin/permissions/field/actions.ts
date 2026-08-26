@@ -30,6 +30,10 @@ const ALLOWED_FIELD_NAMES = new Set([
   'googleScholarCitationCount',
   'orcidId',
   'departmentId',
+  // Сумісництво (owner, 2026-08-26). Not a Staff column but a join table, so
+  // `updateStaff` checks this grant separately — placing somebody on a second
+  // кафедра is structure, and the money it touches is guarded on its own.
+  'partTimeDepartmentIds',
   // NOT divisionId — it decides an editor's own permission scope, see
   // PERMISSION_SCOPING_STAFF_FIELDS. Admin assigns divisions on the staff form.
 ]);

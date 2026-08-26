@@ -243,6 +243,14 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
 
   let updateData: Record<string, unknown> = {};
 
+  // Сумісництво is not a column on Staff, so it is not in `updateData` and
+  // needs its own permission. Grantable since 2026-08-26 (owner): putting
+  // somebody on a second кафедра is structure. It looked like money because it
+  // decides who appears in that кафедра's ставка grid — but the money guards
+  // itself, `employmentRate` being confidential and grantable to nobody and
+  // `/stakes/[id]` refusing anyone who is not ADMIN, a head or a декан.
+  let canWritePartTime = isAdmin;
+
   if (isAdmin) {
     updateData = { ...fields };
   } else if (role === 'EDITOR') {
@@ -252,6 +260,7 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
       return { error: 'Недостатньо прав' };
 
     const allowed = await getDivisionFieldGrants(divisionId);
+    canWritePartTime = allowed.has('partTimeDepartmentIds');
     for (const [key, val] of Object.entries(fields)) {
       if (allowed.has(key) && isEditorWritableField(key)) updateData[key] = val;
     }
@@ -262,8 +271,12 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
   }
 
   // An editor whose division holds no usable field grants would otherwise get
-  // an empty UPDATE, an empty audit row, and a «Збережено» for nothing saved
-  if (Object.keys(updateData).length === 0) {
+  // an empty UPDATE, an empty audit row, and a «Збережено» for nothing saved.
+  //
+  // Сумісництво is checked beside it rather than counted in it: it is a join
+  // table, never a key of `updateData`, so a division granted ONLY that field
+  // would be told it may edit nothing — which is the opposite of the grant.
+  if (Object.keys(updateData).length === 0 && !canWritePartTime) {
     return { error: 'Немає полів, доступних для редагування' };
   }
 
@@ -322,7 +335,7 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
       // Сумісництво, as кафедра NAMES rather than ids: the audit is read by a
       // person, and «Кафедра екології → —» says what a pair of cuids does not.
       // Only ADMIN can change it, so only ADMIN's saves are compared.
-      if (isAdmin) {
+      if (canWritePartTime) {
         const departmentNames = async (ids: readonly string[]) =>
           ids.length === 0
             ? null
@@ -355,7 +368,7 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
       );
       if (touchesDerived) await syncProfileDerived(tx, id);
 
-      if (isAdmin) {
+      if (canWritePartTime) {
         await tx.staffDepartment.deleteMany({ where: { staffId: id } });
         if (partTimeDepartmentIds.length > 0) {
           await tx.staffDepartment.createMany({

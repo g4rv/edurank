@@ -23,9 +23,16 @@ interface StaffCreateFormProps {
   departments: DepartmentOption[];
   divisions: DivisionOption[];
   isAdmin: boolean;
+  /** ADMIN, or a division granted `partTimeDepartmentIds` */
+  canEditPartTime: boolean;
 }
 
-export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreateFormProps) {
+export function StaffCreateForm({
+  departments,
+  divisions,
+  isAdmin,
+  canEditPartTime,
+}: StaffCreateFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -81,6 +88,7 @@ export function StaffCreateForm({ departments, divisions, isAdmin }: StaffCreate
         stakeBreakdown={null}
         isPending={isPending}
         isAdmin={isAdmin}
+        canEditPartTime={canEditPartTime}
         isNpp={isNppValue}
         departments={departments}
         divisions={divisions}

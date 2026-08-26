@@ -7,7 +7,7 @@ import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listDivisions } from '@/lib/queries/list-divisions';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
-import { canMutateStaffRecord } from '@/lib/permissions';
+import { canMutateStaffRecord, editorHasFieldGrant } from '@/lib/permissions';
 import { StaffEditForm } from '@/components/staff/edit-form';
 
 export default async function StaffEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,6 +25,11 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
     const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'STAFF');
     if (!perms.canUpdate) redirect(`/staff/${id}`);
   }
+
+  // The same grant `updateStaff` checks, so «Додаткова кафедра» is offered only
+  // to somebody whose save would keep it.
+  const canEditPartTime =
+    isAdmin || (await editorHasFieldGrant(session.user.staffId, 'partTimeDepartmentIds'));
 
   const [staff, departments, divisions, stakeBreakdown] = await Promise.all([
     getStaff(id, isAdmin),
@@ -70,6 +75,7 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
         departments={departments}
         divisions={divisions}
         isAdmin={isAdmin}
+        canEditPartTime={canEditPartTime}
         staffId={id}
         stakeBreakdown={stakeBreakdown}
       />

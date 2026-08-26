@@ -25,6 +25,8 @@ interface StaffEditFormProps {
   departments: DepartmentOption[];
   divisions: DivisionOption[];
   isAdmin: boolean;
+  /** ADMIN, or a division granted `partTimeDepartmentIds` */
+  canEditPartTime: boolean;
   staffId: string;
   /** What each кафедра allocated this person — shown under its own select */
   stakeBreakdown: StakePart[];
@@ -35,6 +37,7 @@ export function StaffEditForm({
   departments,
   divisions,
   isAdmin,
+  canEditPartTime,
   staffId,
   stakeBreakdown,
 }: StaffEditFormProps) {
@@ -83,6 +86,7 @@ export function StaffEditForm({
         stakeBreakdown={stakeBreakdown}
         isPending={isPending}
         isAdmin={isAdmin}
+        canEditPartTime={canEditPartTime}
         isNpp={isNppValue}
         departments={departments}
         divisions={divisions}

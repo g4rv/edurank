@@ -191,6 +191,16 @@ interface StaffFormFieldsProps {
   stakeBreakdown: StakePart[] | null;
   isPending: boolean;
   isAdmin: boolean;
+  /**
+   * May this viewer set «Додаткова кафедра»? ADMIN, or a division granted the
+   * `partTimeDepartmentIds` field (owner, 2026-08-26).
+   *
+   * Its own flag rather than `isAdmin`, because the two answer different
+   * questions: `isAdmin` still gates «Відділ», which is escalation and belongs
+   * to nobody else. Сумісництво is structure — an editor placing people on the
+   * right кафедри is the job, and the money it touches guards itself.
+   */
+  canEditPartTime: boolean;
   /** Watched isNpp — the academic and profile sections only apply to НПП */
   isNpp: boolean;
   departments: DepartmentOption[];
@@ -305,6 +315,7 @@ export function StaffFormFields({
   stakeBreakdown,
   isPending,
   isAdmin,
+  canEditPartTime,
   isNpp,
   departments,
   divisions,
@@ -423,10 +434,10 @@ export function StaffFormFields({
             />
           </DepartmentField>
 
-          {/* ADMIN only — сумісництво decides who appears in a second кафедра's
-              ставка grid, which is money, so an editor may see it and never
-              set it. */}
-          {isAdmin && (
+          {/* Shown to whoever may write it — the server checks the same grant,
+              so an editor without it would otherwise fill in a choice that is
+              dropped without a word. */}
+          {canEditPartTime && (
             <DepartmentField
               label="Додаткова кафедра"
               error={errors.partTimeDepartmentIds}

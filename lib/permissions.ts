@@ -148,6 +148,22 @@ export async function getDivisionFieldGrants(divisionId: string): Promise<Set<st
 }
 
 /**
+ * Does this editor's division hold the grant for ONE field?
+ *
+ * For a page deciding whether to render a control. The server checks the same
+ * grant when it saves, and the two must agree: a field offered to somebody
+ * whose save silently drops it collects a choice and throws it away.
+ */
+export async function editorHasFieldGrant(
+  staffId: string | null | undefined,
+  fieldName: string
+): Promise<boolean> {
+  const divisionId = await getEditorDivisionId(staffId);
+  if (!divisionId) return false;
+  return (await getDivisionFieldGrants(divisionId)).has(fieldName);
+}
+
+/**
  * Guard for ADMIN-only actions: redirects anonymous users to /login,
  * returns null for non-admins (caller returns its own error), the session for admins.
  */

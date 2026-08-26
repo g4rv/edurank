@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listDivisions } from '@/lib/queries/list-divisions';
+import { editorHasFieldGrant } from '@/lib/permissions';
 import { StaffCreateForm } from '@/components/staff/create-form';
 
 export default async function StaffNewPage() {
@@ -43,6 +44,14 @@ export default async function StaffNewPage() {
     if (!hasPermission) redirect('/staff');
   }
 
+  // `createStaff` deliberately does not consult the field grants — STAFF CREATE
+  // authorises the record and the ordinary data on it, and applying the grants
+  // there would stop an editor filling in a name they are allowed to create.
+  // The control still follows the grant, so the same division sees the same
+  // field on both forms rather than one that appears only when creating.
+  const canEditPartTime =
+    isAdmin || (await editorHasFieldGrant(session.user.staffId, 'partTimeDepartmentIds'));
+
   return (
     <div className="max-w-3xl space-y-6">
       <Link
@@ -58,7 +67,12 @@ export default async function StaffNewPage() {
         <p className="mt-0.5 text-sm text-muted-foreground">Заповніть дані нового запису</p>
       </div>
 
-      <StaffCreateForm departments={departments} divisions={divisions} isAdmin={isAdmin} />
+      <StaffCreateForm
+        departments={departments}
+        divisions={divisions}
+        isAdmin={isAdmin}
+        canEditPartTime={canEditPartTime}
+      />
     </div>
   );
 }
