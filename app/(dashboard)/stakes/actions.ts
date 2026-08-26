@@ -400,10 +400,6 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
 export async function setStaffLimits(_prev: LimitsState, formData: FormData): Promise<LimitsState> {
   const session = await auth();
   if (!session) redirect('/login');
-  // Not `canDistribute`: a head may spread the pool but never move the bounds
-  // they are spreading it inside.
-  if (session.user.role !== 'ADMIN') return { error: 'Ліміти змінює лише адміністратор' };
-
   const parsed = staffStakeLimitsSchema.safeParse({
     staffId: formData.get('staffId'),
     // Which кафедра's row this is. Taken from the form, not from
@@ -418,6 +414,27 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
     return { error: parsed.error.issues[0]?.message ?? 'Невірні дані' };
   }
   const { staffId, departmentId, year, minHundredths, maxHundredths } = parsed.data;
+
+  // The same rule as the split itself (owner, 2026-08-26, retracting «ліміти
+  // змінює лише ADMIN» of 2026-08-05). A завідувач now sets Мін/Макс on their
+  // own кафедра freely: there is no outer bound above them, and the bounds
+  // stop being ADMIN's control on the head. What remains is the audit entry
+  // below, which records who moved a cap and to what.
+  //
+  // It also clears a deadlock the old rule created: ADMIN could lower a cap
+  // beneath a ставка the head had already saved, and the grid then refused
+  // every subsequent save with errors nobody on the кафедра could reach.
+  //
+  // The check runs AFTER the parse because the кафедра comes from the form —
+  // a сумісник's bounds belong to a кафедра that is not their own. That is
+  // also what scopes it: the head of the additional кафедра owns that row's
+  // ceiling, and the primary кафедра's head cannot touch it.
+  //
+  // Still `headOf` and not `scopeOf`: a декан reads every кафедра of their
+  // факультет and decides for none of them.
+  if (!(await canDistribute(session.user, departmentId))) {
+    return { error: 'Ліміти змінює завідувач кафедри' };
+  }
 
   const closed = await closedYearProblem(year);
   if (closed) return { error: closed };

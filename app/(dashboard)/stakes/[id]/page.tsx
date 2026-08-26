@@ -188,7 +188,7 @@ export default async function DepartmentStakesPage({
           key={`${departmentId}:${limitsSignature}`}
           view={view}
           canEdit={canEditAllocation}
-          canEditLimits={isAdmin}
+          canEditLimits={canEditAllocation}
           canOpenStaffProfile={isAdmin}
           audience={isAdmin ? 'admin' : 'head'}
           statusValues={statusValues}

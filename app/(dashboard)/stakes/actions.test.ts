@@ -484,7 +484,7 @@ describe('saveDistribution — per-person rules', () => {
   });
 });
 
-describe('setStaffLimits — ADMIN only', () => {
+describe('setStaffLimits — who may', () => {
   function limitsForm(min: string, max: string) {
     const fd = new FormData();
     fd.set('staffId', 's0');
@@ -553,13 +553,35 @@ describe('setStaffLimits — ADMIN only', () => {
     });
   });
 
-  it('refuses a head — this is exactly the escalation the caps prevent', async () => {
+  // Reversed 2026-08-26 (owner), retracting «ADMIN only» of 2026-08-05: the
+  // завідувач sets Мін/Макс on their own кафедра, with no outer bound above
+  // them. The bounds stop being ADMIN's control on the head and become the
+  // head's own tool. It also clears a deadlock: ADMIN could lower a cap under
+  // a ставка the head had already saved, and only ADMIN could raise it back.
+  it('lets the кафедра’s own head set them', async () => {
     mockAuth.mockResolvedValue(HEAD);
     mockHeadOf.mockResolvedValue([DEPT]);
-    const result = await setStaffLimits(null, limitsForm('0,10', '1,50'));
-    // A head who could drop a colleague's cap and raise their own would make
-    // the caps meaningless
-    expect(result).toMatchObject({ error: expect.stringContaining('адміністратор') });
+    expect(await setStaffLimits(null, limitsForm('0,10', '1,50'))).toMatchObject({
+      success: true,
+    });
+  });
+
+  it('refuses a head on a кафедра that is not theirs', async () => {
+    mockAuth.mockResolvedValue(HEAD);
+    mockHeadOf.mockResolvedValue(['dept-other']);
+
+    expect(await setStaffLimits(null, limitsForm('0,10', '1,00'))).toHaveProperty('error');
+    expect(mockLimitsUpsert).not.toHaveBeenCalled();
+  });
+
+  // A декан reads every кафедра of the факультет and decides for none of them.
+  // `scopeOf` covers them, `headOf` does not, and this write asks `headOf`.
+  it('refuses a декан, who may read the кафедра but not decide for it', async () => {
+    mockAuth.mockResolvedValue(HEAD);
+    mockScope.mockResolvedValue([DEPT]);
+    mockHeadOf.mockResolvedValue([]);
+
+    expect(await setStaffLimits(null, limitsForm('0,10', '1,00'))).toHaveProperty('error');
     expect(mockLimitsUpsert).not.toHaveBeenCalled();
   });
 

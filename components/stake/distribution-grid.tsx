@@ -70,11 +70,15 @@ type LimitDraft = { min: string; max: string };
  * against it is written out. The scratch tab that used to sit beside this one is
  * gone (2026-08-17, owner's call).
  *
- * Ліміти are shown to everyone and editable only by ADMIN, on these same rows.
- * A head who could raise their own cap and drop a colleague's would make the
- * caps meaningless, which is why they are ADMIN-only (decided 2026-08-05) —
- * and why the head still SEES them: bounds you cannot see are bounds you file
- * a bug about when a button stops moving.
+ * Ліміти are shown to everyone and editable by whoever may edit the split —
+ * ADMIN or the кафедра's own head (owner, 2026-08-26, retracting the ADMIN-only
+ * rule of 2026-08-05). They were a control ADMIN held over the head; they are
+ * the head's own tool now, and what records a cap being moved is the audit
+ * entry rather than the permission.
+ *
+ * It also ends a deadlock: a cap ADMIN dropped beneath a ставка already saved
+ * left the row failing every save, and only ADMIN could clear it. A декан
+ * still reads and writes nothing.
  */
 export function DistributionGrid({
   view,
@@ -90,7 +94,7 @@ export function DistributionGrid({
   view: StakeDistributionView;
   /** The кафедра's head, or ADMIN */
   canEdit: boolean;
-  /** ADMIN only — turns the Мін/Макс column into two editable fields */
+  /** Turns the Мін/Макс column into two editable fields — ADMIN or the кафедра's head */
   canEditLimits: boolean;
   /**
    * May this viewer open `/staff/[id]`? ADMIN can; a завідувач is an ordinary
@@ -1009,7 +1013,8 @@ function PoolCard({
 }
 
 /**
- * One bound — either the floor or the ceiling — for one person. ADMIN only.
+ * One bound — either the floor or the ceiling — for one person. ADMIN or the
+ * кафедра's own head — see `canEditLimits`.
  *
  * Its own column and its own field, with ▲▼ like every other ставка on the
  * grid, saved when the field is left. The two bounds are one database row, so
@@ -1174,8 +1179,10 @@ function Row({
   const lower = lowerBound(row);
   const upper = upperBound(row);
   // A saved allocation can fall outside its bounds without anybody touching it
-  // — ADMIN lowers a cap under a number the head already agreed. The save
-  // refuses it, so say so on the field instead of only at the moment of saving.
+  // — a cap is lowered under a number that was already agreed. The save refuses
+  // it, so say so on the field instead of only at the moment of saving. Since
+  // 2026-08-26 the head can move the cap back themselves, so this is a warning
+  // and no longer a dead end.
   //
   // **Not while there is no `Кст`** (2026-08-17). With no pool the formula
   // proposes 0 for everybody — `formulaShares` skips the floor entirely when
