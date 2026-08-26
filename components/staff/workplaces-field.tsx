@@ -79,11 +79,18 @@ export function WorkplacesField({
     ...order.map((id) => byId.get(id)).filter((w): w is Workplace => w !== undefined),
     ...saved.filter((w) => !order.includes(w.departmentId)),
   ];
-  // An empty row starts as «Основне» only when nothing else claims it, which is
-  // the ordinary case: one кафедра, full-time.
+  // An empty row NEVER reacts to the other one. It used to start as «Основне»
+  // whenever no other row claimed it, so turning the first switch off flipped
+  // the empty second row on by itself — a control moving without being touched
+  // (owner, 2026-08-26).
+  //
+  // Deterministic instead: a person with nothing yet gets «Основне» on the
+  // first row, since one full-time кафедра is the ordinary case. Once anything
+  // is filled in, an empty row is сумісництво and stays there until somebody
+  // says otherwise.
   const rows: Workplace[] = [...ordered];
   while (rows.length < 2) {
-    rows.push({ departmentId: '', isPartTime: rows.some((r) => !r.isPartTime) });
+    rows.push({ departmentId: '', isPartTime: !(ordered.length === 0 && rows.length === 0) });
   }
 
   function commit(next: Workplace[]) {
@@ -104,8 +111,19 @@ export function WorkplacesField({
     });
   }
 
-  const replace = (index: number, row: Workplace) =>
-    commit(rows.map((r, i) => (i === index ? row : r)));
+  function replace(index: number, row: Workplace) {
+    const next = rows.map((r, i) => (i === index ? row : r));
+
+    // Turning «Основне» on turns the other one off, rather than refusing with
+    // «Основне місце роботи може бути лише одне». Clicking the second switch
+    // means «this one is the main post now» — the error told somebody to go
+    // and undo the first one before they were allowed to say it. Only one full
+    // time post can exist, so the switches behave as one choice, not two.
+    if (!row.isPartTime && row.departmentId !== '') {
+      return commit(next.map((r, i) => (i === index ? r : { ...r, isPartTime: true })));
+    }
+    return commit(next);
+  }
 
   return (
     <FormField error={problem ? { message: problem } : error}>
