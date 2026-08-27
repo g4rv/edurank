@@ -94,19 +94,19 @@ describe('canViewAcademicRecord', () => {
 
   it('lets a head read someone on their own кафедра', async () => {
     given({ headOf: ['dept-1'] });
-    mockStaff.mockResolvedValue({ departmentId: 'dept-1' });
+    mockStaff.mockResolvedValue({ departmentId: 'dept-1', partTimeDepartments: [] });
     expect(await canViewAcademicRecord({ role: 'USER', staffId: 'head' }, 'member')).toBe(true);
   });
 
   it('refuses a head someone on a different кафедра', async () => {
     given({ headOf: ['dept-1'] });
-    mockStaff.mockResolvedValue({ departmentId: 'dept-9' });
+    mockStaff.mockResolvedValue({ departmentId: 'dept-9', partTimeDepartments: [] });
     expect(await canViewAcademicRecord({ role: 'USER', staffId: 'head' }, 'stranger')).toBe(false);
   });
 
   it('refuses a head someone with no кафедра at all', async () => {
     given({ headOf: ['dept-1'] });
-    mockStaff.mockResolvedValue({ departmentId: null });
+    mockStaff.mockResolvedValue({ departmentId: null, partTimeDepartments: [] });
     expect(await canViewAcademicRecord({ role: 'USER', staffId: 'head' }, 'nobody')).toBe(false);
   });
 
@@ -114,6 +114,39 @@ describe('canViewAcademicRecord', () => {
     given({ headOf: ['dept-1'] });
     mockStaff.mockResolvedValue(null);
     expect(await canViewAcademicRecord({ role: 'USER', staffId: 'head' }, 'ghost')).toBe(false);
+  });
+
+  // Reported from prod on 2026-08-27: Зленко heads Кафедра соціальних
+  // комунікацій, three сумісники sit in her own list and in her ставка grid,
+  // and «Переглянути» on every one of them was a 404.
+  it('lets a head read a сумісник on their кафедра, whose primary is elsewhere', async () => {
+    given({ headOf: ['dept-1'] });
+    mockStaff.mockResolvedValue({
+      departmentId: 'dept-9',
+      partTimeDepartments: [{ departmentId: 'dept-1' }],
+    });
+    expect(await canViewAcademicRecord({ role: 'USER', staffId: 'head' }, 'sumisnyk')).toBe(true);
+  });
+
+  // Legal since 2026-08-26: an НПП may hold only an additional post. With a
+  // null `departmentId` the old check made their record unreadable to every
+  // head of every кафедра they actually work on.
+  it('lets a head read someone whose ONLY кафедра is a part-time post', async () => {
+    given({ headOf: ['dept-1'] });
+    mockStaff.mockResolvedValue({
+      departmentId: null,
+      partTimeDepartments: [{ departmentId: 'dept-1' }],
+    });
+    expect(await canViewAcademicRecord({ role: 'USER', staffId: 'head' }, 'part-timer')).toBe(true);
+  });
+
+  it('still refuses a head a сумісник on somebody else’s кафедра', async () => {
+    given({ headOf: ['dept-1'] });
+    mockStaff.mockResolvedValue({
+      departmentId: 'dept-9',
+      partTimeDepartments: [{ departmentId: 'dept-8' }],
+    });
+    expect(await canViewAcademicRecord({ role: 'USER', staffId: 'head' }, 'stranger')).toBe(false);
   });
 });
 

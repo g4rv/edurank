@@ -5,6 +5,7 @@ import { AuthError } from 'next-auth';
 import { lockedUntil, subjectsFor } from '@/lib/auth/throttle';
 import { lockedMessage } from '@/lib/auth/throttle-policy';
 import { loginSchema } from '@/validations/login';
+import { safeCallbackPath } from '@/lib/auth/callback-url';
 
 export type LoginState = { error: string } | null;
 
@@ -21,7 +22,10 @@ export type LoginState = { error: string } | null;
  * lockout is: it is a fact about the attempts this visitor has just made, not
  * about whether an account exists.
  */
-export async function loginAction(data: { email: string; password: string }): Promise<LoginState> {
+export async function loginAction(
+  data: { email: string; password: string },
+  callbackUrl?: string | null
+): Promise<LoginState> {
   const parsed = loginSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірний email або пароль' };
 
@@ -37,7 +41,10 @@ export async function loginAction(data: { email: string; password: string }): Pr
     await signIn('credentials', {
       email: parsed.data.email,
       password: parsed.data.password,
-      redirectTo: '/staff',
+      // Where they were headed, or `/` — which routes by role. `/staff` was
+      // hardcoded here and a USER cannot open it, so every НПП signed in and
+      // was bounced straight on to `/profile` (2026-08-27).
+      redirectTo: safeCallbackPath(callbackUrl) ?? '/',
     });
   } catch (error) {
     if (error instanceof AuthError) {

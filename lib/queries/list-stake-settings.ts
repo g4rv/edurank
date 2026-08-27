@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
+import { ON_ROSTER } from './roster';
 import { getDepartmentsKnpp } from './get-department-knpp';
 import { DEFAULT_CONTRACT_COEFFICIENT } from '@/lib/stake/norms';
 import { minimumKstHundredths } from '@/lib/stake/units';
@@ -41,7 +42,23 @@ export async function listDepartmentStakes(year: number) {
     // more wrong with each year that closes.
     db.stakeAllocation.groupBy({
       by: ['distributionId'],
-      where: { distribution: { year } },
+      // `ON_ROSTER`, because `/stakes/[id]` sums only the rows it shows and it
+      // shows only the roster. Without it the two screens disagreed the moment
+      // anybody was archived: this page went on counting their ставка while the
+      // кафедра's own grid did not, so one кафедра had two «Залишок» values —
+      // 0,40 here against 0,70 there (2026-08-27, seen on screen). The row was
+      // even inconsistent with itself, since `headcount` below comes from
+      // `getDepartmentsKnpp`, which HAS always excluded them: four people, and
+      // money for five.
+      //
+      // Their `StakeAllocation` row is deliberately left in the database — it
+      // is what that year's розподіл actually was, and archiving never destroys
+      // history. This only stops the row being counted as still spent.
+      //
+      // **It redistributes nothing.** The freed share shows up as «Залишок» and
+      // stays there until a head or the проректор decides where it goes (owner,
+      // 2026-08-27).
+      where: { distribution: { year }, staff: ON_ROSTER },
       _sum: { proposedHundredths: true },
     }),
   ]);

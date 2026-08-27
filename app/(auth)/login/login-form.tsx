@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,10 @@ import { loginAction } from './actions';
 
 export function LoginForm() {
   const [isPending, startTransition] = useTransition();
+  // Where the proxy was sending them before it found no session cookie. Passed
+  // straight through — `safeCallbackPath` on the server decides whether it is
+  // a same-site path worth honouring.
+  const callbackUrl = useSearchParams().get('callbackUrl');
 
   const {
     register,
@@ -33,7 +38,7 @@ export function LoginForm() {
     // wrong is deliberately not disclosed.
     clearErrors('root');
     startTransition(async () => {
-      const result = await loginAction(data);
+      const result = await loginAction(data, callbackUrl);
       if (result?.error) setError('root', { message: result.error });
     });
   }

@@ -12,6 +12,7 @@ import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteFacultyButton } from '@/components/faculty/delete-button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
+import { UK } from '@/lib/plural';
 
 function fullName(p: { lastName: string; firstName: string; patronymic: string }) {
   return `${p.lastName} ${p.firstName} ${p.patronymic}`;
@@ -91,7 +92,7 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
         <div>
           <h1 className="text-2xl font-semibold">{faculty.name}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {staffList.length} НПП · {faculty.departments.length} кафедр
+            {staffList.length} НПП · {UK.department(faculty.departments.length)}
           </p>
         </div>
         {(canEdit || canDelete) && (

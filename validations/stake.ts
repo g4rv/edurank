@@ -123,8 +123,14 @@ export const stakeYearSettingsSchema = z.object({
 export type StakeYearSettingsSchema = z.infer<typeof stakeYearSettingsSchema>;
 
 /**
- * A person's floor and ceiling for the year. ADMIN only — a завідувач
- * distributes inside limits they cannot change.
+ * A person's floor and ceiling for the year.
+ *
+ * ADMIN **or the кафедра's own завідувач** since 2026-08-26, reversing the
+ * ADMIN-only rule of 2026-08-05: there is no outer bound above a head, and the
+ * old rule deadlocked a grid whenever ADMIN lowered a cap under a ставка that
+ * was already saved. What records a cap moving is the audit entry, not the
+ * permission. Scoped per кафедра, so the head of somebody's additional кафедра
+ * owns that row and the primary one's head cannot touch it.
  */
 export const staffStakeLimitsSchema = z
   .object({

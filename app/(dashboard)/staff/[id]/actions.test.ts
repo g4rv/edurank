@@ -889,6 +889,64 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
     );
   });
 
+  // The cleanup used to live inside `if (canWritePartTime)`, which answers a
+  // different question. `departmentId` is its own grant, so a division holding
+  // only that one moved somebody's main кафедра and the кафедра they left went
+  // on paying them (2026-08-27).
+  it('runs for an EDITOR granted departmentId but NOT partTimeDepartmentIds', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockStaffLookups();
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'departmentId' }]);
+    const tx = mockTx();
+    tx.staff.findUnique.mockResolvedValue({
+      lastName: 'Іваненко',
+      firstName: 'Петро',
+      patronymic: 'Ігорович',
+      departmentId: 'dept-1',
+      partTimeDepartments: [],
+    });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-2',
+      partTimeDepartmentIds: [],
+    });
+
+    // dept-1 is gone, so nothing is spared and its allocation goes with it
+    expect(kept(tx)).toEqual([]);
+    expect(tx.staffStakeLimits.deleteMany).toHaveBeenCalled();
+  });
+
+  // Their сумісництво is untouched by such an editor, so those кафедри are
+  // still theirs and must be spared — reading the payload instead of the stored
+  // rows would delete a placement nobody changed.
+  it('spares сумісництво an EDITOR without the grant could not have changed', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockStaffLookups();
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'departmentId' }]);
+    const tx = mockTx();
+    tx.staff.findUnique.mockResolvedValue({
+      lastName: 'Іваненко',
+      firstName: 'Петро',
+      patronymic: 'Ігорович',
+      departmentId: 'dept-1',
+      partTimeDepartments: [{ departmentId: 'dept-9', department: { name: 'dept-9' } }],
+    });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-1',
+      // The form cannot send this for them; whatever arrives must be ignored.
+      partTimeDepartmentIds: [],
+    });
+
+    expect(kept(tx)).toEqual(['dept-1', 'dept-9']);
+  });
+
   it('spares a placement whose kind did not change', async () => {
     const tx = admin({ departmentId: 'dept-1', partTime: ['dept-2'] });
 

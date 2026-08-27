@@ -175,6 +175,39 @@ export async function getDashboard(year: number): Promise<DashboardData> {
     )
     .sort((a, b) => b.average - a.average || a.name.localeCompare(b.name, 'uk'));
 
+  /**
+   * PEOPLE per faculty, counted once each — not the sum of its кафедри.
+   *
+   * A сумісник belongs in two кафедра buckets on purpose (both кафедри pay
+   * them, both average their score). Adding those buckets up then counted the
+   * same person twice at faculty level, and twice again in the university
+   * total: the «НПП» card said 327 while the tree summed to 347 (2026-08-27).
+   *
+   * Counted over distinct staff, so somebody holding posts on two кафедри of
+   * ONE faculty is one person there — and somebody spanning two faculties is
+   * one in each, which is the honest answer to «how many people does this
+   * faculty have».
+   */
+  const facultyOf = new Map<string, string>();
+  for (const faculty of faculties) {
+    for (const department of faculty.departments) facultyOf.set(department.id, faculty.id);
+  }
+  const peopleByFaculty = new Map<string, Set<number>>();
+  const noteFaculty = (departmentId: string, person: number) => {
+    const facultyId = facultyOf.get(departmentId);
+    if (!facultyId) return;
+    const seen = peopleByFaculty.get(facultyId) ?? new Set<number>();
+    seen.add(person);
+    peopleByFaculty.set(facultyId, seen);
+  };
+  for (const [i, member] of npp.entries()) {
+    if (member.departmentId) noteFaculty(member.departmentId, i);
+    for (const { departmentId } of member.partTimeDepartments) {
+      if (departmentId === member.departmentId) continue;
+      noteFaculty(departmentId, i);
+    }
+  }
+
   const facultyNodes: FacultyNode[] = faculties.map((faculty) => {
     const departmentNodes = faculty.departments.map((department) => ({
       id: department.id,
@@ -184,7 +217,7 @@ export async function getDashboard(year: number): Promise<DashboardData> {
     return {
       id: faculty.id,
       name: faculty.name,
-      nppCount: departmentNodes.reduce((acc, d) => acc + d.nppCount, 0),
+      nppCount: peopleByFaculty.get(faculty.id)?.size ?? 0,
       departments: departmentNodes,
     };
   });

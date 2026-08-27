@@ -14,6 +14,7 @@ import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
 import { formatPhoneDisplay } from '@/lib/phone';
+import { UK } from '@/lib/plural';
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -80,7 +81,7 @@ function ProfileLink({
           <ExternalLink className="size-3" />
         </a>
         {count !== null && count !== undefined && (
-          <span className="text-muted-foreground">{count} цитувань</span>
+          <span className="text-muted-foreground">{UK.citation(count)}</span>
         )}
       </dd>
     </div>

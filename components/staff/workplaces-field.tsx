@@ -36,6 +36,7 @@ export function WorkplacesField({
   onChange,
   disabled = false,
   canEditPartTime = true,
+  canEditPrimary = true,
   error,
 }: {
   departments: readonly DepartmentOption[];
@@ -52,6 +53,14 @@ export function WorkplacesField({
    * then throws away is worse than no control.
    */
   canEditPartTime?: boolean;
+  /**
+   * May this viewer change the FULL-TIME post? A division granted
+   * `partTimeDepartmentIds` but not `departmentId` may place somebody on a
+   * second кафедра and must not move their main one — so the two rows are
+   * gated separately (2026-08-27). Disabling the whole control on one missing
+   * grant would take away the edit they do hold.
+   */
+  canEditPrimary?: boolean;
   /** The schema's own complaint, e.g. «НПП повинен мати кафедру» */
   error?: { message?: string };
 }) {
@@ -147,7 +156,7 @@ export function WorkplacesField({
                   departments={departments.filter((d) => !takenElsewhere.includes(d.id))}
                   value={row.departmentId}
                   onChange={(next) => replace(index, { ...row, departmentId: next })}
-                  disabled={disabled || (row.isPartTime && !canEditPartTime)}
+                  disabled={disabled || (row.isPartTime ? !canEditPartTime : !canEditPrimary)}
                   clearable
                 />
                 {selected?.faculty?.name && (
@@ -169,7 +178,11 @@ export function WorkplacesField({
                 <Switch
                   checked={!row.isPartTime}
                   onCheckedChange={(next) => replace(index, { ...row, isPartTime: !next })}
-                  disabled={disabled || row.departmentId === '' || !canEditPartTime}
+                  // Flipping this rewrites `departmentId` AND
+                  // `partTimeDepartmentIds`, so it takes both grants.
+                  disabled={
+                    disabled || row.departmentId === '' || !canEditPartTime || !canEditPrimary
+                  }
                   className="data-[state=checked]:bg-green-600"
                   aria-label="Основне місце роботи"
                 />

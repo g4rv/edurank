@@ -17,6 +17,7 @@ import { getDepartmentKnpp } from '@/lib/queries/get-department-knpp';
 import { scopeOf } from '@/lib/queries/scope';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { KnppSummary } from '@/components/kharakterystyka/knpp-summary';
+import { UK } from '@/lib/plural';
 
 function fullName(p: { lastName: string; firstName: string; patronymic: string }) {
   return `${p.lastName} ${p.firstName} ${p.patronymic}`;
@@ -119,7 +120,8 @@ export default async function DepartmentDetailPage({
         <div>
           <h1 className="text-2xl font-semibold">{department.name}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {department.primaryStaff.length} основних · {department.partTimeStaff.length} сумісників
+            {UK.primary(department.primaryStaff.length)} ·{' '}
+            {UK.partTimer(department.partTimeStaff.length)}
           </p>
         </div>
         {(canEdit || canDelete) && (

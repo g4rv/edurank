@@ -11,6 +11,7 @@ import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteFacultyButton } from '@/components/faculty/delete-button';
+import { UK } from '@/lib/plural';
 
 function deanName(dean: { lastName: string; firstName: string; patronymic: string } | null) {
   if (!dean) return '—';
@@ -53,7 +54,7 @@ export default async function FacultiesPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Факультети</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{faculties.length} записів</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{UK.record(faculties.length)}</p>
         </div>
         {canCreate && (
           <Button asChild>

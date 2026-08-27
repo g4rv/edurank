@@ -1,5 +1,6 @@
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import { minimumKst, type DepartmentKnpp } from '@/lib/queries/get-department-knpp';
+import { UK } from '@/lib/plural';
 
 /**
  * The кафедра's two ставка numbers, side by side — because they are different
@@ -52,9 +53,9 @@ export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number
 
       {data.partTimeHeadcount > 0 && (
         <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-          Із них {data.partTimeHeadcount} {data.partTimeHeadcount === 1 ? 'сумісник' : 'сумісників'}{' '}
-          з інших кафедр. Вони входять у мінімум ставок, бо теж отримують ставку тут, але не входять
-          у Кнпп — ліцензійні позиції рахує основна кафедра.
+          Із них {UK.partTimer(data.partTimeHeadcount)} з інших кафедр. Вони входять у мінімум
+          ставок, бо теж отримують ставку тут, але не входять у Кнпп — ліцензійні позиції рахує
+          основна кафедра.
         </p>
       )}
     </div>

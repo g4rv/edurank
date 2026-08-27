@@ -36,7 +36,17 @@ export default function proxy(req: NextRequest) {
   }
 
   if (!hasSessionCookie(req)) {
-    return NextResponse.redirect(new URL('/login', req.url));
+    // Remember the page they asked for, so signing in takes them there rather
+    // than to a fixed landing page. An emailed link to `/stakes/<id>` used to
+    // end at `/staff` with the кафедра forgotten (2026-08-27).
+    //
+    // Path + query only, never a whole URL: `safeCallbackPath` refuses
+    // anything that is not a same-site path, and this is where the value it
+    // later has to trust is produced.
+    const login = new URL('/login', req.url);
+    const wanted = `${pathname}${req.nextUrl.search}`;
+    if (pathname !== '/') login.searchParams.set('callbackUrl', wanted);
+    return NextResponse.redirect(login);
   }
 
   return NextResponse.next();

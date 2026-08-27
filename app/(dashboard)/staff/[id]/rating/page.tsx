@@ -57,8 +57,21 @@ export default async function StaffRatingPage({
   const status = templateYears.find((t) => t.year === year)?.status;
 
   // Closed year → the frozen snapshot is authoritative; open year → live rows
-  const snapshotGroups =
-    status === 'CLOSED' ? snapshotToGroups((await getRatingEntry(id, year))?.snapshot) : null;
+  const closed = status === 'CLOSED';
+  const snapshotGroups = closed
+    ? snapshotToGroups((await getRatingEntry(id, year))?.snapshot)
+    : null;
+
+  /**
+   * A closed year with NO snapshot is an empty rating, not an open one.
+   *
+   * `closeYear` nulls every snapshot for the year and then writes one back only
+   * for people who still hold a counting row — so somebody with nothing scored
+   * ends on `null`. The `??` below then fell through to live rows AND to the
+   * full catalogue, and their frozen year rendered as a list of indicators
+   * «still to fill in» (2026-08-27).
+   */
+  const emptyClosedYear = closed && snapshotGroups === null;
   // The same whole-rating view the НПП gets of themselves. Without the
   // catalogue this table listed only the indicators already filled, so an
   // editor could not tell «this person has nothing under 3.7» from «3.7 does
@@ -66,11 +79,19 @@ export default async function StaffRatingPage({
   //
   // Open years only. A closed year renders from its snapshot, which is frozen
   // history: «could still be filled» is not a thing to say about it.
-  const catalogue = snapshotGroups ? undefined : await listTemplateIndicators(year);
+  const catalogue =
+    snapshotGroups || emptyClosedYear ? undefined : await listTemplateIndicators(year);
 
   const groups =
     snapshotGroups ??
-    toAchievementGroups(await listStaffActivities(id, year), [1, 2, 3, 4, 5], false, catalogue);
+    toAchievementGroups(
+      // A closed year reads its own rows, never the catalogue: whatever is
+      // there is what was frozen, and an empty year stays empty.
+      emptyClosedYear ? [] : await listStaffActivities(id, year),
+      [1, 2, 3, 4, 5],
+      false,
+      catalogue
+    );
 
   return (
     <AnimatedPage className="space-y-6">

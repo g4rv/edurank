@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { nameSearch } from './name-search';
-import { ON_ROSTER, REAL_PEOPLE, onDepartment } from './roster';
+import { ON_ROSTER, REAL_PEOPLE, onDepartment, onFaculty } from './roster';
 
 export type RatingSortField = 'name' | 'department' | 's1' | 's2' | 's3' | 's4' | 's5' | 'total';
 
@@ -34,7 +34,9 @@ export async function listRatings(filters: RatingListFilters) {
   // on purpose, and «not an НПП» is a different statement from «not a person».
   const conditions: object[] = [{ isNpp: true }, REAL_PEOPLE];
   if (!closed) conditions.push(ON_ROSTER);
-  if (filters.facultyId) conditions.push({ department: { facultyId: filters.facultyId } });
+  // Primary or сумісник, exactly like the кафедра filter below — the two are
+  // ANDed, so a primary-only faculty filter cancelled out the кафедра one.
+  if (filters.facultyId) conditions.push(onFaculty(filters.facultyId));
   // Primary or сумісник. This only widens the FILTERED view — the unfiltered
   // university ranking is still one row per person, because a `some` filter
   // selects people rather than multiplying them. Listing somebody twice would

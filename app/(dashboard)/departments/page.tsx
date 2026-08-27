@@ -11,6 +11,7 @@ import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
+import { UK } from '@/lib/plural';
 
 function headName(head: { lastName: string; firstName: string; patronymic: string } | null) {
   if (!head) return '—';
@@ -78,7 +79,7 @@ export default async function DepartmentsPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Кафедри</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{departments.length} записів</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{UK.record(departments.length)}</p>
         </div>
         {canCreate && (
           <Button asChild>

@@ -10,6 +10,7 @@ import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteDivisionButton } from '@/components/division/delete-button';
+import { UK } from '@/lib/plural';
 
 export default async function DivisionsPage({
   searchParams,
@@ -46,7 +47,7 @@ export default async function DivisionsPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Відділи</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{divisions.length} записів</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{UK.record(divisions.length)}</p>
         </div>
         {isAdmin && (
           <Button asChild>

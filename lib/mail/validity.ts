@@ -5,14 +5,10 @@
 // exactly 30 days the hardcoded «днів» happened to be right, and it stopped
 // being right the moment a reset started measuring in hours.
 
-/** Ukrainian count forms: 1 день · 2 дні · 5 днів */
-export function pluralUk(n: number, one: string, few: string, many: string): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-}
+// Moved to `lib/plural.ts` (2026-08-27) so the screens can use it too — it was
+// correct here and applied nowhere else, while the UI printed «1 записів».
+export { pluralUk } from '@/lib/plural';
+import { pluralUk } from '@/lib/plural';
 
 /**
  * «30 днів», «2 години», «1 година».

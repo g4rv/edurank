@@ -7,7 +7,13 @@ import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listDivisions } from '@/lib/queries/list-divisions';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
-import { canMutateStaffRecord, editorHasFieldGrant } from '@/lib/permissions';
+import {
+  canMutateStaffRecord,
+  editorHasFieldGrant,
+  getDivisionFieldGrants,
+  getEditorDivisionId,
+  isEditorWritableField,
+} from '@/lib/permissions';
 import { StaffEditForm } from '@/components/staff/edit-form';
 
 export default async function StaffEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,6 +36,27 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
   // to somebody whose save would keep it.
   const canEditPartTime =
     isAdmin || (await editorHasFieldGrant(session.user.staffId, 'partTimeDepartmentIds'));
+
+  /**
+   * The whole grant set, for the same reason — every OTHER field needed it too.
+   *
+   * This rule was applied to `partTimeDepartmentIds` above and to nothing else,
+   * so an EDITOR holding STAFF UPDATE was shown the entire form whatever their
+   * division was granted. `updateStaff` filtered the write correctly, but a
+   * division granted only `orcidId` could retype a surname, get «Збережено»,
+   * and leave the record untouched with nothing on screen saying so
+   * (2026-08-27).
+   *
+   * `undefined` for ADMIN — no filtering, and the form treats it as «all».
+   * Intersected with `isEditorWritableField`, which is what `updateStaff`
+   * applies on top of the grants: a stale or hand-inserted row must not put a
+   * confidential or permission-scoping column back on the form.
+   */
+  const editableFields = isAdmin
+    ? undefined
+    : [
+        ...(await getDivisionFieldGrants((await getEditorDivisionId(session.user.staffId)) ?? '')),
+      ].filter(isEditorWritableField);
 
   const [staff, departments, divisions, stakeBreakdown] = await Promise.all([
     getStaff(id, isAdmin),
@@ -76,6 +103,7 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
         divisions={divisions}
         isAdmin={isAdmin}
         canEditPartTime={canEditPartTime}
+        editableFields={editableFields}
         staffId={id}
         stakeBreakdown={stakeBreakdown}
       />

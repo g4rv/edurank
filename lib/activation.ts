@@ -74,11 +74,25 @@ export async function findStaffByActivationToken(token: string) {
     where: { tokenHash: hashToken(token) },
     include: {
       staff: {
-        select: { id: true, email: true, lastName: true, firstName: true, patronymic: true },
+        select: {
+          id: true,
+          email: true,
+          lastName: true,
+          firstName: true,
+          patronymic: true,
+          // Archived people are refused by `authorize` anyway, so a link that
+          // still worked here only walked somebody through choosing a password
+          // and then failed them at the sign-in with «Не вдалося увійти» —
+          // advice to try the login page, where they fail again with nothing
+          // explaining why (2026-08-27). Refused at the link instead, which is
+          // the same answer an expired one gives.
+          archivedAt: true,
+        },
       },
     },
   });
 
   if (!record || record.expiresAt < new Date()) return null;
+  if (record.staff.archivedAt) return null;
   return record.staff;
 }
