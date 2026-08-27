@@ -636,6 +636,8 @@ async function liftStoredAllocations(
 
   const edits: {
     id: string;
+    /** Whose row — `syncEmploymentRate` needs the person, not the allocation */
+    staffId: string;
     who: string;
     was: number;
     proposedHundredths: number;
@@ -679,6 +681,7 @@ async function liftStoredAllocations(
     if (settled === allocation.proposedHundredths) continue;
     edits.push({
       id: allocation.id,
+      staffId: allocation.staffId,
       who: allocation.staff.lastName,
       was: allocation.proposedHundredths,
       proposedHundredths: settled,
@@ -687,18 +690,39 @@ async function liftStoredAllocations(
 
   if (edits.length === 0) return;
 
-  await db.$transaction([
-    ...edits.map((edit) =>
-      db.stakeAllocation.update({
+  // The callback form, not the array one: `syncEmploymentRate` reads and then
+  // writes per person, which an array of prepared queries cannot express.
+  await db.$transaction(async (tx) => {
+    for (const edit of edits) {
+      await tx.stakeAllocation.update({
         where: { id: edit.id },
         // `formulaHundredths` is deliberately NOT touched. It is the формула as
         // it stood at the last human save, and `saveDistribution` now measures
         // «тільки збільшити» against it — rewriting it here would destroy the
         // very reference that stops the floor drifting upward.
         data: { proposedHundredths: edit.proposedHundredths },
-      })
-    ),
-    db.auditLog.create({
+      });
+    }
+
+    // ── The cached ставка follows the money ──
+    //
+    // `Staff.employmentRate` is a CACHE of Σ StakeAllocation for the year.
+    // `saveDistribution` has always kept it in step; this path never did, so a
+    // cap change moved somebody's pay and left the column behind — the profile
+    // (which reads the allocations) and the `/staff` list (which reads the
+    // cache) then disagreed about one person. Palієнко on dev sat at 0,50
+    // against 0,55 for exactly this reason, and five people on production still
+    // do (2026-08-27).
+    //
+    // In the SAME transaction as the numbers it summarises, so the two cannot
+    // come apart.
+    await syncEmploymentRate(
+      tx,
+      edits.map((e) => e.staffId),
+      year
+    );
+
+    await tx.auditLog.create({
       data: {
         action: 'UPDATE',
         entity: 'StakeDistribution',
@@ -710,6 +734,6 @@ async function liftStoredAllocations(
           Object.fromEntries(edits.map((e) => [e.who, e.proposedHundredths]))
         ),
       },
-    }),
-  ]);
+    });
+  });
 }

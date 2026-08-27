@@ -138,9 +138,13 @@ beforeEach(() => {
             aggregate: mockAllocationAggregate,
             // syncEmploymentRate sums every кафедра that pays each person
             groupBy: mockAllocationGroupBy,
+            // `liftStoredAllocations` moved inside the transaction on
+            // 2026-08-27 so it could sync `employmentRate` with the numbers it
+            // writes — the same spy, so its assertions still read the writes.
+            update: mockAllocationUpdate,
           },
           staff: { update: mockStaffUpdate },
-          auditLog: { create: vi.fn() },
+          auditLog: { create: mockAuditCreate },
         })
   );
 });
@@ -735,6 +739,30 @@ describe('setStaffLimits — re-settles the кафедра’s saved split', () 
         where: { id: 'alloc-0' },
         data: expect.objectContaining({ proposedHundredths: 50 }),
       })
+    );
+  });
+
+  // `Staff.employmentRate` is a CACHE of the allocations. `saveDistribution`
+  // has always kept it in step; this path did not, so a cap change moved
+  // somebody's pay and left the column behind — the profile reads the
+  // allocations and `/staff` reads the cache, so one person showed two ставки.
+  // Five people on production still carry that drift (2026-08-27).
+  it('recomputes employmentRate for every row it moves', async () => {
+    const staff = roster();
+    staff[0].stakeLimits = [{ minHundredths: 10, maxHundredths: 50 }] as never;
+    mockStaff.mockResolvedValue(staff);
+    saved([100, 100, 100]);
+    mockAllocationGroupBy.mockResolvedValue([{ staffId: 's0', _sum: { proposedHundredths: 50 } }]);
+
+    await setStaffLimits(null, limitsForm('0,10', '0,50', 's0'));
+
+    // The sum is read for the person whose row moved…
+    expect(mockAllocationGroupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ staffId: { in: ['s0'] } }) })
+    );
+    // …and written back onto them, in ставки rather than hundredths
+    expect(mockStaffUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 's0' }, data: { employmentRate: 0.5 } })
     );
   });
 
