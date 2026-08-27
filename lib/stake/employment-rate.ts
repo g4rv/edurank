@@ -7,7 +7,9 @@ import { fromHundredths } from './units';
  * The column is a CACHE of one sum: every `StakeAllocation` this person holds in
  * `year`, across every кафедра that pays them. A сумісник on 0,90 + 0,25 reads
  * 1,15. The profile derives its own figure straight from the allocations, so it
- * is always right; this keeps `/staff` and the Excel exports in step with it.
+ * is always right; this keeps the `/staff` list column, its sort and the edit
+ * form's display in step with it. (NOT the Excel exports — they read the
+ * allocations too; the old claim here was checked and was wrong, 2026-08-27.)
  *
  * **It must be called for people whose allocations were REMOVED, not only for
  * those being written** (2026-08-24). Both bugs it exists to stop were exactly

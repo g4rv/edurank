@@ -39,7 +39,11 @@ export default async function MyDepartmentPage() {
     template?.year ?? 0
   );
   const knppByDepartment = new Map(knppList.map((k) => [k.departmentId, k]));
-  const positionsByStaff = new Map(knppList.flatMap((k) => k.staff.map((s) => [s.id, s] as const)));
+  // Both lists: сумісники are outside `knpp` by design but they ARE in this
+  // head's table, and «—» read as «no data» while /stakes/[id] showed a count.
+  const positionsByStaff = new Map(
+    knppList.flatMap((k) => [...k.staff, ...k.partTimeStaff].map((s) => [s.id, s] as const))
+  );
 
   return (
     <AnimatedPage className="space-y-6">

@@ -113,7 +113,24 @@ export async function canViewAcademicRecord(
 
   const target = await db.staff.findUnique({
     where: { id: targetStaffId },
-    select: { departmentId: true },
+    select: {
+      departmentId: true,
+      // Сумісництво counts here, exactly as it does in `onDepartment`
+      // (2026-08-27). `departmentId` alone stopped answering «who is on this
+      // кафедра» on 2026-08-24, and this was the one place still asking it that
+      // way: the head of somebody's ADDITIONAL кафедра — who sees them in their
+      // own list and sets their ставка — got a 404 on their Характеристика and
+      // a 403 on the Excel beside it.
+      //
+      // It also covers an НПП with NO primary кафедра, legal since 2026-08-26:
+      // `departmentId` is null for them, so the old check made their record
+      // unreadable to every head, on every кафедра they actually work on.
+      partTimeDepartments: { select: { departmentId: true } },
+    },
   });
-  return !!target?.departmentId && departments.includes(target.departmentId);
+  if (!target) return false;
+
+  return [target.departmentId, ...target.partTimeDepartments.map((p) => p.departmentId)].some(
+    (id) => id !== null && departments.includes(id)
+  );
 }

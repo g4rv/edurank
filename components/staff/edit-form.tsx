@@ -27,6 +27,13 @@ interface StaffEditFormProps {
   isAdmin: boolean;
   /** ADMIN, or a division granted `partTimeDepartmentIds` */
   canEditPartTime: boolean;
+  /**
+   * Which Staff columns this editor's division may actually write, or
+   * `undefined` for ADMIN. Ungranted fields are shown and disabled — the save
+   * drops them, so offering them collected a change and threw it away
+   * (2026-08-27).
+   */
+  editableFields?: readonly string[];
   staffId: string;
   /** What each кафедра allocated this person — shown under its own select */
   stakeBreakdown: StakePart[];
@@ -38,6 +45,7 @@ export function StaffEditForm({
   divisions,
   isAdmin,
   canEditPartTime,
+  editableFields,
   staffId,
   stakeBreakdown,
 }: StaffEditFormProps) {
@@ -87,6 +95,7 @@ export function StaffEditForm({
         isPending={isPending}
         isAdmin={isAdmin}
         canEditPartTime={canEditPartTime}
+        editableFields={editableFields}
         isNpp={isNppValue}
         departments={departments}
         divisions={divisions}

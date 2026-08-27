@@ -139,7 +139,7 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   // screen never showed.
   const ratingYear = await ratingYearFor(year);
 
-  const [department, stake, staff] = await Promise.all([
+  const [department, stake, staff, savedAllocations] = await Promise.all([
     db.department.findUnique({ where: { id: departmentId }, select: { name: true } }),
     db.departmentStake.findUnique({
       where: { departmentId_year: { departmentId, year } },
@@ -158,6 +158,13 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
           select: { minHundredths: true, maxHundredths: true },
         },
       },
+    }),
+    // The формула as it stood the last time a PERSON pressed «Зберегти» —
+    // frozen per row and never rewritten since (2026-08-27). This is what
+    // «тільки збільшити» is measured against below.
+    db.stakeAllocation.findMany({
+      where: { distribution: { departmentId, year } },
+      select: { staffId: true, formulaHundredths: true },
     }),
   ]);
 
@@ -190,6 +197,9 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     kstHundredths: stake.kstHundredths,
   });
   const formulaByStaff = new Map(formula.shares.map((s) => [s.staffId, s.hundredths]));
+  const savedFormulaByStaff = new Map(
+    savedAllocations.map((a) => [a.staffId, a.formulaHundredths])
+  );
 
   const byId = new Map(staff.map((s) => [s.id, s]));
 
@@ -267,7 +277,19 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     // overspend: a head may only raise, and ladder rounding alone can put the
     // formula’s own proposal above `Кст`. A hard floor then leaves no legal move at
     // all — Кафедра географії sat in exactly that state, 2,10 against a pool of 2,00.
-    const floor = formulaByStaff.get(allocation.staffId) ?? 0;
+    // ── The floor is the формула FROZEN AT THE LAST HUMAN SAVE ──
+    //
+    // Not today's. The формула divides by sums over the whole кафедра, so it
+    // moves whenever anything about the кафедра does — somebody archived, a cap
+    // edited, a сумісник added — and measuring against the live value dragged
+    // the floor up under people nobody had touched. Their ставка then had to
+    // rise to meet it, which is a raise nobody decided (owner, 2026-08-27).
+    //
+    // Falling back to today's формула is right for somebody with NO saved row:
+    // a new colleague, or a сумісник just placed here. That IS their initial
+    // automatic ставка, and «тільки збільшити» should hold them to it.
+    const floor =
+      savedFormulaByStaff.get(allocation.staffId) ?? formulaByStaff.get(allocation.staffId) ?? 0;
     if (!overspent && allocation.hundredths < floor) {
       return {
         error:
@@ -614,10 +636,11 @@ async function liftStoredAllocations(
 
   const edits: {
     id: string;
+    /** Whose row — `syncEmploymentRate` needs the person, not the allocation */
+    staffId: string;
     who: string;
     was: number;
     proposedHundredths: number;
-    formulaHundredths: number;
   }[] = [];
   for (const allocation of distribution.allocations) {
     const share = shareByStaff.get(allocation.staffId);
@@ -640,30 +663,66 @@ async function liftStoredAllocations(
     );
     if (upper < lower) continue;
 
-    const settled = Math.min(Math.max(allocation.proposedHundredths, share, lower), upper);
+    // ── Bounds only. The формула may NOT raise anybody ──
+    //
+    // `share` used to sit inside this `Math.max`, so editing ONE person's cap
+    // rewrote the ставка of everybody else on the кафедра — the формула divides
+    // by sums over the whole roster, so their share moved, and «тільки
+    // збільшити» dragged their stored number up to it. Nobody decided those
+    // raises and they were written to the database (owner, 2026-08-27: «in
+    // business logic it is impossible to just have your rate being increased,
+    // it is a human decision»). Five people on production carry one.
+    //
+    // What stays is `lower`/`upper` — that person's OWN Мін/Макс. Somebody
+    // lowering a Макс under a saved ставка has decided about that person, and
+    // the pay follows: Якуба 1,00 → 0,75, confirmed correct by the owner. The
+    // line is: your own bounds may move your ставка, the формула may not.
+    const settled = Math.min(Math.max(allocation.proposedHundredths, lower), upper);
     if (settled === allocation.proposedHundredths) continue;
     edits.push({
       id: allocation.id,
+      staffId: allocation.staffId,
       who: allocation.staff.lastName,
       was: allocation.proposedHundredths,
       proposedHundredths: settled,
-      formulaHundredths: share,
     });
   }
 
   if (edits.length === 0) return;
 
-  await db.$transaction([
-    ...edits.map((edit) =>
-      db.stakeAllocation.update({
+  // The callback form, not the array one: `syncEmploymentRate` reads and then
+  // writes per person, which an array of prepared queries cannot express.
+  await db.$transaction(async (tx) => {
+    for (const edit of edits) {
+      await tx.stakeAllocation.update({
         where: { id: edit.id },
-        data: {
-          proposedHundredths: edit.proposedHundredths,
-          formulaHundredths: edit.formulaHundredths,
-        },
-      })
-    ),
-    db.auditLog.create({
+        // `formulaHundredths` is deliberately NOT touched. It is the формула as
+        // it stood at the last human save, and `saveDistribution` now measures
+        // «тільки збільшити» against it — rewriting it here would destroy the
+        // very reference that stops the floor drifting upward.
+        data: { proposedHundredths: edit.proposedHundredths },
+      });
+    }
+
+    // ── The cached ставка follows the money ──
+    //
+    // `Staff.employmentRate` is a CACHE of Σ StakeAllocation for the year.
+    // `saveDistribution` has always kept it in step; this path never did, so a
+    // cap change moved somebody's pay and left the column behind — the profile
+    // (which reads the allocations) and the `/staff` list (which reads the
+    // cache) then disagreed about one person. Palієнко on dev sat at 0,50
+    // against 0,55 for exactly this reason, and five people on production still
+    // do (2026-08-27).
+    //
+    // In the SAME transaction as the numbers it summarises, so the two cannot
+    // come apart.
+    await syncEmploymentRate(
+      tx,
+      edits.map((e) => e.staffId),
+      year
+    );
+
+    await tx.auditLog.create({
       data: {
         action: 'UPDATE',
         entity: 'StakeDistribution',
@@ -675,6 +734,6 @@ async function liftStoredAllocations(
           Object.fromEntries(edits.map((e) => [e.who, e.proposedHundredths]))
         ),
       },
-    }),
-  ]);
+    });
+  });
 }

@@ -12,6 +12,7 @@ import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import { AuditDateFilter } from '@/components/admin/audit-date-filter';
+import { UK } from '@/lib/plural';
 
 const ACTION_LABELS: Record<string, string> = {
   CREATE: 'Створено',
@@ -226,7 +227,7 @@ export default async function AuditLogPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Журнал аудиту</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{total} записів</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{UK.record(total)}</p>
       </div>
 
       <div className="space-y-3">

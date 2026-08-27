@@ -56,10 +56,11 @@ type LimitDraft = { min: string; max: string };
  * Додаток 2 — the head spreads the pool by hand, with the formula's own answer
  * beside each row and «нерозподілено» falling as they type.
  *
- * A change is written as soon as it happens — there is no save button. Both
- * ways of changing a ставка go through `applyValue`: the ▲▼ buttons directly,
- * and a typed value when the field is left. Saving used to hang off the field's
- * blur alone, so the buttons changed the screen and wrote nothing.
+ * **Nothing is written until «Зберегти ставки»** (owner, 2026-08-24). Both ways
+ * of changing a ставка go through `applyValue` — the ▲▼ buttons and a typed
+ * value when the field is left — but they move the screen only. Autosave-per-edit
+ * came before that and gave a кафедра nobody had committed the look of a saved
+ * one.
  *
  * It writes the WHOLE grid, never the one row, because `Кст` bounds the set: a
  * head moving 0.10 from one person to another would be refused on the first
@@ -161,7 +162,13 @@ export function DistributionGrid({
         const stored = r.proposedHundredths;
         const inRange = stored >= lower && stored <= upper;
         const base = inRange ? stored : r.formulaHundredths;
-        const floor = formulaOverspends ? lower : Math.max(lower, r.formulaHundredths);
+        // The формула FROZEN at this row's last human save — today's only for a
+        // row nobody has saved yet. Seeding from today's value silently raised
+        // every untouched row whenever the кафедра changed, and «Зберегти»
+        // then wrote those raises (2026-08-27).
+        const floor = formulaOverspends
+          ? lower
+          : Math.max(lower, r.savedFormulaHundredths ?? r.formulaHundredths);
         return [r.staffId, Math.min(Math.max(base, floor), upper)];
       })
     );
@@ -310,7 +317,10 @@ export function DistributionGrid({
     rating: row.rating,
     minHundredths: row.minHundredths,
     maxHundredths: row.maxHundredths,
-    formulaHundredths: row.formulaHundredths,
+    // The floor «тільки збільшити» works from — frozen at the last human save,
+    // so a ▼ stops where the head last put this person rather than where
+    // today's формула would.
+    formulaHundredths: row.savedFormulaHundredths ?? row.formulaHundredths,
     headroom,
     overspent: floorLifted,
   });
@@ -427,12 +437,11 @@ export function DistributionGrid({
   }
 
   /**
-   * Back to what the formula proposes, and SAVED.
+   * Back to what the formula proposes — on screen only.
    *
-   * There is no save button any more; every other edit is written when a field
-   * is left, and this one has no field to leave. A reset that only changed the
-   * screen looked identical to a saved one until the page was reloaded and the
-   * old numbers came back.
+   * It used to save itself, because there was no button to press afterwards.
+   * There is one now (2026-08-24), and a reset that wrote itself while an
+   * ordinary edit did not would be the odd one out.
    */
   function reset() {
     // Proposes, and stops there. It used to save, because there was no button
@@ -579,11 +588,10 @@ export function DistributionGrid({
                 </AlertDialogContent>
               </AlertDialog>
 
-              {/* There is no save button: a change is written as soon as it is
-                  made. What this says is what state that leaves things in,
-                  because a silent autosave is indistinguishable from a lost
-                  edit — especially while a change is being HELD BACK, which is
-                  the one case where leaving a field does not write anything. */}
+              {/* What state the grid is in, said out loud: unsaved, saving,
+                  saved, or held back because there is no Кст to save against.
+                  «Незбережені зміни» matters most — everything on this screen
+                  moves the proposal only, and closing the tab loses it. */}
               <span className="text-xs">
                 {pending ? (
                   <span className="text-muted-foreground">Збереження…</span>

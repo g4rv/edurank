@@ -178,7 +178,10 @@ export async function deleteStudentClaim(claimId: string): Promise<ClaimState> {
   if (!claim) return { error: 'Запис не знайдено' };
   if (claim.staffId !== session.user.staffId) return { error: 'Недостатньо прав' };
   if (claim.status !== 'PENDING') {
-    return { error: 'Запис уже розглянуто — зверніться до завідувача кафедри' };
+    // Not the завідувач (2026-08-27). Only ADMIN rules on a claim since
+    // 2026-08-25 — `canDecide` is `isAdmin` alone and a head's own page is
+    // read-only — so the old wording sent people to somebody with no button.
+    return { error: 'Запис уже розглянуто — зверніться до адміністратора' };
   }
 
   try {

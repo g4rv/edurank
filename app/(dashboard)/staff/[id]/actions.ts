@@ -381,7 +381,9 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
             skipDuplicates: true,
           });
         }
+      }
 
+      {
         // ── A кафедра they left stops paying them, now ──
         //
         // Removing сумісництво used to delete the `StaffDepartment` row and
@@ -402,6 +404,18 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
         // head had agreed survived under a 0,25 сумісник ceiling — «Ставка»
         // and «Макс» disagreeing on one row, which is the disagreement this
         // whole cleanup exists to prevent.
+        //
+        // ── Keyed on the PLACEMENT changing, not on who may write сумісництво
+        //    (2026-08-27) ──
+        //
+        // This whole block used to sit inside `if (canWritePartTime)`, which
+        // answers a different question: «may this person edit the join table».
+        // `departmentId` is a separate grant (see `ALLOWED_FIELD_NAMES`), so a
+        // division holding only that one moved somebody's main кафедра and the
+        // cleanup never ran — the кафедра they left went on paying them, kept
+        // their Мін/Макс, and `employmentRate` was never recomputed. Exactly
+        // the bug the 2026-08-24 note above describes, reachable by a different
+        // door.
         const primaryBefore = existing?.departmentId ?? null;
         const primaryAfter =
           updateData.departmentId === undefined
@@ -410,12 +424,22 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
         const partTimeBefore = new Set(
           (existing?.partTimeDepartments ?? []).map((p) => p.departmentId)
         );
+        // Untouched when this caller may not write it — the join table still
+        // holds whatever it held, so those кафедри are all still theirs.
+        const partTimeAfter = canWritePartTime ? partTimeDepartmentIds : [...partTimeBefore];
 
         const keeps = [
           ...(primaryAfter !== null && primaryAfter === primaryBefore ? [primaryAfter] : []),
-          ...partTimeDepartmentIds.filter((d) => partTimeBefore.has(d)),
+          ...partTimeAfter.filter((d) => partTimeBefore.has(d)),
         ].filter((d) => d.length > 0);
 
+        // Runs on EVERY save, not only when something moved. `keeps` spares
+        // every кафедра the person is still on, so an unchanged save deletes
+        // nothing — but it does sweep up an allocation on a кафедра they are no
+        // longer on, whatever put it there. That self-healing is deliberate and
+        // is what the «spares a placement whose kind did not change» tests
+        // pin down; skipping the block to save two queries would quietly
+        // remove it.
         const year = await activeYear();
         if (year !== null) {
           const removed = await tx.stakeAllocation.deleteMany({

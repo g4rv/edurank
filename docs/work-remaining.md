@@ -6,6 +6,13 @@ historical snapshot (accurate for its date, wrong about current code in several
 places), `ui-fixes-plan.md` is done except for one item,
 `profile-account-merge.md` is finished.
 
+> **2026-08-27 — see [`audit-2026-08-27.md`](./audit-2026-08-27.md) as well.** A
+> fresh pass over every page, with each finding reproduced against real data
+> before it was believed. It carries three things this document does not: the
+> **ставка auto-raise rule** (a saved ставка is being raised without anybody
+> deciding — five people on prod), the **deferred `employmentRate` restructure**
+> and why it is safe to do later, and which changes need a maintenance window.
+
 ---
 
 ## 2026-08-17 — read this first

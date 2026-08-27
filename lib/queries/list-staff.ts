@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { nameSearch } from './name-search';
-import { ON_ROSTER, REAL_PEOPLE, onDepartment } from './roster';
+import { ON_ROSTER, REAL_PEOPLE, onDepartment, onFaculty } from './roster';
 import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
 
 /** Columns listStaff can order by — the query owns this list; pages validate against it */
@@ -70,7 +70,9 @@ export async function listStaff(filters?: StaffFilters) {
 
   if (filters?.isNpp !== undefined) conditions.push({ isNpp: filters.isNpp });
   if (filters?.roles?.length) conditions.push({ role: { in: filters.roles } });
-  if (filters?.facultyId) conditions.push({ department: { facultyId: filters.facultyId } });
+  // Primary or сумісник, exactly like the кафедра filter below — the two are
+  // ANDed, so a primary-only faculty filter cancelled out the кафедра one.
+  if (filters?.facultyId) conditions.push(onFaculty(filters.facultyId));
   // Primary or сумісник — filtering by кафедра must find everyone the кафедра
   // actually has, which is everyone its ставка grid will show.
   if (filters?.departmentId) conditions.push(onDepartment(filters.departmentId));

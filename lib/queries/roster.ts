@@ -59,3 +59,24 @@ export const onDepartments = (departmentIds: readonly string[]) => ({
     { partTimeDepartments: { some: { departmentId: { in: [...departmentIds] } } } },
   ],
 });
+
+/**
+ * Everyone on any кафедра of this факультет — primary or сумісник.
+ *
+ * The faculty filter used to be `{ department: { facultyId } }`, which reads a
+ * person's PRIMARY кафедра only, while the кафедра filter beside it already
+ * used `onDepartment`. Both are ANDed, and both selects stay in the URL, so
+ * picking a факультет and then one of its кафедри silently subtracted the
+ * сумісники the кафедра filter had just found: Кафедра соціальних комунікацій
+ * showed 18 people on its own and 15 arrived at through the факультет above it
+ * (2026-08-27, seen on screen — and the dashboard tree says 18).
+ *
+ * Same `OR` caveat as `onDepartment`: put it in an `AND` list rather than
+ * beside another top-level `OR`.
+ */
+export const onFaculty = (facultyId: string) => ({
+  OR: [
+    { department: { facultyId } },
+    { partTimeDepartments: { some: { department: { facultyId } } } },
+  ],
+});

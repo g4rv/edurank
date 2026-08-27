@@ -43,6 +43,11 @@ export async function upsertDivisionActivity(
       inputSource: true,
       isActive: true,
       verifyingDivisionId: true,
+      // «не більше N» is a COLUMN any admin can set from /admin/rating/[year],
+      // in the same dialog as «Хто вносить». `createActivity` has always
+      // enforced it; this path never read it, so a cap set on a
+      // DIVISION_MANAGED indicator did nothing at all (2026-08-27).
+      maxPerYear: true,
       evidenceFields: true,
       scoring: true,
       template: { select: { year: true, isActive: true, status: true } },
@@ -108,6 +113,13 @@ export async function upsertDivisionActivity(
       // Named row wins; otherwise this is a new record for the same cell
       const existing = activityId ? live.find((a) => a.id === activityId) : undefined;
       if (activityId && !existing) return { gone: true as const };
+
+      // Only a NEW row can cross the cap — editing one named by `activityId`
+      // leaves the count where it was. Counted off `live`, which is already
+      // read above and already excludes REMOVED rows, so this costs nothing.
+      if (!existing && type.maxPerYear && live.length >= type.maxPerYear) {
+        return { cap: type.maxPerYear };
+      }
 
       // Compared on the summary rather than the raw JSON: key order and absent
       // vs empty-string differ between a form submit and a stored row, and two
@@ -187,6 +199,9 @@ export async function upsertDivisionActivity(
 
   if ('duplicate' in result) return { error: 'Такий самий запис уже додано' };
   if ('gone' in result) return { error: 'Запис уже видалено. Оновіть сторінку' };
+  // Same sentence `createActivity` gives an НПП who hits the cap, so one
+  // indicator reads the same whoever is entering it.
+  if ('cap' in result) return { error: `Не більше ${result.cap} записів цього показника на рік` };
 
   revalidatePath('/division-data');
   return { success: true, score };

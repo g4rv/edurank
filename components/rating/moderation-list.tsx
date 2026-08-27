@@ -21,6 +21,7 @@ import { SubmissionPanel } from '@/components/rating/submission-panel';
 import { compareItemNumbers } from '@/lib/rating/achievement-rows';
 import { sumScores } from '@/lib/round';
 import { DepartmentCombobox } from '@/components/department-combobox';
+import { UK } from '@/lib/plural';
 
 export interface ModerationRow {
   id: string;
@@ -247,7 +248,7 @@ export function ModerationList({ rows }: { rows: ModerationRow[] }) {
       />
 
       <p className="text-sm text-muted-foreground">
-        Знайдено {filtered.length} подань
+        Знайдено {UK.submission(filtered.length)}
         {faculty !== 'all' && ` · ${faculty}`}
         {department !== 'all' && ` · ${department}`}
         {indicator !== 'all' && ` · п. ${indicator}`}
@@ -617,7 +618,9 @@ function GroupedView({
                   <p className="truncate text-xs text-muted-foreground">{person.department}</p>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground">{person.items.length} подань</span>
+              <span className="text-xs text-muted-foreground">
+                {UK.submission(person.items.length)}
+              </span>
               <span className="text-sm font-semibold tabular-nums">{person.total}</span>
             </summary>
 

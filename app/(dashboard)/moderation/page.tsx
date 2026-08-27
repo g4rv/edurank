@@ -10,6 +10,7 @@ import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { fullStaffName, shortStaffName } from '@/lib/staff-name';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
+import { UK } from '@/lib/plural';
 
 function fieldsOf(activityType: { evidenceFields: unknown }): readonly EvidenceField[] {
   const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
@@ -74,7 +75,7 @@ export default async function ModerationPage({
         <div>
           <h1 className="text-2xl font-semibold">Модерація рейтингу</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Самозвіти НПП за {selectedYear} рік — {rows.length} подань
+            Самозвіти НПП за {selectedYear} рік — {UK.submission(rows.length)}
           </p>
         </div>
         <YearSelect years={years} value={selectedYear} />

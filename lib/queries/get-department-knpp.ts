@@ -59,6 +59,21 @@ export interface DepartmentKnpp {
     metCount: number;
     qualifies: boolean;
   }[];
+  /**
+   * Сумісники here, with their п.38 count — SEPARATE from `staff` on purpose.
+   *
+   * They are deliberately outside `knpp` and outside `staff`, which is the
+   * licence population. But «Моя кафедра» built its «позицій із 20» lookup from
+   * `staff` alone, so a head saw «—» against a сумісник while `/stakes/[id]`
+   * showed a real count for the same person — one screen reading «no data» and
+   * the other reading a measurement (2026-08-27).
+   */
+  partTimeStaff: {
+    id: string;
+    name: string;
+    metCount: number;
+    qualifies: boolean;
+  }[];
 }
 
 /** The smallest pool that can pay the 0.1 floor to everyone on the кафедра */
@@ -81,6 +96,7 @@ export async function getDepartmentKnpp(
       headcount: 0,
       knpp: 0,
       staff: [],
+      partTimeStaff: [],
     }
   );
 }
@@ -122,6 +138,7 @@ export async function getDepartmentsKnpp(
       headcount: 0,
       knpp: 0,
       staff: [],
+      partTimeStaff: [],
     });
   }
 
@@ -152,6 +169,14 @@ export async function getDepartmentsKnpp(
       if (!extra) continue;
       extra.partTimeHeadcount += 1;
       extra.headcount += 1;
+      // Their count, recorded but never added to `knpp` — the licence figure
+      // stays primary-only.
+      extra.partTimeStaff.push({
+        id: person.id,
+        name: `${person.lastName} ${person.firstName} ${person.patronymic}`,
+        metCount,
+        qualifies,
+      });
     }
   }
 

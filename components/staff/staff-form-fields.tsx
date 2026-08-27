@@ -207,6 +207,26 @@ interface StaffFormFieldsProps {
   numbered?: boolean;
   /** Anyone creating a record picks the type; only ADMIN may change it later */
   canEditType: boolean;
+  /**
+   * Which Staff columns this viewer's division was actually granted, or
+   * `undefined` for «all of them» — ADMIN, and the CREATE form.
+   *
+   * Without it the edit page offered an EDITOR the whole form whatever their
+   * division held, `updateStaff` silently dropped every ungranted field, and
+   * the save still toasted «Збережено»: a division granted only `orcidId` could
+   * retype somebody's surname, be told it worked, and leave it unchanged
+   * (2026-08-27).
+   *
+   * The project's own rule, already applied to `partTimeDepartmentIds` and to
+   * nothing else: «Pages ask `editorHasFieldGrant` so the control is offered
+   * only where the save would keep it.»
+   *
+   * **Undefined on CREATE, deliberately.** `createStaff` says so in as many
+   * words — the per-division grants govern editing an existing row, and
+   * enforcing them at creation would stop an editor filling in a name they are
+   * allowed to create.
+   */
+  editableFields?: readonly string[];
 }
 
 export function StaffFormFields({
@@ -223,7 +243,19 @@ export function StaffFormFields({
   divisions,
   numbered = false,
   canEditType,
+  editableFields,
 }: StaffFormFieldsProps) {
+  /**
+   * Is this column outside what the viewer's division may write?
+   *
+   * Disabled rather than hidden: an editor is entitled to READ the whole
+   * record — that is what `/staff/[id]` shows them — so removing the fields
+   * would hide information they are allowed to see and make the form look
+   * different per division for no stated reason. Greyed says «not yours to
+   * change», which is the true statement. It is also how `canEditPartTime`
+   * already behaves on «Місця роботи».
+   */
+  const locked = (field: string) => editableFields !== undefined && !editableFields.includes(field);
   // The two columns «Місця роботи» is a view of. `WorkplacesField` owns the
   // rules that used to live here — one кафедра cannot appear on two rows, and
   // it drops taken options from the other row's list itself.
@@ -239,16 +271,33 @@ export function StaffFormFields({
       <SectionCard title="Основна інформація" step={step()}>
         <FieldGroup className="grid grid-cols-2 gap-4">
           <FormField htmlFor="lastName" label="Прізвище" error={errors.lastName}>
-            <Input id="lastName" disabled={isPending} {...register('lastName')} />
+            <Input
+              id="lastName"
+              disabled={isPending || locked('lastName')}
+              {...register('lastName')}
+            />
           </FormField>
           <FormField htmlFor="firstName" label="Ім'я" error={errors.firstName}>
-            <Input id="firstName" disabled={isPending} {...register('firstName')} />
+            <Input
+              id="firstName"
+              disabled={isPending || locked('firstName')}
+              {...register('firstName')}
+            />
           </FormField>
           <FormField htmlFor="patronymic" label="По батькові" error={errors.patronymic}>
-            <Input id="patronymic" disabled={isPending} {...register('patronymic')} />
+            <Input
+              id="patronymic"
+              disabled={isPending || locked('patronymic')}
+              {...register('patronymic')}
+            />
           </FormField>
           <FormField htmlFor="email" label="Email" error={errors.email}>
-            <Input id="email" type="email" disabled={isPending} {...register('email')} />
+            <Input
+              id="email"
+              type="email"
+              disabled={isPending || locked('email')}
+              {...register('email')}
+            />
           </FormField>
           <FormField htmlFor="phone" label="Телефон" error={errors.phone}>
             {/* Through a Controller, not `register`: the field rewrites what is
@@ -262,7 +311,7 @@ export function StaffFormFields({
                   id="phone"
                   value={field.value}
                   onChange={field.onChange}
-                  disabled={isPending}
+                  disabled={isPending || locked('phone')}
                   aria-invalid={!!errors.phone}
                 />
               )}
@@ -306,6 +355,7 @@ export function StaffFormFields({
             departmentId={primaryDepartmentId ?? ''}
             partTimeDepartmentIds={partTimeIds ?? []}
             canEditPartTime={canEditPartTime}
+            canEditPrimary={!locked('departmentId')}
             disabled={isPending}
             error={errors.departmentId ?? errors.partTimeDepartmentIds}
             onChange={(next) => {
@@ -382,7 +432,11 @@ export function StaffFormFields({
                 name="academicRank"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isPending || locked('academicRank')}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="—" />
                     </SelectTrigger>
@@ -407,7 +461,11 @@ export function StaffFormFields({
                 name="scientificDegree"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isPending || locked('scientificDegree')}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="—" />
                     </SelectTrigger>
@@ -434,7 +492,7 @@ export function StaffFormFields({
                 type="number"
                 min="0"
                 placeholder="12"
-                disabled={isPending}
+                disabled={isPending || locked('pedagogicalExperience')}
                 {...register('pedagogicalExperience')}
               />
             </FormField>
@@ -446,7 +504,7 @@ export function StaffFormFields({
               <Input
                 id="degreeDefenceDate"
                 type="date"
-                disabled={isPending}
+                disabled={isPending || locked('degreeDefenceDate')}
                 {...register('degreeDefenceDate')}
               />
               {/* One date, for the HIGHEST degree — п.5 of the Характеристика
@@ -465,7 +523,11 @@ export function StaffFormFields({
                 name="degreeMatchesDepartment"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isPending || locked('degreeMatchesDepartment')}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="—" />
                     </SelectTrigger>
@@ -487,7 +549,11 @@ export function StaffFormFields({
                 name="adminPosition"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isPending || locked('adminPosition')}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="—" />
                     </SelectTrigger>
@@ -512,7 +578,11 @@ export function StaffFormFields({
                 name="basicEducationMatch"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={isPending}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isPending || locked('basicEducationMatch')}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="—" />
                     </SelectTrigger>
@@ -533,7 +603,7 @@ export function StaffFormFields({
             >
               <Input
                 id="basicEducationSpecialty"
-                disabled={isPending}
+                disabled={isPending || locked('basicEducationSpecialty')}
                 {...register('basicEducationSpecialty')}
               />
             </FormField>
@@ -552,7 +622,7 @@ export function StaffFormFields({
             <Input
               id="wosUrl"
               placeholder="https://webofscience.com/wos/author/..."
-              disabled={isPending}
+              disabled={isPending || locked('wosUrl')}
               {...register('wosUrl')}
             />
           </FormField>
@@ -566,7 +636,7 @@ export function StaffFormFields({
               id="wosCitationCount"
               type="number"
               min="0"
-              disabled={isPending}
+              disabled={isPending || locked('wosCitationCount')}
               {...register('wosCitationCount')}
             />
           </FormField>
@@ -574,7 +644,7 @@ export function StaffFormFields({
             <Input
               id="scopusUrl"
               placeholder="https://scopus.com/authid/..."
-              disabled={isPending}
+              disabled={isPending || locked('scopusUrl')}
               {...register('scopusUrl')}
             />
           </FormField>
@@ -588,7 +658,7 @@ export function StaffFormFields({
               id="scopusCitationCount"
               type="number"
               min="0"
-              disabled={isPending}
+              disabled={isPending || locked('scopusCitationCount')}
               {...register('scopusCitationCount')}
             />
           </FormField>
@@ -600,7 +670,7 @@ export function StaffFormFields({
             <Input
               id="googleScholarUrl"
               placeholder="https://scholar.google.com/..."
-              disabled={isPending}
+              disabled={isPending || locked('googleScholarUrl')}
               {...register('googleScholarUrl')}
             />
           </FormField>
@@ -614,7 +684,7 @@ export function StaffFormFields({
               id="googleScholarCitationCount"
               type="number"
               min="0"
-              disabled={isPending}
+              disabled={isPending || locked('googleScholarCitationCount')}
               {...register('googleScholarCitationCount')}
             />
           </FormField>
@@ -628,7 +698,7 @@ export function StaffFormFields({
               render={({ field }) => (
                 <OrcidInput
                   id="orcidId"
-                  disabled={isPending}
+                  disabled={isPending || locked('orcidId')}
                   value={field.value}
                   onChange={field.onChange}
                 />
