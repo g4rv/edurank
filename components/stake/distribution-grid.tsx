@@ -162,7 +162,13 @@ export function DistributionGrid({
         const stored = r.proposedHundredths;
         const inRange = stored >= lower && stored <= upper;
         const base = inRange ? stored : r.formulaHundredths;
-        const floor = formulaOverspends ? lower : Math.max(lower, r.formulaHundredths);
+        // The формула FROZEN at this row's last human save — today's only for a
+        // row nobody has saved yet. Seeding from today's value silently raised
+        // every untouched row whenever the кафедра changed, and «Зберегти»
+        // then wrote those raises (2026-08-27).
+        const floor = formulaOverspends
+          ? lower
+          : Math.max(lower, r.savedFormulaHundredths ?? r.formulaHundredths);
         return [r.staffId, Math.min(Math.max(base, floor), upper)];
       })
     );
@@ -311,7 +317,10 @@ export function DistributionGrid({
     rating: row.rating,
     minHundredths: row.minHundredths,
     maxHundredths: row.maxHundredths,
-    formulaHundredths: row.formulaHundredths,
+    // The floor «тільки збільшити» works from — frozen at the last human save,
+    // so a ▼ stops where the head last put this person rather than where
+    // today's формула would.
+    formulaHundredths: row.savedFormulaHundredths ?? row.formulaHundredths,
     headroom,
     overspent: floorLifted,
   });

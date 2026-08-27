@@ -16,7 +16,11 @@ vi.mock('@/lib/db', () => ({
     staff: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     staffStakeLimits: { findUnique: vi.fn(), upsert: vi.fn() },
     stakeDistribution: { findUnique: vi.fn() },
-    stakeAllocation: { update: vi.fn() },
+    // `findMany` is the формула frozen at each row's last human save — the
+    // «тільки збільшити» floor since 2026-08-27. Empty by default, which means
+    // «nobody has saved this кафедра yet», so the floor falls back to today's
+    // формула exactly as it did before.
+    stakeAllocation: { update: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
     ratingTemplate: { findFirst: vi.fn(), findMany: vi.fn() },
     ratingEntry: { findMany: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -48,6 +52,7 @@ const mockLimitsUpsert = db.staffStakeLimits.upsert as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 const mockDistributionFind = db.stakeDistribution.findUnique as unknown as Mock;
 const mockAllocationUpdate = db.stakeAllocation.update as unknown as Mock;
+const mockSavedAllocations = db.stakeAllocation.findMany as unknown as Mock;
 const mockAuditCreate = db.auditLog.create as unknown as Mock;
 /** The distribution writes each person's ставка onto their profile */
 const mockStaffUpdate = db.staff.update as unknown as Mock;
@@ -386,6 +391,46 @@ describe('saveDistribution — the формула is a floor', () => {
     expect(result).toMatchObject({ error: expect.stringContaining('Мін/Макс') });
   });
 
+  // ── The floor is the формула FROZEN at the last human save (2026-08-27) ──
+  //
+  // Today's формула moves whenever the кафедра does — somebody archived, a cap
+  // edited, a сумісник added — so measuring against it raised the floor under
+  // people nobody had touched, and their ставка had to rise to meet it.
+  it('measures the floor against the формула stored at the last human save', async () => {
+    uneven();
+    // Today's формула says 0,75 for s2, but when a person last saved this
+    // кафедра it said 0,60 — so 0,65 is a number they may keep.
+    mockSavedAllocations.mockResolvedValue([
+      { staffId: 's0', formulaHundredths: 100 },
+      { staffId: 's1', formulaHundredths: 100 },
+      { staffId: 's2', formulaHundredths: 60 },
+    ]);
+    expect(await saveDistribution(payload([100, 100, 65]))).toEqual({ success: true });
+  });
+
+  it('still refuses a value under the frozen формула', async () => {
+    uneven();
+    mockSavedAllocations.mockResolvedValue([
+      { staffId: 's0', formulaHundredths: 100 },
+      { staffId: 's1', formulaHundredths: 100 },
+      { staffId: 's2', formulaHundredths: 60 },
+    ]);
+    const result = await saveDistribution(payload([100, 100, 55]));
+    expect(result).toMatchObject({ error: expect.stringContaining('0,60') });
+  });
+
+  // Nobody has saved them yet, so today's формула IS their first ставка and
+  // «тільки збільшити» should hold them to it.
+  it('falls back to today’s формула for somebody with no saved row', async () => {
+    uneven();
+    mockSavedAllocations.mockResolvedValue([
+      { staffId: 's0', formulaHundredths: 100 },
+      { staffId: 's1', formulaHundredths: 100 },
+    ]);
+    const result = await saveDistribution(payload([100, 100, 70]));
+    expect(result).toMatchObject({ error: expect.stringContaining('0,75') });
+  });
+
   // Refusing an overspend AND the floor together deadlocks the grid: ladder
   // rounding alone can put the формула's own proposal above Кст, and a head who
   // may only raise then has no legal move at all. Going down is the way out, so
@@ -651,16 +696,16 @@ describe('setStaffLimits — re-settles the кафедра’s saved split', () 
     expect(mockAllocationUpdate).not.toHaveBeenCalled();
   });
 
-  it('lifts a row that now sits under its new floor', async () => {
+  // Reversed on 2026-08-27. This used to assert the opposite — that a row under
+  // today's формула was lifted up to it — and that was the bug: editing ONE
+  // person's cap moved everybody else's формула share, and their stored ставка
+  // was dragged up to meet it. Nobody decided those raises and they were
+  // written to the database. «It is impossible to just have your rate being
+  // increased, it is a human decision» (owner).
+  it('does NOT lift a row sitting under the recomputed формула', async () => {
     saved([95, 100, 100]);
     await setStaffLimits(null, limitsForm('0,10', '1,00'));
-    expect(mockAllocationUpdate).toHaveBeenCalledTimes(1);
-    expect(mockAllocationUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'alloc-0' },
-        data: expect.objectContaining({ proposedHundredths: 100 }),
-      })
-    );
+    expect(mockAllocationUpdate).not.toHaveBeenCalled();
   });
 
   // «Тільки збільшити» cuts both ways: what the head added on top of the
@@ -693,16 +738,22 @@ describe('setStaffLimits — re-settles the кафедра’s saved split', () 
     );
   });
 
-  // Додаток 2 prints «за формулою» beside the head's number. A frozen column
-  // still claiming the old proposal would assert a comparison never made.
-  it('rewrites the stored формула figure too', async () => {
-    saved([95, 100, 100]);
-    await setStaffLimits(null, limitsForm('0,10', '1,00'));
-    expect(mockAllocationUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ formulaHundredths: 100 }),
-      })
-    );
+  // Also reversed. `formulaHundredths` is the формула as it stood at the last
+  // human save, and `saveDistribution` now measures «тільки збільшити» against
+  // it — rewriting it here would destroy the reference that stops the floor
+  // drifting upward, which is the whole point of the 2026-08-27 change.
+  it('never rewrites the stored формула figure', async () => {
+    const staff = roster();
+    staff[0].stakeLimits = [{ minHundredths: 10, maxHundredths: 50 }] as never;
+    mockStaff.mockResolvedValue(staff);
+    saved([100, 100, 100]);
+    await setStaffLimits(null, limitsForm('0,10', '0,50', 's0'));
+
+    // The cap DID pull this row down, so there is an update to inspect
+    expect(mockAllocationUpdate).toHaveBeenCalled();
+    for (const [args] of mockAllocationUpdate.mock.calls) {
+      expect(args.data).not.toHaveProperty('formulaHundredths');
+    }
   });
 });
 
@@ -743,7 +794,14 @@ describe('setStaffLimits — the re-settle is logged', () => {
   });
 
   it('writes one entry for the кафедра, naming what moved', async () => {
-    await setStaffLimits(null, limitsForm('0,10', '1,00'));
+    // A cap lowered UNDER a saved ставка — the one direction that still moves
+    // somebody's pay since 2026-08-27. The формула no longer raises anyone, so
+    // this is what «the cap moved the money» now looks like.
+    const staff = roster();
+    staff[0].stakeLimits = [{ minHundredths: 10, maxHundredths: 50 }] as never;
+    mockStaff.mockResolvedValue(staff);
+
+    await setStaffLimits(null, limitsForm('0,10', '0,50', 's0'));
 
     // Two entries go out: one for the cap itself (StaffStakeLimits) and one for
     // the split it moved. This test is about the second.
@@ -755,8 +813,8 @@ describe('setStaffLimits — the re-settle is logged', () => {
     const entry = entries[0];
     expect(entry).toMatchObject({ action: 'UPDATE', entityId: 'dist-1', userId: 'a1' });
     expect(entry.label).toContain('перерахунок');
-    // Only the row that actually moved, from 0,95 to the formula's 1,00
-    expect(entry.changes).toEqual({ Прізвище0: { from: 95, to: 100 } });
+    // Only the row that actually moved: s0 held 0,95 against a new Макс of 0,50
+    expect(entry.changes).toEqual({ Прізвище0: { from: 95, to: 50 } });
   });
 
   it('writes nothing when no row had to move', async () => {

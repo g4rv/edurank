@@ -159,6 +159,31 @@ export async function getDashboard(year: number): Promise<DashboardData> {
     }
   }
 
+  /**
+   * HOW MANY PEOPLE — one кафедра each, whatever they hold (owner, 2026-08-27):
+   * «НПП is a people count, it doesn't matter if they work for 1 or 5
+   * departments, it's only one human being».
+   *
+   * Separate from `byDepartment` above, which deliberately puts a сумісник in
+   * both кафедри — that map feeds the AVERAGE SCORE, and both кафедри should
+   * average in somebody who teaches on them. Counting the same way made one
+   * person two: the «НПП» card said 327 while the tree summed to 347.
+   *
+   * Home кафедра is the full-time post, or the part-time one for somebody who
+   * holds no full-time post anywhere (legal since 2026-08-26). Every person
+   * lands in exactly one bucket, so кафедра → факультет → university all add up.
+   *
+   * Note this is the DASHBOARD's question. The ставка grid still shows and pays
+   * every сумісник, and `Кст ≥ 0,1 × N` still counts them — a pool has to cover
+   * everybody it pays.
+   */
+  const headByDepartment = new Map<string, number>();
+  for (const member of npp) {
+    const home = member.departmentId ?? member.partTimeDepartments[0]?.departmentId;
+    if (!home) continue;
+    headByDepartment.set(home, (headByDepartment.get(home) ?? 0) + 1);
+  }
+
   const departments: DepartmentScore[] = faculties
     .flatMap((faculty) =>
       faculty.departments.map((department) => {
@@ -167,7 +192,7 @@ export async function getDashboard(year: number): Promise<DashboardData> {
           id: department.id,
           name: department.name,
           faculty: faculty.name,
-          nppCount: bucket?.count ?? 0,
+          nppCount: headByDepartment.get(department.id) ?? 0,
           // A division rarely lands on two decimals by itself
           average: bucket && bucket.count > 0 ? round2(bucket.sum / bucket.count) : 0,
         };
@@ -175,49 +200,18 @@ export async function getDashboard(year: number): Promise<DashboardData> {
     )
     .sort((a, b) => b.average - a.average || a.name.localeCompare(b.name, 'uk'));
 
-  /**
-   * PEOPLE per faculty, counted once each — not the sum of its кафедри.
-   *
-   * A сумісник belongs in two кафедра buckets on purpose (both кафедри pay
-   * them, both average their score). Adding those buckets up then counted the
-   * same person twice at faculty level, and twice again in the university
-   * total: the «НПП» card said 327 while the tree summed to 347 (2026-08-27).
-   *
-   * Counted over distinct staff, so somebody holding posts on two кафедри of
-   * ONE faculty is one person there — and somebody spanning two faculties is
-   * one in each, which is the honest answer to «how many people does this
-   * faculty have».
-   */
-  const facultyOf = new Map<string, string>();
-  for (const faculty of faculties) {
-    for (const department of faculty.departments) facultyOf.set(department.id, faculty.id);
-  }
-  const peopleByFaculty = new Map<string, Set<number>>();
-  const noteFaculty = (departmentId: string, person: number) => {
-    const facultyId = facultyOf.get(departmentId);
-    if (!facultyId) return;
-    const seen = peopleByFaculty.get(facultyId) ?? new Set<number>();
-    seen.add(person);
-    peopleByFaculty.set(facultyId, seen);
-  };
-  for (const [i, member] of npp.entries()) {
-    if (member.departmentId) noteFaculty(member.departmentId, i);
-    for (const { departmentId } of member.partTimeDepartments) {
-      if (departmentId === member.departmentId) continue;
-      noteFaculty(departmentId, i);
-    }
-  }
-
   const facultyNodes: FacultyNode[] = faculties.map((faculty) => {
     const departmentNodes = faculty.departments.map((department) => ({
       id: department.id,
       name: department.name,
-      nppCount: byDepartment.get(department.id)?.count ?? 0,
+      nppCount: headByDepartment.get(department.id) ?? 0,
     }));
     return {
       id: faculty.id,
       name: faculty.name,
-      nppCount: peopleByFaculty.get(faculty.id)?.size ?? 0,
+      // Plain sum, and correct now that every person sits in exactly one
+      // кафедра — no Set needed to de-duplicate what cannot repeat.
+      nppCount: departmentNodes.reduce((acc, d) => acc + d.nppCount, 0),
       departments: departmentNodes,
     };
   });

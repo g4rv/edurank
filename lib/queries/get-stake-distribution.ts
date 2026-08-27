@@ -53,8 +53,19 @@ export interface StakeRow {
   maxHundredths: number;
   /** Has somebody set limits for this person, or are these the defaults? */
   hasOwnLimits: boolean;
-  /** What the formula proposes, clamped and on the 0.05 ladder */
+  /** What the formula proposes TODAY, clamped and on the 0.05 ladder */
   formulaHundredths: number;
+  /**
+   * The формула as it stood when a PERSON last saved this row, or null if
+   * nobody has saved them yet.
+   *
+   * This — not `formulaHundredths` — is the «тільки збільшити» floor
+   * (2026-08-27). Today's формула moves whenever the кафедра changes, and
+   * measuring against it raised the ставка of people nobody had touched.
+   * Null means «no saved row», and then today's формула IS the right floor:
+   * it is that person's initial automatic ставка.
+   */
+  savedFormulaHundredths: number | null;
   /** Bumped to a bound — so the grid can explain a row that looks wrong */
   clampedTo: 'min' | 'max' | null;
   /** What the head has decided, falling back to the formula until they touch it */
@@ -158,7 +169,7 @@ export async function getStakeDistribution(
         filledAt: true,
         filledBy: { select: { lastName: true, firstName: true, patronymic: true } },
         allocations: {
-          select: { staffId: true, proposedHundredths: true },
+          select: { staffId: true, proposedHundredths: true, formulaHundredths: true },
         },
       },
     }),
@@ -237,6 +248,7 @@ export async function getStakeDistribution(
         qualifies: metCount >= REQUIRED_POSITIONS,
         ...boundsFor(s),
         formulaHundredths: share.hundredths,
+        savedFormulaHundredths: allocation?.formulaHundredths ?? null,
         clampedTo: share.clampedTo,
         // Until somebody touches a row, the formula's proposal IS the proposal —
         // the screen opens on a defensible split rather than on a column of
