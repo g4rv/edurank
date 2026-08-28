@@ -322,6 +322,11 @@ model StaffDepartment {
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
   @@id([staffId, departmentId])
+  // Postgres can only use the primary key prefix-first, i.e. by `staffId`. But
+  // every «who is on this кафедра» query asks the other way round —
+  // `onDepartment` / `onDepartments` / `onFaculty` in `lib/queries/roster.ts`
+  // are spread into eight of them, all filtering `departmentId` first.
+  @@index([departmentId])
 }
 
 // ─── Permissions ─────────────────────────────────────────────────────────────
@@ -873,4 +878,11 @@ model AuditLog {
   changes   Json? // { field: { from, to } } for UPDATE; { field: { from: null, to: value } } for CREATE; vice versa for DELETE
   userId    String? // kept even if the staff row is later deleted
   user      Staff?  @relation(fields: [userId], references: [id])
+
+  // The one table that grows without bound — every mutation in the app writes a
+  // row — and it had no index at all. `/admin/audit-log` is its only reader and
+  // it always orders by `createdAt`, optionally narrowed by `entity`, so those
+  // are the two shapes worth covering.
+  @@index([createdAt])
+  @@index([entity, createdAt])
 }
