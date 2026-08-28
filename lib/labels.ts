@@ -75,6 +75,7 @@ export const FIELD_LABELS: Record<string, string> = {
   staffId: 'Співробітник',
   password: 'Пароль',
   passwordHash: 'Пароль',
+  invitedAt: 'Запрошення надіслано',
   // Rating (Phase 2): Activity
   activityTypeId: 'Тип досягнення',
   year: 'Рік',
