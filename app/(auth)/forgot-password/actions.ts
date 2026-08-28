@@ -3,7 +3,8 @@
 import { db } from '@/lib/db';
 import { issueAndEmailLink } from '@/lib/mail/invite';
 import { forgotPasswordSchema, type ForgotPasswordSchema } from '@/validations/account';
-import { logError } from '@/lib/log';
+import { emailMatches } from '@/lib/auth/email';
+import { logError, logWarning } from '@/lib/log';
 
 export type ForgotPasswordState = { error: string } | { success: true };
 
@@ -20,8 +21,11 @@ export async function requestPasswordReset(
   const parsed = forgotPasswordSchema.safeParse(data);
   if (!parsed.success) return { error: 'Некоректний email' };
 
-  const staff = await db.staff.findUnique({
-    where: { email: parsed.data.email },
+  // Case-insensitive, for the same reason `authorize` is: an address stored
+  // with a capital would otherwise be unreachable here too, so the one person
+  // who most needs a reset link could not ask for one.
+  const [staff, ...ambiguous] = await db.staff.findMany({
+    where: emailMatches(parsed.data.email),
     select: {
       id: true,
       email: true,
@@ -32,7 +36,17 @@ export async function requestPasswordReset(
       passwordHash: true,
       activationToken: { select: { createdAt: true } },
     },
+    take: 2,
   });
+
+  // Two rows differing only in case: sending to one of them at random could
+  // hand the wrong person a link to an account that is not theirs.
+  if (ambiguous.length > 0) {
+    logWarning('auth.requestPasswordReset', 'two accounts differ only by email case', {
+      email: parsed.data.email,
+    });
+    return { success: true };
+  }
 
   const recentlySent =
     staff?.activationToken &&

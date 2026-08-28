@@ -32,7 +32,7 @@ export const setPasswordSchema = z
 export type SetPasswordSchema = z.infer<typeof setPasswordSchema>;
 
 export const forgotPasswordSchema = z.object({
-  email: z.email({ error: 'Некоректний email' }).trim(),
+  email: z.email({ error: 'Некоректний email' }).trim().toLowerCase(),
 });
 
 export type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>;

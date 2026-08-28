@@ -3,6 +3,8 @@ import Credentials from 'next-auth/providers/credentials';
 import { compare } from 'bcryptjs';
 import { db } from '@/lib/db';
 import { clearFailures, lockedUntil, recordFailure, subjectsFor } from '@/lib/auth/throttle';
+import { emailMatches } from '@/lib/auth/email';
+import { logWarning } from '@/lib/log';
 import type { Role } from '@/lib/generated/prisma/client';
 
 // NextAuth reads AUTH_SECRET on its own and, when it is missing, fails at the
@@ -43,8 +45,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const subjects = await subjectsFor(email);
         if (await lockedUntil(subjects)) return null;
 
-        const staff = await db.staff.findUnique({
-          where: { email },
+        // Case-INSENSITIVE, and `findMany` rather than `findUnique`.
+        // `Staff.email` is unique, but Postgres enforces that case-sensitively,
+        // so an address stored with a capital could only be signed in to by
+        // typing that capital — and the ordinary lower-case spelling answered
+        // «Невірний email або пароль» with nothing to explain it (2026-08-28).
+        //
+        // `take: 2` because two rows differing only in case are possible under
+        // that same case-sensitive constraint. Picking one arbitrarily would
+        // sign somebody into the wrong account, so anything but exactly one
+        // match is treated as no match below.
+        const matches = await db.staff.findMany({
+          where: emailMatches(email),
           select: {
             id: true,
             email: true,
@@ -53,7 +65,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             tokenVersion: true,
             archivedAt: true,
           },
+          take: 2,
         });
+
+        if (matches.length > 1) {
+          logWarning('auth.authorize', 'two accounts differ only by email case', { email });
+        }
+        const staff = matches.length === 1 ? matches[0] : null;
 
         // Every rejection below counts as a failure and returns the same
         // `null`, on purpose. If «no such account» were cheaper or quieter than

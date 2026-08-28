@@ -76,7 +76,11 @@ export const staffUpdateSchema = z
     lastName: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     firstName: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     patronymic: z.string().trim().min(1, { error: "Обов'язкове поле" }),
-    email: z.email({ error: 'Некоректний email' }).trim(),
+    // Lower-cased, not just trimmed. `Staff.email` is unique but Postgres
+    // enforces that case-sensitively, so «Petrenko@…» and «petrenko@…» are two
+    // rows to the database and one address to every human. Stored one way, the
+    // ambiguity never arises (2026-08-28).
+    email: z.email({ error: 'Некоректний email' }).trim().toLowerCase(),
     phone: phoneField,
     isNpp: z.preprocess((v) => v === true || v === 'true', z.boolean()),
     employmentRate: z.preprocess(num, z.number().nonnegative().nullable()),
