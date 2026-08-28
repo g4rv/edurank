@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { attachmentHeader, personFileNames } from './file-names';
+import { attachmentHeader, fileNameFromDisposition, personFileNames } from './file-names';
 
 describe('personFileNames', () => {
   it('adds the extension and keeps the order', () => {
@@ -59,5 +59,47 @@ describe('attachmentHeader', () => {
     const header = attachmentHeader('a"b.xlsx');
     const ascii = /filename="([^"]*)"/.exec(header)?.[1] ?? '';
     expect(ascii).not.toContain('"');
+  });
+});
+
+describe('fileNameFromDisposition', () => {
+  // The round trip that matters: what attachmentHeader writes, this reads back.
+  it('recovers a Cyrillic name written by attachmentHeader', () => {
+    const name = 'Список персоналу 2026-08-28.xlsx';
+    expect(fileNameFromDisposition(attachmentHeader(name))).toBe(name);
+  });
+
+  it('recovers a name containing spaces and brackets', () => {
+    const name = 'Коваленко Іван Петрович (2).xlsx';
+    expect(fileNameFromDisposition(attachmentHeader(name))).toBe(name);
+  });
+
+  // filename* is preferred: the plain one is only ever the ASCII-mangled copy,
+  // and picking it would save every Ukrainian export as «_______.xlsx».
+  it('prefers filename* over the ASCII fallback', () => {
+    const header = `attachment; filename="______.xlsx"; filename*=UTF-8''${encodeURIComponent('Звіт.xlsx')}`;
+    expect(fileNameFromDisposition(header)).toBe('Звіт.xlsx');
+  });
+
+  it('falls back to a quoted plain filename', () => {
+    expect(fileNameFromDisposition('attachment; filename="report.xlsx"')).toBe('report.xlsx');
+  });
+
+  it('reads an unquoted plain filename', () => {
+    expect(fileNameFromDisposition('attachment; filename=report.xlsx')).toBe('report.xlsx');
+  });
+
+  // A missing or unusable header must not throw — the caller has its own
+  // fallback name and the download still has to happen.
+  it('answers null rather than throwing when there is nothing to read', () => {
+    expect(fileNameFromDisposition(null)).toBeNull();
+    expect(fileNameFromDisposition('attachment')).toBeNull();
+    expect(fileNameFromDisposition('')).toBeNull();
+  });
+
+  it('survives a malformed percent-escape by using the ASCII name', () => {
+    expect(
+      fileNameFromDisposition(`attachment; filename="ok.xlsx"; filename*=UTF-8''%E0%A4%A`)
+    ).toBe('ok.xlsx');
   });
 });

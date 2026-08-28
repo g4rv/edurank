@@ -159,6 +159,7 @@ model Department {
   stakeLimits   StaffStakeLimits[]
   distributions StakeDistribution[]
   stakeSandboxes StakeSandbox[]
+  specialities SpecialityDepartment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -322,6 +323,11 @@ model StaffDepartment {
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
   @@id([staffId, departmentId])
+  // Postgres can only use the primary key prefix-first, i.e. by `staffId`. But
+  // every «who is on this кафедра» query asks the other way round —
+  // `onDepartment` / `onDepartments` / `onFaculty` in `lib/queries/roster.ts`
+  // are spread into eight of them, all filtering `departmentId` first.
+  @@index([departmentId])
 }
 
 // ─── Permissions ─────────────────────────────────────────────────────────────
@@ -543,6 +549,7 @@ model Speciality {
 
   norms  SpecialityNorm[]
   claims StudentClaim[]
+  departments SpecialityDepartment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -569,6 +576,36 @@ model SpecialityNorm {
 
   @@unique([specialityId, year])
   @@index([year])
+}
+
+// Випускові кафедри — which кафедра graduates which спеціальність.
+//
+// **DISPLAY ONLY.** It does not restrict anything. An НПП may recruit a student
+// onto any programme in the university and the bonus follows the RECRUITER
+// wherever the student ends up studying (confirmed 2026-08-10) — which is why
+// `Speciality` carries no `departmentId` and must not gain one. This table
+// exists so the «Здобувачі» column can tell a завідувач whether the students
+// their people brought in went onto their OWN кафедра's programmes or somebody
+// else's. Those are different pieces of work and the head weighs them.
+//
+// A TABLE and not the constant it replaced (owner, 2026-08-25). The constant
+// matched кафедри by NAME, and the name is editable on /departments: the 2026
+// reorganisation renames most of them, and every link would have broken in
+// silence — grey chips, no error, nothing in the log. This is the same lesson
+// `Division.registryKey` records. Foreign keys cannot break on a rename, and
+// `onDelete: Cascade` means a кафедра that is dissolved takes its rows with it.
+//
+// Many-to-many because six спеціальності are taught by more than one кафедра.
+model SpecialityDepartment {
+  specialityId String
+  speciality   Speciality @relation(fields: [specialityId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([specialityId, departmentId])
+  @@index([departmentId])
 }
 
 // One student an НПП says they recruited — term 2 of the ставка formula.
@@ -873,4 +910,11 @@ model AuditLog {
   changes   Json? // { field: { from, to } } for UPDATE; { field: { from: null, to: value } } for CREATE; vice versa for DELETE
   userId    String? // kept even if the staff row is later deleted
   user      Staff?  @relation(fields: [userId], references: [id])
+
+  // The one table that grows without bound — every mutation in the app writes a
+  // row — and it had no index at all. `/admin/audit-log` is its only reader and
+  // it always orders by `createdAt`, optionally narrowed by `entity`, so those
+  // are the two shapes worth covering.
+  @@index([createdAt])
+  @@index([entity, createdAt])
 }

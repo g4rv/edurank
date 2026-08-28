@@ -109,7 +109,7 @@ the right shape and does not touch that rule.
 - `app/(dashboard)/admin/stakes/norms/page.tsx` — the new column.
 - `app/(dashboard)/admin/stakes/actions.ts` — `linkSpecialityDepartment` / `unlinkSpecialityDepartment`.
 - `lib/specialities/departments.ts` — demote the constant to seed input.
-- `prisma/seed.ts` — seed the join table on a fresh database.
+- `prisma/catalogue.ts` — seed the join table on a fresh database.
 - `CLAUDE.md` — record the new rule.
 
 ---
@@ -1190,7 +1190,7 @@ git commit -m "feat(admin): edit випускові кафедри per спец�
 
 - Modify: `lib/specialities/departments.ts`
 - Modify: `lib/specialities/departments.test.ts`
-- Modify: `prisma/seed.ts`
+- Modify: `prisma/catalogue.ts`
 - Modify: `CLAUDE.md`
 
 Do this only **after** production has been backfilled and checked. It removes the
@@ -1198,10 +1198,10 @@ safety net.
 
 - [ ] **Step 1: Seed the join table on a fresh database**
 
-In `prisma/seed.ts`, wherever спеціальності are created, add the links from
-`SPECIALITY_DEPARTMENTS` using the same name→id matching the Task 4 script uses.
-A fresh database must come up already linked; only existing databases need the
-one-off script.
+In `prisma/catalogue.ts`, wherever спеціальності are created (`prisma.speciality.upsert`,
+around line 190), add the links from `SPECIALITY_DEPARTMENTS` using the same
+name→id matching the Task 4 script uses. A fresh database must come up already
+linked; only existing databases need the one-off script.
 
 - [ ] **Step 2: Remove the fallback**
 
@@ -1217,7 +1217,7 @@ than a table» paragraph:
 ```ts
 // **SEED INPUT ONLY** since 2026-08-25. The running app reads
 // `SpecialityDepartment` through `lib/queries/get-speciality-departments.ts`;
-// this object only supplies the first fill, for a fresh database (`prisma/seed.ts`)
+// this object only supplies the first fill, for a fresh database (`prisma/catalogue.ts`)
 // and for the one-off `prisma/link-speciality-departments.ts`. Editing it changes
 // nothing on any database that already has rows — that is now an ADMIN action on
 // /admin/stakes/norms. The same shape `ACTIVITY_TYPES_2026` took when indicators
@@ -1258,7 +1258,7 @@ In `CLAUDE.md`, under «Розподіл ставок», beside the `registryKey
 Run: `pnpm test && pnpm type-check && pnpm lint && pnpm build`
 
 ```bash
-git add lib/specialities prisma/seed.ts lib/queries/get-speciality-departments.ts CLAUDE.md
+git add lib/specialities prisma/catalogue.ts lib/queries/get-speciality-departments.ts CLAUDE.md
 git commit -m "refactor(specialities): make the constant seed input only"
 ```
 
@@ -1269,15 +1269,28 @@ git commit -m "refactor(specialities): make the constant seed input only"
 In order, and not before Task 8 is merged:
 
 1. **Back up the database.** Nothing below is reversible by itself.
-2. Deploy Tasks 1–8. The migration adds an empty table; the fallback means
-   behaviour is unchanged while it is empty.
-3. Check `/stakes/<кафедра>` still colours its chips as before.
-4. Run `pnpm db:link-speciality-departments` — **no flag**. Read the output. The
-   «Немає такої кафедри» list must be empty.
-5. Run it again with `--apply`.
+2. Take a fresh dump of production and restore it somewhere Tasks 1–8 can run
+   against locally (the migration only needs to exist there, not in production
+   yet). Run `pnpm db:link-speciality-departments` — **no flag** — against that
+   dump. Read the output. The «Немає такої кафедри» list must be empty. This is
+   the point of doing it first: an unmatched кафедра name is a name the code
+   doesn't recognise, and it is far cheaper to fix before the new code — and
+   its removed fallback — is the thing running live in production.
+3. Deploy Tasks 1–8 to production. The migration adds an empty table; the
+   fallback means behaviour is unchanged while it is empty.
+4. Check `/stakes/<кафедра>` still colours its chips as before.
+5. Run `pnpm db:link-speciality-departments --apply` against production.
 6. Check the same кафедра grid again, and `/admin/stakes/norms`.
 7. Only then merge and deploy Task 9.
 
 **Run this before the reorganisation renames anything.** The backfill matches by
 name; once the names change there is nothing to match, and the 48 links have to be
 typed in by hand.
+
+- `prod-core.json` does NOT carry `SpecialityDepartment`, and deliberately so:
+  seeds cannot be run against production (it is populated and holds admin
+  edits), so the export/restore path is closed there. If a production database
+  ever has to be rebuilt from that file, the links must be restored by
+  re-running `pnpm db:link-speciality-departments --apply` — or, once кафедри
+  have been renamed and the constant no longer matches, re-entered by an ADMIN
+  on /admin/stakes/norms.

@@ -209,6 +209,22 @@ export default async function AuditLogPage({
       case 'bonusPoolHundredths':
       case 'valueHundredths':
         return Number.isFinite(Number(value)) ? formatStake(Number(value)) : str;
+      // Dates reach the JSON column as ISO strings, and printing one raw put
+      // «2019-05-12T00:00:00.000Z» in a column a person reads. `archivedAt` has
+      // always been stored that way; `degreeDefenceDate` joins it now that its
+      // before-value is read at all (2026-08-28).
+      //
+      // Кафедра п.5's defence date is a DATE — stored as UTC midnight, so it is
+      // formatted in UTC or a negative offset shows the day before. `archivedAt`
+      // is an instant and keeps its time.
+      case 'degreeDefenceDate': {
+        const d = new Date(str);
+        return Number.isNaN(d.getTime()) ? str : d.toLocaleDateString('uk-UA', { timeZone: 'UTC' });
+      }
+      case 'archivedAt': {
+        const d = new Date(str);
+        return Number.isNaN(d.getTime()) ? str : d.toLocaleString('uk-UA');
+      }
       case 'divisionId':
         return divisionMap.get(str) ?? str;
       case 'departmentId':

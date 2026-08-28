@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 vi.mock('@/lib/db', () => ({
   db: {
-    department: { findUnique: vi.fn() },
+    department: { findUnique: vi.fn(), findMany: vi.fn() },
     staff: { findMany: vi.fn() },
     departmentStake: { findUnique: vi.fn() },
     stakeDistribution: { findUnique: vi.fn() },
+    specialityDepartment: { findMany: vi.fn() },
   },
 }));
 vi.mock('./get-kharakterystyka', () => ({ getKharakterystykaMany: vi.fn() }));
@@ -39,6 +40,10 @@ beforeEach(() => {
     bonusPoolHundredths: null,
   });
   (db.stakeDistribution.findUnique as unknown as Mock).mockResolvedValue(null);
+  // Empty by default: no links yet, so `getSpecialityOwners` falls through to
+  // its constant-based fallback, which needs `department.findMany` too.
+  (db.specialityDepartment.findMany as unknown as Mock).mockResolvedValue([]);
+  (db.department.findMany as unknown as Mock).mockResolvedValue([]);
 });
 
 /** `own` sits on d1; `guest` sits on d2 and is a сумісник here. */
@@ -138,5 +143,52 @@ describe('getStakeDistribution with a сумісник', () => {
       year: 2026,
       departmentId: 'd1',
     });
+  });
+});
+
+describe('випускова кафедра origin', () => {
+  it('marks a спеціальність this кафедра graduates as own, and another as other', async () => {
+    (db.department.findUnique as unknown as Mock).mockResolvedValue({
+      id: 'dep-1',
+      name: 'Кафедра економіки',
+      faculty: { name: 'Факультет економіки' },
+    });
+    mockStaff.mockResolvedValue([
+      {
+        id: 'staff-1',
+        departmentId: 'dep-1',
+        lastName: 'Іваненко',
+        firstName: 'І',
+        patronymic: 'І',
+        adminPosition: null,
+        ratingEntries: [{ totalScore: 100 }],
+        stakeLimits: [],
+      },
+    ]);
+    (bonusForStaff as unknown as Mock).mockResolvedValue(
+      new Map([
+        [
+          'staff-1',
+          {
+            total: 2,
+            students: 2,
+            bySpeciality: [
+              { speciality: 'Економіка', code: null, count: 1, value: 1 },
+              { speciality: 'Психологія', code: null, count: 1, value: 1 },
+            ],
+          },
+        ],
+      ])
+    );
+    (db.specialityDepartment.findMany as unknown as Mock).mockResolvedValue([
+      { departmentId: 'dep-1', speciality: { name: 'Економіка' } },
+      { departmentId: 'dep-2', speciality: { name: 'Психологія' } },
+    ]);
+
+    const view = (await getStakeDistribution('dep-1', 2026))!;
+    const row = view.rows[0];
+
+    expect(row.bonus.bySpeciality.find((e) => e.speciality === 'Економіка')?.origin).toBe('own');
+    expect(row.bonus.bySpeciality.find((e) => e.speciality === 'Психологія')?.origin).toBe('other');
   });
 });

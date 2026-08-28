@@ -2,7 +2,7 @@
 
 import { formatBonus } from '@/lib/stake/units';
 import { formatSpeciality } from '@/lib/specialities/codes';
-import { specialityOrigin, type SpecialityOrigin } from '@/lib/specialities/departments';
+import type { SpecialityOrigin } from '@/lib/specialities/origin';
 import type { StaffBonus } from '@/lib/queries/list-student-claims';
 import { cn } from '@/lib/utils';
 
@@ -21,18 +21,7 @@ import { cn } from '@/lib/utils';
  * The НПП's own page is untouched by this — they see a possible outcome and a
  * confirmed value, which is what they came for.
  */
-export function BonusCell({
-  bonus,
-  audience,
-  departmentName,
-  knownDepartment,
-}: {
-  bonus: StaffBonus;
-  audience: 'admin' | 'head';
-  departmentName: string;
-  /** False → every chip is gray; the кафедра is not in the довідник */
-  knownDepartment: boolean;
-}) {
+export function BonusCell({ bonus, audience }: { bonus: StaffBonus; audience: 'admin' | 'head' }) {
   if (bonus.total === 0 && bonus.students === 0) {
     return <span className="text-muted-foreground">—</span>;
   }
@@ -46,11 +35,7 @@ export function BonusCell({
           {bonus.students} {plural(bonus.students)}
         </span>
       ) : (
-        <SpecialityChips
-          bonus={bonus}
-          departmentName={departmentName}
-          knownDepartment={knownDepartment}
-        />
+        <SpecialityChips bonus={bonus} />
       )}
     </div>
   );
@@ -69,26 +54,19 @@ function plural(count: number): string {
 /** How many chips fit before the row starts setting the table's height */
 const VISIBLE_CHIPS = 4;
 
-function SpecialityChips({
-  bonus,
-  departmentName,
-  knownDepartment,
-}: {
-  bonus: StaffBonus;
-  departmentName: string;
-  knownDepartment: boolean;
-}) {
+function SpecialityChips({ bonus }: { bonus: StaffBonus }) {
   const shown = bonus.bySpeciality.slice(0, VISIBLE_CHIPS);
   const hidden = bonus.bySpeciality.slice(VISIBLE_CHIPS);
 
   return (
     <div className="flex flex-wrap justify-end gap-1">
       {shown.map((entry) => {
-        // `knownDepartment` short-circuits the lookup so a кафедра outside the
-        // довідник reads as «we do not know» rather than as «somebody else's».
-        const origin: SpecialityOrigin = knownDepartment
-          ? specialityOrigin(departmentName, entry.speciality)
-          : 'unknown';
+        // Decided server-side, against the кафедра this grid belongs to — see
+        // `getStakeDistribution`. `unknown` is a real answer, not a fallback:
+        // it means either this кафедра has no links yet, or nobody graduates
+        // this спеціальність, and reporting it as `other` would claim the
+        // person recruited for a stranger.
+        const origin: SpecialityOrigin = entry.origin;
 
         return (
           <span

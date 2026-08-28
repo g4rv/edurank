@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -97,6 +98,21 @@ export async function createStaff(
   }
 
   if (dbError) return { error: dbError };
+
+  // See the note in `faculties/actions.ts` — same gap, same cause. Placed
+  // before the invite block so BOTH return paths below get it: the record
+  // exists either way, and a failed letter must not also cost a stale list.
+  //
+  // Every кафедра they were placed on, primary and additional: a new colleague
+  // shows up on the кафедра page, in «Моя кафедра» and in that кафедра's ставка
+  // grid, not only in `/staff`.
+  revalidatePath('/staff');
+  revalidatePath('/dashboard');
+  revalidatePath('/my-department');
+  for (const deptId of new Set([departmentId, ...partTimeDepartmentIds].filter(Boolean))) {
+    revalidatePath(`/departments/${deptId}`);
+    revalidatePath(`/stakes/${deptId}`);
+  }
 
   // Invite immediately, if asked. Deliberately after the transaction and
   // outside it: mail is not rollback-able, and holding a DB transaction open

@@ -5,6 +5,8 @@ import { listPendingInvites } from '@/lib/queries/list-pending-invites';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { BulkInvite } from '@/components/admin/bulk-invite';
+import { RevertInviteButton } from '@/components/admin/revert-invite-button';
+import { BulkRevertInvite } from '@/components/admin/bulk-revert-invite';
 import { DepartmentSelect } from '@/components/department-select';
 import { DomainFilter } from '@/components/admin/domain-filter';
 
@@ -185,7 +187,13 @@ export default async function InvitesPage({
         </p>
       )}
 
-      <BulkInvite people={people} />
+      <div className="flex flex-wrap items-start gap-3">
+        <BulkInvite people={people} />
+        {/* Acts on the same filtered list the send does — pick a кафедра above
+            and this resets that кафедра only. Renders nothing when nobody in
+            the selection has been written to. */}
+        <BulkRevertInvite people={people} />
+      </div>
 
       {people.length > 0 && (
         <div className="overflow-hidden rounded-xl border bg-card">
@@ -210,7 +218,12 @@ export default async function InvitesPage({
                   <td className="px-4 py-2.5 text-muted-foreground">{p.departmentName ?? '—'}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">
                     {p.invitedAt ? (
-                      p.invitedAt.toLocaleDateString('uk-UA')
+                      <span className="inline-flex items-center gap-1">
+                        {p.invitedAt.toLocaleDateString('uk-UA')}
+                        {/* Only where there is something to revert — somebody
+                            already reading «не надсилалося» has no token. */}
+                        <RevertInviteButton staffId={p.id} fullName={p.fullName} />
+                      </span>
                     ) : (
                       <span className="text-amber-600 dark:text-amber-500">не надсилалося</span>
                     )}

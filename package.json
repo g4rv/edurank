@@ -27,6 +27,7 @@
     "db:fix-employment-rate": "tsx prisma/fix-employment-rate.ts",
     "db:fix-invite-tokens": "tsx prisma/fix-invite-tokens.ts",
     "db:clear-profile-links": "tsx prisma/clear-profile-links.ts",
+    "db:link-speciality-departments": "tsx prisma/link-speciality-departments.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force",

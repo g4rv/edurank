@@ -51,16 +51,36 @@ export const USER_EDITABLE_STAFF_FIELDS: ReadonlySet<string> = new Set([
 
 /**
  * True when demoting or deleting this person would leave nobody able to sign
- * in as ADMIN. Only activated accounts count: an admin who never set a
- * password cannot log in, and only another admin could invite them — so
- * "one inactive admin remains" is still a locked-out university.
+ * in as ADMIN. Only accounts that can ACTUALLY sign in count, which rules out
+ * two kinds of admin, for one reason:
+ *
+ * - one who never set a password — only another admin could invite them, so
+ *   "one inactive admin remains" is still a locked-out university;
+ * - one who is ARCHIVED — `authorize` refuses them (`lib/auth.ts`), and
+ *   `archiveStaff` does not clear `passwordHash`, so the row goes on looking
+ *   like a working login forever.
+ *
+ * The archived case was missed, and it made the guard defeat itself: archive
+ * the first of two admins (allowed, the second exists), then archive the
+ * second — this count still saw the first, holding a password it can no
+ * longer use, so it passed and the university lost every usable ADMIN.
+ *
+ * The `isSystem` service account is deliberately NOT excluded. It exists so a
+ * fresh database is never locked out (`prisma/core-admin.ts`), and it is
+ * created without a password unless somebody sets one — so `passwordHash`
+ * already answers the only question that matters here: can it sign in.
  */
 export async function isLastActiveAdmin(staffId: string): Promise<boolean> {
   const staff = await db.staff.findUnique({ where: { id: staffId }, select: { role: true } });
   if (staff?.role !== 'ADMIN') return false;
 
   const otherAdmins = await db.staff.count({
-    where: { id: { not: staffId }, role: 'ADMIN', passwordHash: { not: null } },
+    where: {
+      id: { not: staffId },
+      role: 'ADMIN',
+      passwordHash: { not: null },
+      archivedAt: null,
+    },
   });
   return otherAdmins === 0;
 }

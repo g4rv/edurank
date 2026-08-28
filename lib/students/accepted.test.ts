@@ -27,11 +27,13 @@ const NORM_NAMES = new Set(SPECIALITY_NORMS_2026.map(([name]) => name));
 
 describe('the 2026 register', () => {
   it('holds every admitted student', () => {
-    // 722 from the ЄДЕБО export + 316 from накази №520 and №521 of 19.08.2026
-    expect(ACCEPTED_STUDENTS).toHaveLength(1038);
+    // 722 from the ЄДЕБО export + 324 transcribed from the контрактні накази:
+    // 316 from №520 and №521 of 19.08.2026, and 8 more from №522 and №527,
+    // added 2026-08-28 from a later export.
+    expect(ACCEPTED_STUDENTS).toHaveLength(1046);
   });
 
-  // NOT one row per person. Eighteen people are admitted onto two programmes at
+  // NOT one row per person. Twenty people are admitted onto two programmes at
   // once — Немеш Вікторія Іванівна is on Фінанси and on Середня освіта
   // (історія), both on контракт — and each enrolment is a separate thing an НПП
   // can be credited with recruiting. What must stay unique is the key the claim
@@ -79,7 +81,7 @@ describe('the 2026 register', () => {
 });
 
 describe('registerOptions', () => {
-  const options = registerOptions();
+  const options = registerOptions(new Map());
   const branches = options.flatMap((s) => s.branches.map((b) => ({ speciality: s, branch: b })));
 
   it('offers every speciality once, university-wide', () => {

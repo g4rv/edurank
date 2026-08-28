@@ -154,16 +154,25 @@ const NAKAZ_SHEET = 'edu-reference/students_specialties.xlsx';
 /**
  * What the накази say that their sheet does not have a column for.
  *
- * Both admit «студентами першого року навчання … за кошти фізичних та/або
- * юридичних осіб», and every row of both is a бакалавр — so ступінь and
+ * All of them admit «студентами першого року навчання … за кошти фізичних
+ * та/або юридичних осіб», and every row is a бакалавр — so ступінь and
  * фінансування are constants, not missing data. They live here, named after the
  * накази they come from, so a sheet transcribed from some later наказ cannot
  * quietly inherit them.
+ *
+ * №522 and №527 were added on 2026-08-28 from a fresh ЄДЕБО export
+ * (`edu-reference/new_students.xls`, sheet «520 521 522 527»). Same ступінь and
+ * same фінансування, confirmed by the owner — so they belong in this sheet
+ * rather than in a source of their own.
+ *
+ * That export's «Претендує на бюджет» column says «Так» for six of those eight,
+ * and it is NOT the funding: it records what the applicant asked for. 188 of
+ * the 324 rows claim бюджет and every one of them is on контракт.
  */
 const NAKAZ = {
   file: NAKAZ_SHEET,
   sheet: 'Студенти',
-  orders: '№520 (денна) та №521 (заочна) від 19.08.2026',
+  orders: '№520, №521 від 19.08.2026, №522 і №527',
   degree: 'BACHELOR',
   funding: 'CONTRACT',
 } as const;

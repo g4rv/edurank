@@ -37,9 +37,10 @@ describe('afterFailure — counting up to a lock', () => {
 });
 
 describe('afterFailure — the escalation', () => {
-  // 1 → 5 → 15 → 60 minutes. The point of the design: a person who mistypes
-  // twice never notices, somebody grinding pays more each time.
-  it('lengthens each successive lockout', () => {
+  // 1 → 1 → 15 → 30 → 60 minutes. The point of the design: a person who cannot
+  // remember their password gets two cheap rounds, and anybody still going
+  // after twenty attempts is not typing from memory, so the third bites.
+  it('follows the configured escalation, lockout by lockout', () => {
     let state = blank;
     const durations: number[] = [];
 
@@ -51,6 +52,14 @@ describe('afterFailure — the escalation', () => {
     }
 
     expect(durations).toEqual([...LOCK_MINUTES]);
+  });
+
+  // The half of the change that is easy to lose: raising MAX_FAILURES alone
+  // would still send the second round of honest attempts to five minutes.
+  it('gives two one-minute lockouts before it escalates', () => {
+    expect(LOCK_MINUTES[0]).toBe(1);
+    expect(LOCK_MINUTES[1]).toBe(1);
+    expect(LOCK_MINUTES[2]).toBeGreaterThan(1);
   });
 
   it('stays at the longest lockout rather than growing without bound', () => {

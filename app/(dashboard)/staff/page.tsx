@@ -1,19 +1,17 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
-import { listStaff, STAFF_SORT_FIELDS, type StaffSortField } from '@/lib/queries/list-staff';
+import { listStaff } from '@/lib/queries/list-staff';
+import { parseStaffListParams, toStaffFilters } from '@/lib/staff/list-params';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { Button } from '@/components/ui/button';
+import { DownloadButton } from '@/components/ui/download-button';
 import { Pagination } from '@/components/ui/pagination';
 import { SortTh } from '@/components/ui/sort-th';
 import { StaffFilters } from '@/components/staff/staff-filters';
 import { StaffTable } from '@/components/staff/staff-table';
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
-
-const VALID_RANKS = new Set<string>(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
-const VALID_DEGREES = new Set<string>(['CANDIDATE', 'DOCTOR']);
 
 // The list is a few hundred people; sending them all is cheap, rendering them
 // all is not — 200 rows made the page ~14 000px tall.
@@ -34,51 +32,22 @@ export default async function StaffPage({
 
   const isAdmin = role === 'ADMIN';
 
-  const { type, sort, dir, q, faculty, dept, rank, degree, partTime, degreeMatch, page, archived } =
-    params;
-
-  // ?archived=1 is how an archived person is found again to be restored — they
-  // are out of the ordinary list by design.
-  const archivedView = archived === '1';
-
-  // ?type=npp|adm|all, keyed on isNpp — not Role. A vice-rector or the rector
-  // can hold role ADMIN while still being isNpp:true, so filtering by role hid
-  // them from the default view. Absent = НПП default.
-  const VALID_TYPES = new Set(['npp', 'adm', 'all']);
-  const typeParam = typeof type === 'string' && VALID_TYPES.has(type) ? type : 'npp';
-  const isNppFilter: boolean | undefined =
-    typeParam === 'npp' ? true : typeParam === 'adm' ? false : undefined;
-  const sortField: StaffSortField =
-    typeof sort === 'string' && (STAFF_SORT_FIELDS as readonly string[]).includes(sort)
-      ? (sort as StaffSortField)
-      : 'lastName';
-  const effectiveSortField: StaffSortField =
-    sortField === 'employmentRate' && !isAdmin ? 'lastName' : sortField;
-  const sortDir = dir === 'desc' ? 'desc' : 'asc';
-
-  const rankFilter =
-    typeof rank === 'string' && VALID_RANKS.has(rank) ? (rank as AcademicRank) : undefined;
-  const degreeFilter =
-    typeof degree === 'string' && VALID_DEGREES.has(degree)
-      ? (degree as ScientificDegree)
-      : undefined;
+  // Parsed by the shared reader, which `/api/export/staff` uses too — so the
+  // spreadsheet the button below produces is the list on this screen, and stays
+  // that way when a filter is added.
+  const filters = parseStaffListParams(params, { isAdmin });
+  const {
+    type: typeParam,
+    sort: effectiveSortField,
+    dir: sortDir,
+    archivedView,
+    rank: rankFilter,
+    degree: degreeFilter,
+  } = filters;
+  const { page } = params;
 
   const [staff, faculties, departments] = await Promise.all([
-    listStaff({
-      isNpp: isNppFilter,
-      includeAccount: isAdmin,
-      sort: effectiveSortField,
-      dir: sortDir,
-      q: typeof q === 'string' ? q : undefined,
-      facultyId: typeof faculty === 'string' ? faculty : undefined,
-      departmentId: typeof dept === 'string' ? dept : undefined,
-      rank: rankFilter,
-      degree: degreeFilter,
-      partTime: partTime === '1',
-      degreeMatch: degreeMatch === '1',
-      includeConfidential: isAdmin,
-      archived: archivedView ? 'only' : 'exclude',
-    }),
+    listStaff(toStaffFilters(filters, { isAdmin })),
     listFaculties(),
     listDepartments(),
   ]);
@@ -104,13 +73,14 @@ export default async function StaffPage({
       type: typeParam !== 'npp' ? typeParam : undefined,
       sort: effectiveSortField !== 'lastName' ? effectiveSortField : undefined,
       dir: sortDir !== 'asc' ? sortDir : undefined,
-      q: typeof q === 'string' ? q : undefined,
-      faculty: typeof faculty === 'string' ? faculty : undefined,
-      dept: typeof dept === 'string' ? dept : undefined,
+      q: filters.q,
+      faculty: filters.facultyId,
+      dept: filters.departmentId,
       rank: rankFilter,
       degree: degreeFilter,
-      partTime: partTime === '1' ? '1' : undefined,
-      degreeMatch: degreeMatch === '1' ? '1' : undefined,
+      partTime: filters.partTime ? '1' : undefined,
+      degreeMatch: filters.degreeMatch ? '1' : undefined,
+      activated: filters.activated === undefined ? undefined : filters.activated ? '1' : '0',
       archived: archivedView ? '1' : undefined,
     };
     for (const [k, v] of Object.entries({ ...base, ...overrides })) {
@@ -119,6 +89,12 @@ export default async function StaffPage({
     const qs = sp.toString();
     return `/staff${qs ? `?${qs}` : ''}`;
   }
+
+  // The same query string the page is on, pointed at the export route. Built
+  // off `buildHref` so a filter can never be in one and missing from the other;
+  // `page` is deliberately absent — the file is the whole filtered set, not the
+  // fifty rows on screen.
+  const exportHref = `/api/export/staff${buildHref({}).slice('/staff'.length)}`;
 
   const sortHeader = (
     <tr className="border-b bg-muted/40">
@@ -179,13 +155,16 @@ export default async function StaffPage({
     typeParam,
     effectiveSortField,
     sortDir,
-    q,
-    faculty,
-    dept,
-    rank,
-    degree,
-    partTime,
-    degreeMatch,
+    filters.q,
+    filters.facultyId,
+    filters.departmentId,
+    rankFilter,
+    degreeFilter,
+    filters.partTime,
+    filters.degreeMatch,
+    // Was missing, so switching «Активовані» ↔ «Не активовані» re-rendered the
+    // same key and the table did not animate the new set in.
+    filters.activated,
     archivedView ? 'archived' : '',
     currentPage,
   ].join('|');
@@ -214,6 +193,17 @@ export default async function StaffPage({
               {archivedView ? 'До списку' : 'Архів'}
             </Link>
           </Button>
+          {/* ADMIN only, matching the route. The href is this page's own query
+              string, so the file is whatever is on screen right now — including
+              the sort. The shared button, so this export reports its progress
+              the same way every other one does. */}
+          {isAdmin && (
+            <DownloadButton
+              href={exportHref}
+              label="Експорт"
+              title="Список персоналу за поточними фільтрами"
+            />
+          )}
           {canCreate && !archivedView && (
             <Button asChild>
               <Link href="/staff/new">Додати</Link>
@@ -225,6 +215,7 @@ export default async function StaffPage({
       <StaffFilters
         faculties={faculties.map((f) => ({ id: f.id, name: f.name }))}
         departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
+        showActivation={isAdmin}
       />
 
       <StaffTable key={tableKey} staff={pageStaff} sortHeader={sortHeader} isAdmin={isAdmin} fill />

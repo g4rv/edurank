@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import { divisionSchema, type DivisionSchema } from '@/validations/division';
 import { diffChanges } from '@/lib/audit';
@@ -7,6 +8,19 @@ import { requireAdmin } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 
 export type DivisionActionState = { error: string } | { redirectTo: string };
+
+/**
+ * See the note in `faculties/actions.ts` — same gap, same cause. A відділ is
+ * also a column on both permission screens and the owner of `/division-data`,
+ * so a renamed or deleted one went on showing its old name there.
+ */
+function revalidateDivisions(id?: string) {
+  revalidatePath('/divisions');
+  if (id) revalidatePath(`/divisions/${id}`);
+  revalidatePath('/admin/permissions/field');
+  revalidatePath('/admin/permissions/entity');
+  revalidatePath('/division-data');
+}
 
 export async function createDivision(data: DivisionSchema): Promise<DivisionActionState> {
   const session = await requireAdmin();
@@ -55,6 +69,7 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
   }
 
   if (dbError) return { error: dbError };
+  revalidateDivisions();
   return { redirectTo: '/divisions' };
 }
 
@@ -119,6 +134,7 @@ export async function updateDivision(
   }
 
   if (dbError) return { error: dbError };
+  revalidateDivisions(id);
   return { redirectTo: `/divisions/${id}` };
 }
 
@@ -163,5 +179,6 @@ export async function deleteDivision(id: string): Promise<DivisionActionState> {
   }
 
   if (dbError) return { error: dbError };
+  revalidateDivisions();
   return { redirectTo: '/divisions' };
 }

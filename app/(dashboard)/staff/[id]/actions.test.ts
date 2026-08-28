@@ -437,13 +437,28 @@ describe('archiveStaff authorization', () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it('counts only activated admins — an un-invited one cannot take over', async () => {
+  // Two ways an ADMIN row can exist and still be unable to sign in, and both
+  // have to be discounted or this guard defeats itself:
+  //
+  //   never activated — `passwordHash` is null, and only another admin could
+  //                     invite them;
+  //   archived        — `authorize` refuses them, but `archiveStaff` leaves
+  //                     `passwordHash` in place, so the row goes on looking
+  //                     like a working login forever. Missing this let the
+  //                     SECOND of two admins be archived after the first
+  //                     (2026-08-28).
+  it('counts only admins who can actually sign in — not un-invited, not archived', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
     mockStaffLookups({ targetRole: 'ADMIN' });
     mockStaffCount.mockResolvedValue(0);
     await archiveStaff('admin-last', '');
     expect(mockStaffCount).toHaveBeenCalledWith({
-      where: { id: { not: 'admin-last' }, role: 'ADMIN', passwordHash: { not: null } },
+      where: {
+        id: { not: 'admin-last' },
+        role: 'ADMIN',
+        passwordHash: { not: null },
+        archivedAt: null,
+      },
     });
   });
 });

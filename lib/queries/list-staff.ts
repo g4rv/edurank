@@ -31,6 +31,19 @@ export type StaffFilters = {
   degreeMatch?: boolean;
   includeConfidential?: boolean;
   /**
+   * Has this person ever set a password — i.e. can they sign in at all?
+   *
+   * `true` = activated, `false` = invited but never activated, undefined = both.
+   * Derived from `passwordHash`, which is why this belongs beside
+   * `includeAccount` and is offered to ADMIN alone: whether somebody has an
+   * account is account state, not profile data, and the hash itself never
+   * leaves this file (see the strip at the bottom).
+   *
+   * It answers the question the invite batch keeps raising — who still has not
+   * come in — against the list where you can actually do something about it.
+   */
+  activated?: boolean;
+  /**
    * Archived people are off the roster and out of this list by default — that
    * is what archiving is for. `'only'` is how an admin finds them again to
    * restore someone; `'all'` exists for nothing yet and is deliberately not
@@ -78,6 +91,9 @@ export async function listStaff(filters?: StaffFilters) {
   if (filters?.departmentId) conditions.push(onDepartment(filters.departmentId));
   if (filters?.rank) conditions.push({ academicRank: filters.rank });
   if (filters?.degree) conditions.push({ scientificDegree: filters.degree });
+  if (filters?.activated !== undefined) {
+    conditions.push({ passwordHash: filters.activated ? { not: null } : null });
+  }
   if (filters?.partTime) conditions.push({ partTimeDepartments: { some: {} } });
   if (filters?.degreeMatch) conditions.push({ degreeMatchesDepartment: true });
   if (filters?.q) {

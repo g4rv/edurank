@@ -343,6 +343,20 @@ export function DistributionGrid({
   );
 
   /**
+   * Is any chip in the «Бонус» column gray?
+   *
+   * `origin` is decided per chip on the server (`getStakeDistribution`), so
+   * this кафедра not being in the довідник and a спеціальність nobody
+   * graduates both surface here the same way — a column of gray chips is an
+   * unexplained absence of colour without the note below.
+   */
+  const hasUnknownOrigin = useMemo(
+    () =>
+      view.rows.some((row) => row.bonus.bySpeciality.some((entry) => entry.origin === 'unknown')),
+    [view.rows]
+  );
+
+  /**
    * People whose row has never been written — the формула drew their number and
    * nothing stored it. They count as unsaved work even though nobody typed
    * anything, which is the whole point: a кафедра that gained a сумісник after
@@ -801,13 +815,13 @@ export function DistributionGrid({
         </table>
       </div>
 
-      {/* Only for the head, and only when the довідник cannot place their
-          кафедра. Without it a column of gray chips is an unexplained absence
-          of colour rather than an answer. */}
-      {audience === 'head' && !view.knownDepartment && (
+      {/* Only for the head, and only when at least one chip came back
+          `unknown`. Without it a gray chip is an unexplained absence of
+          colour rather than an answer. */}
+      {audience === 'head' && hasUnknownOrigin && (
         <p className="text-xs text-muted-foreground">
-          Спеціальності у колонці «Бонус» показані сірим: цієї кафедри немає в довіднику випускових
-          кафедр, тому визначити «своя / чужа» неможливо.
+          Деякі спеціальності у колонці «Бонус» показані сірим: визначити «своя / чужа кафедра» для
+          них неможливо.
         </p>
       )}
     </div>
@@ -1300,12 +1314,7 @@ function Row({
       </td>
 
       <td className="border border-border px-2 py-2 text-right text-xs tabular-nums">
-        <BonusCell
-          bonus={row.bonus}
-          audience={audience}
-          departmentName={view.departmentName}
-          knownDepartment={view.knownDepartment}
-        />
+        <BonusCell bonus={row.bonus} audience={audience} />
       </td>
 
       <td className="border border-border px-2 py-2 text-right text-xs">

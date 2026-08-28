@@ -132,6 +132,7 @@ export async function listSpecialityNorms(year: number) {
       name: true,
       code: true,
       norms: { where: { year }, select: { base: true } },
+      departments: { select: { department: { select: { id: true, name: true } } } },
     },
     orderBy: { name: 'asc' },
   });
@@ -143,6 +144,8 @@ export async function listSpecialityNorms(year: number) {
     // Null means the вчена рада has not set one for this year yet — different
     // from zero, and a student of that speciality is worth nothing until it is.
     base: s.norms[0]?.base ?? null,
+    // Which кафедри graduate it — editable on this same page (Task 8).
+    departments: s.departments.map((d) => d.department),
   }));
 }
 

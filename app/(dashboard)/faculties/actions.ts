@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -10,6 +11,24 @@ import { headDeanConflict } from '@/lib/queries/scope';
 import { parseDbError } from '@/lib/db-error';
 
 export type FacultyActionState = { error: string } | { redirectTo: string };
+
+/**
+ * Nothing here used to invalidate anything, and `next.config.ts` sets
+ * `experimental.staleTimes.dynamic: 30` — which puts the client Router Cache
+ * back to the 30 seconds Next 15 had defaulted to 0. The forms only
+ * `router.push(redirectTo)`, so a new факультет was missing from the list it
+ * landed on, and a deleted one was still in it, for up to half a minute. That
+ * is indistinguishable from a save that did not work (2026-08-28).
+ *
+ * A факультет names itself on every кафедра row and in the dashboard tree, so
+ * those go too.
+ */
+function revalidateFaculties(id?: string) {
+  revalidatePath('/faculties');
+  if (id) revalidatePath(`/faculties/${id}`);
+  revalidatePath('/departments');
+  revalidatePath('/dashboard');
+}
 
 export async function createFaculty(data: FacultySchema): Promise<FacultyActionState> {
   const session = await auth();
@@ -55,6 +74,7 @@ export async function createFaculty(data: FacultySchema): Promise<FacultyActionS
   }
 
   if (dbError) return { error: dbError };
+  revalidateFaculties();
   return { redirectTo: '/faculties' };
 }
 
@@ -111,6 +131,7 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
   }
 
   if (dbError) return { error: dbError };
+  revalidateFaculties(id);
   return { redirectTo: `/faculties/${id}` };
 }
 
@@ -158,5 +179,6 @@ export async function deleteFaculty(id: string): Promise<FacultyActionState> {
   }
 
   if (dbError) return { error: dbError };
+  revalidateFaculties();
   return { redirectTo: '/faculties' };
 }
