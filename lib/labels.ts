@@ -61,6 +61,7 @@ export const FIELD_LABELS: Record<string, string> = {
   // Had no label at all, so every сумісництво change ever recorded rendered in
   // the audit log as a raw field name (2026-08-24).
   partTimeDepartmentIds: 'Додаткова кафедра',
+  department: 'Випускова кафедра',
   divisionId: 'Відділ',
   archivedAt: 'Архівовано',
   archiveReason: 'Причина архівування',

@@ -13,6 +13,7 @@ vi.mock('@/lib/db', () => ({
     stakeStatusBonus: { findUnique: vi.fn(), upsert: vi.fn() },
     ratingTemplate: { findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
+    specialityDepartment: { create: vi.fn(), delete: vi.fn() },
   },
 }));
 
@@ -23,6 +24,8 @@ import {
   setSpecialityNorm,
   setStakeYearSettings,
   setStatusBonus,
+  linkSpecialityDepartment,
+  unlinkSpecialityDepartment,
 } from './actions';
 
 const mockAdmin = requireAdmin as unknown as Mock;
@@ -39,6 +42,8 @@ const mockSettingsFind = db.stakeYearSettings.findUnique as unknown as Mock;
 const mockSettingsUpsert = db.stakeYearSettings.upsert as unknown as Mock;
 const mockStatusFind = db.stakeStatusBonus.findUnique as unknown as Mock;
 const mockStatusUpsert = db.stakeStatusBonus.upsert as unknown as Mock;
+const mockLinkCreate = db.specialityDepartment.create as unknown as Mock;
+const mockLinkDelete = db.specialityDepartment.delete as unknown as Mock;
 
 const SESSION = { user: { id: 'admin-1', role: 'ADMIN' } };
 
@@ -61,6 +66,8 @@ beforeEach(() => {
   mockSettingsUpsert.mockResolvedValue({ year: 2026 });
   mockCount.mockResolvedValue(10);
   mockTemplate.mockResolvedValue({ year: 2026 });
+  mockLinkCreate.mockResolvedValue({ specialityId: 's1', departmentId: 'd1' });
+  mockLinkDelete.mockResolvedValue({ specialityId: 's1', departmentId: 'd1' });
 });
 
 // A year arrives in the payload and used to be written against without ever
@@ -365,5 +372,105 @@ describe('setStakeYearSettings', () => {
       );
       expect(result, value).toHaveProperty('error');
     }
+  });
+});
+
+describe('linkSpecialityDepartment', () => {
+  it('refuses anyone who is not ADMIN', async () => {
+    mockAdmin.mockResolvedValue(null);
+    const result = await linkSpecialityDepartment(
+      null,
+      form({ specialityId: 's1', departmentId: 'd1' })
+    );
+    expect(result).toEqual({ error: 'Недостатньо прав' });
+    expect(mockLinkCreate).not.toHaveBeenCalled();
+  });
+
+  it('refuses missing ids', async () => {
+    const result = await linkSpecialityDepartment(null, form({ specialityId: 's1' }));
+    expect(result).toHaveProperty('error');
+    expect(mockLinkCreate).not.toHaveBeenCalled();
+  });
+
+  it('refuses a speciality or department that does not exist', async () => {
+    mockSpeciality.mockResolvedValue(null);
+    const result = await linkSpecialityDepartment(
+      null,
+      form({ specialityId: 'gone', departmentId: 'd1' })
+    );
+    expect(result).toEqual({ error: 'Запис не знайдено' });
+    expect(mockLinkCreate).not.toHaveBeenCalled();
+  });
+
+  it('creates the link and records the audit log', async () => {
+    const result = await linkSpecialityDepartment(
+      null,
+      form({ specialityId: 's1', departmentId: 'd1' })
+    );
+    expect(result).toEqual({ success: true });
+    expect(mockLinkCreate).toHaveBeenCalledWith({
+      data: { specialityId: 's1', departmentId: 'd1' },
+    });
+    expect(db.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'CREATE',
+          entity: 'SpecialityDepartment',
+          entityId: 's1:d1',
+          userId: 'admin-1',
+        }),
+      })
+    );
+  });
+
+  it('turns a duplicate link into a Ukrainian sentence, not a raw error', async () => {
+    mockLinkCreate.mockRejectedValue(
+      Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })
+    );
+    const result = await linkSpecialityDepartment(
+      null,
+      form({ specialityId: 's1', departmentId: 'd1' })
+    );
+    expect(result).toHaveProperty('error');
+    expect(db.auditLog.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('unlinkSpecialityDepartment', () => {
+  it('refuses anyone who is not ADMIN', async () => {
+    mockAdmin.mockResolvedValue(null);
+    const result = await unlinkSpecialityDepartment(
+      null,
+      form({ specialityId: 's1', departmentId: 'd1' })
+    );
+    expect(result).toEqual({ error: 'Недостатньо прав' });
+    expect(mockLinkDelete).not.toHaveBeenCalled();
+  });
+
+  it('refuses missing ids', async () => {
+    const result = await unlinkSpecialityDepartment(null, form({ departmentId: 'd1' }));
+    expect(result).toHaveProperty('error');
+    expect(mockLinkDelete).not.toHaveBeenCalled();
+  });
+
+  it('deletes the link and records the audit log', async () => {
+    const result = await unlinkSpecialityDepartment(
+      null,
+      form({ specialityId: 's1', departmentId: 'd1' })
+    );
+    expect(result).toEqual({ success: true });
+    expect(mockLinkDelete).toHaveBeenCalledWith({
+      where: { specialityId_departmentId: { specialityId: 's1', departmentId: 'd1' } },
+    });
+    expect(db.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'DELETE',
+          entity: 'SpecialityDepartment',
+          entityId: 's1:d1',
+          userId: 'admin-1',
+        }),
+      })
+    );
   });
 });

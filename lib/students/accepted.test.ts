@@ -81,7 +81,7 @@ describe('the 2026 register', () => {
 });
 
 describe('registerOptions', () => {
-  const options = registerOptions();
+  const options = registerOptions(new Map());
   const branches = options.flatMap((s) => s.branches.map((b) => ({ speciality: s, branch: b })));
 
   it('offers every speciality once, university-wide', () => {

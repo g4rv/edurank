@@ -4,10 +4,12 @@ import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getStakeYearSettings, listSpecialityNorms } from '@/lib/queries/list-stake-settings';
+import { listDepartments } from '@/lib/queries/list-departments';
 import { normFor, studentValue } from '@/lib/stake/norms';
 import { formatBonus } from '@/lib/stake/units';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StakeValueForm } from '@/components/admin/stake-value-form';
+import { SpecialityDepartmentsCell } from '@/components/admin/speciality-departments-cell';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { setSpecialityNorm, setStakeYearSettings } from '../actions';
 
@@ -50,9 +52,10 @@ export default async function SpecialityNormsPage() {
   }
 
   const year = template.year;
-  const [norms, settings] = await Promise.all([
+  const [norms, settings, departments] = await Promise.all([
     listSpecialityNorms(year),
     getStakeYearSettings(year),
+    listDepartments(),
   ]);
 
   const missing = norms.filter((n) => n.base === null).length;
@@ -113,6 +116,9 @@ export default async function SpecialityNormsPage() {
               <th className="border border-border px-3 py-2 font-medium text-muted-foreground">
                 Спеціальність
               </th>
+              <th className="w-64 border border-border px-3 py-2 text-left font-medium text-muted-foreground">
+                Випускові кафедри
+              </th>
               <th className="w-28 border border-border px-3 py-2 text-right font-medium text-muted-foreground">
                 Бакалавр, денна
               </th>
@@ -134,6 +140,13 @@ export default async function SpecialityNormsPage() {
             {norms.map((n) => (
               <tr key={n.id} className="transition-colors hover:bg-muted/20">
                 <td className="border border-border px-3 py-2">{n.name}</td>
+                <td className="border border-border px-3 py-2 align-top">
+                  <SpecialityDepartmentsCell
+                    specialityId={n.id}
+                    linked={n.departments}
+                    allDepartments={departments}
+                  />
+                </td>
                 <td className="border border-border px-3 py-2 text-right">
                   <StakeValueForm
                     action={setSpecialityNorm}

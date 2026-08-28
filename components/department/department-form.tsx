@@ -25,7 +25,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from '@/components/ui/combobox';
-import { isKnownDepartment } from '@/lib/specialities/departments';
+import { normaliseDepartmentName } from '@/lib/specialities/departments';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import type { DepartmentActionState } from '@/app/(dashboard)/departments/actions';
 
@@ -40,6 +40,8 @@ interface DepartmentFormProps {
   defaultValues?: Partial<DepartmentSchema>;
   faculties: FacultyOption[];
   staff: StaffOption[];
+  /** Every кафедра name the довідник already links to a спеціальність. */
+  knownNames: readonly string[];
   action: (data: DepartmentSchema) => Promise<DepartmentActionState>;
   submitLabel: string;
 }
@@ -48,6 +50,7 @@ export function DepartmentForm({
   defaultValues,
   faculties,
   staff,
+  knownNames,
   action,
   submitLabel,
 }: DepartmentFormProps) {
@@ -65,26 +68,32 @@ export function DepartmentForm({
   });
 
   /**
-   * Does the довідник recognise this name?
+   * Does this кафедра already have any випускові спеціальності linked to it?
    *
-   * A кафедра's name is free text, but three things match on it — випускові
-   * кафедри on the ставка grid, the staff import, and `specialityOrigin`. The
-   * matching forgives case, the word «кафедра» and runs of whitespace; it does
-   * NOT forgive «і» against «та», or initials written «І.П.» where the довідник
-   * has «І. П.». One space, and a завідувач's випускова-кафедра chips go grey
-   * with nothing to click and nobody knows why (2026-08-17: this had already
-   * happened to «імені професора І.П.Стогнія»).
+   * This form is a client component and cannot query the database, so the
+   * page (`departments/new`, `departments/[id]/edit`) does that once and
+   * hands down `knownNames` — the names of кафедри that already have at
+   * least one `SpecialityDepartment` row. The comparison here only decides
+   * a MESSAGE; it never decides a link. Every actual link is by
+   * `departmentId`/`specialityId`, set on /admin/stakes/norms.
    *
-   * A warning, never a block. A university reorganises, and refusing to save a
-   * кафедра because a constant in the repo has not caught up would be the app
-   * telling the registrar they are wrong about their own structure.
+   * The matching forgives case, the word «кафедра» and runs of whitespace,
+   * so a rename alone does not make an already-linked кафедра look new. It
+   * does NOT need to forgive anything else, because nothing here creates or
+   * removes a row — worst case is a wrong hint on this form.
+   *
+   * What the warning means for the user: a кафедра with no links yet shows
+   * «своя / чужа спеціальність» as unknown on the ставка grid
+   * (`components/stake/bonus-cell.tsx`) until an ADMIN links it on
+   * /admin/stakes/norms — this notice is what points them there.
    *
    * `useWatch` rather than `watch()`: the latter returns a fresh function every
    * render and React Compiler refuses to memoise a component that uses it.
    */
   const name = useWatch({ control, name: 'name' });
   const trimmed = (name ?? '').trim();
-  const unknownName = trimmed.length > 2 && !isKnownDepartment(trimmed);
+  const known = new Set(knownNames.map(normaliseDepartmentName));
+  const unknownName = trimmed.length > 2 && !known.has(normaliseDepartmentName(trimmed));
 
   function onSubmit(data: DepartmentSchema) {
     startTransition(async () => {
@@ -110,9 +119,9 @@ export function DepartmentForm({
           <Input id="name" disabled={isPending} {...register('name')} />
           {unknownName && !errors.name && (
             <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-500">
-              Такої назви немає в довіднику спеціальностей. Зберегти можна, але для цієї кафедри не
-              визначатимуться випускові спеціальності у розподілі ставок. Найчастіша причина — «і»
-              замість «та» або ініціали без пробілів.
+              Для цієї кафедри ще не вказано випускових спеціальностей. Зберегти можна — у розподілі
+              ставок здобувачі просто не позначатимуться як «своя спеціальність». Вказати їх можна
+              пізніше на сторінці «Нормативи чисельності».
             </p>
           )}
         </FormField>

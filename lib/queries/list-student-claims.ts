@@ -11,6 +11,7 @@ import {
 } from '@/lib/stake/claims';
 import { roundBonus } from '@/lib/stake/units';
 import { SPECIALITY_CODES, specialityCodeSortKey } from '@/lib/specialities/codes';
+import type { SpecialityOrigin } from '@/lib/specialities/origin';
 import type { ClaimStatus } from '@/lib/generated/prisma/client';
 
 const CLAIM_SELECT = {
@@ -294,6 +295,15 @@ export interface BonusBySpeciality {
   code: string | null;
   count: number;
   value: number;
+  /**
+   * Decided on the server (`originOf`), because the chip is drawn in a client
+   * component and a client component cannot read the database.
+   *
+   * `bonusForStaff` below has no department to decide against — it fills this
+   * in with a placeholder that `getStakeDistribution` always overwrites once it
+   * knows which кафедра is looking.
+   */
+  origin: SpecialityOrigin;
 }
 
 /**
@@ -390,6 +400,10 @@ export async function bonusForStaff(
         code: SPECIALITY_CODES[speciality]?.code ?? null,
         count,
         value: roundBonus(value),
+        // Placeholder — no department to decide against here. Overwritten by
+        // `getStakeDistribution`, the only caller, before this ever reaches a
+        // screen.
+        origin: 'unknown' as SpecialityOrigin,
       }))
       .sort(
         (a, b) =>

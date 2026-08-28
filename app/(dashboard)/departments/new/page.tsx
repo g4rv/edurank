@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
+import { getSpecialityOwnerNames } from '@/lib/queries/get-speciality-departments';
 import { DepartmentForm } from '@/components/department/department-form';
 import { createDepartment } from '@/app/(dashboard)/departments/actions';
 
@@ -56,6 +57,9 @@ export default async function NewDepartmentPage() {
   ]);
   const staff = allStaff.filter((s) => !takenIds.has(s.id));
 
+  const owners = await getSpecialityOwnerNames();
+  const knownNames = [...new Set([...owners.values()].flat())];
+
   return (
     <div className="max-w-lg space-y-6">
       <Link
@@ -71,6 +75,7 @@ export default async function NewDepartmentPage() {
       <DepartmentForm
         faculties={faculties}
         staff={staff}
+        knownNames={knownNames}
         action={createDepartment}
         submitLabel="Створити"
       />
