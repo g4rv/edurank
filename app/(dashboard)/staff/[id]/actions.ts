@@ -14,7 +14,7 @@ import {
 } from '@/validations/account';
 import { issueAndEmailLink, staffFullName } from '@/lib/mail/invite';
 import { unlockEmail } from '@/lib/auth/throttle';
-import { diffChanges } from '@/lib/audit';
+import { diffChanges, type DiffValue } from '@/lib/audit';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { syncEmploymentRate } from '@/lib/stake/employment-rate';
 import {
@@ -298,6 +298,12 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
           academicRank: true,
           scientificDegree: true,
           degreeMatchesDepartment: true,
+          // Editable (it is in `staffUpdateSchema`, on the form and in
+          // `ALLOWED_FIELD_NAMES`) and was the one writable column missing
+          // here, so its before-value read as null on every save: an existing
+          // date logged a phantom «— → 12.05.2019», and CLEARING one logged
+          // nothing at all, because null → null is not a change (2026-08-28).
+          degreeDefenceDate: true,
           adminPosition: true,
           basicEducationMatch: true,
           basicEducationSpecialty: true,
@@ -324,18 +330,16 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
         },
       });
 
-      const beforeFiltered: Record<string, string | number | boolean | null> = {};
+      // `DiffValue` rather than a primitive cast, so a Date column stays a Date
+      // all the way into `diffChanges`, which normalises both sides. The old
+      // cast claimed `degreeDefenceDate` was a string on both sides and it was
+      // a Date on both — two objects that are never `!==`-equal.
+      const beforeFiltered: Record<string, DiffValue> = {};
       for (const key of Object.keys(updateData)) {
-        beforeFiltered[key] = ((existing as Record<string, unknown> | null)?.[key] ?? null) as
-          | string
-          | number
-          | boolean
-          | null;
+        beforeFiltered[key] = ((existing as Record<string, unknown> | null)?.[key] ??
+          null) as DiffValue;
       }
-      const changes = diffChanges(
-        beforeFiltered,
-        updateData as Record<string, string | number | boolean | null>
-      );
+      const changes = diffChanges(beforeFiltered, updateData as Record<string, DiffValue>);
 
       // Сумісництво, as кафедра NAMES rather than ids: the audit is read by a
       // person, and «Кафедра екології → —» says what a pair of cuids does not.

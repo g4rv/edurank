@@ -85,4 +85,69 @@ describe('diffChanges', () => {
       score: { from: 300, to: '300' },
     });
   });
+
+  // Dates arrive from two directions — Prisma returns one for every date
+  // column, Zod builds one for every date field — and `!==` compares object
+  // identity, so an untouched `degreeDefenceDate` reported a change on every
+  // single save (2026-08-28).
+  describe('dates', () => {
+    it('sees no change between two Dates holding the same instant', () => {
+      expect(
+        diffChanges(
+          { degreeDefenceDate: new Date('2019-05-12T00:00:00.000Z') },
+          { degreeDefenceDate: new Date('2019-05-12T00:00:00.000Z') }
+        )
+      ).toEqual({});
+    });
+
+    it('records a real date change as ISO strings', () => {
+      expect(
+        diffChanges(
+          { degreeDefenceDate: new Date('2019-05-12T00:00:00.000Z') },
+          { degreeDefenceDate: new Date('2021-11-03T00:00:00.000Z') }
+        )
+      ).toEqual({
+        degreeDefenceDate: {
+          from: '2019-05-12T00:00:00.000Z',
+          to: '2021-11-03T00:00:00.000Z',
+        },
+      });
+    });
+
+    // The half that logged NOTHING before the fix: the before-value was read as
+    // null, so clearing a date was null → null and left no trace at all.
+    it('records clearing a date', () => {
+      expect(
+        diffChanges(
+          { degreeDefenceDate: new Date('2019-05-12T00:00:00.000Z') },
+          {
+            degreeDefenceDate: null,
+          }
+        )
+      ).toEqual({
+        degreeDefenceDate: { from: '2019-05-12T00:00:00.000Z', to: null },
+      });
+    });
+
+    it('records setting a date that was empty', () => {
+      expect(
+        diffChanges(
+          { degreeDefenceDate: null },
+          { degreeDefenceDate: new Date('2019-05-12T00:00:00.000Z') }
+        )
+      ).toEqual({
+        degreeDefenceDate: { from: null, to: '2019-05-12T00:00:00.000Z' },
+      });
+    });
+
+    // Callers that already stringify (archiveStaff does) must keep working.
+    it('matches a Date against the same instant already stringified', () => {
+      expect(
+        diffChanges(
+          { archivedAt: new Date('2026-08-28T09:00:00.000Z') },
+          { archivedAt: '2026-08-28T09:00:00.000Z' }
+        )
+      ).toEqual({});
+    });
+  });
 });
