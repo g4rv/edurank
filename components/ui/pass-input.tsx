@@ -14,6 +14,15 @@ const PassInput = forwardRef<HTMLInputElement, Omit<React.ComponentProps<'input'
           {...props}
           ref={ref}
           type={show ? 'text' : 'password'}
+          // A `type="password"` field already suppresses all three on iOS and
+          // Android. The eye toggle turns it into `type="text"`, where the
+          // phone keyboard is free to capitalise the first letter or curl a
+          // quote into «’» — and a password set while it was revealed then
+          // cannot be retyped on a desktop keyboard, with «невірний пароль» as
+          // the only explanation anybody gets.
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           data-slot="input"
           className={cn(
             'h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 pr-9 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80',

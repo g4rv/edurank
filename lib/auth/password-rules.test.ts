@@ -4,6 +4,8 @@ import {
   failedRules,
   isStrongPassword,
   passwordProblem,
+  PASSWORD_RULES,
+  PASSWORD_SYMBOLS,
 } from './password-rules';
 
 const ids = (value: string) => failedRules(value).map((r) => r.id);
@@ -41,35 +43,53 @@ describe('failedRules — one rule at a time', () => {
   });
 });
 
-// The university writes in Ukrainian and people will choose Ukrainian
-// passwords. A rule that quietly means «latin only» is one nobody can satisfy
-// without being told why.
+// Cyrillic was allowed until 2026-08-28 and is now refused, deliberately.
+// `а е і о р с у х` are pixel-identical to their Latin twins, so a password
+// mixing the two cannot be retyped by anybody — its owner included — and the
+// only feedback is «невірний пароль».
 describe('Cyrillic', () => {
-  it('counts a Cyrillic capital as a capital', () => {
-    expect(isStrongPassword('Пароль12!')).toBe(true);
+  it('refuses a Cyrillic capital as the capital', () => {
+    expect(isStrongPassword('Пароль12!')).toBe(false);
+    expect(ids('Пароль12!')).toEqual(['upper', 'allowed']);
   });
 
-  it('does not count a Cyrillic letter as a special character', () => {
-    expect(ids('Пароль123')).toEqual(['special']);
+  it('refuses an all-Cyrillic password however strong it looks', () => {
+    expect(isStrongPassword('Кафедра2026#')).toBe(false);
   });
 
-  it('accepts an all-Cyrillic password with a digit and a symbol', () => {
-    expect(isStrongPassword('Кафедра2026#')).toBe(true);
+  it('refuses a single Cyrillic letter hidden in a Latin password', () => {
+    // «о» is U+043E, not U+006F. This is the case nobody can see on screen.
+    expect(ids('Parоl123!')).toEqual(['allowed']);
   });
 });
 
-describe('the special-character rule', () => {
-  it.each(['!', '@', '#', '$', '%', '^', '&', '*', '_', '-', '+', '=', '?', '.', ',', '«'])(
-    'accepts %s',
-    (char) => {
-      expect(isStrongPassword(`Parol123${char}`)).toBe(true);
-    }
-  );
+describe('the allowed symbols', () => {
+  it.each([...PASSWORD_SYMBOLS])('accepts %s', (char) => {
+    expect(isStrongPassword(`Parol123${char}`)).toBe(true);
+  });
+
+  // The two a phone keyboard turns into «’» and «”» once the eye icon has made
+  // the field `type="text"`, the three dead keys that compose the next letter
+  // instead of typing themselves, and the two that move between layouts. Each
+  // would set fine and then fail to be retyped.
+  it.each(["'", '"', '`', '~', '^', ':', ';'])('refuses %s', (char) => {
+    expect(ids(`Parol123${char}`)).toEqual(['special', 'allowed']);
+  });
+
+  it('refuses non-ASCII punctuation that used to pass', () => {
+    expect(ids('Parol123«')).toEqual(['special', 'allowed']);
+  });
 
   it('does not accept a space as the special character', () => {
     // A trailing space is almost always a paste accident, and treating it as
     // satisfying the rule would let one through that the person cannot retype.
-    expect(ids('Parol123 ')).toEqual(['special']);
+    expect(ids('Parol123 ')).toEqual(['special', 'allowed']);
+  });
+
+  it('shows the whole list in the checklist, not an ellipsis', () => {
+    const rule = PASSWORD_RULES.find((r) => r.id === 'special')!;
+    for (const char of PASSWORD_SYMBOLS) expect(rule.label).toContain(char);
+    expect(rule.label).not.toContain('…');
   });
 });
 
@@ -82,7 +102,7 @@ describe('passwordProblem', () => {
   // use «Password1!» — fix one rule, get told about the next.
   it('names everything missing at once', () => {
     const message = passwordProblem('parol')!;
-    expect(message).toContain('велика літера');
+    expect(message).toContain('велика латинська літера');
     expect(message).toContain('цифра');
     expect(message).toContain(String(MIN_PASSWORD_LENGTH));
   });
