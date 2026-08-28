@@ -38,3 +38,31 @@ export function attachmentHeader(fileName: string): string {
   const ascii = fileName.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
+
+/**
+ * The other half of `attachmentHeader`: read a filename back off the header.
+ *
+ * Needed because a download with a progress indicator cannot be a plain
+ * navigation — the file arrives through `fetch` as a blob, and a blob URL has
+ * no name of its own, so the one the server chose has to be carried across by
+ * hand or every export saves as «download».
+ *
+ * `filename*` (RFC 5987) is preferred and read first: every name here is
+ * Cyrillic, and the plain `filename` is only ever the ASCII-mangled fallback.
+ */
+export function fileNameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1].trim()) || null;
+    } catch {
+      // A malformed percent-escape must not lose the download — fall through
+      // to the ASCII name below.
+    }
+  }
+
+  const plain = /filename="([^"]*)"/i.exec(header) ?? /filename=([^;]+)/i.exec(header);
+  return plain?.[1].trim() || null;
+}
