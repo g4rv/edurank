@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -10,6 +11,19 @@ import { headDeanConflict } from '@/lib/queries/scope';
 import { parseDbError } from '@/lib/db-error';
 
 export type DepartmentActionState = { error: string } | { redirectTo: string };
+
+/**
+ * See the note in `faculties/actions.ts` — same gap, same cause. A кафедра also
+ * appears on its факультет's page, in the dashboard tree, and as a row on
+ * `/stakes`, so a кафедра created here was absent from the ставка overview too.
+ */
+function revalidateDepartments(id?: string) {
+  revalidatePath('/departments');
+  if (id) revalidatePath(`/departments/${id}`);
+  revalidatePath('/faculties');
+  revalidatePath('/dashboard');
+  revalidatePath('/stakes');
+}
 
 export async function createDepartment(data: DepartmentSchema): Promise<DepartmentActionState> {
   const session = await auth();
@@ -66,6 +80,7 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
   }
 
   if (dbError) return { error: dbError };
+  revalidateDepartments();
   return { redirectTo: '/departments' };
 }
 
@@ -137,6 +152,7 @@ export async function updateDepartment(
   }
 
   if (dbError) return { error: dbError };
+  revalidateDepartments(id);
   return { redirectTo: `/departments/${id}` };
 }
 
@@ -196,5 +212,6 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
   }
 
   if (dbError) return { error: dbError };
+  revalidateDepartments();
   return { redirectTo: '/departments' };
 }
