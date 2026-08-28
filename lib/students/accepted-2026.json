@@ -320,6 +320,14 @@
     "funding": "STATE"
   },
   {
+    "name": "Барило Андрій Сергійович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Барсук Карина Ігорівна",
     "faculty": "Факультет мистецтва, менеджменту, педагогіки і психології",
     "speciality": "Менеджмент",
@@ -523,6 +531,14 @@
     "name": "Білошицький Олександр Миколайович",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Білощук Михайло Ігорович",
+    "faculty": "Факультет соціально-психологічний",
+    "speciality": "Середня освіта (захист України)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
     "funding": "CONTRACT"
@@ -1840,6 +1856,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Давидов Дмитро Володимирович",
+    "faculty": "Факультет фізичної культури, спорту і здоров'я",
+    "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Давидчук Дмитро Валерійович",
     "faculty": "Факультет фінансово-економічної і професійної освіти",
     "speciality": "Облік і оподаткування",
@@ -1987,6 +2011,14 @@
     "name": "Дзвінчук Назарій Дмитрович",
     "faculty": "Факультет фізичної культури, спорту і здоров'я",
     "speciality": "Середня освіта (фізична культура)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Дзюбич Амалія Олексіївна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
     "funding": "CONTRACT"
@@ -2293,6 +2325,14 @@
     "speciality": "Середня освіта (фізична культура)",
     "degree": "BACHELOR",
     "form": "FULL_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Жаров Артур Валерійович",
+    "faculty": "Факультет гуманітарної освіти і соціальних технологій",
+    "speciality": "Журналістика",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -3277,6 +3317,14 @@
     "speciality": "Середня освіта (українська мова і література)",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Конін Дмитро Сергійович",
+    "faculty": "Факультет природничої освіти",
+    "speciality": "Середня освіта (біологія та здоров’я людини)",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
@@ -5752,6 +5800,14 @@
     "funding": "CONTRACT"
   },
   {
+    "name": "Плохотнюк Аліса Дмитрівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Економіка",
+    "degree": "BACHELOR",
+    "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
     "name": "Погонець Анастасія Юріївна",
     "faculty": "Факультет гуманітарної освіти і соціальних технологій",
     "speciality": "Професійна освіта (цифрові технології)",
@@ -7837,6 +7893,14 @@
     "speciality": "Облік і оподаткування",
     "degree": "BACHELOR",
     "form": "PART_TIME",
+    "funding": "CONTRACT"
+  },
+  {
+    "name": "Шарко Поліна Олександрівна",
+    "faculty": "Факультет фінансово-економічної і професійної освіти",
+    "speciality": "Облік і оподаткування",
+    "degree": "BACHELOR",
+    "form": "FULL_TIME",
     "funding": "CONTRACT"
   },
   {
