@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { useRef } from 'react';
-import { X } from 'lucide-react';
+import { useRef, useTransition } from 'react';
+import { Loader2, X } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -38,12 +38,26 @@ const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
   DOCTOR: 'Доктор наук',
 };
 
+// Has the person ever set a password. `1` / `0` rather than a word, matching
+// the other boolean params in this URL, and absent means «всі» — the same
+// «default view carries no param» rule `type` follows.
+const ACTIVATION_OPTIONS = [
+  { value: '1', label: 'Активовані' },
+  { value: '0', label: 'Не активовані' },
+] as const;
+
 type Props = {
   faculties: { id: string; name: string }[];
   departments: { id: string; name: string; facultyId: string }[];
+  /**
+   * ADMIN only. Activation is account state, not profile data — an EDITOR is
+   * not given it in `listStaff` either, so offering the control to them would
+   * be a filter whose result the server refuses to narrow.
+   */
+  showActivation?: boolean;
 };
 
-export function StaffFilters({ faculties, departments }: Props) {
+export function StaffFilters({ faculties, departments, showActivation = false }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -63,8 +77,22 @@ export function StaffFilters({ faculties, departments }: Props) {
   const degree = searchParams.get('degree') ?? '';
   const partTime = searchParams.get('partTime') === '1';
   const degreeMatch = searchParams.get('degreeMatch') === '1';
+  const activatedParam = searchParams.get('activated') ?? '';
+  const activated = ACTIVATION_OPTIONS.some((o) => o.value === activatedParam)
+    ? activatedParam
+    : '';
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Every control here navigates, and the list is a few hundred people re-read
+  // and re-sorted on the server — long enough that a filter which changed
+  // nothing on screen yet read as ignored (owner, 2026-08-28). `isPending`
+  // covers exactly the gap between the click and the new rows.
+  const [pending, startTransition] = useTransition();
+
+  function navigate(href: string) {
+    startTransition(() => router.push(href));
+  }
 
   function buildParams(overrides: Record<string, string | undefined>) {
     const sp = new URLSearchParams(searchParams.toString());
@@ -82,7 +110,7 @@ export function StaffFilters({ faculties, departments }: Props) {
   }
 
   function setParam(key: string, value: string | undefined) {
-    router.push(`${pathname}?${buildParams({ [key]: value })}`);
+    navigate(`${pathname}?${buildParams({ [key]: value })}`);
   }
 
   function setType(value: TypeValue) {
@@ -99,7 +127,7 @@ export function StaffFilters({ faculties, departments }: Props) {
 
   function handleFacultyChange(value: string) {
     const qs = buildParams({ faculty: value || undefined, dept: undefined });
-    router.push(`${pathname}?${qs}`);
+    navigate(`${pathname}?${qs}`);
   }
 
   const visibleDepts = facultyId
@@ -124,19 +152,24 @@ export function StaffFilters({ faculties, departments }: Props) {
     });
   if (partTime) activeFilters.push({ key: 'partTime', label: 'Сумісник' });
   if (degreeMatch) activeFilters.push({ key: 'degreeMatch', label: 'Відповідність ступеня' });
+  if (activated)
+    activeFilters.push({
+      key: 'activated',
+      label: ACTIVATION_OPTIONS.find((o) => o.value === activated)!.label,
+    });
 
   function clearFilter(key: string) {
     const overrides: Record<string, undefined> = { [key]: undefined };
     if (key === 'faculty') overrides['dept'] = undefined;
-    router.push(`${pathname}?${buildParams(overrides)}`);
+    navigate(`${pathname}?${buildParams(overrides)}`);
   }
 
   function clearAll() {
     const sp = new URLSearchParams(searchParams.toString());
-    ['q', 'faculty', 'dept', 'rank', 'degree', 'partTime', 'degreeMatch'].forEach((k) =>
-      sp.delete(k)
+    ['q', 'faculty', 'dept', 'rank', 'degree', 'partTime', 'degreeMatch', 'activated'].forEach(
+      (k) => sp.delete(k)
     );
-    router.push(`${pathname}?${sp.toString()}`);
+    navigate(`${pathname}?${sp.toString()}`);
   }
 
   return (
@@ -230,6 +263,26 @@ export function StaffFilters({ faculties, departments }: Props) {
           </SelectContent>
         </Select>
 
+        {showActivation && (
+          <Select
+            key={activated || '__activated_reset__'}
+            value={activated || undefined}
+            onValueChange={(v) => setParam('activated', v === '__all__' ? undefined : v)}
+          >
+            <SelectTrigger size="sm">
+              <SelectValue placeholder="Активація" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem value="__all__">Всі</SelectItem>
+              {ACTIVATION_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         <label className="flex cursor-pointer items-center gap-2">
           <Switch
             checked={partTime}
@@ -251,6 +304,17 @@ export function StaffFilters({ faculties, departments }: Props) {
             Відповідність ступеня
           </span>
         </label>
+
+        {/* Beside the filters rather than over the table: this is the row that
+            was clicked, and it is where the eye already is. The search input is
+            deliberately never disabled — a debounced navigation is in flight
+            for most of the time somebody is still typing. */}
+        {pending && (
+          <Loader2
+            className="size-4 shrink-0 animate-spin text-muted-foreground"
+            aria-label="Оновлення"
+          />
+        )}
 
         {activeFilters.length > 0 && (
           <button
