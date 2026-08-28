@@ -3,19 +3,37 @@
 // Kept pure so the escalation can be tested exhaustively without a Postgres —
 // the part that is easy to get subtly wrong is the arithmetic, not the query.
 
-/** Failures allowed before a subject is locked */
-export const MAX_FAILURES = 5;
+/**
+ * Failures allowed before a subject is locked.
+ *
+ * Ten, not five (owner, 2026-08-28). Five is tight for somebody who set their
+ * password once, on a phone, and is now typing it on a desktop keyboard for the
+ * first time — which is most of the university in the weeks after launch. The
+ * lockout is there to make guessing pointless, and guessing is still pointless
+ * at ten: what stops it is the escalation below, not the first threshold.
+ */
+export const MAX_FAILURES = 10;
 
 /**
  * How long each successive lockout lasts, in minutes.
  *
  * Growing rather than flat (decided 2026-08-13). A flat window has to choose
  * between being kind to the person who mistyped their password and being harsh
- * to somebody grinding. This does not: the first lockout is a minute, which an
- * honest user barely notices, and a fourth is an hour, which makes guessing
+ * to somebody grinding. This does not: the first lockouts are a minute, which
+ * an honest user barely notices, and the last is an hour, which makes guessing
  * pointless. Past the end of the list it stays at the last value.
+ *
+ * TWO minutes-long lockouts, then it bites (owner, 2026-08-28). The shape is
+ * deliberately not a smooth ramp: somebody who genuinely cannot remember their
+ * password burns twenty honest attempts and pays a minute each time, and
+ * anybody still going after that is not typing from memory. So the third
+ * lockout jumps straight to a quarter of an hour rather than easing in at five.
+ *
+ * Net effect against guessing is stricter than the old 5/[1,5,15,60], not
+ * looser, despite twice the attempts per round: reaching the same total of
+ * wasted guesses now costs 17 minutes of waiting instead of 6.
  */
-export const LOCK_MINUTES = [1, 5, 15, 60] as const;
+export const LOCK_MINUTES = [1, 1, 15, 30, 60] as const;
 
 export interface ThrottleState {
   failures: number;
