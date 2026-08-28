@@ -8,7 +8,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
-    staff: { findUnique: vi.fn() },
+    staff: { findUnique: vi.fn(), count: vi.fn() },
     divisionEntityPermission: { findFirst: vi.fn() },
     divisionFieldPermission: { findMany: vi.fn() },
   },
@@ -19,6 +19,7 @@ import { db } from '@/lib/db';
 import {
   canManageEntity,
   canMutateStaffRecord,
+  isLastActiveAdmin,
   requireAdmin,
   getDivisionFieldGrants,
   isEditorWritableField,
@@ -28,6 +29,7 @@ import {
 
 const mockAuth = auth as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
+const mockStaffCount = db.staff.count as unknown as Mock;
 const mockEntityPerm = db.divisionEntityPermission.findFirst as unknown as Mock;
 const mockFieldPerms = db.divisionFieldPermission.findMany as unknown as Mock;
 
@@ -167,5 +169,47 @@ describe('canMutateStaffRecord', () => {
     expect(
       canMutateStaffRecord({ role: 'EDITOR', staffId: null }, { id: 'other', role: 'EDITOR' })
     ).toBe(false);
+  });
+});
+
+// The guard that stops the university archiving or demoting its way out of
+// every ADMIN login. It is only as good as the definition of «can sign in».
+describe('isLastActiveAdmin', () => {
+  it('is false for somebody who is not an ADMIN at all', async () => {
+    mockStaffFind.mockResolvedValue({ role: 'EDITOR' });
+    expect(await isLastActiveAdmin('staff-1')).toBe(false);
+    expect(mockStaffCount).not.toHaveBeenCalled();
+  });
+
+  it('is true when no other admin can sign in', async () => {
+    mockStaffFind.mockResolvedValue({ role: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(0);
+    expect(await isLastActiveAdmin('admin-1')).toBe(true);
+  });
+
+  it('is false while another admin can still sign in', async () => {
+    mockStaffFind.mockResolvedValue({ role: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(1);
+    expect(await isLastActiveAdmin('admin-1')).toBe(false);
+  });
+
+  // The regression. `archiveStaff` leaves `passwordHash` in place, so an
+  // archived admin goes on looking like a working login — and `authorize`
+  // refuses it. Counting one let the SECOND of two admins be archived after
+  // the first, leaving nobody able to sign in.
+  it('does not count an admin who is archived or was never activated', async () => {
+    mockStaffFind.mockResolvedValue({ role: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(0);
+
+    await isLastActiveAdmin('admin-1');
+
+    expect(mockStaffCount).toHaveBeenCalledWith({
+      where: {
+        id: { not: 'admin-1' },
+        role: 'ADMIN',
+        passwordHash: { not: null },
+        archivedAt: null,
+      },
+    });
   });
 });
