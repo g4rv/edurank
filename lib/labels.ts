@@ -102,6 +102,12 @@ export const FIELD_LABELS: Record<string, string> = {
   closedAt: 'Рік закрито',
   code: 'Код показника',
   licencePositions: 'Позиції ліцензійних умов',
+  // Характеристика — evidence typed by hand or carried in from the pre-2025
+  // files. `text` and `count` are deliberately plain: the audit log prints them
+  // verbatim, and this is the one place the document's content is editable.
+  position: 'Позиція ліцензійних умов',
+  text: 'Дані підтвердження',
+  count: 'Кількість одиниць',
   // Розподіл ставок. All of these are stored as integer hundredths. The label
   // used to say «(сотих)» and print the raw 135; the audit log now formats the
   // VALUE instead — «1,35» — because a reader should not have to divide by a

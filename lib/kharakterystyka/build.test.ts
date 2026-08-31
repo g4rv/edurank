@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { buildKharakterystyka, type KharakterystykaActivity } from './build';
+import {
+  buildKharakterystyka,
+  type KharakterystykaActivity,
+  type KharakterystykaEntry,
+} from './build';
 import { LICENCE_POSITIONS, REQUIRED_POSITIONS } from './positions';
 import { LICENCE_POSITION_LINKS } from '@/lib/rating/db-specs';
 import { catalogueType } from '@/lib/rating/db-specs';
@@ -359,5 +363,138 @@ describe('Кнпп — «at least four of twenty»', () => {
     expect(position(result, 8).met).toBe(true);
     expect(position(result, 10).met).toBe(true);
     expect(position(result, 8).entries).toHaveLength(1);
+  });
+});
+
+// ─── KharakterystykaEntry — evidence that is not a rating activity ───────────
+//
+// Two sources, one table: п.15 and п.20 typed by hand, because the rating holds
+// neither and the catalogue only moves by a вчена рада vote; and 2022–2024,
+// carried in from the university's own files for years the app never had a
+// rating for.
+
+function entry(
+  position: number,
+  overrides: Partial<KharakterystykaEntry> = {}
+): KharakterystykaEntry {
+  return {
+    position,
+    group: null,
+    year: YEAR,
+    text: 'Внесений вручну запис',
+    count: 1,
+    itemNumber: null,
+    ...overrides,
+  };
+}
+
+describe('buildKharakterystyka — manual and imported entries', () => {
+  // The regression this table exists for. п.15 and п.20 have no indicator and
+  // rendered as rows nobody could fill, on a document the university is
+  // licensed against.
+  it('fills п.15, which no indicator can reach', () => {
+    const before = buildKharakterystyka([], NO_PROFILE, YEAR);
+    expect(position(before, 15).met).toBe(false);
+
+    const after = buildKharakterystyka([], NO_PROFILE, YEAR, [
+      entry(15, { text: 'Журі ІІІ етапу Всеукраїнської олімпіади з біології' }),
+    ]);
+    const p15 = position(after, 15);
+    expect(p15.met).toBe(true);
+    expect(p15.entries).toHaveLength(1);
+    expect(p15.evidence).toContain('олімпіади з біології');
+  });
+
+  it('fills п.20 the same way', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(20)]);
+    expect(position(result, 20).met).toBe(true);
+  });
+
+  // Military positions. A row here would assert something the licence
+  // conditions do not let this university claim, so there is nothing to type.
+  it('never fills п.16–18, whatever is passed', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(16), entry(17), entry(18)]);
+    for (const n of [16, 17, 18]) {
+      expect(position(result, n).met).toBe(false);
+      expect(position(result, n).entries).toHaveLength(0);
+    }
+  });
+
+  it('counts towards a derived position beside the rating own entries', () => {
+    // п.1 needs five publications: three from the rating, two imported
+    const result = buildKharakterystyka(
+      [publication(1), publication(2), publication(3)],
+      NO_PROFILE,
+      YEAR,
+      [entry(1, { year: 2023 }), entry(1, { year: 2022 })]
+    );
+    const p1 = position(result, 1);
+    expect(p1.progress).toEqual({ have: 5, need: 5 });
+    expect(p1.met).toBe(true);
+    expect(p1.entries).toHaveLength(5);
+  });
+
+  // One legacy cell can mean «five publications» rather than five rows, and п.1
+  // asks for five — counting it as one would understate the person.
+  it('honours count, and still prints one line', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [
+      entry(1, { count: 5, text: 'П’ять публікацій за 2023 рік' }),
+    ]);
+    const p1 = position(result, 1);
+    expect(p1.met).toBe(true);
+    expect(p1.progress).toEqual({ have: 5, need: 5 });
+    expect(p1.entries).toHaveLength(1);
+  });
+
+  it('treats a count below one as one, so a bad row cannot erase itself', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(6, { count: 0 })]);
+    expect(position(result, 6).met).toBe(true);
+  });
+
+  // The whole reason the row carries a year: 2022 rows drop out by themselves
+  // once the document is built for 2027, with nobody deleting anything.
+  it('applies the five-year window to entries', () => {
+    const outside = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(15, { year: 2021 })]);
+    expect(position(outside, 15).met).toBe(false);
+
+    const inside = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(15, { year: 2022 })]);
+    expect(position(inside, 15).met).toBe(true);
+  });
+
+  // п.2 is «one patent» OR «five свідоцтва» — two bars over two groups.
+  it('routes an entry to the alternative it names', () => {
+    const patent = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(2, { group: 'patent' })]);
+    expect(position(patent, 2).met).toBe(true);
+
+    const oneCertificate = buildKharakterystyka([], NO_PROFILE, YEAR, [
+      entry(2, { group: 'copyright' }),
+    ]);
+    expect(position(oneCertificate, 2).met).toBe(false);
+
+    const fiveCertificates = buildKharakterystyka([], NO_PROFILE, YEAR, [
+      entry(2, { group: 'copyright', count: 5 }),
+    ]);
+    expect(position(fiveCertificates, 2).met).toBe(true);
+  });
+
+  // Naming no group lands on the position's FIRST alternative — for п.2 that is
+  // the patent, which the law names first.
+  it('lands on the first alternative when no group is named', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(2)]);
+    expect(position(result, 2).met).toBe(true);
+  });
+
+  it('counts towards Кнпп like any other met position', () => {
+    const entries = [entry(15), entry(20), entry(6), entry(7)];
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, entries);
+    expect(result.metCount).toBe(REQUIRED_POSITIONS);
+    expect(result.qualifies).toBe(true);
+  });
+
+  it('changes nothing when none are passed', () => {
+    const activities = [publication(1), publication(2)];
+    const withNone = buildKharakterystyka(activities, NO_PROFILE, YEAR);
+    const withEmpty = buildKharakterystyka(activities, NO_PROFILE, YEAR, []);
+    expect(withEmpty).toEqual(withNone);
   });
 });
