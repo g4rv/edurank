@@ -1,25 +1,22 @@
 import type { Prisma } from '@/lib/generated/prisma/client';
 
-/**
- * An email address, as it should be stored.
- *
- * Addresses are case-insensitive in practice — nobody thinks of
- * `Petrenko@uhsp.edu.ua` and `petrenko@uhsp.edu.ua` as two people — but
- * Postgres `=` and therefore Prisma's `findUnique` are case-SENSITIVE, and
- * `Staff.email` was only ever `.trim()`ed on the way in. So a record created
- * with a capital could only be signed in to by typing that capital, and typing
- * the address the ordinary way answered «Невірний email або пароль» with
- * nothing to say why (2026-08-28).
- *
- * It hid well: `nameSearch` uses `mode: 'insensitive'`, so an admin looking the
- * person up on /staff finds them immediately and the record looks perfect.
- * Worse, the activation flow never asks for an email — it is a token link — so
- * somebody could set their password without ever typing their address, and only
- * discover the problem at the first real sign-in.
- */
-export function normaliseEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
+// Addresses are case-insensitive in practice — nobody thinks of
+// `Petrenko@uhsp.edu.ua` and `petrenko@uhsp.edu.ua` as two people — but
+// Postgres `=`, and therefore Prisma's `findUnique`, are case-SENSITIVE. So an
+// address stored with a capital could only be signed in to by typing that
+// capital, and the ordinary spelling answered «Невірний email або пароль» with
+// nothing to say why (2026-08-28).
+//
+// It hid well: `nameSearch` uses `mode: 'insensitive'`, so an admin looking the
+// person up on /staff finds them immediately and the record looks perfect.
+// Worse, activation never asks for an email — it is a token link — so somebody
+// could set their password without ever typing their address, and meet this
+// only at their first real sign-in.
+//
+// The fix lives HERE and nowhere else. An address is stored exactly as it was
+// typed; the folding happens when one is looked up. A `normaliseEmail` helper
+// once sat beside this and was used only by the schemas that rewrote what
+// people saved — removed with them (2026-08-31).
 
 /**
  * Match an address whatever its case, for looking somebody up.
