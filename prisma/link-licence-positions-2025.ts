@@ -9,6 +9,12 @@ import { LICENCE_POSITION_LINKS } from '../lib/rating/db-specs';
 //
 //   pnpm db:link-positions-2025          — show what would change
 //   pnpm db:link-positions-2025 --apply  — write it
+//   pnpm db:link-positions-2025 --undo   — put every one of them back to []
+//
+// The undo exists so that running this against production is a decision that
+// can be taken back in one command. It restores the exact state the template
+// was in before — `licencePositions: []` on all 53 — which is where
+// `import-template-2025.ts` left it.
 //
 // ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
 //
@@ -86,6 +92,7 @@ const MAP: Record<string, string> = {
 //   3.25 рецензування робіт ІІ туру — owner, asked directly: not п.14
 
 const apply = process.argv.includes('--apply');
+const undo = process.argv.includes('--undo');
 const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
 
 async function main() {
@@ -94,6 +101,16 @@ async function main() {
     select: { id: true, status: true },
   });
   if (!template) throw new Error('немає шаблону 2025');
+
+  if (undo) {
+    const { count } = await prisma.activityType.updateMany({
+      where: { templateId: template.id },
+      data: { licencePositions: [] },
+    });
+    console.log(`ПОВЕРНУТО: ${count} показників тепер не закривають жодної позиції.`);
+    console.log('Характеристика знову буде порожня — це стан до запуску скрипта.');
+    return;
+  }
 
   const catalogue = new Map(ACTIVITY_TYPES_2026.map((t) => [t.code, t]));
   const types = await prisma.activityType.findMany({

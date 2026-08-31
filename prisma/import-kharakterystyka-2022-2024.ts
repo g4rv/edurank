@@ -13,6 +13,11 @@ import { ROOT, byFullName, itemCell, resolvePerson, text, tidy } from './rating-
 //
 //   pnpm import:kharakterystyka           — report, write nothing
 //   pnpm import:kharakterystyka --apply   — write
+//   pnpm import:kharakterystyka --undo    — remove every row it has ever written
+//
+// The undo removes IMPORT rows and nothing else: anything typed by hand is
+// MANUAL and survives, because losing somebody's typed п.15 to a rollback of an
+// unrelated import would be its own small disaster.
 //
 // ── WHAT THIS IS FOR ────────────────────────────────────────────────────────
 //
@@ -48,6 +53,7 @@ import { ROOT, byFullName, itemCell, resolvePerson, text, tidy } from './rating-
 
 const YEARS = [2022, 2023, 2024] as const;
 const apply = process.argv.includes('--apply');
+const undo = process.argv.includes('--undo');
 const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
 
 const norm = (s: string) =>
@@ -261,6 +267,16 @@ async function readRows(path: string): Promise<RawRow[]> {
 const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
 
 async function main() {
+  if (undo) {
+    const { count } = await prisma.kharakterystykaEntry.deleteMany({
+      where: { source: 'IMPORT' },
+    });
+    console.log(`ПОВЕРНУТО: вилучено ${count} імпортованих записів.`);
+    console.log('Записи, внесені вручну (MANUAL), не змінено.');
+    await prisma.$disconnect();
+    return;
+  }
+
   const staff = await prisma.staff.findMany({
     where: { isNpp: true },
     select: {
