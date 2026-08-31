@@ -95,6 +95,25 @@ export default async function RatingTemplatePage({
     label: `${d.itemNumber} — ${d.label}`,
   }));
 
+  /**
+   * A whole template pointing at no licence position at all.
+   *
+   * Most indicators close no position and that is correct — 38 of the 67 in
+   * 2026 — so listing them one by one would be noise nobody reads. ZERO across
+   * the entire year is different: it cannot be right, and it is exactly what
+   * happened. `import-template-2025.ts` wrote `licencePositions: []` on all 53
+   * of its indicators, so 10 592 activities closed nothing, every НПП rendered
+   * 0 of 20 and `Кнпп` was 0 on all 31 кафедри — silently, for months, because
+   * the Характеристика is a separate page nobody opens while the rating looks
+   * fine (found 2026-08-31).
+   *
+   * Cheap to check and it only ever fires on a template that is broken.
+   */
+  const linkedToPositions = template.sections
+    .flatMap((s) => s.activityTypes)
+    .filter((t) => Array.isArray(t.licencePositions) && t.licencePositions.length > 0).length;
+  const noPositionsAtAll = presentCodes.size > 0 && linkedToPositions === 0;
+
   return (
     <AnimatedPage className="space-y-6">
       <Link
@@ -135,6 +154,19 @@ export default async function RatingTemplatePage({
           <AddActivityType templateId={template.id} missing={missingCodes} />
         )}
       </div>
+
+      {noPositionsAtAll && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 px-5 py-4">
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-500">
+            Жоден показник цього року не пов’язаний з позиціями ліцензійних умов
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Характеристика будується саме з цього зв’язку, тому для всіх НПП вона буде порожня, а
+            Кнпп кожної кафедри — нульовим. Відкрийте показник і відмітьте позиції, які він
+            закриває.
+          </p>
+        </div>
+      )}
 
       {template.sections.map((section) => (
         <div key={section.id} className="overflow-hidden rounded-xl border bg-card">
