@@ -2,6 +2,7 @@ import { Check, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import type { Kharakterystyka, KharakterystykaPosition } from '@/lib/kharakterystyka/build';
+import { ManualEntries, type ManualEntry } from './manual-entries';
 
 // The printed document is a three-column table — № з/п, Показник активності,
 // Дані підтвердження показника — and this keeps that shape, because the point of
@@ -15,10 +16,16 @@ const cell = 'border border-border px-3 py-2 align-top';
 export function KharakterystykaTable({
   data,
   sources,
+  editing,
 }: {
   data: Kharakterystyka;
   /** Position number → the indicators that count towards it, from the template */
   sources?: Record<number, { itemNumber: string; label: string }[]>;
+  /**
+   * Typing evidence by hand — ADMIN only, and absent everywhere else, so the
+   * document stays read-only for the people who merely read it.
+   */
+  editing?: { staffId: string; entries: ManualEntry[] };
 }) {
   return (
     <div className="space-y-4">
@@ -42,6 +49,8 @@ export function KharakterystykaTable({
                 key={position.number}
                 position={position}
                 sources={sources?.[position.number]}
+                editing={editing}
+                years={{ from: data.from, to: data.to }}
               />
             ))}
           </tbody>
@@ -89,14 +98,22 @@ function Summary({ data }: { data: Kharakterystyka }) {
 function PositionRow({
   position,
   sources,
+  editing,
+  years,
 }: {
   position: KharakterystykaPosition;
   /** Indicators that count towards this position, from the year's template */
   sources?: { itemNumber: string; label: string }[];
+  editing?: { staffId: string; entries: ManualEntry[] };
+  /** The document's five-year window, so a typed row cannot fall outside it */
+  years: { from: number; to: number };
 }) {
   // A military position is not a gap in this person's record — it belongs to a
   // different kind of institution — so it is dimmed rather than flagged.
   const inapplicable = position.fill === 'NOT_APPLICABLE';
+  // Everything but the military positions, which this university may not claim
+  // at all — there is nothing to type there, so no control is offered.
+  const canType = !!editing && !inapplicable;
 
   return (
     <tr className={cn('transition-colors hover:bg-muted/20', inapplicable && 'opacity-55')}>
@@ -127,7 +144,7 @@ function PositionRow({
       </td>
 
       <td className={cell}>
-        {position.entries.length === 0 ? (
+        {position.entries.length === 0 && !canType ? (
           <span className="text-xs text-muted-foreground">—</span>
         ) : (
           <ul className="space-y-2">
@@ -139,6 +156,15 @@ function PositionRow({
               </li>
             ))}
           </ul>
+        )}
+        {canType && editing && (
+          <ManualEntries
+            staffId={editing.staffId}
+            position={position.number}
+            entries={editing.entries.filter((e: ManualEntry) => e.position === position.number)}
+            minYear={years.from}
+            maxYear={years.to}
+          />
         )}
       </td>
 
