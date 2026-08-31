@@ -7,7 +7,6 @@ import { ArrowUpRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
-import { UK } from '@/lib/plural';
 import { DataTable } from '@/components/ui/data-table';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { setBonusPool, setDepartmentStake } from '@/app/(dashboard)/admin/stakes/actions';
@@ -184,25 +183,28 @@ function PoolRow({
               Перевитрачено
             </span>
           )}
-          {/* «Залишок» beside this row counts only STORED ставки. The кафедра's
-              own grid counts what is on its screen, which includes the формула's
-              proposal for anybody кадри added since it was last spread — so
-              while such a row exists the two screens print different numbers
-              (3,75 here against 2,75 there on Кафедра цифрових технологій,
-              2026-08-31). Neither is wrong; they answer different questions.
-
-              Without this the проректор allocated headroom the кафедра had
-              already spent on screen, with nothing to warn them. Amber and
-              «needs attention», the same as «Перевитрачено» above and the same
-              word the grid already uses in its own toolbar, so somebody moving
-              between the two screens meets one term and not two.
-
+          {/* How much of this кафедра is a DECISION and how much is still the
+              формула's proposal.
+              «Залишок» agrees with the кафедра's own grid now — both compute it
+              through `openingStake` — but agreeing is not the same as settled:
+              a row nobody has saved contributes the формула's number, and the
+              завідувач may yet choose differently.
+              **Phrased as what WAS saved, not what was not** (owner,
+              2026-08-31): «Незбережено: 14» does not say what is missing, while
+              «Збережено: 0 з 14 НПП» says it in the reader's own terms. `НПП`
+              stays in the label even though the column beside it repeats the
+              figure — the badge has to be readable on its own.
+              It also separates two things one number could not. `0 з 14` is a
+              кафедра nobody has started, which is ordinary while most accounts
+              are still unactivated. `18 з 19` is a split that WAS made and has
+              since gained somebody — the case worth opening, and the one that
+              used to hide among the others.
               Only where `Кст` is set: an unfunded кафедра shows «—» for
-              «Залишок» and has nothing to mislead anybody with, and badging all
-              28 of them would bury the two that matter. */}
+              «Залишок» and can mislead nobody, and badging all 28 of them would
+              bury the ones that matter. */}
           {row.kstHundredths !== null && row.unsavedCount > 0 && (
-            <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500">
-              Незбережено: {row.unsavedCount}
+            <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-amber-700 dark:text-amber-500">
+              Збережено: {Math.max(0, row.headcount - row.unsavedCount)} з {row.headcount} НПП
             </span>
           )}
           <span className="block text-xs text-muted-foreground">{row.faculty}</span>
@@ -283,7 +285,7 @@ function PoolRow({
               ? undefined
               : `початковий ${formatStake(row.kstHundredths)} + бонусний ${formatStake(row.bonusPoolHundredths ?? 0)} − розподілено ${formatStake(row.distributedHundredths)}` +
                 (row.unsavedCount > 0
-                  ? `\n\nПопередньо: ${UK.person(row.unsavedCount)} тут ще без збереженої ставки — цю суму запропонувала формула, завідувач її ще не підтвердив.`
+                  ? `\n\nСтавку збережено для ${Math.max(0, row.headcount - row.unsavedCount)} з ${row.headcount} НПП. Решту порахувала формула — завідувач їх ще не підтвердив.`
                   : '')
           }
         >
