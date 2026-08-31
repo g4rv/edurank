@@ -498,3 +498,38 @@ describe('buildKharakterystyka — manual and imported entries', () => {
     expect(withEmpty).toEqual(withNone);
   });
 });
+
+// ─── legacy evidence, made readable ─────────────────────────────────────────
+//
+// The university's files store several facts in one cell with no separator —
+// «Дисципліна:КиївщинознавствоПосилання:https://…» is exactly how the source
+// has it, through both the 2025 rating import and the 2022–2024 one. In a
+// document the licence is read against, that looks like the university cannot
+// format a sentence.
+
+describe('buildKharakterystyka — printed evidence', () => {
+  const textOf = (result: ReturnType<typeof buildKharakterystyka>, n: number) =>
+    position(result, n).entries[0]?.summary ?? '';
+
+  it('separates facts the source ran together', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [
+      entry(15, {
+        text: 'Дисципліна:КиївщинознавствоПосилання:https://moodle.uhsp.edu.ua/course/view.php?id=1749',
+      }),
+    ]);
+    expect(textOf(result, 15)).toBe(
+      'Дисципліна: Київщинознавство · Посилання: https://moodle.uhsp.edu.ua/course/view.php?id=1749'
+    );
+  });
+
+  // Only whitespace may be touched. A document that quietly rewrote its own
+  // evidence would be worth less than an ugly one.
+  it.each([
+    'Назва: ТОВ «Легіон-МК»; Номер договору: 09.09.2019 р.',
+    'DOI - https://doi.org/10.52058/2786-5274-2025-1(41)-820-833',
+    'Реєстраційний номер: 0125U003812 (виконавець)',
+  ])('leaves «%s» exactly as it is', (text) => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(15, { text })]);
+    expect(textOf(result, 15)).toBe(text);
+  });
+});

@@ -215,7 +215,7 @@ function bucketEntries(
     const fields = fieldsOf(activity.activityType);
     // Infinity, not the default 5: this text is the deliverable, and a dropped
     // field would understate what the person did to a licensing authority.
-    const summary = summarizeEvidence(fields, evidence, Infinity);
+    const summary = readable(summarizeEvidence(fields, evidence, Infinity));
 
     for (const link of links) {
       if (!linkMatches(link, evidence)) continue;
@@ -235,6 +235,37 @@ function bucketEntries(
   }
 
   return buckets;
+}
+
+/**
+ * Legacy evidence, made readable for a printed document.
+ *
+ * The university's own files store several facts in one cell with no separator
+ * at all — «Дисципліна:КиївщинознавствоПосилання:https://moodle…» is exactly how
+ * the source has it, and it reaches us that way through both the 2025 rating
+ * import and the 2022–2024 one. On screen it is unpleasant; in the document the
+ * licence is read against, «...професійної освітиПосилання:...» looks like the
+ * university cannot format a sentence.
+ *
+ * Only whitespace is touched. Not a word is added, removed or reordered — a
+ * document that quietly rewrote its own evidence would be worth less than an
+ * ugly one.
+ */
+function readable(summary: string): string {
+  return (
+    summary
+      // «Дисципліна:Київщинознавство» → «Дисципліна: Київщинознавство».
+      // A colon run straight into a letter is always a missing space. A URL is
+      // untouched because its colon is followed by «/», and a time or a ratio
+      // by a digit-then-colon, both excluded by the class.
+      .replace(/:(?=[^\s/:])/g, ': ')
+      // A second fact glued onto the end of the first — «…освітиПосилання: …».
+      // Only where a lower-case letter runs straight into a capitalised word
+      // that is followed by a colon, which is what a label looks like.
+      .replace(/([а-яїієґa-z0-9)])([А-ЯЇІЄҐA-Z][а-яїієґa-z]+:)/g, '$1 · $2')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  );
 }
 
 /** «Дані підтвердження показника» as the printed document has it */
@@ -262,7 +293,7 @@ function entryAsPositionEntry(entry: KharakterystykaEntry): PositionEntry {
   return {
     itemNumber: entry.itemNumber ?? '—',
     label: 'Внесено вручну',
-    summary: entry.text,
+    summary: readable(entry.text),
     year: entry.year,
   };
 }
