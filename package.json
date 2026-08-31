@@ -25,6 +25,7 @@
     "db:gate-to-check-sum": "tsx prisma/gate-to-check-sum.ts",
     "db:link-positions-2025": "tsx prisma/link-licence-positions-2025.ts",
     "db:report-knpp": "tsx prisma/report-knpp.ts",
+    "db:fix-field-labels": "tsx prisma/fix-legacy-field-labels.ts",
     "db:fix-stake-ladder": "tsx prisma/fix-stake-limit-ladder.ts",
     "db:fix-employment-rate": "tsx prisma/fix-employment-rate.ts",
     "db:fix-invite-tokens": "tsx prisma/fix-invite-tokens.ts",
