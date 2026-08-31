@@ -17,19 +17,32 @@ export const NATIONAL_LENGTH = 9;
  * a field that rejected two of the three would be blamed on the person pasting.
  */
 export function nationalDigits(input: string): string {
-  let digits = input.replace(/\D/g, '');
+  const digits = input.replace(/\D/g, '');
 
-  // A prefix is only a prefix when something is in front of the nine digits, or
-  // when it is ALL there is. Exactly nine digits is already a national number
-  // and is never cut into — «380123456» is somebody's number, not a country
-  // code with six digits after it.
+  // The country code, pasted in full or left behind by clearing the field down
+  // to «+380», which must read as empty rather than as three digits. Only cut
+  // when there is something in front of the nine slots, or when it is ALL there
+  // is — «380123456» typed alone is somebody's number, not a code with six
+  // digits after it.
   const hasPrefix = digits.length > NATIONAL_LENGTH;
+  if (digits.startsWith('380') && (hasPrefix || digits.length === 3)) return digits.slice(3);
 
-  // «380…» — the country code, pasted in full or left behind by clearing the
-  // field down to «+380», which must read as empty rather than as three digits.
-  if (digits.startsWith('380') && (hasPrefix || digits.length === 3)) digits = digits.slice(3);
-  // «0XX…» — how a number is written inside the country
-  else if (digits.startsWith('0') && hasPrefix) digits = digits.slice(1);
+  // «0XX…» — how a number is written inside the country. Cut ALWAYS, not only
+  // when the nine slots overflow (2026-08-31).
+  //
+  // It used to need the overflow, and that made a nine-digit string beginning
+  // with «0» read as a complete national number: «044123456» was kept whole,
+  // the field showed «04-412-3456» with the green tick that means «finished»,
+  // and the schema accepted it, because it counts nine digits and this is nine
+  // digits. Saved, that is «+380044123456» — a number nobody can dial, stored
+  // as valid with no error anywhere. Reproduced in a browser and read back out
+  // of the database.
+  //
+  // Cutting it unconditionally is also just true: no Ukrainian operator code
+  // begins with a zero, so a leading one is always the trunk prefix and never
+  // part of the number. The same nine characters now leave eight digits, the
+  // field says «8 з 9 цифр», and the wrong number cannot be saved at all.
+  if (digits.startsWith('0')) return digits.slice(1, NATIONAL_LENGTH + 1);
 
   return digits.slice(0, NATIONAL_LENGTH);
 }

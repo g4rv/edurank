@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -49,6 +50,23 @@ export function TelInput({
   const complete = digits.length === NATIONAL_LENGTH;
   const shown = formatNational(digits);
 
+  /**
+   * Something was typed and none of it survived — «0», «+», or «380».
+   *
+   * All three are correct to swallow: the code is printed to the left and the
+   * trunk zero is not part of the number. But the field is CONTROLLED, so
+   * swallowing empties what the person is watching. Typing «+380» blanks the
+   * box twice, at the «+» and again at the «0», and it reads as a field that
+   * refuses to be typed in.
+   *
+   * An НПП reported failing to enter her number twice while the same edit
+   * worked from /staff — where whoever did it typed the nine digits alone,
+   * which is the one sequence that looks right at every keystroke. There is no
+   * proof that is what stopped her, but a box that silently empties itself
+   * needs no other explanation (2026-08-31).
+   */
+  const [swallowed, setSwallowed] = useState(false);
+
   return (
     <div className="space-y-1">
       <div
@@ -77,7 +95,12 @@ export function TelInput({
           // which came back as an empty string and threw away every keystroke —
           // nothing could be typed at all (2026-08-24, reported from the
           // screen). The schema refuses the fragment on submit instead.
-          onChange={(e) => onChange(toPhoneValue(nationalDigits(e.target.value)))}
+          onChange={(e) => {
+            const raw = e.target.value;
+            const next = nationalDigits(raw);
+            setSwallowed(next.length === 0 && /\d/.test(raw));
+            onChange(toPhoneValue(next));
+          }}
           className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none disabled:cursor-not-allowed"
         />
         {complete && <Check className="size-4 shrink-0 text-green-600 dark:text-green-500" />}
@@ -88,6 +111,11 @@ export function TelInput({
       {digits.length > 0 && !complete && (
         <p className="text-xs text-muted-foreground">
           {digits.length} з {NATIONAL_LENGTH} цифр
+        </p>
+      )}
+      {digits.length === 0 && swallowed && (
+        <p className="text-xs text-muted-foreground">
+          Код +380 вже вказано — введіть {NATIONAL_LENGTH} цифр номера
         </p>
       )}
     </div>

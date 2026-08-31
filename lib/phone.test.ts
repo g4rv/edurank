@@ -42,7 +42,33 @@ describe('nationalDigits', () => {
   // would eat a digit the person is still typing
   it('leaves a half-typed number alone', () => {
     expect(nationalDigits('44')).toBe('44');
-    expect(nationalDigits('0')).toBe('0');
+  });
+
+  // ── the trunk zero is never part of the number ──
+  //
+  // This used to be `nationalDigits('0') === '0'`, on the reasoning that a lone
+  // digit belongs to whoever is still typing. It does not: the field already
+  // prints «+380» to the left, so a leading zero can only ever be the trunk
+  // prefix, and keeping it cost a real bug (2026-08-31).
+  it('drops a leading zero even before the number is complete', () => {
+    expect(nationalDigits('0')).toBe('');
+    expect(nationalDigits('093')).toBe('93');
+  });
+
+  // The regression. «044123456» is nine characters, so with the old rule it was
+  // kept whole: the field showed «04-412-3456» with the green tick that means
+  // finished, the schema counted nine digits and accepted it, and «+380044123456»
+  // — undialable, no operator code starts with a zero — went into the database
+  // with no error anywhere. Eight digits is the truthful answer, and the field
+  // then says «8 з 9 цифр» instead of claiming to be done.
+  it('does not read nine characters starting with a zero as a whole number', () => {
+    expect(nationalDigits('044123456')).toBe('44123456');
+    expect(isCompleteOrEmpty(nationalDigits('044123456'))).toBe(false);
+  });
+
+  it('still keeps all nine when the zero makes it ten', () => {
+    expect(nationalDigits('0441234567')).toBe('441234567');
+    expect(isCompleteOrEmpty(nationalDigits('0441234567'))).toBe(true);
   });
 });
 
