@@ -73,6 +73,60 @@ export function stakeCeiling(current: number, b: StakeBounds): number {
   return Math.min(upperBound(b), floorToStep(current + Math.max(0, b.headroom)));
 }
 
+/** What `openingStake` needs about one row. `StakeRow` satisfies it. */
+export interface OpeningRow {
+  rating: number;
+  minHundredths: number;
+  maxHundredths: number;
+  /** Today's formula share for this person */
+  formulaHundredths: number;
+  /** The formula FROZEN at the last human save, or null if never saved */
+  savedFormulaHundredths: number | null;
+  /** The stored ставка — or today's formula share when nothing is stored */
+  proposedHundredths: number;
+}
+
+/**
+ * The ставка a row OPENS on: what the grid shows before anybody touches it.
+ *
+ * **Why this is not inside the grid any more** (2026-08-31). It was — thirty
+ * lines of `seed()` in a client component, untested, and the only place this
+ * rule existed. `/stakes` could not reuse it, so that page summed the STORED
+ * allocations instead and the two screens printed different «Залишок» for the
+ * same кафедра: 3,75 against 2,75 on Кафедра цифрових технологій, a whole
+ * ставка apart, with the проректор reading the larger one.
+ *
+ * They cannot drift again: both screens call this.
+ *
+ * The rule itself, unchanged:
+ *
+ * - **Open on the stored number** — the head's decision, not the formula's.
+ * - **Unless it is out of range.** ADMIN lowering somebody's Макс under a number
+ *   the head already agreed leaves a row the server will refuse. The screen
+ *   falls back to «за формулою», which is recomputed against the NEW bounds and
+ *   is therefore always saveable. The stored value is left alone until something
+ *   saves (2026-08-17, reported from the screen).
+ * - **Never below the frozen formula.** «Тільки збільшити» measured against the
+ *   formula as it stood at the last human save — NOT today's, which moves
+ *   whenever anything about the кафедра does and dragged the floor up under
+ *   people nobody had touched (2026-08-27). A row nobody has saved has no frozen
+ *   value, so today's is right for it: that IS their initial automatic ставка.
+ * - **Except when the formula overspends the funds**, where the floor lifts to
+ *   the person's own minimum, because otherwise there is no legal way back on
+ *   budget at all (Кафедра географії, 2,10 proposed against a pool of 2,00).
+ */
+export function openingStake(row: OpeningRow, formulaOverspends: boolean): number {
+  const lower = lowerBound(row);
+  const upper = upperBound(row);
+  const stored = row.proposedHundredths;
+  const inRange = stored >= lower && stored <= upper;
+  const base = inRange ? stored : row.formulaHundredths;
+  const floor = formulaOverspends
+    ? lower
+    : Math.max(lower, row.savedFormulaHundredths ?? row.formulaHundredths);
+  return Math.min(Math.max(base, floor), upper);
+}
+
 /**
  * Where a wanted value actually lands.
  *

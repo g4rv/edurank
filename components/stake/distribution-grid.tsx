@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useReducer, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Save, RotateCcw } from 'lucide-react';
@@ -33,6 +33,12 @@ import {
 } from '@/lib/stake/units';
 
 import type { StakeDistributionView, StakeRow } from '@/lib/queries/get-stake-distribution';
+import {
+  draftReducer,
+  initialDraft,
+  isDirty,
+  neverStoredRows,
+} from '@/components/stake/distribution-draft';
 import { StakeTermHint, type StakeTerm } from '@/components/stake/stake-term-hint';
 import { StakeStepper } from '@/components/stake/stake-stepper';
 import { BonusCell } from '@/components/stake/bonus-cell';
@@ -41,6 +47,7 @@ import { recommendedStake, statusValue } from '@/lib/stake/status-bonus';
 import { fundSplit } from '@/lib/stake/pool-totals';
 import {
   lowerBound,
+  openingStake,
   settleStake,
   stakeCeiling,
   upperBound,
@@ -126,68 +133,30 @@ export function DistributionGrid({
     view.formulaTotalHundredths > view.kstHundredths + (view.bonusPoolHundredths ?? 0);
 
   /**
-   * Seeded from the stored proposal, but never outside the person's bounds.
+   * What every row opens on.
    *
-   * A saved ставка can fall out of range without anybody touching it: ADMIN
-   * lowers Макс under a number the head already agreed, and the row is left
-   * holding a value the server will refuse. The grid used to open on that —
-   * red, unsaveable, and fixable only by typing over it — so a кафедра could be
-   * stuck with no legal edit at all (2026-08-17, reported from the screen).
-   *
-   * Out of range, it falls back to «за формулою», which is recomputed against
-   * the NEW bounds and is therefore always valid. The stored number is left
-   * alone until something saves; the screen simply stops showing a figure
-   * nobody can commit.
-   *
-   * It also never opens BELOW «за формулою» — EXCEPT on a кафедра whose stored
-   * split is already over both funds. The формула is a floor — «тільки
-   * збільшити» — and the server refuses anything under it, so a stored value
-   * below the proposal is normally a figure nobody can commit. A cap change
-   * moves every share on the кафедра, which is how an untouched row ends up
-   * there without anybody typing. `setStaffLimits` lifts the stored rows for
-   * the same reason; this keeps the screen honest if one slips past.
-   *
-   * The exception matters because the floor is lifted for the whole кафедра —
-   * here, in `settleStake`, and in `saveDistribution` — whenever the формула
-   * cannot fit inside the funds, so that a head has a legal way back on
-   * budget. Without it the grid saved that decrease correctly and then
-   * redisplayed the формула's number on the next load, which reads exactly
-   * like a save that did not work (2026-08-23, Кафедра соціальних комунікацій).
+   * The rule — stored value, bounds, the frozen «тільки збільшити» floor and its
+   * overspend exception — lives in `openingStake` (`lib/stake/settle.ts`), where
+   * it is tested and where **`/stakes` calls it too**. It was thirty lines here,
+   * and being here was the bug: the overview could not reuse it, summed the
+   * stored allocations instead, and the two screens printed «Залишок» a whole
+   * ставка apart (2026-08-31).
    */
   const seed = () =>
-    Object.fromEntries(
-      view.rows.map((r) => {
-        const lower = lowerBound(r);
-        const upper = upperBound(r);
-        const stored = r.proposedHundredths;
-        const inRange = stored >= lower && stored <= upper;
-        const base = inRange ? stored : r.formulaHundredths;
-        // The формула FROZEN at this row's last human save — today's only for a
-        // row nobody has saved yet. Seeding from today's value silently raised
-        // every untouched row whenever the кафедра changed, and «Зберегти»
-        // then wrote those raises (2026-08-27).
-        const floor = formulaOverspends
-          ? lower
-          : Math.max(lower, r.savedFormulaHundredths ?? r.formulaHundredths);
-        return [r.staffId, Math.min(Math.max(base, floor), upper)];
-      })
-    );
+    Object.fromEntries(view.rows.map((r) => [r.staffId, openingStake(r, formulaOverspends)]));
 
-  const [values, setValues] = useState<Record<string, number>>(seed);
   /**
-   * What is known to be on the server, so «Незбережені зміни» can be honest.
+   * What is on screen, what the server holds, and who has been written this
+   * session — one value, in `distribution-draft.ts`.
    *
-   * Compared against this rather than against `view.rows[].proposedHundredths`:
-   * a save does not refresh the route, so the props keep the pre-save numbers
-   * and the toolbar read «Незбережені зміни» forever after a successful write.
+   * Three `useState` calls once, which had to be kept in agreement by hand and
+   * were not: «Незбережені зміни» is a question about all three at once, and
+   * every bug this grid has had was that question answered wrongly. They are one
+   * reducer now so the rule is a pure function with tests of its own, instead of
+   * something only a person clicking the screen could check.
    */
-  const [savedValues, setSavedValues] = useState<Record<string, number>>(seed);
-  /**
-   * Who has been written THIS session, so a row that arrived without an
-   * allocation stops counting as unsaved once «Зберегти» has stored it. The
-   * props keep saying `hasAllocation: false` until the route is refetched.
-   */
-  const [savedRows, setSavedRows] = useState<ReadonlySet<string>>(new Set());
+  const [draft, dispatch] = useReducer(draftReducer, undefined, () => initialDraft(seed()));
+  const { values } = draft;
 
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -362,10 +331,9 @@ export function DistributionGrid({
    * anything, which is the whole point: a кафедра that gained a сумісник after
    * it was spread otherwise looked finished (2026-08-24).
    */
-  const neverStored = view.rows.filter((r) => !r.hasAllocation && !savedRows.has(r.staffId));
+  const neverStored = neverStoredRows(draft, view.rows);
 
-  const dirty =
-    neverStored.length > 0 || view.rows.some((r) => values[r.staffId] !== savedValues[r.staffId]);
+  const dirty = isDirty(draft, view.rows);
 
   // Nothing is written until «Зберегти», so closing the tab or refreshing now
   // throws work away. The browser shows its own wording — a custom message has
@@ -447,7 +415,7 @@ export function DistributionGrid({
     // Changed on screen only. Nothing reaches the database until «Зберегти»
     // (owner, 2026-08-24) — autosave-per-edit wrote a row for every ▲ press and
     // gave a кафедра nobody had committed the look of a saved one.
-    setValues({ ...values, [row.staffId]: settled });
+    dispatch({ type: 'set', staffId: row.staffId, hundredths: settled });
   }
 
   /**
@@ -461,7 +429,10 @@ export function DistributionGrid({
     // Proposes, and stops there. It used to save, because there was no button
     // to press afterwards; now there is one, and a reset that wrote itself
     // while an ordinary edit did not would be the odd one out.
-    setValues(Object.fromEntries(view.rows.map((r) => [r.staffId, r.formulaHundredths])));
+    dispatch({
+      type: 'reset',
+      values: Object.fromEntries(view.rows.map((r) => [r.staffId, r.formulaHundredths])),
+    });
     setError(null);
   }
 
@@ -521,8 +492,14 @@ export function DistributionGrid({
 
       if (result && 'error' in result) setError(result.error);
       else {
-        setSavedValues(nextValues);
-        setSavedRows(new Set(view.rows.map((r) => r.staffId)));
+        // `nextValues` — the map that was actually sent, not whatever is on
+        // screen now. A head who kept typing while the request was in flight
+        // still has unsaved work, and saying otherwise would lose it silently.
+        dispatch({
+          type: 'saved',
+          values: nextValues,
+          staffIds: view.rows.map((r) => r.staffId),
+        });
         setSavedAt(Date.now());
         toast.success('Збережено');
       }

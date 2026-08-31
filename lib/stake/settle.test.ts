@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { settleStake, stakeCeiling, type StakeBounds } from './settle';
+import { openingStake, settleStake, stakeCeiling, type StakeBounds } from './settle';
 
 /** An ordinary row: has a rating, floor 0,10, ceiling 1,00, formula says 0,50 */
 const bounds = (over: Partial<StakeBounds> = {}): StakeBounds => ({
@@ -111,5 +111,123 @@ describe('an НПП who scored nothing', () => {
   // Everybody else is untouched: the exception is the rating, not the кафедра.
   it('leaves a colleague who scored on the 0,10 floor', () => {
     expect(settleStake(0, 20, bounds({ rating: 1, formulaHundredths: 0 }))).toBe(10);
+  });
+});
+
+describe('openingStake — what a row shows before anybody touches it', () => {
+  // Extracted from the grid's `seed()` on 2026-08-31 so `/stakes` could call the
+  // same rule. It had no tests at all while it lived in the component: it was
+  // reachable only by rendering the grid and looking.
+  const row = {
+    rating: 100,
+    minHundredths: 10,
+    maxHundredths: 100,
+    formulaHundredths: 50,
+    savedFormulaHundredths: null as number | null,
+    proposedHundredths: 50,
+  };
+
+  it('opens on the stored number, not the formula', () => {
+    // The head's decision outranks the formula's opinion of it.
+    expect(openingStake({ ...row, proposedHundredths: 75 }, false)).toBe(75);
+  });
+
+  it('falls back to the formula when the stored number is above the ceiling', () => {
+    // ADMIN lowered Макс under a number the head had already agreed. Opening on
+    // the stored value left a row the server refuses and nobody can fix without
+    // typing over it (2026-08-17).
+    expect(
+      openingStake(
+        { ...row, proposedHundredths: 90, maxHundredths: 60, formulaHundredths: 55 },
+        false
+      )
+    ).toBe(55);
+  });
+
+  it('falls back to the formula when the stored number is below the floor', () => {
+    expect(
+      openingStake(
+        { ...row, proposedHundredths: 5, minHundredths: 20, formulaHundredths: 30 },
+        false
+      )
+    ).toBe(30);
+  });
+
+  it('never opens below the formula FROZEN at the last save', () => {
+    // «Тільки збільшити». A stored 40 under a frozen floor of 50 is a figure the
+    // server would refuse, so the screen must not offer it.
+    expect(
+      openingStake({ ...row, proposedHundredths: 40, savedFormulaHundredths: 50 }, false)
+    ).toBe(50);
+  });
+
+  it('measures that floor against the FROZEN formula, not today’s', () => {
+    // Today's формула moved to 80 because the кафедра changed — somebody
+    // archived, a сумісник added. The floor must stay where it was when a human
+    // last saved, or untouched rows get dragged upward (2026-08-27).
+    expect(
+      openingStake(
+        { ...row, proposedHundredths: 60, savedFormulaHundredths: 50, formulaHundredths: 80 },
+        false
+      )
+    ).toBe(60);
+  });
+
+  it('uses today’s formula as the floor for a row nobody has ever saved', () => {
+    // A new colleague, or a сумісник just placed here. Today's share IS their
+    // initial automatic ставка, so «тільки збільшити» should hold them to it.
+    expect(
+      openingStake(
+        { ...row, proposedHundredths: 70, savedFormulaHundredths: null, formulaHundredths: 70 },
+        false
+      )
+    ).toBe(70);
+  });
+
+  it('lifts the floor to the person’s own minimum when the formula overspends', () => {
+    // Кафедра географії: 2,10 proposed against a pool of 2,00. With a hard floor
+    // there is no legal way back on budget at all.
+    expect(openingStake({ ...row, proposedHundredths: 20, savedFormulaHundredths: 50 }, true)).toBe(
+      20
+    );
+  });
+
+  it('falls back to the formula, not to the floor, when the stored number is too low', () => {
+    // Written expecting 30 — the person's own Мін — and the code returned 50.
+    // The code is right: out of range means «show за формулою», and only a value
+    // that is IN range is kept and clamped. Overspending lifts «тільки
+    // збільшити»; it does not turn an unsaveable stored value into the floor.
+    expect(openingStake({ ...row, proposedHundredths: 2, minHundredths: 30 }, true)).toBe(50);
+  });
+
+  it('keeps an in-range value below the frozen formula while overspending', () => {
+    // The real point of the lift: 0,35 sits under a frozen floor of 0,50 and is
+    // kept, because otherwise there is no legal way back on budget.
+    expect(
+      openingStake(
+        { ...row, proposedHundredths: 35, minHundredths: 30, savedFormulaHundredths: 50 },
+        true
+      )
+    ).toBe(35);
+  });
+
+  it('drops the 0,10 floor for somebody who scored nothing', () => {
+    // `formulaShares` proposes 0 for them and skips the floor; the screen agrees,
+    // otherwise the кафедра has a row nobody can store (owner, 2026-08-18).
+    expect(
+      openingStake(
+        { ...row, rating: 0, proposedHundredths: 0, formulaHundredths: 0, minHundredths: 10 },
+        false
+      )
+    ).toBe(0);
+  });
+
+  it('never exceeds the ceiling, whatever the floor says', () => {
+    expect(
+      openingStake(
+        { ...row, proposedHundredths: 200, maxHundredths: 80, savedFormulaHundredths: 200 },
+        false
+      )
+    ).toBe(80);
   });
 });
