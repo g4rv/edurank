@@ -7,6 +7,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
+import { UK } from '@/lib/plural';
 import { DataTable } from '@/components/ui/data-table';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { setBonusPool, setDepartmentStake } from '@/app/(dashboard)/admin/stakes/actions';
@@ -183,6 +184,27 @@ function PoolRow({
               Перевитрачено
             </span>
           )}
+          {/* «Залишок» beside this row counts only STORED ставки. The кафедра's
+              own grid counts what is on its screen, which includes the формула's
+              proposal for anybody кадри added since it was last spread — so
+              while such a row exists the two screens print different numbers
+              (3,75 here against 2,75 there on Кафедра цифрових технологій,
+              2026-08-31). Neither is wrong; they answer different questions.
+
+              Without this the проректор allocated headroom the кафедра had
+              already spent on screen, with nothing to warn them. Amber and
+              «needs attention», the same as «Перевитрачено» above and the same
+              word the grid already uses in its own toolbar, so somebody moving
+              between the two screens meets one term and not two.
+
+              Only where `Кст` is set: an unfunded кафедра shows «—» for
+              «Залишок» and has nothing to mislead anybody with, and badging all
+              28 of them would bury the two that matter. */}
+          {row.kstHundredths !== null && row.unsavedCount > 0 && (
+            <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500">
+              Незбережено: {row.unsavedCount}
+            </span>
+          )}
           <span className="block text-xs text-muted-foreground">{row.faculty}</span>
         </td>
 
@@ -251,10 +273,18 @@ function PoolRow({
             'border border-border px-3 py-2 text-right font-medium tabular-nums',
             overspent && 'text-destructive'
           )}
+          /* The breakdown, plus WHAT IT LEAVES OUT. This cell carries the
+             explanation rather than the «Незбережено» pill, because the name
+             cell above is covered by a row-wide link overlay and a `title`
+             there never surfaces — the comment beside that pill says so. This
+             td has no overlay, so this one works. */
           title={
             row.kstHundredths === null
               ? undefined
-              : `початковий ${formatStake(row.kstHundredths)} + бонусний ${formatStake(row.bonusPoolHundredths ?? 0)} − розподілено ${formatStake(row.distributedHundredths)}`
+              : `початковий ${formatStake(row.kstHundredths)} + бонусний ${formatStake(row.bonusPoolHundredths ?? 0)} − розподілено ${formatStake(row.distributedHundredths)}` +
+                (row.unsavedCount > 0
+                  ? `\n\nПопередньо: ${UK.person(row.unsavedCount)} тут ще без збереженої ставки — цю суму запропонувала формула, завідувач її ще не підтвердив.`
+                  : '')
           }
         >
           {row.remainingHundredths === null ? (

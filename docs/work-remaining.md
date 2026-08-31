@@ -147,6 +147,69 @@ should have to discover, and it is the strongest argument for the save button:
 committing a distribution needs an action of its own, not a side effect of
 editing somebody.
 
+> **RESOLVED — verified in a browser on dev, 2026-08-31.** The save button
+> shipped, and it removed this deadlock. «Зберегти ставки» is enabled by
+> `neverStored` on its own, so a кафедра whose only unsaved row has BOTH steppers
+> disabled can still be committed without touching anybody else. Observed live on
+> Кафедра здоров'я: Товкун (1,00, at her ceiling), Коцур and Єрічева (0,25, at
+> theirs) all had ▲ and ▼ dead, and the кафедра saved in one click.
+>
+> The dead steppers themselves are unchanged and are still correct — somebody at
+> their Макс who may not be lowered has no legal move. What is gone is the
+> **deadlock**: nothing on the screen is unreachable any more.
+
+---
+
+### `/stakes` reported ставки that are not committed — **FIXED 2026-08-31**
+
+Found 2026-08-31, in a browser, on dev. This is the **overview** half of the
+never-stored bug above; everything written before this heading is about the grid.
+
+`/stakes` «Залишок» counts stored `StakeAllocation` rows. `/stakes/[id]`
+«Розподілено» counts what is on screen, which includes rows the формула drew and
+nobody saved. They disagree by exactly the unstored amount:
+
+| Кафедра             | `/stakes` «Залишок» | grid implies | gap      |
+| ------------------- | ------------------- | ------------ | -------- |
+| Здоров'я і безпеки  | 0,95                | 0,70         | **0,25** |
+| Цифрових технологій | 3,75                | 2,75         | **1,00** |
+
+Proof it is this and not something else: saving Кафедра здоров'я moved its
+«Залишок» from 0,95 to 0,70 by itself, with no ставка changed.
+
+**Why it matters more than the grid half.** The проректор allocates pools from
+`/stakes`. It currently offers them a full 1,00 ставки of headroom on Кафедра
+цифрових технологій that the кафедра's own screen has already spent. The grid at
+least warns — «Зберегти» lights up and its tooltip names the person. The overview
+gives no signal at all.
+
+**Neither number is wrong.** 0,95 is what is committed; 0,70 is what it becomes
+once saved. They answer different questions. The defect is that the overview
+never says a кафедра is half-saved.
+
+**Fixed by the owner's call (2026-08-31): make the numbers agree, and keep the
+badge.** Both were proposed; the owner chose both.
+
+The root cause was not arithmetic. The rule for «what number does this row show»
+— stored value, bounds, the frozen «тільки збільшити» floor and its overspend
+exception — lived **only inside the grid component**, as thirty untested lines of
+`seed()`. `/stakes` could not call it, so it summed the stored allocations
+instead, and the two answers drifted.
+
+- `openingStake` now holds that rule in `lib/stake/settle.ts`, with 11 tests. It
+  had none while it was in the component: it was reachable only by rendering the
+  grid and looking at it.
+- Both screens call it. They cannot disagree again — same function, same inputs.
+- `/stakes` assembles those inputs the way `getStakeDistribution` does: same
+  roster (сумісники included), same per-кафедра bounds fallback, same формула,
+  same frozen `formulaHundredths`. One extra query for all 31 кафедри.
+- The «Незбережено: N» badge stays. It no longer marks a mismatch — it marks
+  that the agreed figure is **provisional**, drawn by the формула and not yet
+  confirmed by a завідувач.
+
+Verified on dev: Кафедра цифрових технологій now reads «Залишок 2,75 ·
+розподілено 7,25» on both screens, and the twelve row values sum to 7,25.
+
 **The owner's chosen fix (2026-08-24): replace autosave with a «Зберегти
 розподіл» button, disabled when there is nothing to save.** Two things that fix
 must get right:
