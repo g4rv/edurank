@@ -115,4 +115,69 @@ COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 USER nextjs
 EXPOSE 3000
 
+# Is this container able to SERVE, not merely running?
+#
+# `/api/health` asks Postgres for `SELECT 1`, so a container that booted fine
+# and cannot reach the database reports unhealthy instead of quietly serving an
+# error on every page.
+#
+# WHY `node -e` AND NOT `curl`. This image is node:22-slim plus openssl and
+# ca-certificates — there is no curl and no wget in it. Coolify's own health
+# check UI generates a curl command by default, so switching it on without
+# reading this would mark a perfectly good container unhealthy forever. Node is
+# already here and Node 22 has a global `fetch`, so the check costs nothing to
+# install and cannot drift from what the image actually contains.
+#
+# PORT is read at runtime rather than baked in: the ENV above defaults it to
+# 3000, and Coolify may set something else.
+#
+# ── `start-period` is 180s, and it is FREE ──
+#
+# The entrypoint applies migrations BEFORE the server listens, so early failures
+# are the app working, not the app broken. Inside the start period a failure is
+# not counted at all: the container reads «health: starting», never «unhealthy».
+#
+# The number is generous because a long start period costs nothing in the normal
+# case — Docker marks the container healthy the moment the FIRST check passes, so
+# an app that boots in twenty seconds is healthy at twenty seconds whatever this
+# says. All it buys is forgiveness for a migration that rewrites a big table.
+#
+# What it does trade: a container that is genuinely broken takes 180s + 3×10s to
+# be called unhealthy instead of 60s + 3×10s. Slower to notice a real failure,
+# much harder to kill a deploy that was fine. For a university app with a few
+# hundred users and one maintainer, that is the right way round. Raise it if a
+# migration ever gets near it.
+#
+# ── HEALTHCHECK_OFF — the escape hatch ──
+#
+# A healthcheck baked into an image is normally undoable only by building a new
+# image, and a broken check takes the site down with it (Traefik stops routing
+# to an unhealthy container). So the check reads this first: set
+# `HEALTHCHECK_OFF=1` in Coolify and restart, and it passes unconditionally —
+# back to how the app behaved before any of this existed. No rebuild.
+#
+# ── NOT ENABLED YET, on purpose (2026-08-31) ──
+#
+# The line below is commented out and the endpoint it calls is live, so
+# `/api/health` can be curled by hand today and answers correctly.
+#
+# What is NOT known: whether Coolify's deploy gate waits on a container's health
+# before calling a deployment successful. If it does, a check that is wrong — or
+# merely slower than the gate's patience — fails a deploy that was fine. That is
+# a risk worth taking on an afternoon when somebody can watch `docker ps`, and
+# not one to leave lying in the image until then.
+#
+# TO ENABLE, when there is half an hour to watch it:
+#   1. Uncomment the two lines below, deploy.
+#   2. `docker ps` → wait for STATUS `(healthy)`. That is the whole test, and it
+#      costs nothing: Coolify's own healthcheck stays disabled, so Traefik goes
+#      on routing traffic whatever this says.
+#   3. Only if it reads `(healthy)`, consider enabling it in Coolify's UI too.
+#   If anything looks wrong: `HEALTHCHECK_OFF=1` + restart, or comment it out again.
+#
+# See docs/deployment.md § «When the healthcheck is the problem».
+#
+# HEALTHCHECK --interval=10s --timeout=5s --start-period=180s --retries=3 \
+#   CMD node -e "if(process.env.HEALTHCHECK_OFF)process.exit(0);fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -339,3 +339,213 @@ Honest list, as of 2026-08-14.
 | Reminders / notifications  | No notification code exists at all.                                                                  |
 | Restore drill              | **Done 2026-08-22** on dev, from the `backup` service's own file. See §7.                            |
 | Support owner              | Nobody has been named. Decide who answers when an НПП cannot sign in.                                |
+
+---
+
+## Health check
+
+`GET /api/health` answers `{"status":"ok"}` with **200** when the container can
+reach Postgres, and `{"status":"error"}` with **503** when it cannot. Public and
+unauthenticated on purpose — the caller is a process, not a person. It says
+nothing else: this is the one URL anybody on the internet can call, and a
+database error repeated verbatim gives away host and role names.
+
+The check lives in the **`Dockerfile`**, so it travels with the image.
+
+### Two things about Coolify, both verified
+
+1. **A Dockerfile `HEALTHCHECK` beats the UI.** Coolify's own docs say so, and
+   [issue #10974](https://github.com/coollabsio/coolify/issues/10974) reports the
+   UI cannot override it even where it claims it will. So the Dockerfile is what
+   actually runs, whatever the UI shows.
+2. **Coolify's «HTTP request» check type needs `curl` or `wget` INSIDE the
+   container** — and this image has neither. It is `node:22-slim` plus `openssl`
+   and `ca-certificates`, nothing more. Switching that check type on without
+   reading this marks a perfectly healthy container unhealthy, on every interval,
+   forever.
+
+Hence `node -e` with a global `fetch`: Node is already in the image and cannot
+drift from it. If you ever configure the check in the UI as well, use **CMD** type
+with this exact command, never HTTP:
+
+```sh
+node -e "if(process.env.HEALTHCHECK_OFF)process.exit(0);fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+```
+
+### Enabling it safely — do NOT skip the order
+
+While the healthcheck is disabled in Coolify, **Traefik routes traffic
+regardless of health**. Enabling it therefore changes routing: a wrong check
+takes the site down. So prove it first, on a deploy that cannot hurt you.
+
+1. **Push.** Leave Coolify's healthcheck **disabled**. Traffic is unaffected —
+   the Dockerfile check runs and reports, but nothing acts on it yet.
+2. **Watch it.** `docker ps` → wait for STATUS `(healthy)`. This is the free test.
+   - `(health: starting)` → still inside the start period. Wait.
+   - `(unhealthy)` → **stop. Do not enable.** Diagnose below.
+3. **Only then** enable it in Coolify.
+
+### Timings, and why start-period is 180s
+
+```
+--interval=10s --timeout=5s --start-period=180s --retries=3
+```
+
+`entrypoint.sh` applies migrations **before** the server listens, so early
+failures are the app working, not the app broken. Inside the start period a
+failure is not counted: the container reads `health: starting`, never
+`unhealthy`.
+
+**A long start period is free.** Docker marks the container healthy the moment
+the FIRST check passes — an app that boots in twenty seconds is healthy at twenty
+seconds whatever this says. All it buys is forgiveness for a migration that
+rewrites a big table.
+
+What it trades: a genuinely broken container is called unhealthy after ~210s
+instead of ~90s. Slower to notice a real failure, much harder to kill a deploy
+that was fine. Raise it if a migration ever gets near it.
+
+---
+
+## When the healthcheck is the problem
+
+The failure everybody fears: the check is wrong, Traefik stops routing, the site
+is down, and the check is baked into an image so «just turn it off» means waiting
+for a full rebuild. It does not, because of the escape hatch.
+
+### 1. Get the site back up — 30 seconds, no rebuild
+
+**Coolify → Environment Variables → add `HEALTHCHECK_OFF=1` → Restart.**
+
+The check then passes unconditionally. The app is back to exactly how it behaved
+before any of this existed: Traefik routes to it regardless of health. No
+rebuild, no revert, no waiting on a build.
+
+It is deliberately blunt. It does not fix anything — it stops the healthcheck
+being the thing that is wrong, so you can diagnose without the site down. Remove
+the variable and restart once the real problem is understood.
+
+Note an empty value does **not** disable it (`HEALTHCHECK_OFF=` still checks), so
+a half-typed variable cannot silently switch the check off.
+
+### 2. Work out what actually happened
+
+```sh
+docker ps -a                                                  # find the container
+docker inspect --format '{{json .State.Health}}' <id> | jq    # last 5 probe results + output
+docker logs --tail 100 <id>                                   # what the app itself said
+```
+
+`State.Health.Log` holds the exit code and output of each recent probe. That
+distinguishes the three cases:
+
+| What you see                                          | What it means                                                  |
+| ----------------------------------------------------- | -------------------------------------------------------------- |
+| `entrypoint: applying migrations…` and nothing after  | A migration is still running — **not** a healthcheck problem   |
+| App logs normal, probe exits 1                        | The app is up but `/api/health` says no → Postgres unreachable |
+| `Cannot find module` / node error in the probe output | The check command itself is broken                             |
+
+**Is a migration simply slow?** Ask Postgres directly, from the database container:
+
+```sh
+psql -U postgres -d edurank -c \
+  "SELECT pid, state, wait_event_type, left(query,80) AS query, now()-query_start AS running \
+   FROM pg_stat_activity WHERE state <> 'idle' ORDER BY query_start;"
+```
+
+A long-running `ALTER TABLE` / `CREATE INDEX` is the migration working. **Let it
+finish** — killing a migration halfway is far worse than a few minutes of
+downtime, because Prisma then records the migration as failed and the next
+deploy refuses to start until somebody resolves it by hand.
+
+If it genuinely needs longer than the start period, raise `--start-period` in the
+`Dockerfile` and redeploy. Do not lower `retries` to «make it pass».
+
+### 3. Roll back the deploy
+
+If the new build itself is bad rather than just the check:
+
+**Coolify → Deployments → pick the last successful one → Redeploy.** That
+redeploys a known-good image without touching git.
+
+Git route, if the bad code is already on `main`:
+
+```sh
+git revert <sha>      # a new commit undoing it — never force-push main
+git push
+```
+
+### 4. Last resort — run the container with no healthcheck at all
+
+Only if Coolify itself is unreachable and you are on the server:
+
+```sh
+docker run --no-healthcheck ...   # same flags Coolify used, see `docker inspect`
+```
+
+Prefer `HEALTHCHECK_OFF=1` — a hand-run container is outside Coolify's knowledge
+and the next redeploy silently replaces it.
+
+## Rolling back does NOT undo a migration
+
+Worth being exact about, because the instinct is wrong and the mistake is
+expensive (raised by the owner, 2026-08-31).
+
+**Prisma has no down-migrations.** Not «we do not use them» — they do not exist.
+Check `prisma migrate --help` on this repo's own version: `deploy`, `status`,
+`resolve`, `diff`, and nothing that goes backwards.
+
+Two facts follow, and together they mean a rollback is almost never the answer:
+
+1. **The database is a separate Coolify resource.** Redeploying swaps the app
+   container and never touches Postgres. A migration that ran has still run.
+2. **An older image carries an older `prisma/migrations` folder**, while
+   `_prisma_migrations` in the database still records the newer one. The two
+   disagree, and `migrate deploy` says so on the next boot:
+
+   > The following migration(s) are applied to the database but missing from the
+   > local migrations directory
+
+   (That message is emitted by the `deploy` code path. Whether it merely warns or
+   fails the deploy has **not** been tested here — do not plan around it.)
+
+### Read the state first — this command writes nothing
+
+```sh
+npx prisma migrate status
+```
+
+Safe on production, any time. It reports what the database believes against what
+the folder contains. Run it before doing anything else.
+
+### What actually decides whether you are fine
+
+Not the rollback — **what the migration did.**
+
+| The migration                              | Roll the image back? | Why                                            |
+| ------------------------------------------ | -------------------- | ---------------------------------------------- |
+| Added a nullable column, a table, an index | ✅ fine              | Old code ignores what it does not know about   |
+| Added a **required** column                | ⚠️ breaks            | Old code never sets it, so inserts fail        |
+| Dropped a column or table                  | ❌ data is gone      | Only a backup brings it back                   |
+| Renamed, or changed a type                 | ❌ breaks            | Old code reads a shape that is no longer there |
+
+So the recovery for a bad migration is one of two things, and «redeploy the old
+image» is neither:
+
+1. **Roll forward.** Write a NEW migration that undoes the change. This is the
+   normal path and covers almost every case.
+2. **Restore the backup (§7).** Only when data was actually destroyed.
+
+### A half-applied migration blocks every future deploy
+
+If a migration fails partway, Prisma records it as failed and `migrate deploy`
+**refuses to run at all** until a person resolves it:
+
+```sh
+npx prisma migrate resolve --rolled-back <migration_name>   # it did not apply — let me retry
+npx prisma migrate resolve --applied     <migration_name>   # I repaired the DB by hand — move on
+```
+
+This is the whole reason for «do not kill a running migration» above. A slow one
+costs minutes. A killed one costs an evening, and nothing deploys until it is
+cleared by hand.
