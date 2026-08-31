@@ -321,84 +321,113 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
   // nullable, so the text already typed is not destroyed by this decision.
 
   try {
-    await db.$transaction(async (tx) => {
-      const distribution = await tx.stakeDistribution.upsert({
-        where: { departmentId_year: { departmentId, year } },
-        update: { filledAt: new Date(), filledById: session.user.id },
-        create: {
-          departmentId,
-          year,
-          filledAt: new Date(),
-          filledById: session.user.id,
-        },
-        select: { id: true },
-      });
+    await db.$transaction(
+      async (tx) => {
+        const distribution = await tx.stakeDistribution.upsert({
+          where: { departmentId_year: { departmentId, year } },
+          update: { filledAt: new Date(), filledById: session.user.id },
+          create: {
+            departmentId,
+            year,
+            filledAt: new Date(),
+            filledById: session.user.id,
+          },
+          select: { id: true },
+        });
 
-      const previous = await tx.stakeAllocation.findMany({
-        where: { distributionId: distribution.id },
-        select: { staffId: true, proposedHundredths: true },
-      });
-      const previousByStaff = new Map(previous.map((p) => [p.staffId, p.proposedHundredths]));
+        const previous = await tx.stakeAllocation.findMany({
+          where: { distributionId: distribution.id },
+          select: { staffId: true, proposedHundredths: true },
+        });
+        const previousByStaff = new Map(previous.map((p) => [p.staffId, p.proposedHundredths]));
 
-      // Replace the set wholesale: the roster may have changed since the last
-      // save, and a stale row for somebody now archived would keep counting.
-      await tx.stakeAllocation.deleteMany({ where: { distributionId: distribution.id } });
-      await tx.stakeAllocation.createMany({
-        data: allocations.map((a) => ({
-          distributionId: distribution.id,
-          staffId: a.staffId,
-          // Frozen beside the head's number because додаток 2 prints the two
-          // side by side — the document IS the comparison.
-          formulaHundredths: formulaByStaff.get(a.staffId) ?? 0,
-          proposedHundredths: a.hundredths,
-        })),
-      });
+        // Replace the set wholesale: the roster may have changed since the last
+        // save, and a stale row for somebody now archived would keep counting.
+        await tx.stakeAllocation.deleteMany({ where: { distributionId: distribution.id } });
+        await tx.stakeAllocation.createMany({
+          data: allocations.map((a) => ({
+            distributionId: distribution.id,
+            staffId: a.staffId,
+            // Frozen beside the head's number because додаток 2 prints the two
+            // side by side — the document IS the comparison.
+            formulaHundredths: formulaByStaff.get(a.staffId) ?? 0,
+            proposedHundredths: a.hundredths,
+          })),
+        });
 
-      // ── The ставка lands on the person ──
-      //
-      // The head's number IS that person's ставка, and until commit d0f92e8 it
-      // stopped at `StakeAllocation`. `Staff.employmentRate` was a separate
-      // field an ADMIN typed by hand, so the профіль and the розподіл could
-      // disagree with nobody able to say which was real.
-      //
-      // **Everyone whose allocations moved, not only the rows being written**
-      // (2026-08-24). The old loop walked `allocations`, so a person DROPPED
-      // from the кафедра — сумісництво removed, archived — was never in it and
-      // kept a sum that still counted the кафедра they had left. `previous` is
-      // already loaded above for the audit diff, so the dropped ids are free.
-      //
-      // In the SAME transaction as the allocations, so the two cannot come
-      // apart. `closedYearProblem` has already refused every year but the
-      // active one, so reopening an old розподіл can never rewrite somebody's
-      // pay.
-      const touched = [
-        ...new Set([...allocations.map((a) => a.staffId), ...previousByStaff.keys()]),
-      ];
-      await syncEmploymentRate(tx, touched, year);
+        // ── The ставка lands on the person ──
+        //
+        // The head's number IS that person's ставка, and until commit d0f92e8 it
+        // stopped at `StakeAllocation`. `Staff.employmentRate` was a separate
+        // field an ADMIN typed by hand, so the профіль and the розподіл could
+        // disagree with nobody able to say which was real.
+        //
+        // **Everyone whose allocations moved, not only the rows being written**
+        // (2026-08-24). The old loop walked `allocations`, so a person DROPPED
+        // from the кафедра — сумісництво removed, archived — was never in it and
+        // kept a sum that still counted the кафедра they had left. `previous` is
+        // already loaded above for the audit diff, so the dropped ids are free.
+        //
+        // In the SAME transaction as the allocations, so the two cannot come
+        // apart. `closedYearProblem` has already refused every year but the
+        // active one, so reopening an old розподіл can never rewrite somebody's
+        // pay.
+        const touched = [
+          ...new Set([...allocations.map((a) => a.staffId), ...previousByStaff.keys()]),
+        ];
+        await syncEmploymentRate(tx, touched, year);
 
-      // One entry for the кафедра, not one per person: the distribution is a
-      // single decision, and 18 log lines would bury it.
-      await tx.auditLog.create({
-        data: {
-          action: previous.length > 0 ? 'UPDATE' : 'CREATE',
-          entity: 'StakeDistribution',
-          entityId: distribution.id,
-          label: `${department.name} — розподіл ставок ${year}`,
-          userId: session.user.id,
-          changes: diffChanges(
-            Object.fromEntries(
-              allocations.map((a) => [
-                byId.get(a.staffId)?.lastName ?? a.staffId,
-                previousByStaff.get(a.staffId) ?? null,
-              ])
+        // One entry for the кафедра, not one per person: the distribution is a
+        // single decision, and 18 log lines would bury it.
+        await tx.auditLog.create({
+          data: {
+            action: previous.length > 0 ? 'UPDATE' : 'CREATE',
+            entity: 'StakeDistribution',
+            entityId: distribution.id,
+            label: `${department.name} — розподіл ставок ${year}`,
+            userId: session.user.id,
+            changes: diffChanges(
+              Object.fromEntries(
+                allocations.map((a) => [
+                  byId.get(a.staffId)?.lastName ?? a.staffId,
+                  previousByStaff.get(a.staffId) ?? null,
+                ])
+              ),
+              Object.fromEntries(
+                allocations.map((a) => [byId.get(a.staffId)?.lastName ?? a.staffId, a.hundredths])
+              )
             ),
-            Object.fromEntries(
-              allocations.map((a) => [byId.get(a.staffId)?.lastName ?? a.staffId, a.hundredths])
-            )
-          ),
-        },
-      });
-    });
+          },
+        });
+      },
+      /**
+       * SERIALIZABLE, and only here.
+       *
+       * `syncEmploymentRate` recomputes a сумісник's total from EVERY кафедра
+       * that pays them, so this transaction reads rows another кафедра's head may
+       * be writing at the same moment. Under Postgres's default READ COMMITTED
+       * that `groupBy` cannot see the other transaction's uncommitted allocations,
+       * so two heads saving together each compute the sum against the other's OLD
+       * number and the second to commit writes a total that never existed.
+       *
+       * It is a cache — the profile reads the allocations directly and stays
+       * right, and `pnpm db:fix-employment-rate` repairs the column — which is why
+       * this was never seen as a bug on screen. But the drift is silent, and the
+       * days it can happen are exactly the days every head is spreading their pool
+       * at once.
+       *
+       * SERIALIZABLE turns that race into a serialisation failure instead of a
+       * wrong number. `parseDbError` below already answers with «Не вдалося
+       * зберегти розподіл. Зміни не застосовано», which is true and actionable:
+       * the head presses «Зберегти» again. A collision needs two heads writing the
+       * same сумісник in the same instant, so nobody will meet it twice.
+       *
+       * NOT applied to the other transactions in this file: they touch one
+       * кафедра's own rows, where the unique constraints already serialise what
+       * matters, and SERIALIZABLE costs retries for nothing.
+       */
+      { isolationLevel: 'Serializable' }
+    );
   } catch (e) {
     return {
       error: parseDbError(
