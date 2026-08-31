@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
+import { logWarning } from '@/lib/log';
 import { USER_EDITABLE_STAFF_FIELDS } from '@/lib/permissions';
 
 export type OwnProfileState = { error: string } | { success: true };
@@ -32,7 +33,22 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
   if (!staffId) return { error: 'Ваш профіль не знайдено' };
 
   const parsed = ownProfileSchema.safeParse(data);
-  if (!parsed.success) return { error: 'Невірні дані' };
+  if (!parsed.success) {
+    // Logged, because «Невірні дані» on its own is unactionable from a support
+    // report: it cannot say WHICH field, and the person on the phone cannot
+    // read a red line they have already navigated away from. An НПП reported
+    // failing to save her number twice while the same edit worked from /staff,
+    // and nothing anywhere recorded why (2026-08-31).
+    //
+    // Field NAMES and messages only — never the values. A profile carries a
+    // personal phone number, and a log line is not the place for it.
+    logWarning('profile.updateOwnProfile', 'schema rejected the submission', {
+      userId: session.user.id,
+      fields: [...new Set(parsed.error.issues.map((i) => String(i.path[0])))].join(','),
+      messages: [...new Set(parsed.error.issues.map((i) => i.message))].join(' | '),
+    });
+    return { error: 'Невірні дані' };
+  }
 
   const updateData: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(parsed.data)) {
