@@ -181,6 +181,12 @@ pnpm db:seed:core     # PRODUCTION, safe, idempotent: the catalogue, then the wh
                       #   rebuild them. Carries no passwords and never overwrites one.
 pnpm data:export      # the other half: writes prod-core.json (~14 MB, gitignored)
                       #   from THIS database. Run on a maintainer's machine, scp it up.
+# The Характеристика's 2022–2024 backfill travels the same way and for the same
+# reason — `import-kharakterystyka-2022-2024.ts` reads edu-reference/, which the
+# server does not have. NOT a seed: it touches one table, matches people by
+# email, replaces only IMPORT rows and never a MANUAL one.
+pnpm data:export-kharakterystyka   # here: writes kharakterystyka.json (gitignored)
+pnpm db:import-kharakterystyka     # there: reports; --apply to write
 pnpm db:seed:test     # DESTRUCTIVE: wipes people, structure and templates, then builds
                       #   a small complete university you can click every button in.
                       #   Refuses a populated database unless you pass --force.

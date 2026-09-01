@@ -64,3 +64,9 @@ next-env.d.ts
 
 # Legacy-import survey output — 318 real colleagues, same reason as staff-roster
 /import-report/
+
+# The Характеристика backfill — `pnpm data:export-kharakterystyka` writes it,
+# `pnpm db:import-kharakterystyka` reads it. Every colleague's evidence for
+# 2022–2024, keyed by their corporate address. Same rule as prod-core.json:
+# carried to the server by hand, never through the repository.
+/kharakterystyka.json

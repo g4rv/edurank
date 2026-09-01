@@ -26,6 +26,8 @@
     "db:patent-kind": "tsx prisma/patent-kind.ts",
     "db:kharakterystyka-cleanup": "tsx prisma/kharakterystyka-cleanup.ts",
     "db:bib-placeholder": "tsx prisma/bibliography-placeholder.ts",
+    "data:export-kharakterystyka": "tsx prisma/kharakterystyka-transfer.ts --export",
+    "db:import-kharakterystyka": "tsx prisma/kharakterystyka-transfer.ts",
     "db:link-positions-2025": "tsx prisma/link-licence-positions-2025.ts",
     "db:report-knpp": "tsx prisma/report-knpp.ts",
     "db:fix-field-labels": "tsx prisma/fix-legacy-field-labels.ts",
