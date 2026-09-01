@@ -31,7 +31,7 @@ Fourteen of twenty positions come straight from indicators we already have.
 |   п.38 | What it asks for                                                | Our indicators                                                                                                   |
 | -----: | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 |  **1** | ≥5 публікацій у фахових виданнях / Scopus / WoS                 | `3.8 publication_cat_a`, `3.9 publication_cat_b` — count ≥5                                                      |
-|  **2** | патент, або 5 деклараційних, або 5 свідоцтв авторського права   | `3.25 patent_granted`, `3.25 copyright_registration`                                                             |
+|  **2** | патент, або 5 деклараційних, або 5 свідоцтв авторського права   | `3.25 patent_granted` (за «Видом патенту» — див. нижче), `3.25 copyright_registration`                           |
 |  **3** | підручник / навчальний посібник / монографія, ≥5 авт. аркушів   | `3.7 monograph_ua`, `3.7 monograph_eu`, `2.2 edition_publication` (types «підручник», «навчальний посібник»)     |
 |  **4** | навч.-метод. посібники, електронні курси на освітніх платформах | `5.1 moodle_course`, `2.2 edition_publication` (types «навчально-методичний посібник», «методичні рекомендації») |
 |  **5** | захист дисертації                                               | profile: ступінь + **дата захисту** (new field)                                                                  |
@@ -56,7 +56,8 @@ already store what it needs:
   store `pages` and `coAuthors`, and the scoring already computes друковані
   аркуші as `pages / 24 / coAuthors` — so the threshold is checkable.
 - **п.2** wants one granted patent **or** five declaration patents **or** five
-  copyright certificates — three separate counts.
+  copyright certificates — three separate counts. See «Вид патенту» below: the
+  first two come from the same indicator and are told apart by its own select.
 - **п.11** and **п.13** carry their conditions inside the indicator itself.
 
 ### What the rating cannot give
@@ -89,6 +90,119 @@ the rating**, because the rating rewards the effort. It just does not satisfy a
 п.38 position. Two different questions about the same row, and the code must keep
 them separate — the Характеристика reads a filtered subset of the activities, not
 all of them.
+
+## Записи вручну — one row, one item (decided 2026-09-01)
+
+ADMIN types evidence for a position in `KharakterystykaEntry`. Two rules:
+
+**One row stands for exactly one item.** A position asking for five wants five
+rows. The row used to carry a `count`, so a single row could claim to be five —
+and that number was checkable against nothing, because there is one
+реєстраційний номер in the text, not five. The column is gone.
+
+**A row names which alternative it satisfies.** Only п.2 has more than one, so
+only п.2 asks; everywhere else the row stores `group: null` and lands on the
+position's single alternative. A group that is not one of that position's own is
+refused by the action — it would save into a bucket nothing reads, and the status
+beside it would not move.
+
+The screen is a dialog with two views: what is already typed (with delete), and
+the form that adds one more. Saving returns to the list rather than closing,
+because five свідоцтв is now five saves. The table cell itself carries no
+controls — typed rows already print in its evidence list, labelled «Внесено
+вручну», and listing them again to hang a delete button off was the same rows
+twice.
+
+Imported rows never appear in the dialog. They are replaced wholesale on the next
+import run, so deleting one there would come back and look like a failed delete.
+
+**Every position asks its own questions.** The form is a field spec per position
+(`lib/kharakterystyka/position-evidence.ts`) of exactly the kind an indicator
+carries, so the dialog renders it with the rating's own component, validates it
+with `schemaForFields`, and builds the printed sentence with `summarizeEvidence`.
+The text is **generated, never typed** (owner, 2026-09-01), so every row of one
+position reads the same way; a live preview shows it before saving. `evidence`
+holds the answers beside the generated `text`, which is what keeps a future
+«edit this row» screen possible.
+
+Only what NAMES the achievement is required. A typed row usually records an old
+year from a document that said less than we would like, and a form refusing to
+save until every box is full would send somebody to invent a реєстраційний номер.
+
+## Imported evidence that evidences nothing (cleaned 2026-09-01)
+
+The 2022–2024 backfill reads column D (the description) and falls back to
+column B when it is empty — and column B is a dropdown. So a monograph row whose
+author answered **«Ні»** — _I have none of this_ — was stored as proof that they
+do. **26 documents claimed a licence position on the evidence «Ні».**
+
+`pnpm db:kharakterystyka-cleanup` removes it, in two tiers:
+
+| Tier                                   | Rows | Removed by       |
+| -------------------------------------- | ---- | ---------------- |
+| «Так» / «Ні» / a bare number           | 113  | `--apply`        |
+| a role or place with no subject        | 462  | `--apply --bare` |
+| «Оберіть …:» prompt stripped from text | 68   | `--apply`        |
+
+Tier 2 — «виконавець» (of what?), «1 місце» (in what?) — is not false, merely
+unusable: each names half a fact. It is removed only on request because of that.
+The description was never in the source either, so re-importing recovers nothing.
+
+Three people fell below the four-position bar and left `Кнпп`: Бобровнік Ю.,
+Куйбіда В., Козій Т. That is the correct reading — each was held there by one
+unevidenced row — and any of them may put the work back through the form,
+described properly.
+
+The importer now refuses tier 1 by itself and strips the prompts, so a re-run
+cannot reintroduce either.
+
+## The Excel export: one row per entry (decided 2026-09-01)
+
+Excel will not make a row taller than **409 points**, about 27 lines. A person
+with seventeen publications needs a hundred, so two thirds of п.1 was invisible —
+and a spreadsheet gives no sign at all that a cell is cut off.
+
+So a position spans as many rows as it has entries, with `№` and the показник
+merged down the side of them. The document still reads as the twenty positions of
+п.38, and each entry gets the height its own text needs.
+
+Row heights are computed by simulating Excel's **word** wrap, not by dividing
+characters by column width: a real line stops at whatever word would cross the
+edge, which is worth about one line per paragraph — enough, on its own, to cut
+the last line off every publication. One spare line is added on top, because the
+two failure modes are not equal: a row a line too tall is a gap, a row a line too
+short silently drops evidence.
+
+## «Вид патенту» — п.2 (decided 2026-09-01)
+
+Indicator `3.25 patent_granted` is «Отримання патенту на винахід / патенту на
+корисну модель» — one indicator for two things the law does **not** treat alike:
+
+| Смуга п.2                                          | Потрібно |
+| -------------------------------------------------- | -------- |
+| патент на винахід                                  | 1        |
+| деклараційний патент на винахід чи корисну модель  | 5        |
+| свідоцтво про реєстрацію авторського права на твір | 5        |
+
+Until this date the indicator fed the first bar with every patent it held, and
+the evidence stored nothing that told the kinds apart — дата, реєстраційний
+номер, назва. So **one патент на корисну модель printed as «Виконано»** on a
+document the university is licensed against.
+
+The indicator now carries a **«Вид патенту»** select, and each answer routes to
+its own bar — the same mechanism `2.2` uses to route п.3 against п.4. The rating
+score is untouched: it is a FIXED indicator and pays 50 for either kind. This is
+a licence question, not a rating one.
+
+Rows written before the select existed carry no answer and feed **neither** bar,
+deliberately: an unanswered patent is a claim nobody has checked, and keeping it
+on the bar of one is the very thing being fixed. `pnpm db:patent-kind` lists them
+and updates the indicator on every template — `pnpm db:seed` reaches only the
+2026 one, a cloned template is never reseeded, and production is never seeded at
+all.
+
+The third bar, `declarative`, has **no indicator pointing at it**. Nothing in the
+rating counts деклараційні патенти separately, so it is reachable only by hand.
 
 ## Where the first Характеристики come from (decided 2026-08-07)
 

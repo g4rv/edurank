@@ -13,7 +13,20 @@ import { SCOPUS_OR_WOS_HOSTS } from '@/lib/link-hosts';
 // - moodle_course has a select `mode` + six scored checkboxes (MOODLE_MATERIALS)
 
 export type EvidenceField =
-  | { kind: 'text'; name: string; label: string; multiline?: boolean; optional?: boolean }
+  | {
+      kind: 'text';
+      name: string;
+      label: string;
+      multiline?: boolean;
+      optional?: boolean;
+      /**
+       * Grey example text. Used where the SHAPE of the answer matters and the
+       * label cannot carry it — a бібліографічний опис is read straight into a
+       * licence document, and «Бібліографічний опис» alone tells nobody whether
+       * to write the year before the pages or after.
+       */
+      placeholder?: string;
+    }
   | {
       kind: 'number';
       name: string;
@@ -71,19 +84,25 @@ export type EvidenceField =
       options: readonly { value: string; label: string; points?: number }[];
     };
 
-const text = (
+// The field constructors below are exported for one other caller: the
+// Характеристика's hand-typed rows (`lib/kharakterystyka/position-evidence.ts`).
+// Its forms are field specs of exactly this shape, rendered by the same
+// component and validated by the same generator — so п.15 asks for a школяр and
+// a етап instead of one blank box, and the sentence it prints is built the way
+// every rating row's is.
+export const text = (
   name: string,
   label: string,
-  opts?: { multiline?: boolean; optional?: boolean }
+  opts?: { multiline?: boolean; optional?: boolean; placeholder?: string }
 ): EvidenceField => ({ kind: 'text', name, label, ...opts });
 
-const number = (
+export const number = (
   name: string,
   label: string,
   opts?: { min?: number; int?: boolean; optional?: boolean }
 ): EvidenceField => ({ kind: 'number', name, label, ...opts });
 
-const url = (
+export const url = (
   name: string,
   label: string,
   opts?: { optional?: boolean; hosts?: readonly string[]; hostsError?: string }
@@ -94,28 +113,36 @@ const url = (
   ...opts,
 });
 
-const date = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
+export const date = (
+  name: string,
+  label: string,
+  opts?: { optional?: boolean }
+): EvidenceField => ({
   kind: 'date',
   name,
   label,
   ...opts,
 });
 
-const isbn = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
+export const isbn = (
+  name: string,
+  label: string,
+  opts?: { optional?: boolean }
+): EvidenceField => ({
   kind: 'isbn',
   name,
   label,
   ...opts,
 });
 
-const doi = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
+export const doi = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
   kind: 'doi',
   name,
   label,
   ...opts,
 });
 
-const checkbox = (
+export const checkbox = (
   name: string,
   label: string,
   opts?: {
@@ -131,13 +158,45 @@ const checkbox = (
   ...opts,
 });
 
-const select = (
+export const select = (
   name: string,
   label: string,
   options: readonly { value: string; label: string }[]
 ): EvidenceField => ({ kind: 'select', name, label, options });
 
-const opt = (value: string, label: string) => ({ value, label });
+export const opt = (value: string, label: string) => ({ value, label });
+
+// Example бібліографічні описи, in ДСТУ 8302:2015 shape.
+//
+// This text is not a hint about the form — it is what gets printed in the
+// Характеристика's «Дані підтвердження показника» and read against п.38. The
+// label «Бібліографічний опис» does not say whether the year goes before the
+// pages, whether to abbreviate the journal, or where the DOI belongs, so people
+// wrote each one differently and the document read as five different documents
+// (owner, 2026-09-01). An example answers all of it at a glance and costs
+// nothing to ignore.
+//
+// Each one opens with «Наприклад:» — the same wording the ISBN and DOI boxes
+// use. Grey placeholder text in a full-width textarea reads as a filled-in
+// value to somebody scanning the form, and a person who takes it for their own
+// record either leaves it or types around it (owner, 2026-09-01).
+//
+// None of them ends with a DOI or an ISBN, though a real ДСТУ description may:
+// every form that shows one of these already has its own box for it, checked
+// and formatted, and an example that repeats it invites the same identifier
+// twice — once validated, once as free text somebody mistyped (owner,
+// 2026-09-01).
+export const BIB_ARTICLE =
+  'Наприклад: Шевченко О. П., Коваленко І. М. Цифрова трансформація закладів вищої освіти. ' +
+  'Педагогіка вищої школи. 2025. № 3(42). С. 112–124.';
+
+export const BIB_MONOGRAPH =
+  'Наприклад: Шевченко О. П. Управління якістю вищої освіти : монографія. ' +
+  'Київ : Наукова думка, 2025. 248 с.';
+
+export const BIB_EDITION =
+  'Наприклад: Шевченко О. П., Коваленко І. М. Основи педагогічної майстерності : ' +
+  'навчальний посібник. Київ : Академвидав, 2025. 312 с.';
 
 // Shared option-label sets (values MUST match SELECT_OPTION_POINTS keys)
 const ROLE_OPTION = 'Роль';
@@ -344,7 +403,10 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     ]),
     number('pages', 'Кількість сторінок', { min: 1, int: true }),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
-    text('bibliography', 'Бібліографічний опис', { multiline: true }),
+    text('bibliography', 'Бібліографічний опис', {
+      multiline: true,
+      placeholder: BIB_EDITION,
+    }),
   ],
   foreign_language_teaching: [
     text('program', 'Освітня програма'),
@@ -407,7 +469,10 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
     // Required: the 2026 form marks this item «обов'язково ISBN»
     isbn('isbn', 'ISBN'),
-    text('bibliography', 'Бібліографічний опис', { multiline: true }),
+    text('bibliography', 'Бібліографічний опис', {
+      multiline: true,
+      placeholder: BIB_MONOGRAPH,
+    }),
   ],
   monograph_eu: [
     number('pages', 'Кількість сторінок', { min: 1, int: true }),
@@ -415,7 +480,10 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     // Optional: the form does not demand it here, so a missing ISBN must not
     // block a genuine submission — but it is still checked when filled in
     isbn('isbn', 'ISBN', { optional: true }),
-    text('bibliography', 'Бібліографічний опис', { multiline: true }),
+    text('bibliography', 'Бібліографічний опис', {
+      multiline: true,
+      placeholder: BIB_MONOGRAPH,
+    }),
   ],
   publication_cat_a: [
     select('option', 'Квартиль', [
@@ -423,7 +491,10 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       opt('q2', 'Квартиль Q2'),
       opt('q3_4_or_none', 'Квартиль Q3-4 / відсутній'),
     ]),
-    text('bibliography', 'Бібліографічний опис', { multiline: true }),
+    text('bibliography', 'Бібліографічний опис', {
+      multiline: true,
+      placeholder: BIB_ARTICLE,
+    }),
     // The form asks for «посилання Scopus або WOS», so this stays a link rather
     // than becoming a DOI field — but it must actually BE one of those two.
     // The DOI sits beside it, optional; it is what the future
@@ -436,7 +507,10 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   ],
   publication_cat_b: [
     select('option', 'Авторство', [opt('solo', 'одноосібно'), opt('coauthored', 'співавторство')]),
-    text('bibliography', 'Бібліографічний опис', { multiline: true }),
+    text('bibliography', 'Бібліографічний опис', {
+      multiline: true,
+      placeholder: BIB_ARTICLE,
+    }),
     url('link', 'Посилання', { optional: true }),
     doi('doi', 'DOI', { optional: true }),
   ],
@@ -528,7 +602,17 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   citations_wos: [number('value', 'h-індекс (WoS)', { min: 0, int: true })],
   citations_scopus: [number('value', 'h-індекс (Scopus)', { min: 0, int: true })],
   citations_scholar: [number('value', 'h-індекс (Google Scholar)', { min: 0, int: true })],
+  // `patentKind` is not scored — the indicator is FIXED and pays 50 for either
+  // kind. It exists for п.38 позиція 2, which does NOT treat them alike: one
+  // патент на винахід meets it, and деклараційних it wants five. Without the
+  // field every patent fed the bar of one, so a single патент на корисну модель
+  // printed as «Виконано» on a licence document (owner, 2026-09-01). The routing
+  // is in `LICENCE_POSITIONS_2026`, the same way 2.2 routes п.3 against п.4.
   patent_granted: [
+    select('patentKind', 'Вид патенту', [
+      opt('invention', 'Патент на винахід'),
+      opt('declarative', 'Деклараційний патент на винахід чи корисну модель'),
+    ]),
     date('date', 'Дата реєстрації'),
     text('registrationNumber', 'Реєстраційний номер'),
     text('title', 'Назва'),

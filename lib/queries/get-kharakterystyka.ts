@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import {
   buildKharakterystyka,
+  type KharakterystykaEntry,
   type Kharakterystyka,
   type KharakterystykaActivity,
 } from '@/lib/kharakterystyka/build';
@@ -31,6 +32,22 @@ const ACTIVITY_SELECT = {
   },
 } as const;
 
+/**
+ * A `KharakterystykaEntry` as the builder wants it — п.15 and п.20 typed by
+ * hand, and the years the app never held a rating for.
+ *
+ * Selected explicitly rather than taken whole: `createdBy`, the timestamps and
+ * the id are audit trail, not evidence, and the builder must not be able to
+ * print them by accident.
+ */
+const ENTRY_SELECT = {
+  position: true,
+  group: true,
+  year: true,
+  text: true,
+  itemNumber: true,
+} as const;
+
 /** One person's Характеристика over the five years ending at `lastYear`. */
 export async function getKharakterystyka(
   staffId: string,
@@ -47,12 +64,21 @@ export async function getKharakterystyka(
   // something false rather than merely being empty.
   if (!staff?.isNpp) return null;
 
-  const activities = await db.activity.findMany({
-    where: { staffId, year: { gte: from, lte: to } },
-    select: ACTIVITY_SELECT,
-  });
+  const [activities, entries] = await Promise.all([
+    db.activity.findMany({
+      where: { staffId, year: { gte: from, lte: to } },
+      select: ACTIVITY_SELECT,
+    }),
+    // п.15 and п.20, and the years the app never held a rating for. The window
+    // is applied in `buildKharakterystyka` as well, which is where the rule
+    // lives; narrowing here only keeps the query small.
+    db.kharakterystykaEntry.findMany({
+      where: { staffId, year: { gte: from, lte: to } },
+      select: ENTRY_SELECT,
+    }),
+  ]);
 
-  return buildKharakterystyka(activities as KharakterystykaActivity[], staff, lastYear);
+  return buildKharakterystyka(activities as KharakterystykaActivity[], staff, lastYear, entries);
 }
 
 /**
@@ -73,7 +99,7 @@ export async function getKharakterystykaMany(
 
   const { from, to } = windowFor(lastYear);
 
-  const [staff, activities] = await Promise.all([
+  const [staff, activities, entries] = await Promise.all([
     db.staff.findMany({
       where: { id: { in: [...staffIds] }, isNpp: true },
       select: { id: true, scientificDegree: true, degreeDefenceDate: true },
@@ -81,6 +107,12 @@ export async function getKharakterystykaMany(
     db.activity.findMany({
       where: { staffId: { in: [...staffIds] }, year: { gte: from, lte: to } },
       select: { staffId: true, ...ACTIVITY_SELECT },
+    }),
+    // Still one query for the whole set, not one per person — the bulk export
+    // and `Кнпп` for all 31 кафедри both come through here.
+    db.kharakterystykaEntry.findMany({
+      where: { staffId: { in: [...staffIds] }, year: { gte: from, lte: to } },
+      select: { staffId: true, ...ENTRY_SELECT },
     }),
   ]);
 
@@ -91,11 +123,21 @@ export async function getKharakterystykaMany(
     else byStaff.set(a.staffId, [a as KharakterystykaActivity]);
   }
 
+  const entriesByStaff = new Map<string, KharakterystykaEntry[]>();
+  for (const e of entries) {
+    const list = entriesByStaff.get(e.staffId);
+    if (list) list.push(e);
+    else entriesByStaff.set(e.staffId, [e]);
+  }
+
   // Iterate the staff rows, not the activity map: somebody with nothing at all
   // still gets a document — twenty empty positions is the honest answer and the
   // starting state for most people.
   for (const s of staff) {
-    result.set(s.id, buildKharakterystyka(byStaff.get(s.id) ?? [], s, lastYear));
+    result.set(
+      s.id,
+      buildKharakterystyka(byStaff.get(s.id) ?? [], s, lastYear, entriesByStaff.get(s.id) ?? [])
+    );
   }
 
   return result;

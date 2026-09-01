@@ -191,6 +191,17 @@ pnpm db:create-admin  # interactive: the first ADMIN account (db:seed makes none
 pnpm db:reset         # prisma migrate reset --force (wipe + reapply, dev only)
 pnpm db:fix-rounding  # one-off repair: re-round RatingEntry totals to 2 decimals
 pnpm db:gate-to-check-sum  # one-off: convert retired GATE indicator rows to CHECK_SUM
+# The three below all report by default and write only with --apply. Each one
+# reaches EVERY template, which `pnpm db:seed` cannot — it upserts 2026 alone,
+# and production is never seeded again.
+pnpm db:patent-kind   # one-off: give 3.25 its «Вид патенту» select and route
+                      #   п.2 by it; lists patents that still name no kind
+pnpm db:kharakterystyka-cleanup  # one-off: drop imported «evidence» that
+                      #   evidences nothing («Так»/«Ні», a bare role) and strip
+                      #   the «Оберіть …:» prompts. --bare also drops the
+                      #   subjectless fragments. See docs/kharakterystyka.md.
+pnpm db:bib-placeholder  # one-off: put the ДСТУ example into every
+                      #   «Бібліографічний опис» box; refreshes stale wording
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 

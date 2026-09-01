@@ -53,9 +53,22 @@ export default async function StaffKharakterystykaPage({
     );
   }
 
-  const [data, positionSources] = await Promise.all([
+  // ADMIN alone may type evidence by hand — see the note on the action. Loaded
+  // only for them, so nobody else's page carries rows it will not render.
+  const canEdit = session.user.role === 'ADMIN';
+
+  const [data, positionSources, manualEntries] = await Promise.all([
     getKharakterystyka(id, template.year),
     licencePositionSources(template.year),
+    canEdit
+      ? db.kharakterystykaEntry.findMany({
+          // MANUAL only: an imported row is replaced wholesale on the next
+          // import run, so offering a delete button for one would undo itself.
+          where: { staffId: id, source: 'MANUAL' },
+          select: { id: true, position: true, group: true, year: true, text: true },
+          orderBy: [{ position: 'asc' }, { year: 'desc' }],
+        })
+      : Promise.resolve([]),
   ]);
   if (!data) notFound();
 
@@ -94,7 +107,11 @@ export default async function StaffKharakterystykaPage({
 
       <StaffTabs staffId={id} active="kharakterystyka" showRating showStaffPages={seesStaffPages} />
 
-      <KharakterystykaTable data={data} sources={Object.fromEntries(positionSources)} />
+      <KharakterystykaTable
+        data={data}
+        sources={Object.fromEntries(positionSources)}
+        editing={canEdit ? { staffId: id, entries: manualEntries } : undefined}
+      />
     </AnimatedPage>
   );
 }

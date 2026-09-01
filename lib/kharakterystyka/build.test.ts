@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { buildKharakterystyka, type KharakterystykaActivity } from './build';
+import {
+  buildKharakterystyka,
+  type KharakterystykaActivity,
+  type KharakterystykaEntry,
+} from './build';
 import { LICENCE_POSITIONS, REQUIRED_POSITIONS } from './positions';
 import { LICENCE_POSITION_LINKS } from '@/lib/rating/db-specs';
 import { catalogueType } from '@/lib/rating/db-specs';
@@ -115,13 +119,50 @@ describe('п.2 — alternatives', () => {
   const copyright = (n: number) =>
     activity('copyright_registration', { certificateNumber: `${n}`, title: `Твір ${n}` });
 
-  it('one patent is enough on its own', () => {
+  it('one патент на винахід is enough on its own', () => {
+    const result = buildKharakterystyka(
+      [
+        activity('patent_granted', {
+          patentKind: 'invention',
+          registrationNumber: '1',
+          title: 'Пристрій',
+        }),
+      ],
+      NO_PROFILE,
+      YEAR
+    );
+    expect(position(result, 2).met).toBe(true);
+  });
+
+  // The bar a деклараційний answers to is five. One of them used to meet п.2
+  // outright, because the indicator covers both kinds and nothing said which
+  // this row was — a licence claim the law does not allow (owner, 2026-09-01).
+  it('one деклараційний патент is not, five are', () => {
+    const declarative = (n: number) =>
+      activity('patent_granted', {
+        patentKind: 'declarative',
+        registrationNumber: `${n}`,
+        title: `Корисна модель ${n}`,
+      });
+
+    const one = buildKharakterystyka([declarative(1)], NO_PROFILE, YEAR);
+    expect(position(one, 2).met).toBe(false);
+
+    const five = buildKharakterystyka([1, 2, 3, 4, 5].map(declarative), NO_PROFILE, YEAR);
+    expect(position(five, 2).met).toBe(true);
+  });
+
+  // Rows written before «Вид патенту» existed. They feed neither bar, on
+  // purpose: an unanswered patent is a claim nobody has checked, and counting
+  // it against the bar of one is exactly what was wrong. `pnpm db:patent-kind`
+  // lists them so somebody can say what they are.
+  it('a patent with no kind named counts towards nothing', () => {
     const result = buildKharakterystyka(
       [activity('patent_granted', { registrationNumber: '1', title: 'Пристрій' })],
       NO_PROFILE,
       YEAR
     );
-    expect(position(result, 2).met).toBe(true);
+    expect(position(result, 2).met).toBe(false);
   });
 
   it('five copyright certificates are enough on their own', () => {
@@ -331,7 +372,7 @@ describe('positions nobody derives', () => {
 describe('Кнпп — «at least four of twenty»', () => {
   it('three positions do not qualify, four do', () => {
     const three = [
-      activity('patent_granted', { title: 'Патент' }), // п.2
+      activity('patent_granted', { patentKind: 'invention', title: 'Патент' }), // п.2
       activity('defense_supervision', { option: 'phd', student: 'П.' }), // п.6
       activity('org_consulting', { organization: 'Ліцей', mentionLink: 'https://e.ua/1' }), // п.11
     ];
@@ -359,5 +400,198 @@ describe('Кнпп — «at least four of twenty»', () => {
     expect(position(result, 8).met).toBe(true);
     expect(position(result, 10).met).toBe(true);
     expect(position(result, 8).entries).toHaveLength(1);
+  });
+});
+
+// ─── KharakterystykaEntry — evidence that is not a rating activity ───────────
+//
+// Two sources, one table: п.15 and п.20 typed by hand, because the rating holds
+// neither and the catalogue only moves by a вчена рада vote; and 2022–2024,
+// carried in from the university's own files for years the app never had a
+// rating for.
+
+function entry(
+  position: number,
+  overrides: Partial<KharakterystykaEntry> = {}
+): KharakterystykaEntry {
+  return {
+    position,
+    group: null,
+    year: YEAR,
+    text: 'Внесений вручну запис',
+    itemNumber: null,
+    ...overrides,
+  };
+}
+
+describe('buildKharakterystyka — manual and imported entries', () => {
+  // The regression this table exists for. п.15 and п.20 have no indicator and
+  // rendered as rows nobody could fill, on a document the university is
+  // licensed against.
+  it('fills п.15, which no indicator can reach', () => {
+    const before = buildKharakterystyka([], NO_PROFILE, YEAR);
+    expect(position(before, 15).met).toBe(false);
+
+    const after = buildKharakterystyka([], NO_PROFILE, YEAR, [
+      entry(15, { text: 'Журі ІІІ етапу Всеукраїнської олімпіади з біології' }),
+    ]);
+    const p15 = position(after, 15);
+    expect(p15.met).toBe(true);
+    expect(p15.entries).toHaveLength(1);
+    expect(p15.evidence).toContain('олімпіади з біології');
+  });
+
+  it('fills п.20 the same way', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(20)]);
+    expect(position(result, 20).met).toBe(true);
+  });
+
+  // Military positions. A row here would assert something the licence
+  // conditions do not let this university claim, so there is nothing to type.
+  it('never fills п.16–18, whatever is passed', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(16), entry(17), entry(18)]);
+    for (const n of [16, 17, 18]) {
+      expect(position(result, n).met).toBe(false);
+      expect(position(result, n).entries).toHaveLength(0);
+    }
+  });
+
+  it('counts towards a derived position beside the rating own entries', () => {
+    // п.1 needs five publications: three from the rating, two imported
+    const result = buildKharakterystyka(
+      [publication(1), publication(2), publication(3)],
+      NO_PROFILE,
+      YEAR,
+      [entry(1, { year: 2023 }), entry(1, { year: 2022 })]
+    );
+    const p1 = position(result, 1);
+    expect(p1.progress).toEqual({ have: 5, need: 5 });
+    expect(p1.met).toBe(true);
+    expect(p1.entries).toHaveLength(5);
+  });
+
+  // One row is one item (owner, 2026-09-01). A row claiming to stand for five
+  // was evidence of nothing checkable — there is one реєстраційний номер in it,
+  // not five — so a bar of five now needs five rows and prints five lines.
+  it('counts one row as one item, so a bar of five needs five rows', () => {
+    const four = buildKharakterystyka(
+      [],
+      NO_PROFILE,
+      YEAR,
+      [1, 2, 3, 4].map((n) => entry(1, { text: `Публікація ${n}` }))
+    );
+    expect(position(four, 1).met).toBe(false);
+    expect(position(four, 1).progress).toEqual({ have: 4, need: 5 });
+
+    const five = buildKharakterystyka(
+      [],
+      NO_PROFILE,
+      YEAR,
+      [1, 2, 3, 4, 5].map((n) => entry(1, { text: `Публікація ${n}` }))
+    );
+    expect(position(five, 1).met).toBe(true);
+    expect(position(five, 1).entries).toHaveLength(5);
+  });
+
+  // The whole reason the row carries a year: 2022 rows drop out by themselves
+  // once the document is built for 2027, with nobody deleting anything.
+  it('applies the five-year window to entries', () => {
+    const outside = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(15, { year: 2021 })]);
+    expect(position(outside, 15).met).toBe(false);
+
+    const inside = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(15, { year: 2022 })]);
+    expect(position(inside, 15).met).toBe(true);
+  });
+
+  // п.2 is one патент на винахід OR five деклараційних OR five свідоцтв —
+  // three bars over three groups, and the law's own order.
+  it('routes an entry to the alternative it names', () => {
+    const patent = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(2, { group: 'patent' })]);
+    expect(position(patent, 2).met).toBe(true);
+
+    const oneCertificate = buildKharakterystyka([], NO_PROFILE, YEAR, [
+      entry(2, { group: 'copyright' }),
+    ]);
+    expect(position(oneCertificate, 2).met).toBe(false);
+
+    const fiveCertificates = buildKharakterystyka(
+      [],
+      NO_PROFILE,
+      YEAR,
+      [1, 2, 3, 4, 5].map((n) => entry(2, { group: 'copyright', text: `Свідоцтво ${n}` }))
+    );
+    expect(position(fiveCertificates, 2).met).toBe(true);
+  });
+
+  // The bar a деклараційний патент answers to is five, not the one а патент на
+  // винахід answers to. Nothing in the rating feeds this group — no indicator
+  // names it — so it exists to be typed.
+  it('asks five for деклараційні патенти, not one', () => {
+    const one = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(2, { group: 'declarative' })]);
+    expect(position(one, 2).met).toBe(false);
+
+    const five = buildKharakterystyka(
+      [],
+      NO_PROFILE,
+      YEAR,
+      [1, 2, 3, 4, 5].map((n) => entry(2, { group: 'declarative', text: `Патент ${n}` }))
+    );
+    expect(position(five, 2).met).toBe(true);
+  });
+
+  // Naming no group lands on the position's FIRST alternative — for п.2 that is
+  // the patent, which the law names first.
+  it('lands on the first alternative when no group is named', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(2)]);
+    expect(position(result, 2).met).toBe(true);
+  });
+
+  it('counts towards Кнпп like any other met position', () => {
+    const entries = [entry(15), entry(20), entry(6), entry(7)];
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, entries);
+    expect(result.metCount).toBe(REQUIRED_POSITIONS);
+    expect(result.qualifies).toBe(true);
+  });
+
+  it('changes nothing when none are passed', () => {
+    const activities = [publication(1), publication(2)];
+    const withNone = buildKharakterystyka(activities, NO_PROFILE, YEAR);
+    const withEmpty = buildKharakterystyka(activities, NO_PROFILE, YEAR, []);
+    expect(withEmpty).toEqual(withNone);
+  });
+});
+
+// ─── legacy evidence, made readable ─────────────────────────────────────────
+//
+// The university's files store several facts in one cell with no separator —
+// «Дисципліна:КиївщинознавствоПосилання:https://…» is exactly how the source
+// has it, through both the 2025 rating import and the 2022–2024 one. In a
+// document the licence is read against, that looks like the university cannot
+// format a sentence.
+
+describe('buildKharakterystyka — printed evidence', () => {
+  const textOf = (result: ReturnType<typeof buildKharakterystyka>, n: number) =>
+    position(result, n).entries[0]?.summary ?? '';
+
+  it('separates facts the source ran together', () => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [
+      entry(15, {
+        text: 'Дисципліна:КиївщинознавствоПосилання:https://moodle.uhsp.edu.ua/course/view.php?id=1749',
+      }),
+    ]);
+    expect(textOf(result, 15)).toBe(
+      'Дисципліна: Київщинознавство · Посилання: https://moodle.uhsp.edu.ua/course/view.php?id=1749'
+    );
+  });
+
+  // Only whitespace may be touched. A document that quietly rewrote its own
+  // evidence would be worth less than an ugly one.
+  it.each([
+    'Назва: ТОВ «Легіон-МК»; Номер договору: 09.09.2019 р.',
+    'DOI - https://doi.org/10.52058/2786-5274-2025-1(41)-820-833',
+    'Реєстраційний номер: 0125U003812 (виконавець)',
+  ])('leaves «%s» exactly as it is', (text) => {
+    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(15, { text })]);
+    expect(textOf(result, 15)).toBe(text);
   });
 });

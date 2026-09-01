@@ -295,6 +295,7 @@ model Staff {
 
   activities    Activity[]
   ratingEntries RatingEntry[]
+  kharakterystykaEntries KharakterystykaEntry[]
   stakeLimits   StaffStakeLimits[]
   allocations   StakeAllocation[]
   studentClaims     StudentClaim[] @relation("ClaimAuthor")
@@ -519,6 +520,82 @@ model RatingEntry {
   updatedAt DateTime @updatedAt
 
   @@unique([staffId, year])
+}
+
+// ─── Характеристика (п.38 ліцензійних умов) ──────────────────────────────────
+
+enum KharakterystykaEntrySource {
+  // Typed by a person, because the rating genuinely does not hold it — п.15
+  // (робота зі школярами) and п.20 (практичний досвід за спеціальністю) have no
+  // indicator and none is coming: the catalogue moves only by a вчена рада vote.
+  MANUAL
+  // Carried in from the university's own files for a year the app never had a
+  // rating for (2022–2024). Not an Activity: those years have no template, no
+  // score and no RatingEntry, and must never acquire one — see below.
+  IMPORT
+}
+
+/// Evidence for one п.38 position that is NOT a rating activity.
+///
+/// The Характеристика is a view of the rating, and stays one — this is the
+/// narrow exception, for the two cases the rating cannot answer:
+///
+///   1. **п.15 and п.20.** No indicator exists for either, so `build.ts`
+///      rendered them as permanently empty rows that nobody could fill.
+///   2. **2022–2024.** The five-year window reaches back further than the app
+///      does. The university's Розділ files hold those years, and putting them
+///      here rather than inventing rating templates for them is deliberate:
+///      a wrong row costs one line in one table, where an Activity would drag a
+///      template, a score and a RatingEntry behind it.
+///
+/// **The scoring engine cannot see this table, by construction.** Nothing in
+/// `lib/rating/` reads it; only `lib/kharakterystyka/build.ts` does. So no
+/// Activity.score, RatingEntry or ставка can move because of a row here.
+model KharakterystykaEntry {
+  id String @id @default(cuid())
+
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// 1–20, the printed «№ з/п» of п.38
+  position Int
+  /// Which alternative inside the position, for the ones that have more than
+  /// one — п.2 is «patent», «declarative» or «copyright». Null means the
+  /// position's first, which is what every other position stores. One row is
+  /// always ONE item: a position asking for five wants five rows.
+  group String?
+  /// The rating year this belongs to, so the five-year window applies to it
+  /// exactly as it does to an activity: a 2022 row drops out of its own accord
+  /// once the document is built for 2027.
+  year Int
+
+  /// «Дані підтвердження показника», printed verbatim. For a typed row it is
+  /// GENERATED from `evidence` by `summarizeEvidence` at save, so every row of
+  /// one position reads the same way; an imported row carries the source file's
+  /// own wording and no `evidence` at all. Either way this is what prints.
+  text String
+
+  /// The typed answers behind `text`, keyed by the position's field spec
+  /// (`lib/kharakterystyka/position-evidence.ts`). Null on every imported row,
+  /// and on anything typed before the forms existed — `text` still prints, so
+  /// nothing is lost; only re-editing a row would need this.
+  evidence Json?
+
+  /// Where the number came from in the source files, when it was imported.
+  /// Documentation only: the position is what decides anything.
+  itemNumber String?
+
+  source KharakterystykaEntrySource
+
+  /// Who typed or imported it. Not a relation: the row outlives the account,
+  /// and the audit log already carries the full trail.
+  createdBy String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffId, year])
+  @@index([position])
 }
 
 // ─── Розподіл ставок ─────────────────────────────────────────────────────────

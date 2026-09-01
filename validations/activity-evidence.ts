@@ -15,7 +15,13 @@ const emptyToUndefined = (v: unknown) =>
 /** Earliest year accepted in evidence date fields (guards against typos like 0002 or 2131412) */
 export const MIN_EVIDENCE_YEAR = 1950;
 
-function fieldSchema(f: EvidenceField): z.ZodType {
+/**
+ * One field's rule. Exported for the Характеристика's hand-typed forms, which
+ * compose a FLAT schema — `{ рік, варіант, ...поля }` — because the shared
+ * renderer registers a field under its own name and nesting the evidence would
+ * make every `register('bibliography')` a `register('evidence.bibliography')`.
+ */
+export function fieldSchema(f: EvidenceField): z.ZodType {
   switch (f.kind) {
     case 'text': {
       const base = z

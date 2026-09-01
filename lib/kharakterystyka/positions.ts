@@ -51,6 +51,12 @@ export interface PositionRow {
  */
 export interface PositionAlternative {
   group: string;
+  /**
+   * The alternative's name, for the one screen that has to ask which of them a
+   * row belongs to — the hand-typed evidence form. `group` is a JSON key on the
+   * indicator and must not change; this is the sentence a person reads.
+   */
+  label: string;
   /** How many qualifying entries the law asks for */
   min: number;
   /**
@@ -151,6 +157,11 @@ function hasFiveAuthorSheets(row: PositionRow): boolean {
   return share >= 1.5;
 }
 
+// Nineteen of the twenty positions have a single way of being met, so nothing
+// ever asks the reader to choose between alternatives there. The label is still
+// required, so that adding a second alternative cannot leave the first nameless.
+const MAIN_LABEL = 'Основний показник';
+
 const FIVE_SHEETS_NOTE = 'Зараховуються лише видання обсягом ≥ 5 авт. арк. (≥ 1,5 на співавтора)';
 
 export const LICENCE_POSITIONS: readonly LicencePositionDef[] = [
@@ -159,20 +170,31 @@ export const LICENCE_POSITIONS: readonly LicencePositionDef[] = [
     title:
       'Наявність не менше п’яти публікацій у періодичних наукових виданнях, що включені до переліку фахових видань України, до наукометричних баз, зокрема Scopus, Web of Science Core Collection',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 5 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 5 }],
   },
   {
     number: 2,
     title:
       'Наявність одного патенту на винахід або п’яти деклараційних патентів на винахід чи корисну модель, включаючи секретні, або наявність не менше п’яти свідоцтв про реєстрацію авторського права на твір',
     fill: 'DERIVED',
-    // Three thresholds in one sentence. «Деклараційні патенти» are not tracked
-    // separately by the rating — the catalogue has one patent indicator — so
-    // only two alternatives exist today. A third group can be added the day an
-    // indicator for them does.
+    // Three thresholds in one sentence, and the law's own order. A патент на
+    // винахід is examined and counts alone; a деклараційний is not, and five are
+    // asked for — which is why indicator 3.25 carries a «Вид патенту» select
+    // rather than feeding the first bar with every patent it holds. Before that
+    // select existed one патент на корисну модель printed as «Виконано»
+    // (owner, 2026-09-01).
     alternatives: [
-      { group: 'patent', min: 1 },
-      { group: 'copyright', min: 5 },
+      { group: 'patent', label: 'Патент на винахід', min: 1 },
+      {
+        group: 'declarative',
+        label: 'Деклараційний патент на винахід чи корисну модель',
+        min: 5,
+      },
+      {
+        group: 'copyright',
+        label: 'Свідоцтво про реєстрацію авторського права на твір',
+        min: 5,
+      },
     ],
   },
   {
@@ -181,7 +203,13 @@ export const LICENCE_POSITIONS: readonly LicencePositionDef[] = [
       'Наявність виданого підручника чи навчального посібника (включаючи електронні) або монографії (загальним обсягом не менше 5 авторських аркушів), в тому числі видані у співавторстві (обсягом не менше 1,5 авторського аркуша на кожного співавтора)',
     fill: 'DERIVED',
     alternatives: [
-      { group: DEFAULT_GROUP, min: 1, rowTest: hasFiveAuthorSheets, rowTestNote: FIVE_SHEETS_NOTE },
+      {
+        group: DEFAULT_GROUP,
+        label: MAIN_LABEL,
+        min: 1,
+        rowTest: hasFiveAuthorSheets,
+        rowTestNote: FIVE_SHEETS_NOTE,
+      },
     ],
   },
   {
@@ -189,7 +217,7 @@ export const LICENCE_POSITIONS: readonly LicencePositionDef[] = [
     title:
       'Наявність виданих навчально-методичних посібників / посібників для самостійної роботи здобувачів вищої освіти та дистанційного навчання, електронних курсів на освітніх платформах ліцензіатів, конспектів лекцій/практикумів/методичних вказівок/рекомендацій / робочих програм, інших друкованих навчально-методичних праць загальною кількістю три найменування',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 3 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 3 }],
   },
   {
     number: 5,
@@ -207,35 +235,35 @@ export const LICENCE_POSITIONS: readonly LicencePositionDef[] = [
     title:
       'Наукове керівництво (консультування) здобувача, який одержав документ про присудження наукового ступеня',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 1 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 1 }],
   },
   {
     number: 7,
     title:
       'Участь в атестації наукових кадрів як офіційного опонента або члена постійної спеціалізованої вченої ради, або члена не менше трьох разових спеціалізованих вчених рад',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 1 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 1 }],
   },
   {
     number: 8,
     title:
       'Виконання функцій (повноважень, обов’язків) наукового керівника або відповідального виконавця наукової теми (проекту), або головного редактора/члена редакційної колегії/експерта (рецензента) наукового видання, включеного до переліку фахових видань України, або іноземного наукового видання, що індексується в бібліографічних базах',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 1 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 1 }],
   },
   {
     number: 9,
     title:
       'Робота у складі експертної ради з питань проведення експертизи дисертацій МОН або у складі галузевої експертної ради як експерта Національного агентства із забезпечення якості вищої освіти, або у складі Акредитаційної комісії, або міжгалузевої експертної ради з вищої освіти Акредитаційної комісії, або трьох експертних комісій МОН/зазначеного Агентства, або Науково-методичної ради/науково-методичних/експертних рад органів державної влади та органів місцевого самоврядування, або у складі комісій Державної служби якості освіти із здійснення планових (позапланових) заходів державного нагляду (контролю)',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 1 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 1 }],
   },
   {
     number: 10,
     title:
       'Участь у міжнародних наукових та/або освітніх проектах, залучення до міжнародної експертизи, наявність звання “суддя міжнародної категорії”',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 1 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 1 }],
   },
   {
     number: 11,
@@ -244,14 +272,14 @@ export const LICENCE_POSITIONS: readonly LicencePositionDef[] = [
     fill: 'DERIVED',
     // The «не менше трьох років» condition lives inside indicator 3.18 itself,
     // so a row existing already means the condition held.
-    alternatives: [{ group: DEFAULT_GROUP, min: 1 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 1 }],
   },
   {
     number: 12,
     title:
       'Наявність апробаційних та/або науково-популярних, та/або консультаційних (дорадчих), та/або науково-експертних публікацій з наукової або професійної тематики загальною кількістю не менше п’яти публікацій',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 5 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 5 }],
   },
   {
     number: 13,
@@ -262,7 +290,7 @@ export const LICENCE_POSITIONS: readonly LicencePositionDef[] = [
     // law asks 50. The rating rewards a lower bar than the licence requires, so
     // a row here is necessary and not sufficient; flagged rather than silently
     // trusted. See the note rendered beside the position.
-    alternatives: [{ group: DEFAULT_GROUP, min: 1 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 1 }],
     note: 'Показник 2.3 враховує від 30 годин, а ліцензійна умова вимагає 50 — перевірте обсяг',
   },
   {
@@ -270,7 +298,7 @@ export const LICENCE_POSITIONS: readonly LicencePositionDef[] = [
     title:
       'Керівництво студентом, який зайняв призове місце на I або ІІ етапі Всеукраїнської студентської олімпіади (Всеукраїнського конкурсу студентських наукових робіт), або робота у складі організаційного комітету / журі Всеукраїнської студентської олімпіади (Всеукраїнського конкурсу студентських наукових робіт), або керівництво постійно діючим студентським науковим гуртком / проблемною групою; керівництво студентом, який став призером або лауреатом Міжнародних, Всеукраїнських мистецьких конкурсів, (мистецького та спортивного спрямування)',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 1 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 1 }],
   },
   {
     number: 15,
@@ -313,7 +341,7 @@ export const LICENCE_POSITIONS: readonly LicencePositionDef[] = [
     title:
       'Діяльність за спеціальністю у формі участі у професійних та/або громадських об’єднаннях',
     fill: 'DERIVED',
-    alternatives: [{ group: DEFAULT_GROUP, min: 1 }],
+    alternatives: [{ group: DEFAULT_GROUP, label: MAIN_LABEL, min: 1 }],
   },
   {
     number: 20,
@@ -341,4 +369,41 @@ export function licencePosition(number: number): LicencePositionDef | undefined 
 /** Inclusive year range ending at `lastYear`, e.g. 2026 → [2022, 2026] */
 export function windowFor(lastYear: number): { from: number; to: number } {
   return { from: lastYear - WINDOW_YEARS + 1, to: lastYear };
+}
+
+/**
+ * The alternatives a hand-typed row must choose between — empty when there is
+ * nothing to choose.
+ *
+ * Nineteen positions have one way of being met, so the form asks nothing and the
+ * row lands on that alternative by itself (`group: null`, resolved in `build.ts`).
+ * Only п.2 asks: a патент на винахід counts alone, five деклараційних are needed,
+ * and five свідоцтв — a row cannot be counted until somebody says which it is.
+ */
+export function positionChoices(number: number): readonly PositionAlternative[] {
+  const def = licencePosition(number);
+  return def && def.alternatives.length > 1 ? def.alternatives : [];
+}
+
+/**
+ * The alternative's name, for listing a typed row back to whoever typed it.
+ * Null where there was no choice to make, so the ordinary position shows nothing.
+ */
+export function alternativeLabel(number: number, group: string | null): string | null {
+  const choices = positionChoices(number);
+  if (choices.length === 0) return null;
+  const chosen = group === null ? choices[0] : choices.find((a) => a.group === group);
+  return chosen?.label ?? null;
+}
+
+/**
+ * May a row of this position carry this group? Null always may — it means «the
+ * position's first alternative», which is what every single-alternative position
+ * stores. A name that is not one of the position's own alternatives never may:
+ * it would land the row in a bucket nothing reads, and the person who typed it
+ * would see a save that changed no status.
+ */
+export function isPositionGroup(number: number, group: string | null): boolean {
+  if (group === null) return true;
+  return licencePosition(number)?.alternatives.some((a) => a.group === group) ?? false;
 }

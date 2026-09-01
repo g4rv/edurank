@@ -35,6 +35,15 @@ interface EvidenceFieldsProps {
   control: Control<FieldValues>;
   errors: FieldErrors<FieldValues>;
   disabled?: boolean;
+  /**
+   * The container's own classes — one stacked column by default.
+   *
+   * The Характеристика's dialog passes `contents`, which drops this wrapper out
+   * of the layout so each field becomes a cell of the dialog's own two-column
+   * grid. Its forms are short-answer (a рік, a посада, a місце) and one field
+   * per row left half the dialog empty beside every one of them.
+   */
+  className?: string;
 }
 
 export type RenderItem =
@@ -66,6 +75,7 @@ export function EvidenceFields({
   control,
   errors,
   disabled,
+  className = 'space-y-4',
 }: EvidenceFieldsProps) {
   // A CHECK_SUM checkbox is worth a different amount per mode, so the « — N
   // балів» suffix has to follow the mode the person has actually chosen. Any
@@ -89,9 +99,20 @@ export function EvidenceFields({
         return (
           <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
             {f.multiline ? (
-              <Textarea id={f.name} disabled={disabled} {...register(f.name)} />
+              <Textarea
+                id={f.name}
+                rows={f.placeholder ? 4 : undefined}
+                placeholder={f.placeholder}
+                disabled={disabled}
+                {...register(f.name)}
+              />
             ) : (
-              <Input id={f.name} disabled={disabled} {...register(f.name)} />
+              <Input
+                id={f.name}
+                placeholder={f.placeholder}
+                disabled={disabled}
+                {...register(f.name)}
+              />
             )}
           </FormField>
         );
@@ -228,7 +249,7 @@ export function EvidenceFields({
   }
 
   return (
-    <div className="space-y-4">
+    <div className={className}>
       {toRenderItems(fields).map((item) => {
         if (item.kind === 'single') return renderField(item.field);
 

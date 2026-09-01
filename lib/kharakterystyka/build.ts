@@ -55,6 +55,32 @@ export interface KharakterystykaProfile {
   degreeDefenceDate: Date | null;
 }
 
+/**
+ * Evidence that is not a rating activity — a `KharakterystykaEntry` row.
+ *
+ * Two sources, one shape: п.15 and п.20 typed by hand, because no indicator
+ * exists for either; and 2022–2024, carried in from the university's own files
+ * for years the app never held a rating for.
+ *
+ * These do NOT weaken the rule at the top of this file. Nothing here is an
+ * override or a second spelling of something already submitted: a position fed
+ * by the rating still shows the rating's own sentences, and these are added
+ * beside them. What cannot be edited is still what the generator produced.
+ */
+export interface KharakterystykaEntry {
+  position: number;
+  /**
+   * Which alternative it satisfies, for positions with more than one — п.2 is
+   * «patent» or «copyright». Null lands on the position's FIRST alternative,
+   * which is the only defensible default: it is the one the law names first,
+   * and for the nineteen positions with a single alternative it is the only one.
+   */
+  group: string | null;
+  year: number;
+  text: string;
+  itemNumber: string | null;
+}
+
 // ─── Output ──────────────────────────────────────────────────────────────────
 
 export interface PositionEntry {
@@ -181,7 +207,7 @@ function bucketEntries(
     const fields = fieldsOf(activity.activityType);
     // Infinity, not the default 5: this text is the deliverable, and a dropped
     // field would understate what the person did to a licensing authority.
-    const summary = summarizeEvidence(fields, evidence, Infinity);
+    const summary = readable(summarizeEvidence(fields, evidence, Infinity));
 
     for (const link of links) {
       if (!linkMatches(link, evidence)) continue;
@@ -203,18 +229,77 @@ function bucketEntries(
   return buckets;
 }
 
+/**
+ * Legacy evidence, made readable for a printed document.
+ *
+ * The university's own files store several facts in one cell with no separator
+ * at all — «Дисципліна:КиївщинознавствоПосилання:https://moodle…» is exactly how
+ * the source has it, and it reaches us that way through both the 2025 rating
+ * import and the 2022–2024 one. On screen it is unpleasant; in the document the
+ * licence is read against, «...професійної освітиПосилання:...» looks like the
+ * university cannot format a sentence.
+ *
+ * Only whitespace is touched. Not a word is added, removed or reordered — a
+ * document that quietly rewrote its own evidence would be worth less than an
+ * ugly one.
+ */
+function readable(summary: string): string {
+  return (
+    summary
+      // «Дисципліна:Київщинознавство» → «Дисципліна: Київщинознавство».
+      // A colon run straight into a letter is always a missing space. A URL is
+      // untouched because its colon is followed by «/», and a time or a ratio
+      // by a digit-then-colon, both excluded by the class.
+      .replace(/:(?=[^\s/:])/g, ': ')
+      // A second fact glued onto the end of the first — «…освітиПосилання: …».
+      // Only where a lower-case letter runs straight into a capitalised word
+      // that is followed by a colon, which is what a label looks like.
+      .replace(/([а-яїієґa-z0-9)])([А-ЯЇІЄҐA-Z][а-яїієґa-z]+:)/g, '$1 · $2')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  );
+}
+
 /** «Дані підтвердження показника» as the printed document has it */
 function evidenceText(entries: readonly PositionEntry[]): string {
   return entries.map((e) => `${e.summary} (${e.year})`).join('\n\n');
 }
 
+/**
+ * The `KharakterystykaEntry` rows that belong to one alternative.
+ *
+ * A row naming no group lands on the position's FIRST alternative — see the
+ * note on `KharakterystykaEntry.group`. `first` is passed rather than looked up
+ * so this stays a pure filter.
+ */
+function entriesForAlternative(
+  entries: readonly KharakterystykaEntry[],
+  group: string,
+  first: string
+): KharakterystykaEntry[] {
+  return entries.filter((e) => (e.group ?? first) === group);
+}
+
+/** A typed or imported row, rendered like an activity's for the printed list */
+function entryAsPositionEntry(entry: KharakterystykaEntry): PositionEntry {
+  return {
+    itemNumber: entry.itemNumber ?? '—',
+    label: 'Внесено вручну',
+    summary: readable(entry.text),
+    year: entry.year,
+  };
+}
+
 function derivedPosition(
   def: LicencePositionDef,
-  buckets: Map<string, Candidate[]>
+  buckets: Map<string, Candidate[]>,
+  manual: readonly KharakterystykaEntry[]
 ): KharakterystykaPosition {
   let met = false;
   let best: { have: number; need: number } | null = null;
   const qualifying: Candidate[] = [];
+  const manualUsed: KharakterystykaEntry[] = [];
+  const firstGroup = def.alternatives[0]?.group ?? '';
 
   for (const alt of def.alternatives) {
     const bucket = buckets.get(`${def.number}:${alt.group}`) ?? [];
@@ -223,13 +308,25 @@ function derivedPosition(
     // a 40-page методичка does not belong under «підручник ≥ 5 авт. арк.».
     const passing = alt.rowTest ? bucket.filter((c) => alt.rowTest!(c.row)) : bucket;
 
+    // Typed and imported rows carry no structured evidence, so `rowTest` has
+    // nothing to read on them and they are taken at their word — somebody
+    // asserted this in writing, and the position's note still tells the reader
+    // what the rule is. The alternative to trusting them is refusing every
+    // pre-2025 монографія, which is worse and also wrong.
+    const mine = entriesForAlternative(manual, alt.group, firstGroup);
+
     qualifying.push(...passing);
-    if (passing.length >= alt.min) met = true;
+    manualUsed.push(...mine);
+    // One row is one item, typed or imported alike, so a bar of five needs five
+    // of them. A single row standing for five was checkable against nothing —
+    // one реєстраційний номер cannot evidence five свідоцтв (owner, 2026-09-01).
+    const have = passing.length + mine.length;
+    if (have >= alt.min) met = true;
 
     // «Closest» is the alternative with the largest share of its own bar, so a
     // person with 4 of 5 свідоцтва is shown as 4/5 rather than as 0/1 patents.
-    if (!best || passing.length / alt.min > best.have / best.need) {
-      best = { have: passing.length, need: alt.min };
+    if (!best || have / alt.min > best.have / best.need) {
+      best = { have, need: alt.min };
     }
   }
 
@@ -246,6 +343,25 @@ function derivedPosition(
     })
     .sort(byRecency)
     .map(({ itemNumber, label, summary, year }) => ({ itemNumber, label, summary, year }));
+
+  // After the rating's own, newest first among themselves. A row appearing under
+  // two alternatives of one position is listed once, for the same reason a
+  // Candidate is: п.2 counts a свідоцтво towards one bar, not towards both.
+  const manualSeen = new Set<KharakterystykaEntry>();
+  for (const entry of manualUsed) {
+    if (manualSeen.has(entry)) continue;
+    manualSeen.add(entry);
+  }
+  entries.push(
+    ...[...manualSeen]
+      // Newest first, then the text — the same tie-break `byRecency` applies to
+      // the rating's own rows, and for the same reason. The query has no
+      // ORDER BY, so two rows of one year would otherwise print in whatever
+      // order Postgres returned them, and the document would reorder itself
+      // between loads of unchanged data.
+      .sort((a, b) => b.year - a.year || a.text.localeCompare(b.text, 'uk'))
+      .map(entryAsPositionEntry)
+  );
 
   // «0 з 1» tells the reader nothing that «не виконано» does not, and a met
   // single-entry position needs no counter either.
@@ -330,21 +446,45 @@ function defencePosition(
 export function buildKharakterystyka(
   activities: readonly KharakterystykaActivity[],
   profile: KharakterystykaProfile,
-  lastYear: number
+  lastYear: number,
+  manualEntries: readonly KharakterystykaEntry[] = []
 ): Kharakterystyka {
   const { from, to } = windowFor(lastYear);
   const buckets = bucketEntries(activities, from, to);
 
+  // The same window as the activities, applied here rather than in the query,
+  // for the same reason the status filter is: one place decides what counts.
+  const inWindow = manualEntries.filter((e) => e.year >= from && e.year <= to);
+  const manualFor = (position: number) => inWindow.filter((e) => e.position === position);
+
   const positions = LICENCE_POSITIONS.map((def) => {
     switch (def.fill) {
       case 'DERIVED':
-        return derivedPosition(def, buckets);
+        return derivedPosition(def, buckets, manualFor(def.number));
       case 'PROFILE':
         return defencePosition(def, profile, from, to);
-      // Typed by hand, or military and never applicable here. Both render as an
-      // empty row carrying its reason — the document has twenty rows whatever
-      // happens, because it is read against a twenty-item law.
-      case 'MANUAL':
+      // Typed by hand — п.15 (школярі) and п.20 (практичний досвід). The rating
+      // holds neither and never will: the catalogue moves only by a вчена рада
+      // vote. Until `KharakterystykaEntry` existed these rendered as rows nobody
+      // could fill, on a document the university is licensed against.
+      case 'MANUAL': {
+        const mine = manualFor(def.number);
+        return {
+          number: def.number,
+          title: def.title,
+          fill: def.fill,
+          // Both positions ask for one thing, so any row meets them.
+          met: mine.length >= 1,
+          progress: null,
+          evidence: evidenceText(mine.map(entryAsPositionEntry)),
+          entries: mine.map(entryAsPositionEntry),
+          ...(def.note ? { note: def.note } : {}),
+        } satisfies KharakterystykaPosition;
+      }
+      // Military, and never applicable to this university — «для вищих
+      // військових навчальних закладів». Deliberately NOT fillable: a row here
+      // would be a claim the licence conditions do not permit us to make, so
+      // there is nothing to read and nothing to type.
       case 'NOT_APPLICABLE':
         return {
           number: def.number,

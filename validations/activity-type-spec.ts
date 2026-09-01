@@ -26,6 +26,8 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     ...common,
     multiline: z.boolean().optional(),
     optional: z.boolean().optional(),
+    // Display only — never read by the scoring engine or the Характеристика
+    placeholder: z.string().max(300).optional(),
   }),
   z.strictObject({
     kind: z.literal('number'),
