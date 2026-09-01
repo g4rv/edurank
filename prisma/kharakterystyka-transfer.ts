@@ -48,6 +48,18 @@ interface TransferFile {
 const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
 const apply = process.argv.includes('--apply');
 
+/**
+ * `--only <email>` — carry ONE person, and stop.
+ *
+ * Six thousand rows is a lot to agree to at once, and the only way to un-agree
+ * is a backup. One person is twenty rows: import them, open their
+ * Характеристика, see that it reads right, then do the rest. The rest is the
+ * same command without the flag, and that person coming round again costs
+ * nothing — a re-run replaces their rows rather than adding to them.
+ */
+const onlyAt = process.argv.indexOf('--only');
+const only = onlyAt === -1 ? undefined : process.argv[onlyAt + 1];
+
 async function exportRows() {
   const rows = await prisma.kharakterystykaEntry.findMany({
     // MANUAL rows belong to the database they were typed in — see the note above
@@ -95,8 +107,19 @@ async function exportRows() {
 
 async function importRows() {
   const raw = readFileSync(FILE, 'utf8');
-  const file = JSON.parse(raw) as TransferFile;
-  console.log(`${FILE}: рядків ${file.rows.length}, знято ${file.exportedAt}`);
+  const parsed = JSON.parse(raw) as TransferFile;
+  const file: TransferFile = only
+    ? { ...parsed, rows: parsed.rows.filter((r) => r.email === only) }
+    : parsed;
+
+  console.log(`${FILE}: рядків ${parsed.rows.length}, знято ${parsed.exportedAt}`);
+  if (only) {
+    console.log(`--only ${only}: беремо ${file.rows.length} рядків`);
+    if (file.rows.length === 0) {
+      console.log('Такої адреси у файлі немає. Перевірте написання.');
+      return;
+    }
+  }
 
   const emails = [...new Set(file.rows.map((r) => r.email))];
   const staff = await prisma.staff.findMany({
@@ -122,16 +145,26 @@ async function importRows() {
   if (notNpp.length > 0) console.log(`  не НПП (пропущено): ${notNpp.length}`);
   console.log(`\nрядків, що ляжуть: ${landing.length}`);
 
-  const existing = await prisma.kharakterystykaEntry.count({ where: { source: 'IMPORT' } });
+  // Counted over the people this run actually touches, not over the whole
+  // table. With --only that is one person's rows, and a line saying six
+  // thousand would be true of the table and wrong about the run — which is
+  // exactly the sentence that stops somebody halfway.
+  const ids = [...new Set(landing.map((r) => byEmail.get(r.email)!.id))];
+  const replacing = await prisma.kharakterystykaEntry.count({
+    where: { staffId: { in: ids }, source: 'IMPORT' },
+  });
   const manual = await prisma.kharakterystykaEntry.count({ where: { source: 'MANUAL' } });
-  console.log(`вже тут: IMPORT ${existing} (буде замінено), MANUAL ${manual} (не чіпаємо)`);
+  const total = await prisma.kharakterystykaEntry.count({ where: { source: 'IMPORT' } });
+
+  console.log(`буде замінено: ${replacing} рядків цих осіб`);
+  console.log(`не чіпаємо:    MANUAL ${manual}, решта IMPORT ${total - replacing}`);
 
   if (!apply) {
     console.log('\nНічого не змінено. Запустіть з --apply, щоб записати.');
+    if (!only) console.log('Або спершу одну людину: --only <email> --apply');
     return;
   }
 
-  const ids = [...new Set(landing.map((r) => byEmail.get(r.email)!.id))];
   const removed = await prisma.kharakterystykaEntry.deleteMany({
     where: { staffId: { in: ids }, source: 'IMPORT' },
   });
