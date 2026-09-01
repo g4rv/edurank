@@ -65,7 +65,7 @@ export default async function StaffKharakterystykaPage({
           // MANUAL only: an imported row is replaced wholesale on the next
           // import run, so offering a delete button for one would undo itself.
           where: { staffId: id, source: 'MANUAL' },
-          select: { id: true, position: true, year: true, text: true, count: true },
+          select: { id: true, position: true, group: true, year: true, text: true },
           orderBy: [{ position: 'asc' }, { year: 'desc' }],
         })
       : Promise.resolve([]),

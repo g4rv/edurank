@@ -4,10 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import type { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
-import { licencePosition, windowFor } from '@/lib/kharakterystyka/positions';
+import { isPositionGroup, licencePosition, windowFor } from '@/lib/kharakterystyka/positions';
+import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence';
+import { summarizeEvidence } from '@/lib/rating/evidence-fields';
+import { schemaForFields } from '@/validations/activity-evidence';
 import { kharakterystykaEntrySchema } from '@/validations/kharakterystyka';
 
 export type EntryState = { error: string } | { success: true } | null;
@@ -40,7 +44,7 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Невірні дані' };
   }
-  const { staffId, position, year, text, count } = parsed.data;
+  const { staffId, position, year, group, evidence } = parsed.data;
 
   const def = licencePosition(position);
   if (!def) return { error: 'Такої позиції немає' };
@@ -50,6 +54,26 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
   if (def.fill === 'NOT_APPLICABLE') {
     return { error: 'Ця позиція не застосовується до цього закладу' };
   }
+  // A group belonging to some OTHER position lands the row in a bucket nothing
+  // reads: it would save, and the status beside it would not move.
+  if (!isPositionGroup(position, group)) {
+    return { error: 'Оберіть, що саме підтверджує позицію' };
+  }
+
+  // The position's own form. Re-checked here and not only in the browser: the
+  // fields decide what the licence document asserts, and the client half of a
+  // shared schema is the half an attacker skips.
+  const fields = positionEvidenceFields(position);
+  if (fields.length === 0) return { error: 'Для цієї позиції немає форми' };
+
+  const shape = schemaForFields(fields).safeParse(evidence);
+  if (!shape.success) {
+    return { error: shape.error.issues[0]?.message ?? 'Заповніть поля запису' };
+  }
+  // What prints. Infinity, not the default 5: this text is the deliverable, and
+  // a dropped field would understate the person to a licensing authority.
+  const text = summarizeEvidence(fields, shape.data, Infinity);
+  if (!text.trim()) return { error: 'Заповніть хоча б одне поле' };
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
@@ -72,9 +96,10 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
         data: {
           staffId,
           position,
+          group,
           year,
           text,
-          count,
+          evidence: shape.data as Prisma.InputJsonValue,
           source: 'MANUAL',
           createdBy: session.user.id,
         },
@@ -86,7 +111,7 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
           entityId: created.id,
           label: `${staff.lastName} ${staff.firstName} ${staff.patronymic} — п.${position}`,
           userId: session.user.id,
-          changes: diffChanges({}, { position, year, text, count }),
+          changes: diffChanges({}, { position, group, year, text }),
         },
       });
     });
@@ -119,9 +144,9 @@ export async function deleteKharakterystykaEntry(id: string): Promise<EntryState
     select: {
       staffId: true,
       position: true,
+      group: true,
       year: true,
       text: true,
-      count: true,
       source: true,
       staff: { select: { lastName: true, firstName: true, patronymic: true } },
     },
@@ -142,7 +167,12 @@ export async function deleteKharakterystykaEntry(id: string): Promise<EntryState
           label: `${entry.staff.lastName} ${entry.staff.firstName} ${entry.staff.patronymic} — п.${entry.position}`,
           userId: session.user.id,
           changes: diffChanges(
-            { position: entry.position, year: entry.year, text: entry.text, count: entry.count },
+            {
+              position: entry.position,
+              group: entry.group,
+              year: entry.year,
+              text: entry.text,
+            },
             {}
           ),
         },

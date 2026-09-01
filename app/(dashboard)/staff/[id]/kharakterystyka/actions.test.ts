@@ -31,13 +31,27 @@ const mockDelete = db.kharakterystykaEntry.delete as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 
 const STAFF_ID = 'staff-1';
+
+// Every position has its own form now, so a payload is only valid against the
+// position it names — see `lib/kharakterystyka/position-evidence.ts`.
+const P15 = {
+  option: 'olympiad_jury',
+  stage: 'stage_3',
+  event: 'Біологія',
+  pupil: '',
+  place: '',
+};
+const P2 = { registrationNumber: '12345', title: 'Пристрій', date: '' };
+
 const valid = {
   staffId: STAFF_ID,
   position: 15,
   year: 2024,
-  text: 'Член журі ІІІ етапу Всеукраїнської олімпіади',
-  count: 1,
+  group: null,
+  evidence: P15,
 };
+/** The same row against п.2, whose fields and alternatives both differ */
+const validP2 = { ...valid, position: 2, evidence: P2 };
 
 function asAdmin() {
   mockAuth.mockResolvedValue({ user: { id: 'admin-1', role: 'ADMIN', staffId: 'admin-1' } });
@@ -117,14 +131,56 @@ describe('addKharakterystykaEntry', () => {
     expect(result).toEqual({ error: expect.stringContaining('НПП') });
   });
 
-  it('refuses empty evidence and an out-of-range count', async () => {
-    expect(await addKharakterystykaEntry({ ...valid, text: '' })).toMatchObject({
-      error: expect.any(String),
-    });
-    expect(await addKharakterystykaEntry({ ...valid, count: 9 })).toMatchObject({
+  it('refuses evidence missing a field the position requires', async () => {
+    const noStage = { ...P15, stage: '' };
+    expect(await addKharakterystykaEntry({ ...valid, evidence: noStage })).toMatchObject({
       error: expect.any(String),
     });
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  // The form is per position, so п.2's answers mean nothing under п.15 — and a
+  // row saved from the wrong set would print a sentence built from no fields.
+  it('refuses evidence belonging to another position', async () => {
+    expect(await addKharakterystykaEntry({ ...valid, evidence: P2 })).toMatchObject({
+      error: expect.any(String),
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  // What prints is generated from the answers, never typed — so every row of
+  // one position reads the same way in the document.
+  it('generates the printed text from the fields', async () => {
+    expect(await addKharakterystykaEntry(valid)).toEqual({ success: true });
+    const written = mockCreate.mock.calls[0][0].data;
+    expect(written.text).toContain('журі');
+    expect(written.text).toContain('III етап');
+    expect(written.text).toContain('Біологія');
+    // Unanswered optional fields simply do not appear
+    expect(written.text).not.toContain('undefined');
+    expect(written.evidence).toMatchObject({ option: 'olympiad_jury', event: 'Біологія' });
+  });
+
+  // A group belonging to another position — or to none — lands the row in a
+  // bucket nothing reads: it would save, and the status beside it would not move.
+  it('refuses a group that is not this position’s', async () => {
+    const result = await addKharakterystykaEntry({ ...validP2, group: 'nonsense' });
+    expect(result).toMatchObject({ error: expect.any(String) });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  // п.2 is the only position with a choice, and all three of its bars are real:
+  // one патент на винахід, five деклараційних, five свідоцтв.
+  it('accepts each alternative of п.2', async () => {
+    for (const group of ['patent', 'declarative', 'copyright']) {
+      expect(await addKharakterystykaEntry({ ...validP2, group })).toEqual({ success: true });
+    }
+  });
+
+  // Nineteen positions have one way of being met, so the form asks nothing and
+  // the row lands on that alternative by itself.
+  it('accepts no group where there is nothing to choose', async () => {
+    expect(await addKharakterystykaEntry({ ...valid, group: null })).toEqual({ success: true });
   });
 });
 
@@ -132,9 +188,9 @@ describe('deleteKharakterystykaEntry', () => {
   const manual = {
     staffId: STAFF_ID,
     position: 15,
+    group: null,
     year: 2024,
     text: 'x',
-    count: 1,
     source: 'MANUAL',
     staff: { lastName: 'Петренко', firstName: 'Іван', patronymic: 'Петрович' },
   };

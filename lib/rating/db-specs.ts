@@ -145,7 +145,13 @@ export const LICENCE_POSITION_LINKS: Record<string, LicencePositionLink[]> = {
   // so two groups; the position is met when either alternative is reached.
   // «П'ять деклараційних патентів» is the law's third route and has no
   // indicator of its own — add a third group the day one exists.
-  patent_granted: [{ position: 2, group: 'patent' }],
+  // One патент на винахід meets позиція 2; деклараційних it wants five. The
+  // indicator covers both, so its own «Вид патенту» decides which bar the row
+  // counts against — the same routing 2.2 uses between п.3 and п.4.
+  patent_granted: [
+    { position: 2, group: 'patent', when: { field: 'patentKind', in: ['invention'] } },
+    { position: 2, group: 'declarative', when: { field: 'patentKind', in: ['declarative'] } },
+  ],
   copyright_registration: [{ position: 2, group: 'copyright' }],
 
   // п.3 — підручник / навчальний посібник / монографія, ≥5 авт. аркушів

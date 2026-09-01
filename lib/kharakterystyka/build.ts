@@ -78,14 +78,6 @@ export interface KharakterystykaEntry {
   group: string | null;
   year: number;
   text: string;
-  /**
-   * How many items the row stands for. One legacy cell can mean «five
-   * publications», and п.1 asks for five — counting it as one understates the
-   * person. It contributes `count` to the threshold and prints as one line,
-   * because that is how the source has it and inventing four more lines would
-   * be inventing evidence.
-   */
-  count: number;
   itemNumber: string | null;
 }
 
@@ -322,11 +314,13 @@ function derivedPosition(
     // what the rule is. The alternative to trusting them is refusing every
     // pre-2025 монографія, which is worse and also wrong.
     const mine = entriesForAlternative(manual, alt.group, firstGroup);
-    const manualCount = mine.reduce((sum, e) => sum + Math.max(1, e.count), 0);
 
     qualifying.push(...passing);
     manualUsed.push(...mine);
-    const have = passing.length + manualCount;
+    // One row is one item, typed or imported alike, so a bar of five needs five
+    // of them. A single row standing for five was checkable against nothing —
+    // one реєстраційний номер cannot evidence five свідоцтв (owner, 2026-09-01).
+    const have = passing.length + mine.length;
     if (have >= alt.min) met = true;
 
     // «Closest» is the alternative with the largest share of its own bar, so a
@@ -358,7 +352,16 @@ function derivedPosition(
     if (manualSeen.has(entry)) continue;
     manualSeen.add(entry);
   }
-  entries.push(...[...manualSeen].sort((a, b) => b.year - a.year).map(entryAsPositionEntry));
+  entries.push(
+    ...[...manualSeen]
+      // Newest first, then the text — the same tie-break `byRecency` applies to
+      // the rating's own rows, and for the same reason. The query has no
+      // ORDER BY, so two rows of one year would otherwise print in whatever
+      // order Postgres returned them, and the document would reorder itself
+      // between loads of unchanged data.
+      .sort((a, b) => b.year - a.year || a.text.localeCompare(b.text, 'uk'))
+      .map(entryAsPositionEntry)
+  );
 
   // «0 з 1» tells the reader nothing that «не виконано» does not, and a met
   // single-entry position needs no counter either.
@@ -470,9 +473,8 @@ export function buildKharakterystyka(
           number: def.number,
           title: def.title,
           fill: def.fill,
-          // Both positions ask for one thing, so any row meets them. The count
-          // is respected anyway, in case a threshold is ever added here.
-          met: mine.reduce((sum, e) => sum + Math.max(1, e.count), 0) >= 1,
+          // Both positions ask for one thing, so any row meets them.
+          met: mine.length >= 1,
           progress: null,
           evidence: evidenceText(mine.map(entryAsPositionEntry)),
           entries: mine.map(entryAsPositionEntry),

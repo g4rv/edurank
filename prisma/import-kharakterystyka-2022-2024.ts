@@ -154,6 +154,12 @@ const KNOWN_NO_POSITION = new Set([
  * (п.3) or a методичка (п.4). Guessing would put методички under a requirement
  * for textbooks, which is the whole reason the condition exists.
  */
+// A patent row now has to name its kind: since 2026-09-01 indicator 3.25 carries
+// «Вид патенту», and позиція 2 asks for ONE патент на винахід but FIVE
+// деклараційних. The older sheets say neither, so those rows fall into the
+// «невідомий варіант» report below rather than landing on the bar of one — which
+// is what they did before, and what made a корисна модель close the position.
+// Add an alias here once somebody has read the sheets and can say which is which.
 const OPTION_ALIASES: Record<string, string> = {
   'навчальних посібників': 'навчальний посібник',
   'навчально-методичних посібників': 'навчально-методичний посібник',
@@ -191,6 +197,44 @@ for (const def of ACTIVITY_TYPES_2026) {
  * same методичка counting towards a підручник requirement is exactly what the
  * condition exists to stop.
  */
+/**
+ * Values that answer a question rather than evidence anything.
+ *
+ * `evidence` falls back to column B when column D is blank, and column B is a
+ * dropdown — for the monograph rows a plain Так/Ні. Neither belongs in «Дані
+ * підтвердження показника»: it is read against the Ліцензійні умови, and «Ні»
+ * there asserts the opposite of what the row would be claiming.
+ */
+const NOT_EVIDENCE = new Set([
+  'так',
+  'ні',
+  'ні.',
+  'yes',
+  'no',
+  '-',
+  '—',
+  '–',
+  '0',
+  'н/д',
+  'немає',
+  'відсутні',
+  'відсутній',
+]);
+
+function isEvidence(value: string): boolean {
+  return !NOT_EVIDENCE.has(value.trim().toLowerCase());
+}
+
+/**
+ * Drops a leading «Оберіть …:» — the form's own placeholder, which the older
+ * sheets carry into the cell ahead of the real evidence («Оберіть тип:
+ * кандидата наук (PhD) Дата: … ПІБ … Тема: …»). What follows it is good; the
+ * prompt is an instruction to whoever was filling the form in.
+ */
+function stripPrompt(value: string): string {
+  return value.replace(/^\s*обер[іи]ть[^:]{0,40}:\s*/iu, '').trim() || value.trim();
+}
+
 function whenApplies(code: string, link: LicencePositionLink, candidates: string[]): boolean {
   if (!link.when) return true;
   const labels = optionLabels.get(`${code}:${link.when.field}`);
@@ -309,6 +353,7 @@ async function main() {
   const noIndicator = new Map<string, number>();
   const noPosition = new Map<string, number>();
   const noEvidence = new Map<string, number>();
+  const notEvidence = new Map<string, number>();
   const optionUnknown = new Map<string, number>();
   const perYear = new Map<number, number>();
   const people = new Set<string>();
@@ -336,6 +381,15 @@ async function main() {
       bump(noEvidence, `${row.itemNumber || '??'} ${code}`);
       continue;
     }
+    // A bare «Так» / «Ні» is the answer to column B's yes-no question, not
+    // evidence — and column B is what `evidence` falls back to when column D is
+    // empty. «Ні» means the person said they have NONE of this, so importing it
+    // put «Виконано» on 25 documents whose evidence cell read «Ні»
+    // (found 2026-09-01). Anything that only answers a question is dropped.
+    if (!isEvidence(row.evidence)) {
+      bump(notEvidence, `${row.itemNumber || '??'} «${row.evidence.slice(0, 24)}»`);
+      continue;
+    }
 
     const found = resolvePerson(index, row.person, row.department);
     if (found.ambiguous) {
@@ -358,7 +412,7 @@ async function main() {
         position: link.position,
         group: link.group ?? null,
         year: row.year,
-        text: row.evidence,
+        text: stripPrompt(row.evidence),
         itemNumber: row.itemNumber || null,
       });
     }
@@ -392,6 +446,7 @@ async function main() {
   report('показник не зіставлено — ПОТРІБНА УВАГА', noIndicator, 20);
   report('показник не закриває позицію (пропускаємо навмисно)', noPosition, 8);
   report('порожні дані підтвердження', noEvidence, 5);
+  report('не є доказом (Так / Ні тощо)', notEvidence, 5);
   report('варіант не розпізнано (2.2 підручник/методичка)', optionUnknown, 8);
   report('людину не знайдено', noPerson, 10);
   report('двоє з однаковим ПІБ на кафедрі', sameName, 5);
@@ -405,7 +460,7 @@ async function main() {
     where: { source: 'IMPORT', year: { in: [...YEARS] } },
   });
   await prisma.kharakterystykaEntry.createMany({
-    data: ready.map((r) => ({ ...r, count: 1, source: 'IMPORT' as const, createdBy: 'import' })),
+    data: ready.map((r) => ({ ...r, source: 'IMPORT' as const, createdBy: 'import' })),
   });
   console.log(`ЗАПИСАНО: ${ready.length} (видалено попередніх: ${removed.count})`);
 }

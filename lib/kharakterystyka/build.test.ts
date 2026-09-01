@@ -119,13 +119,50 @@ describe('п.2 — alternatives', () => {
   const copyright = (n: number) =>
     activity('copyright_registration', { certificateNumber: `${n}`, title: `Твір ${n}` });
 
-  it('one patent is enough on its own', () => {
+  it('one патент на винахід is enough on its own', () => {
+    const result = buildKharakterystyka(
+      [
+        activity('patent_granted', {
+          patentKind: 'invention',
+          registrationNumber: '1',
+          title: 'Пристрій',
+        }),
+      ],
+      NO_PROFILE,
+      YEAR
+    );
+    expect(position(result, 2).met).toBe(true);
+  });
+
+  // The bar a деклараційний answers to is five. One of them used to meet п.2
+  // outright, because the indicator covers both kinds and nothing said which
+  // this row was — a licence claim the law does not allow (owner, 2026-09-01).
+  it('one деклараційний патент is not, five are', () => {
+    const declarative = (n: number) =>
+      activity('patent_granted', {
+        patentKind: 'declarative',
+        registrationNumber: `${n}`,
+        title: `Корисна модель ${n}`,
+      });
+
+    const one = buildKharakterystyka([declarative(1)], NO_PROFILE, YEAR);
+    expect(position(one, 2).met).toBe(false);
+
+    const five = buildKharakterystyka([1, 2, 3, 4, 5].map(declarative), NO_PROFILE, YEAR);
+    expect(position(five, 2).met).toBe(true);
+  });
+
+  // Rows written before «Вид патенту» existed. They feed neither bar, on
+  // purpose: an unanswered patent is a claim nobody has checked, and counting
+  // it against the bar of one is exactly what was wrong. `pnpm db:patent-kind`
+  // lists them so somebody can say what they are.
+  it('a patent with no kind named counts towards nothing', () => {
     const result = buildKharakterystyka(
       [activity('patent_granted', { registrationNumber: '1', title: 'Пристрій' })],
       NO_PROFILE,
       YEAR
     );
-    expect(position(result, 2).met).toBe(true);
+    expect(position(result, 2).met).toBe(false);
   });
 
   it('five copyright certificates are enough on their own', () => {
@@ -335,7 +372,7 @@ describe('positions nobody derives', () => {
 describe('Кнпп — «at least four of twenty»', () => {
   it('three positions do not qualify, four do', () => {
     const three = [
-      activity('patent_granted', { title: 'Патент' }), // п.2
+      activity('patent_granted', { patentKind: 'invention', title: 'Патент' }), // п.2
       activity('defense_supervision', { option: 'phd', student: 'П.' }), // п.6
       activity('org_consulting', { organization: 'Ліцей', mentionLink: 'https://e.ua/1' }), // п.11
     ];
@@ -382,7 +419,6 @@ function entry(
     group: null,
     year: YEAR,
     text: 'Внесений вручну запис',
-    count: 1,
     itemNumber: null,
     ...overrides,
   };
@@ -434,21 +470,27 @@ describe('buildKharakterystyka — manual and imported entries', () => {
     expect(p1.entries).toHaveLength(5);
   });
 
-  // One legacy cell can mean «five publications» rather than five rows, and п.1
-  // asks for five — counting it as one would understate the person.
-  it('honours count, and still prints one line', () => {
-    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [
-      entry(1, { count: 5, text: 'П’ять публікацій за 2023 рік' }),
-    ]);
-    const p1 = position(result, 1);
-    expect(p1.met).toBe(true);
-    expect(p1.progress).toEqual({ have: 5, need: 5 });
-    expect(p1.entries).toHaveLength(1);
-  });
+  // One row is one item (owner, 2026-09-01). A row claiming to stand for five
+  // was evidence of nothing checkable — there is one реєстраційний номер in it,
+  // not five — so a bar of five now needs five rows and prints five lines.
+  it('counts one row as one item, so a bar of five needs five rows', () => {
+    const four = buildKharakterystyka(
+      [],
+      NO_PROFILE,
+      YEAR,
+      [1, 2, 3, 4].map((n) => entry(1, { text: `Публікація ${n}` }))
+    );
+    expect(position(four, 1).met).toBe(false);
+    expect(position(four, 1).progress).toEqual({ have: 4, need: 5 });
 
-  it('treats a count below one as one, so a bad row cannot erase itself', () => {
-    const result = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(6, { count: 0 })]);
-    expect(position(result, 6).met).toBe(true);
+    const five = buildKharakterystyka(
+      [],
+      NO_PROFILE,
+      YEAR,
+      [1, 2, 3, 4, 5].map((n) => entry(1, { text: `Публікація ${n}` }))
+    );
+    expect(position(five, 1).met).toBe(true);
+    expect(position(five, 1).entries).toHaveLength(5);
   });
 
   // The whole reason the row carries a year: 2022 rows drop out by themselves
@@ -461,7 +503,8 @@ describe('buildKharakterystyka — manual and imported entries', () => {
     expect(position(inside, 15).met).toBe(true);
   });
 
-  // п.2 is «one patent» OR «five свідоцтва» — two bars over two groups.
+  // п.2 is one патент на винахід OR five деклараційних OR five свідоцтв —
+  // three bars over three groups, and the law's own order.
   it('routes an entry to the alternative it names', () => {
     const patent = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(2, { group: 'patent' })]);
     expect(position(patent, 2).met).toBe(true);
@@ -471,10 +514,29 @@ describe('buildKharakterystyka — manual and imported entries', () => {
     ]);
     expect(position(oneCertificate, 2).met).toBe(false);
 
-    const fiveCertificates = buildKharakterystyka([], NO_PROFILE, YEAR, [
-      entry(2, { group: 'copyright', count: 5 }),
-    ]);
+    const fiveCertificates = buildKharakterystyka(
+      [],
+      NO_PROFILE,
+      YEAR,
+      [1, 2, 3, 4, 5].map((n) => entry(2, { group: 'copyright', text: `Свідоцтво ${n}` }))
+    );
     expect(position(fiveCertificates, 2).met).toBe(true);
+  });
+
+  // The bar a деклараційний патент answers to is five, not the one а патент на
+  // винахід answers to. Nothing in the rating feeds this group — no indicator
+  // names it — so it exists to be typed.
+  it('asks five for деклараційні патенти, not one', () => {
+    const one = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(2, { group: 'declarative' })]);
+    expect(position(one, 2).met).toBe(false);
+
+    const five = buildKharakterystyka(
+      [],
+      NO_PROFILE,
+      YEAR,
+      [1, 2, 3, 4, 5].map((n) => entry(2, { group: 'declarative', text: `Патент ${n}` }))
+    );
+    expect(position(five, 2).met).toBe(true);
   });
 
   // Naming no group lands on the position's FIRST alternative — for п.2 that is

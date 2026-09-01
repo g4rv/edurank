@@ -560,20 +560,26 @@ model KharakterystykaEntry {
   /// 1–20, the printed «№ з/п» of п.38
   position Int
   /// Which alternative inside the position, for the ones that have more than
-  /// one — п.2 is «patent» or «copyright». Null means the position's first.
+  /// one — п.2 is «patent», «declarative» or «copyright». Null means the
+  /// position's first, which is what every other position stores. One row is
+  /// always ONE item: a position asking for five wants five rows.
   group String?
   /// The rating year this belongs to, so the five-year window applies to it
   /// exactly as it does to an activity: a 2022 row drops out of its own accord
   /// once the document is built for 2027.
   year Int
 
-  /// «Дані підтвердження показника», printed verbatim
+  /// «Дані підтвердження показника», printed verbatim. For a typed row it is
+  /// GENERATED from `evidence` by `summarizeEvidence` at save, so every row of
+  /// one position reads the same way; an imported row carries the source file's
+  /// own wording and no `evidence` at all. Either way this is what prints.
   text String
 
-  /// How many items this row stands for. Usually 1. The legacy files sometimes
-  /// carry a cell meaning «five publications» rather than five rows, and п.1
-  /// asks for five — counting that cell as one would understate the person.
-  count Int @default(1)
+  /// The typed answers behind `text`, keyed by the position's field spec
+  /// (`lib/kharakterystyka/position-evidence.ts`). Null on every imported row,
+  /// and on anything typed before the forms existed — `text` still prints, so
+  /// nothing is lost; only re-editing a row would need this.
+  evidence Json?
 
   /// Where the number came from in the source files, when it was imported.
   /// Documentation only: the position is what decides anything.

@@ -206,14 +206,19 @@ describe('schema validation behavior', () => {
     expect(schema.safeParse({ ...base, link: 'not-a-url' }).success).toBe(false);
 
     const patent = schemaFor('patent_granted');
-    const okPatent = { date: '2026-03-01', registrationNumber: '12345', title: 'Пристрій' };
+    const okPatent = {
+      patentKind: 'invention',
+      date: '2026-03-01',
+      registrationNumber: '12345',
+      title: 'Пристрій',
+    };
     expect(patent.safeParse(okPatent).success).toBe(true);
     expect(patent.safeParse({ ...okPatent, date: '01.03.2026' }).success).toBe(false);
   });
 
   it('rejects dates with out-of-range years', () => {
     const patent = schemaFor('patent_granted');
-    const base = { registrationNumber: '12345', title: 'Пристрій' };
+    const base = { patentKind: 'invention', registrationNumber: '12345', title: 'Пристрій' };
     const nextYear = new Date().getFullYear() + 1;
     expect(patent.safeParse({ ...base, date: '0002-03-01' }).success).toBe(false);
     expect(patent.safeParse({ ...base, date: '2300-03-01' }).success).toBe(false);

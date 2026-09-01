@@ -45,7 +45,6 @@ const ENTRY_SELECT = {
   group: true,
   year: true,
   text: true,
-  count: true,
   itemNumber: true,
 } as const;
 
