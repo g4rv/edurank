@@ -3,6 +3,9 @@ import type {
   AdminPosition,
   Role,
   ScientificDegree,
+  StudentDegree,
+  StudentFunding,
+  StudyForm,
 } from '@/lib/generated/prisma/client';
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -21,6 +24,26 @@ export const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
 export const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
   CANDIDATE: 'Кандидат наук',
   DOCTOR: 'Доктор наук',
+};
+
+/**
+ * The three student enums, in the words the claim screens have used since
+ * August. Lifted out of components/stake/{claims-review,my-claims}.tsx, which
+ * each carried their own copy — /admin/students would have made a third.
+ */
+export const STUDENT_DEGREE_LABELS: Record<StudentDegree, string> = {
+  BACHELOR: 'Бакалавр',
+  MASTER: 'Магістр',
+};
+
+export const STUDY_FORM_LABELS: Record<StudyForm, string> = {
+  FULL_TIME: 'Денна',
+  PART_TIME: 'Заочна',
+};
+
+export const STUDENT_FUNDING_LABELS: Record<StudentFunding, string> = {
+  STATE: 'Бюджет',
+  CONTRACT: 'Контракт',
 };
 
 export const ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {

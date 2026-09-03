@@ -22,6 +22,11 @@ import {
 import { formatBonus } from '@/lib/stake/units';
 import { cn } from '@/lib/utils';
 import type { MyClaim } from '@/lib/queries/list-student-claims';
+import {
+  STUDENT_DEGREE_LABELS as DEGREE,
+  STUDENT_FUNDING_LABELS as FUNDING,
+  STUDY_FORM_LABELS as FORM,
+} from '@/lib/labels';
 import type { RegisterBranch, RegisterSpeciality } from '@/lib/students/accepted';
 import {
   addStudentClaim,
@@ -29,10 +34,6 @@ import {
   listStudentCandidates,
   type ClaimState,
 } from '@/app/(dashboard)/achievements/students/actions';
-
-const DEGREE = { BACHELOR: 'Бакалавр', MASTER: 'Магістр' } as const;
-const FORM = { FULL_TIME: 'Денна', PART_TIME: 'Заочна' } as const;
-const FUNDING = { STATE: 'Бюджет', CONTRACT: 'Контракт' } as const;
 
 const STATUS = {
   PENDING: { label: 'На розгляді', className: 'text-muted-foreground' },
