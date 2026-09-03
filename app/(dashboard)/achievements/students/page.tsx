@@ -53,19 +53,17 @@ export default async function MyStudentsPage() {
   ]);
   const register = registerOptions(rows, ownerNames);
 
-  // An empty picker is a dead end the person cannot diagnose — the same reason
-  // the cascade never offers a combination with nobody behind it. Nobody has
-  // imported this year's наказ yet, and only an ADMIN can.
-  if (rows.length === 0) {
-    return (
-      <AnimatedPage className="space-y-6">
-        <h1 className="text-2xl font-semibold">Мої залучені здобувачі</h1>
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Здобувачів за {template.year} рік ще не імпортовано. Зверніться до адміністратора.
-        </div>
-      </AnimatedPage>
-    );
-  }
+  // An empty register closes the FORM and nothing else.
+  //
+  // It used to return early here, which hid the person's own claims, their
+  // total and their «підтверджено» count behind the notice — on the one screen
+  // where somebody checks work they have already done. Between a deploy and the
+  // year's import that is every НПП seeing their students apparently gone.
+  //
+  // The form still has to go: an empty picker is a dead end nobody can
+  // diagnose, the same reason the cascade never offers a combination with
+  // nobody behind it. Only an ADMIN can fix it, so the notice says so.
+  const registerReady = rows.length > 0;
 
   return (
     <AnimatedPage className="space-y-6">
@@ -78,13 +76,20 @@ export default async function MyStudentsPage() {
         </p>
       </div>
 
+      {!registerReady && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-400">
+          Здобувачів за {template.year} рік ще не імпортовано, тому додати нового поки не можна.
+          Ваші наявні заявки збережено — зверніться до адміністратора.
+        </div>
+      )}
+
       <MyClaims
         claims={claims}
         potential={potential}
         confirmed={confirmed}
         register={register}
         year={template.year}
-        canAdd={template.status === 'OPEN'}
+        canAdd={template.status === 'OPEN' && registerReady}
       />
     </AnimatedPage>
   );
