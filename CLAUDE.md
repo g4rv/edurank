@@ -208,6 +208,11 @@ pnpm db:kharakterystyka-cleanup  # one-off: drop imported «evidence» that
                       #   subjectless fragments. See docs/kharakterystyka.md.
 pnpm db:bib-placeholder  # one-off: put the ДСТУ example into every
                       #   «Бібліографічний опис» box; refreshes stale wording
+pnpm db:import-students  # one-off: load lib/students/accepted-<year>.json into
+                      #   AdmittedStudent. --apply to write, --year for another
+                      #   campaign. Adds only, never removes. NOT a seed — this
+                      #   is how PRODUCTION gets the реєстр, because the JSON is
+                      #   in git and edu-reference/ is not.
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 
