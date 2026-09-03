@@ -22,6 +22,7 @@ import { SortTh } from '@/components/ui/sort-th';
 import { AdmittedStudentsFilters } from '@/components/admin/admitted-students-filters';
 import { AddAdmittedStudent } from '@/components/admin/add-admitted-student';
 import { DeleteAdmittedStudent } from '@/components/admin/delete-admitted-student';
+import { ImportAdmittedStudents } from '@/components/admin/import-admitted-students';
 
 /** «A4.16 Середня освіта (захист України)», or the bare name where no code maps */
 function specialityLabel(name: string): string {
@@ -77,10 +78,12 @@ export default async function AdmittedStudentsPage({
   if (years.length === 0) {
     return (
       <AnimatedPage className="space-y-6">
-        <h1 className="text-2xl font-semibold">Здобувачі</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Здобувачі</h1>
+          <ImportAdmittedStudents defaultYear={new Date().getFullYear()} />
+        </div>
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Реєстр порожній. Зарахованих завантажують командою{' '}
-          <code className="rounded bg-muted px-1.5 py-0.5">pnpm db:import-students --apply</code>.
+          Реєстр порожній. Імпортуйте наказ, щоб НПП могли заявляти залучених здобувачів.
         </div>
       </AnimatedPage>
     );
@@ -164,10 +167,13 @@ export default async function AdmittedStudentsPage({
             вступ: людину, зараховану на дві спеціальності, тут видно двічі.
           </p>
         </div>
-        <AddAdmittedStudent
-          year={year}
-          specialities={specialities.map((s) => ({ id: s.id, label: specialityLabel(s.name) }))}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <ImportAdmittedStudents defaultYear={year} />
+          <AddAdmittedStudent
+            year={year}
+            specialities={specialities.map((s) => ({ id: s.id, label: specialityLabel(s.name) }))}
+          />
+        </div>
       </div>
 
       <AdmittedStudentsFilters

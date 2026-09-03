@@ -3,8 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
-import { normaliseStudentName } from '../lib/stake/claims';
-import type { Funding, StudentDegree, StudyForm } from '../lib/stake/norms';
+import { planImport, type SourceStudent } from '../lib/students/import';
 
 // Loads the реєстр зарахованих into AdmittedStudent.
 //
@@ -22,100 +21,14 @@ import type { Funding, StudentDegree, StudyForm } from '../lib/stake/norms';
 // this runs unchanged wherever the code is.
 //
 // Adds only. A row already in the database is skipped and counted, never
-// updated and never deleted: the same rule the /admin/students importer will
-// follow, and for the same reason — one file is one наказ, not the whole truth.
+// updated and never deleted — one file is one наказ, not the whole truth.
+//
+// The rules themselves live in lib/students/import.ts, shared with the
+// /admin/students dialog. Two copies would drift, and the day they disagree
+// is the day the same file imports differently depending on who ran it.
 
 const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
-
-/** One row of `lib/students/accepted-<year>.json`. `faculty` is present and ignored. */
-export interface SourceStudent {
-  name: string;
-  speciality: string;
-  degree: StudentDegree;
-  form: StudyForm;
-  funding: Funding;
-}
-
-export interface PlannedRow {
-  year: number;
-  name: string;
-  nameNormalised: string;
-  specialityId: string;
-  degree: StudentDegree;
-  form: StudyForm;
-  funding: Funding;
-}
-
-export interface ImportPlan {
-  create: PlannedRow[];
-  skipped: SourceStudent[];
-  problems: string[];
-}
-
-/**
- * The model's @@unique, as a string.
- *
- * Ступінь is deliberately absent — it follows from the programme, and the
- * database key does not carry it either. The two must agree, or this would plan
- * a row the database then rejects.
- */
-export function importKey(
-  year: number,
-  student: Pick<SourceStudent, 'name' | 'speciality' | 'form' | 'funding'>
-): string {
-  return [
-    year,
-    normaliseStudentName(student.name),
-    student.speciality,
-    student.form,
-    student.funding,
-  ].join('|');
-}
-
-/**
- * What the run would do. Pure, so the rules are testable without a database.
- *
- * `existing` holds `importKey`s already in the database. Duplicates WITHIN the
- * file are skipped too — a наказ transcribed twice is the likeliest way one
- * arrives, and it is not an error worth stopping the whole import for.
- */
-export function planImport(
-  year: number,
-  source: readonly SourceStudent[],
-  specialityIds: ReadonlyMap<string, string>,
-  existing: ReadonlySet<string>
-): ImportPlan {
-  const plan: ImportPlan = { create: [], skipped: [], problems: [] };
-  const seen = new Set(existing);
-
-  for (const student of source) {
-    const specialityId = specialityIds.get(student.speciality);
-    if (!specialityId) {
-      plan.problems.push(`${student.name}: спеціальності «${student.speciality}» немає в базі`);
-      continue;
-    }
-
-    const key = importKey(year, student);
-    if (seen.has(key)) {
-      plan.skipped.push(student);
-      continue;
-    }
-    seen.add(key);
-
-    plan.create.push({
-      year,
-      name: student.name,
-      nameNormalised: normaliseStudentName(student.name),
-      specialityId,
-      degree: student.degree,
-      form: student.form,
-      funding: student.funding,
-    });
-  }
-
-  return plan;
-}
 
 function argValue(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
