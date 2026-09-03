@@ -6,7 +6,8 @@ import { z } from 'zod';
 // recruiter's own кафедра: an НПП may bring a student onto any programme, and
 // the bonus follows the recruiter (confirmed 2026-08-10).
 //
-// Every field is now a choice from `lib/students/accepted.ts` rather than
+// Every field is a choice from the реєстр зарахованих — the AdmittedStudent
+// table, read through lib/queries/list-admitted-students.ts — rather than
 // something typed. This schema only checks the SHAPE of what arrived; the four
 // criteria plus the ПІБ are then looked up in the register, and the claim is
 // saved from what the register says — see `addStudentClaim`. A form value is

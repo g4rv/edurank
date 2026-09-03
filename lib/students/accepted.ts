@@ -5,43 +5,33 @@ import {
   subjectOf,
 } from '@/lib/specialities/codes';
 import type { Funding, StudentDegree, StudyForm } from '@/lib/stake/norms';
-import accepted2026 from './accepted-2026.json';
 
-// The register of admitted students — who an НПП is allowed to claim.
+// Shaping the register for the claim picker. NO DATA and NO DATABASE.
 //
-// Reference data, not a table. It is written by `pnpm students:build` from the
-// ЄДЕБО export and the later contract накази, never edited in the app, and read
-// by nobody but the claim form; a model plus a migration plus an import UI
-// would be three moving parts maintaining a list that changes on a handful of
-// days in August.
+// It read `accepted-2026.json` until 2026-09-03 and described itself as
+// "reference data, not a table". It is a table now — see
+// docs/students-register.md — and every read lives in
+// lib/queries/list-admitted-students.ts. What is left here is the part that was
+// always pure: turning a flat list of admissions into the cascade the picker
+// walks. Rows come in as an argument, which is also why the tests can still
+// feed it the real 1046 out of the JSON.
 //
-// SERVER ONLY. The file is ~340 KB and no page needs all of it in a browser:
-// `registerOptions()` ships the picker's tree (a few KB) and the names arrive a
-// combination at a time. Importing this from a `'use client'` module would put
-// all 1038 into the bundle, so don't.
-//
-// It is also the reason the claim form has no free-text field. Before it, the
-// name was typed, and «Ковальчук О.» / «Ковальчук Олена Ігорівна» were two
-// different students to every duplicate check in lib/stake/claims.ts — the one
-// place the whole feature has to be exact, because a duplicate is what the
-// завідувач rules on.
+// The register is still the reason the claim form has no free-text field.
+// Before it, the name was typed, and «Ковальчук О.» / «Ковальчук Олена
+// Ігорівна» were two different students to every duplicate check in
+// lib/stake/claims.ts — the one place the whole feature has to be exact,
+// because a duplicate is what the ADMIN rules on.
 
-export interface AcceptedStudent {
-  /** ПІБ exactly as the ЄДЕБО export spells it, without the birth date */
+/** One admission, as everything here needs it. The row's id is nobody's business. */
+export interface RegisterRow {
+  /** ПІБ as the наказ spells it */
   name: string;
-  /** Факультет name as the database spells it */
-  faculty: string;
   /** Speciality name as `SPECIALITY_NORMS_2026` spells it */
   speciality: string;
   degree: StudentDegree;
   form: StudyForm;
   funding: Funding;
 }
-
-/** The admission campaign the register covers */
-export const REGISTER_YEAR = 2026;
-
-export const ACCEPTED_STUDENTS: readonly AcceptedStudent[] = accepted2026 as AcceptedStudent[];
 
 /** One combination of form and funding that has students behind it */
 export interface RegisterVariant {
@@ -103,12 +93,13 @@ export interface RegisterSpeciality {
  * missing from a list that looked complete.
  */
 export function registerOptions(
+  students: readonly RegisterRow[],
   ownerNames: ReadonlyMap<string, readonly string[]>
 ): RegisterSpeciality[] {
   // спеціальність → повна назва спеціальності → форма|фінансування
   const bySpeciality = new Map<string, Map<string, Set<string>>>();
 
-  for (const student of ACCEPTED_STUDENTS) {
+  for (const student of students) {
     const parent = specialityOf(student.speciality);
     let branches = bySpeciality.get(parent);
     if (!branches) bySpeciality.set(parent, (branches = new Map()));
@@ -163,60 +154,13 @@ function sortKeyOf(speciality: { branches: readonly RegisterBranch[] }): string 
  *
  * `faculty` is deliberately absent: a claim does not record one, and a
  * speciality taught on two факультети is still one speciality. The register
- * keeps the факультет per student as information; nothing filters on it.
+ * does not carry a факультет at all any more — nothing ever filtered on it.
+ *
+ * Consumed by lib/queries/list-admitted-students.ts, which turns these three
+ * into a where clause.
  */
 export interface RegisterCriteria {
   speciality: string;
   form: StudyForm;
   funding: Funding;
-}
-
-function matches(student: AcceptedStudent, criteria: RegisterCriteria): boolean {
-  return (
-    student.speciality === criteria.speciality &&
-    student.form === criteria.form &&
-    student.funding === criteria.funding
-  );
-}
-
-/**
- * The students admitted under one combination, in Ukrainian alphabetical order.
- *
- * A linear scan of 1038 rows, deliberately. An index would be built on every
- * cold start of every server instance to save under a millisecond on a list
- * somebody opens a handful of times a year.
- */
-export function studentsMatching(criteria: RegisterCriteria): AcceptedStudent[] {
-  return ACCEPTED_STUDENTS.filter((student) => matches(student, criteria));
-}
-
-/**
- * The one register row a claim names, or null.
- *
- * The server calls this before saving and takes the claim's speciality, form,
- * funding and degree from what it returns — never from the form. A picker is a
- * convenience for the person, not a guarantee to the server: the four fields
- * arrive as ordinary form values and anybody can post whichever four they like.
- *
- * ПІБ is the key WITH the criteria, not on its own. Eighteen people are
- * admitted onto two programmes at once — Немеш Вікторія Іванівна is on Фінанси
- * and on Середня освіта (історія) — so a ПІБ alone names two register rows and
- * two different claims. The four together are unique, and a test fails the
- * moment a future list makes that untrue.
- */
-export function findAcceptedStudent(
-  name: string,
-  criteria: RegisterCriteria
-): AcceptedStudent | null {
-  const wanted = normaliseName(name);
-  return (
-    ACCEPTED_STUDENTS.find(
-      (student) => normaliseName(student.name) === wanted && matches(student, criteria)
-    ) ?? null
-  );
-}
-
-/** Trimmed, lower-cased, spaces collapsed — how two spellings of one ПІБ are compared */
-function normaliseName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ').toLowerCase();
 }

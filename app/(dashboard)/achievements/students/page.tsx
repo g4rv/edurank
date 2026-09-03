@@ -4,6 +4,7 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listMyClaims } from '@/lib/queries/list-student-claims';
 import { getSpecialityOwnerNames } from '@/lib/queries/get-speciality-departments';
+import { registerRows } from '@/lib/queries/list-admitted-students';
 import { registerOptions } from '@/lib/students/accepted';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { MyClaims } from '@/components/stake/my-claims';
@@ -45,8 +46,26 @@ export default async function MyStudentsPage() {
   }
 
   const { claims, potential, confirmed } = await listMyClaims(staffId, template.year);
-  // The picker's tree, not the register itself — a few KB against ~130.
-  const register = registerOptions(await getSpecialityOwnerNames());
+  // The picker's tree, not the register itself — a few KB against a thousand names.
+  const [rows, ownerNames] = await Promise.all([
+    registerRows(template.year),
+    getSpecialityOwnerNames(),
+  ]);
+  const register = registerOptions(rows, ownerNames);
+
+  // An empty picker is a dead end the person cannot diagnose — the same reason
+  // the cascade never offers a combination with nobody behind it. Nobody has
+  // imported this year's наказ yet, and only an ADMIN can.
+  if (rows.length === 0) {
+    return (
+      <AnimatedPage className="space-y-6">
+        <h1 className="text-2xl font-semibold">Мої залучені здобувачі</h1>
+        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+          Здобувачів за {template.year} рік ще не імпортовано. Зверніться до адміністратора.
+        </div>
+      </AnimatedPage>
+    );
+  }
 
   return (
     <AnimatedPage className="space-y-6">

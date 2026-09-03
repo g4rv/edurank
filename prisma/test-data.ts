@@ -3,8 +3,12 @@ import { passwordProblem } from '../lib/auth/password-rules';
 import { parseTypeSpecs } from '../validations/activity-type-spec';
 import { computeScore } from '../lib/rating/scoring';
 import { recomputeRatingEntries } from '../lib/rating/recompute';
-import { ACCEPTED_STUDENTS } from '../lib/students/accepted';
+import accepted2026 from '../lib/students/accepted-2026.json';
 import { normaliseStudentName } from '../lib/stake/claims';
+import type { RegisterRow } from '../lib/students/accepted';
+
+/** The реєстр as `pnpm db:import-students` reads it. `faculty` is present and ignored. */
+const ACCEPTED_STUDENTS = accepted2026 as RegisterRow[];
 import { MIN_STAKE } from '../lib/stake/units';
 import {
   FEMALE_NAMES,
@@ -513,6 +517,32 @@ async function giveClaims(
 ): Promise<number> {
   const owners = await prisma.speciality.findMany({ select: { id: true, name: true } });
   if (owners.length === 0) return 0;
+
+  // The реєстр itself, so /achievements/students has something to pick from —
+  // the claims below are drawn from the same list, so the two always agree.
+  // Read straight from the JSON: this is the seed's own copy of what
+  // `pnpm db:import-students` loads, and `db:seed:test` must not depend on
+  // somebody having run that first.
+  const specialityIds = new Map(owners.map((s) => [s.name, s.id]));
+  await prisma.admittedStudent.createMany({
+    data: ACCEPTED_STUDENTS.flatMap((s) => {
+      const specialityId = specialityIds.get(s.speciality);
+      return specialityId
+        ? [
+            {
+              year,
+              name: s.name,
+              nameNormalised: normaliseStudentName(s.name),
+              specialityId,
+              degree: s.degree,
+              form: s.form,
+              funding: s.funding,
+            },
+          ]
+        : [];
+    }),
+    skipDuplicates: true,
+  });
 
   // Students on a speciality this кафедра graduates, so «своя кафедра» is
   // exercised rather than always reading «чужа».
