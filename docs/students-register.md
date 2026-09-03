@@ -48,12 +48,12 @@ Worth stating, because a move like this invites scope creep:
 ```prisma
 // One admission — one person on one programme.
 //
-// A row is an ADMISSION, not a person. Eighteen of the 2026 intake were
-// admitted onto two programmes at once (Немеш Вікторія Іванівна is on Фінанси
-// and on Середня освіта (історія)), and those are two different students as far
-// as every claim, норматив and bonus is concerned. One row per person would
-// need два фінансування and дві форми in one cell, and a filter on «Бюджет»
-// would stop having an answer.
+// A row is an ADMISSION, not a person. 1046 rows carry 1026 distinct ПІБ:
+// twenty people were admitted onto two programmes at once (Немеш Вікторія
+// Іванівна is on Фінанси and on Середня освіта (історія)), and those are two
+// different students as far as every claim, норматив and bonus is concerned.
+// One row per person would need два фінансування and дві форми in one cell, and
+// a filter on «Бюджет» would stop having an answer.
 model AdmittedStudent {
   id   String @id @default(cuid())
 
@@ -101,6 +101,17 @@ Checked before committing to it: every speciality named in the current 1046 rows
 has a `SpecialityNorm` row, and therefore a `Speciality` row. The FK is safe for
 the whole import, and the import refuses a row it cannot resolve rather than
 inventing a speciality.
+
+### The register is currently all-бакалавр
+
+Counted 2026-09-03: every one of the 1046 rows is `BACHELOR`. `MASTER` is a
+legal value that no row uses yet, and `normFor` already halves the норматив for
+it — a магістр is worth twice a бакалавр.
+
+Worth stating because it means the `MASTER` path is **untested against real
+data**, and the first file to exercise it is the one phase 2 was asked for:
+`magisters_students.xlsx`. The «Ступінь» filter on the page will show a single
+option until that file is imported. That is correct, not a bug.
 
 ### `nameNormalised` uses the claims normaliser
 
