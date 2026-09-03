@@ -147,4 +147,18 @@ export const FIELD_LABELS: Record<string, string> = {
   valueHundredths: 'Надбавка за посаду',
   base: 'Норматив (бакалавр, денна)',
   contractCoefficient: 'Узгоджуючий коефіцієнт',
+  // Реєстр зарахованих (AdmittedStudent). `name` and `year` are shared with
+  // other entities above and keep their existing wording rather than being
+  // reworded for this one — «Назва» reads oddly against a ПІБ, and a key here
+  // is global.
+  //
+  // `nameNormalised` is deliberately absent: it is derived from `name`, so
+  // logging it would show every change twice, the second time in a spelling
+  // nobody typed.
+  specialityId: 'Спеціальність',
+  degree: 'Ступінь',
+  form: 'Форма навчання',
+  funding: 'Фінансування',
+  /** Not a column — the claims a deleted здобувач took down with them */
+  claims: 'Заявки НПП',
 };

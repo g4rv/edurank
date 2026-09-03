@@ -5,7 +5,12 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
-import { FIELD_LABELS } from '@/lib/labels';
+import {
+  FIELD_LABELS,
+  STUDENT_DEGREE_LABELS,
+  STUDENT_FUNDING_LABELS,
+  STUDY_FORM_LABELS,
+} from '@/lib/labels';
 import { formatStake } from '@/lib/stake/units';
 import { SortTh } from '@/components/ui/sort-th';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
@@ -34,6 +39,7 @@ const ENTITY_LABELS: Record<string, string> = {
   Activity: 'Досягнення',
   RatingTemplate: 'Рейтинговий рік',
   ActivityType: 'Показник рейтингу',
+  AdmittedStudent: 'Здобувач',
 };
 
 const VALUE_LABELS: Record<string, string> = {
@@ -46,6 +52,11 @@ const VALUE_LABELS: Record<string, string> = {
   ADMIN: 'Адміністратор',
   EDITOR: 'Редактор',
   USER: 'Користувач',
+  // Реєстр зарахованих. Spread from the shared maps rather than retyped, so a
+  // diff and the register page cannot disagree about what «Заочна» is called.
+  ...STUDENT_DEGREE_LABELS,
+  ...STUDY_FORM_LABELS,
+  ...STUDENT_FUNDING_LABELS,
 };
 
 type ChangeEntry = { from: unknown; to: unknown };
@@ -87,6 +98,7 @@ const VALID_ENTITIES = [
   'Activity',
   'RatingTemplate',
   'ActivityType',
+  'AdmittedStudent',
 ];
 const PAGE_SIZE = 50;
 
@@ -154,20 +166,24 @@ export default async function AuditLogPage({
       ? { user: { email: sortDir as 'asc' | 'desc' } }
       : { createdAt: sortDir as 'asc' | 'desc' };
 
-  const [total, logs, divisions, departments, faculties, staffList] = await Promise.all([
-    db.auditLog.count({ where }),
-    db.auditLog.findMany({
-      where,
-      include: { user: { select: { email: true } } },
-      orderBy,
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-    db.division.findMany({ select: { id: true, name: true } }),
-    db.department.findMany({ select: { id: true, name: true } }),
-    db.faculty.findMany({ select: { id: true, name: true } }),
-    db.staff.findMany({ select: { id: true, lastName: true, firstName: true, patronymic: true } }),
-  ]);
+  const [total, logs, divisions, departments, faculties, staffList, specialities] =
+    await Promise.all([
+      db.auditLog.count({ where }),
+      db.auditLog.findMany({
+        where,
+        include: { user: { select: { email: true } } },
+        orderBy,
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+      }),
+      db.division.findMany({ select: { id: true, name: true } }),
+      db.department.findMany({ select: { id: true, name: true } }),
+      db.faculty.findMany({ select: { id: true, name: true } }),
+      db.staff.findMany({
+        select: { id: true, lastName: true, firstName: true, patronymic: true },
+      }),
+      db.speciality.findMany({ select: { id: true, name: true } }),
+    ]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -177,6 +193,7 @@ export default async function AuditLogPage({
   const staffMap = new Map(
     staffList.map((s) => [s.id, `${s.lastName} ${s.firstName} ${s.patronymic}`])
   );
+  const specialityMap = new Map(specialities.map((s) => [s.id, s.name]));
   function resolveEntityName(entity: string, entityId: string): string | null {
     switch (entity) {
       case 'Staff':
@@ -231,6 +248,8 @@ export default async function AuditLogPage({
         return departmentMap.get(str) ?? str;
       case 'facultyId':
         return facultyMap.get(str) ?? str;
+      case 'specialityId':
+        return specialityMap.get(str) ?? str;
       case 'headId':
       case 'deanId':
       case 'staffId':

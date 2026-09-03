@@ -17,6 +17,8 @@ import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { DataTable } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { AdmittedStudentsFilters } from '@/components/admin/admitted-students-filters';
+import { AddAdmittedStudent } from '@/components/admin/add-admitted-student';
+import { DeleteAdmittedStudent } from '@/components/admin/delete-admitted-student';
 
 /** «A4.16 Середня освіта (захист України)», or the bare name where no code maps */
 function specialityLabel(name: string): string {
@@ -106,12 +108,18 @@ export default async function AdmittedStudentsPage({
 
   return (
     <AnimatedPage className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Здобувачі</h1>
-        <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
-          Реєстр зарахованих — з-поміж них НПП обирають залучених здобувачів. Один рядок — один
-          вступ: людину, зараховану на дві спеціальності, тут видно двічі.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Здобувачі</h1>
+          <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
+            Реєстр зарахованих — з-поміж них НПП обирають залучених здобувачів. Один рядок — один
+            вступ: людину, зараховану на дві спеціальності, тут видно двічі.
+          </p>
+        </div>
+        <AddAdmittedStudent
+          year={year}
+          specialities={specialities.map((s) => ({ id: s.id, label: specialityLabel(s.name) }))}
+        />
       </div>
 
       <AdmittedStudentsFilters
@@ -133,6 +141,7 @@ export default async function AdmittedStudentsPage({
               <th className={TH}>Форма</th>
               <th className={TH}>Ступінь</th>
               <th className={TH}>Спеціальність</th>
+              <th className="w-12" />
             </tr>
           </thead>
           <AnimatedTableBody>
@@ -146,6 +155,9 @@ export default async function AdmittedStudentsPage({
                 <td className="px-4 py-3 whitespace-nowrap">{STUDENT_DEGREE_LABELS[row.degree]}</td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {specialityLabel(row.speciality)}
+                </td>
+                <td className="px-4 py-1 text-right">
+                  <DeleteAdmittedStudent student={row} />
                 </td>
               </AnimatedRow>
             ))}
