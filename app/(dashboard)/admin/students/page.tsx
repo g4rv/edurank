@@ -39,17 +39,34 @@ function oneOf(value: string | string[] | undefined, allowed: Set<string>): stri
   return typeof value === 'string' && allowed.has(value) ? value : '';
 }
 
-const COLUMNS: { key: AdmittedSort; label: string; title?: string }[] = [
-  { key: 'name', label: 'ПІБ' },
-  { key: 'funding', label: 'Фінансування' },
-  { key: 'form', label: 'Форма' },
-  { key: 'degree', label: 'Ступінь' },
+/**
+ * The columns, and the width each one holds.
+ *
+ * The widths are why the table is `table-fixed`. Left to itself a browser sizes
+ * a column to the widest cell PRESENT, so every change of sort or page reflowed
+ * the whole table — «Євдокимчик Дмитро Володимирович» is wider than the longest
+ * бакалавр name, and the ПІБ column grew by twenty pixels and shoved everything
+ * right of it sideways. A list somebody scans down should not move under them.
+ *
+ * Percentages rather than pixels, so the table still uses whatever width the
+ * screen gives it. ПІБ gets the largest share because a wrapped name is the
+ * one thing here that reads badly — the longest in the 2026 register needs
+ * ~300px. Спеціальність takes the remainder and is the column allowed to wrap
+ * on a narrow screen: «B13 Інформаційна, бібліотечна та архівна справа» over
+ * two lines is still legible, a person's name split across two is not.
+ */
+const COLUMNS: { key: AdmittedSort; label: string; title?: string; width: string }[] = [
+  { key: 'name', label: 'ПІБ', width: 'w-[32%]' },
+  { key: 'funding', label: 'Фінансування', width: 'w-[13%]' },
+  { key: 'form', label: 'Форма', width: 'w-[9%]' },
+  { key: 'degree', label: 'Ступінь', width: 'w-[10%]' },
   {
     key: 'speciality',
     label: 'Спеціальність',
     // Said out loud, because the cell shows the code first and an alphabetical
     // list therefore looks unsorted.
     title: 'Сортування за назвою спеціальності, не за кодом',
+    width: '',
   },
 ];
 
@@ -187,7 +204,7 @@ export default async function AdmittedStudentsPage({
           Нічого не знайдено. Спробуйте змінити фільтри.
         </div>
       ) : (
-        <DataTable fill>
+        <DataTable fill className="table-fixed">
           <thead>
             <tr className="border-b bg-muted/40">
               {COLUMNS.map((column) => (
@@ -195,6 +212,7 @@ export default async function AdmittedStudentsPage({
                   key={column.key}
                   label={column.label}
                   title={column.title}
+                  className={column.width}
                   href={sortHref(column.key)}
                   active={sort === column.key}
                   dir={sort === column.key ? dir : 'asc'}
@@ -206,7 +224,7 @@ export default async function AdmittedStudentsPage({
           <AnimatedTableBody>
             {rows.map((row) => (
               <AnimatedRow key={row.id} className="transition-colors">
-                <td className="px-4 py-3 font-medium">{row.name}</td>
+                <td className="px-4 py-3 font-medium break-words">{row.name}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   {STUDENT_FUNDING_LABELS[row.funding]}
                 </td>
