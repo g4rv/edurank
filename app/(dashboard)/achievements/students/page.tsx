@@ -4,6 +4,7 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listMyClaims } from '@/lib/queries/list-student-claims';
 import { getSpecialityOwnerNames } from '@/lib/queries/get-speciality-departments';
+import { registerRows } from '@/lib/queries/list-admitted-students';
 import { registerOptions } from '@/lib/students/accepted';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { MyClaims } from '@/components/stake/my-claims';
@@ -45,8 +46,24 @@ export default async function MyStudentsPage() {
   }
 
   const { claims, potential, confirmed } = await listMyClaims(staffId, template.year);
-  // The picker's tree, not the register itself — a few KB against ~130.
-  const register = registerOptions(await getSpecialityOwnerNames());
+  // The picker's tree, not the register itself — a few KB against a thousand names.
+  const [rows, ownerNames] = await Promise.all([
+    registerRows(template.year),
+    getSpecialityOwnerNames(),
+  ]);
+  const register = registerOptions(rows, ownerNames);
+
+  // An empty register closes the FORM and nothing else.
+  //
+  // It used to return early here, which hid the person's own claims, their
+  // total and their «підтверджено» count behind the notice — on the one screen
+  // where somebody checks work they have already done. Between a deploy and the
+  // year's import that is every НПП seeing their students apparently gone.
+  //
+  // The form still has to go: an empty picker is a dead end nobody can
+  // diagnose, the same reason the cascade never offers a combination with
+  // nobody behind it. Only an ADMIN can fix it, so the notice says so.
+  const registerReady = rows.length > 0;
 
   return (
     <AnimatedPage className="space-y-6">
@@ -59,13 +76,20 @@ export default async function MyStudentsPage() {
         </p>
       </div>
 
+      {!registerReady && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-400">
+          Здобувачів за {template.year} рік ще не імпортовано, тому додати нового поки не можна.
+          Ваші наявні заявки збережено — зверніться до адміністратора.
+        </div>
+      )}
+
       <MyClaims
         claims={claims}
         potential={potential}
         confirmed={confirmed}
         register={register}
         year={template.year}
-        canAdd={template.status === 'OPEN'}
+        canAdd={template.status === 'OPEN' && registerReady}
       />
     </AnimatedPage>
   );

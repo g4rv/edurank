@@ -3,6 +3,9 @@ import type {
   AdminPosition,
   Role,
   ScientificDegree,
+  StudentDegree,
+  StudentFunding,
+  StudyForm,
 } from '@/lib/generated/prisma/client';
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -21,6 +24,26 @@ export const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
 export const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
   CANDIDATE: 'Кандидат наук',
   DOCTOR: 'Доктор наук',
+};
+
+/**
+ * The three student enums, in the words the claim screens have used since
+ * August. Lifted out of components/stake/{claims-review,my-claims}.tsx, which
+ * each carried their own copy — /admin/students would have made a third.
+ */
+export const STUDENT_DEGREE_LABELS: Record<StudentDegree, string> = {
+  BACHELOR: 'Бакалавр',
+  MASTER: 'Магістр',
+};
+
+export const STUDY_FORM_LABELS: Record<StudyForm, string> = {
+  FULL_TIME: 'Денна',
+  PART_TIME: 'Заочна',
+};
+
+export const STUDENT_FUNDING_LABELS: Record<StudentFunding, string> = {
+  STATE: 'Бюджет',
+  CONTRACT: 'Контракт',
 };
 
 export const ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {
@@ -124,4 +147,38 @@ export const FIELD_LABELS: Record<string, string> = {
   valueHundredths: 'Надбавка за посаду',
   base: 'Норматив (бакалавр, денна)',
   contractCoefficient: 'Узгоджуючий коефіцієнт',
+  // Реєстр зарахованих (AdmittedStudent). `name` and `year` are shared with
+  // other entities above, so their wording for a здобувач lives in
+  // ENTITY_FIELD_LABELS below — the audit log printed «Назва: Ковальчук Олена
+  // Ігорівна» until it did.
+  //
+  // `nameNormalised` is deliberately absent: it is derived from `name`, so
+  // logging it would show every change twice, the second time in a spelling
+  // nobody typed.
+  specialityId: 'Спеціальність',
+  degree: 'Ступінь',
+  form: 'Форма навчання',
+  funding: 'Фінансування',
+  /** Not a column — the claims a deleted здобувач took down with them */
+  claims: 'Заявки НПП',
+  /** Not columns either — what one import RUN did, logged as a single entry */
+  added: 'Додано',
+  skipped: 'Вже було в списку',
+  file: 'Файл',
+};
+
+/**
+ * Labels that apply to ONE entity, consulted before `FIELD_LABELS`.
+ *
+ * `FIELD_LABELS` is keyed by column name across every model, so a name shared
+ * by two of them can only have one wording. «Назва» is right for a кафедра and
+ * wrong for a person: the audit log printed «Назва: Ковальчук Олена Ігорівна».
+ * Rather than rename the column or reword it for everybody, an entity may
+ * override the few keys that mean something different to it.
+ */
+export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
+  AdmittedStudent: {
+    name: 'ПІБ',
+    year: 'Рік вступу',
+  },
 };

@@ -11,8 +11,9 @@ import { normaliseStudentName } from '@/lib/stake/claims';
 import {
   findAcceptedStudent,
   studentsMatching,
-  type RegisterCriteria,
-} from '@/lib/students/accepted';
+  type Candidate,
+} from '@/lib/queries/list-admitted-students';
+import type { RegisterCriteria } from '@/lib/students/accepted';
 import { studentClaimSchema } from '@/validations/student-claim';
 
 // «Мої залучені здобувачі» — an НПП records the students they brought in.
@@ -73,15 +74,17 @@ export async function addStudentClaim(_prev: ClaimState, formData: FormData): Pr
   });
   if (!parsed.success) return failed(parsed.error.issues[0]?.message ?? 'Невірні дані');
 
+  // The year comes first now: a register is per-campaign, so «which students
+  // exist» has no answer until the year is known.
+  const year = await activeYear();
+  if (!year) return failed('Рейтинговий рік закрито або ще не налаштовано');
+
   // The register decides what is saved. Everything below comes from `student`,
   // never from `parsed.data` — the two agree when the form was used normally,
   // and when they do not it is a request nobody made through the UI.
   const { studentName, ...criteria } = parsed.data;
-  const student = findAcceptedStudent(studentName, criteria);
+  const student = await findAcceptedStudent(year, studentName, criteria);
   if (!student) return failed('Такого здобувача немає у списку зарахованих на обраних умовах');
-
-  const year = await activeYear();
-  if (!year) return failed('Рейтинговий рік закрито або ще не налаштовано');
 
   const [staff, speciality] = await Promise.all([
     db.staff.findUnique({
@@ -145,18 +148,28 @@ export async function addStudentClaim(_prev: ClaimState, formData: FormData): Pr
 /**
  * The admitted students behind one combination, for the last step of the picker.
  *
+ * Each carries their ступінь, because it is not one of the criteria and the
+ * form has no other way to know it — see `studentsMatching`.
+ *
  * Fetched rather than shipped: the register is ~130 KB and a кафедра's worth of
  * a page's audience would download all 722 names to choose one. A combination
  * is at most a few dozen.
  *
  * Signed-in staff only. These are real people's names and the page they feed is
  * already НПП-only; there is nothing here for an anonymous request.
+ *
+ * The year is taken from the active template, never from the caller: this is a
+ * public entry point, and a client component must not choose which вступна
+ * кампанія it reads.
  */
-export async function listStudentCandidates(criteria: RegisterCriteria): Promise<string[]> {
+export async function listStudentCandidates(criteria: RegisterCriteria): Promise<Candidate[]> {
   const session = await auth();
   if (!session) redirect('/login');
 
-  return studentsMatching(criteria).map((student) => student.name);
+  const year = await activeYear();
+  if (!year) return [];
+
+  return studentsMatching(year, criteria);
 }
 
 /**

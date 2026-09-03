@@ -22,17 +22,19 @@ import {
 import { formatBonus } from '@/lib/stake/units';
 import { cn } from '@/lib/utils';
 import type { MyClaim } from '@/lib/queries/list-student-claims';
+import {
+  STUDENT_DEGREE_LABELS as DEGREE,
+  STUDENT_FUNDING_LABELS as FUNDING,
+  STUDY_FORM_LABELS as FORM,
+} from '@/lib/labels';
 import type { RegisterBranch, RegisterSpeciality } from '@/lib/students/accepted';
+import type { Candidate } from '@/lib/queries/list-admitted-students';
 import {
   addStudentClaim,
   deleteStudentClaim,
   listStudentCandidates,
   type ClaimState,
 } from '@/app/(dashboard)/achievements/students/actions';
-
-const DEGREE = { BACHELOR: 'Бакалавр', MASTER: 'Магістр' } as const;
-const FORM = { FULL_TIME: 'Денна', PART_TIME: 'Заочна' } as const;
-const FUNDING = { STATE: 'Бюджет', CONTRACT: 'Контракт' } as const;
 
 const STATUS = {
   PENDING: { label: 'На розгляді', className: 'text-muted-foreground' },
@@ -211,7 +213,7 @@ function CascadeFields({
 }) {
   const [selection, setSelection] = useState<Selection>(EMPTY);
   const [student, setStudent] = useState('');
-  const [candidates, setCandidates] = useState<string[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, startLoading] = useTransition();
 
   const { speciality, branch, form, funding } = selection;
@@ -224,6 +226,14 @@ function CascadeFields({
 
   const disabled = pending || loading;
 
+  /**
+   * The chosen student's ступінь, or '' while nobody is chosen.
+   *
+   * Ступінь is not one of the criteria, so a combination can hold both — 74 of
+   * the 111 in the 2026 register do. It can only be known once the person is.
+   */
+  const degree = candidates.find((c) => c.name === student)?.degree ?? '';
+
   /** Applies a change, resolves everything it settles, and loads the names if complete */
   function choose(next: Selection) {
     const resolved = resolve(register, next);
@@ -233,12 +243,13 @@ function CascadeFields({
 
     if (!resolved.funding) return;
     startLoading(async () => {
-      const names = await listStudentCandidates({
-        speciality: resolved.branch,
-        form: resolved.form as 'FULL_TIME' | 'PART_TIME',
-        funding: resolved.funding as 'STATE' | 'CONTRACT',
-      });
-      setCandidates(names);
+      setCandidates(
+        await listStudentCandidates({
+          speciality: resolved.branch,
+          form: resolved.form as 'FULL_TIME' | 'PART_TIME',
+          funding: resolved.funding as 'STATE' | 'CONTRACT',
+        })
+      );
     });
   }
 
@@ -281,28 +292,25 @@ function CascadeFields({
           </div>
         )}
 
-        {/* Ступінь — fixed to бакалавр, and SHOWN rather than left out.
+        {/* Ступінь — the CHOSEN student's, and never typed.
 
-            Every one of the 722 people in the 2026 наказ is a бакалавр, so this
-            filters nothing today and the field could be dropped. It is here
-            because its absence would be read as «the app cannot do магістри»,
-            which is untrue in a way that matters: the норматив for a магістр is
-            already in `lib/stake/norms.ts` (their coefficient halves), the
-            import script already reads the column, and the day a наказ for
-            магістри arrives this becomes live with no code change.
+            It was hardcoded to «Бакалавр» while the 2026 наказ held only
+            бакалаври. The магістр накази (530–533) ended that: 74 of the 111
+            combinations now hold both, so a constant here was simply wrong on
+            781 people, on the one screen where the ступінь doubles the money —
+            a магістр's норматив halves, so they are worth twice a бакалавр.
 
-            Disabled rather than a single-option select, so it reads as a
-            constraint on the data rather than a control somebody failed to
-            fill in. A line explaining that the 2026 наказ holds only бакалаври
-            sat under it and was removed on the owner's request — the greyed
-            field says enough. */}
+            Still disabled, because it is a property of the person and not a
+            question: it is read from the register, exactly as the saved claim
+            always was. Blank until somebody is picked, because until then there
+            is no true answer to show. */}
         {/* The three narrow ones travel together — «Спеціалізація» appears only
             for some programmes, and without this «Фінансування» was left
             stranded on a row of its own whenever it did not. */}
         <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3 lg:col-span-4">
           <PickOne
             label="Ступінь"
-            value="BACHELOR"
+            value={degree}
             onChange={() => {}}
             options={[
               { value: 'BACHELOR', label: DEGREE.BACHELOR },
@@ -374,7 +382,7 @@ function StudentPicker({
   loading,
   disabled,
 }: {
-  candidates: string[];
+  candidates: Candidate[];
   value: string;
   onChange: (value: string) => void;
   /** All four criteria are chosen */
@@ -382,7 +390,7 @@ function StudentPicker({
   loading: boolean;
   disabled: boolean;
 }) {
-  const items = candidates.map((name) => ({ id: name, name }));
+  const items = candidates.map((c) => ({ id: c.name, name: c.name }));
   // The placeholder still carries the STATE — «not yet», «loading», «N to pick
   // from» — because that changes as the form is filled and a fixed label cannot
   // say it. The label above says what the field is.

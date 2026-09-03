@@ -6,14 +6,15 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatBonus } from '@/lib/stake/units';
+import {
+  STUDENT_DEGREE_LABELS as DEGREE,
+  STUDENT_FUNDING_LABELS as FUNDING,
+  STUDY_FORM_LABELS as FORM,
+} from '@/lib/labels';
 import { formatSpeciality, specialityCodeSortKey } from '@/lib/specialities/codes';
 import { cn } from '@/lib/utils';
 import type { ReviewClaim } from '@/lib/queries/list-student-claims';
 import { decideStudentClaim } from '@/app/(dashboard)/my-department/students/actions';
-
-const DEGREE = { BACHELOR: 'Бакалавр', MASTER: 'Магістр' } as const;
-const FORM = { FULL_TIME: 'Денна', PART_TIME: 'Заочна' } as const;
-const FUNDING = { STATE: 'Бюджет', CONTRACT: 'Контракт' } as const;
 
 /** Every column except «Рішення», which has no order worth putting rows in */
 type SortKey = 'student' | 'claimant' | 'department' | 'speciality' | 'value' | 'date';
