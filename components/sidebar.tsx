@@ -67,6 +67,7 @@ const ADMINISTRATION_NAV: NavItem[] = [
   { href: '/admin/permissions/field', label: 'Поля доступу', icon: KeyRound },
   { href: '/admin/permissions/entity', label: 'Дії доступу', icon: ShieldCheck },
   { href: '/admin/invites', label: 'Запрошення', icon: MailPlus },
+  { href: '/admin/students', label: 'Здобувачі', icon: GraduationCap },
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList },
 ];
 
