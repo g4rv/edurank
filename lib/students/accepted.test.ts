@@ -13,11 +13,19 @@ import { registerOptions, type RegisterCriteria, type RegisterRow } from './acce
 
 const ACCEPTED_STUDENTS = accepted2026 as RegisterRow[];
 
-/** What lib/queries/list-admitted-students.ts now does in SQL */
-function studentsMatching(criteria: RegisterCriteria): RegisterRow[] {
+/**
+ * The students behind one variant.
+ *
+ * Matches on ступінь too, which the app's own query does client-side. Without
+ * it a combination holding both ступені would be counted twice here — the 2026
+ * JSON is entirely бакалаври so it would never show, and the check below would
+ * quietly stop meaning anything the day it did.
+ */
+function studentsMatching(criteria: RegisterCriteria & { degree: string }): RegisterRow[] {
   return ACCEPTED_STUDENTS.filter(
     (s) =>
       s.speciality === criteria.speciality &&
+      s.degree === criteria.degree &&
       s.form === criteria.form &&
       s.funding === criteria.funding
   );

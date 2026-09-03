@@ -33,8 +33,17 @@ export interface RegisterRow {
   funding: Funding;
 }
 
-/** One combination of form and funding that has students behind it */
+/**
+ * One combination that has students behind it.
+ *
+ * Ступінь joined форма and фінансування once the магістр накази landed. It was
+ * outside the tree while every admitted person was a бакалавр — it distinguished
+ * nothing — and that is exactly why the claim form could not offer it until the
+ * candidates had loaded. In here, all three are answerable the moment a
+ * спеціальність is chosen.
+ */
 export interface RegisterVariant {
+  degree: StudentDegree;
   form: StudyForm;
   funding: Funding;
 }
@@ -107,7 +116,7 @@ export function registerOptions(
     let variants = branches.get(student.speciality);
     if (!variants) branches.set(student.speciality, (variants = new Set()));
 
-    variants.add(`${student.form}|${student.funding}`);
+    variants.add(`${student.degree}|${student.form}|${student.funding}`);
   }
 
   return [...bySpeciality]
@@ -122,8 +131,12 @@ export function registerOptions(
           code: SPECIALITY_CODES[speciality]?.code ?? null,
           departments: ownerNames.get(speciality) ?? [],
           variants: [...variants].sort().map((key) => {
-            const [form, funding] = key.split('|');
-            return { form: form as StudyForm, funding: funding as Funding };
+            const [degree, form, funding] = key.split('|');
+            return {
+              degree: degree as StudentDegree,
+              form: form as StudyForm,
+              funding: funding as Funding,
+            };
           }),
         })),
     }))
