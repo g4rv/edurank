@@ -104,12 +104,17 @@ inventing a speciality.
 
 ### `nameNormalised` uses the claims normaliser
 
-Two normalisers exist today and they disagree:
+Two normalisers exist today and they disagree. `normaliseStudentName` does
+everything `normaliseName` does, and then folds the punctuation Ukrainian names
+are written with in several ways:
 
-| function                                        | does                                                    |
-| ----------------------------------------------- | ------------------------------------------------------- |
-| `normaliseName` in `lib/students/accepted.ts`   | trim, collapse spaces, lower-case                       |
-| `normaliseStudentName` in `lib/stake/claims.ts` | the above, **plus** folds `’ ʼ ‘ \` ´`→`'`and`‐-―−`→`-` |
+| in                                 | trims, collapses spaces, lower-cases | folds apostrophes | folds dashes |
+| ---------------------------------- | :----------------------------------: | :---------------: | :----------: |
+| `normaliseName` (accepted.ts)      |                 yes                  |        no         |      no      |
+| `normaliseStudentName` (claims.ts) |                 yes                  |        yes        |     yes      |
+
+The apostrophes are U+2019, U+02BC, U+2018, a backtick and U+00B4, all folded to
+a plain `'`; the dashes are U+2010 through U+2015 and U+2212, folded to `-`.
 
 The delete guard has to match a register row against `StudentClaim.studentNameNormalised`,
 which is written by the claims one. If the two sides normalise differently,
