@@ -29,14 +29,48 @@ export interface SourceStudent {
   funding: Funding;
 }
 
-/** Trimmed, runs of whitespace collapsed. What a ПІБ is stored as. */
+/**
+ * The spaces a spreadsheet produces that `.trim()` does not remove.
+ *
+ * Excel and Word are full of them — a non-breaking space between a ПІБ's parts,
+ * a zero-width space left by a copy-paste, a BOM at the head of the first cell.
+ * Each one makes a value that LOOKS identical compare as different, which is
+ * the worst kind of mismatch to diagnose from a screenshot.
+ */
+function despace(value: string): string {
+  return value.replace(/[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ');
+}
+
+/** Everything a Ukrainian ПІБ is made of: letters, marks, apostrophes, hyphens, initials' dots */
+const NOT_IN_A_NAME = /[^\p{L}\p{M}'’ʼ‘`´\-.\s]+/gu;
+
+/**
+ * A ПІБ with everything that is not a name taken out.
+ *
+ * The деканат copies the ЄДЕБО «Вступник» column, which is
+ * «Прізвище Ім'я По батькові 16.05.1985» — the birth date is part of the cell.
+ * It reached the register on the first real import, all 781 rows of it. That is
+ * personal data nothing here should hold, and it also splits one person into
+ * two: the same student in a later, clean file has a different normalised name
+ * and imports again as a second row.
+ *
+ * So: the date goes, any other digit goes (a stray number in a ПІБ is a row
+ * counter or an id that leaked from a neighbouring column), and so does
+ * anything outside the alphabet. Dots SURVIVE, because «Петренко О.І.» is a way
+ * people really write a name.
+ */
 export function cleanName(value: string): string {
-  return value.trim().replace(/\s+/g, ' ');
+  return despace(value)
+    .replace(/\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}/g, ' ')
+    .replace(/\d+/g, ' ')
+    .replace(NOT_IN_A_NAME, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
 
 /** Header text as it is compared: lower-cased, depunctuated, spaces collapsed */
 function headerKey(value: string): string {
-  return value
+  return despace(value)
     .trim()
     .toLowerCase()
     .replace(/[.:]+$/, '')
@@ -45,7 +79,31 @@ function headerKey(value: string): string {
 
 /** A cell's text as the word maps compare it */
 function cellKey(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+  return despace(value).trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** The same cell reduced to its words alone — no digits, no punctuation */
+function wordKey(value: string): string {
+  return despace(value)
+    .toLowerCase()
+    .replace(/[^\p{L}\s]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * One of a word map's values, or undefined.
+ *
+ * Two passes. The first compares the cell as written, which is what carries the
+ * spellings that need their punctuation — «Денна (офлайн)». The second throws
+ * away everything but letters, so «Бакалавр.», «Магістр 011» and a cell with a
+ * stray non-breaking space all land on a word the map knows.
+ *
+ * Never guesses beyond that: an unknown word is still an unknown word, and the
+ * row is reported rather than filed under whichever value came first.
+ */
+function matchWord<T>(map: Record<string, T>, cell: string): T | undefined {
+  return map[cellKey(cell)] ?? map[wordKey(cell)];
 }
 
 type Field = 'name' | 'degree' | 'form' | 'funding' | 'speciality' | 'specialisation';
@@ -121,9 +179,13 @@ export const DEGREE_WORDS: Record<string, StudentDegree> = {
 export const FORM_WORDS: Record<string, StudyForm> = {
   денна: 'FULL_TIME',
   'денна (офлайн)': 'FULL_TIME',
+  // What the bracketed spelling reduces to once punctuation is dropped, so
+  // «Денна(офлайн)» with no space is read too.
+  'денна офлайн': 'FULL_TIME',
   офлайн: 'FULL_TIME',
   заочна: 'PART_TIME',
   'заочна (онлайн)': 'PART_TIME',
+  'заочна онлайн': 'PART_TIME',
   онлайн: 'PART_TIME',
 };
 
@@ -250,24 +312,32 @@ export function parseTemplate(cells: readonly (readonly string[])[]): ParsedTemp
     // +1 because a person counts the header as row 1, like Excel does.
     const line = i + 1;
 
-    const name = cleanName(at('name'));
-    if (!name) continue; // trailing blank rows
+    const rawName = at('name');
+    const name = cleanName(rawName);
+    if (!name) {
+      // A blank row is Excel's trailing furniture and is skipped in silence. A
+      // row that HAD something and cleaned down to nothing — «12345», «-», a
+      // stray id — is a row somebody meant to be a person, and saying so beats
+      // dropping it and letting the totals come up short with no explanation.
+      if (rawName) problems.push(`Рядок ${line}: у колонці ПІБ немає імені — «${rawName}»`);
+      continue;
+    }
 
     const fail = (why: string) => problems.push(`Рядок ${line} (${name}): ${why}`);
 
-    const degree = DEGREE_WORDS[cellKey(at('degree'))];
+    const degree = matchWord(DEGREE_WORDS, at('degree'));
     if (!degree) {
       fail(`не розпізнано ступінь «${at('degree')}»`);
       continue;
     }
 
-    const form = FORM_WORDS[cellKey(at('form'))];
+    const form = matchWord(FORM_WORDS, at('form'));
     if (!form) {
       fail(`не розпізнано форму «${at('form')}»`);
       continue;
     }
 
-    const funding = FUNDING_WORDS[cellKey(at('funding'))];
+    const funding = matchWord(FUNDING_WORDS, at('funding'));
     if (!funding) {
       fail(`не розпізнано фінансування «${at('funding')}»`);
       continue;

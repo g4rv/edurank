@@ -213,6 +213,11 @@ pnpm db:import-students  # one-off: load lib/students/accepted-<year>.json into
                       #   campaign. Adds only, never removes. NOT a seed — this
                       #   is how PRODUCTION gets the реєстр, because the JSON is
                       #   in git and edu-reference/ is not.
+pnpm db:clean-student-names  # one-off: take the birth dates out of ПІБ in
+                      #   AdmittedStudent. The first import carried the ЄДЕБО
+                      #   «Вступник» column («ПІБ 16.05.1985») into 781 rows;
+                      #   the parser strips it now, this catches up what went in
+                      #   before. Refuses to touch a row a StudentClaim names.
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 

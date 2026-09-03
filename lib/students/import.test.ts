@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cleanName,
   importKey,
   parseTemplate,
   planImport,
@@ -79,6 +80,58 @@ describe('specialityFromCell', () => {
   it('returns null for a code and a name it knows nothing about', () => {
     expect(specialityFromCell('Z9 Вигадана справа')).toBeNull();
     expect(specialityFromCell('')).toBeNull();
+  });
+});
+
+describe('cleanName', () => {
+  // The case that put 781 birth dates into the register: the деканат copies the
+  // ЄДЕБО «Вступник» column, which is «ПІБ dd.mm.yyyy».
+  it('takes the birth date off the end', () => {
+    expect(cleanName('Бедій Валерія Миколаївна 16.05.1985')).toBe('Бедій Валерія Миколаївна');
+  });
+
+  it.each(['16.05.1985', '1.5.85', '16-05-1985', '16/05/1985'])(
+    'takes off a date written as %s',
+    (date) => {
+      expect(cleanName(`Бедій Валерія Миколаївна ${date}`)).toBe('Бедій Валерія Миколаївна');
+    }
+  );
+
+  it('takes out any other digit, wherever it sits', () => {
+    expect(cleanName('12 Бедій Валерія')).toBe('Бедій Валерія');
+    expect(cleanName('Бедій Валерія 2004')).toBe('Бедій Валерія');
+  });
+
+  // Dots are the exception that must survive: people really write a name this
+  // way, and «Петренко ОІ» would be a different person to every duplicate check.
+  it('keeps the dots of initials', () => {
+    expect(cleanName('Петренко О.І.')).toBe('Петренко О.І.');
+    expect(cleanName('Петренко О.І. 1995')).toBe('Петренко О.І.');
+  });
+
+  it('keeps an apostrophe and a hyphen, which belong to real names', () => {
+    expect(cleanName('Кузьмич-Іванова Мар’яна В’ячеславівна')).toBe(
+      'Кузьмич-Іванова Мар’яна В’ячеславівна'
+    );
+  });
+
+  it('drops brackets, commas, slashes and anything else a name is not', () => {
+    expect(cleanName('Іванов, Іван (бюджет) №7')).toBe('Іванов Іван бюджет');
+  });
+
+  // Excel is full of these and `.trim()` does not touch them.
+  it('turns a non-breaking or zero-width space into an ordinary one', () => {
+    expect(cleanName('Бедій Валерія​Миколаївна')).toBe('Бедій Валерія Миколаївна');
+    expect(cleanName('﻿Бедій Валерія')).toBe('Бедій Валерія');
+  });
+
+  it('collapses whatever whitespace is left', () => {
+    expect(cleanName('  Бедій   Валерія\tМиколаївна ')).toBe('Бедій Валерія Миколаївна');
+  });
+
+  it('comes back empty when there was no name in there at all', () => {
+    expect(cleanName('12345')).toBe('');
+    expect(cleanName('   ')).toBe('');
   });
 });
 
@@ -220,6 +273,50 @@ describe('parseTemplate', () => {
       ['FULL_TIME', 'STATE'],
       ['PART_TIME', 'CONTRACT'],
     ]);
+  });
+
+  // The ПІБ column is cleaned on the way in, so a whole file of ЄДЕБО
+  // «Вступник» values imports without anyone editing it first.
+  it('cleans the ПІБ of every row it reads', () => {
+    const { rows, problems } = parseTemplate([
+      HEAD,
+      ['Бедій Валерія Миколаївна 16.05.1985', 'Магістр', 'Денна', 'Контракт', 'C4 Психологія'],
+    ]);
+
+    expect(problems).toEqual([]);
+    expect(rows[0]!.name).toBe('Бедій Валерія Миколаївна');
+  });
+
+  it('reports a ПІБ cell that had something in it but no name', () => {
+    const { rows, problems } = parseTemplate([
+      HEAD,
+      ['00123', 'Магістр', 'Денна', 'Контракт', 'C4 Психологія'],
+    ]);
+
+    expect(rows).toEqual([]);
+    expect(problems).toEqual(['Рядок 2: у колонці ПІБ немає імені — «00123»']);
+  });
+
+  it.each([
+    ['Бакалавр.', 'Денна', 'Бюджет'],
+    ['Бакалавр 011', 'Денна', 'Бюджет'],
+    ['Бакалавр', 'Денна(офлайн)', 'Бюджет'],
+    ['Бакалавр', 'Денна', 'Бюджет.'],
+  ])('reads ступінь/форма/фінансування through the noise: %s / %s / %s', (d, f, m) => {
+    const { rows, problems } = parseTemplate([HEAD, ['Хтось Хтось Хтось', d, f, m, 'A3']]);
+
+    expect(problems).toEqual([]);
+    expect(rows[0]).toMatchObject({ degree: 'BACHELOR', form: 'FULL_TIME', funding: 'STATE' });
+  });
+
+  it('still refuses a word it does not know, rather than picking one', () => {
+    const { rows, problems } = parseTemplate([
+      HEAD,
+      ['Хтось Хтось Хтось', 'Аспірант', 'Денна', 'Бюджет', 'A3'],
+    ]);
+
+    expect(rows).toEqual([]);
+    expect(problems[0]).toContain('ступінь');
   });
 
   it('ignores case and stray spacing in the enum cells', () => {

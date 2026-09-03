@@ -21,7 +21,16 @@ export const admittedStudentSchema = z.object({
     .string()
     .transform((value) => value.trim().replace(/\s+/g, ' '))
     .pipe(
-      z.string().min(3, { error: 'Вкажіть ПІБ' }).max(200, { error: 'Занадто довге значення' })
+      z
+        .string()
+        .min(3, { error: 'Вкажіть ПІБ' })
+        .max(200, { error: 'Занадто довге значення' })
+        // The importer STRIPS a digit, because a whole file of «ПІБ 16.05.1985»
+        // is the ЄДЕБО column pasted in and fixing it by hand is nobody's
+        // afternoon. A form is the opposite case: one person, one name, and
+        // they are right here to be told — so say it instead of silently
+        // rewriting what they typed.
+        .refine((value) => !/\d/.test(value), { error: 'ПІБ не може містити цифр' })
     ),
   specialityId: z.string().trim().min(1, { error: 'Оберіть спеціальність' }),
   degree: z.enum(['BACHELOR', 'MASTER'], { error: 'Оберіть ступінь' }),

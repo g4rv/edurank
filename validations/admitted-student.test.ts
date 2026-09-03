@@ -49,3 +49,22 @@ describe('admittedStudentSchema', () => {
     expect(admittedStudentSchema.safeParse({ ...valid, year: '2101' }).success).toBe(false);
   });
 });
+
+// The importer strips a digit out of a ПІБ; a form says so instead. One is a
+// pasted column nobody wants to hand-edit, the other is a person who can fix it.
+describe('admittedStudentSchema — digits in a ПІБ', () => {
+  it('refuses a name with a birth date in it', () => {
+    const result = admittedStudentSchema.safeParse({
+      ...valid,
+      name: 'Бедій Валерія Миколаївна 16.05.1985',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]?.message).toBe('ПІБ не може містити цифр');
+  });
+
+  it('still accepts the dots of initials', () => {
+    expect(admittedStudentSchema.parse({ ...valid, name: 'Петренко О.І.' }).name).toBe(
+      'Петренко О.І.'
+    );
+  });
+});

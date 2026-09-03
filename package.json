@@ -37,6 +37,7 @@
     "db:clear-profile-links": "tsx prisma/clear-profile-links.ts",
     "db:link-speciality-departments": "tsx prisma/link-speciality-departments.ts",
     "db:import-students": "tsx prisma/import-students.ts",
+    "db:clean-student-names": "tsx prisma/clean-student-names.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force",
