@@ -627,6 +627,7 @@ model Speciality {
   norms  SpecialityNorm[]
   claims StudentClaim[]
   departments SpecialityDepartment[]
+  admittedStudents AdmittedStudent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -683,6 +684,49 @@ model SpecialityDepartment {
 
   @@id([specialityId, departmentId])
   @@index([departmentId])
+}
+
+// Реєстр зарахованих — who an НПП is allowed to claim.
+//
+// A row is an ADMISSION, not a person. 1046 rows of the 2026 intake carry 1026
+// distinct ПІБ: twenty people were admitted onto two programmes at once (Немеш
+// Вікторія Іванівна is on Фінанси and on Середня освіта (історія)), and those
+// are two different students to every claim, норматив and bonus.
+//
+// This was `lib/students/accepted-2026.json` until 2026-09-03 — a committed
+// file, deliberately "reference data, not a table". Admins can now add and
+// remove students on /admin/students, and a container cannot write to its own
+// bundle. The JSON stays in git as import input only; see docs/students-register.md.
+model AdmittedStudent {
+  id String @id @default(cuid())
+
+  /// Вступна кампанія. A year owns its intake, the way a RatingTemplate owns
+  /// its indicators — so last year's students are never cleared to make room.
+  year Int
+
+  /// ПІБ as the наказ spells it
+  name String
+  /// normaliseStudentName() from lib/stake/claims.ts — the SAME normaliser
+  /// StudentClaim uses, so the delete guard can match the two. Stored rather
+  /// than computed so search and that guard can use an index.
+  nameNormalised String
+
+  specialityId String
+  speciality   Speciality @relation(fields: [specialityId], references: [id])
+
+  degree  StudentDegree
+  form    StudyForm
+  funding StudentFunding
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// What an import skips as «вже в списку», and what a claim is looked up by.
+  /// Degree is NOT in the key: it follows from the programme, and a person on
+  /// one programme twice under two ступені is not a case that exists.
+  @@unique([year, nameNormalised, specialityId, form, funding])
+  /// The picker's query — everyone on one programme, one combination
+  @@index([year, specialityId, form, funding])
 }
 
 // One student an НПП says they recruited — term 2 of the ставка formula.
