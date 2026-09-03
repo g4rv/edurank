@@ -67,12 +67,11 @@ describe('registerRows', () => {
 });
 
 describe('studentsMatching', () => {
-  it('asks for one year, one programme, one combination — and returns ПІБ only', async () => {
-    findMany.mockResolvedValue([{ name: 'Андрієнко А. А.' }, { name: 'Бондар Б. Б.' }]);
+  it('asks for one year, one programme, one combination', async () => {
+    findMany.mockResolvedValue([]);
 
-    const names = await studentsMatching(2026, CRITERIA);
+    await studentsMatching(2026, CRITERIA);
 
-    expect(names).toEqual(['Андрієнко А. А.', 'Бондар Б. Б.']);
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -82,6 +81,25 @@ describe('studentsMatching', () => {
           speciality: { name: 'Психологія' },
         },
       })
+    );
+  });
+
+  // Ступінь is NOT one of the criteria, so a combination holds whichever
+  // ступені its students have — 74 of the 111 in the 2026 register hold both.
+  // The picker cannot label a person's ступінь until it has the person, and
+  // getting it wrong is a factor of two on the bonus.
+  it('carries each ПІБ together with their ступінь', async () => {
+    findMany.mockResolvedValue([
+      { name: 'Андрієнко А. А.', degree: 'BACHELOR' },
+      { name: 'Бондар Б. Б.', degree: 'MASTER' },
+    ]);
+
+    await expect(studentsMatching(2026, CRITERIA)).resolves.toEqual([
+      { name: 'Андрієнко А. А.', degree: 'BACHELOR' },
+      { name: 'Бондар Б. Б.', degree: 'MASTER' },
+    ]);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ select: { name: true, degree: true } })
     );
   });
 });

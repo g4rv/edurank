@@ -72,16 +72,26 @@ export async function registerRows(year: number): Promise<RegisterRow[]> {
   }));
 }
 
+/** A ПІБ the picker can offer, and the ступінь that comes with them */
+export interface Candidate {
+  name: string;
+  degree: StudentDegree;
+}
+
 /**
- * The ПІБ admitted under one combination, in Ukrainian alphabetical order.
+ * The students admitted under one combination, in alphabetical order.
  *
- * Names only: this feeds the picker's last step, and whoever asked already
- * knows the three criteria that got them here.
+ * The ступінь travels with the name because it is NOT one of the criteria —
+ * `RegisterCriteria` is speciality, форма and фінансування — so one combination
+ * can hold both бакалаври and магістри, and 74 of the 111 combinations in the
+ * 2026 register do. The form cannot know a person's ступінь until it knows the
+ * person, and it must not guess: a магістр's норматив halves, so they are worth
+ * exactly twice a бакалавр.
  */
 export async function studentsMatching(
   year: number,
   criteria: RegisterCriteria
-): Promise<string[]> {
+): Promise<Candidate[]> {
   const rows = await db.admittedStudent.findMany({
     where: {
       year,
@@ -89,10 +99,10 @@ export async function studentsMatching(
       funding: criteria.funding,
       speciality: { name: criteria.speciality },
     },
-    select: { name: true },
+    select: { name: true, degree: true },
     orderBy: { name: 'asc' },
   });
-  return rows.map((row) => row.name);
+  return rows.map((row) => ({ name: row.name, degree: row.degree }));
 }
 
 /**

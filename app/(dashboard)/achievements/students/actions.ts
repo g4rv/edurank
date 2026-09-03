@@ -8,7 +8,11 @@ import { diffChanges } from '@/lib/audit';
 import { isUniqueViolation, parseDbError } from '@/lib/db-error';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { normaliseStudentName } from '@/lib/stake/claims';
-import { findAcceptedStudent, studentsMatching } from '@/lib/queries/list-admitted-students';
+import {
+  findAcceptedStudent,
+  studentsMatching,
+  type Candidate,
+} from '@/lib/queries/list-admitted-students';
 import type { RegisterCriteria } from '@/lib/students/accepted';
 import { studentClaimSchema } from '@/validations/student-claim';
 
@@ -144,6 +148,9 @@ export async function addStudentClaim(_prev: ClaimState, formData: FormData): Pr
 /**
  * The admitted students behind one combination, for the last step of the picker.
  *
+ * Each carries their ступінь, because it is not one of the criteria and the
+ * form has no other way to know it — see `studentsMatching`.
+ *
  * Fetched rather than shipped: the register is ~130 KB and a кафедра's worth of
  * a page's audience would download all 722 names to choose one. A combination
  * is at most a few dozen.
@@ -155,7 +162,7 @@ export async function addStudentClaim(_prev: ClaimState, formData: FormData): Pr
  * public entry point, and a client component must not choose which вступна
  * кампанія it reads.
  */
-export async function listStudentCandidates(criteria: RegisterCriteria): Promise<string[]> {
+export async function listStudentCandidates(criteria: RegisterCriteria): Promise<Candidate[]> {
   const session = await auth();
   if (!session) redirect('/login');
 
