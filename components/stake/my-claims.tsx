@@ -27,7 +27,7 @@ import {
   STUDENT_FUNDING_LABELS as FUNDING,
   STUDY_FORM_LABELS as FORM,
 } from '@/lib/labels';
-import type { RegisterBranch, RegisterSpeciality } from '@/lib/students/accepted';
+import type { RegisterSpeciality, RegisterVariant } from '@/lib/students/accepted';
 import type { Candidate } from '@/lib/queries/list-admitted-students';
 import {
   addStudentClaim,
@@ -132,15 +132,20 @@ function AddClaimForm({ register, year }: { register: RegisterSpeciality[]; year
   );
 }
 
-/** What the four selects hold. `branch` is the FULL speciality name — what is claimed. */
+/** What the selects hold. `branch` is the FULL speciality name — what is claimed. */
 interface Selection {
   speciality: string;
   branch: string;
+  degree: string;
   form: string;
   funding: string;
 }
 
-const EMPTY: Selection = { speciality: '', branch: '', form: '', funding: '' };
+/** The three that describe the admission itself, as opposed to the programme */
+const TERMS = ['degree', 'form', 'funding'] as const;
+type Term = (typeof TERMS)[number];
+
+const EMPTY: Selection = { speciality: '', branch: '', degree: '', form: '', funding: '' };
 
 const unique = <T,>(values: T[]): T[] => [...new Set(values)];
 
@@ -148,40 +153,70 @@ function branchesOf(register: RegisterSpeciality[], speciality: string) {
   return register.find((s) => s.name === speciality)?.branches ?? [];
 }
 
-function formsOf(branches: readonly RegisterBranch[], branch: string) {
-  const variants = branches.find((b) => b.speciality === branch)?.variants ?? [];
-  return unique(variants.map((v) => v.form));
+function variantsOf(
+  register: RegisterSpeciality[],
+  speciality: string,
+  branch: string
+): readonly RegisterVariant[] {
+  return branchesOf(register, speciality).find((b) => b.speciality === branch)?.variants ?? [];
 }
 
-function fundingsOf(branches: readonly RegisterBranch[], branch: string, form: string) {
-  const variants = branches.find((b) => b.speciality === branch)?.variants ?? [];
-  return unique(variants.filter((v) => v.form === form).map((v) => v.funding));
+/** Does this variant agree with everything chosen so far, ignoring one term? */
+function fits(variant: RegisterVariant, selection: Selection, except: Term): boolean {
+  return TERMS.every((t) => t === except || !selection[t] || variant[t] === selection[t]);
 }
 
 /**
- * Fills in every level that has only one possible answer.
+ * What one term can still be, given the other two.
+ *
+ * Ступінь, форма and фінансування are three views of the same set of variants,
+ * not a chain — so each offers whatever is still reachable and every one of
+ * them is answerable the moment a спеціальність is chosen. Before that they
+ * have nothing to offer, which is the only reason they are ever closed.
+ */
+function optionsFor(
+  variants: readonly RegisterVariant[],
+  selection: Selection,
+  term: Term
+): string[] {
+  return unique(variants.filter((v) => fits(v, selection, term)).map((v) => v[term]));
+}
+
+/**
+ * Fills in every term that has only one possible answer.
  *
  * A select with one option is a click that decides nothing, and it hides the
  * real question behind it — «Філологія» has exactly one спеціалізація, and
- * plenty of specialities were only offered денна, or only on контракт. Resolving
- * runs downward and cascades: choosing a speciality can settle the
- * спеціалізація, which settles the форма, which settles the фінансування, and
- * the candidate list loads straight away.
+ * plenty of programmes were only offered денна, or only on контракт.
+ *
+ * Nothing is ever taken away here: `optionsFor` only ever offers a value that
+ * agrees with the other two, so a choice cannot leave the form on a combination
+ * with nobody behind it. Settling one term CAN leave another with a single
+ * answer though — «Образотворче мистецтво · Заочна» has one ступінь and one
+ * фінансування — so it runs until nothing more settles.
  */
 function resolve(register: RegisterSpeciality[], selection: Selection): Selection {
   const branches = branchesOf(register, selection.speciality);
-
   const branch = selection.branch || (branches.length === 1 ? branches[0]!.speciality : '');
-  if (!branch) return { ...selection, branch: '', form: '', funding: '' };
+  if (!branch) return { ...EMPTY, speciality: selection.speciality };
 
-  const forms = formsOf(branches, branch);
-  const form = selection.form || (forms.length === 1 ? forms[0]! : '');
-  if (!form) return { ...selection, branch, form: '', funding: '' };
+  const variants = variantsOf(register, selection.speciality, branch);
+  let next: Selection = { ...selection, branch };
 
-  const fundings = fundingsOf(branches, branch, form);
-  const funding = selection.funding || (fundings.length === 1 ? fundings[0]! : '');
+  for (let pass = 0; pass < TERMS.length; pass++) {
+    let settled = false;
+    for (const term of TERMS) {
+      if (next[term]) continue;
+      const options = optionsFor(variants, next, term);
+      if (options.length === 1) {
+        next = { ...next, [term]: options[0]! };
+        settled = true;
+      }
+    }
+    if (!settled) break;
+  }
 
-  return { ...selection, branch, form, funding };
+  return next;
 }
 
 /**
@@ -213,61 +248,43 @@ function CascadeFields({
 }) {
   const [selection, setSelection] = useState<Selection>(EMPTY);
   const [student, setStudent] = useState('');
-  const [degree, setDegree] = useState('');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, startLoading] = useTransition();
 
-  const { speciality, branch, form, funding } = selection;
+  const { speciality, branch, degree, form, funding } = selection;
   const branches = branchesOf(register, speciality);
   // One unnamed branch means the спеціальність has no спеціалізації at all.
   const hasSpecialisations = branches.some((b) => b.name !== null);
   const chosen = branches.find((b) => b.speciality === branch);
-  const forms = formsOf(branches, branch);
-  const fundings = fundingsOf(branches, branch, form);
+  const variants = variantsOf(register, speciality, branch);
 
   const disabled = pending || loading;
+  /** All three open together once the programme is known — none is a step after another */
+  const termsClosed = disabled || variants.length === 0;
 
   /**
-   * Which ступені this combination actually holds.
+   * The names on offer, narrowed to the chosen ступінь.
    *
-   * Derived from the candidates rather than asked of the server, because the
-   * candidates already carry it. That also means the select can only ever offer
-   * an answer somebody is behind — the rule every other level of this cascade
-   * follows.
+   * The server is asked for спеціальність, форма and фінансування — the ступінь
+   * is not part of the register's key, so it is filtered here out of what came
+   * back. Every candidate carries their own, which is what makes that possible
+   * without a second round trip.
    */
-  const degrees = unique(candidates.map((c) => c.degree));
-
-  /**
-   * Ступінь narrows the list; it is not sent and not asked of the register.
-   *
-   * It was disabled while the 2026 наказ held nothing but бакалаври — a filter
-   * over one value filters nothing. The магістр накази ended that: 74 of the
-   * 111 combinations now hold both, and «Психологія · Денна · Контракт» is a
-   * hundred names somebody scrolls to find one магістр in.
-   *
-   * Still settled automatically when the combination has only one ступінь, the
-   * same as форма and фінансування — a select with one option is a click that
-   * decides nothing.
-   */
-  const degreeSettled = degrees.length === 1;
-  const shown = degreeSettled ? degrees[0]! : degree;
-  const visible = shown ? candidates.filter((c) => c.degree === shown) : candidates;
-
-  /** Ступінь is a level like any other: changing it drops what was chosen below */
-  function chooseDegree(next: string) {
-    setDegree(next);
-    setStudent('');
-  }
+  const visible = degree ? candidates.filter((c) => c.degree === degree) : candidates;
 
   /** Applies a change, resolves everything it settles, and loads the names if complete */
   function choose(next: Selection) {
     const resolved = resolve(register, next);
     setSelection(resolved);
     setStudent('');
-    setDegree('');
-    setCandidates([]);
 
-    if (!resolved.funding) return;
+    // Ступінь narrows what is already loaded, so it alone does not refetch.
+    const sameQuery =
+      resolved.branch === branch && resolved.form === form && resolved.funding === funding;
+    if (sameQuery) return;
+
+    setCandidates([]);
+    if (!resolved.branch || !resolved.form || !resolved.funding) return;
     startLoading(async () => {
       setCandidates(
         await listStudentCandidates({
@@ -318,43 +335,54 @@ function CascadeFields({
           </div>
         )}
 
-        {/* Ступінь — a filter, which is what it was always meant to be.
+        {/* Ступінь, форма and фінансування — three views of one set of variants.
 
-            It was hardcoded to «Бакалавр» and greyed while the 2026 наказ held
-            nothing else: a filter over one value filters nothing. The магістр
-            накази (530–533) ended that condition, so it comes back on. It
-            narrows the ЗДОБУВАЧ list — «Психологія · Денна · Контракт» is a
-            hundred names to scroll through for one магістр.
+            They were a chain: форма waited on the спеціальність, фінансування
+            on the форма, and ступінь on the loaded names. So two of the three
+            sat greyed after choosing a programme, looking like steps somebody
+            had skipped. They describe the same admission from three sides, and
+            all three are answerable the moment the programme is known — so all
+            three open together, each offering what the other two still allow.
 
-            It is still never SENT: the claim's ступінь is read from the
-            register row addStudentClaim finds, exactly as before. This only
-            decides which names are offered. */}
-        {/* The three narrow ones travel together — «Спеціалізація» appears only
-            for some programmes, and without this «Фінансування» was left
+            Ступінь is a filter and is never SENT: the claim's ступінь is read
+            from the register row addStudentClaim finds, exactly as before. It
+            only decides which names are offered.
+
+            They travel in one row because «Спеціалізація» appears for some
+            programmes and not others, and without it «Фінансування» was left
             stranded on a row of its own whenever it did not. */}
         <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3 lg:col-span-4">
           <PickOne
             label="Ступінь"
-            value={shown}
-            onChange={chooseDegree}
-            options={degrees.map((d) => ({ value: d, label: DEGREE[d] }))}
-            disabled={disabled || candidates.length === 0}
+            value={degree}
+            onChange={(value) => choose({ ...selection, degree: value })}
+            options={optionsFor(variants, selection, 'degree').map((d) => ({
+              value: d,
+              label: DEGREE[d as keyof typeof DEGREE],
+            }))}
+            disabled={termsClosed}
           />
 
           <PickOne
             label="Форма навчання"
             value={form}
-            onChange={(value) => choose({ ...selection, form: value, funding: '' })}
-            options={forms.map((f) => ({ value: f, label: FORM[f] }))}
-            disabled={disabled || !branch}
+            onChange={(value) => choose({ ...selection, form: value })}
+            options={optionsFor(variants, selection, 'form').map((f) => ({
+              value: f,
+              label: FORM[f as keyof typeof FORM],
+            }))}
+            disabled={termsClosed}
           />
 
           <PickOne
             label="Фінансування"
             value={funding}
             onChange={(value) => choose({ ...selection, funding: value })}
-            options={fundings.map((f) => ({ value: f, label: FUNDING[f] }))}
-            disabled={disabled || !form}
+            options={optionsFor(variants, selection, 'funding').map((f) => ({
+              value: f,
+              label: FUNDING[f as keyof typeof FUNDING],
+            }))}
+            disabled={termsClosed}
           />
         </div>
 
