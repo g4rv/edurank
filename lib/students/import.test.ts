@@ -119,6 +119,76 @@ describe('parseTemplate', () => {
     expect(rows[0]!.degree).toBe('MASTER');
   });
 
+  // The ЄДЕБО shape: «A4 Середня освіта» names no subject, and the next column
+  // says which. Our норми price each subject apart, so the refinement is the
+  // whole answer.
+  describe('Спеціалізація', () => {
+    const HEAD2 = [...HEAD, 'Спеціалізація'];
+
+    it('decides when it is filled in', () => {
+      const { rows, problems } = parseTemplate([
+        HEAD2,
+        [
+          'Хтось Хтось Хтось',
+          'Бакалавр',
+          'Денна',
+          'Бюджет',
+          'A4 Середня освіта',
+          'A4.16 Захист України',
+        ],
+      ]);
+
+      expect(problems).toEqual([]);
+      expect(rows[0]!.speciality).toBe('Середня освіта (захист України)');
+    });
+
+    it('leaves the спеціальність to answer when the cell is blank', () => {
+      const { rows, problems } = parseTemplate([
+        HEAD2,
+        ['Хтось Хтось Хтось', 'Магістр', 'Денна', 'Контракт', 'C4 Психологія', ''],
+      ]);
+
+      expect(problems).toEqual([]);
+      expect(rows[0]!.speciality).toBe('Психологія');
+    });
+
+    // A file written to the five-column shape must keep working.
+    it('is optional — a file without the column at all still imports', () => {
+      const { rows, problems } = parseTemplate([HEAD, ROW]);
+
+      expect(problems).toEqual([]);
+      expect(rows[0]!.speciality).toBe('Психологія');
+    });
+
+    it('is not listed among the columns a file is missing', () => {
+      const { problems } = parseTemplate([['ПІБ'], ['Хтось']]);
+
+      expect(problems[0]).not.toContain('Спеціалізація');
+    });
+
+    // «A4 Середня освіта» with nothing beside it is the row that must NOT
+    // resolve: there is no норматив for «Середня освіта» in general.
+    it('reports both cells when neither names a speciality we price', () => {
+      const { rows, problems } = parseTemplate([
+        HEAD2,
+        ['Хтось Хтось Хтось', 'Бакалавр', 'Денна', 'Бюджет', 'A4 Середня освіта', ''],
+      ]);
+
+      expect(rows).toEqual([]);
+      expect(problems[0]).toContain('A4 Середня освіта');
+    });
+
+    it('falls back to the спеціальність when the спеціалізація is unreadable', () => {
+      const { rows, problems } = parseTemplate([
+        HEAD2,
+        ['Хтось Хтось Хтось', 'Магістр', 'Денна', 'Контракт', 'C4 Психологія', 'Z9.99 Вигадана'],
+      ]);
+
+      expect(problems).toEqual([]);
+      expect(rows[0]!.speciality).toBe('Психологія');
+    });
+  });
+
   it('names the columns it could not find, instead of reporting 800 bad rows', () => {
     const { rows, problems } = parseTemplate([
       ['ПІБ', 'Ступінь'],

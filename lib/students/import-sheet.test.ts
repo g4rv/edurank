@@ -78,7 +78,15 @@ describe('the шаблон we hand out', () => {
       degree: 'Бакалавр',
       form: 'Заочна',
       funding: 'Бюджет',
-      speciality: 'A4.07 Середня освіта (географія)',
+      speciality: 'A3 Початкова освіта',
+    });
+    sheet.addRow({
+      name: 'Петренко Іван Миколайович',
+      degree: 'Бакалавр',
+      form: 'Денна',
+      funding: 'Бюджет',
+      speciality: 'A4 Середня освіта',
+      specialisation: 'A4.16 Захист України',
     });
     return (await workbook.xlsx.writeBuffer()) as ArrayBuffer;
   }
@@ -97,9 +105,19 @@ describe('the шаблон we hand out', () => {
       },
       {
         name: 'Ковальчук Олена Ігорівна',
-        speciality: 'Середня освіта (географія)',
+        speciality: 'Початкова освіта',
         degree: 'BACHELOR',
         form: 'PART_TIME',
+        funding: 'STATE',
+      },
+      // The row the Спеціалізація column exists for. If this ever came back as
+      // «Середня освіта» — or as a problem — the template would be handing the
+      // деканат a file our own importer rejects.
+      {
+        name: 'Петренко Іван Миколайович',
+        speciality: 'Середня освіта (захист України)',
+        degree: 'BACHELOR',
+        form: 'FULL_TIME',
         funding: 'STATE',
       },
     ]);

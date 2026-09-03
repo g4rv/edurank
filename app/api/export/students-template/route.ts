@@ -12,7 +12,10 @@ import { TEMPLATE_HEADERS } from '@/lib/students/import';
 // removes the single most common reason a file comes back rejected.
 //
 // The headers come from TEMPLATE_HEADERS — the same list the parser matches on,
-// so the template cannot drift away from what the importer accepts.
+// so the template cannot drift away from what the importer accepts. That
+// includes «Спеціалізація», which is optional and blank on most rows: it is the
+// shape the ЄДЕБО export already has, so two columns can be copied across
+// rather than merged by hand.
 //
 // The proxy matcher excludes /api entirely, so this route authenticates itself.
 
@@ -33,7 +36,7 @@ export async function GET() {
   sheet.columns = TEMPLATE_HEADERS.map((h) => ({
     header: h.label,
     key: h.field,
-    width: h.field === 'name' || h.field === 'speciality' ? 42 : 18,
+    width: h.field === 'name' || h.field === 'speciality' || h.field === 'specialisation' ? 38 : 18,
   }));
 
   sheet.getRow(1).font = { bold: true };
@@ -54,7 +57,18 @@ export async function GET() {
     degree: STUDENT_DEGREE_LABELS.BACHELOR,
     form: STUDY_FORM_LABELS.PART_TIME,
     funding: STUDENT_FUNDING_LABELS.STATE,
-    speciality: 'A4.07 Середня освіта (географія)',
+    speciality: 'A3 Початкова освіта',
+  });
+  // The two-column case, and the reason the column exists: «A4 Середня освіта»
+  // names no subject, and our норми price each subject apart — so a row like
+  // this one is unreadable until the Спеціалізація cell says which.
+  sheet.addRow({
+    name: 'Петренко Іван Миколайович',
+    degree: STUDENT_DEGREE_LABELS.BACHELOR,
+    form: STUDY_FORM_LABELS.FULL_TIME,
+    funding: STUDENT_FUNDING_LABELS.STATE,
+    speciality: 'A4 Середня освіта',
+    specialisation: 'A4.16 Захист України',
   });
 
   // Down to row 2000 — far past any one наказ, and the validation has to exist

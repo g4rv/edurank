@@ -48,16 +48,27 @@ function cellKey(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-type Field = 'name' | 'degree' | 'form' | 'funding' | 'speciality';
+type Field = 'name' | 'degree' | 'form' | 'funding' | 'speciality' | 'specialisation';
 
 /**
- * The five headers, and what else is accepted for each.
+ * The template's headers, and what else is accepted for each.
  *
  * Matched BY NAME, so column order does not matter and extra columns are
  * ignored. A деканат that adds a «№» column, or sends the columns in a
  * different order, should not have their file refused over furniture.
+ *
+ * «Спеціалізація» is OPTIONAL, in both senses: a file without the column at all
+ * still imports, and the cell is blank on most rows. It exists because that is
+ * the shape the ЄДЕБО export already has — «A4 Середня освіта» in one column and
+ * «A4.16 Захист України» in the next — so the деканат can fill our template by
+ * copying two columns across instead of merging them by hand.
  */
-export const TEMPLATE_HEADERS: { field: Field; label: string; accepts: string[] }[] = [
+export const TEMPLATE_HEADERS: {
+  field: Field;
+  label: string;
+  accepts: string[];
+  optional?: true;
+}[] = [
   {
     field: 'name',
     label: 'ПІБ',
@@ -76,6 +87,12 @@ export const TEMPLATE_HEADERS: { field: Field; label: string; accepts: string[] 
     field: 'speciality',
     label: 'Спеціальність',
     accepts: ['спеціальність', 'спеціальність та спеціалізація'],
+  },
+  {
+    field: 'specialisation',
+    label: 'Спеціалізація',
+    accepts: ['спеціалізація', 'предметна спеціальність'],
+    optional: true,
   },
 ];
 
@@ -211,7 +228,9 @@ export function parseTemplate(cells: readonly (readonly string[])[]): ParsedTemp
     if (field && !columnOf.has(field)) columnOf.set(field, index);
   });
 
-  const missing = TEMPLATE_HEADERS.filter((h) => !columnOf.has(h.field)).map((h) => h.label);
+  const missing = TEMPLATE_HEADERS.filter((h) => !h.optional && !columnOf.has(h.field)).map(
+    (h) => h.label
+  );
   if (missing.length > 0) {
     return {
       rows: [],
@@ -224,7 +243,10 @@ export function parseTemplate(cells: readonly (readonly string[])[]): ParsedTemp
 
   for (let i = 1; i < cells.length; i++) {
     const row = cells[i]!;
-    const at = (field: Field) => (row[columnOf.get(field)!] ?? '').trim();
+    const at = (field: Field) => {
+      const column = columnOf.get(field);
+      return column === undefined ? '' : (row[column] ?? '').trim();
+    };
     // +1 because a person counts the header as row 1, like Excel does.
     const line = i + 1;
 
@@ -251,9 +273,15 @@ export function parseTemplate(cells: readonly (readonly string[])[]): ParsedTemp
       continue;
     }
 
-    const speciality = specialityFromCell(at('speciality'));
+    // Спеціалізація decides when it is filled in — «A4 Середня освіта» names no
+    // subject and our норми price each one apart, so the refinement is the
+    // whole answer. Спеціальність is the fallback, which is what carries every
+    // programme that has no спеціалізація at all.
+    const speciality =
+      specialityFromCell(at('specialisation')) ?? specialityFromCell(at('speciality'));
     if (!speciality) {
-      fail(`не розпізнано спеціальність «${at('speciality')}»`);
+      const cells = [at('speciality'), at('specialisation')].filter(Boolean).join(' / ');
+      fail(`не розпізнано спеціальність «${cells}»`);
       continue;
     }
 
