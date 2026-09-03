@@ -148,9 +148,9 @@ export const FIELD_LABELS: Record<string, string> = {
   base: 'Норматив (бакалавр, денна)',
   contractCoefficient: 'Узгоджуючий коефіцієнт',
   // Реєстр зарахованих (AdmittedStudent). `name` and `year` are shared with
-  // other entities above and keep their existing wording rather than being
-  // reworded for this one — «Назва» reads oddly against a ПІБ, and a key here
-  // is global.
+  // other entities above, so their wording for a здобувач lives in
+  // ENTITY_FIELD_LABELS below — the audit log printed «Назва: Ковальчук Олена
+  // Ігорівна» until it did.
   //
   // `nameNormalised` is deliberately absent: it is derived from `name`, so
   // logging it would show every change twice, the second time in a spelling
@@ -161,4 +161,24 @@ export const FIELD_LABELS: Record<string, string> = {
   funding: 'Фінансування',
   /** Not a column — the claims a deleted здобувач took down with them */
   claims: 'Заявки НПП',
+  /** Not columns either — what one import RUN did, logged as a single entry */
+  added: 'Додано',
+  skipped: 'Вже було в списку',
+  file: 'Файл',
+};
+
+/**
+ * Labels that apply to ONE entity, consulted before `FIELD_LABELS`.
+ *
+ * `FIELD_LABELS` is keyed by column name across every model, so a name shared
+ * by two of them can only have one wording. «Назва» is right for a кафедра and
+ * wrong for a person: the audit log printed «Назва: Ковальчук Олена Ігорівна».
+ * Rather than rename the column or reword it for everybody, an entity may
+ * override the few keys that mean something different to it.
+ */
+export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
+  AdmittedStudent: {
+    name: 'ПІБ',
+    year: 'Рік вступу',
+  },
 };

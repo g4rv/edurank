@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import {
+  ENTITY_FIELD_LABELS,
   FIELD_LABELS,
   STUDENT_DEGREE_LABELS,
   STUDENT_FUNDING_LABELS,
@@ -63,7 +64,15 @@ type ChangeEntry = { from: unknown; to: unknown };
 type Changes = Record<string, ChangeEntry>;
 type Resolve = (field: string, value: unknown) => string;
 
-function ChangesDisplay({ changes, resolve }: { changes: Changes; resolve: Resolve }) {
+function ChangesDisplay({
+  changes,
+  entity,
+  resolve,
+}: {
+  changes: Changes;
+  entity: string;
+  resolve: Resolve;
+}) {
   const entries = Object.entries(changes);
   if (entries.length === 0) return null;
   const visible = entries.slice(0, 8);
@@ -76,7 +85,9 @@ function ChangesDisplay({ changes, resolve }: { changes: Changes; resolve: Resol
           key={key}
           className="flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground"
         >
-          <dt className="font-medium text-foreground/70">{FIELD_LABELS[key] ?? key}:</dt>
+          <dt className="font-medium text-foreground/70">
+            {ENTITY_FIELD_LABELS[entity]?.[key] ?? FIELD_LABELS[key] ?? key}:
+          </dt>
           <dd className="flex items-baseline gap-1">
             {from !== null && <span>{resolve(key, from)}</span>}
             {from !== null && to !== null && <span className="text-muted-foreground/50">→</span>}
@@ -367,7 +378,7 @@ export default async function AuditLogPage({
                   </td>
                   <td className="px-4 py-3 align-top">
                     {changes ? (
-                      <ChangesDisplay changes={changes} resolve={resolve} />
+                      <ChangesDisplay changes={changes} entity={log.entity} resolve={resolve} />
                     ) : (
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
