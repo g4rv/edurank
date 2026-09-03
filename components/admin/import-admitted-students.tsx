@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
+import { FileInput } from '@/components/ui/file-input';
 import { Input } from '@/components/ui/input';
 import { UK } from '@/lib/plural';
 import {
@@ -37,7 +38,6 @@ import {
  */
 export function ImportAdmittedStudents({ defaultYear }: { defaultYear: number }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [year, setYear] = useState(String(defaultYear));
@@ -48,7 +48,6 @@ export function ImportAdmittedStudents({ defaultYear }: { defaultYear: number })
     setYear(String(defaultYear));
     setFile(null);
     setReport(null);
-    if (inputRef.current) inputRef.current.value = '';
   }
 
   function run(apply: boolean) {
@@ -95,7 +94,7 @@ export function ImportAdmittedStudents({ defaultYear }: { defaultYear: number })
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Файл .xlsx із колонками: ПІБ, Ступінь, Форма, Фінансування, Спеціальність і
-            (необов’язково) Спеціалізація. Порядок колонок будь-який, зайві колонки ігноруються.
+            Спеціалізація (необов’язково). Порядок колонок будь-який, зайві колонки ігноруються.
             Наявних здобувачів файл не змінює й не видаляє — лише додає відсутніх.
           </p>
 
@@ -123,13 +122,13 @@ export function ImportAdmittedStudents({ defaultYear }: { defaultYear: number })
           </FormField>
 
           <FormField label="Файл" htmlFor="import-file">
-            <Input
+            <FileInput
               id="import-file"
-              ref={inputRef}
-              type="file"
               accept=".xlsx"
-              onChange={(e) => {
-                setFile(e.target.files?.[0] ?? null);
+              value={file}
+              disabled={pending}
+              onChange={(next) => {
+                setFile(next);
                 // A new file makes the old preview a lie.
                 setReport(null);
               }}
