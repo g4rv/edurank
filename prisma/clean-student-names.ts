@@ -21,8 +21,12 @@ import { cleanName } from '../lib/students/import';
 //      so they import again as a second row and a third of the register
 //      silently doubles.
 //
-// It refuses to touch a row whose cleaned name would COLLIDE with another row,
-// and it refuses to run at all while a StudentClaim points at a name it would
+// A row whose cleaned name collides with an existing one is the SAME PERSON
+// twice — the file went in once with dates and once without, and «adds only,
+// skip duplicates» could not tell, because the two spellings normalise
+// differently. Those rows are deleted, not renamed.
+//
+// It refuses to run at all while a StudentClaim points at a name it would
 // rewrite — a claim is matched on the normalised ПІБ, so changing one under a
 // claim would quietly unhook a bonus from its student.
 
@@ -68,12 +72,19 @@ async function main() {
     process.exit(1);
   }
 
-  // The unique key is (year, nameNormalised, specialityId, form, funding). Two
-  // rows can only collide after cleaning, never before.
+  // The unique key is (year, nameNormalised, specialityId, form, funding).
+  //
+  // A dirty row whose CLEANED key already belongs to another row is the same
+  // person twice: the file went in once with the dates and once without, and
+  // «adds only, skip duplicates» could not see they were one person because
+  // the two spellings normalise differently. That row is not renamed — there is
+  // nothing to rename it to — it is REMOVED, and the clean row it duplicates
+  // stays. This is the whole reason the importer strips a date now.
   const taken = new Set(
     rows.map((r) => [r.year, r.nameNormalised, r.specialityId, r.form, r.funding].join('|'))
   );
-  const clashes: typeof dirty = [];
+  const rename: typeof dirty = [];
+  const remove: typeof dirty = [];
   for (const item of dirty) {
     const { row, name } = item;
     const key = [
@@ -83,15 +94,15 @@ async function main() {
       row.form,
       row.funding,
     ].join('|');
-    if (taken.has(key)) clashes.push(item);
-    else taken.add(key);
+    if (taken.has(key)) remove.push(item);
+    else {
+      taken.add(key);
+      rename.push(item);
+    }
   }
-  if (clashes.length > 0) {
-    console.error(`\nЗУПИНЕНО: ${clashes.length} рядків після очищення збігаються з наявними:`);
-    for (const { row, name } of clashes.slice(0, 10)) console.error(`  «${row.name}» → «${name}»`);
-    console.error('Спочатку розберіться з дублікатами вручну.');
-    process.exit(1);
-  }
+
+  console.log(`\n  Перейменувати  ${rename.length}`);
+  console.log(`  Видалити як дублікат  ${remove.length}`);
 
   // A claim is found by the normalised ПІБ, so rewriting a name a claim points
   // at would leave the claim naming nobody.
@@ -111,13 +122,26 @@ async function main() {
     return;
   }
 
-  for (const { row, name } of dirty) {
-    await prisma.admittedStudent.update({
-      where: { id: row.id },
-      data: { name, nameNormalised: normaliseStudentName(name) },
-    });
-  }
-  console.log(`\nОчищено ${dirty.length} рядків.`);
+  // One transaction: half-cleaned is worse than not started, because the second
+  // run would then see a different set of collisions than the report showed.
+  await prisma.$transaction(async (tx) => {
+    if (remove.length > 0) {
+      await tx.admittedStudent.deleteMany({
+        where: { id: { in: remove.map(({ row }) => row.id) } },
+      });
+    }
+    for (const { row, name } of rename) {
+      await tx.admittedStudent.update({
+        where: { id: row.id },
+        data: { name, nameNormalised: normaliseStudentName(name) },
+      });
+    }
+  });
+
+  const total = await prisma.admittedStudent.count();
+  console.log(
+    `\nПерейменовано ${rename.length}, видалено ${remove.length}. Усього рядків: ${total}.`
+  );
 }
 
 main()
