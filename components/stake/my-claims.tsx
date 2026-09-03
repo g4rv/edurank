@@ -213,6 +213,7 @@ function CascadeFields({
 }) {
   const [selection, setSelection] = useState<Selection>(EMPTY);
   const [student, setStudent] = useState('');
+  const [degree, setDegree] = useState('');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, startLoading] = useTransition();
 
@@ -227,18 +228,43 @@ function CascadeFields({
   const disabled = pending || loading;
 
   /**
-   * The chosen student's ступінь, or '' while nobody is chosen.
+   * Which ступені this combination actually holds.
    *
-   * Ступінь is not one of the criteria, so a combination can hold both — 74 of
-   * the 111 in the 2026 register do. It can only be known once the person is.
+   * Derived from the candidates rather than asked of the server, because the
+   * candidates already carry it. That also means the select can only ever offer
+   * an answer somebody is behind — the rule every other level of this cascade
+   * follows.
    */
-  const degree = candidates.find((c) => c.name === student)?.degree ?? '';
+  const degrees = unique(candidates.map((c) => c.degree));
+
+  /**
+   * Ступінь narrows the list; it is not sent and not asked of the register.
+   *
+   * It was disabled while the 2026 наказ held nothing but бакалаври — a filter
+   * over one value filters nothing. The магістр накази ended that: 74 of the
+   * 111 combinations now hold both, and «Психологія · Денна · Контракт» is a
+   * hundred names somebody scrolls to find one магістр in.
+   *
+   * Still settled automatically when the combination has only one ступінь, the
+   * same as форма and фінансування — a select with one option is a click that
+   * decides nothing.
+   */
+  const degreeSettled = degrees.length === 1;
+  const shown = degreeSettled ? degrees[0]! : degree;
+  const visible = shown ? candidates.filter((c) => c.degree === shown) : candidates;
+
+  /** Ступінь is a level like any other: changing it drops what was chosen below */
+  function chooseDegree(next: string) {
+    setDegree(next);
+    setStudent('');
+  }
 
   /** Applies a change, resolves everything it settles, and loads the names if complete */
   function choose(next: Selection) {
     const resolved = resolve(register, next);
     setSelection(resolved);
     setStudent('');
+    setDegree('');
     setCandidates([]);
 
     if (!resolved.funding) return;
@@ -292,31 +318,27 @@ function CascadeFields({
           </div>
         )}
 
-        {/* Ступінь — the CHOSEN student's, and never typed.
+        {/* Ступінь — a filter, which is what it was always meant to be.
 
-            It was hardcoded to «Бакалавр» while the 2026 наказ held only
-            бакалаври. The магістр накази (530–533) ended that: 74 of the 111
-            combinations now hold both, so a constant here was simply wrong on
-            781 people, on the one screen where the ступінь doubles the money —
-            a магістр's норматив halves, so they are worth twice a бакалавр.
+            It was hardcoded to «Бакалавр» and greyed while the 2026 наказ held
+            nothing else: a filter over one value filters nothing. The магістр
+            накази (530–533) ended that condition, so it comes back on. It
+            narrows the ЗДОБУВАЧ list — «Психологія · Денна · Контракт» is a
+            hundred names to scroll through for one магістр.
 
-            Still disabled, because it is a property of the person and not a
-            question: it is read from the register, exactly as the saved claim
-            always was. Blank until somebody is picked, because until then there
-            is no true answer to show. */}
+            It is still never SENT: the claim's ступінь is read from the
+            register row addStudentClaim finds, exactly as before. This only
+            decides which names are offered. */}
         {/* The three narrow ones travel together — «Спеціалізація» appears only
             for some programmes, and without this «Фінансування» was left
             stranded on a row of its own whenever it did not. */}
         <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3 lg:col-span-4">
           <PickOne
             label="Ступінь"
-            value={degree}
-            onChange={() => {}}
-            options={[
-              { value: 'BACHELOR', label: DEGREE.BACHELOR },
-              { value: 'MASTER', label: DEGREE.MASTER },
-            ]}
-            disabled
+            value={shown}
+            onChange={chooseDegree}
+            options={degrees.map((d) => ({ value: d, label: DEGREE[d] }))}
+            disabled={disabled || candidates.length === 0}
           />
 
           <PickOne
@@ -340,7 +362,7 @@ function CascadeFields({
             student search is the widest thing on the form. */}
         <div className="sm:col-span-2 lg:col-span-4">
           <StudentPicker
-            candidates={candidates}
+            candidates={visible}
             value={student}
             onChange={setStudent}
             ready={Boolean(funding)}
