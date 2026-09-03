@@ -152,7 +152,7 @@ describe('listAdmittedStudents', () => {
 
   // Twenty ПІБ repeat in the 2026 intake. Ordering by name alone would let a
   // page boundary between two of them drop one and repeat the other.
-  it('breaks ties on id, so no row is dropped between pages', async () => {
+  it('sorts by ПІБ ascending by default, breaking ties on id', async () => {
     count.mockResolvedValue(0);
     findMany.mockResolvedValue([]);
 
@@ -162,6 +162,51 @@ describe('listAdmittedStudents', () => {
       expect.objectContaining({ orderBy: [{ name: 'asc' }, { id: 'asc' }] })
     );
   });
+
+  it('reverses the ПІБ sort on desc', async () => {
+    count.mockResolvedValue(0);
+    findMany.mockResolvedValue([]);
+
+    await listAdmittedStudents({ year: 2026, page: 1, sort: 'name', dir: 'desc' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ name: 'desc' }, { id: 'asc' }] })
+    );
+  });
+
+  // Спеціальність sorts by НАЗВА: the code is a constant keyed by name and is
+  // in no column, so SQL cannot order by it.
+  it('sorts спеціальність through the joined name', async () => {
+    count.mockResolvedValue(0);
+    findMany.mockResolvedValue([]);
+
+    await listAdmittedStudents({ year: 2026, page: 1, sort: 'speciality', dir: 'desc' });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ speciality: { name: 'desc' } }, { name: 'asc' }, { id: 'asc' }],
+      })
+    );
+  });
+
+  // Two values across a thousand rows, so the tie-break is doing all the work:
+  // without `name` the rows inside «Бюджет» would come back in no order at all,
+  // and without `id` a page boundary would drop some and repeat others.
+  it.each(['funding', 'form', 'degree'] as const)(
+    'sorts the %s enum with ПІБ and id underneath it',
+    async (sort) => {
+      count.mockResolvedValue(0);
+      findMany.mockResolvedValue([]);
+
+      await listAdmittedStudents({ year: 2026, page: 1, sort, dir: 'asc' });
+
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ [sort]: 'asc' }, { name: 'asc' }, { id: 'asc' }],
+        })
+      );
+    }
+  );
 
   it('leaves an absent filter out of the where clause entirely', async () => {
     count.mockResolvedValue(0);

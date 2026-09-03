@@ -7,15 +7,18 @@ import { UK } from '@/lib/plural';
 import { STUDENT_DEGREE_LABELS, STUDENT_FUNDING_LABELS, STUDY_FORM_LABELS } from '@/lib/labels';
 import { SPECIALITY_CODES } from '@/lib/specialities/codes';
 import {
+  ADMITTED_SORTS,
   admittedYears,
   listAdmittedStudents,
   type AdmittedFilters,
+  type AdmittedSort,
 } from '@/lib/queries/list-admitted-students';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AnimatedRow } from '@/components/ui/animated-row';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { DataTable } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
+import { SortTh } from '@/components/ui/sort-th';
 import { AdmittedStudentsFilters } from '@/components/admin/admitted-students-filters';
 import { AddAdmittedStudent } from '@/components/admin/add-admitted-student';
 import { DeleteAdmittedStudent } from '@/components/admin/delete-admitted-student';
@@ -35,7 +38,19 @@ function oneOf(value: string | string[] | undefined, allowed: Set<string>): stri
   return typeof value === 'string' && allowed.has(value) ? value : '';
 }
 
-const TH = 'px-4 py-3 text-left font-medium text-muted-foreground';
+const COLUMNS: { key: AdmittedSort; label: string; title?: string }[] = [
+  { key: 'name', label: 'ПІБ' },
+  { key: 'funding', label: 'Фінансування' },
+  { key: 'form', label: 'Форма' },
+  { key: 'degree', label: 'Ступінь' },
+  {
+    key: 'speciality',
+    label: 'Спеціальність',
+    // Said out loud, because the cell shows the code first and an alphabetical
+    // list therefore looks unsorted.
+    title: 'Сортування за назвою спеціальності, не за кодом',
+  },
+];
 
 /**
  * Реєстр зарахованих — the admin's view of who an НПП may claim.
@@ -80,6 +95,11 @@ export default async function AdmittedStudentsPage({
   const speciality = typeof params.speciality === 'string' ? params.speciality : '';
   const q = typeof params.q === 'string' ? params.q : '';
   const page = Math.max(1, Number(typeof params.page === 'string' ? params.page : '1') || 1);
+  const sort: AdmittedSort =
+    typeof params.sort === 'string' && (ADMITTED_SORTS as readonly string[]).includes(params.sort)
+      ? (params.sort as AdmittedSort)
+      : 'name';
+  const dir: 'asc' | 'desc' = params.dir === 'desc' ? 'desc' : 'asc';
 
   const [{ rows, total, totalPages }, specialities] = await Promise.all([
     listAdmittedStudents({
@@ -90,11 +110,20 @@ export default async function AdmittedStudentsPage({
       specialityId: speciality || undefined,
       search: q,
       page,
+      sort,
+      dir,
     }),
     db.speciality.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ]);
 
-  function hrefFor(next: number) {
+  /**
+   * The page's own URL with some parts replaced.
+   *
+   * A sort change drops `page`: row 200 under one ordering is a different
+   * person under another, so keeping the number lands somebody on a page that
+   * has nothing to do with what they clicked.
+   */
+  function buildHref(over: { page?: number; sort?: AdmittedSort; dir?: 'asc' | 'desc' }) {
     const sp = new URLSearchParams();
     sp.set('year', String(year));
     if (degree) sp.set('degree', degree);
@@ -102,12 +131,31 @@ export default async function AdmittedStudentsPage({
     if (funding) sp.set('funding', funding);
     if (speciality) sp.set('speciality', speciality);
     if (q.trim()) sp.set('q', q.trim());
-    if (next > 1) sp.set('page', String(next));
+
+    const nextSort = over.sort ?? sort;
+    const nextDir = over.dir ?? dir;
+    if (nextSort !== 'name') sp.set('sort', nextSort);
+    if (nextDir !== 'asc') sp.set('dir', nextDir);
+
+    const nextPage = over.sort ? 1 : (over.page ?? page);
+    if (nextPage > 1) sp.set('page', String(nextPage));
+
     return `/admin/students?${sp.toString()}`;
   }
 
+  /** Clicking the active column flips it; clicking another starts it ascending */
+  function sortHref(column: AdmittedSort) {
+    return buildHref({
+      sort: column,
+      dir: sort === column && dir === 'asc' ? 'desc' : 'asc',
+    });
+  }
+
   return (
-    <AnimatedPage className="space-y-6">
+    // The table takes whatever is left after the header, filters and pager,
+    // and scrolls its rows inside the card — so the pager stays on screen
+    // instead of sitting thirty rows below the fold. Same shell as /staff.
+    <AnimatedPage className="flex h-full min-h-0 flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Здобувачі</h1>
@@ -125,7 +173,7 @@ export default async function AdmittedStudentsPage({
       <AdmittedStudentsFilters
         years={years}
         specialities={specialities.map((s) => ({ id: s.id, label: specialityLabel(s.name) }))}
-        value={{ year, degree, form, funding, speciality, q }}
+        value={{ year, degree, form, funding, speciality, q, sort, dir }}
       />
 
       {rows.length === 0 ? (
@@ -133,14 +181,19 @@ export default async function AdmittedStudentsPage({
           Нічого не знайдено. Спробуйте змінити фільтри.
         </div>
       ) : (
-        <DataTable>
+        <DataTable fill>
           <thead>
             <tr className="border-b bg-muted/40">
-              <th className={TH}>ПІБ</th>
-              <th className={TH}>Фінансування</th>
-              <th className={TH}>Форма</th>
-              <th className={TH}>Ступінь</th>
-              <th className={TH}>Спеціальність</th>
+              {COLUMNS.map((column) => (
+                <SortTh
+                  key={column.key}
+                  label={column.label}
+                  title={column.title}
+                  href={sortHref(column.key)}
+                  active={sort === column.key}
+                  dir={sort === column.key ? dir : 'asc'}
+                />
+              ))}
               <th className="w-12" />
             </tr>
           </thead>
@@ -168,7 +221,7 @@ export default async function AdmittedStudentsPage({
       <Pagination
         page={page}
         totalPages={totalPages}
-        hrefFor={hrefFor}
+        hrefFor={(p) => buildHref({ page: p })}
         summary={UK.student(total)}
       />
     </AnimatedPage>

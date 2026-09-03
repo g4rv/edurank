@@ -22,6 +22,9 @@ export interface AdmittedFiltersValue {
   funding: string;
   speciality: string;
   q: string;
+  /** Carried through, never changed here — see `hrefFor` */
+  sort: string;
+  dir: string;
 }
 
 /**
@@ -65,9 +68,12 @@ export function AdmittedStudentsFilters({
     if (merged.funding) params.set('funding', merged.funding);
     if (merged.speciality) params.set('speciality', merged.speciality);
     if (merged.q.trim()) params.set('q', merged.q.trim());
-    // `page` is deliberately dropped. Any change to a filter invalidates the
-    // page number — page 7 of the old result is rarely page 7 of the new one,
-    // and is often past its end.
+    // The sort SURVIVES a filter change and the page does not, because they
+    // answer different questions. «Sorted by ступінь» is a way of reading the
+    // table and stays true whatever is filtered out; page 7 of the old result
+    // is rarely page 7 of the new one, and is often past its end.
+    if (merged.sort && merged.sort !== 'name') params.set('sort', merged.sort);
+    if (merged.dir === 'desc') params.set('dir', 'desc');
     return `/admin/students?${params.toString()}`;
   }
 
@@ -98,22 +104,13 @@ export function AdmittedStudentsFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Select
-        value={String(value.year)}
-        disabled={pending || years.length < 2}
-        onValueChange={(next) => go({ year: Number(next) })}
-      >
-        <SelectTrigger className="w-full sm:w-32" aria-label="Рік вступу">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {years.map((year) => (
-            <SelectItem key={year} value={String(year)}>
-              {year}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Пошук за ПІБ"
+        aria-label="Пошук за ПІБ"
+        className="w-full sm:w-64"
+      />
 
       {selects.map((s) => (
         <Select
@@ -154,13 +151,22 @@ export function AdmittedStudentsFilters({
         </SelectContent>
       </Select>
 
-      <Input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Пошук за ПІБ"
-        aria-label="Пошук за ПІБ"
-        className="w-full sm:w-64"
-      />
+      <Select
+        value={String(value.year)}
+        disabled={pending || years.length < 2}
+        onValueChange={(next) => go({ year: Number(next) })}
+      >
+        <SelectTrigger className="w-full sm:w-32" aria-label="Рік вступу">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {years.map((year) => (
+            <SelectItem key={year} value={String(year)}>
+              {year}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

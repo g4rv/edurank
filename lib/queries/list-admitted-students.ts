@@ -135,6 +135,48 @@ export async function admittedYears(): Promise<number[]> {
   return rows.map((row) => row.year);
 }
 
+/**
+ * The sortable columns, by the name the URL carries.
+ *
+ * `speciality` sorts by НАЗВА, not by code (owner, 2026-09-03). The code is
+ * derived from `SPECIALITY_CODES`, a constant keyed by name — it is in no
+ * column, so sorting by it would mean loading every matching row and paging in
+ * JavaScript. The cell still shows the code first, so an alphabetical list has
+ * its codes out of order; «show me one programme» is what the спеціальність
+ * filter is for.
+ */
+export const ADMITTED_SORTS = ['name', 'funding', 'form', 'degree', 'speciality'] as const;
+export type AdmittedSort = (typeof ADMITTED_SORTS)[number];
+
+/**
+ * Every ordering ends on `id`.
+ *
+ * Twenty ПІБ repeat in the 2026 intake, and the enum columns have two values
+ * across a thousand rows — so without a unique tie-break a page boundary
+ * returns some rows twice and drops others entirely. `name` is the middle key
+ * on the enum sorts so that «all Денна» is itself alphabetical rather than
+ * arbitrary.
+ *
+ * Note the enums sort in DECLARATION order, which is what Postgres does with an
+ * enum column and what the screen wants anyway: Бакалавр before Магістр, Денна
+ * before Заочна, Бюджет before Контракт.
+ */
+function orderFor(sort: AdmittedSort, dir: 'asc' | 'desc') {
+  const tail = [{ name: 'asc' as const }, { id: 'asc' as const }];
+  switch (sort) {
+    case 'speciality':
+      return [{ speciality: { name: dir } }, ...tail];
+    case 'funding':
+      return [{ funding: dir }, ...tail];
+    case 'form':
+      return [{ form: dir }, ...tail];
+    case 'degree':
+      return [{ degree: dir }, ...tail];
+    case 'name':
+      return [{ name: dir }, { id: 'asc' as const }];
+  }
+}
+
 export interface AdmittedFilters {
   year: number;
   degree?: StudentDegree;
@@ -144,6 +186,8 @@ export interface AdmittedFilters {
   /** Free text over the ПІБ; normalised before it is matched */
   search?: string;
   page: number;
+  sort?: AdmittedSort;
+  dir?: 'asc' | 'desc';
 }
 
 export interface AdmittedPage {
@@ -173,10 +217,7 @@ export async function listAdmittedStudents(filters: AdmittedFilters): Promise<Ad
     db.admittedStudent.findMany({
       where,
       select: ROW_SELECT,
-      // The second key is not decoration. Twenty ПІБ repeat in the 2026 intake,
-      // and a page boundary falling between two identical names would return
-      // one of them on both pages and the other on neither.
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      orderBy: orderFor(filters.sort ?? 'name', filters.dir ?? 'asc'),
       skip: (page - 1) * ADMITTED_PAGE_SIZE,
       take: ADMITTED_PAGE_SIZE,
     }),
