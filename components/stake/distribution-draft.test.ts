@@ -17,13 +17,23 @@ const fresh = (staffId: string): DraftRow => ({ staffId, hasAllocation: false })
 
 /** A кафедра whose split is fully saved — the ordinary starting point */
 function spread(values: Record<string, number>): DraftState {
-  return initialDraft(values);
+  return initialDraft(values, values);
 }
 
 describe('initialDraft', () => {
   it('opens with nothing to save', () => {
     const state = spread({ a: 100, b: 50 });
     expect(isDirty(state, [stored('a'), stored('b')])).toBe(false);
+  });
+
+  // Гірко, 2026-09-04. The database held 0,20 while a frozen формула above his
+  // Макс opened the row at 0,25. Both fields were seeded from the DISPLAYED
+  // number, so the grid recorded 0,25 as «what the server holds» — and «Зберегти»
+  // sat grey over a value that had never been stored. What is shown and what is
+  // saved are two different numbers and need two different sources.
+  it('is dirty when the row opens above what the server holds', () => {
+    const state = initialDraft({ a: 25 }, { a: 20 });
+    expect(isDirty(state, [stored('a')])).toBe(true);
   });
 });
 

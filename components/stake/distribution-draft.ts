@@ -58,9 +58,24 @@ export type DraftAction =
   /** A save came back successful: these values, for these people, are now on the server. */
   | { type: 'saved'; values: Record<string, number>; staffIds: readonly string[] };
 
-/** The opening state: nothing typed, nothing written this session. */
-export function initialDraft(values: Record<string, number>): DraftState {
-  return { values, savedValues: values, savedRows: new Set() };
+/**
+ * The opening state: nothing typed, nothing written this session.
+ *
+ * **Two arguments, because they are two different numbers.** They used to be
+ * one: the grid passed what it SHOWS and this stored it as what the server
+ * holds. Those agree only while the row opens on its stored value, and
+ * `openingStake` exists precisely to lift a row off it — a Макс cut under the
+ * frozen формула opens at the Макс, not at what is stored. The grid then
+ * believed the server already held the lifted number, `isDirty` found nothing
+ * to save, and «Зберегти» sat grey over a value nobody could ever commit
+ * — Гірко showing 0,25 against a stored 0,20 (2026-09-04).
+ */
+export function initialDraft(
+  values: Record<string, number>,
+  /** What the server actually holds — `StakeRow.proposedHundredths`, never the opening value */
+  savedValues: Record<string, number>
+): DraftState {
+  return { values, savedValues, savedRows: new Set() };
 }
 
 export function draftReducer(state: DraftState, action: DraftAction): DraftState {

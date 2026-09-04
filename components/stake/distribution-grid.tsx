@@ -155,7 +155,23 @@ export function DistributionGrid({
    * reducer now so the rule is a pure function with tests of its own, instead of
    * something only a person clicking the screen could check.
    */
-  const [draft, dispatch] = useReducer(draftReducer, undefined, () => initialDraft(seed()));
+  /**
+   * What the server holds — NOT what the row opens on.
+   *
+   * `seed()` is the displayed number and `openingStake` may lift it clear of the
+   * stored one. Seeding both from it told the grid the server already held the
+   * lifted value, so «Зберегти» was grey on the one row that needed it.
+   *
+   * A person with no stored row gets the формула's proposal here —
+   * `getStakeDistribution` falls back to it — which would be a claim about a row
+   * the server does not have. `isDirty` never reaches this comparison for them:
+   * `hasAllocation: false` makes them dirty first.
+   */
+  const stored = () => Object.fromEntries(view.rows.map((r) => [r.staffId, r.proposedHundredths]));
+
+  const [draft, dispatch] = useReducer(draftReducer, undefined, () =>
+    initialDraft(seed(), stored())
+  );
   const { values } = draft;
 
   const [error, setError] = useState<string | null>(null);
