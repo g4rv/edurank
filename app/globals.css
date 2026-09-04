@@ -8,9 +8,12 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-placeholder: var(--placeholder);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
+  --font-heading: var(--font-manrope);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-gradient: var(--brand-gradient);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -92,7 +95,23 @@
      розділ, exactly as the printed кафедра chart pairs them. */
   --chart-accent: oklch(0.556 0.132 264);
   --chart-total: oklch(0.505 0.208 27);
-  --radius: 0.625rem;
+  /* «Аврора» — the brand accent as a first-class token rather than a chart-only
+     one. Same #4472C4 as --chart-accent and as the university's circulated Word
+     reports, so screen, chart and print stay one family. It exists separately
+     because a chart colour and a button colour drift apart the moment either is
+     tuned, and this one is now load-bearing for both. */
+  --brand: oklch(0.556 0.132 264);
+  --brand-foreground: oklch(0.985 0 0);
+  /* The filled-button surface. A gradient rather than a flat fill because
+     Аврора's whole language is light bending through things — a flat #4472C4
+     rectangle on a drifting wash looks stamped on rather than lit. It leans
+     toward the same violet (#7C5CD6) the wash uses, so the button belongs to
+     the background instead of interrupting it. */
+  --brand-gradient: linear-gradient(140deg, oklch(0.6 0.14 264), oklch(0.52 0.16 285));
+  /* 0.625 → 0.75rem. Аврора's planes are noticeably rounder than shadcn's
+     default, and every rounded-* utility is derived from this one value, so the
+     whole app follows without touching a component. */
+  --radius: 0.75rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -101,13 +120,22 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  --background: oklch(1 0 0);
+  /* Аврора's base tint (#f7f8fb), not white. Two reasons: it is the ground the
+     colour wash sits on, and it gives --card (still pure white) something to
+     separate from — a white panel on a white page has only its border to say it
+     is a panel. --card stays SOLID on purpose; glass is opt-in below. */
+  --background: oklch(0.977 0.004 265);
   --foreground: oklch(0.145 0 0);
 }
 
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
+  /* Lightened for the dark card, exactly as --chart-accent is: #4472C4 at its
+     light-mode lightness sinks into oklch(0.205). */
+  --brand: oklch(0.7 0.135 264);
+  --brand-foreground: oklch(0.16 0 0);
+  --brand-gradient: linear-gradient(140deg, oklch(0.66 0.14 264), oklch(0.58 0.16 285));
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
@@ -174,5 +202,271 @@
      with no ::placeholder, so its trigger carries data-[placeholder] instead. */
   ::placeholder {
     color: var(--placeholder);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   «Аврора» — the glass surface
+
+   Deliberately a SEPARATE surface, not a change to --card.
+
+   `bg-card` is used 121 times in this app and 23 of those are data tables. If
+   --card became translucent, every table would become a blurred pane on a
+   gradient: unreadable for dense figures, and 121 backdrop-filter layers on the
+   weakest laptop in the department. So --card stays solid and this is opt-in —
+   chrome and summary panels wear it, working surfaces do not.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .glass {
+    background: rgb(255 255 255 / 0.72);
+    box-shadow:
+      0 1px 2px rgb(15 23 41 / 0.05),
+      0 16px 40px -14px rgb(15 23 41 / 0.22),
+      inset 0 1px 0 rgb(255 255 255 / 0.85),
+      inset 0 0 0 1px rgb(255 255 255 / 0.5);
+  }
+
+  /* Only blur where the browser can actually do it. Аврора's own notes flag
+     that the concept has no fallback; this is it. Without the blur a 72 % white
+     panel over a colour wash reads as dirty grey, so the no-support case gets
+     an almost-opaque panel instead — plainer, but still a clean surface. */
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .glass {
+      background: rgb(255 255 255 / 0.72);
+      -webkit-backdrop-filter: blur(24px) saturate(1.6);
+      backdrop-filter: blur(24px) saturate(1.6);
+    }
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background: rgb(255 255 255 / 0.94);
+    }
+  }
+
+  /* «Кристал» is the dark twin, and dark glass is harder: a pale wash behind a
+     translucent white panel turns it muddy grey. So the panel is white at 6 %
+     and the edge highlight, not the fill, is what makes it read as a surface. */
+  .dark .glass {
+    background: rgb(255 255 255 / 0.06);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.4),
+      0 16px 40px -14px rgb(0 0 0 / 0.55),
+      inset 0 1px 0 rgb(255 255 255 / 0.14),
+      inset 0 0 0 1px rgb(255 255 255 / 0.09);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .dark .glass {
+      background: oklch(0.235 0 0);
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   «Аврора» — the wash's drift
+
+   Transform only. A blurred layer is rasterised once and then composited, so
+   moving it is GPU work and costs almost nothing; animating the gradient or the
+   blur radius would re-render it every frame and is what makes these
+   backgrounds notorious on weak machines. `will-change` keeps each bloom on its
+   own layer so the compositor never has to rebuild it.
+
+   Long, prime-ish, mismatched durations: the blooms never return to the same
+   arrangement twice, so the wash reads as alive rather than as a loop.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes aurora-drift-a {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(9%, 6%, 0);
+  }
+}
+
+@keyframes aurora-drift-b {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-11%, 7%, 0);
+  }
+}
+
+@keyframes aurora-drift-c {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(7%, -9%, 0);
+  }
+}
+
+@keyframes aurora-drift-d {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-8%, -6%, 0);
+  }
+}
+
+@layer components {
+  .aurora-bloom {
+    will-change: transform;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  }
+
+  /* Movement is atmosphere, never information — so it is the first thing to go
+     for anybody who has asked the system for less of it. The blooms stay
+     exactly where they are; only the drift stops. */
+  @media (prefers-reduced-motion: reduce) {
+    .aurora-bloom {
+      animation: none !important;
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   «Аврора» — control surfaces
+
+   Kept here rather than inline in the components for the same reason `.glass`
+   is: these are surface definitions, and the dark variant of each has to sit
+   next to the light one or the two drift apart. The components in
+   `components/aurora/` compose these and own only layout and behaviour.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* The filled action. The shadow is brand-tinted, not black — a neutral drop
+     shadow under a coloured button reads as dirt on a wash this pale. */
+  .aurora-primary {
+    background-image: var(--brand-gradient);
+    color: var(--brand-foreground);
+    box-shadow:
+      0 1px 2px oklch(0.45 0.13 270 / 0.24),
+      0 8px 20px -8px oklch(0.5 0.15 270 / 0.5),
+      inset 0 1px 0 rgb(255 255 255 / 0.22);
+  }
+  /* The lift on hover is an OPACITY change on an overlay, never `filter` and
+     never a new `background-image`. Both of those are repaints, and this button
+     sits inside a `.glass` card — so repainting it forces that card's whole
+     backdrop to re-blur. Opacity is composited on the GPU and touches nothing
+     underneath. This was the «renders in chunks» on hover. */
+  .aurora-primary {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .aurora-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgb(255 255 255 / 0.14);
+    opacity: 0;
+    transition: opacity 150ms ease;
+    pointer-events: none;
+  }
+  .aurora-primary:hover:not(:disabled)::after {
+    opacity: 1;
+  }
+
+  /* A field on glass. Slightly lighter than the panel it sits on, so it reads
+     as cut INTO the surface — the shadcn default is transparent with a border,
+     which on a translucent card leaves the field indistinguishable from it. */
+  .aurora-field {
+    background: rgb(255 255 255 / 0.55);
+    border-color: oklch(0.145 0 0 / 0.12);
+    box-shadow: inset 0 1px 2px oklch(0.145 0 0 / 0.05);
+  }
+  .aurora-field:focus-visible {
+    background: rgb(255 255 255 / 0.85);
+  }
+  .dark .aurora-field {
+    background: rgb(255 255 255 / 0.06);
+    border-color: rgb(255 255 255 / 0.14);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
+  }
+  .dark .aurora-field:focus-visible {
+    background: rgb(255 255 255 / 0.1);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   «Аврора» — full-bleed chrome (the sidebar, page headers)
+
+   Translucent, and deliberately NOT blurred.
+
+   `.glass` blurs what is behind it, which is affordable for one small card on
+   an otherwise empty page. This is different: the sidebar is ~224px wide, full
+   height, and on screen on every route — a permanent `backdrop-filter` over a
+   wash that is also moving means re-blurring that whole strip every frame. That
+   is the single most expensive combination available here, and we know some of
+   these machines have no GPU acceleration at all.
+
+   Transparency alone costs nothing and does most of the work: the wash still
+   shows through, so the panel reads as sitting ON the colour rather than
+   covering it. Only the blur is dropped.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .glass-chrome {
+    background: rgb(255 255 255 / 0.62);
+  }
+  .dark .glass-chrome {
+    background: rgb(255 255 255 / 0.04);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Switching theme, smoothly
+
+   Only while the switch is happening. `ThemeToggle` puts `.theme-transition`
+   on <html>, flips the theme, and takes the class off again once the fade is
+   done — so nothing on the page carries a permanent transition it did not ask
+   for, and every component keeps its own hover timing.
+
+   The property list is deliberately short. Transitioning `all` would animate
+   layout properties too and repaint the entire document on every frame of the
+   fade, which is a bad trade on machines with no GPU acceleration — and we know
+   there are some.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* Inside `@layer components`, like every other block here. A bare top-level
+     `@media` in this file is dropped from the build — `.glass`, `.aurora-primary`
+     and the bloom keyframes all survive because they are layered, and this rule
+     silently did not until it was moved in beside them. */
+  @media (prefers-reduced-motion: no-preference) {
+    .theme-transition,
+    .theme-transition *,
+    .theme-transition *::before,
+    .theme-transition *::after {
+      transition:
+        background-color 260ms ease,
+        border-color 260ms ease,
+        color 260ms ease,
+        fill 260ms ease,
+        stroke 260ms ease,
+        opacity 260ms ease !important;
+      transition-delay: 0ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* The theme cross-fade. `ThemeToggle` drives it with `startViewTransition`,
+     which snapshots the old frame and fades it into the new one — so icons,
+     borders and shadows all move together instead of each depending on whether
+     its own property happens to be transitionable. */
+  @media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 260ms;
+      animation-timing-function: ease;
+    }
   }
 }

@@ -1,13 +1,27 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Manrope, Geist_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
+/**
+ * «Аврора»'s interface face — and a correctness fix, not only a visual one.
+ *
+ * This was `Geist({ subsets: ['latin'] })`. Geist has **no Cyrillic glyphs at
+ * all**, so every Ukrainian word in the app — which is all of them — has been
+ * falling back to whatever sans the operating system picked. That is why the
+ * app looked slightly different on every machine, and why nothing about its
+ * typography ever read as deliberate.
+ *
+ * Manrope carries Cyrillic, so `subsets` names it: without that the glyphs are
+ * fetched but the subset is never requested and the fallback stays.
+ */
+const manrope = Manrope({
+  variable: '--font-manrope',
+  subsets: ['latin', 'cyrillic'],
 });
 
+// Mono is only used for figures and code-ish strings, where Latin and digits
+// are the whole job, so Geist Mono stays.
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
@@ -28,7 +42,7 @@ export default function RootLayout({
     // server markup and the first client render differ by design.
     <html
       lang="uk"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${manrope.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">
@@ -42,7 +56,10 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="light"
           enableSystem={false}
-          disableTransitionOnChange
+          // NOT `disableTransitionOnChange`: that prop exists to inject
+          // `transition: none` across the document during a switch, which is
+          // precisely what made the theme snap. `ThemeToggle` opens a short
+          // transition window of its own instead — see `.theme-transition`.
         >
           {children}
         </ThemeProvider>
