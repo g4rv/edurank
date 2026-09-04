@@ -141,6 +141,14 @@ export function settleStake(desired: number, current: number, b: StakeBounds): n
   // «Початкову (автоматичну) ставку можна тільки збільшити» — the sheet's own
   // rule. Talking somebody DOWN from what their rating earned them is not a
   // decision the положення gives a head.
-  const floor = b.overspent ? lower : Math.max(lower, b.formulaHundredths);
+  //
+  // **Never above the person's own Макс** — `Math.min` with `upperBound`, the
+  // clamp `openingStake` has always ended on. A Макс cut below the формула
+  // otherwise left a row with no legal value at all: the cap refused everything
+  // above it, this floor everything below the формула. The bounds win, which is
+  // the rule `liftStoredAllocations` already states — «your own bounds may move
+  // your ставка, the формула may not» (Гірко, 0,90 against a 0,25 cap,
+  // 2026-09-04).
+  const floor = b.overspent ? lower : Math.min(Math.max(lower, b.formulaHundredths), upperBound(b));
   return Math.max(clamped, floor);
 }

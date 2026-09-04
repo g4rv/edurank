@@ -94,6 +94,23 @@ function uneven() {
   mockStaff.mockResolvedValue(staff);
 }
 
+/**
+ * `uneven()`, but s2's Макс has since been cut to 0,25 while the формула frozen
+ * at the last human save still says 0,90 — the shape that had no saveable value.
+ */
+function cappedRoster() {
+  const staff = roster();
+  staff[0].ratingEntries = [{ totalScore: 1500 }];
+  staff[2].ratingEntries = [{ totalScore: 500 }];
+  staff[2].stakeLimits = [{ minHundredths: 10, maxHundredths: 25 }] as never;
+  mockStaff.mockResolvedValue(staff);
+  mockSavedAllocations.mockResolvedValue([
+    { staffId: 's0', formulaHundredths: 100 },
+    { staffId: 's1', formulaHundredths: 100 },
+    { staffId: 's2', formulaHundredths: 90 },
+  ]);
+}
+
 /** A plain payload; the justification is optional and defaulted to null. */
 function payload(values: number[], departmentId = DEPT) {
   return {
@@ -421,6 +438,24 @@ describe('saveDistribution — the формула is a floor', () => {
     ]);
     const result = await saveDistribution(payload([100, 100, 55]));
     expect(result).toMatchObject({ error: expect.stringContaining('0,60') });
+  });
+
+  // ── A Макс below the frozen формула must not lock the row ──
+  //
+  // ADMIN lowers somebody's Макс to 0,25 while the формула frozen at the last
+  // save still says 0,90. The cap refused everything above 0,25 and the floor
+  // everything below 0,90, so there was no value the завідувач could save — and
+  // the error told them to change Мін/Макс, which they had just done, because a
+  // frozen формула does not move when the bounds do (Гірко, 2026-09-04).
+  it('lets the row sit at its Макс when the frozen формула is above it', async () => {
+    cappedRoster();
+    expect(await saveDistribution(payload([100, 100, 25]))).toEqual({ success: true });
+  });
+
+  it('still holds them to the frozen формула below that Макс', async () => {
+    cappedRoster();
+    const result = await saveDistribution(payload([100, 100, 20]));
+    expect(result).toMatchObject({ error: expect.stringContaining('0,25') });
   });
 
   // Nobody has saved them yet, so today's формула IS their first ставка and

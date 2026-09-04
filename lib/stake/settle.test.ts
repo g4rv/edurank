@@ -66,6 +66,14 @@ describe('settleStake', () => {
     expect(settleStake(20, 50, bounds())).toBe(50);
   });
 
+  // А Макс lowered under the frozen формула used to leave the row with no legal
+  // value at all: the cap refused everything above it and «тільки збільшити»
+  // refused everything below the формула. The person's own bounds win — the
+  // same rule `openingStake` has always applied (owner, 2026-09-04).
+  it('never lifts a row above its own Макс to satisfy the формула', () => {
+    expect(settleStake(25, 20, bounds({ maxHundredths: 25, formulaHundredths: 90 }))).toBe(25);
+  });
+
   it('lifts that floor once the кафедра is over its funds, so it can come back down', () => {
     expect(settleStake(20, 50, bounds({ overspent: true, headroom: 0 }))).toBe(20);
   });

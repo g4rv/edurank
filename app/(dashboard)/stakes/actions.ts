@@ -288,8 +288,18 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     // Falling back to today's формула is right for somebody with NO saved row:
     // a new colleague, or a сумісник just placed here. That IS their initial
     // automatic ставка, and «тільки збільшити» should hold them to it.
-    const floor =
-      savedFormulaByStaff.get(allocation.staffId) ?? formulaByStaff.get(allocation.staffId) ?? 0;
+    //
+    // **Capped by that person's Макс.** A frozen формула does NOT move when the
+    // bounds do, so ADMIN cutting a Макс under it left a row nothing could be
+    // saved into — above 0,25 refused by the cap, below 0,90 refused by this
+    // floor — while the message told the завідувач to change Мін/Макс, which
+    // is exactly what they had just done (Гірко, 2026-09-04). The bounds win:
+    // `openingStake` has always shown the row at its Макс in this state, so
+    // without the cap the screen offered a number its own save refused.
+    const floor = Math.min(
+      savedFormulaByStaff.get(allocation.staffId) ?? formulaByStaff.get(allocation.staffId) ?? 0,
+      max
+    );
     if (!overspent && allocation.hundredths < floor) {
       return {
         error:

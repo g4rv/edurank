@@ -1194,7 +1194,10 @@ function Row({
   const outOfRange = !noPool && (value < lower || value > upper);
   // Lifted while the кафедра is over its funds — otherwise the only way out of
   // an overspend would be the one move the head is not allowed to make.
-  const stakeFloor = overspent ? lower : Math.max(lower, row.formulaHundredths);
+  // Capped by Макс for the reason `settleStake` is: with a Макс cut under the
+  // формула the stepper handed `min` 0,90 and `max` 0,25, so both ▼ and ▲ greyed
+  // out and the row looked broken rather than capped.
+  const stakeFloor = overspent ? lower : Math.min(Math.max(lower, row.formulaHundredths), upper);
   // The ▲ stops at the person's Макс or at what the funds still hold, whichever
   // comes first, so a head cannot walk «нерозподілено» negative one click at a
   // time. `atMax` greys the button out exactly there — the same way «тільки
