@@ -23,6 +23,7 @@ import { ACTIVITY_KIND_LABELS, INPUT_SOURCE_LABELS } from '@/lib/rating/labels';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { computeScore, type ScoringSpec } from '@/lib/rating/scoring';
 import type { InputSource } from '@/lib/generated/prisma/client';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 // One activity type as this service page needs it. Read from the DB row, so the
 // page always shows the forms the app is really using — including whatever an
@@ -181,17 +182,19 @@ function DebugForm({ type }: { type: DebugType }) {
         <p className="mt-1 text-sm text-muted-foreground">Коефіцієнт: {type.coefficient}</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border bg-card p-5">
-        <EvidenceFields
-          fields={type.fields}
-          register={register}
-          control={control}
-          errors={errors}
-        />
-        <Button type="submit" className="mt-4">
-          Обчислити бали
-        </Button>
-      </form>
+      <RequiredFields schema={schema}>
+        <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border bg-card p-5">
+          <EvidenceFields
+            fields={type.fields}
+            register={register}
+            control={control}
+            errors={errors}
+          />
+          <Button type="submit" className="mt-4">
+            Обчислити бали
+          </Button>
+        </form>
+      </RequiredFields>
 
       {scoreError && (
         <div className="rounded-xl border-2 border-destructive/30 bg-card p-5 text-sm text-destructive">

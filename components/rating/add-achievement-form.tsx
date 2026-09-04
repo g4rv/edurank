@@ -20,6 +20,7 @@ import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fiel
 import type { ScoringSpec } from '@/lib/rating/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { compareItemNumbers } from '@/lib/rating/achievement-rows';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 export interface SubmittableType {
   id: string;
@@ -113,16 +114,23 @@ function EvidenceForm({ type, onDone }: { type: SubmittableType; onDone: () => v
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mt-4 border-t pt-4">
-      {type.coefficientNote && (
-        <p className="mb-3 text-sm whitespace-pre-line text-muted-foreground">
-          {type.coefficientNote}
-        </p>
-      )}
-      <EvidenceFields fields={type.fields} register={register} control={control} errors={errors} />
-      <Button type="submit" disabled={isPending} className="mt-4">
-        {isPending ? 'Подання...' : 'Подати'}
-      </Button>
-    </form>
+    <RequiredFields schema={schema}>
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-4 border-t pt-4">
+        {type.coefficientNote && (
+          <p className="mb-3 text-sm whitespace-pre-line text-muted-foreground">
+            {type.coefficientNote}
+          </p>
+        )}
+        <EvidenceFields
+          fields={type.fields}
+          register={register}
+          control={control}
+          errors={errors}
+        />
+        <Button type="submit" disabled={isPending} className="mt-4">
+          {isPending ? 'Подання...' : 'Подати'}
+        </Button>
+      </form>
+    </RequiredFields>
   );
 }

@@ -14,6 +14,7 @@ import type { StaffDetail } from '@/lib/queries/get-staff';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
 import type { StakePart } from '@/lib/queries/get-stake-breakdown';
+import { RequiredFields } from '@/components/ui/required-fields';
 import {
   StaffFormFields,
   staffToFormValues,
@@ -85,33 +86,35 @@ export function StaffEditForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit as never)} className="space-y-4">
-      <StaffFormFields
-        register={register}
-        control={control}
-        errors={errors}
-        setValue={setValue}
-        stakeBreakdown={stakeBreakdown}
-        isPending={isPending}
-        isAdmin={isAdmin}
-        canEditPartTime={canEditPartTime}
-        editableFields={editableFields}
-        isNpp={isNppValue}
-        departments={departments}
-        divisions={divisions}
-        // Switching someone between НПП and administrative changes which rating
-        // rows they get, so only ADMIN may do it after the record exists
-        canEditType={isAdmin}
-      />
+    <RequiredFields schema={staffUpdateSchema}>
+      <form onSubmit={handleSubmit(onSubmit as never)} className="space-y-4">
+        <StaffFormFields
+          register={register}
+          control={control}
+          errors={errors}
+          setValue={setValue}
+          stakeBreakdown={stakeBreakdown}
+          isPending={isPending}
+          isAdmin={isAdmin}
+          canEditPartTime={canEditPartTime}
+          editableFields={editableFields}
+          isNpp={isNppValue}
+          departments={departments}
+          divisions={divisions}
+          // Switching someone between НПП and administrative changes which rating
+          // rows they get, so only ADMIN may do it after the record exists
+          canEditType={isAdmin}
+        />
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Збереження...' : 'Зберегти'}
-        </Button>
-        <Button asChild variant="outline" disabled={isPending}>
-          <Link href={`/staff/${staffId}`}>Скасувати</Link>
-        </Button>
-      </div>
-    </form>
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Збереження...' : 'Зберегти'}
+          </Button>
+          <Button asChild variant="outline" disabled={isPending}>
+            <Link href={`/staff/${staffId}`}>Скасувати</Link>
+          </Button>
+        </div>
+      </form>
+    </RequiredFields>
   );
 }

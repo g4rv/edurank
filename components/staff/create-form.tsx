@@ -13,6 +13,7 @@ import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { createStaff } from '@/app/(dashboard)/staff/actions';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
+import { RequiredFields } from '@/components/ui/required-fields';
 import {
   StaffFormFields,
   EMPTY_STAFF_FORM_VALUES,
@@ -77,50 +78,52 @@ export function StaffCreateForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit as never)} className="space-y-4">
-      <StaffFormFields
-        register={register}
-        control={control}
-        errors={errors}
-        setValue={setValue}
-        // No person yet, so no distribution to show — the typed «Ставка»
-        // field is what `null` turns back on.
-        stakeBreakdown={null}
-        isPending={isPending}
-        isAdmin={isAdmin}
-        canEditPartTime={canEditPartTime}
-        isNpp={isNppValue}
-        departments={departments}
-        divisions={divisions}
-        // Numbered sections read as steps while filling a blank record
-        numbered
-        // The type has to be chosen up front, whoever is creating the record
-        canEditType
-      />
+    <RequiredFields schema={staffCreateSchema}>
+      <form onSubmit={handleSubmit(onSubmit as never)} className="space-y-4">
+        <StaffFormFields
+          register={register}
+          control={control}
+          errors={errors}
+          setValue={setValue}
+          // No person yet, so no distribution to show — the typed «Ставка»
+          // field is what `null` turns back on.
+          stakeBreakdown={null}
+          isPending={isPending}
+          isAdmin={isAdmin}
+          canEditPartTime={canEditPartTime}
+          isNpp={isNppValue}
+          departments={departments}
+          divisions={divisions}
+          // Numbered sections read as steps while filling a blank record
+          numbered
+          // The type has to be chosen up front, whoever is creating the record
+          canEditType
+        />
 
-      {/* ADMIN only: handing out an account has never been an editor's to do,
+        {/* ADMIN only: handing out an account has never been an editor's to do,
           so the switch is not shown to them and the server ignores the flag. */}
-      {isAdmin && (
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border bg-card p-3 text-sm">
-          <Switch checked={sendInvite} onCheckedChange={setSendInvite} disabled={isPending} />
-          <span>
-            Надіслати запрошення одразу
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              Людина отримає лист із посиланням, щоб установити пароль. Інакше запрошення можна
-              надіслати пізніше з її сторінки.
+        {isAdmin && (
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border bg-card p-3 text-sm">
+            <Switch checked={sendInvite} onCheckedChange={setSendInvite} disabled={isPending} />
+            <span>
+              Надіслати запрошення одразу
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Людина отримає лист із посиланням, щоб установити пароль. Інакше запрошення можна
+                надіслати пізніше з її сторінки.
+              </span>
             </span>
-          </span>
-        </label>
-      )}
+          </label>
+        )}
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Збереження...' : 'Створити'}
-        </Button>
-        <Button asChild variant="outline" disabled={isPending}>
-          <Link href="/staff">Скасувати</Link>
-        </Button>
-      </div>
-    </form>
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Збереження...' : 'Створити'}
+          </Button>
+          <Button asChild variant="outline" disabled={isPending}>
+            <Link href="/staff">Скасувати</Link>
+          </Button>
+        </div>
+      </form>
+    </RequiredFields>
   );
 }

@@ -42,6 +42,7 @@ import { evidenceDefaults, summarizeEvidence } from '@/lib/rating/evidence-field
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import { cn } from '@/lib/utils';
 import { positionFormSchema } from '@/validations/kharakterystyka';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 export interface ManualEntry {
   id: string;
@@ -348,16 +349,17 @@ function EntryForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <AlertDialogHeader>
-        <AlertDialogTitle>Новий запис до позиції {position}</AlertDialogTitle>
-        <AlertDialogDescription>
-          Заповніть поля — текст документа складеться з них. Рік має бути в межах {minYear}–
-          {maxYear}.
-        </AlertDialogDescription>
-      </AlertDialogHeader>
+    <RequiredFields schema={schema}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Новий запис до позиції {position}</AlertDialogTitle>
+          <AlertDialogDescription>
+            Заповніть поля — текст документа складеться з них. Рік має бути в межах {minYear}–
+            {maxYear}.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-      {/* Two columns, because these forms are mostly short answers — a рік, a
+        {/* Two columns, because these forms are mostly short answers — a рік, a
           посада, a місце — and one field per row left the other half of the
           dialog empty beside every one of them (owner, 2026-09-01).
 
@@ -369,91 +371,92 @@ function EntryForm({
           `dense` lets a later short field backfill the gap a full-width one
           leaves behind, so п.1 puts Рік and Посилання on one row instead of
           stranding Рік beside nothing. */}
-      <div
-        className={cn(
-          'grid max-h-[55vh] grid-cols-1 gap-4 overflow-y-auto pr-1',
-          'sm:grid-flow-row-dense sm:grid-cols-2',
-          // Descendant, not child: `contents` drops the renderer's wrapper out
-          // of the LAYOUT, but it is still there in the DOM, so `>` matches
-          // nothing past it.
-          'sm:[&_[data-slot=field]:has(textarea)]:col-span-2',
-          'sm:[&_[data-slot=field]:has([role=combobox])]:col-span-2'
-        )}
-      >
-        {choices.length > 0 && (
-          <FormField
-            htmlFor="entry-group"
-            label="Що саме підтверджує позицію"
-            description="Кожен варіант має власну кількість, потрібну для виконання позиції"
-            error={errors.group as { message?: string } | undefined}
-          >
-            <Controller
-              name="group"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  value={(field.value as string | null) ?? undefined}
-                  onValueChange={field.onChange}
-                  disabled={pending}
-                >
-                  <SelectTrigger id="entry-group" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {choices.map((choice) => (
-                      <SelectItem key={choice.group} value={choice.group}>
-                        {choice.label} — потрібно {choice.min}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </FormField>
-        )}
+        <div
+          className={cn(
+            'grid max-h-[55vh] grid-cols-1 gap-4 overflow-y-auto pr-1',
+            'sm:grid-flow-row-dense sm:grid-cols-2',
+            // Descendant, not child: `contents` drops the renderer's wrapper out
+            // of the LAYOUT, but it is still there in the DOM, so `>` matches
+            // nothing past it.
+            'sm:[&_[data-slot=field]:has(textarea)]:col-span-2',
+            'sm:[&_[data-slot=field]:has([role=combobox])]:col-span-2'
+          )}
+        >
+          {choices.length > 0 && (
+            <FormField
+              htmlFor="entry-group"
+              label="Що саме підтверджує позицію"
+              description="Кожен варіант має власну кількість, потрібну для виконання позиції"
+              error={errors.group as { message?: string } | undefined}
+            >
+              <Controller
+                name="group"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={(field.value as string | null) ?? undefined}
+                    onValueChange={field.onChange}
+                    disabled={pending}
+                  >
+                    <SelectTrigger id="entry-group" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {choices.map((choice) => (
+                        <SelectItem key={choice.group} value={choice.group}>
+                          {choice.label} — потрібно {choice.min}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </FormField>
+          )}
 
-        {/* The hint appears only where the form asks for years of its own —
+          {/* The hint appears only where the form asks for years of its own —
             п.11 and п.20 both have «Рік початку / завершення», and there «Рік»
             alone does not say which year is meant. On the other fifteen it was
             a wrapped second line explaining the only year on screen. */}
-        <FormField
-          htmlFor="entry-year"
-          label="Рік"
-          description={asksForYears ? 'Рік, за який зараховується запис' : undefined}
-          error={errors.year as { message?: string } | undefined}
-        >
-          <Input
-            id="entry-year"
-            type="number"
-            min={minYear}
-            max={maxYear}
+          <FormField
+            htmlFor="entry-year"
+            label="Рік"
+            description={asksForYears ? 'Рік, за який зараховується запис' : undefined}
+            error={errors.year as { message?: string } | undefined}
+          >
+            <Input
+              id="entry-year"
+              type="number"
+              min={minYear}
+              max={maxYear}
+              disabled={pending}
+              {...register('year')}
+            />
+          </FormField>
+
+          <EvidenceFields
+            className="contents"
+            fields={fields}
+            register={register}
+            control={control}
+            errors={errors}
             disabled={pending}
-            {...register('year')}
           />
-        </FormField>
 
-        <EvidenceFields
-          className="contents"
-          fields={fields}
-          register={register}
-          control={control}
-          errors={errors}
-          disabled={pending}
-        />
+          <Preview fields={fields} control={control} className="sm:col-span-2" />
+        </div>
 
-        <Preview fields={fields} control={control} className="sm:col-span-2" />
-      </div>
-
-      <AlertDialogFooter>
-        <Button type="button" variant="outline" disabled={pending} onClick={onDone}>
-          <ChevronLeft className="size-4" />
-          Назад
-        </Button>
-        <Button type="submit" disabled={pending}>
-          Зберегти
-        </Button>
-      </AlertDialogFooter>
-    </form>
+        <AlertDialogFooter>
+          <Button type="button" variant="outline" disabled={pending} onClick={onDone}>
+            <ChevronLeft className="size-4" />
+            Назад
+          </Button>
+          <Button type="submit" disabled={pending}>
+            Зберегти
+          </Button>
+        </AlertDialogFooter>
+      </form>
+    </RequiredFields>
   );
 }
 

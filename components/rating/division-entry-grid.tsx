@@ -39,6 +39,7 @@ import type { ScoringSpec } from '@/lib/rating/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { cn } from '@/lib/utils';
 import { sumScores } from '@/lib/round';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 export interface EntryGridType {
   id: string;
@@ -482,19 +483,28 @@ function CellForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {type.coefficientNote && (
-        <p className="text-xs whitespace-pre-line text-muted-foreground">{type.coefficientNote}</p>
-      )}
-      <EvidenceFields fields={type.fields} register={register} control={control} errors={errors} />
-      <div className="flex items-center gap-2">
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? 'Збереження…' : 'Зберегти'}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={onCancel}>
-          Назад
-        </Button>
-      </div>
-    </form>
+    <RequiredFields schema={schema}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {type.coefficientNote && (
+          <p className="text-xs whitespace-pre-line text-muted-foreground">
+            {type.coefficientNote}
+          </p>
+        )}
+        <EvidenceFields
+          fields={type.fields}
+          register={register}
+          control={control}
+          errors={errors}
+        />
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm" disabled={isPending}>
+            {isPending ? 'Збереження…' : 'Зберегти'}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={onCancel}>
+            Назад
+          </Button>
+        </div>
+      </form>
+    </RequiredFields>
   );
 }

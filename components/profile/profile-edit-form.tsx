@@ -14,6 +14,7 @@ import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { updateOwnProfile } from '@/app/(dashboard)/profile/actions';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 /** Empty strings, not nulls: an <input> with a null value is uncontrolled */
 type FormValues = {
@@ -54,83 +55,85 @@ export function ProfileEditForm({ defaultValues }: { defaultValues: FormValues }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="rounded-xl border bg-card p-5">
-        <FieldGroup className="flex flex-col gap-4">
-          <FormField htmlFor="phone" label="Телефон" error={errors.phone}>
-            <Controller
-              name="phone"
-              control={control}
-              render={({ field }) => (
-                <TelInput
-                  id="phone"
-                  value={field.value}
-                  onChange={field.onChange}
-                  disabled={isPending}
-                  aria-invalid={!!errors.phone}
-                />
-              )}
-            />
-          </FormField>
+    <RequiredFields schema={ownProfileSchema}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="rounded-xl border bg-card p-5">
+          <FieldGroup className="flex flex-col gap-4">
+            <FormField htmlFor="phone" label="Телефон" error={errors.phone}>
+              <Controller
+                name="phone"
+                control={control}
+                render={({ field }) => (
+                  <TelInput
+                    id="phone"
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={isPending}
+                    aria-invalid={!!errors.phone}
+                  />
+                )}
+              />
+            </FormField>
 
-          <FormField
-            htmlFor="wosUrl"
-            label="Web of Science"
-            description="Посилання на ваш профіль"
-            error={errors.wosUrl}
-          >
-            <Input id="wosUrl" disabled={isPending} {...register('wosUrl')} />
-          </FormField>
+            <FormField
+              htmlFor="wosUrl"
+              label="Web of Science"
+              description="Посилання на ваш профіль"
+              error={errors.wosUrl}
+            >
+              <Input id="wosUrl" disabled={isPending} {...register('wosUrl')} />
+            </FormField>
 
-          <FormField
-            htmlFor="scopusUrl"
-            label="Scopus"
-            description="Посилання на ваш профіль"
-            error={errors.scopusUrl}
-          >
-            <Input id="scopusUrl" disabled={isPending} {...register('scopusUrl')} />
-          </FormField>
+            <FormField
+              htmlFor="scopusUrl"
+              label="Scopus"
+              description="Посилання на ваш профіль"
+              error={errors.scopusUrl}
+            >
+              <Input id="scopusUrl" disabled={isPending} {...register('scopusUrl')} />
+            </FormField>
 
-          <FormField
-            htmlFor="googleScholarUrl"
-            label="Google Scholar"
-            description="Посилання на ваш профіль"
-            error={errors.googleScholarUrl}
-          >
-            <Input id="googleScholarUrl" disabled={isPending} {...register('googleScholarUrl')} />
-          </FormField>
+            <FormField
+              htmlFor="googleScholarUrl"
+              label="Google Scholar"
+              description="Посилання на ваш профіль"
+              error={errors.googleScholarUrl}
+            >
+              <Input id="googleScholarUrl" disabled={isPending} {...register('googleScholarUrl')} />
+            </FormField>
 
-          <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
-            {/* Controlled: the field reformats on every keystroke, which an
+            <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
+              {/* Controlled: the field reformats on every keystroke, which an
                 uncontrolled input cannot do without the caret jumping. */}
-            <Controller
-              name="orcidId"
-              control={control}
-              render={({ field }) => (
-                <OrcidInput
-                  id="orcidId"
-                  disabled={isPending}
-                  value={field.value}
-                  onChange={field.onChange}
-                />
-              )}
-            />
-          </FormField>
-        </FieldGroup>
-      </div>
+              <Controller
+                name="orcidId"
+                control={control}
+                render={({ field }) => (
+                  <OrcidInput
+                    id="orcidId"
+                    disabled={isPending}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </FormField>
+          </FieldGroup>
+        </div>
 
-      <p className="text-sm text-muted-foreground">
-        Решту даних профілю змінює відділ кадрів або адміністратор.
-      </p>
+        <p className="text-sm text-muted-foreground">
+          Решту даних профілю змінює відділ кадрів або адміністратор.
+        </p>
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Збереження...' : 'Зберегти'}
-        </Button>
-        <Button asChild variant="outline" disabled={isPending}>
-          <Link href="/profile">Скасувати</Link>
-        </Button>
-      </div>
-    </form>
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Збереження...' : 'Зберегти'}
+          </Button>
+          <Button asChild variant="outline" disabled={isPending}>
+            <Link href="/profile">Скасувати</Link>
+          </Button>
+        </div>
+      </form>
+    </RequiredFields>
   );
 }

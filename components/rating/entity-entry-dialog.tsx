@@ -37,6 +37,7 @@ import { evidenceDefaults } from '@/lib/rating/evidence-fields';
 import { entityEntryMeta } from '@/lib/rating/entity-entry';
 import { schemaForFields } from '@/validations/activity-evidence';
 import type { EntryGridStaff, EntryGridType } from '@/components/rating/division-entry-grid';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 interface EntityEntryDialogProps {
   types: EntryGridType[];
@@ -178,104 +179,108 @@ function EntityEntryForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {type.coefficientNote && (
-        <p className="text-xs whitespace-pre-line text-muted-foreground">{type.coefficientNote}</p>
-      )}
+    <RequiredFields schema={sharedSchema}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {type.coefficientNote && (
+          <p className="text-xs whitespace-pre-line text-muted-foreground">
+            {type.coefficientNote}
+          </p>
+        )}
 
-      {sharedFields.length > 0 && (
-        <EvidenceFields
-          fields={sharedFields}
-          register={register}
-          control={control}
-          errors={errors}
-        />
-      )}
+        {sharedFields.length > 0 && (
+          <EvidenceFields
+            fields={sharedFields}
+            register={register}
+            control={control}
+            errors={errors}
+          />
+        )}
 
-      <div className="space-y-2">
-        <span className="text-sm font-medium">НПП{roleField ? ' та ролі' : ''}</span>
         <div className="space-y-2">
-          {rows.map((row) => {
-            const takenElsewhere = new Set(
-              rows.filter((r) => r.key !== row.key && r.staffId).map((r) => r.staffId)
-            );
-            const options = staff.filter((s) => !takenElsewhere.has(s.id));
-            return (
-              <div key={row.key} className="flex items-start gap-2">
-                <Combobox
-                  items={options}
-                  value={row.staffId}
-                  onChange={(v) => updateRow(row.key, { staffId: v })}
-                  displayValue={staffById.get(row.staffId)?.name ?? ''}
-                  filter={(s, q) =>
-                    s.name.toLowerCase().includes(q.toLowerCase()) ||
-                    s.department.toLowerCase().includes(q.toLowerCase())
-                  }
-                >
-                  <div className="min-w-0 flex-1">
-                    <ComboboxInput placeholder="Оберіть НПП…" />
-                    <ComboboxContent>
-                      <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
-                      <ComboboxList<EntryGridStaff>>
-                        {(s) => (
-                          <ComboboxItem key={s.id} value={s.id}>
-                            <span>
-                              {s.name}
-                              <span className="block text-xs text-muted-foreground">
-                                {s.department}
+          <span className="text-sm font-medium">НПП{roleField ? ' та ролі' : ''}</span>
+          <div className="space-y-2">
+            {rows.map((row) => {
+              const takenElsewhere = new Set(
+                rows.filter((r) => r.key !== row.key && r.staffId).map((r) => r.staffId)
+              );
+              const options = staff.filter((s) => !takenElsewhere.has(s.id));
+              return (
+                <div key={row.key} className="flex items-start gap-2">
+                  <Combobox
+                    items={options}
+                    value={row.staffId}
+                    onChange={(v) => updateRow(row.key, { staffId: v })}
+                    displayValue={staffById.get(row.staffId)?.name ?? ''}
+                    filter={(s, q) =>
+                      s.name.toLowerCase().includes(q.toLowerCase()) ||
+                      s.department.toLowerCase().includes(q.toLowerCase())
+                    }
+                  >
+                    <div className="min-w-0 flex-1">
+                      <ComboboxInput placeholder="Оберіть НПП…" />
+                      <ComboboxContent>
+                        <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
+                        <ComboboxList<EntryGridStaff>>
+                          {(s) => (
+                            <ComboboxItem key={s.id} value={s.id}>
+                              <span>
+                                {s.name}
+                                <span className="block text-xs text-muted-foreground">
+                                  {s.department}
+                                </span>
                               </span>
-                            </span>
-                          </ComboboxItem>
-                        )}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </div>
-                </Combobox>
+                            </ComboboxItem>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </div>
+                  </Combobox>
 
-                {roleField && (
-                  <Select value={row.role} onValueChange={(v) => updateRow(row.key, { role: v })}>
-                    <SelectTrigger className="w-56 shrink-0">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleField.options.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                          {o.points !== undefined ? ` — ${o.points}` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                  {roleField && (
+                    <Select value={row.role} onValueChange={(v) => updateRow(row.key, { role: v })}>
+                      <SelectTrigger className="w-56 shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleField.options.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                            {o.points !== undefined ? ` — ${o.points}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeRow(row.key)}
-                  disabled={rows.length === 1}
-                  aria-label="Прибрати рядок"
-                  className="shrink-0 text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            );
-          })}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeRow(row.key)}
+                    disabled={rows.length === 1}
+                    aria-label="Прибрати рядок"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+          {rowsError && <p className="text-sm text-destructive">{rowsError}</p>}
+          <Button type="button" variant="outline" size="sm" onClick={addRow}>
+            <Plus className="size-4" />
+            Додати НПП
+          </Button>
         </div>
-        {rowsError && <p className="text-sm text-destructive">{rowsError}</p>}
-        <Button type="button" variant="outline" size="sm" onClick={addRow}>
-          <Plus className="size-4" />
-          Додати НПП
-        </Button>
-      </div>
 
-      <AlertDialogFooter>
-        <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Збереження…' : 'Зберегти всім'}
-        </Button>
-      </AlertDialogFooter>
-    </form>
+        <AlertDialogFooter>
+          <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Збереження…' : 'Зберегти всім'}
+          </Button>
+        </AlertDialogFooter>
+      </form>
+    </RequiredFields>
   );
 }

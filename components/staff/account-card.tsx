@@ -42,6 +42,7 @@ import { setPasswordSchema, type SetPasswordSchema } from '@/validations/account
 import type { Role } from '@/lib/generated/prisma/client';
 import type { StaffAccount } from '@/lib/queries/get-staff-account';
 import { cn } from '@/lib/utils';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 interface AccountCardProps {
   staffId: string;
@@ -270,27 +271,33 @@ function ManualPasswordDialog({
             Резервний варіант, якщо лист не доходить. Передайте пароль людині особисто.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <form onSubmit={handleSubmit(submit)} className="space-y-4">
-          <FormField htmlFor="manual-password" label="Новий пароль" error={errors.password}>
-            <PassInput id="manual-password" autoComplete="new-password" {...register('password')} />
-            <PasswordRules value={password} className="mt-2" />
-          </FormField>
-          <FormField
-            htmlFor="manual-confirm"
-            label="Повторіть пароль"
-            error={errors.confirmPassword}
-          >
-            <PassInput
-              id="manual-confirm"
-              autoComplete="new-password"
-              {...register('confirmPassword')}
-            />
-          </FormField>
-          <AlertDialogFooter>
-            <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
-            <Button type="submit">Встановити</Button>
-          </AlertDialogFooter>
-        </form>
+        <RequiredFields schema={setPasswordSchema}>
+          <form onSubmit={handleSubmit(submit)} className="space-y-4">
+            <FormField htmlFor="manual-password" label="Новий пароль" error={errors.password}>
+              <PassInput
+                id="manual-password"
+                autoComplete="new-password"
+                {...register('password')}
+              />
+              <PasswordRules value={password} className="mt-2" />
+            </FormField>
+            <FormField
+              htmlFor="manual-confirm"
+              label="Повторіть пароль"
+              error={errors.confirmPassword}
+            >
+              <PassInput
+                id="manual-confirm"
+                autoComplete="new-password"
+                {...register('confirmPassword')}
+              />
+            </FormField>
+            <AlertDialogFooter>
+              <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
+              <Button type="submit">Встановити</Button>
+            </AlertDialogFooter>
+          </form>
+        </RequiredFields>
       </AlertDialogContent>
     </AlertDialog>
   );

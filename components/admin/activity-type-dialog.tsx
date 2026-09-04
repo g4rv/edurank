@@ -37,6 +37,7 @@ import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScoringSpec } from '@/lib/rating/scoring';
 import { specProblems, withScoringFields } from '@/validations/activity-type-spec';
 import { createActivityTypeSchema, updateActivityTypeSchema } from '@/validations/rating-admin';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 // One dialog for both «створити» and «редагувати»: the fields are the same, and
 // keeping them together stops the two forms drifting apart.
@@ -266,256 +267,273 @@ function ActivityTypeForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-        <FormSection title="Показник" hint="Як він називається і де стоїть в офіційній формі">
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
-              <FormField htmlFor="itemNumber" label="№ п/п" error={errors.itemNumber}>
-                <Input id="itemNumber" placeholder={`${section}.12`} {...register('itemNumber')} />
-              </FormField>
-              <FormField htmlFor="label" label="Назва показника" error={errors.label}>
-                <Textarea id="label" rows={2} {...register('label')} />
-              </FormField>
-            </div>
+    <RequiredFields schema={schema}>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          <FormSection title="Показник" hint="Як він називається і де стоїть в офіційній формі">
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
+                <FormField htmlFor="itemNumber" label="№ п/п" error={errors.itemNumber}>
+                  <Input
+                    id="itemNumber"
+                    placeholder={`${section}.12`}
+                    {...register('itemNumber')}
+                  />
+                </FormField>
+                <FormField htmlFor="label" label="Назва показника" error={errors.label}>
+                  <Textarea id="label" rows={2} {...register('label')} />
+                </FormField>
+              </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField htmlFor="section" label="Розділ">
-                <Select value={section} onValueChange={onSectionChange}>
-                  <SelectTrigger id="section" className="w-full">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField htmlFor="section" label="Розділ">
+                  <Select value={section} onValueChange={onSectionChange}>
+                    <SelectTrigger id="section" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SECTIONS.map((s) => (
+                        <SelectItem key={s} value={String(s)}>
+                          <span className="font-medium">{s}.</span>
+                          <span className="line-clamp-1">{SECTION_TITLES[s]}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+
+                {!isEdit && (
+                  <FormField
+                    htmlFor="code"
+                    label="Службовий код"
+                    error={errors.code}
+                    description="Незмінний ключ показника — латиницею, напр. startup_jury"
+                  >
+                    <Input id="code" placeholder="startup_jury" {...register('code')} />
+                  </FormField>
+                )}
+
+                {isEdit ? (
+                  // Set once at creation: the source decides where the indicator is
+                  // filled in, and moving it would strand the rows already entered.
+                  <FormField label="Хто вносить" description="Після створення не змінюється">
+                    <p className="flex h-8 items-center text-sm">
+                      {INPUT_SOURCE_LABELS[inputSource]}
+                    </p>
+                  </FormField>
+                ) : (
+                  <FormField htmlFor="inputSource" label="Хто вносить">
+                    <Select value={inputSource} onValueChange={(v) => setValue('inputSource', v)}>
+                      <SelectTrigger id="inputSource" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NPP_SUBMISSION">
+                          {INPUT_SOURCE_LABELS.NPP_SUBMISSION}
+                        </SelectItem>
+                        <SelectItem value="DIVISION_MANAGED">
+                          {INPUT_SOURCE_LABELS.DIVISION_MANAGED}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+                )}
+
+                {inputSource === 'DIVISION_MANAGED' && (
+                  <FormField htmlFor="verifyingDivisionId" label="Відповідальний відділ">
+                    <Select
+                      value={divisionId || undefined}
+                      onValueChange={(v) => setValue('verifyingDivisionId', v)}
+                    >
+                      <SelectTrigger id="verifyingDivisionId" className="w-full">
+                        <SelectValue placeholder="Оберіть відділ" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {divisions.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+                )}
+              </div>
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Нарахування балів"
+            hint="Скільки дає один запис і з чого це рахується"
+          >
+            <div className="space-y-4">
+              <FormField
+                htmlFor="scoringKind"
+                label="Правило нарахування"
+                description={SCORING_HINTS[scoring.kind]}
+              >
+                <Select
+                  value={scoring.kind}
+                  onValueChange={(v) =>
+                    onScoringChange({ ...scoring, kind: v as ScoringSpec['kind'] })
+                  }
+                >
+                  <SelectTrigger id="scoringKind" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {SECTIONS.map((s) => (
-                      <SelectItem key={s} value={String(s)}>
-                        <span className="font-medium">{s}.</span>
-                        <span className="line-clamp-1">{SECTION_TITLES[s]}</span>
+                    {SCORING_KINDS.map((kind) => (
+                      <SelectItem key={kind} value={kind}>
+                        {ACTIVITY_KIND_LABELS[kind]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </FormField>
 
-              {!isEdit && (
-                <FormField
-                  htmlFor="code"
-                  label="Службовий код"
-                  error={errors.code}
-                  description="Незмінний ключ показника — латиницею, напр. startup_jury"
-                >
-                  <Input id="code" placeholder="startup_jury" {...register('code')} />
-                </FormField>
-              )}
-
-              {isEdit ? (
-                // Set once at creation: the source decides where the indicator is
-                // filled in, and moving it would strand the rows already entered.
-                <FormField label="Хто вносить" description="Після створення не змінюється">
-                  <p className="flex h-8 items-center text-sm">
-                    {INPUT_SOURCE_LABELS[inputSource]}
-                  </p>
-                </FormField>
-              ) : (
-                <FormField htmlFor="inputSource" label="Хто вносить">
-                  <Select value={inputSource} onValueChange={(v) => setValue('inputSource', v)}>
-                    <SelectTrigger id="inputSource" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="NPP_SUBMISSION">
-                        {INPUT_SOURCE_LABELS.NPP_SUBMISSION}
-                      </SelectItem>
-                      <SelectItem value="DIVISION_MANAGED">
-                        {INPUT_SOURCE_LABELS.DIVISION_MANAGED}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormField>
-              )}
-
-              {inputSource === 'DIVISION_MANAGED' && (
-                <FormField htmlFor="verifyingDivisionId" label="Відповідальний відділ">
-                  <Select
-                    value={divisionId || undefined}
-                    onValueChange={(v) => setValue('verifyingDivisionId', v)}
-                  >
-                    <SelectTrigger id="verifyingDivisionId" className="w-full">
-                      <SelectValue placeholder="Оберіть відділ" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {divisions.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-              )}
-            </div>
-          </div>
-        </FormSection>
-
-        <FormSection title="Нарахування балів" hint="Скільки дає один запис і з чого це рахується">
-          <div className="space-y-4">
-            <FormField
-              htmlFor="scoringKind"
-              label="Правило нарахування"
-              description={SCORING_HINTS[scoring.kind]}
-            >
-              <Select
-                value={scoring.kind}
-                onValueChange={(v) =>
-                  onScoringChange({ ...scoring, kind: v as ScoringSpec['kind'] })
-                }
-              >
-                <SelectTrigger id="scoringKind" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SCORING_KINDS.map((kind) => (
-                    <SelectItem key={kind} value={kind}>
-                      {ACTIVITY_KIND_LABELS[kind]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-
-            {(scoring.kind === 'MULT' || scoring.kind === 'SELECT_MULT') && (
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <Switch
-                  checked={scoring.pageBased === true}
-                  onCheckedChange={(v) =>
-                    onScoringChange({ ...scoring, pageBased: v || undefined })
-                  }
-                />
-                <span>
-                  Рахувати друковані аркуші
-                  <span className="block text-xs text-muted-foreground">
-                    сторінки ÷ 24 ÷ кількість співавторів
+              {(scoring.kind === 'MULT' || scoring.kind === 'SELECT_MULT') && (
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Switch
+                    checked={scoring.pageBased === true}
+                    onCheckedChange={(v) =>
+                      onScoringChange({ ...scoring, pageBased: v || undefined })
+                    }
+                  />
+                  <span>
+                    Рахувати друковані аркуші
+                    <span className="block text-xs text-muted-foreground">
+                      сторінки ÷ 24 ÷ кількість співавторів
+                    </span>
                   </span>
-                </span>
-              </label>
-            )}
+                </label>
+              )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField htmlFor="coefficient" label="Коефіцієнт" error={errors.coefficient}>
-                <Input
-                  id="coefficient"
-                  type="number"
-                  step="any"
-                  min="0"
-                  {...register('coefficient')}
-                />
-              </FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField htmlFor="coefficient" label="Коефіцієнт" error={errors.coefficient}>
+                  <Input
+                    id="coefficient"
+                    type="number"
+                    step="any"
+                    min="0"
+                    {...register('coefficient')}
+                  />
+                </FormField>
+                <FormField
+                  htmlFor="maxPerYear"
+                  label="Не більше за рік"
+                  error={errors.maxPerYear}
+                  description="Порожньо — без обмеження"
+                >
+                  <Input
+                    id="maxPerYear"
+                    type="number"
+                    min="1"
+                    step="1"
+                    {...register('maxPerYear')}
+                  />
+                </FormField>
+              </div>
+
               <FormField
-                htmlFor="maxPerYear"
-                label="Не більше за рік"
-                error={errors.maxPerYear}
-                description="Порожньо — без обмеження"
+                htmlFor="coefficientNote"
+                label="Примітка (критерії)"
+                error={errors.coefficientNote}
               >
-                <Input id="maxPerYear" type="number" min="1" step="1" {...register('maxPerYear')} />
+                <Textarea id="coefficientNote" rows={2} {...register('coefficientNote')} />
               </FormField>
             </div>
+          </FormSection>
 
-            <FormField
-              htmlFor="coefficientNote"
-              label="Примітка (критерії)"
-              error={errors.coefficientNote}
-            >
-              <Textarea id="coefficientNote" rows={2} {...register('coefficientNote')} />
-            </FormField>
-          </div>
-        </FormSection>
-
-        <FormSection
-          title="Поля форми"
-          hint="Що заповнюють, подаючи цей показник"
-          action={<AddFieldSelect fields={fields} onChange={onFieldsChange} />}
-        >
-          <div className="space-y-4">
-            <EvidenceFieldBuilder
-              fields={fields}
-              scoring={scoring}
-              onChange={onFieldsChange}
-              error={specError ?? (errors.evidenceFields?.message as string | undefined)}
-            />
-            <EvidencePreview fields={fields} />
-          </div>
-        </FormSection>
-
-        <FormSection
-          title="Ліцензійні умови"
-          hint="Які пункти Характеристики закривають записи за цим показником"
-        >
-          <LicencePositionPicker
-            value={(licencePositions ?? []) as LicencePositionLink[]}
-            onChange={(next) => setValue('licencePositions', next as never, { shouldDirty: true })}
-          />
-          {errors.licencePositions?.message && (
-            <p className="mt-2 text-sm text-destructive">
-              {errors.licencePositions.message as string}
-            </p>
-          )}
-        </FormSection>
-      </div>
-
-      <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2">
-          <label className="flex cursor-pointer items-center gap-2">
-            <Switch checked={!!isActive} onCheckedChange={(v) => setValue('isActive', v)} />
-            <span className="text-sm">
-              Показник активний
-              {!isActive && (
-                <span className="block text-xs text-muted-foreground">
-                  Вимкнений показник не нараховує балів
-                </span>
-              )}
-            </span>
-          </label>
-
-          <label className="flex cursor-pointer items-center gap-2">
-            <Switch
-              checked={!!requiresVerification}
-              onCheckedChange={(v) => setValue('requiresVerification', v)}
-            />
-            <span className="text-sm">
-              Потребує перевірки
-              {!!requiresVerification && (
-                <span className="block text-xs text-muted-foreground">
-                  Модератор зможе позначати ці записи як перевірені; на бали не впливає
-                </span>
-              )}
-            </span>
-          </label>
-
-          {inputSource === 'DIVISION_MANAGED' && (
-            <label className="flex cursor-pointer items-center gap-2">
-              <Switch
-                checked={!!entityFirstEntry}
-                onCheckedChange={(v) => setValue('entityFirstEntry', v)}
+          <FormSection
+            title="Поля форми"
+            hint="Що заповнюють, подаючи цей показник"
+            action={<AddFieldSelect fields={fields} onChange={onFieldsChange} />}
+          >
+            <div className="space-y-4">
+              <EvidenceFieldBuilder
+                fields={fields}
+                scoring={scoring}
+                onChange={onFieldsChange}
+                error={specError ?? (errors.evidenceFields?.message as string | undefined)}
               />
+              <EvidencePreview fields={fields} />
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Ліцензійні умови"
+            hint="Які пункти Характеристики закривають записи за цим показником"
+          >
+            <LicencePositionPicker
+              value={(licencePositions ?? []) as LicencePositionLink[]}
+              onChange={(next) =>
+                setValue('licencePositions', next as never, { shouldDirty: true })
+              }
+            />
+            {errors.licencePositions?.message && (
+              <p className="mt-2 text-sm text-destructive">
+                {errors.licencePositions.message as string}
+              </p>
+            )}
+          </FormSection>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2">
+            <label className="flex cursor-pointer items-center gap-2">
+              <Switch checked={!!isActive} onCheckedChange={(v) => setValue('isActive', v)} />
               <span className="text-sm">
-                Внесення групою
-                {!!entityFirstEntry && (
+                Показник активний
+                {!isActive && (
                   <span className="block text-xs text-muted-foreground">
-                    Один об’єкт (проєкт, рада, програма) вноситься раз і розподіляється на всіх
-                    учасників
+                    Вимкнений показник не нараховує балів
                   </span>
                 )}
               </span>
             </label>
-          )}
-        </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
-          <Button type="submit" disabled={isPending}>
-            {isPending ? 'Збереження…' : isEdit ? 'Зберегти' : 'Створити'}
-          </Button>
-        </AlertDialogFooter>
-      </div>
-    </form>
+            <label className="flex cursor-pointer items-center gap-2">
+              <Switch
+                checked={!!requiresVerification}
+                onCheckedChange={(v) => setValue('requiresVerification', v)}
+              />
+              <span className="text-sm">
+                Потребує перевірки
+                {!!requiresVerification && (
+                  <span className="block text-xs text-muted-foreground">
+                    Модератор зможе позначати ці записи як перевірені; на бали не впливає
+                  </span>
+                )}
+              </span>
+            </label>
+
+            {inputSource === 'DIVISION_MANAGED' && (
+              <label className="flex cursor-pointer items-center gap-2">
+                <Switch
+                  checked={!!entityFirstEntry}
+                  onCheckedChange={(v) => setValue('entityFirstEntry', v)}
+                />
+                <span className="text-sm">
+                  Внесення групою
+                  {!!entityFirstEntry && (
+                    <span className="block text-xs text-muted-foreground">
+                      Один об’єкт (проєкт, рада, програма) вноситься раз і розподіляється на всіх
+                      учасників
+                    </span>
+                  )}
+                </span>
+              </label>
+            )}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? 'Збереження…' : isEdit ? 'Зберегти' : 'Створити'}
+            </Button>
+          </AlertDialogFooter>
+        </div>
+      </form>
+    </RequiredFields>
   );
 }
