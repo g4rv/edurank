@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { Button } from '@/components/ui/button';
 import { FieldError, FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
-import { PassInput } from '@/components/ui/pass-input';
+import { AuroraButton } from '@/components/aurora/button';
+import { EmailInput } from '@/components/aurora/email-input';
+import { AuroraPassInput } from '@/components/aurora/pass-input';
 import { loginSchema, type LoginSchema } from '@/validations/login';
+import { RequiredFields } from '@/components/ui/required-fields';
+import { Logo } from '@/components/aurora/logo';
 import { loginAction } from './actions';
 
 export function LoginForm() {
@@ -46,44 +48,42 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">EduRank</h1>
+        <h1>
+          <Logo size="lg" />
+        </h1>
       </div>
 
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <FieldGroup className="flex flex-col gap-4">
-            <FormField htmlFor="email" label="Email" error={errors.email}>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="email@example.com"
-                disabled={isPending}
-                {...register('email')}
-              />
-            </FormField>
+      <div className="glass rounded-2xl p-6">
+        <RequiredFields schema={loginSchema}>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <FieldGroup className="flex flex-col gap-4">
+              <FormField htmlFor="email" label="Email" error={errors.email}>
+                <EmailInput id="email" size="lg" disabled={isPending} {...register('email')} />
+              </FormField>
 
-            <FormField htmlFor="password" label="Пароль" error={errors.password}>
-              <PassInput
-                id="password"
-                autoComplete="current-password"
-                disabled={isPending}
-                {...register('password')}
-              />
-            </FormField>
-          </FieldGroup>
+              <FormField htmlFor="password" label="Пароль" error={errors.password}>
+                <AuroraPassInput
+                  id="password"
+                  size="lg"
+                  autoComplete="current-password"
+                  disabled={isPending}
+                  {...register('password')}
+                />
+              </FormField>
+            </FieldGroup>
 
-          {errors.root?.message && <FieldError errors={[{ message: errors.root.message }]} />}
+            {errors.root?.message && <FieldError errors={[{ message: errors.root.message }]} />}
 
-          <Button type="submit" size="lg" disabled={isPending} className="w-full">
-            {isPending ? 'Вхід...' : 'Увійти'}
-          </Button>
-        </form>
+            <AuroraButton type="submit" size="xl" loading={isPending} className="w-full">
+              {isPending ? 'Вхід...' : 'Увійти'}
+            </AuroraButton>
+          </form>
+        </RequiredFields>
 
         <div className="mt-4 text-center">
           <Link
             href="/forgot-password"
-            className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            className="text-sm text-foreground/70 underline-offset-4 transition-colors hover:text-brand hover:underline"
           >
             Забули пароль?
           </Link>

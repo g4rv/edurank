@@ -33,6 +33,7 @@ import {
   NPP_RATING_OPEN,
 } from '@/lib/rating/npp-access';
 import type { Role } from '@/lib/generated/prisma/client';
+import { Logo } from '@/components/aurora/logo';
 
 const RATING_SECTIONS = [1, 2, 3, 4, 5];
 
@@ -203,16 +204,19 @@ export function Sidebar({
   const showHeadings = sections.length > 1;
 
   return (
-    <aside className="flex h-screen w-56 flex-col border-r bg-sidebar">
-      <div className="flex h-14 items-center gap-2 border-b px-4">
-        <span className="text-base font-semibold tracking-tight">EduRank</span>
+    // Translucent rather than `bg-sidebar`, so the wash reads through it and the
+    // rail belongs to the page instead of being a grey slab bolted to its edge.
+    // Deliberately unblurred — see `.glass-chrome` in globals.css.
+    <aside className="glass-chrome flex h-screen w-56 flex-col border-r border-foreground/8">
+      <div className="flex h-14 items-center gap-2 border-b border-foreground/8 px-4">
+        <Logo />
         <ThemeToggle className="-mr-1.5 ml-auto" />
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
         {sections.map((section, i) => (
           <Fragment key={section.label}>
-            {i > 0 && <div className="mx-2 my-1 border-t" />}
+            {i > 0 && <div className="mx-2 my-1 border-t border-foreground/8" />}
             {/* Uppercase, like the card titles on every page, so a group heading
                 reads as a tier above «Додати активність» nested inside this one.
                 Both were the same style and the sub-heading looked like a
@@ -235,7 +239,7 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="border-t p-3">
+      <div className="border-t border-foreground/8 p-3">
         <p className="truncate text-xs text-muted-foreground">{user.email}</p>
         <div className="mt-2">
           <SignOutButton />
@@ -252,7 +256,7 @@ function AddActivityNav({ pathname }: { pathname: string }) {
     <div className="mt-1">
       <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Додати активність</p>
 
-      <div className="mt-0.5 ml-3.5 flex flex-col gap-0.5 border-l pl-2.5">
+      <div className="mt-0.5 ml-3.5 flex flex-col gap-0.5 border-l border-foreground/8 pl-2.5">
         {RATING_SECTIONS.map((section) => {
           const href = `/achievements/${section}`;
           const isActive = pathname === href;
@@ -264,8 +268,8 @@ function AddActivityNav({ pathname }: { pathname: string }) {
               className={cn(
                 'rounded-md px-2 py-1.5 text-sm transition-colors',
                 isActive
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                  ? 'bg-brand/12 font-medium text-brand'
+                  : 'text-sidebar-foreground hover:bg-foreground/6'
               )}
             >
               Розділ {section}
@@ -306,8 +310,8 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
       className={cn(
         'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
         isActive
-          ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-          : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+          ? 'bg-brand/12 font-medium text-brand'
+          : 'text-sidebar-foreground hover:bg-foreground/6'
       )}
     >
       <Icon className="size-4 shrink-0" />

@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
+import { AuroraButton } from '@/components/aurora/button';
+import { EmailInput } from '@/components/aurora/email-input';
 import { forgotPasswordSchema, type ForgotPasswordSchema } from '@/validations/account';
+import { RequiredFields } from '@/components/ui/required-fields';
+import { Logo } from '@/components/aurora/logo';
 import { requestPasswordReset } from './actions';
 
 export default function ForgotPasswordPage() {
@@ -38,11 +40,13 @@ export default function ForgotPasswordPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">EduRank</h1>
+        <h1>
+          <Logo size="lg" />
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">Відновлення пароля</p>
       </div>
 
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
+      <div className="glass rounded-2xl p-6">
         {sent ? (
           <div className="space-y-4 text-center">
             <p className="text-sm">
@@ -54,32 +58,28 @@ export default function ForgotPasswordPage() {
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Вкажіть email вашого облікового запису — ми надішлемо посилання для встановлення
-              нового пароля.
-            </p>
-            <FieldGroup className="flex flex-col gap-4">
-              <FormField htmlFor="email" label="Email" error={errors.email}>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  disabled={isPending}
-                  {...register('email')}
-                />
-              </FormField>
-            </FieldGroup>
-            <Button type="submit" size="lg" disabled={isPending} className="w-full">
-              {isPending ? 'Надсилання...' : 'Надіслати посилання'}
-            </Button>
-          </form>
+          <RequiredFields schema={forgotPasswordSchema}>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Вкажіть email вашого облікового запису — ми надішлемо посилання для встановлення
+                нового пароля.
+              </p>
+              <FieldGroup className="flex flex-col gap-4">
+                <FormField htmlFor="email" label="Email" error={errors.email}>
+                  <EmailInput id="email" size="lg" disabled={isPending} {...register('email')} />
+                </FormField>
+              </FieldGroup>
+              <AuroraButton type="submit" size="xl" loading={isPending} className="w-full">
+                {isPending ? 'Надсилання...' : 'Надіслати посилання'}
+              </AuroraButton>
+            </form>
+          </RequiredFields>
         )}
 
         <div className="mt-4 text-center">
           <Link
             href="/login"
-            className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            className="text-sm text-foreground/70 underline-offset-4 transition-colors hover:text-brand hover:underline"
           >
             Повернутися до входу
           </Link>

@@ -1,10 +1,18 @@
 import { redirect } from 'next/navigation';
-import { JetBrains_Mono, Geologica, Onest, Manrope } from 'next/font/google';
+import {
+  JetBrains_Mono,
+  Geologica,
+  Onest,
+  Manrope,
+  Wix_Madefor_Display,
+  Wix_Madefor_Text,
+} from 'next/font/google';
 import { auth } from '@/lib/auth';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { ConceptPanel } from '@/components/admin/concept-panel';
 import { ConceptGlass, ConceptNight, ConceptBento } from '@/components/admin/concepts-modern';
 import { ConceptAurora, ConceptCrystal } from '@/components/admin/concepts-glass';
+import { ConceptPodil } from '@/components/admin/concept-podil';
 
 // Service page for choosing the app's visual identity. ADMIN-only, no nav link
 // — same treatment as /admin/rating-debug. Changes nothing; it only previews.
@@ -39,8 +47,30 @@ const manrope = Manrope({
   variable: '--dc-manrope',
   subsets: ['latin', 'cyrillic'],
 });
+// «Поділ» — a real superfamily rather than two faces that happen to sit
+// together: Display carries the figures and headings, Text the interface, and
+// both have proper Cyrillic. Warmer than the geometric grotesques every
+// dashboard reaches for, and not a default anybody falls into.
+const madeforDisplay = Wix_Madefor_Display({
+  variable: '--dc-madefor-display',
+  subsets: ['latin', 'cyrillic'],
+  weight: ['600', '700'],
+});
+const madeforText = Wix_Madefor_Text({
+  variable: '--dc-madefor-text',
+  subsets: ['latin', 'cyrillic'],
+  weight: ['400', '500', '600', '700'],
+});
 
 const CONCEPTS = [
+  {
+    id: 'podil',
+    name: 'Поділ',
+    type: 'Wix Madefor Display / Text',
+    idea: 'Єдиний напрям, побудований навколо того, що екран насправді робить. Завідувач не читає підсумок — він ріже один фонд на іменовані частини, і всі цікаві питання тут відносні: у кого більше, скільки ще не роздано, наскільки формула вилазить за фонд. Число й кільце відповідають на це погано; смуга, поділена на сегменти, відповідає ще до того, як щось прочитано. Форма навмисне та, яку ваші люди вже знають, — смуга пам’яті в iPhone: ціле, поділене на підписані частини, залишок блідий у кінці. Пояснювати нічого не треба, і водночас воно не має вигляду, ніби вас повчають. Сегменти — відтінки одного #4472C4, бо це частини однієї величини, а не різні категорії; той самий відтінок стоїть на початку рядка в таблиці, тож смуга й список — один об’єкт, а не два погляди поруч. Глибина — волосінь, щільна тінь і широка розсіяна: справжня поверхня без жодного backdrop-filter.',
+    cost: 'Помірна, і найдешевша з «сучасних»: жодного скла, жодного градієнтного тла, нічого, що впаде на слабкому ноутбуці. Нове тут одне — сегментована смуга фонду; решта (картки, сегментний перемикач, степер) лягає на shadcn. Масштаб тексту піднімається помірно — 15px замість 13–14, — тож щільність екранів зміниться, але не перевернеться.',
+    Component: ConceptPodil,
+  },
   {
     id: 'aurora',
     name: 'Аврора',
@@ -98,13 +128,14 @@ export default async function DesignPreviewPage() {
 
   return (
     <AnimatedPage
-      className={`space-y-10 ${jet.variable} ${geologica.variable} ${onest.variable} ${manrope.variable}`}
+      className={`space-y-10 ${jet.variable} ${geologica.variable} ${onest.variable} ${manrope.variable} ${madeforDisplay.variable} ${madeforText.variable}`}
     >
       <div>
         <h1 className="text-2xl font-semibold">Обличчя застосунку</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Один екран — «Розподіл ставок» — у кількох композиціях, на однакових даних. Перші дві —
-          нові, у напрямі скла й Stripe. Нічого тут не зберігається.
+          Один екран — «Розподіл ставок» — у кількох композиціях, на однакових даних. Перший —
+          «Поділ»: єдиний, побудований навколо самого поділу фонду, а не навколо підсумку. Далі —
+          скло й Stripe. Нічого тут не зберігається.
         </p>
       </div>
 

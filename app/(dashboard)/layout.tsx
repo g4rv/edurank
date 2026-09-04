@@ -7,6 +7,7 @@ import { listEntryDivisions } from '@/lib/queries/list-division-data';
 import { scopeOf } from '@/lib/queries/scope';
 import { Sidebar } from '@/components/sidebar';
 import { Toaster } from '@/components/ui/sonner';
+import { AuroraWash } from '@/components/ui/aurora-wash';
 
 async function canEnterDivisionData(user: {
   role: 'ADMIN' | 'EDITOR' | 'USER';
@@ -40,7 +41,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     : null;
 
   return (
-    <div className="flex h-screen bg-background">
+    // No `bg-background` here any more: it would paint over the wash, which
+    // sits behind everything at `-z-10`. The wash carries the same tint, so the
+    // ground is unchanged for anything that cannot render it.
+    <div className="flex h-screen">
+      <AuroraWash />
       <Sidebar
         user={session.user}
         isNpp={staff?.isNpp ?? false}
