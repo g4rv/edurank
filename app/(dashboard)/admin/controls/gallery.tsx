@@ -28,6 +28,32 @@ import {
   ComboboxItem,
   ComboboxList,
 } from '@/components/ui/combobox';
+import { TelInput } from '@/components/ui/tel-input';
+import { OrcidInput } from '@/components/ui/orcid-input';
+import { IsbnInput } from '@/components/ui/isbn-input';
+import { DoiInput } from '@/components/ui/doi-input';
+import { FileInput } from '@/components/ui/file-input';
+import { Pagination } from '@/components/ui/pagination';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // what replaces it
 import { AuroraButton } from '@/components/aurora/ui/button';
@@ -58,6 +84,38 @@ import {
   AuroraComboboxItem,
   AuroraComboboxList,
 } from '@/components/aurora/ui/combobox';
+import { AuroraTelInput } from '@/components/aurora/ui/tel-input';
+import { AuroraOrcidInput } from '@/components/aurora/ui/orcid-input';
+import { AuroraIsbnInput } from '@/components/aurora/ui/isbn-input';
+import { AuroraDoiInput } from '@/components/aurora/ui/doi-input';
+import { AuroraFileInput } from '@/components/aurora/ui/file-input';
+import { AuroraCheckbox } from '@/components/aurora/ui/checkbox';
+import { AuroraPagination } from '@/components/aurora/ui/pagination';
+import {
+  AuroraAlertDialog,
+  AuroraAlertDialogAction,
+  AuroraAlertDialogCancel,
+  AuroraAlertDialogContent,
+  AuroraAlertDialogDescription,
+  AuroraAlertDialogFooter,
+  AuroraAlertDialogHeader,
+  AuroraAlertDialogTitle,
+  AuroraAlertDialogTrigger,
+} from '@/components/aurora/ui/alert-dialog';
+import {
+  AuroraSheet,
+  AuroraSheetContent,
+  AuroraSheetDescription,
+  AuroraSheetHeader,
+  AuroraSheetTitle,
+  AuroraSheetTrigger,
+} from '@/components/aurora/ui/sheet';
+import {
+  AuroraTooltip,
+  AuroraTooltipContent,
+  AuroraTooltipProvider,
+  AuroraTooltipTrigger,
+} from '@/components/aurora/ui/tooltip';
 
 const RANKS = [
   { value: 'LECTURER', label: 'Викладач' },
@@ -137,6 +195,19 @@ export function ControlsGallery() {
   // which is why the start date would only ever move backwards.
   const [rangeOld, setRangeOld] = useState<DateRange | undefined>();
   const [rangeNew, setRangeNew] = useState<DateRange | undefined>();
+  // The masked fields are CONTROLLED — they reformat on every keystroke, which
+  // an uncontrolled input cannot do without the caret jumping. Each side needs
+  // its own state for the same reason the two calendars do.
+  const [telOld, setTelOld] = useState('');
+  const [telNew, setTelNew] = useState('');
+  const [orcidOld, setOrcidOld] = useState('');
+  const [orcidNew, setOrcidNew] = useState('');
+  const [fileOld, setFileOld] = useState<File | null>(null);
+  const [fileNew, setFileNew] = useState<File | null>(null);
+  const [boxOld, setBoxOld] = useState(true);
+  const [boxNew, setBoxNew] = useState<boolean | 'indeterminate'>(true);
+  const [pageOld, setPageOld] = useState(7);
+  const [pageNew, setPageNew] = useState(7);
 
   return (
     <div className="space-y-6">
@@ -191,6 +262,52 @@ export function ControlsGallery() {
           before={<Input type="email" disabled placeholder="окремого компонента не було" />}
           after={<EmailInput />}
         />
+        <Row
+          name="TelInput"
+          note="+380 належить полю; лічильник під час набору"
+          before={<TelInput value={telOld} onChange={setTelOld} />}
+          after={<AuroraTelInput value={telNew} onChange={setTelNew} />}
+        />
+        <Row
+          name="OrcidInput"
+          note="спробуйте 0000-0002-1825-0097, тоді змініть останню цифру"
+          before={<OrcidInput value={orcidOld} onChange={setOrcidOld} />}
+          after={<AuroraOrcidInput value={orcidNew} onChange={setOrcidNew} />}
+        />
+        <Row
+          name="IsbnInput"
+          note="978-3-16-148410-0 — контрольна цифра справжня"
+          before={<IsbnInput />}
+          after={<AuroraIsbnInput />}
+        />
+        <Row
+          name="DoiInput"
+          note="правильний DOI додає посилання «Відкрити»"
+          before={<DoiInput />}
+          after={<AuroraDoiInput />}
+        />
+        <Row
+          name="FileInput"
+          note="обраний файл — чіп із ×, а не підпис поруч"
+          before={<FileInput value={fileOld} onChange={setFileOld} />}
+          after={<AuroraFileInput value={fileNew} onChange={setFileNew} />}
+        />
+        <Row
+          name="вимкнені"
+          note="усі спеціальні поля — вимкнений стан"
+          before={
+            <div className="space-y-2">
+              <TelInput value="+380441234567" onChange={() => {}} disabled />
+              <FileInput value={null} onChange={() => {}} disabled />
+            </div>
+          }
+          after={
+            <div className="space-y-2">
+              <AuroraTelInput value="+380441234567" onChange={() => {}} disabled />
+              <AuroraFileInput value={null} onChange={() => {}} disabled />
+            </div>
+          }
+        />
       </Section>
 
       <Section title="Вибір">
@@ -238,6 +355,47 @@ export function ControlsGallery() {
             <div className="flex items-center gap-2">
               <AuroraSwitch checked={onNew} onCheckedChange={setOnNew} id="sw-new" />
               <AuroraLabel htmlFor="sw-new">Ступінь відповідає кафедрі</AuroraLabel>
+            </div>
+          }
+        />
+        <Row
+          name="Checkbox"
+          note="компонента не було: три екрани мали власний нативний input"
+          before={
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={boxOld}
+                  onChange={(e) => setBoxOld(e.target.checked)}
+                  className="size-4 cursor-pointer rounded border-border accent-primary"
+                />
+                accent-primary — /admin/permissions
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" defaultChecked className="size-4 accent-foreground" />
+                accent-foreground — Характеристика
+              </label>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input type="checkbox" disabled className="size-4 accent-primary" />
+                вимкнений
+              </label>
+            </div>
+          }
+          after={
+            <div className="space-y-2">
+              <AuroraLabel className="flex items-center gap-2 font-normal">
+                <AuroraCheckbox checked={boxNew} onCheckedChange={setBoxNew} />
+                обрано
+              </AuroraLabel>
+              <AuroraLabel className="flex items-center gap-2 font-normal">
+                <AuroraCheckbox disabled />
+                вимкнений
+              </AuroraLabel>
+              <AuroraLabel className="flex items-center gap-2 font-normal">
+                <AuroraCheckbox aria-invalid />
+                помилка
+              </AuroraLabel>
             </div>
           }
         />
@@ -395,6 +553,167 @@ export function ControlsGallery() {
               <AuroraButton disabled>Вимкнено</AuroraButton>
               <AuroraButton loading>Збереження</AuroraButton>
             </div>
+          }
+        />
+      </Section>
+
+      <Section title="Накладки">
+        <Row
+          name="AlertDialog"
+          note="найчастіший компонент після кнопки — 21 імпорт"
+          before={
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">Архівувати</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Архівувати Ковальчук О. П.?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Людина зникне зі списків і рейтингу поточного року. Закриті роки та всі
+                    досягнення залишаться. Це можна скасувати.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                  <AlertDialogAction>Архівувати</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          }
+          after={
+            <AuroraAlertDialog>
+              <AuroraAlertDialogTrigger asChild>
+                <AuroraButton variant="destructive">Архівувати</AuroraButton>
+              </AuroraAlertDialogTrigger>
+              <AuroraAlertDialogContent>
+                <AuroraAlertDialogHeader>
+                  <AuroraAlertDialogTitle>Архівувати Ковальчук О. П.?</AuroraAlertDialogTitle>
+                  <AuroraAlertDialogDescription>
+                    Людина зникне зі списків і рейтингу поточного року. Закриті роки та всі
+                    досягнення залишаться. Це можна скасувати.
+                  </AuroraAlertDialogDescription>
+                </AuroraAlertDialogHeader>
+                <AuroraAlertDialogFooter>
+                  <AuroraAlertDialogCancel>Скасувати</AuroraAlertDialogCancel>
+                  <AuroraAlertDialogAction>Архівувати</AuroraAlertDialogAction>
+                </AuroraAlertDialogFooter>
+              </AuroraAlertDialogContent>
+            </AuroraAlertDialog>
+          }
+        />
+        <Row
+          name="AlertDialog"
+          note="незворотне, але не руйнівне — варіант, якого раніше не було"
+          before={
+            <Button variant="outline" disabled>
+              вибору варіанта не було
+            </Button>
+          }
+          after={
+            <AuroraAlertDialog>
+              <AuroraAlertDialogTrigger asChild>
+                <AuroraButton variant="outline">Закрити рік</AuroraButton>
+              </AuroraAlertDialogTrigger>
+              <AuroraAlertDialogContent>
+                <AuroraAlertDialogHeader>
+                  <AuroraAlertDialogTitle>Закрити рейтинг 2026 року?</AuroraAlertDialogTitle>
+                  <AuroraAlertDialogDescription>
+                    Показники року стануть незмінними. Відкрити його знову може лише адміністратор —
+                    через апеляцію.
+                  </AuroraAlertDialogDescription>
+                </AuroraAlertDialogHeader>
+                <AuroraAlertDialogFooter>
+                  <AuroraAlertDialogCancel>Скасувати</AuroraAlertDialogCancel>
+                  <AuroraAlertDialogAction variant="default">Закрити рік</AuroraAlertDialogAction>
+                </AuroraAlertDialogFooter>
+              </AuroraAlertDialogContent>
+            </AuroraAlertDialog>
+          }
+        />
+        <Row
+          name="Sheet"
+          note="панель з краю — форма подання досягнення"
+          before={
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline">Відкрити панель</Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>3.25 Патент на винахід</SheetTitle>
+                  <SheetDescription>Заповніть підтвердження та збережіть.</SheetDescription>
+                </SheetHeader>
+                <div className="px-6 text-sm text-muted-foreground">
+                  Список за панеллю має лишатися читабельним — саме тому це панель, а не діалог.
+                </div>
+              </SheetContent>
+            </Sheet>
+          }
+          after={
+            <AuroraSheet>
+              <AuroraSheetTrigger asChild>
+                <AuroraButton variant="outline">Відкрити панель</AuroraButton>
+              </AuroraSheetTrigger>
+              <AuroraSheetContent>
+                <AuroraSheetHeader>
+                  <AuroraSheetTitle>3.25 Патент на винахід</AuroraSheetTitle>
+                  <AuroraSheetDescription>
+                    Заповніть підтвердження та збережіть.
+                  </AuroraSheetDescription>
+                </AuroraSheetHeader>
+                <div className="px-6 text-sm text-muted-foreground">
+                  Список за панеллю має лишатися читабельним — саме тому це панель, а не діалог.
+                </div>
+              </AuroraSheetContent>
+            </AuroraSheet>
+          }
+        />
+        <Row
+          name="Tooltip"
+          note="лишається темним — це підпис, а не поверхня"
+          before={
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost">Кнпп</Button>
+                </TooltipTrigger>
+                <TooltipContent>Скільки НПП кафедри відповідають п. 38</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          }
+          after={
+            <AuroraTooltipProvider>
+              <AuroraTooltip>
+                <AuroraTooltipTrigger asChild>
+                  <AuroraButton variant="ghost">Кнпп</AuroraButton>
+                </AuroraTooltipTrigger>
+                <AuroraTooltipContent>Скільки НПП кафедри відповідають п. 38</AuroraTooltipContent>
+              </AuroraTooltip>
+            </AuroraTooltipProvider>
+          }
+        />
+      </Section>
+
+      <Section title="Пагінація">
+        <Row
+          name="Pagination"
+          note="поточна сторінка — акцент, а не сірий secondary"
+          before={
+            <Pagination
+              page={pageOld}
+              totalPages={20}
+              onPageChange={setPageOld}
+              summary="204 записів"
+            />
+          }
+          after={
+            <AuroraPagination
+              page={pageNew}
+              totalPages={20}
+              onPageChange={setPageNew}
+              summary="204 записів"
+            />
           }
         />
       </Section>
