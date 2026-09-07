@@ -1,9 +1,9 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 
 // The one place a person edits themselves, whatever their role: the only claim
 // it checks is that the record is yours, and the action writes nothing outside
@@ -25,13 +25,7 @@ export default async function ProfileEditPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <Link
-        href="/profile"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" />
-        Мій профіль
-      </Link>
+      <Breadcrumbs items={[{ label: 'Мій профіль', href: '/profile' }, { label: 'Редагування' }]} />
 
       <div>
         <h1 className="text-2xl font-semibold">Редагування профілю</h1>

@@ -155,7 +155,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border bg-card p-5">
+    <div className="relative overflow-hidden rounded-xl border bg-card p-5 shadow-card">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold tracking-wide text-foreground uppercase">{title}</h2>
         {step && (
@@ -404,7 +404,7 @@ export function StaffFormFields({
           rather than typed here. A new person has no distribution yet, so
           somebody has to say what they were hired at. */}
       {isAdmin && stakeBreakdown === null && (
-        <SectionCard title="Конфіденційно" step={step()}>
+        <SectionCard title="Ставка" step={step()}>
           <FormField htmlFor="employmentRate" label="Ставка" error={errors.employmentRate}>
             <Input
               id="employmentRate"

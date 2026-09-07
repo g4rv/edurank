@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, ExternalLink, Pencil } from 'lucide-react';
+import { ExternalLink, Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff, type StaffDetail } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
 import { formatPhoneDisplay } from '@/lib/phone';
 import { UK } from '@/lib/plural';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 
 function fullName(s: Pick<StaffDetail, 'lastName' | 'firstName' | 'patronymic'>) {
   return `${s.lastName} ${s.firstName} ${s.patronymic}`;
@@ -75,7 +76,7 @@ function ProfileLink({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+          className="inline-flex items-center gap-1 text-brand underline-offset-4 hover:underline"
         >
           Профіль
           <ExternalLink className="size-3" />
@@ -98,15 +99,13 @@ export default async function ProfilePage() {
   if (!staffId) {
     return (
       <AnimatedPage className="space-y-6">
-        {canAccessStaffList && (
-          <Link
-            href="/staff"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" />
-            Персонал
-          </Link>
-        )}
+        <Breadcrumbs
+          items={
+            canAccessStaffList
+              ? [{ label: 'Персонал', href: '/staff' }, { label: 'Мій профіль' }]
+              : [{ label: 'Особисте' }, { label: 'Мій профіль' }]
+          }
+        />
 
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Ваш профіль не знайдено. Зверніться до адміністратора.
@@ -135,15 +134,17 @@ export default async function ProfilePage() {
 
   return (
     <AnimatedPage className="space-y-6">
-      {canAccessStaffList && (
-        <Link
-          href="/staff"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" />
-          Персонал
-        </Link>
-      )}
+      <Breadcrumbs
+        items={
+          // An ADMIN or EDITOR reaches their own record from «Персонал» as well
+          // as from the sidebar, so for them the list is a real ancestor. For an
+          // НПП it is not a page they may open, and the trail starts at the
+          // sidebar group instead.
+          canAccessStaffList
+            ? [{ label: 'Персонал', href: '/staff' }, { label: 'Мій профіль' }]
+            : [{ label: 'Особисте' }, { label: 'Мій профіль' }]
+        }
+      />
 
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -152,7 +153,7 @@ export default async function ProfilePage() {
             <span
               className={cn(
                 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                staff.isNpp ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                staff.isNpp ? 'bg-brand/10 text-brand' : 'bg-muted text-muted-foreground'
               )}
             >
               {staff.isNpp ? 'НПП' : 'Адміністративний'}
@@ -182,7 +183,7 @@ export default async function ProfilePage() {
               </h2>
               <Link
                 href="/achievements"
-                className="text-sm text-primary underline-offset-4 hover:underline"
+                className="text-sm text-brand underline-offset-4 hover:underline"
               >
                 Мій рейтинг
               </Link>
@@ -207,8 +208,8 @@ export default async function ProfilePage() {
                   </div>
                 );
               })}
-              <div className="rounded-lg bg-primary/10 px-3 py-2">
-                <p className="text-xs text-primary">Разом</p>
+              <div className="rounded-lg bg-brand/10 px-3 py-2">
+                <p className="text-xs text-brand">Разом</p>
                 <p className="text-lg font-bold tabular-nums">{rating?.totalScore ?? 0}</p>
               </div>
             </div>

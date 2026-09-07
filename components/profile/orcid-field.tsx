@@ -15,6 +15,10 @@ import { normaliseOrcid, orcidUrl } from '@/lib/orcid';
  *
  * A value that is not an ORCID renders as plain text, exactly as it is stored —
  * see `lib/orcid.ts` for why nothing is guessed.
+ *
+ * `text-brand`, like the three citation links beside it. It was `text-primary`,
+ * which is monochrome near-black — so this one row rendered in ink while the
+ * others were blue, and it read as «not a link».
  */
 export function OrcidField({ value }: { value: string | null }) {
   const id = normaliseOrcid(value);
@@ -22,7 +26,7 @@ export function OrcidField({ value }: { value: string | null }) {
 
   return (
     <div>
-      <dt className="text-xs text-muted-foreground">ORCID</dt>
+      <dt className="text-xs font-medium text-muted-foreground">ORCID</dt>
       <dd className="mt-0.5 flex items-center gap-1 text-sm">
         {id !== null && href !== null ? (
           <>
@@ -30,7 +34,7 @@ export function OrcidField({ value }: { value: string | null }) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+              className="inline-flex items-center gap-1 text-brand underline-offset-4 hover:underline"
             >
               {id}
               <ExternalLink className="size-3 shrink-0" />

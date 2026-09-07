@@ -39,7 +39,7 @@ export async function getStaff(id: string, includeConfidential = false) {
         select: {
           id: true,
           name: true,
-          faculty: { select: { name: true } },
+          faculty: { select: { id: true, name: true } },
         },
       },
       division: { select: { id: true, name: true } },
@@ -49,7 +49,7 @@ export async function getStaff(id: string, includeConfidential = false) {
             select: {
               id: true,
               name: true,
-              faculty: { select: { name: true } },
+              faculty: { select: { id: true, name: true } },
             },
           },
         },
