@@ -1,4 +1,5 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
+import type { StaffAccount } from '@/lib/queries/get-staff-account';
 
 /**
  * Invented people, shared by the design rehearsals at `/profile-mock` and
@@ -124,8 +125,8 @@ export const ARCHIVED_STAFF: StaffDetail = {
 
 /** What a spread кафедра has allocated. Integer hundredths, never a float. */
 export const MOCK_STAKE_PARTS = [
-  { department: 'Кафедра вищої математики', hundredths: 50 },
-  { department: 'Кафедра інформатики', hundredths: 25 },
+  { departmentId: 'dep-math', department: 'Кафедра вищої математики', hundredths: 50 },
+  { departmentId: 'dep-inf', department: 'Кафедра інформатики', hundredths: 25 },
 ];
 
 /** Five section scores with a real shape — strong in 3, empty in 4. */
@@ -160,6 +161,36 @@ export const MOCK_DIVISION_OPTIONS = [
   { id: 'div-nnv', name: 'ННВ' },
   { id: 'div-nnczyao', name: 'ННЦЗЯО' },
 ];
+
+/**
+ * What ADMIN sees that nobody else does — one account per mock person, and
+ * three different states between them, so the card can be judged in all of
+ * them without editing this file.
+ *
+ * Shaped as `StaffAccount`, the real query's return type, so a column added
+ * there fails the build here rather than silently going unrendered in the
+ * rehearsal.
+ */
+export const MOCK_ACCOUNTS: Record<string, StaffAccount> = {
+  // Signed in and working — the ordinary case.
+  [FULL_STAFF.id]: { role: 'USER', isActivated: true, invite: null, lockedUntil: null },
+  // Invited four days ago and has never set a password. The amber «не
+  // активовано» state, which is most of the roster in the first week.
+  [EMPTY_STAFF.id]: {
+    role: 'USER',
+    isActivated: false,
+    invite: { sentAt: new Date('2026-09-03T09:12:00Z'), expired: false },
+    lockedUntil: null,
+  },
+  // An editor who is also locked out by failed logins — «я не можу зайти»,
+  // which is the reason the lockout is on this card at all.
+  [ARCHIVED_STAFF.id]: {
+    role: 'EDITOR',
+    isActivated: true,
+    invite: null,
+    lockedUntil: new Date('2099-01-01T00:00:00Z'),
+  },
+};
 
 /** `StakePart` carries a departmentId; the profile view's copy does not need it. */
 export const MOCK_STAKE_BREAKDOWN = [

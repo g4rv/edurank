@@ -2,7 +2,6 @@ import type { StaffDetail } from '@/lib/queries/get-staff';
 import { missingProfileFields } from '@/lib/staff/profile-completeness';
 import { MissingFieldsNote } from './missing-fields';
 import {
-  StakeCard,
   AcademicCard,
   ResearchProfilesCard,
   LeadershipCard,
@@ -56,7 +55,8 @@ export function ProfileDetails({
 
       {/* Two columns split by MEANING, not by height.
           Left is the scholar — what they hold, what they have published.
-          Right is the employee — where they work, what they run.
+          Right is the employee — where they work, what they are paid, what they
+          run.
 
           Height would have been the tempting reason (the left column was one
           card against three), but a layout balanced against one person's data
@@ -65,14 +65,18 @@ export function ProfileDetails({
           anywhere. The grouping holds whatever the record contains. */}
       <div className="flex flex-col items-start gap-4 lg:flex-row">
         <div className="flex w-full flex-1 flex-col gap-4">
-          <StakeCard stakeParts={stakeParts} showStake={showStake} />
           <AcademicCard staff={staff} showEmpty={showEmpty} />
           <ResearchProfilesCard staff={staff} showEmpty={showEmpty} />
         </div>
 
         <div className="flex w-full flex-1 flex-col gap-4">
           {aside}
-          <WorkplacesCard staff={staff} showEmpty={showEmpty} />
+          <WorkplacesCard
+            staff={staff}
+            stakeParts={stakeParts}
+            showStake={showStake}
+            showEmpty={showEmpty}
+          />
           <LeadershipCard staff={staff} showEmpty={showEmpty} />
         </div>
       </div>

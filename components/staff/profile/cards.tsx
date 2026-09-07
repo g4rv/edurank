@@ -23,6 +23,8 @@ import { InfoCard, Field, MaybeField, PositionEntry, ProfileLink } from './primi
  */
 
 export interface StakePart {
+  /** Matched against the кафедра on the row — never by name, which is editable */
+  departmentId: string;
   department: string;
   hundredths: number;
 }
@@ -30,55 +32,6 @@ export interface StakePart {
 interface CardProps {
   staff: StaffDetail;
   showEmpty?: boolean;
-}
-
-/**
- * The ставка, and how it is split.
- *
- * Was «Зайнятість», holding відділ and ставка. The відділ has moved to «Місця
- * роботи» — it IS a place of work, and having two cards each holding half of
- * «where does this person sit» helped nobody (owner, 2026-09-07). What is left
- * is one number, so the card says so and shows it as a figure rather than as a
- * label/value pair repeating its own title.
- *
- * Renders nothing when the reader may not see a ставка, which is most readers.
- */
-export function StakeCard({
-  stakeParts,
-  showStake,
-}: {
-  stakeParts: StakePart[];
-  /** Decided by the route, never here. ADMIN, or the person themselves. */
-  showStake: boolean;
-}) {
-  if (!showStake) return null;
-
-  const total = stakeParts.reduce((sum, p) => sum + p.hundredths, 0);
-
-  return (
-    <InfoCard title="Ставка">
-      <div>
-        {/* The SUM of what each кафедра allocated, read from the same rows the
-            note below breaks down, so the two can never disagree.
-            `Staff.employmentRate` caches this but has been stale — it was NULL
-            for everybody spread before d0f92e8, and `liftStoredAllocations`
-            still does not refresh it when a cap moves a saved split
-            (2026-08-24). */}
-        <p className="text-2xl font-semibold tabular-nums">
-          {stakeParts.length > 0 ? formatStake(total) : '—'}
-        </p>
-        {/* Which кафедри those are, from the same allocations the sum came from,
-            so the parts always add up to the whole. Nothing renders until a head
-            has filled a grid: a кафедра nobody has spread yet is not a кафедра
-            paying 0,00. */}
-        {stakeParts.length > 0 && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {stakeParts.map((p) => `${p.department} — ${formatStake(p.hundredths)}`).join(' + ')}
-          </p>
-        )}
-      </div>
-    </InfoCard>
-  );
 }
 
 /** НПП only — звання and ступінь really are academic-staff data. */
@@ -224,12 +177,75 @@ export function LeadershipCard({ staff, showEmpty = false }: CardProps) {
  * duplicated in the identity band, which had room for one кафедра and therefore
  * always misrepresented a сумісник.
  */
-export function WorkplacesCard({ staff, showEmpty = false }: CardProps) {
+/**
+ * Where somebody works, and what each of those places pays them.
+ *
+ * **The ставка lives here now** (owner, 2026-09-07). It had a card of its own,
+ * which printed «Кафедра інформатики — 0,25» beside a «Місця роботи» card that
+ * had just printed «Кафедра інформатики» — one fact, twice, on one screen. A
+ * ставка is per кафедра, so it belongs on the кафедра's row; the total belongs
+ * on the heading, where a total reads as the sum of what is under it.
+ *
+ * **Matched by `departmentId`, never by name.** A кафедра can be renamed on
+ * /departments, and matching on the name would silently drop a row's figure the
+ * day somebody fixed a typo.
+ *
+ * The total is the sum of ALL parts, including any for a кафедра the person is
+ * no longer on — so the figure stays true even when a row cannot be drawn for
+ * it. `showStake` is decided by the route; this card never works it out.
+ */
+export function WorkplacesCard({
+  staff,
+  stakeParts = [],
+  showStake = false,
+  showEmpty = false,
+}: CardProps & { stakeParts?: StakePart[]; showStake?: boolean }) {
   const none = !staff.department && staff.partTimeDepartments.length === 0 && !staff.division;
   if (none && !showEmpty) return null;
 
+  const byDepartment = new Map(stakeParts.map((p) => [p.departmentId, p]));
+  const total = stakeParts.reduce((sum, p) => sum + p.hundredths, 0);
+
+  /**
+   * A кафедра's own share, or nothing at all when the reader may not see it.
+   *
+   * The bare figure — no «Ставка» caption over it. The heading names the column
+   * once, and repeating the word on every row bought a second line per row and
+   * nothing else.
+   */
+  function stake(departmentId: string) {
+    if (!showStake) return undefined;
+    const part = byDepartment.get(departmentId);
+
+    return part ? (
+      <span className="font-medium tabular-nums">{formatStake(part.hundredths)}</span>
+    ) : (
+      // Not «0,00». A кафедра nobody has spread yet is not a кафедра paying
+      // nothing, and the difference is what a завідувач is chasing.
+      <span
+        className="text-muted-foreground"
+        title="Завідувач ще не розподілив ставки цієї кафедри"
+      >
+        —
+      </span>
+    );
+  }
+
   return (
-    <InfoCard title="Місця роботи">
+    <InfoCard
+      title="Місця роботи"
+      trailing={
+        showStake && stakeParts.length > 0 ? (
+          // `text-sm`, matching the heading's own line box. At `text-base` the
+          // total stood 4px taller than the `<h2>` beside it, so the card grew
+          // the moment a reader was allowed to see a ставка at all.
+          <span className="flex items-baseline gap-1.5 text-sm">
+            <span className="text-xs font-medium text-muted-foreground">Ставка · разом</span>
+            <span className="font-semibold tabular-nums">{formatStake(total)}</span>
+          </span>
+        ) : undefined
+      }
+    >
       {none ? (
         <Field label="Кафедра" value="—" />
       ) : (
@@ -243,6 +259,7 @@ export function WorkplacesCard({ staff, showEmpty = false }: CardProps) {
               }
               department={staff.department.name}
               departmentHref={`/departments/${staff.department.id}`}
+              trailing={stake(staff.department.id)}
             />
           )}
           {staff.partTimeDepartments.map((pd) => (
@@ -253,8 +270,11 @@ export function WorkplacesCard({ staff, showEmpty = false }: CardProps) {
               facultyHref={pd.department.faculty ? `/faculties/${pd.department.faculty.id}` : null}
               department={pd.department.name}
               departmentHref={`/departments/${pd.department.id}`}
+              trailing={stake(pd.department.id)}
             />
           ))}
+          {/* A відділ is a place of work and not a кафедра: nobody is paid a
+              ставка by one, so no column for it. */}
           {staff.division && (
             <PositionEntry
               badge="Відділ"

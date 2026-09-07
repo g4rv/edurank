@@ -14,9 +14,19 @@ import { UK } from '@/lib/plural';
 export function InfoCard({
   title,
   columns = 1,
+  trailing,
   children,
 }: {
   title: string;
+  /**
+   * A figure that belongs to the whole card, on the title's own line — the
+   * ставка total over «Місця роботи».
+   *
+   * On the heading rather than in a row of its own because it is not another
+   * field: it is what the rows below add up to, and a card's total reads as a
+   * total only when it sits above them.
+   */
+  trailing?: React.ReactNode;
   /**
    * Lay the fields out in two columns.
    *
@@ -32,9 +42,10 @@ export function InfoCard({
 }) {
   return (
     <div className="rounded-xl border bg-card p-5 shadow-card">
-      <h2 className="mb-4 text-sm font-semibold tracking-wide text-foreground uppercase">
-        {title}
-      </h2>
+      <div className="mb-4 flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-semibold tracking-wide text-foreground uppercase">{title}</h2>
+        {trailing}
+      </div>
       {columns === 2 ? (
         // `gap-y-3` matches the single-column `space-y-3` exactly, so a card
         // does not change its vertical rhythm just because it gained a column.
@@ -94,12 +105,28 @@ export function PositionEntry({
   facultyHref,
   department,
   departmentHref,
+  trailing,
 }: {
   badge: string;
   faculty?: string | null;
   facultyHref?: string | null;
   department: string;
   departmentHref?: string | null;
+  /**
+   * What this ONE workplace is worth — the ставка that кафедра allocated.
+   *
+   * On the row, not in a card of its own (owner, 2026-09-07). A ставка is per
+   * кафедра, so «Кафедра інформатики — 0,25» said twice, once as a place and
+   * once as a number, was one fact printed in two places on the same screen.
+   *
+   * **It rides the кафедра's own line**, pushed right with `ml-auto`. Given a
+   * column of its own it needed a caption over it, and a caption plus a value
+   * is two lines against the row's two — which grew the row and made the
+   * admin's card taller than the editor's for no reason a reader could see
+   * (owner, 2026-09-07). On the line it is the same `text-sm` as the кафедра
+   * beside it, so it cannot change the height of anything.
+   */
+  trailing?: React.ReactNode;
 }) {
   const link = 'underline underline-offset-2 transition-colors hover:text-brand';
 
@@ -130,6 +157,8 @@ export function PositionEntry({
         ) : (
           <span>{department}</span>
         )}
+
+        {trailing && <span className="ml-auto shrink-0 pl-4">{trailing}</span>}
       </p>
     </div>
   );
