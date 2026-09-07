@@ -59,9 +59,16 @@ export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: 
                   {item.label}
                 </span>
               ) : item.href ? (
+                // Ink, not grey, and underlined (owner, 2026-09-07). At
+                // `--muted-foreground` over the wash the trail all but
+                // disappeared — and a breadcrumb is the one piece of chrome
+                // somebody looks for when they are lost, which is exactly when
+                // faint is wrong. The underline is what still says «link»
+                // once the colour no longer does; §3 keeps `--brand` for the
+                // hover so it is not spent on every crumb on every page.
                 <Link
                   href={item.href}
-                  className="text-muted-foreground transition-colors hover:text-brand"
+                  className="text-foreground underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-brand hover:decoration-brand/50"
                 >
                   {item.label}
                 </Link>
