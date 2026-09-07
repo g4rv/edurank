@@ -29,8 +29,13 @@ export default async function StaffMockEditPage({ params }: { params: Promise<{ 
   const staff = MOCK_STAFF[id];
   if (!staff) notFound();
 
+  // No `max-w-*`. The one-column form was capped at `3xl` because a text field
+  // wider than that is unreadable — but in two columns the cap is doing the
+  // opposite job: it holds 1150px of form in the middle of a 1620px page and
+  // leaves a third of the screen empty (owner, 2026-09-07). What keeps a field
+  // readable here is the two-column split inside each card, not the page.
   return (
-    <AnimatedPage className="max-w-3xl space-y-5">
+    <AnimatedPage className="space-y-5">
       <Breadcrumbs
         items={[
           { label: 'Персонал', href: '/staff' },
@@ -38,11 +43,6 @@ export default async function StaffMockEditPage({ params }: { params: Promise<{ 
           { label: 'Редагування' },
         ]}
       />
-
-      <div>
-        <h1 className="text-2xl font-semibold tracking-[-0.01em]">Редагування</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{fullName(staff)}</p>
-      </div>
 
       <EditFormMock
         staff={staff}

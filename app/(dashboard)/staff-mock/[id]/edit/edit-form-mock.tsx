@@ -11,8 +11,9 @@ import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
 import type { StakePart } from '@/lib/queries/get-stake-breakdown';
 import { RequiredFields } from '@/components/ui/required-fields';
-import { FormActions } from '@/components/ui/form-actions';
 import { AuroraButton } from '@/components/aurora/ui/button';
+import { Avatar } from '@/components/ui/avatar';
+import { fullName } from '@/components/staff/profile/primitives';
 import {
   StaffFormFields,
   staffToFormValues,
@@ -28,6 +29,13 @@ import {
  * fields would drift from the originals within a day and prove nothing.
  *
  * Submitting saves nothing. There is no record behind this to save to.
+ *
+ * **The header is part of the form, not of the page.** «Зберегти» has to be
+ * inside the `<form>` to submit it, and the owner wanted it up here beside the
+ * name rather than in a bar at the foot (2026-09-07) — so the whole band moved
+ * in. It is the profile's `IdentityBand` in shape: same card, same avatar, same
+ * actions pinned to the top right, so leaving the profile to edit it does not
+ * feel like arriving somewhere else.
  */
 export function EditFormMock({
   staff,
@@ -68,6 +76,43 @@ export function EditFormMock({
         })}
         className="space-y-4"
       >
+        <div className="flex flex-wrap items-center gap-5 rounded-xl border bg-card p-5 shadow-card">
+          <Avatar name={fullName(staff)} size="lg" />
+
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-semibold tracking-[-0.01em]">{fullName(staff)}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Редагування профілю</p>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-3 self-start">
+            {/* Says whether there is anything TO save. The old bar carried this
+                at the far end of the page; beside the button it answers the
+                question the button raises. */}
+            <span className="text-sm text-muted-foreground">
+              {saved
+                ? 'Чернетка — нічого не збережено'
+                : isDirty
+                  ? 'Є незбережені зміни'
+                  : 'Без змін'}
+            </span>
+            {/* Nothing typed, nothing to save. The button says so itself
+                instead of accepting a click, running the action and answering
+                «Збережено» for a write that changed no column — which is the
+                same lie the form used to tell an editor whose grants dropped
+                every field they had edited. */}
+            <AuroraButton type="submit" disabled={!isDirty}>
+              Зберегти
+            </AuroraButton>
+            {/* «Скасувати» is NEVER disabled. It is the way out of this screen,
+                and «no changes yet» is exactly when somebody is most likely to
+                be leaving. Disabling it would take the exit away at the one
+                moment it costs nothing to use. */}
+            <AuroraButton asChild variant="outline">
+              <Link href={`/staff-mock/${staff.id}`}>Скасувати</Link>
+            </AuroraButton>
+          </div>
+        </div>
+
         <StaffFormFields
           register={register}
           control={control}
@@ -81,25 +126,8 @@ export function EditFormMock({
           departments={departments}
           divisions={divisions}
           canEditType
+          layout="columns"
         />
-
-        <FormActions>
-          <AuroraButton type="submit">Зберегти</AuroraButton>
-          <AuroraButton asChild variant="outline">
-            <Link href={`/staff-mock/${staff.id}`}>Скасувати</Link>
-          </AuroraButton>
-
-          {/* Says whether there is anything TO save. The old form gave no
-              standing sign, so somebody could edit a field, navigate away and
-              lose it silently. */}
-          <span className="ml-auto text-sm text-muted-foreground">
-            {saved
-              ? 'Чернетка — нічого не збережено'
-              : isDirty
-                ? 'Є незбережені зміни'
-                : 'Без змін'}
-          </span>
-        </FormActions>
       </form>
     </RequiredFields>
   );
