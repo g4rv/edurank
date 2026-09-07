@@ -1,13 +1,15 @@
 'use client';
 
+// «Аврора»'s combobox, so a кафедра picker is the same height as every other
+// control in the form it sits in — see the note in `staff-form-fields.tsx`.
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from '@/components/ui/combobox';
+  AuroraCombobox as Combobox,
+  AuroraComboboxContent as ComboboxContent,
+  AuroraComboboxEmpty as ComboboxEmpty,
+  AuroraComboboxInput as ComboboxInput,
+  AuroraComboboxItem as ComboboxItem,
+  AuroraComboboxList as ComboboxList,
+} from '@/components/aurora/ui/combobox';
 import { cn } from '@/lib/utils';
 
 /** Stands for «every кафедра». Not `''` — that is «nothing chosen» to the primitive. */
