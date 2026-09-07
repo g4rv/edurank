@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { DepartmentCombobox } from '@/components/department-combobox';
 import { FormField } from '@/components/ui/form-field';
-import { Switch } from '@/components/ui/switch';
+import { AuroraSwitch } from '@/components/aurora/ui/switch';
+import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
 import { toStorage, toWorkplaces, workplaceProblem, type Workplace } from '@/lib/staff/workplaces';
 
@@ -14,6 +15,26 @@ export type DepartmentOption = {
 };
 
 export type StakePart = { departmentId: string; hundredths: number };
+
+/**
+ * `Label`'s own look, on a `<span>`.
+ *
+ * These three name controls that carry no id to point a real `<label for>` at —
+ * the кафедра picker is a combobox, «Ставка» is a read-only figure — and an
+ * empty `<label>` is announced as labelling nothing, which is worse than a
+ * plain caption. What matters here is that they MATCH «Відділ» below them: they
+ * were `text-xs text-muted-foreground`, so one card carried two label styles
+ * and the кафедра rows read as the lesser of the two (owner, 2026-09-07).
+ */
+const ROW_LABEL = 'mb-1.5 block text-sm leading-none font-medium';
+
+/**
+ * The band a row's control sits in — `h-8`, the height of the кафедра picker.
+ *
+ * Everything in a row then shares one centre line. Without it a 20px switch and
+ * a 32px select share their TOP edge instead, and the eye lines up centres.
+ */
+const ROW_CONTROL = 'flex h-8 items-center';
 
 /**
  * «Місця роботи» — every кафедра a person holds a post on, and on what terms.
@@ -136,7 +157,7 @@ export function WorkplacesField({
 
   return (
     <FormField error={problem ? { message: problem } : error}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         {rows.map((row, index) => {
           // Clearing a кафедра is how a workplace is removed — the row stays on
           // screen, empty, and is simply not saved. There is no separate delete
@@ -149,9 +170,14 @@ export function WorkplacesField({
           const part = breakdown?.find((p) => p.departmentId === row.departmentId);
 
           return (
-            <div key={index} className="flex items-start gap-4">
+            <div key={index} className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
-                <span className="mb-1.5 block text-xs text-muted-foreground">Кафедра</span>
+                {/* A real `Label`, like «Відділ» under it. These three were
+                    `text-xs text-muted-foreground` — captions rather than
+                    labels — so one card held two different label styles and the
+                    кафедра rows read as less important than the відділ below
+                    them (owner, 2026-09-07). */}
+                <span className={ROW_LABEL}>Кафедра</span>
                 <DepartmentCombobox
                   departments={departments.filter((d) => !takenElsewhere.includes(d.id))}
                   value={row.departmentId}
@@ -173,37 +199,47 @@ export function WorkplacesField({
                   the positive question — is this the person's main post — so on
                   means yes and off means сумісництво, and the common case is the
                   one that reads as set rather than as missing. */}
-              <label className="flex w-20 shrink-0 flex-col items-center gap-1.5 pt-1">
-                <span className="text-xs text-muted-foreground">Основне</span>
-                <Switch
-                  checked={!row.isPartTime}
-                  onCheckedChange={(next) => replace(index, { ...row, isPartTime: !next })}
-                  // Flipping this rewrites `departmentId` AND
-                  // `partTimeDepartmentIds`, so it takes both grants.
-                  disabled={
-                    disabled || row.departmentId === '' || !canEditPartTime || !canEditPrimary
-                  }
-                  className="data-[state=checked]:bg-green-600"
-                  aria-label="Основне місце роботи"
-                />
+              <label className="flex w-16 shrink-0 flex-col">
+                <span className={cn(ROW_LABEL, 'text-center')}>Основне</span>
+                {/* `h-8` is the height of the кафедра control beside it, so the
+                    switch sits on its middle line rather than at its top. A
+                    20px switch and a 32px select share a top edge and look
+                    misaligned, because the eye lines up centres (owner,
+                    2026-09-07). */}
+                <span className={ROW_CONTROL + ' justify-center'}>
+                  <AuroraSwitch
+                    checked={!row.isPartTime}
+                    onCheckedChange={(next) => replace(index, { ...row, isPartTime: !next })}
+                    // Flipping this rewrites `departmentId` AND
+                    // `partTimeDepartmentIds`, so it takes both grants.
+                    disabled={
+                      disabled || row.departmentId === '' || !canEditPartTime || !canEditPrimary
+                    }
+                    aria-label="Основне місце роботи"
+                  />
+                </span>
               </label>
 
               {/* Set on /stakes/[id] by the кафедра's завідувач, never typed
                   here — two writers on one number is what let the профіль and
                   the розподіл disagree. */}
               {breakdown !== null && (
-                <div className="flex w-24 shrink-0 flex-col items-end gap-1.5 pt-1">
-                  <span className="text-xs text-muted-foreground">Ставка</span>
-                  {part ? (
-                    <span className="text-sm font-medium">{formatStake(part.hundredths)}</span>
-                  ) : (
-                    <span
-                      className="text-sm text-muted-foreground"
-                      title="Завідувач ще не розподілив ставки цієї кафедри"
-                    >
-                      —
-                    </span>
-                  )}
+                <div className="flex w-16 shrink-0 flex-col">
+                  <span className={cn(ROW_LABEL, 'text-right')}>Ставка</span>
+                  <span className={ROW_CONTROL + ' justify-end'}>
+                    {part ? (
+                      <span className="text-sm font-medium tabular-nums">
+                        {formatStake(part.hundredths)}
+                      </span>
+                    ) : (
+                      <span
+                        className="text-sm text-muted-foreground"
+                        title="Завідувач ще не розподілив ставки цієї кафедри"
+                      >
+                        —
+                      </span>
+                    )}
+                  </span>
                 </div>
               )}
             </div>
