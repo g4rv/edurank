@@ -27,15 +27,28 @@ import { fullName } from './primitives';
  *   Not decoration: it gives a page about a person a subject, and makes one
  *   profile tellable from another at a glance in a list of them.
  *
- * `actions` stays a slot — which buttons exist depends on permissions this
- * component has no business reading.
+ * `actions` and `badges` are slots — what goes in them depends on permissions
+ * this component has no business reading.
+ *
+ * **Account MANAGEMENT is not here.** It was, for one revision, as a strip
+ * along the foot — and it made the band taller and admin-shaped, when what it
+ * held was not identity at all (owner, 2026-09-07). It lives on the tab row
+ * now, with the other controls for the record. Only the state it reports —
+ * «Активовано» — stays, because that is a fact about the person, like
+ * «Архівований» beside it.
  */
 export function IdentityBand({
   staff,
   actions,
+  badges,
 }: {
   staff: StaffDetail;
   actions?: React.ReactNode;
+  /**
+   * Anything to say beside «НПП» that the record itself does not carry —
+   * «Активовано» is ADMIN-only, so the route supplies it.
+   */
+  badges?: React.ReactNode;
 }) {
   // A null departmentId IS the сумісник marker: somebody with only an
   // additional кафедра has no primary one. Still worth a badge, because their
@@ -57,6 +70,7 @@ export function IdentityBand({
               it is something to notice rather than a neutral fact. */}
           {isPartTimeOnly && <Badge tone="warn">Сумісник</Badge>}
           {staff.archivedAt && <Badge tone="muted">Архівований</Badge>}
+          {badges}
         </div>
 
         {/* Email and phone belong to identity, not to a card of their own. They
@@ -64,20 +78,22 @@ export function IdentityBand({
             somebody looking a colleague up is most likely to have come for, put
             where they had to go looking. */}
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
+          {/* NOT links (owner, 2026-09-07). `mailto:` and `tel:` are a promise
+              the machine usually cannot keep — on a department desktop they
+              open whatever is registered, which is often nothing or the wrong
+              client, and the reader is left wondering what they just clicked.
+              What anybody actually does with these is paste them somewhere
+              else, and the button beside each one does that exactly. */}
           <span className="inline-flex items-center gap-1.5 text-sm">
             <Mail aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-            <a href={`mailto:${staff.email}`} className="transition-colors hover:text-brand">
-              {staff.email}
-            </a>
+            {staff.email}
             <CopyButton value={staff.email} what="email" className="size-6" />
           </span>
 
           {staff.phone && (
             <span className="inline-flex items-center gap-1.5 text-sm">
               <Phone aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-              <a href={`tel:${staff.phone}`} className="transition-colors hover:text-brand">
-                {formatPhoneDisplay(staff.phone)}
-              </a>
+              {formatPhoneDisplay(staff.phone)}
               {/* Copies the STORED form («+380441234567»), not the spaced one on
                   screen: what gets pasted goes into a dialler or another field,
                   and the grouping is for reading, not for machines. */}
