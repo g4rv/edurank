@@ -5,10 +5,11 @@ import { auth } from '@/lib/auth';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { AuroraButton } from '@/components/aurora/ui/button';
-import { IdentityBand } from '@/components/staff/profile/identity-band';
+import { MockIdentityBand } from './mock-identity-band';
+import { MockAccountBar } from './mock-account-bar';
 import { StaffTabs } from '@/components/staff/staff-tabs';
 import { fullName } from '@/components/staff/profile/primitives';
-import { MOCK_STAFF } from '@/app/(dashboard)/_mock/staff';
+import { MOCK_STAFF, MOCK_ACCOUNTS } from '@/app/(dashboard)/_mock/staff';
 
 /**
  * Everything that does NOT change when you switch tabs.
@@ -65,8 +66,9 @@ export default async function StaffMockLayout({
     <AnimatedPage className="space-y-5">
       <Breadcrumbs items={[{ label: 'Персонал', href: '/staff' }, { label: fullName(staff) }]} />
 
-      <IdentityBand
+      <MockIdentityBand
         staff={staff}
+        account={MOCK_ACCOUNTS[id]}
         actions={
           <>
             {/* An archived record is read-only until it is restored — editing
@@ -88,9 +90,14 @@ export default async function StaffMockLayout({
         }
       />
 
-      {/* No `active` — the layout does not re-render, so the bar reads the
-          pathname itself. See the note in StaffTabs. */}
-      <StaffTabs staffId={id} showRating={staff.isNpp} basePath="/staff-mock" />
+      {/* Tabs on the left, account management on the right — both are controls
+          for this record, and the tab row's other half was empty. */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        {/* No `active` — the layout does not re-render, so the bar reads the
+            pathname itself. See the note in StaffTabs. */}
+        <StaffTabs staffId={id} showRating={staff.isNpp} basePath="/staff-mock" />
+        <MockAccountBar staffId={id} account={MOCK_ACCOUNTS[id]} />
+      </div>
 
       {children}
     </AnimatedPage>
