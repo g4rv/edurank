@@ -16,27 +16,27 @@ import {
   type AccountActionState,
 } from '@/app/(dashboard)/staff/[id]/actions';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
+  AuroraAlertDialog as AlertDialog,
+  AuroraAlertDialogAction as AlertDialogAction,
+  AuroraAlertDialogCancel as AlertDialogCancel,
+  AuroraAlertDialogContent as AlertDialogContent,
+  AuroraAlertDialogDescription as AlertDialogDescription,
+  AuroraAlertDialogFooter as AlertDialogFooter,
+  AuroraAlertDialogHeader as AlertDialogHeader,
+  AuroraAlertDialogTitle as AlertDialogTitle,
+  AuroraAlertDialogTrigger as AlertDialogTrigger,
+} from '@/components/aurora/ui/alert-dialog';
+import { AuroraButton as Button } from '@/components/aurora/ui/button';
 import { FormField } from '@/components/ui/form-field';
-import { PassInput } from '@/components/ui/pass-input';
+import { AuroraPassInput as PassInput } from '@/components/aurora/ui/pass-input';
 import { PasswordRules } from '@/components/ui/password-rules';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  AuroraSelect as Select,
+  AuroraSelectContent as SelectContent,
+  AuroraSelectItem as SelectItem,
+  AuroraSelectTrigger as SelectTrigger,
+  AuroraSelectValue as SelectValue,
+} from '@/components/aurora/ui/select';
 import { ROLE_LABELS } from '@/lib/labels';
 import { setPasswordSchema, type SetPasswordSchema } from '@/validations/account';
 import type { Role } from '@/lib/generated/prisma/client';
@@ -50,9 +50,59 @@ interface AccountCardProps {
   isSelf: boolean;
 }
 
-export function AccountCard({ staffId, account, isSelf }: AccountCardProps) {
+/**
+ * Can this person sign in — one badge.
+ *
+ * Exported because it belongs to the IDENTITY BAND rather than to this card
+ * (owner, 2026-09-07). «Архівований» is already up there and says almost the
+ * same thing, so the two sitting apart was the odd part: whether somebody can
+ * get in is a fact about who they are, like НПП or Сумісник, and not a detail
+ * of a panel two thirds down the right column.
+ *
+ * Green and amber — the project's own «ok» and «needs attention», the second
+ * being the same amber as «Сумісник».
+ */
+export function AccountBadge({ account }: { account: StaffAccount }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+        account.isActivated
+          ? 'bg-green-500/10 text-green-600 dark:text-green-500'
+          : 'bg-amber-500/12 text-amber-700 dark:text-amber-400'
+      )}
+    >
+      {account.isActivated ? 'Активовано' : 'Не активовано'}
+    </span>
+  );
+}
+
+/**
+ * Everything an ADMIN can DO to an account: the role, and the four things that
+ * get somebody back in.
+ *
+ * Two shapes, because it is rendered in two places:
+ *
+ * - `card` — stacked, full-width buttons. What it has always been, and what
+ *   `/staff/[id]` still renders.
+ * - `bar` — one row of `h-8` controls, sized to sit beside the tab bar. The
+ *   card was far wider than its own contents needed (owner, 2026-09-07): a
+ *   column of five full-width buttons carrying two words each, taking half the
+ *   page to say what a row says.
+ *
+ * The notes travel with it either way. An invitation date and a lockout are the
+ * context for the buttons beside them, so they must not be left behind in a
+ * card the buttons have moved out of.
+ */
+export function AccountControls({
+  staffId,
+  account,
+  isSelf,
+  variant = 'card',
+}: AccountCardProps & { variant?: 'card' | 'bar' }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const bar = variant === 'bar';
 
   function run(action: () => Promise<AccountActionState>) {
     startTransition(async () => {
@@ -67,124 +117,132 @@ export function AccountCard({ staffId, account, isSelf }: AccountCardProps) {
   }
 
   return (
+    <div className={cn('flex', bar ? 'flex-wrap items-center gap-x-3 gap-y-2' : 'flex-col gap-4')}>
+      <div className={cn('flex', bar ? 'items-center gap-2 pl-2' : 'flex-col')}>
+        <span className={cn('text-muted-foreground', bar ? 'text-sm' : 'text-xs')}>Роль</span>
+        <div className={bar ? '' : 'mt-1'}>
+          <Select
+            value={account.role}
+            disabled={isPending || isSelf}
+            onValueChange={(value) => run(() => changeRole(staffId, { role: value as Role }))}
+          >
+            <SelectTrigger className={bar ? 'w-40' : 'w-full'}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className={cn('flex gap-2', bar ? 'flex-wrap items-center' : 'flex-col')}>
+        {account.lockedUntil && (
+          <Button
+            variant="outline"
+            size={bar ? 'default' : 'sm'}
+            disabled={isPending}
+            onClick={() => run(() => unlockLogin(staffId))}
+          >
+            <LockOpen />
+            Зняти блокування входу
+          </Button>
+        )}
+
+        {!account.isActivated && (
+          <Button
+            variant="outline"
+            size={bar ? 'default' : 'sm'}
+            disabled={isPending}
+            onClick={() => run(() => sendInvite(staffId))}
+          >
+            <MailPlus />
+            {account.invite ? 'Надіслати повторно' : 'Надіслати запрошення'}
+          </Button>
+        )}
+
+        {account.isActivated && (
+          <ConfirmButton
+            icon={<RotateCcw />}
+            label="Скинути пароль"
+            title="Скинути пароль?"
+            description="Пароль буде видалено, всі сесії завершено, а на email прийде лист із посиланням для встановлення нового пароля."
+            confirmLabel="Скинути"
+            size={bar ? 'default' : 'sm'}
+            disabled={isPending}
+            onConfirm={() => run(() => resetPassword(staffId))}
+          />
+        )}
+
+        <ManualPasswordDialog
+          size={bar ? 'default' : 'sm'}
+          disabled={isPending}
+          onSubmit={(data) => run(() => setPasswordManually(staffId, data))}
+        />
+
+        {account.isActivated && !isSelf && (
+          <ConfirmButton
+            icon={<LogOut />}
+            label="Завершити всі сесії"
+            title="Завершити всі сесії?"
+            description="Людину буде розлогінено на всіх пристроях при наступному запиті."
+            confirmLabel="Завершити"
+            size={bar ? 'default' : 'sm'}
+            disabled={isPending}
+            onConfirm={() => run(() => forceLogout(staffId))}
+          />
+        )}
+      </div>
+
+      {/* On the bar these take the whole width, so a lockout warning never has
+          to compete with a select for a line. */}
+      {(isSelf || (!account.isActivated && account.invite) || account.lockedUntil) && (
+        <div className={cn('flex flex-col gap-1', bar && 'basis-full px-2 pb-1')}>
+          {isSelf && <p className="text-xs text-muted-foreground">Власну роль змінити не можна</p>}
+
+          {!account.isActivated && account.invite && (
+            <p className="text-xs text-muted-foreground">
+              Запрошення надіслано {account.invite.sentAt.toLocaleDateString('uk-UA')}
+              {account.invite.expired && ' — посилання протерміноване'}
+            </p>
+          )}
+
+          {/* Only while it is actually locked. A permanent «не заблоковано» line
+              would be noise on 300 pages to serve the rare one. */}
+          {account.lockedUntil && (
+            <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
+              Вхід заблоковано після невдалих спроб — до{' '}
+              {account.lockedUntil.toLocaleTimeString('uk-UA', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+              . Людина може зачекати або ви знімаєте блокування зараз.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The card form — still what `/staff/[id]` renders, until that page moves over
+ * to the band.
+ */
+export function AccountCard(props: AccountCardProps) {
+  return (
     <div className="rounded-xl border bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold tracking-wide text-foreground uppercase">
           Обліковий запис
         </h2>
-        <span
-          className={cn(
-            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-            account.isActivated
-              ? 'bg-green-500/10 text-green-600'
-              : 'bg-amber-500/10 text-amber-600'
-          )}
-        >
-          {account.isActivated ? 'Активовано' : 'Не активовано'}
-        </span>
+        <AccountBadge account={props.account} />
       </div>
-
-      <div className="space-y-4">
-        <div>
-          <span className="text-xs text-muted-foreground">Роль</span>
-          <div className="mt-1">
-            <Select
-              value={account.role}
-              disabled={isPending || isSelf}
-              onValueChange={(value) => run(() => changeRole(staffId, { role: value as Role }))}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {isSelf && (
-            <p className="mt-1 text-xs text-muted-foreground">Власну роль змінити не можна</p>
-          )}
-        </div>
-
-        {!account.isActivated && account.invite && (
-          <p className="text-xs text-muted-foreground">
-            Запрошення надіслано {account.invite.sentAt.toLocaleDateString('uk-UA')}
-            {account.invite.expired && ' — посилання протерміноване'}
-          </p>
-        )}
-
-        {/* Only while it is actually locked. A permanent «не заблоковано» line
-            would be noise on 300 pages to serve the rare one. */}
-        {account.lockedUntil && (
-          <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
-            Вхід заблоковано після невдалих спроб — до{' '}
-            {account.lockedUntil.toLocaleTimeString('uk-UA', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-            . Людина може зачекати або ви знімаєте блокування зараз.
-          </p>
-        )}
-
-        <div className="flex flex-col gap-2">
-          {account.lockedUntil && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              onClick={() => run(() => unlockLogin(staffId))}
-            >
-              <LockOpen className="size-4" />
-              Зняти блокування входу
-            </Button>
-          )}
-
-          {!account.isActivated && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              onClick={() => run(() => sendInvite(staffId))}
-            >
-              <MailPlus className="size-4" />
-              {account.invite ? 'Надіслати запрошення повторно' : 'Надіслати запрошення'}
-            </Button>
-          )}
-
-          {account.isActivated && (
-            <ConfirmButton
-              icon={<RotateCcw className="size-4" />}
-              label="Скинути пароль"
-              title="Скинути пароль?"
-              description="Пароль буде видалено, всі сесії завершено, а на email прийде лист із посиланням для встановлення нового пароля."
-              confirmLabel="Скинути"
-              disabled={isPending}
-              onConfirm={() => run(() => resetPassword(staffId))}
-            />
-          )}
-
-          <ManualPasswordDialog
-            disabled={isPending}
-            onSubmit={(data) => run(() => setPasswordManually(staffId, data))}
-          />
-
-          {account.isActivated && !isSelf && (
-            <ConfirmButton
-              icon={<LogOut className="size-4" />}
-              label="Завершити всі сесії"
-              title="Завершити всі сесії?"
-              description="Людину буде розлогінено на всіх пристроях при наступному запиті."
-              confirmLabel="Завершити"
-              disabled={isPending}
-              onConfirm={() => run(() => forceLogout(staffId))}
-            />
-          )}
-        </div>
-      </div>
+      <AccountControls {...props} />
     </div>
   );
 }
@@ -195,6 +253,7 @@ function ConfirmButton({
   title,
   description,
   confirmLabel,
+  size = 'sm',
   disabled,
   onConfirm,
 }: {
@@ -203,13 +262,14 @@ function ConfirmButton({
   title: string;
   description: string;
   confirmLabel: string;
+  size?: 'sm' | 'default';
   disabled: boolean;
   onConfirm: () => void;
 }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" disabled={disabled}>
+        <Button variant="outline" size={size} disabled={disabled}>
           {icon}
           {label}
         </Button>
@@ -229,9 +289,11 @@ function ConfirmButton({
 }
 
 function ManualPasswordDialog({
+  size = 'sm',
   disabled,
   onSubmit,
 }: {
+  size?: 'sm' | 'default';
   disabled: boolean;
   onSubmit: (data: SetPasswordSchema) => void;
 }) {
@@ -259,8 +321,8 @@ function ManualPasswordDialog({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" disabled={disabled}>
-          <KeyRound className="size-4" />
+        <Button variant="outline" size={size} disabled={disabled}>
+          <KeyRound />
           Встановити пароль вручну
         </Button>
       </AlertDialogTrigger>
