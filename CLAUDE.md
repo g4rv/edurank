@@ -103,7 +103,14 @@ Rules:
 
 **Scale:** ~300 staff, tens of editors, a couple of admins.
 
-**Design direction:** Clean & modern — whitespace, card-based profiles, polished SaaS feel. shadcn/ui base. All UI text in Ukrainian.
+**Design direction:** «Аврора» — glass and a colour wash over the university's own
+`#4472C4`, Manrope, card-based. **The rules live in `docs/aurora.md` — read it
+before touching any UI, and change it there rather than deciding per screen.**
+shadcn/ui remains the component base. All UI text in Ukrainian.
+
+The strict monochrome rule below is being superseded by that document as Аврора
+rolls out: chrome is still neutral, but `--brand` now marks the primary action,
+the active tab and nav item, links and one accent figure.
 
 **Also installed:**
 
