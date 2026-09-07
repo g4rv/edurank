@@ -176,7 +176,97 @@ small panel and ruinous on a full-height sidebar.
 
 ---
 
-## 7. Traps that have already caught us
+## 7. Form controls
+
+**One definition, worn by all of them.** `components/aurora/ui/field-surface.ts`
+holds every Tailwind part — sizes, focus ring, invalid state, disabled
+behaviour. The surface itself (fill, border, inner shadow) is `.aurora-field` in
+`globals.css`, because a light and a dark variant of the same thing must sit
+next to each other or they drift. There are fourteen controls; written out at
+each of them, the first change to any one lands on some and not others.
+
+**The three states differ in KIND, not in degree.** They have to be readable
+from across the room, not measured:
+
+| state    | surface                                                    |
+| -------- | ---------------------------------------------------------- |
+| enabled  | **lighter** than the page, inner shadow — a hollow to fill |
+| focused  | brighter still, plus the brand ring                        |
+| disabled | **darker** than the page, flat, muted text                 |
+
+Everything you can act on comes forward off the page; the one thing you cannot
+sinks into it.
+
+**Never `opacity-50` for disabled.** It was exactly that, over a border already
+at 1.24:1 on white — half of almost nothing is still almost nothing, and a
+disabled field beside an active one looked identical. Fading also drags the
+field's own text down, so the part somebody might still want to read gets harder
+while the state stays unclear.
+
+Current numbers: border `/0.26` at rest (**1.67:1** on the page ground), `/0.38`
+on hover (**2.26:1**). Both are below the 3.0 a boundary needs _on its own_ —
+acceptable here because the fill and the inner shadow also identify the control,
+and a 3:1 hairline on every field turns the page into a 1990s form. If it ever
+has to move, it is one number.
+
+## 8. Lists that float over the page
+
+A select and a combobox are the same control to somebody filling a form. The
+only real difference is that a combobox lets you type. They share
+`components/aurora/ui/listbox.ts`; neither styles its own panel or rows.
+
+- **Rows are full-bleed** — no inset, no rounding. The panel's own corners do the
+  clipping. Panel padding leaves a pale sliver above and below a single
+  highlighted row, which reads as a rendering fault rather than as breathing
+  room, and a list of one is common.
+- **The highlight is `bg-brand/10` + `text-brand-strong`**, covering `hover`
+  (mouse), `data-highlighted` (Radix's keyboard walk) and `focus`.
+- **The chosen row is weight and a tick, no second fill.** A tint there competes
+  with the hover tint and the two together say less than either alone. The tick
+  sits after the text with `ml-auto`, so showing it moves nothing — not pinned
+  absolutely with `pr-8` reserved on every row.
+- **Overflow belongs to the caller.** The select scrolls on its panel, the
+  combobox on the list inside it; baking either into `listPanel` fights the
+  other.
+
+## 9. The calendar
+
+**`locale` defaults to `uk`.** react-day-picker ships `en-US` and does **not**
+read the browser's locale, so a calendar with no `locale` prop is hardcoded
+English. Every one in the app said «September 2026 / Su Mo Tu» — including the
+audit-log filter, which formatted its own button label in Ukrainian and then
+opened an English calendar under it. The locale also moves the week start to
+Monday. The month caption is capitalised («Вересень 2026»); weekday
+abbreviations stay lower case, which is the Ukrainian convention.
+
+**A range is picked by clicks that alternate ends** — start, end, start, end.
+Each click writes one end and leaves the other alone: 1 → 1–31 → 22–31 → 22–23.
+Two invariants hold on every click, and they are what `lib/forms/date-range.ts`
+is tested against:
+
+1. the day clicked becomes an endpoint, always;
+2. the other endpoint survives.
+
+An inverted write is **redirected, not sorted afterwards**. Clicking 30 when the
+range is 1–11 and the cycle says «start» writes the END instead, giving 1–30.
+Writing `{from: 30, to: 11}` and swapping the pair looks equivalent and is not —
+it overwrites the start and then hands the start slot to the old end, leaving one
+endpoint stuck fast.
+
+Two smaller rules, both about shape:
+
+- **Chosen days are circles** (`rounded-full`), matching the capsule band under
+  them. Any tighter radius lets the band's tint show past the pill's corners as a
+  square block. The cell is `aspect-square`, so the two meet exactly.
+- **The band rounds at each week's edges**, so a range that wraps reads as a row
+  of capsules rather than as something running off-screen.
+
+**No hover preview.** It was built and taken out. Mailjet's calendar previews the
+pending range and it reads well there, because their band is a solid fill; ours
+is a pale tint, and a preview of a tint is a faint thing flickering under the
+cursor — motion without a message.
+
+## 10. Traps that have already caught us
 
 **Tailwind only generates classes that appear in a source file.** Probing with a
 hand-typed class name proves nothing — `bg-foreground/4` is transparent unless
@@ -194,3 +284,14 @@ yields lab components pretending to be RGB. Fill a 1×1 canvas, read
 **A component never decides a permission.** It is handed `showStake`; it does not
 work out who may see a ставка. A component has no session, and a permission
 written in two places will eventually disagree.
+
+**A class built by interpolation does not exist.** Tailwind generates only what
+it can SEE, so `` `data-[state=checked]:${listRowSelected}` `` produces nothing.
+Spell the variant out literally, even when that means the constant appears twice
+— `listbox.ts` keeps `listRowSelected` and `listRowSelectedState` side by side
+for exactly this.
+
+**A layout is not a guard and cannot read the pathname.** Layouts do not
+re-render on navigation, so `auth()` in one runs once and an `active` tab passed
+down from one is frozen on whichever tab was opened first. Each page keeps its
+own `auth()`; `StaffTabs` reads the pathname itself.
