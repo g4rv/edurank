@@ -26,6 +26,8 @@ import { fieldSurfaceInner, fieldSurfaceWrapper, type FieldSize } from './field-
  *   could be typed at all (2026-08-24).
  * - The `swallowed` hint answers the field emptying itself when somebody types
  *   the code that is already printed to their left (2026-08-31).
+ * - **Autofill is off**, because this field usually holds somebody else's
+ *   number — see the attributes on the input.
  *
  * What changes is the surface. The old one was `border-input bg-transparent`
  * with a grey `ring-1`, and — because it is a WRAPPER — it also had
@@ -72,7 +74,19 @@ export function AuroraTelInput({
           id={id}
           type="tel"
           inputMode="numeric"
-          autoComplete="tel"
+          // No autofill (owner, 2026-09-07). This field is on /staff/[id]/edit
+          // far more often than on «Мій профіль», and there it holds SOMEBODY
+          // ELSE's number — so the browser offering the signed-in admin's own
+          // is not a convenience, it is a wrong number one keystroke away from
+          // being saved onto a colleague's record.
+          //
+          // The three attributes are one job between them: Chrome ignores
+          // `autocomplete="off"` on a field it recognises as a phone, and the
+          // two `data-` hints are what LastPass and 1Password read — neither
+          // looks at `autocomplete` at all.
+          autoComplete="off"
+          data-lpignore="true"
+          data-1p-ignore
           disabled={disabled}
           aria-invalid={ariaInvalid}
           placeholder={PHONE_PLACEHOLDER}
