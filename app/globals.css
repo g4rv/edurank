@@ -13,7 +13,25 @@
   --font-heading: var(--font-manrope);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-brand-strong: var(--brand-strong);
+  --color-gold: var(--gold);
+  --color-gold-strong: var(--gold-strong);
   --color-brand-gradient: var(--brand-gradient);
+  /* «Аврора»'s elevation scale — two layers, «tight and wide at once» as the
+     concept puts it: a contact shadow that says the edge is real, and a wide
+     ambient one that says the surface is lifted. A single flat shadow reads as
+     a sticker. Tinted toward the ink rather than pure black, so it sits on a
+     coloured wash without going muddy. */
+  --shadow-card:
+    0 1px 2px oklch(0.145 0.02 265 / 0.05), 0 10px 28px -14px oklch(0.145 0.02 265 / 0.18);
+  --shadow-card-hover:
+    0 1px 2px oklch(0.145 0.02 265 / 0.06), 0 16px 36px -14px oklch(0.145 0.02 265 / 0.26);
+  /* A panel floating ON TOP of a card — a select menu, a combobox list, a date
+     picker. `--shadow-card` is tuned to lift a card off the page; over another
+     card it disappears, because the two surfaces are the same colour and the
+     shadow has nothing to fall on. Same shape, deeper and wider. */
+  --shadow-float:
+    0 2px 4px oklch(0.145 0.02 265 / 0.08), 0 20px 44px -16px oklch(0.145 0.02 265 / 0.34);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -102,6 +120,25 @@
      tuned, and this one is now load-bearing for both. */
   --brand: oklch(0.556 0.132 264);
   --brand-foreground: oklch(0.985 0 0);
+  /* Brand text sitting ON a brand tint — the НПП badge, a tab's hover state.
+     `--brand` on `bg-brand/10` measures 4.24:1, just under AA's 4.5, because the
+     tint lifts the background toward the text. Deepened until it clears:
+     6.92:1. Only for that case; on a plain card `--brand` reads 4.8 and is
+     fine. */
+  --brand-strong: oklch(0.45 0.13 266);
+  /* The university's gold — the second colour of the crest in
+     `public/logo.png`, and «Аврора»'s warm accent (#eaa439). Used to MARK
+     rather than to mean a state: today's date on a calendar, the tallest bar in
+     the logo. It is not the amber that means «pending» — that one is a badge
+     inside a table and the two never share a surface. */
+  --gold: oklch(0.76 0.13 70);
+  /* The same gold, deepened until it clears 3:1 on a card (2.20 → 3.52) — the
+     bar for a UI indicator like a ring or an outline. `--gold` itself is a
+     FILL colour: at 2.20 it is a fine background with dark text on it and a
+     poor line on white. Pushing it far enough for TEXT (4.5) lands on #9c5313,
+     which is brown, not the amber this palette is. So the two are separate:
+     fill stays amber, the line gets the deeper one. */
+  --gold-strong: oklch(0.64 0.14 60);
   /* The filled-button surface. A gradient rather than a flat fill because
      Аврора's whole language is light bending through things — a flat #4472C4
      rectangle on a drifting wash looks stamped on rather than lit. It leans
@@ -135,6 +172,13 @@
      light-mode lightness sinks into oklch(0.205). */
   --brand: oklch(0.7 0.135 264);
   --brand-foreground: oklch(0.16 0 0);
+  /* Dark needs no deepening — the brand is already the LIGHT half of the pair
+     here, and a brand tint darkens rather than lifts its background. */
+  --brand-strong: oklch(0.7 0.135 264);
+  /* Lifted for the dark card, like every other hue here */
+  --gold: oklch(0.82 0.13 75);
+  /* Dark needs no deepening — gold on a dark card already measures 10:1. */
+  --gold-strong: oklch(0.82 0.13 75);
   --brand-gradient: linear-gradient(140deg, oklch(0.66 0.14 264), oklch(0.58 0.16 285));
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
@@ -377,21 +421,63 @@
   /* A field on glass. Slightly lighter than the panel it sits on, so it reads
      as cut INTO the surface — the shadcn default is transparent with a border,
      which on a translucent card leaves the field indistinguishable from it. */
+  /* A form control has three states and each one has to be readable from across
+     the room, not measured. The pattern is:
+
+       enabled   — LIGHTER than the page, with an inner shadow: a hollow you can
+                   put something into
+       focused   — brighter still, plus the brand ring
+       disabled  — DARKER than the page and flat: it recedes instead of fading
+
+     Disabled used to be `opacity-50` over the whole control, which changed
+     nothing anyone could see (owner, 2026-09-07). The border was already
+     `/0.12` — about 1.24:1 on white — so half of almost nothing is still almost
+     nothing, and a disabled field sat beside an active one looking identical.
+     Fading also takes the LABEL text down with it, so the one thing a person
+     might still want to read got harder while the state stayed unclear.
+
+     Inverting the surface instead is the signal: everything you can act on
+     comes forward off the page, and the one thing you cannot sinks into it. */
   .aurora-field {
     background: rgb(255 255 255 / 0.55);
-    border-color: oklch(0.145 0 0 / 0.12);
+    border-color: oklch(0.145 0 0 / 0.26);
     box-shadow: inset 0 1px 2px oklch(0.145 0 0 / 0.05);
+  }
+  .aurora-field:hover:not(:disabled):not(:focus-visible) {
+    border-color: oklch(0.145 0 0 / 0.38);
   }
   .aurora-field:focus-visible {
     background: rgb(255 255 255 / 0.85);
   }
+  /* `:has(:disabled)` covers the wrapper controls — `TelInput` and friends put
+     the surface on a div and the `disabled` attribute on the input inside it. */
+  .aurora-field:disabled,
+  .aurora-field:has(:disabled) {
+    background: oklch(0.145 0 0 / 0.05);
+    border-color: oklch(0.145 0 0 / 0.1);
+    box-shadow: none;
+    color: var(--muted-foreground);
+  }
+
   .dark .aurora-field {
     background: rgb(255 255 255 / 0.06);
-    border-color: rgb(255 255 255 / 0.14);
+    border-color: rgb(255 255 255 / 0.22);
     box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
+  }
+  .dark .aurora-field:hover:not(:disabled):not(:focus-visible) {
+    border-color: rgb(255 255 255 / 0.34);
   }
   .dark .aurora-field:focus-visible {
     background: rgb(255 255 255 / 0.1);
+  }
+  /* On a dark ground «recedes» is the other direction: the page is already
+     dark, so a disabled field goes darker still rather than lighter. */
+  .dark .aurora-field:disabled,
+  .dark .aurora-field:has(:disabled) {
+    background: rgb(0 0 0 / 0.2);
+    border-color: rgb(255 255 255 / 0.08);
+    box-shadow: none;
+    color: var(--muted-foreground);
   }
 }
 

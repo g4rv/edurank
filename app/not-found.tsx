@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AuroraButton } from '@/components/aurora/button';
+import { AuroraButton } from '@/components/aurora/ui/button';
 import { AuroraWash } from '@/components/ui/aurora-wash';
 
 /**

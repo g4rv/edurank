@@ -3,14 +3,15 @@
 import { useState, forwardRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fieldSurface, type FieldSize } from './field-surface';
 
 /**
  * «Аврора»'s password field — a drop-in replacement for
  * `components/ui/pass-input`.
  *
- * Surface treatment from `AuroraInput`; behaviour copied verbatim from the
- * original, including the three mobile suppressions, which are load-bearing and
- * must not be lost in a visual refresh:
+ * Surface from `fieldSurface()`; behaviour copied verbatim from the original,
+ * including the three mobile suppressions, which are load-bearing and must not
+ * be lost in a visual refresh:
  *
  * A `type="password"` field already turns off autocapitalise, autocorrect and
  * spellcheck on iOS and Android. The eye toggle flips it to `type="text"`,
@@ -21,7 +22,7 @@ import { cn } from '@/lib/utils';
  */
 const AuroraPassInput = forwardRef<
   HTMLInputElement,
-  Omit<React.ComponentProps<'input'>, 'type' | 'size'> & { size?: 'default' | 'lg' }
+  Omit<React.ComponentProps<'input'>, 'type' | 'size'> & { size?: FieldSize }
 >(({ className, size = 'default', ...props }, ref) => {
   const [show, setShow] = useState(false);
   const lg = size === 'lg';
@@ -36,14 +37,7 @@ const AuroraPassInput = forwardRef<
         autoCorrect="off"
         spellCheck={false}
         data-slot="input"
-        className={cn(
-          'aurora-field w-full min-w-0 rounded-lg border text-base transition-all outline-none',
-          'focus-visible:border-brand/55 focus-visible:ring-3 focus-visible:ring-brand/25',
-          'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
-          'aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20',
-          lg ? 'h-11 px-3.5 py-2 pr-11' : 'h-8 px-2.5 py-1 pr-9 md:text-sm',
-          className
-        )}
+        className={cn(fieldSurface(size), lg ? 'pr-11' : 'pr-9', className)}
       />
       <button
         type="button"

@@ -42,8 +42,12 @@ const auroraButtonVariants = cva(
         // Tailwind layer and which one wins depends on their generated order,
         // not on the order they are written here.
         default: 'aurora-primary border-0 hover:-translate-y-px active:translate-y-0',
+        // Drawn for a SOLID card, which is where secondary actions actually
+        // live — the first pass used `bg-white/55` + `backdrop-blur-sm`, which
+        // is a glass treatment: on a white card it merely reads as dirty grey,
+        // and it pays for a blur that has nothing behind it to blur.
         outline:
-          'border-foreground/12 bg-white/55 text-foreground backdrop-blur-sm hover:bg-white/80 aria-expanded:bg-white/80 dark:border-white/14 dark:bg-white/6 dark:hover:bg-white/12',
+          'border-foreground/12 bg-card text-foreground shadow-xs hover:border-foreground/25 hover:bg-foreground/4 aria-expanded:bg-foreground/6 dark:border-white/15 dark:bg-white/4 dark:hover:bg-white/10',
         secondary:
           'bg-foreground/6 text-foreground hover:bg-foreground/10 aria-expanded:bg-foreground/10 dark:bg-white/8 dark:hover:bg-white/14',
         ghost:
