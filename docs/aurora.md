@@ -209,6 +209,76 @@ acceptable here because the fill and the inner shadow also identify the control,
 and a 3:1 hairline on every field turns the page into a 1990s form. If it ever
 has to move, it is one number.
 
+### A wrapper is focused when its input is
+
+`TelInput` and `OrcidInput` put the surface on a **div** and the focus on an
+input inside it. A div is never `:focus-visible`, so those three
+took the brand ring from `fieldSurfaceWrapper()` and none of the brightening —
+which is the half you actually notice. `.aurora-field` therefore carries
+`:has(:focus-visible)` beside `:focus-visible` on both the focused fill and the
+hover exclusion. Any new wrapper control gets it for free; a control that
+invents its own surface does not.
+
+### Not everything in a form is a field
+
+`fieldSurface()` is for a control you put a VALUE into. The file picker was
+wrapped in it so it would match the text fields beside it, and it came out worse
+than the plain button it replaced (owner, 2026-09-07): a 24px button inside a
+32px box has three pixels of air above and below, and the box claims to be a
+hollow you can type into when the only way in is the button.
+
+A control that runs an ACTION and reports a result is shaped like the toolbar it
+sits in, not like the fields around it. What it still owes the system is the
+brand focus ring and a monochrome result: the chosen file is a chip on
+`bg-foreground/6` — the `secondary` button's own fill — with the × inside it,
+so the name reads as an object with edges that the × will remove, rather than as
+a caption that happens to sit next to a button.
+
+### A checkbox is the switch's rules on a square
+
+There was no checkbox component at all, so three screens grew their own out of
+`<input type="checkbox">`: the two permission grids use `accent-primary`, the
+licence-position picker beside them uses `accent-foreground`. `accent-color`
+styles the box and nothing else — no focus ring, no invalid state, no disabled
+surface — so they could not have matched.
+
+- **Unchecked is `.aurora-field`.** The same fill, border and inner shadow as a
+  text field, because it is the same thing: a hollow waiting to be filled. The
+  disabled surface comes with it.
+- **Checked is the brand**, with `border-brand` to close the hairline the
+  surface's own border-colour would otherwise leave around the fill.
+- **There is no indeterminate state.** It was drawn first, on the assumption
+  that the permission grid has a «some of this division's fields» header — it
+  does not, and nothing else here selects a whole group at once. A state nobody
+  can reach is one more thing to keep working; Radix supports it the day a
+  select-all appears.
+
+### A fixed-shape value draws its mask
+
+`0000-0000-0000-0000` as a placeholder is a lie the field tells once: it looks
+like a value already in the box. `____-____-____-____` cannot be mistaken for
+one, and it keeps saying what is missing **while you type** — the part still to
+come stays on screen behind the caret (`components/aurora/ui/mask-ghost.tsx`).
+
+Three things this depends on, all easy to break:
+
+- **The input and the ghost must be `font-mono` at the same size and box.** The
+  typed prefix is re-rendered invisibly so the remainder starts exactly at the
+  caret; a proportional font puts the tail a few pixels off at every keystroke.
+- **The ghost goes AFTER the input** in the DOM whenever the input carries its
+  own fill, or the fill paints over it.
+- **The real `placeholder` attribute stays**, hidden with
+  `placeholder:text-transparent`. The hint then exists once for a screen reader
+  and once on screen, never twice on screen.
+
+**A mask is not always a rule.** ORCID is always four groups of four, so its
+mask is the format. An ISBN is only ever «thirteen digits starting 978/979» —
+where the hyphens fall depends on the registration group, so a Ukrainian book
+splits `978-966-…` where the stock example splits `978-3-…`, and an ISBN-10 has
+a different shape again. There the mask is drawn and nothing is enforced: the
+field keeps whatever hyphenation the book prints, and the checksum ignores
+separators.
+
 ## 8. Lists that float over the page
 
 A select and a combobox are the same control to somebody filling a form. The
@@ -266,7 +336,47 @@ pending range and it reads well there, because their band is a solid fill; ours
 is a pale tint, and a preview of a tint is a faint thing flickering under the
 cursor — motion without a message.
 
-## 10. Traps that have already caught us
+## 10. Things that float over everything
+
+A popover, a select panel and a combobox list are surfaces you point at and act
+on, so they are `bg-card` + `shadow-float` — see §8. Three more float, and they
+are not all the same.
+
+**A modal is a card that happens to float.** The alert dialog and the sheet take
+`bg-card` (not `bg-background`: the page ground is not a surface, and a dialog
+painted in it is a hole in the middle of the screen) and `shadow-float` (not
+`shadow-lg`: a dialog opens over cards, where a card-weight shadow has nothing
+to fall on).
+
+**The scrim is one value, in `components/aurora/ui/overlay.ts`.** It was
+`bg-black/50` on the alert dialog and `bg-black/40` on the sheet — nobody chose
+that, and nobody can see it either, which is exactly why the next one would pick
+a third number. Two tints, light and dark, because a scrim's job is relative:
+45% black over a pale page says «out of reach» and the same 45% over an already
+dark one barely registers.
+
+**No `backdrop-blur` on the scrim.** It is the obvious glass move and the one
+place this design cannot afford it: a scrim covers the whole viewport, so with
+GPU acceleration off — which some of our machines have — it becomes a
+full-screen CPU blur on every open and close of every confirm dialog.
+
+**A tooltip stays dark, and that is a decision.** The temptation is to make the
+one remaining floating thing `bg-card` like the rest. It should not be: those
+are surfaces you act on, and a tooltip cannot be clicked at all. A card-coloured
+tooltip over a card reads as a panel that failed to load. Inverting it is what
+says «annotation, not interface». It takes `rounded-lg` and `shadow-float` so it
+still sits at the same height above the page.
+
+**A confirm's action button defaults to `destructive`** and accepts a variant.
+Almost every confirm here is a deletion or a discard; closing a rating year is
+the exception — irreversible without being destructive.
+
+**The page you are on is the accent.** `--secondary` is a grey barely off the
+page ground, so on a row of grey ghost buttons the current page was the hardest
+one to find. §3 gives the accent to the active tab and the active nav item, and
+a pager is the same fact about the same kind of row.
+
+## 11. Traps that have already caught us
 
 **Tailwind only generates classes that appear in a source file.** Probing with a
 hand-typed class name proves nothing — `bg-foreground/4` is transparent unless
