@@ -102,6 +102,19 @@ distinction and the one a reader actually acts on.
 
 Blue therefore means «this leaves EduRank». Keep it that way.
 
+**The breadcrumb obeys this too, and did not.** It was `--muted-foreground`
+with no underline, which over the wash all but disappeared — and a breadcrumb is
+the one piece of chrome somebody looks for when they are lost, so faint is
+wrong exactly when it matters (owner, 2026-09-07). It is now ink and underlined
+like every other internal link; `--brand` stays on the hover.
+
+**Do not draw something as a link unless following it does something useful.**
+`mailto:` and `tel:` are the ones that catch people out: on a department desktop
+they open whatever is registered, which is often nothing or the wrong client, so
+the reader is left wondering what they just clicked. The email and phone in the
+identity band are plain text with a copy button, because pasting them elsewhere
+is what anybody actually does with them.
+
 ### Contrast targets
 
 **AA is the bar: 4.5 for text, 3.0 for icons and UI boundaries.** AAA (7:1) is
