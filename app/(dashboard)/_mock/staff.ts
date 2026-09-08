@@ -8,6 +8,7 @@ import {
 } from '@/lib/rating/activity-types';
 import { dbSpecs } from '@/lib/rating/db-specs';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { buildKharakterystyka } from '@/lib/kharakterystyka/build';
 
 /**
  * Invented people, shared by the design rehearsals at `/profile-mock` and
@@ -474,3 +475,213 @@ export const MOCK_SECTIONS = MOCK_RATING_GROUPS.map((g) =>
   g.items.filter((i) => i.status === 'APPROVED').reduce((sum, i) => sum + i.score, 0)
 );
 export const MOCK_TOTAL = MOCK_SECTIONS.reduce((a, b) => a + b, 0);
+
+/**
+ * The Характеристика, built by the REAL builder from invented rating rows.
+ *
+ * `buildKharakterystyka` is a pure function over plain data, so the rehearsal
+ * runs the same thresholds, alternatives and «N з 5» counters the app does —
+ * rather than a hand-written guess at what they would say. A mock that computes
+ * its own answer proves nothing about the screen that ships.
+ *
+ * **The activities are drawn only from codes the rating tab actually scores.**
+ * The document is a VIEW of the rating; if it cited a патент while the rating
+ * tab showed п.3.25 empty, the two tabs of one person would contradict each
+ * other — the same failure the `PROFILE_DERIVED` rows had. `MOCK_UNFILLED` is
+ * the list to check against.
+ *
+ * The window is five years, so the entries are spread across them: a document
+ * whose evidence all lands in one year never exercises the «(рік)» suffix or
+ * the ordering.
+ */
+type MockActivity = { code: string; year: number; evidence: Record<string, unknown> };
+
+const MOCK_KH_ACTIVITIES: MockActivity[] = [
+  // п.1 — five publications. Three of each category, so the alternative that
+  // adds them together is what carries it rather than either one alone.
+  {
+    code: 'publication_cat_a',
+    year: 2026,
+    evidence: {
+      option: 'q1',
+      bibliography:
+        'Kovalchuk N. On the stability of finite-difference schemes. Journal of Computational and Applied Mathematics, 2026',
+    },
+  },
+  {
+    code: 'publication_cat_a',
+    year: 2025,
+    evidence: {
+      option: 'q2',
+      bibliography:
+        'Kovalchuk N. Adaptive meshes for parabolic problems. Applied Numerical Mathematics, 2025',
+    },
+  },
+  {
+    code: 'publication_cat_a',
+    year: 2023,
+    evidence: {
+      option: 'q3_4_or_none',
+      bibliography:
+        'Kovalchuk N. A note on convergence rates. Ukrainian Mathematical Journal, 2023',
+    },
+  },
+  {
+    code: 'publication_cat_b',
+    year: 2026,
+    evidence: {
+      bibliography:
+        'Ковальчук Н. П. Методи скінченних різниць у задачах теплопровідності. Наукові записки, 2026',
+    },
+  },
+  {
+    code: 'publication_cat_b',
+    year: 2024,
+    evidence: {
+      bibliography: 'Ковальчук Н. П. Про стійкість різницевих схем. Математичний вісник, 2024',
+    },
+  },
+  {
+    code: 'publication_cat_b',
+    year: 2022,
+    evidence: { bibliography: 'Ковальчук Н. П. Чисельне моделювання дифузії. Вісник УДУ, 2022' },
+  },
+
+  // п.3 — a monograph, and a textbook of five друковані аркуші or more. `pages`
+  // and `coAuthors` are what the threshold is computed from, so they are real
+  // numbers rather than decoration.
+  {
+    code: 'monograph_ua',
+    year: 2024,
+    evidence: { title: 'Різницеві методи в задачах математичної фізики', pages: 240, coAuthors: 1 },
+  },
+  {
+    code: 'edition_publication',
+    year: 2025,
+    evidence: {
+      option: 'textbook',
+      title: 'Вища математика для інженерів',
+      pages: 316,
+      coAuthors: 1,
+    },
+  },
+
+  // п.4 — Moodle, and a методичка (the SAME indicator as above, told apart by
+  // its own `option`; see the note on 2.2 in positions.ts).
+  {
+    code: 'moodle_course',
+    year: 2026,
+    evidence: {
+      mode: 'development',
+      discipline: 'Вища математика',
+      link: 'https://moodle.uhsp.edu.ua/course/view.php?id=412',
+    },
+  },
+  {
+    code: 'edition_publication',
+    year: 2023,
+    evidence: {
+      option: 'methodical_recommendations',
+      title: 'Методичні рекомендації до практичних занять',
+      pages: 96,
+      coAuthors: 2,
+    },
+  },
+
+  // п.6, п.8, п.10, п.14 — one entry each is enough for these.
+  {
+    code: 'defense_supervision',
+    year: 2024,
+    evidence: { student: '蘭 Петренко І. М.', topic: 'Чисельні методи розвʼязання крайових задач' },
+  },
+  {
+    code: 'ndr_execution',
+    year: 2025,
+    evidence: { topic: 'Математичне моделювання процесів теплопровідності', role: 'керівник' },
+  },
+  {
+    code: 'journal_editorial_b',
+    year: 2026,
+    evidence: { journal: 'Науковий вісник УДУ. Серія: фізико-математичні науки' },
+  },
+  {
+    code: 'intl_grant_won',
+    year: 2025,
+    evidence: { option: 'academic_group_member', project: 'Horizon Europe — MATH4EDU' },
+  },
+  {
+    code: 'ukr_olympiad_winners',
+    year: 2024,
+    evidence: { student: 'Шевченко О. В.', place: 'ІІ місце' },
+  },
+
+  // п.12 — five approbation publications, again across the window.
+  {
+    code: 'conf_abroad',
+    year: 2026,
+    evidence: { conference: 'ICNAAM 2026, Rhodes', title: 'Stability of implicit schemes' },
+  },
+  {
+    code: 'conf_abroad',
+    year: 2024,
+    evidence: { conference: 'ECMI 2024, Wrocław', title: 'Adaptive meshes' },
+  },
+  {
+    code: 'conf_ukraine',
+    year: 2026,
+    evidence: { conference: 'Сучасні проблеми математичного моделювання, Київ' },
+  },
+  {
+    code: 'conf_ukraine',
+    year: 2025,
+    evidence: { conference: 'Прикладна математика та інформатика, Львів' },
+  },
+  { code: 'conf_ukraine', year: 2023, evidence: { conference: 'Математика в освіті, Умань' } },
+
+  // п.19
+  {
+    code: 'prof_associations',
+    year: 2026,
+    evidence: { association: 'Українське математичне товариство' },
+  },
+];
+
+/** The window's last year — the same one the rating tab shows. */
+export const MOCK_KHARAKTERYSTYKA = buildKharakterystyka(
+  MOCK_KH_ACTIVITIES.map((a) => {
+    const def = ACTIVITY_TYPES_2026.find((d) => d.code === a.code);
+    if (!def) throw new Error(`Unknown code in MOCK_KH_ACTIVITIES: ${a.code}`);
+    const specs = dbSpecs(def);
+    return {
+      year: a.year,
+      status: 'APPROVED' as const,
+      evidence: a.evidence,
+      activityType: {
+        itemNumber: def.itemNumber,
+        label: def.label,
+        isActive: true,
+        licencePositions: specs.licencePositions,
+        evidenceFields: specs.evidenceFields,
+      },
+    };
+  }),
+  // п.5 reads the profile, so it reads THIS person's — the same values the
+  // profile tab prints.
+  {
+    scientificDegree: FULL_STAFF.scientificDegree,
+    degreeDefenceDate: FULL_STAFF.degreeDefenceDate,
+  },
+  MOCK_YEAR
+);
+
+/** Which indicators feed each position — what the real page loads from the DB. */
+export const MOCK_LICENCE_SOURCES: Record<number, { itemNumber: string; label: string }[]> =
+  (() => {
+    const byPosition: Record<number, { itemNumber: string; label: string }[]> = {};
+    for (const def of ACTIVITY_TYPES_2026) {
+      for (const link of dbSpecs(def).licencePositions) {
+        (byPosition[link.position] ??= []).push({ itemNumber: def.itemNumber, label: def.label });
+      }
+    }
+    return byPosition;
+  })();

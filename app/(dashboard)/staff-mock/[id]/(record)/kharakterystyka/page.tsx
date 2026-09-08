@@ -1,10 +1,23 @@
 import { redirect, notFound } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { MOCK_STAFF } from '@/app/(dashboard)/_mock/staff';
+import { KharakterystykaTable } from '@/components/kharakterystyka/kharakterystyka-table';
+import {
+  MOCK_STAFF,
+  MOCK_KHARAKTERYSTYKA,
+  MOCK_LICENCE_SOURCES,
+} from '@/app/(dashboard)/_mock/staff';
 
 /**
- * The Характеристика tab. Same story: this is the only segment Next re-renders
- * when the tab changes, and it keeps its own auth check.
+ * The Характеристика tab — п.38 of the Ліцензійні умови, twenty positions this
+ * person either satisfies or does not.
+ *
+ * Like the rating tab, it renders the REAL `KharakterystykaTable` on invented
+ * rows rather than a facsimile — and the rows themselves come out of the REAL
+ * `buildKharakterystyka`, which is a pure function over plain data. So the
+ * thresholds, the alternatives and the «1 з 3» counters on screen are the ones
+ * the app computes, not a guess at what they would say.
+ *
+ * Keeps its own auth check, for the reason set out in `layout.tsx`.
  */
 export default async function StaffMockKharakterystykaPage({
   params,
@@ -18,10 +31,8 @@ export default async function StaffMockKharakterystykaPage({
   if (!MOCK_STAFF[id]) notFound();
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-dashed bg-muted/25 px-5 py-8 text-center text-sm text-muted-foreground">
-      Тут буде документ за п.38 — він уже існує на
-      <code className="mx-1">/staff/[id]/kharakterystyka</code>. У чернетці показано лише те, що
-      змінюється при перемиканні вкладок.
+    <div className="flex min-h-0 flex-1 flex-col">
+      <KharakterystykaTable data={MOCK_KHARAKTERYSTYKA} sources={MOCK_LICENCE_SOURCES} fill />
     </div>
   );
 }

@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation';
 import { YearSelect } from '@/components/rating/year-select';
 import { EmptyRowsSwitch } from '@/components/rating/rating-view';
+import { KharakterystykaSummary } from '@/components/kharakterystyka/kharakterystyka-table';
+import { MOCK_KHARAKTERYSTYKA } from '@/app/(dashboard)/_mock/staff';
 import { MOCK_YEAR, MOCK_YEARS } from '@/app/(dashboard)/_mock/staff';
 
 /**
@@ -24,6 +26,13 @@ import { MOCK_YEAR, MOCK_YEARS } from '@/app/(dashboard)/_mock/staff';
  */
 export function MockRatingControls() {
   const pathname = usePathname();
+
+  // Характеристика's own summary sits in the same place, for the same reason:
+  // it says what you are looking at rather than being part of the document.
+  if (pathname.endsWith('/kharakterystyka')) {
+    return <KharakterystykaSummary data={MOCK_KHARAKTERYSTYKA} />;
+  }
+
   if (!pathname.endsWith('/rating')) return null;
 
   return (
