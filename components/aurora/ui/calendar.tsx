@@ -15,7 +15,8 @@ import { uk } from 'date-fns/locale';
 import { stepRange, type RangeEnd } from '@/lib/forms/date-range';
 
 import { cn } from '@/lib/utils';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from './button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from 'lucide-react';
 
 /**
@@ -64,6 +65,12 @@ function Calendar(
     className,
     classNames,
     showOutsideDays = true,
+    // Always six week rows. February 2026 needs five and March needs six, so
+    // paging between them resized the panel — and because a date popover opens
+    // UPWARD, the whole calendar jumped up the page as the row appeared
+    // (owner, 2026-09-08). The sixth row is filled with the neighbouring
+    // month's days, which `showOutsideDays` already draws greyed.
+    fixedWeeks = true,
     captionLayout = 'label',
     buttonVariant = 'ghost',
     locale = uk,
@@ -137,6 +144,7 @@ function Calendar(
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      fixedWeeks={fixedWeeks}
       className={cn(
         'group/calendar bg-background p-2 [--cell-radius:var(--radius-md)] [--cell-size:--spacing(7)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent',
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
@@ -149,25 +157,38 @@ function Calendar(
         formatCaption: (month, options, dateLib) =>
           capitaliseCaption(defaultFormatCaption(month, options, dateLib)),
         formatMonthDropdown: (date) =>
-          capitaliseCaption(date.toLocaleString(locale?.code, { month: 'short' })),
+          capitaliseCaption(date.toLocaleString(locale?.code, { month: 'long' })),
         ...formatters,
       }}
       classNames={{
         root: cn('w-fit', defaultClassNames.root),
         months: cn('relative flex flex-col gap-4 md:flex-row', defaultClassNames.months),
         month: cn('flex w-full flex-col gap-4', defaultClassNames.month),
+        // `pointer-events-none`, with the two buttons taking it back.
+        //
+        // This bar is absolutely positioned across the FULL width of the
+        // caption row and holds ‹ and › at its two ends — so the whole middle,
+        // where the month and year controls sit, is the nav div itself, and it
+        // swallowed every click aimed at them (owner, 2026-09-08).
+        //
+        // It never showed while the dropdowns were native `<select>`s, because
+        // those were `absolute inset-0`: a positioned element paints above a
+        // static sibling, so they sat on top of this bar by accident. The
+        // moment the caption held an ordinary static control, it went dead.
+        // Fixing it here rather than positioning that control means the next
+        // thing put in a caption works too.
         nav: cn(
-          'absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1',
+          'pointer-events-none absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1',
           defaultClassNames.nav
         ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
-          'size-(--cell-size) p-0 select-none aria-disabled:opacity-50',
+          'pointer-events-auto size-(--cell-size) p-0 select-none aria-disabled:opacity-50',
           defaultClassNames.button_previous
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
-          'size-(--cell-size) p-0 select-none aria-disabled:opacity-50',
+          'pointer-events-auto size-(--cell-size) p-0 select-none aria-disabled:opacity-50',
           defaultClassNames.button_next
         ),
         month_caption: cn(
@@ -178,15 +199,22 @@ function Calendar(
           'flex h-(--cell-size) w-full items-center justify-center gap-1.5 text-sm font-medium',
           defaultClassNames.dropdowns
         ),
-        dropdown_root: cn('relative rounded-(--cell-radius)', defaultClassNames.dropdown_root),
-        dropdown: cn('absolute inset-0 bg-popover opacity-0', defaultClassNames.dropdown),
-        caption_label: cn(
-          'font-medium select-none',
-          captionLayout === 'label'
-            ? 'text-sm'
-            : 'flex items-center gap-1 rounded-(--cell-radius) text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground',
-          defaultClassNames.caption_label
-        ),
+        // The month control is sized for the LONGEST name, not for the one on
+        // screen. «Лютий» and «Березень» are four characters apart, so a `w-fit`
+        // trigger changed the caption's width — and the caption is what the
+        // panel is as wide as — every time the month changed. Reserving the
+        // width once means paging moves nothing.
+        //
+        // `min-w`, not `w`: the number is a floor for Ukrainian month names at
+        // this size, and a longer name in some other locale still fits rather
+        // than being clipped.
+        months_dropdown: 'min-w-30 justify-between',
+        years_dropdown: 'min-w-20 justify-between',
+        // `dropdown_root`, `dropdown` and the dropdown half of `caption_label`
+        // are gone with the native `<select>` they dressed — see
+        // `CalendarDropdown`. What was here painted a caption that LOOKED right
+        // and left the list to the operating system.
+        caption_label: cn('text-sm font-medium select-none', defaultClassNames.caption_label),
         month_grid: 'w-full border-collapse',
         weekdays: cn('flex', defaultClassNames.weekdays),
         weekday: cn(
@@ -254,6 +282,7 @@ function Calendar(
           return <ChevronDownIcon className={cn('size-4', className)} {...props} />;
         },
         DayButton: ({ ...props }) => <CalendarDayButton locale={locale} {...props} />,
+        Dropdown: CalendarDropdown,
         WeekNumber: ({ children, ...props }) => {
           return (
             <td {...props}>
@@ -267,6 +296,90 @@ function Calendar(
       }}
       {...dayPickerProps}
     />
+  );
+}
+
+/**
+ * The month and year pickers in the caption — our select, not the browser's.
+ *
+ * react-day-picker's own `Dropdown` is shadcn's trick: a real `<select>`
+ * stretched over the caption at `opacity-0`, so the closed control looks like
+ * the design and the OPEN list is the operating system's. On Windows that is a
+ * grey column with a blue highlight and its own scrollbar, sitting on top of a
+ * calendar it shares nothing with (owner, 2026-09-08). Nothing about it can be
+ * styled — same problem, and the same answer, as `<input type="date">`.
+ *
+ * Both dropdowns come through here: `MonthsDropdown` and `YearsDropdown` each
+ * default to `Dropdown`, so overriding the one covers both.
+ *
+ * **`onChange` is synthesised.** DayPicker types this as a `<select>` handler
+ * and reads exactly one thing off it — `e.target.value`, parsed as a number
+ * (`handleMonthChange` / `handleYearChange` in `DayPicker.js`). A bare object
+ * with that one field is therefore the whole contract; there is no event to
+ * forward, because Radix's select never made one.
+ *
+ * Nesting a Radix select inside the Radix popover this calendar lives in is
+ * safe: the select's content registers as the higher dismissable layer, so the
+ * popover below it stops treating clicks as «outside» and does not close under
+ * the open list.
+ */
+function CalendarDropdown({
+  options,
+  value,
+  onChange,
+  disabled,
+  className,
+  'aria-label': ariaLabel,
+}: {
+  options?: { value: number; label: string; disabled: boolean }[];
+  // Mirrors `typeof components.Dropdown`'s own parameter. The type is declared
+  // inside react-day-picker's `components/Dropdown` and not re-exported from
+  // the package root, so it is written out rather than imported from a path
+  // that is free to move between patch releases.
+} & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'children'>) {
+  return (
+    <Select
+      value={value !== undefined ? String(value) : undefined}
+      onValueChange={(next) =>
+        onChange?.({
+          target: { value: next },
+        } as React.ChangeEvent<HTMLSelectElement>)
+      }
+      disabled={disabled}
+    >
+      <SelectTrigger
+        size="sm"
+        aria-label={ariaLabel}
+        // The caption NAVIGATES — it is not a field you put a value into, so it
+        // drops the filled surface and reads as the caption text it replaces,
+        // with a chevron. Utilities beat `.aurora-field` here because Tailwind's
+        // utilities layer is declared after its components layer, which is where
+        // that class lives; specificity does not come into it.
+        //
+        // The hover tint is `--brand`, per §3 — a foreground tint on a white
+        // card is grey, which is the look this design exists to leave behind.
+        className={cn(
+          'gap-1 border-transparent bg-transparent px-1.5 shadow-none hover:bg-brand/10 hover:text-brand-strong',
+          // `months_dropdown` / `years_dropdown` from the class map above — this
+          // is how the two are told apart, since both render through here.
+          className
+        )}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="max-h-56">
+        {options?.map((option) => (
+          <SelectItem
+            key={option.value}
+            value={String(option.value)}
+            disabled={option.disabled}
+            className="tabular-nums"
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
