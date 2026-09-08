@@ -388,6 +388,7 @@ function CalendarDayButton({
   day,
   modifiers,
   locale,
+  children,
   ...props
 }: React.ComponentProps<typeof DayButton> & { locale?: Partial<Locale> }) {
   const defaultClassNames = getDefaultClassNames();
@@ -401,32 +402,20 @@ function CalendarDayButton({
   const selectedSingle =
     modifiers.selected && !modifiers.range_start && !modifiers.range_end && !modifiers.range_middle;
 
-  // Today keeps its gold fill everywhere EXCEPT where a blue fill already owns
-  // the cell — the two ends of a range, or a single chosen day. In the MIDDLE
-  // of a range it stays gold: the band behind it is a tint, not a fill, so
-  // there is nothing to fight.
-  const todayOwnsItsFill =
-    modifiers.today && !modifiers.range_start && !modifiers.range_end && !selectedSingle;
-
   return (
     <Button
       ref={ref}
       variant="ghost"
       size="icon"
       data-day={day.date.toLocaleDateString(locale?.code)}
-      data-selected-single={
-        modifiers.selected &&
-        !modifiers.range_start &&
-        !modifiers.range_end &&
-        !modifiers.range_middle
-      }
+      data-selected-single={selectedSingle}
       data-range-start={modifiers.range_start}
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
-      // Gold only while today is not otherwise chosen. Selection wins, because
-      // a blue day plainly says «this is what you picked» and the date itself
-      // still says it is today — whereas two fills fighting says neither.
-      data-today={todayOwnsItsFill}
+      // Always set now. The gold used to be a FILL, so it had to be withheld
+      // wherever a blue fill already owned the cell; a dot and a fill do not
+      // compete for the same pixels, so there is nothing left to arbitrate.
+      data-today={modifiers.today}
       className={cn(
         'relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal',
         'group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-brand/55 group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-brand/25',
@@ -447,30 +436,44 @@ function CalendarDayButton({
         // does it, so the connector is one rectangle rather than a row of tiles.
         'data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-foreground',
 
-        // Today: a gold RING, kept even when the day is also selected — a fill
-        // would be overpainted by the blue and today would vanish on the one
-        // day it matters most.
+        // Today: the numeral in bold, and a gold DOT under it — see the dot
+        // itself below (owner, 2026-09-08).
         //
-        // The ring uses `--gold-strong`, not `--gold`: the amber itself measures
-        // 2.20:1 on a white card, under the 3.0 a UI indicator needs. The number
-        // inside stays `--foreground` rather than going gold, because gold text
-        // does not reach 4.5 without turning brown.
-        // Today: filled gold, white numeral (owner, 2026-09-07). `data-today`
-        // above is already false whenever the day is also selected, so the blue
-        // never has to fight the gold.
-        //
-        // **Below AA, knowingly.** White on `--gold` measures 2.20:1 and needs
-        // 4.5; the gold would have to go to #a6560a — a burnt orange, not this
-        // palette — to get there. `text-foreground` on the same fill reads 9:1
-        // and is the one-word change if it ever matters.
-        'data-[today=true]:rounded-full data-[today=true]:bg-gold data-[today=true]:font-semibold data-[today=true]:text-white',
+        // It was a filled gold circle, which put today and the selected day in
+        // the same shape at the same size, so only hue told them apart and at a
+        // glance neither read as one thing rather than the other. Shape is the
+        // faster distinction: a fill means «you picked this», a mark under the
+        // number means «this is today», and the two can be true at once without
+        // either being overpainted.
+        'data-[today=true]:font-semibold',
 
         'dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70',
         defaultClassNames.day,
         className
       )}
       {...props}
-    />
+    >
+      {children}
+      {modifiers.today && (
+        // Absolutely placed, not a third flex row: the cell is 28px and the
+        // numeral is centred in it, so a dot in the flow would push the number
+        // off-centre on one day of the month and nowhere else.
+        //
+        // An `<i>`, not a `<span>` — the button carries `[&>span]:opacity-70`
+        // for the label react-day-picker puts under a day in some modes, and a
+        // parent's child-selector outranks any `opacity` class the dot sets on
+        // itself. Choosing a different element sidesteps that rather than
+        // fighting it.
+        //
+        // `bg-gold` reads on all three grounds it can land on: the white cell,
+        // the pale `brand/12` band inside a range, and the solid brand fill of
+        // a chosen day.
+        <i
+          aria-hidden
+          className="pointer-events-none absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-gold"
+        />
+      )}
+    </Button>
   );
 }
 
