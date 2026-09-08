@@ -181,33 +181,50 @@ function ComboboxInput({
           className={cn(
             fieldSurface('default'),
             'flex',
-            showClear ? 'pr-14' : 'pr-8',
+            // 8px of inset plus each 16px glyph plus the 4px between them.
+            showClear ? 'pr-12' : 'pr-8',
             'focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-50'
           )}
         />
-        {showClear && (
-          <button
-            type="button"
-            aria-label="Очистити"
-            // `onMouseDown` with preventDefault, like ComboboxItem: a plain
-            // click fires after the input's focus handler has already reopened
-            // the popover, so the field cleared and then flew open again.
-            onMouseDown={(e) => {
-              e.preventDefault();
-              select('');
-            }}
-            className="absolute top-2 right-8 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <X className="size-4" />
-          </button>
-        )}
-        <ChevronDown
-          className={cn(
-            'pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground transition-transform duration-150',
-            open && 'rotate-180'
+        {/* Both glyphs in ONE centred row, matching `DateInput`.
+
+            They were placed separately, each with its own `top-*` and `right-*`
+            — so the distance between them was a subtraction done by hand, and
+            `top-2.5` is 10px against the 8px that actually centres a 16px icon
+            in an `h-8` field. Both sat two pixels low. `inset-y-0` +
+            `items-center` centres them against whatever the field is, and `gap`
+            sets the distance once.
+
+            The row ignores the pointer so it cannot cover the input under it;
+            the × takes it back for itself. */}
+        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1">
+          {showClear && (
+            <button
+              type="button"
+              aria-label="Очистити"
+              // `onMouseDown` with preventDefault, like ComboboxItem: a plain
+              // click fires after the input's focus handler has already reopened
+              // the popover, so the field cleared and then flew open again.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                select('');
+              }}
+              // `p-1 -m-1` — a 24px hit target around a 16px glyph, with the
+              // negative margin taking the padding back out of the layout, so
+              // both icons stay the same size and the same distance apart.
+              className="pointer-events-auto -m-1 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <X className="size-4" />
+            </button>
           )}
-        />
+          <ChevronDown
+            className={cn(
+              'size-4 text-muted-foreground transition-transform duration-150',
+              open && 'rotate-180'
+            )}
+          />
+        </div>
       </div>
     </PopoverAnchor>
   );
