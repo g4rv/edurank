@@ -11,7 +11,7 @@ import { scrim } from './overlay';
  * `components/ui/alert-dialog`, which is the most-used component in this app
  * after the button itself (21 imports).
  *
- * Three changes, and they are the same three as `AuroraPopover`, because a
+ * Three changes, and they are the same three as `Popover`, because a
  * dialog is a card that happens to float:
  *
  * - **`bg-card`, not `bg-background`.** The page ground is not a surface; a
@@ -28,11 +28,11 @@ import { scrim } from './overlay';
  * irreversible without being destructive.
  */
 
-const AuroraAlertDialog = AlertDialogPrimitive.Root;
-const AuroraAlertDialogTrigger = AlertDialogPrimitive.Trigger;
-const AuroraAlertDialogPortal = AlertDialogPrimitive.Portal;
+const AlertDialog = AlertDialogPrimitive.Root;
+const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
+const AlertDialogPortal = AlertDialogPrimitive.Portal;
 
-function AuroraAlertDialogOverlay({
+function AlertDialogOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Overlay>) {
@@ -45,13 +45,13 @@ function AuroraAlertDialogOverlay({
   );
 }
 
-function AuroraAlertDialogContent({
+function AlertDialogContent({
   className,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
   return (
-    <AuroraAlertDialogPortal>
-      <AuroraAlertDialogOverlay />
+    <AlertDialogPortal>
+      <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(
@@ -62,11 +62,11 @@ function AuroraAlertDialogContent({
         )}
         {...props}
       />
-    </AuroraAlertDialogPortal>
+    </AlertDialogPortal>
   );
 }
 
-function AuroraAlertDialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
+function AlertDialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="alert-dialog-header"
@@ -76,7 +76,7 @@ function AuroraAlertDialogHeader({ className, ...props }: React.ComponentProps<'
   );
 }
 
-function AuroraAlertDialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
+function AlertDialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="alert-dialog-footer"
@@ -86,7 +86,7 @@ function AuroraAlertDialogFooter({ className, ...props }: React.ComponentProps<'
   );
 }
 
-function AuroraAlertDialogTitle({
+function AlertDialogTitle({
   className,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
@@ -99,7 +99,7 @@ function AuroraAlertDialogTitle({
   );
 }
 
-function AuroraAlertDialogDescription({
+function AlertDialogDescription({
   className,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Description>) {
@@ -112,7 +112,7 @@ function AuroraAlertDialogDescription({
   );
 }
 
-function AuroraAlertDialogAction({
+function AlertDialogAction({
   className,
   variant = 'destructive',
   ...props
@@ -127,7 +127,7 @@ function AuroraAlertDialogAction({
   );
 }
 
-function AuroraAlertDialogCancel({
+function AlertDialogCancel({
   className,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
@@ -140,13 +140,13 @@ function AuroraAlertDialogCancel({
 }
 
 export {
-  AuroraAlertDialog,
-  AuroraAlertDialogAction,
-  AuroraAlertDialogCancel,
-  AuroraAlertDialogContent,
-  AuroraAlertDialogDescription,
-  AuroraAlertDialogFooter,
-  AuroraAlertDialogHeader,
-  AuroraAlertDialogTitle,
-  AuroraAlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 };

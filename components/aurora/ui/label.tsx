@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
  * what anybody came to read, but two axes of de-emphasis at once made labels
  * vanish. See `docs/aurora.md`.
  */
-function AuroraLabel({ className, ...props }: React.ComponentProps<typeof LabelPrimitive.Root>) {
+function Label({ className, ...props }: React.ComponentProps<typeof LabelPrimitive.Root>) {
   return (
     <LabelPrimitive.Root
       data-slot="label"
@@ -29,4 +29,4 @@ function AuroraLabel({ className, ...props }: React.ComponentProps<typeof LabelP
   );
 }
 
-export { AuroraLabel };
+export { Label };

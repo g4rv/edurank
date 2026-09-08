@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Dialog as SheetPrimitive } from 'radix-ui';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AuroraButton } from './button';
+import { Button } from './button';
 import { scrim } from './overlay';
 
 /**
@@ -27,12 +27,12 @@ import { scrim } from './overlay';
  * sheet does.
  */
 
-const AuroraSheet = SheetPrimitive.Root;
-const AuroraSheetTrigger = SheetPrimitive.Trigger;
-const AuroraSheetClose = SheetPrimitive.Close;
-const AuroraSheetPortal = SheetPrimitive.Portal;
+const Sheet = SheetPrimitive.Root;
+const SheetTrigger = SheetPrimitive.Trigger;
+const SheetClose = SheetPrimitive.Close;
+const SheetPortal = SheetPrimitive.Portal;
 
-function AuroraSheetOverlay({
+function SheetOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
@@ -41,7 +41,7 @@ function AuroraSheetOverlay({
   );
 }
 
-function AuroraSheetContent({
+function SheetContent({
   className,
   children,
   side = 'right',
@@ -50,8 +50,8 @@ function AuroraSheetContent({
   side?: 'right' | 'left';
 }) {
   return (
-    <AuroraSheetPortal>
-      <AuroraSheetOverlay />
+    <SheetPortal>
+      <SheetOverlay />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
@@ -68,21 +68,21 @@ function AuroraSheetContent({
       >
         {children}
         <SheetPrimitive.Close asChild>
-          <AuroraButton
+          <Button
             variant="ghost"
             size="icon-sm"
             aria-label="Закрити"
             className="absolute top-4 right-4 text-muted-foreground hover:text-destructive"
           >
             <X />
-          </AuroraButton>
+          </Button>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
-    </AuroraSheetPortal>
+    </SheetPortal>
   );
 }
 
-function AuroraSheetHeader({ className, ...props }: React.ComponentProps<'div'>) {
+function SheetHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="sheet-header"
@@ -92,7 +92,7 @@ function AuroraSheetHeader({ className, ...props }: React.ComponentProps<'div'>)
   );
 }
 
-function AuroraSheetFooter({ className, ...props }: React.ComponentProps<'div'>) {
+function SheetFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="sheet-footer"
@@ -102,10 +102,7 @@ function AuroraSheetFooter({ className, ...props }: React.ComponentProps<'div'>)
   );
 }
 
-function AuroraSheetTitle({
-  className,
-  ...props
-}: React.ComponentProps<typeof SheetPrimitive.Title>) {
+function SheetTitle({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Title>) {
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
@@ -115,7 +112,7 @@ function AuroraSheetTitle({
   );
 }
 
-function AuroraSheetDescription({
+function SheetDescription({
   className,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Description>) {
@@ -129,12 +126,12 @@ function AuroraSheetDescription({
 }
 
 export {
-  AuroraSheet,
-  AuroraSheetClose,
-  AuroraSheetContent,
-  AuroraSheetDescription,
-  AuroraSheetFooter,
-  AuroraSheetHeader,
-  AuroraSheetTitle,
-  AuroraSheetTrigger,
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
 };

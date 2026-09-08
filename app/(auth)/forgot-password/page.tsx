@@ -7,7 +7,7 @@ import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toast } from 'sonner';
 import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
-import { AuroraButton } from '@/components/aurora/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { EmailInput } from '@/components/aurora/ui/email-input';
 import { forgotPasswordSchema, type ForgotPasswordSchema } from '@/validations/account';
 import { RequiredFields } from '@/components/ui/required-fields';
@@ -69,9 +69,9 @@ export default function ForgotPasswordPage() {
                   <EmailInput id="email" size="lg" disabled={isPending} {...register('email')} />
                 </FormField>
               </FieldGroup>
-              <AuroraButton type="submit" size="xl" loading={isPending} className="w-full">
+              <Button type="submit" size="xl" loading={isPending} className="w-full">
                 {isPending ? 'Надсилання...' : 'Надіслати посилання'}
-              </AuroraButton>
+              </Button>
             </form>
           </RequiredFields>
         )}

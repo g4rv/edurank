@@ -4,7 +4,7 @@ import { Pencil, ArchiveX, ArchiveRestore } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
-import { AuroraButton } from '@/components/aurora/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { MockIdentityBand } from './mock-identity-band';
 import { MockAccountBar } from './mock-account-bar';
 import { StaffTabs } from '@/components/staff/staff-tabs';
@@ -75,17 +75,17 @@ export default async function StaffMockLayout({
                 somebody off the roster only invites confusion about why their
                 changes do not show up in the rating. */}
             {!archived && (
-              <AuroraButton asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm">
                 <Link href={`/staff-mock/${id}/edit`}>
                   <Pencil />
                   Редагувати
                 </Link>
-              </AuroraButton>
+              </Button>
             )}
-            <AuroraButton variant="outline" size="sm" disabled>
+            <Button variant="outline" size="sm" disabled>
               {archived ? <ArchiveRestore /> : <ArchiveX />}
               {archived ? 'Відновити' : 'Архівувати'}
-            </AuroraButton>
+            </Button>
           </>
         }
       />

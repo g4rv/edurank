@@ -12,7 +12,7 @@ import { fieldSurface } from './field-surface';
  * is symmetrical because text starts at the top rather than sitting on a
  * centre line.
  */
-function AuroraTextarea({ className, ...props }: React.ComponentProps<'textarea'>) {
+function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
   return (
     <textarea
       data-slot="textarea"
@@ -22,4 +22,4 @@ function AuroraTextarea({ className, ...props }: React.ComponentProps<'textarea'
   );
 }
 
-export { AuroraTextarea };
+export { Textarea };

@@ -36,7 +36,7 @@ import { fieldSurfaceInner, fieldSurfaceWrapper, type FieldSize } from './field-
  * the surface and the ring follows the input inside it, so the whole control
  * lights up rather than just the text.
  */
-export function AuroraTelInput({
+export function TelInput({
   value,
   onChange,
   disabled,

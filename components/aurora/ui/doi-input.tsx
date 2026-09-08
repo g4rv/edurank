@@ -9,7 +9,7 @@ import { fieldSurface, type FieldSize } from './field-surface';
 /**
  * «Аврора»'s DOI field — a drop-in replacement for `components/ui/doi-input`.
  *
- * Uncontrolled like `AuroraIsbnInput`, so `{...register(name)}` keeps working.
+ * Uncontrolled like `IsbnInput`, so `{...register(name)}` keeps working.
  * A pasted doi.org link is accepted as-is: `normalizeDoi` strips the resolver
  * prefix when the value is read, so nobody has to edit what they copied out of
  * the publisher's page.
@@ -21,7 +21,7 @@ import { fieldSurface, type FieldSize } from './field-surface';
  * takes `--brand` here: `docs/aurora.md` §3 puts a link in the accent, and this
  * one is an invitation to leave the form, which is worth marking.
  */
-const AuroraDoiInput = forwardRef<
+const DoiInput = forwardRef<
   HTMLInputElement,
   Omit<React.ComponentProps<'input'>, 'type' | 'size'> & {
     defaultValue?: string;
@@ -92,6 +92,6 @@ const AuroraDoiInput = forwardRef<
   );
 });
 
-AuroraDoiInput.displayName = 'AuroraDoiInput';
+DoiInput.displayName = 'DoiInput';
 
-export { AuroraDoiInput };
+export { DoiInput };

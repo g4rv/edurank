@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
  * left off IS an error, and `aria-invalid` used to be passed in and styled
  * nowhere, so it looked identical to «off».
  */
-function AuroraSwitch({ className, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
+function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
   return (
     <SwitchPrimitive.Root
       data-slot="switch"
@@ -38,4 +38,4 @@ function AuroraSwitch({ className, ...props }: React.ComponentProps<typeof Switc
   );
 }
 
-export { AuroraSwitch };
+export { Switch };

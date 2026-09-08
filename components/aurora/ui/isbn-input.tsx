@@ -11,7 +11,7 @@ import { ISBN_MASK, MaskGhost } from './mask-ghost';
  * «Аврора»'s ISBN field — a drop-in replacement for
  * `components/ui/isbn-input`.
  *
- * **Uncontrolled, like `AuroraPassInput` and unlike `AuroraTelInput`**, so
+ * **Uncontrolled, like `PassInput` and unlike `TelInput`**, so
  * `{...register(name)}` keeps working. The mirrored state exists only to drive
  * the hint; nothing is rewritten as the user types, because hyphenation styles
  * differ between publishers — the entered form is kept and the checksum simply
@@ -23,7 +23,7 @@ import { ISBN_MASK, MaskGhost } from './mask-ghost';
  *
  * The tick sits INSIDE the field rather than beside it, so the surface is
  * `fieldSurface()` on the input itself — the wrapper helper is for controls
- * like `AuroraTelInput` that print something to the left of the value.
+ * like `TelInput` that print something to the left of the value.
  *
  * **The mask is drawn, and it is a hint about LENGTH only.** `___-_-__-______-_`
  * shows thirteen digits and roughly where the breaks fall, replacing a
@@ -35,7 +35,7 @@ import { ISBN_MASK, MaskGhost } from './mask-ghost';
  * whatever is typed and never rewrites it — see `ISBN_MASK`. The example moved
  * into the hint line, where it survives being typed over.
  */
-const AuroraIsbnInput = forwardRef<
+const IsbnInput = forwardRef<
   HTMLInputElement,
   Omit<React.ComponentProps<'input'>, 'type' | 'size'> & {
     defaultValue?: string;
@@ -107,6 +107,6 @@ const AuroraIsbnInput = forwardRef<
   );
 });
 
-AuroraIsbnInput.displayName = 'AuroraIsbnInput';
+IsbnInput.displayName = 'IsbnInput';
 
-export { AuroraIsbnInput };
+export { IsbnInput };

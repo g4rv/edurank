@@ -1,4 +1,4 @@
-import { AuroraInput } from './input';
+import { Input } from './input';
 
 /**
  * An email address, with the rules of one attached to it.
@@ -17,7 +17,7 @@ import { AuroraInput } from './input';
  * the first letter or «fix» an unfamiliar domain as it is typed.
  * `Петренко@uhsp.edu.ua` then fails to sign in with «невірний email або
  * пароль», which says nothing about the real cause. This is the same class of
- * failure already documented on `AuroraPassInput`, and the same three
+ * failure already documented on `PassInput`, and the same three
  * attributes close it.
  *
  * **Whitespace needs no handling here, and was measured rather than assumed.**
@@ -34,7 +34,7 @@ export function EmailInput(
   props: Omit<React.ComponentProps<'input'>, 'type' | 'size'> & { size?: 'default' | 'lg' }
 ) {
   return (
-    <AuroraInput
+    <Input
       type="email"
       inputMode="email"
       autoComplete="email"

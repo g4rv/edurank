@@ -25,14 +25,11 @@ import { listLabel, listPanel, listRow, listRowCheck, listRowSelectedState } fro
  */
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from 'lucide-react';
 
-function AuroraSelect({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
+function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />;
 }
 
-function AuroraSelectGroup({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Group>) {
+function SelectGroup({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Group>) {
   return (
     <SelectPrimitive.Group
       data-slot="select-group"
@@ -42,11 +39,11 @@ function AuroraSelectGroup({
   );
 }
 
-function AuroraSelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.Value>) {
+function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.Value>) {
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
-function AuroraSelectTrigger({
+function SelectTrigger({
   className,
   size = 'default',
   children,
@@ -80,7 +77,7 @@ function AuroraSelectTrigger({
   );
 }
 
-function AuroraSelectContent({
+function SelectContent({
   className,
   children,
   // Drops below the trigger, like the combobox — NOT Radix's `item-aligned`
@@ -109,7 +106,7 @@ function AuroraSelectContent({
         sideOffset={sideOffset}
         {...props}
       >
-        <AuroraSelectScrollUpButton />
+        <SelectScrollUpButton />
         <SelectPrimitive.Viewport
           data-position={position}
           className={cn(
@@ -120,16 +117,13 @@ function AuroraSelectContent({
         >
           {children}
         </SelectPrimitive.Viewport>
-        <AuroraSelectScrollDownButton />
+        <SelectScrollDownButton />
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );
 }
 
-function AuroraSelectLabel({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Label>) {
+function SelectLabel({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Label>) {
   return (
     <SelectPrimitive.Label
       data-slot="select-label"
@@ -139,7 +133,7 @@ function AuroraSelectLabel({
   );
 }
 
-function AuroraSelectItem({
+function SelectItem({
   className,
   children,
   ...props
@@ -162,7 +156,7 @@ function AuroraSelectItem({
   );
 }
 
-function AuroraSelectSeparator({
+function SelectSeparator({
   className,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Separator>) {
@@ -175,7 +169,7 @@ function AuroraSelectSeparator({
   );
 }
 
-function AuroraSelectScrollUpButton({
+function SelectScrollUpButton({
   className,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
@@ -193,7 +187,7 @@ function AuroraSelectScrollUpButton({
   );
 }
 
-function AuroraSelectScrollDownButton({
+function SelectScrollDownButton({
   className,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
@@ -212,20 +206,20 @@ function AuroraSelectScrollDownButton({
 }
 
 /**
- * Prefixed like `AuroraButton` and `AuroraInput`, so a screen part-way through
+ * Prefixed like `Button` and `Input`, so a screen part-way through
  * the migration can hold both an Аврора select and a shadcn one without a name
  * collision. When `ui/select` is finally replaced this becomes a find-and-
  * replace of the prefix, which is the cheap half of that job.
  */
 export {
-  AuroraSelect,
-  AuroraSelectContent,
-  AuroraSelectGroup,
-  AuroraSelectItem,
-  AuroraSelectLabel,
-  AuroraSelectScrollDownButton,
-  AuroraSelectScrollUpButton,
-  AuroraSelectSeparator,
-  AuroraSelectTrigger,
-  AuroraSelectValue,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
 };

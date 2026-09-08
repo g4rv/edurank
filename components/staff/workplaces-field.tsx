@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { DepartmentCombobox } from '@/components/department-combobox';
 import { FormField } from '@/components/ui/form-field';
-import { AuroraSwitch } from '@/components/aurora/ui/switch';
+import { Switch } from '@/components/aurora/ui/switch';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
 import { toStorage, toWorkplaces, workplaceProblem, type Workplace } from '@/lib/staff/workplaces';
@@ -207,7 +207,7 @@ export function WorkplacesField({
                     misaligned, because the eye lines up centres (owner,
                     2026-09-07). */}
                 <span className={ROW_CONTROL + ' justify-center'}>
-                  <AuroraSwitch
+                  <Switch
                     checked={!row.isPartTime}
                     onCheckedChange={(next) => replace(index, { ...row, isPartTime: !next })}
                     // Flipping this rewrites `departmentId` AND

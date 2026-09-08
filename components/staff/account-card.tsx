@@ -16,26 +16,26 @@ import {
   type AccountActionState,
 } from '@/app/(dashboard)/staff/[id]/actions';
 import {
-  AuroraAlertDialog as AlertDialog,
-  AuroraAlertDialogAction as AlertDialogAction,
-  AuroraAlertDialogCancel as AlertDialogCancel,
-  AuroraAlertDialogContent as AlertDialogContent,
-  AuroraAlertDialogDescription as AlertDialogDescription,
-  AuroraAlertDialogFooter as AlertDialogFooter,
-  AuroraAlertDialogHeader as AlertDialogHeader,
-  AuroraAlertDialogTitle as AlertDialogTitle,
-  AuroraAlertDialogTrigger as AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/aurora/ui/alert-dialog';
-import { AuroraButton as Button } from '@/components/aurora/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { FormField } from '@/components/ui/form-field';
-import { AuroraPassInput as PassInput } from '@/components/aurora/ui/pass-input';
+import { PassInput } from '@/components/aurora/ui/pass-input';
 import { PasswordRules } from '@/components/ui/password-rules';
 import {
-  AuroraSelect as Select,
-  AuroraSelectContent as SelectContent,
-  AuroraSelectItem as SelectItem,
-  AuroraSelectTrigger as SelectTrigger,
-  AuroraSelectValue as SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/aurora/ui/select';
 import { ROLE_LABELS } from '@/lib/labels';
 import { setPasswordSchema, type SetPasswordSchema } from '@/validations/account';

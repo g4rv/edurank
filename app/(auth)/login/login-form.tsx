@@ -7,9 +7,9 @@ import { useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { FieldError, FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
-import { AuroraButton } from '@/components/aurora/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { EmailInput } from '@/components/aurora/ui/email-input';
-import { AuroraPassInput } from '@/components/aurora/ui/pass-input';
+import { PassInput } from '@/components/aurora/ui/pass-input';
 import { loginSchema, type LoginSchema } from '@/validations/login';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { Logo } from '@/components/aurora/logo';
@@ -62,7 +62,7 @@ export function LoginForm() {
               </FormField>
 
               <FormField htmlFor="password" label="Пароль" error={errors.password}>
-                <AuroraPassInput
+                <PassInput
                   id="password"
                   size="lg"
                   autoComplete="current-password"
@@ -74,9 +74,9 @@ export function LoginForm() {
 
             {errors.root?.message && <FieldError errors={[{ message: errors.root.message }]} />}
 
-            <AuroraButton type="submit" size="xl" loading={isPending} className="w-full">
+            <Button type="submit" size="xl" loading={isPending} className="w-full">
               {isPending ? 'Вхід...' : 'Увійти'}
-            </AuroraButton>
+            </Button>
           </form>
         </RequiredFields>
 

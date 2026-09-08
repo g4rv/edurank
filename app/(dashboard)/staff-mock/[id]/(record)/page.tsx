@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { ProfileDetails } from '@/components/staff/profile/profile-details';
-import { AuroraButton } from '@/components/aurora/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { MOCK_STAFF, MOCK_STAKE_PARTS } from '@/app/(dashboard)/_mock/staff';
 
 /**
@@ -78,12 +78,12 @@ function ViewAs({ id, asAdmin }: { id: string; asAdmin: boolean }) {
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed px-4 py-2.5 text-sm">
       <span className="text-muted-foreground">Макет — показано як:</span>
 
-      <AuroraButton asChild size="xs" variant={asAdmin ? 'default' : 'ghost'}>
+      <Button asChild size="xs" variant={asAdmin ? 'default' : 'ghost'}>
         <Link href={`/staff-mock/${id}?as=admin`}>Адміністратор</Link>
-      </AuroraButton>
-      <AuroraButton asChild size="xs" variant={asAdmin ? 'ghost' : 'default'}>
+      </Button>
+      <Button asChild size="xs" variant={asAdmin ? 'ghost' : 'default'}>
         <Link href={`/staff-mock/${id}`}>Редактор</Link>
-      </AuroraButton>
+      </Button>
 
       <span className="ml-auto text-xs text-muted-foreground">
         {asAdmin

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AuroraButton } from '@/components/aurora/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { AuroraWash } from '@/components/ui/aurora-wash';
 
 /**
@@ -28,9 +28,9 @@ export default function NotFound() {
         <p className="mt-2 text-sm text-muted-foreground">
           Можливо, адресу введено з помилкою або сторінку перенесено.
         </p>
-        <AuroraButton asChild size="xl" className="mt-6">
+        <Button asChild size="xl" className="mt-6">
           <Link href="/">На головну</Link>
-        </AuroraButton>
+        </Button>
       </div>
     </main>
   );

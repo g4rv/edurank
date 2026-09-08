@@ -18,7 +18,7 @@ import { fieldSurface, type FieldSize } from './field-surface';
  * Everything visual comes from `fieldSurface()` so that all fourteen controls
  * share one definition — see the note there.
  */
-function AuroraInput({
+function Input({
   className,
   type,
   size = 'default',
@@ -39,4 +39,4 @@ function AuroraInput({
   );
 }
 
-export { AuroraInput };
+export { Input };

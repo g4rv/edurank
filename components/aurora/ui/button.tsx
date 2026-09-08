@@ -79,7 +79,7 @@ const auroraButtonVariants = cva(
   }
 );
 
-function AuroraButton({
+function Button({
   className,
   variant = 'default',
   size = 'default',
@@ -120,4 +120,4 @@ function AuroraButton({
   );
 }
 
-export { AuroraButton, auroraButtonVariants };
+export { Button, auroraButtonVariants };

@@ -17,16 +17,16 @@ import { FieldGroup } from '@/components/ui/field';
 // `OrcidInput` hardcoded `h-9`, and the select had its own — so «Телефон» stood
 // 4px taller than «Тип» beside it and the rows never lined up (owner,
 // 2026-09-07). All of these take their size from `fieldSurface()`.
-import { AuroraInput as Input } from '@/components/aurora/ui/input';
-import { AuroraTelInput as TelInput } from '@/components/aurora/ui/tel-input';
-import { AuroraOrcidInput as OrcidInput } from '@/components/aurora/ui/orcid-input';
+import { Input } from '@/components/aurora/ui/input';
+import { TelInput } from '@/components/aurora/ui/tel-input';
+import { OrcidInput } from '@/components/aurora/ui/orcid-input';
 import { EmailInput } from '@/components/aurora/ui/email-input';
 import {
-  AuroraSelect as Select,
-  AuroraSelectContent as SelectContent,
-  AuroraSelectItem as SelectItem,
-  AuroraSelectTrigger as SelectTrigger,
-  AuroraSelectValue as SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/aurora/ui/select';
 import { ADMIN_POSITION_LABELS } from '@/lib/labels';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';

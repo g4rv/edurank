@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Paperclip, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AuroraButton } from './button';
+import { Button } from './button';
 import type { FieldSize } from './field-surface';
 
 /**
@@ -39,7 +39,7 @@ import type { FieldSize } from './field-surface';
  * `accept` is a hint to the picker, never a guarantee — the server re-checks
  * the file whatever this says.
  */
-export function AuroraFileInput({
+export function FileInput({
   id,
   accept,
   disabled,
@@ -80,7 +80,7 @@ export function AuroraFileInput({
         onChange={(e) => onChange(e.target.files?.[0] ?? null)}
       />
 
-      <AuroraButton
+      <Button
         type="button"
         variant="outline"
         size={lg ? 'default' : 'sm'}
@@ -90,7 +90,7 @@ export function AuroraFileInput({
       >
         <Paperclip />
         {value ? 'Інший файл' : 'Обрати файл'}
-      </AuroraButton>
+      </Button>
 
       {value ? (
         <span
@@ -103,7 +103,7 @@ export function AuroraFileInput({
           <span className="truncate" title={value.name}>
             {value.name}
           </span>
-          <AuroraButton
+          <Button
             type="button"
             variant="ghost"
             size={lg ? 'icon-sm' : 'icon-xs'}
@@ -113,7 +113,7 @@ export function AuroraFileInput({
             className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           >
             <X />
-          </AuroraButton>
+          </Button>
         </span>
       ) : (
         <span

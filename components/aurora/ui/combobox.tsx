@@ -64,7 +64,7 @@ interface ComboboxProps<T> {
   children: React.ReactNode;
 }
 
-function AuroraCombobox<T>({
+function Combobox<T>({
   items,
   value = '',
   onChange,
@@ -140,7 +140,7 @@ interface ComboboxInputProps {
   clearable?: boolean;
 }
 
-function AuroraComboboxInput({
+function ComboboxInput({
   placeholder = '—',
   disabled: disabledProp,
   className,
@@ -215,7 +215,7 @@ function AuroraComboboxInput({
 
 // ─── ComboboxContent ──────────────────────────────────────────────────────────
 
-function AuroraComboboxContent({
+function ComboboxContent({
   children,
   className,
 }: {
@@ -239,7 +239,7 @@ function AuroraComboboxContent({
 
 // ─── ComboboxEmpty ────────────────────────────────────────────────────────────
 
-function AuroraComboboxEmpty({ children }: { children: React.ReactNode }) {
+function ComboboxEmpty({ children }: { children: React.ReactNode }) {
   const { filteredItems } = useCombobox();
   if (filteredItems.length > 0) return null;
   return <div className={listEmpty}>{children}</div>;
@@ -252,7 +252,7 @@ interface ComboboxListProps<T> {
   className?: string;
 }
 
-function AuroraComboboxList<T>({ children, className }: ComboboxListProps<T>) {
+function ComboboxList<T>({ children, className }: ComboboxListProps<T>) {
   const { filteredItems } = useCombobox();
   if (filteredItems.length === 0) return null;
   return (
@@ -278,7 +278,7 @@ interface ComboboxItemProps {
   className?: string;
 }
 
-function AuroraComboboxItem({ value: itemValue, children, className }: ComboboxItemProps) {
+function ComboboxItem({ value: itemValue, children, className }: ComboboxItemProps) {
   const { value, select } = useCombobox();
   const isSelected = value === itemValue;
 
@@ -302,11 +302,4 @@ function AuroraComboboxItem({ value: itemValue, children, className }: ComboboxI
   );
 }
 
-export {
-  AuroraCombobox,
-  AuroraComboboxContent,
-  AuroraComboboxEmpty,
-  AuroraComboboxInput,
-  AuroraComboboxItem,
-  AuroraComboboxList,
-};
+export { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList };

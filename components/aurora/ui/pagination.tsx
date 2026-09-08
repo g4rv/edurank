@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AuroraButton } from './button';
+import { Button } from './button';
 import { pageItems } from '@/components/ui/pagination';
 
 /**
@@ -37,14 +37,7 @@ type Props = {
   className?: string;
 };
 
-export function AuroraPagination({
-  page,
-  totalPages,
-  hrefFor,
-  onPageChange,
-  summary,
-  className,
-}: Props) {
+export function Pagination({ page, totalPages, hrefFor, onPageChange, summary, className }: Props) {
   if (totalPages <= 1) return null;
 
   const items = pageItems(page, totalPages);
@@ -115,7 +108,7 @@ function PageButton({ to, active, hrefFor, onPageChange }: NavProps & { active: 
 
   if (hrefFor) {
     return (
-      <AuroraButton
+      <Button
         variant="ghost"
         size="sm"
         asChild
@@ -123,12 +116,12 @@ function PageButton({ to, active, hrefFor, onPageChange }: NavProps & { active: 
         aria-current={active ? 'page' : undefined}
       >
         <Link href={hrefFor(to)}>{to}</Link>
-      </AuroraButton>
+      </Button>
     );
   }
 
   return (
-    <AuroraButton
+    <Button
       type="button"
       variant="ghost"
       size="sm"
@@ -137,7 +130,7 @@ function PageButton({ to, active, hrefFor, onPageChange }: NavProps & { active: 
       onClick={() => onPageChange?.(to)}
     >
       {to}
-    </AuroraButton>
+    </Button>
   );
 }
 
@@ -156,16 +149,16 @@ function Step({
   // tab order.
   if (hrefFor && !disabled) {
     return (
-      <AuroraButton variant="ghost" size="sm" asChild className={className}>
+      <Button variant="ghost" size="sm" asChild className={className}>
         <Link href={hrefFor(to)} aria-label={label}>
           {children}
         </Link>
-      </AuroraButton>
+      </Button>
     );
   }
 
   return (
-    <AuroraButton
+    <Button
       type="button"
       variant="ghost"
       size="sm"
@@ -175,6 +168,6 @@ function Step({
       onClick={disabled ? undefined : () => onPageChange?.(to)}
     >
       {children}
-    </AuroraButton>
+    </Button>
   );
 }

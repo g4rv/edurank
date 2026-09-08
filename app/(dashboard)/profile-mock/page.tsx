@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Pencil, ArchiveX, ArchiveRestore } from 'lucide-react';
 import { auth } from '@/lib/auth';
-import { AuroraButton } from '@/components/aurora/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { StaffProfileView } from '@/components/staff/profile/staff-profile-view';
 import { RatingBars } from '@/components/staff/profile/rating-bars';
 import { fullName } from '@/components/staff/profile/primitives';
@@ -72,12 +72,12 @@ export default async function ProfileMockPage() {
           canFillOwn
           showEmpty
           actions={
-            <AuroraButton asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm">
               <Link href="/profile/edit">
                 <Pencil />
                 Редагувати
               </Link>
-            </AuroraButton>
+            </Button>
           }
           rating={bars('/achievements', 'Мій рейтинг')}
         />
@@ -93,16 +93,16 @@ export default async function ProfileMockPage() {
           showEmpty
           actions={
             <>
-              <AuroraButton asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm">
                 <Link href="/staff/mock-full/edit">
                   <Pencil />
                   Редагувати
                 </Link>
-              </AuroraButton>
-              <AuroraButton variant="outline" size="sm" disabled>
+              </Button>
+              <Button variant="outline" size="sm" disabled>
                 <ArchiveX />
                 Архівувати
-              </AuroraButton>
+              </Button>
             </>
           }
           rating={bars('/staff/mock-full/rating', 'Рейтинг')}
@@ -118,12 +118,12 @@ export default async function ProfileMockPage() {
           editHref="/profile/edit"
           canFillOwn
           actions={
-            <AuroraButton asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm">
               <Link href="/profile/edit">
                 <Pencil />
                 Редагувати
               </Link>
-            </AuroraButton>
+            </Button>
           }
           rating={<RatingBars year={MOCK_YEAR} sections={[0, 0, 0, 0, 0]} total={0} />}
         />
@@ -137,10 +137,10 @@ export default async function ProfileMockPage() {
           stakeParts={[]}
           editHref="/staff/mock-archived/edit"
           actions={
-            <AuroraButton variant="outline" size="sm" disabled>
+            <Button variant="outline" size="sm" disabled>
               <ArchiveRestore />
               Відновити
-            </AuroraButton>
+            </Button>
           }
         />
       </Section>

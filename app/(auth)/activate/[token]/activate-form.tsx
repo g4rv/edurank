@@ -6,8 +6,8 @@ import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toast } from 'sonner';
 import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
-import { AuroraButton } from '@/components/aurora/ui/button';
-import { AuroraPassInput } from '@/components/aurora/ui/pass-input';
+import { Button } from '@/components/aurora/ui/button';
+import { PassInput } from '@/components/aurora/ui/pass-input';
 import { PasswordRules } from '@/components/ui/password-rules';
 import { setPasswordSchema, type SetPasswordSchema } from '@/validations/account';
 import { RequiredFields } from '@/components/ui/required-fields';
@@ -63,7 +63,7 @@ export function ActivateForm({
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <FieldGroup className="flex flex-col gap-4">
               <FormField htmlFor="password" label="Новий пароль" error={errors.password}>
-                <AuroraPassInput
+                <PassInput
                   id="password"
                   size="lg"
                   autoComplete="new-password"
@@ -80,7 +80,7 @@ export function ActivateForm({
                 label="Повторіть пароль"
                 error={errors.confirmPassword}
               >
-                <AuroraPassInput
+                <PassInput
                   id="confirmPassword"
                   size="lg"
                   autoComplete="new-password"
@@ -90,9 +90,9 @@ export function ActivateForm({
               </FormField>
             </FieldGroup>
 
-            <AuroraButton type="submit" size="xl" loading={isPending} className="w-full">
+            <Button type="submit" size="xl" loading={isPending} className="w-full">
               {isPending ? 'Збереження...' : 'Встановити пароль і увійти'}
-            </AuroraButton>
+            </Button>
           </form>
         </RequiredFields>
       </div>

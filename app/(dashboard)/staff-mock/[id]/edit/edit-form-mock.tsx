@@ -11,7 +11,7 @@ import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
 import type { StakePart } from '@/lib/queries/get-stake-breakdown';
 import { RequiredFields } from '@/components/ui/required-fields';
-import { AuroraButton } from '@/components/aurora/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { Card } from '@/components/aurora/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { fullName } from '@/components/staff/profile/primitives';
@@ -101,16 +101,16 @@ export function EditFormMock({
                 «Збережено» for a write that changed no column — which is the
                 same lie the form used to tell an editor whose grants dropped
                 every field they had edited. */}
-            <AuroraButton type="submit" disabled={!isDirty}>
+            <Button type="submit" disabled={!isDirty}>
               Зберегти
-            </AuroraButton>
+            </Button>
             {/* «Скасувати» is NEVER disabled. It is the way out of this screen,
                 and «no changes yet» is exactly when somebody is most likely to
                 be leaving. Disabling it would take the exit away at the one
                 moment it costs nothing to use. */}
-            <AuroraButton asChild variant="outline">
+            <Button asChild variant="outline">
               <Link href={`/staff-mock/${staff.id}`}>Скасувати</Link>
-            </AuroraButton>
+            </Button>
           </div>
         </Card>
 

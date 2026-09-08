@@ -14,7 +14,7 @@ import { MaskGhost, ORCID_MASK } from './mask-ghost';
  * `0000000218250097` and `0000-0002-1825-0097` cannot both end up in the
  * column; a pasted `https://orcid.org/…` address is reduced to the identifier;
  * a partial survives the round trip, for the reason spelled out on
- * `AuroraTelInput`.
+ * `TelInput`.
  *
  * The tick is a real check, not a length — an ORCID carries an ISO 7064 check
  * digit — so the error only ever means «the digits do not add up». The mask has
@@ -30,7 +30,7 @@ import { MaskGhost, ORCID_MASK } from './mask-ghost';
  *   because the wrapper carries `aria-invalid` itself — before, an ORCID whose
  *   checksum failed changed one hairline and nothing else.
  */
-export function AuroraOrcidInput({
+export function OrcidInput({
   value,
   onChange,
   disabled,

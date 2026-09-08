@@ -36,10 +36,7 @@ import { cn } from '@/lib/utils';
  * select-all appears; drawing it before then is a state nobody can reach and
  * one more thing to keep working.
  */
-function AuroraCheckbox({
-  className,
-  ...props
-}: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
   return (
     <CheckboxPrimitive.Root
       data-slot="checkbox"
@@ -64,4 +61,4 @@ function AuroraCheckbox({
   );
 }
 
-export { AuroraCheckbox };
+export { Checkbox };

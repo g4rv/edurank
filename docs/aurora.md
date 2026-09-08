@@ -423,6 +423,33 @@ Two consequences, both practical:
   commit.** Moving it alone leaves the original copy in place, which is how
   three cards happen.
 
+### A name says what a thing is, never when it was written
+
+The same mistake, one level up, and it caught us the same week.
+
+Every control in `components/aurora/ui/` was exported as `AuroraButton`,
+`AuroraInput`, `AuroraSelect` — 62 identifiers. The prefix existed to solve **one
+file's** problem: `/admin/controls/gallery.tsx` imports both sets side by side to
+compare them, and two `Button`s cannot live in one module.
+
+So one file's collision renamed 62 exports that every other file imports. And the
+rule it created was accidental, not chosen: `Card`, `EmailInput` and `Fields`
+have **no** prefix, because no shadcn component of that name existed to collide
+with. «Prefixed if an old one happens to exist» is a fact about the transition,
+written permanently into the export names.
+
+**A collision belongs to the importer.** The gallery aliases the legacy side —
+`import { Button as LegacyButton } from '@/components/ui/button'` — because the
+legacy side is the temporary one. Everything else imports `Button`.
+
+These are the app's controls. When the old set goes, nothing is renamed: the
+re-point is a path change, and a path change is what `components/ui/*` can absorb
+by re-exporting. Had the prefix stayed, every one of those sites would have
+needed an edit, and there would be several hundred by then instead of 46.
+
+`AuroraWash` keeps its name. That one is named **after the design** — it paints
+the wash §1 describes — not after a component it had to avoid.
+
 **Screen-scoped commits are what hides this.** «Rebuild the profile» and
 «rebuild the form» each look complete on their own, and inside either one the
 local helper keeps the diff small and reviewable. Reaching into a shared file

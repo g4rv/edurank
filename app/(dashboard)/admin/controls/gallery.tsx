@@ -4,22 +4,83 @@ import { useState } from 'react';
 import type { DateRange } from 'react-day-picker';
 
 // what is in the app today
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { PassInput } from '@/components/ui/pass-input';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { Button as LegacyButton } from '@/components/ui/button';
+import { Input as LegacyInput } from '@/components/ui/input';
+import { PassInput as LegacyPassInput } from '@/components/ui/pass-input';
+import { Textarea as LegacyTextarea } from '@/components/ui/textarea';
+import { Switch as LegacySwitch } from '@/components/ui/switch';
+import { Label as LegacyLabel } from '@/components/ui/label';
+import {
+  Select as LegacySelect,
+  SelectContent as LegacySelectContent,
+  SelectItem as LegacySelectItem,
+  SelectTrigger as LegacySelectTrigger,
+  SelectValue as LegacySelectValue,
+} from '@/components/ui/select';
+import { Calendar as LegacyCalendar } from '@/components/ui/calendar';
+import {
+  Popover as LegacyPopover,
+  PopoverContent as LegacyPopoverContent,
+  PopoverTrigger as LegacyPopoverTrigger,
+} from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
+import {
+  Combobox as LegacyCombobox,
+  ComboboxContent as LegacyComboboxContent,
+  ComboboxEmpty as LegacyComboboxEmpty,
+  ComboboxInput as LegacyComboboxInput,
+  ComboboxItem as LegacyComboboxItem,
+  ComboboxList as LegacyComboboxList,
+} from '@/components/ui/combobox';
+import { TelInput as LegacyTelInput } from '@/components/ui/tel-input';
+import { OrcidInput as LegacyOrcidInput } from '@/components/ui/orcid-input';
+import { IsbnInput as LegacyIsbnInput } from '@/components/ui/isbn-input';
+import { DoiInput as LegacyDoiInput } from '@/components/ui/doi-input';
+import { FileInput as LegacyFileInput } from '@/components/ui/file-input';
+import { Pagination as LegacyPagination } from '@/components/ui/pagination';
+import {
+  AlertDialog as LegacyAlertDialog,
+  AlertDialogAction as LegacyAlertDialogAction,
+  AlertDialogCancel as LegacyAlertDialogCancel,
+  AlertDialogContent as LegacyAlertDialogContent,
+  AlertDialogDescription as LegacyAlertDialogDescription,
+  AlertDialogFooter as LegacyAlertDialogFooter,
+  AlertDialogHeader as LegacyAlertDialogHeader,
+  AlertDialogTitle as LegacyAlertDialogTitle,
+  AlertDialogTrigger as LegacyAlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Sheet as LegacySheet,
+  SheetContent as LegacySheetContent,
+  SheetDescription as LegacySheetDescription,
+  SheetHeader as LegacySheetHeader,
+  SheetTitle as LegacySheetTitle,
+  SheetTrigger as LegacySheetTrigger,
+} from '@/components/ui/sheet';
+import {
+  Tooltip as LegacyTooltip,
+  TooltipContent as LegacyTooltipContent,
+  TooltipProvider as LegacyTooltipProvider,
+  TooltipTrigger as LegacyTooltipTrigger,
+} from '@/components/ui/tooltip';
+
+// what replaces it
+import { Button } from '@/components/aurora/ui/button';
+import { Input } from '@/components/aurora/ui/input';
+import { PassInput } from '@/components/aurora/ui/pass-input';
+import { EmailInput } from '@/components/aurora/ui/email-input';
+import { Textarea } from '@/components/aurora/ui/textarea';
+import { Switch } from '@/components/aurora/ui/switch';
+import { Label } from '@/components/aurora/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+} from '@/components/aurora/ui/select';
+import { Calendar } from '@/components/aurora/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/aurora/ui/popover';
 import {
   Combobox,
   ComboboxContent,
@@ -27,13 +88,14 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from '@/components/ui/combobox';
-import { TelInput } from '@/components/ui/tel-input';
-import { OrcidInput } from '@/components/ui/orcid-input';
-import { IsbnInput } from '@/components/ui/isbn-input';
-import { DoiInput } from '@/components/ui/doi-input';
-import { FileInput } from '@/components/ui/file-input';
-import { Pagination } from '@/components/ui/pagination';
+} from '@/components/aurora/ui/combobox';
+import { TelInput } from '@/components/aurora/ui/tel-input';
+import { OrcidInput } from '@/components/aurora/ui/orcid-input';
+import { IsbnInput } from '@/components/aurora/ui/isbn-input';
+import { DoiInput } from '@/components/aurora/ui/doi-input';
+import { FileInput } from '@/components/aurora/ui/file-input';
+import { Checkbox } from '@/components/aurora/ui/checkbox';
+import { Pagination } from '@/components/aurora/ui/pagination';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +106,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import {
   Sheet,
   SheetContent,
@@ -52,69 +114,12 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@/components/ui/sheet';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-// what replaces it
-import { AuroraButton } from '@/components/aurora/ui/button';
-import { AuroraInput } from '@/components/aurora/ui/input';
-import { AuroraPassInput } from '@/components/aurora/ui/pass-input';
-import { EmailInput } from '@/components/aurora/ui/email-input';
-import { AuroraTextarea } from '@/components/aurora/ui/textarea';
-import { AuroraSwitch } from '@/components/aurora/ui/switch';
-import { AuroraLabel } from '@/components/aurora/ui/label';
-import {
-  AuroraSelect,
-  AuroraSelectContent,
-  AuroraSelectItem,
-  AuroraSelectTrigger,
-  AuroraSelectValue,
-} from '@/components/aurora/ui/select';
-import { AuroraCalendar } from '@/components/aurora/ui/calendar';
-import {
-  AuroraPopover,
-  AuroraPopoverContent,
-  AuroraPopoverTrigger,
-} from '@/components/aurora/ui/popover';
-import {
-  AuroraCombobox,
-  AuroraComboboxContent,
-  AuroraComboboxEmpty,
-  AuroraComboboxInput,
-  AuroraComboboxItem,
-  AuroraComboboxList,
-} from '@/components/aurora/ui/combobox';
-import { AuroraTelInput } from '@/components/aurora/ui/tel-input';
-import { AuroraOrcidInput } from '@/components/aurora/ui/orcid-input';
-import { AuroraIsbnInput } from '@/components/aurora/ui/isbn-input';
-import { AuroraDoiInput } from '@/components/aurora/ui/doi-input';
-import { AuroraFileInput } from '@/components/aurora/ui/file-input';
-import { AuroraCheckbox } from '@/components/aurora/ui/checkbox';
-import { AuroraPagination } from '@/components/aurora/ui/pagination';
-import {
-  AuroraAlertDialog,
-  AuroraAlertDialogAction,
-  AuroraAlertDialogCancel,
-  AuroraAlertDialogContent,
-  AuroraAlertDialogDescription,
-  AuroraAlertDialogFooter,
-  AuroraAlertDialogHeader,
-  AuroraAlertDialogTitle,
-  AuroraAlertDialogTrigger,
-} from '@/components/aurora/ui/alert-dialog';
-import {
-  AuroraSheet,
-  AuroraSheetContent,
-  AuroraSheetDescription,
-  AuroraSheetHeader,
-  AuroraSheetTitle,
-  AuroraSheetTrigger,
 } from '@/components/aurora/ui/sheet';
 import {
-  AuroraTooltip,
-  AuroraTooltipContent,
-  AuroraTooltipProvider,
-  AuroraTooltipTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@/components/aurora/ui/tooltip';
 
 const RANKS = [
@@ -213,98 +218,98 @@ export function ControlsGallery() {
     <div className="space-y-6">
       <Section title="Текстові поля">
         <Row
-          name="Input"
+          name="LegacyInput"
           note="порожнє"
-          before={<Input placeholder="Введіть значення" />}
-          after={<AuroraInput placeholder="Введіть значення" />}
+          before={<LegacyInput placeholder="Введіть значення" />}
+          after={<Input placeholder="Введіть значення" />}
         />
         <Row
-          name="Input"
+          name="LegacyInput"
           note="із значенням"
-          before={<Input defaultValue="Ковальчук" />}
-          after={<AuroraInput defaultValue="Ковальчук" />}
+          before={<LegacyInput defaultValue="Ковальчук" />}
+          after={<Input defaultValue="Ковальчук" />}
         />
         <Row
-          name="Input"
+          name="LegacyInput"
           note="великий — тільки «Аврора»"
-          before={<Input disabled placeholder="такого розміру немає" />}
-          after={<AuroraInput size="lg" placeholder="Високе поле для форми входу" />}
+          before={<LegacyInput disabled placeholder="такого розміру немає" />}
+          after={<Input size="lg" placeholder="Високе поле для форми входу" />}
         />
         <Row
-          name="Input"
+          name="LegacyInput"
           note="помилка"
-          before={<Input aria-invalid defaultValue="хибне значення" />}
-          after={<AuroraInput aria-invalid defaultValue="хибне значення" />}
+          before={<LegacyInput aria-invalid defaultValue="хибне значення" />}
+          after={<Input aria-invalid defaultValue="хибне значення" />}
         />
         <Row
-          name="Input"
+          name="LegacyInput"
           note="вимкнене"
-          before={<Input disabled defaultValue="Недоступно" />}
-          after={<AuroraInput disabled defaultValue="Недоступно" />}
+          before={<LegacyInput disabled defaultValue="Недоступно" />}
+          after={<Input disabled defaultValue="Недоступно" />}
         />
         <Row
-          name="Textarea"
-          before={<Textarea placeholder="Коментар" />}
-          after={<AuroraTextarea placeholder="Коментар" />}
+          name="LegacyTextarea"
+          before={<LegacyTextarea placeholder="Коментар" />}
+          after={<Textarea placeholder="Коментар" />}
         />
       </Section>
 
       <Section title="Спеціальні поля">
         <Row
-          name="PassInput"
+          name="LegacyPassInput"
           note="око перемикає тип"
-          before={<PassInput defaultValue="secret123" />}
-          after={<AuroraPassInput defaultValue="secret123" />}
+          before={<LegacyPassInput defaultValue="secret123" />}
+          after={<PassInput defaultValue="secret123" />}
         />
         <Row
           name="EmailInput"
           note="новий: маска й мобільні атрибути"
-          before={<Input type="email" disabled placeholder="окремого компонента не було" />}
+          before={<LegacyInput type="email" disabled placeholder="окремого компонента не було" />}
           after={<EmailInput />}
         />
         <Row
-          name="TelInput"
+          name="LegacyTelInput"
           note="+380 належить полю; лічильник під час набору"
-          before={<TelInput value={telOld} onChange={setTelOld} />}
-          after={<AuroraTelInput value={telNew} onChange={setTelNew} />}
+          before={<LegacyTelInput value={telOld} onChange={setTelOld} />}
+          after={<TelInput value={telNew} onChange={setTelNew} />}
         />
         <Row
-          name="OrcidInput"
+          name="LegacyOrcidInput"
           note="спробуйте 0000-0002-1825-0097, тоді змініть останню цифру"
-          before={<OrcidInput value={orcidOld} onChange={setOrcidOld} />}
-          after={<AuroraOrcidInput value={orcidNew} onChange={setOrcidNew} />}
+          before={<LegacyOrcidInput value={orcidOld} onChange={setOrcidOld} />}
+          after={<OrcidInput value={orcidNew} onChange={setOrcidNew} />}
         />
         <Row
-          name="IsbnInput"
+          name="LegacyIsbnInput"
           note="978-3-16-148410-0 — контрольна цифра справжня"
-          before={<IsbnInput />}
-          after={<AuroraIsbnInput />}
+          before={<LegacyIsbnInput />}
+          after={<IsbnInput />}
         />
         <Row
-          name="DoiInput"
+          name="LegacyDoiInput"
           note="правильний DOI додає посилання «Відкрити»"
-          before={<DoiInput />}
-          after={<AuroraDoiInput />}
+          before={<LegacyDoiInput />}
+          after={<DoiInput />}
         />
         <Row
-          name="FileInput"
+          name="LegacyFileInput"
           note="обраний файл — чіп із ×, а не підпис поруч"
-          before={<FileInput value={fileOld} onChange={setFileOld} />}
-          after={<AuroraFileInput value={fileNew} onChange={setFileNew} />}
+          before={<LegacyFileInput value={fileOld} onChange={setFileOld} />}
+          after={<FileInput value={fileNew} onChange={setFileNew} />}
         />
         <Row
           name="вимкнені"
           note="усі спеціальні поля — вимкнений стан"
           before={
             <div className="space-y-2">
-              <TelInput value="+380441234567" onChange={() => {}} disabled />
-              <FileInput value={null} onChange={() => {}} disabled />
+              <LegacyTelInput value="+380441234567" onChange={() => {}} disabled />
+              <LegacyFileInput value={null} onChange={() => {}} disabled />
             </div>
           }
           after={
             <div className="space-y-2">
-              <AuroraTelInput value="+380441234567" onChange={() => {}} disabled />
-              <AuroraFileInput value={null} onChange={() => {}} disabled />
+              <TelInput value="+380441234567" onChange={() => {}} disabled />
+              <FileInput value={null} onChange={() => {}} disabled />
             </div>
           }
         />
@@ -312,8 +317,22 @@ export function ControlsGallery() {
 
       <Section title="Вибір">
         <Row
-          name="Select"
+          name="LegacySelect"
           before={
+            <LegacySelect>
+              <LegacySelectTrigger className="w-full">
+                <LegacySelectValue placeholder="Вчене звання" />
+              </LegacySelectTrigger>
+              <LegacySelectContent>
+                {RANKS.map((r) => (
+                  <LegacySelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </LegacySelectItem>
+                ))}
+              </LegacySelectContent>
+            </LegacySelect>
+          }
+          after={
             <Select>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Вчене звання" />
@@ -327,34 +346,20 @@ export function ControlsGallery() {
               </SelectContent>
             </Select>
           }
-          after={
-            <AuroraSelect>
-              <AuroraSelectTrigger className="w-full">
-                <AuroraSelectValue placeholder="Вчене звання" />
-              </AuroraSelectTrigger>
-              <AuroraSelectContent>
-                {RANKS.map((r) => (
-                  <AuroraSelectItem key={r.value} value={r.value}>
-                    {r.label}
-                  </AuroraSelectItem>
-                ))}
-              </AuroraSelectContent>
-            </AuroraSelect>
-          }
         />
         <Row
-          name="Switch"
+          name="LegacySwitch"
           note="увімкнено = акцент, а не чорний"
           before={
             <div className="flex items-center gap-2">
-              <Switch checked={onOld} onCheckedChange={setOnOld} id="sw-old" />
-              <Label htmlFor="sw-old">Ступінь відповідає кафедрі</Label>
+              <LegacySwitch checked={onOld} onCheckedChange={setOnOld} id="sw-old" />
+              <LegacyLabel htmlFor="sw-old">Ступінь відповідає кафедрі</LegacyLabel>
             </div>
           }
           after={
             <div className="flex items-center gap-2">
-              <AuroraSwitch checked={onNew} onCheckedChange={setOnNew} id="sw-new" />
-              <AuroraLabel htmlFor="sw-new">Ступінь відповідає кафедрі</AuroraLabel>
+              <Switch checked={onNew} onCheckedChange={setOnNew} id="sw-new" />
+              <Label htmlFor="sw-new">Ступінь відповідає кафедрі</Label>
             </div>
           }
         />
@@ -384,33 +389,53 @@ export function ControlsGallery() {
           }
           after={
             <div className="space-y-2">
-              <AuroraLabel className="flex items-center gap-2 font-normal">
-                <AuroraCheckbox checked={boxNew} onCheckedChange={setBoxNew} />
+              <Label className="flex items-center gap-2 font-normal">
+                <Checkbox checked={boxNew} onCheckedChange={setBoxNew} />
                 обрано
-              </AuroraLabel>
-              <AuroraLabel className="flex items-center gap-2 font-normal">
-                <AuroraCheckbox disabled />
+              </Label>
+              <Label className="flex items-center gap-2 font-normal">
+                <Checkbox disabled />
                 вимкнений
-              </AuroraLabel>
-              <AuroraLabel className="flex items-center gap-2 font-normal">
-                <AuroraCheckbox aria-invalid />
+              </Label>
+              <Label className="flex items-center gap-2 font-normal">
+                <Checkbox aria-invalid />
                 помилка
-              </AuroraLabel>
+              </Label>
             </div>
           }
         />
       </Section>
 
-      <Section title="Combobox">
+      <Section title="LegacyCombobox">
         <Row
-          name="Combobox"
+          name="LegacyCombobox"
           note="пошук у списку кафедр"
           before={
-            <Combobox items={DEPARTMENTS} value={depOld} onChange={setDepOld} displayValue={depOld}>
+            <LegacyCombobox
+              items={DEPARTMENTS}
+              value={depOld}
+              onChange={setDepOld}
+              displayValue={depOld}
+            >
+              <LegacyComboboxInput placeholder="Оберіть кафедру" />
+              <LegacyComboboxContent>
+                {/* `LegacyComboboxList` takes a RENDER FUNCTION, not children — it
+                    maps over the filtered items itself, so the search works. */}
+                <LegacyComboboxList<string>>
+                  {(d) => (
+                    <LegacyComboboxItem key={d} value={d}>
+                      {d}
+                    </LegacyComboboxItem>
+                  )}
+                </LegacyComboboxList>
+                <LegacyComboboxEmpty>Нічого не знайдено</LegacyComboboxEmpty>
+              </LegacyComboboxContent>
+            </LegacyCombobox>
+          }
+          after={
+            <Combobox items={DEPARTMENTS} value={depNew} onChange={setDepNew} displayValue={depNew}>
               <ComboboxInput placeholder="Оберіть кафедру" />
               <ComboboxContent>
-                {/* `ComboboxList` takes a RENDER FUNCTION, not children — it
-                    maps over the filtered items itself, so the search works. */}
                 <ComboboxList<string>>
                   {(d) => (
                     <ComboboxItem key={d} value={d}>
@@ -422,26 +447,6 @@ export function ControlsGallery() {
               </ComboboxContent>
             </Combobox>
           }
-          after={
-            <AuroraCombobox
-              items={DEPARTMENTS}
-              value={depNew}
-              onChange={setDepNew}
-              displayValue={depNew}
-            >
-              <AuroraComboboxInput placeholder="Оберіть кафедру" />
-              <AuroraComboboxContent>
-                <AuroraComboboxList<string>>
-                  {(d) => (
-                    <AuroraComboboxItem key={d} value={d}>
-                      {d}
-                    </AuroraComboboxItem>
-                  )}
-                </AuroraComboboxList>
-                <AuroraComboboxEmpty>Нічого не знайдено</AuroraComboboxEmpty>
-              </AuroraComboboxContent>
-            </AuroraCombobox>
-          }
         />
       </Section>
 
@@ -450,60 +455,60 @@ export function ControlsGallery() {
           name="Дата"
           note="відкривається з поля, а не показана одразу"
           before={
+            <LegacyPopover>
+              <LegacyPopoverTrigger asChild>
+                <LegacyButton variant="outline" className="justify-start gap-2 font-normal">
+                  <CalendarIcon className="size-4 text-muted-foreground" />
+                  {d(dayOld) ?? <span className="text-muted-foreground">Оберіть дату</span>}
+                </LegacyButton>
+              </LegacyPopoverTrigger>
+              <LegacyPopoverContent className="w-auto p-0" align="start">
+                <LegacyCalendar mode="single" selected={dayOld} onSelect={setDayOld} />
+              </LegacyPopoverContent>
+            </LegacyPopover>
+          }
+          after={
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="justify-start gap-2 font-normal">
-                  <CalendarIcon className="size-4 text-muted-foreground" />
-                  {d(dayOld) ?? <span className="text-muted-foreground">Оберіть дату</span>}
+                  <CalendarIcon className="text-muted-foreground" />
+                  {d(dayNew) ?? <span className="text-muted-foreground">Оберіть дату</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={dayOld} onSelect={setDayOld} />
+                <Calendar mode="single" selected={dayNew} onSelect={setDayNew} />
               </PopoverContent>
             </Popover>
-          }
-          after={
-            <AuroraPopover>
-              <AuroraPopoverTrigger asChild>
-                <AuroraButton variant="outline" className="justify-start gap-2 font-normal">
-                  <CalendarIcon className="text-muted-foreground" />
-                  {d(dayNew) ?? <span className="text-muted-foreground">Оберіть дату</span>}
-                </AuroraButton>
-              </AuroraPopoverTrigger>
-              <AuroraPopoverContent className="w-auto p-0" align="start">
-                <AuroraCalendar mode="single" selected={dayNew} onSelect={setDayNew} />
-              </AuroraPopoverContent>
-            </AuroraPopover>
           }
         />
         <Row
           name="Діапазон"
           note="смуга має проходити під обома кінцями"
           before={
+            <LegacyPopover>
+              <LegacyPopoverTrigger asChild>
+                <LegacyButton variant="outline" className="justify-start gap-2 font-normal">
+                  <CalendarIcon className="size-4 text-muted-foreground" />
+                  {range(rangeOld) ?? <span className="text-muted-foreground">Оберіть період</span>}
+                </LegacyButton>
+              </LegacyPopoverTrigger>
+              <LegacyPopoverContent className="w-auto p-0" align="start">
+                <LegacyCalendar mode="range" selected={rangeOld} onSelect={setRangeOld} />
+              </LegacyPopoverContent>
+            </LegacyPopover>
+          }
+          after={
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="justify-start gap-2 font-normal">
-                  <CalendarIcon className="size-4 text-muted-foreground" />
-                  {range(rangeOld) ?? <span className="text-muted-foreground">Оберіть період</span>}
+                  <CalendarIcon className="text-muted-foreground" />
+                  {range(rangeNew) ?? <span className="text-muted-foreground">Оберіть період</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="range" selected={rangeOld} onSelect={setRangeOld} />
+                <Calendar mode="range" selected={rangeNew} onSelect={setRangeNew} />
               </PopoverContent>
             </Popover>
-          }
-          after={
-            <AuroraPopover>
-              <AuroraPopoverTrigger asChild>
-                <AuroraButton variant="outline" className="justify-start gap-2 font-normal">
-                  <CalendarIcon className="text-muted-foreground" />
-                  {range(rangeNew) ?? <span className="text-muted-foreground">Оберіть період</span>}
-                </AuroraButton>
-              </AuroraPopoverTrigger>
-              <AuroraPopoverContent className="w-auto p-0" align="start">
-                <AuroraCalendar mode="range" selected={rangeNew} onSelect={setRangeNew} />
-              </AuroraPopoverContent>
-            </AuroraPopover>
           }
         />
       </Section>
@@ -513,8 +518,8 @@ export function ControlsGallery() {
           <Row
             key={v}
             name={v}
-            before={<Button variant={v}>Зберегти</Button>}
-            after={<AuroraButton variant={v}>Зберегти</AuroraButton>}
+            before={<LegacyButton variant={v}>Зберегти</LegacyButton>}
+            after={<Button variant={v}>Зберегти</Button>}
           />
         ))}
         <Row
@@ -523,18 +528,18 @@ export function ControlsGallery() {
           before={
             <div className="flex flex-wrap items-center gap-2">
               {(['xs', 'sm', 'default', 'lg'] as const).map((s) => (
-                <Button key={s} size={s}>
+                <LegacyButton key={s} size={s}>
                   {s}
-                </Button>
+                </LegacyButton>
               ))}
             </div>
           }
           after={
             <div className="flex flex-wrap items-center gap-2">
               {(['xs', 'sm', 'default', 'lg', 'xl'] as const).map((s) => (
-                <AuroraButton key={s} size={s}>
+                <Button key={s} size={s}>
                   {s}
-                </AuroraButton>
+                </Button>
               ))}
             </div>
           }
@@ -544,14 +549,14 @@ export function ControlsGallery() {
           note="loading вимикає кнопку"
           before={
             <div className="flex flex-wrap gap-2">
-              <Button disabled>Вимкнено</Button>
-              <Button loading>Збереження</Button>
+              <LegacyButton disabled>Вимкнено</LegacyButton>
+              <LegacyButton loading>Збереження</LegacyButton>
             </div>
           }
           after={
             <div className="flex flex-wrap gap-2">
-              <AuroraButton disabled>Вимкнено</AuroraButton>
-              <AuroraButton loading>Збереження</AuroraButton>
+              <Button disabled>Вимкнено</Button>
+              <Button loading>Збереження</Button>
             </div>
           }
         />
@@ -559,9 +564,29 @@ export function ControlsGallery() {
 
       <Section title="Накладки">
         <Row
-          name="AlertDialog"
+          name="LegacyAlertDialog"
           note="найчастіший компонент після кнопки — 21 імпорт"
           before={
+            <LegacyAlertDialog>
+              <LegacyAlertDialogTrigger asChild>
+                <LegacyButton variant="destructive">Архівувати</LegacyButton>
+              </LegacyAlertDialogTrigger>
+              <LegacyAlertDialogContent>
+                <LegacyAlertDialogHeader>
+                  <LegacyAlertDialogTitle>Архівувати Ковальчук О. П.?</LegacyAlertDialogTitle>
+                  <LegacyAlertDialogDescription>
+                    Людина зникне зі списків і рейтингу поточного року. Закриті роки та всі
+                    досягнення залишаться. Це можна скасувати.
+                  </LegacyAlertDialogDescription>
+                </LegacyAlertDialogHeader>
+                <LegacyAlertDialogFooter>
+                  <LegacyAlertDialogCancel>Скасувати</LegacyAlertDialogCancel>
+                  <LegacyAlertDialogAction>Архівувати</LegacyAlertDialogAction>
+                </LegacyAlertDialogFooter>
+              </LegacyAlertDialogContent>
+            </LegacyAlertDialog>
+          }
+          after={
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive">Архівувати</Button>
@@ -581,60 +606,58 @@ export function ControlsGallery() {
               </AlertDialogContent>
             </AlertDialog>
           }
-          after={
-            <AuroraAlertDialog>
-              <AuroraAlertDialogTrigger asChild>
-                <AuroraButton variant="destructive">Архівувати</AuroraButton>
-              </AuroraAlertDialogTrigger>
-              <AuroraAlertDialogContent>
-                <AuroraAlertDialogHeader>
-                  <AuroraAlertDialogTitle>Архівувати Ковальчук О. П.?</AuroraAlertDialogTitle>
-                  <AuroraAlertDialogDescription>
-                    Людина зникне зі списків і рейтингу поточного року. Закриті роки та всі
-                    досягнення залишаться. Це можна скасувати.
-                  </AuroraAlertDialogDescription>
-                </AuroraAlertDialogHeader>
-                <AuroraAlertDialogFooter>
-                  <AuroraAlertDialogCancel>Скасувати</AuroraAlertDialogCancel>
-                  <AuroraAlertDialogAction>Архівувати</AuroraAlertDialogAction>
-                </AuroraAlertDialogFooter>
-              </AuroraAlertDialogContent>
-            </AuroraAlertDialog>
-          }
         />
         <Row
-          name="AlertDialog"
+          name="LegacyAlertDialog"
           note="незворотне, але не руйнівне — варіант, якого раніше не було"
           before={
-            <Button variant="outline" disabled>
+            <LegacyButton variant="outline" disabled>
               вибору варіанта не було
-            </Button>
+            </LegacyButton>
           }
           after={
-            <AuroraAlertDialog>
-              <AuroraAlertDialogTrigger asChild>
-                <AuroraButton variant="outline">Закрити рік</AuroraButton>
-              </AuroraAlertDialogTrigger>
-              <AuroraAlertDialogContent>
-                <AuroraAlertDialogHeader>
-                  <AuroraAlertDialogTitle>Закрити рейтинг 2026 року?</AuroraAlertDialogTitle>
-                  <AuroraAlertDialogDescription>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline">Закрити рік</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Закрити рейтинг 2026 року?</AlertDialogTitle>
+                  <AlertDialogDescription>
                     Показники року стануть незмінними. Відкрити його знову може лише адміністратор —
                     через апеляцію.
-                  </AuroraAlertDialogDescription>
-                </AuroraAlertDialogHeader>
-                <AuroraAlertDialogFooter>
-                  <AuroraAlertDialogCancel>Скасувати</AuroraAlertDialogCancel>
-                  <AuroraAlertDialogAction variant="default">Закрити рік</AuroraAlertDialogAction>
-                </AuroraAlertDialogFooter>
-              </AuroraAlertDialogContent>
-            </AuroraAlertDialog>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                  <AlertDialogAction variant="default">Закрити рік</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           }
         />
         <Row
-          name="Sheet"
+          name="LegacySheet"
           note="панель з краю — форма подання досягнення"
           before={
+            <LegacySheet>
+              <LegacySheetTrigger asChild>
+                <LegacyButton variant="outline">Відкрити панель</LegacyButton>
+              </LegacySheetTrigger>
+              <LegacySheetContent>
+                <LegacySheetHeader>
+                  <LegacySheetTitle>3.25 Патент на винахід</LegacySheetTitle>
+                  <LegacySheetDescription>
+                    Заповніть підтвердження та збережіть.
+                  </LegacySheetDescription>
+                </LegacySheetHeader>
+                <div className="px-6 text-sm text-muted-foreground">
+                  Список за панеллю має лишатися читабельним — саме тому це панель, а не діалог.
+                </div>
+              </LegacySheetContent>
+            </LegacySheet>
+          }
+          after={
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline">Відкрити панель</Button>
@@ -650,29 +673,21 @@ export function ControlsGallery() {
               </SheetContent>
             </Sheet>
           }
-          after={
-            <AuroraSheet>
-              <AuroraSheetTrigger asChild>
-                <AuroraButton variant="outline">Відкрити панель</AuroraButton>
-              </AuroraSheetTrigger>
-              <AuroraSheetContent>
-                <AuroraSheetHeader>
-                  <AuroraSheetTitle>3.25 Патент на винахід</AuroraSheetTitle>
-                  <AuroraSheetDescription>
-                    Заповніть підтвердження та збережіть.
-                  </AuroraSheetDescription>
-                </AuroraSheetHeader>
-                <div className="px-6 text-sm text-muted-foreground">
-                  Список за панеллю має лишатися читабельним — саме тому це панель, а не діалог.
-                </div>
-              </AuroraSheetContent>
-            </AuroraSheet>
-          }
         />
         <Row
-          name="Tooltip"
+          name="LegacyTooltip"
           note="лишається темним — це підпис, а не поверхня"
           before={
+            <LegacyTooltipProvider>
+              <LegacyTooltip>
+                <LegacyTooltipTrigger asChild>
+                  <LegacyButton variant="ghost">Кнпп</LegacyButton>
+                </LegacyTooltipTrigger>
+                <LegacyTooltipContent>Скільки НПП кафедри відповідають п. 38</LegacyTooltipContent>
+              </LegacyTooltip>
+            </LegacyTooltipProvider>
+          }
+          after={
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -682,25 +697,15 @@ export function ControlsGallery() {
               </Tooltip>
             </TooltipProvider>
           }
-          after={
-            <AuroraTooltipProvider>
-              <AuroraTooltip>
-                <AuroraTooltipTrigger asChild>
-                  <AuroraButton variant="ghost">Кнпп</AuroraButton>
-                </AuroraTooltipTrigger>
-                <AuroraTooltipContent>Скільки НПП кафедри відповідають п. 38</AuroraTooltipContent>
-              </AuroraTooltip>
-            </AuroraTooltipProvider>
-          }
         />
       </Section>
 
       <Section title="Пагінація">
         <Row
-          name="Pagination"
+          name="LegacyPagination"
           note="поточна сторінка — акцент, а не сірий secondary"
           before={
-            <Pagination
+            <LegacyPagination
               page={pageOld}
               totalPages={20}
               onPageChange={setPageOld}
@@ -708,7 +713,7 @@ export function ControlsGallery() {
             />
           }
           after={
-            <AuroraPagination
+            <Pagination
               page={pageNew}
               totalPages={20}
               onPageChange={setPageNew}

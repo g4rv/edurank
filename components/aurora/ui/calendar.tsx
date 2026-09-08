@@ -55,7 +55,7 @@ function capitaliseCaption(value: string) {
  * the app said «September 2026 / Su Mo Tu» until this default existed. The
  * `locale` prop still overrides it; nothing else in the app has a reason to.
  */
-function AuroraCalendar(
+function Calendar(
   allProps: React.ComponentProps<typeof DayPicker> & {
     buttonVariant?: React.ComponentProps<typeof Button>['variant'];
   }
@@ -253,7 +253,7 @@ function AuroraCalendar(
 
           return <ChevronDownIcon className={cn('size-4', className)} {...props} />;
         },
-        DayButton: ({ ...props }) => <AuroraCalendarDayButton locale={locale} {...props} />,
+        DayButton: ({ ...props }) => <CalendarDayButton locale={locale} {...props} />,
         WeekNumber: ({ children, ...props }) => {
           return (
             <td {...props}>
@@ -270,7 +270,7 @@ function AuroraCalendar(
   );
 }
 
-function AuroraCalendarDayButton({
+function CalendarDayButton({
   className,
   day,
   modifiers,
@@ -361,4 +361,4 @@ function AuroraCalendarDayButton({
   );
 }
 
-export { AuroraCalendar, AuroraCalendarDayButton };
+export { Calendar, CalendarDayButton };

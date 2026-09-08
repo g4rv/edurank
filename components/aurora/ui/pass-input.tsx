@@ -20,7 +20,7 @@ import { fieldSurface, type FieldSize } from './field-surface';
  * retyped on a desktop keyboard, with «невірний пароль» as the only
  * explanation anybody gets.
  */
-const AuroraPassInput = forwardRef<
+const PassInput = forwardRef<
   HTMLInputElement,
   Omit<React.ComponentProps<'input'>, 'type' | 'size'> & { size?: FieldSize }
 >(({ className, size = 'default', ...props }, ref) => {
@@ -59,6 +59,6 @@ const AuroraPassInput = forwardRef<
   );
 });
 
-AuroraPassInput.displayName = 'AuroraPassInput';
+PassInput.displayName = 'PassInput';
 
-export { AuroraPassInput };
+export { PassInput };
