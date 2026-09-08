@@ -12,6 +12,7 @@ import type { DivisionOption } from '@/lib/queries/list-divisions';
 import type { StakePart } from '@/lib/queries/get-stake-breakdown';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { AuroraButton } from '@/components/aurora/ui/button';
+import { Card } from '@/components/aurora/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { fullName } from '@/components/staff/profile/primitives';
 import {
@@ -76,7 +77,7 @@ export function EditFormMock({
         })}
         className="space-y-4"
       >
-        <div className="flex flex-wrap items-center gap-5 rounded-xl border bg-card p-5 shadow-card">
+        <Card className="flex flex-wrap items-center gap-5">
           <Avatar name={fullName(staff)} size="lg" />
 
           <div className="min-w-0 flex-1">
@@ -111,7 +112,7 @@ export function EditFormMock({
               <Link href={`/staff-mock/${staff.id}`}>Скасувати</Link>
             </AuroraButton>
           </div>
-        </div>
+        </Card>
 
         <StaffFormFields
           register={register}

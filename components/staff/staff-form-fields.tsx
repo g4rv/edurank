@@ -8,6 +8,7 @@ import {
   type UseFormRegister,
   type UseFormSetValue,
 } from 'react-hook-form';
+import { Card } from '@/components/aurora/ui/card';
 import { FormField } from '@/components/ui/form-field';
 import { WorkplacesField } from '@/components/staff/workplaces-field';
 import { FieldGroup } from '@/components/ui/field';
@@ -152,27 +153,22 @@ export function staffToFormValues(staff: StaffDetail): RawStaffFormValues {
   };
 }
 
-function SectionCard({
-  title,
-  step,
-  children,
-}: {
-  title: string;
-  step?: string;
-  children: React.ReactNode;
-}) {
+/**
+ * The `01 02 03` opposite a section's title.
+ *
+ * All that is left of `SectionCard`, which was `Card` plus this and plus
+ * `relative overflow-hidden` — classes that clipped nothing, since no
+ * descendant of it was ever absolutely positioned. It goes in `Card`'s `action`
+ * slot, which is where it was already drawn.
+ *
+ * Local and unexported on purpose: one screen numbers its sections. §11 of
+ * `docs/aurora.md` — a component with one caller stays next to its caller.
+ */
+function StepNumber({ n }: { n: string }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border bg-card p-5 shadow-card">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold tracking-wide text-foreground uppercase">{title}</h2>
-        {step && (
-          <span className="font-mono text-xs font-bold text-muted-foreground/30 tabular-nums select-none">
-            {step}
-          </span>
-        )}
-      </div>
-      {children}
-    </div>
+    <span className="font-mono text-xs font-bold text-muted-foreground/30 tabular-nums select-none">
+      {n}
+    </span>
   );
 }
 
@@ -293,16 +289,17 @@ export function StaffFormFields({
 
   // Numbers skip sections that are not rendered, so they always read 01, 02, 03…
   let sectionNumber = 0;
-  const step = () => (numbered ? String(++sectionNumber).padStart(2, '0') : undefined);
+  const stepNumber = () =>
+    numbered ? <StepNumber n={String(++sectionNumber).padStart(2, '0')} /> : undefined;
 
   // ── the cards, named, so the two layouts can order them differently ──
   //
-  // Built here rather than inline because `step()` counts as it goes: one
+  // Built here rather than inline because `stepNumber()` counts as it goes: one
   // call per card, in source order, and a card that is not rendered never
   // makes one. Assigning them in that same order keeps 01…05 correct.
 
   const basics = (
-    <SectionCard title="Основна інформація" step={step()}>
+    <Card title="Основна інформація" action={stepNumber()}>
       <FieldGroup className="grid grid-cols-2 gap-4">
         <FormField htmlFor="lastName" label="Прізвище" error={errors.lastName}>
           <Input
@@ -366,11 +363,11 @@ export function StaffFormFields({
           </FormField>
         )}
       </FieldGroup>
-    </SectionCard>
+    </Card>
   );
 
   const workplaces = (
-    <SectionCard title="Місця роботи" step={step()}>
+    <Card title="Місця роботи" action={stepNumber()}>
       <FieldGroup className="gap-4">
         {/* One row per WORKPLACE (owner's sketch, 2026-08-26). «Основна» and
               «Додаткова» were two controls for one fact and could not express
@@ -433,7 +430,7 @@ export function StaffFormFields({
           </div>
         )}
       </FieldGroup>
-    </SectionCard>
+    </Card>
   );
 
   // Only when CREATING somebody (2026-08-24). On an existing record the ставка
@@ -442,7 +439,7 @@ export function StaffFormFields({
   // here. A new person has no distribution yet, so somebody has to say what
   // they were hired at.
   const stake = isAdmin && stakeBreakdown === null && (
-    <SectionCard title="Ставка" step={step()}>
+    <Card title="Ставка" action={stepNumber()}>
       <FormField htmlFor="employmentRate" label="Ставка" error={errors.employmentRate}>
         <Input
           id="employmentRate"
@@ -455,11 +452,11 @@ export function StaffFormFields({
           {...register('employmentRate')}
         />
       </FormField>
-    </SectionCard>
+    </Card>
   );
 
   const academic = isNpp && (
-    <SectionCard title="Академічна інформація" step={step()}>
+    <Card title="Академічна інформація" action={stepNumber()}>
       <FieldGroup className="grid grid-cols-2 gap-4">
         <FormField
           label="Вчене звання"
@@ -647,7 +644,7 @@ export function StaffFormFields({
           />
         </FormField>
       </FieldGroup>
-    </SectionCard>
+    </Card>
   );
 
   {
@@ -658,7 +655,7 @@ export function StaffFormFields({
           are academic-staff data. */
   }
   const research = (
-    <SectionCard title="Наукові профілі" step={step()}>
+    <Card title="Наукові профілі" action={stepNumber()}>
       <FieldGroup className="grid grid-cols-2 gap-4">
         <FormField htmlFor="wosUrl" label="Web of Science — URL" error={errors.wosUrl}>
           <Input
@@ -748,7 +745,7 @@ export function StaffFormFields({
           />
         </FormField>
       </FieldGroup>
-    </SectionCard>
+    </Card>
   );
 
   if (layout === 'stack') {

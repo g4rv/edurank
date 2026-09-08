@@ -5,28 +5,32 @@ import { UK } from '@/lib/plural';
 /**
  * The small pieces every profile card is built from.
  *
- * These four were copy-pasted into `/profile`, `/staff/[id]` and (InfoCard
- * alone) `/divisions/[id]`. Identical each time, which is how the two profile
- * pages managed to render the same five cards from two separate sources — fix a
- * spacing bug on one and the other keeps it.
+ * These were copy-pasted into `/profile`, `/staff/[id]` and `/divisions/[id]`.
+ * Identical each time, which is how the two profile pages managed to render the
+ * same five cards from two separate sources — fix a spacing bug on one and the
+ * other keeps it.
+ *
+ * The surface they sit on is **not** here: that is `Card`. This file holds the
+ * list and the rows, which are the parts a profile actually owns.
  */
 
-export function InfoCard({
-  title,
+/**
+ * The `<dl>` a profile card holds — `Field` rows, in one column or two.
+ *
+ * This was the inside of `InfoCard`, which also drew a card around it. The card
+ * is `Card` now (`components/aurora/ui/card.tsx`); what was actually specific to
+ * a profile was never the surface, it was the list. So the list stayed and kept
+ * the surface's caller: `<Card title><Fields columns={2}>…`.
+ *
+ * It lives here rather than in `aurora/ui/` because it has one screen's worth of
+ * callers — the four cards in `cards.tsx`. §11 of `docs/aurora.md`: one caller
+ * means it is not shared yet, and moving it up early is how three cards happened
+ * in the first place.
+ */
+export function Fields({
   columns = 1,
-  trailing,
   children,
 }: {
-  title: string;
-  /**
-   * A figure that belongs to the whole card, on the title's own line — the
-   * ставка total over «Місця роботи».
-   *
-   * On the heading rather than in a row of its own because it is not another
-   * field: it is what the rows below add up to, and a card's total reads as a
-   * total only when it sits above them.
-   */
-  trailing?: React.ReactNode;
   /**
    * Lay the fields out in two columns.
    *
@@ -34,26 +38,18 @@ export function InfoCard({
    * «18 років», «Так» — leaves most of its width empty in one column, and two
    * fills it without wrapping anything. But «Місця роботи» carries a full
    * факультет · кафедра on one line and «Наукові профілі» pairs a link with a
-   * citation count; halving those would wrap them badly. The card cannot tell
+   * citation count; halving those would wrap them badly. The list cannot tell
    * which it is, so the caller says.
    */
   columns?: 1 | 2;
   children: React.ReactNode;
 }) {
-  return (
-    <div className="rounded-xl border bg-card p-5 shadow-card">
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-wide text-foreground uppercase">{title}</h2>
-        {trailing}
-      </div>
-      {columns === 2 ? (
-        // `gap-y-3` matches the single-column `space-y-3` exactly, so a card
-        // does not change its vertical rhythm just because it gained a column.
-        <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">{children}</dl>
-      ) : (
-        <dl className="space-y-3">{children}</dl>
-      )}
-    </div>
+  return columns === 2 ? (
+    // `gap-y-3` matches the single-column `space-y-3` exactly, so a card does
+    // not change its vertical rhythm just because it gained a column.
+    <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">{children}</dl>
+  ) : (
+    <dl className="space-y-3">{children}</dl>
   );
 }
 

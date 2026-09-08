@@ -9,8 +9,16 @@ import { cn } from '@/lib/utils';
  * form. Adding `shadow-card` meant editing all of them, which is why five have
  * a shadow and seventy-seven do not.
  *
- * **Nothing has been migrated onto this yet** — it is here so the swap, when it
- * happens, is one import per file rather than one decision per file.
+ * `InfoCard` and `SectionCard` are **now gone**, folded into this one — see
+ * §11 of `docs/aurora.md` for why they existed at all, which is the more useful
+ * half of the story. What they turned out to be:
+ *
+ * - `SectionCard` was this plus `relative overflow-hidden`, which clipped
+ *   nothing — no descendant of it was ever absolutely positioned — and a step
+ *   number in the `action` slot. It survives as `<Card action={<StepNumber />}>`.
+ * - `InfoCard` was this plus the profile's `<dl>`. The list was the real
+ *   difference and it stays, as `Fields` in `staff/profile/primitives.tsx`,
+ *   next to the `Field` rows it holds. It is one screen's list, not a surface.
  *
  * Three shapes cover every existing use:
  *
@@ -35,7 +43,12 @@ export function Card({
   padding?: keyof typeof PADDING;
   /** Uppercase heading. Omit for a card that is only a container. */
   title?: string;
-  /** Sits opposite the title — a link, a count, a small control. */
+  /**
+   * Sits opposite the title — a link, a count, a step number, a small control.
+   *
+   * One slot, because the three cards this replaced each had their own name for
+   * it (`trailing`, `step`, `action`) and drew it in the same place.
+   */
   action?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
@@ -43,7 +56,12 @@ export function Card({
   return (
     <div className={cn('rounded-xl border bg-card shadow-card', PADDING[padding], className)}>
       {title && (
-        <div className="mb-4 flex items-center justify-between gap-3">
+        // `items-baseline`, not `items-center`. What goes opposite the title is
+        // usually type — the ставка total, the `01` step — and type that misses
+        // the heading's baseline is visible at a glance. A control put here is
+        // aligned on its own label's baseline instead, which is off by a pixel
+        // or two and is not.
+        <div className="mb-4 flex items-baseline justify-between gap-3">
           <CardTitle>{title}</CardTitle>
           {action}
         </div>

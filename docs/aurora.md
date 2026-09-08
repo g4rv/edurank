@@ -389,7 +389,50 @@ page ground, so on a row of grey ghost buttons the current page was the hardest
 one to find. §3 gives the accent to the active tab and the active nav item, and
 a pager is the same fact about the same kind of row.
 
-## 11. Traps that have already caught us
+## 11. Where a shared component lives
+
+**A shared component lands with its first two callers, in the same commit.**
+
+`Card` was written on 2026-09-07 in `components/aurora/ui/card.tsx`, with this
+in its own docstring:
+
+> Nothing has been migrated onto this yet — it is here so the swap, when it
+> happens, is one import per file rather than one decision per file.
+
+Two commits later the same day I rebuilt the profile and wrote **`InfoCard`**, a
+second card. Two commits after that I rebuilt the staff form and kept
+**`SectionCard`**, a third. Three cards, one day, and `Card` still had no users.
+The wrapper was identical in all three; the differences were `items-baseline`
+against `items-center` and three names — `trailing`, `step`, `action` — for one
+slot: the thing opposite the title.
+
+The cause is that first docstring. A component shipped as «a target for the
+migration» is filed under _later_, so the next screen reaches for what that
+screen needs. **A component with no callers is not a component, it is a
+proposal**, and a proposal loses to whatever is already in the file you have
+open.
+
+Two consequences, both practical:
+
+- **One caller means it is not shared yet.** Keep it next to its screen, the way
+  `SectionCard` correctly lived inside `staff-form-fields.tsx` in July, before
+  there was anything to share it with. Local and unexported is the right answer
+  to «only this screen needs it».
+- **A second screen wanting it is the trigger.** It moves into
+  `components/aurora/ui/` **and the first screen is repointed in the same
+  commit.** Moving it alone leaves the original copy in place, which is how
+  three cards happen.
+
+**Screen-scoped commits are what hides this.** «Rebuild the profile» and
+«rebuild the form» each look complete on their own, and inside either one the
+local helper keeps the diff small and reviewable. Reaching into a shared file
+feels like scope creep in that commit and is in fact the job. The differences
+between two screens always look real from inside one of them; they are only
+props when you have both open.
+
+---
+
+## 12. Traps that have already caught us
 
 **Tailwind only generates classes that appear in a source file.** Probing with a
 hand-typed class name proves nothing — `bg-foreground/4` is transparent unless

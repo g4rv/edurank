@@ -6,7 +6,8 @@ import {
 } from '@/lib/labels';
 import { formatStake } from '@/lib/stake/units';
 import { OrcidField } from '@/components/profile/orcid-field';
-import { InfoCard, Field, MaybeField, PositionEntry, ProfileLink } from './primitives';
+import { Card } from '@/components/aurora/ui/card';
+import { Fields, Field, MaybeField, PositionEntry, ProfileLink } from './primitives';
 
 /**
  * The detail cards, one component per section.
@@ -39,58 +40,64 @@ export function AcademicCard({ staff, showEmpty = false }: CardProps) {
   if (!staff.isNpp) return null;
 
   return (
-    <InfoCard title="Академічна інформація" columns={2}>
-      <MaybeField
-        label="Вчене звання"
-        value={staff.academicRank ? ACADEMIC_RANK_LABELS[staff.academicRank] : null}
-        showEmpty={showEmpty}
-      />
-      <MaybeField
-        label="Науковий ступінь"
-        value={staff.scientificDegree ? SCIENTIFIC_DEGREE_LABELS[staff.scientificDegree] : null}
-        showEmpty={showEmpty}
-      />
-      <MaybeField
-        label="Педагогічний стаж"
-        value={staff.pedagogicalExperience !== null ? `${staff.pedagogicalExperience} років` : null}
-        showEmpty={showEmpty}
-      />
-      <MaybeField
-        label="Дата захисту дисертації"
-        value={
-          // Formatted in UTC, matching how the column is written — a
-          // local-calendar render would show the previous day for any
-          // deployment west of UTC.
-          staff.degreeDefenceDate
-            ? staff.degreeDefenceDate.toLocaleDateString('uk-UA', { timeZone: 'UTC' })
-            : null
-        }
-        showEmpty={showEmpty}
-      />
-      <MaybeField
-        label="Ступінь відповідає кафедрі"
-        value={
-          staff.degreeMatchesDepartment === null
-            ? null
-            : staff.degreeMatchesDepartment
-              ? 'Так'
-              : 'Ні'
-        }
-        showEmpty={showEmpty}
-      />
-      {/* Neither old page showed these two, though both feed the rating through
-          PROFILE_DERIVED indicators — so a gap here silently costs points. */}
-      <MaybeField
-        label="Спеціальність за дипломом"
-        value={staff.basicEducationSpecialty}
-        showEmpty={showEmpty}
-      />
-      <MaybeField
-        label="Освіта відповідає кафедрі"
-        value={staff.basicEducationMatch === null ? null : staff.basicEducationMatch ? 'Так' : 'Ні'}
-        showEmpty={showEmpty}
-      />
-    </InfoCard>
+    <Card title="Академічна інформація">
+      <Fields columns={2}>
+        <MaybeField
+          label="Вчене звання"
+          value={staff.academicRank ? ACADEMIC_RANK_LABELS[staff.academicRank] : null}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label="Науковий ступінь"
+          value={staff.scientificDegree ? SCIENTIFIC_DEGREE_LABELS[staff.scientificDegree] : null}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label="Педагогічний стаж"
+          value={
+            staff.pedagogicalExperience !== null ? `${staff.pedagogicalExperience} років` : null
+          }
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label="Дата захисту дисертації"
+          value={
+            // Formatted in UTC, matching how the column is written — a
+            // local-calendar render would show the previous day for any
+            // deployment west of UTC.
+            staff.degreeDefenceDate
+              ? staff.degreeDefenceDate.toLocaleDateString('uk-UA', { timeZone: 'UTC' })
+              : null
+          }
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label="Ступінь відповідає кафедрі"
+          value={
+            staff.degreeMatchesDepartment === null
+              ? null
+              : staff.degreeMatchesDepartment
+                ? 'Так'
+                : 'Ні'
+          }
+          showEmpty={showEmpty}
+        />
+        {/* Neither old page showed these two, though both feed the rating through
+            PROFILE_DERIVED indicators — so a gap here silently costs points. */}
+        <MaybeField
+          label="Спеціальність за дипломом"
+          value={staff.basicEducationSpecialty}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label="Освіта відповідає кафедрі"
+          value={
+            staff.basicEducationMatch === null ? null : staff.basicEducationMatch ? 'Так' : 'Ні'
+          }
+          showEmpty={showEmpty}
+        />
+      </Fields>
+    </Card>
   );
 }
 
@@ -102,28 +109,30 @@ export function ResearchProfilesCard({ staff, showEmpty = false }: CardProps) {
   if (!any) return null;
 
   return (
-    <InfoCard title="Наукові профілі">
-      {staff.wosUrl ? (
-        <ProfileLink label="Web of Science" href={staff.wosUrl} count={staff.wosCitationCount} />
-      ) : (
-        showEmpty && <Field label="Web of Science" value="—" />
-      )}
-      {staff.scopusUrl ? (
-        <ProfileLink label="Scopus" href={staff.scopusUrl} count={staff.scopusCitationCount} />
-      ) : (
-        showEmpty && <Field label="Scopus" value="—" />
-      )}
-      {staff.googleScholarUrl ? (
-        <ProfileLink
-          label="Google Scholar"
-          href={staff.googleScholarUrl}
-          count={staff.googleScholarCitationCount}
-        />
-      ) : (
-        showEmpty && <Field label="Google Scholar" value="—" />
-      )}
-      {(staff.orcidId || showEmpty) && <OrcidField value={staff.orcidId} />}
-    </InfoCard>
+    <Card title="Наукові профілі">
+      <Fields>
+        {staff.wosUrl ? (
+          <ProfileLink label="Web of Science" href={staff.wosUrl} count={staff.wosCitationCount} />
+        ) : (
+          showEmpty && <Field label="Web of Science" value="—" />
+        )}
+        {staff.scopusUrl ? (
+          <ProfileLink label="Scopus" href={staff.scopusUrl} count={staff.scopusCitationCount} />
+        ) : (
+          showEmpty && <Field label="Scopus" value="—" />
+        )}
+        {staff.googleScholarUrl ? (
+          <ProfileLink
+            label="Google Scholar"
+            href={staff.googleScholarUrl}
+            count={staff.googleScholarCitationCount}
+          />
+        ) : (
+          showEmpty && <Field label="Google Scholar" value="—" />
+        )}
+        {(staff.orcidId || showEmpty) && <OrcidField value={staff.orcidId} />}
+      </Fields>
+    </Card>
   );
 }
 
@@ -145,23 +154,25 @@ export function LeadershipCard({ staff, showEmpty = false }: CardProps) {
   if (none && !showEmpty) return null;
 
   return (
-    <InfoCard title="Керівні посади">
-      <MaybeField
-        label="Адміністративна посада"
-        value={staff.adminPosition ? ADMIN_POSITION_LABELS[staff.adminPosition] : null}
-        showEmpty={showEmpty}
-      />
-      <MaybeField
-        label="Завідувач кафедри"
-        value={staff.headOfDepartment?.name}
-        showEmpty={showEmpty}
-      />
-      <MaybeField
-        label="Декан факультету"
-        value={staff.deanOfFaculty?.name}
-        showEmpty={showEmpty}
-      />
-    </InfoCard>
+    <Card title="Керівні посади">
+      <Fields>
+        <MaybeField
+          label="Адміністративна посада"
+          value={staff.adminPosition ? ADMIN_POSITION_LABELS[staff.adminPosition] : null}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label="Завідувач кафедри"
+          value={staff.headOfDepartment?.name}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label="Декан факультету"
+          value={staff.deanOfFaculty?.name}
+          showEmpty={showEmpty}
+        />
+      </Fields>
+    </Card>
   );
 }
 
@@ -232,9 +243,9 @@ export function WorkplacesCard({
   }
 
   return (
-    <InfoCard
+    <Card
       title="Місця роботи"
-      trailing={
+      action={
         showStake && stakeParts.length > 0 ? (
           // `text-sm`, matching the heading's own line box. At `text-base` the
           // total stood 4px taller than the `<h2>` beside it, so the card grew
@@ -246,44 +257,48 @@ export function WorkplacesCard({
         ) : undefined
       }
     >
-      {none ? (
-        <Field label="Кафедра" value="—" />
-      ) : (
-        <div className="divide-y">
-          {staff.department && (
-            <PositionEntry
-              badge="Основне"
-              faculty={staff.department.faculty?.name}
-              facultyHref={
-                staff.department.faculty ? `/faculties/${staff.department.faculty.id}` : null
-              }
-              department={staff.department.name}
-              departmentHref={`/departments/${staff.department.id}`}
-              trailing={stake(staff.department.id)}
-            />
-          )}
-          {staff.partTimeDepartments.map((pd) => (
-            <PositionEntry
-              key={pd.department.id}
-              badge="Сумісництво"
-              faculty={pd.department.faculty?.name}
-              facultyHref={pd.department.faculty ? `/faculties/${pd.department.faculty.id}` : null}
-              department={pd.department.name}
-              departmentHref={`/departments/${pd.department.id}`}
-              trailing={stake(pd.department.id)}
-            />
-          ))}
-          {/* A відділ is a place of work and not a кафедра: nobody is paid a
-              ставка by one, so no column for it. */}
-          {staff.division && (
-            <PositionEntry
-              badge="Відділ"
-              department={staff.division.name}
-              departmentHref={`/divisions/${staff.division.id}`}
-            />
-          )}
-        </div>
-      )}
-    </InfoCard>
+      <Fields>
+        {none ? (
+          <Field label="Кафедра" value="—" />
+        ) : (
+          <div className="divide-y">
+            {staff.department && (
+              <PositionEntry
+                badge="Основне"
+                faculty={staff.department.faculty?.name}
+                facultyHref={
+                  staff.department.faculty ? `/faculties/${staff.department.faculty.id}` : null
+                }
+                department={staff.department.name}
+                departmentHref={`/departments/${staff.department.id}`}
+                trailing={stake(staff.department.id)}
+              />
+            )}
+            {staff.partTimeDepartments.map((pd) => (
+              <PositionEntry
+                key={pd.department.id}
+                badge="Сумісництво"
+                faculty={pd.department.faculty?.name}
+                facultyHref={
+                  pd.department.faculty ? `/faculties/${pd.department.faculty.id}` : null
+                }
+                department={pd.department.name}
+                departmentHref={`/departments/${pd.department.id}`}
+                trailing={stake(pd.department.id)}
+              />
+            ))}
+            {/* A відділ is a place of work and not a кафедра: nobody is paid a
+                ставка by one, so no column for it. */}
+            {staff.division && (
+              <PositionEntry
+                badge="Відділ"
+                department={staff.division.name}
+                departmentHref={`/divisions/${staff.division.id}`}
+              />
+            )}
+          </div>
+        )}
+      </Fields>
+    </Card>
   );
 }
