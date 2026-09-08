@@ -68,6 +68,7 @@ export function Table({
   columns,
   head,
   footer,
+  footerClassName,
   fill = false,
   className,
   containerClassName,
@@ -84,6 +85,16 @@ export function Table({
   head: React.ReactNode;
   /** A pinned footer row, e.g. a grand total. Also outside the scroll box. */
   footer?: React.ReactNode;
+  /**
+   * The footer strip's own colour, when the default accent is wrong for it.
+   *
+   * It has to be on the STRIP rather than on the row: a cell background stops
+   * at the table's edge, and the strip is a scrollbar's width wider than that,
+   * so tinting the row leaves a bare band down its right-hand end. The
+   * Характеристика's summary is green or amber depending on whether the person
+   * clears the licence bar, which is a status rather than an accent.
+   */
+  footerClassName?: string;
   /**
    * Take whatever height is left instead of a guessed one.
    *
@@ -142,7 +153,14 @@ export function Table({
       {/* `overflow-hidden` makes this a scroll container, which is what lets
           `scrollbar-gutter` apply — it gives up the same strip the rows below
           do, so the columns line up. Nothing here ever actually scrolls. */}
-      <div className="shrink-0 overflow-hidden border-b [scrollbar-gutter:stable]">
+      {/* No `border-b`. The first section heading below already draws a rule on
+          its top edge, and the two together came out as one heavy 2px band
+          (owner, 2026-09-08). One line, drawn by one thing.
+
+          A table whose body opens with an ordinary row rather than a section
+          heading would have no separator here — neither caller does, and §11
+          says to wait for the one that does rather than guess at it now. */}
+      <div className="shrink-0 overflow-hidden [scrollbar-gutter:stable]">
         <table className={table}>
           {cols}
           <thead>{head}</thead>
@@ -160,7 +178,14 @@ export function Table({
         // `bg-brand/10` here rather than on the row: this is the number the
         // page exists to show, §3 gives the accent to it, and only the strip
         // reaches across the scrollbar gutter.
-        <div className="shrink-0 overflow-hidden border-t bg-brand/10 [scrollbar-gutter:stable]">
+        <div
+          className={cn(
+            'shrink-0 overflow-hidden border-t [scrollbar-gutter:stable]',
+            // `bg-brand/10` by default: for a grand total this is the number the
+            // page exists to show, and §3 gives the accent to it.
+            footerClassName ?? 'bg-brand/10'
+          )}
+        >
           <table className={table}>
             {cols}
             <tfoot>{footer}</tfoot>
@@ -213,7 +238,15 @@ const ROW = {
   group: cn(
     'font-semibold',
     '[&>td]:sticky [&>td]:top-0 [&>td]:z-10 [&>td]:bg-table-group',
-    '[&>td]:shadow-[inset_0_-1px_0_var(--border)]'
+    // A rule on BOTH edges, not just the bottom. While one section's heading
+    // is being pushed out by the next one's arrival the two are touching, and a
+    // bottom-only rule lands exactly where the next heading's top edge is — so
+    // the pair read as one two-line band with nothing between them (owner,
+    // 2026-09-08).
+    //
+    // Insets rather than borders, because a collapsed border is left behind the
+    // moment the cell sticks; see note 5.
+    '[&>td]:shadow-[inset_0_1px_0_var(--border),inset_0_-1px_0_var(--border)]'
   ),
   /**
    * The line everything above adds up to.
