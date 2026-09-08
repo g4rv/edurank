@@ -17,6 +17,7 @@
   --color-gold: var(--gold);
   --color-gold-strong: var(--gold-strong);
   --color-brand-gradient: var(--brand-gradient);
+  --color-table-group: var(--table-group);
   /* «Аврора»'s elevation scale — two layers, «tight and wide at once» as the
      concept puts it: a contact shadow that says the edge is real, and a wide
      ambient one that says the surface is lifted. A single flat shadow reads as
@@ -75,6 +76,20 @@
 :root {
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
+  /* A section heading inside a table: the brand at about 10%, already
+     composited onto the card rather than left as an alpha.
+
+     At the SAME strength as the total's `bg-brand/10`, not a step under it
+     (owner, 2026-09-08). A lighter tint was tried and read as white — it blended
+     with the rows it was supposed to divide, which is the whole job. The two
+     never sit next to each other anyway: the total lives in its own strip below
+     the scroll box, and it still has `font-bold` of its own.
+
+     Solid because the row is STICKY — rows scroll underneath it, and a
+     translucent band would show them through. Composited here rather than at
+     the call site so the light and dark values sit next to each other and
+     cannot drift, the same argument as `.aurora-field`. */
+  --table-group: oklch(0.955 0.014 264);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
@@ -182,6 +197,10 @@
   --brand-gradient: linear-gradient(140deg, oklch(0.66 0.14 264), oklch(0.58 0.16 285));
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
+  /* Lifted rather than tinted down: on a dark card the brand is the LIGHT half
+     of the pair, so the band separates by getting brighter — §1's rule, which
+     holds in both directions. */
+  --table-group: oklch(0.253 0.016 264);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
