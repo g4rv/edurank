@@ -3,13 +3,21 @@
 import { useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+// «Аврора»'s select, not `components/ui`. This control sits beside the Аврора
+// switch on the rating tab, and a shadcn trigger next to it is exactly the
+// half-swapped look the redesign exists to end — the mock page is where the new
+// design has to be COMPLETE, not nearly complete (owner, 2026-09-08).
+//
+// The names and the props are identical, so this is a path change and nothing
+// else; the six screens that render a year picker all gain the new control.
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 
 /**
  * The rating year, on six screens (`/rating`, `/dashboard`, `/moderation`,
@@ -41,9 +49,24 @@ export function YearSelect({ years, value }: { years: number[]; value: number })
   }
 
   return (
-    <div className="flex items-center gap-2">
+    // `relative`, and the spinner is placed INSIDE the trigger rather than after
+    // it (owner, 2026-09-08). As a sibling it appeared out of nothing and pushed
+    // whatever sat beside it — on the rating tab, the «незаповнені» switch —
+    // sideways for as long as the year took to load. A control that moves the
+    // furniture while it works is worse than one that says nothing.
+    //
+    // It can go inside without resizing anything because the trigger is a fixed
+    // `w-28`: the spinner takes the chevron's own place, and the chevron fades
+    // rather than unmounting, so the box never reflows.
+    <div className="relative w-fit">
       <Select value={String(value)} onValueChange={onChange} disabled={pending}>
-        <SelectTrigger aria-label="Рік" className="w-28" aria-busy={pending || undefined}>
+        <SelectTrigger
+          aria-label="Рік"
+          // `[&>svg]` is the trigger's own chevron — `SelectValue` renders a
+          // span, so this reaches the icon and nothing else.
+          className={cn('w-28', pending && '[&>svg]:opacity-0')}
+          aria-busy={pending || undefined}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -54,10 +77,12 @@ export function YearSelect({ years, value }: { years: number[]; value: number })
           ))}
         </SelectContent>
       </Select>
-      {/* Beside the trigger rather than inside it: the Select owns its own
-          content and a chevron, and greying out alone says «not now» without
-          saying «working». */}
-      {pending && <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />}
+      {pending && (
+        <Loader2
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
+        />
+      )}
     </div>
   );
 }
