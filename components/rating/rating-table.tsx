@@ -1,10 +1,21 @@
 import { cn } from '@/lib/utils';
 import { sumScores } from '@/lib/round';
 import type { AchievementGroup } from '@/components/rating/achievements-list';
+import { EmptyRowsScope } from '@/components/rating/rating-view';
+import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
 
+/**
+ * Only REMOVED is ever drawn today. The pill is suppressed for APPROVED (which
+ * is nearly every row, and said nothing), and PENDING is never written at all —
+ * a submission counts on save; see «There is no approval queue» in CLAUDE.md.
+ *
+ * The other two keep entries so the map stays total over the union, and they
+ * are correct rather than stale: `--primary` is `oklch(0.205 0 0)`, so
+ * `bg-primary/10` was a GREY tint, which §3 rules out.
+ */
 const STATUS_STYLES = {
-  APPROVED: 'bg-primary/10 text-primary',
-  PENDING: 'bg-muted text-muted-foreground',
+  APPROVED: 'bg-brand/10 text-brand-strong',
+  PENDING: 'bg-amber-500/10 text-amber-700 dark:text-amber-500',
   REMOVED: 'bg-destructive/10 text-destructive',
 } as const;
 
@@ -48,40 +59,80 @@ function sectionTotal(group: AchievementGroup): number {
   return sumScores(group.items.filter((i) => i.status === 'APPROVED').map((i) => i.score));
 }
 
-const cell = 'border border-border px-3 py-2';
-
 /**
- * Full read-only rating table, spreadsheet-style: one bordered grid with
- * section header rows, item rows, section subtotals and a grand total.
- * `groups` should include every section (even empty ones) for the complete picture.
+ * Full read-only rating table — every section, its indicators, its subtotal,
+ * and the year's grand total at the foot.
+ *
+ * `groups` should carry every section, empty ones included: an editor has to be
+ * able to tell «this person has nothing under 3.7» from «3.7 does not exist»,
+ * and if the two readers of one rating see different tables the number stops
+ * meaning anything.
+ *
+ * Built on «Аврора»'s `Table` since 2026-09-08. It was a hand-rolled grid with
+ * `border border-border` on every cell, which made each row four boxed
+ * compartments and the page a spreadsheet. Only the surface changed; the
+ * columns, the arithmetic and the wording are as they were.
  */
-export function RatingTable({ groups }: { groups: AchievementGroup[] }) {
+export function RatingTable({
+  groups,
+  fill = false,
+}: {
+  groups: AchievementGroup[];
+  /**
+   * Take the height the layout has left rather than a guessed cap. Needs every
+   * ancestor up to a bounded one to be a flex column — see `Table`'s own note.
+   * Only the rehearsal is wired that way so far; `/achievements` and
+   * `/staff/[id]/rating` follow when their layouts do.
+   */
+  fill?: boolean;
+}) {
   const grandTotal = sumScores(groups.map(sectionTotal));
+  const emptyCount = groups.reduce((n, g) => n + g.items.filter((i) => i.isEmpty).length, 0);
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-muted/60 text-left">
-            <th className={cn(cell, 'w-16 font-medium text-muted-foreground')}>№</th>
-            <th className={cn(cell, 'font-medium text-muted-foreground')}>Показник</th>
-            <th className={cn(cell, 'w-32 font-medium text-muted-foreground')}>Статус</th>
-            <th className={cn(cell, 'w-20 text-right font-medium text-muted-foreground')}>Бали</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((group) => (
-            <SectionRows key={group.number} group={group} />
-          ))}
-          <tr className="bg-primary/10 font-bold">
-            <td colSpan={3} className={cell}>
-              Загальна сума балів
-            </td>
-            <td className={cn(cell, 'text-right text-base tabular-nums')}>{grandTotal}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <EmptyRowsScope count={emptyCount} fill={fill}>
+      <Table
+        fill={fill}
+        // Declared once and shared by the header, the rows and the footer — see
+        // the note in `table.tsx`. «Показник» is the column that absorbs the
+        // slack, so a long title wraps instead of squeezing the figures.
+        // «Бали» is 6 characters wide plus the cell's own `px-4` either side —
+        // the widest score the university awards is five digits, so the column
+        // is as narrow as it can be without ever wrapping a figure.
+        columns={['calc(4ch + 2.5rem)', null, '11rem', 'calc(6ch + 2.5rem)']}
+        head={
+          <TableRow>
+            <TableHead align="center">№</TableHead>
+            <TableHead>Показник</TableHead>
+            <TableHead align="center">Джерело</TableHead>
+            <TableHead numeric align="center">
+              Бали
+            </TableHead>
+          </TableRow>
+        }
+        // Pinned below the rows rather than scrolled to. The year's total is the
+        // one number somebody opens this page for, and it was at the bottom of
+        // sixty-seven rows.
+        footer={
+          <TableRow variant="total">
+            <TableCell colSpan={3}>Загальна сума балів</TableCell>
+            <TableCell numeric align="center" className="text-base">
+              {grandTotal}
+            </TableCell>
+          </TableRow>
+        }
+      >
+        {/* One `<tbody>` PER SECTION, not one around all five. That is what
+            makes the sticky headings stack: a sticky cell cannot leave its own
+            sectioning box, so Розділ 1's heading is carried away by the end of
+            Розділ 1 just as Розділ 2's arrives at the top of the scroll box.
+            Several `<tbody>` elements in one table is valid HTML and is exactly
+            what they are for. */}
+        {groups.map((group) => (
+          <SectionRows key={group.number} group={group} />
+        ))}
+      </Table>
+    </EmptyRowsScope>
   );
 }
 
@@ -89,32 +140,39 @@ function SectionRows({ group }: { group: AchievementGroup }) {
   const subtotal = sectionTotal(group);
 
   return (
-    <>
-      <tr className="bg-muted/40 font-semibold">
-        <td colSpan={3} className={cell}>
+    <TableBody>
+      <TableRow variant="group">
+        <TableCell colSpan={3}>
           Розділ {group.number}. {group.title}
-        </td>
-        <td className={cn(cell, 'text-right tabular-nums')}>{subtotal}</td>
-      </tr>
+        </TableCell>
+        <TableCell numeric align="center">
+          {subtotal}
+        </TableCell>
+      </TableRow>
 
       {group.items.length === 0 ? (
-        <tr>
-          <td colSpan={4} className={cn(cell, 'text-muted-foreground')}>
+        <TableRow>
+          <TableCell colSpan={4} muted>
             Немає досягнень
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       ) : (
         group.items.map((item) => (
-          <tr
+          <TableRow
             key={item.id}
-            className={cn(
-              'transition-colors hover:bg-muted/20',
-              item.isEmpty && 'text-muted-foreground'
-            )}
+            // Read by `EmptyRowsToggle`, which hides these with CSS rather than
+            // filtering them out — that is what keeps this table a server
+            // component. Only ever `true`: `data-empty={false}` would still
+            // write the attribute, and `tr[data-empty=true]` would then be the
+            // only selector that works while `[data-empty]` quietly matched
+            // every row.
+            data-empty={item.isEmpty ? true : undefined}
+            className={cn(item.isEmpty && 'text-muted-foreground')}
           >
-            <td className={cn(cell, 'align-top text-muted-foreground tabular-nums')}>
+            <TableCell muted align="center" className="tabular-nums">
               {item.itemNumber}
-            </td>
+            </TableCell>
+
             {/* `wrap-anywhere`, not `break-words`. A DOI or a реєстраційний
                 номер has no spaces, so with `auto` table layout the browser
                 sizes this column to that unbreakable token and the whole table
@@ -122,7 +180,7 @@ function SectionRows({ group }: { group: AchievementGroup }) {
                 `overflow-wrap: anywhere` is the one that also lowers the
                 min-content width the layout algorithm uses, so the column can
                 actually shrink (2026-08-24). */}
-            <td className={cn(cell, 'align-top wrap-anywhere')}>
+            <TableCell className="wrap-anywhere">
               <p>{item.label}</p>
               {item.summary && (
                 <p className="mt-0.5 text-xs text-muted-foreground">{item.summary}</p>
@@ -132,14 +190,15 @@ function SectionRows({ group }: { group: AchievementGroup }) {
                   Причина відхилення: {item.removeReason}
                 </p>
               )}
-            </td>
+            </TableCell>
+
             {/* One question for every row: where does this number come from.
                 It used to be answered only on empty rows, so once «Зараховано»
                 stopped being printed a filled row had an empty cell — «Науково-
                 педагогічний стаж 26» with nothing beside it. Whether a row is
                 filled has never been what this column is for; the score says
                 that. Who to ask about it is the same on both. */}
-            <td className={cn(cell, 'align-top')}>
+            <TableCell align="center">
               {/* Only a state worth reacting to. «Зараховано» sat on nearly
                   every row, told the reader nothing, and buried the rare
                   «Відхилено» among identical pills. /moderation keeps the full
@@ -163,11 +222,13 @@ function SectionRows({ group }: { group: AchievementGroup }) {
               <span className="block text-xs wrap-anywhere text-muted-foreground">
                 {whoFills(item)}
               </span>
-            </td>
-            <td
+            </TableCell>
+
+            <TableCell
+              numeric
+              align="center"
               className={cn(
-                cell,
-                'text-right align-top font-semibold tabular-nums',
+                'font-semibold',
                 item.isEmpty && 'font-normal',
                 !item.isEmpty &&
                   item.status !== 'APPROVED' &&
@@ -175,10 +236,10 @@ function SectionRows({ group }: { group: AchievementGroup }) {
               )}
             >
               {item.score}
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ))
       )}
-    </>
+    </TableBody>
   );
 }
