@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
  * - Hover lifts by a pixel instead of only darkening — the surface is lit here,
  *   so it should behave like something with a light on it.
  */
-const auroraButtonVariants = cva(
+const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:ring-3 focus-visible:ring-brand/35 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
@@ -89,7 +89,7 @@ function Button({
   disabled,
   ...props
 }: React.ComponentProps<'button'> &
-  VariantProps<typeof auroraButtonVariants> & {
+  VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
     /** Work is in flight — spinner in place of the leading icon, and disabled.
      *  Ignored with `asChild`, where the child owns its own content. */
@@ -103,7 +103,7 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(auroraButtonVariants({ variant, size, className }))}
+      className={cn(buttonVariants({ variant, size, className }))}
       disabled={disabled || (loading && !asChild)}
       aria-busy={showSpinner || undefined}
       {...props}
@@ -120,4 +120,4 @@ function Button({
   );
 }
 
-export { Button, auroraButtonVariants };
+export { Button, buttonVariants };
