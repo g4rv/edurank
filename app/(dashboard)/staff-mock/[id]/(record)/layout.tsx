@@ -7,6 +7,8 @@ import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
 import { MockIdentityBand } from './mock-identity-band';
 import { MockAccountBar } from './mock-account-bar';
+import { MockRatingControls } from './mock-rating-controls';
+import { RatingViewProvider } from '@/components/rating/rating-view';
 import { StaffTabs } from '@/components/staff/staff-tabs';
 import { fullName } from '@/components/staff/profile/primitives';
 import { MOCK_STAFF, MOCK_ACCOUNTS } from '@/app/(dashboard)/_mock/staff';
@@ -63,43 +65,59 @@ export default async function StaffMockLayout({
   const archived = Boolean(staff.archivedAt);
 
   return (
-    <AnimatedPage className="space-y-5">
-      <Breadcrumbs items={[{ label: 'Персонал', href: '/staff' }, { label: fullName(staff) }]} />
+    // `h-full` + a flex column, so a tab whose content is a single scrolling
+    // card can take the height that is left instead of guessing at it. `main`
+    // in the dashboard shell is already bounded (`h-screen`), so this is the
+    // one link that was missing between it and the card.
+    //
+    // Everything above the tabs is `shrink-0`; only the tab body grows.
+    // The provider wraps the tab row AND the tab body: the «незаповнені»
+    // switch is up here and the rows it hides are down there, and a layout
+    // cannot hand a prop back up from its children.
+    <RatingViewProvider>
+      <AnimatedPage className="flex h-full min-h-0 flex-col space-y-5">
+        <Breadcrumbs items={[{ label: 'Персонал', href: '/staff' }, { label: fullName(staff) }]} />
 
-      <MockIdentityBand
-        staff={staff}
-        account={MOCK_ACCOUNTS[id]}
-        actions={
-          <>
-            {/* An archived record is read-only until it is restored — editing
+        <MockIdentityBand
+          staff={staff}
+          account={MOCK_ACCOUNTS[id]}
+          actions={
+            <>
+              {/* An archived record is read-only until it is restored — editing
                 somebody off the roster only invites confusion about why their
                 changes do not show up in the rating. */}
-            {!archived && (
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/staff-mock/${id}/edit`}>
-                  <Pencil />
-                  Редагувати
-                </Link>
+              {!archived && (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/staff-mock/${id}/edit`}>
+                    <Pencil />
+                    Редагувати
+                  </Link>
+                </Button>
+              )}
+              <Button variant="outline" size="sm" disabled>
+                {archived ? <ArchiveRestore /> : <ArchiveX />}
+                {archived ? 'Відновити' : 'Архівувати'}
               </Button>
-            )}
-            <Button variant="outline" size="sm" disabled>
-              {archived ? <ArchiveRestore /> : <ArchiveX />}
-              {archived ? 'Відновити' : 'Архівувати'}
-            </Button>
-          </>
-        }
-      />
+            </>
+          }
+        />
 
-      {/* Tabs on the left, account management on the right — both are controls
-          for this record, and the tab row's other half was empty. */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        {/* No `active` — the layout does not re-render, so the bar reads the
+        {/* Tabs on the left; on the right, the controls that pick WHICH record
+          you are looking at — the year, and account management. The row's other
+          half was empty, and a year picker on a line of its own between the tabs
+          and the table belonged to neither of them. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* No `active` — the layout does not re-render, so the bar reads the
             pathname itself. See the note in StaffTabs. */}
-        <StaffTabs staffId={id} showRating={staff.isNpp} basePath="/staff-mock" />
-        <MockAccountBar staffId={id} account={MOCK_ACCOUNTS[id]} />
-      </div>
+          <StaffTabs staffId={id} showRating={staff.isNpp} basePath="/staff-mock" />
+          <div className="flex flex-wrap items-center gap-3">
+            <MockRatingControls />
+            <MockAccountBar staffId={id} account={MOCK_ACCOUNTS[id]} />
+          </div>
+        </div>
 
-      {children}
-    </AnimatedPage>
+        {children}
+      </AnimatedPage>
+    </RatingViewProvider>
   );
 }

@@ -54,8 +54,12 @@ export default async function StaffMockProfilePage({
   const asAdmin = (await searchParams).as === 'admin';
   const filled = staff.id === 'mock-full';
 
+  // Scrolls itself. The record layout is a bounded flex column now, so a tab
+  // with no scrolling child of its own would be shrunk to fit and lose whatever
+  // fell past the bottom. Every tab scrolls inside its own area; the page never
+  // does.
   return (
-    <div className="space-y-4">
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
       <ViewAs id={id} asAdmin={asAdmin} />
 
       <ProfileDetails

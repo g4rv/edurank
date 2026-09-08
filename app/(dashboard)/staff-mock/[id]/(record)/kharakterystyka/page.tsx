@@ -18,7 +18,7 @@ export default async function StaffMockKharakterystykaPage({
   if (!MOCK_STAFF[id]) notFound();
 
   return (
-    <div className="rounded-xl border border-dashed bg-muted/25 px-5 py-8 text-center text-sm text-muted-foreground">
+    <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-dashed bg-muted/25 px-5 py-8 text-center text-sm text-muted-foreground">
       Тут буде документ за п.38 — він уже існує на
       <code className="mx-1">/staff/[id]/kharakterystyka</code>. У чернетці показано лише те, що
       змінюється при перемиканні вкладок.
