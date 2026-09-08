@@ -9,6 +9,7 @@ import {
   type UseFormSetValue,
 } from 'react-hook-form';
 import { Card } from '@/components/aurora/ui/card';
+import { DateInput } from '@/components/aurora/ui/date-input';
 import { FormField } from '@/components/ui/form-field';
 import { WorkplacesField } from '@/components/staff/workplaces-field';
 import { FieldGroup } from '@/components/ui/field';
@@ -120,7 +121,7 @@ export function staffToFormValues(staff: StaffDetail): RawStaffFormValues {
   const numberOrEmpty = (v: number | null | undefined) => (v != null ? String(v) : '');
   const boolOrEmpty = (v: boolean | null | undefined) =>
     v !== null && v !== undefined ? String(v) : '';
-  // `<input type="date">` wants «YYYY-MM-DD», and the column holds UTC
+  // `DateInput` reads and writes «YYYY-MM-DD», and the column holds UTC
   // midnight — sliced in UTC so the value round-trips unchanged.
   const dateOrEmpty = (v: Date | null | undefined) => (v ? v.toISOString().slice(0, 10) : '');
 
@@ -543,11 +544,23 @@ export function StaffFormFields({
           }
           error={errors.degreeDefenceDate}
         >
-          <Input
-            id="degreeDefenceDate"
-            type="date"
-            disabled={isPending || locked('degreeDefenceDate')}
-            {...register('degreeDefenceDate')}
+          <Controller
+            name="degreeDefenceDate"
+            control={control}
+            render={({ field }) => (
+              <DateInput
+                id="degreeDefenceDate"
+                value={field.value}
+                onChange={field.onChange}
+                // The window the schema will actually accept — `validations/staff.ts`
+                // refuses a year outside 1950–2100, so the dropdown offers no year
+                // that would come back as «Некоректна дата».
+                min="1950-01-01"
+                max="2100-12-31"
+                disabled={isPending || locked('degreeDefenceDate')}
+                aria-invalid={!!errors.degreeDefenceDate}
+              />
+            )}
           />
         </FormField>
         <FormField

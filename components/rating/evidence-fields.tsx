@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
+import { DateInput } from '@/components/aurora/ui/date-input';
 import { Input } from '@/components/ui/input';
 import { DoiInput } from '@/components/ui/doi-input';
 import { IsbnInput } from '@/components/ui/isbn-input';
@@ -163,13 +164,24 @@ export function EvidenceFields({
       case 'date':
         return (
           <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
-            <Input
-              id={f.name}
-              type="date"
-              min={DATE_MIN}
-              max={DATE_MAX}
-              disabled={disabled}
-              {...register(f.name)}
+            <Controller
+              name={f.name}
+              control={control}
+              render={({ field }) => (
+                <DateInput
+                  id={f.name}
+                  // An evidence value can be absent — the row is saved either
+                  // way — so it stays `''` rather than undefined, which would
+                  // flip the field to uncontrolled halfway through typing.
+                  value={typeof field.value === 'string' ? field.value : ''}
+                  onChange={field.onChange}
+                  min={DATE_MIN}
+                  max={DATE_MAX}
+                  disabled={disabled}
+                  // Like the `select` case below it, off the same `error`.
+                  aria-invalid={!!error}
+                />
+              )}
             />
           </FormField>
         );
