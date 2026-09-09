@@ -85,7 +85,7 @@ export function IdentityBandSkeleton({ actions = 2 }: { actions?: 1 | 2 }) {
  * than one that appears. The outer flex is copied anyway so the row wraps the
  * same way at narrow widths.
  */
-export function RecordTabsSkeleton() {
+export function RecordTabsSkeleton({ toolbar }: { toolbar?: number[] }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="w-fit rounded-lg border bg-card p-1 shadow-xs">
@@ -95,6 +95,28 @@ export function RecordTabsSkeleton() {
           <Skeleton className="h-8 w-32 rounded-md" />
         </div>
       </div>
+      {toolbar && <ToolbarGroupSkeleton widths={toolbar} />}
+    </div>
+  );
+}
+
+/**
+ * The tab's own controls, in the strip they land in.
+ *
+ * On the row, not under it. The rating tab's placeholder used to be a pair of
+ * loose blocks on a line of its own below the tabs, which is neither where the
+ * controls end up nor a shape the page ever has — so the row grew a phantom
+ * line and then lost it (owner, 2026-09-09).
+ *
+ * `widths` are the controls in order, in pixels; `ToolbarGroup`'s own `p-1`
+ * around `h-8` children is what makes this the tab bar's height.
+ */
+export function ToolbarGroupSkeleton({ widths }: { widths: number[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-1 shadow-xs">
+      {widths.map((w, i) => (
+        <Skeleton key={i} className="h-8 rounded-md" style={{ width: w }} />
+      ))}
     </div>
   );
 }

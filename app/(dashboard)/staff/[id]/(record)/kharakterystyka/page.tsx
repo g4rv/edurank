@@ -9,7 +9,7 @@ import {
   KharakterystykaTable,
   KharakterystykaSummary,
 } from '@/components/kharakterystyka/kharakterystyka-table';
-import { RecordToolbar } from '@/components/staff/record-toolbar';
+import { RecordToolbar, ToolbarGroup, ToolbarDivider } from '@/components/staff/record-toolbar';
 import { DownloadButton } from '@/components/ui/download-button';
 
 /**
@@ -78,12 +78,16 @@ export default async function StaffKharakterystykaPage({
           rather than fetched by the layout — it is five years of activities put
           through the builder, and the layout would load it on every tab. */}
       <RecordToolbar>
-        <KharakterystykaSummary data={data} />
-        <DownloadButton
-          href={`/api/export/kharakterystyka?year=${template.year}&staffId=${id}`}
-          label="Excel"
-          title="Характеристика_РНПАВ у форматі документа"
-        />
+        <ToolbarGroup>
+          <KharakterystykaSummary data={data} />
+          <ToolbarDivider />
+          <DownloadButton
+            href={`/api/export/kharakterystyka?year=${template.year}&staffId=${id}`}
+            label="Вивантажити Excel"
+            title="Характеристика_РНПАВ у форматі документа"
+            variant="ghost"
+          />
+        </ToolbarGroup>
       </RecordToolbar>
 
       <KharakterystykaTable

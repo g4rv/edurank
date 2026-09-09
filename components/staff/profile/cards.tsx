@@ -14,10 +14,13 @@ import { Fields, Field, MaybeField, PositionEntry, ProfileLink } from './primiti
  *
  * Two rules run through all of them:
  *
- * 1. **A blank row is not rendered.** What is missing is collected by
- *    `missingProfileFields` and named once at the foot of the page, so the
- *    values that DO exist are not buried in dashes. `showEmpty` overrides this
- *    for the mock page, where the point is to see the whole vocabulary at once.
+ * 1. **Every row is rendered; a blank one shows «—»** (owner, 2026-09-09). It
+ *    used to be the reverse, and §5 of `docs/aurora.md` carries the argument
+ *    that changed it: a card is a shape, not a list, and one that loses four of
+ *    its six fields reads as broken rather than as empty. Hiding the row hid
+ *    the LABEL too, so «no ORCID recorded» and «ORCID is not tracked here»
+ *    looked identical. `showEmpty` survives as the escape hatch, now defaulting
+ *    to true.
  * 2. **No card decides a permission.** `EmploymentCard` is handed `showStake`; it
  *    never works out whether this reader may see a ставка. That stays in the
  *    route, where the session is, and this file has nothing to leak.
@@ -36,7 +39,7 @@ interface CardProps {
 }
 
 /** НПП only — звання and ступінь really are academic-staff data. */
-export function AcademicCard({ staff, showEmpty = false }: CardProps) {
+export function AcademicCard({ staff, showEmpty = true }: CardProps) {
   if (!staff.isNpp) return null;
 
   return (
@@ -103,7 +106,7 @@ export function AcademicCard({ staff, showEmpty = false }: CardProps) {
 
 /** NOT gated on isNpp: an administrative employee can hold a doctorate and an
  *  ORCID too. */
-export function ResearchProfilesCard({ staff, showEmpty = false }: CardProps) {
+export function ResearchProfilesCard({ staff, showEmpty = true }: CardProps) {
   const any =
     staff.wosUrl || staff.scopusUrl || staff.googleScholarUrl || staff.orcidId || showEmpty;
   if (!any) return null;
@@ -149,7 +152,7 @@ export function ResearchProfilesCard({ staff, showEmpty = false }: CardProps) {
  * «проректор» had nowhere else to go and would simply have vanished from their
  * profile. A post belongs on the card about posts.
  */
-export function LeadershipCard({ staff, showEmpty = false }: CardProps) {
+export function LeadershipCard({ staff, showEmpty = true }: CardProps) {
   const none = !staff.headOfDepartment && !staff.deanOfFaculty && !staff.adminPosition;
   if (none && !showEmpty) return null;
 
@@ -209,7 +212,7 @@ export function WorkplacesCard({
   staff,
   stakeParts = [],
   showStake = false,
-  showEmpty = false,
+  showEmpty = true,
 }: CardProps & { stakeParts?: StakePart[]; showStake?: boolean }) {
   const none = !staff.department && staff.partTimeDepartments.length === 0 && !staff.division;
   if (none && !showEmpty) return null;

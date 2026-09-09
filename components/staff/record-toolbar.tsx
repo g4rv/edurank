@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { cn } from '@/lib/utils';
 
 /**
  * A slot on the record's tab row that the open TAB fills.
@@ -55,4 +56,40 @@ export function RecordToolbar({ children }: { children: React.ReactNode }) {
 /** The empty target, for the layout's tab row. */
 export function RecordToolbarHost() {
   return <div id={RECORD_TOOLBAR_ID} className="flex flex-wrap items-center gap-3" />;
+}
+
+/**
+ * One bordered strip on the record's tab row.
+ *
+ * Every tab's controls live in exactly one of these, so the row reads as a
+ * single object beside the tab bar rather than a scatter of loose buttons.
+ * Before 2026-09-09 the Характеристика put its «8 з 20» in a strip and then set
+ * the Excel button loose next to it, while the account controls sat in a third
+ * — three shapes on one row for what is one toolbar.
+ *
+ * `p-1` around `h-8` controls comes to the tab bar's own height, so the two
+ * read as one row rather than as two things that happen to be adjacent.
+ */
+export function ToolbarGroup({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-2 rounded-lg border bg-card p-1 shadow-xs',
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** A hairline between two groups of controls inside one `ToolbarGroup`. */
+export function ToolbarDivider() {
+  return <span aria-hidden className="h-5 w-px shrink-0 bg-border" />;
 }

@@ -26,7 +26,7 @@ export function StaffProfileView({
   stakeParts,
   editHref,
   canFillOwn = false,
-  showEmpty = false,
+  showEmpty = true,
   actions,
   rating,
   aside,

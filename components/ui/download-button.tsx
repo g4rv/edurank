@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { FileDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { fileNameFromDisposition } from '@/lib/export/file-names';
 
 /**

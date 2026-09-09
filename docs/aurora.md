@@ -164,12 +164,27 @@ that was tried, and rejected as «soooo ugly». See
 
 ## 5. Empty values
 
-**A blank field is not rendered.** What is missing is collected and named once,
-at the foot of the page, with an action — see `lib/staff/profile-completeness.ts`.
+**Every field is rendered, and a blank one shows «—»** (owner, 2026-09-09,
+reversing the rule below).
 
-A column of «—» is the same information in the form least likely to make anybody
-do anything about it, and the project's real risk is that ~200 НПП never fill
-anything in.
+The original rule was the opposite — hide a blank row, and collect what is
+missing into one note at the foot of the page with an action. The argument was
+that a column of «—» is the same information in the form least likely to make
+anybody do anything about it, and the project's real risk is that ~200 НПП never
+fill anything in.
+
+**What that missed is that a card is a shape, not a list.** «Академічна
+інформація» has six fields. On a full record it is three tidy rows of two; on a
+sparse one it collapsed to a single row and the card read as broken rather than
+as empty — and no two people's cards were the same shape, so the eye had to
+re-learn the layout on every record. Hiding the row also hid the LABEL, so a
+reader could not tell «this person has no ORCID» from «this app does not track
+ORCID».
+
+A dash says the field exists and is empty, which is the thing worth knowing. The
+note at the foot stays and still does the asking — see §5's own note below and
+`lib/staff/profile-completeness.ts` — but it is now the only thing doing it,
+rather than the only place the information appeared at all.
 
 The exception is a **zero that is a fact**: a rating section scoring 0 keeps its
 row, because that gap is the point.

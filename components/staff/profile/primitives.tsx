@@ -209,7 +209,7 @@ export function fullName(s: { lastName: string; firstName: string; patronymic: s
 export function MaybeField({
   label,
   value,
-  showEmpty = false,
+  showEmpty = true,
 }: {
   label: string;
   value: React.ReactNode | null | undefined;

@@ -117,21 +117,21 @@ function Pill({
  */
 export function KharakterystykaSummary({ data }: { data: Kharakterystyka }) {
   return (
-    <div className="rounded-lg border bg-card p-1 shadow-xs">
-      <div className="flex h-8 items-center gap-2.5 px-2">
-        <span className="text-sm font-semibold tabular-nums">
-          {data.metCount} з {data.positions.length}
-        </span>
-        <span className="text-sm whitespace-nowrap text-muted-foreground">
-          позицій · {data.from}–{data.to}
-        </span>
-        <Pill
-          tone={data.qualifies ? 'met' : 'short'}
-          icon={data.qualifies ? <Check className="size-3" /> : undefined}
-        >
-          {data.qualifies ? 'Відповідає' : `Потрібно ${REQUIRED_POSITIONS}`}
-        </Pill>
-      </div>
+    // No border and no fill of its own: it is one item inside the tab's
+    // `ToolbarGroup`, which draws the strip for everything on the row.
+    <div className="flex h-8 items-center gap-2.5 px-2">
+      <span className="text-sm font-semibold tabular-nums">
+        {data.metCount} з {data.positions.length}
+      </span>
+      <span className="text-sm whitespace-nowrap text-muted-foreground">
+        позицій · {data.from}–{data.to}
+      </span>
+      <Pill
+        tone={data.qualifies ? 'met' : 'short'}
+        icon={data.qualifies ? <Check className="size-3" /> : undefined}
+      >
+        {data.qualifies ? 'Відповідає' : `Потрібно ${REQUIRED_POSITIONS}`}
+      </Pill>
     </div>
   );
 }

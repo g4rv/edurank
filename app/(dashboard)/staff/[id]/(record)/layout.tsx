@@ -3,12 +3,10 @@ import Link from 'next/link';
 import { Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
-import { getStaffAccount } from '@/lib/queries/get-staff-account';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { canMutateStaffRecord } from '@/lib/permissions';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
-import { AccountControls } from '@/components/staff/account-card';
 import { ArchiveStaffButton, RestoreStaffButton } from '@/components/staff/archive-button';
 import { IdentityBand } from '@/components/staff/profile/identity-band';
 import { fullName } from '@/components/staff/profile/primitives';
@@ -55,10 +53,6 @@ export default async function StaffRecordLayout({
 
   const staff = await getStaff(id, showConfidential);
   if (!staff) notFound();
-
-  // Account management is the whole of «profile management» and is ADMIN-only,
-  // so nobody else's page even loads the row.
-  const account = isAdmin ? await getStaffAccount(id) : null;
 
   let canEdit = isAdmin;
   let canArchive = isAdmin;
@@ -115,30 +109,21 @@ export default async function StaffRecordLayout({
           }
         />
 
-        {/* Tabs on the left; on the right, the controls that say WHAT you are
-            looking at — the open tab fills the slot through a portal, and
-            account management sits beside it for an ADMIN. */}
+        {/* Tabs on the left; on the right, whatever the OPEN TAB puts there
+            through the portal — and nothing else.
+
+            Account management used to sit here beside it, which meant it rode
+            along on Рейтинг and Характеристика too (owner, 2026-09-09). Those
+            tabs are documents about a person; resetting their password from
+            one is a different job that happens to be one row away. It belongs
+            to the Профіль tab, which is where the record itself is, so the
+            Профіль page portals it in like any other tab's controls. */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* No `active` prop: a layout does not re-render on navigation, so one
               passed down here would be frozen on whichever tab was opened
               first. `StaffTabs` reads the pathname itself. */}
           <StaffTabs staffId={id} showRating={staff.isNpp} />
-          <div className="flex flex-wrap items-center gap-3">
-            <RecordToolbarHost />
-            {account && (
-              // `p-1` around `h-8` controls comes to the tab bar's own height,
-              // so the two read as one row rather than as two things that
-              // happen to be adjacent.
-              <div className="flex items-center gap-2 rounded-lg border bg-card p-1 shadow-xs">
-                <AccountControls
-                  staffId={id}
-                  account={account}
-                  isSelf={session.user.staffId === id}
-                  variant="bar"
-                />
-              </div>
-            )}
-          </div>
+          <RecordToolbarHost />
         </div>
 
         {children}

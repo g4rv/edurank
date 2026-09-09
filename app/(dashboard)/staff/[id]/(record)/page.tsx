@@ -2,7 +2,10 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
+import { getStaffAccount } from '@/lib/queries/get-staff-account';
 import { ProfileDetails } from '@/components/staff/profile/profile-details';
+import { AccountControls } from '@/components/staff/account-card';
+import { RecordToolbar, ToolbarGroup } from '@/components/staff/record-toolbar';
 
 /**
  * The profile tab of one person's record.
@@ -34,8 +37,28 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
 
   const stakeParts = showStake ? await getStakeBreakdown(id) : [];
 
+  // Account management is the whole of «profile management» and is ADMIN-only,
+  // so nobody else's page even loads the row. It lives on THIS tab rather than
+  // in the layout (owner, 2026-09-09): Рейтинг and Характеристика are documents
+  // about a person, and «Завершити всі сесії» has no business on the row above
+  // one. The record — who they are, what they may sign in as — is here.
+  const account = session.user.role === 'ADMIN' ? await getStaffAccount(id) : null;
+
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+      {account && (
+        <RecordToolbar>
+          <ToolbarGroup>
+            <AccountControls
+              staffId={id}
+              account={account}
+              isSelf={session.user.staffId === id}
+              variant="bar"
+            />
+          </ToolbarGroup>
+        </RecordToolbar>
+      )}
+
       <ProfileDetails
         staff={staff}
         showStake={showStake}

@@ -31,7 +31,7 @@ export function ProfileDetails({
   stakeParts,
   editHref,
   canFillOwn = false,
-  showEmpty = false,
+  showEmpty = true,
   rating,
   aside,
 }: {

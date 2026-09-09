@@ -9,7 +9,7 @@ import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-
 import { EmptyState } from '@/components/aurora/ui/card';
 import { RatingTable } from '@/components/rating/rating-table';
 import { EmptyRowsSwitch } from '@/components/rating/rating-view';
-import { RecordToolbar } from '@/components/staff/record-toolbar';
+import { RecordToolbar, ToolbarGroup, ToolbarDivider } from '@/components/staff/record-toolbar';
 import { DownloadButton } from '@/components/ui/download-button';
 import { YearSelect } from '@/components/rating/year-select';
 
@@ -97,17 +97,19 @@ export default async function StaffRatingPage({
           PAGE rather than fetched by the layout, because only the page knows
           which years this template has. */}
       <RecordToolbar>
-        <div className="flex items-center gap-2 rounded-lg border bg-card p-1 pl-3 shadow-xs">
+        <ToolbarGroup className="pl-3">
           <span className="text-sm text-muted-foreground">Рік</span>
           <YearSelect years={years} value={year} />
-          <span aria-hidden className="h-5 w-px bg-border" />
+          <ToolbarDivider />
           <EmptyRowsSwitch />
-        </div>
-        <DownloadButton
-          href={`/api/export/ratings?year=${year}&staffId=${id}`}
-          label="Excel"
-          title="Офіційна форма рейтингового оцінювання для цього НПП"
-        />
+          <ToolbarDivider />
+          <DownloadButton
+            href={`/api/export/ratings?year=${year}&staffId=${id}`}
+            label="Вивантажити Excel"
+            title="Офіційна форма рейтингового оцінювання для цього НПП"
+            variant="ghost"
+          />
+        </ToolbarGroup>
       </RecordToolbar>
 
       <RatingTable groups={groups} fill />
