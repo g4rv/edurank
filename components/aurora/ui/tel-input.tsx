@@ -12,6 +12,7 @@ import {
   toPhoneValue,
 } from '@/lib/phone';
 import { fieldSurfaceInner, fieldSurfaceWrapper, type FieldSize } from './field-surface';
+import { MaskGhost } from './mask-ghost';
 
 /**
  * «Аврора»'s phone field — a drop-in replacement for `components/ui/tel-input`.
@@ -76,43 +77,53 @@ export function TelInput({
             kind of thing. They are not: `+380` is already part of the number and
             will still be there when the mask is gone. */}
         <span className="shrink-0 select-none">+380</span>
-        <input
-          id={id}
-          type="tel"
-          inputMode="numeric"
-          // No autofill (owner, 2026-09-07). This field is on /staff/[id]/edit
-          // far more often than on «Мій профіль», and there it holds SOMEBODY
-          // ELSE's number — so the browser offering the signed-in admin's own
-          // is not a convenience, it is a wrong number one keystroke away from
-          // being saved onto a colleague's record.
-          //
-          // The three attributes are one job between them: Chrome ignores
-          // `autocomplete="off"` on a field it recognises as a phone, and the
-          // two `data-` hints are what LastPass and 1Password read — neither
-          // looks at `autocomplete` at all.
-          autoComplete="off"
-          data-lpignore="true"
-          data-1p-ignore
-          disabled={disabled}
-          aria-invalid={ariaInvalid}
-          placeholder={PHONE_PLACEHOLDER}
-          value={shown}
-          onChange={(e) => {
-            const raw = e.target.value;
-            const next = nationalDigits(raw);
-            setSwallowed(next.length === 0 && /\d/.test(raw));
-            onChange(toPhoneValue(next));
-          }}
-          // `font-mono`, matching `OrcidInput` and `IsbnInput`. All three draw
-          // a mask behind the caret, and §7 of `docs/aurora.md` requires the
-          // input and the ghost to share one font and box — in a proportional
-          // face the remainder drifts a few pixels at every keystroke. This one
-          // was the odd field out, so the same `00-000-0000` sat differently
-          // here than on ORCID beside it (owner, 2026-09-08). The typed digits
-          // gain from it too: a phone number is a fixed-width value and its
-          // groups line up down a column.
-          className={cn(fieldSurfaceInner, 'font-mono tabular-nums')}
-        />
+        {/* The ghost is positioned against this span, not against the padded
+            wrapper — otherwise `left-0` would put the mask behind the «+380»
+            above. Same construction as `OrcidInput`. */}
+        <span className="relative flex h-full min-w-0 flex-1 items-center">
+          <input
+            id={id}
+            type="tel"
+            inputMode="numeric"
+            // No autofill (owner, 2026-09-07). This field is on /staff/[id]/edit
+            // far more often than on «Мій профіль», and there it holds SOMEBODY
+            // ELSE's number — so the browser offering the signed-in admin's own
+            // is not a convenience, it is a wrong number one keystroke away from
+            // being saved onto a colleague's record.
+            //
+            // The three attributes are one job between them: Chrome ignores
+            // `autocomplete="off"` on a field it recognises as a phone, and the
+            // two `data-` hints are what LastPass and 1Password read — neither
+            // looks at `autocomplete` at all.
+            autoComplete="off"
+            data-lpignore="true"
+            data-1p-ignore
+            disabled={disabled}
+            aria-invalid={ariaInvalid}
+            placeholder={PHONE_PLACEHOLDER}
+            value={shown}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const next = nationalDigits(raw);
+              setSwallowed(next.length === 0 && /\d/.test(raw));
+              onChange(toPhoneValue(next));
+            }}
+            // `font-mono`, matching `OrcidInput` and `IsbnInput`. All three draw
+            // a mask behind the caret, and §7 of `docs/aurora.md` requires the
+            // input and the ghost to share one font and box — in a proportional
+            // face the remainder drifts a few pixels at every keystroke. This one
+            // was the odd field out, so the same `00-000-0000` sat differently
+            // here than on ORCID beside it (owner, 2026-09-08). The typed digits
+            // gain from it too: a phone number is a fixed-width value and its
+            // groups line up down a column.
+            className={cn(fieldSurfaceInner, 'font-mono tabular-nums placeholder:text-transparent')}
+          />
+          <MaskGhost
+            template={PHONE_PLACEHOLDER}
+            typed={shown}
+            className={size === 'lg' ? 'text-base' : 'text-base md:text-sm'}
+          />
+        </span>
         {complete && <Check className="size-4 shrink-0 text-green-600 dark:text-green-500" />}
       </div>
       {/* Only while something is half-typed. Saying «9 цифр» to somebody who has

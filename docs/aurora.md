@@ -317,6 +317,14 @@ itself is only 4.43 on the ground — so this is a property of the palette, not 
 this token. If it is ever worth fixing it is one change to the ramp, not five
 patches at the call sites.
 
+**The phone only looked like it had one.** Until 2026-09-09 `TelInput` set a
+native `placeholder` and drew no ghost at all, so its mask vanished at the first
+keystroke while ORCID's stayed. Nobody saw it, because the two colours happened
+to match — and the moment `--mask-ghost` split from `--placeholder` the phone's
+mask came out visibly darker than ORCID's beside it, which is how it surfaced.
+**A shared colour is not evidence of a shared implementation**; if a field's
+mask does not survive typing, it does not have a `MaskGhost`.
+
 Three things this depends on, all easy to break:
 
 - **The input and the ghost must be `font-mono` at the same size and box.** The
