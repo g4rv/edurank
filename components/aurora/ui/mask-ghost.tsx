@@ -51,7 +51,7 @@ export function MaskGhost({
       )}
     >
       <span className="invisible">{typed}</span>
-      <span className="text-muted-foreground/55">{rest}</span>
+      <span className="text-mask-ghost">{rest}</span>
     </span>
   );
 }

@@ -14,12 +14,20 @@ doing its own thing.
 
 There are exactly four. Nothing else is invented per screen.
 
-| Surface    | What                                         | Where                                  |
-| ---------- | -------------------------------------------- | -------------------------------------- |
-| **Ground** | `--background` + `<AuroraWash />`            | The page. Never white, never plain.    |
-| **Card**   | `bg-card` + `border` + `shadow-card`         | Everything that holds content.         |
-| **Glass**  | `.glass` — translucent **and blurred**       | A small panel floating over the wash.  |
-| **Chrome** | `.glass-chrome` — translucent, **unblurred** | The sidebar, and full-bleed furniture. |
+| Surface    | What                                         | Where                                   |
+| ---------- | -------------------------------------------- | --------------------------------------- |
+| **Ground** | `--background` + `<AuroraWash />`            | The page. Never white, never plain.[^1] |
+| **Card**   | `bg-card` + `border` + `shadow-card`         | Everything that holds content.          |
+| **Glass**  | `.glass` — translucent **and blurred**       | A small panel floating over the wash.   |
+| **Chrome** | `.glass-chrome` — translucent, **unblurred** | The sidebar, and full-bleed furniture.  |
+
+[^1]:
+    **In light mode.** Dark mode dims the wash almost to nothing — the blooms
+    are under a `dark:opacity-80` layer of near-black — and it stays that way
+    (owner, 2026-09-09): «it stays minimalistic and serves night mode with less
+    visual obstacles». So dark is a quiet utility theme, not «Кристал», and a
+    flat dark ground there is the decision rather than an oversight. Worth
+    re-opening only if somebody starts working in it all day.
 
 ### The separation rule
 
@@ -282,6 +290,32 @@ character never had to.
 **All three changed together** — phone, ORCID, ISBN. Converting one leaves the
 others as the odd fields out on a form, which is the problem being fixed rather
 than a smaller version of it.
+
+**A mask ghost is not a placeholder, and they do not share a colour.** The two
+were briefly merged into `--placeholder` on the grounds that both are «the
+hint». What that misses is _where each one is read_:
+
+| token           | on a card | worn by                                     |
+| --------------- | --------- | ------------------------------------------- |
+| `--mask-ghost`  | 2.12:1    | the unfilled tail behind a caret, only      |
+| `--placeholder` | 4.48:1    | `::placeholder`, and a Radix select trigger |
+
+A mask sits inside a field whose fill, border and inner shadow already say the
+control is live, with the value being typed directly on top of it. **A select
+trigger has neither** — no caret, no typed text, so its placeholder is the
+_entire_ content of the control. At the ghost's 2.07 a row of unchosen filters
+on `/staff` and `/rating` read as **disabled**, which is the one thing §7 spends
+its length making a different state. «Nothing chosen yet» and «you may not touch
+this» must not look alike.
+
+The column says **on a card**, and that matters: a filter bar sits on the page
+ground instead, where `--placeholder` measures 4.18. It is not raised to cover
+that, because doing so would take it past `--muted-foreground` (0.556) and a
+placeholder darker than the muted text beside it is a worse fault than the one
+being fixed. The whole neutral ramp is tuned to the card — `--muted-foreground`
+itself is only 4.43 on the ground — so this is a property of the palette, not of
+this token. If it is ever worth fixing it is one change to the ramp, not five
+patches at the call sites.
 
 Three things this depends on, all easy to break:
 

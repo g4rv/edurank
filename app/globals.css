@@ -8,6 +8,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-placeholder: var(--placeholder);
+  --color-mask-ghost: var(--mask-ghost);
   --font-sans: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-manrope);
@@ -100,8 +101,24 @@
   --muted-foreground: oklch(0.556 0 0);
   /* Fainter than --muted-foreground — a placeholder is an example of what to
      type and must never read as a value already filled in — but still text, so
-     it holds WCAG AA (4.5:1). At the old 0.72 it measured 2.49 and vanished. */
+     it holds WCAG AA (4.5:1). At the old 0.72 it measured 2.49 and vanished.
+
+     **Not the same value as --mask-ghost, and the difference is the point.**
+     They were briefly merged, on the reasonable-sounding grounds that both are
+     «the hint». What that missed is WHERE each one is read. A mask sits behind
+     a caret in a field whose fill, border and inner shadow already say the
+     control is live, so it can go faint. A Radix select trigger has no caret
+     and no typed text: its placeholder is the ENTIRE content of the control,
+     and at the ghost's 2.07:1 a row of unchosen filters on /staff and /rating
+     read as disabled — which §7 spends its length making a DIFFERENT state.
+     «Nothing chosen yet» and «you may not touch this» must not look alike. */
   --placeholder: oklch(0.568 0 0);
+  /* The unfilled tail of a mask (`MaskGhost`), and nothing else. 2.07:1 on the
+     page, deliberately below AA: it is not content, it is not a label, and it
+     is never the only thing in its control — the value being typed is right on
+     top of it. Lives here rather than as `text-muted-foreground/55` inside the
+     component so that it and --placeholder are visibly two decisions. */
+  --mask-ghost: oklch(0.556 0 0 / 0.55);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -212,6 +229,11 @@
   /* On dark, fainter means closer to the background, so lower rather than
      higher — but still AA against the card (0.52 measured 3.27, now 4.92) */
   --placeholder: oklch(0.62 0 0);
+  /* The same 55%, over the dark card's own `--muted-foreground`. Fainter here
+     means closer to the background, so the lightness goes UP rather than down —
+     the opposite direction from --placeholder above, because this one is
+     allowed to approach the card and that one is not. */
+  --mask-ghost: oklch(0.708 0 0 / 0.55);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
