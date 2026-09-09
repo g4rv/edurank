@@ -12,5 +12,9 @@ import { TableSkeleton } from '@/components/aurora/ui/table-skeleton';
  * into the real table's height with a visible jump.
  */
 export default function StaffKharakterystykaLoading() {
-  return <TableSkeleton columns={[5, 46, 40, 9]} rows={6} rowHeight="prose" />;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <TableSkeleton columns={[5, 46, 40, 9]} rows={6} rowHeight="prose" />
+    </div>
+  );
 }
