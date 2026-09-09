@@ -174,6 +174,14 @@ anything in.
 The exception is a **zero that is a fact**: a rating section scoring 0 keeps its
 row, because that gap is the point.
 
+**The note goes on your OWN record only** (owner, 2026-09-09). It was showing on
+`/staff/[id]` too, with the «Заповнити» link suppressed because the gaps are not
+the reader's to fill — which is the tell. A note that names a problem and offers
+nothing is a complaint, and it sat at the foot of a page whose reader had not
+come looking for one. The note exists to get ~200 НПП to fill their own records
+in; on somebody else's it does no work at all. There is no «show it without the
+action» mode, because that mode was the bug.
+
 ---
 
 ## 6. Motion

@@ -40,6 +40,12 @@ export function ProfileDetails({
   showStake: boolean;
   stakeParts: StakePart[];
   editHref: string;
+  /**
+   * Whether this reader may fill the gaps — true only on «Мій профіль».
+   *
+   * Gates the note entirely, not just its link. On somebody else's record it is
+   * a complaint nobody present can answer.
+   */
   canFillOwn?: boolean;
   showEmpty?: boolean;
   /** The rating block, when it lives on this page rather than in a tab */
@@ -47,8 +53,6 @@ export function ProfileDetails({
   /** Top of the right column — the account card, ADMIN only */
   aside?: React.ReactNode;
 }) {
-  const missing = missingProfileFields(staff);
-
   return (
     <div className="space-y-5">
       {rating}
@@ -83,7 +87,9 @@ export function ProfileDetails({
 
       {/* Last, deliberately: it is a request, not a warning. At the top it would
           open every half-filled profile with a complaint. */}
-      <MissingFieldsNote missing={missing} editHref={editHref} canFillOwn={canFillOwn} />
+      {canFillOwn && (
+        <MissingFieldsNote missing={missingProfileFields(staff)} editHref={editHref} />
+      )}
     </div>
   );
 }

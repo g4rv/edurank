@@ -19,16 +19,20 @@ import type { MissingFields } from '@/lib/staff/profile-completeness';
  * person may edit themselves (`USER_EDITABLE_STAFF_FIELDS`); `administered` are
  * filled by кадри or ННВ. Offering an НПП «Заповнити» for a вчене звання would
  * send them to a form that silently drops it — worse than saying nothing.
+ *
+ * **Only ever rendered on your OWN record** (owner, 2026-09-09). It used to
+ * appear on `/staff/[id]` as well, with the link suppressed — which left a
+ * panel that named a problem and offered nothing to do about it, at the foot of
+ * a page whose reader had not come looking for it. The note is a request, and a
+ * request needs somebody who can say yes. `ProfileDetails` decides; there is no
+ * «show it but disabled» mode, because that was the mode.
  */
 export function MissingFieldsNote({
   missing,
   editHref,
-  /** False when looking at somebody else's record — it is not yours to fill */
-  canFillOwn = true,
 }: {
   missing: MissingFields;
   editHref: string;
-  canFillOwn?: boolean;
 }) {
   const { own, administered } = missing;
   if (own.length === 0 && administered.length === 0) return null;
@@ -41,18 +45,16 @@ export function MissingFieldsNote({
             <span className="font-medium">Не заповнено:</span>{' '}
             <span className="text-muted-foreground">{own.join(' · ')}</span>
           </p>
-          {canFillOwn && (
-            <Link
-              href={editHref}
-              className="inline-flex shrink-0 items-center gap-1.5 text-base font-medium text-brand underline-offset-4 hover:underline"
-            >
-              {/* Same pen as «Редагувати» — they lead to the same form, and a
-                  reader should not have to work out that they are the same
-                  action reached two ways. */}
-              <Pencil className="size-3.5" />
-              Заповнити
-            </Link>
-          )}
+          <Link
+            href={editHref}
+            className="inline-flex shrink-0 items-center gap-1.5 text-base font-medium text-brand underline-offset-4 hover:underline"
+          >
+            {/* Same pen as «Редагувати» — they lead to the same form, and a
+                reader should not have to work out that they are the same
+                action reached two ways. */}
+            <Pencil className="size-3.5" />
+            Заповнити
+          </Link>
         </div>
       )}
 
