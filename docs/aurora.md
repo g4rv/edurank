@@ -268,10 +268,20 @@ surface — so they could not have matched.
 
 ### A fixed-shape value draws its mask
 
-`0000-0000-0000-0000` as a placeholder is a lie the field tells once: it looks
-like a value already in the box. `____-____-____-____` cannot be mistaken for
-one, and it keeps saying what is missing **while you type** — the part still to
-come stays on screen behind the caret (`components/aurora/ui/mask-ghost.tsx`).
+A masked field keeps saying what is missing **while you type** — the part still
+to come stays on screen behind the caret
+(`components/aurora/ui/mask-ghost.tsx`).
+
+**Every mask is drawn in zeros, not underscores** (owner, 2026-09-08).
+Underscores were tried first, on the argument that `0000-0000-0000-0000` looks
+like a value already in the box while `____-____-____-____` cannot be mistaken
+for one. That much is true and it is still the wrong trade: a row of underscores
+reads as damage. The ghost's own muted colour is what says «not yet typed» — the
+character never had to.
+
+**All three changed together** — phone, ORCID, ISBN. Converting one leaves the
+others as the odd fields out on a form, which is the problem being fixed rather
+than a smaller version of it.
 
 Three things this depends on, all easy to break:
 

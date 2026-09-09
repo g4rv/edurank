@@ -25,7 +25,7 @@ import { ISBN_MASK, MaskGhost } from './mask-ghost';
  * `fieldSurface()` on the input itself — the wrapper helper is for controls
  * like `TelInput` that print something to the left of the value.
  *
- * **The mask is drawn, and it is a hint about LENGTH only.** `___-_-__-______-_`
+ * **The mask is drawn, and it is a hint about LENGTH only.** `000-0-00-000000-0`
  * shows thirteen digits and roughly where the breaks fall, replacing a
  * «Наприклад: 978-3-16-148410-0» placeholder that vanished the moment anyone
  * typed. It is not enforced and could not be: an ISBN's hyphens depend on the

@@ -68,8 +68,14 @@ export function TelInput({
         className={cn(fieldSurfaceWrapper(size, 'gap-1.5'), className)}
       >
         {/* Part of the field, not of the value. Nobody can delete it, so no
-            number can be stored without a country code. */}
-        <span className="shrink-0 text-muted-foreground select-none">+380</span>
+            number can be stored without a country code.
+
+            `--foreground`, the colour of a TYPED digit — not the mask's (owner,
+            2026-09-08). It was `--muted-foreground`, a shade off the hint beside
+            it, so the fixed half and the part still to type read as the same
+            kind of thing. They are not: `+380` is already part of the number and
+            will still be there when the mask is gone. */}
+        <span className="shrink-0 select-none">+380</span>
         <input
           id={id}
           type="tel"
@@ -97,7 +103,15 @@ export function TelInput({
             setSwallowed(next.length === 0 && /\d/.test(raw));
             onChange(toPhoneValue(next));
           }}
-          className={cn(fieldSurfaceInner, 'tabular-nums')}
+          // `font-mono`, matching `OrcidInput` and `IsbnInput`. All three draw
+          // a mask behind the caret, and §7 of `docs/aurora.md` requires the
+          // input and the ghost to share one font and box — in a proportional
+          // face the remainder drifts a few pixels at every keystroke. This one
+          // was the odd field out, so the same `00-000-0000` sat differently
+          // here than on ORCID beside it (owner, 2026-09-08). The typed digits
+          // gain from it too: a phone number is a fixed-width value and its
+          // groups line up down a column.
+          className={cn(fieldSurfaceInner, 'font-mono tabular-nums')}
         />
         {complete && <Check className="size-4 shrink-0 text-green-600 dark:text-green-500" />}
       </div>

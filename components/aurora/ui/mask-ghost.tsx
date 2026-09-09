@@ -3,12 +3,15 @@ import { cn } from '@/lib/utils';
 /**
  * The unfilled part of a fixed-shape value, drawn behind what has been typed.
  *
- * `0000-0000-0000-0000` as a placeholder is a lie the field tells once: it
- * looks like a real ORCID, so it reads as a value already in the box until you
- * click. `____-____-____-____` cannot be mistaken for one — it is visibly a
- * shape waiting to be filled, and it keeps saying so as you type, because the
- * part still to come stays on screen while the part you have typed is covered
+ * Unlike a `placeholder`, it keeps saying what is missing WHILE you type: the
+ * part still to come stays on screen, while the part you have typed is covered
  * by your own characters.
+ *
+ * **Drawn in zeros, not underscores** (owner, 2026-09-08). Underscores went in
+ * first, on the argument that `0000-0000-0000-0000` looks like a value already
+ * in the box while `____-____-____-____` cannot be mistaken for one. That much
+ * is true and it is still the wrong trade: a row of underscores reads as
+ * damage. The colour is what says «not yet typed» — the character never had to.
  *
  * ## How it lines up
  *
@@ -29,7 +32,7 @@ export function MaskGhost({
   typed,
   className,
 }: {
-  /** The full shape, e.g. `____-____-____-____` */
+  /** The full shape, e.g. `0000-0000-0000-0000` */
   template: string;
   /** What is in the field right now */
   typed: string;
@@ -54,7 +57,7 @@ export function MaskGhost({
 }
 
 /** ORCID is always four groups of four. */
-export const ORCID_MASK = '____-____-____-____';
+export const ORCID_MASK = '0000-0000-0000-0000';
 
 /**
  * ISBN-13, in the grouping of the example this app has always shown
@@ -68,4 +71,4 @@ export const ORCID_MASK = '____-____-____-____';
  * the field still accepts whatever hyphenation the book itself prints, and the
  * checksum ignores separators entirely.
  */
-export const ISBN_MASK = '___-_-__-______-_';
+export const ISBN_MASK = '000-0-00-000000-0';
