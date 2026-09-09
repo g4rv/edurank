@@ -1,6 +1,5 @@
 import { redirect, notFound } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { fullName } from '@/components/staff/profile/primitives';
 import {
@@ -35,7 +34,7 @@ export default async function StaffMockEditPage({ params }: { params: Promise<{ 
   // leaves a third of the screen empty (owner, 2026-09-07). What keeps a field
   // readable here is the two-column split inside each card, not the page.
   return (
-    <AnimatedPage className="space-y-5">
+    <div className="space-y-5">
       <Breadcrumbs
         items={[
           { label: 'Персонал', href: '/staff' },
@@ -50,6 +49,6 @@ export default async function StaffMockEditPage({ params }: { params: Promise<{ 
         divisions={MOCK_DIVISION_OPTIONS}
         stakeBreakdown={MOCK_STAKE_BREAKDOWN}
       />
-    </AnimatedPage>
+    </div>
   );
 }

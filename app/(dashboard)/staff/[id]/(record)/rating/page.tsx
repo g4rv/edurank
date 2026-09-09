@@ -6,7 +6,6 @@ import { getRatingEntry } from '@/lib/queries/get-rating';
 import { listStaffActivities } from '@/lib/queries/list-activities';
 import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
 import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-rows';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { RatingTable } from '@/components/rating/rating-table';
 import { EmptyRowsSwitch } from '@/components/rating/rating-view';
@@ -46,9 +45,9 @@ export default async function StaffRatingPage({
 
   if (!year) {
     return (
-      <AnimatedPage>
+      <div>
         <EmptyState>Рейтинговий рік ще не налаштовано.</EmptyState>
-      </AnimatedPage>
+      </div>
     );
   }
 

@@ -4,7 +4,6 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { listStaffActivities } from '@/lib/queries/list-activities';
 import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingClosedNote } from '@/components/rating/rating-closed-note';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { RatingTable } from '@/components/rating/rating-table';
@@ -49,12 +48,12 @@ export default async function MyRatingPage({
 
   if (!selectedYear) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Мій рейтинг</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
@@ -80,7 +79,7 @@ export default async function MyRatingPage({
     );
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Мій рейтинг</h1>
@@ -101,6 +100,6 @@ export default async function MyRatingPage({
       </div>
 
       <RatingTable groups={groups} />
-    </AnimatedPage>
+    </div>
   );
 }

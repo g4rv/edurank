@@ -4,9 +4,8 @@ import { cn } from '@/lib/utils';
  * Shared table shell so every list in the app reads the same way: one card,
  * zebra rows, subtle column dividers, a consistent hover.
  *
- * The styling is applied at the <table> level with descendant selectors, so it
- * lands on a plain <tbody> and on the motion.tbody used by AnimatedTableBody
- * alike — the animated rows don't need to know about any of it.
+ * The styling is applied at the <table> level with descendant selectors, so a
+ * caller writes plain <tbody> and <tr> and gets the texture for free.
  *
  * All neutral gray: zebra and dividers are legibility, not categorical colour,
  * so the monochrome brand rule (globals.css) still holds. Column dividers use a

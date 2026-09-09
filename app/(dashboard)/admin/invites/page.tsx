@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { listPendingInvites } from '@/lib/queries/list-pending-invites';
 import { listDepartments } from '@/lib/queries/list-departments';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { BulkInvite } from '@/components/admin/bulk-invite';
 import { RevertInviteButton } from '@/components/admin/revert-invite-button';
 import { BulkRevertInvite } from '@/components/admin/bulk-revert-invite';
@@ -100,7 +99,7 @@ export default async function InvitesPage({
       : 'rounded-lg px-3 py-1.5 text-muted-foreground hover:bg-muted';
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Запрошення</h1>
         <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
@@ -234,6 +233,6 @@ export default async function InvitesPage({
           </table>
         </div>
       )}
-    </AnimatedPage>
+    </div>
   );
 }

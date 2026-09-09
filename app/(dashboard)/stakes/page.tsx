@@ -6,7 +6,6 @@ import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stak
 import { scopeOf } from '@/lib/queries/scope';
 import { poolTotals } from '@/lib/stake/pool-totals';
 import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { DepartmentPools } from '@/components/stake/department-pools';
 import { PoolSummary } from '@/components/stake/pool-summary';
 import { StatusBonusSettings } from '@/components/stake/status-bonus-settings';
@@ -50,12 +49,12 @@ export default async function StakesPage() {
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Розподіл ставок</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Рейтинговий рік ще не налаштовано.
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
   const year = template.year;
@@ -80,7 +79,7 @@ export default async function StakesPage() {
   const totals = poolTotals(rows);
 
   return (
-    <AnimatedPage className="space-y-5">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-semibold">Розподіл ставок</h1>
@@ -104,6 +103,6 @@ export default async function StakesPage() {
       <DepartmentPools rows={rows} year={year} canEdit={isAdmin} />
 
       {isAdmin && <StatusBonusSettings values={statusValues} year={year} />}
-    </AnimatedPage>
+    </div>
   );
 }

@@ -6,7 +6,6 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getStaffAccount } from '@/lib/queries/get-staff-account';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { canMutateStaffRecord } from '@/lib/permissions';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
 import { AccountControls } from '@/components/staff/account-card';
@@ -88,7 +87,7 @@ export default async function StaffRecordLayout({
     // dashboard shell is already bounded (`h-screen`); this is the link that was
     // missing between it and the card.
     <RatingViewProvider>
-      <AnimatedPage className="flex h-full min-h-0 flex-col space-y-5">
+      <div className="flex h-full min-h-0 flex-col space-y-5">
         <Breadcrumbs items={[{ label: 'Персонал', href: '/staff' }, { label: fullName(staff) }]} />
 
         <IdentityBand
@@ -143,7 +142,7 @@ export default async function StaffRecordLayout({
         </div>
 
         {children}
-      </AnimatedPage>
+      </div>
     </RatingViewProvider>
   );
 }

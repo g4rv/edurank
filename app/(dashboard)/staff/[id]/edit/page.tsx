@@ -13,7 +13,6 @@ import {
   isEditorWritableField,
 } from '@/lib/permissions';
 import { StaffEditForm } from '@/components/staff/edit-form';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { fullName } from '@/components/staff/profile/primitives';
 
@@ -85,7 +84,7 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
     // No back link and no heading of its own: the form carries both in its own
     // header card, beside the actions they belong with. `max-w-3xl` is gone too
     // — the fields are two columns now and were being squeezed into one.
-    <AnimatedPage className="space-y-5">
+    <div className="space-y-5">
       <Breadcrumbs
         items={[
           { label: 'Персонал', href: '/staff' },
@@ -104,6 +103,6 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
         staffId={id}
         stakeBreakdown={stakeBreakdown}
       />
-    </AnimatedPage>
+    </div>
   );
 }

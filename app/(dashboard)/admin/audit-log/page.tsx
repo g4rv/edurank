@@ -14,8 +14,6 @@ import {
 } from '@/lib/labels';
 import { formatStake } from '@/lib/stake/units';
 import { SortTh } from '@/components/ui/sort-th';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
-import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import { AuditDateFilter } from '@/components/admin/audit-date-filter';
 import { UK } from '@/lib/plural';
@@ -345,7 +343,7 @@ export default async function AuditLogPage({
               />
             </tr>
           </thead>
-          <AnimatedTableBody>
+          <tbody>
             {logs.map((log) => {
               const changes =
                 log.changes && typeof log.changes === 'object' && !Array.isArray(log.changes)
@@ -353,7 +351,7 @@ export default async function AuditLogPage({
                   : null;
 
               return (
-                <AnimatedRow key={log.id} className="transition-colors">
+                <tr key={log.id} className="transition-colors">
                   <td className="px-4 py-3 align-top whitespace-nowrap text-muted-foreground">
                     {new Date(log.createdAt).toLocaleString('uk-UA')}
                   </td>
@@ -386,10 +384,10 @@ export default async function AuditLogPage({
                   <td className="px-4 py-3 align-top text-muted-foreground">
                     {log.user?.email ?? '—'}
                   </td>
-                </AnimatedRow>
+                </tr>
               );
             })}
-          </AnimatedTableBody>
+          </tbody>
         </DataTable>
       )}
 

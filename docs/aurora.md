@@ -186,6 +186,38 @@ action» mode, because that mode was the bug.
 
 ## 6. Motion
 
+**Nothing animates on arrival** (owner, 2026-09-09). There is no entrance
+animation anywhere: no page slide-up, no staggered table rows, no list items
+easing in. `motion` is not a dependency any more.
+
+What went, and why it is not coming back:
+
+| was                 | did                                     |
+| ------------------- | --------------------------------------- |
+| `AnimatedPage`      | slid every one of 35 pages up 10px      |
+| `AnimatedTableBody` | staggered the rows of nine tables       |
+| `AnimatedRow`       | slid each row in from the left          |
+| `AnimatedList`      | the same, for the field-permission list |
+
+The cost is paid on every navigation and the benefit is paid once, on the
+first: after a week nobody sees a flourish, they see the delay before their
+data. A staggered table is worse still — the rows a reader wants are the ones
+that arrive last, and `staggerContainerFor` existed purely to stop a 200-row
+list still revealing itself seconds after the reader had scrolled past it. When
+a component's job is to keep its own effect from being intolerable, the effect
+is the problem.
+
+Three kinds of motion **stay**, because each answers something the reader did:
+
+- **A spinner on a button that is working** — the one case where motion is the
+  message. Same for a skeleton's pulse.
+- **Dialogs, sheets, popovers, selects and tooltips** opening and closing
+  (`animate-in` / `animate-out`). These are a direct answer to a click, and
+  something that snaps into existence over the page reads as a fault.
+- **The wash's drift**, which is ambient and belongs to no element.
+
+The rules below govern those, and anything added later.
+
 - **Animate `transform` and `opacity` only.**
 - **Never `scale()` on a layer carrying a filter** — it re-rasterises the blur
   every frame. Translate composites; scale does not.

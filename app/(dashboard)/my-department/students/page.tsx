@@ -6,7 +6,6 @@ import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listClaimsForReview } from '@/lib/queries/list-student-claims';
 import { scopeOf } from '@/lib/queries/scope';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { ClaimsReview } from '@/components/stake/claims-review';
 import { DepartmentSelect } from '@/components/department-select';
 
@@ -45,12 +44,12 @@ export default async function DepartmentStudentsPage({
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Залучені здобувачі</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Рейтинговий рік ще не налаштовано.
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
@@ -80,7 +79,7 @@ export default async function DepartmentStudentsPage({
   const showDepartment = !selected && canSwitch;
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       {!isAdmin && (
         <Link
           href="/my-department"
@@ -129,6 +128,6 @@ export default async function DepartmentStudentsPage({
         canDecide={canDecide}
         showDepartment={showDepartment}
       />
-    </AnimatedPage>
+    </div>
   );
 }

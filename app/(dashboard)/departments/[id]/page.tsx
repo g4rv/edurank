@@ -4,9 +4,6 @@ import { ChevronLeft, Pencil, SlidersHorizontal } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
-import { AnimatedPage } from '@/components/ui/animated-page';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
-import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { cn } from '@/lib/utils';
@@ -107,7 +104,7 @@ export default async function DepartmentDetailPage({
   ];
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <Link
         href="/departments"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -203,9 +200,9 @@ export default async function DepartmentDetailPage({
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Тип</th>
               </tr>
             </thead>
-            <AnimatedTableBody>
+            <tbody>
               {allStaff.map((member) => (
-                <AnimatedRow
+                <tr
                   key={member.id}
                   className="group/row border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
@@ -237,12 +234,12 @@ export default async function DepartmentDetailPage({
                       {member.type === 'primary' ? 'Основний' : 'Сумісник'}
                     </span>
                   </td>
-                </AnimatedRow>
+                </tr>
               ))}
-            </AnimatedTableBody>
+            </tbody>
           </table>
         </div>
       )}
-    </AnimatedPage>
+    </div>
   );
 }

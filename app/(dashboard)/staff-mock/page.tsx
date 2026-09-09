@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { Avatar } from '@/components/ui/avatar';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { fullName } from '@/components/staff/profile/primitives';
 import { MOCK_STAFF } from '../_mock/staff';
 
@@ -13,7 +12,7 @@ export default async function StaffMockIndexPage() {
   if (!session) redirect('/login');
 
   return (
-    <AnimatedPage className="space-y-5">
+    <div className="space-y-5">
       <Breadcrumbs items={[{ label: 'Персонал', href: '/staff' }, { label: 'Чернетка' }]} />
 
       <div className="rounded-xl border border-dashed bg-muted/25 p-4">
@@ -40,6 +39,6 @@ export default async function StaffMockIndexPage() {
           </Link>
         ))}
       </div>
-    </AnimatedPage>
+    </div>
   );
 }

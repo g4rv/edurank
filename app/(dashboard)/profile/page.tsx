@@ -6,7 +6,6 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
 import { EmptyState } from '@/components/aurora/ui/card';
@@ -48,10 +47,10 @@ export default async function ProfilePage() {
   // under a live session. There is nothing to render, so say so rather than 404.
   if (!staffId) {
     return (
-      <AnimatedPage className="space-y-5">
+      <div className="space-y-5">
         <Breadcrumbs items={crumbs} />
         <EmptyState>Ваш профіль не знайдено. Зверніться до адміністратора.</EmptyState>
-      </AnimatedPage>
+      </div>
     );
   }
 

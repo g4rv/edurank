@@ -7,7 +7,6 @@ import { getStakeYearSettings, listSpecialityNorms } from '@/lib/queries/list-st
 import { listDepartments } from '@/lib/queries/list-departments';
 import { normFor, studentValue } from '@/lib/stake/norms';
 import { formatBonus } from '@/lib/stake/units';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { StakeValueForm } from '@/components/admin/stake-value-form';
 import { SpecialityDepartmentsCell } from '@/components/admin/speciality-departments-cell';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
@@ -42,12 +41,12 @@ export default async function SpecialityNormsPage() {
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Нормативи чисельності</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Рейтинговий рік ще не налаштовано.
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
@@ -61,7 +60,7 @@ export default async function SpecialityNormsPage() {
   const missing = norms.filter((n) => n.base === null).length;
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <Link
         href="/stakes"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -204,7 +203,7 @@ export default async function SpecialityNormsPage() {
         «Ставка за 1 здобувача» — бюджет / контракт, для бакалавра денної форми. Менший норматив
         означає більшу ставку за кожного здобувача.
       </p>
-    </AnimatedPage>
+    </div>
   );
 }
 

@@ -1,5 +1,4 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { Breadcrumbs, type Crumb } from '@/components/ui/breadcrumbs';
 import { IdentityBand } from './identity-band';
 import { ProfileDetails } from './profile-details';
@@ -45,7 +44,7 @@ export function StaffProfileView({
   aside?: React.ReactNode;
 }) {
   return (
-    <AnimatedPage className="space-y-5">
+    <div className="space-y-5">
       <Breadcrumbs items={breadcrumbs} />
       <IdentityBand staff={staff} actions={actions} />
       <ProfileDetails
@@ -58,6 +57,6 @@ export function StaffProfileView({
         rating={rating}
         aside={aside}
       />
-    </AnimatedPage>
+    </div>
   );
 }

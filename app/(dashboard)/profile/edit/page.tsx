@@ -3,7 +3,6 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { fullName } from '@/components/staff/profile/primitives';
 
 // The one place a person edits themselves, whatever their role: the only claim
@@ -27,7 +26,7 @@ export default async function ProfileEditPage() {
   return (
     // No heading of its own — the form carries one in its header card, beside
     // the actions it belongs with.
-    <AnimatedPage className="space-y-5">
+    <div className="space-y-5">
       <Breadcrumbs items={[{ label: 'Мій профіль', href: '/profile' }, { label: 'Редагування' }]} />
 
       <ProfileEditForm
@@ -40,6 +39,6 @@ export default async function ProfileEditPage() {
           orcidId: staff.orcidId ?? '',
         }}
       />
-    </AnimatedPage>
+    </div>
   );
 }

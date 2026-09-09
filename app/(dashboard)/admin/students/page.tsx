@@ -13,9 +13,6 @@ import {
   type AdmittedFilters,
   type AdmittedSort,
 } from '@/lib/queries/list-admitted-students';
-import { AnimatedPage } from '@/components/ui/animated-page';
-import { AnimatedRow } from '@/components/ui/animated-row';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { DataTable } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
 import { SortTh } from '@/components/ui/sort-th';
@@ -94,7 +91,7 @@ export default async function AdmittedStudentsPage({
   // table under five filters over nothing.
   if (years.length === 0) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-2xl font-semibold">Здобувачі</h1>
           <ImportAdmittedStudents defaultYear={new Date().getFullYear()} />
@@ -102,7 +99,7 @@ export default async function AdmittedStudentsPage({
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Реєстр порожній. Імпортуйте наказ, щоб НПП могли заявляти залучених здобувачів.
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
@@ -175,7 +172,7 @@ export default async function AdmittedStudentsPage({
     // The table takes whatever is left after the header, filters and pager,
     // and scrolls its rows inside the card — so the pager stays on screen
     // instead of sitting thirty rows below the fold. Same shell as /staff.
-    <AnimatedPage className="flex h-full min-h-0 flex-col gap-6">
+    <div className="flex h-full min-h-0 flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Здобувачі</h1>
@@ -221,9 +218,9 @@ export default async function AdmittedStudentsPage({
               <th className="w-12" />
             </tr>
           </thead>
-          <AnimatedTableBody>
+          <tbody>
             {rows.map((row) => (
-              <AnimatedRow key={row.id} className="transition-colors">
+              <tr key={row.id} className="transition-colors">
                 <td className="px-4 py-3 font-medium break-words">{row.name}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   {STUDENT_FUNDING_LABELS[row.funding]}
@@ -236,9 +233,9 @@ export default async function AdmittedStudentsPage({
                 <td className="px-4 py-1 text-right">
                   <DeleteAdmittedStudent student={row} />
                 </td>
-              </AnimatedRow>
+              </tr>
             ))}
-          </AnimatedTableBody>
+          </tbody>
         </DataTable>
       )}
 
@@ -248,6 +245,6 @@ export default async function AdmittedStudentsPage({
         hrefFor={(p) => buildHref({ page: p })}
         summary={UK.student(total)}
       />
-    </AnimatedPage>
+    </div>
   );
 }

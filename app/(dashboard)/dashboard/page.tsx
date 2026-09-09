@@ -5,7 +5,6 @@ import { auth } from '@/lib/auth';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { getDashboard } from '@/lib/queries/get-dashboard';
 import { getReportData } from '@/lib/queries/get-rating-chart';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { YearSelect } from '@/components/rating/year-select';
 import { StatStrip } from '@/components/dashboard/stat-strip';
 import { OrgTree } from '@/components/dashboard/org-tree';
@@ -60,7 +59,7 @@ export default async function DashboardPage({
 
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Графіки</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center">
           <p className="text-sm text-muted-foreground">
@@ -76,7 +75,7 @@ export default async function DashboardPage({
             </Link>
           )}
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
@@ -92,7 +91,7 @@ export default async function DashboardPage({
   const [data, reportData] = await Promise.all([getDashboard(year), getReportData(year)]);
 
   return (
-    <AnimatedPage className="space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Графіки</h1>
@@ -177,6 +176,6 @@ export default async function DashboardPage({
           <OrgTree faculties={data.faculties} />
         </Panel>
       </div>
-    </AnimatedPage>
+    </div>
   );
 }

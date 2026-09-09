@@ -7,8 +7,6 @@ import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions
 import { Button } from '@/components/ui/button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { SortTh } from '@/components/ui/sort-th';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
-import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
 import { UK } from '@/lib/plural';
@@ -115,9 +113,9 @@ export default async function DepartmentsPage({
               )}
             </tr>
           </thead>
-          <AnimatedTableBody>
+          <tbody>
             {departments.map((dept) => (
-              <AnimatedRow key={dept.id} className="group/row transition-colors">
+              <tr key={dept.id} className="group/row transition-colors">
                 <RowLinkCell href={`/departments/${dept.id}`}>{dept.name}</RowLinkCell>
                 <td className="px-4 py-3 text-muted-foreground">{dept.faculty.name}</td>
                 <td className="px-4 py-3 text-muted-foreground">{headName(dept.head)}</td>
@@ -138,9 +136,9 @@ export default async function DepartmentsPage({
                     </div>
                   </td>
                 )}
-              </AnimatedRow>
+              </tr>
             ))}
-          </AnimatedTableBody>
+          </tbody>
         </DataTable>
       )}
     </div>

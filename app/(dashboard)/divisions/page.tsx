@@ -6,8 +6,6 @@ import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { SortTh } from '@/components/ui/sort-th';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
-import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteDivisionButton } from '@/components/division/delete-button';
 import { UK } from '@/lib/plural';
@@ -73,9 +71,9 @@ export default async function DivisionsPage({
               )}
             </tr>
           </thead>
-          <AnimatedTableBody>
+          <tbody>
             {divisions.map((division) => (
-              <AnimatedRow key={division.id} className="group/row transition-colors">
+              <tr key={division.id} className="group/row transition-colors">
                 <RowLinkCell href={`/divisions/${division.id}`}>{division.name}</RowLinkCell>
                 <td className="px-4 py-3 text-muted-foreground">{division._count.staff}</td>
                 {isAdmin && (
@@ -90,9 +88,9 @@ export default async function DivisionsPage({
                     </div>
                   </td>
                 )}
-              </AnimatedRow>
+              </tr>
             ))}
-          </AnimatedTableBody>
+          </tbody>
         </DataTable>
       )}
     </div>

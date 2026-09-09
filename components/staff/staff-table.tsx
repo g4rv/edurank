@@ -1,12 +1,9 @@
 'use client';
 
-import { motion } from 'motion/react';
 import { CopyButton } from '@/components/ui/copy-button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { cn } from '@/lib/utils';
 import { ACADEMIC_RANK_LABELS, ROLE_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
-import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import type { StaffListItem } from '@/lib/queries/list-staff';
 import { formatStakeValue } from '@/lib/stake/units';
@@ -28,23 +25,18 @@ type Props = {
 export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
   if (staff.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
-        className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground"
-      >
+      <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
         Записів не знайдено
-      </motion.div>
+      </div>
     );
   }
 
   return (
     <DataTable fill={fill}>
       <thead>{sortHeader}</thead>
-      <AnimatedTableBody>
+      <tbody>
         {staff.map((member) => (
-          <AnimatedRow key={member.id} className="group/row transition-colors">
+          <tr key={member.id} className="group/row transition-colors">
             <RowLinkCell href={`/staff/${member.id}`}>
               {fullName(member)}
               {/* Only ever shown in the archive view, where every row carries it
@@ -119,9 +111,9 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
                   : '—'}
               </td>
             )}
-          </AnimatedRow>
+          </tr>
         ))}
-      </AnimatedTableBody>
+      </tbody>
     </DataTable>
   );
 }

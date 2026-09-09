@@ -6,7 +6,6 @@ import { listMyClaims } from '@/lib/queries/list-student-claims';
 import { getSpecialityOwnerNames } from '@/lib/queries/get-speciality-departments';
 import { registerRows } from '@/lib/queries/list-admitted-students';
 import { registerOptions } from '@/lib/students/accepted';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { MyClaims } from '@/components/stake/my-claims';
 
 /**
@@ -36,12 +35,12 @@ export default async function MyStudentsPage() {
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Мої залучені здобувачі</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
@@ -66,7 +65,7 @@ export default async function MyStudentsPage() {
   const registerReady = rows.length > 0;
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Мої залучені здобувачі</h1>
         <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
@@ -91,6 +90,6 @@ export default async function MyStudentsPage() {
         year={template.year}
         canAdd={template.status === 'OPEN' && registerReady}
       />
-    </AnimatedPage>
+    </div>
   );
 }

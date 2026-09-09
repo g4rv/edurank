@@ -8,7 +8,6 @@ import {
   Wix_Madefor_Text,
 } from 'next/font/google';
 import { auth } from '@/lib/auth';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { ConceptPanel } from '@/components/admin/concept-panel';
 import { ConceptGlass, ConceptNight, ConceptBento } from '@/components/admin/concepts-modern';
 import { ConceptAurora, ConceptCrystal } from '@/components/admin/concepts-glass';
@@ -127,7 +126,7 @@ export default async function DesignPreviewPage() {
   if (session.user.role !== 'ADMIN') redirect('/');
 
   return (
-    <AnimatedPage
+    <div
       className={`space-y-10 ${jet.variable} ${geologica.variable} ${onest.variable} ${manrope.variable} ${madeforDisplay.variable} ${madeforText.variable}`}
     >
       <div>
@@ -157,6 +156,6 @@ export default async function DesignPreviewPage() {
           </section>
         ))}
       </div>
-    </AnimatedPage>
+    </div>
   );
 }

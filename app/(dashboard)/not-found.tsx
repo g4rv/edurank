@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { FileQuestion } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AnimatedPage } from '@/components/ui/animated-page';
 
 /**
  * The 404 a signed-in person sees — inside the dashboard shell, so the sidebar
@@ -13,7 +12,7 @@ import { AnimatedPage } from '@/components/ui/animated-page';
  */
 export default function DashboardNotFound() {
   return (
-    <AnimatedPage className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
       <FileQuestion className="size-10 text-muted-foreground/40" />
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold">Сторінку не знайдено</h1>
@@ -25,6 +24,6 @@ export default function DashboardNotFound() {
       <Button asChild variant="outline">
         <Link href="/">На головну</Link>
       </Button>
-    </AnimatedPage>
+    </div>
   );
 }

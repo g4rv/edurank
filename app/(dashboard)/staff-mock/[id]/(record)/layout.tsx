@@ -2,7 +2,6 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Pencil, ArchiveX, ArchiveRestore } from 'lucide-react';
 import { auth } from '@/lib/auth';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
 import { MockIdentityBand } from './mock-identity-band';
@@ -75,7 +74,7 @@ export default async function StaffMockLayout({
     // switch is up here and the rows it hides are down there, and a layout
     // cannot hand a prop back up from its children.
     <RatingViewProvider>
-      <AnimatedPage className="flex h-full min-h-0 flex-col space-y-5">
+      <div className="flex h-full min-h-0 flex-col space-y-5">
         <Breadcrumbs items={[{ label: 'Персонал', href: '/staff' }, { label: fullName(staff) }]} />
 
         <MockIdentityBand
@@ -117,7 +116,7 @@ export default async function StaffMockLayout({
         </div>
 
         {children}
-      </AnimatedPage>
+      </div>
     </RatingViewProvider>
   );
 }

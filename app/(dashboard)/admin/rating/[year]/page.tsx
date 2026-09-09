@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { ActivityTypeRow, type EditableActivityType } from '@/components/admin/activity-type-row';
 import { AddActivityType } from '@/components/admin/add-activity-type';
 import { NewActivityType } from '@/components/admin/new-activity-type';
@@ -115,7 +114,7 @@ export default async function RatingTemplatePage({
   const noPositionsAtAll = presentCodes.size > 0 && linkedToPositions === 0;
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <Link
         href="/admin/rating"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -234,6 +233,6 @@ export default async function RatingTemplatePage({
           )}
         </div>
       ))}
-    </AnimatedPage>
+    </div>
   );
 }

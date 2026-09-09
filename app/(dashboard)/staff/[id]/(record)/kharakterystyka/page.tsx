@@ -4,7 +4,6 @@ import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { EmptyState } from '@/components/aurora/ui/card';
 import {
   KharakterystykaTable,
@@ -47,9 +46,9 @@ export default async function StaffKharakterystykaPage({
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage>
+      <div>
         <EmptyState>Рейтинговий рік ще не налаштовано.</EmptyState>
-      </AnimatedPage>
+      </div>
     );
   }
 

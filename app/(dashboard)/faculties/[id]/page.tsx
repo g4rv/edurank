@@ -6,9 +6,6 @@ import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { Button } from '@/components/ui/button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
-import { AnimatedPage } from '@/components/ui/animated-page';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
-import { AnimatedRow } from '@/components/ui/animated-row';
 import { DeleteFacultyButton } from '@/components/faculty/delete-button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
@@ -79,7 +76,7 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
   }
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <Link
         href="/faculties"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -164,9 +161,9 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
                 </th>
               </tr>
             </thead>
-            <AnimatedTableBody>
+            <tbody>
               {staffList.map((member) => (
-                <AnimatedRow
+                <tr
                   key={member.id}
                   className="group/row border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
@@ -186,12 +183,12 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
                           .join(', ')
                       : '—'}
                   </td>
-                </AnimatedRow>
+                </tr>
               ))}
-            </AnimatedTableBody>
+            </tbody>
           </table>
         </div>
       )}
-    </AnimatedPage>
+    </div>
   );
 }

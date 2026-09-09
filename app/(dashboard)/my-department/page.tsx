@@ -5,7 +5,6 @@ import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listMyDepartments } from '@/lib/queries/list-my-department';
 import { getDepartmentsKnpp } from '@/lib/queries/get-department-knpp';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { KnppSummary } from '@/components/kharakterystyka/knpp-summary';
 import { cn } from '@/lib/utils';
 
@@ -46,7 +45,7 @@ export default async function MyDepartmentPage() {
   );
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Моя кафедра</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
@@ -180,7 +179,7 @@ export default async function MyDepartmentPage() {
           </div>
         </section>
       ))}
-    </AnimatedPage>
+    </div>
   );
 }
 

@@ -8,7 +8,6 @@ import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stak
 import { headOf, scopeOf } from '@/lib/queries/scope';
 import { formatStake } from '@/lib/stake/units';
 import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { DistributionGrid } from '@/components/stake/distribution-grid';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
@@ -99,7 +98,7 @@ export default async function DepartmentStakesPage({
   ) as Record<AdminPosition, number | undefined>;
 
   return (
-    <AnimatedPage className="space-y-4">
+    <div className="space-y-4">
       <Link
         href="/stakes"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -197,6 +196,6 @@ export default async function DepartmentStakesPage({
           filledAt={view.filledAt}
         />
       )}
-    </AnimatedPage>
+    </div>
   );
 }

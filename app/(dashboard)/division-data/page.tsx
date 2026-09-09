@@ -8,7 +8,6 @@ import {
   listDivisionEntries,
   listNppForRating,
 } from '@/lib/queries/list-division-data';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { DivisionSelect } from '@/components/rating/division-select';
 import { DivisionEntryGrid, type EntryGridCell } from '@/components/rating/division-entry-grid';
 import { EntityEntryDialog } from '@/components/rating/entity-entry-dialog';
@@ -31,12 +30,12 @@ function scoringOf(activityType: { scoring: unknown }): ScoringSpec {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Дані відділу</h1>
       <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
         {message}
       </div>
-    </AnimatedPage>
+    </div>
   );
 }
 
@@ -106,7 +105,7 @@ export default async function DivisionDataPage({
   const entityTypes = gridTypes.filter((t) => t.entityFirstEntry);
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Дані відділу</h1>
@@ -131,6 +130,6 @@ export default async function DivisionDataPage({
         entries={entryMap}
         readOnly={!yearOpen}
       />
-    </AnimatedPage>
+    </div>
   );
 }

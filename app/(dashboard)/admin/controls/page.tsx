@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { ControlsGallery } from './gallery';
 
@@ -23,7 +22,7 @@ export default async function ControlsPage() {
   if (session.user.role !== 'ADMIN') redirect('/');
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <Breadcrumbs items={[{ label: 'Адміністрування' }, { label: 'Контроли' }]} />
 
       <div>
@@ -35,6 +34,6 @@ export default async function ControlsPage() {
       </div>
 
       <ControlsGallery />
-    </AnimatedPage>
+    </div>
   );
 }

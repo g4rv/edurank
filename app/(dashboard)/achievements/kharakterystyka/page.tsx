@@ -3,7 +3,6 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingClosedNote } from '@/components/rating/rating-closed-note';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import {
@@ -48,12 +47,12 @@ export default async function MyKharakterystykaPage() {
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Моя характеристика</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
@@ -64,7 +63,7 @@ export default async function MyKharakterystykaPage() {
   if (!data) redirect('/profile');
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Моя характеристика</h1>
@@ -88,6 +87,6 @@ export default async function MyKharakterystykaPage() {
       </div>
 
       <KharakterystykaTable data={data} sources={Object.fromEntries(positionSources)} />
-    </AnimatedPage>
+    </div>
   );
 }

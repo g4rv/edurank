@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingYearActions } from '@/components/admin/rating-year-actions';
 import { RATING_YEAR_STATUS_LABELS } from '@/lib/rating/labels';
 import { cn } from '@/lib/utils';
@@ -29,7 +28,7 @@ export default async function RatingAdminPage() {
   const latestYear = templates[0]?.year;
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Рейтингові роки</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
@@ -114,6 +113,6 @@ export default async function RatingAdminPage() {
           </tbody>
         </table>
       </div>
-    </AnimatedPage>
+    </div>
   );
 }

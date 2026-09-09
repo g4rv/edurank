@@ -7,8 +7,6 @@ import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions
 import { Button } from '@/components/ui/button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { SortTh } from '@/components/ui/sort-th';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
-import { AnimatedRow } from '@/components/ui/animated-row';
 import { DataTable } from '@/components/ui/data-table';
 import { DeleteFacultyButton } from '@/components/faculty/delete-button';
 import { UK } from '@/lib/plural';
@@ -79,9 +77,9 @@ export default async function FacultiesPage({
               )}
             </tr>
           </thead>
-          <AnimatedTableBody>
+          <tbody>
             {faculties.map((faculty) => (
-              <AnimatedRow key={faculty.id} className="group/row transition-colors">
+              <tr key={faculty.id} className="group/row transition-colors">
                 <RowLinkCell href={`/faculties/${faculty.id}`}>{faculty.name}</RowLinkCell>
                 <td className="px-4 py-3 text-muted-foreground">{deanName(faculty.dean)}</td>
                 <td className="px-4 py-3 text-muted-foreground">{faculty._count.departments}</td>
@@ -101,9 +99,9 @@ export default async function FacultiesPage({
                     </div>
                   </td>
                 )}
-              </AnimatedRow>
+              </tr>
             ))}
-          </AnimatedTableBody>
+          </tbody>
         </DataTable>
       )}
     </div>

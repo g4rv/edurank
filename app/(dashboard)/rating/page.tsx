@@ -4,7 +4,6 @@ import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-t
 import { listRatings, type RatingSortField } from '@/lib/queries/list-ratings';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { listDepartments } from '@/lib/queries/list-departments';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { DownloadButton } from '@/components/ui/download-button';
 import { RatingFilters } from '@/components/rating/rating-filters';
 import { YearSelect } from '@/components/rating/year-select';
@@ -27,12 +26,12 @@ export default async function RatingRollupPage({
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Рейтинг НПП</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Рейтинговий рік ще не налаштовано.
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
@@ -101,7 +100,7 @@ export default async function RatingRollupPage({
   }
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Рейтинг НПП</h1>
@@ -210,6 +209,6 @@ export default async function RatingRollupPage({
           )}
         </tbody>
       </DataTable>
-    </AnimatedPage>
+    </div>
   );
 }
