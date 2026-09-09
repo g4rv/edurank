@@ -35,7 +35,7 @@ import {
 import {
   addKharakterystykaEntry,
   deleteKharakterystykaEntry,
-} from '@/app/(dashboard)/staff/[id]/kharakterystyka/actions';
+} from '@/app/(dashboard)/staff/[id]/(record)/kharakterystyka/actions';
 import { alternativeLabel, positionChoices } from '@/lib/kharakterystyka/positions';
 import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence';
 import { evidenceDefaults, summarizeEvidence } from '@/lib/rating/evidence-fields';

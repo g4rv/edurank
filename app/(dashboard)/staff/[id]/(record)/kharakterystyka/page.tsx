@@ -1,14 +1,16 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { StaffTabs } from '@/components/staff/staff-tabs';
-import { KharakterystykaTable } from '@/components/kharakterystyka/kharakterystyka-table';
+import { EmptyState } from '@/components/aurora/ui/card';
+import {
+  KharakterystykaTable,
+  KharakterystykaSummary,
+} from '@/components/kharakterystyka/kharakterystyka-table';
+import { RecordToolbar } from '@/components/staff/record-toolbar';
 import { DownloadButton } from '@/components/ui/download-button';
 
 /**
@@ -45,10 +47,8 @@ export default async function StaffKharakterystykaPage({
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Рейтинговий рік ще не налаштовано.
-        </div>
+      <AnimatedPage>
+        <EmptyState>Рейтинговий рік ще не налаштовано.</EmptyState>
       </AnimatedPage>
     );
   }
@@ -72,46 +72,27 @@ export default async function StaffKharakterystykaPage({
   ]);
   if (!data) notFound();
 
-  // A завідувач is an ordinary USER, so /staff redirects them away — send them
-  // back where they actually came from, and drop the tabs they cannot open.
-  const seesStaffPages = session.user.role === 'ADMIN' || session.user.role === 'EDITOR';
-  const back = seesStaffPages
-    ? { href: '/staff', label: 'Персонал' }
-    : { href: '/my-department', label: 'Моя кафедра' };
-
   return (
-    <AnimatedPage className="space-y-6">
-      <Link
-        href={back.href}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" />
-        {back.label}
-      </Link>
-
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            {staff.lastName} {staff.firstName} {staff.patronymic}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Характеристика рівня наукової та професійної активності — {data.from}–{data.to} рр.
-          </p>
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* «8 з 20 · Відповідає» belongs on the tab row: it says WHAT you are
+          looking at rather than being part of the document. Published from here
+          rather than fetched by the layout — it is five years of activities put
+          through the builder, and the layout would load it on every tab. */}
+      <RecordToolbar>
+        <KharakterystykaSummary data={data} />
         <DownloadButton
           href={`/api/export/kharakterystyka?year=${template.year}&staffId=${id}`}
-          label="Завантажити (Excel)"
+          label="Excel"
           title="Характеристика_РНПАВ у форматі документа"
         />
-      </div>
-
-      <StaffTabs staffId={id} active="kharakterystyka" showRating showStaffPages={seesStaffPages} />
+      </RecordToolbar>
 
       <KharakterystykaTable
         data={data}
         sources={Object.fromEntries(positionSources)}
         editing={canEdit ? { staffId: id, entries: manualEntries } : undefined}
+        fill
       />
-    </AnimatedPage>
+    </div>
   );
 }

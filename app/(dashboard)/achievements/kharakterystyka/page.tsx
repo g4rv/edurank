@@ -6,7 +6,10 @@ import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kh
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { RatingClosedNote } from '@/components/rating/rating-closed-note';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
-import { KharakterystykaTable } from '@/components/kharakterystyka/kharakterystyka-table';
+import {
+  KharakterystykaTable,
+  KharakterystykaSummary,
+} from '@/components/kharakterystyka/kharakterystyka-table';
 import { DownloadButton } from '@/components/ui/download-button';
 
 /**
@@ -70,11 +73,18 @@ export default async function MyKharakterystykaPage() {
             автоматично з ваших досягнень.
           </p>
         </div>
-        <DownloadButton
-          href={`/api/export/kharakterystyka?year=${template.year}&staffId=${staffId}`}
-          label="Завантажити (Excel)"
-          title="Характеристика_РНПАВ у форматі документа"
-        />
+        {/* The verdict rides with the download rather than inside the table.
+            It stopped being a row of the document when the record pages moved
+            it onto their tab row, and this page's header is where it belongs
+            here — a state about the document, above the document. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <KharakterystykaSummary data={data} />
+          <DownloadButton
+            href={`/api/export/kharakterystyka?year=${template.year}&staffId=${staffId}`}
+            label="Завантажити (Excel)"
+            title="Характеристика_РНПАВ у форматі документа"
+          />
+        </div>
       </div>
 
       <KharakterystykaTable data={data} sources={Object.fromEntries(positionSources)} />

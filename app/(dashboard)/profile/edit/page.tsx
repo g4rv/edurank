@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { AnimatedPage } from '@/components/ui/animated-page';
+import { fullName } from '@/components/staff/profile/primitives';
 
 // The one place a person edits themselves, whatever their role: the only claim
 // it checks is that the record is yours, and the action writes nothing outside
@@ -23,17 +25,13 @@ export default async function ProfileEditPage() {
   if (!staff) notFound();
 
   return (
-    <div className="max-w-2xl space-y-6">
+    // No heading of its own — the form carries one in its header card, beside
+    // the actions it belongs with.
+    <AnimatedPage className="space-y-5">
       <Breadcrumbs items={[{ label: 'Мій профіль', href: '/profile' }, { label: 'Редагування' }]} />
 
-      <div>
-        <h1 className="text-2xl font-semibold">Редагування профілю</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Контактні дані та посилання на наукові профілі
-        </p>
-      </div>
-
       <ProfileEditForm
+        name={fullName(staff)}
         defaultValues={{
           phone: staff.phone ?? '',
           wosUrl: staff.wosUrl ?? '',
@@ -42,6 +40,6 @@ export default async function ProfileEditPage() {
           orcidId: staff.orcidId ?? '',
         }}
       />
-    </div>
+    </AnimatedPage>
   );
 }

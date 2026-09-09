@@ -1,6 +1,4 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
@@ -9,8 +7,10 @@ import { listStaffActivities } from '@/lib/queries/list-activities';
 import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
 import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-rows';
 import { AnimatedPage } from '@/components/ui/animated-page';
+import { EmptyState } from '@/components/aurora/ui/card';
 import { RatingTable } from '@/components/rating/rating-table';
-import { StaffTabs } from '@/components/staff/staff-tabs';
+import { EmptyRowsSwitch } from '@/components/rating/rating-view';
+import { RecordToolbar } from '@/components/staff/record-toolbar';
 import { DownloadButton } from '@/components/ui/download-button';
 import { YearSelect } from '@/components/rating/year-select';
 
@@ -46,10 +46,8 @@ export default async function StaffRatingPage({
 
   if (!year) {
     return (
-      <AnimatedPage className="space-y-6">
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Рейтинговий рік ще не налаштовано.
-        </div>
+      <AnimatedPage>
+        <EmptyState>Рейтинговий рік ще не налаштовано.</EmptyState>
       </AnimatedPage>
     );
   }
@@ -94,38 +92,26 @@ export default async function StaffRatingPage({
     );
 
   return (
-    <AnimatedPage className="space-y-6">
-      <Link
-        href="/staff"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" />
-        Персонал
-      </Link>
-
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            {staff.lastName} {staff.firstName} {staff.patronymic}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Рейтинг — {year} рік
-            {status === 'CLOSED' && ' (рік закрито)'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* The year picker and the «незаповнені» switch belong on the tab row,
+          which the layout renders — this portals them there. Rendered by the
+          PAGE rather than fetched by the layout, because only the page knows
+          which years this template has. */}
+      <RecordToolbar>
+        <div className="flex items-center gap-2 rounded-lg border bg-card p-1 pl-3 shadow-xs">
+          <span className="text-sm text-muted-foreground">Рік</span>
           <YearSelect years={years} value={year} />
-          <DownloadButton
-            href={`/api/export/ratings?year=${year}&staffId=${id}`}
-            label="Завантажити (Excel)"
-            title="Офіційна форма рейтингового оцінювання для цього НПП"
-          />
+          <span aria-hidden className="h-5 w-px bg-border" />
+          <EmptyRowsSwitch />
         </div>
-      </div>
+        <DownloadButton
+          href={`/api/export/ratings?year=${year}&staffId=${id}`}
+          label="Excel"
+          title="Офіційна форма рейтингового оцінювання для цього НПП"
+        />
+      </RecordToolbar>
 
-      <StaffTabs staffId={id} active="rating" showRating />
-
-      <RatingTable groups={groups} />
-    </AnimatedPage>
+      <RatingTable groups={groups} fill />
+    </div>
   );
 }
