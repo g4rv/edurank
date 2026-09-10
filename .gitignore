@@ -70,3 +70,4 @@ next-env.d.ts
 # 2022–2024, keyed by their corporate address. Same rule as prod-core.json:
 # carried to the server by hand, never through the repository.
 /kharakterystyka.json
+/kharakterystyka-*.json
