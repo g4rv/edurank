@@ -1,62 +1,25 @@
-'use client';
-
-import * as React from 'react';
-import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 /**
- * A slot on the record's tab row that the open TAB fills.
+ * The pieces a record tab's controls are built from — a strip, a divider, a row.
  *
- * The rating tab wants a year picker and the «незаповнені» switch there; the
- * Характеристика wants its «8 з 20 · Відповідає». Both are rendered by the tab's
- * own `page.tsx`, and the row they belong on is rendered by the `layout.tsx`
- * above it — and a layout hands its children down without receiving anything
- * back.
+ * **No portal, and no parallel route either** (2026-09-09). The controls belong
+ * to the TAB and the row belongs above it, and a child cannot hand anything to
+ * its parent, so two mechanisms were built to cross that gap and both were
+ * removed:
  *
- * ## Why a portal rather than context
+ * 1. **A client portal** — the page rendered them hidden and JavaScript moved
+ *    them into the row after hydration. On a hard reload the move failed
+ *    outright: the row stayed empty until you switched tabs and back.
+ * 2. **A `@toolbar` parallel route** — server-rendered and correct once settled,
+ *    but on every initial load the tab BODY streamed into the slot's position
+ *    for a frame, so the row grew to 547px with the tab bar centred beside a
+ *    column of cards. Moving the slot out of the row did not help; the body
+ *    followed it.
  *
- * Context was tried first and is the wrong tool here: the value would be a React
- * element, which is a new object on every render, so an effect that stores it
- * re-renders the provider, which re-renders the page, which makes a new element.
- * A portal moves the DOM without moving the ownership — the controls stay
- * children of the page that made them, keep its data, and simply appear
- * somewhere else.
- *
- * ## Why the layout must not fetch this itself
- *
- * The obvious alternative is for the layout to load whatever the controls need
- * and pick by pathname. That works for the year list, which is three rows — and
- * is wrong for the Характеристика's summary, which is five years of activities
- * put through the builder. It would be loaded on the Профіль tab too, where
- * nothing shows it.
- *
- * The host renders nothing on the server, so the controls arrive on hydration
- * rather than in the first paint. They are chrome, not content: the tab body is
- * server-rendered as before.
+ * The row moved into each tab's page instead, and these are what is left: three
+ * pieces of layout with no behaviour.
  */
-export const RECORD_TOOLBAR_ID = 'record-toolbar';
-
-export function RecordToolbar({ children }: { children: React.ReactNode }) {
-  // `useSyncExternalStore` with a subscription that never fires is the canonical
-  // «am I past hydration» read: `false` on the server, `true` on the client, and
-  // no `setState` inside an effect for the linter to object to. The host element
-  // is the layout's, already in the document from the server render, so by the
-  // time this returns `true` there is something to portal into.
-  const mounted = React.useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
-  if (!mounted) return null;
-
-  const host = document.getElementById(RECORD_TOOLBAR_ID);
-  return host ? createPortal(children, host) : null;
-}
-
-/** The empty target, for the layout's tab row. */
-export function RecordToolbarHost() {
-  return <div id={RECORD_TOOLBAR_ID} className="flex flex-wrap items-center gap-3" />;
-}
 
 /**
  * One bordered strip on the record's tab row.
@@ -92,4 +55,20 @@ export function ToolbarGroup({
 /** A hairline between two groups of controls inside one `ToolbarGroup`. */
 export function ToolbarDivider() {
   return <span aria-hidden className="h-5 w-px shrink-0 bg-border" />;
+}
+
+/**
+ * The row a tab bar and its controls share: bar left, controls right.
+ *
+ * **One definition, because there are two callers that must agree** — the real
+ * row and its skeleton. They each hand-wrote `flex flex-wrap items-center
+ * justify-between gap-3`, which is the same drift that made the card skeletons
+ * need a ruler to line up: change the row here and the placeholder stops
+ * matching, silently. The class string now exists once.
+ *
+ * `justify-between` and not a gap: the controls belong to the right edge, and a
+ * tab with none simply leaves it empty rather than pulling the bar off-centre.
+ */
+export function ToolbarRow({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-wrap items-center justify-between gap-3">{children}</div>;
 }

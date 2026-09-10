@@ -1,17 +1,6 @@
-import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
-import { Pencil } from 'lucide-react';
-import { auth } from '@/lib/auth';
-import { getStaff } from '@/lib/queries/get-staff';
-import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
-import { canMutateStaffRecord } from '@/lib/permissions';
-import { Breadcrumbs } from '@/components/ui/breadcrumbs';
-import { Button } from '@/components/aurora/ui/button';
-import { ArchiveStaffButton, RestoreStaffButton } from '@/components/staff/archive-button';
-import { IdentityBand } from '@/components/staff/profile/identity-band';
-import { fullName } from '@/components/staff/profile/primitives';
-import { StaffTabs } from '@/components/staff/staff-tabs';
-import { RecordToolbarHost } from '@/components/staff/record-toolbar';
+import { Suspense } from 'react';
+import { RecordHeader } from '@/components/staff/profile/record-header';
+import { RecordHeaderSkeleton } from '@/components/staff/profile/profile-skeleton';
 import { RatingViewProvider } from '@/components/rating/rating-view';
 
 /**
@@ -20,19 +9,46 @@ import { RatingViewProvider } from '@/components/rating/rating-view';
  * In a `(record)` route group so that `edit` — its sibling, one level up — is
  * NOT wrapped by it. A route group changes no URL. Editing is not a fourth view
  * of a person, it is a task you leave the record to perform, and rendering the
- * identity band and the tab bar above a form suggests you could wander off to
- * «Рейтинг» mid-edit and come back to your changes, which is not true.
+ * identity band above a form suggests you could wander off to «Рейтинг» mid-edit
+ * and come back to your changes, which is not true.
  *
- * Next preserves a layout across navigation between its children, so clicking a
- * tab re-renders only the body — the band, the breadcrumb and the tab bar stay
- * put and keep their state.
+ * ## What is here, and what is deliberately NOT
  *
- * ## It is not a guard
+ * The breadcrumb and the identity band. **The tab row is not** — it is rendered
+ * by each tab's own page, together with that tab's controls, because the two
+ * belong on one line and a page cannot hand anything up to its layout.
  *
- * A layout does not re-render on navigation, so `auth()` here runs once and
- * cannot be what protects the tabs. Every page keeps its own check; this one
- * exists so the layout has a session to render WITH, not to decide access. The
- * same rule the Next docs state and this project follows everywhere.
+ * Two mechanisms that could have crossed that boundary were built and removed:
+ *
+ * 1. **A client portal.** The page rendered the controls hidden and JavaScript
+ *    moved them into the row after hydration. On a hard reload the move failed
+ *    outright — the row stayed empty until you switched tabs and back.
+ * 2. **A `@toolbar` parallel route.** Server-rendered and correct once settled,
+ *    but on every initial load the tab BODY was streamed into the slot's
+ *    position for a frame: the row grew to 547px and the tab bar sat centred
+ *    beside a column of cards. Moving the slot out of the row did not help —
+ *    the body followed it — so it was the slot, not the container.
+ *
+ * The row moved into the pages instead. It costs the row being re-rendered per
+ * tab, which costs nothing visible: `StaffTabs` takes its id from the pathname,
+ * so each tab's `loading.tsx` renders the identical bar and React sees the same
+ * element across the swap.
+ *
+ * ## This layout fetches almost nothing, and that is the point
+ *
+ * It used to `await` the record, the account and the editor's permissions. A
+ * layout that suspends holds back everything beneath it, so each tab's own
+ * `loading.tsx` could never render and Next fell back to the boundary above —
+ * which cannot know which tab is opening, and drew the Профіль's cards over the
+ * Характеристика's table.
+ *
+ * `RecordHeader` is its own async component behind its own `Suspense`, so it
+ * suspends alone and the tab arrives when its own data does.
+ *
+ * ## It is still not a guard
+ *
+ * A layout does not re-render on navigation, so `auth()` here could not protect
+ * the tabs even when it was here. Every page keeps its own check.
  */
 export default async function StaffRecordLayout({
   children,
@@ -42,39 +58,11 @@ export default async function StaffRecordLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await auth();
-  if (!session) redirect('/login');
-
-  const role = session.user.role;
-  if (role === 'USER') redirect('/profile');
-
-  const isAdmin = role === 'ADMIN';
-  const showConfidential = isAdmin || session.user.staffId === id;
-
-  const staff = await getStaff(id, showConfidential);
-  if (!staff) notFound();
-
-  let canEdit = isAdmin;
-  let canArchive = isAdmin;
-  if (role === 'EDITOR') {
-    const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'STAFF');
-    // The entity permission says an editor may edit staff; `canMutateStaffRecord`
-    // says WHOSE — USER records and their own, never an admin's. Both actions
-    // re-check it, so showing the button on an admin's record only walked the
-    // editor into «Недостатньо прав» after filling in the whole form.
-    const target = { id: staff.id, role: staff.role };
-    canEdit = perms.canUpdate && canMutateStaffRecord(session.user, target);
-    // STAFF DELETE is the right to take someone off the roster, and archiving is
-    // now the only thing that does, so it governs that.
-    canArchive =
-      perms.canDelete && canMutateStaffRecord(session.user, target, { allowSelf: false });
-  }
-
-  const archived = Boolean(staff.archivedAt);
 
   return (
     // The provider wraps the tab row AND the tab body: the «незаповнені» switch
-    // is up here and the rows it hides are down there.
+    // and the rows it hides are both inside `children` now, but the provider
+    // stays here so it survives a tab switch.
     //
     // `h-full` + a flex column, so a tab whose content is one scrolling card can
     // take the height that is left instead of guessing at it. `main` in the
@@ -82,49 +70,9 @@ export default async function StaffRecordLayout({
     // missing between it and the card.
     <RatingViewProvider>
       <div className="flex h-full min-h-0 flex-col space-y-5">
-        <Breadcrumbs items={[{ label: 'Персонал', href: '/staff' }, { label: fullName(staff) }]} />
-
-        <IdentityBand
-          staff={staff}
-          actions={
-            <>
-              {/* An archived record is read-only until it is restored — editing
-                  somebody off the roster only invites confusion about why their
-                  changes do not show up in the rating. */}
-              {canEdit && !archived && (
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/staff/${id}/edit`}>
-                    <Pencil />
-                    Редагувати
-                  </Link>
-                </Button>
-              )}
-              {canArchive &&
-                (archived ? (
-                  <RestoreStaffButton staffId={id} staffName={fullName(staff)} />
-                ) : (
-                  <ArchiveStaffButton staffId={id} staffName={fullName(staff)} />
-                ))}
-            </>
-          }
-        />
-
-        {/* Tabs on the left; on the right, whatever the OPEN TAB puts there
-            through the portal — and nothing else.
-
-            Account management used to sit here beside it, which meant it rode
-            along on Рейтинг and Характеристика too (owner, 2026-09-09). Those
-            tabs are documents about a person; resetting their password from
-            one is a different job that happens to be one row away. It belongs
-            to the Профіль tab, which is where the record itself is, so the
-            Профіль page portals it in like any other tab's controls. */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* No `active` prop: a layout does not re-render on navigation, so one
-              passed down here would be frozen on whichever tab was opened
-              first. `StaffTabs` reads the pathname itself. */}
-          <StaffTabs staffId={id} showRating={staff.isNpp} />
-          <RecordToolbarHost />
-        </div>
+        <Suspense fallback={<RecordHeaderSkeleton />}>
+          <RecordHeader id={id} />
+        </Suspense>
 
         {children}
       </div>

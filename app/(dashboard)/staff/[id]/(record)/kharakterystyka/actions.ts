@@ -195,10 +195,15 @@ export async function deleteKharakterystykaEntry(id: string): Promise<EntryState
  * Both pages that render the document, and the кафедра pages that count `Кнпп`
  * from it — a typed row changes how many positions somebody meets, which is the
  * figure a head reads beside their ставка grid.
+ *
+ * **The person's own copy is `/profile/kharakterystyka`** (2026-09-10). It was
+ * `/achievements/kharakterystyka` until the record tabs moved, and that path is
+ * now a body of `redirect()` — revalidating it refreshed nothing at all, so an
+ * ADMIN typing an evidence row left the НПП looking at the old document.
  */
 function revalidate(staffId: string) {
   revalidatePath(`/staff/${staffId}/kharakterystyka`);
-  revalidatePath('/achievements/kharakterystyka');
+  revalidatePath('/profile/kharakterystyka');
   revalidatePath('/my-department');
   revalidatePath('/stakes');
 }

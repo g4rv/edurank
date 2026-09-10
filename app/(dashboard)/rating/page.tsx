@@ -20,8 +20,8 @@ export default async function RatingRollupPage({
   const params = await searchParams;
   const session = await auth();
   if (!session) redirect('/login');
-  // НПП see their own rating on «Мій рейтинг», not the university-wide list
-  if (session.user.role === 'USER') redirect('/achievements');
+  // НПП see their own rating on their own record, not the university-wide list
+  if (session.user.role === 'USER') redirect('/profile');
 
   const template = await getActiveTemplate();
   if (!template) {

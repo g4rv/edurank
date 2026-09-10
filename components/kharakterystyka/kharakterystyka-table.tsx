@@ -1,6 +1,27 @@
 import { Check, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+
+/**
+ * Shared by the table and by `KharakterystykaTable.Shell`, so the loading state
+ * is the same width as the document.
+ *
+ * «Дані підтвердження» takes a share rather than the slack: both middle columns
+ * are prose, and left to fight for the leftover width one of them wins by
+ * however long this person's publication titles happen to be.
+ */
+const KHARAKTERYSTYKA_COLUMNS = ['calc(4ch + 2.5rem)', null, '42%', '9rem'];
+
+/** Static, so the shell prints it rather than drawing four grey bars. */
+const KHARAKTERYSTYKA_HEAD = (
+  <TableRow>
+    <TableHead align="center">№</TableHead>
+    <TableHead>Показник активності</TableHead>
+    <TableHead>Дані підтвердження показника</TableHead>
+    <TableHead align="center">Стан</TableHead>
+  </TableRow>
+);
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import type { Kharakterystyka, KharakterystykaPosition } from '@/lib/kharakterystyka/build';
 import { ManualEntries, type ManualEntry } from './manual-entries';
@@ -34,16 +55,9 @@ export function KharakterystykaTable({
       // «Дані підтвердження» takes a share rather than the slack: both middle
       // columns are prose, and left to fight for the leftover width one of them
       // wins by however long this person's publication titles happen to be.
-      columns={['calc(4ch + 2.5rem)', null, '42%', '9rem']}
+      columns={KHARAKTERYSTYKA_COLUMNS}
       fill={fill}
-      head={
-        <TableRow>
-          <TableHead align="center">№</TableHead>
-          <TableHead>Показник активності</TableHead>
-          <TableHead>Дані підтвердження показника</TableHead>
-          <TableHead align="center">Стан</TableHead>
-        </TableRow>
-      }
+      head={KHARAKTERYSTYKA_HEAD}
     >
       <TableBody>
         {data.positions.map((position) => (
@@ -263,3 +277,41 @@ function Status({ position }: { position: KharakterystykaPosition }) {
 
   return <span className="text-xs whitespace-nowrap text-muted-foreground">Не виконано</span>;
 }
+
+/**
+ * The document with its real head, and a shimmer per cell.
+ *
+ * **Twenty licence positions, always** — the count is the п.38 list, not this
+ * person's data — so the shell shows rows of the right shape. `fill` matches
+ * the real table: the card takes the height that is left.
+ *
+ * Two lines of prose in the middle columns, because that is what a position's
+ * wording and its evidence are; a single line would settle into the real height
+ * with a visible jump.
+ */
+KharakterystykaTable.Shell = function KharakterystykaTableShell() {
+  return (
+    <Table fill columns={KHARAKTERYSTYKA_COLUMNS} head={KHARAKTERYSTYKA_HEAD}>
+      <TableBody>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <TableRow key={i}>
+            <TableCell align="center">
+              <Skeleton className="mx-auto h-4 w-5" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="mt-1.5 h-4 w-4/5" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="mt-1.5 h-4 w-3/4" />
+            </TableCell>
+            <TableCell align="center">
+              <Skeleton className="mx-auto h-5 w-24 rounded-full" />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};

@@ -118,11 +118,32 @@ export function IdentityBand({
   );
 }
 
+/**
+ * «Активовано» / «Не активовано» — whether this person can sign in yet.
+ *
+ * A fact about the person, like «Архівований» beside it, which is why it is a
+ * badge on the band rather than part of the account controls on the tab row:
+ * those are things you DO, this is something that is true (owner, 2026-09-09).
+ *
+ * Green for done and amber for pending, the same two the rest of the app uses
+ * for exactly this pair — §3 allows a hue on a small indicator that reports one
+ * condition. Amber and not red: a person who has not set a password yet is a
+ * normal state on a roster of 300, not a fault.
+ *
+ * ADMIN-only, and the ROUTE decides that — `RecordHeader` passes this in and a
+ * band that is handed nothing renders nothing.
+ */
+export function ActivationBadge({ activated }: { activated: boolean }) {
+  return (
+    <Badge tone={activated ? 'ok' : 'warn'}>{activated ? 'Активовано' : 'Не активовано'}</Badge>
+  );
+}
+
 function Badge({
   tone,
   children,
 }: {
-  tone: 'brand' | 'muted' | 'warn';
+  tone: 'brand' | 'muted' | 'warn' | 'ok';
   children: React.ReactNode;
 }) {
   return (
@@ -131,7 +152,8 @@ function Badge({
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
         tone === 'brand' && 'bg-brand/10 text-brand-strong',
         tone === 'muted' && 'bg-muted text-muted-foreground',
-        tone === 'warn' && 'bg-amber-500/12 text-amber-700 dark:text-amber-400'
+        tone === 'warn' && 'bg-amber-500/12 text-amber-700 dark:text-amber-400',
+        tone === 'ok' && 'bg-green-500/12 text-green-700 dark:text-green-400'
       )}
     >
       {children}

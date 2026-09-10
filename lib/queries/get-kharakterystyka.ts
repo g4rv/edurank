@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { db } from '@/lib/db';
 import {
   buildKharakterystyka,
@@ -48,8 +49,19 @@ const ENTRY_SELECT = {
   itemNumber: true,
 } as const;
 
-/** One person's Характеристика over the five years ending at `lastYear`. */
-export async function getKharakterystyka(
+/**
+ * One person's Характеристика over the five years ending at `lastYear`.
+ *
+ * **`cache()`d, because this is the expensive call on that page**: five years
+ * of a person's activities put through the builder, and both the table and the
+ * «7 з 20 · Відповідає» summary are drawn from it.
+ *
+ * They are one render again — the `@toolbar` slot that made them two was
+ * removed on 2026-09-09 — so the page asks once and this currently dedupes
+ * nothing. It stays because of what the call costs: anything that later reads
+ * the document beside the page rendering it must not run the builder twice.
+ */
+export const getKharakterystyka = cache(async function getKharakterystyka(
   staffId: string,
   lastYear: number
 ): Promise<Kharakterystyka | null> {
@@ -79,7 +91,7 @@ export async function getKharakterystyka(
   ]);
 
   return buildKharakterystyka(activities as KharakterystykaActivity[], staff, lastYear, entries);
-}
+});
 
 /**
  * The same document for many people at once — TWO queries for the whole set

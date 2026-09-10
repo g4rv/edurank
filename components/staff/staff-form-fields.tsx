@@ -9,6 +9,7 @@ import {
   type UseFormSetValue,
 } from 'react-hook-form';
 import { Card } from '@/components/aurora/ui/card';
+import { CARD_TITLES } from '@/components/staff/profile/cards';
 import { DateInput } from '@/components/aurora/ui/date-input';
 import { FormField } from '@/components/ui/form-field';
 import { WorkplacesField } from '@/components/staff/workplaces-field';
@@ -300,7 +301,7 @@ export function StaffFormFields({
   // makes one. Assigning them in that same order keeps 01…05 correct.
 
   const basics = (
-    <Card title="Основна інформація" action={stepNumber()}>
+    <Card title={CARD_TITLES.basics} action={stepNumber()}>
       <FieldGroup className="grid grid-cols-2 gap-4">
         <FormField htmlFor="lastName" label="Прізвище" error={errors.lastName}>
           <Input
@@ -368,7 +369,7 @@ export function StaffFormFields({
   );
 
   const workplaces = (
-    <Card title="Місця роботи" action={stepNumber()}>
+    <Card title={CARD_TITLES.workplaces} action={stepNumber()}>
       <FieldGroup className="gap-4">
         {/* One row per WORKPLACE (owner's sketch, 2026-08-26). «Основна» and
               «Додаткова» were two controls for one fact and could not express
@@ -457,7 +458,7 @@ export function StaffFormFields({
   );
 
   const academic = isNpp && (
-    <Card title="Академічна інформація" action={stepNumber()}>
+    <Card title={CARD_TITLES.academic} action={stepNumber()}>
       <FieldGroup className="grid grid-cols-2 gap-4">
         <FormField
           label="Вчене звання"
@@ -668,7 +669,7 @@ export function StaffFormFields({
           are academic-staff data. */
   }
   const research = (
-    <Card title="Наукові профілі" action={stepNumber()}>
+    <Card title={CARD_TITLES.research} action={stepNumber()}>
       <FieldGroup className="grid grid-cols-2 gap-4">
         <FormField htmlFor="wosUrl" label="Web of Science — URL" error={errors.wosUrl}>
           <Input

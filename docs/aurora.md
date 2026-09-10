@@ -186,8 +186,22 @@ note at the foot stays and still does the asking — see §5's own note below an
 `lib/staff/profile-completeness.ts` — but it is now the only thing doing it,
 rather than the only place the information appeared at all.
 
-The exception is a **zero that is a fact**: a rating section scoring 0 keeps its
-row, because that gap is the point.
+Two exceptions.
+
+**A zero that is a fact**: a rating section scoring 0 keeps its row, because
+that gap is the point.
+
+**A field that records a POST somebody holds** — «Керівні посади» is the whole
+card: адміністративна посада, завідувач кафедри, декан факультету. A dash works
+for a field everybody has some value for; it does not work for one almost nobody
+has. Of ~300 people there are 31 завідувачі and 8 деканів, so «Декан факультету
+—» would sit on nearly every profile in the app, and it does not read as «not a
+декан» — it reads as a record somebody forgot to finish. An unheld post is
+absent, and somebody holding none has no card at all (owner, 2026-09-09).
+
+The test between the two: **would a reader expect a value here?** If yes, a
+blank is missing data and says so with «—». If no, a blank is simply the normal
+case and belongs off the screen.
 
 **The note goes on your OWN record only** (owner, 2026-09-09). It was showing on
 `/staff/[id]` too, with the «Заповнити» link suppressed because the gaps are not

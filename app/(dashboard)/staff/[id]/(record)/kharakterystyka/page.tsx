@@ -9,7 +9,8 @@ import {
   KharakterystykaTable,
   KharakterystykaSummary,
 } from '@/components/kharakterystyka/kharakterystyka-table';
-import { RecordToolbar, ToolbarGroup, ToolbarDivider } from '@/components/staff/record-toolbar';
+import { RecordTabRow } from '@/components/staff/profile/record-tab-row';
+import { ToolbarGroup, ToolbarDivider } from '@/components/staff/record-toolbar';
 import { DownloadButton } from '@/components/ui/download-button';
 
 /**
@@ -33,7 +34,7 @@ export default async function StaffKharakterystykaPage({
   // An НПП reaching their own record belongs on «Мій рейтинг», which carries the
   // same document plus the forms to do something about it.
   if (session.user.staffId === id && session.user.role === 'USER') {
-    redirect('/achievements/kharakterystyka');
+    redirect('/profile/kharakterystyka');
   }
   if (!(await canViewAcademicRecord(session.user, id))) notFound();
 
@@ -56,6 +57,11 @@ export default async function StaffKharakterystykaPage({
   // only for them, so nobody else's page carries rows it will not render.
   const canEdit = session.user.role === 'ADMIN';
 
+  // A завідувач/декан reaches this page and only this page — `/staff` and the
+  // other two tabs send a USER to their own record. Offering them tabs that
+  // bounce would be worse than offering none, so they get the document alone.
+  const seesStaffPages = session.user.role === 'ADMIN' || session.user.role === 'EDITOR';
+
   const [data, positionSources, manualEntries] = await Promise.all([
     getKharakterystyka(id, template.year),
     licencePositionSources(template.year),
@@ -72,12 +78,10 @@ export default async function StaffKharakterystykaPage({
   if (!data) notFound();
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* «8 з 20 · Відповідає» belongs on the tab row: it says WHAT you are
-          looking at rather than being part of the document. Published from here
-          rather than fetched by the layout — it is five years of activities put
-          through the builder, and the layout would load it on every tab. */}
-      <RecordToolbar>
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
+      {/* «7 з 20 · Відповідає» belongs on the tab row: it says WHAT you are
+          looking at rather than being part of the document. */}
+      <RecordTabRow staffId={id} showRating showStaffPages={seesStaffPages}>
         <ToolbarGroup>
           <KharakterystykaSummary data={data} />
           <ToolbarDivider />
@@ -88,7 +92,7 @@ export default async function StaffKharakterystykaPage({
             variant="ghost"
           />
         </ToolbarGroup>
-      </RecordToolbar>
+      </RecordTabRow>
 
       <KharakterystykaTable
         data={data}

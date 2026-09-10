@@ -3,6 +3,31 @@ import { sumScores } from '@/lib/round';
 import type { AchievementGroup } from '@/components/rating/achievements-list';
 import { EmptyRowsScope } from '@/components/rating/rating-view';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+
+/**
+ * Declared once and shared by the header, the rows and the footer — see the note
+ * in `table.tsx` — and by `RatingTable.Shell`, so the loading state is the same
+ * width as the table.
+ *
+ * «Показник» absorbs the slack, so a long title wraps instead of squeezing the
+ * figures. «Бали» is 6 characters plus the cell's own `px-4`: the widest score
+ * the university awards is five digits, so the column is as narrow as it can be
+ * without ever wrapping a figure.
+ */
+const RATING_COLUMNS = ['calc(4ch + 2.5rem)', null, '11rem', 'calc(6ch + 2.5rem)'];
+
+/** Static, so the shell prints it rather than drawing four grey bars. */
+const RATING_HEAD = (
+  <TableRow>
+    <TableHead align="center">№</TableHead>
+    <TableHead>Показник</TableHead>
+    <TableHead align="center">Джерело</TableHead>
+    <TableHead numeric align="center">
+      Бали
+    </TableHead>
+  </TableRow>
+);
 
 /**
  * Only REMOVED is ever drawn today. The pill is suppressed for APPROVED (which
@@ -99,17 +124,8 @@ export function RatingTable({
         // «Бали» is 6 characters wide plus the cell's own `px-4` either side —
         // the widest score the university awards is five digits, so the column
         // is as narrow as it can be without ever wrapping a figure.
-        columns={['calc(4ch + 2.5rem)', null, '11rem', 'calc(6ch + 2.5rem)']}
-        head={
-          <TableRow>
-            <TableHead align="center">№</TableHead>
-            <TableHead>Показник</TableHead>
-            <TableHead align="center">Джерело</TableHead>
-            <TableHead numeric align="center">
-              Бали
-            </TableHead>
-          </TableRow>
-        }
+        columns={RATING_COLUMNS}
+        head={RATING_HEAD}
         // Pinned below the rows rather than scrolled to. The year's total is the
         // one number somebody opens this page for, and it was at the bottom of
         // sixty-seven rows.
@@ -243,3 +259,54 @@ function SectionRows({ group }: { group: AchievementGroup }) {
     </TableBody>
   );
 }
+
+/**
+ * The table with its real head and footer, and a shimmer per cell.
+ *
+ * **The columns, the headings and «Загальна сума балів» are static**, so they
+ * are printed rather than approximated — the same `Table`, the same `columns`
+ * array, so the shell cannot be a different width from the thing it stands for.
+ * Only the rows are unknown.
+ *
+ * `fill`, as the real one is: the card takes the height that is left, so the
+ * row count decides nothing and the rows simply overflow and clip.
+ */
+RatingTable.Shell = function RatingTableShell() {
+  return (
+    <Table
+      fill
+      columns={RATING_COLUMNS}
+      head={RATING_HEAD}
+      footer={
+        <TableRow variant="total">
+          <TableCell colSpan={3}>Загальна сума балів</TableCell>
+          {/* `h-6`, matching `text-base`'s 24px line. At `h-5` the footer was
+              20px tall while it loaded and 24px once the total arrived, so the
+              row grew by four pixels at the very end of the load. */}
+          <TableCell numeric align="center" className="text-base">
+            <Skeleton className="ml-auto h-6 w-12" />
+          </TableCell>
+        </TableRow>
+      }
+    >
+      <TableBody>
+        {Array.from({ length: 14 }).map((_, i) => (
+          <TableRow key={i}>
+            <TableCell align="center">
+              <Skeleton className="mx-auto h-4 w-6" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-2/3" />
+            </TableCell>
+            <TableCell align="center">
+              <Skeleton className="mx-auto h-3 w-24" />
+            </TableCell>
+            <TableCell numeric align="center">
+              <Skeleton className="ml-auto h-4 w-6" />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};

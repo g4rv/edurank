@@ -1,105 +1,16 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
-import { getStaff } from '@/lib/queries/get-staff';
-import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
-import { listStaffActivities } from '@/lib/queries/list-activities';
-import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
-import { RatingClosedNote } from '@/components/rating/rating-closed-note';
-import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
-import { RatingTable } from '@/components/rating/rating-table';
-import { YearSelect } from '@/components/rating/year-select';
-import { DownloadButton } from '@/components/ui/download-button';
-import { getRatingEntry } from '@/lib/queries/get-rating';
-import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-rows';
 
-const SECTION_NUMBERS = [1, 2, 3, 4, 5];
-
-export default async function MyRatingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const query = await searchParams;
-  const session = await auth();
-  if (!session) redirect('/login');
-
-  const staffId = session.user.staffId;
-  // **Being an НПП is what grants this, not the USER role** (2026-08-17). These
-  // are a person's own record, and the role decides what somebody may do to
-  // OTHER people — not whether they can see their own rating. A проректор who
-  // teaches, or a division editor who teaches, is ordinary here; `create-admin`
-  // already says «flip isNpp on their profile later if the person is also an
-  // НПП», and the pages used to bounce exactly that person.
-  if (!staffId) redirect('/profile');
-
-  const staff = await getStaff(staffId, true);
-  if (!staff?.isNpp) redirect('/profile');
-
-  // Frozen for НПП while `NPP_RATING_OPEN` is false. The note keeps this page's
-  // own heading rather than redirecting to /profile, so a bookmark still lands
-  // somewhere that explains itself.
-  if (!NPP_RATING_OPEN) return <RatingClosedNote title="Мій рейтинг" />;
-
-  const template = await getActiveTemplate();
-  const templateYears = await listTemplateYears();
-  const years = templateYears.map((t) => t.year);
-  const yearParam = typeof query.year === 'string' ? Number(query.year) : NaN;
-  const selectedYear = years.includes(yearParam) ? yearParam : (template?.year ?? years[0]);
-
-  if (!selectedYear) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Мій рейтинг</h1>
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.
-        </div>
-      </div>
-    );
-  }
-
-  // Closed year → the frozen snapshot is authoritative; open year → live rows
-  const selectedStatus = templateYears.find((t) => t.year === selectedYear)?.status;
-  const snapshotGroups =
-    selectedStatus === 'CLOSED'
-      ? snapshotToGroups((await getRatingEntry(staffId, selectedYear))?.snapshot)
-      : null;
-
-  // The catalogue fills in the indicators with nothing under them, so the table
-  // shows the whole rating. Only for a year still open: a closed year is frozen
-  // history, and «you could still do this» is not something to say about it.
-  const catalogue = snapshotGroups ? undefined : await listTemplateIndicators(selectedYear);
-
-  const groups =
-    snapshotGroups ??
-    toAchievementGroups(
-      await listStaffActivities(staffId, selectedYear),
-      SECTION_NUMBERS,
-      false,
-      catalogue
-    );
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Мій рейтинг</h1>
-          {selectedStatus === 'CLOSED' && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Рік закрито — підсумки зафіксовано
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <DownloadButton
-            href={`/api/export/ratings?year=${selectedYear}&staffId=${staffId}`}
-            label="Завантажити (Excel)"
-            title="Ваша офіційна форма рейтингового оцінювання"
-          />
-          <YearSelect years={years} value={selectedYear} />
-        </div>
-      </div>
-
-      <RatingTable groups={groups} />
-    </div>
-  );
+/**
+ * «Мій рейтинг» lives at `/profile/rating` now (owner, 2026-09-09).
+ *
+ * It was a sidebar item, so a person's own record was three unrelated pages
+ * while somebody else's was one record with three tabs. The three moved under
+ * `/profile` to become real siblings; this keeps every bookmark and every link
+ * in an old invitation working.
+ *
+ * `/achievements/[section]` — the submission forms — and
+ * `/achievements/students` stay where they are. Neither is a view OF the record.
+ */
+export default function AchievementsIndexRedirect() {
+  redirect('/profile/rating');
 }

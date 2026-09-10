@@ -1,42 +1,27 @@
+import { Pencil, ArchiveX } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/aurora/ui/button';
+import { AcademicCard, ResearchProfilesCard, WorkplacesCard } from './cards';
 
 /**
- * The record's loading shapes, kept next to the components they stand in for.
+ * The record's loading shapes.
  *
- * **The fixed chrome is matched to the pixel; only the cards approximate.**
- * The breadcrumb and the identity band are the same height for every person
- * alive, so there is no excuse for them moving — and a header that shifts 8px
- * as the data lands is the jump a reader actually notices, far more than a card
- * being a row shorter than the placeholder guessed.
+ * **These draw the real interface, not grey boxes** (owner, 2026-09-09). Card
+ * titles, field labels, table headings, button words and the tab bar are static
+ * text that never depended on the query, so they are printed; a `ValueShimmer`
+ * marks only what is genuinely unknown, and a control that always exists is
+ * rendered for real and disabled.
  *
- * Measured on a real record rather than reasoned about, because the first
- * attempt was reasoned about and came out 8px short:
+ * That replaced a page of grey rectangles, and it deleted the machinery they
+ * needed: `CardSkeleton`, `TableSkeleton`, per-toolbar pixel widths, a row count
+ * per card. All of it existed to GUESS a shape which, once the shell renders, is
+ * simply the shape — so there is nothing left to keep in sync and no layout
+ * shift by construction.
  *
- * | part                | height | made of                                  |
- * | ------------------- | ------ | ---------------------------------------- |
- * | breadcrumb          | 20     | `text-sm`, so `h-5` and not `h-4`        |
- * | identity band       | 109    | `p-5` (40) + 69                          |
- * | · name row          | 32     | `text-2xl` line-height                    |
- * | · gap               | 12     | `mt-3` on the contacts, so `space-y-3`   |
- * | · contacts row      | 24     | a `size-6` copy button, NOT the text     |
- * | actions (self-start)| 28     | `size="sm"` buttons — `h-7`              |
- * | tab bar             | 41     | `p-1` + a `py-1.5 text-sm` link + border |
- *
- * The contacts row is the one that catches you out: the text is `text-sm` (20px)
- * but the copy button beside it is `size-6`, and the row takes the taller of
- * the two.
- *
- * ## Which file uses which
- *
- * | boundary                          | shows                                |
- * | --------------------------------- | ------------------------------------ |
- * | `staff/[id]/loading.tsx`          | all of the chrome, then a body       |
- * | a `loading.tsx` inside `(record)` | the body alone                       |
- *
- * The split matters: `[id]/loading.tsx` sits OUTSIDE the `(record)` group, so
- * it covers the layout's own await. The ones inside it run after the layout has
- * rendered, when the band and tabs are already painted — repeating them there
- * is what drew a second breadcrumb and a second header under the real ones.
+ * What stays here is the part of the record that has no component of its own to
+ * hang a `.Shell` on: the breadcrumb and the identity band, both rendered by
+ * `RecordHeader`, which fetches and therefore cannot own its own placeholder —
+ * see the note on `RecordHeaderSkeleton`.
  */
 
 /** 20px, because `Breadcrumbs` is `text-sm`. */
@@ -67,97 +52,84 @@ export function IdentityBandSkeleton({ actions = 2 }: { actions?: 1 | 2 }) {
         <Skeleton className="h-6 w-72 max-w-full" />
       </div>
 
+      {/* **The real buttons, disabled** (owner, 2026-09-09). «Редагувати» and
+          «Архівувати» are the same two words on every record — nothing about
+          them waits on the query — so a grey pill where a known label goes says
+          «we do not know what this is» about the one thing we do know.
+
+          Their SET is not certain: an editor without the grant sees neither, and
+          an archived record shows «Відновити» instead. Drawing them anyway is
+          right for every admin and most editors, and briefly wrong for the rest
+          — the same trade already taken for the toolbar placeholder, and taken
+          the same way, because a page that is uniformly the real interface beats
+          one that is correct and grey. */}
       <div className="flex shrink-0 gap-2 self-start">
-        {Array.from({ length: actions }).map((_, i) => (
-          <Skeleton key={i} className="h-7 w-28 rounded-lg" />
-        ))}
+        <Button variant="outline" size="sm" disabled>
+          <Pencil />
+          Редагувати
+        </Button>
+        {actions === 2 && (
+          <Button variant="destructive" size="sm" disabled>
+            <ArchiveX className="size-4" />
+            Архівувати
+          </Button>
+        )}
       </div>
     </div>
   );
 }
 
 /**
- * The record's tab row.
+ * The Профіль tab's body while it loads — the real cards, with a shimmer in
+ * place of each value.
  *
- * The bar only. The account controls beside it are ADMIN-only and the tabs
- * themselves are НПП-only, so the row's right-hand half cannot be predicted
- * without a session — and a phantom control that resolves to nothing is worse
- * than one that appears. The outer flex is copied anyway so the row wraps the
- * same way at narrow widths.
+ * It used to be grey boxes: `CardSkeleton rows={7}`, whose height had to be
+ * matched to the card by hand and measured in a browser to check. There is
+ * nothing to match now, because this IS the card — same `Card`, same `Fields`,
+ * same labels, read from `ACADEMIC_LABELS` and `RESEARCH_LABELS` so the two
+ * cannot drift.
+ *
+ * The right column stays approximate for a real reason rather than a lazy one:
+ * «Місця роботи» is one кафедра, or two, or two plus a відділ, and «Керівні
+ * посади» exists for 39 people out of ~300. The shell shows the row every
+ * record has and lets the rest arrive.
  */
-export function RecordTabsSkeleton({ toolbar }: { toolbar?: number[] }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="w-fit rounded-lg border bg-card p-1 shadow-xs">
-        <div className="flex gap-1">
-          <Skeleton className="h-8 w-20 rounded-md" />
-          <Skeleton className="h-8 w-20 rounded-md" />
-          <Skeleton className="h-8 w-32 rounded-md" />
-        </div>
-      </div>
-      {toolbar && <ToolbarGroupSkeleton widths={toolbar} />}
-    </div>
-  );
-}
-
-/**
- * The tab's own controls, in the strip they land in.
- *
- * On the row, not under it. The rating tab's placeholder used to be a pair of
- * loose blocks on a line of its own below the tabs, which is neither where the
- * controls end up nor a shape the page ever has — so the row grew a phantom
- * line and then lost it (owner, 2026-09-09).
- *
- * `widths` are the controls in order, in pixels; `ToolbarGroup`'s own `p-1`
- * around `h-8` children is what makes this the tab bar's height.
- */
-export function ToolbarGroupSkeleton({ widths }: { widths: number[] }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-1 shadow-xs">
-      {widths.map((w, i) => (
-        <Skeleton key={i} className="h-8 rounded-md" style={{ width: w }} />
-      ))}
-    </div>
-  );
-}
-
-/** One `Card` with a title and some rows in it. */
-function CardSkeleton({ rows, columns = 1 }: { rows: number; columns?: 1 | 2 }) {
-  return (
-    <div className="rounded-xl border bg-card p-5 shadow-card">
-      {/* `mb-4` and `h-4`, matching `Card`'s own uppercase title */}
-      <Skeleton className="mb-4 h-4 w-40" />
-      <div className={columns === 2 ? 'grid grid-cols-2 gap-x-6 gap-y-4' : 'space-y-4'}>
-        {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="space-y-1.5">
-            <Skeleton className="h-3 w-24" />
-            <Skeleton className="h-4 w-36" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
- * The Профіль tab's body — two columns split by meaning, as in `ProfileDetails`.
- *
- * Left is the scholar (Академічна, Наукові профілі), right is the employee
- * (Місця роботи, Керівні посади). The counts are what a typical НПП has; an
- * administrative employee has fewer and a new НПП has almost none, which no
- * fixed skeleton can cover and none needs to. This is the part that is allowed
- * to be wrong — it sits below everything the reader is looking at.
- */
-export function ProfileBodySkeleton() {
+export function ProfileBodySkeleton({ isNpp = true }: { isNpp?: boolean }) {
   return (
     <div className="flex flex-col items-start gap-4 lg:flex-row">
       <div className="flex w-full flex-1 flex-col gap-4">
-        <CardSkeleton rows={4} columns={2} />
-        <CardSkeleton rows={4} />
+        <AcademicCard.Shell isNpp={isNpp} />
+        <ResearchProfilesCard.Shell />
       </div>
       <div className="flex w-full flex-1 flex-col gap-4">
-        <CardSkeleton rows={2} />
+        <WorkplacesCard.Shell />
       </div>
     </div>
+  );
+}
+
+/**
+ * Breadcrumb + identity band — what stands in for `RecordHeader`.
+ *
+ * **It lives HERE, not beside `RecordHeader`, and that is a rule.** A
+ * `loading.tsx` imports this, and an import is transitive: when the skeleton sat
+ * in `record-header.tsx` every `loading.tsx` that used it also pulled in `auth`,
+ * `db` and `getStaff`. That boundary then failed to render and Next fell back to
+ * the one above — so reloading a person showed the staff LIST skeleton.
+ *
+ * **A skeleton module must import nothing that touches data.** Components own
+ * their shells (see `AcademicCard.Shell`) as long as the component itself is
+ * presentational; anything that fetches keeps its shell out here.
+ *
+ * `actions` is 2 on a record — «Редагувати» beside «Архівувати» — and 1 on «Мій
+ * профіль», which offers only the first. Archiving is something done TO somebody
+ * by an administrator, so it has no place on your own page.
+ */
+export function RecordHeaderSkeleton({ actions = 2 }: { actions?: 1 | 2 }) {
+  return (
+    <>
+      <BreadcrumbSkeleton />
+      <IdentityBandSkeleton actions={actions} />
+    </>
   );
 }

@@ -12,14 +12,12 @@ import {
   ClipboardList,
   KeyRound,
   LayoutDashboard,
-  Award,
   BadgeCheck,
   Table2,
   Trophy,
   CalendarCog,
   ChartColumn,
   Scale,
-  FileCheck,
   MailPlus,
   UserPlus,
 } from 'lucide-react';
@@ -27,11 +25,7 @@ import { cn } from '@/lib/utils';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
-import {
-  NPP_RATING_CLOSED_NAV_NOTE,
-  NPP_RATING_CLOSED_NOTE,
-  NPP_RATING_OPEN,
-} from '@/lib/rating/npp-access';
+import { NPP_RATING_CLOSED_NOTE, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import type { Role } from '@/lib/generated/prisma/client';
 import { Logo } from '@/components/aurora/logo';
 
@@ -124,22 +118,15 @@ export function Sidebar({
     personal.push({ href: '/profile', label: 'Мій профіль', icon: LayoutDashboard });
   }
   if (isNpp) {
+    // **«Мій рейтинг» and «Характеристика» are NOT here** (owner, 2026-09-09).
+    // They are tabs of «Мій профіль» now, at `/profile/rating` and
+    // `/profile/kharakterystyka` — the same three tabs somebody else's record
+    // has. As sidebar items they made a person's own record three unrelated
+    // pages while every other person's was one record with three tabs.
+    //
+    // The greyed-while-frozen treatment moved with them: `ProfileTabRow` greys
+    // the two tabs and prints the same sentence under the row.
     personal.push(
-      // Both greyed while `NPP_RATING_OPEN` is false; «Мої здобувачі» is not,
-      // because claiming a recruited здобувач is not rating data and goes on.
-      {
-        href: '/achievements',
-        label: 'Мій рейтинг',
-        icon: Award,
-        exact: true,
-        disabled: !NPP_RATING_OPEN,
-      },
-      {
-        href: '/achievements/kharakterystyka',
-        label: 'Характеристика',
-        icon: FileCheck,
-        disabled: !NPP_RATING_OPEN,
-      },
       // «Мої», because a завідувач who also lectures gets the review screen under
       // «Залучені здобувачі» below, and two identical labels is a coin toss.
       { href: '/achievements/students', label: 'Мої здобувачі', icon: UserPlus }
@@ -191,14 +178,17 @@ export function Sidebar({
     // «Додати активність» is the submission half and goes away entirely while
     // the rating is closed — five more dead links say nothing the greyed
     // «Мій рейтинг» above has not already said.
-    {
-      label: 'Особисте',
-      items: personal,
-      showSections: isNpp && NPP_RATING_OPEN,
-      note: isNpp && !NPP_RATING_OPEN ? NPP_RATING_CLOSED_NAV_NOTE : null,
-    },
-    { label: 'Управління', items: management, showSections: false, note: null },
-    { label: 'Адміністрування', items: administration, showSections: false, note: null },
+    //
+    // **No group carries a note any more** (2026-09-10). One did: «Рейтинг і
+    // характеристика тимчасово недоступні», at the foot of «Особисте», under
+    // the two greyed entries it explained. Those became profile tabs, and the
+    // sentence was left standing over «Мій профіль» and «Мої здобувачі» — both
+    // live — describing pages this group no longer lists. `ProfileTabRow` prints
+    // it under the tabs it belongs to, so the field and its render branch went
+    // rather than staying as a `null` nothing sets.
+    { label: 'Особисте', items: personal, showSections: isNpp && NPP_RATING_OPEN },
+    { label: 'Управління', items: management, showSections: false },
+    { label: 'Адміністрування', items: administration, showSections: false },
   ].filter((s) => s.items.length > 0);
 
   const showHeadings = sections.length > 1;
@@ -230,11 +220,6 @@ export function Sidebar({
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}
             {section.showSections && <AddActivityNav pathname={pathname} />}
-            {section.note && (
-              <p className="px-2 pt-1 pb-1 text-[11px] leading-snug text-muted-foreground">
-                {section.note}
-              </p>
-            )}
           </Fragment>
         ))}
       </nav>

@@ -81,7 +81,7 @@ export function ProfileDetails({
             showStake={showStake}
             showEmpty={showEmpty}
           />
-          <LeadershipCard staff={staff} showEmpty={showEmpty} />
+          <LeadershipCard staff={staff} />
         </div>
       </div>
 

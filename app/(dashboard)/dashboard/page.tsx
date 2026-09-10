@@ -52,8 +52,10 @@ export default async function DashboardPage({
   const params = await searchParams;
   const session = await auth();
   if (!session) redirect('/login');
-  // НПП have their own rating page; the university-wide picture is not theirs
-  if (session.user.role === 'USER') redirect('/achievements');
+  // НПП have their own record; the university-wide picture is not theirs.
+  // `/profile` and not `/profile/rating`: the rating is a tab of it now, and a
+  // non-НПП USER has no rating tab to be sent to.
+  if (session.user.role === 'USER') redirect('/profile');
 
   const template = await getActiveTemplate();
 

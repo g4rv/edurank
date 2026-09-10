@@ -9,9 +9,10 @@ import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-
 import { EmptyState } from '@/components/aurora/ui/card';
 import { RatingTable } from '@/components/rating/rating-table';
 import { EmptyRowsSwitch } from '@/components/rating/rating-view';
-import { RecordToolbar, ToolbarGroup, ToolbarDivider } from '@/components/staff/record-toolbar';
-import { DownloadButton } from '@/components/ui/download-button';
 import { YearSelect } from '@/components/rating/year-select';
+import { RecordTabRow } from '@/components/staff/profile/record-tab-row';
+import { ToolbarGroup, ToolbarDivider } from '@/components/staff/record-toolbar';
+import { DownloadButton } from '@/components/ui/download-button';
 
 export default async function StaffRatingPage({
   params,
@@ -25,7 +26,9 @@ export default async function StaffRatingPage({
   const session = await auth();
   if (!session) redirect('/login');
 
-  if (session.user.role === 'USER') redirect('/achievements');
+  // Includes a завідувач, who is an ordinary USER: the record header lets them
+  // past for the Характеристика, and this tab is still not theirs.
+  if (session.user.role === 'USER') redirect('/profile');
 
   const staff = await db.staff.findUnique({
     where: { id },
@@ -91,12 +94,12 @@ export default async function StaffRatingPage({
     );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* The year picker and the «незаповнені» switch belong on the tab row,
-          which the layout renders — this portals them there. Rendered by the
-          PAGE rather than fetched by the layout, because only the page knows
-          which years this template has. */}
-      <RecordToolbar>
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
+      {/* The year picker, the switch and the export sit on the tab row, and this
+          page renders that row. The switch and the table are in ONE page again,
+          which is what lets the count travel between them — it read «(0)» for as
+          long as they sat in two different parallel-route slots. */}
+      <RecordTabRow staffId={id} showRating>
         <ToolbarGroup className="pl-3">
           <span className="text-sm text-muted-foreground">Рік</span>
           <YearSelect years={years} value={year} />
@@ -110,7 +113,7 @@ export default async function StaffRatingPage({
             variant="ghost"
           />
         </ToolbarGroup>
-      </RecordToolbar>
+      </RecordTabRow>
 
       <RatingTable groups={groups} fill />
     </div>

@@ -143,7 +143,7 @@ export function AccountControls({
       <div className={cn('flex gap-2', bar ? 'flex-wrap items-center' : 'flex-col')}>
         {account.lockedUntil && (
           <Button
-            variant="outline"
+            variant={bar ? 'ghost' : 'outline'}
             size={bar ? 'default' : 'sm'}
             disabled={isPending}
             onClick={() => run(() => unlockLogin(staffId))}
@@ -155,7 +155,7 @@ export function AccountControls({
 
         {!account.isActivated && (
           <Button
-            variant="outline"
+            variant={bar ? 'ghost' : 'outline'}
             size={bar ? 'default' : 'sm'}
             disabled={isPending}
             onClick={() => run(() => sendInvite(staffId))}
@@ -173,6 +173,7 @@ export function AccountControls({
             description="Пароль буде видалено, всі сесії завершено, а на email прийде лист із посиланням для встановлення нового пароля."
             confirmLabel="Скинути"
             size={bar ? 'default' : 'sm'}
+            variant={bar ? 'ghost' : 'outline'}
             disabled={isPending}
             onConfirm={() => run(() => resetPassword(staffId))}
           />
@@ -180,6 +181,7 @@ export function AccountControls({
 
         <ManualPasswordDialog
           size={bar ? 'default' : 'sm'}
+          variant={bar ? 'ghost' : 'outline'}
           disabled={isPending}
           onSubmit={(data) => run(() => setPasswordManually(staffId, data))}
         />
@@ -192,6 +194,7 @@ export function AccountControls({
             description="Людину буде розлогінено на всіх пристроях при наступному запиті."
             confirmLabel="Завершити"
             size={bar ? 'default' : 'sm'}
+            variant={bar ? 'ghost' : 'outline'}
             disabled={isPending}
             onConfirm={() => run(() => forceLogout(staffId))}
           />
@@ -254,6 +257,7 @@ function ConfirmButton({
   description,
   confirmLabel,
   size = 'sm',
+  variant = 'outline',
   disabled,
   onConfirm,
 }: {
@@ -263,13 +267,22 @@ function ConfirmButton({
   description: string;
   confirmLabel: string;
   size?: 'sm' | 'default';
+  /**
+   * `ghost` inside a `ToolbarGroup`, `outline` on the card.
+   *
+   * A strip is the object and its contents are not (owner, 2026-09-09): an
+   * outlined button inside an outlined bar draws a border inside a border, and
+   * a row of four of them reads as four objects rather than one toolbar. On the
+   * card there is no strip, so the button has to draw its own edge.
+   */
+  variant?: 'outline' | 'ghost';
   disabled: boolean;
   onConfirm: () => void;
 }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size={size} disabled={disabled}>
+        <Button variant={variant} size={size} disabled={disabled}>
           {icon}
           {label}
         </Button>
@@ -290,10 +303,13 @@ function ConfirmButton({
 
 function ManualPasswordDialog({
   size = 'sm',
+  variant = 'outline',
   disabled,
   onSubmit,
 }: {
   size?: 'sm' | 'default';
+  /** `ghost` in a `ToolbarGroup` — see the note on `ConfirmButton`. */
+  variant?: 'outline' | 'ghost';
   disabled: boolean;
   onSubmit: (data: SetPasswordSchema) => void;
 }) {
@@ -321,7 +337,7 @@ function ManualPasswordDialog({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size={size} disabled={disabled}>
+        <Button variant={variant} size={size} disabled={disabled}>
           <KeyRound />
           Встановити пароль вручну
         </Button>

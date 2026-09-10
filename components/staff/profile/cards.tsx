@@ -8,6 +8,7 @@ import { formatStake } from '@/lib/stake/units';
 import { OrcidField } from '@/components/profile/orcid-field';
 import { Card } from '@/components/aurora/ui/card';
 import { Fields, Field, MaybeField, PositionEntry, ProfileLink } from './primitives';
+import { ValueShimmer } from './value-shimmer';
 
 /**
  * The detail cards, one component per section.
@@ -33,6 +34,45 @@ export interface StakePart {
   hundredths: number;
 }
 
+/**
+ * Every heading and label these cards print, in one place.
+ *
+ * **Because the loading state renders them too** (owner, 2026-09-09). A card
+ * title and a field label are static text — they do not depend on the record —
+ * so the shell can be on screen before any query answers, with a shimmer only
+ * where the VALUE goes. Written twice they would drift, which is the whole
+ * reason the old grey-box skeletons needed a ruler to line up.
+ *
+ * The order is the render order: `AcademicCard.Shell` maps these and the card
+ * spells them out, so adding a field here and forgetting the card shows up
+ * immediately rather than as a silently mis-sized placeholder.
+ */
+export const CARD_TITLES = {
+  /** The edit form's first card — the record page has no equivalent. */
+  basics: 'Основна інформація',
+  academic: 'Академічна інформація',
+  research: 'Наукові профілі',
+  leadership: 'Керівні посади',
+  workplaces: 'Місця роботи',
+} as const;
+
+export const ACADEMIC_LABELS = {
+  rank: 'Вчене звання',
+  degree: 'Науковий ступінь',
+  experience: 'Педагогічний стаж',
+  defence: 'Дата захисту дисертації',
+  degreeMatch: 'Ступінь відповідає кафедрі',
+  specialty: 'Спеціальність за дипломом',
+  educationMatch: 'Освіта відповідає кафедрі',
+} as const;
+
+export const RESEARCH_LABELS = {
+  wos: 'Web of Science',
+  scopus: 'Scopus',
+  scholar: 'Google Scholar',
+  orcid: 'ORCID',
+} as const;
+
 interface CardProps {
   staff: StaffDetail;
   showEmpty?: boolean;
@@ -43,27 +83,27 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
   if (!staff.isNpp) return null;
 
   return (
-    <Card title="Академічна інформація">
+    <Card title={CARD_TITLES.academic}>
       <Fields columns={2}>
         <MaybeField
-          label="Вчене звання"
+          label={ACADEMIC_LABELS.rank}
           value={staff.academicRank ? ACADEMIC_RANK_LABELS[staff.academicRank] : null}
           showEmpty={showEmpty}
         />
         <MaybeField
-          label="Науковий ступінь"
+          label={ACADEMIC_LABELS.degree}
           value={staff.scientificDegree ? SCIENTIFIC_DEGREE_LABELS[staff.scientificDegree] : null}
           showEmpty={showEmpty}
         />
         <MaybeField
-          label="Педагогічний стаж"
+          label={ACADEMIC_LABELS.experience}
           value={
             staff.pedagogicalExperience !== null ? `${staff.pedagogicalExperience} років` : null
           }
           showEmpty={showEmpty}
         />
         <MaybeField
-          label="Дата захисту дисертації"
+          label={ACADEMIC_LABELS.defence}
           value={
             // Formatted in UTC, matching how the column is written — a
             // local-calendar render would show the previous day for any
@@ -75,7 +115,7 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
           showEmpty={showEmpty}
         />
         <MaybeField
-          label="Ступінь відповідає кафедрі"
+          label={ACADEMIC_LABELS.degreeMatch}
           value={
             staff.degreeMatchesDepartment === null
               ? null
@@ -88,12 +128,12 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
         {/* Neither old page showed these two, though both feed the rating through
             PROFILE_DERIVED indicators — so a gap here silently costs points. */}
         <MaybeField
-          label="Спеціальність за дипломом"
+          label={ACADEMIC_LABELS.specialty}
           value={staff.basicEducationSpecialty}
           showEmpty={showEmpty}
         />
         <MaybeField
-          label="Освіта відповідає кафедрі"
+          label={ACADEMIC_LABELS.educationMatch}
           value={
             staff.basicEducationMatch === null ? null : staff.basicEducationMatch ? 'Так' : 'Ні'
           }
@@ -104,34 +144,59 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
   );
 }
 
-/** NOT gated on isNpp: an administrative employee can hold a doctorate and an
- *  ORCID too. */
+/**
+ * The card with its real title and labels, and a shimmer where each value goes.
+ *
+ * Nothing for a non-НПП, exactly like the card: `AcademicCard` returns null for
+ * one, so a shell here would promise a card that never arrives.
+ */
+AcademicCard.Shell = function AcademicCardShell({ isNpp = true }: { isNpp?: boolean }) {
+  if (!isNpp) return null;
+  return (
+    <Card title={CARD_TITLES.academic}>
+      <Fields columns={2}>
+        {Object.values(ACADEMIC_LABELS).map((label) => (
+          <Field key={label} label={label} value={<ValueShimmer />} />
+        ))}
+      </Fields>
+    </Card>
+  );
+};
+
 export function ResearchProfilesCard({ staff, showEmpty = true }: CardProps) {
   const any =
     staff.wosUrl || staff.scopusUrl || staff.googleScholarUrl || staff.orcidId || showEmpty;
   if (!any) return null;
 
   return (
-    <Card title="Наукові профілі">
+    <Card title={CARD_TITLES.research}>
       <Fields>
         {staff.wosUrl ? (
-          <ProfileLink label="Web of Science" href={staff.wosUrl} count={staff.wosCitationCount} />
+          <ProfileLink
+            label={RESEARCH_LABELS.wos}
+            href={staff.wosUrl}
+            count={staff.wosCitationCount}
+          />
         ) : (
-          showEmpty && <Field label="Web of Science" value="—" />
+          showEmpty && <Field label={RESEARCH_LABELS.wos} value="—" />
         )}
         {staff.scopusUrl ? (
-          <ProfileLink label="Scopus" href={staff.scopusUrl} count={staff.scopusCitationCount} />
+          <ProfileLink
+            label={RESEARCH_LABELS.scopus}
+            href={staff.scopusUrl}
+            count={staff.scopusCitationCount}
+          />
         ) : (
-          showEmpty && <Field label="Scopus" value="—" />
+          showEmpty && <Field label={RESEARCH_LABELS.scopus} value="—" />
         )}
         {staff.googleScholarUrl ? (
           <ProfileLink
-            label="Google Scholar"
+            label={RESEARCH_LABELS.scholar}
             href={staff.googleScholarUrl}
             count={staff.googleScholarCitationCount}
           />
         ) : (
-          showEmpty && <Field label="Google Scholar" value="—" />
+          showEmpty && <Field label={RESEARCH_LABELS.scholar} value="—" />
         )}
         {(staff.orcidId || showEmpty) && <OrcidField value={staff.orcidId} />}
       </Fields>
@@ -152,28 +217,48 @@ export function ResearchProfilesCard({ staff, showEmpty = true }: CardProps) {
  * «проректор» had nowhere else to go and would simply have vanished from their
  * profile. A post belongs on the card about posts.
  */
-export function LeadershipCard({ staff, showEmpty = true }: CardProps) {
-  const none = !staff.headOfDepartment && !staff.deanOfFaculty && !staff.adminPosition;
-  if (none && !showEmpty) return null;
+ResearchProfilesCard.Shell = function ResearchProfilesCardShell() {
+  return (
+    <Card title={CARD_TITLES.research}>
+      <Fields>
+        {Object.values(RESEARCH_LABELS).map((label) => (
+          <Field key={label} label={label} value={<ValueShimmer />} />
+        ))}
+      </Fields>
+    </Card>
+  );
+};
+
+/**
+ * **The exception to «every field renders».** No `showEmpty`, at any price.
+ *
+ * §5 says a blank field shows «—», because most of them describe something
+ * everybody has some value for — a звання, a стаж, a ступінь — and a dash there
+ * means «nobody has filled this in yet».
+ *
+ * A post is not that kind of field (owner, 2026-09-09). It is held or it is
+ * not, and almost nobody holds one: of ~300 people there are 31 завідувачі and
+ * 8 деканів. «Декан факультету —» does not read as «not a декан», it reads as a
+ * record somebody forgot to complete, on nearly every profile in the app. So a
+ * post that is not held is absent, and somebody holding none has no card.
+ */
+export function LeadershipCard({ staff }: { staff: StaffDetail }) {
+  if (!staff.headOfDepartment && !staff.deanOfFaculty && !staff.adminPosition) return null;
 
   return (
-    <Card title="Керівні посади">
+    <Card title={CARD_TITLES.leadership}>
       <Fields>
         <MaybeField
           label="Адміністративна посада"
           value={staff.adminPosition ? ADMIN_POSITION_LABELS[staff.adminPosition] : null}
-          showEmpty={showEmpty}
+          showEmpty={false}
         />
         <MaybeField
           label="Завідувач кафедри"
           value={staff.headOfDepartment?.name}
-          showEmpty={showEmpty}
+          showEmpty={false}
         />
-        <MaybeField
-          label="Декан факультету"
-          value={staff.deanOfFaculty?.name}
-          showEmpty={showEmpty}
-        />
+        <MaybeField label="Декан факультету" value={staff.deanOfFaculty?.name} showEmpty={false} />
       </Fields>
     </Card>
   );
@@ -305,3 +390,23 @@ export function WorkplacesCard({
     </Card>
   );
 }
+
+/**
+ * **A guess, and the only one left.** «Місця роботи» is one кафедра, or two, or
+ * two plus a відділ — 1 to 3 rows with nothing to derive it from before the row
+ * is read. Two is the common case. The card below it, «Керівні посади», exists
+ * for 39 people out of ~300 and is not drawn at all: a placeholder for a card
+ * that usually is not there would be wrong far more often than right.
+ */
+WorkplacesCard.Shell = function WorkplacesCardShell() {
+  return (
+    <Card title={CARD_TITLES.workplaces}>
+      <Fields>
+        {/* «Основне» is the label every record has; a сумісництво row and a
+            відділ are extra and cannot be known before the record is read, so
+            the shell shows the one that is always there. */}
+        <Field label="Основне" value={<ValueShimmer className="h-5 w-96 max-w-full" />} />
+      </Fields>
+    </Card>
+  );
+};

@@ -21,9 +21,10 @@
  *
  * Set `NPP_RATING_OPEN` to `true`. Nothing else changes — every gate reads it:
  *
- * - `components/sidebar.tsx` — «Мій рейтинг», «Характеристика» and the whole
- *   «Додати активність» group
- * - `/achievements`, `/achievements/[section]`, `/achievements/kharakterystyka`
+ * - `components/staff/profile/profile-tab-row.tsx` — the «Рейтинг» and
+ *   «Характеристика» tabs, greyed, with the note under the row
+ * - `components/sidebar.tsx` — the whole «Додати активність» group
+ * - `/profile/rating`, `/profile/kharakterystyka`, `/achievements/[section]`
  * - `createActivity` / `deleteActivity` in `app/(dashboard)/achievements/actions.ts`
  * - the own-record .xlsx in `/api/export/ratings` and `/api/export/kharakterystyka`
  *
@@ -47,11 +48,16 @@ export const NPP_RATING_CLOSED_DETAIL =
   'Заповнення рейтингу та характеристики тимчасово закрито. Розділ буде відкрито пізніше.';
 
 /**
- * The line under the greyed sidebar links.
+ * The line under the greyed Рейтинг and Характеристика tabs.
  *
- * It names both sections rather than saying «недоступно», because it sits at
- * the foot of the whole «Особисте» group — «Мої здобувачі» is above it and is
- * NOT closed, so a bare «Тимчасово недоступно» there would read as covering
- * everything in the group.
+ * It names both sections rather than saying «недоступно» because it sits under
+ * a ROW rather than beside one control: «Профіль» is on the same bar and is NOT
+ * closed, so a bare «Тимчасово недоступно» would read as covering the whole
+ * record.
+ *
+ * It hung at the foot of the sidebar's «Особисте» group until 2026-09-10, which
+ * is where that argument was first made — about «Мої здобувачі» sitting above
+ * it. The two links moved out of that group and became tabs, and the sentence
+ * went with them.
  */
 export const NPP_RATING_CLOSED_NAV_NOTE = 'Рейтинг і характеристика тимчасово недоступні';
