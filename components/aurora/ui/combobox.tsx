@@ -178,13 +178,29 @@ function ComboboxInput({
           }}
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
+          // **Nothing here overrides `fieldSurface` any more** (owner,
+          // 2026-09-10). Two stock shadcn lines survived the Аврора conversion
+          // and sat AFTER the shared surface in this same `cn`, so they won:
+          //
+          //   `disabled:opacity-50`  — §7 forbids it outright. The disabled
+          //     fill in `.aurora-field` was being applied correctly and then
+          //     faded to half strength, so a closed combobox came out LIGHTER
+          //     than the five disabled selects beside it on the claim form, and
+          //     its placeholder went faint with it. `tel-input` and
+          //     `orcid-input` each carry a comment about being moved off the
+          //     same class; this one was missed.
+          //   `focus-visible:ring-1 ring-ring` — a neutral 1px ring where every
+          //     other control gets the brand's 3px. §7: the focus ring is the
+          //     one moment the interface confirms it is listening.
+          //
+          // `disabled:cursor-not-allowed` and `outline-none` were dropped with
+          // them because `fieldSurface` already sets both — they were duplicates,
+          // not decisions.
           className={cn(
             fieldSurface('default'),
             'flex',
             // 8px of inset plus each 16px glyph plus the 4px between them.
-            showClear ? 'pr-12' : 'pr-8',
-            'focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
-            'disabled:cursor-not-allowed disabled:opacity-50'
+            showClear ? 'pr-12' : 'pr-8'
           )}
         />
         {/* Both glyphs in ONE centred row, matching `DateInput`.

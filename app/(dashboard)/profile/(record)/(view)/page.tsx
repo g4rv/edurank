@@ -18,8 +18,6 @@ import { ProfileTabRow } from '@/components/staff/profile/profile-tab-row';
  * - **`showStake` is unconditional here.** A ставка is confidential, and this is
  *   the one page where the reader is the subject. `/staff/[id]` grants it only to
  *   an ADMIN.
- * - **`canFillOwn`** — the note at the foot naming what is still blank offers a
- *   link to fix it, which only makes sense on your own record.
  * - **The tab row is this page's**, and the breadcrumb and band are the
  *   layout's. Рейтинг and Характеристика stopped being sidebar items on
  *   2026-09-09 and are siblings of this page now, so all three share
@@ -64,8 +62,6 @@ export default async function ProfilePage() {
           // needs to be an ADMIN. The route answers that, never the component.
           showStake
           stakeParts={stakeParts}
-          editHref="/profile/edit"
-          canFillOwn
         />
       </div>
     </div>

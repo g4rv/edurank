@@ -83,7 +83,8 @@ export const FULL_STAFF: StaffDetail = {
  * A brand-new НПП: an account, a кафедра, and nothing else.
  *
  * The state ~200 people will actually be in on the day the rating opens, and
- * the one the redesign is aimed at — it is what «Не заповнено» was built for.
+ * the one the redesign is aimed at: every card at its full height, every row
+ * present, every value a «—».
  */
 export const EMPTY_STAFF: StaffDetail = {
   ...FULL_STAFF,

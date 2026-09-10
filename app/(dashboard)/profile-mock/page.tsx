@@ -68,8 +68,6 @@ export default async function ProfileMockPage() {
           breadcrumbs={[{ label: 'Особисте' }, { label: 'Мій профіль' }]}
           showStake
           stakeParts={MOCK_STAKE_PARTS}
-          editHref="/profile/edit"
-          canFillOwn
           showEmpty
           actions={
             <Button asChild variant="outline" size="sm">
@@ -89,7 +87,6 @@ export default async function ProfileMockPage() {
           breadcrumbs={[{ label: 'Персонал', href: '/staff' }, { label: fullName(FULL_STAFF) }]}
           showStake={false}
           stakeParts={MOCK_STAKE_PARTS}
-          editHref="/staff/mock-full/edit"
           showEmpty
           actions={
             <>
@@ -115,8 +112,6 @@ export default async function ProfileMockPage() {
           breadcrumbs={[{ label: 'Особисте' }, { label: 'Мій профіль' }]}
           showStake
           stakeParts={[]}
-          editHref="/profile/edit"
-          canFillOwn
           actions={
             <Button asChild variant="outline" size="sm">
               <Link href="/profile/edit">
@@ -135,7 +130,6 @@ export default async function ProfileMockPage() {
           breadcrumbs={[{ label: 'Персонал', href: '/staff' }, { label: fullName(ARCHIVED_STAFF) }]}
           showStake={false}
           stakeParts={[]}
-          editHref="/staff/mock-archived/edit"
           actions={
             <Button variant="outline" size="sm" disabled>
               <ArchiveRestore />

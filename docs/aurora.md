@@ -116,6 +116,18 @@ the one piece of chrome somebody looks for when they are lost, so faint is
 wrong exactly when it matters (owner, 2026-09-07). It is now ink and underlined
 like every other internal link; `--brand` stays on the hover.
 
+**Every crumb is ink, and only the links are underlined** (owner, 2026-09-10).
+The fix above reached the linked crumbs and left the ancestors that are NOT
+pages — «Особисте», «Управління», the sidebar groups — at `--muted-foreground`,
+so a trail like «Особисте › Мої здобувачі» still opened with the faintest word
+on it. They are ink now too.
+
+That makes the underline the only thing separating a crumb you can follow from
+one you cannot, which is the split this section already asks it to carry: the
+underline says «this is a link», the colour says where it goes. A group with no
+route of its own gets neither, and is no longer disguised as faint chrome
+either.
+
 **Do not draw something as a link unless following it does something useful.**
 `mailto:` and `tel:` are the ones that catch people out: on a department desktop
 they open whatever is registered, which is often nothing or the wrong client, so
@@ -147,18 +159,53 @@ brand, not status, and appears in the mark only.
 **Manrope**, everywhere. Geist is gone — it has **no Cyrillic glyphs at all**, so
 every Ukrainian word in the app was falling back to a system font.
 
-| Role          | Size                                                 |
-| ------------- | ---------------------------------------------------- |
-| Page title    | `text-2xl font-semibold tracking-[-0.01em]`          |
-| Card title    | `text-sm font-semibold uppercase tracking-wide`      |
-| Body / values | `text-sm`                                            |
-| Labels, meta  | `text-xs text-muted-foreground`                      |
-| Micro-label   | `text-[11px] font-semibold uppercase tracking-wider` |
+| Role          | Size                                            |
+| ------------- | ----------------------------------------------- |
+| Page title    | `text-2xl font-semibold tracking-[-0.01em]`     |
+| Card title    | `text-sm font-semibold uppercase tracking-wide` |
+| Body / values | `text-sm`                                       |
+| Labels, meta  | `text-xs text-muted-foreground`                 |
+| Micro-label   | ~~`text-[11px]`~~ — retired, see below          |
 
 The app is built almost entirely at 12–14px (514 uses of `text-xs`/`text-sm`
 against 19 above). A **modest** step up is right; doubling everything is not —
 that was tried, and rejected as «soooo ugly». See
 `docs/work-remaining.md` on who these users are.
+
+### 14px is the floor — ON TRIAL (owner, 2026-09-10)
+
+НПП have said they cannot read the screen. Taken at face value that is the
+modest step this section already called for, so it is being tried rather than
+argued about: **nothing renders below 14px**, and the two tiers below the
+headings each move up one notch.
+
+| token         | was | now |
+| ------------- | --- | --- |
+| `--text-xs`   | 12  | 14  |
+| `--text-sm`   | 14  | 16  |
+| `--text-base` | 16  | 16  |
+
+`text-sm` and `text-base` therefore measure the same. That collapses two tiers
+into one rather than pushing the whole scale up, which is what «soooo ugly» was
+a verdict on. The headings do not move at all.
+
+The **11px micro-label is retired** — a hardcoded arbitrary size cannot follow a
+scale, and two call sites (the sidebar's group headings, `bonus-cell`) were
+quietly below any floor the theme set. Both are `text-xs` now.
+
+It also corrects an inversion nobody had noticed: `fieldSurface` was
+`text-base md:text-sm`, so a field's own text was 16px on a phone and 14px on
+the desktop monitor somebody reads at arm's length.
+
+**How it is switched on.** `.type-comfortable` in `globals.css` redefines those
+custom properties for its subtree, and every Tailwind text utility compiles to
+`font-size: var(--text-sm)` — so one class re-sizes `Table`, `Card`, `Badge`,
+`Breadcrumbs` and every control inside it, with no component edited. The trial
+therefore looks exactly like the rollout. It is on «Мої залучені здобувачі» and
+on the sidebar, which is beside every page and had to be judged with it.
+
+To adopt: move the four values into `@theme`, delete the class and its call
+sites. To abandon: delete the class.
 
 ---
 
@@ -181,10 +228,20 @@ re-learn the layout on every record. Hiding the row also hid the LABEL, so a
 reader could not tell «this person has no ORCID» from «this app does not track
 ORCID».
 
-A dash says the field exists and is empty, which is the thing worth knowing. The
-note at the foot stays and still does the asking — see §5's own note below and
-`lib/staff/profile-completeness.ts` — but it is now the only thing doing it,
-rather than the only place the information appeared at all.
+A dash says the field exists and is empty, which is the thing worth knowing —
+and once every row is on screen it is the ONLY thing needed. The note went with
+the old rule (owner, 2026-09-10): «Не заповнено: Телефон · WoS профіль» named,
+in a panel at the foot, exactly the rows the cards were already showing as «—».
+Two statements of one fact, and the second one arrived after the reader had
+scrolled past the first. `missing-fields.tsx` and `lib/staff/profile-completeness.ts`
+are gone with it.
+
+What that costs, recorded so it is a decision and not an oversight: the note's
+second line, «Заповнює кадровий відділ: Науковий ступінь · …», said something no
+card says — that those particular blanks are not yours to fix. The cards show
+every blank alike. If people start asking why «Науковий ступінь» has no field on
+their edit form, the answer belongs on the FORM, next to what is missing, not in
+a panel on the page before it.
 
 Two exceptions.
 
@@ -202,14 +259,6 @@ absent, and somebody holding none has no card at all (owner, 2026-09-09).
 The test between the two: **would a reader expect a value here?** If yes, a
 blank is missing data and says so with «—». If no, a blank is simply the normal
 case and belongs off the screen.
-
-**The note goes on your OWN record only** (owner, 2026-09-09). It was showing on
-`/staff/[id]` too, with the «Заповнити» link suppressed because the gaps are not
-the reader's to fill — which is the tell. A note that names a problem and offers
-nothing is a complaint, and it sat at the foot of a page whose reader had not
-come looking for one. The note exists to get ~200 НПП to fill their own records
-in; on somebody else's it does no work at all. There is no «show it without the
-action» mode, because that mode was the bug.
 
 ---
 

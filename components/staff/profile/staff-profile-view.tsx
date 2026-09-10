@@ -24,8 +24,6 @@ export function StaffProfileView({
   breadcrumbs,
   showStake,
   stakeParts,
-  editHref,
-  canFillOwn = false,
   showEmpty = true,
   actions,
   rating,
@@ -35,8 +33,6 @@ export function StaffProfileView({
   breadcrumbs: Crumb[];
   showStake: boolean;
   stakeParts: StakePart[];
-  editHref: string;
-  canFillOwn?: boolean;
   showEmpty?: boolean;
   /** Edit / archive / restore, already filtered by the route's permissions */
   actions?: React.ReactNode;
@@ -51,8 +47,6 @@ export function StaffProfileView({
         staff={staff}
         showStake={showStake}
         stakeParts={stakeParts}
-        editHref={editHref}
-        canFillOwn={canFillOwn}
         showEmpty={showEmpty}
         rating={rating}
         aside={aside}

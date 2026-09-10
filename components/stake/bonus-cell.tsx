@@ -31,7 +31,7 @@ export function BonusCell({ bonus, audience }: { bonus: StaffBonus; audience: 'a
       <span className="tabular-nums">{formatBonus(bonus.total)}</span>
 
       {audience === 'admin' ? (
-        <span className="text-[11px] text-muted-foreground tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums">
           {bonus.students} {plural(bonus.students)}
         </span>
       ) : (

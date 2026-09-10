@@ -604,3 +604,47 @@
     }
   }
 }
+
+@layer components {
+  /* ── A larger type scale, on trial ────────────────────────────────────────
+     «Мої залучені здобувачі» wears this while we decide whether the whole app
+     should (owner, 2026-09-10). НПП have complained they cannot read the
+     screen, and §4 of `docs/aurora.md` already anticipated this: «a MODEST step
+     up is right; doubling everything is not — that was tried, and rejected as
+     soooo ugly».
+
+     This is that modest step, and it is aimed squarely at the complaint. The
+     app's desktop type has exactly two tiers below the headings — 14px for
+     every value and 12px for every label, column heading and badge — and it is
+     the 12px tier people are struggling with. Both move up one notch, so the
+     12px tier stops existing:
+
+       --text-xs   12 → 14   labels, meta, column headings, badges
+       --text-sm   14 → 16   body, values, table cells, breadcrumbs, card titles
+
+     `--text-base` (16) is untouched, so `text-sm` and `text-base` now measure
+     the same. That is deliberate rather than sloppy: it collapses two tiers
+     into one instead of pushing everything up and re-opening the «soooo ugly»
+     argument. It also quietly fixes `fieldSurface`'s `text-base md:text-sm`,
+     which until now made a field's own text SMALLER on the desktop monitor
+     somebody reads at arm's length than on the phone in their hand.
+
+     ## Why a class, and not fourteen edits
+
+     Every Tailwind text utility compiles to `font-size: var(--text-sm)` and
+     friends, so redefining those four properties on one subtree re-sizes
+     everything inside it — `Table`, `Card`, `Badge`, `Breadcrumbs` and every
+     control — with no component touched. The trial therefore looks EXACTLY like
+     the rollout would, which a pile of per-element overrides on one page could
+     never do, and which is the drift §11 keeps warning about.
+
+     To adopt: move these four values into the `@theme` block and delete this
+     class with its two call sites. To abandon: delete it. Either way it is one
+     edit, and nothing in between depends on it. */
+  .type-comfortable {
+    --text-xs: 0.875rem;
+    --text-xs--line-height: calc(1.25 / 0.875);
+    --text-sm: 1rem;
+    --text-sm--line-height: calc(1.5 / 1);
+  }
+}

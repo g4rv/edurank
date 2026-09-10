@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 
 /**
  * Where you are, as «Аврора» draws it — «Кафедри › Вищої математики».
@@ -73,7 +72,19 @@ export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: 
                   {item.label}
                 </Link>
               ) : (
-                <span className={cn('text-muted-foreground')}>{item.label}</span>
+                // **Ink, like every other crumb** (owner, 2026-09-10). It was
+                // `--muted-foreground`, which made a group heading the faintest
+                // thing in a trail whose whole job is to be findable when
+                // somebody is lost — the same complaint §3 already upheld
+                // against the LINKS, one case further along.
+                //
+                // It carries no underline, and that is the point: with every
+                // crumb the same colour, the underline is the only thing saying
+                // «this one goes somewhere». §3 already asks it to do that work
+                // — «the underline already says this is a link; the colour is
+                // then free to say where it takes you» — and a group with no
+                // route of its own must not look followable.
+                <span className="text-foreground">{item.label}</span>
               )}
             </li>
           );

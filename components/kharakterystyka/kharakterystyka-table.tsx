@@ -19,7 +19,7 @@ const KHARAKTERYSTYKA_HEAD = (
     <TableHead align="center">№</TableHead>
     <TableHead>Показник активності</TableHead>
     <TableHead>Дані підтвердження показника</TableHead>
-    <TableHead align="center">Стан</TableHead>
+    <TableHead align="center">Статус</TableHead>
   </TableRow>
 );
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
@@ -75,7 +75,7 @@ export function KharakterystykaTable({
 }
 
 /**
- * The pill both the Стан column and the summary's verdict wear.
+ * The pill both the Статус column and the summary's verdict wear.
  *
  * They were the same seven classes written twice, one of which had already
  * drifted — the summary's verdict was plain coloured text while the row's was a

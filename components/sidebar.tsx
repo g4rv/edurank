@@ -197,7 +197,10 @@ export function Sidebar({
     // Translucent rather than `bg-sidebar`, so the wash reads through it and the
     // rail belongs to the page instead of being a grey slab bolted to its edge.
     // Deliberately unblurred — see `.glass-chrome` in globals.css.
-    <aside className="glass-chrome flex h-screen w-56 flex-col border-r border-foreground/8">
+    // `type-comfortable` while the larger scale is on trial (2026-09-10):
+    // the rail is beside every page, so 12px group headings and a 12px email
+    // sat next to a page whose smallest text was 14. See `globals.css`.
+    <aside className="type-comfortable glass-chrome flex h-screen w-56 flex-col border-r border-foreground/8">
       <div className="flex h-14 items-center gap-2 border-b border-foreground/8 px-4">
         <Logo />
         <ThemeToggle className="-mr-1.5 ml-auto" />
@@ -212,7 +215,7 @@ export function Sidebar({
                 Both were the same style and the sub-heading looked like a
                 fourth group. */}
             {showHeadings && (
-              <p className="px-2 py-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+              <p className="px-2 py-1 text-xs font-medium tracking-wider text-muted-foreground uppercase">
                 {section.label}
               </p>
             )}

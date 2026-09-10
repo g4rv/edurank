@@ -6,7 +6,10 @@ import { listMyClaims } from '@/lib/queries/list-student-claims';
 import { getSpecialityOwnerNames } from '@/lib/queries/get-speciality-departments';
 import { registerRows } from '@/lib/queries/list-admitted-students';
 import { registerOptions } from '@/lib/students/accepted';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { EmptyState } from '@/components/aurora/ui/card';
 import { MyClaims } from '@/components/stake/my-claims';
+import { StudentsHeader } from '@/components/stake/students-header';
 
 /**
  * «Мої залучені здобувачі» — the НПП's own list.
@@ -15,6 +18,12 @@ import { MyClaims } from '@/components/stake/my-claims';
  * a colleague has secretly made too. They are NOT told about conflicts: the
  * duplicate is shown only on the review screen, where ADMIN rules on it.
  * So the total says «можливе», not «earned».
+ *
+ * **Its own page, not a tab of «Мій профіль»** (owner, 2026-09-10). The
+ * record's three tabs are documents ABOUT a person — Профіль, Рейтинг,
+ * Характеристика — and this is data entry, the same reason
+ * `/achievements/[section]` was left out of the record too. It keeps its
+ * sidebar entry and takes the breadcrumb its neighbour «Мій профіль» has.
  */
 export default async function MyStudentsPage() {
   const session = await auth();
@@ -35,16 +44,18 @@ export default async function MyStudentsPage() {
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Мої залучені здобувачі</h1>
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.
-        </div>
+      <div className="type-comfortable space-y-5">
+        <Breadcrumbs items={[{ label: 'Особисте' }, { label: 'Мої здобувачі' }]} />
+        <StudentsHeader />
+        <EmptyState>Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.</EmptyState>
       </div>
     );
   }
 
-  const { claims, potential, confirmed } = await listMyClaims(staffId, template.year);
+  const { claims, potential, potentialCount, confirmed, confirmedCount } = await listMyClaims(
+    staffId,
+    template.year
+  );
   // The picker's tree, not the register itself — a few KB against a thousand names.
   const [rows, ownerNames] = await Promise.all([
     registerRows(template.year),
@@ -63,32 +74,38 @@ export default async function MyStudentsPage() {
   // diagnose, the same reason the cascade never offers a combination with
   // nobody behind it. Only an ADMIN can fix it, so the notice says so.
   const registerReady = rows.length > 0;
+  const yearOpen = template.status === 'OPEN';
+
+  // **The reason takes the form's place** (2026-09-10). Both of these were
+  // banners across the top of the page — one amber, which §3 forbids as chrome
+  // — announcing a problem above a list that works perfectly well. The only
+  // thing either one stops is adding, so each is said in the card where the
+  // form would have been.
+  const addBlockedReason = !registerReady
+    ? `Здобувачів за ${template.year} рік ще не імпортовано. Ваші наявні заявки збережено — зверніться до адміністратора.`
+    : !yearOpen
+      ? 'Рік закрито, додавати вже не можна.'
+      : undefined;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Мої залучені здобувачі</h1>
-        <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
-          Вступники {template.year} року, яких ви залучили. Обирати можна з-поміж усіх зарахованих
-          до університету — не лише тих, хто вступив на спеціальності вашої кафедри.
-          {template.status !== 'OPEN' && ' Рік закрито, додавати вже не можна.'}
-        </p>
-      </div>
-
-      {!registerReady && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-400">
-          Здобувачів за {template.year} рік ще не імпортовано, тому додати нового поки не можна.
-          Ваші наявні заявки збережено — зверніться до адміністратора.
-        </div>
-      )}
+    // `h-full` + a flex column, so the claims table can take the height that is
+    // left instead of guessing at it. `main` in the dashboard shell is already
+    // bounded (`h-screen`); this is the link between it and the card, the same
+    // chain the record tabs use for the rating and Характеристика tables.
+    <div className="type-comfortable flex h-full min-h-0 flex-col gap-5">
+      <Breadcrumbs items={[{ label: 'Особисте' }, { label: 'Мої здобувачі' }]} />
+      <StudentsHeader year={template.year} />
 
       <MyClaims
         claims={claims}
         potential={potential}
+        potentialCount={potentialCount}
         confirmed={confirmed}
+        confirmedCount={confirmedCount}
         register={register}
         year={template.year}
-        canAdd={template.status === 'OPEN' && registerReady}
+        canAdd={yearOpen && registerReady}
+        addBlockedReason={addBlockedReason}
       />
     </div>
   );

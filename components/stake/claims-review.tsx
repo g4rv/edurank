@@ -180,7 +180,7 @@ export function ClaimsReview({
                   canDecide ? 'w-64' : 'w-28'
                 )}
               >
-                {canDecide ? 'Рішення' : 'Стан'}
+                {canDecide ? 'Рішення' : 'Статус'}
               </th>
             </tr>
           </thead>

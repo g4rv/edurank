@@ -1,6 +1,4 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
-import { missingProfileFields } from '@/lib/staff/profile-completeness';
-import { MissingFieldsNote } from './missing-fields';
 import {
   AcademicCard,
   ResearchProfilesCard,
@@ -10,8 +8,7 @@ import {
 } from './cards';
 
 /**
- * Everything below the identity band: the figures, the cards, and the note
- * naming what is still blank.
+ * Everything below the identity band: the figures and the cards.
  *
  * Split out from `StaffProfileView` so the same body can be rendered two ways:
  *
@@ -29,8 +26,6 @@ export function ProfileDetails({
   staff,
   showStake,
   stakeParts,
-  editHref,
-  canFillOwn = false,
   showEmpty = true,
   rating,
   aside,
@@ -39,14 +34,6 @@ export function ProfileDetails({
   /** Decided by the route. Never computed in a component. */
   showStake: boolean;
   stakeParts: StakePart[];
-  editHref: string;
-  /**
-   * Whether this reader may fill the gaps — true only on «Мій профіль».
-   *
-   * Gates the note entirely, not just its link. On somebody else's record it is
-   * a complaint nobody present can answer.
-   */
-  canFillOwn?: boolean;
   showEmpty?: boolean;
   /** The rating block, when it lives on this page rather than in a tab */
   rating?: React.ReactNode;
@@ -84,12 +71,6 @@ export function ProfileDetails({
           <LeadershipCard staff={staff} />
         </div>
       </div>
-
-      {/* Last, deliberately: it is a request, not a warning. At the top it would
-          open every half-filled profile with a complaint. */}
-      {canFillOwn && (
-        <MissingFieldsNote missing={missingProfileFields(staff)} editHref={editHref} />
-      )}
     </div>
   );
 }

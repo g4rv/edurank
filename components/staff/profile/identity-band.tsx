@@ -1,9 +1,9 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
-import { cn } from '@/lib/utils';
 import { Mail, Phone } from 'lucide-react';
 import { formatPhoneDisplay } from '@/lib/phone';
 import { Avatar } from '@/components/ui/avatar';
 import { CopyButton } from '@/components/ui/copy-button';
+import { Badge } from '@/components/aurora/ui/badge';
 import { fullName } from './primitives';
 
 /**
@@ -130,33 +130,14 @@ export function IdentityBand({
  * condition. Amber and not red: a person who has not set a password yet is a
  * normal state on a roster of 300, not a fault.
  *
+ * The pill itself is `components/aurora/ui/badge.tsx` since 2026-09-10, when
+ * the claims table became its second caller.
+ *
  * ADMIN-only, and the ROUTE decides that — `RecordHeader` passes this in and a
  * band that is handed nothing renders nothing.
  */
 export function ActivationBadge({ activated }: { activated: boolean }) {
   return (
     <Badge tone={activated ? 'ok' : 'warn'}>{activated ? 'Активовано' : 'Не активовано'}</Badge>
-  );
-}
-
-function Badge({
-  tone,
-  children,
-}: {
-  tone: 'brand' | 'muted' | 'warn' | 'ok';
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        tone === 'brand' && 'bg-brand/10 text-brand-strong',
-        tone === 'muted' && 'bg-muted text-muted-foreground',
-        tone === 'warn' && 'bg-amber-500/12 text-amber-700 dark:text-amber-400',
-        tone === 'ok' && 'bg-green-500/12 text-green-700 dark:text-green-400'
-      )}
-    >
-      {children}
-    </span>
   );
 }

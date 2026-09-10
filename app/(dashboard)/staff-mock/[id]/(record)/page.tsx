@@ -67,7 +67,6 @@ export default async function StaffMockProfilePage({
         // The route decides, never a component
         showStake={asAdmin}
         stakeParts={filled ? MOCK_STAKE_PARTS : []}
-        editHref={`/staff-mock/${id}/edit`}
       />
     </div>
   );

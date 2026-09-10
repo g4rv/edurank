@@ -65,7 +65,13 @@ export interface MyClaim {
 export async function listMyClaims(
   staffId: string,
   year: number
-): Promise<{ claims: MyClaim[]; potential: number; confirmed: number }> {
+): Promise<{
+  claims: MyClaim[];
+  potential: number;
+  potentialCount: number;
+  confirmed: number;
+  confirmedCount: number;
+}> {
   const [rows, settings] = await Promise.all([
     db.studentClaim.findMany({
       where: { staffId, year },
@@ -97,12 +103,23 @@ export async function listMyClaims(
     };
   });
 
+  // **Each figure and its count come from ONE filter**, so the card cannot say
+  // «0,190» over «3 здобувачі» (2026-09-10). A rejected claim is worth nothing
+  // and is not counted either — the page shows it in the table with its reason,
+  // which is where a refusal belongs, not in the totals above it.
+  const counted = claims.filter((c) => c.status !== 'REJECTED');
+  const agreed = claims.filter((c) => c.status === 'CONFIRMED');
+
   return {
     claims,
-    potential: claims.filter((c) => c.status !== 'REJECTED').reduce((sum, c) => sum + c.value, 0),
-    confirmed: claims.filter((c) => c.status === 'CONFIRMED').reduce((sum, c) => sum + c.value, 0),
+    potential: sumOf(counted),
+    potentialCount: counted.length,
+    confirmed: sumOf(agreed),
+    confirmedCount: agreed.length,
   };
 }
+
+const sumOf = (claims: MyClaim[]) => claims.reduce((sum, c) => sum + c.value, 0);
 
 export interface ReviewClaim extends MyClaim {
   claimedBy: string;

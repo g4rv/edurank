@@ -61,12 +61,7 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
       </RecordTabRow>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-        <ProfileDetails
-          staff={staff}
-          showStake={showStake}
-          stakeParts={stakeParts}
-          editHref={`/staff/${id}/edit`}
-        />
+        <ProfileDetails staff={staff} showStake={showStake} stakeParts={stakeParts} />
       </div>
     </div>
   );
