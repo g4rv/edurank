@@ -149,9 +149,17 @@ sits at `oklch(0.205)` and a flipped light ramp would sink into it.
 sidebar, tables, and text are gray. A small badge or icon that reports **state** is the one
 place hue is allowed off the chart palette, because it encodes one condition, not a category:
 
-- **green** — ok / verified / valid (activation done, «Перевірено», a valid DOI/ISBN)
-- **amber** — pending / needs attention (not activated, «не вказано», «Сумісник»)
-- **red** (`--destructive`) — destructive / error (delete, discard)
+- **`--success`** — ok / verified / valid (activation done, «Перевірено», a valid DOI/ISBN)
+- **`--warning`** — pending / needs attention (not activated, «не вказано», «Сумісник»)
+- **`--error`** — destructive / error (delete, discard)
+
+**Always the token, never a Tailwind palette class.** There were 160 hardcoded
+`green-*` / `amber-*` / `red-*` classes before these tokens existed, in a dozen
+shades that did not agree. Each status is a PAIR — `--x` for the text and
+`--x-surface` for the tint it sits on — and red text on a red tint takes
+`text-error-strong`, because `--error` measures 3.98 there, under AA. The whole
+palette is rendered with live values at `/admin/style-guide`; the rules are
+§3 of `docs/aurora.md`.
 
 Examples live in `staff-table`, `account-card`, `moderation-list`, `audit-log`,
 `admin/rating`, and the `doi-input` / `isbn-input` checkmarks. The «Сумісник»

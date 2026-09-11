@@ -7,6 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-foreground-soft: var(--foreground-soft);
   --color-placeholder: var(--placeholder);
   --color-mask-ghost: var(--mask-ghost);
   --font-sans: var(--font-manrope);
@@ -52,15 +53,21 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
-  --color-destructive: var(--destructive);
+  /* Status. `--color-destructive` is gone with `--destructive`; the shadcn
+     button VARIANT is still named `destructive` and paints itself `bg-error`. */
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-error: var(--error);
+  --color-error-strong: var(--error-strong);
+  --color-error-surface: var(--error-surface);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -74,9 +81,44 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* The type scale is Tailwind's default — 12 · 14 · 16 · 18 · 20 · 24 — and is
+   deliberately NOT redefined here. A larger one was built and abandoned on
+   2026-09-11; `docs/aurora.md` §4 records why, and why browser zoom is the
+   answer to «I cannot read this» instead. */
+
+/* ── The palette ──────────────────────────────────────────────────────────────
+   **One hue, and chroma says what a colour is FOR** (owner, 2026-09-11).
+
+   Everything that is not a status sits on hue **264**, the university's
+   #4472C4. Lightness gives the ramp — ink 0.145, muted 0.556, border 0.87,
+   surface 0.97, card 1.0 — and chroma gives the ROLE:
+
+     chroma 0.00–0.02   chrome: text, borders, fills you read past
+     chroma 0.13        accent: the brand, the one thing you are meant to look at
+
+   The neutrals used to be chroma **0** — flat grey, a different family from the
+   blue bolted on beside it, which is why a subtitle read as belonging to some
+   other app. They now carry 0.02 at the widest point of the ramp, tapering to
+   nothing at both ends because near-black and near-white cannot show chroma
+   anyway.
+
+   **This costs no contrast.** OKLCH lightness is perceptual, so adding chroma at
+   a fixed L barely moves a ratio: `--muted-foreground` measured 4.74 on the card
+   at chroma 0 and measures 4.76 at 0.02. Every value below was checked by
+   compositing on a canvas (see §3 of `docs/aurora.md` — a browser's contrast
+   inspector reports nonsense for these).
+
+   Two things deliberately stay pure:
+
+   - **`--card` and `--popover` are `oklch(1 0 0)`, untinted.** §1 says a surface
+     separates by getting LIGHTER than the page; the card is the lightest thing
+     on screen and tinting it takes that away.
+   - **Status hues leave 264**, because their whole job is to not belong to the
+     brand — see `--success` / `--warning` / `--error` below. */
+
 :root {
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.145 0.012 264);
   /* A section heading inside a table: the brand at about 10%, already
      composited onto the card rather than left as an alpha.
 
@@ -92,13 +134,50 @@
      cannot drift, the same argument as `.aurora-field`. */
   --table-group: oklch(0.955 0.014 264);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --popover-foreground: oklch(0.145 0.012 264);
+  /* **`--primary` is gone** (owner, 2026-09-11). It was shadcn's name for «the
+     default button's fill», which here was near-black — so the app had a
+     `--primary` that was not the brand and a `--brand` that was not primary,
+     and a name meaning «the important one» sitting on a colour nobody chose for
+     importance. With no `--secondary` or `--tertiary` worth the name beside it,
+     the ladder said nothing at all.
+
+     Its 52 call sites split cleanly, and the split is the interesting part:
+     **almost all of them meant the accent and were rendering grey.** Links
+     written `text-primary underline`, selected rows, and «this counts» badges
+     like `APPROVED: bg-primary/10 text-primary` — `rating-table.tsx` had
+     already noticed, with a comment reading «`bg-primary/10` was a GREY tint,
+     which §3 rules out», and `orcid-field.tsx` records fixing one instance of
+     it by hand. All of those are `--brand` now.
+
+     That includes the legacy `Button`'s `default` variant, which is the one
+     place that genuinely was «the primary action»: it is the brand now, which
+     is what «Аврора»'s own button has always been, so the two sets stop
+     disagreeing while the migration finishes. */
+  --secondary: oklch(0.97 0.006 264);
+  --secondary-foreground: oklch(0.205 0.014 264);
+  --muted: oklch(0.97 0.006 264);
+  /* ── Three text strengths, not two ──────────────────────────────────────
+     `--foreground` measures 19.8 on a card and `--muted-foreground` 5.51.
+     Until 2026-09-11 there was nothing between them and muted sat at 4.76, so
+     everything that was not body text had one place to go and it was the
+     faintest thing on the page: a column heading, a field label and a row
+     count all landed on the same grey, and labels people needed to READ were
+     as quiet as the meta they were meant to skip.
+
+       --foreground        19.8   body, values, names
+       --foreground-soft    8.49  labels, column headings, secondary values
+       --muted-foreground   5.51  meta, counts, hints — glanced at, not read
+
+     `--muted-foreground` moved 0.556 → 0.52 in the same change. Adding a tier
+     above it fixes what to use for labels; it does nothing for the meta that
+     stays, which was the other half of the complaint.
+
+     Below these sit `--placeholder` (4.50) and `--mask-ghost` (2.12), which are
+     not text strengths at all — they say «nothing here yet», and §7 keeps them
+     separate for that reason. */
+  --foreground-soft: oklch(0.42 0.022 264);
+  --muted-foreground: oklch(0.52 0.02 264);
   /* Fainter than --muted-foreground — a placeholder is an example of what to
      type and must never read as a value already filled in — but still text, so
      it holds WCAG AA (4.5:1). At the old 0.72 it measured 2.49 and vanished.
@@ -112,16 +191,53 @@
      and at the ghost's 2.07:1 a row of unchosen filters on /staff and /rating
      read as disabled — which §7 spends its length making a DIFFERENT state.
      «Nothing chosen yet» and «you may not touch this» must not look alike. */
-  --placeholder: oklch(0.568 0 0);
+  --placeholder: oklch(0.568 0.02 264);
   /* The unfilled tail of a mask (`MaskGhost`), and nothing else. 2.07:1 on the
      page, deliberately below AA: it is not content, it is not a label, and it
      is never the only thing in its control — the value being typed is right on
      top of it. Lives here rather than as `text-muted-foreground/55` inside the
      component so that it and --placeholder are visibly two decisions. */
-  --mask-ghost: oklch(0.556 0 0 / 0.55);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --mask-ghost: oklch(0.556 0.02 264 / 0.55);
+  --accent: oklch(0.97 0.006 264);
+  --accent-foreground: oklch(0.205 0.014 264);
+
+  /* ── Status ─────────────────────────────────────────────────────────────
+     **These leave hue 264 on purpose.** Everything else in this file is the
+     brand at some chroma; a status colour's whole job is to NOT read as part
+     of the furniture. §3 of `docs/aurora.md` fixes what each one means, and
+     nothing else may use them.
+
+     Before these existed there were **160 hardcoded Tailwind classes** doing
+     the job: «ok» was written eight ways (`green-600`, `green-500`,
+     `green-700`, `green-400`, `emerald-700`, `emerald-600`, `emerald-500`,
+     `emerald-400` — green and emerald are not even the same hue), and
+     «pending» twelve. No call site was wrong on its own; there was simply
+     nothing to point at.
+
+     Each comes as a **pair**, because a status appears in two shapes and one
+     colour cannot serve both:
+
+       --x          the text, and any solid fill
+       --x-surface  the badge tint it sits on
+
+     `--error` also gets `--error-strong`, for the same reason `--brand` does:
+     `--error` on `--error-surface` measures 4.31 — under AA — because the tint
+     lifts the background toward the text. `--error-strong` measures 5.15
+     there, and 6.16 on a plain card.
+
+     Green and amber need no `-strong`: they are already dark enough to clear
+     AA on their own tint (4.55 and 4.87). */
+  --success: oklch(0.52 0.14 150);
+  --success-surface: oklch(0.95 0.045 150);
+  --warning: oklch(0.52 0.13 70);
+  --warning-surface: oklch(0.95 0.05 80);
+  /* Was `--destructive`, renamed 2026-09-11 so the three statuses read as one
+     set. The shadcn BUTTON VARIANT is still called `destructive`, and that is
+     correct — the variant describes what the action does, this describes the
+     colour it is painted in. */
+  --error: oklch(0.577 0.245 27.325);
+  --error-strong: oklch(0.52 0.21 27);
+  --error-surface: oklch(0.95 0.04 27);
   /* --border draws separators (table rules, card edges) and --input draws the
      boundary of a control. They were the same value, and at oklch(0.922) both
      measured 1.26:1 against the page — which is why fields were "barely
@@ -131,9 +247,9 @@
      lightest grey that reaches it on white. Separators are not controls and
      need no such floor, so --border is only lifted enough to be seen (≈1.5:1)
      without turning every table into a cage. */
-  --border: oklch(0.87 0 0);
-  --input: oklch(0.668 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.87 0.012 264);
+  --input: oklch(0.668 0.018 264);
+  --ring: oklch(0.708 0.016 264);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -181,20 +297,20 @@
      default, and every rounded-* utility is derived from this one value, so the
      whole app follows without touching a component. */
   --radius: 0.75rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar: oklch(0.985 0.004 264);
+  --sidebar-foreground: oklch(0.145 0.012 264);
+  --sidebar-primary: oklch(0.205 0.014 264);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.97 0.006 264);
+  --sidebar-accent-foreground: oklch(0.205 0.014 264);
+  --sidebar-border: oklch(0.922 0.008 264);
+  --sidebar-ring: oklch(0.708 0.016 264);
   /* Аврора's base tint (#f7f8fb), not white. Two reasons: it is the ground the
      colour wash sits on, and it gives --card (still pure white) something to
      separate from — a white panel on a white page has only its border to say it
      is a panel. --card stays SOLID on purpose; glass is opt-in below. */
   --background: oklch(0.977 0.004 265);
-  --foreground: oklch(0.145 0 0);
+  --foreground: oklch(0.145 0.012 264);
 }
 
 .dark {
@@ -220,23 +336,43 @@
   --table-group: oklch(0.253 0.016 264);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  --muted: oklch(0.269 0.01 264);
+  /* 9.60 on the dark card, against `--foreground`'s 17.18 and muted's 6.91.
+     Muted does NOT move here the way it does in light: lifting it would squeeze
+     it against this new tier, and the dark ramp is already the tighter of the
+     two. */
+  --foreground-soft: oklch(0.8 0.022 264);
+  --muted-foreground: oklch(0.708 0.018 264);
   /* On dark, fainter means closer to the background, so lower rather than
      higher — but still AA against the card (0.52 measured 3.27, now 4.92) */
-  --placeholder: oklch(0.62 0 0);
+  --placeholder: oklch(0.62 0.018 264);
   /* The same 55%, over the dark card's own `--muted-foreground`. Fainter here
      means closer to the background, so the lightness goes UP rather than down —
      the opposite direction from --placeholder above, because this one is
      allowed to approach the card and that one is not. */
-  --mask-ghost: oklch(0.708 0 0 / 0.55);
-  --accent: oklch(0.269 0 0);
+  --mask-ghost: oklch(0.708 0.018 264 / 0.55);
+  --accent: oklch(0.269 0.01 264);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+
+  /* Status, dark. The text is LIGHT here and the surface is a dark tint — a
+     status reads by separating from its ground, and the ground has swapped
+     ends. Measured on the dark card: text 9.46 / 10.13 / 6.21, and on its own
+     surface 7.00 / 7.25 / 4.73.
+
+     **No `--error-strong` in dark, and that is the same rule `--brand-strong`
+     follows** (§3): a tint on a dark ground DARKENS the background instead of
+     lifting it toward the text, so the pair never loses contrast and there is
+     nothing to deepen. It is aliased to `--error` so call sites need no
+     `dark:` variant. */
+  --success: oklch(0.78 0.15 152);
+  --success-surface: oklch(0.3 0.055 152);
+  --warning: oklch(0.82 0.13 78);
+  --warning-surface: oklch(0.32 0.055 75);
+  --error: oklch(0.704 0.191 22.216);
+  --error-strong: oklch(0.704 0.191 22.216);
+  --error-surface: oklch(0.31 0.085 25);
   /* Same split as light, expressed as white overlays: 10%/15% measured
      1.32 and 1.58 against the card. 38% reaches 3.57 over the card and 3.5
      over the page, so a control's edge clears 1.4.11 on both surfaces. */
@@ -271,6 +407,23 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* **The default is ink, and `--foreground-soft` is for PROSE** (owner,
+     2026-09-11).
+
+     The page default was briefly flipped to `--foreground-soft` on the reading
+     that «everything except headings» should recede. That was wrong, and the
+     owner's markup of a real screen is what showed it: what recedes is not
+     everything-that-is-not-a-heading, it is the EXPLAINING — the page's
+     description, a form's instruction, a footnote.
+
+     Labels, values, names, figures and column headings all stayed ink in that
+     markup, and they belong together: a label names a thing and a cell holds
+     it, and neither is commentary. Softening them made a table of real data
+     look switched off while the sentence above it kept full weight.
+
+     So: **ink is the default and needs no class**, `text-foreground-soft` is
+     applied deliberately to prose, and `--muted-foreground` stays below both
+     for meta — counts, row numbers, hints. See §4 of `docs/aurora.md`. */
   body {
     @apply bg-background text-foreground;
   }
@@ -602,49 +755,5 @@
       animation-duration: 260ms;
       animation-timing-function: ease;
     }
-  }
-}
-
-@layer components {
-  /* ── A larger type scale, on trial ────────────────────────────────────────
-     «Мої залучені здобувачі» wears this while we decide whether the whole app
-     should (owner, 2026-09-10). НПП have complained they cannot read the
-     screen, and §4 of `docs/aurora.md` already anticipated this: «a MODEST step
-     up is right; doubling everything is not — that was tried, and rejected as
-     soooo ugly».
-
-     This is that modest step, and it is aimed squarely at the complaint. The
-     app's desktop type has exactly two tiers below the headings — 14px for
-     every value and 12px for every label, column heading and badge — and it is
-     the 12px tier people are struggling with. Both move up one notch, so the
-     12px tier stops existing:
-
-       --text-xs   12 → 14   labels, meta, column headings, badges
-       --text-sm   14 → 16   body, values, table cells, breadcrumbs, card titles
-
-     `--text-base` (16) is untouched, so `text-sm` and `text-base` now measure
-     the same. That is deliberate rather than sloppy: it collapses two tiers
-     into one instead of pushing everything up and re-opening the «soooo ugly»
-     argument. It also quietly fixes `fieldSurface`'s `text-base md:text-sm`,
-     which until now made a field's own text SMALLER on the desktop monitor
-     somebody reads at arm's length than on the phone in their hand.
-
-     ## Why a class, and not fourteen edits
-
-     Every Tailwind text utility compiles to `font-size: var(--text-sm)` and
-     friends, so redefining those four properties on one subtree re-sizes
-     everything inside it — `Table`, `Card`, `Badge`, `Breadcrumbs` and every
-     control — with no component touched. The trial therefore looks EXACTLY like
-     the rollout would, which a pile of per-element overrides on one page could
-     never do, and which is the drift §11 keeps warning about.
-
-     To adopt: move these four values into the `@theme` block and delete this
-     class with its two call sites. To abandon: delete it. Either way it is one
-     edit, and nothing in between depends on it. */
-  .type-comfortable {
-    --text-xs: 0.875rem;
-    --text-xs--line-height: calc(1.25 / 0.875);
-    --text-sm: 1rem;
-    --text-sm--line-height: calc(1.5 / 1);
   }
 }

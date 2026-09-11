@@ -79,9 +79,140 @@ they sit on a coloured wash without going muddy.
 | Colour              | Means                                                                            |
 | ------------------- | -------------------------------------------------------------------------------- |
 | `--brand` (#4472C4) | The primary action · the active tab or nav item · a link · **one** accent figure |
-| amber               | Pending / needs attention — **badges only**, never chrome                        |
-| `--destructive`     | Destructive or error — nothing else                                              |
+| `--warning`         | Pending / needs attention — **badges only**, never chrome                        |
+| `--success`         | Done, agreed, verified                                                           |
+| `--error`           | Destructive or error — nothing else                                              |
 | `--chart-*`         | Charts, and only charts                                                          |
+
+**Every colour in the app is a token. There are no Tailwind palette classes.**
+`/admin/style-guide` renders the whole set, painted from the live custom
+properties, with each value and its measured contrast beside it.
+
+### One hue, and chroma says what a colour is for
+
+Everything that is not a status sits on hue **264**, the university's #4472C4.
+Lightness gives the ramp — ink `0.145`, soft `0.42`, muted `0.52`, border `0.87`, surface
+`0.97`, card `1.0` — and chroma gives the ROLE:
+
+| chroma      | role                                                     |
+| ----------- | -------------------------------------------------------- |
+| 0.00 – 0.02 | chrome: text, borders, fills you read past               |
+| 0.13        | accent: the brand, the one thing you are meant to notice |
+
+The neutrals were chroma **0** until 2026-09-11 — flat grey, a different family
+from the blue bolted on beside it, which is why a subtitle read as belonging to
+some other application. They now carry 0.02 at the widest point of the ramp,
+tapering to nothing at both ends because near-black and near-white cannot show
+chroma anyway.
+
+**The tint costs no contrast.** OKLCH lightness is perceptual, so adding chroma
+at a fixed L barely moves a ratio: `--muted-foreground` measured 4.74 on a card
+at chroma 0 and measures 4.76 at 0.02. That is what makes this safe to do across
+the whole ramp at once rather than one token at a time.
+
+Two things stay pure, deliberately:
+
+- **`--card` and `--popover` are `oklch(1 0 0)`.** §1 says a surface separates by
+  getting LIGHTER than the page; the card is the lightest thing on screen and
+  tinting it takes that away.
+- **Status hues leave 264**, because their whole job is to not belong to the
+  brand.
+
+### A status is a PAIR, and two of them need a `-strong`
+
+Each status is `--x` for the text and `--x-surface` for the tint it sits on.
+Before these existed there were **160 hardcoded Tailwind classes** doing the
+job: «ok» was written eight ways (`green-600`, `green-500`, `green-700`,
+`green-400`, `emerald-700`, `emerald-600`, `emerald-500`, `emerald-400` — green
+and emerald are not even the same hue) and «pending» twelve. No call site was
+wrong on its own; there was simply nothing to point at.
+
+**`--brand` and `--error` each need a `-strong` twin, for one measured reason: a
+tint LIFTS the background toward the text.** On its own surface `--brand`
+measures 4.24 and `--error` 3.98, both under AA; `--brand-strong` and
+`--error-strong` read 6.76 and 5.15 there. `--success` and `--warning` are dark
+enough already (4.55 and 4.87) and have no twin.
+
+So: **red text on a red tint is `text-error-strong`, never `text-error`.** That
+was wrong in eighteen places before the tokens existed, as `text-destructive` on
+`bg-destructive/10`.
+
+In dark mode there is no `-strong` anywhere: a tint on a dark ground darkens the
+background instead of lifting it, so the pair never loses contrast.
+`--error-strong` is aliased to `--error` there, and call sites need no `dark:`
+variant for any status.
+
+### Token names say what a colour is FOR, never where it sits in a ramp
+
+Two alternatives were weighed on 2026-09-11 and both refused (owner):
+
+- **`primary` / `secondary` / `accent` / `neutral`**, the daisyUI and Bootstrap
+  convention. It survives only because a general-purpose library cannot know an
+  application's semantics. In daisyUI's own default theme `primary` is grey,
+  `secondary` is cyan and `accent` is purple — none of which is predictable from
+  the name. An application knows what its colours mean and should say so.
+- **Ordered ramps** — `--surface-1/2/3`, `--text-1/2/3`, as Radix does. Better
+  than the first, because at least the order is legible. Refused for the same
+  reason in the end: a number tells you a position, not a purpose. «Is this the
+  right grey for a label» is not answered by `--text-3`.
+
+So the names stay descriptive — `--muted-foreground`, `--card`, `--brand`,
+`--success` — even where that means keeping a shadcn name we did not choose.
+
+One idea from daisyUI **is** worth copying if the chance comes: every colour that
+can be a background gets exactly one partner for text on it, with no exceptions.
+We follow that for `--brand` and not for `--success` or
+`--warning`, which is an inconsistency rather than a decision.
+
+### Three text strengths, not two
+
+| token                | on a card | worn by                                    |
+| -------------------- | --------- | ------------------------------------------ |
+| `--foreground`       | 19.8      | body, values, names                        |
+| `--foreground-soft`  | 8.49      | labels, column headings, secondary values  |
+| `--muted-foreground` | 5.51      | meta, counts, hints — glanced at, not read |
+
+Until 2026-09-11 the middle one did not exist and muted sat at 4.76, so
+everything that was not body text had **one** place to go and it was the
+faintest thing on the page: a column heading, a field label and a row count all
+landed on the same grey, and labels people needed to READ were as quiet as the
+meta they were meant to skip.
+
+`--muted-foreground` moved in the same change. Adding a tier above it settles
+what labels should use; it does nothing for the meta that stays, which was the
+other half of the complaint.
+
+Below these sit `--placeholder` (4.50) and `--mask-ghost` (2.12), which are not
+text strengths at all — they say «nothing here yet», and §7 keeps them separate
+for that reason.
+
+In dark mode the ramp is 17.18 / 9.60 / 6.91 and **`--muted-foreground` does not
+move**: lifting it there would squeeze it against the new tier, and the dark
+ramp is already the tighter of the two.
+
+### Two tokens that were renamed or removed, and why
+
+**`--destructive` became `--error`** so the three statuses read as one set. The
+shadcn button VARIANT is still called `destructive`, and that is correct — the
+variant describes what the action does, the token describes the colour it is
+painted in.
+
+**`--primary` is gone.** It was shadcn's name for «the default button's fill»,
+which here was near-black — so the app had a `--primary` that was not the brand
+and a `--brand` that was not primary, and a name meaning «the important one»
+sitting on a colour nobody chose for importance. With no `--secondary` or
+`--tertiary` worth the name beside it, the ladder said nothing.
+
+Its 52 call sites split cleanly, and **the split is the interesting part: almost
+all of them meant the accent and were rendering grey.** Links written
+`text-primary underline`, selected rows, and «this counts» badges like
+`APPROVED: bg-primary/10 text-primary`. `rating-table.tsx` had already noticed —
+«`bg-primary/10` was a GREY tint, which §3 rules out» — and `orcid-field.tsx`
+records fixing one instance by hand. All of them are `--brand` now, including
+the legacy `Button`'s `default` variant, which is the one site that genuinely
+was «the primary action». That makes it match «Аврора»'s own button, which has
+been the brand from the start, so the two sets stop disagreeing while the
+migration finishes.
 
 ### Brand text on a brand tint
 
@@ -159,53 +290,107 @@ brand, not status, and appears in the mark only.
 **Manrope**, everywhere. Geist is gone — it has **no Cyrillic glyphs at all**, so
 every Ukrainian word in the app was falling back to a system font.
 
-| Role          | Size                                            |
+| Role          | Size and colour                                 |
 | ------------- | ----------------------------------------------- |
 | Page title    | `text-2xl font-semibold tracking-[-0.01em]`     |
+| Page subtitle | `text-sm text-foreground-soft` — prose          |
 | Card title    | `text-sm font-semibold uppercase tracking-wide` |
-| Body / values | `text-sm`                                       |
-| Labels, meta  | `text-xs text-muted-foreground`                 |
+| Body / values | `text-sm` — full ink, the default               |
+| Field label   | `text-sm font-medium` — ink, like its value     |
+| Meta, counts  | `text-xs text-muted-foreground`                 |
 | Micro-label   | ~~`text-[11px]`~~ — retired, see below          |
 
-The app is built almost entirely at 12–14px (514 uses of `text-xs`/`text-sm`
-against 19 above). A **modest** step up is right; doubling everything is not —
-that was tried, and rejected as «soooo ugly». See
-`docs/work-remaining.md` on who these users are.
+### `--foreground-soft` is for PROSE, and for nothing else
 
-### 14px is the floor — ON TRIAL (owner, 2026-09-10)
+**Ink is the default. It needs no class.** Headings, labels, values, names,
+figures, column headings and table cells are all ink, because every one of them
+either names a thing or IS the thing.
 
-НПП have said they cannot read the screen. Taken at face value that is the
-modest step this section already called for, so it is being tried rather than
-argued about: **nothing renders below 14px**, and the two tiers below the
-headings each move up one notch.
+`text-foreground-soft` is applied deliberately, and only to writing that
+**explains**: a page's description under its title, a form's instruction, a
+footnote about how something works. On «Мої залучені здобувачі» that is exactly
+three paragraphs, and everything else on the screen is ink.
 
-| token         | was | now |
-| ------------- | --- | --- |
-| `--text-xs`   | 12  | 14  |
-| `--text-sm`   | 14  | 16  |
-| `--text-base` | 16  | 16  |
+The test: **would removing this sentence lose any data?** If no, it is prose and
+it recedes. If yes — a label, a count, a cell — it is ink.
 
-`text-sm` and `text-base` therefore measure the same. That collapses two tiers
-into one rather than pushing the whole scale up, which is what «soooo ugly» was
-a verdict on. The headings do not move at all.
+Two wrong versions were built first, on 2026-09-11, and both are worth
+recording because each sounded right:
+
+- **Labels soft, values ink.** The argument was that the eye should land on the
+  answers while the questions recede. On a real form it read as a half-finished
+  screen: a label names its field and belongs with it, and greying every label
+  made the form look disabled.
+- **Everything soft except headings**, set as the `body` default. That took
+  «not a heading» to mean «not important», and softened the entire claims table
+  — names, programmes, ставки. A table of real data came out switched off while
+  the sentence above it kept full weight. What recedes is not
+  everything-that-is-not-a-heading; it is the explaining.
+
+`--muted-foreground` stays below both, for meta: counts, row numbers, hints —
+things glanced at rather than read.
+
+**An intention that lives only in a comment is not expressed.** `TableHead`
+carried a note saying a column heading «earns full contrast» and set no colour
+at all, inheriting the body's ink. The moment the default was flipped, every
+column heading in the app lost that contrast silently. It writes out
+`text-foreground` now.
+
+The scale is **Tailwind's default, unmodified**: 12 · 14 · 16 · 18 · 20 · 24.
+Nothing is redefined in `@theme`, and there is no per-page override anywhere.
 
 The **11px micro-label is retired** — a hardcoded arbitrary size cannot follow a
 scale, and two call sites (the sidebar's group headings, `bonus-cell`) were
 quietly below any floor the theme set. Both are `text-xs` now.
 
-It also corrects an inversion nobody had noticed: `fieldSurface` was
-`text-base md:text-sm`, so a field's own text was 16px on a phone and 14px on
-the desktop monitor somebody reads at arm's length.
+### The bigger scale was built, tried and abandoned (owner, 2026-09-11)
 
-**How it is switched on.** `.type-comfortable` in `globals.css` redefines those
-custom properties for its subtree, and every Tailwind text utility compiles to
-`font-size: var(--text-sm)` — so one class re-sizes `Table`, `Card`, `Badge`,
-`Breadcrumbs` and every control inside it, with no component edited. The trial
-therefore looks exactly like the rollout. It is on «Мої залучені здобувачі» and
-on the sidebar, which is beside every page and had to be judged with it.
+НПП said they could not read the screen. Between 2026-09-10 and 2026-09-11 the
+answer was a larger scale — first as `.type-comfortable` on one page, then
+briefly app-wide at 14 · 16 · 18 · 20 · 24 · 28. **Both are gone.** Do not
+rebuild either without reading what follows.
 
-To adopt: move the four values into `@theme`, delete the class and its call
-sites. To abandon: delete the class.
+**Browser zoom is the answer to «I cannot read this», not the type scale.**
+Ctrl+= scales the whole page — type, controls, spacing, images — in the
+proportions the design was drawn in, it is per-reader, it persists per-site, and
+it costs nothing to anybody who does not need it. A larger built-in scale
+charges every user density so that some users can read, and it still cannot go
+far enough for somebody who genuinely needs 150%. The operating system's own
+display scaling does the same job one level up. These users are ~200 НПП aged
+25–60, mostly 40–50, and iPhone users — see `docs/work-remaining.md`. This is
+not an impaired cohort, and designing as though it were made the app worse for
+all of them.
+
+Three things the attempt established, worth keeping so the next person does not
+re-derive them:
+
+**1. Move every tier or none.** The first trial raised only the bottom two —
+12→14 and 14→16 — and left the four above alone. `text-sm` and `text-base` came
+out the same size, `text-lg` landed 2px above the body, and the page title fell
+from 24/14 = 1.71 of the body to 24/16 = **1.50**, so a heading barely led the
+text under it. A scale is relative: you cannot raise the floor and keep the
+ceiling. The owner's word for the result was «unproportional», and it was
+measurably so.
+
+**2. There is no half-step.** Every design metric here is an **even** number —
+sizes come off 2 · 4 · 8 · 12 · 14 · 16 · 18 · 20 · 24 · 28 · 32 · 36 · 42 · 48,
+never 13, 15, 17 or 23. So the body is 14 or it is 16; 15 does not exist. That
+is what makes a partial retreat incoherent and the choice binary.
+
+**3. It does not fix scrolling, which is what people actually notice.** Measured
+across every list screen, the larger scale added 10–25% to page height and
+**moved not one page from fitting to scrolling**. `/rating` scrolled 16730px
+before it and 21348px after; `/admin/invites` 13436 → 17356. Those pages are
+long because they put a whole list on the page instead of in a height-bounded
+card — see the `fill` pattern on `/staff` and `/admin/students`, which fit at
+every viewport under both scales. Type was never the cause.
+
+### Never go below `text-sm` inside a field
+
+iOS Safari zooms the page when a focused input is under 16px. That is what
+shadcn's `text-base md:text-sm` on every control is for — 16px on a phone,
+14px on the desktop. It looks like an inversion and is not: it is the smallest
+size that avoids the zoom on the device that enforces it. Leave it alone.
 
 ---
 
@@ -599,7 +784,7 @@ The same mistake, one level up, and it caught us the same week.
 
 Every control in `components/aurora/ui/` was exported as `AuroraButton`,
 `AuroraInput`, `AuroraSelect` — 62 identifiers. The prefix existed to solve **one
-file's** problem: `/admin/controls/gallery.tsx` imports both sets side by side to
+file's** problem: `/admin/style-guide/gallery.tsx` imports both sets side by side to
 compare them, and two `Button`s cannot live in one module.
 
 So one file's collision renamed 62 exports that every other file imports. And the
