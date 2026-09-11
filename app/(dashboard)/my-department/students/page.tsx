@@ -101,7 +101,7 @@ export default async function DepartmentStudentsPage({
             Залучені здобувачі
             {!canSwitch && ` — ${departments[0]!.name}`}
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {template.year} рік ·{' '}
             {canDecide
               ? 'підтверджені заявки враховуються на 2 етапі розподілу ставок'
@@ -111,7 +111,7 @@ export default async function DepartmentStudentsPage({
 
         {canSwitch && (
           <div className="space-y-1">
-            <span className="block text-xs font-medium text-muted-foreground">Кафедра</span>
+            <span className="block text-sm font-medium">Кафедра</span>
             <DepartmentSelect
               departments={departments}
               value={selected?.id ?? ''}

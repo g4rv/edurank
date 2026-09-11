@@ -76,9 +76,7 @@ export function OrcidInput({
             className={size === 'lg' ? 'text-base' : 'text-base md:text-sm'}
           />
         </span>
-        {state === 'valid' && (
-          <Check className="size-4 shrink-0 text-green-600 dark:text-green-500" />
-        )}
+        {state === 'valid' && <Check className="size-4 shrink-0 text-success" />}
       </div>
 
       {/* Only while something is half-typed. «16 цифр» to somebody who has typed
@@ -90,7 +88,7 @@ export function OrcidInput({
         </p>
       )}
       {state === 'invalid' && (
-        <p className="text-xs text-destructive">
+        <p className="text-xs text-error">
           Контрольна цифра не збігається — перевірте, чи немає помилки
         </p>
       )}

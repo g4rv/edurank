@@ -239,7 +239,7 @@ export function EvidenceFields({
           <label
             className={cn(
               'flex cursor-pointer items-center gap-2.5 text-sm',
-              invalid && 'text-destructive'
+              invalid && 'text-error'
             )}
           >
             <Switch

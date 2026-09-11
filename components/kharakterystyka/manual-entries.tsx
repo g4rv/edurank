@@ -259,7 +259,7 @@ function EntryList({
                     onClick={() => setConfirming(entry.id)}
                     disabled={pending}
                     aria-label="Вилучити запис"
-                    className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                    className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-error/10 hover:text-error-strong disabled:opacity-50"
                   >
                     <Trash2 className="size-3.5" />
                   </button>

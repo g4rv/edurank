@@ -97,8 +97,8 @@ function SpecialityChips({ bonus }: { bonus: StaffBonus }) {
 }
 
 const ORIGIN_TONE: Record<SpecialityOrigin, string> = {
-  own: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-  other: 'bg-amber-500/10 text-amber-700 dark:text-amber-500',
+  own: 'bg-success-surface text-success',
+  other: 'bg-warning-surface text-warning',
   unknown: 'bg-muted text-muted-foreground',
 };
 

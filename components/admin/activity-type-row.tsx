@@ -124,7 +124,7 @@ function DeleteButton({ type }: { type: EditableActivityType }) {
               ? `За показником «${type.label}» вже є записи — його можна лише вимкнути`
               : `Видалити: ${type.label}`
           }
-          className="text-muted-foreground hover:text-destructive"
+          className="text-muted-foreground hover:text-error"
         >
           <Trash2 className="size-4" />
         </Button>

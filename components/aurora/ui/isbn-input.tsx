@@ -83,7 +83,7 @@ const IsbnInput = forwardRef<
         {state === 'valid' && (
           <span
             className={cn(
-              'absolute inset-y-0 right-0 flex items-center text-green-600 dark:text-green-500',
+              'absolute inset-y-0 right-0 flex items-center text-success',
               lg ? 'px-3.5' : 'px-2.5'
             )}
           >
@@ -99,7 +99,7 @@ const IsbnInput = forwardRef<
         </p>
       )}
       {state === 'invalid' && (
-        <p className="text-xs text-destructive">
+        <p className="text-xs text-error">
           Контрольна цифра не збігається — перевірте, чи немає помилки
         </p>
       )}

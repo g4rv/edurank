@@ -161,7 +161,7 @@ function DebugForm({ type }: { type: DebugType }) {
           <span className="rounded-full bg-foreground px-2.5 py-0.5 font-semibold text-background">
             {type.itemNumber}
           </span>
-          <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-medium text-primary">
+          <span className="rounded-full border border-brand/20 bg-brand/10 px-2 py-0.5 font-medium text-brand">
             {INPUT_SOURCE_LABELS[type.inputSource]}
           </span>
           {type.divisionName && (
@@ -179,7 +179,7 @@ function DebugForm({ type }: { type: DebugType }) {
             {type.coefficientNote}
           </p>
         )}
-        <p className="mt-1 text-sm text-muted-foreground">Коефіцієнт: {type.coefficient}</p>
+        <p className="mt-1 text-sm text-foreground-soft">Коефіцієнт: {type.coefficient}</p>
       </div>
 
       <RequiredFields schema={schema}>
@@ -197,13 +197,13 @@ function DebugForm({ type }: { type: DebugType }) {
       </RequiredFields>
 
       {scoreError && (
-        <div className="rounded-xl border-2 border-destructive/30 bg-card p-5 text-sm text-destructive">
+        <div className="rounded-xl border-2 border-error/30 bg-card p-5 text-sm text-error">
           {scoreError}
         </div>
       )}
 
       {result && (
-        <div className="rounded-xl border-2 border-primary/30 bg-card p-5 text-sm">
+        <div className="rounded-xl border-2 border-brand/30 bg-card p-5 text-sm">
           <p>
             Обчислене значення: <span className="font-medium">{result.computedValue}</span>
           </p>

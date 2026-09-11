@@ -99,9 +99,7 @@ function Pill({
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
-        tone === 'met'
-          ? 'bg-emerald-600/10 text-emerald-700 dark:text-emerald-400'
-          : 'bg-amber-600/10 text-amber-700 dark:text-amber-500'
+        tone === 'met' ? 'bg-success-surface text-success' : 'bg-warning-surface text-warning'
       )}
     >
       {icon}

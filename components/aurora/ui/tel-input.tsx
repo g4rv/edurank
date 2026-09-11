@@ -124,7 +124,7 @@ export function TelInput({
             className={size === 'lg' ? 'text-base' : 'text-base md:text-sm'}
           />
         </span>
-        {complete && <Check className="size-4 shrink-0 text-green-600 dark:text-green-500" />}
+        {complete && <Check className="size-4 shrink-0 text-success" />}
       </div>
       {/* Only while something is half-typed. Saying «9 цифр» to somebody who has
           typed nothing is an instruction; saying it at 4 digits is an answer to

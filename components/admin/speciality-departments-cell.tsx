@@ -62,7 +62,7 @@ export function SpecialityDepartmentsCell({
               aria-label={`Прибрати ${d.name}`}
               disabled={pending}
               onClick={() => run(unlinkSpecialityDepartment, d.id)}
-              className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+              className="text-muted-foreground transition-colors hover:text-error disabled:opacity-50"
             >
               <X className="size-3" />
             </button>
@@ -81,7 +81,7 @@ export function SpecialityDepartmentsCell({
         />
       )}
 
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-error">{error}</p>}
     </div>
   );
 }

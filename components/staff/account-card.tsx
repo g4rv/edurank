@@ -67,9 +67,7 @@ export function AccountBadge({ account }: { account: StaffAccount }) {
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        account.isActivated
-          ? 'bg-green-500/10 text-green-600 dark:text-green-500'
-          : 'bg-amber-500/12 text-amber-700 dark:text-amber-400'
+        account.isActivated ? 'bg-success-surface text-success' : 'bg-warning-surface text-warning'
       )}
     >
       {account.isActivated ? 'Активовано' : 'Не активовано'}
@@ -217,7 +215,7 @@ export function AccountControls({
           {/* Only while it is actually locked. A permanent «не заблоковано» line
               would be noise on 300 pages to serve the rare one. */}
           {account.lockedUntil && (
-            <p className="rounded-lg border border-amber-600/40 bg-amber-600/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
+            <p className="rounded-lg border border-warning/40 bg-warning-surface px-3 py-2 text-xs text-warning">
               Вхід заблоковано після невдалих спроб — до{' '}
               {account.lockedUntil.toLocaleTimeString('uk-UA', {
                 hour: '2-digit',

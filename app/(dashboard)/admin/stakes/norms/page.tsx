@@ -72,7 +72,7 @@ export default async function SpecialityNormsPage() {
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
         <div>
           <h1 className="text-2xl font-semibold">Нормативи чисельності</h1>
-          <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
+          <p className="mt-0.5 max-w-3xl text-sm text-foreground-soft">
             Скільки здобувачів припадає на одну ставку — додаток 5, {year} рік. Вводиться одне
             число: бакалавр, денна форма. Магістратура і заочна форма рахуються від нього
             автоматично.
@@ -102,7 +102,7 @@ export default async function SpecialityNormsPage() {
       </div>
 
       {missing > 0 && (
-        <p className="rounded-lg border border-amber-600/30 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
+        <p className="rounded-lg border border-warning/40 bg-warning-surface px-4 py-2 text-xs text-warning">
           Без нормативу на {year} рік: {missing}. Здобувач такої спеціальності не додасть ставки,
           доки норматив не вказано.
         </p>

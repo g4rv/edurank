@@ -64,7 +64,7 @@ export default async function StaffNewPage() {
 
       <div>
         <h1 className="text-2xl font-semibold">Новий співробітник</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">Заповніть дані нового запису</p>
+        <p className="mt-0.5 text-sm text-foreground-soft">Заповніть дані нового запису</p>
       </div>
 
       <StaffCreateForm

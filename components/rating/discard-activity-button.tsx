@@ -49,7 +49,7 @@ export function DiscardActivityButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+        <Button variant="outline" size="sm" className="text-error hover:text-error">
           <Ban className="size-4" />
           Відхилити
         </Button>

@@ -73,7 +73,7 @@ export default async function ModerationPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Модерація рейтингу</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             Самозвіти НПП за {selectedYear} рік — {UK.submission(rows.length)}
           </p>
         </div>

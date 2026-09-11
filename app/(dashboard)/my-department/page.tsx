@@ -48,7 +48,7 @@ export default async function MyDepartmentPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Моя кафедра</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-sm text-foreground-soft">
           {template ? `Рейтинг за ${template.year} рік` : 'Рейтинговий рік ще не налаштовано'}
         </p>
       </div>
@@ -125,7 +125,7 @@ export default async function MyDepartmentPage() {
                             them a ставка (2026-08-24). */}
                         {person.isPartTime && (
                           <span
-                            className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500"
+                            className="ml-2 inline-flex items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning"
                             title="Основна кафедра цієї людини — інша. Тут вона працює за сумісництвом."
                           >
                             Сумісник
@@ -197,9 +197,7 @@ function PositionCount({ entry }: { entry?: { metCount: number; qualifies: boole
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        entry.qualifies
-          ? 'bg-emerald-600/10 text-emerald-700 dark:text-emerald-400'
-          : 'bg-destructive/10 text-destructive'
+        entry.qualifies ? 'bg-success-surface text-success' : 'bg-error/10 text-error-strong'
       )}
     >
       {entry.metCount}

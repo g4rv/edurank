@@ -35,9 +35,9 @@ export interface AchievementGroup {
 }
 
 const STATUS_STYLES: Record<AchievementRow['status'], string> = {
-  APPROVED: 'bg-primary/10 text-primary',
+  APPROVED: 'bg-brand/10 text-brand',
   PENDING: 'bg-muted text-muted-foreground',
-  REMOVED: 'bg-destructive/10 text-destructive',
+  REMOVED: 'bg-error/10 text-error-strong',
 };
 
 export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
@@ -71,7 +71,7 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                       </p>
                     )}
                     {item.status === 'REMOVED' && item.removeReason && (
-                      <p className="mt-1 text-xs text-destructive">
+                      <p className="mt-1 text-xs text-error">
                         Причина відхилення: {item.removeReason}
                       </p>
                     )}

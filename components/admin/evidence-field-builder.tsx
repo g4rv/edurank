@@ -167,7 +167,7 @@ export function EvidenceFieldBuilder({
       {error && (
         <p
           role="alert"
-          className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-error/40 bg-error/5 px-3 py-2 text-sm text-error-strong"
         >
           {error}
         </p>
@@ -196,9 +196,7 @@ function FieldCard({
   onMove: (delta: number) => void;
 }) {
   return (
-    <div
-      className={cn('rounded-lg border bg-card p-3', scored && 'border-primary/40 bg-primary/5')}
-    >
+    <div className={cn('rounded-lg border bg-card p-3', scored && 'border-brand/40 bg-brand/5')}>
       {/* The card's own controls sit in its header, so they cannot be mistaken
           for controls of whatever the settings below happen to render. */}
       <div className="mb-2 flex items-center gap-2 text-xs">
@@ -206,7 +204,7 @@ function FieldCard({
           {FIELD_KIND_LABELS[field.kind]}
         </span>
         {scored && (
-          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+          <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 font-medium text-brand">
             впливає на бали
           </span>
         )}
@@ -242,7 +240,7 @@ function FieldCard({
             // A scoring field cannot go: the rule reads it by name
             disabled={scored}
             aria-label={scored ? 'Поле потрібне для нарахування балів' : 'Прибрати поле'}
-            className="size-7 text-muted-foreground hover:text-destructive"
+            className="size-7 text-muted-foreground hover:text-error"
           >
             <Trash2 className="size-4" />
           </Button>
@@ -487,7 +485,7 @@ function OptionsEditor({
             type="button"
             variant="ghost"
             size="icon"
-            className="shrink-0 text-muted-foreground hover:text-destructive"
+            className="shrink-0 text-muted-foreground hover:text-error"
             onClick={() => set(options.filter((_, j) => j !== i))}
             disabled={options.length === 1}
             aria-label={`Прибрати варіант ${i + 1}`}

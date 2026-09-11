@@ -158,7 +158,7 @@ export default async function DepartmentStakesPage({
       </div>
 
       {selected?.belowMinimum && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
+        <p className="rounded-lg border border-error/30 bg-error/5 px-4 py-2 text-xs text-error-strong">
           Основний фонд нижче мінімуму: на кафедрі {selected.headcount} НПП, потрібно щонайменше{' '}
           {formatStake(selected.minimumHundredths)}
         </p>

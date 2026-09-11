@@ -40,7 +40,7 @@ export function DeleteActivityButton({ activityId, label }: { activityId: string
         <Button
           variant="ghost"
           size="icon"
-          className="size-7 text-muted-foreground hover:text-destructive"
+          className="size-7 text-muted-foreground hover:text-error"
           aria-label="Видалити досягнення"
         >
           <Trash2 className="size-4" />

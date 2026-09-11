@@ -72,7 +72,7 @@ export default async function DivisionDetailPage({ params }: { params: Promise<{
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{division.name}</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {division._count.staff} співробітників
           </p>
         </div>

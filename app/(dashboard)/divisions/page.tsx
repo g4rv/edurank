@@ -45,7 +45,7 @@ export default async function DivisionsPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Відділи</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{UK.record(divisions.length)}</p>
+          <p className="mt-0.5 text-sm text-foreground-soft">{UK.record(divisions.length)}</p>
         </div>
         {isAdmin && (
           <Button asChild>

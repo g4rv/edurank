@@ -42,7 +42,7 @@ export function DeleteDivisionButton({ divisionId, divisionName }: DeleteDivisio
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+        <Button variant="outline" size="sm" className="text-error hover:text-error">
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>

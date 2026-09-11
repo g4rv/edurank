@@ -74,7 +74,7 @@ export function TelInput({
           'flex h-9 items-center rounded-md border border-input bg-transparent pr-2 pl-3 shadow-xs',
           'focus-within:ring-1 focus-within:ring-ring',
           disabled && 'cursor-not-allowed opacity-50',
-          ariaInvalid && 'border-destructive',
+          ariaInvalid && 'border-error',
           className
         )}
       >
@@ -103,7 +103,7 @@ export function TelInput({
           }}
           className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none disabled:cursor-not-allowed"
         />
-        {complete && <Check className="size-4 shrink-0 text-green-600 dark:text-green-500" />}
+        {complete && <Check className="size-4 shrink-0 text-success" />}
       </div>
       {/* Only while something is half-typed. Saying «9 цифр» to somebody who has
           typed nothing is an instruction; saying it at 4 digits is an answer to

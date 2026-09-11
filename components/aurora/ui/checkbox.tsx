@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  *
  * Three screens needed one and each grew its own: `/admin/permissions/field`
  * and `/admin/permissions/entity` use a bare `<input type="checkbox">` with
- * `accent-primary`, the licence-position picker uses the same input with
+ * `accent-brand`, the licence-position picker uses the same input with
  * `accent-foreground`. So the two permission grids and the picker beside them
  * are already different colours, and none of them can carry a focus ring, an
  * invalid state, or the disabled surface every other control here has —
@@ -49,7 +49,7 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
         // border-color would otherwise leave around the filled box.
         'data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-brand-foreground data-[state=checked]:shadow-none',
         'disabled:cursor-not-allowed',
-        'aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20',
+        'aria-invalid:border-error aria-invalid:ring-3 aria-invalid:ring-error/20',
         className
       )}
       {...props}

@@ -116,14 +116,14 @@ export function BulkInvite({ people }: { people: PendingInvite[] }) {
       {running && (
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-primary transition-[width] duration-300"
+            className="h-full rounded-full bg-brand transition-[width] duration-300"
             style={{ width: `${total > 0 ? (progress / total) * 100 : 0}%` }}
           />
         </div>
       )}
 
       {fatal && (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <p className="rounded-lg border border-error/40 bg-error/5 px-3 py-2 text-sm text-error-strong">
           {fatal}
         </p>
       )}
@@ -131,11 +131,9 @@ export function BulkInvite({ people }: { people: PendingInvite[] }) {
       {outcomes.length > 0 && (
         <div className="rounded-xl border bg-card">
           <div className="flex flex-wrap gap-4 border-b px-4 py-3 text-sm">
-            <span className="font-medium text-emerald-700 dark:text-emerald-400">
-              Надіслано: {sent.length}
-            </span>
+            <span className="font-medium text-success">Надіслано: {sent.length}</span>
             {failed.length > 0 && (
-              <span className="font-medium text-destructive">Не вдалося: {failed.length}</span>
+              <span className="font-medium text-error">Не вдалося: {failed.length}</span>
             )}
           </div>
           <ul className="max-h-80 divide-y overflow-y-auto text-sm">
@@ -144,14 +142,14 @@ export function BulkInvite({ people }: { people: PendingInvite[] }) {
                 <span
                   className={cn(
                     'h-1.5 w-1.5 shrink-0 rounded-full',
-                    o.ok ? 'bg-emerald-600' : 'bg-destructive'
+                    o.ok ? 'bg-success-surface' : 'bg-error'
                   )}
                 />
                 <Link href={`/staff/${o.id}`} className="min-w-0 flex-1 truncate hover:underline">
                   {o.fullName}
                 </Link>
                 <span className="hidden truncate text-muted-foreground sm:block">{o.email}</span>
-                {o.error && <span className="shrink-0 text-destructive">{o.error}</span>}
+                {o.error && <span className="shrink-0 text-error">{o.error}</span>}
               </li>
             ))}
           </ul>

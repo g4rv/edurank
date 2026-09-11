@@ -48,11 +48,7 @@ export function CopyButton({ value, what, className }: CopyButtonProps) {
       title={copied ? 'Скопійовано' : `Копіювати ${what}`}
       className={cn('size-7 text-muted-foreground hover:text-foreground', className)}
     >
-      {copied ? (
-        <Check className="size-3.5 text-green-600 dark:text-green-500" />
-      ) : (
-        <Copy className="size-3.5" />
-      )}
+      {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
     </Button>
   );
 }

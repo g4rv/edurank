@@ -116,7 +116,7 @@ export default async function DepartmentDetailPage({
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{department.name}</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {UK.primary(department.primaryStaff.length)} ·{' '}
             {UK.partTimer(department.partTimeStaff.length)}
           </p>
@@ -224,11 +224,11 @@ export default async function DepartmentDetailPage({
                       className={cn(
                         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
                         member.type === 'primary'
-                          ? 'bg-primary/10 text-primary'
+                          ? 'bg-brand/10 text-brand'
                           : // Amber: a сумісник is the row on this кафедра that
                             // needs a second look — their ставка comes out of two
                             // pools and they raise this кафедра's own minimum.
-                            'bg-amber-500/10 text-amber-700 dark:text-amber-500'
+                            'bg-warning-surface text-warning'
                       )}
                     >
                       {member.type === 'primary' ? 'Основний' : 'Сумісник'}

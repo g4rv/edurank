@@ -102,7 +102,7 @@ export default async function InvitesPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Запрошення</h1>
-        <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
+        <p className="mt-0.5 max-w-3xl text-sm text-foreground-soft">
           Люди, які ще не активували обліковий запис. Лист містить посилання для встановлення
           пароля. Тим, хто вже активувався, повторний лист не надсилається.
         </p>
@@ -171,7 +171,7 @@ export default async function InvitesPage({
       {/* Said before the button, not after 33 failures. Only while those people
           are actually in the current selection. */}
       {undeliverable && !domain && (
-        <p className="text-sm text-amber-700 dark:text-amber-500">
+        <p className="text-sm text-warning">
           {undeliverable.count} без робочої адреси — цим людям лист не піде. Виберіть домен пошти
           вище, щоб надіслати лише тим, у кого адресу вже вказано.
         </p>
@@ -180,7 +180,7 @@ export default async function InvitesPage({
       {/* A second letter replaces the link the person already holds, so it is
           said beside the button and not left to be discovered. */}
       {wasInvited === true && people.length > 0 && (
-        <p className="text-sm text-amber-700 dark:text-amber-500">
+        <p className="text-sm text-warning">
           Цим людям лист уже надсилали. Повторний лист замінює попереднє посилання — старе перестане
           працювати.
         </p>
@@ -224,7 +224,7 @@ export default async function InvitesPage({
                         <RevertInviteButton staffId={p.id} fullName={p.fullName} />
                       </span>
                     ) : (
-                      <span className="text-amber-600 dark:text-amber-500">не надсилалося</span>
+                      <span className="text-warning">не надсилалося</span>
                     )}
                   </td>
                 </tr>

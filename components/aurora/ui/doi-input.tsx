@@ -58,7 +58,7 @@ const DoiInput = forwardRef<
         {state === 'valid' && (
           <span
             className={cn(
-              'absolute inset-y-0 right-0 flex items-center text-green-600 dark:text-green-500',
+              'absolute inset-y-0 right-0 flex items-center text-success',
               lg ? 'px-3.5' : 'px-2.5'
             )}
           >
@@ -84,7 +84,7 @@ const DoiInput = forwardRef<
         </p>
       )}
       {state === 'invalid' && (
-        <p className="text-xs text-destructive">
+        <p className="text-xs text-error">
           Не схоже на DOI. Очікується 10.XXXX/… або посилання doi.org
         </p>
       )}

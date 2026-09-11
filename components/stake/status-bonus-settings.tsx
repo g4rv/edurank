@@ -97,7 +97,7 @@ function StatusRow({
         aria-label={`Надбавка за посаду: ${ADMIN_POSITION_LABELS[position]}`}
         className="h-8 w-24 text-right tabular-nums"
       />
-      {error && <span className="w-full text-xs text-destructive">{error}</span>}
+      {error && <span className="w-full text-xs text-error">{error}</span>}
     </div>
   );
 }

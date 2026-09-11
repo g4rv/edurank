@@ -131,7 +131,7 @@ export default async function DesignPreviewPage() {
     >
       <div>
         <h1 className="text-2xl font-semibold">Обличчя застосунку</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+        <p className="mt-1 max-w-3xl text-sm text-foreground-soft">
           Один екран — «Розподіл ставок» — у кількох композиціях, на однакових даних. Перший —
           «Поділ»: єдиний, побудований навколо самого поділу фонду, а не навколо підсумку. Далі —
           скло й Stripe. Нічого тут не зберігається.

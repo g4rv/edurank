@@ -36,12 +36,12 @@ const RATING_HEAD = (
  *
  * The other two keep entries so the map stays total over the union, and they
  * are correct rather than stale: `--primary` is `oklch(0.205 0 0)`, so
- * `bg-primary/10` was a GREY tint, which §3 rules out.
+ * `bg-brand/10` was a GREY tint, which §3 rules out.
  */
 const STATUS_STYLES = {
   APPROVED: 'bg-brand/10 text-brand-strong',
-  PENDING: 'bg-amber-500/10 text-amber-700 dark:text-amber-500',
-  REMOVED: 'bg-destructive/10 text-destructive',
+  PENDING: 'bg-warning-surface text-warning',
+  REMOVED: 'bg-error/10 text-error-strong',
 } as const;
 
 /**
@@ -202,9 +202,7 @@ function SectionRows({ group }: { group: AchievementGroup }) {
                 <p className="mt-0.5 text-xs text-muted-foreground">{item.summary}</p>
               )}
               {item.status === 'REMOVED' && item.removeReason && (
-                <p className="mt-1 text-xs text-destructive">
-                  Причина відхилення: {item.removeReason}
-                </p>
+                <p className="mt-1 text-xs text-error">Причина відхилення: {item.removeReason}</p>
               )}
             </TableCell>
 

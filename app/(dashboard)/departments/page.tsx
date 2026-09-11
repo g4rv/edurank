@@ -77,7 +77,7 @@ export default async function DepartmentsPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Кафедри</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{UK.record(departments.length)}</p>
+          <p className="mt-0.5 text-sm text-foreground-soft">{UK.record(departments.length)}</p>
         </div>
         {canCreate && (
           <Button asChild>

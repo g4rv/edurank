@@ -176,7 +176,7 @@ export default async function StaffPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{archivedView ? 'Архів' : 'Персонал'}</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {staff.length} записів
             {archivedView && ' — не враховуються в рейтингу поточного року'}
           </p>

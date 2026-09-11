@@ -72,7 +72,7 @@ function SheetContent({
             variant="ghost"
             size="icon-sm"
             aria-label="Закрити"
-            className="absolute top-4 right-4 text-muted-foreground hover:text-destructive"
+            className="absolute top-4 right-4 text-muted-foreground hover:text-error"
           >
             <X />
           </Button>

@@ -137,14 +137,14 @@ export function ClaimsReview({
           На розгляді: <strong className="tabular-nums">{pending.length}</strong>
         </span>
         {contested.length > 0 && (
-          <span className="text-amber-700 dark:text-amber-500">
+          <span className="text-warning">
             Спірних: <strong className="tabular-nums">{contested.length}</strong>
           </span>
         )}
       </div>
 
       {contested.length > 0 && (
-        <p className="max-w-3xl rounded-lg border border-amber-600/30 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
+        <p className="max-w-3xl rounded-lg border border-warning/40 bg-warning-surface px-4 py-2 text-xs text-warning">
           Позначку «спірна» має лише та заявка, яку подали пізніше — поряд із нею вказано, хто подав
           цього здобувача першим і на якій він кафедрі. Раніше — не означає правіше: система лише
           показує збіг,{' '}
@@ -280,7 +280,7 @@ function ClaimRow({
     <tr
       className={cn(
         'transition-colors hover:bg-muted/20',
-        claim.contested && !claim.wasFirst && 'bg-amber-600/5'
+        claim.contested && !claim.wasFirst && 'bg-warning-surface'
       )}
     >
       <td className="border border-border px-3 py-2">
@@ -290,7 +290,7 @@ function ClaimRow({
             got in first is not the questionable one. */}
         {claim.contested && !claim.wasFirst && (
           <span
-            className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500"
+            className="ml-2 inline-flex items-center gap-1 text-xs text-warning"
             title="Цього здобувача раніше вказала інша людина"
           >
             <AlertTriangle className="size-3" />
@@ -315,7 +315,7 @@ function ClaimRow({
         {/* One contested claim is noise. «7 of this person's 9 are contested»
             is a pattern, and it is the number the head actually needs. */}
         {claim.claimantContestedCount > 1 && (
-          <p className="text-xs text-amber-700 dark:text-amber-500">
+          <p className="text-xs text-warning">
             спірних у цієї людини: {claim.claimantContestedCount}
           </p>
         )}
@@ -342,7 +342,7 @@ function ClaimRow({
       <td className="border border-border px-3 py-2 text-right tabular-nums">
         {claim.unpriced ? (
           <span
-            className="text-xs text-amber-700 dark:text-amber-500"
+            className="text-xs text-warning"
             title="Для цієї спеціальності ще не встановлено норматив на цей рік"
           >
             —
@@ -363,13 +363,11 @@ function ClaimRow({
 
       <td className="border border-border px-3 py-2">
         {claim.status === 'CONFIRMED' && (
-          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-            Підтверджено
-          </span>
+          <span className="text-xs font-medium text-success">Підтверджено</span>
         )}
         {claim.status === 'REJECTED' && (
           <div>
-            <span className="text-xs font-medium text-destructive">Відхилено</span>
+            <span className="text-xs font-medium text-error">Відхилено</span>
             {claim.rejectReason && (
               <p className="text-xs text-muted-foreground">{claim.rejectReason}</p>
             )}
@@ -437,7 +435,7 @@ function ClaimRow({
           </div>
         )}
 
-        {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        {error && <p className="mt-1 text-xs text-error">{error}</p>}
       </td>
     </tr>
   );

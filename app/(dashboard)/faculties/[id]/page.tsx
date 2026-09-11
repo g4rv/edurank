@@ -88,7 +88,7 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{faculty.name}</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {staffList.length} НПП · {UK.department(faculty.departments.length)}
           </p>
         </div>

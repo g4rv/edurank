@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
  *   so it should behave like something with a light on it.
  */
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:ring-3 focus-visible:ring-brand/35 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:ring-3 focus-visible:ring-brand/35 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-error aria-invalid:ring-3 aria-invalid:ring-error/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -53,7 +53,7 @@ const buttonVariants = cva(
         ghost:
           'hover:bg-foreground/6 hover:text-foreground aria-expanded:bg-foreground/6 dark:hover:bg-white/8',
         destructive:
-          'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:ring-destructive/25 dark:bg-destructive/20 dark:hover:bg-destructive/30',
+          'bg-error/10 text-error-strong hover:bg-error/20 focus-visible:ring-error/25 dark:bg-error/20 dark:hover:bg-error/30',
         link: 'text-brand underline-offset-4 hover:underline',
       },
       size: {

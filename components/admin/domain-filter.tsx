@@ -73,7 +73,7 @@ export function DomainFilter({
               <span
                 className={
                   d.undeliverable
-                    ? 'ml-auto shrink-0 rounded bg-amber-500/10 px-1.5 py-px text-xs text-amber-700 tabular-nums dark:text-amber-500'
+                    ? 'ml-auto shrink-0 rounded bg-warning-surface px-1.5 py-px text-xs text-warning tabular-nums'
                     : 'ml-auto shrink-0 rounded bg-muted px-1.5 py-px text-xs text-muted-foreground tabular-nums'
                 }
               >

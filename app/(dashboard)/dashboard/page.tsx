@@ -97,7 +97,7 @@ export default async function DashboardPage({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Графіки</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {year} рік · {shown.status === 'CLOSED' ? 'закрито' : 'активний'}
           </p>
         </div>

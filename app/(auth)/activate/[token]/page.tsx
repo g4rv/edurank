@@ -21,7 +21,7 @@ export default async function ActivatePage({ params }: { params: Promise<{ token
           </p>
           <Link
             href="/login"
-            className="mt-4 inline-block text-sm text-primary underline-offset-4 hover:underline"
+            className="mt-4 inline-block text-sm text-brand underline-offset-4 hover:underline"
           >
             До сторінки входу
           </Link>

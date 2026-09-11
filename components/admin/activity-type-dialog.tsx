@@ -471,9 +471,7 @@ function ActivityTypeForm({
               }
             />
             {errors.licencePositions?.message && (
-              <p className="mt-2 text-sm text-destructive">
-                {errors.licencePositions.message as string}
-              </p>
+              <p className="mt-2 text-sm text-error">{errors.licencePositions.message as string}</p>
             )}
           </FormSection>
         </div>

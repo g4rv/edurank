@@ -296,9 +296,9 @@ function EntryCell({
       className={cn(
         'min-w-14 rounded-md border px-2.5 py-1 text-left tabular-nums transition-colors',
         entries.length > 0
-          ? 'border-transparent bg-primary/10 font-medium text-primary'
+          ? 'border-transparent bg-brand/10 font-medium text-brand'
           : 'border-dashed text-muted-foreground',
-        !readOnly && 'cursor-pointer hover:border-primary/50'
+        !readOnly && 'cursor-pointer hover:border-brand/50'
       )}
       aria-label={
         entries.length > 0
@@ -422,7 +422,7 @@ function EntryList({
               disabled={isPending}
               onClick={() => remove(e.id)}
               aria-label="Видалити запис"
-              className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+              className="size-8 shrink-0 text-muted-foreground hover:text-error"
             >
               <Trash2 className="size-4" />
             </Button>

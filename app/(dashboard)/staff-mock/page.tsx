@@ -17,7 +17,7 @@ export default async function StaffMockIndexPage() {
 
       <div className="rounded-xl border border-dashed bg-muted/25 p-4">
         <p className="text-sm font-medium">Чернетка сторінки працівника — вкладки на layout</p>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-foreground-soft">
           Відкрийте будь-кого й перемикайте вкладки: шапка, хлібні крихти й самі вкладки не
           перемальовуються — Next зберігає layout між дочірніми сторінками. Кожна вкладка має власну
           адресу, тож «назад» і закладки працюють.

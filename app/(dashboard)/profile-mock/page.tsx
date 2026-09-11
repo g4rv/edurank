@@ -55,7 +55,7 @@ export default async function ProfileMockPage() {
     <div className="space-y-12">
       <div className="rounded-xl border border-dashed bg-muted/25 p-4">
         <p className="text-sm font-medium">Чернетка профілю — вигадані дані</p>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-foreground-soft">
           Жодного реального запису тут немає. Варіанти 1 і 2 показують УСІ поля, зокрема порожні,
           щоб було видно повний набір. Варіанти 3 і 4 працюють як у готовому вигляді: порожнє поле
           зникає, а перелік того, чого бракує, збирається внизу.

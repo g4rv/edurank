@@ -52,7 +52,7 @@ export default async function FacultiesPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Факультети</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{UK.record(faculties.length)}</p>
+          <p className="mt-0.5 text-sm text-foreground-soft">{UK.record(faculties.length)}</p>
         </div>
         {canCreate && (
           <Button asChild>

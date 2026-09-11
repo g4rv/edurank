@@ -44,7 +44,7 @@ export default async function EntityPermissionsPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Дії доступу</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-sm text-foreground-soft">
           Які операції над сутностями редактори кожного відділу можуть виконувати
         </p>
       </div>
@@ -67,7 +67,7 @@ export default async function EntityPermissionsPage({
                 className={cn(
                   'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
                   div.id === selectedId
-                    ? 'border-primary bg-primary text-primary-foreground'
+                    ? 'border-brand bg-brand text-brand-foreground'
                     : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
                 )}
               >

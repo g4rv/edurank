@@ -108,7 +108,7 @@ export function StakeValueForm({
             // flush against the padding and an italic slant shears it off:
             // «мін. 1,80» rendered as «мін. 1,8|». Colour alone does the job.
             'placeholder:text-muted-foreground/60',
-            (error || invalid) && 'border-destructive',
+            (error || invalid) && 'border-error',
             className
           )}
         />
@@ -117,15 +117,11 @@ export function StakeValueForm({
         {/* A silent autosave is indistinguishable from a lost edit, so the
             field says which it was. Nothing at all until something happens. */}
         <span className="text-xs text-muted-foreground">
-          {pending ? (
-            '…'
-          ) : saved && !error ? (
-            <span className="text-emerald-700 dark:text-emerald-400">Збережено</span>
-          ) : null}
+          {pending ? '…' : saved && !error ? <span className="text-success">Збережено</span> : null}
         </span>
       </div>
 
-      {error && <p className="max-w-md text-xs text-destructive">{error}</p>}
+      {error && <p className="max-w-md text-xs text-error">{error}</p>}
     </div>
   );
 }

@@ -120,7 +120,7 @@ export function DepartmentForm({
           <FormField htmlFor="name" label="Назва" error={errors.name}>
             <Input id="name" disabled={isPending} {...register('name')} />
             {unknownName && !errors.name && (
-              <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-500">
+              <p className="mt-1.5 text-xs text-warning">
                 Для цієї кафедри ще не вказано випускових спеціальностей. Зберегти можна — у
                 розподілі ставок здобувачі просто не позначатимуться як «своя спеціальність».
                 Вказати їх можна пізніше на сторінці «Нормативи чисельності».

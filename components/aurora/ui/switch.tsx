@@ -28,7 +28,7 @@ function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimi
         'focus-visible:ring-3 focus-visible:ring-brand/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
         'disabled:cursor-not-allowed disabled:opacity-50',
         'data-[state=checked]:bg-brand data-[state=unchecked]:bg-input',
-        'aria-invalid:border-destructive/50 aria-invalid:data-[state=unchecked]:bg-destructive/25',
+        'aria-invalid:border-error/50 aria-invalid:data-[state=unchecked]:bg-error/25',
         className
       )}
       {...props}

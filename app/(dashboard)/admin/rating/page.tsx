@@ -31,7 +31,7 @@ export default async function RatingAdminPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Рейтингові роки</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-sm text-foreground-soft">
           Шаблони показників за роками: клонування, редагування, закриття року
         </p>
       </div>
@@ -54,7 +54,7 @@ export default async function RatingAdminPage() {
                 <td className="px-4 py-3 font-medium">
                   <Link
                     href={`/admin/rating/${t.year}`}
-                    className="text-primary underline-offset-4 hover:underline"
+                    className="text-brand underline-offset-4 hover:underline"
                   >
                     {t.year}
                   </Link>
@@ -63,7 +63,7 @@ export default async function RatingAdminPage() {
                   <span className="flex items-center gap-2">
                     {t.name}
                     {t.isActive && (
-                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      <span className="inline-flex items-center rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
                         Активний
                       </span>
                     )}
@@ -77,7 +77,7 @@ export default async function RatingAdminPage() {
                     className={cn(
                       'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
                       t.status === 'OPEN'
-                        ? 'bg-green-500/10 text-green-600'
+                        ? 'bg-success-surface text-success'
                         : 'bg-muted text-muted-foreground'
                     )}
                   >

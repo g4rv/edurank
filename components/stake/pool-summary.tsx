@@ -31,7 +31,7 @@ export function PoolSummary({ totals }: { totals: PoolTotals }) {
       <FundGroup title="Бонусний фонд" term="bonusPool" fund={totals.bonus} />
 
       {totals.overspent.departments > 0 && (
-        <div className="text-amber-700 dark:text-amber-500">
+        <div className="text-warning">
           <p className="font-medium">Перевитрачено</p>
           <dl className="mt-1 grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 text-xs">
             {/* No `valueClass`: the numbers inherit the group's amber, which is
@@ -43,7 +43,7 @@ export function PoolSummary({ totals }: { totals: PoolTotals }) {
       )}
 
       {totals.unfunded > 0 && (
-        <div className="text-amber-700 dark:text-amber-500">
+        <div className="text-warning">
           <span>без фонду: </span>
           <span className="font-medium tabular-nums">{totals.unfunded}</span>
         </div>

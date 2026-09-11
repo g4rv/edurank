@@ -16,7 +16,7 @@ import { normaliseOrcid, orcidUrl } from '@/lib/orcid';
  * A value that is not an ORCID renders as plain text, exactly as it is stored —
  * see `lib/orcid.ts` for why nothing is guessed.
  *
- * `text-brand`, like the three citation links beside it. It was `text-primary`,
+ * `text-brand`, like the three citation links beside it. It was `text-brand`,
  * which is monochrome near-black — so this one row rendered in ink while the
  * others were blue, and it read as «not a link».
  */

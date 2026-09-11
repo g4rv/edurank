@@ -43,7 +43,7 @@ export function fieldSurface(size: FieldSize = 'default', extra?: string) {
     // `.aurora-field` — fading the whole control said nothing and made its own
     // text harder to read at the same time.
     'disabled:pointer-events-none disabled:cursor-not-allowed',
-    'aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20',
+    'aria-invalid:border-error aria-invalid:ring-3 aria-invalid:ring-error/20',
     SIZES[size],
     extra
   );
@@ -60,7 +60,7 @@ export function fieldSurfaceWrapper(size: FieldSize = 'default', extra?: string)
     'aurora-field flex w-full min-w-0 items-center rounded-lg border transition-all',
     'focus-within:border-brand/55 focus-within:ring-3 focus-within:ring-brand/25',
     'has-disabled:pointer-events-none has-disabled:cursor-not-allowed',
-    'aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20',
+    'aria-invalid:border-error aria-invalid:ring-3 aria-invalid:ring-error/20',
     SIZES[size],
     extra
   );

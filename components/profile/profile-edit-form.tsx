@@ -81,7 +81,7 @@ export function ProfileEditForm({
 
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-semibold tracking-[-0.01em]">{name}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Редагування профілю</p>
+            <p className="mt-1 text-sm text-foreground-soft">Редагування профілю</p>
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-3 self-start">

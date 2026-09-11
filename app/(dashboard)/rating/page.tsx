@@ -104,7 +104,7 @@ export default async function RatingRollupPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Рейтинг НПП</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {rows.length} НПП
             {shown?.status === 'CLOSED' && ' · рік закрито'}
           </p>
@@ -179,7 +179,7 @@ export default async function RatingRollupPage({
                     tells only half the story. */}
                 {row.partTimeDepartments.length > 0 && (
                   <span
-                    className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500"
+                    className="ml-2 inline-flex items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning"
                     title={`Також працює за сумісництвом: ${row.partTimeDepartments.join(', ')}`}
                   >
                     Сумісник

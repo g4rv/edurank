@@ -156,8 +156,8 @@ export function ImportAdmittedStudents({ defaultYear }: { defaultYear: number })
           )}
 
           {failed && (
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
-              <p className="font-medium text-destructive">
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-error/40 bg-error/5 p-3 text-sm">
+              <p className="font-medium text-error">
                 Нічого не імпортовано. Виправте файл і спробуйте ще раз.
               </p>
               <ul className="mt-2 space-y-1 text-muted-foreground">

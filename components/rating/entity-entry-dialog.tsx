@@ -259,7 +259,7 @@ function EntityEntryForm({
                     onClick={() => removeRow(row.key)}
                     disabled={rows.length === 1}
                     aria-label="Прибрати рядок"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    className="shrink-0 text-muted-foreground hover:text-error"
                   >
                     <Trash2 className="size-4" />
                   </Button>
@@ -267,7 +267,7 @@ function EntityEntryForm({
               );
             })}
           </div>
-          {rowsError && <p className="text-sm text-destructive">{rowsError}</p>}
+          {rowsError && <p className="text-sm text-error">{rowsError}</p>}
           <Button type="button" variant="outline" size="sm" onClick={addRow}>
             <Plus className="size-4" />
             Додати НПП

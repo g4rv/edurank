@@ -607,11 +607,11 @@ export function DistributionGrid({
                   // used to wait for `dirty`, so a head with no Кст met a grid
                   // that looked ordinary, typed into it, and only then learned
                   // nothing could be saved — and only they could not fix it.
-                  <span className="text-amber-700 dark:text-amber-500">{blockedBy}</span>
+                  <span className="text-warning">{blockedBy}</span>
                 ) : dirty ? (
                   <span className="text-muted-foreground">Незбережені зміни</span>
                 ) : savedAt ? (
-                  <span className="text-emerald-700 dark:text-emerald-400">Збережено</span>
+                  <span className="text-success">Збережено</span>
                 ) : null}
               </span>
             </>
@@ -625,7 +625,7 @@ export function DistributionGrid({
       />
 
       {!view.computable && (
-        <p className="rounded-lg border border-amber-600/30 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
+        <p className="rounded-lg border border-warning/40 bg-warning-surface px-4 py-2 text-xs text-warning">
           {view.knpp === 0
             ? 'Кнпп = 0 — на кафедрі немає НПП із 4+ позиціями ліцензійних умов, тому формула не рахується. Усі отримують мінімальну ставку, доки це не зміниться.'
             : 'Ні в кого немає рейтингових балів за цей рік, тому формула не рахується.'}
@@ -633,7 +633,7 @@ export function DistributionGrid({
       )}
 
       {error && (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+        <p className="rounded-lg border border-error/40 bg-error/5 px-4 py-2 text-sm text-error-strong">
           {error}
         </p>
       )}
@@ -960,7 +960,7 @@ function Totals({
       </div>
 
       {remainingNote && (
-        <p className="border-t border-amber-600/30 bg-amber-600/5 px-5 py-2 text-xs text-amber-700 dark:text-amber-500">
+        <p className="border-t border-warning/40 bg-warning-surface px-5 py-2 text-xs text-warning">
           {remainingNote}
         </p>
       )}
@@ -1007,8 +1007,8 @@ function PoolCard({
       <p
         className={cn(
           'mt-1 text-2xl font-semibold tabular-nums',
-          tone === 'bad' && 'text-destructive',
-          tone === 'good' && 'text-emerald-700 dark:text-emerald-400'
+          tone === 'bad' && 'text-error',
+          tone === 'good' && 'text-success'
         )}
       >
         {value}
@@ -1017,7 +1017,7 @@ function PoolCard({
         <p
           className={cn(
             'mt-0.5 text-xs tabular-nums',
-            noteTone === 'bad' ? 'text-destructive' : 'text-muted-foreground'
+            noteTone === 'bad' ? 'text-error' : 'text-muted-foreground'
           )}
         >
           {note}
@@ -1117,7 +1117,7 @@ function LimitCell({
             // still reads differently from «nobody has decided» without a word
             // of text repeated down every row.
             !row.hasOwnLimits && 'text-muted-foreground',
-            error && 'border-destructive'
+            error && 'border-error'
           )}
         />
         <StakeStepper
@@ -1130,7 +1130,7 @@ function LimitCell({
           label={`${accusative} ставку для ${row.name}`}
         />
       </div>
-      {error && <p className="mt-1 max-w-40 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1 max-w-40 text-xs text-error">{error}</p>}
     </td>
   );
 }
@@ -1267,7 +1267,7 @@ function Row({
             else about the row does. */}
         {row.isPartTime && (
           <span
-            className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500"
+            className="ml-2 inline-flex items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning"
             title="Основна кафедра цієї людини — інша. Тут вона працює за сумісництвом, і ця кафедра теж призначає їй ставку."
           >
             Сумісник
@@ -1284,7 +1284,7 @@ function Row({
         <span
           className={cn(
             'ml-2 text-xs font-medium tabular-nums',
-            row.qualifies ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'
+            row.qualifies ? 'text-success' : 'text-error'
           )}
           title={
             row.qualifies
@@ -1372,7 +1372,7 @@ function Row({
             className={cn(
               'h-8 w-16 text-right tabular-nums',
               differs && 'font-medium',
-              outOfRange && 'border-destructive text-destructive'
+              outOfRange && 'border-error text-error'
             )}
           />
           <StakeStepper
@@ -1395,11 +1395,7 @@ function Row({
           so rather than quietly showing the ceiling: that gap is exactly what a
           завідувач takes to the проректор. Nothing is applied from it. */}
       <td className="border border-border px-3 py-2 text-right font-medium tabular-nums">
-        <span
-          className={cn(
-            recommended > fromHundredths(row.maxHundredths) && 'text-amber-700 dark:text-amber-500'
-          )}
-        >
+        <span className={cn(recommended > fromHundredths(row.maxHundredths) && 'text-warning')}>
           {formatStakeValue(recommended)}
         </span>
         {recommended > fromHundredths(row.maxHundredths) && (

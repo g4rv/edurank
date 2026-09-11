@@ -114,7 +114,7 @@ export function SubmissionPanel({
                 <Figure label="Подано">{row.date}</Figure>
                 {row.verified && (
                   <Figure label="Перевірено">
-                    <span className="inline-flex items-center gap-1 text-green-600">
+                    <span className="inline-flex items-center gap-1 text-success">
                       <Eye className="size-3.5" />
                       так
                     </span>
@@ -123,7 +123,7 @@ export function SubmissionPanel({
               </div>
 
               {row.status === 'REMOVED' && row.removeReason && (
-                <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <p className="rounded-lg border border-error/30 bg-error/5 px-3 py-2 text-sm text-error-strong">
                   Відхилено: {row.removeReason}
                 </p>
               )}
@@ -133,7 +133,7 @@ export function SubmissionPanel({
                   Підтвердження
                 </h3>
                 {error ? (
-                  <p className="text-sm text-destructive">{error}</p>
+                  <p className="text-sm text-error">{error}</p>
                 ) : !detail ? (
                   <div className="space-y-2">
                     <Skeleton className="h-4 w-2/3" />
@@ -168,7 +168,7 @@ export function SubmissionPanel({
                               href={item.href}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-start gap-1 text-primary underline underline-offset-2 hover:opacity-80"
+                              className="inline-flex items-start gap-1 text-brand underline underline-offset-2 hover:opacity-80"
                             >
                               <span className="break-all">{item.value}</span>
                               <ExternalLink className="mt-0.5 size-3.5 shrink-0" />

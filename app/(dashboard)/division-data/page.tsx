@@ -109,7 +109,7 @@ export default async function DivisionDataPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Дані відділу</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {division.name} — {template.year} рік
             {!yearOpen && ' (рік закрито, лише перегляд)'}
           </p>

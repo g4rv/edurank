@@ -179,7 +179,7 @@ function PoolRow({
               Outside the name span on purpose — inside it, the pill picked up
               the row-hover underline. */}
           {overspent && (
-            <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500">
+            <span className="ml-2 inline-flex items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">
               Перевитрачено
             </span>
           )}
@@ -203,7 +203,7 @@ function PoolRow({
               «Залишок» and can mislead nobody, and badging all 28 of them would
               bury the ones that matter. */}
           {row.kstHundredths !== null && row.unsavedCount > 0 && (
-            <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-amber-700 dark:text-amber-500">
+            <span className="ml-2 inline-flex items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium whitespace-nowrap text-warning">
               Збережено: {Math.max(0, row.headcount - row.unsavedCount)} з {row.headcount} НПП
             </span>
           )}
@@ -229,7 +229,7 @@ function PoolRow({
               aria-invalid={row.belowMinimum}
               className={cn(
                 'h-8 w-24 text-right tabular-nums',
-                row.belowMinimum && 'border-destructive text-destructive'
+                row.belowMinimum && 'border-error text-error'
               )}
             />
           ) : (
@@ -273,7 +273,7 @@ function PoolRow({
         <td
           className={cn(
             'border border-border px-3 py-2 text-right font-medium tabular-nums',
-            overspent && 'text-destructive'
+            overspent && 'text-error'
           )}
           /* The breakdown, plus WHAT IT LEAVES OUT. This cell carries the
              explanation rather than the «Незбережено» pill, because the name
@@ -299,7 +299,7 @@ function PoolRow({
 
       {error && (
         <tr>
-          <td colSpan={5} className="bg-destructive/5 px-3 py-1.5 text-xs text-destructive">
+          <td colSpan={5} className="bg-error/5 px-3 py-1.5 text-xs text-error-strong">
             {row.name}: {error}
           </td>
         </tr>

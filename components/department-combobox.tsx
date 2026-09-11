@@ -116,7 +116,7 @@ export function DepartmentCombobox({
                   className={cn(
                     'ml-auto shrink-0 rounded px-1.5 py-px text-xs tabular-nums',
                     dept.tagTone === 'warn'
-                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-500'
+                      ? 'bg-warning-surface text-warning'
                       : 'bg-muted text-muted-foreground'
                   )}
                 >

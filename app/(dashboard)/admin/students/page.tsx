@@ -176,7 +176,7 @@ export default async function AdmittedStudentsPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Здобувачі</h1>
-          <p className="mt-0.5 max-w-3xl text-sm text-muted-foreground">
+          <p className="mt-0.5 max-w-3xl text-sm text-foreground-soft">
             Реєстр зарахованих — з-поміж них НПП обирають залучених здобувачів. Один рядок — один
             вступ: людину, зараховану на дві спеціальності, тут видно двічі.
           </p>

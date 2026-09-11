@@ -32,7 +32,7 @@ export default function StaffEditLoading() {
         <Skeleton className="size-16 shrink-0 rounded-full" />
         <div className="min-w-0 flex-1">
           <Skeleton className="h-8 w-80 max-w-full" />
-          <p className="mt-1 text-sm text-muted-foreground">Редагування профілю</p>
+          <p className="mt-1 text-sm text-foreground-soft">Редагування профілю</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-3 self-start">
           <span className="text-sm text-muted-foreground">Без змін</span>

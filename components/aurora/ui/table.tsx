@@ -303,7 +303,14 @@ export function TableHead({
         // 2026-09-08). A column heading is read once and then used as a landmark
         // for sixty rows, so it earns full contrast; §4's micro-label is for a
         // caption that should recede.
-        'h-11 px-4 text-left align-middle text-xs font-semibold tracking-wider uppercase',
+        //
+        // **`text-foreground` is written out** (2026-09-11). It used to be
+        // inherited, and the comment above was the only record that it was
+        // deliberate — so the moment the page default became
+        // `--foreground-soft`, every column heading in the app quietly lost the
+        // contrast this paragraph claims it has. An intention that lives only in
+        // a comment is not expressed.
+        'h-11 px-4 text-left align-middle text-xs font-semibold tracking-wider text-foreground uppercase',
         numeric && 'text-right',
         align && ALIGN[align],
         className
@@ -322,7 +329,16 @@ export function TableCell({
 }: React.TdHTMLAttributes<HTMLTableCellElement> & {
   /** Right-aligned and `tabular-nums`, so figures line up down the column. */
   numeric?: boolean;
-  /** A value that is present but secondary — an id, a source, a count. */
+  /**
+   * An INDEX or a reference, not content — a row number, an id, a source.
+   * Paints `--muted-foreground`, which §4 of `docs/aurora.md` reserves for what
+   * is glanced at rather than read.
+   *
+   * **Not for a secondary value.** A cell holding data somebody reads to tell
+   * one row from another wants `text-foreground-soft` instead: `claims-table`
+   * used `muted` for a programme name and a degree, and at 5.51 against the
+   * name's 19.8 they read as switched off.
+   */
   muted?: boolean;
   /**
    * Overrides whatever `numeric` chose, while keeping its `tabular-nums`.

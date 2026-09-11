@@ -16,9 +16,19 @@ import { cn } from '@/lib/utils';
  * | `ok`          | done, agreed, verified — «Підтверджено»           |
  * | `destructive` | refused or removed — «Відхилено»                  |
  *
- * `brand` uses `--brand-strong`, not `--brand`: §3 measured `--brand` on
- * `bg-brand/10` at 4.24:1, under AA, because the tint lifts the background
- * toward the text.
+ * **Every tone is a token pair, never a Tailwind palette class** (2026-09-11).
+ * Each is `--x-surface` for the fill and `--x` for the text, measured together:
+ * 4.55 for `ok`, 4.87 for `warn`, 5.15 for `destructive`. Until then this file
+ * wrote `bg-amber-500/12 text-amber-700 dark:text-amber-400` — one of twelve
+ * amber recipes in the app, each invented where it was needed because there was
+ * nothing to point at. The tokens carry their own dark values, so no tone needs
+ * a `dark:` variant any more.
+ *
+ * Two tones take the `-strong` half of their pair, for one measured reason: a
+ * tint LIFTS the background toward the text, so the plain value lands under AA
+ * on its own fill. `--brand` on `bg-brand/10` measures 4.24 (§3) and `--error`
+ * on `--error-surface` measures 3.98; `--brand-strong` and `--error-strong` read
+ * 6.76 and 5.15 there. `ok` and `warn` are dark enough already and have no twin.
  *
  * ## Why it lives here now
  *
@@ -49,9 +59,9 @@ export function Badge({
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
         tone === 'brand' && 'bg-brand/10 text-brand-strong',
         tone === 'muted' && 'bg-muted text-muted-foreground',
-        tone === 'warn' && 'bg-amber-500/12 text-amber-700 dark:text-amber-400',
-        tone === 'ok' && 'bg-green-500/12 text-green-700 dark:text-green-400',
-        tone === 'destructive' && 'bg-destructive/10 text-destructive',
+        tone === 'warn' && 'bg-warning-surface text-warning',
+        tone === 'ok' && 'bg-success-surface text-success',
+        tone === 'destructive' && 'bg-error-surface text-error-strong',
         className
       )}
     >

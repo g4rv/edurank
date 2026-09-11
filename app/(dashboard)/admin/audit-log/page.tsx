@@ -25,9 +25,9 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const ACTION_CLASSES: Record<string, string> = {
-  CREATE: 'bg-green-500/10 text-green-600',
-  UPDATE: 'bg-blue-500/10 text-blue-600',
-  DELETE: 'bg-red-500/10 text-red-600',
+  CREATE: 'bg-success-surface text-success',
+  UPDATE: 'bg-brand/10 text-brand-strong',
+  DELETE: 'bg-error-surface text-error-strong',
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -271,7 +271,7 @@ export default async function AuditLogPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Журнал аудиту</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{UK.record(total)}</p>
+        <p className="mt-0.5 text-sm text-foreground-soft">{UK.record(total)}</p>
       </div>
 
       <div className="space-y-3">

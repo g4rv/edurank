@@ -58,7 +58,7 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
               <span
                 className={cn(
                   'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                  member.isNpp ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                  member.isNpp ? 'bg-brand/10 text-brand' : 'bg-muted text-muted-foreground'
                 )}
               >
                 {member.isNpp ? 'НПП' : 'Адм.'}
@@ -70,7 +70,7 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
                   rather than badged: the cell already answers «where», and a
                   bare «Сумісник» here would not say where. */}
               {member.partTimeDepartments.length > 0 && (
-                <span className="ml-1.5 text-xs text-amber-700 dark:text-amber-500">
+                <span className="ml-1.5 text-xs text-warning">
                   + {member.partTimeDepartments[0].department.name}
                 </span>
               )}
@@ -94,7 +94,7 @@ export function StaffTable({ staff, sortHeader, isAdmin, fill }: Props) {
                     {member.role ? ROLE_LABELS[member.role] : '—'}
                   </span>
                   {member.isActivated === false && (
-                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                    <span className="inline-flex items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">
                       Не активований
                     </span>
                   )}

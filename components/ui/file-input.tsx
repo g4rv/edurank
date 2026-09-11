@@ -82,7 +82,7 @@ export function FileInput({
             disabled={disabled}
             onClick={clear}
             aria-label="Прибрати файл"
-            className="text-muted-foreground hover:text-destructive"
+            className="text-muted-foreground hover:text-error"
           >
             <X className="size-4" />
           </Button>
