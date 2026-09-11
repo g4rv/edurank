@@ -44,7 +44,7 @@ export default async function MyStudentsPage() {
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <div className="type-comfortable space-y-5">
+      <div className="space-y-5">
         <Breadcrumbs items={[{ label: 'Особисте' }, { label: 'Мої здобувачі' }]} />
         <StudentsHeader />
         <EmptyState>Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.</EmptyState>
@@ -92,7 +92,7 @@ export default async function MyStudentsPage() {
     // left instead of guessing at it. `main` in the dashboard shell is already
     // bounded (`h-screen`); this is the link between it and the card, the same
     // chain the record tabs use for the rating and Характеристика tables.
-    <div className="type-comfortable flex h-full min-h-0 flex-col gap-5">
+    <div className="flex h-full min-h-0 flex-col gap-5">
       <Breadcrumbs items={[{ label: 'Особисте' }, { label: 'Мої здобувачі' }]} />
       <StudentsHeader year={template.year} />
 

@@ -22,7 +22,7 @@ export function StudentsHeader({ year }: { year?: number }) {
   return (
     <Card padding="compact">
       <h1 className="text-2xl font-semibold tracking-[-0.01em]">Мої залучені здобувачі</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+      <p className="mt-1 max-w-3xl text-sm text-foreground-soft">
         {/* The year holds its own width while it loads, so the sentence does
             not reflow around it when the template answers. */}
         Вступники {year ?? <span className="opacity-0">0000</span>} року, яких ви залучили. Обирати

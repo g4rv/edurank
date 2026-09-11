@@ -1,4 +1,5 @@
 import { Card, EmptyState } from '@/components/aurora/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatBonus } from '@/lib/stake/units';
 import { UK } from '@/lib/plural';
@@ -6,6 +7,7 @@ import type { MyClaim } from '@/lib/queries/list-student-claims';
 import type { RegisterSpeciality } from '@/lib/students/accepted';
 import { AddClaimForm } from './add-claim-form';
 import { ClaimsTable } from './claims-table';
+import { SecondStageNote } from './second-stage-note';
 
 /**
  * «Мої залучені здобувачі» — the two figures, the form and the list.
@@ -84,7 +86,7 @@ export function MyClaims({
               value={formatBonus(confirmed)}
               label="Підтверджено"
               count={confirmedCount}
-              className="text-green-700 dark:text-green-400"
+              className="text-success"
             />
           </div>
 
@@ -101,11 +103,7 @@ export function MyClaims({
               them, so it cannot go inside either card without attaching itself
               to one — and here it fills the height left beside a tall form
               instead of pushing the form further down the page. */}
-          <p className="text-xs text-muted-foreground">
-            Спершу адміністратор підтверджує здобувача. Підтверджені здобувачі враховуються на
-            <strong className="font-medium"> 2 етапі розподілу ставок</strong>, який відбувається
-            пізніше — рішення про надбавку ухвалює завідувач разом з адміністрацією.
-          </p>
+          <SecondStageNote />
         </div>
 
         {/* **Open on the page, not behind a button** (owner, 2026-09-10,
@@ -138,7 +136,8 @@ export function MyClaims({
 }
 
 /**
- * One figure, its name, and how many people are behind it.
+ * One figure, its name, and how many people are behind it — **including while
+ * it is still loading**.
  *
  * `tabular-nums` because the two sit side by side and a proportional «1» would
  * make «0,095» and «0,195» different widths.
@@ -146,6 +145,32 @@ export function MyClaims({
  * The count and the figure are derived from ONE filter in `listMyClaims`, not
  * two here — a card reading «0,190» over «3 здобувачі» is worse than no count
  * at all, and that is exactly what two separate predicates drift into.
+ *
+ * ## Why the loading state lives HERE and not in `loading.tsx`
+ *
+ * There was a second copy, `FigureShell`, in
+ * `achievements/students/loading.tsx` — the same card, written again with grey
+ * bars in it (owner, 2026-09-11). Two shapes of one component is the drift §11
+ * of `docs/aurora.md` exists to stop, and these two had **already come apart**:
+ * the real card's label row is a `text-sm` line at 20px and the shell forced
+ * `h-4`, so the skeleton's card was 4px shorter than the thing it stood in for.
+ * Nobody would ever see that directly; it just made the page settle by 4px.
+ *
+ * A skeleton is not a different component, it is the SAME component with
+ * nothing in it yet. Omit `value` and `count` and the bars appear in their
+ * place; the card, its padding, its two rows and their heights are the same
+ * object either way, so they cannot diverge again.
+ *
+ * Two details that keep the states identical rather than merely similar:
+ *
+ * - **The first row is `h-8` in both**, because `text-2xl`'s line box is 32px
+ *   and a 20px bar left to itself would make the row 12px shorter. The second
+ *   row needs no such thing: the label is present in both states and its own
+ *   line sets the height.
+ * - **Both rows are `div`s, never `p`.** `Skeleton` renders a `<div>`, and a
+ *   `<div>` inside a `<p>` is invalid — the browser closes the paragraph early,
+ *   server and client markup disagree, and React reports a hydration error. A
+ *   figure is not prose, so nothing is lost.
  */
 export function Figure({
   value,
@@ -153,17 +178,33 @@ export function Figure({
   count,
   className,
 }: {
-  value: string;
+  /** Omit while the query is in flight — a bar is drawn in its place. */
+  value?: string;
   label: string;
-  count: number;
+  /** Omit while the query is in flight. */
+  count?: number;
   className?: string;
 }) {
   return (
     <Card padding="compact">
-      <p className={cn('text-2xl font-semibold tabular-nums', className)}>{value}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">
-        {label} · {UK.student(count)}
-      </p>
+      <div className="flex h-8 items-center">
+        {value === undefined ? (
+          <Skeleton className="h-5 w-16" />
+        ) : (
+          <span className={cn('text-2xl font-semibold tabular-nums', className)}>{value}</span>
+        )}
+      </div>
+      {/* `w-14` keeps «Усього за заявками · ▓▓▓» on one line inside an 18rem
+          column — at `w-20` the bar wrapped and the card grew a row taller. */}
+      <div className="mt-0.5 flex items-center gap-1.5 text-sm">
+        {count === undefined ? (
+          <>
+            {label} · <Skeleton className="h-3 w-14" />
+          </>
+        ) : (
+          `${label} · ${UK.student(count)}`
+        )}
+      </div>
     </Card>
   );
 }

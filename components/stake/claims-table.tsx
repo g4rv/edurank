@@ -35,7 +35,7 @@ import { deleteStudentClaim } from '@/app/(dashboard)/achievements/students/acti
 /**
  * A claim's state, as a pill rather than coloured text.
  *
- * It was `text-emerald-700` / `text-muted-foreground` / `text-destructive` —
+ * It was `text-success` / `text-muted-foreground` / `text-error` —
  * three words in three colours, in a column of five. A tinted pill is read as a
  * state at a glance where coloured text has to be read as text, and §3 allows
  * the hue precisely because a badge is small and reports one condition.
@@ -62,6 +62,21 @@ const STATUS = {
  * register still leaves it room, and a programme wrapping matters less than a
  * person wrapping.
  *
+ * **«Рівень / форма» is 15rem so its text can be `text-sm` like the rest of the
+ * row** (owner, 2026-09-11). It was 13rem, and the cell carried a `text-xs`
+ * that nothing else in the table had — so two muted cells sat side by side at
+ * two different sizes, which reads as an accident rather than a decision.
+ *
+ * The small size was load-bearing, not decoration: «Бакалавр · Заочна ·
+ * Контракт», the widest of the eight combinations, measures **189.7px** at
+ * `text-sm` against the 176px a 13rem column leaves after padding. It did not
+ * fit, and `whitespace-nowrap` meant it could not wrap its way out. Widening
+ * the column to 15rem gives it 208px, so the size is now a choice again rather
+ * than the only thing that worked.
+ *
+ * «Спеціальність» pays for those two extra rem the same way it paid for
+ * «Здобувач», and for the same reason.
+ *
  * «Ставка» is six characters plus the cell's own padding, the same figure width
  * the rating table uses.
  *
@@ -76,7 +91,7 @@ const STATUS = {
  * cannot: within a single list the rows must line up, and a button that appears
  * and disappears per row would shift the ones around it.
  */
-const COLUMNS = ['20rem', null, '13rem', 'calc(6ch + 2.5rem)', '9rem'];
+const COLUMNS = ['20rem', null, '15rem', 'calc(6ch + 2.5rem)', '9rem'];
 const ACTIONS_COLUMN = 'calc(2.5rem + 1rem)';
 
 /**
@@ -181,8 +196,17 @@ export function ClaimsTable({ claims, canDelete }: { claims: MyClaim[]; canDelet
           {claims.map((claim) => (
             <TableRow key={claim.id}>
               <TableCell>{claim.studentName}</TableCell>
-              <TableCell muted>{claim.speciality}</TableCell>
-              <TableCell muted className="text-xs whitespace-nowrap">
+              {/* **Ink, like every other cell** (owner, 2026-09-11). These
+                  were `muted`, then briefly `--foreground-soft`; both were
+                  wrong for the same reason. A cell holds the claim's own data —
+                  what programme, at what level — and data is what a table is
+                  FOR. §4 keeps the softer tier for prose that explains, and a
+                  programme name explains nothing; it simply is the value.
+
+                  At `--muted-foreground`'s 5.51 against the name's 19.8 they
+                  read as switched off, which is what started this. */}
+              <TableCell>{claim.speciality}</TableCell>
+              <TableCell className="whitespace-nowrap">
                 {DEGREE[claim.degree]} · {FORM[claim.form]} · {FUNDING[claim.funding]}
               </TableCell>
               <TableCell numeric align="center">
@@ -227,7 +251,7 @@ export function ClaimsTable({ claims, canDelete }: { claims: MyClaim[]; canDelet
  * click. A row of seven grey bins beside seven names is a row of seven things
  * one slip removes.
  *
- * `text-destructive` at rest says what it is before you touch it; the dialog is
+ * `text-error` at rest says what it is before you touch it; the dialog is
  * the stop. Ghost rather than the `destructive` FILL: seven tinted chips down
  * the edge of a table is a red stripe, and §3 keeps a hue for the one thing
  * that carries meaning — here that is the icon, not a panel behind it.
@@ -257,7 +281,7 @@ function DeleteClaimButton({
           disabled={disabled}
           aria-label={`Видалити ${studentName}`}
           title="Видалити"
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          className="text-error-strong hover:bg-error/10 hover:text-error-strong"
         >
           <Trash2 />
         </Button>
@@ -293,7 +317,7 @@ function Unpriced() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="cursor-help text-amber-700 dark:text-amber-500">—</span>
+        <span className="cursor-help text-warning">—</span>
       </TooltipTrigger>
       <TooltipContent>Для цієї спеціальності ще не встановлено норматив на цей рік</TooltipContent>
     </Tooltip>

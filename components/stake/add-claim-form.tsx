@@ -55,7 +55,7 @@ export function AddClaimForm({ register, year }: { register: RegisterSpeciality[
 
   return (
     <Card title={`Додати здобувача — ${year}`}>
-      <p className="-mt-2 mb-4 text-sm text-muted-foreground">
+      <p className="-mt-2 mb-4 text-sm text-foreground-soft">
         Спочатку вкажіть умови вступу, потім оберіть здобувача зі списку зарахованих.
       </p>
       <form action={formAction}>
@@ -184,7 +184,20 @@ function CascadeFields({
       <input type="hidden" name="funding" value={funding} />
       <input type="hidden" name="studentName" value={student} />
 
-      <div className="grid gap-4 @3xl:grid-cols-4">
+      {/* **Columns 16px apart, rows 12px** (owner, 2026-09-11). It was `gap-4`,
+          which sets both — so the space BETWEEN two rows of one form was the
+          same 16px as the space separating the whole form from the sentence
+          above it, and five fields that are one question read as five unrelated
+          ones. Rows of a single form belong together and should be bound
+          tighter than they are separated from what surrounds them.
+          Columns keep the 16px: «Ступінь» and «Форма навчання» sit side by side
+          and genuinely are different questions.
+
+          12px and not 8px, because every row carries its LABEL on top and the
+          label sits 4px above its own field. The gap between rows has to stay
+          clearly larger than that or a label starts reading as belonging to the
+          field above it — 12px keeps it at 3:1, 8px would be 2:1. */}
+      <div className="grid gap-x-4 gap-y-3 @3xl:grid-cols-4">
         {/* The WHOLE university's list. An НПП may recruit onto any programme,
             and filtering this to their own кафедра would quietly make most of
             their work unclaimable. */}
@@ -247,7 +260,7 @@ function CascadeFields({
 
             Their own row, so the three read as one question asked three ways
             rather than as three more steps after the programme. */}
-        <div className="grid gap-4 @xl:grid-cols-3 @3xl:col-span-4">
+        <div className="grid gap-x-4 gap-y-3 @xl:grid-cols-3 @3xl:col-span-4">
           <PickOne
             label="Ступінь"
             value={degree}
@@ -342,7 +355,7 @@ function CascadeFields({
  * **Both are `text-sm`** (owner, 2026-09-10). The кафедра was `text-xs` and the
  * error `text-sm`, so one slot changed type size depending on what was in it.
  * A message slot has ONE type style and lets colour carry the difference —
- * muted for context, `--destructive` for a refusal. The size is set by the more
+ * muted for context, `--error` for a refusal. The size is set by the more
  * important of the two: the app's shared `FieldError` is `text-sm`, and an
  * error nobody reads is worse than a кафедра line a step louder than §4 would
  * pick for meta on its own.
@@ -359,7 +372,7 @@ function FormMessage({
   return (
     <div className="mt-1 min-h-5">
       {error ? (
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-error">{error}</p>
       ) : (
         kafedra && (
           // The кафедра is not in the наказ — this is the випускова кафедра of
@@ -422,7 +435,7 @@ function StudentPicker({
       displayValue={value}
       disabled={disabled || !ready || loading}
     >
-      <p className="mb-1 block text-xs font-medium text-muted-foreground">Здобувач</p>
+      <p className="mb-1 block text-sm font-medium">Здобувач</p>
       <ComboboxInput placeholder={placeholder} aria-label="Здобувач" />
       <ComboboxContent>
         <ComboboxEmpty>Здобувача не знайдено</ComboboxEmpty>
@@ -471,7 +484,7 @@ function PickOne({
 
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="block text-xs font-medium text-muted-foreground">
+      <label htmlFor={id} className="block text-sm font-medium">
         {label}
       </label>
       <Select value={value} onValueChange={onChange} disabled={disabled || settled}>
