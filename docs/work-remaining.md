@@ -240,6 +240,78 @@ edit) and merging rows server-side (an audit log must not rewrite itself).
 
 ---
 
+## G. Refactor backlog — AFTER the redesign (owner, 2026-09-11)
+
+**Do not do any of this mid-redesign.** It is recorded here because it was
+FOUND during it, on «Мої залучені здобувачі», and the same shapes exist on
+screens not yet rebuilt. Each item is a pattern, not a one-off.
+
+### G1. A skeleton must not be a second copy of the thing it stands for
+
+`loading.tsx` declared its own `FigureShell`, `FormShell`, `FieldShell`,
+`PickerShell` and `TableShell` — hand-built replicas of the real components.
+**Three of them had already drifted, and every drift was a layout shift the
+reader sees as the page settling:**
+
+| what                           | drift                                        | cause                                                                                                                                                                  |
+| ------------------------------ | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FigureShell` vs `Figure`      | **4px** per card                             | the shell pinned `h-4` on a row the real card lets a `text-sm` line size at 20px                                                                                       |
+| `FormShell` vs `CascadeFields` | **8px** on the form, and everything under it | the real form is wrapped in `<form>`; Radix's `Select` renders a hidden native `<select>` **only** inside one, so each of three rows was 56px against the shell's 52px |
+| the picker row                 | **4px** the other way                        | «Здобувач» is a `Combobox` (an `<input>`) on the real form and a `Select` in the shell — a select gets that hidden node, an input does not                             |
+
+None of these is visible in either screen on its own. They were found only by
+rendering the real composition and the skeleton side by side in a throwaway
+route and diffing every node's geometry.
+
+**The fix is not «keep them in sync», it is to delete the second copy.** A
+skeleton is not a different component; it is the same component with nothing in
+it yet. `Figure` was converted on 2026-09-11 and is the pattern to follow: the
+props that carry data become optional, and the component draws its own bars
+where they are missing. `loading.tsx` then holds a composition and no markup.
+
+Still to convert: **`AddClaimForm`** and **`ClaimsTable`** should render their
+own empty states, after which `FormShell`, `FieldShell`, `PickerShell` and
+`TableShell` all go. Then the same sweep over every other `loading.tsx` in the
+app — each one is a replica of a screen and none has been checked for drift.
+
+### G2. Names should say what a thing IS
+
+- **`FigureShell` / `FormShell` / `TableShell`** — the `-Shell` suffix names
+  _when_ a component is used, not what it is. §11 of `docs/aurora.md` already
+  refuses that for `AuroraButton`; it went unnoticed here because the suffix
+  looks descriptive. Once G1 is done these names disappear rather than get
+  renamed, which is the point.
+- **`record-toolbar.tsx`** holds only `ToolbarGroup` / `ToolbarDivider` /
+  `ToolbarRow` and belongs at `components/aurora/ui/toolbar.tsx`. Noted since
+  2026-09-09 and still true.
+- **`muted` on `TableCell`** meant «an id, a source, a count» and was used for a
+  programme name, because the docstring was vague enough to invite it. Tightened
+  2026-09-11; worth re-reading any other boolean prop whose name is a colour.
+
+### G3. Duplicated prose
+
+The «2 етап розподілу ставок» note was copied verbatim into `my-claims.tsx` and
+the students `loading.tsx`. Extracted to `components/stake/second-stage-note.tsx`
+on 2026-09-11.
+
+A paragraph cannot drift in height, but it can drift in WORDING — and that one
+is a promise about money. **Every sentence the app makes about what somebody
+will be paid should exist once.** Worth grepping for others: the ставка screens
+carry several.
+
+**Where a shared piece goes:** `components/[feature]/`, not the route folder.
+Its callers here were `components/stake/my-claims.tsx` and the route's
+`loading.tsx`, so colocating with the page would have meant `components/`
+importing from `app/` — a component reaching up into a route, which would be
+the only such import in the project.
+
+### G4. `text-foreground` audit
+
+154 call sites write `text-foreground` explicitly. Ink is the default and needs
+no class, so most of those either predate that or mean «not muted» rather than
+«emphasised». Some are genuine (hover states, `TableHead`, which must be
+explicit — see §4). The rest should simply go.
+
 ## Session log — what shipped and why
 
 Recorded so a new session does not re-derive any of it.
@@ -888,7 +960,13 @@ answers. The deadline is **25 August**.
 7. **The leftovers of B1 and B2** — the п.38 mapping editor, manual п.15/п.20,
    bulk caps. All small, none blocking. The 1С/додаток 2 export is **not
    wanted** — confirmed 2026-08-17.
-8. **«Аврора»** at `/admin/design` — chosen, and explicitly last.
+8. **«Аврора»** at `/admin/design` — chosen, and explicitly last. **In progress
+   since 2026-09-04.**
+9. **G — the refactor backlog**, and only once the redesign is finished (owner,
+   2026-09-11). Skeletons that are second copies of real components, `-Shell`
+   names, duplicated prose, the `text-foreground` audit. None of it changes what
+   the app does; all of it is cheaper after the screens have stopped moving, and
+   more of it will have been found by then.
 
 **Done since the last revision of this list:** bulk invite (C3), the seed guard
 and `--structure` mode, the year pinned on every ставка write, the декан's read
