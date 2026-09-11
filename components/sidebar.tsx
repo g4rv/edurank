@@ -197,10 +197,7 @@ export function Sidebar({
     // Translucent rather than `bg-sidebar`, so the wash reads through it and the
     // rail belongs to the page instead of being a grey slab bolted to its edge.
     // Deliberately unblurred — see `.glass-chrome` in globals.css.
-    // `type-comfortable` while the larger scale is on trial (2026-09-10):
-    // the rail is beside every page, so 12px group headings and a 12px email
-    // sat next to a page whose smallest text was 14. See `globals.css`.
-    <aside className="type-comfortable glass-chrome flex h-screen w-56 flex-col border-r border-foreground/8">
+    <aside className="glass-chrome flex h-screen w-56 flex-col border-r border-foreground/8">
       <div className="flex h-14 items-center gap-2 border-b border-foreground/8 px-4">
         <Logo />
         <ThemeToggle className="-mr-1.5 ml-auto" />
