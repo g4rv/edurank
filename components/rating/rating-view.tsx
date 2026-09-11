@@ -79,11 +79,23 @@ export function EmptyRowsSwitch() {
 
           The `title` answers the second question — «незаповнені» what? — for
           the reader who has not yet worked out that this table lists the whole
-          catalogue rather than only what somebody has filled in. */}
+          catalogue rather than only what somebody has filled in.
+
+          **Ink, not `--muted-foreground`** (owner, 2026-09-11). This is not
+          meta text: it is the switch's own name, the target you click, and the
+          only thing on screen that says what the control does. §4 gives muted
+          to labels and meta — a caption ABOUT something — and this label IS the
+          control, which is why it sits beside «Вивантажити Excel» in ink on the
+          same toolbar rather than under a field.
+
+          It also settles a disagreement. `record-tab-row.tsx` draws this row's
+          static shell while the page loads and has always written the label in
+          ink, so the word darkened the moment the real switch replaced the
+          skeleton. Both are ink now. */}
       <label
         htmlFor="show-empty-rows"
         title="Показники, за якими немає жодного запису. Таблиця показує весь перелік, а не лише заповнене."
-        className="cursor-pointer text-sm whitespace-nowrap text-muted-foreground select-none"
+        className="cursor-pointer text-sm whitespace-nowrap select-none"
       >
         Показувати незаповнені ({view.emptyCount})
       </label>
