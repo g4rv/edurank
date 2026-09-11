@@ -174,6 +174,32 @@ function StepNumber({ n }: { n: string }) {
   );
 }
 
+/**
+ * Two fields to a row, and **the controls line up, not the labels**.
+ *
+ * A field is a label stacked on a control, and the labels are not the same
+ * height: «Базова освіта за спеціальністю кафедри» wraps to two lines where
+ * «Спеціальність за дипломом» beside it takes one. Aligned from the top, the
+ * two labels start level and the two CONTROLS end up a line apart — so the row
+ * reads as broken even though nothing is (owner, 2026-09-11).
+ *
+ * `items-end` aligns each field's bottom edge instead. The boxes you type in
+ * sit on one line, which is the line the eye actually follows across a form,
+ * and a wrapped label simply grows upward into space the row already had.
+ *
+ * One constant rather than the same string at three call sites: the three cards
+ * are one decision about how a form row works, and §11 of `docs/aurora.md` is
+ * about exactly the drift that happens when they are typed out separately.
+ *
+ * **The one case it does not cover** is a field showing a validation error.
+ * `FormField` renders `FieldError` as the last child and it reserves no height
+ * when empty, so an invalid field is taller at the bottom and its control rides
+ * up above its neighbour's. That is transient and only after a refused submit;
+ * a wrapped label is permanent and on every render. Fixing both needs the label
+ * to hold a reserved height, which is a bigger change than the row deserves.
+ */
+const FIELD_ROW = 'grid grid-cols-2 items-end gap-4';
+
 interface StaffFormFieldsProps {
   register: UseFormRegister<RawStaffFormValues>;
   control: Control<RawStaffFormValues>;
@@ -302,7 +328,7 @@ export function StaffFormFields({
 
   const basics = (
     <Card title={CARD_TITLES.basics} action={stepNumber()}>
-      <FieldGroup className="grid grid-cols-2 gap-4">
+      <FieldGroup className={FIELD_ROW}>
         <FormField htmlFor="lastName" label="Прізвище" error={errors.lastName}>
           <Input
             id="lastName"
@@ -459,7 +485,7 @@ export function StaffFormFields({
 
   const academic = isNpp && (
     <Card title={CARD_TITLES.academic} action={stepNumber()}>
-      <FieldGroup className="grid grid-cols-2 gap-4">
+      <FieldGroup className={FIELD_ROW}>
         <FormField
           label="Вчене звання"
           labelSuffix={<RatingFieldHint field="academicRank" />}
@@ -670,7 +696,7 @@ export function StaffFormFields({
   }
   const research = (
     <Card title={CARD_TITLES.research} action={stepNumber()}>
-      <FieldGroup className="grid grid-cols-2 gap-4">
+      <FieldGroup className={FIELD_ROW}>
         <FormField htmlFor="wosUrl" label="Web of Science — URL" error={errors.wosUrl}>
           <Input
             id="wosUrl"
