@@ -38,7 +38,7 @@
  * narrows every gate to a constant and `=== true` becomes a compile error in
  * the very file somebody edits to reopen this.
  */
-export const NPP_RATING_OPEN: boolean = false;
+export const NPP_RATING_OPEN: boolean = true;
 
 /** Short form — the sidebar tooltip and the note under the greyed links. */
 export const NPP_RATING_CLOSED_NOTE = 'Тимчасово недоступно';
