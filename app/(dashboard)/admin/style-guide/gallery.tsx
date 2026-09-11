@@ -373,16 +373,16 @@ export function ControlsGallery() {
                   type="checkbox"
                   checked={boxOld}
                   onChange={(e) => setBoxOld(e.target.checked)}
-                  className="size-4 cursor-pointer rounded border-border accent-primary"
+                  className="size-4 cursor-pointer rounded border-border accent-brand"
                 />
-                accent-primary — /admin/permissions
+                accent-brand — /admin/permissions
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" defaultChecked className="size-4 accent-foreground" />
                 accent-foreground — Характеристика
               </label>
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input type="checkbox" disabled className="size-4 accent-primary" />
+                <input type="checkbox" disabled className="size-4 accent-brand" />
                 вимкнений
               </label>
             </div>
