@@ -227,7 +227,7 @@
 
      Green and amber need no `-strong`: they are already dark enough to clear
      AA on their own tint (4.55 and 4.87). */
-  --success: oklch(0.52 0.14 150);
+  --success: oklch(0.52 0.14 150); /* #0a7e3a · 5.17 on a card */
   --success-surface: oklch(0.95 0.045 150);
   --warning: oklch(0.52 0.13 70);
   --warning-surface: oklch(0.95 0.05 80);
