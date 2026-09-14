@@ -38,12 +38,13 @@ const P15 = {
   option: 'olympiad_jury',
   stage: 'stage_3',
   event: 'Біологія',
-  // Three boxes since 2026-09-14, joined back into one printed name. A jury row
-  // names no pupil and wins no place, which is why all four are blank here.
-  pupilLast: '',
-  pupilFirst: '',
-  pupilMiddle: '',
-  place: '',
+  // Every field of п.15 is obligatory (owner, 2026-09-14), the ПІБ in three
+  // boxes that print as one name. Ukrainian letters only — «Kovalenko» and
+  // «фів» are both refused.
+  pupilLast: 'Коваленко',
+  pupilFirst: 'Марія',
+  pupilMiddle: 'Ігорівна',
+  place: 'second',
 };
 const P2 = { registrationNumber: '12345', title: 'Пристрій', date: '' };
 

@@ -39,7 +39,6 @@ import {
   url,
 } from '@/lib/rating/evidence-fields';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
-import type { RefinementCtx } from 'zod';
 import { MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
 
 const DEGREE_OPTIONS = [
@@ -63,6 +62,25 @@ export /**
  * printed into a licence document as a year of employment.
  */
 const LATEST_YEAR = new Date().getFullYear() + 20;
+
+/**
+ * Every year a «Рік початку / завершення» may take, newest first.
+ *
+ * **Lists, not typed numbers** (owner, 2026-09-14). As boxes the pair accepted
+ * 123123 — which saved and printed into a licence document as a year of
+ * employment — and nothing stopped an end year preceding its start. Neither is
+ * expressible from a list.
+ *
+ * Newest first because a period of practical work is far more often recent than
+ * 1950. The value is a string like every other select, and `summarizeEvidence`
+ * prints the option's own label, so the document still reads «Рік початку: 2014».
+ *
+ * Used by п.11 and п.20, the two positions that ask for a period.
+ */
+const YEAR_OPTIONS = Array.from({ length: LATEST_YEAR - MIN_EVIDENCE_YEAR + 1 }, (_, i) => {
+  const year = String(LATEST_YEAR - i);
+  return opt(year, year);
+});
 
 const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   // ≥5 публікацій у фахових виданнях / Scopus / WoS. No quartile: the licence
@@ -191,8 +209,8 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   11: [
     text('organization', 'Назва установи / організації'),
     text('basis', 'Договір / підстава'),
-    number('fromYear', 'Рік початку', { min: MIN_EVIDENCE_YEAR, max: LATEST_YEAR, int: true }),
-    number('toYear', 'Рік завершення', { min: MIN_EVIDENCE_YEAR, max: LATEST_YEAR, int: true }),
+    select('fromYear', 'Рік початку', YEAR_OPTIONS, { span: 1 }),
+    select('toYear', 'Рік завершення', YEAR_OPTIONS, { span: 1 }),
     url('link', 'Посилання', { optional: true }),
   ],
 
@@ -240,18 +258,15 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
     // **Order and grouping are the owner's** (2026-09-14): who the школяр is,
     // what you did, how far they got and where they placed, what the subject
     // was — and the year last, because it is the one answer already filled in.
-    // Optional in the SHAPE, obligatory in the RULE — see `positionRefine`
-    // below: a керівництво row must name the школяр, a журі row has none to
-    // name. `cyrillicName` is what keeps «фів» and «asdawdsad» out of a licence
-    // document.
+    // All three obligatory (owner, 2026-09-14). `cyrillicName` is what keeps
+    // «фів» and «asdawdsad» out of a licence document.
     text('pupilLast', 'Прізвище', {
       join: 'pupil',
       joinLabel: 'Дані про школяра',
-      optional: true,
       rule: 'cyrillicName',
     }),
-    text('pupilFirst', 'Ім’я', { join: 'pupil', optional: true, rule: 'cyrillicName' }),
-    text('pupilMiddle', 'По батькові', { join: 'pupil', optional: true, rule: 'cyrillicName' }),
+    text('pupilFirst', 'Ім’я', { join: 'pupil', rule: 'cyrillicName' }),
+    text('pupilMiddle', 'По батькові', { join: 'pupil', rule: 'cyrillicName' }),
     select('option', 'Вид', [
       opt('olympiad_winner', 'керівництво школярем — призером учнівської олімпіади'),
       opt('man_winner', 'керівництво школярем — призером конкурсу-захисту МАН'),
@@ -281,7 +296,7 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
         opt('third', 'III місце'),
         opt('laureate', 'лауреат'),
       ],
-      { optional: true, span: 1 }
+      { span: 1 }
     ),
     // No-break spaces on BOTH sides of the pair, leaving the slash as the only
     // place the label can wrap: «Навчальний предмет /» then «назва заходу».
@@ -300,50 +315,10 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   20: [
     text('organization', 'Назва організації'),
     text('jobTitle', 'Посада'),
-    number('fromYear', 'Рік початку', { min: MIN_EVIDENCE_YEAR, max: LATEST_YEAR, int: true }),
-    number('toYear', 'Рік завершення', { min: MIN_EVIDENCE_YEAR, max: LATEST_YEAR, int: true }),
+    select('fromYear', 'Рік початку', YEAR_OPTIONS, { span: 1 }),
+    select('toYear', 'Рік завершення', YEAR_OPTIONS, { span: 1 }),
   ],
 };
-
-/** «Вид» values on п.15 that describe leading a pupil rather than sitting on a jury */
-const P15_LED_A_PUPIL = ['olympiad_winner', 'man_winner'];
-
-/**
- * A position's cross-field rule, where it has one.
- *
- * Kept here rather than in `schemaForFields`, which builds ANY field set and
- * should not know that п.15 has a jury. The form and the server action both
- * apply it, so the rule cannot be true in the browser and absent on the way in.
- *
- * **п.15 asks for the школяр and the place only when there was one.** Its title
- * covers two different things — «Керівництво школярем, який зайняв призове
- * місце …; участь у журі …» — and a juror names no pupil and wins no place.
- * Requiring them outright would make a legitimate row unfileable, and the only
- * way to save one would be to invent a name.
- */
-export function positionRefine(
-  position: number
-): ((value: Record<string, unknown>, ctx: RefinementCtx) => void) | undefined {
-  if (position !== 15) return undefined;
-
-  return (value, ctx) => {
-    if (!P15_LED_A_PUPIL.includes(String(value.option))) return;
-
-    const named = ['pupilLast', 'pupilFirst', 'pupilMiddle'].some(
-      (k) => typeof value[k] === 'string' && (value[k] as string).trim() !== ''
-    );
-    if (!named) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['pupilLast'],
-        message: 'Вкажіть щонайменше прізвище школяра',
-      });
-    }
-    if (!value.place) {
-      ctx.addIssue({ code: 'custom', path: ['place'], message: 'Оберіть призове місце' });
-    }
-  };
-}
 
 /**
  * The fields a typed row for this position asks for, or an empty list where

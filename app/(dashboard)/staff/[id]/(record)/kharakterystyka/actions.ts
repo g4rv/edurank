@@ -9,7 +9,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { isPositionGroup, licencePosition, windowFor } from '@/lib/kharakterystyka/positions';
-import { positionEvidenceFields, positionRefine } from '@/lib/kharakterystyka/position-evidence';
+import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence';
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { kharakterystykaEntrySchema } from '@/validations/kharakterystyka';
@@ -86,13 +86,7 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
   const fields = positionEvidenceFields(position);
   if (fields.length === 0) return { error: 'Для цієї позиції немає форми' };
 
-  // The position's cross-field rule applies HERE too, not only in the dialog.
-  // `schemaForFields` knows nothing about п.15 having a jury, so without this
-  // the «name the школяр» rule would be true in the browser and absent on the
-  // way in — the half an attacker skips.
-  const refine = positionRefine(position);
-  const evidenceSchema = schemaForFields(fields);
-  const shape = (refine ? evidenceSchema.superRefine(refine) : evidenceSchema).safeParse(evidence);
+  const shape = schemaForFields(fields).safeParse(evidence);
   if (!shape.success) {
     return { error: shape.error.issues[0]?.message ?? 'Заповніть поля запису' };
   }

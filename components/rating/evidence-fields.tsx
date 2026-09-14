@@ -320,6 +320,11 @@ export function EvidenceFields({
               label={title ?? item.fields[0].label}
               error={joinedError}
               span={2}
+              // Stated, not looked up. The marker reads the schema by FIELD
+              // NAME, and a joined set has one label over several names — so
+              // without this «Дані про школяра» stayed unmarked while the three
+              // boxes under it were obligatory.
+              required={item.fields.some((f) => f.kind === 'text' && !f.optional)}
             >
               <div className="flex flex-wrap gap-2 sm:flex-nowrap">
                 {item.fields.map((f) => (
