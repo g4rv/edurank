@@ -85,7 +85,10 @@ describe('п.20 — a period is one range, so it cannot run backwards', () => {
     group: null,
     organization: 'ТОВ «Агросвіт»',
     jobTitle: 'Агроном',
-    period: { from: '2014-09-01', to: '2019-08-31' },
+    period: {
+      from: `${new Date().getFullYear() - 5}-09-01`,
+      to: `${new Date().getFullYear() - 1}-08-31`,
+    },
   };
   const p20Problem = (value: unknown) => {
     const result = p20.safeParse(value);
@@ -99,21 +102,38 @@ describe('п.20 — a period is one range, so it cannot run backwards', () => {
   it('refuses an end before its start', () => {
     // The picker cannot produce this; the schema is what stops a request that
     // skips the picker.
-    expect(p20Problem({ ...row, period: { from: '2019-08-31', to: '2014-09-01' } })).not.toBeNull();
+    expect(
+      p20Problem({
+        ...row,
+        period: {
+          from: `${new Date().getFullYear() - 1}-08-31`,
+          to: `${new Date().getFullYear() - 5}-09-01`,
+        },
+      })
+    ).not.toBeNull();
   });
 
   it('refuses a half-picked period', () => {
-    expect(p20Problem({ ...row, period: { from: '2014-09-01' } })).not.toBeNull();
+    expect(
+      p20Problem({ ...row, period: { from: `${new Date().getFullYear() - 5}-09-01` } })
+    ).not.toBeNull();
   });
 
   it('refuses nonsense where a date belongs', () => {
     // 123123 saved before this and printed into a licence document as a year of
     // employment.
-    expect(p20Problem({ ...row, period: { from: '123123', to: '2019-08-31' } })).not.toBeNull();
+    expect(
+      p20Problem({
+        ...row,
+        period: { from: '123123', to: `${new Date().getFullYear() - 1}-08-31` },
+      })
+    ).not.toBeNull();
   });
 
   it('allows a period running past today, for work somebody still does', () => {
     const ahead = `${new Date().getFullYear() + 5}-01-01`;
-    expect(p20Problem({ ...row, period: { from: '2014-09-01', to: ahead } })).toBeNull();
+    expect(
+      p20Problem({ ...row, period: { from: `${new Date().getFullYear() - 5}-09-01`, to: ahead } })
+    ).toBeNull();
   });
 });

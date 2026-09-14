@@ -16,6 +16,21 @@ const emptyToUndefined = (v: unknown) =>
 export const MIN_EVIDENCE_YEAR = 1950;
 
 /**
+ * What a `dateRange` may span — roughly a decade back, two ahead of that.
+ *
+ * **Not `MIN_EVIDENCE_YEAR`** (owner, 2026-09-14). 1950 is a floor for a
+ * PUBLICATION year, where an old citation is ordinary. A period is not that:
+ * п.11 records consulting «на підставі договору із закладом вищої освіти», and
+ * the university did not exist to sign one. Offering 1950 in the picker invited
+ * a date nobody could hold a contract for.
+ *
+ * Forward, because an end can be ahead of today — an appointment somebody still
+ * holds, a contract with a term left to run.
+ */
+export const RANGE_MIN_YEAR = new Date().getFullYear() - 10;
+export const RANGE_MAX_YEAR = new Date().getFullYear() + 20;
+
+/**
  * One field's rule. Exported for the Характеристика's hand-typed forms, which
  * compose a FLAT schema — `{ рік, варіант, ...поля }` — because the shared
  * renderer registers a field under its own name and nesting the evidence would
@@ -100,9 +115,9 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       const day = z.iso.date({ error: 'Некоректна дата' }).refine(
         (v) => {
           const year = Number(v.slice(0, 4));
-          return year >= MIN_EVIDENCE_YEAR && year <= new Date().getFullYear() + 20;
+          return year >= RANGE_MIN_YEAR && year <= RANGE_MAX_YEAR;
         },
-        { error: `Рік має бути не раніше ${MIN_EVIDENCE_YEAR}` }
+        { error: `Рік має бути в межах ${RANGE_MIN_YEAR}–${RANGE_MAX_YEAR}` }
       );
       const base = z
         .object({ from: day, to: day })

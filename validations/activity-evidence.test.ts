@@ -435,28 +435,40 @@ describe('dateRange — one field, two ends, never backwards', () => {
   const field = dateRange('period', 'Період роботи');
   const parse = (v: unknown) => fieldSchema(field).safeParse(v);
 
+  const year = new Date().getFullYear();
+  const recent = `${year - 3}-09-01`;
+  const later = `${year - 1}-08-31`;
+
   it('accepts a range in order', () => {
-    expect(parse({ from: '2014-09-01', to: '2019-08-31' }).success).toBe(true);
+    expect(parse({ from: recent, to: later }).success).toBe(true);
   });
 
   it('accepts a single day at both ends', () => {
-    expect(parse({ from: '2014-09-01', to: '2014-09-01' }).success).toBe(true);
+    expect(parse({ from: recent, to: recent }).success).toBe(true);
   });
 
   it('refuses an end before its start', () => {
-    const result = parse({ from: '2019-08-31', to: '2014-09-01' });
+    const result = parse({ from: later, to: recent });
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.issues[0].message).toMatch(/раніше/);
   });
 
   it('refuses a half-filled range', () => {
-    expect(parse({ from: '2014-09-01' }).success).toBe(false);
-    expect(parse({ to: '2019-08-31' }).success).toBe(false);
+    expect(parse({ from: recent }).success).toBe(false);
+    expect(parse({ to: later }).success).toBe(false);
   });
 
   it('refuses nonsense in place of a date', () => {
-    expect(parse({ from: '123123', to: '2019-08-31' }).success).toBe(false);
+    expect(parse({ from: '123123', to: later }).success).toBe(false);
     expect(parse('2014-2019').success).toBe(false);
+  });
+
+  it('refuses a period before the university could have signed anything', () => {
+    // A decade back, not 1950 (owner, 2026-09-14): п.11 records consulting «на
+    // підставі договору із закладом вищої освіти».
+    expect(parse({ from: '1994-09-01', to: '1999-08-31' }).success).toBe(false);
+    expect(parse({ from: `${year - 11}-01-01`, to: later }).success).toBe(false);
+    expect(parse({ from: `${year - 9}-01-01`, to: later }).success).toBe(true);
   });
 
   it('lets an optional range be left empty', () => {

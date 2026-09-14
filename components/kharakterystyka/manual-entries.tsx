@@ -569,7 +569,7 @@ function Preview({
 
   return (
     <div className={cn('rounded-md border border-dashed px-3 py-2', className)}>
-      <p className="text-xs font-medium text-muted-foreground">У документі буде</p>
+      <p className="text-xs font-medium text-muted-foreground">В записі буде</p>
       <p className="mt-1 text-xs whitespace-pre-line">
         {text || <span className="text-muted-foreground">— заповніть поля вище</span>}
       </p>

@@ -68,7 +68,13 @@ describe('a filled form produces a printable sentence', () => {
           case 'date':
             return [f.name, '2024-05-01'];
           case 'dateRange':
-            return [f.name, { from: '2019-09-01', to: '2024-05-01' }];
+            return [
+              f.name,
+              {
+                from: `${new Date().getFullYear() - 5}-09-01`,
+                to: `${new Date().getFullYear() - 1}-05-01`,
+              },
+            ];
           case 'url':
             return [f.name, 'https://example.org/1'];
           case 'isbn':
