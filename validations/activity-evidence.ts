@@ -46,6 +46,11 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       let base: z.ZodType<string> = z
         .string({ error: "Обов'язкове поле" })
         .trim()
+        // Before the format check, not after. `withProtocol('')` is `''`, which
+        // `z.url()` rejects as «Некоректне посилання» — telling somebody who
+        // typed nothing that what they typed is malformed, and sending them
+        // hunting for a typo in an empty box.
+        .min(1, { error: "Обов'язкове поле" })
         .transform(withProtocol)
         .pipe(z.url({ error: 'Некоректне посилання' }).max(2000))
         .refine(hasDomainHost, { error: 'Некоректне посилання' });
@@ -74,6 +79,8 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       const base = z
         .string({ error: "Обов'язкове поле" })
         .trim()
+        // See the url case: an empty box is not a failed check digit.
+        .min(1, { error: "Обов'язкове поле" })
         .refine(isValidIsbn, { error: 'Некоректний ISBN — перевірте контрольну цифру' });
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
@@ -81,6 +88,11 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       // Stored bare (resolver prefix stripped) so the checker can query it directly
       const base = z
         .string({ error: "Обов'язкове поле" })
+        .trim()
+        // See the url case. `normalizeDoi` trims on its own, so the `trim()`
+        // here changes no stored value — it only lets `min` see a box holding
+        // nothing but spaces for what it is.
+        .min(1, { error: "Обов'язкове поле" })
         .transform(normalizeDoi)
         .refine(isValidDoi, { error: 'Некоректний DOI — очікується 10.XXXX/…' });
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;

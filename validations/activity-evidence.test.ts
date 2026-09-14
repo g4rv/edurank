@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
-import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { doi, EVIDENCE_FIELDS, isbn, url, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { computeScore } from '@/lib/rating/scoring';
 import { catalogueType, SELECT_OPTION_POINTS } from '@/lib/rating/db-specs';
-import { schemaForFields } from './activity-evidence';
+import { fieldSchema, schemaForFields } from './activity-evidence';
 
 // Schemas are built from an activity type's own field specs. Here they are
 // built from the catalogue through `catalogueType`, the same conversion the
@@ -313,5 +313,42 @@ describe('schema validation behavior', () => {
     expect(schema.safeParse({ title: 'Журі', count: 0 }).success).toBe(false);
     expect(schema.safeParse({ title: 'Журі', count: 1.5 }).success).toBe(false);
     expect(schema.safeParse({ title: 'Журі', count: 2, extra: 1 }).success).toBe(false);
+  });
+});
+
+describe('an empty required field says it is required, not malformed', () => {
+  // A person who typed nothing is told what is WRONG with what they typed.
+  // «Некоректне посилання» over an empty box sends them looking for a typo in
+  // a field they never touched; the three kinds below all did this, because
+  // each pipes an empty string straight into a format check.
+  const messageFor = (field: EvidenceField, value: unknown) => {
+    const result = fieldSchema(field).safeParse(value);
+    return result.success ? null : result.error.issues[0].message;
+  };
+
+  it('url', () => {
+    expect(messageFor(url('link', 'Посилання'), '')).toBe("Обов'язкове поле");
+  });
+
+  it('isbn', () => {
+    expect(messageFor(isbn('isbn', 'ISBN'), '')).toBe("Обов'язкове поле");
+  });
+
+  it('doi', () => {
+    expect(messageFor(doi('doi', 'DOI'), '')).toBe("Обов'язкове поле");
+  });
+
+  it('still names the real fault when something WAS typed', () => {
+    expect(messageFor(url('link', 'Посилання'), 'not-a-url')).toBe('Некоректне посилання');
+    expect(messageFor(isbn('isbn', 'ISBN'), '978-3-16-148410-1')).toMatch(/ISBN/);
+    expect(messageFor(doi('doi', 'DOI'), 'nonsense')).toMatch(/DOI/);
+  });
+
+  it('leaves the optional form of each kind accepting an empty box', () => {
+    expect(fieldSchema(url('link', 'Посилання', { optional: true })).safeParse('').success).toBe(
+      true
+    );
+    expect(fieldSchema(isbn('isbn', 'ISBN', { optional: true })).safeParse('').success).toBe(true);
+    expect(fieldSchema(doi('doi', 'DOI', { optional: true })).safeParse('').success).toBe(true);
   });
 });
