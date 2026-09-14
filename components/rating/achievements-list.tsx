@@ -70,7 +70,13 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
           <ul className="divide-y">
             {group.items.map((item) => (
               <li key={item.id} className="px-5 py-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
+                {/* `items-center`, not `items-start` (owner, 2026-09-14). The
+                    meta block is one short line against a text block that runs
+                    to two or three, so pinning it to the top left it floating
+                    against the first line with nothing beside the rest. Centred,
+                    the date, the score and the button read as belonging to the
+                    whole row. */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   {/* `flex-1`, not `min-w-0` alone. Without it the text block
                       sizes to its content, and a summary longer than the row
                       claims the whole width — which pushes the date, the score
@@ -79,8 +85,14 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                       row, not the long one, and the skeleton beside it draws
                       them on the right. */}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm">
-                      <span className="mr-1.5 text-muted-foreground">{item.itemNumber}</span>
+                    {/* 16px, and the item number in ink beside it (owner,
+                        2026-09-14). The number was `--muted-foreground`, which
+                        §4 keeps for meta — a count, a row number, a hint. This
+                        one is not meta: «4.1» is how the положення names the
+                        indicator, and it is what somebody checking their own
+                        record against the printed table matches on. */}
+                    <p className="text-base">
+                      <span className="mr-1.5">{item.itemNumber}</span>
                       {item.label}
                     </p>
                     {/* **Not `truncate`** (2026-09-11). It was clamped to one
@@ -94,7 +106,12 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                         there. Wrapping is what a list can afford and a table
                         column cannot. */}
                     {item.summary && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">{item.summary}</p>
+                      // 14px and `--foreground-soft` (owner, 2026-09-14), up
+                      // from 12px `--muted-foreground`. This line is the only
+                      // thing telling two rows of the same indicator apart —
+                      // which conference, which publication — so it was a size
+                      // too small and a step too faint for what it carries.
+                      <p className="mt-0.5 text-sm text-foreground-soft">{item.summary}</p>
                     )}
                     {item.status === 'REMOVED' && item.removeReason && (
                       <p className="mt-1 text-xs text-error">
@@ -103,7 +120,10 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{item.date}</span>
+                    {/* `--foreground-soft`, matching the details line — the
+                        two are the same tier of information (owner,
+                        2026-09-14). */}
+                    <span className="text-sm text-foreground-soft">{item.date}</span>
                     {/* Same rule as the rating table: «Зараховано» on every row
                         says nothing and buries the one «Відхилено», which is
                         the only state an НПП has to do something about. */}
@@ -112,7 +132,10 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                     )}
                     <span
                       className={cn(
-                        'text-sm font-semibold tabular-nums',
+                        // 16px (owner, 2026-09-14): the score is the one value
+                        // on the row somebody actually goes looking for, and at
+                        // 14px it weighed the same as the date beside it.
+                        'text-base font-semibold tabular-nums',
                         item.status === 'REMOVED' && 'text-muted-foreground line-through'
                       )}
                     >

@@ -40,7 +40,11 @@ export function DeleteActivityButton({ activityId, label }: { activityId: string
         <Button
           variant="ghost"
           size="icon"
-          className="size-7 text-muted-foreground hover:text-error"
+          // Red at rest, not only on hover (owner, 2026-09-14). §3 gives
+          // `--error` to the destructive action, and a delete that looks
+          // neutral until you are already pointing at it announces what it
+          // does one moment too late. `-strong` on hover keeps the step.
+          className="size-7 text-error hover:text-error-strong"
           aria-label="Видалити досягнення"
         >
           <Trash2 className="size-4" />
