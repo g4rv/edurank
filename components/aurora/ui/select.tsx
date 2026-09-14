@@ -23,7 +23,7 @@ import { listLabel, listPanel, listRow, listRowCheck, listRowSelectedState } fro
  * control to a reader filling a form, and they used to look related only by
  * accident.
  */
-import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from 'lucide-react';
+import { ChevronDownIcon, CheckIcon } from 'lucide-react';
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />;
@@ -117,7 +117,18 @@ function SelectContent({
         sideOffset={sideOffset}
         {...props}
       >
-        <SelectScrollUpButton />
+        {/* **No scroll buttons** (owner, 2026-09-14). Radix mounts an up arrow
+            the moment you scroll and unmounts it at the top, and both are FLOW
+            siblings of the viewport — so the arrow appearing took 24px out of
+            the scroll area and moved its top down by the same, measured
+            464→440px. The list jumped under the cursor on the way down and
+            snapped back on the way up, and because the arrow mounts DURING the
+            gesture the scroller's max-scroll changed mid-wheel, which is what
+            read as lag.
+
+            Removing them is also what §8 asks for: «a select and a combobox are
+            the same control to somebody filling a form», and the combobox has
+            never had them — it just scrolls. */}
         <SelectPrimitive.Viewport
           data-position={position}
           className={cn(
@@ -128,7 +139,6 @@ function SelectContent({
         >
           {children}
         </SelectPrimitive.Viewport>
-        <SelectScrollDownButton />
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );
@@ -180,42 +190,6 @@ function SelectSeparator({
   );
 }
 
-function SelectScrollUpButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
-  return (
-    <SelectPrimitive.ScrollUpButton
-      data-slot="select-scroll-up-button"
-      className={cn(
-        "z-10 flex cursor-default items-center justify-center bg-card py-1 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      <ChevronUpIcon />
-    </SelectPrimitive.ScrollUpButton>
-  );
-}
-
-function SelectScrollDownButton({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
-  return (
-    <SelectPrimitive.ScrollDownButton
-      data-slot="select-scroll-down-button"
-      className={cn(
-        "z-10 flex cursor-default items-center justify-center bg-card py-1 [&_svg:not([class*='size-'])]:size-4",
-        className
-      )}
-      {...props}
-    >
-      <ChevronDownIcon />
-    </SelectPrimitive.ScrollDownButton>
-  );
-}
-
 /**
  * Prefixed like `Button` and `Input`, so a screen part-way through
  * the migration can hold both an Аврора select and a shadcn one without a name
@@ -228,8 +202,6 @@ export {
   SelectGroup,
   SelectItem,
   SelectLabel,
-  SelectScrollDownButton,
-  SelectScrollUpButton,
   SelectSeparator,
   SelectTrigger,
   SelectValue,
