@@ -20,6 +20,13 @@ export type EvidenceField =
       multiline?: boolean;
       optional?: boolean;
       /**
+       * Fields sharing a key print as ONE part, space-separated, in the
+       * position of the first — «Коваленко Марія Ігорівна», not
+       * «Коваленко · Марія · Ігорівна». For an answer that is one value to a
+       * reader and several boxes to whoever types it.
+       */
+      join?: string;
+      /**
        * Grey example text. Used where the SHAPE of the answer matters and the
        * label cannot carry it — a бібліографічний опис is read straight into a
        * licence document, and «Бібліографічний опис» alone tells nobody whether
@@ -84,6 +91,8 @@ export type EvidenceField =
       name: string;
       label: string;
       options: readonly { value: string; label: string; points?: number }[];
+      /** A list that may be left unanswered — п.15's «Призове місце» on a jury row */
+      optional?: boolean;
     };
 
 // The field constructors below are exported for one other caller: the
@@ -95,7 +104,7 @@ export type EvidenceField =
 export const text = (
   name: string,
   label: string,
-  opts?: { multiline?: boolean; optional?: boolean; placeholder?: string }
+  opts?: { multiline?: boolean; optional?: boolean; placeholder?: string; join?: string }
 ): EvidenceField => ({ kind: 'text', name, label, ...opts });
 
 export const number = (
@@ -163,8 +172,9 @@ export const checkbox = (
 export const select = (
   name: string,
   label: string,
-  options: readonly { value: string; label: string }[]
-): EvidenceField => ({ kind: 'select', name, label, options });
+  options: readonly { value: string; label: string }[],
+  opts?: { optional?: boolean }
+): EvidenceField => ({ kind: 'select', name, label, options, ...opts });
 
 export const opt = (value: string, label: string) => ({ value, label });
 
@@ -264,6 +274,21 @@ export function summarizeEvidence(
       summarised.add(f.group);
       const ticked = groups.get(f.group);
       if (ticked && ticked.length > 0) parts.push(`${f.group}: ${ticked.join(', ')}`);
+      continue;
+    }
+
+    // A joined set is emitted once, where its first member sits — the same
+    // shape a grouped checkbox set uses, minus the group label: these are parts
+    // of one value, not several answers.
+    if (f.kind === 'text' && f.join) {
+      if (summarised.has(f.join)) continue;
+      summarised.add(f.join);
+      const parts_ = fields
+        .filter((o) => o.kind === 'text' && o.join === f.join)
+        .map((o) => e[o.name])
+        .filter((x) => typeof x === 'string' && x.trim() !== '')
+        .map((x) => String(x).trim());
+      if (parts_.length > 0) parts.push(parts_.join(' '));
       continue;
     }
 

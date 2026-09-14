@@ -112,7 +112,12 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
     }
     case 'select': {
       const values = f.options.map((o) => o.value) as [string, ...string[]];
-      return z.enum(values, { error: 'Оберіть значення зі списку' });
+      const base = z.enum(values, { error: 'Оберіть значення зі списку' });
+      // An optional list is a real case, not a contradiction: п.15's «Призове
+      // місце» has four answers for the two winner variants and none for the
+      // two jury ones. Blank arrives as '' from an untouched Radix select, so
+      // it goes through the same `emptyToUndefined` every other kind uses.
+      return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
   }
 }

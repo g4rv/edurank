@@ -38,7 +38,11 @@ const P15 = {
   option: 'olympiad_jury',
   stage: 'stage_3',
   event: 'Біологія',
-  pupil: '',
+  // Three boxes since 2026-09-14, joined back into one printed name. A jury row
+  // names no pupil and wins no place, which is why all four are blank here.
+  pupilLast: '',
+  pupilFirst: '',
+  pupilMiddle: '',
   place: '',
 };
 const P2 = { registrationNumber: '12345', title: 'Пристрій', date: '' };

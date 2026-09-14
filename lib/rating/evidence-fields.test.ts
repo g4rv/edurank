@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EVIDENCE_FIELDS, summarizeEvidence, type EvidenceField } from './evidence-fields';
+import { EVIDENCE_FIELDS, summarizeEvidence, text, type EvidenceField } from './evidence-fields';
 
 const box = (name: string, label: string, group?: string): EvidenceField => ({
   kind: 'checkbox',
@@ -75,5 +75,47 @@ describe('summarizeEvidence', () => {
     const summary = summarizeEvidence(EVIDENCE_FIELDS.moodle_course, evidence);
     for (const m of materials.slice(0, 5)) expect(summary).toContain(m.label);
     expect(summary).not.toContain(materials[5].label);
+  });
+});
+
+describe('joined text fields', () => {
+  // «ПІБ школяра» was one box, so one person typed «Коваленко М. І.» and the
+  // next «Марія Коваленко». Three boxes fix the order — but the licence
+  // document must still read «Коваленко Марія Ігорівна», not
+  // «Коваленко · Марія · Ігорівна», which is what one part per field would
+  // print.
+  const name = [
+    text('pupilLast', 'Прізвище', { join: 'pupil', optional: true }),
+    text('pupilFirst', 'Ім’я', { join: 'pupil', optional: true }),
+    text('pupilMiddle', 'По батькові', { join: 'pupil', optional: true }),
+  ];
+
+  it('prints joined fields as one part, space-separated', () => {
+    const out = summarizeEvidence(name, {
+      pupilLast: 'Коваленко',
+      pupilFirst: 'Марія',
+      pupilMiddle: 'Ігорівна',
+    });
+    expect(out).toBe('Коваленко Марія Ігорівна');
+  });
+
+  it('skips the blanks instead of leaving gaps', () => {
+    const out = summarizeEvidence(name, { pupilLast: 'Коваленко', pupilFirst: 'Марія' });
+    expect(out).toBe('Коваленко Марія');
+  });
+
+  it('emits nothing when every part is empty', () => {
+    expect(summarizeEvidence(name, {})).toBe('');
+  });
+
+  it('keeps the group in the position of its first field', () => {
+    const fields = [text('before', 'Перед'), ...name, text('after', 'Після')];
+    const out = summarizeEvidence(fields, {
+      before: 'А',
+      pupilLast: 'Коваленко',
+      pupilFirst: 'Марія',
+      after: 'Б',
+    });
+    expect(out).toBe('А · Коваленко Марія · Б');
   });
 });

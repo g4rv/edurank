@@ -25,6 +25,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     kind: z.literal('text'),
     ...common,
     multiline: z.boolean().optional(),
+    join: z.string().min(1).optional(),
     optional: z.boolean().optional(),
     // Display only — never read by the scoring engine or the Характеристика
     placeholder: z.string().max(300).optional(),
@@ -68,6 +69,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
       )
       .min(1, { error: 'Додайте хоча б один варіант' })
       .readonly(),
+    optional: z.boolean().optional(),
   }),
 ]) as z.ZodType<EvidenceField>;
 

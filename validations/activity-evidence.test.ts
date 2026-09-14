@@ -5,6 +5,8 @@ import {
   EVIDENCE_FIELDS,
   isbn,
   number,
+  opt,
+  select,
   url,
   type EvidenceField,
 } from '@/lib/rating/evidence-fields';
@@ -391,5 +393,36 @@ describe('a number field can have a ceiling, not only a floor', () => {
     // and inventing a maximum for those would refuse real work.
     const pages = number('pages', 'Кількість сторінок', { min: 1, int: true });
     expect(fieldSchema(pages).safeParse(100000).success).toBe(true);
+  });
+});
+
+describe('an optional select may be left unanswered', () => {
+  // «Призове місце» on п.15 has four real answers, but the jury variants of
+  // that position have no place to record — so the field has to be a list AND
+  // skippable. Before this a select was always required.
+  const field = select(
+    'place',
+    'Призове місце',
+    [opt('first', 'I місце'), opt('laureate', 'лауреат')],
+    { optional: true }
+  );
+
+  it('accepts a chosen option', () => {
+    expect(fieldSchema(field).safeParse('first').success).toBe(true);
+  });
+
+  it('accepts an empty answer', () => {
+    expect(fieldSchema(field).safeParse('').success).toBe(true);
+    expect(fieldSchema(field).safeParse(undefined).success).toBe(true);
+  });
+
+  it('still refuses a value outside the list', () => {
+    expect(fieldSchema(field).safeParse('second').success).toBe(false);
+  });
+
+  it('leaves a required select required', () => {
+    const required = select('stage', 'Етап', [opt('a', 'A')]);
+    expect(fieldSchema(required).safeParse('').success).toBe(false);
+    expect(fieldSchema(required).safeParse('a').success).toBe(true);
   });
 });

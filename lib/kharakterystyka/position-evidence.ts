@@ -251,8 +251,29 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
     // Gluing only the left side was not enough — the line then broke after
     // «назва» instead, which reads worse than the original.
     text('event', 'Навчальний предмет / назва заходу'),
-    text('pupil', 'ПІБ школяра', { optional: true }),
-    text('place', 'Призове місце', { optional: true }),
+    // **Three boxes, one printed name** (owner, 2026-09-14). As a single «ПІБ
+    // школяра» box one person typed «Коваленко М. І.» and the next «Марія
+    // Коваленко», and the document is read against the Ліцензійні умови. The
+    // `join` key puts them back together as «Коваленко Марія Ігорівна» — see
+    // `summarizeEvidence`.
+    text('pupilLast', 'Прізвище школяра', { join: 'pupil', optional: true }),
+    text('pupilFirst', 'Ім’я', { join: 'pupil', optional: true }),
+    text('pupilMiddle', 'По батькові', { join: 'pupil', optional: true }),
+    // **A select, not a box** (owner, 2026-09-14). «Призове місце» has four
+    // real answers, and as free text the same achievement arrived as «2 місце»,
+    // «II», «друге» — three spellings of one fact inside one licence document.
+    // Optional because the jury variants above have no place to record.
+    select(
+      'place',
+      'Призове місце',
+      [
+        opt('first', 'I місце'),
+        opt('second', 'II місце'),
+        opt('third', 'III місце'),
+        opt('laureate', 'лауреат'),
+      ],
+      { optional: true }
+    ),
   ],
 
   19: [
