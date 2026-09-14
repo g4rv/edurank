@@ -183,7 +183,11 @@ function DebugForm({ type }: { type: DebugType }) {
       </div>
 
       <RequiredFields schema={schema}>
-        <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border bg-card p-5">
+        <form
+          noValidate
+          onSubmit={handleSubmit(onSubmit)}
+          className="rounded-xl border bg-card p-5"
+        >
           <EvidenceFields
             fields={type.fields}
             register={register}

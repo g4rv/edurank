@@ -181,7 +181,13 @@ function EvidenceForm({
 
   return (
     <RequiredFields schema={schema} alwaysMark>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+      {/* `noValidate`: the schema owns every message. Without it the
+          browser's own constraint check runs FIRST and answers in ENGLISH —
+          `min` gives «Value must be greater than or equal to 1.» and
+          `type="url"` «Please enter a URL.» — in an app that is Ukrainian
+          everywhere else, as a bubble that floats and vanishes instead of the
+          inline red line every other field uses. See `EvidenceFields`. */}
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
         <DialogBody className="flex flex-col gap-4">
           {picker}
           {type.coefficientNote && (

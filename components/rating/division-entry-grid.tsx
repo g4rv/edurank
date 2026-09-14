@@ -484,7 +484,7 @@ function CellForm({
 
   return (
     <RequiredFields schema={schema}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {type.coefficientNote && (
           <p className="text-xs whitespace-pre-line text-muted-foreground">
             {type.coefficientNote}

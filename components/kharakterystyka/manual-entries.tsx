@@ -350,7 +350,7 @@ function EntryForm({
 
   return (
     <RequiredFields schema={schema}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <AlertDialogHeader>
           <AlertDialogTitle>Новий запис до позиції {position}</AlertDialogTitle>
           <AlertDialogDescription>

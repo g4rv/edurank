@@ -70,6 +70,25 @@ export function toRenderItems(fields: readonly EvidenceField[]): RenderItem[] {
 }
 
 /** Renders one activity type's evidence inputs from its field specs */
+
+/**
+ * **Every form that renders these must carry `noValidate`.**
+ *
+ * Some of the inputs below set NATIVE constraints — `min` on a number,
+ * `type="url"` on a link — and the browser checks those before React Hook Form
+ * ever runs. It then reports them in ENGLISH, in a floating bubble: «Value must
+ * be greater than or equal to 1.», «Please enter a URL.» That is the wrong
+ * language for this app and the wrong shape for this form, where every other
+ * message is an inline red line under its field.
+ *
+ * It also quietly undid a deliberate kindness: `withProtocol` accepts a pasted
+ * `www.scopus.com/…` and adds the scheme, and `type="url"` rejected exactly
+ * that before the schema could be generous about it.
+ *
+ * The attributes stay — they still give a phone the right keyboard and a number
+ * field its spinner bounds. `noValidate` only stops the browser ANSWERING.
+ * `validations/activity-evidence.ts` is the single voice.
+ */
 export function EvidenceFields({
   fields,
   register,
