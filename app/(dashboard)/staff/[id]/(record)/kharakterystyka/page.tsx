@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
+import { listManualKharakterystyka } from '@/lib/queries/list-manual-kharakterystyka';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { EmptyState } from '@/components/aurora/ui/card';
 import {
@@ -65,15 +66,7 @@ export default async function StaffKharakterystykaPage({
   const [data, positionSources, manualEntries] = await Promise.all([
     getKharakterystyka(id, template.year),
     licencePositionSources(template.year),
-    canEdit
-      ? db.kharakterystykaEntry.findMany({
-          // MANUAL only: an imported row is replaced wholesale on the next
-          // import run, so offering a delete button for one would undo itself.
-          where: { staffId: id, source: 'MANUAL' },
-          select: { id: true, position: true, group: true, year: true, text: true },
-          orderBy: [{ position: 'asc' }, { year: 'desc' }],
-        })
-      : Promise.resolve([]),
+    canEdit ? listManualKharakterystyka(id) : Promise.resolve([]),
   ]);
   if (!data) notFound();
 
@@ -97,7 +90,7 @@ export default async function StaffKharakterystykaPage({
       <KharakterystykaTable
         data={data}
         sources={Object.fromEntries(positionSources)}
-        editing={canEdit ? { staffId: id, entries: manualEntries } : undefined}
+        editing={canEdit ? { staffId: id, entries: manualEntries, selfId: id } : undefined}
         fill
       />
     </div>

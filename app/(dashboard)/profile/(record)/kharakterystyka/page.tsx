@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
+import { listManualKharakterystyka } from '@/lib/queries/list-manual-kharakterystyka';
+import { SELF_TYPEABLE_POSITIONS } from '@/lib/kharakterystyka/self-entry';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { EmptyState } from '@/components/aurora/ui/card';
 import {
@@ -54,9 +56,10 @@ export default async function MyKharakterystykaPage() {
     );
   }
 
-  const [data, positionSources] = await Promise.all([
+  const [data, positionSources, manualEntries] = await Promise.all([
     getKharakterystyka(staffId, template.year),
     licencePositionSources(template.year),
+    listManualKharakterystyka(staffId),
   ]);
   if (!data) redirect('/profile');
 
@@ -75,7 +78,23 @@ export default async function MyKharakterystykaPage() {
         </ToolbarGroup>
       </ProfileTabRow>
 
-      <KharakterystykaTable data={data} sources={Object.fromEntries(positionSources)} fill />
+      {/* **A person types their own п.15 and п.20** (owner, 2026-09-14) — the
+          two the вчена рада wrote no indicator for, so nothing here can
+          contradict the rating. `positions` narrows the control to those; the
+          server checks the same list again in `typeEntryProblem`, because the
+          half of a rule that lives in the browser is the half an attacker
+          skips. */}
+      <KharakterystykaTable
+        data={data}
+        sources={Object.fromEntries(positionSources)}
+        editing={{
+          staffId,
+          entries: manualEntries,
+          positions: SELF_TYPEABLE_POSITIONS,
+          selfId: staffId,
+        }}
+        fill
+      />
     </div>
   );
 }

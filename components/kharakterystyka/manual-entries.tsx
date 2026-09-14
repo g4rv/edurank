@@ -50,6 +50,8 @@ export interface ManualEntry {
   group: string | null;
   year: number;
   text: string;
+  /** The account that typed it. Comparable to a staff id — see `selfId`. */
+  createdBy: string;
 }
 
 /**
@@ -77,12 +79,15 @@ export function ManualEntries({
   entries,
   minYear,
   maxYear,
+  selfId,
 }: {
   staffId: string;
   position: number;
   entries: ManualEntry[];
   minYear: number;
   maxYear: number;
+  /** Whose document this is; a row `createdBy` this id was typed by them. */
+  selfId?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -108,6 +113,7 @@ export function ManualEntries({
         entries={entries}
         minYear={minYear}
         maxYear={maxYear}
+        selfId={selfId}
       />
     </div>
   );
@@ -127,6 +133,7 @@ function EntriesDialog({
   entries,
   minYear,
   maxYear,
+  selfId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -135,6 +142,7 @@ function EntriesDialog({
   entries: ManualEntry[];
   minYear: number;
   maxYear: number;
+  selfId?: string;
 }) {
   const [screen, setScreen] = useState<'list' | 'form'>('list');
 
@@ -152,6 +160,7 @@ function EntriesDialog({
           <EntryList
             position={position}
             entries={entries}
+            selfId={selfId}
             onAdd={() => setScreen('form')}
             onClose={() => change(false)}
           />
@@ -172,11 +181,13 @@ function EntriesDialog({
 function EntryList({
   position,
   entries,
+  selfId,
   onAdd,
   onClose,
 }: {
   position: number;
   entries: ManualEntry[];
+  selfId?: string;
   onAdd: () => void;
   onClose: () => void;
 }) {
@@ -253,6 +264,17 @@ function EntryList({
                         {alternativeLabel(entry.position, entry.group)}
                       </p>
                     )}
+                    {/* **Who wrote this line** (owner, 2026-09-14). Since an НПП
+                        can type п.15 and п.20 about themselves, a reader — an
+                        administrator, or whoever defends the licence file — has
+                        to be able to tell a self-declared line from one an
+                        administrator entered. The row already stores it; the
+                        account id IS the staff id, so this needs no lookup. */}
+                    <p className="mt-1 text-muted-foreground">
+                      {selfId && entry.createdBy === selfId
+                        ? 'Внесено власноруч'
+                        : 'Внесено адміністратором'}
+                    </p>
                   </div>
                   <button
                     type="button"

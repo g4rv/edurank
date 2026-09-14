@@ -240,6 +240,39 @@ edit) and merging rows server-side (an audit log must not rewrite itself).
 
 ---
 
+## H. Moderation for self-typed п.38 rows — deferred (owner, 2026-09-14)
+
+An НПП can now type **п.15 and п.20** of their own Характеристика
+(`SELF_TYPEABLE_POSITIONS`). Nobody checks it.
+
+Both count toward the «≥4 of 20» threshold, and therefore toward `Кнпп`, which
+decides how a кафедра is funded. A person sitting on 3 positions could reach 4
+by typing two lines about themselves. That is a different blast radius from a
+rating submission, which only ever inflates its own author's score.
+
+**Why it shipped anyway**, and what carries the risk instead:
+
+- The two positions are the only ones no indicator feeds, so a typed row can
+  never contradict the rating or the 2022–2024 import — nothing maps to 15 or 20
+  in `LICENCE_POSITION_LINKS`.
+- An ADMIN already sees and can delete every manual row on `/staff/[id]/kharakterystyka`.
+  The ability exists; only a QUEUE is missing.
+- Every row now prints **«Внесено власноруч»** or «Внесено адміністратором», so a
+  reader — or whoever defends the licence file — can tell which lines are
+  self-declared. That was the real gap: before this, a typed line was
+  indistinguishable from derived evidence.
+- Everything is audited, as it was before.
+
+**What to build if abuse appears:** surface MANUAL п.15/п.20 rows on
+`/moderation` so ННВ can discard one with a reason, exactly like a rating
+submission. The cost is that the moderation list is built around `Activity` —
+its filters, grouping and the «Перевірено» flag all assume that model — so a
+second source is real work rather than a flag.
+
+**Do not** answer this with an approval queue. The project has refused one twice
+(rating entries 2026-07, ставки Q1 2026-08-10), and post-moderation is the
+established shape.
+
 ## G. Refactor backlog — AFTER the redesign (owner, 2026-09-11)
 
 **Do not do any of this mid-redesign.** It is recorded here because it was

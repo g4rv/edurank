@@ -13,38 +13,58 @@ import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence'
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { kharakterystykaEntrySchema } from '@/validations/kharakterystyka';
+import { deleteEntryProblem, typeEntryProblem } from '@/lib/kharakterystyka/self-entry';
+import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 
 export type EntryState = { error: string } | { success: true } | null;
 
 /**
  * Evidence typed by hand for one п.38 position.
  *
- * **ADMIN only** (2026-08-31). The rest of the document is derived and cannot be
- * edited by anybody — that is the rule at the top of `build.ts`, and it is what
- * stops the Характеристика asserting something the person's own rating does not
- * support. A typed row is the one exception, so it is held to the narrowest
- * possible audience until somebody asks for more: an НПП who could type their
- * own п.15 could also type п.1, and п.1 is a licence claim about publications
- * that exist or do not.
+ * **ADMIN anywhere; an НПП on п.15 and п.20 of their own document** (owner,
+ * 2026-09-14). The rest of the file is derived and editable by nobody — the
+ * rule at the top of `build.ts` — and that is what stops the Характеристика
+ * asserting something a person's own rating does not support.
+ *
+ * This used to be ADMIN-only, and the note here gave the reason: «an НПП who
+ * could type their own п.15 could also type п.1, and п.1 is a licence claim
+ * about publications that exist or do not». That objection is answered by
+ * WHICH positions opened rather than by who asked. `SELF_TYPEABLE_POSITIONS`
+ * is the two the вчена рада wrote no indicator for, and nothing maps to them in
+ * `LICENCE_POSITION_LINKS` — so a person typing there cannot collide with
+ * derived evidence or with the 2022–2024 import, by construction. п.1 stays
+ * derived and unreachable.
  *
  * Everything written here is audited, because a row nobody can trace is exactly
- * the thing this document must never contain.
+ * the thing this document must never contain — and now that a person can write
+ * about themselves, the trail is what tells a reader which lines those are.
  */
-async function requireAdminSession() {
+async function entrySession() {
   const session = await auth();
   if (!session) redirect('/login');
-  return session.user.role === 'ADMIN' ? session : null;
+  return session;
 }
 
 export async function addKharakterystykaEntry(payload: unknown): Promise<EntryState> {
-  const session = await requireAdminSession();
-  if (!session) return { error: 'Лише адміністратор може вносити записи' };
+  const session = await entrySession();
 
   const parsed = kharakterystykaEntrySchema.safeParse(payload);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Невірні дані' };
   }
   const { staffId, position, year, group, evidence } = parsed.data;
+
+  // Checked against the PARSED position, not the one the browser meant to send:
+  // this is the line that keeps an НПП out of п.1.
+  const denied = typeEntryProblem({
+    role: session.user.role,
+    ownStaffId: session.user.staffId,
+    ownUserId: session.user.id,
+    ratingOpen: NPP_RATING_OPEN,
+    targetStaffId: staffId,
+    position,
+  });
+  if (denied) return { error: denied };
 
   const def = licencePosition(position);
   if (!def) return { error: 'Такої позиції немає' };
@@ -136,8 +156,7 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
  * come back on the next run and look like the delete had failed.
  */
 export async function deleteKharakterystykaEntry(id: string): Promise<EntryState> {
-  const session = await requireAdminSession();
-  if (!session) return { error: 'Лише адміністратор може вилучати записи' };
+  const session = await entrySession();
 
   const entry = await db.kharakterystykaEntry.findUnique({
     where: { id },
@@ -148,13 +167,22 @@ export async function deleteKharakterystykaEntry(id: string): Promise<EntryState
       year: true,
       text: true,
       source: true,
+      createdBy: true,
       staff: { select: { lastName: true, firstName: true, patronymic: true } },
     },
   });
   if (!entry) return { error: 'Запис не знайдено' };
-  if (entry.source !== 'MANUAL') {
-    return { error: 'Імпортовані записи вилучаються повторним імпортом, не вручну' };
-  }
+
+  // Reads the STORED row, never anything the caller sent: who typed it and
+  // whose document it is are both facts of the row.
+  const denied = deleteEntryProblem({
+    role: session.user.role,
+    ownStaffId: session.user.staffId,
+    ownUserId: session.user.id,
+    ratingOpen: NPP_RATING_OPEN,
+    entry,
+  });
+  if (denied) return { error: denied };
 
   try {
     await db.$transaction(async (tx) => {

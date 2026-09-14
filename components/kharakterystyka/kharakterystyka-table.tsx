@@ -46,7 +46,14 @@ export function KharakterystykaTable({
    * Typing evidence by hand — ADMIN only, and absent everywhere else, so the
    * document stays read-only for the people who merely read it.
    */
-  editing?: { staffId: string; entries: ManualEntry[] };
+  editing?: {
+    staffId: string;
+    entries: ManualEntry[];
+    /** Positions this viewer may type. Omitted = every applicable one (ADMIN). */
+    positions?: readonly number[];
+    /** Whose document this is — a row `createdBy` this id was self-typed. */
+    selfId?: string;
+  };
   /** Take the height the layout has left — see `Table`'s own note. */
   fill?: boolean;
 }) {
@@ -172,7 +179,14 @@ function PositionRow({
   position: KharakterystykaPosition;
   /** Indicators that count towards this position, from the year's template */
   sources?: { itemNumber: string; label: string }[];
-  editing?: { staffId: string; entries: ManualEntry[] };
+  editing?: {
+    staffId: string;
+    entries: ManualEntry[];
+    /** Positions this viewer may type. Omitted = every applicable one (ADMIN). */
+    positions?: readonly number[];
+    /** Whose document this is — a row `createdBy` this id was self-typed. */
+    selfId?: string;
+  };
   /** The document's five-year window, so a typed row cannot fall outside it */
   years: { from: number; to: number };
 }) {
@@ -181,7 +195,12 @@ function PositionRow({
   const inapplicable = position.fill === 'NOT_APPLICABLE';
   // Everything but the military positions, which this university may not claim
   // at all — there is nothing to type there, so no control is offered.
-  const canType = !!editing && !inapplicable;
+  //
+  // `positions` narrows it further for an НПП on their own document: they get
+  // п.15 and п.20 and nothing else, so a derived position keeps showing what
+  // the rating found rather than offering a box to contradict it.
+  const allowedHere = !editing?.positions || editing.positions.includes(position.number);
+  const canType = !!editing && !inapplicable && allowedHere;
 
   return (
     <TableRow className={cn(inapplicable && 'opacity-55')}>
@@ -232,6 +251,7 @@ function PositionRow({
             staffId={editing.staffId}
             position={position.number}
             entries={editing.entries.filter((e: ManualEntry) => e.position === position.number)}
+            selfId={editing.selfId}
             minYear={years.from}
             maxYear={years.to}
           />
