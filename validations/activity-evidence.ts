@@ -24,10 +24,22 @@ export const MIN_EVIDENCE_YEAR = 1950;
 export function fieldSchema(f: EvidenceField): z.ZodType {
   switch (f.kind) {
     case 'text': {
-      const base = z
+      let base = z
         .string({ error: "Обов'язкове поле" })
         .trim()
         .max(2000, { error: 'Занадто довге значення' });
+      if (f.rule === 'cyrillicName') {
+        // Ukrainian letters, plus the apostrophe and hyphen its orthography
+        // needs — «Дем'янчук», «Кос-Анатольський». Both apostrophe shapes,
+        // because a keyboard produces one and Word the other. Latin letters are
+        // refused deliberately: a transcription in this document is a claim
+        // nobody made.
+        base = base
+          .min(2, { error: 'Щонайменше дві літери' })
+          .regex(/^[А-ЩЬЮЯЄІЇҐа-щьюяєіїґ'’\-]+$/u, {
+            error: 'Лише українські літери, апостроф і дефіс',
+          });
+      }
       return f.optional
         ? z.preprocess(emptyToUndefined, base.min(1).optional())
         : base.min(1, { error: "Обов'язкове поле" });

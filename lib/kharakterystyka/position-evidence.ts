@@ -39,6 +39,7 @@ import {
   url,
 } from '@/lib/rating/evidence-fields';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import type { RefinementCtx } from 'zod';
 import { MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
 
 const DEGREE_OPTIONS = [
@@ -54,12 +55,14 @@ export /**
  * year of employment: it saved, and printed into the licence document as «Рік
  * початку: 123123». A floor alone is not a range.
  *
- * The ceiling is the current year, not the rating window: п.20 asks for five
- * years of practical work that may have ENDED long before the window opened,
- * and п.13's dates are the same shape. What it refuses is a year that has not
- * happened.
+ * The ceiling is **twenty years out**, not the rating window and not today
+ * (owner, 2026-09-14). п.20 asks for practical work that may have ended long
+ * before the window opened, and an end year can legitimately sit in the future
+ * — an appointment someone still holds, a contract with a term. What it refuses
+ * is a year outside any plausible working life: 123123 saved before this and
+ * printed into a licence document as a year of employment.
  */
-const LATEST_YEAR = new Date().getFullYear();
+const LATEST_YEAR = new Date().getFullYear() + 20;
 
 const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   // ≥5 публікацій у фахових виданнях / Scopus / WoS. No quartile: the licence
@@ -237,13 +240,18 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
     // **Order and grouping are the owner's** (2026-09-14): who the школяр is,
     // what you did, how far they got and where they placed, what the subject
     // was — and the year last, because it is the one answer already filled in.
+    // Optional in the SHAPE, obligatory in the RULE — see `positionRefine`
+    // below: a керівництво row must name the школяр, a журі row has none to
+    // name. `cyrillicName` is what keeps «фів» and «asdawdsad» out of a licence
+    // document.
     text('pupilLast', 'Прізвище', {
       join: 'pupil',
       joinLabel: 'Дані про школяра',
       optional: true,
+      rule: 'cyrillicName',
     }),
-    text('pupilFirst', 'Ім’я', { join: 'pupil', optional: true }),
-    text('pupilMiddle', 'По батькові', { join: 'pupil', optional: true }),
+    text('pupilFirst', 'Ім’я', { join: 'pupil', optional: true, rule: 'cyrillicName' }),
+    text('pupilMiddle', 'По батькові', { join: 'pupil', optional: true, rule: 'cyrillicName' }),
     select('option', 'Вид', [
       opt('olympiad_winner', 'керівництво школярем — призером учнівської олімпіади'),
       opt('man_winner', 'керівництво школярем — призером конкурсу-захисту МАН'),
@@ -296,6 +304,46 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
     number('toYear', 'Рік завершення', { min: MIN_EVIDENCE_YEAR, max: LATEST_YEAR, int: true }),
   ],
 };
+
+/** «Вид» values on п.15 that describe leading a pupil rather than sitting on a jury */
+const P15_LED_A_PUPIL = ['olympiad_winner', 'man_winner'];
+
+/**
+ * A position's cross-field rule, where it has one.
+ *
+ * Kept here rather than in `schemaForFields`, which builds ANY field set and
+ * should not know that п.15 has a jury. The form and the server action both
+ * apply it, so the rule cannot be true in the browser and absent on the way in.
+ *
+ * **п.15 asks for the школяр and the place only when there was one.** Its title
+ * covers two different things — «Керівництво школярем, який зайняв призове
+ * місце …; участь у журі …» — and a juror names no pupil and wins no place.
+ * Requiring them outright would make a legitimate row unfileable, and the only
+ * way to save one would be to invent a name.
+ */
+export function positionRefine(
+  position: number
+): ((value: Record<string, unknown>, ctx: RefinementCtx) => void) | undefined {
+  if (position !== 15) return undefined;
+
+  return (value, ctx) => {
+    if (!P15_LED_A_PUPIL.includes(String(value.option))) return;
+
+    const named = ['pupilLast', 'pupilFirst', 'pupilMiddle'].some(
+      (k) => typeof value[k] === 'string' && (value[k] as string).trim() !== ''
+    );
+    if (!named) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['pupilLast'],
+        message: 'Вкажіть щонайменше прізвище школяра',
+      });
+    }
+    if (!value.place) {
+      ctx.addIssue({ code: 'custom', path: ['place'], message: 'Оберіть призове місце' });
+    }
+  };
+}
 
 /**
  * The fields a typed row for this position asks for, or an empty list where

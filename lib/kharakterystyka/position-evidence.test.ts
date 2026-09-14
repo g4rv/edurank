@@ -72,7 +72,13 @@ describe('a filled form produces a printable sentence', () => {
           case 'isbn':
             return [f.name, '978-3-16-148410-0'];
           default:
-            return [f.name, `Значення ${f.name}`];
+            // A field with a named rule needs a value that satisfies it — a
+            // ПІБ box takes Ukrainian letters only, so the generic
+            // «Значення pupilLast» is not a plausible answer for it.
+            return [
+              f.name,
+              f.kind === 'text' && f.rule === 'cyrillicName' ? 'Коваленко' : `Значення ${f.name}`,
+            ];
         }
       })
     );

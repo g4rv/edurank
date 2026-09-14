@@ -37,6 +37,15 @@ export type EvidenceField =
       joinLabel?: string;
       /** Columns this field takes in a two-column form. Omitted = the kind decides. */
       span?: 1 | 2;
+      /**
+       * A named extra rule. Named rather than a regex, because these specs are
+       * admin-editable JSON and a bad pattern there would be a broken form
+       * nobody could fix from the UI.
+       *
+       * `cyrillicName` — Ukrainian letters, apostrophes and hyphens, at least
+       * two characters. For a ПІБ printed into a licence document.
+       */
+      rule?: 'cyrillicName';
     }
   | {
       kind: 'number';
@@ -122,6 +131,7 @@ export const text = (
     join?: string;
     joinLabel?: string;
     span?: 1 | 2;
+    rule?: 'cyrillicName';
   }
 ): EvidenceField => ({ kind: 'text', name, label, ...opts });
 

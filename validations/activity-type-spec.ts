@@ -28,6 +28,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     join: z.string().min(1).optional(),
     joinLabel: z.string().min(1).max(200).optional(),
     span: z.union([z.literal(1), z.literal(2)]).optional(),
+    rule: z.literal('cyrillicName').optional(),
     optional: z.boolean().optional(),
     // Display only — never read by the scoring engine or the Характеристика
     placeholder: z.string().max(300).optional(),

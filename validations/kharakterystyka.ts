@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { LICENCE_POSITIONS } from '@/lib/kharakterystyka/positions';
-import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence';
+import { positionEvidenceFields, positionRefine } from '@/lib/kharakterystyka/position-evidence';
 import { fieldSchema } from '@/validations/activity-evidence';
 
 const POSITION_NUMBERS = LICENCE_POSITIONS.map((p) => p.number);
@@ -81,7 +81,7 @@ export function positionFormSchema(position: number, minYear: number, maxYear: n
   const fields = positionEvidenceFields(position);
   const evidence = Object.fromEntries(fields.map((f) => [f.name, fieldSchema(f)]));
 
-  return z.strictObject({
+  const shape = z.strictObject({
     year: z.preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
       z
@@ -93,6 +93,12 @@ export function positionFormSchema(position: number, minYear: number, maxYear: n
     group: z.string().nullable().optional(),
     ...evidence,
   });
+
+  // The position's own cross-field rule, where it has one — п.15's школяр and
+  // place, which depend on which «Вид» was chosen. Applied here so the dialog
+  // and the server action share it.
+  const refine = positionRefine(position);
+  return refine ? shape.superRefine(refine) : shape;
 }
 
 /**
