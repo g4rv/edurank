@@ -6,6 +6,7 @@ import { getEditorDivisionId } from '@/lib/permissions';
 import { listEntryDivisions } from '@/lib/queries/list-division-data';
 import { scopeOf } from '@/lib/queries/scope';
 import { Sidebar } from '@/components/sidebar';
+import { NavDrawer } from '@/components/nav-drawer';
 import { Toaster } from '@/components/ui/sonner';
 import { AuroraWash } from '@/components/ui/aurora-wash';
 
@@ -40,20 +41,33 @@ export default async function DashboardLayout({ children }: { children: React.Re
       })
     : null;
 
+  // Built once and handed to both the rail and the drawer, so the two can never
+  // be given different answers about who may see what.
+  const nav = {
+    user: session.user,
+    isNpp: staff?.isNpp ?? false,
+    canModerate,
+    canEnterData,
+    headsDepartment,
+  };
+
   return (
     // No `bg-background` here any more: it would paint over the wash, which
     // sits behind everything at `-z-10`. The wash carries the same tint, so the
     // ground is unchanged for anything that cannot render it.
     <div className="flex h-screen">
       <AuroraWash />
-      <Sidebar
-        user={session.user}
-        isNpp={staff?.isNpp ?? false}
-        canModerate={canModerate}
-        canEnterData={canEnterData}
-        headsDepartment={headsDepartment}
-      />
-      <main className="flex-1 overflow-auto p-6">{children}</main>
+      <Sidebar {...nav} />
+      {/* `min-w-0`, or a wide child — the rating table, a long heading — sets
+          this column's floor and pushes the page sideways instead of scrolling
+          inside its own container. A flex item's default `min-width: auto` is
+          the content, not zero. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Below `md` only; the rail above it. Same props, same component. */}
+        <NavDrawer {...nav} />
+        {/* `p-4` on a phone: `p-6` spent 48 of 400px on margin. */}
+        <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+      </div>
       <Toaster position="bottom-right" richColors />
     </div>
   );

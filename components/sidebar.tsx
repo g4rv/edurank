@@ -66,7 +66,7 @@ const ADMINISTRATION_NAV: NavItem[] = [
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList },
 ];
 
-interface SidebarProps {
+export interface SidebarProps {
   user: {
     email: string;
     role: Role;
@@ -78,6 +78,15 @@ interface SidebarProps {
   canEnterData?: boolean;
   /** Heads a кафедра or a факультет — derived from headId/deanId, never a Role */
   headsDepartment?: boolean;
+  /**
+   * Rendered inside the phone drawer rather than as the rail.
+   *
+   * The nav itself is identical — same links, same order, same active state —
+   * so this only drops the parts that belong to the RAIL: its own width, the
+   * full-height frame, the border it shares with the page, and the header row,
+   * because the drawer already sits under a top bar carrying the logo.
+   */
+  inDrawer?: boolean;
 }
 
 /**
@@ -102,6 +111,7 @@ export function Sidebar({
   canModerate = false,
   canEnterData = false,
   headsDepartment = false,
+  inDrawer = false,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -197,11 +207,27 @@ export function Sidebar({
     // Translucent rather than `bg-sidebar`, so the wash reads through it and the
     // rail belongs to the page instead of being a grey slab bolted to its edge.
     // Deliberately unblurred — see `.glass-chrome` in globals.css.
-    <aside className="glass-chrome flex h-screen w-56 flex-col border-r border-foreground/8">
-      <div className="flex h-14 items-center gap-2 border-b border-foreground/8 px-4">
-        <Logo />
-        <ThemeToggle className="-mr-1.5 ml-auto" />
-      </div>
+    <aside
+      className={cn(
+        'flex flex-col',
+        inDrawer
+          ? 'h-full w-full'
+          : // **Gone below `md`, not narrowed.** At 400px the rail kept its
+            // 224px and left the page 176px, so a heading wrapped one word to
+            // a line. There is no width this is useful at on a phone — it is
+            // the drawer's job there, and `NavDrawer` renders the same nav.
+            'glass-chrome hidden h-screen w-56 shrink-0 border-r border-foreground/8 md:flex'
+      )}
+    >
+      {/* The drawer has no header of its own: the top bar above it already
+          carries the logo and the theme toggle, and `SheetContent` draws the
+          close button. */}
+      {!inDrawer && (
+        <div className="flex h-14 items-center gap-2 border-b border-foreground/8 px-4">
+          <Logo />
+          <ThemeToggle className="-mr-1.5 ml-auto" />
+        </div>
+      )}
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
         {sections.map((section, i) => (
