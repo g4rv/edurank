@@ -12,7 +12,6 @@ export interface AchievementRow {
   status: 'PENDING' | 'APPROVED' | 'REMOVED';
   statusLabel: string;
   removeReason: string | null;
-  date: string;
   canDelete: boolean;
   /**
    * An indicator the person has nothing under — no activity exists, so there is
@@ -74,13 +73,13 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                     meta block is one short line against a text block that runs
                     to two or three, so pinning it to the top left it floating
                     against the first line with nothing beside the rest. Centred,
-                    the date, the score and the button read as belonging to the
-                    whole row. */}
+                    the score and the button read as belonging to the whole
+                    row. */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   {/* `flex-1`, not `min-w-0` alone. Without it the text block
                       sizes to its content, and a summary longer than the row
-                      claims the whole width — which pushes the date, the score
-                      and the delete button onto a second line at the LEFT. The
+                      claims the whole width — which pushes the score and the
+                      delete button onto a second line at the LEFT. The
                       median summary is 190 characters, so that was the normal
                       row, not the long one, and the skeleton beside it draws
                       them on the right. */}
@@ -120,26 +119,36 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {/* `--foreground-soft`, matching the details line — the
-                        two are the same tier of information (owner,
-                        2026-09-14). */}
-                    <span className="text-sm text-foreground-soft">{item.date}</span>
                     {/* Same rule as the rating table: «Зараховано» on every row
                         says nothing and buries the one «Відхилено», which is
                         the only state an НПП has to do something about. */}
                     {item.status !== 'APPROVED' && (
                       <Badge tone={STATUS_TONE[item.status]}>{item.statusLabel}</Badge>
                     )}
-                    <span
-                      className={cn(
-                        // 16px (owner, 2026-09-14): the score is the one value
-                        // on the row somebody actually goes looking for, and at
-                        // 14px it weighed the same as the date beside it.
-                        'text-base font-semibold tabular-nums',
-                        item.status === 'REMOVED' && 'text-muted-foreground line-through'
-                      )}
-                    >
-                      {item.score}
+                    {/* **«Бали:», and no date** (owner, 2026-09-14). The date
+                        was `createdAt` — the day the row was TYPED, not when
+                        the work happened — and several indicators carry a real
+                        «Дата» of their own that already shows in the details
+                        line, so the two could contradict each other. A closed
+                        year never had it either (`snapshotToGroups` writes an
+                        empty string), so dropping it also makes an open year
+                        and a closed one draw the same row.
+
+                        The word earns its place where the date's did not: a
+                        bare figure at the end of a row could be a count, a
+                        year or a page number. */}
+                    <span className="text-sm text-foreground-soft">
+                      Бали:{' '}
+                      <span
+                        className={cn(
+                          // 16px: the score is the one value on the row
+                          // somebody actually goes looking for.
+                          'text-base font-semibold text-foreground tabular-nums',
+                          item.status === 'REMOVED' && 'text-muted-foreground line-through'
+                        )}
+                      >
+                        {item.score.toLocaleString('uk-UA')}
+                      </span>
                     </span>
                     {item.canDelete && (
                       <DeleteActivityButton activityId={item.id} label={item.label} />

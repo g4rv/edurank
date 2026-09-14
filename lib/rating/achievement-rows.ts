@@ -32,7 +32,6 @@ function toRow(a: StaffActivity, canManage: boolean): AchievementRow {
     status: a.status,
     statusLabel: ACTIVITY_STATUS_LABELS[a.status],
     removeReason: a.removeReason,
-    date: a.createdAt.toLocaleDateString('uk-UA'),
     inputSource: a.activityType.inputSource,
     division: a.activityType.verifyingDivision
       ? shortDivisionName(a.activityType.verifyingDivision)
@@ -77,7 +76,6 @@ export function snapshotToGroups(snapshot: unknown): AchievementGroup[] | null {
         // should apply to already-closed years too.
         statusLabel: ACTIVITY_STATUS_LABELS[item.status] ?? item.statusLabel,
         removeReason: null,
-        date: '',
         canDelete: false,
       }))
       .sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber)),
@@ -127,7 +125,6 @@ export function toAchievementGroups(
       status: 'APPROVED',
       statusLabel: '',
       removeReason: null,
-      date: '',
       canDelete: false,
       isEmpty: true,
       inputSource: indicator.inputSource,

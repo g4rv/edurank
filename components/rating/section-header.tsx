@@ -59,21 +59,28 @@ export function SectionHeader({
           Розділ {section}. {SECTION_TITLES[section]}
         </h1>
         <div className="flex shrink-0 items-center gap-4">
-          {/* «балів», not a bare number. In the sidebar a column of figures
+          {/* Labelled, not a bare number. In the sidebar a column of figures
               explains itself; next to a title and a button one number does
               not. Kept quiet deliberately — this is your own record, and a
               large score invites comparing yourself with colleagues, which is
-              what /rating is for and why it sits behind a permission. */}
+              what /rating is for and why it sits behind a permission.
+
+              **«Бали: N», the same way a row says it** (owner, 2026-09-14).
+              This read «N балів» first, and the two phrasings sat one card
+              apart describing the same quantity. The label-first form won
+              because the row picked it: a quiet word, then the figure the eye
+              is actually after.
+
+              18px — at 14px it read as a caption beside a 24px title and a
+              filled button, the wrong weight for the one number this page
+              keeps. Still a step under the title: a figure ON the page, not
+              the page's subject. */}
           {score !== undefined && (
             <p className="text-sm text-foreground-soft">
-              {/* 18px (owner, 2026-09-14). At 14px it read as a caption beside
-                  a 24px title and a filled button — the wrong weight for the
-                  one number this page keeps. Still a step under the title: a
-                  figure ON the page, not the page's subject. */}
+              Бали:{' '}
               <span className="text-lg font-semibold text-foreground tabular-nums">
                 {score.toLocaleString('uk-UA')}
-              </span>{' '}
-              балів
+              </span>
             </p>
           )}
           {action}
