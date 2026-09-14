@@ -239,7 +239,7 @@ export function Sidebar({
 function AddActivityNav({ pathname }: { pathname: string }) {
   return (
     <div className="mt-1">
-      <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Додати активність</p>
+      <p className="px-2 py-1 text-sm font-medium text-foreground">Заповнення рейтингу</p>
 
       <div className="mt-0.5 ml-3.5 flex flex-col gap-0.5 border-l border-foreground/8 pl-2.5">
         {RATING_SECTIONS.map((section) => {

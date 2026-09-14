@@ -19,15 +19,25 @@ const RequiredFieldsContext = React.createContext<ReadonlySet<string>>(EMPTY);
  */
 export function RequiredFields({
   schema,
+  alwaysMark = false,
   children,
 }: {
   /** The same schema handed to `standardSchemaResolver` for this form */
   schema: unknown;
+  /**
+   * Mark required fields even when ALL of them are — for a form that is
+   * rebuilt under the reader, where the star must mean the same thing every
+   * time. See `requiredFieldNames`.
+   */
+  alwaysMark?: boolean;
   children: React.ReactNode;
 }) {
   // Schemas are module constants in every case but the achievement form, where
   // it is held in state — so the identity is stable and this runs once.
-  const names = React.useMemo(() => requiredFieldNames(schema), [schema]);
+  const names = React.useMemo(
+    () => requiredFieldNames(schema, { alwaysMark }),
+    [schema, alwaysMark]
+  );
   return <RequiredFieldsContext.Provider value={names}>{children}</RequiredFieldsContext.Provider>;
 }
 

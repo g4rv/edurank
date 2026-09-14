@@ -1,4 +1,6 @@
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/aurora/ui/badge';
+import { Card, EmptyState } from '@/components/aurora/ui/card';
 import { DeleteActivityButton } from '@/components/rating/delete-activity-button';
 
 export interface AchievementRow {
@@ -34,41 +36,65 @@ export interface AchievementGroup {
   items: AchievementRow[];
 }
 
-const STATUS_STYLES: Record<AchievementRow['status'], string> = {
-  APPROVED: 'bg-brand/10 text-brand',
-  PENDING: 'bg-muted text-muted-foreground',
-  REMOVED: 'bg-error/10 text-error-strong',
+/**
+ * The shared `Badge`, not a hand-rolled pill. It was three class strings here
+ * and a fourth set in `moderation-list` — §3 fixes what each tone means, and a
+ * status should not look different depending on which screen shows it.
+ *
+ * `APPROVED` is `brand`, not `ok`: green says «verified», and this app has no
+ * approval queue — a submission counts the moment it is saved, so «Зараховано»
+ * means «counts», not «somebody checked it». The badge's own table calls
+ * `brand` «a classification, not a state», which is exactly right here.
+ */
+const STATUS_TONE: Record<AchievementRow['status'], 'brand' | 'muted' | 'destructive'> = {
+  APPROVED: 'brand',
+  PENDING: 'muted',
+  REMOVED: 'destructive',
 };
 
 export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
   if (groups.length === 0) {
-    return (
-      <div className="rounded-xl border bg-card px-6 py-10 text-center text-sm text-muted-foreground">
-        За обраний рік досягнень ще немає.
-      </div>
-    );
+    return <EmptyState>За цей рік досягнень ще немає.</EmptyState>;
   }
 
   return (
     <div className="space-y-4">
       {groups.map((group) => (
-        <div key={group.number} className="rounded-xl border bg-card">
-          <h3 className="border-b px-5 py-3 text-sm font-semibold">
-            Розділ {group.number}. {group.title}
-          </h3>
+        // **No group heading** (owner, 2026-09-11). It printed «Розділ N.
+        // Title» at the top of the card, directly under the page's own `h1`
+        // saying the same words — this list only ever holds the section the
+        // route names. `group.number` and `group.title` stay on the type
+        // because `toAchievementGroups` is shared with the rating table, where
+        // several sections DO appear at once.
+        <Card key={group.number} padding="none">
           <ul className="divide-y">
             {group.items.map((item) => (
               <li key={item.id} className="px-5 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
+                  {/* `flex-1`, not `min-w-0` alone. Without it the text block
+                      sizes to its content, and a summary longer than the row
+                      claims the whole width — which pushes the date, the score
+                      and the delete button onto a second line at the LEFT. The
+                      median summary is 190 characters, so that was the normal
+                      row, not the long one, and the skeleton beside it draws
+                      them on the right. */}
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm">
                       <span className="mr-1.5 text-muted-foreground">{item.itemNumber}</span>
                       {item.label}
                     </p>
+                    {/* **Not `truncate`** (2026-09-11). It was clamped to one
+                        line with an ellipsis, and measured against 4000 real
+                        activities that hid most of nearly every row: the median
+                        evidence summary is 190 characters, 56% run past 120 and
+                        the longest is 1293. A row read «Квартиль: Q1 ·
+                        Бібліографічний опис: Шевченко О. П. Цифро…», which is
+                        not enough to tell one publication from another — and
+                        telling them apart is the whole reason the line is
+                        there. Wrapping is what a list can afford and a table
+                        column cannot. */}
                     {item.summary && (
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {item.summary}
-                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{item.summary}</p>
                     )}
                     {item.status === 'REMOVED' && item.removeReason && (
                       <p className="mt-1 text-xs text-error">
@@ -82,14 +108,7 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                         says nothing and buries the one «Відхилено», which is
                         the only state an НПП has to do something about. */}
                     {item.status !== 'APPROVED' && (
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                          STATUS_STYLES[item.status]
-                        )}
-                      >
-                        {item.statusLabel}
-                      </span>
+                      <Badge tone={STATUS_TONE[item.status]}>{item.statusLabel}</Badge>
                     )}
                     <span
                       className={cn(
@@ -107,7 +126,7 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       ))}
     </div>
   );

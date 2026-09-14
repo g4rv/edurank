@@ -54,13 +54,37 @@ function acceptsUndefined(field: unknown): boolean {
  * but no form here is shaped like that, and a threshold would be a rule nobody
  * could predict from looking at a screen.)
  */
-export function requiredFieldNames(schema: unknown): ReadonlySet<string> {
+export function requiredFieldNames(
+  schema: unknown,
+  {
+    /**
+     * Keep the stars even when every field is required.
+     *
+     * **For a form that SWAPS IN PLACE** (owner, 2026-09-11). The rule above
+     * assumes a form is a screen: login, «забули пароль», activation — each
+     * seen alone, so «all required, therefore mark none» is quiet and costs
+     * nothing, because the reader has nothing to compare it against.
+     *
+     * The achievement dialog breaks that assumption. Its fields are rebuilt
+     * from whichever indicator is chosen, so п.3.8 draws «Квартиль *» and
+     * «Бібліографічний опис *» and п.1.5, whose two fields both happen to be
+     * required, draws nothing — in the same dialog, seconds apart. The reader
+     * has just learnt what a star means, so a form without them reads as «these
+     * are optional», and the correction arrives as a validation error.
+     *
+     * Consistency within the container wins there: where the form changes under
+     * the reader, the star has to mean the same thing every time.
+     */
+    alwaysMark = false,
+  }: { alwaysMark?: boolean } = {}
+): ReadonlySet<string> {
   const shape = objectShape(schema);
   if (!shape) return EMPTY;
 
   const keys = Object.keys(shape);
   const required = keys.filter((k) => !acceptsUndefined(shape[k]));
-  if (required.length === 0 || required.length === keys.length) return EMPTY;
+  if (required.length === 0) return EMPTY;
+  if (!alwaysMark && required.length === keys.length) return EMPTY;
   return new Set(required);
 }
 

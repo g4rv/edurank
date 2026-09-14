@@ -61,3 +61,31 @@ describe('requiredFieldNames', () => {
     });
   });
 });
+
+describe('alwaysMark', () => {
+  it('marks every required field when the form swaps in place', () => {
+    // п.1.5's shape: two fields, both obligatory. The default rule returns
+    // nothing here — correct for a form seen alone, wrong for one rebuilt
+    // inside a dialog beside forms that DO show stars.
+    const allRequired = z.object({
+      participationKind: z.string().min(1),
+      order: z.string().min(1),
+    });
+
+    expect(requiredFieldNames(allRequired)).toEqual(new Set());
+    expect(requiredFieldNames(allRequired, { alwaysMark: true })).toEqual(
+      new Set(['participationKind', 'order'])
+    );
+  });
+
+  it('still marks nothing when the form has no required field at all', () => {
+    const noneRequired = z.object({ note: z.string().optional() });
+    expect(requiredFieldNames(noneRequired, { alwaysMark: true })).toEqual(new Set());
+  });
+
+  it('is unchanged on a mixed form — the star already distinguishes', () => {
+    const mixed = z.object({ quartile: z.string().min(1), doi: z.string().optional() });
+    expect(requiredFieldNames(mixed, { alwaysMark: true })).toEqual(new Set(['quartile']));
+    expect(requiredFieldNames(mixed)).toEqual(new Set(['quartile']));
+  });
+});

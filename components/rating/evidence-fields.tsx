@@ -12,18 +12,18 @@ import { cn } from '@/lib/utils';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { DateInput } from '@/components/aurora/ui/date-input';
-import { Input } from '@/components/ui/input';
-import { DoiInput } from '@/components/ui/doi-input';
-import { IsbnInput } from '@/components/ui/isbn-input';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/aurora/ui/input';
+import { DoiInput } from '@/components/aurora/ui/doi-input';
+import { IsbnInput } from '@/components/aurora/ui/isbn-input';
+import { Textarea } from '@/components/aurora/ui/textarea';
+import { Switch } from '@/components/aurora/ui/switch';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import { MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
 
