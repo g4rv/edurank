@@ -441,8 +441,12 @@ function EntryForm({
             // Descendant, not child: `contents` drops the renderer's wrapper out
             // of the LAYOUT, but it is still there in the DOM, so `>` matches
             // nothing past it.
-            'sm:[&_[data-slot=field]:has(textarea)]:col-span-2',
-            'sm:[&_[data-slot=field]:has([role=combobox])]:col-span-2',
+            // `:not([data-span])` — a field that states its own width wins.
+            // Without it these descendant selectors outrank the field's own
+            // class and every select goes full-width again, which is what kept
+            // «Етап» and «Призове місце» off one line.
+            'sm:[&_[data-slot=field]:not([data-span]):has(textarea)]:col-span-2',
+            'sm:[&_[data-slot=field]:not([data-span]):has([role=combobox])]:col-span-2',
             // **Inputs line up, labels do not** (owner, 2026-09-14). «Навчальний
             // предмет / назва заходу» wraps to two lines and «Рік» does not, so
             // side by side their boxes sat at different heights. Bottom-aligning
@@ -486,6 +490,19 @@ function EntryForm({
             </FormField>
           )}
 
+          <EvidenceFields
+            className="contents"
+            fields={fields}
+            register={register}
+            control={control}
+            errors={errors}
+            disabled={pending}
+          />
+
+          {/* **Last, not first** (owner, 2026-09-14). It is the only answer on
+              the form that arrives already filled in, so it belongs where the
+              eye ends rather than where it starts — the fields somebody has to
+              think about come first. */}
           {/* The hint appears only where the form asks for years of its own —
             п.11 and п.20 both have «Рік початку / завершення», and there «Рік»
             alone does not say which year is meant. On the other fifteen it was
@@ -505,15 +522,6 @@ function EntryForm({
               {...register('year')}
             />
           </FormField>
-
-          <EvidenceFields
-            className="contents"
-            fields={fields}
-            register={register}
-            control={control}
-            errors={errors}
-            disabled={pending}
-          />
 
           <Preview fields={fields} control={control} className="sm:col-span-2" />
         </div>

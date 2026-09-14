@@ -49,13 +49,31 @@ interface EvidenceFieldsProps {
 
 export type RenderItem =
   | { kind: 'single'; field: EvidenceField }
-  | { kind: 'group'; title: string; fields: EvidenceField[] };
+  | { kind: 'group'; title: string; fields: EvidenceField[] }
+  | { kind: 'joined'; title: string; fields: EvidenceField[] };
 
-/** Folds consecutive checkboxes sharing a `group` title into one block */
+/**
+ * Folds two kinds of run into one block.
+ *
+ * - consecutive **checkboxes** sharing a `group` title — п.5.1's матеріали
+ * - consecutive **text fields** sharing a `join` key — п.15's ПІБ школяра
+ *
+ * They look alike and mean different things. A checkbox group is several
+ * answers under one heading; a joined set is ONE answer someone types in
+ * pieces, so it gets one label and prints as one string (`summarizeEvidence`).
+ */
 export function toRenderItems(fields: readonly EvidenceField[]): RenderItem[] {
   const items: RenderItem[] = [];
 
   for (const field of fields) {
+    const join = field.kind === 'text' ? field.join : undefined;
+    if (join) {
+      const last = items.at(-1);
+      if (last?.kind === 'joined' && last.title === join) last.fields.push(field);
+      else items.push({ kind: 'joined', title: join, fields: [field] });
+      continue;
+    }
+
     const group = field.kind === 'checkbox' ? field.group : undefined;
     if (!group) {
       items.push({ kind: 'single', field });
@@ -117,7 +135,7 @@ export function EvidenceFields({
     switch (f.kind) {
       case 'text':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
+          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} span={f.span}>
             {f.multiline ? (
               <Textarea
                 id={f.name}
@@ -215,7 +233,7 @@ export function EvidenceFields({
 
       case 'select':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
+          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} span={f.span}>
             <Controller
               name={f.name}
               control={control}
@@ -284,6 +302,41 @@ export function EvidenceFields({
     <div className={className}>
       {toRenderItems(fields).map((item) => {
         if (item.kind === 'single') return renderField(item.field);
+
+        if (item.kind === 'joined') {
+          // One label over the whole set, and each box says which part it is
+          // through its placeholder. «Прізвище / Ім'я / По батькові» as three
+          // full labels stacked three field-heights tall for what a reader sees
+          // as a single name.
+          const joinedError = item.fields
+            .map((f) => errors[f.name] as { message?: string } | undefined)
+            .find(Boolean);
+          const labelled = item.fields.find((f) => f.kind === 'text' && f.joinLabel);
+          const title = labelled?.kind === 'text' ? labelled.joinLabel : undefined;
+
+          return (
+            <FormField
+              key={item.title}
+              label={title ?? item.fields[0].label}
+              error={joinedError}
+              span={2}
+            >
+              <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+                {item.fields.map((f) => (
+                  <Input
+                    key={f.name}
+                    id={f.name}
+                    placeholder={f.label}
+                    aria-label={f.label}
+                    disabled={disabled}
+                    className="min-w-0 flex-1"
+                    {...register(f.name)}
+                  />
+                ))}
+              </div>
+            </FormField>
+          );
+        }
 
         // The set fails as one, so it gets one heading and one message.
         // No individual box is marked: a rule like «tick at least one» has no

@@ -28,6 +28,11 @@ interface FormFieldProps {
   startAdornment?: React.ReactNode;
   endAdornment?: React.ReactNode;
   className?: string;
+  /**
+   * Columns this field takes in a two-column form. Also stamped as `data-span`
+   * so a grid can tell a deliberate width from one it assigned itself.
+   */
+  span?: 1 | 2;
   children: React.ReactNode;
 }
 
@@ -43,6 +48,7 @@ export function FormField({
   startAdornment,
   endAdornment,
   className,
+  span,
   children,
 }: FormFieldProps) {
   // Read off the form's Zod schema, never marked by hand — see
@@ -51,7 +57,11 @@ export function FormField({
   const isRequired = required ?? schemaSaysRequired;
 
   return (
-    <Field data-invalid={!!error} className={className}>
+    <Field
+      data-invalid={!!error}
+      data-span={span}
+      className={cn(span === 2 && 'sm:col-span-2', span === 1 && 'sm:col-span-1', className)}
+    >
       {label && (
         <FieldLabel htmlFor={htmlFor} className={cn(hideLabel && 'sr-only')}>
           {label}

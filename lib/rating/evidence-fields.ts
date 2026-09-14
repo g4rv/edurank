@@ -33,6 +33,10 @@ export type EvidenceField =
        * to write the year before the pages or after.
        */
       placeholder?: string;
+      /** The one label drawn over a joined set, on its FIRST member */
+      joinLabel?: string;
+      /** Columns this field takes in a two-column form. Omitted = the kind decides. */
+      span?: 1 | 2;
     }
   | {
       kind: 'number';
@@ -93,6 +97,13 @@ export type EvidenceField =
       options: readonly { value: string; label: string; points?: number }[];
       /** A list that may be left unanswered — п.15's «Призове місце» on a jury row */
       optional?: boolean;
+      /**
+       * Columns this select takes. A list defaults to full width, because its
+       * options are usually long sentences and the panel is only as wide as its
+       * trigger — but «Етап» and «Призове місце» are four short words each and
+       * read better side by side.
+       */
+      span?: 1 | 2;
     };
 
 // The field constructors below are exported for one other caller: the
@@ -104,7 +115,14 @@ export type EvidenceField =
 export const text = (
   name: string,
   label: string,
-  opts?: { multiline?: boolean; optional?: boolean; placeholder?: string; join?: string }
+  opts?: {
+    multiline?: boolean;
+    optional?: boolean;
+    placeholder?: string;
+    join?: string;
+    joinLabel?: string;
+    span?: 1 | 2;
+  }
 ): EvidenceField => ({ kind: 'text', name, label, ...opts });
 
 export const number = (
@@ -173,7 +191,7 @@ export const select = (
   name: string,
   label: string,
   options: readonly { value: string; label: string }[],
-  opts?: { optional?: boolean }
+  opts?: { optional?: boolean; span?: 1 | 2 }
 ): EvidenceField => ({ kind: 'select', name, label, options, ...opts });
 
 export const opt = (value: string, label: string) => ({ value, label });

@@ -234,35 +234,36 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   // vote and they declined to add one (2026-08-07). Every row here is typed, so
   // it is the position that most needs a form worth the name.
   15: [
+    // **Order and grouping are the owner's** (2026-09-14): who the школяр is,
+    // what you did, how far they got and where they placed, what the subject
+    // was — and the year last, because it is the one answer already filled in.
+    text('pupilLast', 'Прізвище', {
+      join: 'pupil',
+      joinLabel: 'Дані про школяра',
+      optional: true,
+    }),
+    text('pupilFirst', 'Ім’я', { join: 'pupil', optional: true }),
+    text('pupilMiddle', 'По батькові', { join: 'pupil', optional: true }),
     select('option', 'Вид', [
       opt('olympiad_winner', 'керівництво школярем — призером учнівської олімпіади'),
       opt('man_winner', 'керівництво школярем — призером конкурсу-захисту МАН'),
       opt('olympiad_jury', 'участь у журі учнівської олімпіади'),
       opt('man_jury', 'участь у журі конкурсу-захисту МАН'),
     ]),
-    select('stage', 'Етап', [
-      opt('stage_3', 'III етап'),
-      opt('stage_4', 'IV етап'),
-      opt('man_stage_2', 'II етап (МАН)'),
-      opt('man_stage_3', 'III етап (МАН)'),
-    ]),
-    // No-break spaces on BOTH sides of the pair, leaving the slash as the only
-    // place the label can wrap: «Навчальний предмет /» then «назва заходу».
-    // Gluing only the left side was not enough — the line then broke after
-    // «назва» instead, which reads worse than the original.
-    text('event', 'Навчальний предмет / назва заходу'),
-    // **Three boxes, one printed name** (owner, 2026-09-14). As a single «ПІБ
-    // школяра» box one person typed «Коваленко М. І.» and the next «Марія
-    // Коваленко», and the document is read against the Ліцензійні умови. The
-    // `join` key puts them back together as «Коваленко Марія Ігорівна» — see
-    // `summarizeEvidence`.
-    text('pupilLast', 'Прізвище школяра', { join: 'pupil', optional: true }),
-    text('pupilFirst', 'Ім’я', { join: 'pupil', optional: true }),
-    text('pupilMiddle', 'По батькові', { join: 'pupil', optional: true }),
-    // **A select, not a box** (owner, 2026-09-14). «Призове місце» has four
-    // real answers, and as free text the same achievement arrived as «2 місце»,
-    // «II», «друге» — three spellings of one fact inside one licence document.
-    // Optional because the jury variants above have no place to record.
+    // Half-width each, so the two sit on one line. A select is full-width by
+    // default because its options are usually sentences; these are four short
+    // words apiece.
+    select(
+      'stage',
+      'Етап',
+      [
+        opt('stage_3', 'III етап'),
+        opt('stage_4', 'IV етап'),
+        opt('man_stage_2', 'II етап (МАН)'),
+        opt('man_stage_3', 'III етап (МАН)'),
+      ],
+      { span: 1 }
+    ),
     select(
       'place',
       'Призове місце',
@@ -272,8 +273,11 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
         opt('third', 'III місце'),
         opt('laureate', 'лауреат'),
       ],
-      { optional: true }
+      { optional: true, span: 1 }
     ),
+    // No-break spaces on BOTH sides of the pair, leaving the slash as the only
+    // place the label can wrap: «Навчальний предмет /» then «назва заходу».
+    text('event', 'Навчальний предмет / назва заходу', { span: 2 }),
   ],
 
   19: [
