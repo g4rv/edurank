@@ -68,6 +68,15 @@ export type EvidenceField =
       hostsError?: string;
     }
   | { kind: 'date'; name: string; label: string; optional?: boolean }
+  /**
+   * A period, picked as one range rather than typed as two ends.
+   *
+   * Two independent year boxes let «2019 → 2014» through, and no amount of
+   * validation makes that control honest — the person still has to be told
+   * afterwards. A range writes its ends in order, so the mistake is not
+   * expressible. Stored as `{ from, to }`, both `YYYY-MM-DD`.
+   */
+  | { kind: 'dateRange'; name: string; label: string; optional?: boolean }
   // Check-digit validated; see lib/isbn.ts for what that does and does not prove
   | { kind: 'isbn'; name: string; label: string; optional?: boolean }
   // Syntax-checked only — a DOI has no check digit; see lib/doi.ts
@@ -162,6 +171,12 @@ export const date = (
   label,
   ...opts,
 });
+
+export const dateRange = (
+  name: string,
+  label: string,
+  opts?: { optional?: boolean }
+): EvidenceField => ({ kind: 'dateRange', name, label, ...opts });
 
 export const isbn = (
   name: string,
@@ -262,6 +277,12 @@ const GUARANTOR_PERIOD_OPTIONS = [
   opt('accreditation_year', 'на рік акредитації'),
 ];
 
+/** `2014-09-01` as the document writes it: `01.09.2014` */
+function uaDay(isoDay: string): string {
+  const [y, m, d] = isoDay.split('-');
+  return `${d}.${m}.${y}`;
+}
+
 /**
  * Short human-readable line for lists and audit views,
  * e.g. «Квартиль Q1 · Nature 2026 · https://doi.org/…».
@@ -332,6 +353,13 @@ export function summarizeEvidence(
       case 'number':
         parts.push(`${f.label}: ${v}`);
         break;
+      case 'dateRange': {
+        // «з 01.09.2014 до 31.08.2019» — the shape the document already uses for
+        // a period, and the one a reader counts five years in.
+        const r = v as { from?: string; to?: string };
+        if (r?.from && r?.to) parts.push(`з ${uaDay(r.from)} до ${uaDay(r.to)}`);
+        break;
+      }
       case 'isbn':
         parts.push(`ISBN ${v}`);
         break;

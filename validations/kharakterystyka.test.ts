@@ -78,35 +78,42 @@ describe('п.15 — a name is Ukrainian letters, at least two', () => {
   });
 });
 
-describe('п.20 — a period is picked, not typed', () => {
+describe('п.20 — a period is one range, so it cannot run backwards', () => {
   const p20 = positionFormSchema(20, 2022, 2026);
   const row = {
     year: 2026,
     group: null,
     organization: 'ТОВ «Агросвіт»',
     jobTitle: 'Агроном',
-    fromYear: '2014',
-    toYear: '2019',
+    period: { from: '2014-09-01', to: '2019-08-31' },
   };
   const p20Problem = (value: unknown) => {
     const result = p20.safeParse(value);
     return result.success ? null : result.error.issues[0].message;
   };
 
-  it('accepts two years from the list', () => {
+  it('accepts a period in order', () => {
     expect(p20Problem(row)).toBeNull();
   });
 
-  it('refuses anything not in the list', () => {
-    // 123123 saved before this and printed into a licence document as a year of
-    // employment. It is not expressible from a list at all.
-    expect(p20Problem({ ...row, fromYear: '123123' })).not.toBeNull();
-    expect(p20Problem({ ...row, toYear: '123' })).not.toBeNull();
-    expect(p20Problem({ ...row, fromYear: '' })).not.toBeNull();
+  it('refuses an end before its start', () => {
+    // The picker cannot produce this; the schema is what stops a request that
+    // skips the picker.
+    expect(p20Problem({ ...row, period: { from: '2019-08-31', to: '2014-09-01' } })).not.toBeNull();
   });
 
-  it('offers years past today, because an end year can be ahead of it', () => {
-    const ahead = String(new Date().getFullYear() + 5);
-    expect(p20Problem({ ...row, toYear: ahead })).toBeNull();
+  it('refuses a half-picked period', () => {
+    expect(p20Problem({ ...row, period: { from: '2014-09-01' } })).not.toBeNull();
+  });
+
+  it('refuses nonsense where a date belongs', () => {
+    // 123123 saved before this and printed into a licence document as a year of
+    // employment.
+    expect(p20Problem({ ...row, period: { from: '123123', to: '2019-08-31' } })).not.toBeNull();
+  });
+
+  it('allows a period running past today, for work somebody still does', () => {
+    const ahead = `${new Date().getFullYear() + 5}-01-01`;
+    expect(p20Problem({ ...row, period: { from: '2014-09-01', to: ahead } })).toBeNull();
   });
 });

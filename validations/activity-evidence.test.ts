@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
 import {
+  dateRange,
   doi,
   EVIDENCE_FIELDS,
   isbn,
@@ -424,5 +425,43 @@ describe('an optional select may be left unanswered', () => {
     const required = select('stage', 'Етап', [opt('a', 'A')]);
     expect(fieldSchema(required).safeParse('').success).toBe(false);
     expect(fieldSchema(required).safeParse('a').success).toBe(true);
+  });
+});
+
+describe('dateRange — one field, two ends, never backwards', () => {
+  // «Рік початку / Рік завершення» were two independent answers, so 2019 → 2014
+  // saved happily. A range cannot express that: the picker writes the two ends
+  // in order, and the schema refuses the inversion a request could still forge.
+  const field = dateRange('period', 'Період роботи');
+  const parse = (v: unknown) => fieldSchema(field).safeParse(v);
+
+  it('accepts a range in order', () => {
+    expect(parse({ from: '2014-09-01', to: '2019-08-31' }).success).toBe(true);
+  });
+
+  it('accepts a single day at both ends', () => {
+    expect(parse({ from: '2014-09-01', to: '2014-09-01' }).success).toBe(true);
+  });
+
+  it('refuses an end before its start', () => {
+    const result = parse({ from: '2019-08-31', to: '2014-09-01' });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0].message).toMatch(/раніше/);
+  });
+
+  it('refuses a half-filled range', () => {
+    expect(parse({ from: '2014-09-01' }).success).toBe(false);
+    expect(parse({ to: '2019-08-31' }).success).toBe(false);
+  });
+
+  it('refuses nonsense in place of a date', () => {
+    expect(parse({ from: '123123', to: '2019-08-31' }).success).toBe(false);
+    expect(parse('2014-2019').success).toBe(false);
+  });
+
+  it('lets an optional range be left empty', () => {
+    const opt_ = dateRange('period', 'Період', { optional: true });
+    expect(fieldSchema(opt_).safeParse(undefined).success).toBe(true);
+    expect(fieldSchema(opt_).safeParse('').success).toBe(true);
   });
 });

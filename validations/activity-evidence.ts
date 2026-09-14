@@ -93,6 +93,27 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       );
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
+    case 'dateRange': {
+      // Both ends, and the end never before the start. The picker cannot
+      // produce an inverted range, so this is here for the request that skips
+      // the picker — the half of a shared rule an attacker keeps.
+      const day = z.iso.date({ error: 'Некоректна дата' }).refine(
+        (v) => {
+          const year = Number(v.slice(0, 4));
+          return year >= MIN_EVIDENCE_YEAR && year <= new Date().getFullYear() + 20;
+        },
+        { error: `Рік має бути не раніше ${MIN_EVIDENCE_YEAR}` }
+      );
+      const base = z
+        .object({ from: day, to: day })
+        .refine((r) => r.from <= r.to, { error: 'Дата завершення раніше за дату початку' });
+      // An untouched range arrives as '' from the form, like every other kind.
+      const blank = (v: unknown) =>
+        v === '' || v === null || (typeof v === 'object' && v !== null && !('from' in v))
+          ? undefined
+          : v;
+      return f.optional ? z.preprocess(blank, base.optional()) : base;
+    }
     case 'isbn': {
       // Stored as typed — publishers hyphenate differently, and the check
       // ignores separators anyway

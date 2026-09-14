@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { DateInput } from '@/components/aurora/ui/date-input';
+import { DateRangeInput } from '@/components/aurora/ui/date-range-input';
 import { Input } from '@/components/aurora/ui/input';
 import { DoiInput } from '@/components/aurora/ui/doi-input';
 import { IsbnInput } from '@/components/aurora/ui/isbn-input';
@@ -196,6 +197,29 @@ export function EvidenceFields({
         return (
           <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
             <DoiInput id={f.name} disabled={disabled} {...register(f.name)} />
+          </FormField>
+        );
+
+      case 'dateRange':
+        return (
+          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} span={2}>
+            <Controller
+              name={f.name}
+              control={control}
+              render={({ field }) => (
+                <DateRangeInput
+                  id={f.name}
+                  value={
+                    field.value && typeof field.value === 'object'
+                      ? (field.value as { from?: string; to?: string })
+                      : undefined
+                  }
+                  onChange={field.onChange}
+                  disabled={disabled}
+                  invalid={!!error}
+                />
+              )}
+            />
           </FormField>
         );
 

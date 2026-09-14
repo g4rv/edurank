@@ -67,6 +67,8 @@ describe('a filled form produces a printable sentence', () => {
             return [f.name, 2024];
           case 'date':
             return [f.name, '2024-05-01'];
+          case 'dateRange':
+            return [f.name, { from: '2019-09-01', to: '2024-05-01' }];
           case 'url':
             return [f.name, 'https://example.org/1'];
           case 'isbn':

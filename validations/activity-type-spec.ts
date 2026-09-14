@@ -49,6 +49,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     hostsError: z.string().max(500).optional(),
   }),
   z.strictObject({ kind: z.literal('date'), ...common, optional: z.boolean().optional() }),
+  z.strictObject({ kind: z.literal('dateRange'), ...common, optional: z.boolean().optional() }),
   z.strictObject({ kind: z.literal('isbn'), ...common, optional: z.boolean().optional() }),
   z.strictObject({ kind: z.literal('doi'), ...common, optional: z.boolean().optional() }),
   z.strictObject({

@@ -34,12 +34,12 @@ import {
   isbn,
   number,
   opt,
+  dateRange,
   select,
   text,
   url,
 } from '@/lib/rating/evidence-fields';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
-import { MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
 
 const DEGREE_OPTIONS = [
   opt('doctor', 'доктор наук'),
@@ -62,25 +62,6 @@ export /**
  * printed into a licence document as a year of employment.
  */
 const LATEST_YEAR = new Date().getFullYear() + 20;
-
-/**
- * Every year a «Рік початку / завершення» may take, newest first.
- *
- * **Lists, not typed numbers** (owner, 2026-09-14). As boxes the pair accepted
- * 123123 — which saved and printed into a licence document as a year of
- * employment — and nothing stopped an end year preceding its start. Neither is
- * expressible from a list.
- *
- * Newest first because a period of practical work is far more often recent than
- * 1950. The value is a string like every other select, and `summarizeEvidence`
- * prints the option's own label, so the document still reads «Рік початку: 2014».
- *
- * Used by п.11 and п.20, the two positions that ask for a period.
- */
-const YEAR_OPTIONS = Array.from({ length: LATEST_YEAR - MIN_EVIDENCE_YEAR + 1 }, (_, i) => {
-  const year = String(LATEST_YEAR - i);
-  return opt(year, year);
-});
 
 const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   // ≥5 публікацій у фахових виданнях / Scopus / WoS. No quartile: the licence
@@ -209,8 +190,10 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   11: [
     text('organization', 'Назва установи / організації'),
     text('basis', 'Договір / підстава'),
-    select('fromYear', 'Рік початку', YEAR_OPTIONS, { span: 1 }),
-    select('toYear', 'Рік завершення', YEAR_OPTIONS, { span: 1 }),
+    // One range, not two ends (owner, 2026-09-14): a picker that writes them in
+    // order cannot produce «2019 → 2014», which two independent fields let
+    // through however they were validated.
+    dateRange('period', 'Період роботи'),
     url('link', 'Посилання', { optional: true }),
   ],
 
@@ -315,8 +298,10 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   20: [
     text('organization', 'Назва організації'),
     text('jobTitle', 'Посада'),
-    select('fromYear', 'Рік початку', YEAR_OPTIONS, { span: 1 }),
-    select('toYear', 'Рік завершення', YEAR_OPTIONS, { span: 1 }),
+    // One range, not two ends (owner, 2026-09-14): a picker that writes them in
+    // order cannot produce «2019 → 2014», which two independent fields let
+    // through however they were validated.
+    dateRange('period', 'Період роботи'),
   ],
 };
 
