@@ -96,7 +96,18 @@ function SelectContent({
         data-align-trigger={position === 'item-aligned'}
         className={cn(
           listPanel,
-          'relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+          // `max-w` is the whole reason a long option no longer takes the
+          // panel off the screen. Without it the panel sizes to its widest
+          // row: п.3.12's label opened a 1083px menu from a 463px trigger,
+          // which on a phone reached 693px past the right edge with no way
+          // to scroll to it. A menu belongs to its control, so it is that
+          // control's width — and a label too long for it WRAPS rather than
+          // truncating, because п.3.7's two monographs differ only in their
+          // last words and an ellipsis made them the same row.
+          //
+          // `min-w-36` still wins on a very narrow trigger, which is what it
+          // is for.
+          'relative z-50 max-h-(--radix-select-content-available-height) max-w-(--radix-select-trigger-width) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
           position === 'popper' &&
             'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
           className

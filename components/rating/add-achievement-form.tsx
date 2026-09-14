@@ -128,7 +128,14 @@ function TypePicker({
           {types.map((t) => (
             <SelectItem key={t.id} value={t.id}>
               <span className="font-medium text-muted-foreground">{t.itemNumber}</span>
-              <span className="line-clamp-1">{t.label}</span>
+              {/* `block`, not `line-clamp-1`. The clamp cut every label to one
+                  line, which made п.3.7's «Видання монографії (українською
+                  мовою)» and «(мовою країн Європейського союзу)» the same row —
+                  the two differ only in their last words. The panel is capped to
+                  the trigger now, so a long label wraps instead. The TRIGGER
+                  still shows one line: it clamps the selected value itself, see
+                  `SelectTrigger`. */}
+              <span className="block">{t.label}</span>
             </SelectItem>
           ))}
         </SelectContent>
