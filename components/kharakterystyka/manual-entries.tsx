@@ -447,15 +447,21 @@ function EntryForm({
             // «Етап» and «Призове місце» off one line.
             'sm:[&_[data-slot=field]:not([data-span]):has(textarea)]:col-span-2',
             'sm:[&_[data-slot=field]:not([data-span]):has([role=combobox])]:col-span-2',
-            // **Inputs line up, labels do not** (owner, 2026-09-14). «Навчальний
-            // предмет / назва заходу» wraps to two lines and «Рік» does not, so
-            // side by side their boxes sat at different heights. Bottom-aligning
-            // the field puts every INPUT on one line — which is the row the eye
-            // actually follows — and lets the labels above be as tall as they
-            // need. Same rule the staff form settled on: align the controls, not
-            // the labels.
-            'sm:[&_[data-slot=field]]:flex sm:[&_[data-slot=field]]:h-full',
-            'sm:[&_[data-slot=field]]:flex-col sm:[&_[data-slot=field]]:justify-end'
+            // **Fields align at the TOP, not the bottom.**
+            //
+            // Bottom-aligning was tried (2026-09-14) so that a one-line label
+            // beside a two-line one still put their inputs on one line. It broke
+            // the moment the form was submitted empty: an error message is part
+            // of the cell, so «Етап» growing by one red line pushed «Призове
+            // місце» down beside it — misaligned exactly when a person is
+            // reading the form most carefully.
+            //
+            // The reorder that followed removed the reason for it: every pair
+            // that now shares a row has two short labels. If a position ever
+            // needs a tall label beside a short one, give it `span: 2` rather
+            // than bringing this back — alignment that depends on nothing going
+            // wrong is not alignment.
+            'sm:[&_[data-slot=field]]:self-start'
           )}
         >
           {choices.length > 0 && (
