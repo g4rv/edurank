@@ -5,6 +5,10 @@ import { canModerateRating } from '@/lib/rating/moderation';
 import { getEditorDivisionId } from '@/lib/permissions';
 import { listEntryDivisions } from '@/lib/queries/list-division-data';
 import { scopeOf } from '@/lib/queries/scope';
+import { activeYear } from '@/lib/queries/get-active-template';
+import { getRatingEntry } from '@/lib/queries/get-rating';
+import { sectionScores } from '@/lib/rating/section-scores';
+import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { Sidebar } from '@/components/sidebar';
 import { NavDrawer } from '@/components/nav-drawer';
 import { Toaster } from '@/components/ui/sonner';
@@ -41,14 +45,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
       })
     : null;
 
+  // The year's score per section, for the nav. Two indexed single-row queries,
+  // measured at 2.5ms against a 169-357ms response — but they are behind this
+  // gate anyway, so somebody with no rating group to hang them on pays nothing.
+  // `NPP_RATING_OPEN` is in the condition because the group itself disappears
+  // when the rating is closed, and numbers for a nav that is not drawn are
+  // two queries spent on nothing.
+  const isNpp = staff?.isNpp ?? false;
+  const year = isNpp && NPP_RATING_OPEN ? await activeYear() : null;
+  const ratingTotals =
+    year && session.user.staffId
+      ? sectionScores(await getRatingEntry(session.user.staffId, year))
+      : null;
+
   // Built once and handed to both the rail and the drawer, so the two can never
   // be given different answers about who may see what.
   const nav = {
     user: session.user,
-    isNpp: staff?.isNpp ?? false,
+    isNpp,
     canModerate,
     canEnterData,
     headsDepartment,
+    ratingTotals,
   };
 
   return (

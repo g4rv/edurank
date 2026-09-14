@@ -28,6 +28,7 @@ import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { NPP_RATING_CLOSED_NOTE, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import type { Role } from '@/lib/generated/prisma/client';
 import { Logo } from '@/components/aurora/logo';
+import type { SectionTotals } from '@/lib/rating/section-scores';
 
 const RATING_SECTIONS = [1, 2, 3, 4, 5];
 
@@ -79,6 +80,12 @@ export interface SidebarProps {
   /** Heads a кафедра or a факультет — derived from headId/deanId, never a Role */
   headsDepartment?: boolean;
   /**
+   * The open year's score per section, for the rating group. `null` when the
+   * person has no entry yet — five zeros would read as a counted record of
+   * nothing rather than as nothing submitted (see `sectionScores`).
+   */
+  ratingTotals?: SectionTotals | null;
+  /**
    * Rendered inside the phone drawer rather than as the rail.
    *
    * The nav itself is identical — same links, same order, same active state —
@@ -111,6 +118,7 @@ export function Sidebar({
   canModerate = false,
   canEnterData = false,
   headsDepartment = false,
+  ratingTotals = null,
   inDrawer = false,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -245,7 +253,7 @@ export function Sidebar({
             {section.items.map((item) => (
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}
-            {section.showSections && <AddActivityNav pathname={pathname} />}
+            {section.showSections && <AddActivityNav pathname={pathname} totals={ratingTotals} />}
           </Fragment>
         ))}
       </nav>
@@ -262,7 +270,7 @@ export function Sidebar({
 
 // Always open: five links are short enough to show outright, and a collapsed
 // group hid the only route an НПП uses to submit anything.
-function AddActivityNav({ pathname }: { pathname: string }) {
+function AddActivityNav({ pathname, totals }: { pathname: string; totals: SectionTotals | null }) {
   return (
     <div className="mt-1">
       <p className="px-2 py-1 text-sm font-medium text-foreground">Заповнення рейтингу</p>
@@ -283,10 +291,40 @@ function AddActivityNav({ pathname }: { pathname: string }) {
                   : 'text-sidebar-foreground hover:bg-foreground/6'
               )}
             >
-              Розділ {section}
+              <span className="flex items-center gap-2">
+                Розділ {section}
+                {/* Grey and never brand, even on the active row: §3 keeps
+                    chrome monochrome, and a coloured figure here would pull the
+                    eye off the page it is meant to lead to. `tabular-nums` so
+                    the five line up as a column rather than a ragged edge. */}
+                {totals && (
+                  <span className="ml-auto text-muted-foreground tabular-nums">
+                    {totals.sections[section - 1].toLocaleString('uk-UA')}
+                  </span>
+                )}
+              </span>
             </Link>
           );
         })}
+
+        {/* **A row of its own, not on the heading** (owner, 2026-09-14). The
+            total was tried beside «Заповнення рейтингу» and did not fit: the
+            row is 192px and the heading alone needs 147, so even «1 320»
+            wrapped it onto two lines — and a real total like 29 300 is wider
+            still.
+
+            Down here it also lands in the same column as the five, which is
+            what `tabular-nums` is for: six figures reading as one column that
+            adds up, rather than a label with a number stuck to its end.
+            «Разом» is the word `RatingBars` already uses for this number. */}
+        {totals && (
+          <div className="mt-1 flex items-center gap-2 border-t border-foreground/8 px-2 pt-1.5 text-sm">
+            <span className="font-medium">Разом</span>
+            <span className="ml-auto font-medium tabular-nums">
+              {totals.total.toLocaleString('uk-UA')}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

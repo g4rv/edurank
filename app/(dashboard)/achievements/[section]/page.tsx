@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listStaffActivities } from '@/lib/queries/list-activities';
+import { getRatingEntry } from '@/lib/queries/get-rating';
+import { sectionScores } from '@/lib/rating/section-scores';
 import { RatingClosedNote } from '@/components/rating/rating-closed-note';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { AchievementsList } from '@/components/rating/achievements-list';
@@ -92,6 +94,11 @@ export default async function AchievementsSectionPage({
   // and simply offers no way to add.
   const canManage = template.status === 'OPEN';
 
+  // The SAME stored row the sidebar reads, not a sum of the rows below. A
+  // deactivated indicator still has rows on screen and scores nothing, so
+  // adding up what is listed could disagree with the record — one source.
+  const totals = sectionScores(await getRatingEntry(staffId, template.year));
+
   const activities = await listStaffActivities(staffId, template.year, section);
   const groups = toAchievementGroups(activities, undefined, canManage);
 
@@ -115,7 +122,11 @@ export default async function AchievementsSectionPage({
           differently. Three levels because that is the sidebar's own shape —
           Особисте › Заповнення рейтингу › Розділ N. */}
       <Breadcrumbs items={[...RATING_CRUMBS, { label: `Розділ ${section}` }]} />
-      <SectionHeader section={section} action={<AddAchievementForm types={submittableTypes} />} />
+      <SectionHeader
+        section={section}
+        score={totals?.sections[section - 1] ?? 0}
+        action={<AddAchievementForm types={submittableTypes} />}
+      />
 
       <AchievementsList groups={groups} />
     </div>

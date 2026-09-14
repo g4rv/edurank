@@ -42,6 +42,12 @@ export default function AchievementsSectionLoading({ params }: { params?: unknow
               <Skeleton className="h-5 w-80 max-w-full" />
             </div>
           </div>
+          {/* The score's place, held. Without it the card is shorter by this
+              line's height on a narrow screen and the whole page steps down
+              when the number lands. */}
+          <div className="flex h-8 shrink-0 items-center">
+            <Skeleton className="h-4 w-20" />
+          </div>
         </div>
       </Card>
 

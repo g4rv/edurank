@@ -42,14 +42,42 @@ export const RATING_CRUMBS: Crumb[] = [{ label: 'Особисте' }, { label: '
  * here is static — the section number comes from the route — so there is
  * nothing for a skeleton to shimmer.
  */
-export function SectionHeader({ section, action }: { section: number; action?: React.ReactNode }) {
+export function SectionHeader({
+  section,
+  score,
+  action,
+}: {
+  section: number;
+  /** This section's score for the open year; `undefined` while it loads */
+  score?: number;
+  action?: React.ReactNode;
+}) {
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <h1 className="min-w-0 text-2xl font-semibold tracking-[-0.01em]">
           Розділ {section}. {SECTION_TITLES[section]}
         </h1>
-        {action}
+        <div className="flex shrink-0 items-center gap-4">
+          {/* «балів», not a bare number. In the sidebar a column of figures
+              explains itself; next to a title and a button one number does
+              not. Kept quiet deliberately — this is your own record, and a
+              large score invites comparing yourself with colleagues, which is
+              what /rating is for and why it sits behind a permission. */}
+          {score !== undefined && (
+            <p className="text-sm text-foreground-soft">
+              {/* 18px (owner, 2026-09-14). At 14px it read as a caption beside
+                  a 24px title and a filled button — the wrong weight for the
+                  one number this page keeps. Still a step under the title: a
+                  figure ON the page, not the page's subject. */}
+              <span className="text-lg font-semibold text-foreground tabular-nums">
+                {score.toLocaleString('uk-UA')}
+              </span>{' '}
+              балів
+            </p>
+          )}
+          {action}
+        </div>
       </div>
     </Card>
   );
