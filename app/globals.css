@@ -250,6 +250,12 @@
   --border: oklch(0.87 0.012 264);
   --input: oklch(0.668 0.018 264);
   --ring: oklch(0.708 0.016 264);
+  /* The thumb on a floating list's scrollbar — see `.list-scrollbar`. Darker
+     than --border, which is tuned to be only just visible: a border outlines a
+     shape you already see, while this IS the whole signal for how long a list
+     is and where in it you stand. */
+  --scroll-thumb: oklch(0.72 0.014 264);
+  --scroll-thumb-hover: oklch(0.58 0.016 264);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -379,6 +385,10 @@
   --border: oklch(1 0 0 / 18%);
   --input: oklch(1 0 0 / 38%);
   --ring: oklch(0.556 0 0);
+  /* Lighter here rather than the light value flipped: the panel is a card at
+     oklch(0.205), so a thumb has to come UP off it, not down. */
+  --scroll-thumb: oklch(1 0 0 / 30%);
+  --scroll-thumb-hover: oklch(1 0 0 / 48%);
   /* Stepped for this surface, not flipped from light: the card here is
      oklch(0.205), so the light ramp's dark end would sink into it. Step 1 stays
      the quietest against the surface and step 5 the loudest, as in light. */
@@ -755,5 +765,66 @@
       animation-duration: 260ms;
       animation-timing-function: ease;
     }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The scrollbar on a list that floats over the page
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* Worn by the select's viewport and the combobox's list, so the two match —
+     §8 of docs/aurora.md: they are the same control to somebody filling a form.
+
+     It exists because Radix injects, at runtime,
+
+       [data-radix-select-viewport] { scrollbar-width: none }
+       [data-radix-select-viewport]::-webkit-scrollbar { display: none }
+
+     Its own design replaces the bar with the up/down arrow buttons, and those
+     were removed for shifting the list as they mounted. That left a list you
+     could scroll with no sign of how long it was or where in it you stood.
+
+     `!important` on the display is not decoration: Radix's <style> lands in the
+     head AFTER this sheet, and its selector carries the same specificity, so
+     without it the later rule wins.
+
+     Reverting to the platform bar was tried first and rejected — it reserved
+     its 16px and painted nothing, so the depth was still invisible. This is
+     the app's ONE scrollbar skin; everything else (the sidebar, `Table`, a
+     record body) keeps the native bar, and should. */
+  .list-scrollbar {
+    /* `!important` on BOTH, and the reason is the cascade rather than force.
+       These rules live in `@layer components`, and a LAYERED normal
+       declaration loses to an UNLAYERED one whatever its specificity — which
+       is what Radix injects. For important declarations that order reverses,
+       so this is the only thing that reaches the element. Without it
+       `scrollbar-width` computes `none` and Chrome then hides the bar no
+       matter what the ::-webkit rules below say. */
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--scroll-thumb) transparent !important;
+  }
+
+  .list-scrollbar::-webkit-scrollbar {
+    display: block !important;
+    width: 10px;
+    height: 10px;
+  }
+
+  .list-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* The border plus `background-clip` is what makes a 10px track hold a 4px
+     thumb with a margin, without a second element to inset it. */
+  .list-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--scroll-thumb);
+    background-clip: content-box;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+  }
+
+  .list-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scroll-thumb-hover);
   }
 }

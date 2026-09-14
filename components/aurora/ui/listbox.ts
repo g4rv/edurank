@@ -31,8 +31,20 @@ import { cn } from '@/lib/utils';
  */
 export const listPanel = 'rounded-xl border bg-card p-0 shadow-float';
 
+/**
+ * The scrollbar a floating list wears, so the select and the combobox show the
+ * same one. The skin itself is `.list-scrollbar` in `app/globals.css`, beside
+ * its two tokens — the reason it cannot be Tailwind classes is written there:
+ * it has to beat a rule Radix injects at runtime.
+ *
+ * It is the caller's job to put this on whichever element actually scrolls,
+ * which is not the same element in the two controls — the select scrolls on
+ * Radix's viewport, the combobox on the list inside its panel.
+ */
+export const listScrollbar = 'list-scrollbar';
+
 /** The scrolling area inside it. */
-export const listScroll = 'max-h-60 overflow-y-auto';
+export const listScroll = `max-h-60 overflow-y-auto ${listScrollbar}`;
 
 /**
  * One row. Full-bleed — no rounding and no inset, so the panel's own corners do

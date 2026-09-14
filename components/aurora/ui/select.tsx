@@ -5,7 +5,14 @@ import { Select as SelectPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 import { fieldSurface } from './field-surface';
-import { listLabel, listPanel, listRow, listRowCheck, listRowSelectedState } from './listbox';
+import {
+  listLabel,
+  listPanel,
+  listRow,
+  listRowCheck,
+  listRowSelectedState,
+  listScrollbar,
+} from './listbox';
 
 /**
  * «Аврора»'s select — a drop-in replacement for `components/ui/select`.
@@ -134,7 +141,15 @@ function SelectContent({
           className={cn(
             // `h-(--radix-select-trigger-height)` was in here and is wrong for a
             // popper: it pins the LIST to the height of one row.
-            'data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)'
+            'data-[position=popper]:w-full data-[position=popper]:min-w-(--radix-select-trigger-width)',
+            // **The scrollbar, given back.** Radix hides it at runtime —
+            // `[data-radix-select-viewport]{scrollbar-width:none}` and a
+            // `::-webkit-scrollbar{display:none}` — because its own design
+            // replaces the bar with the arrow buttons. Those are gone, so
+            // without this you can scroll a list with no sign of how long it
+            // is or where in it you stand. The shared skin, so the combobox
+            // shows the same bar (§8).
+            listScrollbar
           )}
         >
           {children}

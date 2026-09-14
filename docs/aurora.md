@@ -666,6 +666,30 @@ only real difference is that a combobox lets you type. They share
 - **Overflow belongs to the caller.** The select scrolls on its panel, the
   combobox on the list inside it; baking either into `listPanel` fights the
   other.
+- **The panel is its trigger's width, and a long row WRAPS.** A menu that sizes
+  to its widest row leaves the screen: п.3.12 opened a 1083px panel from a 463px
+  trigger, which on a phone ran 693px past the edge with no way to scroll to it.
+  Truncating instead of wrapping is refused — п.3.7 is two indicators whose
+  labels differ only in their last words, and one clamped line made them the
+  same row.
+- **A floating list shows its scrollbar**, and it is the app's only styled one
+  (`.list-scrollbar`, with `--scroll-thumb`). Both controls wear it, because a
+  bar is the only thing that says how long the list is and where in it you
+  stand.
+
+  Two traps live here, and both cost an afternoon. Radix Select **hides** the
+  scrollbar at runtime — it injects `[data-radix-select-viewport]` rules setting
+  `scrollbar-width: none` — because its own design replaces the bar with
+  up/down arrow buttons. And those buttons are **flow siblings of the scroll
+  area**, so each time Radix mounted one the viewport lost 24px and its top
+  moved down by the same, which is a list that jumps under the cursor mid-scroll.
+
+  So: no arrow buttons (the combobox never had them, and §8 says the two are one
+  control), and the bar is switched back on. Switching it back needs
+  `!important`, and not out of laziness — the rule sits in `@layer components`,
+  a layered normal declaration loses to an unlayered one whatever its
+  specificity, and Radix's injected rule is unlayered. For important
+  declarations that order reverses.
 
 ## 9. The calendar
 
