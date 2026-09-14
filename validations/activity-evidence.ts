@@ -37,6 +37,14 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       let base = z.coerce
         .number({ error: 'Має бути числом' })
         .min(min, { error: `Мінімальне значення — ${min}` });
+      // A ceiling only where the spec sets one. Most numbers here are counts —
+      // сторінки, співавтори, дні — and inventing a maximum for those would
+      // refuse real work. A YEAR is the case that needs it: «Рік початку» had a
+      // floor of 1950 and nothing above, so 123123 was a valid year of
+      // employment and printed into the licence document as one.
+      if (f.max !== undefined) {
+        base = base.max(f.max, { error: `Максимальне значення — ${f.max}` });
+      }
       if (f.int) base = base.int({ error: 'Має бути цілим числом' });
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }

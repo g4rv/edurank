@@ -145,6 +145,7 @@ export function EvidenceFields({
               type="number"
               step={f.int ? 1 : 'any'}
               min={f.min}
+              max={f.max}
               disabled={disabled}
               {...register(f.name)}
             />

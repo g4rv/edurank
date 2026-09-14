@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
-import { doi, EVIDENCE_FIELDS, isbn, url, type EvidenceField } from '@/lib/rating/evidence-fields';
+import {
+  doi,
+  EVIDENCE_FIELDS,
+  isbn,
+  number,
+  url,
+  type EvidenceField,
+} from '@/lib/rating/evidence-fields';
 import { computeScore } from '@/lib/rating/scoring';
 import { catalogueType, SELECT_OPTION_POINTS } from '@/lib/rating/db-specs';
 import { fieldSchema, schemaForFields } from './activity-evidence';
@@ -350,5 +357,39 @@ describe('an empty required field says it is required, not malformed', () => {
     );
     expect(fieldSchema(isbn('isbn', 'ISBN', { optional: true })).safeParse('').success).toBe(true);
     expect(fieldSchema(doi('doi', 'DOI', { optional: true })).safeParse('').success).toBe(true);
+  });
+});
+
+describe('a number field can have a ceiling, not only a floor', () => {
+  // «Рік початку» carried `min: 1950` and nothing above it, so 123123 was a
+  // valid year of employment — it saved, and printed into the licence document
+  // as «Рік початку: 123123». A floor alone is not a range.
+  const yearField = number('fromYear', 'Рік початку', { min: 1950, max: 2026, int: true });
+
+  const problem = (value: unknown) => {
+    const result = fieldSchema(yearField).safeParse(value);
+    return result.success ? null : result.error.issues[0].message;
+  };
+
+  it('accepts a year inside the range', () => {
+    expect(problem(1998)).toBeNull();
+    expect(problem(2026)).toBeNull();
+    expect(problem(1950)).toBeNull();
+  });
+
+  it('refuses a year above the ceiling, in Ukrainian', () => {
+    expect(problem(123123)).toBe('Максимальне значення — 2026');
+    expect(problem(2027)).toBe('Максимальне значення — 2026');
+  });
+
+  it('still refuses one below the floor', () => {
+    expect(problem(123)).toBe('Мінімальне значення — 1950');
+  });
+
+  it('leaves a field with no ceiling unbounded', () => {
+    // Most numbers in the catalogue are counts — сторінки, співавтори, дні —
+    // and inventing a maximum for those would refuse real work.
+    const pages = number('pages', 'Кількість сторінок', { min: 1, int: true });
+    expect(fieldSchema(pages).safeParse(100000).success).toBe(true);
   });
 });

@@ -39,6 +39,7 @@ import {
   url,
 } from '@/lib/rating/evidence-fields';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
 
 const DEGREE_OPTIONS = [
   opt('doctor', 'доктор наук'),
@@ -46,7 +47,21 @@ const DEGREE_OPTIONS = [
 ];
 
 /** Position number → the fields its typed rows ask for */
-export const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
+export /**
+ * The range a «Рік …» field accepts.
+ *
+ * These carried a floor of 1950 and nothing above it, so 123123 was a valid
+ * year of employment: it saved, and printed into the licence document as «Рік
+ * початку: 123123». A floor alone is not a range.
+ *
+ * The ceiling is the current year, not the rating window: п.20 asks for five
+ * years of practical work that may have ENDED long before the window opened,
+ * and п.13's dates are the same shape. What it refuses is a year that has not
+ * happened.
+ */
+const LATEST_YEAR = new Date().getFullYear();
+
+const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   // ≥5 публікацій у фахових виданнях / Scopus / WoS. No quartile: the licence
   // asks only that the publication be in one of those lists, and a quartile the
   // rating uses for points would be a box nobody can answer for a 2022 article.
@@ -173,8 +188,8 @@ export const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   11: [
     text('organization', 'Назва установи / організації'),
     text('basis', 'Договір / підстава'),
-    number('fromYear', 'Рік початку', { min: 1950, int: true }),
-    number('toYear', 'Рік завершення', { min: 1950, int: true }),
+    number('fromYear', 'Рік початку', { min: MIN_EVIDENCE_YEAR, max: LATEST_YEAR, int: true }),
+    number('toYear', 'Рік завершення', { min: MIN_EVIDENCE_YEAR, max: LATEST_YEAR, int: true }),
     url('link', 'Посилання', { optional: true }),
   ],
 
@@ -231,7 +246,11 @@ export const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
       opt('man_stage_2', 'II етап (МАН)'),
       opt('man_stage_3', 'III етап (МАН)'),
     ]),
-    text('event', 'Навчальний предмет / назва заходу'),
+    // No-break spaces on BOTH sides of the pair, leaving the slash as the only
+    // place the label can wrap: «Навчальний предмет /» then «назва заходу».
+    // Gluing only the left side was not enough — the line then broke after
+    // «назва» instead, which reads worse than the original.
+    text('event', 'Навчальний предмет / назва заходу'),
     text('pupil', 'ПІБ школяра', { optional: true }),
     text('place', 'Призове місце', { optional: true }),
   ],
@@ -248,8 +267,8 @@ export const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   20: [
     text('organization', 'Назва організації'),
     text('jobTitle', 'Посада'),
-    number('fromYear', 'Рік початку', { min: 1950, int: true }),
-    number('toYear', 'Рік завершення', { min: 1950, int: true }),
+    number('fromYear', 'Рік початку', { min: MIN_EVIDENCE_YEAR, max: LATEST_YEAR, int: true }),
+    number('toYear', 'Рік завершення', { min: MIN_EVIDENCE_YEAR, max: LATEST_YEAR, int: true }),
   ],
 };
 

@@ -36,7 +36,11 @@ import {
   addKharakterystykaEntry,
   deleteKharakterystykaEntry,
 } from '@/app/(dashboard)/staff/[id]/(record)/kharakterystyka/actions';
-import { alternativeLabel, positionChoices } from '@/lib/kharakterystyka/positions';
+import {
+  alternativeLabel,
+  licencePosition,
+  positionChoices,
+} from '@/lib/kharakterystyka/positions';
 import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence';
 import { evidenceDefaults, summarizeEvidence } from '@/lib/rating/evidence-fields';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
@@ -178,6 +182,34 @@ function EntriesDialog({
   );
 }
 
+/**
+ * What this position actually asks for, in the положення's own words.
+ *
+ * The dialog said «Записи до позиції 15» and nothing else, so somebody typing
+ * had to remember — or close it and read the row behind — what п.15 requires.
+ * That is the one thing you need in front of you while deciding whether your
+ * achievement qualifies.
+ *
+ * **Capped and scrollable rather than clamped.** п.15's wording runs to four
+ * hundred characters, and cutting a licence requirement mid-sentence is how
+ * somebody claims the wrong thing. It gets a ceiling so it cannot swamp the
+ * form, and the rest is a scroll away.
+ */
+function PositionWording({ position }: { position: number }) {
+  const def = licencePosition(position);
+  if (!def) return null;
+  return (
+    // 14px, not 12 (owner, 2026-09-14). This is the requirement somebody reads
+    // to decide whether their achievement qualifies — the one paragraph in the
+    // dialog that has to be read rather than glanced at. The cap grows with it
+    // so roughly the same amount stays visible.
+    <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/40 px-3 py-2">
+      <p className="text-sm text-foreground-soft">{def.title}</p>
+      {def.note && <p className="mt-1 text-xs text-muted-foreground">{def.note}</p>}
+    </div>
+  );
+}
+
 function EntryList({
   position,
   entries,
@@ -221,6 +253,8 @@ function EntryList({
           Один запис — одне досягнення. Якщо позиція вимагає п’ять, внесіть п’ять записів.
         </AlertDialogDescription>
       </AlertDialogHeader>
+
+      <PositionWording position={position} />
 
       {entries.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">Записів ще немає</p>
@@ -381,6 +415,8 @@ function EntryForm({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
+        <PositionWording position={position} />
+
         {/* Two columns, because these forms are mostly short answers — a рік, a
           посада, a місце — and one field per row left the other half of the
           dialog empty beside every one of them (owner, 2026-09-01).
@@ -395,13 +431,27 @@ function EntryForm({
           stranding Рік beside nothing. */}
         <div
           className={cn(
-            'grid max-h-[55vh] grid-cols-1 gap-4 overflow-y-auto pr-1',
+            // `-mx-1 px-1`, not `pr-1`. `overflow-y-auto` clips BOTH axes, and a
+            // focused field draws a 3px ring outside its border box — so the
+            // right ring had 4px of room and the LEFT one was sliced off flush.
+            // The negative margin cancels the padding, so the fields stay exactly
+            // where they were and only the ring gains somewhere to land.
+            '-mx-1 grid max-h-[55vh] grid-cols-1 gap-4 overflow-y-auto px-1',
             'sm:grid-flow-row-dense sm:grid-cols-2',
             // Descendant, not child: `contents` drops the renderer's wrapper out
             // of the LAYOUT, but it is still there in the DOM, so `>` matches
             // nothing past it.
             'sm:[&_[data-slot=field]:has(textarea)]:col-span-2',
-            'sm:[&_[data-slot=field]:has([role=combobox])]:col-span-2'
+            'sm:[&_[data-slot=field]:has([role=combobox])]:col-span-2',
+            // **Inputs line up, labels do not** (owner, 2026-09-14). «Навчальний
+            // предмет / назва заходу» wraps to two lines and «Рік» does not, so
+            // side by side their boxes sat at different heights. Bottom-aligning
+            // the field puts every INPUT on one line — which is the row the eye
+            // actually follows — and lets the labels above be as tall as they
+            // need. Same rule the staff form settled on: align the controls, not
+            // the labels.
+            'sm:[&_[data-slot=field]]:flex sm:[&_[data-slot=field]]:h-full',
+            'sm:[&_[data-slot=field]]:flex-col sm:[&_[data-slot=field]]:justify-end'
           )}
         >
           {choices.length > 0 && (

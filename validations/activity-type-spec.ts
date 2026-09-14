@@ -33,6 +33,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     kind: z.literal('number'),
     ...common,
     min: z.number().optional(),
+    max: z.number().optional(),
     int: z.boolean().optional(),
     optional: z.boolean().optional(),
   }),

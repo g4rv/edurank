@@ -32,6 +32,8 @@ export type EvidenceField =
       name: string;
       label: string;
       min?: number;
+      /** Set it only where a number has a real ceiling — a YEAR does, a count does not */
+      max?: number;
       int?: boolean;
       optional?: boolean;
     }
@@ -99,7 +101,7 @@ export const text = (
 export const number = (
   name: string,
   label: string,
-  opts?: { min?: number; int?: boolean; optional?: boolean }
+  opts?: { min?: number; max?: number; int?: boolean; optional?: boolean }
 ): EvidenceField => ({ kind: 'number', name, label, ...opts });
 
 export const url = (
