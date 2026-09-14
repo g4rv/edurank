@@ -1,5 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/aurora/ui/card';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { RATING_CRUMBS } from '@/components/rating/section-header';
 
 /**
  * One rating section, loading.
@@ -25,6 +27,11 @@ export default function AchievementsSectionLoading({ params }: { params?: unknow
 
   return (
     <div className="space-y-5">
+      {/* The two crumbs that do NOT depend on the route, so the card below
+          starts at its final height instead of dropping when the trail
+          arrives. «Розділ N» is the one this file cannot know — same reason as
+          the title above. */}
+      <Breadcrumbs items={[...RATING_CRUMBS]} />
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">

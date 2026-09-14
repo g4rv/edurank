@@ -8,6 +8,8 @@ import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { AchievementsList } from '@/components/rating/achievements-list';
 import { AddAchievementForm } from '@/components/rating/add-achievement-form';
 import { SectionHeader } from '@/components/rating/section-header';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { RATING_CRUMBS } from '@/components/rating/section-header';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { toAchievementGroups } from '@/lib/rating/achievement-rows';
@@ -78,6 +80,7 @@ export default async function AchievementsSectionPage({
   if (!template) {
     return (
       <div className="space-y-5">
+        <Breadcrumbs items={[...RATING_CRUMBS, { label: `Розділ ${section}` }]} />
         <SectionHeader section={section} />
         <EmptyState>Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.</EmptyState>
       </div>
@@ -107,6 +110,11 @@ export default async function AchievementsSectionPage({
 
   return (
     <div className="space-y-5">
+      {/* «Мої здобувачі» next door has had a trail since it was rebuilt; this
+          page never got one, so the two siblings answered «where am I»
+          differently. Three levels because that is the sidebar's own shape —
+          Особисте › Заповнення рейтингу › Розділ N. */}
+      <Breadcrumbs items={[...RATING_CRUMBS, { label: `Розділ ${section}` }]} />
       <SectionHeader section={section} action={<AddAchievementForm types={submittableTypes} />} />
 
       <AchievementsList groups={groups} />

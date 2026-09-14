@@ -6,6 +6,7 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
 import { IdentityBand } from '@/components/staff/profile/identity-band';
+import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
 
 /**
  * Who you are — the breadcrumb and the band on «Мій профіль» and its tabs.
@@ -26,13 +27,9 @@ export async function ProfileHeader() {
 
   const staffId = session.user.staffId;
 
-  // An ADMIN or EDITOR reaches their own record from «Персонал» as well as from
-  // the sidebar, so for them the list is a real ancestor. For an НПП it is not a
-  // page they may open, and the trail starts at the sidebar group instead.
-  const crumbs =
-    session.user.role !== 'USER'
-      ? [{ label: 'Персонал', href: '/staff' }, { label: 'Мій профіль' }]
-      : [{ label: 'Особисте' }, { label: 'Мій профіль' }];
+  // Shared with /profile/edit, which used to build its own two-level trail and
+  // lose this root — see `profileCrumbs` for which role starts where.
+  const crumbs = profileCrumbs(session.user.role);
 
   // **An account with no Staff row gets the trail and nothing else** — an
   // operator login, or a record deleted from under a live session. `notFound()`

@@ -1,5 +1,19 @@
 import { Card } from '@/components/aurora/ui/card';
+import type { Crumb } from '@/components/ui/breadcrumbs';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
+
+/**
+ * Everything above «Розділ N» in the trail.
+ *
+ * Neither crumb has an `href`: «Особисте» is a sidebar group with no route of
+ * its own, and «Заповнення рейтингу» is the sub-group under it — also not a
+ * page. `Breadcrumbs` renders both as plain text, which is the honest answer.
+ *
+ * Here rather than in the page because `loading.tsx` prints the same two while
+ * it waits, and a trail that is a different height in the two files pushes the
+ * card down as it loads.
+ */
+export const RATING_CRUMBS: Crumb[] = [{ label: 'Особисте' }, { label: 'Заповнення рейтингу' }];
 
 /**
  * The section's title and the one action, and nothing else.

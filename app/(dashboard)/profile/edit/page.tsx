@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
 import { fullName } from '@/components/staff/profile/primitives';
 
 // The one place a person edits themselves, whatever their role: the only claim
@@ -27,7 +28,10 @@ export default async function ProfileEditPage() {
     // No heading of its own — the form carries one in its header card, beside
     // the actions it belongs with.
     <div className="space-y-5">
-      <Breadcrumbs items={[{ label: 'Мій профіль', href: '/profile' }, { label: 'Редагування' }]} />
+      {/* Three levels, not two. This hardcoded «Мій профіль › Редагування» and
+          dropped whichever root the role gets, so walking from /profile to
+          /profile/edit lost a level instead of gaining one. */}
+      <Breadcrumbs items={profileCrumbs(session.user.role, 'Редагування')} />
 
       <ProfileEditForm
         name={fullName(staff)}
