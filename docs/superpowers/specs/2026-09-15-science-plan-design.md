@@ -749,10 +749,16 @@ All four questions this document opened were answered by the owner on
 - **O5 — п.27 vs the Scopus rate. NEW, found 2026-09-15 while transcribing the
   catalogue, and it needs the boss.** Додаток III item 4 prices a Scopus/WoS
   article at 50 год за сторінку «**за умови не застосування п.27 наказу**».
-  п.27 of наказ №152 is the **50-hour reduction in teaching load given to
-  гаранти освітніх програм**. Read literally, an НПП who took that reduction may
-  not claim the Scopus rate — a mutual exclusion between a teaching-load
-  concession and a research-planning rate.
+  п.27 of наказ №152 is a **навчальне навантаження** rule — the 50-hour teaching
+  reduction for гаранти освітніх програм. **It is not about наукова робота at
+  all** (owner, 2026-09-15), which makes the cross-reference stranger rather
+  than clearer, and means the obvious reading is not safe to act on.
+
+  Three readings are open, and we do not get to pick one: a гарант who took
+  the reduction may not claim the Scopus rate; or the note points at п.27 of
+  an EARLIER edition of the наказ, where the numbering differed; or it is dead
+  text nobody applies. The question as written to the проректор asks which,
+  rather than proposing an answer.
 
   Three things follow:
   1. **Nothing in this design expresses it.** `ScienceWorkType` has no «barred if
