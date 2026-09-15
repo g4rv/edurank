@@ -5,6 +5,12 @@ import {
 } from '../lib/rating/activity-types';
 import { dbSpecs } from '../lib/rating/db-specs';
 import { SPECIALITY_NORMS_2026, DEFAULT_CONTRACT_COEFFICIENT } from '../lib/stake/norms';
+import { stakeYearOf } from '../lib/science/academic-year';
+import {
+  SCIENCE_WORK_TYPES_2027,
+  SCIENCE_TEMPLATE_2027,
+  scienceDbSpecs,
+} from '../lib/science/work-types-2027';
 import type { PrismaClient } from '../lib/generated/prisma/client';
 import type { Prisma } from '../lib/generated/prisma/client';
 
@@ -39,6 +45,7 @@ export async function seedCatalogue(prisma: PrismaClient, year = 2026): Promise<
   await seedNnvPermissions(prisma, divisionIds.NNV);
   const { templateId, activityTypeCount } = await seedTemplate(prisma, year, divisionIds);
   const specialityCount = await seedSpecialities(prisma, year);
+  await seedSciencePlan(prisma);
 
   return { templateId, year, divisionIds, activityTypeCount, specialityCount };
 }
@@ -206,4 +213,63 @@ async function seedSpecialities(prisma: PrismaClient, year: number): Promise<num
   });
 
   return prisma.speciality.count();
+}
+
+/**
+ * Додаток III до наказу №152 — the 2026/2027 planning catalogue.
+ *
+ * Idempotent and production-safe, like the rating catalogue beside it: the
+ * template is upserted on `academicYear`, every work type on
+ * `[templateId, code]`. It creates no accounts, writes no plans and overwrites
+ * nothing a person typed.
+ *
+ * `status` (on the template) and `isActive` (on each work type) are set on
+ * CREATE only — the same rule `seedTemplate` above already follows for the
+ * rating's own `isActive`. An ADMIN who closed 2026/2027, or deactivated one
+ * work type in it, must not find either reverted by a deploy that happened to
+ * run this seed.
+ */
+async function seedSciencePlan(prisma: PrismaClient): Promise<void> {
+  const { academicYear, orderRef, minHoursPerRate } = SCIENCE_TEMPLATE_2027;
+
+  const template = await prisma.sciencePlanTemplate.upsert({
+    where: { academicYear },
+    update: { orderRef, minHoursPerRate },
+    create: {
+      academicYear,
+      orderRef,
+      minHoursPerRate,
+      stakeYear: stakeYearOf(academicYear),
+      status: 'OPEN',
+    },
+  });
+
+  for (const def of SCIENCE_WORK_TYPES_2027) {
+    const { evidenceFields, scoring, coefficient } = scienceDbSpecs(def);
+    const shape = {
+      order: def.order,
+      itemNumber: def.itemNumber,
+      label: def.label,
+      evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
+      scoring: scoring as unknown as Prisma.InputJsonValue,
+      coefficient,
+      unitNote: def.unitNote ?? null,
+      reportingForm: def.reportingForm ?? null,
+      reuse: def.reuse,
+      sharing: def.sharing,
+      identityFields: [...def.identityFields] as unknown as Prisma.InputJsonValue,
+      requiresFile: def.requiresFile ?? false,
+      maxPerYear: def.maxPerYear ?? null,
+    };
+
+    await prisma.scienceWorkType.upsert({
+      where: { templateId_code: { templateId: template.id, code: def.code } },
+      // `isActive` is deliberately absent from the update: an ADMIN who
+      // deactivated a work type must not find it back after a deploy.
+      update: shape,
+      create: { ...shape, templateId: template.id, code: def.code },
+    });
+  }
+
+  console.log(`  Додаток III: ${SCIENCE_WORK_TYPES_2027.length} видів роботи (${academicYear})`);
 }
