@@ -20,6 +20,7 @@ import {
   Scale,
   MailPlus,
   UserPlus,
+  FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SignOutButton } from '@/components/sign-out-button';
@@ -147,7 +148,10 @@ export function Sidebar({
     personal.push(
       // «Мої», because a завідувач who also lectures gets the review screen under
       // «Залучені здобувачі» below, and two identical labels is a coin toss.
-      { href: '/achievements/students', label: 'Мої здобувачі', icon: UserPlus }
+      { href: '/achievements/students', label: 'Мої здобувачі', icon: UserPlus },
+      // Own row per Додаток III, not a rating tab: D3 keeps the plan fully
+      // separate from «Мій рейтинг» — two measuring systems over one world.
+      { href: '/science-plan', label: 'Наукова робота', icon: FlaskConical }
     );
   }
 
