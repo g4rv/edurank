@@ -160,6 +160,7 @@ model Department {
   distributions StakeDistribution[]
   stakeSandboxes StakeSandbox[]
   specialities SpecialityDepartment[]
+  sciencePlans SciencePlan[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -302,6 +303,7 @@ model Staff {
   confirmedClaims   StudentClaim[] @relation("ClaimConfirmer")
   filledDistributions StakeDistribution[] @relation("StakeDistributionAuthor")
   stakeSandboxes      StakeSandbox[]
+  sciencePlans        SciencePlan[]
 
   auditLogs          AuditLog[]
   approvedActivities Activity[]       @relation("ActivityApprover")
@@ -980,6 +982,173 @@ model StakeSandbox {
 
   @@unique([userId, departmentId, year])
   @@index([year])
+}
+
+// ─── Планування наукової роботи (Додаток III до наказу №152) ─────────────────
+//
+// НЕ рейтинг. The rating scores achievements in БАЛАХ to rank people; Додаток
+// III prices the same real-world work in ГОДИНАХ to fill a workload quota
+// (наказ №152 п.3: не менше 500 годин на одну науково-педагогічну ставку).
+// Two measuring systems over one world, deliberately sharing no rows.
+// Full reasoning: docs/superpowers/specs/2026-09-15-science-plan-design.md
+
+enum SciencePlanStatus {
+  OPEN
+  CLOSED
+}
+
+enum ScienceReuse {
+  /// A published article, a monograph, a patent — claimable one time, ever.
+  ONCE
+  /// What the наказ's Примітка column marks «щороку» or «на навчальний рік» —
+  /// керівництво аспірантом, гурток, лабораторія, дисертація (2–4 роки).
+  YEARLY
+}
+
+enum ScienceSharing {
+  /// One work, one pool of hours, several authors draw on it.
+  SHARED
+  /// The work belongs to one person and its hours are theirs alone.
+  INDIVIDUAL
+}
+
+/// Один навчальний рік планування. The analogue of RatingTemplate, and
+/// deliberately a separate table: a навчальний рік spans two calendar years, a
+/// rating year does not, and the two are opened and closed by different people.
+model SciencePlanTemplate {
+  id String @id @default(cuid())
+
+  /// «2026/2027». A STRING — see lib/science/academic-year.ts.
+  academicYear String @unique
+
+  /// «№152 від 04.05.2026». Printed on the plan so a person can check the rules
+  /// they were planned against.
+  orderRef String?
+
+  /// п.3's «не менше 500 годин». A COLUMN rather than a constant: it is set by
+  /// a наказ reissued every year, with no obligation to keep the number.
+  minHoursPerRate Int @default(500)
+
+  /// Which calendar year's StakeAllocation supplies the ставка. Derived from
+  /// academicYear on creation and STORED, so reopening an old template cannot
+  /// silently re-target it at a different розподіл.
+  stakeYear Int
+
+  status SciencePlanStatus @default(OPEN)
+
+  workTypes ScienceWorkType[]
+  plans     SciencePlan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Один рядок Додатка III.
+model ScienceWorkType {
+  id         String              @id @default(cuid())
+  templateId String
+  template   SciencePlanTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  order Int
+  /// Stable semantic key — survives renumbering by the next наказ.
+  code  String
+  /// The printed number: «4», «11». Display and ordering only.
+  itemNumber String
+  label      String
+
+  /// EvidenceField[] — the SAME spec shape as ActivityType.evidenceFields.
+  /// Stage 1 uses only the select options (which variant of the work) and the
+  /// number field (сторінки, аркуші, дні); Stage 2 renders the whole form.
+  evidenceFields Json
+  /// ScoringSpec — the same five kinds. lib/specs/scoring.ts computes from it.
+  scoring        Json
+
+  /// Hours per unit. For SELECT kinds the per-option hours live in the spec.
+  coefficient Float
+  /// The Примітка column: «За 1 сторінку», «Щороку на одного аспіранта».
+  unitNote    String?
+  /// The «Форма звітності» column: «Екземпляр видання», «Наказ по аспірантурі».
+  reportingForm String?
+
+  reuse   ScienceReuse   @default(ONCE)
+  sharing ScienceSharing @default(INDIVIDUAL)
+
+  /// Which evidence fields build the WORK's identity, in priority order — e.g.
+  /// ["doi", "url", "title"]. A COLUMN, not a code list, for the same reason
+  /// `reuse` is one. Unused until Stage 2; seeded now so the catalogue is whole.
+  identityFields Json @default("[]")
+
+  /// A link is not enough for this type — a file must be attached. Stage 3.
+  requiresFile Boolean @default(false)
+
+  /// Item 6's «Участь в конференціях (мах.5)».
+  maxPerYear Int?
+
+  isActive Boolean @default(true)
+
+  planRows SciencePlanRow[]
+
+  @@unique([templateId, code])
+}
+
+/// One plan per person per кафедра per навчальний рік. A сумісник on two
+/// кафедри has two plans and fills them separately (owner, 2026-09-15).
+model SciencePlan {
+  id String @id @default(cuid())
+
+  staffId      String
+  staff        Staff               @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  templateId   String
+  template     SciencePlanTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  /// The ставка this plan's target is computed from, in INTEGER HUNDREDTHS.
+  /// Refreshed from StakeAllocation while the template is OPEN. `null` means
+  /// the розподіл has not reached this кафедра — the page then shows NO target
+  /// at all rather than a guess (owner, 2026-09-15).
+  rateHundredths Int?
+
+  rows SciencePlanRow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, departmentId, templateId])
+  @@index([departmentId, templateId])
+}
+
+/// An INTENTION. No evidence: in September the article does not exist yet.
+model SciencePlanRow {
+  id     String      @id @default(cuid())
+  planId String
+  plan   SciencePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  workTypeId String
+  workType   ScienceWorkType @relation(fields: [workTypeId], references: [id])
+
+  order Int
+
+  /// Which variant was chosen and how many units — the same JSON shape as
+  /// Activity.evidence, holding only what the scoring rule reads. For an
+  /// article: `{ "kind": "scopus", "pages": 10 }`.
+  ///
+  /// NOT called `plan`: that name is already the relation back to SciencePlan
+  /// on the line above, and Prisma would refuse the model.
+  details Json
+
+  /// computedValue × coefficient at the moment of planning, in INTEGER
+  /// HUNDREDTHS OF AN HOUR. Frozen like Activity.score: editing the наказ later
+  /// must not rewrite a plan already handed in.
+  plannedHundredths Int
+
+  /// «стаття у Q2 з історії освіти» — helps the завідувач read the plan.
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([planId])
 }
 
 // Failed sign-in counters, one row per subject.
