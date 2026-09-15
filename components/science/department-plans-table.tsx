@@ -10,7 +10,10 @@ import type { SciencePlanRowSummary } from '@/lib/queries/list-science-plans';
  * `shortfallHundredths` is already `null` for exactly that case (`planTarget`
  * in `lib/science/target.ts`), so this is the one field the sort needs.
  */
-function isShort(row: SciencePlanRowSummary): boolean {
+// Exported: the university-wide view's summary strip (Task 11) counts the
+// same «short of target» rows this table sorts to the top, and a second copy
+// of this predicate is exactly the drift §11 of docs/aurora.md warns about.
+export function isShort(row: SciencePlanRowSummary): boolean {
   return row.shortfallHundredths !== null && row.shortfallHundredths > 0;
 }
 
