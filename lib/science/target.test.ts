@@ -1,0 +1,43 @@
+import { describe, expect, it } from 'vitest';
+import { planTarget } from './target';
+
+const target = (rateHundredths: number | null, plannedHundredths = 0) =>
+  planTarget({ minHoursPerRate: 500, rateHundredths, plannedHundredths });
+
+describe('planTarget', () => {
+  it('is 500 годин on a full ставка', () => {
+    expect(target(100).targetHundredths).toBe(50000);
+  });
+
+  it('is proportional below a full ставка — наказ п.3', () => {
+    expect(target(25).targetHundredths).toBe(12500); // 0,25 → 125 год
+    expect(target(75).targetHundredths).toBe(37500); // 0,75 → 375 год
+  });
+
+  it('splits a сумісник across two кафедри to 500 in total', () => {
+    const primary = target(75).targetHundredths!;
+    const additional = target(25).targetHundredths!;
+    expect(primary + additional).toBe(50000);
+  });
+
+  it('has NO target when the розподіл has not reached this кафедра', () => {
+    const t = target(null);
+    expect(t.targetHundredths).toBeNull();
+    expect(t.shortfallHundredths).toBeNull();
+  });
+
+  it('still counts planned hours with no target', () => {
+    expect(target(null, 34000).plannedHundredths).toBe(34000);
+  });
+
+  it('reports the shortfall and never a negative one', () => {
+    expect(target(100, 34000).shortfallHundredths).toBe(16000);
+    expect(target(100, 52000).shortfallHundredths).toBe(0);
+  });
+
+  it('stays in integers — a third of a ставка does not produce a float', () => {
+    const t = target(35, 0);
+    expect(Number.isInteger(t.targetHundredths)).toBe(true);
+    expect(t.targetHundredths).toBe(17500); // 0,35 × 500 = 175 год
+  });
+});
