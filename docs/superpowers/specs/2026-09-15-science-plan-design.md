@@ -742,6 +742,29 @@ All four questions this document opened were answered by the owner on
 - **O4 — an export document? Later** (D19). If an official form exists, we need
   the file before building it.
 
+- **O5 — п.27 vs the Scopus rate. NEW, found 2026-09-15 while transcribing the
+  catalogue, and it needs the boss.** Додаток III item 4 prices a Scopus/WoS
+  article at 50 год за сторінку «**за умови не застосування п.27 наказу**».
+  п.27 of наказ №152 is the **50-hour reduction in teaching load given to
+  гаранти освітніх програм**. Read literally, an НПП who took that reduction may
+  not claim the Scopus rate — a mutual exclusion between a teaching-load
+  concession and a research-planning rate.
+
+  Three things follow:
+  1. **Nothing in this design expresses it.** `ScienceWorkType` has no «barred if
+     item N also applies» concept, and inventing one on a single reading of one
+     footnote would be speculation.
+  2. **The app could enforce it.** Who is a гарант is already known — rating
+     indicator 1.7 «Гарант освітньої програми», DIVISION_MANAGED, verified by
+     ННЦЗЯО. So this is a policy question, not a data problem.
+  3. **It may not be enforced in practice at all.** A footnote in a Примітка
+     column is not evidence that anybody checks it.
+
+  **Ask before building anything.** If it is real, the cheapest honest treatment
+  is a warning on the plan screen for a person the app knows is a гарант, not a
+  refusal — the app does not hold навчальне навантаження and cannot know whether
+  the reduction was actually applied to them.
+
 ## Out of scope
 
 - Додаток I (навчальна), II (методична), IV (організаційна), and the 1548-hour

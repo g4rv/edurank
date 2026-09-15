@@ -113,6 +113,14 @@ describe('currentAcademicYear', () => {
     expect(currentAcademicYear(new Date('2026-08-31T00:00:00Z'))).toBe('2025/2026');
     expect(currentAcademicYear(new Date('2026-09-01T00:00:00Z'))).toBe('2026/2027');
   });
+
+  it('turns over at Kyiv midnight, not at UTC midnight', () => {
+    // 21:00 UTC on 31 August is 00:00 on 1 September in Kyiv (EEST, UTC+3).
+    // The three cases above all sit hours away from the boundary and pass
+    // under either rule; this is the one that tells them apart.
+    expect(currentAcademicYear(new Date('2026-08-31T21:00:00Z'))).toBe('2026/2027');
+    expect(currentAcademicYear(new Date('2026-08-31T20:59:00Z'))).toBe('2025/2026');
+  });
 });
 ```
 
@@ -170,11 +178,28 @@ export function nextAcademicYear(academicYear: string): string {
   return `${parsed[0] + 1}/${parsed[1] + 1}`;
 }
 
-/** September–December belong to the year that is starting; January–August to the one ending. */
+/**
+ * September–December belong to the year that is starting; January–August to
+ * the one ending.
+ *
+ * **Read in Europe/Kyiv, not in UTC.** The university is in Переяслав, and the
+ * turnover is «1 вересня» there, not at UTC midnight. In summer Ukraine is
+ * UTC+3, so a UTC read reports the previous навчальний рік for the first three
+ * hours of 1 September — wrong at the only moment this function matters.
+ *
+ * `Intl` rather than a library: `date-fns` is in this project but reading a
+ * year and a month needs no dependency, and `Intl` handles the EET/EEST switch
+ * by itself.
+ */
 export function currentAcademicYear(now: Date = new Date()): string {
-  const year = now.getUTCFullYear();
-  const startsThisYear = now.getUTCMonth() >= 8; // 8 = September, zero-based
-  const from = startsThisYear ? year : year - 1;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Kyiv',
+    year: 'numeric',
+    month: 'numeric',
+  }).formatToParts(now);
+  const year = Number(parts.find((p) => p.type === 'year')?.value);
+  const month = Number(parts.find((p) => p.type === 'month')?.value); // 1-based
+  const from = month >= 9 ? year : year - 1;
   return `${from}/${from + 1}`;
 }
 ```
@@ -182,7 +207,7 @@ export function currentAcademicYear(now: Date = new Date()): string {
 - [ ] **Step 4: Run the test and watch it pass**
 
 Run: `npx vitest run lib/science/academic-year.test.ts`
-Expected: PASS, 9 tests.
+Expected: PASS, 10 tests.
 
 - [ ] **Step 5: Type-check, then ask to commit**
 
@@ -542,63 +567,63 @@ describe('hours match the printed Додаток III', () => {
   });
 
   it('п.1 — проєкт: 300 керівнику, 100 члену', () => {
-    expect(hours('intl_project', { role: 'lead' })).toBe(300);
-    expect(hours('intl_project', { role: 'member' })).toBe(100);
+    expect(hours('intl_project', { option: 'lead' })).toBe(300);
+    expect(hours('intl_project', { option: 'member' })).toBe(100);
   });
 
   it('п.2 — дисертація: 500 доктора наук, 300 доктора філософії', () => {
-    expect(hours('dissertation', { degree: 'doctor' })).toBe(500);
-    expect(hours('dissertation', { degree: 'phd' })).toBe(300);
+    expect(hours('dissertation', { option: 'doctor' })).toBe(500);
+    expect(hours('dissertation', { option: 'phd' })).toBe(300);
   });
 
   it('п.3 — монографія 200 і посібник 100 за друкований аркуш', () => {
-    expect(hours('monograph', { kind: 'monograph', sheets: 3 })).toBe(600);
-    expect(hours('monograph', { kind: 'manual', sheets: 3 })).toBe(300);
+    expect(hours('monograph', { option: 'monograph', credits: 3 })).toBe(600);
+    expect(hours('monograph', { option: 'manual', credits: 3 })).toBe(300);
   });
 
   it('п.3 — перевидання: 50 за друкований аркуш', () => {
-    expect(hours('monograph_reissue', { sheets: 2 })).toBe(100);
+    expect(hours('monograph_reissue', { value: 2 })).toBe(100);
   });
 
   it('п.4 — стаття, за 1 сторінку, six tiers', () => {
-    expect(hours('article', { kind: 'scopus', pages: 10 })).toBe(500);
-    expect(hours('article', { kind: 'fahove_b', pages: 10 })).toBe(300);
-    expect(hours('article', { kind: 'foreign', pages: 10 })).toBe(200);
-    expect(hours('article', { kind: 'journal', pages: 10 })).toBe(150);
-    expect(hours('article', { kind: 'proceedings', pages: 10 })).toBe(100);
-    expect(hours('article', { kind: 'other', pages: 10 })).toBe(50);
+    expect(hours('article', { option: 'scopus', credits: 10 })).toBe(500);
+    expect(hours('article', { option: 'fahove_b', credits: 10 })).toBe(300);
+    expect(hours('article', { option: 'foreign', credits: 10 })).toBe(200);
+    expect(hours('article', { option: 'journal', credits: 10 })).toBe(150);
+    expect(hours('article', { option: 'proceedings', credits: 10 })).toBe(100);
+    expect(hours('article', { option: 'other', credits: 10 })).toBe(50);
   });
 
   it('п.5 — заявка: 100 винахід, 40 корисна модель, 30 авторське право', () => {
-    expect(hours('ip_application', { kind: 'invention' })).toBe(100);
-    expect(hours('ip_application', { kind: 'utility_model' })).toBe(40);
-    expect(hours('ip_application', { kind: 'copyright' })).toBe(30);
+    expect(hours('ip_application', { option: 'invention' })).toBe(100);
+    expect(hours('ip_application', { option: 'utility_model' })).toBe(40);
+    expect(hours('ip_application', { option: 'copyright' })).toBe(30);
   });
 
   it('п.6 — доповідь: 5 / 3 / 2 за сторінку', () => {
-    expect(hours('conference_paper', { level: 'international', pages: 4 })).toBe(20);
-    expect(hours('conference_paper', { level: 'national', pages: 4 })).toBe(12);
-    expect(hours('conference_paper', { level: 'other', pages: 4 })).toBe(8);
+    expect(hours('conference_paper', { option: 'international', credits: 4 })).toBe(20);
+    expect(hours('conference_paper', { option: 'national', credits: 4 })).toBe(12);
+    expect(hours('conference_paper', { option: 'other', credits: 4 })).toBe(8);
   });
 
   it('п.6 — участь: 6 г за день, не більше 5', () => {
-    expect(hours('conference_attendance', { days: 3 })).toBe(18);
+    expect(hours('conference_attendance', { value: 3 })).toBe(18);
     expect(byCode('conference_attendance')).toBeDefined();
     const def = SCIENCE_WORK_TYPES_2027.find((d) => d.code === 'conference_attendance');
     expect(def?.maxPerYear).toBe(5);
   });
 
   it('п.7 — рецензування, four separate units', () => {
-    expect(hours('review_publication', { sheets: 2 })).toBe(20);
+    expect(hours('review_publication', { value: 2 })).toBe(20);
     expect(hours('review_dissertation', {})).toBe(50);
     expect(hours('review_intl_project', {})).toBe(30);
     expect(hours('review_article', {})).toBe(10);
   });
 
   it('п.8 — конкурс: 50 / 40 / 30 за підготовку, 100 за перемогу', () => {
-    expect(hours('state_competition_entry', { role: 'lead' })).toBe(50);
-    expect(hours('state_competition_entry', { role: 'secretary' })).toBe(40);
-    expect(hours('state_competition_entry', { role: 'member' })).toBe(30);
+    expect(hours('state_competition_entry', { option: 'lead' })).toBe(50);
+    expect(hours('state_competition_entry', { option: 'secretary' })).toBe(40);
+    expect(hours('state_competition_entry', { option: 'member' })).toBe(30);
     expect(hours('state_competition_win', {})).toBe(100);
   });
 
@@ -607,20 +632,20 @@ describe('hours match the printed Додаток III', () => {
   });
 
   it('п.10 — редколегія 100 / 100 / 100 / 50, англомовний супровід 5 за сторінку', () => {
-    expect(hours('editorial_board', { role: 'editor_in_chief' })).toBe(100);
-    expect(hours('editorial_board', { role: 'managing_editor' })).toBe(100);
-    expect(hours('editorial_board', { role: 'secretary' })).toBe(100);
-    expect(hours('editorial_board', { role: 'member' })).toBe(50);
-    expect(hours('english_support', { pages: 6 })).toBe(30);
+    expect(hours('editorial_board', { option: 'editor_in_chief' })).toBe(100);
+    expect(hours('editorial_board', { option: 'managing_editor' })).toBe(100);
+    expect(hours('editorial_board', { option: 'secretary' })).toBe(100);
+    expect(hours('editorial_board', { option: 'member' })).toBe(50);
+    expect(hours('english_support', { value: 6 })).toBe(30);
   });
 
   it('п.11 — авторський доробок', () => {
-    expect(hours('art_achievement', { kind: 'laureate_intl' })).toBe(100);
-    expect(hours('art_achievement', { kind: 'laureate_national' })).toBe(50);
-    expect(hours('art_achievement', { kind: 'personal_show' })).toBe(100);
-    expect(hours('art_achievement', { kind: 'honoured_person' })).toBe(100);
-    expect(hours('art_achievement', { kind: 'prepared_laureate_intl' })).toBe(50);
-    expect(hours('art_achievement', { kind: 'prepared_laureate_national' })).toBe(30);
+    expect(hours('art_achievement', { option: 'laureate_intl' })).toBe(100);
+    expect(hours('art_achievement', { option: 'laureate_national' })).toBe(50);
+    expect(hours('art_achievement', { option: 'personal_show' })).toBe(100);
+    expect(hours('art_achievement', { option: 'honoured_person' })).toBe(100);
+    expect(hours('art_achievement', { option: 'prepared_laureate_intl' })).toBe(50);
+    expect(hours('art_achievement', { option: 'prepared_laureate_national' })).toBe(30);
   });
 
   it('п.12–п.18 — the flat ones', () => {
@@ -630,8 +655,8 @@ describe('hours match the printed Додаток III', () => {
     expect(hours('lab_leadership', {})).toBe(100);
     expect(hours('art_publication', {})).toBe(50);
     expect(hours('academic_mobility', {})).toBe(100);
-    expect(hours('student_research_win', { place: 'winner' })).toBe(30);
-    expect(hours('student_research_win', { place: 'runner_up' })).toBe(20);
+    expect(hours('student_research_win', { option: 'winner' })).toBe(30);
+    expect(hours('student_research_win', { option: 'runner_up' })).toBe(20);
   });
 });
 
@@ -696,6 +721,22 @@ import type { ActivityKind } from '@/lib/rating/activity-types';
  * підручника, посібника — 200 г./100 г.» against «монографії, підручника —
  * 200 г.» bound in, and item 16 reads 50 г against 56.
  *
+ * **Evidence keys are dictated by the scoring engine, not chosen.**
+ * `lib/specs/scoring.ts` reads them by hardcoded name: a SELECT or SELECT_MULT
+ * takes its points from a select called **`option`**, a SELECT_MULT multiplies
+ * by a number called **`credits`**, and a MULT multiplies by one called
+ * **`value`**. That is the convention the whole rating catalogue already uses —
+ * `select('option', 'Квартиль', …)`, `select('option', 'Посада', …)` — and a
+ * second convention in the same JSON column would be one more pair of copies
+ * to drift apart. **The key is plumbing; the Ukrainian LABEL is what a person
+ * reads**, so «Видання», «Кількість сторінок» and «Роль у проєкті» all survive
+ * intact.
+ *
+ * **`pageBased` is never set here.** It is the rating's «сторінок / 24 /
+ * співавторів» rule. Додаток III prices друковані аркуші directly and divides
+ * by no co-authors at all — the hours are a pool the authors share, which is
+ * Stage 2's job and a different arithmetic entirely.
+ *
  * **`reuse` and `sharing` are first readings of the наказ, not law.** The
  * Примітка column says «щороку» or «на навчальний рік» for five items, and those
  * are YEARLY; everything else is ONCE. SHARED is set where a work genuinely has
@@ -732,8 +773,14 @@ const title: EvidenceField = {
   required: true,
 };
 
-/** A page or sheet count the hours multiply by. */
-const count = (name: string, label: string): EvidenceField => ({
+/**
+ * The number the hours multiply by — сторінки, друковані аркуші, дні, особи.
+ *
+ * **Its name is dictated by the scoring kind, not by the domain:** the engine
+ * reads `credits` for SELECT_MULT and `value` for MULT (see the docstring
+ * above). Pass the right one; the LABEL carries the meaning.
+ */
+const count = (name: 'credits' | 'value', label: string): EvidenceField => ({
   kind: 'number',
   name,
   label,
@@ -770,8 +817,10 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     fields: [
       title,
       {
+        // The KEY is always `option` — see the docstring above. The LABEL is
+        // what a person reads.
         kind: 'select',
-        name: 'role',
+        name: 'option',
         label: 'Роль у проєкті',
         required: true,
         options: [
@@ -2084,20 +2133,22 @@ const VALID = {
   coefficient: 1,
   scoring: { kind: 'SELECT_MULT' },
   evidenceFields: [
+    { kind: 'text', name: 'title', label: 'Назва роботи', required: true },
     {
+      // `option` and `credits` are the engine's own names — see Task 4.
       kind: 'select',
-      name: 'kind',
+      name: 'option',
       label: 'Видання',
       required: true,
       options: [{ value: 'scopus', label: 'Scopus', points: 50 }],
     },
-    { kind: 'number', name: 'pages', label: 'Сторінок', required: true, min: 1 },
+    { kind: 'number', name: 'credits', label: 'Сторінок', required: true, min: 1 },
   ],
   unitNote: 'За 1 сторінку',
   reportingForm: 'Екземпляр видання',
   reuse: 'ONCE',
   sharing: 'SHARED',
-  identityFields: ['pages'],
+  identityFields: ['title'],
   requiresFile: false,
   maxPerYear: null,
 };
