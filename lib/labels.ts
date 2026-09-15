@@ -165,6 +165,12 @@ export const FIELD_LABELS: Record<string, string> = {
   added: 'Додано',
   skipped: 'Вже було в списку',
   file: 'Файл',
+  // SciencePlanRow (Розподіл ставок → план наукової роботи). `workType` is not
+  // a column — it stands in for `workTypeId` so the audit log prints the
+  // Ukrainian label of the chosen work type, not its id.
+  workType: 'Вид роботи',
+  plannedHundredths: 'Заплановані години',
+  note: 'Примітка',
 };
 
 /**
