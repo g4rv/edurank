@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVITY_TYPES_2026 } from './activity-types';
-import { catalogueType } from './db-specs';
+import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
+import { catalogueType } from '@/lib/rating/db-specs';
 import { computeScore, type ScorableType } from './scoring';
-import type { EvidenceField } from './evidence-fields';
+import type { EvidenceField } from '@/lib/rating/evidence-fields';
 
 // The engine is driven entirely by an ActivityType row (its scoring spec + its
 // evidence field specs). These tests feed it the 2026 catalogue through the
