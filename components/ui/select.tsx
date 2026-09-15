@@ -63,7 +63,26 @@ function SelectContent({
         data-slot="select-content"
         data-align-trigger={position === 'item-aligned'}
         className={cn(
-          'relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+          // `max-w`, or one long option takes the panel off the screen: nothing
+          // here caps growth, so the panel sizes to its widest row — a кафедра
+          // name opened a 1083px menu from a 463px trigger, which on a phone
+          // reached ~693px past the right edge with no way to scroll to it.
+          //
+          // **The viewport, not the trigger** — unlike `components/aurora/ui/select`,
+          // which caps at `--radix-select-trigger-width`. That variable is set
+          // by Radix's POPPER position only (`SelectPopperPosition` re-namespaces
+          // `--radix-popper-anchor-width`); this component still defaults to
+          // `item-aligned`, where the variable does not exist and the
+          // declaration would be dropped as invalid — a cap that silently does
+          // nothing on most of its callers. `item-aligned` positions in JS and
+          // Radix's own comment says the ending edge «can be controlled by the
+          // user», which is this.
+          //
+          // 20px is Radix's `CONTENT_MARGIN` (10px a side), so the panel stops
+          // exactly where its own collision padding does. The clamp that places
+          // the panel measures the content AFTER this applies — position() runs
+          // in a layout effect — so it lands on screen rather than being pushed.
+          'relative z-50 max-h-(--radix-select-content-available-height) max-w-[calc(100vw-1.25rem)] min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
           position === 'popper' &&
             'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
           className
