@@ -171,6 +171,10 @@ export const FIELD_LABELS: Record<string, string> = {
   workType: 'Вид роботи',
   plannedHundredths: 'Заплановані години',
   note: 'Примітка',
+  // SciencePlanTemplate — the навчальний рік a Додаток III catalogue belongs to.
+  academicYear: 'Навчальний рік',
+  orderRef: 'Наказ',
+  minHoursPerRate: 'Мін. годин на ставку',
 };
 
 /**
