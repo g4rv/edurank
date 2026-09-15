@@ -173,13 +173,22 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
 /** Zod schema for an arbitrary subset of evidence fields (e.g. the shared
  *  fields of an entity-first group entry, validated apart from the role).
  *  Pass `scoring` to also apply the rule-level checks — without it only the
- *  per-field ones run, which is what a partial subset wants. */
+ *  per-field ones run, which is what a partial subset wants.
+ *
+ *  `allowUnknownKeys` (default off — every other caller wants a typo in
+ *  evidence to fail loudly) lets a payload carry MORE than this subset
+ *  without failing. The science plan needs exactly that: a row saved before
+ *  D23 still holds a `title` in `details` alongside the planning fields, and
+ *  removing a requirement must not turn into rejecting the rows that used to
+ *  satisfy it. Unknown keys are silently dropped from `parsed.data`, not kept —
+ *  a plan row writes back only what it actually validated. */
 export function schemaForFields(
   fields: readonly EvidenceField[],
-  scoring?: ScoringSpec
+  scoring?: ScoringSpec,
+  opts?: { allowUnknownKeys?: boolean }
 ): z.ZodType<Record<string, unknown>> {
   const shape = Object.fromEntries(fields.map((f) => [f.name, fieldSchema(f)]));
-  const object = z.strictObject(shape);
+  const object = opts?.allowUnknownKeys ? z.object(shape) : z.strictObject(shape);
 
   // CHECK_SUM with nothing ticked sums to 0. Saving that would record a claim
   // of no work at all — «Зараховано» beside a score of 0, which reads as a

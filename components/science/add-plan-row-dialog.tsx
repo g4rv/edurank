@@ -31,6 +31,7 @@ import {
 } from '@/components/aurora/ui/dialog';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { planFields } from '@/lib/science/plan-fields';
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { RequiredFields } from '@/components/ui/required-fields';
@@ -67,15 +68,23 @@ function groupByItemNumber(types: PlanWorkType[]): [string, PlanWorkType[]][] {
  * Follows `AddAchievementForm`'s shape closely: a centred `Dialog` (not
  * `AlertDialog` — this is a task, not a decision), the picker handed INTO the
  * remounting form so `noValidate` and the submit button share one `<form>`,
- * and the field set driven entirely by the chosen type's own `evidenceFields`.
+ * and the field set driven by the chosen type — but only the SUBSET
+ * `planFields` picks out of its `evidenceFields` (D23,
+ * `docs/superpowers/specs/2026-09-15-science-plan-design.md`). A plan row is
+ * an intention, not a record: no `title`, no bibliography, no colleague's
+ * ПІБ — those describe work that exists, and in September it does not yet.
+ * The whole `evidenceFields` set is what a RECORD asks for, and records are
+ * Stage 2.
  *
  * Two things this form adds that the rating one does not need:
  *
- * - **A free-text «Примітка»** (`SciencePlanRow.note`), kept OUTSIDE the
+ * - **A free-text description** (`SciencePlanRow.note`), kept OUTSIDE the
  *   generated Zod schema and RHF's `register` — the schema is
- *   `z.strictObject` over exactly the evidence fields, and a stray key would
+ *   `z.strictObject` over exactly the planning fields, and a stray key would
  *   fail validation. Its own `useState` inside `EvidenceForm`, so it still
- *   resets when the work type changes.
+ *   resets when the work type changes. With evidence gone, this is now the
+ *   form's only free-text box — the one place to say WHAT the two planned
+ *   articles are about.
  * - **A live hours preview**, computed on every keystroke with the same
  *   `computeScore` the server uses. It only shows once the typed values
  *   already pass the type's own schema — an incomplete form shows nothing
@@ -177,8 +186,13 @@ function EvidenceForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [note, setNote] = useState('');
-  // useState initializer: fields are static for this mount (form remounts per type)
-  const [schema] = useState(() => schemaForFields(type.fields, type.scoring));
+  // useState initializer: fields are static for this mount (form remounts per
+  // type). The PLANNING subset only — never `type.fields` whole, that is a
+  // RECORD's field set (Stage 2).
+  const [fields] = useState(() =>
+    planFields({ scoring: type.scoring, evidenceFields: type.fields })
+  );
+  const [schema] = useState(() => schemaForFields(fields, type.scoring));
 
   const {
     register,
@@ -187,7 +201,7 @@ function EvidenceForm({
     formState: { errors },
   } = useForm<FieldValues>({
     resolver: standardSchemaResolver(schema as never) as unknown as Resolver<FieldValues>,
-    defaultValues: evidenceDefaults(type.fields),
+    defaultValues: evidenceDefaults(fields),
   });
 
   const watched = useWatch({ control });
@@ -200,7 +214,7 @@ function EvidenceForm({
           code: type.code,
           coefficient: type.coefficient,
           scoring: type.scoring,
-          evidenceFields: type.fields,
+          evidenceFields: fields,
         },
         parsedPreview.data
       ).score;
@@ -242,18 +256,13 @@ function EvidenceForm({
             </div>
           )}
 
-          <EvidenceFields
-            fields={type.fields}
-            register={register}
-            control={control}
-            errors={errors}
-          />
+          <EvidenceFields fields={fields} register={register} control={control} errors={errors} />
 
           <div className="space-y-1">
-            <Label htmlFor="plan-row-note">Примітка</Label>
+            <Label htmlFor="plan-row-note">Опис (необов&apos;язково)</Label>
             <Textarea
               id="plan-row-note"
-              placeholder="Наприклад: стаття у Q2 з історії освіти"
+              placeholder="Наприклад: стаття з історії освіти у виданні категорії Б"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />

@@ -8,6 +8,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { logError } from '@/lib/log';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
+import { planFields } from '@/lib/science/plan-fields';
 import { rateForPlan } from '@/lib/science/target';
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { toHundredths } from '@/lib/stake/units';
@@ -90,11 +91,17 @@ export async function savePlanRow(input: SavePlanRowInput): Promise<SavePlanRowR
   });
   if (!type) return { error: 'Цей вид роботи недоступний для планування' };
 
-  // The same Zod generator the rating uses, built straight from the type's own
-  // evidenceFields — reused, never hand-rolled.
+  // The same Zod generator the rating uses, but over a PLAN row's own subset
+  // of the type's evidenceFields (D23) — not the whole set, which is a
+  // RECORD's job (Stage 2). `allowUnknownKeys` because a row saved before
+  // this change still carries a `title` (or other evidence) in `details`;
+  // dropping the requirement must never turn into refusing that old row on
+  // its next save.
   const fields = type.evidenceFields as unknown as EvidenceField[];
   const scoring = type.scoring as unknown as ScoringSpec;
-  const parsed = schemaForFields(fields, scoring).safeParse(input.details);
+  const parsed = schemaForFields(planFields({ scoring, evidenceFields: fields }), scoring, {
+    allowUnknownKeys: true,
+  }).safeParse(input.details);
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   // computeScore's `score` is whole HOURS here, not бали — the science plan
