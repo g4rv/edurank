@@ -55,27 +55,31 @@ typing, not a year.
 
 Every row was answered by the owner on **2026-09-15**.
 
-| #   | Question                                      | Decision                                                                                                                                                                                   |
-| --- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| D1  | What does the feature produce?                | **План + факт.** Plan the year, then record what was actually done, and show both against the target.                                                                                      |
-| D2  | Which додатки are covered?                    | **Додаток III only** — наукова робота, 18 items. Built so Додаток II (методична) and IV (організаційна) can be added later as further catalogues of the same shape.                        |
-| D3  | Relation to the existing rating?              | **Fully separate.** No shared rows, no derivation. An НПП enters an article for балів and, separately, for годин.                                                                          |
-| D4  | Who else reads it?                            | **Завідувач reads their кафедра, ННВ and ADMIN read everybody. No approval step** — the НПП fills it and it is final, like the rating and the ставки.                                      |
-| D5  | Where does the catalogue live?                | **DB rows, one template per навчальний рік, clonable**, edited by ADMIN. A new наказ is an admin afternoon, not a release.                                                                 |
-| D6  | One plan per person, or per кафедра?          | **Per кафедра.** Somebody on two кафедри has two plans and fills them separately.                                                                                                          |
-| D7  | What is the target?                           | `minHoursPerRate × ` that person's ставка **on that кафедра**.                                                                                                                             |
-| D8  | What if the розподіл ставок is not saved yet? | **No target is shown at all.** The plan opens, hours still add up, and nothing claims to know how much is enough. No fallback, no typed override.                                          |
-| D9  | Below the target?                             | **Shown, never blocked.** Same rule as the ставки grid, where overspending is shown and never refused.                                                                                     |
-| D10 | The reuse rule?                               | **One person draws from one work once, on one кафедра, ever** — except where the work type says otherwise. Each work type is flagged `ONCE` or `YEARLY`.                                   |
-| D11 | Evidence?                                     | **Mandatory on a record, not on a plan row.** A publication needs its link; a course needs its certificate. Which is required is a property of the work type.                              |
-| D12 | Where do files live?                          | **Cloudflare R2**, free tier. Presigned upload straight from the browser; short-lived signed reads.                                                                                        |
-| D13 | Architecture?                                 | **Own tables, shared code.** New models; the scoring engine, evidence-field specs, Zod generator and form renderer lifted out of `lib/rating/` into a neutral module.                      |
-| D14 | Co-authors?                                   | **One work, one pool of hours, shared.** An article worth 200 г gives 200 г in total however many authors draw on it — 150 taken leaves 50. Modelled as `ScienceWork` + per-person claims. |
-| D15 | Which work types share?                       | **A column on the work type.** ADMIN marks each Додаток III row `SHARED` or `INDIVIDUAL`. Стаття, монографія, патент, доповідь share; аспірант, гурток, участь у конференції do not.       |
-| D16 | Who divides the pool?                         | **First come, takes what they need.** A claimer sees «залишилось 50 з 200 год» and types their share. Refused above what is left. No approver, no automatic equal split.                   |
-| D17 | A second person entering the same work?       | **Refused, and told who has it** — «цей запис уже додав Іваненко І. І.». Only one record of a work ever exists. They then **join that record** and draw from what is left.                 |
-| D18 | Декан?                                        | **Inspects, never edits** — the app's existing rule (`scopeOf` reads, `headOf` decides).                                                                                                   |
-| D19 | An official export form?                      | **Later.** Not in scope now; the shape is unknown and the file has not been supplied.                                                                                                      |
+| #   | Question                                      | Decision                                                                                                                                                                                                                                                       |
+| --- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | What does the feature produce?                | **План + факт.** Plan the year, then record what was actually done, and show both against the target.                                                                                                                                                          |
+| D2  | Which додатки are covered?                    | **Додаток III only** — наукова робота, 18 items. Built so Додаток II (методична) and IV (організаційна) can be added later as further catalogues of the same shape.                                                                                            |
+| D3  | Relation to the existing rating?              | **Fully separate.** No shared rows, no derivation. An НПП enters an article for балів and, separately, for годин.                                                                                                                                              |
+| D4  | Who else reads it?                            | **Завідувач reads their кафедра, ННВ and ADMIN read everybody. No approval step** — the НПП fills it and it is final, like the rating and the ставки.                                                                                                          |
+| D5  | Where does the catalogue live?                | **DB rows, one template per навчальний рік, clonable**, edited by ADMIN. A new наказ is an admin afternoon, not a release.                                                                                                                                     |
+| D6  | One plan per person, or per кафедра?          | **Per кафедра.** Somebody on two кафедри has two plans and fills them separately.                                                                                                                                                                              |
+| D7  | What is the target?                           | `minHoursPerRate × ` that person's ставка **on that кафедра**.                                                                                                                                                                                                 |
+| D8  | What if the розподіл ставок is not saved yet? | **No target is shown at all.** The plan opens, hours still add up, and nothing claims to know how much is enough. No fallback, no typed override.                                                                                                              |
+| D9  | Below the target?                             | **Shown, never blocked.** Same rule as the ставки grid, where overspending is shown and never refused.                                                                                                                                                         |
+| D10 | The reuse rule?                               | **One person draws from one work once, on one кафедра, ever** — except where the work type says otherwise. Each work type is flagged `ONCE` or `YEARLY`.                                                                                                       |
+| D11 | Evidence?                                     | **Mandatory on a record, not on a plan row.** A publication needs its link; a course needs its certificate. Which is required is a property of the work type.                                                                                                  |
+| D12 | Where do files live?                          | **Cloudflare R2**, free tier. Presigned upload straight from the browser; short-lived signed reads.                                                                                                                                                            |
+| D13 | Architecture?                                 | **Own tables, shared code.** New models; the scoring engine, evidence-field specs, Zod generator and form renderer lifted out of `lib/rating/` into a neutral module.                                                                                          |
+| D14 | Co-authors?                                   | **One work, one pool of hours, shared.** An article worth 200 г gives 200 г in total however many authors draw on it — 150 taken leaves 50. Modelled as `ScienceWork` + per-person claims.                                                                     |
+| D15 | Which work types share?                       | **A column on the work type.** ADMIN marks each Додаток III row `SHARED` or `INDIVIDUAL`. Стаття, монографія, патент, доповідь share; аспірант, гурток, участь у конференції do not.                                                                           |
+| D16 | Who divides the pool?                         | **First come, takes what they need.** A claimer sees «залишилось 50 з 200 год» and types their share. Refused above what is left. No approver, no automatic equal split.                                                                                       |
+| D17 | A second person entering the same work?       | **Refused, and told who has it** — «цей запис уже додав Іваненко І. І.». Only one record of a work ever exists. They then **join that record** and draw from what is left.                                                                                     |
+| D18 | Декан?                                        | **Inspects, never edits** — the app's existing rule (`scopeOf` reads, `headOf` decides).                                                                                                                                                                       |
+| D19 | An official export form?                      | **Later.** Not in scope now; the shape is unknown and the file has not been supplied.                                                                                                                                                                          |
+| D20 | Are records reviewed?                         | **Yes — post-check, not a gate** (owner, 2026-09-15). A record counts as soon as it is saved; ННВ and ADMIN may decline it afterwards, with a reason, and it stops counting. The same shape as the rating's moderation, which already works here.              |
+| D21 | Why not a gate?                               | The owner's reasoning: a gate «would be too complicated to implement since we would have to predict EVERYTHING». It also blocks 328 people behind one office's queue. Post-check keeps everybody moving and still makes every claim removable.                 |
+| D22 | What evidence does a record demand?           | **Per work type, and never just a name.** An article is proved by a **link** — DOI, Scopus, the journal's issue page, the university repository. A certificate, наказ, диплом or посвідчення is proved by an uploaded **file**. Whichever applies is REQUIRED. |
+| D23 | Does a plan row carry evidence?               | **No.** A plan row is an intention — in September the article does not exist and has no title. It carries the work type, its variant, the quantity and an optional free note. Nothing else.                                                                    |
 
 ### Why D10 is not the blanket rule the owner first asked for
 
@@ -784,3 +788,62 @@ All four questions this document opened were answered by the owner on
 - `docs/deployment.md` — the R2 env vars, bucket versioning, and files in the
   backup plan.
 - `lib/labels.ts` — `FIELD_LABELS` for every new field that a mutation diffs.
+
+## Evidence, per work type — D22 in practice
+
+The column `ScienceWorkType.requiresFile` already exists and carries this. It is
+read one way and one way only:
+
+| `requiresFile` | What a record must have                               |
+| -------------- | ----------------------------------------------------- |
+| `false`        | a **link**, required. A file may be attached as well. |
+| `true`         | a **file**, required. A link may be attached as well. |
+
+**Never neither.** A record with only a name is the thing this feature exists to
+stop: the owner's words for why the university is moving off paper are that
+people «tend to photoshop their certificates and print them on paper», and a
+typed name is weaker than the paper it replaces.
+
+The split follows the наказ's own «Форма звітності» column and, under it, one
+question: **does a public record of this work exist that the person does not
+control?**
+
+- **Link** — стаття (DOI, Scopus, the journal's issue page, the інституційний
+  репозитарій), англомовний супровід, редколегія (a journal lists its board).
+- **File** — everything the наказ answers with a document: «Наказ», «Свідоцтво»,
+  «Патент», «Диплом», «Посвідчення», «Сертифікат», «Експертний висновок», «План
+  роботи гуртка», «Положення про лабораторію», «Звіт».
+
+**ADMIN can flip any row** on `/admin/science-plan/[year]`, which is the point of
+its being a column. The seed's split is a first reading of the наказ, not a
+ruling — expect it to be corrected once real records arrive.
+
+### A file is not proof, and the design should not pretend otherwise
+
+A PDF is as forgeable as paper; uploading a doctored certificate is no harder
+than printing one. What a file buys over paper is different and still worth
+having:
+
+- it is **kept** and can be re-examined next year; paper goes in a folder and is
+  never looked at again;
+- ННВ can check it **without the person present**;
+- **the same file cannot be used twice** — hash it on upload and a file reused by
+  a colleague, or by the same person next year, is caught. Paper can never do
+  this;
+- a PDF carries its own metadata, and a scan of a real document does not look
+  like an export from a design tool. A signal for a reviewer, not proof.
+
+So the ranking is: **a link to a source the person does not control** beats a
+file; a file beats a name; a name alone is refused.
+
+### What the machine checks, and what it cannot
+
+Checked automatically: the same work claimed twice (the dedup key), the same file
+uploaded twice (its hash), a page count higher than the PDF really has — item 4
+pays **50 год per page**, so page inflation is the obvious cheat — a DOI that
+resolves and matches the claimed journal, year and pages, an ISBN's check digit,
+and a link whose host matches what it claims to be (`lib/link-hosts.ts`).
+
+Not checkable: whether a certificate is genuine, whether the person really did
+the work, whether a group's split of shared hours is the one they agreed. That is
+what ННВ is for, and why D20 keeps a human able to decline anything.
