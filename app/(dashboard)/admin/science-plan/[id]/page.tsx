@@ -92,7 +92,7 @@ export default async function ScienceWorkTypesPage({
   });
 
   return (
-    <div className="space-y-5">
+    <div className="flex h-full min-h-0 flex-col gap-5">
       <Breadcrumbs
         items={[
           { label: 'Адміністрування' },
@@ -109,9 +109,12 @@ export default async function ScienceWorkTypesPage({
           {template.status === 'OPEN' ? 'Відкритий' : 'Закритий'}
         </Badge>
       </div>
+      {/* Counted, not typed: «26» was the number the 2026/2027 catalogue was
+          seeded with, and it stops being true the first time an ADMIN adds a
+          вид роботи — which is the whole point of this screen. */}
       <p className="text-sm text-foreground-soft">
-        26 видів наукової роботи та їх вартість у годинах. Зміни діють одразу — деактивація приховує
-        вид роботи з переліку для планування, не чіпаючи вже заплановані рядки.
+        {workTypes.length} видів наукової роботи та їх вартість у годинах. Зміни діють одразу —
+        деактивація приховує вид роботи з переліку для планування, не чіпаючи вже заплановані рядки.
       </p>
 
       <WorkTypeList templateId={template.id} workTypes={workTypes} />

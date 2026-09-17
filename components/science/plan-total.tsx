@@ -2,20 +2,7 @@ import { Check, TriangleAlert } from 'lucide-react';
 import { Badge } from '@/components/aurora/ui/badge';
 import { Card } from '@/components/aurora/ui/card';
 import type { PlanTarget } from '@/lib/science/target';
-
-/**
- * «135 → 1,35» for an hour figure, the same shape `lib/stake/units.ts` uses for
- * a ставка — both are INTEGER HUNDREDTHS. Kept local rather than imported: a
- * ставка's formatter is named for ставки, and this is a plan's hour total.
- * Whole hours print without decimals — «500», not «500,00» — because that is
- * how Додаток III itself prints them and how almost every value here lands
- * (a FIXED item, a SELECT item), while a page-based item like an article can
- * genuinely land on «20,83».
- */
-export function formatHours(hundredths: number): string {
-  const value = hundredths / 100;
-  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace('.', ',');
-}
+import { formatHours } from '@/lib/science/hours';
 
 /**
  * «Заплановано N з M год» — the band an НПП checks their plan against.

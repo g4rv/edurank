@@ -27,6 +27,9 @@ export interface SciencePlanRowSummary {
 export async function listSciencePlans(input: {
   templateId: string;
   departmentIds: readonly string[];
+  /** Part of a ПІБ. Matched on the three name columns separately, because the
+   *  full name is assembled in JS and no column holds it. */
+  q?: string;
 }): Promise<SciencePlanRowSummary[]> {
   const template = await db.sciencePlanTemplate.findUnique({
     where: { id: input.templateId },
@@ -35,11 +38,24 @@ export async function listSciencePlans(input: {
   if (!template) return [];
 
   const ids = [...input.departmentIds];
+  const q = input.q?.trim();
   const staff = await db.staff.findMany({
     where: {
       ...ON_ROSTER,
       isNpp: true,
       ...onDepartments(ids),
+      // `mode: 'insensitive'` matters more here than in a Latin list: somebody
+      // typing «іванов» must find «Іванов», and Postgres does not fold
+      // Cyrillic case in a plain LIKE.
+      ...(q
+        ? {
+            OR: [
+              { lastName: { contains: q, mode: 'insensitive' as const } },
+              { firstName: { contains: q, mode: 'insensitive' as const } },
+              { patronymic: { contains: q, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
     },
     select: {
       id: true,

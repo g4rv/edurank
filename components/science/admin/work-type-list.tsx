@@ -128,7 +128,11 @@ export function WorkTypeList({
   }
 
   return (
-    <div className="space-y-4">
+    // A flex column that gives its height away to the table below, so the
+    // twenty-six rows scroll inside the card and the PAGE does not — see the
+    // note on `fill` in `components/aurora/ui/table.tsx`. Inert unless every
+    // ancestor up to the shell's `main` is the same shape, which the page is.
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setDialogDraft(blankDraft())}>
           <Plus className="size-4" />
@@ -140,6 +144,7 @@ export function WorkTypeList({
         <EmptyState>Каталог ще порожній. Додайте перший вид роботи.</EmptyState>
       ) : (
         <Table
+          fill
           columns={[...COLUMNS]}
           head={
             <TableRow>

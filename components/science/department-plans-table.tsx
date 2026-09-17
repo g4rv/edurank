@@ -1,37 +1,13 @@
+import Link from 'next/link';
+import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/aurora/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { formatStake } from '@/lib/stake/units';
-import { formatHours } from '@/components/science/plan-total';
+import { formatHours } from '@/lib/science/hours';
+import { planListHref, type PlanListParams } from '@/lib/science/list-params';
+import { nextDir, type PlanSortField } from '@/lib/science/plan-rows';
 import type { SciencePlanRowSummary } from '@/lib/queries/list-science-plans';
-
-/**
- * A person is short of their target only when they HAVE one — a null target
- * (no розподіл yet, D8) is not «short», it is «nothing to compare against».
- * `shortfallHundredths` is already `null` for exactly that case (`planTarget`
- * in `lib/science/target.ts`), so this is the one field the sort needs.
- */
-// Exported: the university-wide view's summary strip (Task 11) counts the
-// same «short of target» rows this table sorts to the top, and a second copy
-// of this predicate is exactly the drift §11 of docs/aurora.md warns about.
-export function isShort(row: SciencePlanRowSummary): boolean {
-  return row.shortfallHundredths !== null && row.shortfallHundredths > 0;
-}
-
-/**
- * Short-of-target first, then alphabetically — the page exists to find who
- * has not planned, not to read the roster in roster order. A `Staff` name has
- * no locale-independent order (ї, і, є sort differently under the default
- * comparator), so `localeCompare(…, 'uk')` is what every other name sort in
- * this app uses.
- */
-function sortRows(rows: readonly SciencePlanRowSummary[]): SciencePlanRowSummary[] {
-  return [...rows].sort((a, b) => {
-    const aShort = isShort(a);
-    const bShort = isShort(b);
-    if (aShort !== bShort) return aShort ? -1 : 1;
-    return a.fullName.localeCompare(b.fullName, 'uk');
-  });
-}
+import { cn } from '@/lib/utils';
 
 const FIGURE_COLUMN = 'calc(6ch + 2rem)';
 const PLANNED_COLUMN = 'calc(8ch + 2rem)';
@@ -39,19 +15,80 @@ const DEPARTMENT_COLUMN = '14rem';
 const STATE_COLUMN = '13rem';
 
 /**
- * A завідувача's or декан's read of who on their кафедра(и) has planned their
- * наукова робота. No edit path lives here — see the owner's note on Task 10:
- * this screen only ever answers «may I look», the same split `scopeOf` /
- * `headOf` draw everywhere else in the app.
+ * A heading that sorts.
+ *
+ * **Local and unexported** — §11 of `docs/aurora.md`: one caller means it is
+ * not shared yet, and the app's other sortable heading (`components/ui/sort-th`)
+ * draws a shadcn `<th>` of its own, which would put a second header look inside
+ * an Аврора table. The second screen that wants this is what moves it into
+ * `components/aurora/ui/table.tsx`, with this one repointed in the same commit.
+ */
+function SortHead({
+  label,
+  column,
+  params,
+  basePath,
+  numeric = false,
+  className,
+}: {
+  label: string;
+  column: PlanSortField;
+  params: PlanListParams;
+  basePath: string;
+  numeric?: boolean;
+  className?: string;
+}) {
+  const active = params.sort === column;
+  const dir = nextDir(params.sort, params.dir, column);
+  const href = planListHref(basePath, params, { sort: column, dir });
+
+  return (
+    <TableHead numeric={numeric} className={className}>
+      <Link
+        href={href}
+        aria-sort={active ? (params.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+        className={cn(
+          'inline-flex items-center gap-1 transition-colors hover:text-brand',
+          numeric && 'flex-row-reverse'
+        )}
+      >
+        {label}
+        {active ? (
+          params.dir === 'asc' ? (
+            <ChevronUp className="size-3.5" />
+          ) : (
+            <ChevronDown className="size-3.5" />
+          )
+        ) : (
+          // Present but faint on every sortable column: a chevron that appears
+          // only on hover tells nobody with a touch screen that the column
+          // sorts at all.
+          <ChevronsUpDown className="size-3.5 opacity-40" />
+        )}
+      </Link>
+    </TableHead>
+  );
+}
+
+/**
+ * Who on a кафедра has planned their наукова робота, and who has not.
+ *
+ * No edit path lives here — see the owner's note on Task 10: this screen only
+ * ever answers «may I look», the same split `scopeOf` / `headOf` draw
+ * everywhere else in the app. Rows arrive filtered, sorted and paged by the
+ * page; this draws them.
  */
 export function DepartmentPlansTable({
   rows,
   showDepartment,
+  params,
+  basePath,
 }: {
-  rows: SciencePlanRowSummary[];
+  rows: readonly SciencePlanRowSummary[];
   showDepartment: boolean;
+  params: PlanListParams;
+  basePath: string;
 }) {
-  const sorted = sortRows(rows);
   const columns = showDepartment
     ? [
         null,
@@ -65,23 +102,41 @@ export function DepartmentPlansTable({
     : [null, FIGURE_COLUMN, FIGURE_COLUMN, PLANNED_COLUMN, FIGURE_COLUMN, STATE_COLUMN];
 
   return (
+    // `fill`, not the component's default cap: the cap is an estimate of the
+    // furniture above the table, and above this one there is a crumb, a title,
+    // a filter bar, a stat strip and a pager — four rems more than the estimate
+    // allows, which left the PAGE scrolling as well as the rows. See the note
+    // on `fill` in `components/aurora/ui/table.tsx`.
     <Table
-      containerClassName="min-h-0"
+      fill
+      // The floor is for the phone, where the header, four stacked filters and
+      // a two-row strip leave `fill` almost nothing to hand over. Below it the
+      // page scrolls again — which is the right answer on a 400px screen, and
+      // the wrong one on a desktop, where `fill` has plenty to give.
+      containerClassName="min-h-96"
       columns={columns}
       head={
         <TableRow>
-          <TableHead>ПІБ</TableHead>
-          {showDepartment && <TableHead>Кафедра</TableHead>}
-          <TableHead numeric>Ставка</TableHead>
-          <TableHead numeric>Ціль</TableHead>
-          <TableHead numeric>Заплановано</TableHead>
-          <TableHead numeric>Бракує</TableHead>
+          <SortHead label="ПІБ" column="name" params={params} basePath={basePath} />
+          {showDepartment && (
+            <SortHead label="Кафедра" column="department" params={params} basePath={basePath} />
+          )}
+          <SortHead label="Ставка" column="rate" params={params} basePath={basePath} numeric />
+          <SortHead label="Ціль" column="target" params={params} basePath={basePath} numeric />
+          <SortHead
+            label="Заплановано"
+            column="planned"
+            params={params}
+            basePath={basePath}
+            numeric
+          />
+          <SortHead label="Бракує" column="shortfall" params={params} basePath={basePath} numeric />
           <TableHead>Стан</TableHead>
         </TableRow>
       }
     >
       <TableBody className="[&_td]:align-middle">
-        {sorted.map((row) => (
+        {rows.map((row) => (
           <TableRow key={`${row.staffId}-${row.departmentId}`}>
             <TableCell>{row.fullName}</TableCell>
             {showDepartment && <TableCell muted>{row.departmentName}</TableCell>}

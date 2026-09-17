@@ -866,6 +866,18 @@ Spell the variant out literally, even when that means the constant appears twice
 — `listbox.ts` keeps `listRowSelected` and `listRowSelectedState` side by side
 for exactly this.
 
+**A list page with furniture above it needs `fill`, not the table's default
+cap.** `Table` caps itself at `calc(100svh - 16rem)`, and the 16rem is an
+ESTIMATE of what stands above it — the identity band, the tabs and the switch on
+the rating tab it was measured against. `/science-plans` carries a crumb, a
+title, a filter bar, a stat strip AND a pager, which is more than the estimate
+allows, so the card was capped one screenful tall on a page that was taller than
+one screen: the page scrolled, and the rows scrolled inside it, and neither
+scrollbar reached the end on its own. Pass `fill` and make every ancestor up to
+`main` a `flex min-h-0 flex-col`, which is what asks the layout instead of
+guessing. Keep a `min-h` floor on the card: on a phone the stacked furniture
+leaves `fill` nothing to give, and there the page SHOULD scroll.
+
 **A layout is not a guard and cannot read the pathname.** Layouts do not
 re-render on navigation, so `auth()` in one runs once and an `active` tab passed
 down from one is frozen on whichever tab was opened first. Each page keeps its

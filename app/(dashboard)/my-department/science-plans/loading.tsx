@@ -9,24 +9,39 @@ const STATE_COLUMN = '13rem';
 
 /**
  * The title is printed, not shimmered — it never depends on the query. The
- * subtitle (the template's academic year) does, so that one shimmers.
+ * subtitle (the template's academic year and the count) does, so that one
+ * shimmers.
  *
- * **No «Кафедра» column here** — the same call `achievements/students/loading.tsx`
- * makes for its «Дії» column: a завідувач with one кафедра is the commoner
- * case, so the shell draws the shape most visits land on rather than guessing
- * which of the two a particular head gets.
+ * **No «Кафедра» column and no кафедра picker here** — the same call
+ * `achievements/students/loading.tsx` makes for its «Дії» column: a завідувач
+ * with one кафедра is the commoner case, so the shell draws the shape most
+ * visits land on rather than guessing which of the two a particular head gets.
  */
 export default function DepartmentSciencePlansLoading() {
   return (
-    <div className="space-y-5">
+    <div className="flex h-full min-h-0 flex-col gap-5">
       <Breadcrumbs items={CRUMBS} />
       <div>
         <h1 className="text-2xl font-semibold tracking-[-0.01em]">Плани кафедри</h1>
         <Skeleton className="mt-1.5 h-4 w-40" />
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Skeleton className="h-9 w-full sm:w-64" />
+        <Skeleton className="h-9 w-full sm:w-48" />
+      </div>
+
+      <div className="grid grid-cols-2 rounded-xl border bg-card sm:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="space-y-2 px-4 py-3.5">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-16" />
+          </div>
+        ))}
+      </div>
+
       <Table
-        containerClassName="min-h-0"
+        fill
         columns={[null, FIGURE_COLUMN, FIGURE_COLUMN, PLANNED_COLUMN, FIGURE_COLUMN, STATE_COLUMN]}
         head={
           <TableRow>
@@ -40,7 +55,7 @@ export default function DepartmentSciencePlansLoading() {
         }
       >
         <TableBody className="[&_td]:h-12 [&_td]:align-middle">
-          {[0, 1, 2].map((row) => (
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((row) => (
             <TableRow key={row}>
               <TableCell>
                 <Skeleton className="h-4 w-48" />

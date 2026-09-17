@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import type { PlanTarget } from '@/lib/science/target';
 import type { SciencePlanRowDetail } from '@/lib/queries/get-science-plan';
-import { PlanTotal, formatHours } from '@/components/science/plan-total';
+import { PlanTotal } from '@/components/science/plan-total';
+import { formatHours } from '@/lib/science/hours';
 import { AddPlanRowDialog, type PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import { DeletePlanRowButton } from '@/components/science/delete-plan-row-button';
 

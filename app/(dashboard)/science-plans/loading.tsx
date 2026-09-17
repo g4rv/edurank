@@ -9,14 +9,14 @@ const DEPARTMENT_COLUMN = '14rem';
 const STATE_COLUMN = '13rem';
 
 /**
- * Same shape as `/my-department/science-plans/loading.tsx`, plus the two
- * pieces that screen never has: a filter row (факультет + кафедра) and the
- * summary strip — this page always shows «Кафедра» too, unlike that one,
- * because a university-wide list is never a single кафедра's own.
+ * Same shape as `/my-department/science-plans/loading.tsx`, plus the факультет
+ * picker that screen never has — and, like it, the page's own fixed chrome
+ * drawn to the pixel: the flex column, the filter row, the strip and the
+ * table's `fill`, so nothing moves when the rows arrive.
  */
 export default function AllSciencePlansLoading() {
   return (
-    <div className="space-y-5">
+    <div className="flex h-full min-h-0 flex-col gap-5">
       <Breadcrumbs items={CRUMBS} />
       <div>
         <h1 className="text-2xl font-semibold tracking-[-0.01em]">Наукова робота</h1>
@@ -25,7 +25,9 @@ export default function AllSciencePlansLoading() {
 
       <div className="flex flex-wrap items-center gap-2">
         <Skeleton className="h-9 w-full sm:w-64" />
+        <Skeleton className="h-9 w-full sm:w-64" />
         <Skeleton className="h-9 w-full sm:w-72" />
+        <Skeleton className="h-9 w-full sm:w-48" />
       </div>
 
       <div className="grid grid-cols-2 rounded-xl border bg-card sm:grid-cols-4">
@@ -38,7 +40,7 @@ export default function AllSciencePlansLoading() {
       </div>
 
       <Table
-        containerClassName="min-h-0"
+        fill
         columns={[
           null,
           DEPARTMENT_COLUMN,
@@ -61,7 +63,7 @@ export default function AllSciencePlansLoading() {
         }
       >
         <TableBody className="[&_td]:h-12 [&_td]:align-middle">
-          {[0, 1, 2].map((row) => (
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((row) => (
             <TableRow key={row}>
               <TableCell>
                 <Skeleton className="h-4 w-48" />

@@ -36,7 +36,7 @@ import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { toHundredths } from '@/lib/stake/units';
-import { formatHours } from '@/components/science/plan-total';
+import { formatHours } from '@/lib/science/hours';
 
 export interface PlanWorkType {
   id: string;
