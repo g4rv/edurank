@@ -273,6 +273,8 @@ app/
         [year]/                   ← per-section indicator editor
       stakes/                     ← redirects to /stakes (merged 2026-08-12)
         norms/                    ← додаток 5's норматив table + the year's contract coefficient
+      science-plan/                ← ADMIN: planning years — create/clone/open/close
+        [id]/                     ← the Додаток III catalogue editor for one year
       invites/                    ← bulk «надіслати запрошення» over people with no password
       rating-debug/               ← service page: renders every evidence form (no nav link)
       design/                     ← service page: design concepts (no nav link)
@@ -291,13 +293,16 @@ app/
       [section]/                  ← add an activity from section 1–5
       students/                   ← «Мої залучені здобувачі» — own StudentClaim list
       kharakterystyka/            ← own Характеристика
+    science-plan/                 ← НПП: their own план наукової роботи (Додаток III)
     moderation/                   ← ННВ + ADMIN: discard self-reports, verify publications
     division-data/                ← EDITOR: their division's direct-entry grid
     rating/                       ← ADMIN + EDITOR: university-wide rollup
+    science-plans/                ← ADMIN + ННВ: every кафедра's наукова робота plans
     stakes/                       ← ADMIN/проректор: Кст + бонусний фонд across all кафедри
       [id]/                       ← the завідувач's grid for ONE кафедра (додаток 2)
     my-department/                ← завідувач/декан: their кафедра
       students/                   ← ADMIN rules on StudentClaims; a head/декан reads
+      science-plans/              ← a head's/декан's read of their кафедра's/факультет's plans
     actions.ts                    ← sign-out
     layout.tsx                    ← dashboard shell (sidebar), redirects anonymous to /login
   api/                            ← NOT covered by proxy.ts — every route authenticates itself
@@ -458,6 +463,58 @@ Which indicators satisfy which position is `ActivityType.licencePositions`, a JS
 column and not a list in code — for the same reason `requiresVerification` and
 `entityFirstEntry` are columns: a code list silently excludes every indicator an
 admin builds themselves, and the вчена рада votes new ones in yearly.
+
+## Планування наукової роботи (Stage 1 built)
+
+Full specification: `docs/superpowers/specs/2026-09-15-science-plan-design.md`.
+Наказ №152's Додаток III: an НПП plans **≥500 годин of наукова робота per
+ставку per навчальний рік** (pro-rata below a full ставка), split across 18
+printed items, each catalogued as a `ScienceWorkType`. Stage 1 builds **план**
+only — the target and the rows a person intends. **Факт** (Stage 2, recorded
+evidence) and **the co-authored pool** (Stage 3) are not built.
+
+**This is not the rating.** The rating scores achievements in **балах** with
+its own coefficients, to rank people. Додаток III prices the same real-world
+work in **годинах**, to fill a workload quota — two measuring systems over one
+world, D3's fully separate tables, sharing only the scoring engine and
+evidence-field machinery lifted out of `lib/rating/`.
+
+Easy to get wrong:
+
+- **Hours are INTEGER HUNDREDTHS OF AN HOUR, never a float** — the same rule
+  `lib/stake/units.ts` enforces for ставки, applied here in
+  `SciencePlanRow.plannedHundredths`. `toHundredths` freezes the value at save;
+  editing the наказ later never rewrites a row already planned.
+- **The ставка behind a plan's target is the PER-КАФЕДРА one from
+  `StakeAllocation`, never `Staff.employmentRate`.** `employmentRate` is the
+  SUM across every кафедра that pays somebody (see «Сумісництво» above); a
+  сумісник on two кафедри has two plans, each targeted by its own share.
+  `SciencePlan.rateHundredths` is refreshed from the кафедра's розподіл on
+  every save while the template is OPEN — a розподіл saved in November reaches
+  a plan typed in September without anybody touching it. `null` (розподіл not
+  saved yet) means **no target is shown at all**, not a guessed one (D8).
+- **A навчальний рік is a STRING, «2026/2027»** — `SciencePlanTemplate.academicYear` —
+  never the rating's `Int` `year`. `stakeYear` is a separate stored column,
+  derived once at creation (`stakeYearOf`) to say which calendar year's
+  `StakeAllocation` supplies the target; a cloned year recomputes it rather
+  than copying, so 2027/2028 targets the 2027 розподіл, not 2026's.
+- **One plan per person PER КАФЕДРА** (D6), enforced by
+  `@@unique([staffId, departmentId, templateId])`. Somebody on two кафедри
+  fills two plans separately; there is no merged view of both.
+- **A plan row carries NO evidence.** `SciencePlanRow.details` holds only what
+  its scoring rule reads (which variant, how many units) — evidence that a
+  work actually happened belongs to a **record**, which is Stage 2 and does
+  not exist yet. Shown, never blocked, below target (D9), same rule as the
+  ставки grid's overspend.
+- **Evidence field names are dictated by the scoring engine — `option`,
+  `credits`, `value` — never chosen per catalogue row.** They are the same
+  three keys `lib/rating/evidence-fields.ts` generates a Zod schema from;
+  `ScienceWorkType.identityFields` names which of them identify one WORK
+  (`["doi", "url", "title"]`, priority order), for Stage 2's dedup — seeded
+  and editable now, read by nothing until then.
+- **`ScienceWorkType.reuse` / `.sharing` are seeded and editable, unused
+  until Stage 2 and 3.** `ONCE` vs `YEARLY` (D10) and `INDIVIDUAL` vs `SHARED`
+  (D14/D15) describe a catalogue row today with nothing yet enforcing either.
 
 ## Naming conventions
 

@@ -175,6 +175,24 @@ export const FIELD_LABELS: Record<string, string> = {
   academicYear: 'Навчальний рік',
   orderRef: 'Наказ',
   minHoursPerRate: 'Мін. годин на ставку',
+  // ScienceWorkType — one row of Додаток III's catalogue, edited on
+  // /admin/science-plan/[id]. `code` (Код показника), `label` (Показник),
+  // `coefficient` (Коефіцієнт), `isActive` (Активний) and `status` (Статус)
+  // already have entries above and apply here unchanged.
+  itemNumber: 'Номер пункту',
+  unitNote: 'Примітка до одиниці',
+  reportingForm: 'Форма звітності',
+  reuse: 'Повторне використання',
+  sharing: 'Розподіл між співавторами',
+  identityFields: 'Поля ідентичності роботи',
+  requiresFile: 'Потребує файл',
+  maxPerYear: 'Максимум на рік',
+  // Not columns — a short fingerprint of the JSON evidenceFields/scoring pair
+  // and a plan-row count, so the audit log shows something a person can read
+  // instead of two blobs of JSON (see `specsFingerprint` in
+  // app/(dashboard)/admin/science-plan/[id]/actions.ts).
+  specs: 'Специфікації форми',
+  plannedRows: 'Запланованих рядків',
 };
 
 /**

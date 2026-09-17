@@ -240,6 +240,35 @@ edit) and merging rows server-side (an audit log must not rewrite itself).
 
 ---
 
+## I. Планування наукової роботи — Stage 1 shipped, Stages 2–3 outstanding (2026-09-17)
+
+Full spec: `docs/superpowers/specs/2026-09-15-science-plan-design.md`, decided
+and approved by the owner 2026-09-15. **Stage 1 shipped 2026-09-17**: the
+Додаток III catalogue (ADMIN, clonable per навчальний рік), one план per
+person per кафедра targeted against their per-кафедра ставка, and the four
+reading screens — `/science-plan` (own), `/my-department/science-plans`
+(head/декан), `/science-plans` (ADMIN + ННВ), `/admin/science-plan[/id]`
+(the catalogue editor, now linked from the year list). See CLAUDE.md's
+«Планування наукової роботи» section for the rules easy to get wrong.
+
+**Stage 2 — факт (records), not built.** An НПП records what was actually
+done against each planned row, with evidence the way an `Activity` carries it
+for the rating. Post-check moderation (D20/D21) — ННВ/ADMIN decline a record
+with a reason, the same shape `/moderation` already has, never a gate.
+`identityFields` and `reuse` (`ONCE`/`YEARLY`) start being enforced here —
+both are seeded and editable in Stage 1 already, read by nothing until this
+lands.
+
+**Stage 3 — the co-authored pool (D14–D17), not built.** A `SHARED` work type
+(стаття, монографія, патент, доповідь) becomes one `ScienceWork` with a shared
+hour pool that a second co-author joins and draws down, rather than a
+duplicate record; a name clash is refused and tells the person who already
+holds it. Files move to Cloudflare R2 (D12) — presigned upload from the
+browser, short-lived signed reads.
+
+**Not scheduled in either stage:** an official export form (D19) — the shape
+is unknown and no sample file has been supplied yet.
+
 ## H. Moderation for self-typed п.38 rows — deferred (owner, 2026-09-14)
 
 An НПП can now type **п.15 and п.20** of their own Характеристика

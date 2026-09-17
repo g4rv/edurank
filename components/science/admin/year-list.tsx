@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { CopyPlus, Lock, LockOpen, Plus } from 'lucide-react';
+import { CopyPlus, FlaskConical, Lock, LockOpen, Plus } from 'lucide-react';
 import {
   createScienceYear,
   cloneScienceYear,
@@ -128,6 +129,16 @@ function YearRowView({ year, isLatest }: { year: ScienceYearRow; isLatest: boole
       </TableCell>
       <TableCell>
         <div className="flex items-center justify-end gap-2">
+          {/* The one way into `/admin/science-plan/[id]` — until this, the
+              catalogue editor for a given year existed but was reachable only
+              by typing its URL. */}
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/admin/science-plan/${year.id}`}>
+              <FlaskConical className="size-4" />
+              Каталог
+            </Link>
+          </Button>
+
           {isLatest && (
             <Button
               variant="outline"
