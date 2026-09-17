@@ -153,14 +153,14 @@ model Department {
   headId String? @unique
   head   Staff?  @relation("DepartmentHead", fields: [headId], references: [id])
 
-  primaryStaff  Staff[]           @relation("PrimaryDepartment")
-  partTimeStaff StaffDepartment[]
-  stakes        DepartmentStake[]
-  stakeLimits   StaffStakeLimits[]
-  distributions StakeDistribution[]
+  primaryStaff   Staff[]                @relation("PrimaryDepartment")
+  partTimeStaff  StaffDepartment[]
+  stakes         DepartmentStake[]
+  stakeLimits    StaffStakeLimits[]
+  distributions  StakeDistribution[]
   stakeSandboxes StakeSandbox[]
-  specialities SpecialityDepartment[]
-  sciencePlans SciencePlan[]
+  specialities   SpecialityDepartment[]
+  sciencePlans   SciencePlan[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -232,8 +232,8 @@ model Staff {
   //
   // An archived account cannot sign in (see authorize in lib/auth.ts); archiving
   // bumps tokenVersion so any session open at that moment ends immediately.
-  archivedAt     DateTime?
-  archiveReason  String? // free note: «декрет до 2029», «звільнення» …
+  archivedAt    DateTime?
+  archiveReason String? // free note: «декрет до 2029», «звільнення» …
 
   // A service account, not a person. The core administrator the seed creates so
   // that a fresh database is never locked out — it exists to sign in and
@@ -294,16 +294,20 @@ model Staff {
   headOfDepartment Department? @relation("DepartmentHead")
   deanOfFaculty    Faculty?    @relation("FacultyDean")
 
-  activities    Activity[]
-  ratingEntries RatingEntry[]
+  activities             Activity[]
+  ratingEntries          RatingEntry[]
   kharakterystykaEntries KharakterystykaEntry[]
-  stakeLimits   StaffStakeLimits[]
-  allocations   StakeAllocation[]
-  studentClaims     StudentClaim[] @relation("ClaimAuthor")
-  confirmedClaims   StudentClaim[] @relation("ClaimConfirmer")
-  filledDistributions StakeDistribution[] @relation("StakeDistributionAuthor")
-  stakeSandboxes      StakeSandbox[]
-  sciencePlans        SciencePlan[]
+  stakeLimits            StaffStakeLimits[]
+  allocations            StakeAllocation[]
+  studentClaims          StudentClaim[]         @relation("ClaimAuthor")
+  confirmedClaims        StudentClaim[]         @relation("ClaimConfirmer")
+  filledDistributions    StakeDistribution[]    @relation("StakeDistributionAuthor")
+  stakeSandboxes         StakeSandbox[]
+  sciencePlans           SciencePlan[]
+  scienceRecords         ScienceRecord[]
+  scienceWorksCreated    ScienceWork[]          @relation("ScienceWorkAuthor")
+  removedScienceRecords  ScienceRecord[]        @relation("ScienceRecordRemover")
+  scienceFilesUploaded   ScienceRecordFile[]    @relation("ScienceFileUploader")
 
   auditLogs          AuditLog[]
   approvedActivities Activity[]       @relation("ActivityApprover")
@@ -565,11 +569,11 @@ model KharakterystykaEntry {
   /// one — п.2 is «patent», «declarative» or «copyright». Null means the
   /// position's first, which is what every other position stores. One row is
   /// always ONE item: a position asking for five wants five rows.
-  group String?
+  group    String?
   /// The rating year this belongs to, so the five-year window applies to it
   /// exactly as it does to an activity: a 2022 row drops out of its own accord
   /// once the document is built for 2027.
-  year Int
+  year     Int
 
   /// «Дані підтвердження показника», printed verbatim. For a typed row it is
   /// GENERATED from `evidence` by `summarizeEvidence` at save, so every row of
@@ -626,9 +630,9 @@ model Speciality {
   name String  @unique
   code String?
 
-  norms  SpecialityNorm[]
-  claims StudentClaim[]
-  departments SpecialityDepartment[]
+  norms            SpecialityNorm[]
+  claims           StudentClaim[]
+  departments      SpecialityDepartment[]
   admittedStudents AdmittedStudent[]
 
   createdAt DateTime @default(now())
@@ -707,7 +711,7 @@ model AdmittedStudent {
   year Int
 
   /// ПІБ as the наказ spells it
-  name String
+  name           String
   /// normaliseStudentName() from lib/stake/claims.ts — the SAME normaliser
   /// StudentClaim uses, so the delete guard can match the two. Stored rather
   /// than computed so search and that guard can use an index.
@@ -749,7 +753,7 @@ model StudentClaim {
   staff   Staff  @relation("ClaimAuthor", fields: [staffId], references: [id], onDelete: Cascade)
   year    Int
 
-  studentName String
+  studentName           String
   /// Trimmed, lower-cased, spaces collapsed — the key duplicates are found on.
   /// Stored rather than computed at query time so the index can be used.
   studentNameNormalised String
@@ -934,11 +938,11 @@ model StakeAllocation {
 
   /// What the formula proposed, frozen at save. Kept because додаток 2 prints
   /// it beside the head's number — the document IS the comparison.
-  formulaHundredths Int
+  formulaHundredths  Int
   /// What the head decided. Σ of these may never exceed `Кст`.
   proposedHundredths Int
   /// Required when the two differ — додаток 2's «Обґрунтування» column
-  justification String?
+  justification      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -973,9 +977,9 @@ model StakeSandbox {
   /// The pool being tried, in hundredths. Null = the кафедра's real `Кст`.
   kstHundredths Int?
   /// `{ staffId: hundredths }` — what was typed into «Розподілено»
-  values Json @default("{}")
+  values        Json @default("{}")
   /// `{ staffId: { min, max } }` — caps being tried, overriding StaffStakeLimits
-  limits Json @default("{}")
+  limits        Json @default("{}")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1038,6 +1042,8 @@ model SciencePlanTemplate {
 
   workTypes ScienceWorkType[]
   plans     SciencePlan[]
+  works     ScienceWork[]
+  records   ScienceRecord[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1049,9 +1055,9 @@ model ScienceWorkType {
   templateId String
   template   SciencePlanTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  order Int
+  order      Int
   /// Stable semantic key — survives renumbering by the next наказ.
-  code  String
+  code       String
   /// The printed number: «4», «11». Display and ordering only.
   itemNumber String
   label      String
@@ -1064,9 +1070,9 @@ model ScienceWorkType {
   scoring        Json
 
   /// Hours per unit. For SELECT kinds the per-option hours live in the spec.
-  coefficient Float
+  coefficient   Float
   /// The Примітка column: «За 1 сторінку», «Щороку на одного аспіранта».
-  unitNote    String?
+  unitNote      String?
   /// The «Форма звітності» column: «Екземпляр видання», «Наказ по аспірантурі».
   reportingForm String?
 
@@ -1087,6 +1093,7 @@ model ScienceWorkType {
   isActive Boolean @default(true)
 
   planRows SciencePlanRow[]
+  works    ScienceWork[]
 
   @@unique([templateId, code])
 }
@@ -1109,7 +1116,8 @@ model SciencePlan {
   /// at all rather than a guess (owner, 2026-09-15).
   rateHundredths Int?
 
-  rows SciencePlanRow[]
+  rows    SciencePlanRow[]
+  records ScienceRecord[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1145,6 +1153,10 @@ model SciencePlanRow {
   /// «стаття у Q2 з історії освіти» — helps the завідувач read the plan.
   note String?
 
+  /// What was actually done against this intention. Empty is ordinary: a plan
+  /// is an intention and the year is long.
+  records ScienceRecord[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1173,7 +1185,7 @@ model LoginThrottle {
   subject String @unique
 
   /// Failures since the last success or the last lockout expiry
-  failures Int @default(0)
+  failures    Int       @default(0)
   /// How many lockouts this subject has already served. Drives the escalation
   /// (1 → 5 → 15 → 60 minutes) and is what makes a persistent guesser pay more
   /// than somebody who mistyped their password twice in a bad morning.
@@ -1190,6 +1202,167 @@ model LoginThrottle {
 
 // ─── Audit log ───────────────────────────────────────────────────────────────
 
+/// Одна реальна робота — стаття, монографія, конференція. ONE row per
+/// real-world thing, whoever enters it first. Co-authors do not get a copy of
+/// their own; they draw from this one (D14).
+///
+/// Read `docs/superpowers/specs/2026-09-15-science-plan-design.md` before
+/// changing anything here — «Reuse — the rule is the index, not a check» is the
+/// section this model exists to implement.
+model ScienceWork {
+  id String @id @default(cuid())
+
+  templateId String
+  template   SciencePlanTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  workTypeId String
+  workType   ScienceWorkType @relation(fields: [workTypeId], references: [id])
+
+  /// The work's own data — назва, DOI, сторінки. Entered once, by whoever added
+  /// it first, and it is what `totalHundredths` is computed from. Same JSON
+  /// shape as `Activity.evidence`, read by the same engine.
+  evidence      Json
+  computedValue Float
+
+  /// A public link that proves it. D27: a record needs at least one of link or
+  /// file, and this is the link half — it lives on the WORK because a
+  /// co-authored article has one DOI, not one per author.
+  link String?
+
+  /// The whole pool, in INTEGER HUNDREDTHS OF AN HOUR. Frozen at creation:
+  /// editing the наказ later must not move a pool people have already drawn
+  /// from. Never a float — see `lib/science/pool.ts`.
+  totalHundredths Int
+
+  /// Who typed it in. Named in the refusal a second author sees (D17), and the
+  /// only person besides ADMIN who may correct the evidence — two authors
+  /// disagreeing about a page count has no tiebreak otherwise.
+  createdById String
+  createdBy   Staff  @relation("ScienceWorkAuthor", fields: [createdById], references: [id])
+
+  /// Normalised identity — `lib/science/work-key.ts`. UNIQUE, which is what
+  /// makes D17 structural: there is no way to create a second row for one work.
+  /// Carries the навчальний рік for a YEARLY type, and an `s_<staffId>:` prefix
+  /// for an INDIVIDUAL one, whose identity is often a name several people
+  /// legitimately share (D24).
+  dedupKey String @unique
+
+  records ScienceRecord[]
+  files   ScienceRecordFile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([templateId, workTypeId])
+}
+
+/// One person's DRAW against a work — what lands in their план and counts
+/// toward their 500 годин.
+model ScienceRecord {
+  id String @id @default(cuid())
+
+  /// Owned by the PERSON, not by the plan. This is what makes the reuse rule
+  /// hold across both кафедри: the unique index below is per staffId.
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  workId String
+  work   ScienceWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  /// Denormalised from work.template, the way Activity.year is denormalised
+  /// from its template: every «what did this person do in 2026/2027» query
+  /// would otherwise join through two tables. Always derived server-side.
+  templateId String
+  template   SciencePlanTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  /// Exactly one plan — i.e. exactly one кафедра — counts this draw.
+  planId String
+  plan   SciencePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  /// The intention it fulfils, when there was one. Null for unplanned work,
+  /// which is ordinary: somebody plans two articles and publishes one article
+  /// and a monograph. `SetNull` rather than `Cascade` — deleting a plan row
+  /// must not delete the work that was actually done.
+  planRowId String?
+  planRow   SciencePlanRow? @relation(fields: [planRowId], references: [id], onDelete: SetNull)
+
+  /// D16 — what this person takes from the pool, in INTEGER HUNDREDTHS OF AN
+  /// HOUR. For an INDIVIDUAL work it always equals `work.totalHundredths`.
+  hoursHundredths Int
+
+  /// D20 — post-check, not a gate. A record counts the moment it is saved; ННВ
+  /// or ADMIN may decline it afterwards with a reason, and it stops counting.
+  /// The row STAYS: it is the person's record of what happened and the reason
+  /// they can read. Same shape as `Activity.status` / `removedBy`, which has
+  /// worked here since Phase 2.
+  ///
+  /// **Every sum over `hoursHundredths` must filter on APPROVED.** A declined
+  /// draw that kept holding hours would be hours no co-author could ever take.
+  status          ScienceRecordStatus @default(APPROVED)
+  removedReason   String?
+  removedByUserId String?
+  removedBy       Staff?              @relation("ScienceRecordRemover", fields: [removedByUserId], references: [id])
+  removedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// D10 and D17 together, enforced BY CONSTRUCTION: one person draws from one
+  /// work at most once. The reuse rule rides on `ScienceWork.dedupKey` being
+  /// unique and carrying the year for YEARLY types, so this single index also
+  /// stops the same article being claimed again next year or on the other
+  /// кафедра. No code path can forget to check.
+  @@unique([staffId, workId])
+  @@index([planId])
+  @@index([workId])
+  @@index([templateId, status])
+}
+
+enum ScienceRecordStatus {
+  APPROVED
+  REMOVED
+}
+
+/// A document proving a work, kept in Cloudflare R2.
+model ScienceRecordFile {
+  id String @id @default(cuid())
+
+  /// Attached to the WORK, not to one person's draw: the сертифікат of an
+  /// article is the same file for every co-author, and it must not vanish when
+  /// the person who uploaded it withdraws their claim.
+  workId String
+  work   ScienceWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  /// The R2 object key. Server-generated end to end — nothing the user typed
+  /// ever reaches it.
+  objectKey   String @unique
+  fileName    String
+  contentType String
+  sizeBytes   Int
+
+  /// Pages counted from the stored PDF, null for an image or an unreadable
+  /// file. Item 4 pays 50 г PER PAGE, so this is the number a page claim is
+  /// checked against.
+  pageCount Int?
+
+  /// SHA-256 of the bytes, lowercase hex. UNIQUE across the university (D28):
+  /// one file, one record, for everybody. Renaming a file, re-exporting it or
+  /// changing its date does not change this — only changing its content does,
+  /// which is the whole reason the check is not on `fileName`.
+  ///
+  /// Under D27 a file is a PERSONAL document by construction, so there is no
+  /// «one наказ covers three аспіранти» case this would wrongly refuse: a наказ
+  /// is public and is proved by a link.
+  sha256 String @unique
+
+  uploadedById String
+  uploadedBy   Staff  @relation("ScienceFileUploader", fields: [uploadedById], references: [id])
+
+  uploadedAt DateTime @default(now())
+
+  @@index([workId])
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -1199,7 +1372,7 @@ model AuditLog {
   label     String? // human-readable description, e.g. "Updated Коваленко І.П."
   changes   Json? // { field: { from, to } } for UPDATE; { field: { from: null, to: value } } for CREATE; vice versa for DELETE
   userId    String? // kept even if the staff row is later deleted
-  user      Staff?  @relation(fields: [userId], references: [id])
+  user      Staff?   @relation(fields: [userId], references: [id])
 
   // The one table that grows without bound — every mutation in the app writes a
   // row — and it had no index at all. `/admin/audit-log` is its only reader and

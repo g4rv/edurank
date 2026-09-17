@@ -171,6 +171,16 @@ export const FIELD_LABELS: Record<string, string> = {
   workType: 'Вид роботи',
   plannedHundredths: 'Заплановані години',
   note: 'Примітка',
+  // ScienceRecord / ScienceWork — the факт half. `hoursHundredths` is what ONE
+  // person drew; `totalHundredths` is the whole pool the work is worth, which
+  // is a different number the moment a work has co-authors.
+  hoursHundredths: 'Години',
+  totalHundredths: 'Загальні години роботи',
+  link: 'Посилання',
+  dedupKey: 'Ключ роботи',
+  removedReason: 'Причина відхилення',
+  fileName: 'Файл підтвердження',
+  pageCount: 'Сторінок у файлі',
   // SciencePlanTemplate — the навчальний рік a Додаток III catalogue belongs to.
   academicYear: 'Навчальний рік',
   orderRef: 'Наказ',
