@@ -140,6 +140,7 @@ describe('the flags the наказ dictates', () => {
     const yearly = SCIENCE_WORK_TYPES_2027.filter((d) => d.reuse === 'YEARLY').map((d) => d.code);
     expect(yearly.sort()).toEqual(
       [
+        'conference_attendance',
         'dissertation',
         'editorial_board',
         'lab_leadership',
@@ -147,6 +148,17 @@ describe('the flags the наказ dictates', () => {
         'student_group',
       ].sort()
     );
+  });
+
+  it('gives a per-year cap a per-year key — otherwise the cap can never restart', () => {
+    // «Участь в конференціях (мах.5)» is a limit per навчальний рік. A ONCE key
+    // carries no year, so the same annual конференція could never be attended
+    // again — and the cap would never reset (D25, owner 2026-09-17).
+    const capped = SCIENCE_WORK_TYPES_2027.filter((d) => d.maxPerYear !== undefined);
+    expect(capped.length).toBeGreaterThan(0);
+    for (const def of capped) {
+      expect(def.reuse, `${def.code} carries maxPerYear but not a yearly key`).toBe('YEARLY');
+    }
   });
 
   it('shares a pool only where a work has co-authors', () => {

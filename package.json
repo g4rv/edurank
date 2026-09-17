@@ -24,6 +24,7 @@
     "db:recompute": "tsx prisma/recompute-year.ts",
     "db:gate-to-check-sum": "tsx prisma/gate-to-check-sum.ts",
     "db:patent-kind": "tsx prisma/patent-kind.ts",
+    "db:science-conference-yearly": "tsx prisma/science-conference-yearly.ts",
     "db:kharakterystyka-cleanup": "tsx prisma/kharakterystyka-cleanup.ts",
     "db:bib-placeholder": "tsx prisma/bibliography-placeholder.ts",
     "data:export-kharakterystyka": "tsx prisma/kharakterystyka-transfer.ts --export",

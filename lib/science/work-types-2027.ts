@@ -300,7 +300,12 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     coefficient: 6,
     unitNote: 'За 1 день роботи, не більше 5',
     reportingForm: 'Програма, матеріали конференції',
-    reuse: 'ONCE',
+    // YEARLY, not ONCE (owner, 2026-09-17 — D25). The наказ caps this at five
+    // per рік, and a cap that restarts every year only makes sense if the
+    // counting does. With a ONCE key the навчальний рік never enters
+    // `workKey`, so an annual конференція attended in 2026/2027 could never be
+    // attended again in any later year.
+    reuse: 'YEARLY',
     sharing: 'INDIVIDUAL',
     maxPerYear: 5,
     identityFields: ['title'],
