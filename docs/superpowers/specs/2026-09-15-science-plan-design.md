@@ -405,6 +405,17 @@ model ScienceRecordFile {
   /// checked against.
   pageCount Int?
 
+  /// SHA-256 of the bytes, lowercase hex. UNIQUE across the university (D28):
+  /// one file, one record, for everybody. Renaming a file, re-exporting it or
+  /// changing its date does not change this; only changing its content does,
+  /// which is the whole reason the check is not on `fileName`.
+  ///
+  /// Computed TWICE on purpose. The browser hashes before uploading, so a
+  /// duplicate is refused in a second instead of after a 5 MB PUT; the server
+  /// hashes the stored object afterwards and that one is the authority, because
+  /// a browser can send any hash it likes.
+  sha256 String @unique
+
   uploadedAt DateTime @default(now())
 
   @@index([workId])
@@ -500,14 +511,86 @@ something that distinguishes the claimant — was rejected: it needs a catalogue
 edit on eleven rows, a new validation in `saveWorkType`, and it would still fail
 the moment an admin adds a twelfth type and forgets.
 
-### Open, for the owner: `conference_attendance` is `ONCE` and probably wants `YEARLY`
+### ANSWERED 2026-09-17: `conference_attendance` becomes `YEARLY`
 
 It carries `maxPerYear: 5`, from the наказ's «Участь в конференціях (мах.5)» —
 a PER-YEAR cap. But `reuse: ONCE` puts no year in the key, so a conference
 attended in 2026/2027 could never be attended again in any later year. Annual
-conferences are the norm, so this is very likely wrong. Not changed here,
-because the Task 4 test deliberately pins the `YEARLY` set and the owner should
-say.
+conferences are the norm, so this is very likely wrong.
+
+**The owner agreed on 2026-09-17: it becomes `YEARLY`.** The наказ's own per-year
+cap is the argument — a limit that restarts every year only makes sense if the
+counting restarts too. Two changes, not one: the seed def, and a one-off script
+for the 2026/2027 row already in the database, which `pnpm db:seed` would
+otherwise leave alone on production. The Task 4 test that pins the `YEARLY` set
+moves with it.
+
+## D25–D29 — Stage 2's own decisions (owner, 2026-09-17)
+
+Five questions Stage 1 left open, answered when Stage 2 was scoped. D1–D24 are
+unchanged except where named here.
+
+| #   | Question                                          | Decision                                                                                                                                                               |
+| --- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D25 | Is `conference_attendance` `ONCE` or `YEARLY`?    | **`YEARLY`.** See the section above.                                                                                                                                   |
+| D26 | Do files wait for a stage of their own?           | **No — files ship with records.** Stage 3 is folded into Stage 2.                                                                                                      |
+| D27 | Link or file — decided per type or per record?    | **Per record: at least one of the two, never neither.** A link proves a public record; a file is for a document only the person holds. Rewrites the D22 section below. |
+| D28 | The same file attached twice?                     | **Refused, university-wide,** on a SHA-256 of the bytes.                                                                                                               |
+| D29 | How does факт sit beside план on `/science-plan`? | **Two tabs — «План» and «Виконано» — under one shared target band.**                                                                                                   |
+
+### D26 — why files could not wait
+
+Stage 3 existed because R2, presigned uploads, magic bytes and PDF page counting
+are a body of work with no dependency on records being correct. That is still
+true, and it is still the order the plan builds in: **records work end to end
+against links before a single byte is uploaded.**
+
+What changed is what «usable on its own» means. Under D27 a personal document is
+the ONLY proof for a сертифікат nobody publishes, so a stage that can record only
+link-proved work asks a third of the catalogue to wait — and asks the people
+holding those certificates to remember, months later, to come back. The owner
+chose one stage. It roughly doubles Stage 2 and that trade was made knowingly.
+
+### D28 — the hash is refused, not flagged
+
+The gate is deliberately harder than D21's «post-check, not a gate», and it is
+the one place that is right, because D27 changed what a file IS. While a file
+could be a наказ covering three аспіранти, a block would have refused correct
+work: one document legitimately evidences several records. Under D27 that
+document is a **link**, and what remains in the file column is personal by
+construction — a сертифікат carries one person's name.
+
+So one file means one record, for everybody:
+
+- it catches a person attaching the same сертифікат to five конференції, which
+  the dedup key never sees because the five conference names all differ;
+- it catches a colleague passing their сертифікат on — the owner's original
+  words were that people «tend to photoshop their certificates», and this is the
+  cheap half of that problem;
+- it is deterministic. Nothing is predicted, nothing is judged. Either the bytes
+  are already in the bucket or they are not.
+
+The refusal says the file is already in use and **names nothing else** — who
+holds it may be somebody on another кафедра, and a refusal message is not a
+place to leak that. ННВ sees both records and decides. ADMIN is the escape hatch
+if a genuinely shared file ever turns up; the first time one does is the day this
+decision gets re-read.
+
+### D29 — two tabs, one band
+
+«План» and «Виконано» are two lists under one target band showing заплановано,
+виконано and the ціль together.
+
+Rejected: nesting each record under the plan row it fulfils. It reads well for
+the case where somebody did exactly what they planned, and badly for the ordinary
+one — the spec already says unplanned work is normal («plans two articles and
+publishes one article and a monograph»), and that monograph has no parent to nest
+under. It also mixes two jobs done months apart: planning in September, recording
+through the year.
+
+What nesting was FOR is kept without it: a plan row that has a record against it
+carries a «Виконано» marker inside the «План» tab, so «did I do what I planned»
+is answerable without leaving the list.
 
 ## The pool — D14, D16, D17
 
@@ -653,8 +736,11 @@ What the app **refuses**:
 - an edit to a work that would put its pool **below what is already drawn**;
 - an edit to a work by anybody but `createdBy` or ADMIN;
 - a record on a work type at its `maxPerYear`;
-- evidence that fails the work type's generated Zod schema — including a missing
-  link where the type requires one, and a missing file where `requiresFile`;
+- evidence that fails the work type's generated Zod schema;
+- a record carrying **neither a link nor a file** (D27), and one carrying only a
+  link where the type sets `requiresFile`;
+- a file whose **SHA-256 is already in the bucket** (D28), refused before the
+  upload spends on the browser's own hash and again on the server's;
 - a file whose magic bytes do not match its declared type, or over the size cap;
 - a page claim higher than the page count of the attached PDF;
 - a date outside the навчальний рік;
@@ -754,10 +840,12 @@ Colocated, Vitest, `@/lib/db` mocked as everywhere else.
 - `app/(dashboard)/science-plan/actions.test.ts` — a second row for an existing
   work refused and the creator named; joining an existing work; two concurrent
   joins cannot both take the last 50 год (the transaction re-reads the sum);
-  cap refused; closed template refused; another person's plan refused; evidence
-  required; file required where `requiresFile`.
+  cap refused; closed template refused; another person's plan refused; a record
+  with neither link nor file refused (D27); a link-only record refused where the
+  type sets `requiresFile`.
 - `lib/science/files.test.ts` — key generation, type and size rejection, magic
-  bytes, page-count mismatch.
+  bytes, page-count mismatch, and the SHA-256 gate: the same bytes under a
+  different file name are still refused (D28).
 - The moved modules keep their existing tests **and** gain a test that the old
   re-export paths still resolve, so the move cannot silently break the rating.
 
@@ -770,12 +858,18 @@ the 18 work types, the admin editor and clone, `SciencePlan` and
 `SciencePlanRow`, the target, the НПП plan screen, the завідувач / декан / ННВ
 read views. No works, no records, no files.
 
-**Stage 2 — факт and the pool.** `ScienceWork` and `ScienceRecord`, `workKey`
-and both unique indexes, the transactional pool check, joining an existing work,
-evidence by URL, план-vs-факт totals, the record↔plan-row link.
+**Stage 2 — факт, the pool, files and the post-check** (widened by the owner,
+2026-09-17 — D26). `ScienceWork` and `ScienceRecord`, `workKey` and both unique
+indexes, the transactional pool check, joining an existing work, evidence by
+link or file, план-vs-факт totals, the record↔plan-row link, R2 upload and
+signed reads, magic bytes, the SHA-256 gate, PDF page counting against the page
+claim, and ННВ's post-check of a record.
 
-**Stage 3 — files and checks.** R2, upload and signed reads, magic bytes, PDF
-page counting against the page claim.
+**Stage 3 — folded into Stage 2.** It was «files and checks»; the owner asked
+for files in the same stage as records, on the grounds that half the catalogue
+is proved by a personal document and a stage that cannot record those is not
+«usable on its own». The plan still ORDERS it that way: records work end to end
+against links before a single byte is uploaded.
 
 **Later, unscheduled.** The export document (D19), and a Crossref DOI check.
 
@@ -844,28 +938,42 @@ All four questions this document opened were answered by the owner on
 
 ## Evidence, per work type — D22 in practice
 
-The column `ScienceWorkType.requiresFile` already exists and carries this. It is
-read one way and one way only:
+**Rewritten 2026-09-17 (D27).** The first version of this section is kept
+below the line, because what it got wrong is worth not getting wrong again.
 
-| `requiresFile` | What a record must have                               |
-| -------------- | ----------------------------------------------------- |
-| `false`        | a **link**, required. A file may be attached as well. |
-| `true`         | a **file**, required. A link may be attached as well. |
+The rule, in the owner's words: **a link proves anything with a public record. A
+file is only for a document that exists only in the person's own hands** — a
+сертифікат downloaded from a personal cabinet, or one that arrived by email.
+
+| Evidence | When                                                            | Examples                                                                                                          |
+| -------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Link** | a public record of this exists that the person does not control | стаття (DOI, Scopus, the journal's issue page, the репозитарій), **наказ**, **патент**, **свідоцтво**, редколегія |
+| **File** | the document exists only in the person's own hands              | сертифікат участі, довідка, лист, a диплом sent by email                                                          |
 
 **Never neither.** A record with only a name is the thing this feature exists to
 stop: the owner's words for why the university is moving off paper are that
 people «tend to photoshop their certificates and print them on paper», and a
 typed name is weaker than the paper it replaces.
 
-The split follows the наказ's own «Форма звітності» column and, under it, one
-question: **does a public record of this work exist that the person does not
-control?**
+**The choice belongs to the RECORD, not only to the work type.** The same
+сертифікат is a public URL for one person and a PDF in an inbox for another —
+same work type, same year, different evidence. So the rule a record is validated
+against is:
 
-- **Link** — стаття (DOI, Scopus, the journal's issue page, the інституційний
-  репозитарій), англомовний супровід, редколегія (a journal lists its board).
-- **File** — everything the наказ answers with a document: «Наказ», «Свідоцтво»,
-  «Патент», «Диплом», «Посвідчення», «Сертифікат», «Експертний висновок», «План
-  роботи гуртка», «Положення про лабораторію», «Звіт».
+> at least one of **link** or **file**, never neither.
+
+`ScienceWorkType.requiresFile` survives and narrows: it no longer means «this
+type is proved by a file», it means **«a link alone is not enough for this
+type»**. Expect it set on very few rows, not on half the catalogue.
+
+---
+
+_Superseded. The original text read:_ the column `ScienceWorkType.requiresFile`
+carries this, `false` meaning a link is required and `true` meaning a file is —
+one or the other, decided per type. Its split put «Наказ», «Патент» and
+«Свідоцтво» in the **file** column. All three are public documents with a public
+record, so by D27 all three are links, and the per-type-only rule would have left
+somebody holding a PDF of a link-typed сертифікат unable to record it at all.
 
 **ADMIN can flip any row** on `/admin/science-plan/[year]`, which is the point of
 its being a column. The seed's split is a first reading of the наказ, not a
