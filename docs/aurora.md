@@ -672,10 +672,13 @@ only real difference is that a combobox lets you type. They share
   Truncating instead of wrapping is refused — п.3.7 is two indicators whose
   labels differ only in their last words, and one clamped line made them the
   same row.
-- **A floating list shows its scrollbar**, and it is the app's only styled one
-  (`.list-scrollbar`, with `--scroll-thumb`). Both controls wear it, because a
-  bar is the only thing that says how long the list is and where in it you
-  stand.
+- **A floating list shows its scrollbar.** Both controls wear it, because a bar
+  is the only thing that says how long the list is and where in it you stand.
+
+  It is no longer a special skin: since 2026-09-17 **every scrollbar in the app
+  wears it**, set on `:root` with `scrollbar-width` and `scrollbar-color`, which
+  inherit. The class `.slim-scrollbar` survives only as the escape hatch for the
+  trap below.
 
   Two traps live here, and both cost an afternoon. Radix Select **hides** the
   scrollbar at runtime — it injects `[data-radix-select-viewport]` rules setting
@@ -867,3 +870,60 @@ for exactly this.
 re-render on navigation, so `auth()` in one runs once and an `active` tab passed
 down from one is frozen on whichever tab was opened first. Each page keeps its
 own `auth()`; `StaffTabs` reads the pathname itself.
+
+---
+
+## 13. The scrollbar
+
+**Every scrollbar in the app is the same one**, and it is not the platform's.
+
+`*` sets `scrollbar-width: thin` and `scrollbar-color: var(--scroll-thumb)
+transparent`, so it reaches every scroll container — the sidebar, a table, a
+record body, a textarea, the document itself. Nothing has to be applied by hand.
+
+**It has to be `*`, not `:root`.** `scrollbar-color` inherits and
+`scrollbar-width` does not, and writing both on `:root` fails in the way that
+hides: the colour lands, the width silently stays `auto`, and the bar keeps the
+platform's chunk while looking styled. Measured when exactly that was written —
+the sidebar inherited the colour and computed `scrollbar-width: auto`, gutter
+still 15px.
+
+This replaced a narrower rule on 2026-09-17. Until then only the select and
+combobox menus were skinned, on the reasoning that one styled bar was enough and
+the platform could keep the rest. Looking at the real sidebar killed that
+argument:
+
+- the native bar was **the last pure-grey, zero-chroma element** left on screen,
+  in a palette where everything else moved to hue 264;
+- it painted an **opaque slab down a translucent `.glass-chrome` edge**;
+- it wore **stepper arrows** — a 1990s control nothing else in «Аврора» has;
+- and it reserved **15px where ours takes 10**, which the sidebar's longest
+  labels were already fighting for.
+
+### The colour is chrome, and stays chrome
+
+`--scroll-thumb` sits on **hue 264 at chroma 0.014** — the brand's own hue,
+inside §3's chrome band. It is tinted, not grey: `#a0a5ae`, where a true grey
+would be `#a5a5a5`.
+
+**Do not make it brand-blue.** §3 says colour means something, and a scrollbar
+means nothing. There is also a concrete reason: the active nav item **is**
+brand-blue and sits directly beside the sidebar's bar, so a blue scrollbar puts
+two blue things together where only one carries meaning.
+
+If it ever needs more presence, **lower its lightness, not raise its chroma.**
+
+Measured on the sidebar: thumb **2.41**, hover **4.20**. (`--border`, tuned to be
+only just visible, is 1.45 there for comparison.)
+
+### `.slim-scrollbar` is an escape hatch, not a style
+
+The class exists for one library. Radix Select hides the bar at runtime by
+injecting `[data-radix-select-viewport] { scrollbar-width: none }`, and that
+declaration is **unlayered**, so it beats any layered rule of ours whatever the
+specificity. The class re-asserts the two properties with `!important`, which is
+the only thing that reaches the element — important declarations reverse the
+layer order.
+
+Wear it on a scroll container a library has hidden. Nowhere else: everything
+else already has the bar.

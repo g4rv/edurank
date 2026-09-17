@@ -250,10 +250,14 @@
   --border: oklch(0.87 0.012 264);
   --input: oklch(0.668 0.018 264);
   --ring: oklch(0.708 0.016 264);
-  /* The thumb on a floating list's scrollbar — see `.list-scrollbar`. Darker
-     than --border, which is tuned to be only just visible: a border outlines a
-     shape you already see, while this IS the whole signal for how long a list
-     is and where in it you stand. */
+  /* Every scrollbar's thumb — see «The scrollbar» below. Darker than --border,
+     which is tuned to be only just visible: a border outlines a shape you
+     already see, while this IS the whole signal for how long a thing is and
+     where in it you stand. Measured 2.41 on the sidebar, 4.20 on hover.
+
+     Hue 264 at chroma 0.014 — the brand's own hue, inside §3's «chrome» band,
+     and deliberately not brand-blue. A scrollbar means nothing, and the active
+     nav item, which does, sits right beside it. */
   --scroll-thumb: oklch(0.72 0.014 264);
   --scroll-thumb-hover: oklch(0.58 0.016 264);
   --chart-1: oklch(0.87 0 0);
@@ -769,62 +773,88 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   The scrollbar on a list that floats over the page
+   The scrollbar — every one of them
    ══════════════════════════════════════════════════════════════════════════ */
 
-@layer components {
-  /* Worn by the select's viewport and the combobox's list, so the two match —
-     §8 of docs/aurora.md: they are the same control to somebody filling a form.
+@layer base {
+  /* **Every scrollbar in the app** (owner, 2026-09-17). It was the select and
+     combobox menus only until then, on the reasoning that one skinned bar was
+     enough and the platform could keep the rest. Looking at the real sidebar
+     killed that: the native bar was the last pure-grey, zero-chroma element on
+     screen, it painted an opaque slab down a translucent `.glass-chrome` edge,
+     and it wore stepper arrows nothing else in «Аврора» has.
 
-     It exists because Radix injects, at runtime,
+     **`scrollbar-color` inherits; `scrollbar-width` does NOT.** Writing both on
+     `:root` and expecting them to reach every scroll container is wrong, and
+     wrong in the way that hides: the colour lands, the width silently stays
+     `auto`, and the bar keeps the platform's chunk while looking like it was
+     styled. Measured on the sidebar before this was fixed — `scrollbar-color`
+     inherited fine, `scrollbar-width` computed `auto`, gutter still 15px. So
+     the width needs `*`, and the colour rides along with it.
 
-       [data-radix-select-viewport] { scrollbar-width: none }
-       [data-radix-select-viewport]::-webkit-scrollbar { display: none }
-
-     Its own design replaces the bar with the up/down arrow buttons, and those
-     were removed for shifting the list as they mounted. That left a list you
-     could scroll with no sign of how long it was or where in it you stood.
-
-     `!important` on the display is not decoration: Radix's <style> lands in the
-     head AFTER this sheet, and its selector carries the same specificity, so
-     without it the later rule wins.
-
-     Reverting to the platform bar was tried first and rejected — it reserved
-     its 16px and painted nothing, so the depth was still invisible. This is
-     the app's ONE scrollbar skin; everything else (the sidebar, `Table`, a
-     record body) keeps the native bar, and should. */
-  .list-scrollbar {
-    /* `!important` on BOTH, and the reason is the cascade rather than force.
-       These rules live in `@layer components`, and a LAYERED normal
-       declaration loses to an UNLAYERED one whatever its specificity — which
-       is what Radix injects. For important declarations that order reverses,
-       so this is the only thing that reaches the element. Without it
-       `scrollbar-width` computes `none` and Chrome then hides the bar no
-       matter what the ::-webkit rules below say. */
-    scrollbar-width: thin !important;
-    scrollbar-color: var(--scroll-thumb) transparent !important;
+     The colour is `--scroll-thumb`, which already sits on hue 264 at chroma
+     0.014: the brand's hue, inside §3's «chrome» band. It is deliberately NOT
+     brand-blue. A scrollbar means nothing, and the active nav item — which IS
+     brand-blue, and does mean something — sits directly beside it. */
+  *,
+  ::backdrop {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
   }
+}
 
-  .list-scrollbar::-webkit-scrollbar {
-    display: block !important;
+@layer components {
+  /* WebKit's own properties, for engines that predate the standard two above.
+     Chrome ignores these once `scrollbar-width` is set, so they are a fallback
+     and not the main event — which is why the width here (10px) and the
+     browser's own «thin» need not agree to the pixel.
+
+     The border plus `background-clip` is what makes a 10px track hold a 4px
+     thumb with a margin, without a second element to inset it. */
+  *::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
 
-  .list-scrollbar::-webkit-scrollbar-track {
+  *::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  /* The border plus `background-clip` is what makes a 10px track hold a 4px
-     thumb with a margin, without a second element to inset it. */
-  .list-scrollbar::-webkit-scrollbar-thumb {
+  *::-webkit-scrollbar-thumb {
     background-color: var(--scroll-thumb);
     background-clip: content-box;
     border: 3px solid transparent;
     border-radius: 9999px;
   }
 
-  .list-scrollbar::-webkit-scrollbar-thumb:hover {
+  *::-webkit-scrollbar-thumb:hover {
     background-color: var(--scroll-thumb-hover);
+  }
+
+  /* The escape hatch, and the ONLY thing this class is still for: Radix hides
+     a select's bar at runtime with
+
+       [data-radix-select-viewport] { scrollbar-width: none }
+       [data-radix-select-viewport]::-webkit-scrollbar { display: none }
+
+     because its own design replaces the bar with up/down arrow buttons — and
+     those were removed for shifting the list as they mounted, which left a
+     list you could scroll with no sign of how long it was.
+
+     `!important` here is about the cascade, not force. These rules live in a
+     LAYER, and a layered normal declaration loses to an UNLAYERED one whatever
+     its specificity — which is exactly what Radix injects. For important
+     declarations that order reverses, so this is the only thing that reaches
+     the element. Without it `scrollbar-width` computes `none` and the bar
+     stays hidden however the rules above are written. */
+  .slim-scrollbar {
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--scroll-thumb) transparent !important;
+  }
+
+  .slim-scrollbar::-webkit-scrollbar {
+    display: block !important;
+    width: 10px;
+    height: 10px;
   }
 }
