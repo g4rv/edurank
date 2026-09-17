@@ -1,0 +1,756 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import type { Prisma } from '@/lib/generated/prisma/client';
+import { diffChanges } from '@/lib/audit';
+import { isUniqueViolation, parseDbError } from '@/lib/db-error';
+import { logError } from '@/lib/log';
+import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
+import { rateForPlan } from '@/lib/science/target';
+import { workKey } from '@/lib/science/work-key';
+import { poolProblem, remainingHundredths } from '@/lib/science/pool';
+import { evidenceProblem } from '@/lib/science/evidence-rule';
+import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
+import { toHundredths } from '@/lib/stake/units';
+import { schemaForFields } from '@/validations/activity-evidence';
+import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { formatHours } from '@/lib/science/hours';
+
+// The факт half of планування наукової роботи — Stage 2's write side. Read
+// `docs/superpowers/specs/2026-09-15-science-plan-design.md` first: D14–D17
+// (the pool and the join), D24 (the key's scope), D27 (link or file) and D28
+// are what shape every branch below.
+//
+// It follows `savePlanRow` in ./actions.ts for its guards, its sentinels and
+// its error handling; what is new here is that a save can end in a THIRD way —
+// neither ok nor error, but a conflict the person is offered a way out of.
+
+export interface SaveRecordInput {
+  departmentId: string;
+  workTypeId: string;
+  /** The type's WHOLE evidenceFields set — a record is not a plan row (D23). */
+  evidence: unknown;
+  link?: string;
+  planRowId?: string;
+  /** Only meaningful for a SHARED type; an INDIVIDUAL one takes its whole pool. */
+  hoursHundredths?: number;
+}
+
+/** D17 turned into something the screen can act on: who has the work, what it
+ *  is, and how much of its pool is still free. */
+export interface WorkConflict {
+  workId: string;
+  createdByName: string;
+  summary: string;
+  totalHundredths: number;
+  remainingHundredths: number;
+}
+
+export type SaveRecordResult =
+  | { ok: true; recordId: string }
+  | { error: string }
+  | { conflict: WorkConflict };
+
+/** Sentinels for checks that must happen INSIDE the transaction — the same
+ *  pattern `savePlanRow` and `createActivity` use. */
+class CapExceededError extends Error {
+  constructor(public readonly cap: number) {
+    super('cap exceeded');
+  }
+}
+class PlanRowNotFoundError extends Error {}
+
+/** «Іваненко І. І.» — the form D17's refusal names somebody in.
+ *
+ *  Local and unexported: §11 of docs/aurora.md — one caller means it is not
+ *  shared yet. `initialsOf` in components/ui/avatar.tsx takes a whole name
+ *  string and is a different job. */
+function shortName(p: { lastName: string; firstName: string; patronymic: string | null }): string {
+  const first = p.firstName ? `${p.firstName[0]}.` : '';
+  const middle = p.patronymic ? ` ${p.patronymic[0]}.` : '';
+  return `${p.lastName} ${first}${middle}`.trim();
+}
+
+/**
+ * The four checks every write here repeats: a signed-in НПП, on a кафедра that
+ * is really theirs, in the OPEN навчальний рік.
+ *
+ * Returns the resolved context or the sentence to show. Factored out when
+ * `joinWork` became the second caller — §11's rule applied one level down from
+ * components: two callers is what makes something shared.
+ */
+type ActorContext = {
+  userId: string;
+  staffId: string;
+  role: string;
+  staff: { lastName: string; firstName: string; patronymic: string | null };
+  template: NonNullable<Awaited<ReturnType<typeof getActiveScienceTemplate>>>;
+};
+
+async function resolveActor(
+  /** Omitted where there is no кафедра to check — a WORK belongs to a year, not
+   *  to a кафедра, so correcting or withdrawing one names none. */
+  departmentId?: string
+): Promise<{ ok: true; context: ActorContext } | { ok: false; error: string }> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  const staffId = session?.user?.staffId;
+  if (!session || !userId || !staffId) return { ok: false, error: 'Недостатньо прав' };
+
+  const staff = await db.staff.findUnique({
+    where: { id: staffId },
+    select: {
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+      isNpp: true,
+      departmentId: true,
+      partTimeDepartments: { select: { departmentId: true } },
+    },
+  });
+  if (!staff?.isNpp) {
+    return { ok: false, error: 'Облік наукової роботи доступний лише для НПП' };
+  }
+
+  // Never trust the кафедра that arrived — it must be this person's primary one
+  // or an additional (сумісництво) one. A сумісник with no primary at all still
+  // works on their additional кафедра (owner, 2026-08-26).
+  if (departmentId !== undefined) {
+    const worksHere =
+      staff.departmentId === departmentId ||
+      staff.partTimeDepartments.some((d) => d.departmentId === departmentId);
+    if (!worksHere) return { ok: false, error: 'Ви не працюєте на цій кафедрі' };
+  }
+
+  // The year is never taken from client input — resolved server-side.
+  const template = await getActiveScienceTemplate();
+  if (!template || template.status !== 'OPEN') {
+    return { ok: false, error: 'Планування на цей рік закрито' };
+  }
+
+  return { ok: true, context: { userId, staffId, role: session.user.role, staff, template } };
+}
+
+/**
+ * Find this person's plan on this кафедра, or open one.
+ *
+ * `rateHundredths` is read LIVE on creation, the same way `savePlanRow` does
+ * it: a розподіл saved in November must reach a plan opened in September
+ * without anybody touching it.
+ */
+async function planIdFor(
+  tx: Prisma.TransactionClient,
+  input: { staffId: string; departmentId: string; templateId: string; stakeYear: number }
+): Promise<string> {
+  const existing = await tx.sciencePlan.findUnique({
+    where: {
+      staffId_departmentId_templateId: {
+        staffId: input.staffId,
+        departmentId: input.departmentId,
+        templateId: input.templateId,
+      },
+    },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await tx.sciencePlan.create({
+    data: {
+      staffId: input.staffId,
+      departmentId: input.departmentId,
+      templateId: input.templateId,
+      rateHundredths: await rateForPlan(tx, {
+        staffId: input.staffId,
+        departmentId: input.departmentId,
+        stakeYear: input.stakeYear,
+      }),
+    },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+/**
+ * Record one work an НПП actually did, for the OPEN навчальний рік.
+ *
+ * **Being an НПП is what grants this, never the USER role** — a проректор or a
+ * division editor who also teaches records their наукова робота like anybody
+ * else, the same rule `createActivity` and `savePlanRow` follow.
+ */
+export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResult> {
+  const actor = await resolveActor(input.departmentId);
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, staff, template } = actor.context;
+
+  // By id AND templateId AND isActive, so a type from another year, or one an
+  // ADMIN has deactivated, cannot be recorded against.
+  const type = await db.scienceWorkType.findFirst({
+    where: { id: input.workTypeId, templateId: template.id, isActive: true },
+  });
+  if (!type) return { error: 'Цей вид роботи недоступний' };
+
+  const fields = type.evidenceFields as unknown as EvidenceField[];
+  const scoring = type.scoring as unknown as ScoringSpec;
+
+  // A RECORD parses the type's WHOLE field set, unlike a plan row, which takes
+  // only what the scoring rule reads (D23). By now the work exists, so it has a
+  // назва, a DOI and a page count to give.
+  const parsed = schemaForFields(fields, scoring).safeParse(input.evidence);
+  if (!parsed.success) return { error: 'Невірні дані форми' };
+
+  const link = input.link?.trim() || null;
+  // `fileCount: 0` until files land (Phase E of the plan). No seeded type sets
+  // `requiresFile`, so today this refuses exactly the «neither» case.
+  const evidenceFault = evidenceProblem({
+    requiresFile: type.requiresFile,
+    link,
+    fileCount: 0,
+  });
+  if (evidenceFault) return { error: evidenceFault };
+
+  const key = workKey({
+    identityFields: Array.isArray(type.identityFields) ? (type.identityFields as string[]) : [],
+    evidenceFields: fields,
+    reuse: type.reuse,
+    sharing: type.sharing,
+    evidence: parsed.data,
+    academicYear: template.academicYear,
+    staffId,
+  });
+  if (!key) return { error: 'Вкажіть назву або посилання, щоб роботу можна було розпізнати' };
+
+  // `score` is whole HOURS here, not бали — the science plan reuses the
+  // rating's engine for a different unit. A malformed catalogue row is a
+  // defect, not a user mistake, so it is logged rather than shown.
+  let score: number;
+  try {
+    ({ score } = computeScore(
+      { code: type.code, coefficient: type.coefficient, scoring, evidenceFields: fields },
+      parsed.data
+    ));
+  } catch (e) {
+    logError('science.saveRecord', e, { userId, entityId: type.id });
+    return { error: 'Невідомий вид роботи' };
+  }
+  const totalHundredths = toHundredths(score);
+
+  const conflict = await findConflict(key, staffId, fields, type.label);
+  if (conflict) return conflict;
+
+  // D16 — «first come, takes what they need». A SHARED work's creator may
+  // leave hours for co-authors; an INDIVIDUAL one has no pool to divide, so
+  // the control is never shown and a figure sent anyway is ignored.
+  const requested =
+    type.sharing === 'INDIVIDUAL' ? totalHundredths : (input.hoursHundredths ?? totalHundredths);
+  const poolFault = poolProblem({ totalHundredths, drawnByOthers: 0, requested });
+  if (poolFault) return { error: poolFault };
+
+  const auditLabel =
+    `${staff.lastName} ${staff.firstName} ${staff.patronymic ?? ''} — ${type.label}`.trim();
+
+  try {
+    const recordId = await db.$transaction(async (tx) => {
+      const planId = await planIdFor(tx, {
+        staffId,
+        departmentId: input.departmentId,
+        templateId: template.id,
+        stakeYear: template.stakeYear,
+      });
+
+      if (input.planRowId) {
+        const row = await tx.sciencePlanRow.findUnique({
+          where: { id: input.planRowId },
+          select: { planId: true, workTypeId: true },
+        });
+        // Somebody else's row, or a row of a different вид роботи — neither is
+        // an intention this record can fulfil.
+        if (!row || row.planId !== planId || row.workTypeId !== type.id) {
+          throw new PlanRowNotFoundError();
+        }
+      }
+
+      if (type.maxPerYear) {
+        // APPROVED only: a declined record must not keep a slot somebody
+        // cannot use.
+        const count = await tx.scienceRecord.count({
+          where: {
+            staffId,
+            templateId: template.id,
+            status: 'APPROVED',
+            work: { workTypeId: type.id },
+          },
+        });
+        if (count >= type.maxPerYear) throw new CapExceededError(type.maxPerYear);
+      }
+
+      const work = await tx.scienceWork.create({
+        data: {
+          templateId: template.id,
+          workTypeId: type.id,
+          evidence: parsed.data as Prisma.InputJsonValue,
+          computedValue: score,
+          link,
+          totalHundredths,
+          createdById: staffId,
+          dedupKey: key,
+        },
+        select: { id: true },
+      });
+
+      const record = await tx.scienceRecord.create({
+        data: {
+          staffId,
+          workId: work.id,
+          templateId: template.id,
+          planId,
+          planRowId: input.planRowId ?? null,
+          hoursHundredths: requested,
+        },
+        select: { id: true },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'CREATE',
+          entity: 'ScienceRecord',
+          entityId: record.id,
+          label: auditLabel,
+          userId,
+          changes: diffChanges(
+            {},
+            { workType: type.label, hoursHundredths: requested, totalHundredths, link }
+          ),
+        },
+      });
+
+      return record.id;
+    });
+
+    revalidatePath('/science-plan');
+    return { ok: true, recordId };
+  } catch (e) {
+    if (e instanceof CapExceededError) {
+      return { error: `Не більше ${e.cap} записів цього виду роботи на рік` };
+    }
+    if (e instanceof PlanRowNotFoundError) return { error: 'Рядок плану не знайдено' };
+
+    // The dedupKey race: the read above saw nothing and somebody else's insert
+    // landed first. The unique index is what actually decides, so read the
+    // winner and return D17's offer rather than an error nobody can act on.
+    if (
+      isUniqueViolation(e) &&
+      String((e as { meta?: { target?: unknown } }).meta?.target).includes('dedupKey')
+    ) {
+      const raced = await findConflict(key, staffId, fields, type.label);
+      if (raced) return raced;
+    }
+
+    return {
+      error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'science.saveRecord', {
+        userId,
+      }),
+    };
+  }
+}
+
+/** The pool refused the draw. Raised inside the transaction, because the sum it
+ *  is measured against has to be read there. */
+class PoolError extends Error {
+  constructor(public readonly reason: string) {
+    super(reason);
+  }
+}
+
+/**
+ * Take a share of a work somebody else already recorded — D17's refusal turned
+ * into an offer.
+ *
+ * The person saw «цей запис уже додав Іваненко І. І. — залишилось 50 з 200
+ * год», typed what they take, and pressed «Приєднатися». No approval, no
+ * automatic equal split: first come, takes what they need (D16). The co-author
+ * list the first author may fill in is a convenience, never a gate — nobody
+ * depends on being remembered.
+ *
+ * The WORK is never touched here. Its evidence and its pool belong to whoever
+ * entered it, and only they or ADMIN may correct it; two authors disagreeing
+ * about a page count has no tiebreak otherwise (spec, «Correcting a work»).
+ */
+export async function joinWork(input: {
+  workId: string;
+  departmentId: string;
+  hoursHundredths: number;
+  planRowId?: string;
+}): Promise<SaveRecordResult> {
+  const actor = await resolveActor(input.departmentId);
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, staff, template } = actor.context;
+
+  const work = await db.scienceWork.findUnique({
+    where: { id: input.workId },
+    select: {
+      id: true,
+      templateId: true,
+      totalHundredths: true,
+      workType: { select: { id: true, label: true, sharing: true, maxPerYear: true } },
+    },
+  });
+  // A work from a closed year is not this year's to draw on, and saying «не
+  // знайдено» rather than explaining the year is right: from the person's side
+  // it is not on their screen either way.
+  if (!work || work.templateId !== template.id) return { error: 'Роботу не знайдено' };
+
+  if (work.workType.sharing === 'INDIVIDUAL') {
+    // D24: an INDIVIDUAL type's key is already prefixed per person, so nobody
+    // should ever REACH this work — but a hand-made request could, and an
+    // individual work has no pool to divide.
+    return { error: 'Ця робота індивідуальна — до неї не можна приєднатися' };
+  }
+
+  const auditLabel =
+    `${staff.lastName} ${staff.firstName} ${staff.patronymic ?? ''} — ${work.workType.label}`.trim();
+
+  try {
+    const recordId = await db.$transaction(async (tx) => {
+      const planId = await planIdFor(tx, {
+        staffId,
+        departmentId: input.departmentId,
+        templateId: template.id,
+        stakeYear: template.stakeYear,
+      });
+
+      if (input.planRowId) {
+        const row = await tx.sciencePlanRow.findUnique({
+          where: { id: input.planRowId },
+          select: { planId: true, workTypeId: true },
+        });
+        if (!row || row.planId !== planId || row.workTypeId !== work.workType.id) {
+          throw new PlanRowNotFoundError();
+        }
+      }
+
+      if (work.workType.maxPerYear) {
+        const count = await tx.scienceRecord.count({
+          where: {
+            staffId,
+            templateId: template.id,
+            status: 'APPROVED',
+            work: { workTypeId: work.workType.id },
+          },
+        });
+        if (count >= work.workType.maxPerYear) throw new CapExceededError(work.workType.maxPerYear);
+      }
+
+      // Re-read INSIDE the transaction, never from a figure the client sent.
+      // Two co-authors saving in the same second must not both see 50 free
+      // hours and both take them — the rule `saveDistribution` follows for a
+      // кафедра's pool, for the same reason.
+      //
+      // APPROVED only, and never the caller's own row: a declined draw holds no
+      // hours, and an edit to one's own share must be measured against everybody
+      // else's, not against itself.
+      const drawn = await tx.scienceRecord.aggregate({
+        where: { workId: work.id, status: 'APPROVED', staffId: { not: staffId } },
+        _sum: { hoursHundredths: true },
+      });
+      const fault = poolProblem({
+        totalHundredths: work.totalHundredths,
+        drawnByOthers: drawn._sum.hoursHundredths ?? 0,
+        requested: input.hoursHundredths,
+      });
+      if (fault) throw new PoolError(fault);
+
+      const record = await tx.scienceRecord.create({
+        data: {
+          staffId,
+          workId: work.id,
+          templateId: template.id,
+          planId,
+          planRowId: input.planRowId ?? null,
+          hoursHundredths: input.hoursHundredths,
+        },
+        select: { id: true },
+      });
+
+      // Joining is open, so who attached themselves to which work, and for how
+      // many hours, has to stay answerable (spec, «Joining a work»).
+      await tx.auditLog.create({
+        data: {
+          action: 'CREATE',
+          entity: 'ScienceRecord',
+          entityId: record.id,
+          label: auditLabel,
+          userId,
+          changes: diffChanges(
+            {},
+            {
+              workType: work.workType.label,
+              hoursHundredths: input.hoursHundredths,
+              totalHundredths: work.totalHundredths,
+            }
+          ),
+        },
+      });
+
+      return record.id;
+    });
+
+    revalidatePath('/science-plan');
+    return { ok: true, recordId };
+  } catch (e) {
+    if (e instanceof PoolError) return { error: e.reason };
+    if (e instanceof CapExceededError) {
+      return { error: `Не більше ${e.cap} записів цього виду роботи на рік` };
+    }
+    if (e instanceof PlanRowNotFoundError) return { error: 'Рядок плану не знайдено' };
+
+    // `@@unique([staffId, workId])` — the person pressed «Приєднатися» twice,
+    // or had the page open in two tabs. The index is what decides.
+    if (isUniqueViolation(e)) return { error: 'Ви вже додали цю роботу' };
+
+    return {
+      error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'science.joinWork', {
+        userId,
+      }),
+    };
+  }
+}
+
+/**
+ * Correct the evidence of a work — its title, its DOI, its page count.
+ *
+ * The evidence belongs to the WORK and the pool is computed from it, so an edit
+ * moves everybody's ceiling. Hence the two rules:
+ *
+ * - **Only `createdBy` or ADMIN.** Nobody else, including a co-author who has
+ *   joined. They report it instead — the alternative is two authors disagreeing
+ *   about a page count with no tiebreak.
+ * - **Never below what is already drawn.** An edit that would put the pool under
+ *   the sum of its claims is refused, naming the shortfall, because the
+ *   alternative is co-authors silently holding hours the work no longer has.
+ */
+export async function updateWorkEvidence(input: {
+  workId: string;
+  evidence: unknown;
+  link?: string;
+}): Promise<{ ok: true } | { error: string }> {
+  // No кафедра to check: a work belongs to nobody's кафедра, only to its year.
+  const actor = await resolveActor();
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, template } = actor.context;
+  const isAdmin = actor.context.role === 'ADMIN';
+
+  const work = await db.scienceWork.findUnique({
+    where: { id: input.workId },
+    select: {
+      id: true,
+      templateId: true,
+      totalHundredths: true,
+      evidence: true,
+      link: true,
+      createdById: true,
+      workType: true,
+    },
+  });
+  if (!work || work.templateId !== template.id) return { error: 'Роботу не знайдено' };
+  if (work.createdById !== staffId && !isAdmin) {
+    return { error: 'Редагувати роботу може лише той, хто її додав' };
+  }
+
+  const type = work.workType;
+  const fields = type.evidenceFields as unknown as EvidenceField[];
+  const scoring = type.scoring as unknown as ScoringSpec;
+
+  const parsed = schemaForFields(fields, scoring).safeParse(input.evidence);
+  if (!parsed.success) return { error: 'Невірні дані форми' };
+
+  const link = input.link?.trim() || null;
+  const evidenceFault = evidenceProblem({ requiresFile: type.requiresFile, link, fileCount: 0 });
+  if (evidenceFault) return { error: evidenceFault };
+
+  const key = workKey({
+    identityFields: Array.isArray(type.identityFields) ? (type.identityFields as string[]) : [],
+    evidenceFields: fields,
+    reuse: type.reuse,
+    sharing: type.sharing,
+    evidence: parsed.data,
+    academicYear: template.academicYear,
+    // The key's person-prefix stays the ORIGINAL author's, not the editor's —
+    // an ADMIN correcting somebody's work must not move it into their own key
+    // space and free the original identity for a duplicate.
+    staffId: work.createdById,
+  });
+  if (!key) return { error: 'Вкажіть назву або посилання, щоб роботу можна було розпізнати' };
+
+  let score: number;
+  try {
+    ({ score } = computeScore(
+      { code: type.code, coefficient: type.coefficient, scoring, evidenceFields: fields },
+      parsed.data
+    ));
+  } catch (e) {
+    logError('science.updateWorkEvidence', e, { userId, entityId: type.id });
+    return { error: 'Невідомий вид роботи' };
+  }
+  const totalHundredths = toHundredths(score);
+
+  const drawn = await db.scienceRecord.aggregate({
+    where: { workId: work.id, status: 'APPROVED' },
+    _sum: { hoursHundredths: true },
+  });
+  const alreadyDrawn = drawn._sum.hoursHundredths ?? 0;
+  if (totalHundredths < alreadyDrawn) {
+    return {
+      error: `Робота вже поділена на ${formatHours(alreadyDrawn)} год — менше цього зробити не можна`,
+    };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.scienceWork.update({
+        where: { id: work.id },
+        data: {
+          evidence: parsed.data as Prisma.InputJsonValue,
+          computedValue: score,
+          link,
+          totalHundredths,
+          dedupKey: key,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'ScienceWork',
+          entityId: work.id,
+          label: type.label,
+          userId,
+          changes: diffChanges(
+            { totalHundredths: work.totalHundredths, link: work.link, dedupKey: undefined },
+            { totalHundredths, link, dedupKey: key }
+          ),
+        },
+      });
+    });
+  } catch (e) {
+    // The new identity is another work's. Says «вже існує» rather than naming
+    // it: the other work may be somebody else's on another кафедра.
+    if (isUniqueViolation(e)) return { error: 'Робота з такими даними вже існує' };
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'science.updateWorkEvidence',
+        { userId }
+      ),
+    };
+  }
+
+  revalidatePath('/science-plan');
+  return { ok: true };
+}
+
+/**
+ * Withdraw the caller's own draw.
+ *
+ * **Deletes the record, never the work.** A work with no claims is kept,
+ * because its `dedupKey` is what stops it being re-entered and a co-author may
+ * still draw on it. ADMIN deletes a genuinely wrong work, which cascades.
+ */
+export async function deleteRecord(recordId: string): Promise<{ ok: true } | { error: string }> {
+  const actor = await resolveActor();
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, template } = actor.context;
+
+  const record = await db.scienceRecord.findUnique({
+    where: { id: recordId },
+    select: {
+      id: true,
+      staffId: true,
+      templateId: true,
+      hoursHundredths: true,
+      work: { select: { id: true, workType: { select: { label: true } } } },
+    },
+  });
+  // Ownership is the check, and a row left over on a template that is no longer
+  // the OPEN one is not this year's to delete.
+  if (!record || record.staffId !== staffId) return { error: 'Запис не знайдено' };
+  if (record.templateId !== template.id) return { error: 'Запис не знайдено' };
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.scienceRecord.delete({ where: { id: recordId } });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'DELETE',
+          entity: 'ScienceRecord',
+          entityId: recordId,
+          label: record.work.workType.label,
+          userId,
+          changes: diffChanges(
+            {
+              workType: record.work.workType.label,
+              hoursHundredths: record.hoursHundredths,
+            },
+            {}
+          ),
+        },
+      });
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(e, 'Не вдалося видалити. Зміни не застосовано', 'science.deleteRecord', {
+        userId,
+      }),
+    };
+  }
+
+  revalidatePath('/science-plan');
+  return { ok: true };
+}
+
+/**
+ * Is this work already recorded, and if so, what does the person need to know?
+ *
+ * Returns `null` when the work is new, an `error` when the caller already drew
+ * on it, and a `conflict` when somebody else did — the last being an OFFER
+ * (D17), not a failure. Called twice: once before the insert for the ordinary
+ * case, once after a P2002 for the race.
+ */
+async function findConflict(
+  key: string,
+  staffId: string,
+  fields: EvidenceField[],
+  fallbackLabel: string
+): Promise<SaveRecordResult | null> {
+  const existing = await db.scienceWork.findUnique({
+    where: { dedupKey: key },
+    select: {
+      id: true,
+      totalHundredths: true,
+      evidence: true,
+      createdBy: { select: { lastName: true, firstName: true, patronymic: true } },
+      // APPROVED only: a declined draw holds no hours, and its share of the
+      // pool is free for somebody else to take.
+      records: { where: { status: 'APPROVED' }, select: { staffId: true, hoursHundredths: true } },
+    },
+  });
+  if (!existing) return null;
+
+  if (existing.records.some((r) => r.staffId === staffId)) {
+    return { error: 'Ви вже додали цю роботу' };
+  }
+
+  const drawn = existing.records.reduce((sum, r) => sum + r.hoursHundredths, 0);
+  return {
+    conflict: {
+      workId: existing.id,
+      createdByName: shortName(existing.createdBy),
+      summary: summarizeEvidence(fields, existing.evidence) ?? fallbackLabel,
+      totalHundredths: existing.totalHundredths,
+      remainingHundredths: remainingHundredths(existing.totalHundredths, drawn),
+    },
+  };
+}
