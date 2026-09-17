@@ -43,7 +43,11 @@ export interface SciencePlanRowDetail {
 }
 
 export interface SciencePlanDetail {
-  plan: { id: string; rateHundredths: number | null } | null;
+  // No `rateHundredths` here on purpose: it would be a second, stored copy of
+  // the number `target.rateHundredths` already gives live while the template
+  // is OPEN, and the obvious-looking field would be the stale one. The ставка
+  // has exactly one place to be read from — `target`.
+  plan: { id: string } | null;
   rows: SciencePlanRowDetail[];
   target: PlanTarget;
 }
@@ -64,7 +68,7 @@ export async function getSciencePlan(
 ): Promise<SciencePlanDetail> {
   const template = await db.sciencePlanTemplate.findUnique({
     where: { id: templateId },
-    select: { minHoursPerRate: true, stakeYear: true },
+    select: { minHoursPerRate: true, stakeYear: true, status: true },
   });
   if (!template) {
     // Nothing to compute a target against — a caller passing a bad
@@ -101,12 +105,20 @@ export async function getSciencePlan(
     },
   });
 
+  // The ставка is written by the завідувач, months after a plan is typed —
+  // `SciencePlan.rateHundredths` is only a snapshot taken at save time. While
+  // the template is OPEN we re-read the live розподіл every time, whether or
+  // not a plan row exists yet, so a розподіл saved in November reaches a plan
+  // made in September without the person having to touch their row again.
+  // Once the template is CLOSED that live read must stop: the year is frozen
+  // history and has to keep showing the number it was decided on, even if a
+  // later, unrelated розподіл change would otherwise move it.
+  const rateHundredths =
+    template.status === 'OPEN'
+      ? await rateForPlan(db, { staffId, departmentId, stakeYear: template.stakeYear })
+      : (plan?.rateHundredths ?? null);
+
   if (!plan) {
-    const rateHundredths = await rateForPlan(db, {
-      staffId,
-      departmentId,
-      stakeYear: template.stakeYear,
-    });
     return {
       plan: null,
       rows: [],
@@ -120,7 +132,7 @@ export async function getSciencePlan(
 
   const plannedHundredths = plan.rows.reduce((sum, r) => sum + r.plannedHundredths, 0);
   return {
-    plan: { id: plan.id, rateHundredths: plan.rateHundredths },
+    plan: { id: plan.id },
     rows: plan.rows.map((r) => ({
       id: r.id,
       order: r.order,
@@ -134,7 +146,7 @@ export async function getSciencePlan(
     })),
     target: planTarget({
       minHoursPerRate: template.minHoursPerRate,
-      rateHundredths: plan.rateHundredths,
+      rateHundredths,
       plannedHundredths,
     }),
   };

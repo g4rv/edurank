@@ -30,7 +30,7 @@ export async function listSciencePlans(input: {
 }): Promise<SciencePlanRowSummary[]> {
   const template = await db.sciencePlanTemplate.findUnique({
     where: { id: input.templateId },
-    select: { id: true, academicYear: true, minHoursPerRate: true },
+    select: { id: true, academicYear: true, minHoursPerRate: true, stakeYear: true, status: true },
   });
   if (!template) return [];
 
@@ -61,6 +61,33 @@ export async function listSciencePlans(input: {
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
   });
 
+  // Same reasoning as get-science-plan.ts: `SciencePlan.rateHundredths` is a
+  // snapshot taken when a plan was saved, and the розподіл it snapshots is
+  // usually saved MONTHS later by a different person. While the template is
+  // OPEN we read the live розподіл instead — for everyone on screen, planned
+  // or not, in one query rather than one per row — so a person who has not
+  // planned yet still shows their real target instead of «—». Once the
+  // template is CLOSED the live number must stop moving, so we fall back to
+  // the frozen `plan.rateHundredths` that was true when the year was decided.
+  const staffIds = staff.map((p) => p.id);
+  const liveRates = new Map<string, number>();
+  if (template.status === 'OPEN' && staffIds.length > 0) {
+    const allocations = await db.stakeAllocation.findMany({
+      where: {
+        staffId: { in: staffIds },
+        distribution: { year: template.stakeYear, departmentId: { in: ids } },
+      },
+      select: {
+        staffId: true,
+        proposedHundredths: true,
+        distribution: { select: { departmentId: true } },
+      },
+    });
+    for (const a of allocations) {
+      liveRates.set(`${a.staffId}|${a.distribution.departmentId}`, a.proposedHundredths);
+    }
+  }
+
   const rows: SciencePlanRowSummary[] = [];
   for (const person of staff) {
     // Every кафедра this person actually holds — primary, then each
@@ -74,9 +101,13 @@ export async function listSciencePlans(input: {
     for (const place of places) {
       const plan = person.sciencePlans.find((p) => p.departmentId === place.dept.id);
       const plannedHundredths = (plan?.rows ?? []).reduce((sum, r) => sum + r.plannedHundredths, 0);
+      const rateHundredths =
+        template.status === 'OPEN'
+          ? (liveRates.get(`${person.id}|${place.dept.id}`) ?? null)
+          : (plan?.rateHundredths ?? null);
       const target = planTarget({
         minHoursPerRate: template.minHoursPerRate,
-        rateHundredths: plan?.rateHundredths ?? null,
+        rateHundredths,
         plannedHundredths,
       });
       rows.push({
