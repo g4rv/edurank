@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { planTarget } from './target';
 
-const target = (rateHundredths: number | null, plannedHundredths = 0) =>
-  planTarget({ minHoursPerRate: 500, rateHundredths, plannedHundredths });
+const target = (rateHundredths: number | null, plannedHundredths = 0, doneHundredths = 0) =>
+  planTarget({ minHoursPerRate: 500, rateHundredths, plannedHundredths, doneHundredths });
 
 describe('planTarget', () => {
   it('is 500 годин on a full ставка', () => {
@@ -39,5 +39,33 @@ describe('planTarget', () => {
     const t = target(35, 0);
     expect(Number.isInteger(t.targetHundredths)).toBe(true);
     expect(t.targetHundredths).toBe(17500); // 0,35 × 500 = 175 год
+  });
+});
+
+describe('план and факт against one ціль', () => {
+  it('measures each against the same target, separately', () => {
+    const t = target(100, 50000, 20000);
+    expect(t.targetHundredths).toBe(50000);
+    expect(t.shortfallHundredths).toBe(0);
+    expect(t.doneHundredths).toBe(20000);
+    expect(t.doneShortfallHundredths).toBe(30000);
+  });
+
+  it('has no факт shortfall when there is no target at all', () => {
+    const t = target(null, 0, 12000);
+    expect(t.doneShortfallHundredths).toBeNull();
+    expect(t.doneHundredths).toBe(12000);
+  });
+
+  it('never reports a negative shortfall — doing more than planned is not a debt', () => {
+    expect(target(100, 50000, 60000).doneShortfallHundredths).toBe(0);
+  });
+
+  it('counts факт even where nothing was planned', () => {
+    // Ordinary: somebody plans two articles and publishes one article and a
+    // monograph. The monograph fulfils no row and still counts.
+    const t = target(100, 0, 20000);
+    expect(t.doneHundredths).toBe(20000);
+    expect(t.doneShortfallHundredths).toBe(30000);
   });
 });

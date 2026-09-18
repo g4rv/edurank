@@ -17,6 +17,7 @@ import { toHundredths } from '@/lib/stake/units';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
+import { initials } from '@/lib/name';
 
 // The факт half of планування наукової роботи — Stage 2's write side. Read
 // `docs/superpowers/specs/2026-09-15-science-plan-design.md` first: D14–D17
@@ -61,17 +62,6 @@ class CapExceededError extends Error {
   }
 }
 class PlanRowNotFoundError extends Error {}
-
-/** «Іваненко І. І.» — the form D17's refusal names somebody in.
- *
- *  Local and unexported: §11 of docs/aurora.md — one caller means it is not
- *  shared yet. `initialsOf` in components/ui/avatar.tsx takes a whole name
- *  string and is a different job. */
-function shortName(p: { lastName: string; firstName: string; patronymic: string | null }): string {
-  const first = p.firstName ? `${p.firstName[0]}.` : '';
-  const middle = p.patronymic ? ` ${p.patronymic[0]}.` : '';
-  return `${p.lastName} ${first}${middle}`.trim();
-}
 
 /**
  * The four checks every write here repeats: a signed-in НПП, on a кафедра that
@@ -133,18 +123,32 @@ async function resolveActor(
   return { ok: true, context: { userId, staffId, role: session.user.role, staff, template } };
 }
 
+/** The plan is not submitted yet — recording cannot start (owner, 2026-09-17). */
+class PlanNotLockedError extends Error {}
+
 /**
- * Find this person's plan on this кафедра, or open one.
+ * A fact may be recorded once the plan is SUBMITTED — and against any вид
+ * роботи, planned or not (owner, 2026-09-17).
  *
- * `rateHundredths` is read LIVE on creation, the same way `savePlanRow` does
- * it: a розподіл saved in November must reach a plan opened in September
- * without anybody touching it.
+ * The plan states what somebody intends and, through that, **the hours they
+ * must reach**. It does not restrict what they may do: an НПП who planned
+ * аспіранти and publishes an article still did the article, and Додаток III
+ * still prices it. So the only thing checked here is that a plan exists and is
+ * final; what counts toward the 500 годин is the FACT's own hours.
+ *
+ * An earlier build refused a вид роботи absent from the plan. That was
+ * retracted the same day: it made unforeseen work worth nothing, which is not
+ * what the наказ pays for.
+ *
+ * Unlike a plan row's own save, this never CREATES a plan: somebody with no
+ * plan has nothing to record against, and opening one for them silently would
+ * be a plan nobody ever submitted.
  */
-async function planIdFor(
+async function requireLockedPlan(
   tx: Prisma.TransactionClient,
-  input: { staffId: string; departmentId: string; templateId: string; stakeYear: number }
+  input: { staffId: string; departmentId: string; templateId: string }
 ): Promise<string> {
-  const existing = await tx.sciencePlan.findUnique({
+  const plan = await tx.sciencePlan.findUnique({
     where: {
       staffId_departmentId_templateId: {
         staffId: input.staffId,
@@ -152,25 +156,90 @@ async function planIdFor(
         templateId: input.templateId,
       },
     },
-    select: { id: true },
+    select: { id: true, lockedAt: true },
   });
-  if (existing) return existing.id;
 
-  const created = await tx.sciencePlan.create({
-    data: {
-      staffId: input.staffId,
-      departmentId: input.departmentId,
-      templateId: input.templateId,
-      rateHundredths: await rateForPlan(tx, {
-        staffId: input.staffId,
-        departmentId: input.departmentId,
-        stakeYear: input.stakeYear,
-      }),
-    },
-    select: { id: true },
-  });
-  return created.id;
+  if (!plan || !plan.lockedAt) throw new PlanNotLockedError();
+  return plan.id;
 }
+
+/**
+ * Submit the plan — after this it is fixed (owner, 2026-09-17).
+ *
+ * **Not an approval.** D4 still holds: nobody signs a plan off, and this is the
+ * НПП's own act. It is a submission, in the sense наказ п.33 means when it
+ * sends individual plans to the навчальний відділ by 18 вересня.
+ *
+ * Why it exists at all: without it, план vs факт means nothing. Somebody can
+ * plan nothing, publish one article in May, add the matching row in June, and
+ * read as having planned perfectly. A locked plan is what makes September's
+ * intention a document rather than a running commentary.
+ *
+ * **Refused while the кафедра has no розподіл.** On 2026-09-15, 306 of 328 НПП
+ * had no ставка anywhere, so the page shows no target at all — and nobody
+ * should be made to fix a plan against a number it cannot show them.
+ */
+export async function lockPlan(departmentId: string): Promise<{ ok: true } | { error: string }> {
+  const actor = await resolveActor(departmentId);
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, staff, template } = actor.context;
+
+  const plan = await db.sciencePlan.findUnique({
+    where: {
+      staffId_departmentId_templateId: { staffId, departmentId, templateId: template.id },
+    },
+    select: { id: true, lockedAt: true, rows: { select: { id: true } } },
+  });
+  if (!plan) return { error: 'Спочатку додайте хоча б одну роботу до плану' };
+  if (plan.lockedAt) return { error: 'План уже збережено' };
+  if (plan.rows.length === 0) return { error: 'Спочатку додайте хоча б одну роботу до плану' };
+
+  // The LIVE ставка, not the snapshot on the plan: the розподіл may have landed
+  // since this plan was opened, and that is the common case.
+  const rateHundredths = await rateForPlan(db, {
+    staffId,
+    departmentId,
+    stakeYear: template.stakeYear,
+  });
+  if (rateHundredths === null) {
+    return { error: 'Ставку на цій кафедрі ще не визначено — план можна буде зберегти пізніше' };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      // Guarded on `lockedAt: null` so two tabs cannot both lock, and the
+      // second one is told rather than silently overwriting the first time.
+      const locked = await tx.sciencePlan.updateMany({
+        where: { id: plan.id, lockedAt: null },
+        data: { lockedAt: new Date(), rateHundredths },
+      });
+      if (locked.count === 0) throw new AlreadyLockedError();
+
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'SciencePlan',
+          entityId: plan.id,
+          label: `${staff.lastName} ${staff.firstName} ${staff.patronymic ?? ''}`.trim(),
+          userId,
+          changes: diffChanges({ lockedAt: null }, { lockedAt: new Date().toISOString() }),
+        },
+      });
+    });
+  } catch (e) {
+    if (e instanceof AlreadyLockedError) return { error: 'План уже збережено' };
+    return {
+      error: parseDbError(e, 'Не вдалося зберегти план. Зміни не застосовано', 'science.lockPlan', {
+        userId,
+      }),
+    };
+  }
+
+  revalidatePath('/science-plan');
+  return { ok: true };
+}
+
+class AlreadyLockedError extends Error {}
 
 /**
  * Record one work an НПП actually did, for the OPEN навчальний рік.
@@ -252,11 +321,10 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
 
   try {
     const recordId = await db.$transaction(async (tx) => {
-      const planId = await planIdFor(tx, {
+      const planId = await requireLockedPlan(tx, {
         staffId,
         departmentId: input.departmentId,
         templateId: template.id,
-        stakeYear: template.stakeYear,
       });
 
       if (input.planRowId) {
@@ -335,6 +403,9 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
       return { error: `Не більше ${e.cap} записів цього виду роботи на рік` };
     }
     if (e instanceof PlanRowNotFoundError) return { error: 'Рядок плану не знайдено' };
+    if (e instanceof PlanNotLockedError) {
+      return { error: 'Спочатку збережіть план — після цього можна вносити виконане' };
+    }
 
     // The dedupKey race: the read above saw nothing and somebody else's insert
     // landed first. The unique index is what actually decides, so read the
@@ -413,11 +484,10 @@ export async function joinWork(input: {
 
   try {
     const recordId = await db.$transaction(async (tx) => {
-      const planId = await planIdFor(tx, {
+      const planId = await requireLockedPlan(tx, {
         staffId,
         departmentId: input.departmentId,
         templateId: template.id,
-        stakeYear: template.stakeYear,
       });
 
       if (input.planRowId) {
@@ -504,6 +574,9 @@ export async function joinWork(input: {
       return { error: `Не більше ${e.cap} записів цього виду роботи на рік` };
     }
     if (e instanceof PlanRowNotFoundError) return { error: 'Рядок плану не знайдено' };
+    if (e instanceof PlanNotLockedError) {
+      return { error: 'Спочатку збережіть план — після цього можна вносити виконане' };
+    }
 
     // `@@unique([staffId, workId])` — the person pressed «Приєднатися» twice,
     // or had the page open in two tabs. The index is what decides.
@@ -747,7 +820,7 @@ async function findConflict(
   return {
     conflict: {
       workId: existing.id,
-      createdByName: shortName(existing.createdBy),
+      createdByName: initials(existing.createdBy),
       summary: summarizeEvidence(fields, existing.evidence) ?? fallbackLabel,
       totalHundredths: existing.totalHundredths,
       remainingHundredths: remainingHundredths(existing.totalHundredths, drawn),

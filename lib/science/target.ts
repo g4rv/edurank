@@ -16,20 +16,39 @@ export interface PlanTarget {
   plannedHundredths: number;
   /** null when there is no target; never negative — an excess is not a shortfall. */
   shortfallHundredths: number | null;
+  /**
+   * What was actually RECORDED — APPROVED draws only, so a declined record
+   * stops counting the moment ННВ declines it (D20).
+   *
+   * План and факт are measured against the SAME ціль and shown together, which
+   * is what makes D29's two tabs cost nothing to switch between: the numbers
+   * both live in the band above them.
+   */
+  doneHundredths: number;
+  /** null when there is no target; never negative. */
+  doneShortfallHundredths: number | null;
 }
 
 export function planTarget(input: {
   minHoursPerRate: number;
   rateHundredths: number | null;
   plannedHundredths: number;
+  /**
+   * Required rather than defaulted, deliberately: a screen that forgets to
+   * pass it would otherwise read a confident zero, and «Виконано 0 год» is a
+   * statement about somebody's year, not a missing argument.
+   */
+  doneHundredths: number;
 }): PlanTarget {
-  const { minHoursPerRate, rateHundredths, plannedHundredths } = input;
+  const { minHoursPerRate, rateHundredths, plannedHundredths, doneHundredths } = input;
   if (rateHundredths === null) {
     return {
       rateHundredths: null,
       targetHundredths: null,
       plannedHundredths,
       shortfallHundredths: null,
+      doneHundredths,
+      doneShortfallHundredths: null,
     };
   }
   const targetHundredths = minHoursPerRate * rateHundredths;
@@ -38,6 +57,8 @@ export function planTarget(input: {
     targetHundredths,
     plannedHundredths,
     shortfallHundredths: Math.max(0, targetHundredths - plannedHundredths),
+    doneHundredths,
+    doneShortfallHundredths: Math.max(0, targetHundredths - doneHundredths),
   };
 }
 

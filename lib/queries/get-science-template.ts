@@ -36,6 +36,11 @@ export const getActiveScienceTemplate = cache(async function getActiveScienceTem
           evidenceFields: true,
           scoring: true,
           maxPerYear: true,
+          // The record form branches on both: `sharing` decides whether an
+          // hours box is shown at all, `requiresFile` whether a link alone will
+          // be accepted (D27).
+          sharing: true,
+          requiresFile: true,
         },
         orderBy: { order: 'asc' },
       },

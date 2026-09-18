@@ -5,7 +5,7 @@ vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => {
   const tx = {
     staff: { findUnique: vi.fn() },
-    scienceWorkType: { findFirst: vi.fn() },
+    scienceWorkType: { findFirst: vi.fn(), findUnique: vi.fn() },
     scienceWork: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     scienceRecord: {
       count: vi.fn(),
@@ -90,6 +90,14 @@ const STAFF = {
   partTimeDepartments: [] as { departmentId: string }[],
 };
 
+/** Submitted, and carrying the пункт under test. A fact can only be recorded
+ *  against a planned пункт on a locked plan (owner, 2026-09-17). */
+const LOCKED_PLAN = {
+  id: 'plan-1',
+  lockedAt: new Date('2026-09-18'),
+  rows: [{ id: 'pr-existing' }],
+};
+
 const base = {
   departmentId: 'd1',
   workTypeId: 'wt1',
@@ -104,7 +112,7 @@ beforeEach(() => {
   (db.staff.findUnique as Mock).mockResolvedValue(STAFF);
   (db.scienceWorkType.findFirst as Mock).mockResolvedValue(ARTICLE);
   (db.scienceWork.findUnique as Mock).mockResolvedValue(null);
-  (db.sciencePlan.findUnique as Mock).mockResolvedValue({ id: 'plan-1' });
+  (db.sciencePlan.findUnique as Mock).mockResolvedValue(LOCKED_PLAN);
   (db.scienceRecord.count as Mock).mockResolvedValue(0);
   (db.stakeAllocation.findFirst as Mock).mockResolvedValue({ proposedHundredths: 100 });
   (db.scienceWork.create as Mock).mockResolvedValue({ id: 'w1' });
@@ -208,7 +216,7 @@ describe('saveRecord — creating the work', () => {
     (db.staff.findUnique as Mock).mockResolvedValue(STAFF);
     (db.scienceWorkType.findFirst as Mock).mockResolvedValue(ARTICLE);
     (db.scienceWork.findUnique as Mock).mockResolvedValue(null);
-    (db.sciencePlan.findUnique as Mock).mockResolvedValue({ id: 'plan-1' });
+    (db.sciencePlan.findUnique as Mock).mockResolvedValue(LOCKED_PLAN);
     (db.scienceRecord.count as Mock).mockResolvedValue(0);
     (db.scienceWork.create as Mock).mockResolvedValue({ id: 'w1' });
     (db.scienceRecord.create as Mock).mockResolvedValue({ id: 'r1' });
@@ -243,11 +251,12 @@ describe('saveRecord — creating the work', () => {
     });
   });
 
-  it('creates the plan when the person has none yet, reading the ставка live', async () => {
+  it('NEVER creates a plan — a fact with no plan has nothing to attach to', async () => {
     (db.sciencePlan.findUnique as Mock).mockResolvedValue(null);
-    (db.sciencePlan.create as Mock).mockResolvedValue({ id: 'plan-new' });
-    await saveRecord(base);
-    expect((db.sciencePlan.create as Mock).mock.calls[0][0].data.rateHundredths).toBe(100);
+    expect(await saveRecord(base)).toEqual({
+      error: 'Спочатку збережіть план — після цього можна вносити виконане',
+    });
+    expect(db.sciencePlan.create).not.toHaveBeenCalled();
   });
 
   it('writes an audit entry', async () => {
@@ -571,5 +580,50 @@ describe('deleteRecord — withdrawing a draw', () => {
     const entry = (db.auditLog.create as Mock).mock.calls[0][0].data;
     expect(entry.action).toBe('DELETE');
     expect(entry.entity).toBe('ScienceRecord');
+  });
+});
+
+describe('a fact needs a submitted plan — and nothing more', () => {
+  it('refuses while the plan is still open', async () => {
+    (db.sciencePlan.findUnique as Mock).mockResolvedValue({ ...LOCKED_PLAN, lockedAt: null });
+    expect(await saveRecord(base)).toEqual({
+      error: 'Спочатку збережіть план — після цього можна вносити виконане',
+    });
+    expect(db.scienceWork.create).not.toHaveBeenCalled();
+  });
+
+  it('ACCEPTS a вид роботи the person never planned (owner, 2026-09-17)', async () => {
+    // The plan says what somebody intended and, through that, the hours they
+    // must reach. It does not limit what they may do: an НПП who planned
+    // аспіранти and published an article still did the article, and Додаток III
+    // still prices it. An earlier build refused this and was retracted the
+    // same day.
+    (db.sciencePlan.findUnique as Mock).mockResolvedValue({ ...LOCKED_PLAN, rows: [] });
+    expect(await saveRecord(base)).toEqual({ ok: true, recordId: 'r1' });
+  });
+
+  it('counts the FACT’s own hours, not the planned figure', async () => {
+    // September planned «п.4, Scopus, 10 сторінок» = 500 год. May publishes a
+    // different Scopus article of 6 сторінок. It counts for 300, not 500 —
+    // план and факт are compared as hours, and the наказ prices per сторінка.
+    const result = await saveRecord({
+      ...base,
+      evidence: { ...base.evidence, title: 'Зовсім інша стаття', credits: 6 },
+    });
+    expect(result).toEqual({ ok: true, recordId: 'r1' });
+    expect((db.scienceWork.create as Mock).mock.calls[0][0].data.totalHundredths).toBe(30000);
+  });
+
+  it('applies the same rule to joining somebody else’s work', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      id: 'w1',
+      templateId: 't1',
+      totalHundredths: 20000,
+      workType: ARTICLE,
+    });
+    (db.sciencePlan.findUnique as Mock).mockResolvedValue({ ...LOCKED_PLAN, lockedAt: null });
+    expect(await joinWork({ workId: 'w1', departmentId: 'd1', hoursHundredths: 5000 })).toEqual({
+      error: 'Спочатку збережіть план — після цього можна вносити виконане',
+    });
   });
 });

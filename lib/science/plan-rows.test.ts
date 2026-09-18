@@ -13,6 +13,8 @@ function row(over: Partial<SciencePlanRowSummary> = {}): SciencePlanRowSummary {
     targetHundredths: 50000,
     plannedHundredths: 0,
     shortfallHundredths: 50000,
+    doneHundredths: 0,
+    doneShortfallHundredths: 50000,
     hasPlan: false,
     ...over,
   };

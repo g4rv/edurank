@@ -42,6 +42,8 @@ type ComboboxCtx = {
   displayValue: string;
   filteredItems: unknown[];
   disabled: boolean;
+  /** The field the list hangs off — see the guard in `ComboboxContent`. */
+  anchorRef: React.RefObject<HTMLDivElement | null>;
 };
 
 const ComboboxContext = React.createContext<ComboboxCtx | null>(null);
@@ -98,6 +100,8 @@ function Combobox<T>({
     setOpen(false);
   }
 
+  const anchorRef = React.useRef<HTMLDivElement | null>(null);
+
   return (
     <ComboboxContext.Provider
       value={{
@@ -110,6 +114,7 @@ function Combobox<T>({
         displayValue,
         filteredItems,
         disabled,
+        anchorRef,
       }}
     >
       <Popover open={open} onOpenChange={setOpen}>
@@ -155,6 +160,7 @@ function ComboboxInput({
     value,
     select,
     disabled: ctxDisabled,
+    anchorRef,
   } = useCombobox();
   const isDisabled = disabledProp ?? ctxDisabled;
 
@@ -163,7 +169,7 @@ function ComboboxInput({
 
   return (
     <PopoverAnchor asChild>
-      <div className={cn('relative', className)}>
+      <div ref={anchorRef} className={cn('relative', className)}>
         <input
           type="text"
           role="combobox"
@@ -255,6 +261,29 @@ function ComboboxContent({
   children: React.ReactNode;
   className?: string;
 }) {
+  const { anchorRef } = useCombobox();
+
+  /**
+   * **The field itself is never «outside» the list.**
+   *
+   * The list opens on FOCUS and hangs off a `PopoverAnchor`, not a
+   * `PopoverTrigger` — and Radix only exempts a trigger from its dismiss
+   * layer. So the one press that focuses the field opened the list, and the
+   * click completing that same press was read as an interaction outside it,
+   * closing it; the click handler then reopened it. Shows, hides while the
+   * button is held, shows on release.
+   *
+   * It only bit inside a dialog, where a second dismiss layer is stacked over
+   * the popover's: measured 2026-09-17 with the same component rendered on a
+   * page (one clean open) and in a dialog (open, close, open).
+   *
+   * Guards all three, because the dismiss arrives as a pointerdown on some
+   * paths and as a focus change on others.
+   */
+  const fromAnchor = (event: { target: EventTarget | null; preventDefault: () => void }) => {
+    if (anchorRef.current?.contains(event.target as Node)) event.preventDefault();
+  };
+
   return (
     // `--radix-popover-trigger-width`, NOT `…-anchor-width` (2026-08-18). The
     // latter does not exist — Popover re-namespaces popper's anchor width under
@@ -262,8 +291,27 @@ function ComboboxContent({
     // collapsed to the width of the longest name instead of matching the field.
     <PopoverContent
       align="start"
-      className={cn(listPanel, 'w-(--radix-popover-trigger-width) overflow-hidden', className)}
+      className={cn(
+        listPanel,
+        'w-(--radix-popover-trigger-width) overflow-hidden',
+        // **Two leftovers from the popover underneath** (measured 2026-09-17).
+        // This list sits on `components/ui/popover`, which brings its own
+        // `shadow-md ring-1 ring-foreground/10` and, being a flex column for
+        // the prose panels it was built for, a `gap-2.5`. `listPanel`'s own
+        // `p-0` and radius win because tailwind-merge knows those groups;
+        // `shadow-float` and `shadow-md` it does not pair up, so both applied
+        // — and the gap it never had a reason to touch.
+        //
+        // §8 says the select and the combobox are one control. Measured side
+        // by side their ROWS already are, to the pixel; this is the panel
+        // catching up.
+        'gap-0 shadow-float ring-0',
+        className
+      )}
       onOpenAutoFocus={(e) => e.preventDefault()}
+      onPointerDownOutside={fromAnchor}
+      onFocusOutside={fromAnchor}
+      onInteractOutside={fromAnchor}
     >
       {children}
     </PopoverContent>

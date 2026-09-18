@@ -43,6 +43,11 @@ class CapExceededError extends Error {
  *  plan's row. Turned into the same «not found» message either way. */
 class RowNotFoundError extends Error {}
 
+/** The plan was submitted and is no longer editable (owner, 2026-09-17). */
+class PlanLockedError extends Error {}
+
+const PLAN_LOCKED_MESSAGE = 'План збережено — щоб змінити його, зверніться до ННВ';
+
 /**
  * Add, or edit, one row of a teacher's plan for the OPEN academic year.
  *
@@ -134,6 +139,12 @@ export async function savePlanRow(input: SavePlanRowInput): Promise<SavePlanRowR
           },
         },
       });
+
+      // A submitted plan is fixed (owner, 2026-09-17). Checked HERE rather than
+      // before the transaction because the person may have locked it in another
+      // tab between the page rendering and this save — and a plan that changes
+      // after it is submitted is the whole thing the lock exists to stop.
+      if (existingPlan?.lockedAt) throw new PlanLockedError();
 
       // Refreshed from the кафедра's розподіл on EVERY save while the
       // template is OPEN, so a розподіл saved in November reaches a plan
@@ -245,6 +256,7 @@ export async function savePlanRow(input: SavePlanRowInput): Promise<SavePlanRowR
       return { error: `Не більше ${e.cap} позицій цього виду роботи на рік` };
     }
     if (e instanceof RowNotFoundError) return { error: 'Рядок плану не знайдено' };
+    if (e instanceof PlanLockedError) return { error: PLAN_LOCKED_MESSAGE };
     return {
       error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'science.savePlanRow', {
         userId,
@@ -278,13 +290,14 @@ export async function deletePlanRow(rowId: string): Promise<DeletePlanRowResult>
       plannedHundredths: true,
       note: true,
       workType: { select: { label: true } },
-      plan: { select: { id: true, staffId: true, templateId: true } },
+      plan: { select: { id: true, staffId: true, templateId: true, lockedAt: true } },
     },
   });
   if (!row || row.plan.staffId !== staffId) return { error: 'Рядок плану не знайдено' };
   // Belt and braces: a row left over on a template that is no longer the OPEN
   // one is not this year's to delete.
   if (row.plan.templateId !== template.id) return { error: 'Рядок плану не знайдено' };
+  if (row.plan.lockedAt) return { error: PLAN_LOCKED_MESSAGE };
 
   try {
     await db.$transaction(async (tx) => {

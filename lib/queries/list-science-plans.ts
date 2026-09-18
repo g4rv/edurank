@@ -13,6 +13,9 @@ export interface SciencePlanRowSummary {
   targetHundredths: number | null;
   plannedHundredths: number;
   shortfallHundredths: number | null;
+  /** APPROVED draws only — a declined record stops counting at once (D20). */
+  doneHundredths: number;
+  doneShortfallHundredths: number | null;
   hasPlan: boolean;
 }
 
@@ -71,6 +74,10 @@ export async function listSciencePlans(input: {
           departmentId: true,
           rateHundredths: true,
           rows: { select: { plannedHundredths: true } },
+          // APPROVED only: a declined draw holds no hours and must not read as
+          // work done — the same filter every other sum over hoursHundredths
+          // carries.
+          records: { where: { status: 'APPROVED' }, select: { hoursHundredths: true } },
         },
       },
     },
@@ -117,6 +124,7 @@ export async function listSciencePlans(input: {
     for (const place of places) {
       const plan = person.sciencePlans.find((p) => p.departmentId === place.dept.id);
       const plannedHundredths = (plan?.rows ?? []).reduce((sum, r) => sum + r.plannedHundredths, 0);
+      const doneHundredths = (plan?.records ?? []).reduce((sum, r) => sum + r.hoursHundredths, 0);
       const rateHundredths =
         template.status === 'OPEN'
           ? (liveRates.get(`${person.id}|${place.dept.id}`) ?? null)
@@ -125,6 +133,7 @@ export async function listSciencePlans(input: {
         minHoursPerRate: template.minHoursPerRate,
         rateHundredths,
         plannedHundredths,
+        doneHundredths,
       });
       rows.push({
         staffId: person.id,

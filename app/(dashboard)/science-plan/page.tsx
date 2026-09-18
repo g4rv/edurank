@@ -11,6 +11,7 @@ import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { PlanView } from '@/components/science/plan-view';
 import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
+import type { PlanTab } from '@/components/science/record-tabs';
 
 const CRUMBS = [{ label: 'Особисте' }, { label: 'Планування наукової роботи' }];
 
@@ -29,17 +30,19 @@ function toPlanWorkType(row: ScienceWorkTypeRow): PlanWorkType {
     reportingForm: row.reportingForm,
     fields: fields.success ? fields.data : [],
     scoring: scoring.success ? scoring.data : { kind: 'FIXED' },
+    sharing: row.sharing,
+    requiresFile: row.requiresFile,
   };
 }
 
 /**
- * An НПП's own план — Додаток III planned against a target computed from
- * their ставка on ONE кафедра. Read `docs/superpowers/specs/2026-09-15-science-plan-design.md`
- * before changing this page: D6–D9 are what shape it.
+ * An НПП's own наукова робота — Додаток III planned and recorded against a
+ * target computed from their ставка on ONE кафедра. Read
+ * `docs/superpowers/specs/2026-09-15-science-plan-design.md` before changing
+ * this page: D6–D9 shape the target, D29 the two tabs.
  *
  * **No year picker, same reason `/achievements/[section]` has none** — this is
  * data entry, and `getActiveScienceTemplate` only ever returns the OPEN year.
- * A closed year's read view is a later screen's job (D4: завідувач/ННВ/ADMIN).
  */
 export default async function SciencePlanPage({
   searchParams,
@@ -64,7 +67,7 @@ export default async function SciencePlanPage({
     return (
       <div className="space-y-5">
         <Breadcrumbs items={CRUMBS} />
-        <h1 className="text-2xl font-semibold tracking-[-0.01em]">Планування наукової роботи</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.01em]">Наукова робота</h1>
         <EmptyState>Ви не належите до жодної кафедри. Зверніться до відділу кадрів.</EmptyState>
       </div>
     );
@@ -76,7 +79,7 @@ export default async function SciencePlanPage({
     return (
       <div className="space-y-5">
         <Breadcrumbs items={CRUMBS} />
-        <h1 className="text-2xl font-semibold tracking-[-0.01em]">Планування наукової роботи</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.01em]">Наукова робота</h1>
         <EmptyState>Планування наукової роботи на цей рік ще не відкрито.</EmptyState>
       </div>
     );
@@ -93,19 +96,30 @@ export default async function SciencePlanPage({
     (primaryId && departments.some((d) => d.id === primaryId) ? primaryId : undefined) ??
     departments[0].id;
 
-  const { rows, target } = await getSciencePlan(staffId, departmentId, template.id);
+  const tab: PlanTab = params.tab === 'done' ? 'done' : 'plan';
+
+  const { plan, rows, records, target } = await getSciencePlan(staffId, departmentId, template.id);
   const workTypes = template.workTypes.map(toPlanWorkType);
 
   return (
     <div className="space-y-5">
       <Breadcrumbs items={CRUMBS} />
-      <h1 className="text-2xl font-semibold tracking-[-0.01em]">Планування наукової роботи</h1>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-[-0.01em]">Наукова робота</h1>
+        <p className="mt-0.5 text-sm text-foreground-soft">
+          {template.academicYear} навчальний рік
+          {template.orderRef && ` · наказ ${template.orderRef}`}
+        </p>
+      </div>
       <PlanView
         departments={departments}
         currentDepartmentId={departmentId}
+        tab={tab}
         rows={rows}
+        records={records}
         target={target}
         workTypes={workTypes}
+        lockedAt={plan?.lockedAt ?? null}
       />
     </div>
   );

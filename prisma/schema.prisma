@@ -1116,6 +1116,21 @@ model SciencePlan {
   /// at all rather than a guess (owner, 2026-09-15).
   rateHundredths Int?
 
+  /// When the НПП submitted this plan and it stopped being editable (owner,
+  /// 2026-09-17). Null while it is still being filled in.
+  ///
+  /// **Not an approval** — D4 still holds, nobody signs a plan off. It is a
+  /// submission: наказ п.33 sends individual plans to the навчальний відділ by
+  /// 18 вересня, and until a plan is fixed, план-vs-факт means nothing. Without
+  /// it somebody can plan nothing, publish one article in May, add the matching
+  /// row in June and read as perfectly planned.
+  ///
+  /// Locking is refused while `rateHundredths` is null: on 2026-09-15, 306 of
+  /// 328 НПП had no ставка anywhere, and nobody should be made to fix a plan
+  /// against a target the page cannot show them. ННВ and ADMIN can unlock one,
+  /// with a reason, through the audit log.
+  lockedAt DateTime?
+
   rows    SciencePlanRow[]
   records ScienceRecord[]
 

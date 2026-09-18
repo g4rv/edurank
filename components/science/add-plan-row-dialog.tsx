@@ -11,15 +11,6 @@ import { Button } from '@/components/aurora/ui/button';
 import { Label } from '@/components/aurora/ui/label';
 import { Textarea } from '@/components/aurora/ui/textarea';
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/aurora/ui/select';
-import {
   Dialog,
   DialogBody,
   DialogContent,
@@ -30,9 +21,11 @@ import {
   DialogTrigger,
 } from '@/components/aurora/ui/dialog';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
+import { WorkTypeCombobox } from '@/components/science/work-type-combobox';
 import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { planFields } from '@/lib/science/plan-fields';
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
+import type { ScienceSharing } from '@/lib/generated/prisma/client';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { toHundredths } from '@/lib/stake/units';
@@ -48,18 +41,11 @@ export interface PlanWorkType {
   reportingForm: string | null;
   fields: EvidenceField[];
   scoring: ScoringSpec;
-}
-
-/** Item 1, item 3, item 7… — several variants of one printed line of Додаток
- *  III, in the order the catalogue's own `order` column already gave them. */
-function groupByItemNumber(types: PlanWorkType[]): [string, PlanWorkType[]][] {
-  const groups = new Map<string, PlanWorkType[]>();
-  for (const t of types) {
-    const existing = groups.get(t.itemNumber);
-    if (existing) existing.push(t);
-    else groups.set(t.itemNumber, [t]);
-  }
-  return [...groups.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
+  /** A SHARED work's hours are a pool its co-authors divide (D14); an
+   *  INDIVIDUAL one's are not, so the record form shows no hours box. */
+  sharing: ScienceSharing;
+  /** «A link alone is not enough for this type» (D27). */
+  requiresFile: boolean;
 }
 
 /**
@@ -98,15 +84,27 @@ export function AddPlanRowDialog({
   workTypes: PlanWorkType[];
 }) {
   const [open, setOpen] = useState(false);
-  const [typeId, setTypeId] = useState(workTypes[0]?.id ?? '');
+  // **Empty by default** (owner, 2026-09-17). Pre-selecting the first work type
+  // made the list open already pointing at a row, so it scrolled and settled to
+  // that row on every open — which reads as a flicker. It also said «this is
+  // filled in» about a choice nobody had made.
+  const [typeId, setTypeId] = useState('');
 
   if (workTypes.length === 0) return null;
 
   const selected = workTypes.find((t) => t.id === typeId);
-  const groups = groupByItemNumber(workTypes);
+  const picker = <WorkTypeCombobox workTypes={workTypes} value={typeId} onChange={setTypeId} />;
+
+  /** Back to the first type on close. Without this the dialog reopens showing
+   *  whatever was added last, which reads as «this is already filled in» and
+   *  quietly invites a duplicate row (owner, 2026-09-17). */
+  function close(next: boolean) {
+    setOpen(next);
+    if (!next) setTypeId('');
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
         <Button size="sm" className="shrink-0">
           <Plus className="size-4" />
@@ -114,7 +112,12 @@ export function AddPlanRowDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent>
+      <DialogContent
+        // Radix focuses the first field when a dialog opens; the вид роботи
+        // combobox opens its list on focus, so the dialog appeared with its
+        // own form already covered by a 26-row list nobody asked for.
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Нова робота</DialogTitle>
           <DialogDescription>
@@ -123,52 +126,19 @@ export function AddPlanRowDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {selected && (
-          <EvidenceForm
-            key={selected.id}
-            type={selected}
-            departmentId={departmentId}
-            onDone={() => setOpen(false)}
-            picker={<TypePicker groups={groups} value={typeId} onChange={setTypeId} />}
-          />
-        )}
+        {/* Always rendered, with or without a chosen вид роботи. Hiding it
+            until one was picked left a tall empty dialog with a single field
+            floating in it (owner, 2026-09-17) — and the form's own shape is
+            what tells somebody what they are about to fill in. */}
+        <EvidenceForm
+          key={selected?.id ?? 'none'}
+          type={selected}
+          departmentId={departmentId}
+          onDone={() => close(false)}
+          picker={picker}
+        />
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** «Вид роботи» — grouped by the printed item number, so the two variants of
- *  one line (e.g. «за друкований аркуш» vs «за сторінку») sit together. */
-function TypePicker({
-  groups,
-  value,
-  onChange,
-}: {
-  groups: [string, PlanWorkType[]][];
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  return (
-    <div className="space-y-1">
-      <Label htmlFor="work-type">Вид роботи</Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id="work-type" className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {groups.map(([itemNumber, types]) => (
-            <SelectGroup key={itemNumber}>
-              <SelectLabel>Пункт {itemNumber}</SelectLabel>
-              {types.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  <span className="block">{t.label}</span>
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
   );
 }
 
@@ -178,7 +148,8 @@ function EvidenceForm({
   onDone,
   picker,
 }: {
-  type: PlanWorkType;
+  /** `undefined` until a вид роботи is chosen — the form still draws. */
+  type: PlanWorkType | undefined;
   departmentId: string;
   onDone: () => void;
   picker: React.ReactNode;
@@ -189,10 +160,13 @@ function EvidenceForm({
   // useState initializer: fields are static for this mount (form remounts per
   // type). The PLANNING subset only — never `type.fields` whole, that is a
   // RECORD's field set (Stage 2).
+  // The form remounts per вид роботи (`key`), so these are fixed for this
+  // mount. Nothing chosen = no fields and a schema over nothing, which parses
+  // an empty object — so the preview simply stays silent rather than erroring.
   const [fields] = useState(() =>
-    planFields({ scoring: type.scoring, evidenceFields: type.fields })
+    type ? planFields({ scoring: type.scoring, evidenceFields: type.fields }) : []
   );
-  const [schema] = useState(() => schemaForFields(fields, type.scoring));
+  const [schema] = useState(() => schemaForFields(fields, type?.scoring));
 
   const {
     register,
@@ -207,7 +181,7 @@ function EvidenceForm({
   const watched = useWatch({ control });
   const parsedPreview = schema.safeParse(watched);
   let previewHours: number | null = null;
-  if (parsedPreview.success) {
+  if (type && parsedPreview.success) {
     try {
       previewHours = computeScore(
         {
@@ -224,6 +198,7 @@ function EvidenceForm({
   }
 
   function onSubmit(data: FieldValues) {
+    if (!type) return;
     startTransition(async () => {
       const result = await savePlanRow({
         departmentId,
@@ -249,7 +224,7 @@ function EvidenceForm({
         <DialogBody className="flex flex-col gap-4">
           {picker}
 
-          {(type.unitNote || type.reportingForm) && (
+          {type && (type.unitNote || type.reportingForm) && (
             <div className="space-y-0.5 text-sm text-foreground-soft">
               {type.unitNote && <p>{type.unitNote}</p>}
               {type.reportingForm && <p>Форма звітності: {type.reportingForm}</p>}
@@ -269,7 +244,9 @@ function EvidenceForm({
           </div>
 
           <p className="text-sm text-foreground-soft">
-            {previewHours !== null ? (
+            {!type ? (
+              'Оберіть вид роботи, щоб побачити орієнтовну кількість годин'
+            ) : previewHours !== null ? (
               <>
                 Орієнтовно:{' '}
                 <span className="font-medium text-foreground">
@@ -283,7 +260,7 @@ function EvidenceForm({
           </p>
         </DialogBody>
         <DialogFooter>
-          <Button type="submit" disabled={isPending} loading={isPending}>
+          <Button type="submit" disabled={isPending || !type} loading={isPending}>
             {isPending ? 'Збереження…' : 'Додати'}
           </Button>
         </DialogFooter>
