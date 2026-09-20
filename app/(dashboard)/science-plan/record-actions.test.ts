@@ -12,9 +12,11 @@ vi.mock('@/lib/db', () => {
       create: vi.fn(),
       findUnique: vi.fn(),
       delete: vi.fn(),
+      updateMany: vi.fn(),
       aggregate: vi.fn(),
     },
     sciencePlan: { findUnique: vi.fn(), create: vi.fn() },
+    scienceRecordFile: { create: vi.fn() },
     sciencePlanRow: { findUnique: vi.fn() },
     stakeAllocation: { findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -22,15 +24,36 @@ vi.mock('@/lib/db', () => {
   return { db: { ...tx, $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)) } };
 });
 vi.mock('@/lib/queries/get-science-template', () => ({ getActiveScienceTemplate: vi.fn() }));
+// The intake helper is exercised end-to-end in `file-actions.test.ts` against
+// real bytes; here it is stubbed so these tests stay about what `saveRecord`
+// DOES with a verified file, not about magic bytes. The message constants and
+// the P2002 test stay real.
+vi.mock('@/lib/science/file-intake', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/science/file-intake')>();
+  return { ...actual, verifyUploadedObject: vi.fn(), safeDeleteObject: vi.fn() };
+});
 
 import { Prisma } from '@/lib/generated/prisma/client';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
+import { safeDeleteObject, verifyUploadedObject } from '@/lib/science/file-intake';
 import { deleteRecord, joinWork, saveRecord, updateWorkEvidence } from './record-actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockTemplate = getActiveScienceTemplate as unknown as Mock;
+const mockVerifyFile = verifyUploadedObject as unknown as Mock;
+const mockDropObject = safeDeleteObject as unknown as Mock;
+
+/** What the browser already put in R2, and what the server made of it. */
+const STAGED = { objectKey: 'evidence/t1/abc.pdf', fileName: 'сертифікат.pdf' };
+const VERIFIED = {
+  ...STAGED,
+  contentType: 'application/pdf',
+  sizeBytes: 2048,
+  pageCount: 3,
+  sha256: 'c'.repeat(64),
+};
 
 /**
  * A REAL PrismaClientKnownRequestError. `isUniqueViolation` tests with
@@ -119,6 +142,9 @@ beforeEach(() => {
   (db.scienceRecord.create as Mock).mockResolvedValue({ id: 'r1' });
   (db.scienceRecord.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 0 } });
   (db.$transaction as Mock).mockImplementation(async (fn: (t: unknown) => unknown) => fn(db));
+  (db.scienceRecordFile.create as Mock).mockResolvedValue({ id: 'f1' });
+  mockVerifyFile.mockResolvedValue({ ok: true, file: VERIFIED });
+  mockDropObject.mockResolvedValue(undefined);
 });
 
 describe('saveRecord — the guards', () => {
@@ -146,7 +172,11 @@ describe('saveRecord — the guards', () => {
       departmentId: null,
       partTimeDepartments: [{ departmentId: 'd2' }],
     });
-    expect(await saveRecord({ ...base, departmentId: 'd2' })).toEqual({ ok: true, recordId: 'r1' });
+    expect(await saveRecord({ ...base, departmentId: 'd2' })).toEqual({
+      ok: true,
+      recordId: 'r1',
+      workId: 'w1',
+    });
   });
 
   it('refuses a closed year', async () => {
@@ -191,10 +221,105 @@ describe('saveRecord — evidence', () => {
   });
 });
 
+describe('saveRecord — evidence by FILE (D27)', () => {
+  it('SAVES a record proved by a file and no link at all', async () => {
+    // The case the whole stage exists for: a сертифікат with no public page.
+    // It was impossible before — `evidenceProblem` was called with a
+    // hardcoded `fileCount: 0`, because the file could only be uploaded after
+    // the record was saved, so a link was mandatory in practice.
+    const result = await saveRecord({ ...base, link: undefined, file: STAGED });
+    expect(result).toMatchObject({ ok: true });
+    expect(mockDropObject).not.toHaveBeenCalled();
+  });
+
+  it('writes the file row inside the SAME transaction as the work', async () => {
+    await saveRecord({ ...base, link: undefined, file: STAGED });
+    expect(db.scienceRecordFile.create).toHaveBeenCalledTimes(1);
+    expect((db.scienceRecordFile.create as Mock).mock.calls[0][0].data).toMatchObject({
+      workId: 'w1',
+      uploadedById: 'staff-1',
+      sha256: VERIFIED.sha256,
+      pageCount: 3,
+    });
+  });
+
+  it('verifies the STORED object before the evidence rule reads its count', async () => {
+    await saveRecord({ ...base, link: undefined, file: STAGED });
+    expect(mockVerifyFile).toHaveBeenCalledWith(
+      expect.objectContaining({ objectKey: STAGED.objectKey })
+    );
+  });
+
+  it('refuses the file the verification refused, and never saves', async () => {
+    mockVerifyFile.mockResolvedValue({ error: 'Цей файл уже використано в іншому записі' });
+    expect(await saveRecord({ ...base, link: undefined, file: STAGED })).toEqual({
+      error: 'Цей файл уже використано в іншому записі',
+    });
+    expect(db.scienceWork.create).not.toHaveBeenCalled();
+  });
+
+  it('still refuses a record with NEITHER link nor file', async () => {
+    expect(await saveRecord({ ...base, link: undefined })).toEqual({
+      error: 'Додайте посилання або файл підтвердження',
+    });
+  });
+
+  it('accepts a link-only record where the type demands a file, once a file is there', async () => {
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({ ...ARTICLE, requiresFile: true });
+    expect(await saveRecord({ ...base, file: STAGED })).toMatchObject({ ok: true });
+  });
+});
+
+describe('saveRecord — a refused save never leaves an object in the bucket', () => {
+  it('drops it when the work already exists (the conflict is an offer, not a save)', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      id: 'w-existing',
+      templateId: 't1',
+      totalHundredths: 20000,
+      evidence: { title: 'Стаття про освіту' },
+      template: { academicYear: '2026/2027' },
+      createdBy: { lastName: 'Іваненко', firstName: 'Іван', patronymic: 'Іванович' },
+      records: [{ staffId: 'other', hoursHundredths: 15000 }],
+    });
+    const result = await saveRecord({ ...base, file: STAGED });
+    expect(result).toHaveProperty('conflict');
+    expect(mockDropObject).toHaveBeenCalledWith('science.saveRecord', STAGED.objectKey, {
+      userId: 'u1',
+    });
+  });
+
+  it('drops it when the evidence identifies nothing', async () => {
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({
+      ...ARTICLE,
+      identityFields: ['doi'],
+    });
+    await saveRecord({ ...base, file: STAGED });
+    expect(mockDropObject).toHaveBeenCalledWith('science.saveRecord', STAGED.objectKey, {
+      userId: 'u1',
+    });
+  });
+
+  it('drops it when the transaction itself rolls back', async () => {
+    (db.$transaction as Mock).mockRejectedValueOnce(new Error('deadlock'));
+    await saveRecord({ ...base, file: STAGED });
+    expect(mockDropObject).toHaveBeenCalledWith('science.saveRecord', STAGED.objectKey, {
+      userId: 'u1',
+    });
+  });
+
+  it('drops it when the plan is not submitted yet', async () => {
+    (db.sciencePlan.findUnique as Mock).mockResolvedValue({ ...LOCKED_PLAN, lockedAt: null });
+    expect(await saveRecord({ ...base, file: STAGED })).toEqual({
+      error: 'Спочатку збережіть план — після цього можна вносити виконане',
+    });
+    expect(mockDropObject).toHaveBeenCalled();
+  });
+});
+
 describe('saveRecord — creating the work', () => {
   it('freezes the pool at INTEGER HUNDREDTHS: 10 сторінок × 50 г = 500 год', async () => {
     const result = await saveRecord(base);
-    expect(result).toEqual({ ok: true, recordId: 'r1' });
+    expect(result).toEqual({ ok: true, recordId: 'r1', workId: 'w1' });
 
     const work = (db.scienceWork.create as Mock).mock.calls[0][0].data;
     expect(work.totalHundredths).toBe(50000);
@@ -269,10 +394,21 @@ describe('saveRecord — creating the work', () => {
 describe('saveRecord — the work already exists (D17)', () => {
   const existing = {
     id: 'w1',
+    templateId: 't1',
     totalHundredths: 20000,
     evidence: { title: 'Стаття про освіту' },
+    template: { academicYear: '2026/2027' },
     createdBy: { lastName: 'Іваненко', firstName: 'Іван', patronymic: 'Іванович' },
     records: [{ staffId: 'other', hoursHundredths: 15000 }],
+  };
+
+  /** The SAME article, entered in a рік that has since closed. A SHARED+ONCE
+   *  key carries no year, so the lookup finds it — and nothing about it can be
+   *  drawn now. */
+  const lastYear = {
+    ...existing,
+    templateId: 't-2025',
+    template: { academicYear: '2025/2026' },
   };
 
   it('returns a CONFLICT naming who has it and what is left — not an error', async () => {
@@ -284,6 +420,7 @@ describe('saveRecord — the work already exists (D17)', () => {
         summary: expect.any(String),
         totalHundredths: 20000,
         remainingHundredths: 5000,
+        fromYear: null,
       },
     });
     expect(db.scienceWork.create).not.toHaveBeenCalled();
@@ -295,6 +432,32 @@ describe('saveRecord — the work already exists (D17)', () => {
       records: [{ staffId: 'staff-1', hoursHundredths: 5000 }],
     });
     expect(await saveRecord(base)).toEqual({ error: 'Ви вже додали цю роботу' });
+  });
+
+  it('NAMES the рік when the work belongs to a closed one', async () => {
+    // Previously this offered «Приєднатися» over a closed рік's pool, and
+    // `joinWork` then answered «Роботу не знайдено» (owner, 2026-09-20).
+    (db.scienceWork.findUnique as Mock).mockResolvedValue(lastYear);
+    expect(await saveRecord(base)).toMatchObject({
+      conflict: { fromYear: '2025/2026', createdByName: 'Іваненко І. І.' },
+    });
+  });
+
+  it('quotes NO remainder for another рік — that pool is not on offer', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue(lastYear);
+    expect(await saveRecord(base)).toMatchObject({
+      conflict: { remainingHundredths: 0 },
+    });
+  });
+
+  it('prefers the рік explanation over «Ви вже додали цю роботу»', async () => {
+    // Their own draw, but from last рік: naming the рік answers what they
+    // actually asked, where «вже додали» reads as if it meant this рік.
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...lastYear,
+      records: [{ staffId: 'staff-1', hoursHundredths: 5000 }],
+    });
+    expect(await saveRecord(base)).toMatchObject({ conflict: { fromYear: '2025/2026' } });
   });
 
   it('ignores a declined draw when counting what is left', async () => {
@@ -367,6 +530,7 @@ describe('joinWork — D17 in practice', () => {
     id: 'w1',
     templateId: 't1',
     totalHundredths: 20000,
+    template: { academicYear: '2026/2027' },
     workType: ARTICLE,
     evidence: { title: 'Стаття про освіту' },
   };
@@ -377,7 +541,7 @@ describe('joinWork — D17 in practice', () => {
 
   it('creates a draw against the existing work, on the joiner’s own plan', async () => {
     const result = await joinWork({ workId: 'w1', departmentId: 'd1', hoursHundredths: 5000 });
-    expect(result).toEqual({ ok: true, recordId: 'r1' });
+    expect(result).toEqual({ ok: true, recordId: 'r1', workId: 'w1' });
 
     const data = (db.scienceRecord.create as Mock).mock.calls[0][0].data;
     expect(data).toMatchObject({ workId: 'w1', staffId: 'staff-1', hoursHundredths: 5000 });
@@ -421,9 +585,24 @@ describe('joinWork — D17 in practice', () => {
     });
   });
 
-  it('refuses a work from another навчальний рік', async () => {
-    (db.scienceWork.findUnique as Mock).mockResolvedValue({ ...WORK, templateId: 'old-template' });
+  it('refuses a work from another навчальний рік, and NAMES that рік', async () => {
+    // «Роботу не знайдено» was the old answer, on the reasoning that such a
+    // work is not on the person's screen anyway — which the conflict panel
+    // made untrue (owner, 2026-09-20).
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...WORK,
+      templateId: 'old-template',
+      template: { academicYear: '2025/2026' },
+    });
     expect(await joinWork({ workId: 'w1', departmentId: 'd1', hoursHundredths: 100 })).toEqual({
+      error: 'Цю роботу внесено у 2025/2026 н.р. — години за неї нараховуються в тому році',
+    });
+    expect(db.scienceRecord.create).not.toHaveBeenCalled();
+  });
+
+  it('still says «не знайдено» when there really is no such work', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue(null);
+    expect(await joinWork({ workId: 'nope', departmentId: 'd1', hoursHundredths: 100 })).toEqual({
       error: 'Роботу не знайдено',
     });
   });
@@ -465,11 +644,36 @@ describe('updateWorkEvidence — correcting a work', () => {
     link: 'https://example.com/a',
     createdById: 'staff-1',
     workType: ARTICLE,
+    // The REAL file count. It used to be hardcoded to 0 in the action, which
+    // meant a work proved by a file alone (D27) was refused the moment its
+    // author corrected a page number.
+    _count: { files: 0 },
   };
 
   beforeEach(() => {
     (db.scienceWork.findUnique as Mock).mockResolvedValue(WORK);
     (db.scienceWork.update as Mock).mockResolvedValue({ id: 'w1' });
+  });
+
+  it('reaches a non-НПП ADMIN — the escape hatch was unreachable for most of them', async () => {
+    // Six of the eight real ADMIN accounts are `isNpp: false`, the rector's
+    // among them. `resolveActor` refused them before the `isAdmin` branch was
+    // ever read, so «ADMIN may edit anything» existed only on paper.
+    mockAuth.mockResolvedValue({ user: { id: 'u9', staffId: 'staff-9', role: 'ADMIN' } });
+    (db.staff.findUnique as Mock).mockResolvedValue({ ...STAFF, isNpp: false });
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({ ...WORK, createdById: 'someone-else' });
+
+    expect(
+      await updateWorkEvidence({ workId: 'w1', evidence: WORK.evidence, link: WORK.link })
+    ).toEqual({ ok: true });
+  });
+
+  it('still refuses a non-НПП who is NOT an ADMIN', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u9', staffId: 'staff-9', role: 'EDITOR' } });
+    (db.staff.findUnique as Mock).mockResolvedValue({ ...STAFF, isNpp: false });
+    expect(
+      await updateWorkEvidence({ workId: 'w1', evidence: WORK.evidence, link: WORK.link })
+    ).toEqual({ error: 'Облік наукової роботи доступний лише для НПП' });
   });
 
   it('refuses anybody but the creator and ADMIN', async () => {
@@ -542,18 +746,205 @@ describe('updateWorkEvidence — correcting a work', () => {
   });
 });
 
+describe('updateWorkEvidence — an INDIVIDUAL work follows its own claim', () => {
+  /** A конференція: 6 год per day, INDIVIDUAL, one claim that IS the pool. */
+  const CONFERENCE = {
+    ...ARTICLE,
+    id: 'wt2',
+    code: 'conference_attendance',
+    label: 'Участь у конференції',
+    sharing: 'INDIVIDUAL' as const,
+    reuse: 'YEARLY' as const,
+    identityFields: ['title'],
+    scoring: { kind: 'MULT' },
+    coefficient: 6,
+    evidenceFields: [
+      { kind: 'text', name: 'title', label: 'Назва конференції' },
+      // MULT reads the field literally named `value` — the shape the seeded
+      // `conference_attendance` row uses.
+      { kind: 'number', name: 'value', label: 'Кількість днів участі', min: 1 },
+    ],
+  };
+
+  const WORK = {
+    id: 'w2',
+    templateId: 't1',
+    totalHundredths: 3000, // 5 days × 6 год
+    evidence: { title: 'Конференція з освіти', value: 5 },
+    link: 'https://example.com/conf',
+    createdById: 'staff-1',
+    workType: CONFERENCE,
+    _count: { files: 0 },
+  };
+
+  beforeEach(() => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue(WORK);
+    (db.scienceWork.update as Mock).mockResolvedValue({ id: 'w2' });
+    (db.scienceRecord.updateMany as Mock).mockResolvedValue({ count: 1 });
+  });
+
+  it('lets the owner CUT the hours — five days down to three', async () => {
+    // The ordinary correction, and it used to be refused: the shared-pool
+    // guard compared 18 год against the 30 already «drawn» and answered
+    // «робота вже поділена на 30 год» — about a division of one.
+    const result = await updateWorkEvidence({
+      workId: 'w2',
+      evidence: { title: 'Конференція з освіти', value: 3 },
+      link: 'https://example.com/conf',
+    });
+    expect(result).toEqual({ ok: true });
+    expect((db.scienceWork.update as Mock).mock.calls[0][0].data.totalHundredths).toBe(1800);
+  });
+
+  it('moves the single claim with the pool it always equalled', async () => {
+    await updateWorkEvidence({
+      workId: 'w2',
+      evidence: { title: 'Конференція з освіти', value: 3 },
+      link: 'https://example.com/conf',
+    });
+    expect(db.scienceRecord.updateMany).toHaveBeenCalledWith({
+      where: { workId: 'w2' },
+      data: { hoursHundredths: 1800 },
+    });
+  });
+
+  it('measures against what OTHERS hold, never the editor’s own draw', async () => {
+    await updateWorkEvidence({
+      workId: 'w2',
+      evidence: { title: 'Конференція з освіти', value: 3 },
+      link: 'https://example.com/conf',
+    });
+    const where = (db.scienceRecord.aggregate as Mock).mock.calls[0][0].where;
+    expect(where.staffId).toEqual({ not: 'staff-1' });
+  });
+
+  it('lets a SOLO author of a SHARED work cut their own page count', async () => {
+    // Most articles have one author, and the old rule counted their own draw
+    // against them: 12 сторінок down to 10 was refused as «робота вже
+    // поділена».
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      id: 'w1',
+      templateId: 't1',
+      totalHundredths: 60000,
+      evidence: { title: 'Стаття про освіту', option: 'scopus', credits: 12 },
+      link: 'https://example.com/a',
+      createdById: 'staff-1',
+      workType: ARTICLE,
+      _count: { files: 0 },
+    });
+    (db.scienceRecord.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 0 } });
+
+    const result = await updateWorkEvidence({
+      workId: 'w1',
+      evidence: { title: 'Стаття про освіту', option: 'scopus', credits: 10 },
+      link: 'https://example.com/a',
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('REFUSES a cut below what co-authors already took, and names their share', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      id: 'w1',
+      templateId: 't1',
+      totalHundredths: 50000,
+      evidence: { title: 'Стаття про освіту', option: 'scopus', credits: 10 },
+      link: 'https://example.com/a',
+      createdById: 'staff-1',
+      workType: ARTICLE,
+      _count: { files: 0 },
+    });
+    // Somebody else holds 300 год of the 500.
+    (db.scienceRecord.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 30000 } });
+
+    expect(
+      await updateWorkEvidence({
+        workId: 'w1',
+        evidence: { title: 'Стаття про освіту', option: 'scopus', credits: 4 },
+        link: 'https://example.com/a',
+      })
+    ).toEqual({ error: 'Співавтори вже взяли 300 год — менше цього зробити не можна' });
+  });
+
+  it('pulls only the EDITOR’s own claim down, never a co-author’s', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      id: 'w1',
+      templateId: 't1',
+      totalHundredths: 50000,
+      evidence: { title: 'Стаття про освіту', option: 'scopus', credits: 10 },
+      link: 'https://example.com/a',
+      createdById: 'staff-1',
+      workType: ARTICLE,
+      _count: { files: 0 },
+    });
+    (db.scienceRecord.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 20000 } });
+    await updateWorkEvidence({
+      workId: 'w1',
+      evidence: { title: 'Стаття про освіту', option: 'scopus', credits: 6 },
+      link: 'https://example.com/a',
+    });
+    const where = (db.scienceRecord.updateMany as Mock).mock.calls[0][0].where;
+    expect(where.staffId).toBe('staff-1');
+    // 300 год pool − 200 held by others = 100 left for the editor, and only
+    // if their own draw was above it.
+    expect(where.hoursHundredths).toEqual({ gt: 10000 });
+  });
+
+  it('accepts an edit on a work proved by a FILE and no link', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...WORK,
+      link: null,
+      _count: { files: 1 },
+    });
+    const result = await updateWorkEvidence({
+      workId: 'w2',
+      evidence: { title: 'Конференція з освіти', value: 4 },
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('still refuses an edit that leaves NO evidence at all', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...WORK,
+      link: null,
+      _count: { files: 0 },
+    });
+    expect(
+      await updateWorkEvidence({
+        workId: 'w2',
+        evidence: { title: 'Конференція з освіти', value: 4 },
+      })
+    ).toEqual({ error: 'Додайте посилання або файл підтвердження' });
+  });
+});
+
 describe('deleteRecord — withdrawing a draw', () => {
   const RECORD = {
     id: 'r1',
     staffId: 'staff-1',
     templateId: 't1',
     hoursHundredths: 5000,
-    work: { id: 'w1', workType: { label: 'Наукова стаття' } },
+    work: {
+      id: 'w1',
+      workType: { label: 'Наукова стаття', sharing: 'SHARED' as const },
+      files: [] as { objectKey: string }[],
+    },
+  };
+
+  /** A конференція: INDIVIDUAL, so its dedupKey is already scoped to one
+   *  person and no co-author can ever hold it. */
+  const INDIVIDUAL_RECORD = {
+    ...RECORD,
+    work: {
+      id: 'w2',
+      workType: { label: 'Участь у конференції', sharing: 'INDIVIDUAL' as const },
+      files: [] as { objectKey: string }[],
+    },
   };
 
   beforeEach(() => {
     (db.scienceRecord.findUnique as Mock).mockResolvedValue(RECORD);
     (db.scienceRecord.delete as Mock).mockResolvedValue(RECORD);
+    (db.scienceWork.delete as Mock).mockResolvedValue({ id: 'w1' });
   });
 
   it('refuses somebody else’s record', async () => {
@@ -564,6 +955,49 @@ describe('deleteRecord — withdrawing a draw', () => {
   it('refuses a record from a closed year', async () => {
     (db.scienceRecord.findUnique as Mock).mockResolvedValue({ ...RECORD, templateId: 'old' });
     expect(await deleteRecord('r1')).toEqual({ error: 'Запис не знайдено' });
+  });
+
+  it('deletes an ORPHANED INDIVIDUAL work with the last draw', async () => {
+    // The dead end this closes: an INDIVIDUAL work's key is prefixed with the
+    // owner's staffId (D24), so nobody else could ever collide with it, and
+    // `joinWork` refuses an INDIVIDUAL work outright. Left standing after its
+    // only claim went, it protected nothing and made that конференція
+    // permanently un-recordable for the one person it belonged to.
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue(INDIVIDUAL_RECORD);
+    (db.scienceRecord.count as Mock).mockResolvedValue(0);
+
+    expect(await deleteRecord('r1')).toEqual({ ok: true });
+    expect(db.scienceWork.delete).toHaveBeenCalledWith({ where: { id: 'w2' } });
+  });
+
+  it('keeps an INDIVIDUAL work that still has another draw', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue(INDIVIDUAL_RECORD);
+    (db.scienceRecord.count as Mock).mockResolvedValue(1);
+
+    await deleteRecord('r1');
+    expect(db.scienceWork.delete).not.toHaveBeenCalled();
+  });
+
+  it('NEVER deletes a SHARED work, even with no draws left', async () => {
+    // A co-author may still join it, and its key is what stops the article
+    // being entered twice university-wide.
+    (db.scienceRecord.count as Mock).mockResolvedValue(0);
+    await deleteRecord('r1');
+    expect(db.scienceWork.delete).not.toHaveBeenCalled();
+  });
+
+  it('clears the orphaned work’s R2 objects AFTER the commit', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue({
+      ...INDIVIDUAL_RECORD,
+      work: { ...INDIVIDUAL_RECORD.work, files: [{ objectKey: 'evidence/t1/gone.pdf' }] },
+    });
+    (db.scienceRecord.count as Mock).mockResolvedValue(0);
+
+    await deleteRecord('r1');
+    expect(mockDropObject).toHaveBeenCalledWith('science.deleteRecord', 'evidence/t1/gone.pdf', {
+      userId: 'u1',
+      entityId: 'r1',
+    });
   });
 
   it('deletes the draw and LEAVES the work standing', async () => {
@@ -599,7 +1033,7 @@ describe('a fact needs a submitted plan — and nothing more', () => {
     // still prices it. An earlier build refused this and was retracted the
     // same day.
     (db.sciencePlan.findUnique as Mock).mockResolvedValue({ ...LOCKED_PLAN, rows: [] });
-    expect(await saveRecord(base)).toEqual({ ok: true, recordId: 'r1' });
+    expect(await saveRecord(base)).toEqual({ ok: true, recordId: 'r1', workId: 'w1' });
   });
 
   it('counts the FACT’s own hours, not the planned figure', async () => {
@@ -610,7 +1044,7 @@ describe('a fact needs a submitted plan — and nothing more', () => {
       ...base,
       evidence: { ...base.evidence, title: 'Зовсім інша стаття', credits: 6 },
     });
-    expect(result).toEqual({ ok: true, recordId: 'r1' });
+    expect(result).toEqual({ ok: true, recordId: 'r1', workId: 'w1' });
     expect((db.scienceWork.create as Mock).mock.calls[0][0].data.totalHundredths).toBe(30000);
   });
 

@@ -1,10 +1,28 @@
-import { ExternalLink, Paperclip, Users } from 'lucide-react';
+import { ExternalLink, FileText, Users } from 'lucide-react';
 import { Badge } from '@/components/aurora/ui/badge';
 import { Card, EmptyState } from '@/components/aurora/ui/card';
 import { formatHours } from '@/lib/science/hours';
 import type { SciencePlanRecordDetail } from '@/lib/queries/get-science-plan';
 import { DeleteRecordButton } from '@/components/science/delete-record-button';
+import { DeleteFileButton } from '@/components/science/delete-file-button';
+import { FileViewButton } from '@/components/science/file-view-button';
+import { AttachFileDialog } from '@/components/science/attach-file-dialog';
+import { EditRecordDialog } from '@/components/science/edit-record-dialog';
+import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import { cn } from '@/lib/utils';
+
+/**
+ * «204,8 КБ» — there is no byte-formatter elsewhere in the codebase to share;
+ * exact rounding does not matter here, only a reasonable read. `sizeBytes` is
+ * always a positive integer (`fileProblem` refuses an empty file before it is
+ * ever stored), so the KB/MB boundary is the only branch worth having.
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} Б`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} КБ`;
+  return `${(kb / 1024).toFixed(1)} МБ`;
+}
 
 /**
  * The «Виконано» tab — what this person recorded on this кафедра.
@@ -13,7 +31,17 @@ import { cn } from '@/lib/utils';
  * has that an intention does not: the evidence it is proved by, and the people
  * sharing its pool.
  */
-export function RecordList({ records }: { records: SciencePlanRecordDetail[] }) {
+export function RecordList({
+  records,
+  workTypes,
+}: {
+  records: SciencePlanRecordDetail[];
+  /** The year's catalogue, for the «Редагувати» form to rebuild the work's own
+   *  fields from. Keyed by id below. */
+  workTypes: PlanWorkType[];
+}) {
+  const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
+
   if (records.length === 0) {
     return <EmptyState>Ще немає записів про виконану роботу.</EmptyState>;
   }
@@ -49,12 +77,6 @@ export function RecordList({ records }: { records: SciencePlanRecordDetail[] }) 
                         Підтвердження
                       </a>
                     )}
-                    {record.fileCount > 0 && (
-                      <span className="inline-flex items-center gap-1 text-foreground-soft">
-                        <Paperclip className="size-3.5" />
-                        {record.fileCount}
-                      </span>
-                    )}
                     {shared && (
                       <span className="inline-flex items-center gap-1 text-foreground-soft">
                         <Users className="size-3.5" />
@@ -67,6 +89,52 @@ export function RecordList({ records }: { records: SciencePlanRecordDetail[] }) 
                       </span>
                     )}
                   </div>
+
+                  {record.files.length > 0 && (
+                    <ul className="mt-1.5 space-y-1">
+                      {record.files.map((file) => (
+                        <li
+                          key={file.id}
+                          className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground-soft"
+                        >
+                          <FileText className="size-3.5 shrink-0" />
+                          <span className="min-w-0 truncate" title={file.fileName}>
+                            {file.fileName}
+                          </span>
+                          <span>· {formatFileSize(file.sizeBytes)}</span>
+                          {/* Item 4 prices per page — the number a reviewer
+                              compares — so a PDF's page count is worth showing,
+                              never just its byte size. */}
+                          {file.pageCount !== null && <span>· {file.pageCount} стор.</span>}
+                          <FileViewButton fileId={file.id} fileName={file.fileName} />
+                          {record.canEdit && (
+                            <DeleteFileButton fileId={file.id} fileName={file.fileName} />
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* The two ways to put a mistake right, both of which were
+                      server actions nobody could reach: a wrong number is an
+                      edit, and a file that failed to upload (or arrived by
+                      email months later) is an attachment. Without them the
+                      only route was delete-and-retype, which dead-ended on the
+                      work that survived the delete. */}
+                  {record.canEdit && !declined && (
+                    <div className="mt-1 -ml-2 flex flex-wrap items-center gap-1">
+                      {workTypeById.has(record.workTypeId) && (
+                        <EditRecordDialog
+                          workId={record.workId}
+                          type={workTypeById.get(record.workTypeId)!}
+                          evidence={record.evidence}
+                          link={record.link}
+                          label={record.summary}
+                        />
+                      )}
+                      <AttachFileDialog workId={record.workId} label={record.summary} />
+                    </div>
+                  )}
 
                   {declined && (
                     <p className="mt-1.5 text-sm text-error-strong">

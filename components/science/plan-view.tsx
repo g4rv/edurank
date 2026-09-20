@@ -129,7 +129,7 @@ export function PlanView({
       </div>
 
       {tab === 'done' ? (
-        <RecordList records={records} />
+        <RecordList records={records} workTypes={workTypes} />
       ) : rows.length === 0 ? (
         <EmptyState>Ще немає запланованих робіт.</EmptyState>
       ) : (
@@ -180,7 +180,12 @@ export function PlanView({
                           className="flex flex-wrap items-center justify-between gap-2 text-sm"
                         >
                           <span className="min-w-0 flex-1 text-foreground-soft">
-                            {summary ?? row.workTypeLabel}
+                            {/* `||`, not `??`. A FIXED вид роботи (гурток,
+                                лабораторія) declares no evidence fields, so
+                                `summarizeEvidence` returns an empty string —
+                                which `??` passed straight through, drawing a
+                                row that showed «400 год» and nothing else. */}
+                            {summary || row.workTypeLabel}
                             {row.note && (
                               <span className="text-muted-foreground"> — {row.note}</span>
                             )}

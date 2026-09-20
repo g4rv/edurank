@@ -67,7 +67,26 @@ export interface SciencePlanRecordDetail {
   planRowId: string | null;
   status: ScienceRecordStatus;
   removedReason: string | null;
-  fileCount: number;
+  /**
+   * The work's own data, for the «Редагувати» form to open already filled in.
+   * It belongs to the WORK, not to this draw — a co-author sees the same
+   * values and may not change them (see `canEdit`).
+   */
+  evidence: unknown;
+  /**
+   * May THIS person correct the work — its title, its DOI, its page count?
+   *
+   * Only whoever entered it, mirroring `updateWorkEvidence`'s own guard. A
+   * co-author who joined for a share of the hours reports a mistake instead;
+   * two authors disagreeing about a page count has no tiebreak. The server
+   * checks this again — a flag on a row is not a permission.
+   */
+  canEdit: boolean;
+  /** Every file attached to this work — its own row per file, not a count, so
+   *  the «Виконано» tab can offer a «Переглянути» per file and show a PDF's
+   *  page count (item 4 prices per page, and that is the number a reviewer
+   *  compares). */
+  files: { id: string; fileName: string; sizeBytes: number; pageCount: number | null }[];
   /**
    * Everybody else drawing on the same work. The only place a person sees that
    * their 50 год came out of a 200 год pool, and who has the rest.
@@ -162,6 +181,7 @@ export async function getSciencePlan(
               evidence: true,
               totalHundredths: true,
               workTypeId: true,
+              createdById: true,
               workType: { select: { label: true, itemNumber: true, evidenceFields: true } },
               // Everybody's APPROVED draw on this work, including this person's
               // own — filtered out below, where the name is already in hand.
@@ -173,7 +193,7 @@ export async function getSciencePlan(
                   staff: { select: { lastName: true, firstName: true, patronymic: true } },
                 },
               },
-              _count: { select: { files: true } },
+              files: { select: { id: true, fileName: true, sizeBytes: true, pageCount: true } },
             },
           },
         },
@@ -220,14 +240,20 @@ export async function getSciencePlan(
       workTypeId: r.work.workTypeId,
       workTypeLabel: r.work.workType.label,
       itemNumber: r.work.workType.itemNumber,
-      summary: summarizeEvidence(fields, r.work.evidence) ?? r.work.workType.label,
+      // `||`, never `??`: `summarizeEvidence` returns an empty STRING for a
+      // вид роботи with no evidence fields (a FIXED one — гурток,
+      // лабораторія), and `??` let that empty string through, drawing a row
+      // with no label at all.
+      summary: summarizeEvidence(fields, r.work.evidence) || r.work.workType.label,
       link: r.work.link,
       hoursHundredths: r.hoursHundredths,
       totalHundredths: r.work.totalHundredths,
       planRowId: r.planRowId,
       status: r.status,
       removedReason: r.removedReason,
-      fileCount: r.work._count.files,
+      evidence: r.work.evidence,
+      canEdit: r.work.createdById === staffId,
+      files: r.work.files,
       coAuthors: r.work.records
         .filter((other) => other.staffId !== staffId)
         .map((other) => ({

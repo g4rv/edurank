@@ -30,6 +30,8 @@ import { toHundredths, parseStake } from '@/lib/stake/units';
 import { formatHours } from '@/lib/science/hours';
 import { JoinWorkPanel } from '@/components/science/join-work-panel';
 import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
+import { EvidenceFileField, type StagedFile } from '@/components/science/evidence-file-field';
+import { DialogProblem } from '@/components/science/dialog-problem';
 
 /**
  * «Додати виконане» — records one work that actually happened.
@@ -107,9 +109,14 @@ export function AddRecordDialog({
         <DialogHeader>
           <DialogTitle>{conflict ? 'Робота вже є в системі' : 'Виконана робота'}</DialogTitle>
           <DialogDescription>
-            {conflict
-              ? 'Одна робота існує в системі один раз. Приєднайтеся до неї та візьміть свою частину годин.'
-              : 'Заповніть дані роботи та додайте посилання, що її підтверджує.'}
+            {/* The description has to follow the SAME branch the panel does —
+                it promised «приєднайтеся» over a work from a closed рік, which
+                is the one case where joining is impossible. */}
+            {!conflict
+              ? 'Заповніть дані роботи та додайте посилання, що її підтверджує.'
+              : conflict.fromYear
+                ? 'Одна робота існує в системі один раз — і належить тому навчальному році, у якому її внесли.'
+                : 'Одна робота існує в системі один раз. Приєднайтеся до неї та візьміть свою частину годин.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -156,6 +163,14 @@ function RecordForm({
   const [link, setLink] = useState('');
   const [hours, setHours] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  // The file is ALREADY in R2 by the time this is non-null — see
+  // `EvidenceFileField`. The save carries its key and the server verifies the
+  // stored bytes, which is what lets a record be proved by a file alone (D27).
+  const [file, setFile] = useState<StagedFile | null>(null);
+  // The upload runs while the form is still being filled, so «Додати» has to
+  // wait for it: submitting a key R2 has not finished writing would be refused
+  // as «файл не знайдено».
+  const [fileBusy, setFileBusy] = useState(false);
 
   // The WHOLE field set this time — see the note on this component.
   const [fields] = useState(() => type?.fields ?? []);
@@ -214,6 +229,9 @@ function RecordForm({
         evidence: data,
         link: link.trim() || undefined,
         hoursHundredths,
+        // Already uploaded; the server verifies it from the stored bytes and
+        // writes its row in the same transaction as the work.
+        file: file ?? undefined,
       });
 
       if ('conflict' in result) {
@@ -222,9 +240,13 @@ function RecordForm({
         return;
       }
       if ('error' in result) {
+        // The server dropped the staged object on every refusal, so the
+        // picker must stop claiming to hold one.
+        if (file) setFile(null);
         setProblem(result.error);
         return;
       }
+
       toast.success('Роботу додано до виконаного');
       router.refresh();
       onDone();
@@ -237,78 +259,112 @@ function RecordForm({
           English bubbles are refused for the same reason everywhere else. */}
       <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
         <DialogBody className="flex flex-col gap-4">
-          {picker}
+          {/* `display: contents` so the fieldset groups the controls without
+              taking part in the flex layout (the native fieldset behaviour). */}
+          <fieldset className="contents">
+            {picker}
 
-          {type && (type.unitNote || type.reportingForm) && (
-            <div className="space-y-0.5 text-sm text-foreground-soft">
-              {type.unitNote && <p>{type.unitNote}</p>}
-              {type.reportingForm && <p>Форма звітності: {type.reportingForm}</p>}
-            </div>
-          )}
+            {type && (type.unitNote || type.reportingForm) && (
+              <div className="space-y-0.5 text-sm text-foreground-soft">
+                {type.unitNote && <p>{type.unitNote}</p>}
+                {type.reportingForm && <p>Форма звітності: {type.reportingForm}</p>}
+              </div>
+            )}
 
-          <EvidenceFields fields={fields} register={register} control={control} errors={errors} />
-
-          <div className="space-y-1">
-            <Label htmlFor="record-link">Посилання на підтвердження</Label>
-            <Input
-              id="record-link"
-              inputMode="url"
-              // Plain `https://…`, never a DOI: the placeholder used to suggest
-              // one for every вид роботи, including «Керівництво аспірантами»,
-              // which is proved by a наказ (owner, 2026-09-17).
-              placeholder="https://…"
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
+            <EvidenceFields
+              fields={fields}
+              register={register}
+              control={control}
+              errors={errors}
+              // Додаток III prices in ГОДИНАХ, not балах (D3) — the renderer is
+              // the rating's and defaults to its unit.
+              unitLabel="год"
             />
-            <p className="text-sm text-foreground-soft">
-              {/* Per item, from the наказ's own «Форма звітності» column — it is
-                  already seeded per work type and already ADMIN-editable, so a
-                  new вид роботи gets a correct hint with no code change. */}
-              {type?.reportingForm
-                ? `${type.reportingForm} — посилання на сторінку, де це опубліковано.`
-                : 'Сторінка, яку можна відкрити: DOI, сайт видання, репозитарій, наказ.'}
-            </p>
-          </div>
 
-          {shared && (
             <div className="space-y-1">
-              <Label htmlFor="record-hours">Скільки годин берете ви</Label>
+              <Label htmlFor="record-link">Посилання на підтвердження</Label>
               <Input
-                id="record-hours"
-                inputMode="decimal"
-                placeholder={poolHundredths === null ? 'усі' : formatHours(poolHundredths)}
-                value={hours}
-                onChange={(e) => setHours(e.target.value)}
+                id="record-link"
+                inputMode="url"
+                // Plain `https://…`, never a DOI: the placeholder used to suggest
+                // one for every вид роботи, including «Керівництво аспірантами»,
+                // which is proved by a наказ (owner, 2026-09-17).
+                placeholder="https://…"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
               />
               <p className="text-sm text-foreground-soft">
-                {/* Said here because it is the only moment the person can act on
-                    it — once saved, the rest is a colleague's to claim. */}
-                Залиште порожнім, щоб узяти всі години. Якщо робота у співавторстві, вкажіть свою
-                частину — решту зможуть взяти співавтори.
+                {/* Per item, from the наказ's own «Форма звітності» column — it is
+                    already seeded per work type and already ADMIN-editable, so a
+                    new вид роботи gets a correct hint with no code change. */}
+                {type?.reportingForm
+                  ? `${type.reportingForm} — посилання на сторінку, де це опубліковано.`
+                  : 'Сторінка, яку можна відкрити: DOI, сайт видання, репозитарій, наказ.'}
               </p>
             </div>
-          )}
 
-          <p className="text-sm text-foreground-soft">
-            {!type ? (
-              'Оберіть вид роботи, щоб побачити кількість годин'
-            ) : poolHundredths !== null ? (
-              <>
-                Робота варта{' '}
-                <span className="font-medium text-foreground">{formatHours(poolHundredths)}</span>{' '}
-                год
-              </>
-            ) : (
-              'Заповніть поля, щоб побачити кількість годин'
+            <div className="space-y-1">
+              <Label htmlFor="record-file">Файл підтвердження</Label>
+              <EvidenceFileField
+                id="record-file"
+                value={file}
+                onChange={setFile}
+                onBusyChange={setFileBusy}
+              />
+              <p className="text-sm text-foreground-soft">
+                {/* D27: a link proves anything with a public page; a file is for
+                    a document that exists only in the person's own hands. One of
+                    the two is required — which one is theirs to decide. */}
+                Сертифікат, довідка або диплом — PDF, JPG чи PNG до 10 МБ. Досить або посилання, або
+                файлу.
+              </p>
+            </div>
+
+            {shared && (
+              <div className="space-y-1">
+                <Label htmlFor="record-hours">Скільки годин берете ви</Label>
+                <Input
+                  id="record-hours"
+                  inputMode="decimal"
+                  placeholder={poolHundredths === null ? 'усі' : formatHours(poolHundredths)}
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                />
+                <p className="text-sm text-foreground-soft">
+                  {/* Said here because it is the only moment the person can act on
+                      it — once saved, the rest is a colleague's to claim. */}
+                  Залиште порожнім, щоб узяти всі години. Якщо робота у співавторстві, вкажіть свою
+                  частину — решту зможуть взяти співавтори.
+                </p>
+              </div>
             )}
-          </p>
 
-          {problem && <p className="text-sm text-error-strong">{problem}</p>}
+            <p className="text-sm text-foreground-soft">
+              {!type ? (
+                'Оберіть вид роботи, щоб побачити кількість годин'
+              ) : poolHundredths !== null ? (
+                <>
+                  Робота варта{' '}
+                  <span className="font-medium text-foreground">{formatHours(poolHundredths)}</span>{' '}
+                  год
+                </>
+              ) : (
+                'Заповніть поля, щоб побачити кількість годин'
+              )}
+            </p>
+          </fieldset>
         </DialogBody>
 
+        {/* The refusal sits WITH the submit, in the footer that does not
+            scroll — see `DialogProblem`. */}
         <DialogFooter>
-          <Button type="submit" disabled={isPending || !type} loading={isPending}>
-            {isPending ? 'Збереження…' : 'Додати'}
+          <DialogProblem>{problem}</DialogProblem>
+          <Button
+            type="submit"
+            disabled={isPending || fileBusy || !type}
+            loading={isPending || fileBusy}
+          >
+            {fileBusy ? 'Завантаження файлу…' : isPending ? 'Збереження…' : 'Додати'}
           </Button>
         </DialogFooter>
       </form>

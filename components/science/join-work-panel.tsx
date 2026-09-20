@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Users } from 'lucide-react';
+import { CalendarClock, Users } from 'lucide-react';
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { Label } from '@/components/aurora/ui/label';
@@ -44,6 +44,9 @@ export function JoinWorkPanel({
   const [hours, setHours] = useState(() => formatHours(conflict.remainingHundredths));
   const [problem, setProblem] = useState<string | null>(null);
 
+  // A work from a рік that is no longer open: nothing here can be drawn, so
+  // the panel explains instead of offering. See `WorkConflict.fromYear`.
+  const fromOtherYear = conflict.fromYear !== null;
   const nothingLeft = conflict.remainingHundredths === 0;
 
   function handleJoin() {
@@ -82,20 +85,46 @@ export function JoinWorkPanel({
       <DialogBody className="flex flex-col gap-4">
         <div className="rounded-lg border bg-warning-surface px-4 py-3">
           <p className="text-warning-strong flex items-center gap-2 font-medium">
-            <Users className="size-4 shrink-0" />
-            Цю роботу вже додав {conflict.createdByName}
+            {fromOtherYear ? (
+              <CalendarClock className="size-4 shrink-0" />
+            ) : (
+              <Users className="size-4 shrink-0" />
+            )}
+            {fromOtherYear
+              ? `Цю роботу внесено у ${conflict.fromYear} н.р.`
+              : `Цю роботу вже додав ${conflict.createdByName}`}
           </p>
           <p className="mt-1 text-sm text-foreground">{conflict.summary}</p>
-          <p className="mt-1.5 text-sm text-foreground-soft">
-            Залишилось{' '}
-            <span className="font-medium text-foreground">
-              {formatHours(conflict.remainingHundredths)}
-            </span>{' '}
-            з {formatHours(conflict.totalHundredths)} год
-          </p>
+          {fromOtherYear ? (
+            <>
+              {/* «Додано:», not «Додав …» — `initials` already ends in a full
+                  stop, so a sentence built around it read «Єрічева Т. Ю..»,
+                  and the verb would have to agree with a gender the app does
+                  not know. */}
+              <p className="mt-1.5 text-sm text-foreground-soft">
+                Додано: {conflict.createdByName}
+              </p>
+              <p className="mt-1 text-sm text-foreground-soft">
+                Години за неї нараховуються в тому навчальному році, тому приєднатися до неї зараз
+                не можна.
+              </p>
+            </>
+          ) : (
+            <p className="mt-1.5 text-sm text-foreground-soft">
+              Залишилось{' '}
+              <span className="font-medium text-foreground">
+                {formatHours(conflict.remainingHundredths)}
+              </span>{' '}
+              з {formatHours(conflict.totalHundredths)} год
+            </p>
+          )}
         </div>
 
-        {nothingLeft ? (
+        {fromOtherYear ? (
+          <p className="text-sm text-foreground-soft">
+            Якщо роботу мали зарахувати цьогоріч, зверніться до ННВ.
+          </p>
+        ) : nothingLeft ? (
           <p className="text-sm text-foreground-soft">
             Усі години цієї роботи вже розподілені між співавторами. Якщо це помилка, зверніться до
             того, хто її додав, або до ННВ.
@@ -126,14 +155,18 @@ export function JoinWorkPanel({
         <Button type="button" variant="outline" onClick={onCancel}>
           Назад
         </Button>
-        <Button
-          type="button"
-          onClick={handleJoin}
-          disabled={isPending || nothingLeft}
-          loading={isPending}
-        >
-          {isPending ? 'Збереження…' : 'Приєднатися'}
-        </Button>
+        {/* No «Приєднатися» at all for another рік's work — a button that can
+            only refuse is worse than no button. */}
+        {!fromOtherYear && (
+          <Button
+            type="button"
+            onClick={handleJoin}
+            disabled={isPending || nothingLeft}
+            loading={isPending}
+          >
+            {isPending ? 'Збереження…' : 'Приєднатися'}
+          </Button>
+        )}
       </DialogFooter>
     </>
   );

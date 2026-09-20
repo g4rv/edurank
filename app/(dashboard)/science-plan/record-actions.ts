@@ -18,6 +18,13 @@ import { schemaForFields } from '@/validations/activity-evidence';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
 import { initials } from '@/lib/name';
+import {
+  DUPLICATE_FILE_MESSAGE,
+  isDuplicateFileViolation,
+  safeDeleteObject,
+  verifyUploadedObject,
+  type VerifiedFile,
+} from '@/lib/science/file-intake';
 
 // The факт half of планування наукової роботи — Stage 2's write side. Read
 // `docs/superpowers/specs/2026-09-15-science-plan-design.md` first: D14–D17
@@ -37,6 +44,14 @@ export interface SaveRecordInput {
   planRowId?: string;
   /** Only meaningful for a SHARED type; an INDIVIDUAL one takes its whole pool. */
   hoursHundredths?: number;
+  /**
+   * An object the browser has ALREADY put in R2 (`presignUpload` → `PUT`).
+   * Verified here from the stored bytes and attached inside the same
+   * transaction that creates the work — which is what lets a record be proved
+   * by a file alone (D27), and what stops a failed upload leaving a saved
+   * record with nothing behind it.
+   */
+  file?: { objectKey: string; fileName: string };
 }
 
 /** D17 turned into something the screen can act on: who has the work, what it
@@ -47,10 +62,23 @@ export interface WorkConflict {
   summary: string;
   totalHundredths: number;
   remainingHundredths: number;
+  /**
+   * The навчальний рік the work was entered in, when that is NOT the open one.
+   * `null` for a work of the current year, which is the only kind that can be
+   * joined.
+   *
+   * **Why it has to travel to the screen.** A `SHARED` + `ONCE` key carries no
+   * year, so the lookup finds an article recorded in ANY past рік. The dialog
+   * used to offer «Приєднатися» for one of those, quoting a pool that belonged
+   * to a closed рік, and `joinWork` then answered «Роботу не знайдено» — a
+   * button that could not work and a sentence that read as if the work had
+   * vanished (owner, 2026-09-20).
+   */
+  fromYear: string | null;
 }
 
 export type SaveRecordResult =
-  | { ok: true; recordId: string }
+  | { ok: true; recordId: string; workId: string }
   | { error: string }
   | { conflict: WorkConflict };
 
@@ -71,7 +99,7 @@ class PlanRowNotFoundError extends Error {}
  * `joinWork` became the second caller — §11's rule applied one level down from
  * components: two callers is what makes something shared.
  */
-type ActorContext = {
+export type ActorContext = {
   userId: string;
   staffId: string;
   role: string;
@@ -79,10 +107,34 @@ type ActorContext = {
   template: NonNullable<Awaited<ReturnType<typeof getActiveScienceTemplate>>>;
 };
 
-async function resolveActor(
+export async function resolveActor(
   /** Omitted where there is no кафедра to check — a WORK belongs to a year, not
    *  to a кафедра, so correcting or withdrawing one names none. */
-  departmentId?: string
+  departmentId?: string,
+  options?: {
+    /**
+     * Let an ADMIN through who is not an НПП.
+     *
+     * **Why this is needed at all.** «Being an НПП is what grants this» is the
+     * right rule for planning and recording ONE'S OWN наукова робота, and it
+     * guards every such action here. It is the wrong rule for an
+     * administrative CORRECTION — and `updateWorkEvidence` and `deleteFile`
+     * both carry an `isAdmin` branch the spec asks for («ADMIN may edit
+     * anything», «ADMIN deletes a genuinely wrong work») that this check made
+     * unreachable: on the real database six of the eight ADMIN accounts are
+     * `isNpp: false`, the rector's and `admin@uhsp.edu.ua` among them, so the
+     * escape hatch existed in the code and for almost nobody in practice
+     * (found 2026-09-20).
+     *
+     * `fileUrl` already sidesteps `resolveActor` for exactly this reason and
+     * says so in its own comment. This is the same decision, made once.
+     *
+     * It grants NOTHING by itself — every caller still checks ownership, and
+     * an ADMIN who is not an НПП has no plan, so the recording paths refuse
+     * them anyway.
+     */
+    allowAdmin?: boolean;
+  }
 ): Promise<{ ok: true; context: ActorContext } | { ok: false; error: string }> {
   const session = await auth();
   const userId = session?.user?.id;
@@ -100,7 +152,8 @@ async function resolveActor(
       partTimeDepartments: { select: { departmentId: true } },
     },
   });
-  if (!staff?.isNpp) {
+  const isAdmin = session.user.role === 'ADMIN';
+  if (!staff || (!staff.isNpp && !(options?.allowAdmin && isAdmin))) {
     return { ok: false, error: 'Облік наукової роботи доступний лише для НПП' };
   }
 
@@ -270,14 +323,35 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   const link = input.link?.trim() || null;
-  // `fileCount: 0` until files land (Phase E of the plan). No seeded type sets
-  // `requiresFile`, so today this refuses exactly the «neither» case.
+
+  // The file is already in R2 — verify it from the STORED bytes before the
+  // evidence rule reads its count, so «файл без посилання» is a record that
+  // can exist (D27) rather than one refused for having no link. Everything
+  // after this point that fails must drop the object: `dropFile()`.
+  let verifiedFile: VerifiedFile | null = null;
+  if (input.file) {
+    const verified = await verifyUploadedObject({
+      objectKey: input.file.objectKey,
+      fileName: input.file.fileName,
+      scope: 'science.saveRecord',
+      context: { userId },
+    });
+    if ('error' in verified) return { error: verified.error };
+    verifiedFile = verified.file;
+  }
+  const dropFile = async () => {
+    if (input.file) await safeDeleteObject('science.saveRecord', input.file.objectKey, { userId });
+  };
+
   const evidenceFault = evidenceProblem({
     requiresFile: type.requiresFile,
     link,
-    fileCount: 0,
+    fileCount: verifiedFile ? 1 : 0,
   });
-  if (evidenceFault) return { error: evidenceFault };
+  if (evidenceFault) {
+    await dropFile();
+    return { error: evidenceFault };
+  }
 
   const key = workKey({
     identityFields: Array.isArray(type.identityFields) ? (type.identityFields as string[]) : [],
@@ -288,7 +362,10 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     academicYear: template.academicYear,
     staffId,
   });
-  if (!key) return { error: 'Вкажіть назву або посилання, щоб роботу можна було розпізнати' };
+  if (!key) {
+    await dropFile();
+    return { error: 'Вкажіть назву або посилання, щоб роботу можна було розпізнати' };
+  }
 
   // `score` is whole HOURS here, not бали — the science plan reuses the
   // rating's engine for a different unit. A malformed catalogue row is a
@@ -301,12 +378,19 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     ));
   } catch (e) {
     logError('science.saveRecord', e, { userId, entityId: type.id });
+    await dropFile();
     return { error: 'Невідомий вид роботи' };
   }
   const totalHundredths = toHundredths(score);
 
-  const conflict = await findConflict(key, staffId, fields, type.label);
-  if (conflict) return conflict;
+  const conflict = await findConflict(key, staffId, fields, type.label, template);
+  // Not this person's work to prove: the offer is to JOIN the existing one,
+  // and its evidence belongs to whoever entered it. The object goes, or every
+  // refused duplicate leaves one in the bucket.
+  if (conflict) {
+    await dropFile();
+    return conflict;
+  }
 
   // D16 — «first come, takes what they need». A SHARED work's creator may
   // leave hours for co-authors; an INDIVIDUAL one has no pool to divide, so
@@ -314,13 +398,16 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
   const requested =
     type.sharing === 'INDIVIDUAL' ? totalHundredths : (input.hoursHundredths ?? totalHundredths);
   const poolFault = poolProblem({ totalHundredths, drawnByOthers: 0, requested });
-  if (poolFault) return { error: poolFault };
+  if (poolFault) {
+    await dropFile();
+    return { error: poolFault };
+  }
 
   const auditLabel =
     `${staff.lastName} ${staff.firstName} ${staff.patronymic ?? ''} — ${type.label}`.trim();
 
   try {
-    const recordId = await db.$transaction(async (tx) => {
+    const { recordId, workId } = await db.$transaction(async (tx) => {
       const planId = await requireLockedPlan(tx, {
         staffId,
         departmentId: input.departmentId,
@@ -379,6 +466,14 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
         select: { id: true },
       });
 
+      // Same transaction as the work it proves: a record that was allowed to
+      // exist BECAUSE of its file must never end up without it.
+      if (verifiedFile) {
+        await tx.scienceRecordFile.create({
+          data: { ...verifiedFile, workId: work.id, uploadedById: staffId },
+        });
+      }
+
       await tx.auditLog.create({
         data: {
           action: 'CREATE',
@@ -388,17 +483,26 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
           userId,
           changes: diffChanges(
             {},
-            { workType: type.label, hoursHundredths: requested, totalHundredths, link }
+            {
+              workType: type.label,
+              hoursHundredths: requested,
+              totalHundredths,
+              link,
+              ...(verifiedFile ? { fileName: verifiedFile.fileName } : {}),
+            }
           ),
         },
       });
 
-      return record.id;
+      return { recordId: record.id, workId: work.id };
     });
 
     revalidatePath('/science-plan');
-    return { ok: true, recordId };
+    return { ok: true, recordId, workId };
   } catch (e) {
+    // The transaction rolled back, so nothing points at the object any more.
+    await dropFile();
+
     if (e instanceof CapExceededError) {
       return { error: `Не більше ${e.cap} записів цього виду роботи на рік` };
     }
@@ -414,8 +518,14 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
       isUniqueViolation(e) &&
       String((e as { meta?: { target?: unknown } }).meta?.target).includes('dedupKey')
     ) {
-      const raced = await findConflict(key, staffId, fields, type.label);
+      const raced = await findConflict(key, staffId, fields, type.label, template);
       if (raced) return raced;
+    }
+
+    // The sha256 race the pre-check only narrows: two uploads of the same
+    // bytes, both verified, the index deciding between them.
+    if (isUniqueViolation(e) && isDuplicateFileViolation(e)) {
+      return { error: DUPLICATE_FILE_MESSAGE };
     }
 
     return {
@@ -464,13 +574,25 @@ export async function joinWork(input: {
       id: true,
       templateId: true,
       totalHundredths: true,
+      template: { select: { academicYear: true } },
       workType: { select: { id: true, label: true, sharing: true, maxPerYear: true } },
     },
   });
-  // A work from a closed year is not this year's to draw on, and saying «не
-  // знайдено» rather than explaining the year is right: from the person's side
-  // it is not on their screen either way.
-  if (!work || work.templateId !== template.id) return { error: 'Роботу не знайдено' };
+  if (!work) return { error: 'Роботу не знайдено' };
+
+  // **A work from another рік NAMES that рік.** This used to answer «Роботу не
+  // знайдено», on the reasoning that such a work «is not on their screen
+  // either way» — which stopped being true the moment the conflict panel
+  // started showing it. A `SHARED` + `ONCE` key carries no year, so the search
+  // finds an article from any past рік and offered to join it; pressing the
+  // button then said the work did not exist (owner, 2026-09-20). The dialog no
+  // longer offers it, and this says what is actually so for anything that
+  // reaches the action another way.
+  if (work.templateId !== template.id) {
+    return {
+      error: `Цю роботу внесено у ${work.template.academicYear} н.р. — години за неї нараховуються в тому році`,
+    };
+  }
 
   if (work.workType.sharing === 'INDIVIDUAL') {
     // D24: an INDIVIDUAL type's key is already prefixed per person, so nobody
@@ -567,7 +689,11 @@ export async function joinWork(input: {
     });
 
     revalidatePath('/science-plan');
-    return { ok: true, recordId };
+    // `workId` is already the caller's own input — `joinWork`'s caller
+    // (`JoinWorkPanel`) never needs it back out of the result, unlike
+    // `saveRecord`'s, which has no other way to learn the work it just
+    // created. Included only to satisfy the shared `SaveRecordResult` shape.
+    return { ok: true, recordId, workId: work.id };
   } catch (e) {
     if (e instanceof PoolError) return { error: e.reason };
     if (e instanceof CapExceededError) {
@@ -609,7 +735,9 @@ export async function updateWorkEvidence(input: {
   link?: string;
 }): Promise<{ ok: true } | { error: string }> {
   // No кафедра to check: a work belongs to nobody's кафедра, only to its year.
-  const actor = await resolveActor();
+  // `allowAdmin` because the ADMIN branch below is the spec's escape hatch for
+  // a wrong work, and most ADMIN accounts are not НПП.
+  const actor = await resolveActor(undefined, { allowAdmin: true });
   if (!actor.ok) return { error: actor.error };
   const { userId, staffId, template } = actor.context;
   const isAdmin = actor.context.role === 'ADMIN';
@@ -624,6 +752,11 @@ export async function updateWorkEvidence(input: {
       link: true,
       createdById: true,
       workType: true,
+      // The REAL count, not the zero this used to assume. A work proved by a
+      // file alone (D27) would otherwise be refused the moment its author
+      // corrected a page number, because the rule would read it as having no
+      // evidence at all.
+      _count: { select: { files: true } },
     },
   });
   if (!work || work.templateId !== template.id) return { error: 'Роботу не знайдено' };
@@ -639,7 +772,11 @@ export async function updateWorkEvidence(input: {
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   const link = input.link?.trim() || null;
-  const evidenceFault = evidenceProblem({ requiresFile: type.requiresFile, link, fileCount: 0 });
+  const evidenceFault = evidenceProblem({
+    requiresFile: type.requiresFile,
+    link,
+    fileCount: work._count.files,
+  });
   if (evidenceFault) return { error: evidenceFault };
 
   const key = workKey({
@@ -668,16 +805,36 @@ export async function updateWorkEvidence(input: {
   }
   const totalHundredths = toHundredths(score);
 
+  // **What an edit may not do is take hours away from SOMEBODY ELSE.**
+  //
+  // The rule used to be «never below the sum of every claim», which counted
+  // the editor's own draw against them and refused the ordinary correction
+  // this action exists for. Two people hit it:
+  //
+  //   * a конференція entered as 5 days instead of 3 — an INDIVIDUAL work
+  //     whose single claim IS the pool, told «робота вже поділена на 30 год»
+  //     about a division of one;
+  //   * the sole author of an article correcting a page count downwards, which
+  //     is most articles.
+  //
+  // So the measure is what OTHERS hold. Their numbers are theirs; the editor's
+  // own follows the pool, because they are the one moving it.
   const drawn = await db.scienceRecord.aggregate({
-    where: { workId: work.id, status: 'APPROVED' },
+    where: { workId: work.id, status: 'APPROVED', staffId: { not: staffId } },
     _sum: { hoursHundredths: true },
   });
-  const alreadyDrawn = drawn._sum.hoursHundredths ?? 0;
-  if (totalHundredths < alreadyDrawn) {
+  const drawnByOthers = drawn._sum.hoursHundredths ?? 0;
+  if (totalHundredths < drawnByOthers) {
     return {
-      error: `Робота вже поділена на ${formatHours(alreadyDrawn)} год — менше цього зробити не можна`,
+      error: `Співавтори вже взяли ${formatHours(drawnByOthers)} год — менше цього зробити не можна`,
     };
   }
+
+  const individual = type.sharing === 'INDIVIDUAL';
+  // An INDIVIDUAL work's claim always EQUALS its pool, up or down. A SHARED
+  // one's is only ever pulled DOWN, and only as far as it has to go: an author
+  // who left room for co-authors keeps having left it.
+  const ownHours = individual ? totalHundredths : Math.max(0, totalHundredths - drawnByOthers);
 
   try {
     await db.$transaction(async (tx) => {
@@ -690,6 +847,21 @@ export async function updateWorkEvidence(input: {
           totalHundredths,
           dedupKey: key,
         },
+      });
+
+      // The editor's OWN draw follows the pool they just moved. Without this
+      // the work says 18 год while their «Виконано» goes on counting 30.
+      // Scoped to `staffId`, so a co-author's agreed share is never rewritten
+      // by somebody else's edit.
+      await tx.scienceRecord.updateMany({
+        where: {
+          workId: work.id,
+          staffId: individual ? undefined : staffId,
+          // Only ever pulled down for a SHARED work; raising somebody's claim
+          // because the pool grew is their decision, not this action's.
+          ...(individual ? {} : { hoursHundredths: { gt: ownHours } }),
+        },
+        data: { hoursHundredths: ownHours },
       });
 
       await tx.auditLog.create({
@@ -743,7 +915,13 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
       staffId: true,
       templateId: true,
       hoursHundredths: true,
-      work: { select: { id: true, workType: { select: { label: true } } } },
+      work: {
+        select: {
+          id: true,
+          workType: { select: { label: true, sharing: true } },
+          files: { select: { objectKey: true } },
+        },
+      },
     },
   });
   // Ownership is the check, and a row left over on a template that is no longer
@@ -751,9 +929,36 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
   if (!record || record.staffId !== staffId) return { error: 'Запис не знайдено' };
   if (record.templateId !== template.id) return { error: 'Запис не знайдено' };
 
+  // Objects to clear once the rows are gone — collected BEFORE the delete,
+  // because the cascade takes the rows that name them (see below).
+  let orphanedObjectKeys: string[] = [];
+
   try {
     await db.$transaction(async (tx) => {
       await tx.scienceRecord.delete({ where: { id: recordId } });
+
+      // **An INDIVIDUAL work with no claims left goes with it.**
+      //
+      // A work normally survives its last claim, because its `dedupKey` is
+      // what stops the same article being entered twice and a co-author may
+      // still draw on it. Neither reason holds for an INDIVIDUAL type: D24
+      // prefixes its key with the owner's `staffId`, so no other person could
+      // ever collide with it, and there are no co-authors to keep it for.
+      //
+      // Left standing it protected nothing and blocked one person — the one
+      // who owned it. Deleting a конференція record to fix «3 дні» into «5»
+      // and adding it again hit «цю роботу вже додав …», naming the person to
+      // themselves, and `joinWork` refuses an INDIVIDUAL work, so that
+      // конференція could never be recorded again (owner, 2026-09-20).
+      if (record.work.workType.sharing === 'INDIVIDUAL') {
+        const left = await tx.scienceRecord.count({ where: { workId: record.work.id } });
+        if (left === 0) {
+          orphanedObjectKeys = record.work.files.map((f) => f.objectKey);
+          // Cascades its files' rows; their R2 objects are dropped after the
+          // transaction commits.
+          await tx.scienceWork.delete({ where: { id: record.work.id } });
+        }
+      }
 
       await tx.auditLog.create({
         data: {
@@ -780,6 +985,12 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
     };
   }
 
+  // After the commit, never inside it: a failed R2 delete must not roll back a
+  // deletion the person already saw succeed.
+  for (const objectKey of orphanedObjectKeys) {
+    await safeDeleteObject('science.deleteRecord', objectKey, { userId, entityId: recordId });
+  }
+
   revalidatePath('/science-plan');
   return { ok: true };
 }
@@ -788,22 +999,32 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
  * Is this work already recorded, and if so, what does the person need to know?
  *
  * Returns `null` when the work is new, an `error` when the caller already drew
- * on it, and a `conflict` when somebody else did — the last being an OFFER
- * (D17), not a failure. Called twice: once before the insert for the ordinary
- * case, once after a P2002 for the race.
+ * on it this рік, and a `conflict` when somebody else holds it. Called twice:
+ * once before the insert for the ordinary case, once after a P2002 for the
+ * race.
+ *
+ * **The lookup is deliberately not scoped to the open рік**, and cannot be: a
+ * `SHARED` + `ONCE` key carries no year precisely so one article exists in the
+ * university once, for ever. So this can find a work from a рік that is
+ * already closed, and it has to SAY which — see `WorkConflict.fromYear`.
  */
 async function findConflict(
   key: string,
   staffId: string,
   fields: EvidenceField[],
-  fallbackLabel: string
+  fallbackLabel: string,
+  /** The OPEN рік, to tell «somebody else holds this» from «this belongs to a
+   *  рік nobody can write to any more». */
+  template: { id: string; academicYear: string }
 ): Promise<SaveRecordResult | null> {
   const existing = await db.scienceWork.findUnique({
     where: { dedupKey: key },
     select: {
       id: true,
+      templateId: true,
       totalHundredths: true,
       evidence: true,
+      template: { select: { academicYear: true } },
       createdBy: { select: { lastName: true, firstName: true, patronymic: true } },
       // APPROVED only: a declined draw holds no hours, and its share of the
       // pool is free for somebody else to take.
@@ -812,6 +1033,33 @@ async function findConflict(
   });
   if (!existing) return null;
 
+  const base = {
+    workId: existing.id,
+    createdByName: initials(existing.createdBy),
+    // `||`, not `??`: an empty summary is what a вид роботи with no evidence
+    // fields returns, and `??` let it through — the conflict panel then
+    // offered to join a work with no name on it.
+    summary: summarizeEvidence(fields, existing.evidence) || fallbackLabel,
+    totalHundredths: existing.totalHundredths,
+  };
+
+  // **A work from another рік, checked FIRST.** Its pool belongs to that рік
+  // and nothing can be drawn from it now, whether or not this person already
+  // has a claim on it — so naming the рік is the useful answer either way, and
+  // more useful than «Ви вже додали цю роботу», which reads as if it meant
+  // this рік.
+  if (existing.templateId !== template.id) {
+    return {
+      conflict: {
+        ...base,
+        // Nothing is on offer, so no remainder is quoted: the figure would be
+        // a closed рік's arithmetic shown against this рік's plan.
+        remainingHundredths: 0,
+        fromYear: existing.template.academicYear,
+      },
+    };
+  }
+
   if (existing.records.some((r) => r.staffId === staffId)) {
     return { error: 'Ви вже додали цю роботу' };
   }
@@ -819,11 +1067,9 @@ async function findConflict(
   const drawn = existing.records.reduce((sum, r) => sum + r.hoursHundredths, 0);
   return {
     conflict: {
-      workId: existing.id,
-      createdByName: initials(existing.createdBy),
-      summary: summarizeEvidence(fields, existing.evidence) ?? fallbackLabel,
-      totalHundredths: existing.totalHundredths,
+      ...base,
       remainingHundredths: remainingHundredths(existing.totalHundredths, drawn),
+      fromYear: null,
     },
   };
 }

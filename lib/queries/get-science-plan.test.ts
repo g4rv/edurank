@@ -94,7 +94,7 @@ function record(
     status?: 'APPROVED' | 'REMOVED';
     planRowId?: string | null;
     others?: { staffId: string; hoursHundredths: number; last: string }[];
-    files?: number;
+    files?: { id: string; fileName: string; sizeBytes: number; pageCount: number | null }[];
   } = {}
 ) {
   return {
@@ -122,7 +122,7 @@ function record(
           staff: NAME(o.last),
         })),
       ],
-      _count: { files: over.files ?? 0 },
+      files: over.files ?? [],
     },
   };
 }
@@ -227,5 +227,30 @@ describe('план and факт', () => {
     mockPlan.mockResolvedValue({ id: 'p1', rateHundredths: 100, rows: [], records: [record()] });
     const result = await getSciencePlan('s1', 'd1', 't1');
     expect(result.records[0].coAuthors).toEqual([]);
+  });
+
+  it('passes through every attached file, name/size/pageCount and all', async () => {
+    // Item 4 prices per page, and that is the number a reviewer compares — so
+    // the query has to carry the real row, not a bare count.
+    const files = [
+      { id: 'f1', fileName: 'стаття.pdf', sizeBytes: 204800, pageCount: 12 },
+      { id: 'f2', fileName: 'наказ.png', sizeBytes: 51200, pageCount: null },
+    ];
+    mockPlan.mockResolvedValue({
+      id: 'p1',
+      rateHundredths: 100,
+      rows: [],
+      records: [record({ files })],
+    });
+
+    const result = await getSciencePlan('s1', 'd1', 't1');
+
+    expect(result.records[0].files).toEqual(files);
+  });
+
+  it('has an empty files array for a record with no evidence file', async () => {
+    mockPlan.mockResolvedValue({ id: 'p1', rateHundredths: 100, rows: [], records: [record()] });
+    const result = await getSciencePlan('s1', 'd1', 't1');
+    expect(result.records[0].files).toEqual([]);
   });
 });
