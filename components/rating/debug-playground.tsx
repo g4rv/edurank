@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useForm, type FieldValues, type Resolver } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { Label } from '@/components/ui/label';
 import {
   Select,

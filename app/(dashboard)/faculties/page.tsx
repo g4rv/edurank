@@ -4,7 +4,7 @@ import { Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { SortTh } from '@/components/ui/sort-th';
 import { DataTable } from '@/components/ui/data-table';

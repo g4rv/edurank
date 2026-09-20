@@ -6,7 +6,7 @@ import { parseStaffListParams, toStaffFilters } from '@/lib/staff/list-params';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { DownloadButton } from '@/components/ui/download-button';
 import { Pagination } from '@/components/ui/pagination';
 import { SortTh } from '@/components/ui/sort-th';

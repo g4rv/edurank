@@ -3,7 +3,7 @@
 import { flushSync } from 'react-dom';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { cn } from '@/lib/utils';
 
 // Which icon shows is left to CSS, not to React state: next-themes puts the

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Paperclip, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { cn } from '@/lib/utils';
 
 /**

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { FileQuestion } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 
 /**
  * The 404 a signed-in person sees — inside the dashboard shell, so the sidebar

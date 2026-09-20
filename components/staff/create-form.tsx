@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { createStaff } from '@/app/(dashboard)/staff/actions';

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ChevronLeft, Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { DeleteDivisionButton } from '@/components/division/delete-button';
 import { FIELD_LABELS } from '@/lib/labels';
 

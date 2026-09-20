@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { STUDENT_FUNDING_LABELS, STUDY_FORM_LABELS } from '@/lib/labels';
 import { formatBonus } from '@/lib/stake/units';
 import type { AdmittedStudentRow } from '@/lib/queries/list-admitted-students';

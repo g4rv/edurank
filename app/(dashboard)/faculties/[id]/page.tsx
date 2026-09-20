@@ -4,7 +4,7 @@ import { ChevronLeft, Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { DeleteFacultyButton } from '@/components/faculty/delete-button';
 import { ACADEMIC_RANK_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 
 /**
  * Shared pager: a summary on the left, numbered pages and prev/next on the right.

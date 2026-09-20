@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronsUpDown, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatBonus } from '@/lib/stake/units';
 import {

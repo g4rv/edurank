@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { setActivityVerified } from '@/app/(dashboard)/moderation/actions';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 
 // Quick reversible toggle — no confirm dialog needed (informational flag).
 // Unverified shows the action to take («Перевірити»); once set it shows the
