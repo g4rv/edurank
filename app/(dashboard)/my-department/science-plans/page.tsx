@@ -116,6 +116,12 @@ export default async function DepartmentSciencePlansPage({
       href: planListHref(BASE, params, { state: 'norate' }),
       active: params.state === 'norate',
     },
+    {
+      label: 'Нічого не виконано',
+      value: full.format(scope.filter((r) => r.doneHundredths === 0).length),
+      href: planListHref(BASE, params, { state: 'nodone' }),
+      active: params.state === 'nodone',
+    },
   ];
 
   return (
@@ -134,7 +140,7 @@ export default async function DepartmentSciencePlansPage({
         departments={scoped.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
       />
 
-      <StatStrip stats={stats} />
+      <StatStrip stats={stats} className="sm:grid-cols-5" />
 
       {rows.length === 0 ? (
         <EmptyState>

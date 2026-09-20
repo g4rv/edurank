@@ -120,6 +120,65 @@ describe('the rows it returns', () => {
     expect(row.targetHundredths).toBe(50000);
     expect(row.shortfallHundredths).toBe(8000);
   });
+
+  it('sums only APPROVED records into виконано', async () => {
+    // A declined record stops counting the moment ННВ declines it (D20) — the
+    // `records` selection itself carries `where: { status: 'APPROVED' }`, so
+    // what comes back here is already the right set to sum straight.
+    mockStaff.mockResolvedValue([
+      {
+        id: 's1',
+        lastName: 'Іваненко',
+        firstName: 'Іван',
+        patronymic: 'І',
+        departmentId: 'd1',
+        department: { id: 'd1', name: 'Кафедра історії' },
+        partTimeDepartments: [],
+        sciencePlans: [
+          {
+            departmentId: 'd1',
+            rateHundredths: 100,
+            rows: [],
+            records: [{ hoursHundredths: 12000 }, { hoursHundredths: 8000 }],
+          },
+        ],
+      },
+    ]);
+
+    const rows = await listSciencePlans({ templateId: 't1', departmentIds: ['d1'] });
+    expect(rows[0].doneHundredths).toBe(20000);
+    expect(mockStaff.mock.calls[0][0].select.sciencePlans.select.records.where).toEqual({
+      status: 'APPROVED',
+    });
+  });
+
+  it('counts a сумісника’s records on the кафедра whose plan holds them', async () => {
+    // A record belongs to exactly one plan — i.e. exactly one кафедра — so the
+    // other кафедра's row must not see those hours.
+    mockStaff.mockResolvedValue([
+      {
+        id: 's1',
+        lastName: 'Перчук',
+        firstName: 'Оксана',
+        patronymic: 'І',
+        departmentId: 'd1',
+        department: { id: 'd1', name: 'Кафедра історії' },
+        partTimeDepartments: [{ department: { id: 'd2', name: 'Кафедра філософії' } }],
+        sciencePlans: [
+          {
+            departmentId: 'd1',
+            rateHundredths: 100,
+            rows: [],
+            records: [{ hoursHundredths: 20000 }],
+          },
+        ],
+      },
+    ]);
+
+    const rows = await listSciencePlans({ templateId: 't1', departmentIds: ['d1', 'd2'] });
+    expect(rows.find((r) => r.departmentId === 'd1')?.doneHundredths).toBe(20000);
+    expect(rows.find((r) => r.departmentId === 'd2')?.doneHundredths).toBe(0);
+  });
 });
 
 describe('an OPEN template reads the live розподіл, not the stored snapshot', () => {

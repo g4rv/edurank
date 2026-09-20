@@ -31,8 +31,8 @@ export default function DepartmentSciencePlansLoading() {
         <Skeleton className="h-9 w-full sm:w-48" />
       </div>
 
-      <div className="grid grid-cols-2 rounded-xl border bg-card sm:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
+      <div className="grid grid-cols-2 rounded-xl border bg-card sm:grid-cols-5">
+        {[0, 1, 2, 3, 4].map((i) => (
           <div key={i} className="space-y-2 px-4 py-3.5">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-7 w-16" />
@@ -42,13 +42,22 @@ export default function DepartmentSciencePlansLoading() {
 
       <Table
         fill
-        columns={[null, FIGURE_COLUMN, FIGURE_COLUMN, PLANNED_COLUMN, FIGURE_COLUMN, STATE_COLUMN]}
+        columns={[
+          null,
+          FIGURE_COLUMN,
+          FIGURE_COLUMN,
+          PLANNED_COLUMN,
+          FIGURE_COLUMN,
+          FIGURE_COLUMN,
+          STATE_COLUMN,
+        ]}
         head={
           <TableRow>
             <TableHead>ПІБ</TableHead>
             <TableHead numeric>Ставка</TableHead>
             <TableHead numeric>Ціль</TableHead>
             <TableHead numeric>Заплановано</TableHead>
+            <TableHead numeric>Виконано</TableHead>
             <TableHead numeric>Бракує</TableHead>
             <TableHead>Стан</TableHead>
           </TableRow>
@@ -59,6 +68,9 @@ export default function DepartmentSciencePlansLoading() {
             <TableRow key={row}>
               <TableCell>
                 <Skeleton className="h-4 w-48" />
+              </TableCell>
+              <TableCell numeric>
+                <Skeleton className="ml-auto h-4 w-10" />
               </TableCell>
               <TableCell numeric>
                 <Skeleton className="ml-auto h-4 w-10" />

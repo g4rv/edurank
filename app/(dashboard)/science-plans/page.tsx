@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { canActForDivision } from '@/lib/permissions';
+import { isNnvOversight } from '@/lib/science/oversight';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { listSciencePlans } from '@/lib/queries/list-science-plans';
 import { listDepartments } from '@/lib/queries/list-departments';
@@ -31,10 +30,10 @@ const full = new Intl.NumberFormat('uk-UA');
  * rather than `canModerateRating` (`lib/rating/moderation.ts`): that flag can
  * be GRANTED to some other division for rating moderation, but наукова робота
  * oversight belongs to ННВ specifically by наказ, not to whoever a future
- * ADMIN hands the moderation flag to. The lookup still reuses the existing
- * division-membership mechanism — `getEditorDivisionId` / `canActForDivision`
- * in `lib/permissions.ts`, the same «ADMIN, or exactly this division» check
- * `/division-data` uses — rather than a second raw query.
+ * ADMIN hands the moderation flag to. Resolved by `isNnvOversight`
+ * (`lib/science/oversight.ts`) — one helper shared with the dashboard nav,
+ * `file-actions.ts`'s `fileUrl` and `/moderation`'s science section, rather
+ * than each repeating the same `registryKey` lookup.
  *
  * **Read only** — records and their moderation are Stage 2.
  */
@@ -47,13 +46,7 @@ export default async function AllSciencePlansPage({
   const session = await auth();
   if (!session) redirect('/login');
 
-  const nnv = await db.division.findUnique({
-    where: { registryKey: 'NNV' },
-    select: { id: true },
-  });
-  const allowed =
-    session.user.role === 'ADMIN' ||
-    (nnv !== null && (await canActForDivision(session.user, nnv.id)));
+  const allowed = await isNnvOversight(session.user);
   if (!allowed) redirect('/profile');
 
   const template = await getActiveScienceTemplate();
@@ -145,6 +138,12 @@ export default async function AllSciencePlansPage({
       href: planListHref(BASE, params, { state: 'norate' }),
       active: params.state === 'norate',
     },
+    {
+      label: 'Нічого не виконано',
+      value: full.format(scope.filter((r) => r.doneHundredths === 0).length),
+      href: planListHref(BASE, params, { state: 'nodone' }),
+      active: params.state === 'nodone',
+    },
   ];
 
   return (
@@ -169,12 +168,21 @@ export default async function AllSciencePlansPage({
         departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
       />
 
-      <StatStrip stats={stats} />
+      <StatStrip stats={stats} className="sm:grid-cols-5" />
 
       {rows.length === 0 ? (
         <EmptyState>Немає позицій за цими фільтрами.</EmptyState>
       ) : (
-        <DepartmentPlansTable rows={pageRows} showDepartment params={params} basePath={BASE} />
+        <DepartmentPlansTable
+          rows={pageRows}
+          showDepartment
+          params={params}
+          basePath={BASE}
+          // Only here. `isNnvOversight` already gated the whole page, and
+          // `/my-department/science-plans` — the завідувач's and декан's read
+          // of the same table — deliberately gets no actions at all.
+          canUnlock
+        />
       )}
 
       <Pagination

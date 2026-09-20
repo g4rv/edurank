@@ -16,6 +16,8 @@ function row(over: Partial<SciencePlanRowSummary> = {}): SciencePlanRowSummary {
     doneHundredths: 0,
     doneShortfallHundredths: 50000,
     hasPlan: false,
+    planId: null,
+    lockedAt: null,
     ...over,
   };
 }
@@ -55,6 +57,11 @@ describe('matchesState', () => {
     expect(matchesState(noRate, 'norate')).toBe(true);
     expect(matchesState(row({ rateHundredths: 0 }), 'norate')).toBe(false);
   });
+
+  it('«нічого не виконано» reads doneHundredths, zero and only zero', () => {
+    expect(matchesState(row({ doneHundredths: 0 }), 'nodone')).toBe(true);
+    expect(matchesState(row({ doneHundredths: 1 }), 'nodone')).toBe(false);
+  });
 });
 
 describe('sortPlanRows', () => {
@@ -86,6 +93,16 @@ describe('sortPlanRows', () => {
     sortPlanRows(rows, 'name', 'asc');
     expect(rows.map((r) => r.staffId)).toEqual(['c', 'a', 'b']);
   });
+
+  it('sorts by виконано', () => {
+    const low = row({ staffId: 'low', doneHundredths: 100 });
+    const high = row({ staffId: 'high', doneHundredths: 50000 });
+    expect(sortPlanRows([low, high], 'done', 'desc').map((r) => r.staffId)).toEqual([
+      'high',
+      'low',
+    ]);
+    expect(sortPlanRows([low, high], 'done', 'asc').map((r) => r.staffId)).toEqual(['low', 'high']);
+  });
 });
 
 describe('nextDir', () => {
@@ -100,5 +117,9 @@ describe('nextDir', () => {
   it('flips the column already sorted', () => {
     expect(nextDir('planned', 'desc', 'planned')).toBe('asc');
     expect(nextDir('planned', 'asc', 'planned')).toBe('desc');
+  });
+
+  it('opens виконано largest-first, like every other figure column', () => {
+    expect(nextDir(undefined, 'desc', 'done')).toBe('desc');
   });
 });

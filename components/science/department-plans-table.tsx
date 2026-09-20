@@ -7,12 +7,19 @@ import { formatHours } from '@/lib/science/hours';
 import { planListHref, type PlanListParams } from '@/lib/science/list-params';
 import { nextDir, type PlanSortField } from '@/lib/science/plan-rows';
 import type { SciencePlanRowSummary } from '@/lib/queries/list-science-plans';
+import { UnlockPlanButton } from '@/components/science/unlock-plan-button';
 import { cn } from '@/lib/utils';
 
-const FIGURE_COLUMN = 'calc(6ch + 2rem)';
-const PLANNED_COLUMN = 'calc(8ch + 2rem)';
+// Wide enough for the HEADING, not just the figure. «Заплановано» and
+// «Виконано» are 11 and 8 characters plus a sort chevron, and at `6ch` they
+// ran into each other and into «Бракує» — three headings with no gap between
+// them, on a 1920px screen. The ПІБ column gives up the room: it was taking
+// 900px to draw a 30-character name.
+const FIGURE_COLUMN = 'calc(7ch + 2rem)';
+const PLANNED_COLUMN = 'calc(11ch + 2rem)';
 const DEPARTMENT_COLUMN = '14rem';
 const STATE_COLUMN = '13rem';
+const ACTION_COLUMN = '8rem';
 
 /**
  * A heading that sorts.
@@ -83,23 +90,33 @@ export function DepartmentPlansTable({
   showDepartment,
   params,
   basePath,
+  canUnlock = false,
 }: {
   rows: readonly SciencePlanRowSummary[];
   showDepartment: boolean;
   params: PlanListParams;
   basePath: string;
+  /**
+   * ННВ and ADMIN may reopen a submitted plan (owner, 2026-09-20) — the
+   * remedy the screen has always promised the НПП and never had. Off by
+   * default, so `/my-department/science-plans` stays what it is: a завідувач
+   * and a декан READ their кафедра, they do not decide about it.
+   *
+   * A flag on a table is not a permission — `unlockPlan` re-checks.
+   */
+  canUnlock?: boolean;
 }) {
-  const columns = showDepartment
-    ? [
-        null,
-        DEPARTMENT_COLUMN,
-        FIGURE_COLUMN,
-        FIGURE_COLUMN,
-        PLANNED_COLUMN,
-        FIGURE_COLUMN,
-        STATE_COLUMN,
-      ]
-    : [null, FIGURE_COLUMN, FIGURE_COLUMN, PLANNED_COLUMN, FIGURE_COLUMN, STATE_COLUMN];
+  const columns = [
+    null,
+    ...(showDepartment ? [DEPARTMENT_COLUMN] : []),
+    FIGURE_COLUMN,
+    FIGURE_COLUMN,
+    PLANNED_COLUMN,
+    PLANNED_COLUMN,
+    FIGURE_COLUMN,
+    STATE_COLUMN,
+    ...(canUnlock ? [ACTION_COLUMN] : []),
+  ];
 
   return (
     // `fill`, not the component's default cap: the cap is an estimate of the
@@ -130,8 +147,10 @@ export function DepartmentPlansTable({
             basePath={basePath}
             numeric
           />
+          <SortHead label="Виконано" column="done" params={params} basePath={basePath} numeric />
           <SortHead label="Бракує" column="shortfall" params={params} basePath={basePath} numeric />
           <TableHead>Стан</TableHead>
+          {canUnlock && <TableHead align="right">Дії</TableHead>}
         </TableRow>
       }
     >
@@ -150,15 +169,38 @@ export function DepartmentPlansTable({
               {row.targetHundredths === null ? '—' : formatHours(row.targetHundredths)}
             </TableCell>
             <TableCell numeric>{formatHours(row.plannedHundredths)}</TableCell>
+            <TableCell numeric>{formatHours(row.doneHundredths)}</TableCell>
             <TableCell numeric>
               {row.shortfallHundredths === null ? '—' : formatHours(row.shortfallHundredths)}
             </TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-1.5">
                 {row.isPartTime && <Badge tone="warn">Сумісник</Badge>}
-                {!row.hasPlan && <Badge tone="warn">Немає плану</Badge>}
+                {/* Three states, not two. «Має план» said nothing about
+                    whether it was ever HANDED IN, though наказ п.33 sets a
+                    date for exactly that — a head could not tell a draft from
+                    a submitted plan, and ННВ could not see what it may
+                    reopen. */}
+                {!row.hasPlan ? (
+                  <Badge tone="warn">Немає плану</Badge>
+                ) : row.lockedAt ? (
+                  <Badge tone="ok">Збережено</Badge>
+                ) : (
+                  <Badge tone="muted">Чернетка</Badge>
+                )}
               </div>
             </TableCell>
+            {canUnlock && (
+              <TableCell align="right">
+                {row.planId && row.lockedAt && (
+                  <UnlockPlanButton
+                    planId={row.planId}
+                    fullName={row.fullName}
+                    departmentName={row.departmentName}
+                  />
+                )}
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>

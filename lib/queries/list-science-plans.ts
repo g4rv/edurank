@@ -17,6 +17,17 @@ export interface SciencePlanRowSummary {
   doneHundredths: number;
   doneShortfallHundredths: number | null;
   hasPlan: boolean;
+  /** Null until this person opens a plan on this кафедра — which is also what
+   *  `hasPlan` says, and what `unlockPlan` needs to name one. */
+  planId: string | null;
+  /**
+   * When the plan was SUBMITTED, or null while it is still a draft.
+   *
+   * A head reading this list could not tell «typed something» from «handed it
+   * in», though наказ п.33 sets 18 вересня as the date plans reach the
+   * навчальний відділ — and ННВ needs it to know which plans it may unlock.
+   */
+  lockedAt: Date | null;
 }
 
 /**
@@ -71,6 +82,8 @@ export async function listSciencePlans(input: {
       sciencePlans: {
         where: { templateId: template.id },
         select: {
+          id: true,
+          lockedAt: true,
           departmentId: true,
           rateHundredths: true,
           rows: { select: { plannedHundredths: true } },
@@ -143,6 +156,8 @@ export async function listSciencePlans(input: {
         isPartTime: place.isPartTime,
         ...target,
         hasPlan: Boolean(plan),
+        planId: plan?.id ?? null,
+        lockedAt: plan?.lockedAt ?? null,
       });
     }
   }

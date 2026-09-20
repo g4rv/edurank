@@ -10,13 +10,14 @@ import type { SciencePlanRowSummary } from '@/lib/queries/list-science-plans';
  * copies the moment the завідувач's screen wanted the same filter.
  */
 
-export const PLAN_STATES = ['plan', 'short', 'norate'] as const;
+export const PLAN_STATES = ['plan', 'short', 'norate', 'nodone'] as const;
 export type PlanState = (typeof PLAN_STATES)[number];
 
 export const PLAN_STATE_LABELS: Record<PlanState, string> = {
   plan: 'Мають план',
   short: 'Під ціллю',
   norate: 'Без ставки',
+  nodone: 'Нічого не виконано',
 };
 
 /**
@@ -37,6 +38,8 @@ export function matchesState(row: SciencePlanRowSummary, state: PlanState | unde
       return isShort(row);
     case 'norate':
       return row.rateHundredths === null;
+    case 'nodone':
+      return row.doneHundredths === 0;
     default:
       return true;
   }
@@ -48,6 +51,7 @@ export const PLAN_SORT_FIELDS = [
   'rate',
   'target',
   'planned',
+  'done',
   'shortfall',
 ] as const;
 export type PlanSortField = (typeof PLAN_SORT_FIELDS)[number];
@@ -58,6 +62,7 @@ const NUMERIC_FIELDS: ReadonlySet<PlanSortField> = new Set([
   'rate',
   'target',
   'planned',
+  'done',
   'shortfall',
 ]);
 
@@ -80,6 +85,8 @@ function figure(row: SciencePlanRowSummary, sort: PlanSortField): number | null 
       return row.targetHundredths;
     case 'planned':
       return row.plannedHundredths;
+    case 'done':
+      return row.doneHundredths;
     case 'shortfall':
       return row.shortfallHundredths;
     default:
