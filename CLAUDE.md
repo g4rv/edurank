@@ -468,14 +468,16 @@ column and not a list in code — for the same reason `requiresVerification` and
 `entityFirstEntry` are columns: a code list silently excludes every indicator an
 admin builds themselves, and the вчена рада votes new ones in yearly.
 
-## Планування наукової роботи (Stage 1 built)
+## Планування наукової роботи (built)
 
 Full specification: `docs/superpowers/specs/2026-09-15-science-plan-design.md`.
 Наказ №152's Додаток III: an НПП plans **≥500 годин of наукова робота per
 ставку per навчальний рік** (pro-rata below a full ставка), split across 18
-printed items, each catalogued as a `ScienceWorkType`. Stage 1 builds **план**
-only — the target and the rows a person intends. **Факт** (Stage 2, recorded
-evidence) and **the co-authored pool** (Stage 3) are not built.
+printed items, each catalogued as a `ScienceWorkType`. **план** (the target
+and the rows a person intends) and **факт** — a `ScienceRecord`, what one
+person draws from a `ScienceWork`'s pool, with evidence and post-check
+moderation — are both built. Only the official export form (D19, no sample
+supplied) and the Crossref DOI check (optional, later) are not.
 
 **This is not the rating.** The rating scores achievements in **балах** with
 its own coefficients, to rank people. Додаток III prices the same real-world
@@ -486,39 +488,54 @@ evidence-field machinery lifted out of `lib/rating/`.
 Easy to get wrong:
 
 - **Hours are INTEGER HUNDREDTHS OF AN HOUR, never a float** — the same rule
-  `lib/stake/units.ts` enforces for ставки, applied here in
-  `SciencePlanRow.plannedHundredths`. `toHundredths` freezes the value at save;
-  editing the наказ later never rewrites a row already planned.
+  `lib/stake/units.ts` enforces for ставки, applied to `plannedHundredths`,
+  `hoursHundredths` and `totalHundredths` alike. `toHundredths` freezes the
+  value at save; editing the наказ later never rewrites a row already saved.
 - **The ставка behind a plan's target is the PER-КАФЕДРА one from
-  `StakeAllocation`, never `Staff.employmentRate`.** `employmentRate` is the
-  SUM across every кафедра that pays somebody (see «Сумісництво» above); a
-  сумісник on two кафедри has two plans, each targeted by its own share.
-  `SciencePlan.rateHundredths` is refreshed from the кафедра's розподіл on
-  every save while the template is OPEN — a розподіл saved in November reaches
-  a plan typed in September without anybody touching it. `null` (розподіл not
-  saved yet) means **no target is shown at all**, not a guessed one (D8).
-- **A навчальний рік is a STRING, «2026/2027»** — `SciencePlanTemplate.academicYear` —
-  never the rating's `Int` `year`. `stakeYear` is a separate stored column,
-  derived once at creation (`stakeYearOf`) to say which calendar year's
-  `StakeAllocation` supplies the target; a cloned year recomputes it rather
-  than copying, so 2027/2028 targets the 2027 розподіл, not 2026's.
-- **One plan per person PER КАФЕДРА** (D6), enforced by
-  `@@unique([staffId, departmentId, templateId])`. Somebody on two кафедри
-  fills two plans separately; there is no merged view of both.
-- **A plan row carries NO evidence.** `SciencePlanRow.details` holds only what
-  its scoring rule reads (which variant, how many units) — evidence that a
-  work actually happened belongs to a **record**, which is Stage 2 and does
-  not exist yet. Shown, never blocked, below target (D9), same rule as the
-  ставки grid's overspend.
-- **Evidence field names are dictated by the scoring engine — `option`,
-  `credits`, `value` — never chosen per catalogue row.** They are the same
-  three keys `lib/rating/evidence-fields.ts` generates a Zod schema from;
-  `ScienceWorkType.identityFields` names which of them identify one WORK
-  (`["doi", "url", "title"]`, priority order), for Stage 2's dedup — seeded
-  and editable now, read by nothing until then.
-- **`ScienceWorkType.reuse` / `.sharing` are seeded and editable, unused
-  until Stage 2 and 3.** `ONCE` vs `YEARLY` (D10) and `INDIVIDUAL` vs `SHARED`
-  (D14/D15) describe a catalogue row today with nothing yet enforcing either.
+  `StakeAllocation`, never `Staff.employmentRate`.** A сумісник on two кафедри
+  has two plans, each targeted by its own share. `SciencePlan.rateHundredths`
+  refreshes from the кафедра's розподіл while the template is OPEN; `null`
+  means **no target shown at all**, not a guessed one (D8). A plan **locks**
+  on submission (`lockedAt`) — факт can only be recorded against a locked plan.
+- **One `ScienceWork` per identity, `dedupKey` UNIQUE.** `identityFields`
+  (doi, url, title, in priority order) build the key; `ONCE` carries the
+  навчальний рік and `SHARED` no person-prefix, so the SAME article can never
+  be entered twice university-wide — a second person who tries it is offered
+  the existing work instead (D17).
+- **The pool is a TRANSACTION.** `ScienceWork.totalHundredths` is the whole
+  pool a `SHARED` type divides; `joinWork` re-reads what is already drawn
+  INSIDE the transaction, never from a client figure, and
+  `@@unique([staffId, workId])` stops the same person drawing twice. Every SUM
+  over `hoursHundredths` filters `status: 'APPROVED'` — a REMOVED draw (D20,
+  ННВ/ADMIN decline it with a reason, post-check not a gate) frees its hours
+  back into the pool by construction, not by a second cleanup step.
+- **D27 — a record needs at least one of link or file, never neither.** The
+  link lives on the WORK (one DOI, not one per co-author); a file
+  (`ScienceRecordFile`, in R2) is proved by re-sniffing and re-hashing the
+  STORED bytes, never the browser's own claim, and its SHA-256 is **UNIQUE
+  university-wide** (D28) — the same evidence can back only one work, ever.
+- **The file goes up BEFORE the record is saved.** `presignUpload` needs no
+  work — `objectKeyFor` names only the навчальний рік — so `saveRecord` takes
+  an `{ objectKey, fileName }` it verifies from the stored bytes and attaches
+  in the same transaction that creates the work. The old order (key contained
+  the workId, so the upload waited for the record) made a file-only record
+  impossible and a failed upload unrecoverable. Every refusal after the
+  verification drops the object; an abandoned pick is swept by `discardUpload`.
+  **The R2 bucket needs a CORS rule or nothing uploads at all** — see
+  `docs/deployment.md` §3a and `pnpm r2:cors`.
+- **Correcting is an edit, not a delete-and-retype.** `updateWorkEvidence`
+  recomputes the pool from the evidence and moves the EDITOR's own draw with
+  it; what it refuses is dropping the pool below what **other** people already
+  took (`staffId: { not: staffId }`). Measuring against every claim, the
+  author's own included, refused the two commonest corrections there are.
+- **Deleting the last claim on an INDIVIDUAL work deletes the work.** Its
+  `dedupKey` is prefixed with the owner's `staffId` (D24), so with no claim it
+  guards nothing and blocked only the person who owned it — `joinWork` refuses
+  an INDIVIDUAL work, so that конференція could never be entered again. A
+  SHARED work always survives: a co-author may still draw on it.
+- **Only ННВ or ADMIN reopens a submitted plan** (`unlockPlan`, owner
+  2026-09-20) — the remedy `/science-plan` has always promised in «зміни через
+  ННВ». A завідувач and a декан read that list and decide nothing on it.
 
 ## Naming conventions
 

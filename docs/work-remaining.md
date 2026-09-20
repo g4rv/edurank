@@ -240,34 +240,57 @@ edit) and merging rows server-side (an audit log must not rewrite itself).
 
 ---
 
-## I. Планування наукової роботи — Stage 1 shipped, Stages 2–3 outstanding (2026-09-17)
+## I. Планування наукової роботи — shipped (2026-09-18)
 
 Full spec: `docs/superpowers/specs/2026-09-15-science-plan-design.md`, decided
-and approved by the owner 2026-09-15. **Stage 1 shipped 2026-09-17**: the
+and approved by the owner 2026-09-15. **план** shipped 2026-09-17: the
 Додаток III catalogue (ADMIN, clonable per навчальний рік), one план per
-person per кафедра targeted against their per-кафедра ставка, and the four
-reading screens — `/science-plan` (own), `/my-department/science-plans`
-(head/декан), `/science-plans` (ADMIN + ННВ), `/admin/science-plan[/id]`
-(the catalogue editor, now linked from the year list). See CLAUDE.md's
-«Планування наукової роботи» section for the rules easy to get wrong.
+person per кафедра targeted against their per-кафедра ставка and locked on
+submission, and the reading screens — `/science-plan` (own),
+`/my-department/science-plans` (head/декан), `/science-plans` (ADMIN + ННВ),
+`/admin/science-plan[/id]` (the catalogue editor). **факт** shipped
+2026-09-18: an НПП records what was actually done (`ScienceRecord`), against
+any planned вид роботи — not only what was planned (owner, 2026-09-17) — with
+evidence (link and/or a file in Cloudflare R2, D27, presigned upload +
+re-sniffed/re-hashed on confirm) and a shared hour pool for `SHARED` types
+(`ScienceWork`, joined by a second co-author and drawn down inside a
+transaction, D14–D17); a name clash (`dedupKey` UNIQUE) is refused and offers
+the existing work instead (D17), and a file's SHA-256 is unique
+university-wide (D28). Post-check moderation (D20/D21) — ННВ (by
+`registryKey`, `lib/science/oversight.ts`) or ADMIN decline a record with a
+reason on `/moderation`'s «Наукова робота» section, never a gate; every sum
+over `hoursHundredths` filters `status: 'APPROVED'`, so a decline frees its
+hours back into the pool by construction. See CLAUDE.md's «Планування
+наукової роботи» section for the rules easy to get wrong.
 
-**Stage 2 — факт (records), not built.** An НПП records what was actually
-done against each planned row, with evidence the way an `Activity` carries it
-for the rating. Post-check moderation (D20/D21) — ННВ/ADMIN decline a record
-with a reason, the same shape `/moderation` already has, never a gate.
-`identityFields` and `reuse` (`ONCE`/`YEARLY`) start being enforced here —
-both are seeded and editable in Stage 1 already, read by nothing until this
-lands.
+**Repaired after the pre-ship QA pass (2026-09-20).** The browser walk-through
+found seven blockers no test could see, and they are fixed: evidence files are
+uploaded BEFORE the record is saved (`presignUpload` needs no work), which is
+what makes a file-only record possible at all and what stops a failed upload
+stranding a saved record; «Додати файл», «Редагувати» and a file delete exist
+on `/science-plan`, so a mistake no longer needs delete-and-retype; deleting
+the last claim on an INDIVIDUAL work deletes the work, closing the dead end
+where a конференція could never be re-entered; `updateWorkEvidence` measures a
+cut against what CO-AUTHORS hold rather than every claim; ННВ and ADMIN can
+reopen a submitted plan (`unlockPlan`); and a form-wide refusal is drawn in the
+dialog footer, which does not scroll, instead of below the fold where nobody
+saw it. **The ставка gate on `lockPlan` is deliberate and stays** (owner,
+2026-09-20): the target is computed from the ставка, so somebody without one
+applies to the administration rather than planning against nothing.
 
-**Stage 3 — the co-authored pool (D14–D17), not built.** A `SHARED` work type
-(стаття, монографія, патент, доповідь) becomes one `ScienceWork` with a shared
-hour pool that a second co-author joins and draws down, rather than a
-duplicate record; a name clash is refused and tells the person who already
-holds it. Files move to Cloudflare R2 (D12) — presigned upload from the
-browser, short-lived signed reads.
+**Still open from that pass:** the page-count check (a claim higher than the
+attached PDF's real page count is stored and displayed but never refused — item
+4 pays 50 год per page, so it is the obvious cheat); no drill-down for a
+завідувач or ННВ into WHAT a person planned or did, only totals; and the
+moderation feed has no filter or search over every record university-wide.
 
-**Not scheduled in either stage:** an official export form (D19) — the shape
-is unknown and no sample file has been supplied yet.
+**Not built:** an official export form (D19) — the shape is unknown and no
+sample file has been supplied yet — and the Crossref DOI check, listed
+«optional, later» in the spec. Also outstanding: R2 has no backup coverage at
+all — `docker-compose.yml`'s `backup` service and §7 of `docs/deployment.md`
+cover Postgres only, and that section's restore drill has never been run
+against an R2 evidence file, only against the database. Turn on bucket
+versioning at minimum before this goes to production.
 
 ## H. Moderation for self-typed п.38 rows — deferred (owner, 2026-09-14)
 

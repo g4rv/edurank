@@ -46,21 +46,84 @@ New resource → **Dockerfile** build pack → this git repository, branch `main
 Set these on the application resource. There is no `.env` file in the image —
 `.dockerignore` excludes it precisely so a password cannot end up in a layer.
 
-| Variable                  | Value                                    | Why                                                                                                                     |
-| ------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | the internal string from §1              | The entrypoint refuses to start without it.                                                                             |
-| `AUTH_SECRET`             | `openssl rand -base64 32`                | Signs the session cookie. Changing it later logs everybody out.                                                         |
-| `AUTH_URL`                | `https://edurank.uhsp.edu.ua`            |                                                                                                                         |
-| `APP_URL`                 | `https://edurank.uhsp.edu.ua`            | **Every activation and reset link is built from this.** Wrong or missing, invites go out looking fine and open nothing. |
-| `SMTP_HOST`               | Mailjet: `in-v3.mailjet.com`             | See §6.                                                                                                                 |
-| `SMTP_PORT`               | `587`                                    |                                                                                                                         |
-| `SMTP_USER` / `SMTP_PASS` | the Mailjet API key / secret key         |                                                                                                                         |
-| `SMTP_FROM`               | `EduRank <no-reply@edurank.uhsp.edu.ua>` | The **subdomain** — see §6. Mailjet refuses a domain it has not authenticated.                                          |
-| `INVITE_DELAY_MS`         | leave unset (250)                        | Pause between bulk-invite messages. Raise it if Mailjet starts refusing.                                                |
+| Variable                  | Value                                    | Why                                                                                                                                                 |
+| ------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`            | the internal string from §1              | The entrypoint refuses to start without it.                                                                                                         |
+| `AUTH_SECRET`             | `openssl rand -base64 32`                | Signs the session cookie. Changing it later logs everybody out.                                                                                     |
+| `AUTH_URL`                | `https://edurank.uhsp.edu.ua`            |                                                                                                                                                     |
+| `APP_URL`                 | `https://edurank.uhsp.edu.ua`            | **Every activation and reset link is built from this.** Wrong or missing, invites go out looking fine and open nothing.                             |
+| `SMTP_HOST`               | Mailjet: `in-v3.mailjet.com`             | See §6.                                                                                                                                             |
+| `SMTP_PORT`               | `587`                                    |                                                                                                                                                     |
+| `SMTP_USER` / `SMTP_PASS` | the Mailjet API key / secret key         |                                                                                                                                                     |
+| `SMTP_FROM`               | `EduRank <no-reply@edurank.uhsp.edu.ua>` | The **subdomain** — see §6. Mailjet refuses a domain it has not authenticated.                                                                      |
+| `INVITE_DELAY_MS`         | leave unset (250)                        | Pause between bulk-invite messages. Raise it if Mailjet starts refusing.                                                                            |
+| `R2_ACCOUNT_ID`           | from the Cloudflare R2 dashboard         | Evidence files for наукова робота. **See §3a — the bucket also needs a CORS rule, or every upload fails.**                                          |
+| `R2_ACCESS_KEY_ID`        | R2 API token                             |                                                                                                                                                     |
+| `R2_SECRET_ACCESS_KEY`    | R2 API token secret                      |                                                                                                                                                     |
+| `R2_BUCKET`               | e.g. `edurank`                           |                                                                                                                                                     |
+| `R2_JURISDICTION`         | `eu` for an EU bucket, else unset        | An EU bucket answers only at `<account>.**eu**.r2.cloudflarestorage.com`. With the plain host it reports `NoSuchBucket` using perfectly valid keys. |
+
+The `R2_*` block is **not** checked at boot: a developer with no R2 access has
+to be able to run everything else. The cost is that a missing variable shows up
+as «Не вдалося підготувати завантаження файлу» when somebody first attaches a
+сертифікат, with the real reason only in the container log. Set them before
+anybody is invited.
 
 `AUTH_TRUST_HOST` is **not** needed: `lib/auth.ts` sets `trustHost: true`,
 because behind Traefik the app sees `0.0.0.0:3000` and would otherwise refuse
 every sign-in in a way that looks like a wrong password.
+
+## 3a. The R2 bucket — CORS, or nothing uploads
+
+**This is not optional and it is not in any env var.** The browser PUTs the
+file straight to R2 (Next caps a server action's body at 1 MB, and a scanned
+certificate has no business travelling through the VPS), so the bucket must
+allow the app's origin. Without the rule the preflight fails with
+«No 'Access-Control-Allow-Origin' header», the upload never starts, and the app
+can only say «Не вдалося завантажити файл» — the presigned URL itself is
+perfectly valid, which is what makes this so confusing to diagnose. Measured on
+dev, 2026-09-20: every upload failed this way until the rule was added.
+
+The repo has a helper that prints the rule and can write it:
+
+```bash
+pnpm r2:cors            # what the bucket has now, and what would be written
+pnpm r2:cors --apply    # write it, for APP_URL (or --origin https://…)
+```
+
+**It needs a token with «Admin Read & Write».** An R2 token scoped to «Object
+Read & Write» uploads files perfectly well and still cannot read or write the
+bucket's own settings, which is what a CORS policy is — it answers
+`AccessDenied`. That is the token dev currently uses, so on dev the rule goes
+in by hand.
+
+By hand, in the Cloudflare dashboard: **R2 → the bucket → Settings → CORS
+policy**.
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://edurank.uhsp.edu.ua"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["content-type"],
+    "ExposeHeaders": ["etag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Add `http://localhost:3000` to `AllowedOrigins` on the **dev** bucket only.
+Never on the production one.
+
+To check it without clicking through the app, from any machine:
+
+```bash
+curl -i -X OPTIONS 'https://<account>.eu.r2.cloudflarestorage.com/<bucket>/probe'   -H 'Origin: https://edurank.uhsp.edu.ua'   -H 'Access-Control-Request-Method: PUT'
+# A working rule answers 200 with access-control-allow-origin.
+```
+
+**Also turn on bucket versioning** (same Settings page) — see §7: nothing else
+backs these files up.
 
 ## 4. First boot
 
@@ -227,6 +290,18 @@ retention you can live with and a destination that is not the same disk.
 **Then restore one.** Until that has been done once, the backup is a hope. This
 is the single item on this page most likely to be skipped and most expensive to
 have skipped.
+
+### R2 is not backed up by any of this
+
+Coolify's backups and the compose `backup` service both cover **Postgres
+only**. Evidence files live in R2 and nothing copies them anywhere. A record
+whose only proof is a сертифікат loses that proof if the bucket does.
+
+The cheap floor is **bucket versioning**, turned on in §3a, which survives a
+delete or an overwrite but not a lost account. Anything better — a scheduled
+`rclone sync` to a second provider — has not been set up and is not written
+down here because it has not been done. The restore drill below has never been
+run against a file, only against the database.
 
 The repo's `backup` service in `docker-compose.yml` writes plain `pg_dump`
 files to `BACKUP_PATH` and was written with a NAS in mind. If the NAS is still
