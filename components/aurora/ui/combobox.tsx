@@ -389,6 +389,28 @@ function ComboboxContent({
   const { anchorRef } = useCombobox();
 
   /**
+   * The overlay this field sits in, if any — the panel is portalled there
+   * instead of to `body`.
+   *
+   * A dialog, a sheet and an alert dialog each lock scrolling with
+   * `react-remove-scroll`, which lets the wheel through only inside the
+   * element it locked. A panel portalled to `body` sits outside it, so the
+   * list showed a scrollbar and ignored the wheel completely.
+   *
+   * Read from the DOM rather than from a context, because the control must not
+   * have to know which overlay it was dropped into — and resolved in an effect
+   * because `anchorRef` is empty on the first render.
+   */
+  const [container, setContainer] = React.useState<Element | null>(null);
+  React.useEffect(() => {
+    setContainer(
+      anchorRef.current?.closest(
+        '[data-slot="dialog-content"], [data-slot="sheet-content"], [data-slot="alert-dialog-content"]'
+      ) ?? null
+    );
+  }, [anchorRef]);
+
+  /**
    * **The field itself is never «outside» the list.**
    *
    * The list opens on FOCUS and hangs off a `PopoverAnchor`, not a
@@ -415,7 +437,24 @@ function ComboboxContent({
     // «trigger», and the undefined variable left the width unset, so the list
     // collapsed to the width of the longest name instead of matching the field.
     <PopoverContent
+      container={container}
       align="start"
+      // **Below the field, always.** The shared `PopoverContent` defaults to
+      // `side="top"`, chosen for the CALENDAR — the popover's usual content
+      // here, tall and triggered from a field low on a form. A list of options
+      // is not that: it belongs under the input you are typing into, which is
+      // where every select in the app opens, and §8 says the select and the
+      // combobox are one control. Inheriting the calendar's preference put the
+      // вид роботи list above the field and, since this portals to `body` and
+      // nothing clips it, straight over the dialog it belongs to (owner,
+      // 2026-09-20). Radix still flips it when there is genuinely no room
+      // below, so this is a preference rather than a promise.
+      side="bottom"
+      // Keeps the panel off the window edge. Without it the available height
+      // Radix reports runs to the very bottom of the viewport, so on a short
+      // window the list ended up flush against it (and a rounding pixel past
+      // it). Eight is the same breathing room the shell gives everything else.
+      collisionPadding={8}
       className={cn(
         listPanel,
         'w-(--radix-popover-trigger-width) overflow-hidden',

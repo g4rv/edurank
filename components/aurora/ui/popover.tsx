@@ -39,10 +39,28 @@ function PopoverContent({
   // still flips below, so `top` is a preference rather than a promise.
   side = 'top',
   sideOffset = 4,
+  container,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+}: React.ComponentProps<typeof PopoverPrimitive.Content> & {
+  /**
+   * Where the panel is portalled. `body` by default, which is right on an
+   * ordinary page and WRONG inside a dialog.
+   *
+   * A dialog locks scrolling through `react-remove-scroll`, which permits the
+   * wheel only inside the element it locked. A panel portalled to `body` is
+   * outside that element, so it kept its scrollbar and ignored the wheel
+   * entirely — you could drag the bar but not spin past a 26-row list (owner,
+   * 2026-09-20; measured with `data-scroll-locked=1` on `body` and the popper
+   * wrapper parented to `BODY`).
+   *
+   * Portalling INTO the dialog fixes it without giving up the portal, which is
+   * still needed: `DialogContent` is `overflow-hidden`, so a panel rendered
+   * inline would be clipped by it instead.
+   */
+  container?: Element | null;
+}) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={container ?? undefined}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

@@ -43,8 +43,24 @@ export const listPanel = 'rounded-xl border bg-card p-0 shadow-float';
  */
 export const listScrollbar = 'slim-scrollbar';
 
-/** The scrolling area inside it. */
-export const listScroll = `max-h-60 overflow-y-auto ${listScrollbar}`;
+/**
+ * The scrolling area inside it.
+ *
+ * **Two caps, and the smaller wins.** `15rem` is the taste one — a list longer
+ * than about six rows is scrolled, not read. The other is however much room
+ * the popper actually measured, which matters because this panel is portalled
+ * to `body`: nothing clips it, so without the second cap a 26-row catalogue
+ * painted straight over the dialog it belongs to and off the top of the window
+ * (owner, 2026-09-20). The select has always had this — it reads
+ * `--radix-select-content-available-height` on its own content — and §8 says
+ * the two are one control.
+ *
+ * **`overscroll-contain`** stops the wheel at the end of the list. Without it
+ * the scroll chains to whatever is underneath, so spinning the wheel over an
+ * open list scrolled the dialog behind it and slid the field out from under
+ * its own menu.
+ */
+export const listScroll = `max-h-[min(15rem,var(--radix-popover-content-available-height,15rem))] overflow-y-auto overscroll-contain ${listScrollbar}`;
 
 /**
  * One row. Full-bleed — no rounding and no inset, so the panel's own corners do
