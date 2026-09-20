@@ -16,7 +16,9 @@ import {
 import { signOutAction } from '@/app/(dashboard)/actions';
 
 // Signing out is one click away from every page, and an accidental one costs
-// whatever is half-typed in the open form. Ask first.
+// whatever is half-typed in the open form. Ask first — and say so in the
+// colour, at both ends (owner, 2026-09-20): §3 gives `--error` to an action
+// that throws work away, which is exactly what this does to an unsaved form.
 export function SignOutButton() {
   const [isPending, startTransition] = useTransition();
 
@@ -26,7 +28,7 @@ export function SignOutButton() {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+          className="w-full justify-start gap-2 text-error hover:bg-error/10 hover:text-error-strong"
         >
           <LogOut className="size-4" />
           Вийти
@@ -42,10 +44,12 @@ export function SignOutButton() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel type="button">Скасувати</AlertDialogCancel>
-          {/* Not AlertDialogAction: it is styled destructive, and signing out
-              destroys nothing. */}
+          {/* A plain Button rather than AlertDialogAction, which closes the
+              dialog the moment it is pressed — the «Вихід…» state would never
+              be seen. It takes the same destructive variant by hand. */}
           <Button
             type="button"
+            variant="destructive"
             disabled={isPending}
             onClick={() => startTransition(async () => void (await signOutAction()))}
           >
