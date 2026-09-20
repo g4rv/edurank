@@ -2,8 +2,8 @@
 
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/aurora/ui/button';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/aurora/ui/input';
+import { Switch } from '@/components/aurora/ui/switch';
 import {
   Select,
   SelectContent,

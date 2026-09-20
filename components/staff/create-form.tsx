@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
 import { Button } from '@/components/aurora/ui/button';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '@/components/aurora/ui/switch';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { createStaff } from '@/app/(dashboard)/staff/actions';
 import type { DepartmentOption } from '@/lib/queries/list-departments';

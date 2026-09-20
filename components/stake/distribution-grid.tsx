@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/aurora/ui/input';
 import { cn } from '@/lib/utils';
 import { round2 } from '@/lib/round';
 import {

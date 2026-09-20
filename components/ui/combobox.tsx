@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Check, ChevronDown, X } from 'lucide-react';
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/aurora/ui/popover';
 import { cn } from '@/lib/utils';
 
 // ─── Context ─────────────────────────────────────────────────────────────────

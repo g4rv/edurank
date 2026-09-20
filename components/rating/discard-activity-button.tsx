@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Ban } from 'lucide-react';
 import { Button } from '@/components/aurora/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/aurora/ui/label';
+import { Textarea } from '@/components/aurora/ui/textarea';
 import {
   AlertDialog,
   AlertDialogAction,

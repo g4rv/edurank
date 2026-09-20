@@ -1,7 +1,12 @@
 'use client';
 
 import { Info } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/aurora/ui/tooltip';
 import { HINT_TRIGGER } from '@/components/ui/field-hint';
 import {
   RATING_FIELD_HINTS,

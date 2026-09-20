@@ -16,9 +16,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/aurora/ui/button';
 import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/aurora/ui/input';
+import { Textarea } from '@/components/aurora/ui/textarea';
+import { Switch } from '@/components/aurora/ui/switch';
 import { LicencePositionPicker } from '@/components/admin/licence-position-picker';
 import type { LicencePositionLink } from '@/lib/kharakterystyka/positions';
 import {

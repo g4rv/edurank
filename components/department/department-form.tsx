@@ -8,7 +8,7 @@ import { useForm, Controller, useWatch } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
 import { Button } from '@/components/aurora/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import {
   Select,

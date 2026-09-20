@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/aurora/ui/input';
 import { formatStake } from '@/lib/stake/units';
 import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
 import { ADMIN_POSITION_LABELS } from '@/lib/labels';

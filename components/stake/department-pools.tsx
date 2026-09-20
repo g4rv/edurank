@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/aurora/ui/input';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
 import { DataTable } from '@/components/ui/data-table';

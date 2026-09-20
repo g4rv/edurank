@@ -8,7 +8,7 @@ import { type DateRange } from 'react-day-picker';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/aurora/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/aurora/ui/popover';
 
 type Props = {
   from: string;

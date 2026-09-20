@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/aurora/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { FileInput } from '@/components/ui/file-input';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/aurora/ui/input';
 import { UK } from '@/lib/plural';
 import {
   importAdmittedStudents,
