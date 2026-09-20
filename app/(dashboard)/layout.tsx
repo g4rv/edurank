@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { canModerateRating } from '@/lib/rating/moderation';
-import { canActForDivision, getEditorDivisionId } from '@/lib/permissions';
+import { getEditorDivisionId } from '@/lib/permissions';
+import { isNnvOversight } from '@/lib/science/oversight';
 import { listEntryDivisions } from '@/lib/queries/list-division-data';
 import { scopeOf } from '@/lib/queries/scope';
 import { activeYear } from '@/lib/queries/get-active-template';
@@ -36,15 +37,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // resolved by registryKey, its own check rather than `canModerateRating`.
   // That flag can be granted to a different division for rating moderation,
   // while science-plan oversight belongs to ННВ specifically by наказ. Mirrors
-  // the same check in app/(dashboard)/science-plans/page.tsx, which enforces
-  // it again server-side regardless of what the nav shows.
-  const nnv = await db.division.findUnique({
-    where: { registryKey: 'NNV' },
-    select: { id: true },
-  });
-  const canOverseeSciencePlans =
-    session.user.role === 'ADMIN' ||
-    (nnv !== null && (await canActForDivision(session.user, nnv.id)));
+  // the same check in app/(dashboard)/science-plans/page.tsx and /moderation,
+  // which enforce it again server-side regardless of what the nav shows.
+  const canOverseeSciencePlans = await isNnvOversight(session.user);
 
   // Headship is derived from Department.headId / Faculty.deanId rather than
   // from a Role, so the nav has to ask rather than read it off the session.

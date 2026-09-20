@@ -204,8 +204,14 @@ export function Sidebar({
     // everyone rather than just a scoped кафедра or факультет.
     management.push({ href: '/science-plans', label: 'Плани наукової роботи', icon: FlaskConical });
   }
-  if (canModerate) {
-    management.push({ href: '/moderation', label: 'Модерація рейтингу', icon: BadgeCheck });
+  // `/moderation` holds TWO post-checks — the rating's and наукова робота's —
+  // each rendered on its own permission. Gating the link on `canModerate`
+  // alone left a division granted science oversight and not the rating flag
+  // with a page it was entitled to and no way to reach it but by typing the
+  // URL. The label drops «рейтингу» for the same reason: the page stopped
+  // being only that.
+  if (canModerate || canOverseeSciencePlans) {
+    management.push({ href: '/moderation', label: 'Модерація', icon: BadgeCheck });
   }
   if (canSeeRating) {
     management.push({ href: '/dashboard', label: 'Графіки', icon: ChartColumn });
