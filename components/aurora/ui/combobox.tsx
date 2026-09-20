@@ -44,7 +44,34 @@ type ComboboxCtx = {
   disabled: boolean;
   /** The field the list hangs off — see the guard in `ComboboxContent`. */
   anchorRef: React.RefObject<HTMLDivElement | null>;
+  /**
+   * Which row wears `data-highlighted` — the select's own roving state,
+   * reproduced here (owner, 2026-09-18). Radix starts a select's highlight on
+   * whichever row is already chosen, so opening either control shows the
+   * same tint; this list has no Radix roving focus underneath it, so nothing
+   * ever set that state and the combobox opened with only a checkmark.
+   */
+  highlighted: string;
+  setHighlighted: (v: string) => void;
+  /**
+   * The rendered `<ul>`. Keyboard navigation walks its `[role="option"]`
+   * children rather than the `filteredItems` array, because only the consumer's
+   * render callback knows what VALUE each item carries — DOM order is render
+   * order, and reading it needs no registry for items to sign into.
+   */
+  listRef: React.RefObject<HTMLUListElement | null>;
+  /** Unique per instance. It was the literal «combobox-listbox», so two
+   *  comboboxes on one screen shared a DOM id and `aria-controls` pointed at
+   *  whichever rendered first. */
+  listboxId: string;
 };
+
+/** A stable DOM id for one option, so `aria-activedescendant` can name the
+ *  highlighted row — the only way a screen reader follows a list the focus
+ *  never moves into. */
+function optionId(listboxId: string, value: string): string {
+  return `${listboxId}-opt-${value.replace(/[^\w-]/g, '_')}`;
+}
 
 const ComboboxContext = React.createContext<ComboboxCtx | null>(null);
 
@@ -77,6 +104,7 @@ function Combobox<T>({
 }: ComboboxProps<T>) {
   const [open, setOpenRaw] = React.useState(false);
   const [search, setSearch] = React.useState('');
+  const [highlighted, setHighlighted] = React.useState('');
 
   const defaultFilter = (item: T, s: string) =>
     String(item).toLowerCase().includes(s.toLowerCase());
@@ -92,7 +120,11 @@ function Combobox<T>({
 
   function setOpen(v: boolean) {
     setOpenRaw(v);
-    if (!v) setSearch('');
+    if (v) {
+      setHighlighted(value);
+    } else {
+      setSearch('');
+    }
   }
 
   function select(v: string) {
@@ -101,6 +133,8 @@ function Combobox<T>({
   }
 
   const anchorRef = React.useRef<HTMLDivElement | null>(null);
+  const listRef = React.useRef<HTMLUListElement | null>(null);
+  const listboxId = React.useId();
 
   return (
     <ComboboxContext.Provider
@@ -115,6 +149,10 @@ function Combobox<T>({
         filteredItems,
         disabled,
         anchorRef,
+        highlighted,
+        setHighlighted,
+        listRef,
+        listboxId,
       }}
     >
       <Popover open={open} onOpenChange={setOpen}>
@@ -161,8 +199,92 @@ function ComboboxInput({
     select,
     disabled: ctxDisabled,
     anchorRef,
+    highlighted,
+    setHighlighted,
+    listRef,
+    listboxId,
   } = useCombobox();
   const isDisabled = disabledProp ?? ctxDisabled;
+
+  /** Every option currently on screen, in the order it is drawn. */
+  function options(): HTMLElement[] {
+    return Array.from(listRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
+  }
+
+  function moveHighlight(step: 1 | -1 | 'first' | 'last') {
+    const rows = options();
+    if (rows.length === 0) return;
+
+    const current = rows.findIndex((row) => row.dataset.value === highlighted);
+    let next: number;
+    if (step === 'first') next = 0;
+    else if (step === 'last') next = rows.length - 1;
+    // Nothing highlighted yet (a fresh open, or a search that dropped the
+    // highlighted row): ArrowDown starts at the top, ArrowUp at the bottom.
+    else if (current === -1) next = step === 1 ? 0 : rows.length - 1;
+    // Wraps, like every listbox people already use.
+    else next = (current + step + rows.length) % rows.length;
+
+    const row = rows[next];
+    setHighlighted(row.dataset.value ?? '');
+    // `nearest`, not `center`: a list that jumps a whole page under one
+    // arrow press loses the reader's place.
+    row.scrollIntoView({ block: 'nearest' });
+  }
+
+  /**
+   * **The control had no keyboard at all** (found 2026-09-20). Items were
+   * chosen on `onMouseDown` and nothing listened for a key, so the вид роботи
+   * picker on every science dialog could not be operated without a mouse:
+   * ArrowDown did nothing and Enter did nothing.
+   *
+   * Focus deliberately stays in the input — that is what a combobox is — so
+   * the highlighted row is announced through `aria-activedescendant` rather
+   * than by moving focus into the list.
+   */
+  function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (isDisabled) return;
+
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'ArrowUp': {
+        event.preventDefault();
+        if (!open) {
+          setOpen(true);
+          return;
+        }
+        moveHighlight(event.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+      case 'Home':
+      case 'End': {
+        if (!open) return;
+        event.preventDefault();
+        moveHighlight(event.key === 'Home' ? 'first' : 'last');
+        return;
+      }
+      case 'Enter': {
+        // Only when the list is open with a row under the highlight. Otherwise
+        // Enter belongs to the form around it — swallowing it would stop a
+        // one-field dialog being submitted from the keyboard.
+        if (!open || !highlighted) return;
+        event.preventDefault();
+        select(highlighted);
+        return;
+      }
+      case 'Escape': {
+        if (!open) return;
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      case 'Tab': {
+        // Leaving the field abandons the list; it must not stay open over the
+        // control that now has focus.
+        if (open) setOpen(false);
+      }
+    }
+  }
 
   const shownValue = open ? search : value ? displayValue || value : '';
   const showClear = clearable && !!value && !isDisabled;
@@ -174,7 +296,10 @@ function ComboboxInput({
           type="text"
           role="combobox"
           aria-expanded={open}
-          aria-controls="combobox-listbox"
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={open && highlighted ? optionId(listboxId, highlighted) : undefined}
+          onKeyDown={onKeyDown}
           disabled={isDisabled}
           placeholder={value ? undefined : placeholder}
           value={shownValue}
@@ -334,11 +459,12 @@ interface ComboboxListProps<T> {
 }
 
 function ComboboxList<T>({ children, className }: ComboboxListProps<T>) {
-  const { filteredItems } = useCombobox();
+  const { filteredItems, listRef, listboxId } = useCombobox();
   if (filteredItems.length === 0) return null;
   return (
     <ul
-      id="combobox-listbox"
+      ref={listRef}
+      id={listboxId}
       role="listbox"
       // No vertical padding. With `py-1` a single option left a 4px white
       // sliver above and below the hover highlight, which reads as a rendering
@@ -360,14 +486,23 @@ interface ComboboxItemProps {
 }
 
 function ComboboxItem({ value: itemValue, children, className }: ComboboxItemProps) {
-  const { value, select } = useCombobox();
+  const { value, select, highlighted, setHighlighted, listboxId } = useCombobox();
   const isSelected = value === itemValue;
+  const isHighlighted = highlighted === itemValue;
 
   return (
     <li
+      id={optionId(listboxId, itemValue)}
       role="option"
       aria-selected={isSelected}
+      // What the arrow keys read to know which row this is — the DOM is the
+      // registry (see `listRef` on the context).
+      data-value={itemValue}
+      // Same attribute `listRow` already styles for the select
+      // (`data-highlighted:bg-brand/10 …`) — see the context field above.
+      data-highlighted={isHighlighted ? '' : undefined}
       className={cn(listRow, isSelected && listRowSelected, className)}
+      onMouseEnter={() => setHighlighted(itemValue)}
       onMouseDown={(e) => {
         e.preventDefault();
         select(itemValue);

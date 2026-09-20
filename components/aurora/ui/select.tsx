@@ -114,9 +114,14 @@ function SelectContent({
           //
           // `min-w-36` still wins on a very narrow trigger, which is what it
           // is for.
+          // **No permanent `translate-*` here** (owner, 2026-09-18). Stock
+          // shadcn adds one per side on top of `sideOffset` — a leftover
+          // from before this used the shared `sideOffset={4}` below, and it
+          // put the select's panel ~8px from its trigger while the
+          // combobox's `PopoverContent` (no such translate) sits at exactly
+          // `sideOffset`'s 4px. §8 says they are one control; the gap was
+          // the tell that this one still carried its own.
           'relative z-50 max-h-(--radix-select-content-available-height) max-w-(--radix-select-trigger-width) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
-          position === 'popper' &&
-            'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
           className
         )}
         position={position}
