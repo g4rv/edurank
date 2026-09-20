@@ -36,6 +36,10 @@ export interface PlanWorkType {
   code: string;
   label: string;
   itemNumber: string;
+  /** The пункт's heading, when the catalogue carries one. */
+  itemTitle: string | null;
+  /** The short form for the second picker field. */
+  shortLabel: string | null;
   coefficient: number;
   unitNote: string | null;
   reportingForm: string | null;

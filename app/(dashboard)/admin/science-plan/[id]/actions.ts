@@ -109,6 +109,8 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
           data: {
             code: data.code,
             itemNumber: data.itemNumber,
+            itemTitle: data.itemTitle,
+            shortLabel: data.shortLabel,
             label: data.label,
             coefficient: data.coefficient,
             unitNote: data.unitNote,
@@ -134,6 +136,8 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
               {
                 code: existing.code,
                 itemNumber: existing.itemNumber,
+                itemTitle: existing.itemTitle,
+                shortLabel: existing.shortLabel,
                 label: existing.label,
                 coefficient: existing.coefficient,
                 unitNote: existing.unitNote,
@@ -149,6 +153,8 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
               {
                 code: data.code,
                 itemNumber: data.itemNumber,
+                itemTitle: data.itemTitle,
+                shortLabel: data.shortLabel,
                 label: data.label,
                 coefficient: data.coefficient,
                 unitNote: data.unitNote,

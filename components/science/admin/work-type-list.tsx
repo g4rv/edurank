@@ -33,6 +33,8 @@ export interface WorkTypeRow {
   order: number;
   code: string;
   itemNumber: string;
+  itemTitle: string | null;
+  shortLabel: string | null;
   label: string;
   coefficient: number;
   unitNote: string | null;
@@ -64,6 +66,8 @@ function blankDraft(): WorkTypeDraft {
   return {
     code: '',
     itemNumber: '',
+    itemTitle: '',
+    shortLabel: '',
     label: '',
     coefficient: 1,
     unitNote: null,
@@ -83,6 +87,8 @@ function toDraft(row: WorkTypeRow): WorkTypeDraft {
     id: row.id,
     code: row.code,
     itemNumber: row.itemNumber,
+    itemTitle: row.itemTitle ?? '',
+    shortLabel: row.shortLabel ?? '',
     label: row.label,
     coefficient: row.coefficient,
     unitNote: row.unitNote,

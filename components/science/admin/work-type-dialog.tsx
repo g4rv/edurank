@@ -52,6 +52,8 @@ export interface WorkTypeDraft {
   id?: string;
   code: string;
   itemNumber: string;
+  itemTitle: string;
+  shortLabel: string;
   label: string;
   coefficient: number;
   unitNote: string | null;
@@ -320,6 +322,8 @@ function WorkTypeForm({
       id: draft.id,
       code: draft.code,
       itemNumber: draft.itemNumber,
+      itemTitle: draft.itemTitle,
+      shortLabel: draft.shortLabel,
       label: draft.label,
       coefficient: draft.coefficient,
       unitNote: draft.unitNote ?? '',
@@ -394,6 +398,25 @@ function WorkTypeForm({
                 <Textarea id="label" rows={2} {...register('label')} />
               </FormField>
             </div>
+
+            <FormField htmlFor="itemTitle" label="Заголовок пункту" error={errors.itemTitle}>
+              <Input
+                id="itemTitle"
+                placeholder="Рецензування, експертна оцінка, опонування"
+                {...register('itemTitle')}
+              />
+              <p className="mt-1 text-sm text-foreground-soft">
+                Лише якщо під цим номером у Додатку III кілька видів роботи — тоді той самий
+                заголовок ставиться кожному з них.
+              </p>
+            </FormField>
+
+            <FormField htmlFor="shortLabel" label="Коротка назва" error={errors.shortLabel}>
+              <Input id="shortLabel" placeholder="Дисертації" {...register('shortLabel')} />
+              <p className="mt-1 text-sm text-foreground-soft">
+                Те, що побачить НПП у другому полі після вибору пункту. Порожньо — буде повна назва.
+              </p>
+            </FormField>
 
             {!isEdit && (
               <FormField

@@ -25,6 +25,8 @@ function toPlanWorkType(row: ScienceWorkTypeRow): PlanWorkType {
     code: row.code,
     label: row.label,
     itemNumber: row.itemNumber,
+    itemTitle: row.itemTitle,
+    shortLabel: row.shortLabel,
     coefficient: row.coefficient,
     unitNote: row.unitNote,
     reportingForm: row.reportingForm,

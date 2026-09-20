@@ -1060,7 +1060,26 @@ model ScienceWorkType {
   code       String
   /// The printed number: «4», «11». Display and ordering only.
   itemNumber String
+  /// The пункт's own heading, shared by every вид роботи printed under that
+  /// number — «Рецензування, експертна оцінка, опонування» for п.7.
+  ///
+  /// Додаток III prints ONE numbered row that sometimes covers several kinds
+  /// of work, and flattening that into 26 sentences made п.7 unreadable: four
+  /// options, two of them sharing a 47-character prefix. With the heading
+  /// stored, the picker asks for the пункт first and the вид роботи second.
+  ///
+  /// Null where nobody has typed it yet — the picker then shows «Пункт N» and
+  /// still finds it by searching its types' labels. Never invented here: it is
+  /// the наказ's own wording, so an ADMIN types it on /admin/science-plan.
+  itemTitle  String?
   label      String
+  /// What the SECOND picker field shows once a пункт is chosen — «Дисертації»
+  /// under «Рецензування, експертна оцінка, опонування».
+  ///
+  /// Only the печатна `label` is the наказ's wording and the only thing a
+  /// document may print; this is the short form a person picks from. Null
+  /// where the пункт holds one вид роботи and there is nothing to choose.
+  shortLabel String?
 
   /// EvidenceField[] — the SAME spec shape as ActivityType.evidenceFields.
   /// Stage 1 uses only the select options (which variant of the work) and the

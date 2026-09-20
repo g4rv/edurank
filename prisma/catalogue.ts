@@ -244,12 +244,25 @@ async function seedSciencePlan(prisma: PrismaClient): Promise<void> {
     },
   });
 
+  // How many types share each пункт. A пункт with exactly one IS that type, so
+  // its heading is the label and nobody has to type it twice; a пункт with
+  // several needs the наказ's own heading, which only `itemTitle` can carry.
+  const typesPerItem = new Map<string, number>();
+  for (const def of SCIENCE_WORK_TYPES_2027) {
+    typesPerItem.set(def.itemNumber, (typesPerItem.get(def.itemNumber) ?? 0) + 1);
+  }
+
   for (const def of SCIENCE_WORK_TYPES_2027) {
     const { evidenceFields, scoring, coefficient } = scienceDbSpecs(def);
+    const alone = typesPerItem.get(def.itemNumber) === 1;
     const shape = {
       order: def.order,
       itemNumber: def.itemNumber,
+      // Never guessed for a shared пункт: an unnamed one shows «Пункт N» in the
+      // picker and is still found by searching its types' labels.
+      itemTitle: def.itemTitle ?? (alone ? def.label : null),
       label: def.label,
+      shortLabel: def.shortLabel ?? null,
       evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
       scoring: scoring as unknown as Prisma.InputJsonValue,
       coefficient,

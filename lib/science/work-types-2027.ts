@@ -45,8 +45,18 @@ export interface ScienceWorkTypeDef {
   code: string;
   /** The printed number in Додаток III — several types may share one. */
   itemNumber: string;
+  /**
+   * The пункт's own heading, where the наказ prints one over several kinds of
+   * work. Set it on EVERY type of that пункт, identically.
+   *
+   * Left out where the пункт holds a single вид роботи: the seed then copies
+   * the label, because a пункт with one type IS that type.
+   */
+  itemTitle?: string;
   order: number;
   label: string;
+  /** What the second picker field shows. Set wherever a пункт has several. */
+  shortLabel?: string;
   kind: ActivityKind;
   /** Hours per unit. For SELECT kinds this is 1 and the hours are on the options. */
   coefficient: number;
@@ -119,6 +129,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'intl_grant_program',
     itemNumber: '1',
+    itemTitle: 'Участь у міжнародних програмах і проєктах',
+    shortLabel: 'Програма на проведення досліджень в університеті (грант)',
     order: 1,
     label:
       'Участь у міжнародних програмах на проведення в університеті наукових досліджень з отримання гранту',
@@ -134,6 +146,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'intl_project',
     itemNumber: '1',
+    itemTitle: 'Участь у міжнародних програмах і проєктах',
+    shortLabel: 'Міжнародний проєкт',
     order: 2,
     label: 'Участь у міжнародних проєктах',
     kind: 'SELECT',
@@ -176,6 +190,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'monograph',
     itemNumber: '3',
+    itemTitle: 'Видання та перевидання монографій, підручників, посібників',
+    shortLabel: 'Видання за рекомендацією вченої ради',
     order: 4,
     label: 'Видання монографії, підручника, посібника за рекомендацією вченої ради',
     kind: 'SELECT_MULT',
@@ -197,6 +213,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'monograph_reissue',
     itemNumber: '3',
+    itemTitle: 'Видання та перевидання монографій, підручників, посібників',
+    shortLabel: 'Перевидання',
     order: 5,
     label: 'Перевидання монографій, підручників',
     kind: 'MULT',
@@ -272,6 +290,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'conference_paper',
     itemNumber: '6',
+    itemTitle: 'Конференції, симпозіуми, семінари',
+    shortLabel: 'Доповідь',
     order: 8,
     label: 'Доповіді на конференціях, симпозіумах, семінарах',
     kind: 'SELECT_MULT',
@@ -294,6 +314,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'conference_attendance',
     itemNumber: '6',
+    itemTitle: 'Конференції, симпозіуми, семінари',
+    shortLabel: 'Участь',
     order: 9,
     label: 'Участь у конференціях',
     kind: 'MULT',
@@ -319,6 +341,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'review_publication',
     itemNumber: '7',
+    itemTitle: 'Рецензування, експертна оцінка, опонування',
+    shortLabel: 'Монографії, підручники, посібники, словники, довідники, дипломні роботи',
     order: 10,
     label:
       'Рецензування, експертна оцінка, опонування монографій, підручників, навчальних посібників, словників, довідників, дипломних робіт',
@@ -334,6 +358,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'review_dissertation',
     itemNumber: '7',
+    itemTitle: 'Рецензування, експертна оцінка, опонування',
+    shortLabel: 'Дисертації',
     order: 11,
     label: 'Рецензування, експертна оцінка, опонування дисертацій',
     kind: 'FIXED',
@@ -348,6 +374,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'review_intl_project',
     itemNumber: '7',
+    itemTitle: 'Рецензування, експертна оцінка, опонування',
+    shortLabel: 'Міжнародні проєкти',
     order: 12,
     label: 'Рецензування міжнародних проєктів',
     kind: 'FIXED',
@@ -362,6 +390,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'review_article',
     itemNumber: '7',
+    itemTitle: 'Рецензування, експертна оцінка, опонування',
+    shortLabel: 'Статті для журналів Scopus / Web of Science',
     order: 13,
     label: 'Рецензування статей для міжнародних журналів, що входять до Scopus / Web of Science',
     kind: 'FIXED',
@@ -376,6 +406,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'state_competition_entry',
     itemNumber: '8',
+    itemTitle: 'Конкурс проєктів та науково-технічних розробок за кошти державного бюджету',
+    shortLabel: 'Підготовка роботи на конкурс',
     order: 14,
     label:
       'Участь у конкурсі проєктів та науково-технічних розробок, які фінансуються за рахунок коштів державного бюджету — підготовка роботи на конкурс',
@@ -397,6 +429,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'state_competition_win',
     itemNumber: '8',
+    itemTitle: 'Конкурс проєктів та науково-технічних розробок за кошти державного бюджету',
+    shortLabel: 'Перемога у конкурсі',
     order: 15,
     label:
       'Перемога у конкурсі проєктів та науково-технічних розробок, які фінансуються за рахунок коштів державного бюджету',
@@ -424,6 +458,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'editorial_board',
     itemNumber: '10',
+    itemTitle: 'Видавнича робота у фахових виданнях',
+    shortLabel: 'Редакційна колегія університету',
     order: 17,
     label: 'Робота по виданню наукових збірників — редакційна колегія університету',
     kind: 'SELECT',
@@ -445,6 +481,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
   {
     code: 'english_support',
     itemNumber: '10',
+    itemTitle: 'Видавнича робота у фахових виданнях',
+    shortLabel: 'Англомовний супровід',
     order: 18,
     label: 'Англомовний супровід фахових видань',
     kind: 'MULT',

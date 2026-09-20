@@ -30,6 +30,8 @@ export const getActiveScienceTemplate = cache(async function getActiveScienceTem
           code: true,
           label: true,
           itemNumber: true,
+          itemTitle: true,
+          shortLabel: true,
           coefficient: true,
           unitNote: true,
           reportingForm: true,

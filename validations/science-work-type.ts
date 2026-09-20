@@ -27,6 +27,20 @@ export const saveWorkTypeSchema = z.object({
     .max(64)
     .regex(/^[a-z][a-z0-9_]*$/, { error: 'Лише малі латинські літери, цифри та підкреслення' }),
   itemNumber: z.string().trim().min(1, { error: "Обов'язкове поле" }).max(10),
+  // Optional: only a пункт covering several види роботи needs a heading of its
+  // own, and it is the наказ's wording, never something the app invents.
+  itemTitle: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .transform((v) => v || null),
+  shortLabel: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .transform((v) => v || null),
   label: z.string().trim().min(1, { error: "Обов'язкове поле" }).max(500),
   // `coerce`: the dialog's number input hands React Hook Form a string.
   coefficient: z.coerce
