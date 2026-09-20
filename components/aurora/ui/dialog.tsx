@@ -66,7 +66,15 @@ function DialogContent({
           // pushing the panel off the screen. `w-[calc(100%-2rem)]` keeps a
           // gutter on a phone, matching the alert dialog.
           'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100svh-4rem)] w-[calc(100%-2rem)] max-w-lg',
-          '-translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border',
+          // **No `overflow-hidden` here** (owner, 2026-09-20). A combobox inside
+          // a dialog has to portal INTO this element — Radix locks scrolling
+          // with `shards: [contentRef]`, so a list portalled anywhere else
+          // keeps its scrollbar and ignores the wheel. Clipping the panel was
+          // the price: this element also carries a transform, which makes it a
+          // containing block, so even a `position: fixed` popper was cut off at
+          // its edge. Nothing needs the clip — the header and footer cover the
+          // rounded corners, and the BODY does its own scrolling.
+          '-translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border',
           'bg-card text-card-foreground shadow-float duration-150',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
