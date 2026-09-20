@@ -176,6 +176,10 @@ export const FIELD_LABELS: Record<string, string> = {
   // is a different number the moment a work has co-authors.
   hoursHundredths: 'Години',
   totalHundredths: 'Загальні години роботи',
+  // SciencePlan. `lockedAt` is diffed by `lockPlan` and by `unlockPlan` — the
+  // audit log printed the bare column name until both had entries here.
+  lockedAt: 'План збережено',
+  rateHundredths: 'Ставка на кафедрі',
   link: 'Посилання',
   dedupKey: 'Ключ роботи',
   removedReason: 'Причина відхилення',

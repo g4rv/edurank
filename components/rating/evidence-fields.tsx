@@ -46,6 +46,21 @@ interface EvidenceFieldsProps {
    * per row left half the dialog empty beside every one of them.
    */
   className?: string;
+  /**
+   * What the numbers beside a select option or a checkbox ARE.
+   *
+   * The rating scores in балах and this renderer was written for it, so
+   * «балів» was a literal in three places. Планування наукової роботи reuses
+   * the same forms over the same field specs to price the same work in
+   * ГОДИНАХ (D3 — two measuring systems over one world), and the literal came
+   * with them: «Кількість сторінок» was offered as «В інших виданнях — 5
+   * балів» on a form whose own total said «Робота варта 15 год».
+   *
+   * The engine is unit-blind on purpose (`computeScore` returns a number and
+   * neither subsystem tells it what of). This is the one place a unit is
+   * spoken aloud, so it is the one place that takes it as a prop.
+   */
+  unitLabel?: string;
 }
 
 export type RenderItem =
@@ -115,6 +130,7 @@ export function EvidenceFields({
   errors,
   disabled,
   className = 'space-y-4',
+  unitLabel = 'балів',
 }: EvidenceFieldsProps) {
   // A CHECK_SUM checkbox is worth a different amount per mode, so the « — N
   // балів» suffix has to follow the mode the person has actually chosen. Any
@@ -277,8 +293,8 @@ export function EvidenceFields({
                         {o.points === undefined
                           ? ''
                           : scoredByCheckboxes
-                            ? ` — до ${o.points} балів`
-                            : ` — ${o.points} балів`}
+                            ? ` — до ${o.points} ${unitLabel}`
+                            : ` — ${o.points} ${unitLabel}`}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -313,7 +329,10 @@ export function EvidenceFields({
             <span>
               {f.label}
               {points !== undefined ? (
-                <span className="text-muted-foreground"> — {points} балів</span>
+                <span className="text-muted-foreground">
+                  {' '}
+                  — {points} {unitLabel}
+                </span>
               ) : null}
             </span>
           </label>

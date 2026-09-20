@@ -231,7 +231,15 @@ function EvidenceForm({
             </div>
           )}
 
-          <EvidenceFields fields={fields} register={register} control={control} errors={errors} />
+          <EvidenceFields
+            fields={fields}
+            register={register}
+            control={control}
+            errors={errors}
+            // Додаток III prices in ГОДИНАХ, not балах (D3) — the renderer is
+            // the rating's and defaults to its unit.
+            unitLabel="год"
+          />
 
           <div className="space-y-1">
             <Label htmlFor="plan-row-note">Опис (необов&apos;язково)</Label>

@@ -50,7 +50,12 @@ export interface ScienceYearRow {
   workTypeCount: number;
 }
 
-const COLUMNS = ['auto', '9rem', '9rem', '7rem', '7rem', '14rem'] as const;
+// The last column holds THREE buttons — «Каталог», «Клонувати», and
+// «Закрити»/«Відкрити» — which need about 19rem together. At 14rem they
+// overflowed leftwards and were drawn straight over the «Відкритий» badge in
+// the Статус column beside them, so the year's status was invisible on screen
+// while sitting perfectly correctly in the DOM.
+const COLUMNS = ['auto', '9rem', '9rem', '7rem', '8rem', '21rem'] as const;
 
 /** Runs a server action behind `useTransition`, toasts the outcome, and
  *  refreshes so the table reflects it — the shape every row action shares. */
