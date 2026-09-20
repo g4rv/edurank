@@ -2,14 +2,16 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
-import { pageItems } from '@/components/ui/pagination';
+import { pageItems } from '@/lib/pagination';
 
 /**
  * «Аврора»'s pager — a drop-in replacement for `components/ui/pagination`.
  *
  * **`pageItems` is imported, not copied.** Which page numbers collapse into an
  * ellipsis is logic with its own tests; a second copy here would be a second
- * thing to fix. Only the drawing changes.
+ * thing to fix. It lives in `lib/pagination.ts` — it used to sit in the old
+ * component, which meant this one could not exist without it. Only the drawing
+ * changes.
  *
  * **Deliberately no `'use client'`, exactly as the original.** The two callers
  * need different mechanics — `/staff` is a Server Component and pages through

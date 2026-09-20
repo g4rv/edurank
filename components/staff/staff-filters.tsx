@@ -9,7 +9,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 import { Input } from '@/components/aurora/ui/input';
 import { Switch } from '@/components/aurora/ui/switch';
 import { cn } from '@/lib/utils';

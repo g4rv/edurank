@@ -17,7 +17,7 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from '@/components/ui/combobox';
+} from '@/components/aurora/ui/combobox';
 import { facultySchema, type FacultySchema } from '@/validations/faculty';
 import type { FacultyActionState } from '@/app/(dashboard)/faculties/actions';
 import { RequiredFields } from '@/components/ui/required-fields';

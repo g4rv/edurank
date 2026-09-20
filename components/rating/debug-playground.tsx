@@ -11,7 +11,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import {

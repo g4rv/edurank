@@ -8,7 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 
 /** Stands for «any domain». Not `''` — Radix reserves that for «no selection». */
 const ALL = '__all__';

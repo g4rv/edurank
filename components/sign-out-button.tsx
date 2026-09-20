@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { signOutAction } from '@/app/(dashboard)/actions';
 
 // Signing out is one click away from every page, and an accidental one costs

@@ -8,7 +8,7 @@ import { listFaculties } from '@/lib/queries/list-faculties';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { Button } from '@/components/aurora/ui/button';
 import { DownloadButton } from '@/components/ui/download-button';
-import { Pagination } from '@/components/ui/pagination';
+import { Pagination } from '@/components/aurora/ui/pagination';
 import { SortTh } from '@/components/ui/sort-th';
 import { StaffFilters } from '@/components/staff/staff-filters';
 import { StaffTable } from '@/components/staff/staff-table';

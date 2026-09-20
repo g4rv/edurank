@@ -7,14 +7,14 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/aurora/ui/input';
 import { Button } from '@/components/aurora/ui/button';
 import { DataTable } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { Pagination } from '@/components/aurora/ui/pagination';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 import { DiscardActivityButton } from '@/components/rating/discard-activity-button';
 import { VerifyActivityButton } from '@/components/rating/verify-activity-button';
 import { SubmissionPanel } from '@/components/rating/submission-panel';

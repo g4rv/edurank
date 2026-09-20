@@ -14,7 +14,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import type { PendingInvite } from '@/lib/queries/list-pending-invites';
 import { revertInviteSentMany } from '@/app/(dashboard)/admin/invites/actions';
 

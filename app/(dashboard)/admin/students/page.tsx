@@ -14,7 +14,7 @@ import {
   type AdmittedSort,
 } from '@/lib/queries/list-admitted-students';
 import { DataTable } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { Pagination } from '@/components/aurora/ui/pagination';
 import { SortTh } from '@/components/ui/sort-th';
 import { AdmittedStudentsFilters } from '@/components/admin/admitted-students-filters';
 import { AddAdmittedStudent } from '@/components/admin/add-admitted-student';

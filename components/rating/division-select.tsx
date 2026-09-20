@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 
 // ADMIN-only picker on the division data page: editors always see their own division
 export function DivisionSelect({

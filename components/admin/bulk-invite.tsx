@@ -13,7 +13,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import type { PendingInvite } from '@/lib/queries/list-pending-invites';
 import { inviteBatch } from '@/app/(dashboard)/admin/invites/actions';

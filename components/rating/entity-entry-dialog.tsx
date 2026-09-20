@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { Button } from '@/components/aurora/ui/button';
 import {
   Combobox,
@@ -24,14 +24,14 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from '@/components/ui/combobox';
+} from '@/components/aurora/ui/combobox';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { evidenceDefaults } from '@/lib/rating/evidence-fields';
 import { entityEntryMeta } from '@/lib/rating/entity-entry';

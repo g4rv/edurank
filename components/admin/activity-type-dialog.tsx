@@ -13,7 +13,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { Button } from '@/components/aurora/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/aurora/ui/input';
@@ -27,7 +27,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 import { createActivityType, updateActivityType } from '@/app/(dashboard)/admin/rating/actions';
 import { AddFieldSelect, EvidenceFieldBuilder } from '@/components/admin/evidence-field-builder';
 import { EvidencePreview } from '@/components/admin/evidence-preview';

@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { deleteDepartment } from '@/app/(dashboard)/departments/actions';
 
 interface DeleteDepartmentButtonProps {

@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { deleteActivity } from '@/app/(dashboard)/achievements/actions';
 
 export function DeleteActivityButton({ activityId, label }: { activityId: string; label: string }) {
