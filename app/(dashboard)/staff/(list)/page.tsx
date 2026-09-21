@@ -5,12 +5,16 @@ import { listStaff } from '@/lib/queries/list-staff';
 import { parseStaffListParams, toStaffFilters } from '@/lib/staff/list-params';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listFaculties } from '@/lib/queries/list-faculties';
+import { listDivisions } from '@/lib/queries/list-divisions';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
+import { editorHasFieldGrant } from '@/lib/permissions';
 import { Button } from '@/components/aurora/ui/button';
 import { DownloadButton } from '@/components/ui/download-button';
 import { Pagination } from '@/components/aurora/ui/pagination';
-import { SortTh } from '@/components/ui/sort-th';
+import { SortHead, TableHead, TableRow } from '@/components/aurora/ui/table';
+import { CreateStaffDialog } from '@/components/staff/create-staff-dialog';
 import { StaffFilters } from '@/components/staff/staff-filters';
+import { StaffListHeader } from '@/components/staff/staff-list-header';
 import { StaffTable } from '@/components/staff/staff-table';
 
 // The list is a few hundred people; sending them all is cheap, rendering them
@@ -67,6 +71,27 @@ export default async function StaffPage({
     canCreate = perms.canCreate;
   }
 
+  // What «Додати користувача» needs, and it is resolved HERE because the form
+  // is a dialog on this page now rather than a `/staff/new` route of its own.
+  //
+  // Fetched only when the button will actually be drawn: a prop reaches the
+  // page payload whether or not the component using it renders, so asking for
+  // divisions on every visit would send their names to every editor who cannot
+  // create anybody. Same rule the deleted page followed, kept.
+  const showCreate = canCreate && !archivedView;
+  const [divisions, canEditPartTime] = showCreate
+    ? await Promise.all([
+        // ADMIN only: a person's відділ decides which permissions their EDITOR
+        // role would carry, so the server takes it from nobody else.
+        isAdmin ? listDivisions() : Promise.resolve([]),
+        // The same grant `updateStaff` checks, so «Додаткова кафедра» is offered
+        // only to somebody whose save would keep it.
+        isAdmin
+          ? Promise.resolve(true)
+          : editorHasFieldGrant(session.user.staffId, 'partTimeDepartmentIds'),
+      ])
+    : [[], false];
+
   function buildHref(overrides: Record<string, string | undefined>) {
     const sp = new URLSearchParams();
     const base: Record<string, string | undefined> = {
@@ -96,9 +121,12 @@ export default async function StaffPage({
   // fifty rows on screen.
   const exportHref = `/api/export/staff${buildHref({}).slice('/staff'.length)}`;
 
+  // The «Тип» column is gone (owner, 2026-09-21): it printed the same three
+  // letters down every row of the default view, and the fact is an attribute of
+  // the person, so it is a badge on their name now.
   const sortHeader = (
-    <tr className="border-b bg-muted/40">
-      <SortTh
+    <TableRow>
+      <SortHead
         label="ПІБ"
         href={buildHref({
           sort: 'lastName',
@@ -107,7 +135,7 @@ export default async function StaffPage({
         active={effectiveSortField === 'lastName'}
         dir={sortDir}
       />
-      <SortTh
+      <SortHead
         label="Email"
         href={buildHref({
           sort: 'email',
@@ -116,8 +144,7 @@ export default async function StaffPage({
         active={effectiveSortField === 'email'}
         dir={sortDir}
       />
-      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Тип</th>
-      <SortTh
+      <SortHead
         label="Кафедра / Відділ"
         href={buildHref({
           sort: 'department',
@@ -126,7 +153,7 @@ export default async function StaffPage({
         active={effectiveSortField === 'department'}
         dir={sortDir}
       />
-      <SortTh
+      <SortHead
         label="Вчене звання"
         href={buildHref({
           sort: 'academicRank',
@@ -135,10 +162,11 @@ export default async function StaffPage({
         active={effectiveSortField === 'academicRank'}
         dir={sortDir}
       />
-      {isAdmin && <th className="px-4 py-3 text-left font-medium text-muted-foreground">Роль</th>}
+      {isAdmin && <TableHead align="center">Роль</TableHead>}
       {isAdmin && (
-        <SortTh
+        <SortHead
           label="Ставка"
+          align="center"
           href={buildHref({
             sort: 'employmentRate',
             dir: effectiveSortField === 'employmentRate' && sortDir === 'asc' ? 'desc' : 'asc',
@@ -147,7 +175,7 @@ export default async function StaffPage({
           dir={sortDir}
         />
       )}
-    </tr>
+    </TableRow>
   );
 
   // Key changes with every filter/sort combination so the table animates in fresh
@@ -169,66 +197,100 @@ export default async function StaffPage({
     currentPage,
   ].join('|');
 
+  // The pager lives in the table card's own footer strip, pinned under the
+  // rows (owner, 2026-09-21). Loose below the card it was the one piece of
+  // furniture the card's height budget did not account for, so on a short
+  // viewport the page scrolled to reach it — past a table that was already
+  // scrolling its own rows.
+  //
+  // Only when there IS more than one page: `Pagination` renders nothing at one,
+  // and an empty strip under the rows reads as a table that failed to finish.
+  // The count it would have carried is in the header card above either way.
+  const pager = totalPages > 1 && (
+    <tr>
+      <td colSpan={isAdmin ? 6 : 4} className="px-4 py-2">
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          align="center"
+          hrefFor={(p) => buildHref({ page: p > 1 ? String(p) : undefined })}
+          summary={
+            <>
+              Стор. {currentPage} з {totalPages}
+            </>
+          }
+        />
+      </td>
+    </tr>
+  );
+
   return (
-    // Fills the dashboard's main area: the header, filters and pager keep their
-    // height and the table takes what is left, scrolling its rows internally.
-    <div className="flex h-full min-h-0 flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">{archivedView ? 'Архів' : 'Персонал'}</h1>
-          <p className="mt-0.5 text-sm text-foreground-soft">
+    // Fills the dashboard's main area: the header card keeps its height and the
+    // table takes what is left, scrolling its rows internally.
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <StaffListHeader
+        title={archivedView ? 'Архів' : 'Персонал'}
+        subtitle={
+          <>
             {staff.length} записів
             {archivedView && ' — не враховуються в рейтингу поточного року'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Archived people are out of the ordinary list on purpose, so this is
-              the only way back to them — and the only way to restore anyone. */}
-          <Button asChild variant="outline">
-            <Link
-              href={
-                archivedView ? buildHref({ archived: undefined }) : buildHref({ archived: '1' })
-              }
-            >
-              {archivedView ? 'До списку' : 'Архів'}
-            </Link>
-          </Button>
-          {/* ADMIN only, matching the route. The href is this page's own query
-              string, so the file is whatever is on screen right now — including
-              the sort. The shared button, so this export reports its progress
-              the same way every other one does. */}
-          {isAdmin && (
-            <DownloadButton
-              href={exportHref}
-              label="Експорт"
-              title="Список персоналу за поточними фільтрами"
-            />
-          )}
-          {canCreate && !archivedView && (
-            <Button asChild>
-              <Link href="/staff/new">Додати</Link>
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <StaffFilters
-        faculties={faculties.map((f) => ({ id: f.id, name: f.name }))}
-        departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
-        showActivation={isAdmin}
-      />
-
-      <StaffTable key={tableKey} staff={pageStaff} sortHeader={sortHeader} isAdmin={isAdmin} fill />
-
-      <Pagination
-        page={currentPage}
-        totalPages={totalPages}
-        hrefFor={(p) => buildHref({ page: p > 1 ? String(p) : undefined })}
-        summary={
-          <>
-            Стор. {currentPage} з {totalPages} · {staff.length} записів
           </>
         }
+        actions={
+          <>
+            {/* Archived people are out of the ordinary list on purpose, so this
+                is the only way back to them — and the only way to restore
+                anyone. */}
+            <Button asChild variant="outline">
+              <Link
+                href={
+                  archivedView ? buildHref({ archived: undefined }) : buildHref({ archived: '1' })
+                }
+              >
+                {archivedView ? 'До списку' : 'Архів'}
+              </Link>
+            </Button>
+            {/* ADMIN only, matching the route. The href is this page's own query
+                string, so the file is whatever is on screen right now —
+                including the sort. The shared button, so this export reports its
+                progress the same way every other one does. */}
+            {isAdmin && (
+              <DownloadButton
+                href={exportHref}
+                label="Експорт"
+                title="Список персоналу за поточними фільтрами"
+              />
+            )}
+            {showCreate && (
+              <CreateStaffDialog
+                departments={departments}
+                divisions={divisions}
+                isAdmin={isAdmin}
+                canEditPartTime={canEditPartTime}
+              />
+            )}
+          </>
+        }
+        filters={
+          <StaffFilters
+            faculties={faculties.map((f) => ({ id: f.id, name: f.name }))}
+            departments={departments.map((d) => ({
+              id: d.id,
+              name: d.name,
+              facultyId: d.facultyId,
+            }))}
+            showActivation={isAdmin}
+          />
+        }
+      />
+
+      <StaffTable
+        key={tableKey}
+        staff={pageStaff}
+        head={sortHeader}
+        isAdmin={isAdmin}
+        footer={pager || undefined}
+        fill
       />
     </div>
   );

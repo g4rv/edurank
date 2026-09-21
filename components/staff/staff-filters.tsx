@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useRef, useTransition } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, Search, X } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -151,7 +151,8 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
       label: SCIENTIFIC_DEGREE_LABELS[degree as ScientificDegree],
     });
   if (partTime) activeFilters.push({ key: 'partTime', label: 'Сумісник' });
-  if (degreeMatch) activeFilters.push({ key: 'degreeMatch', label: 'Відповідність ступеня' });
+  if (degreeMatch)
+    activeFilters.push({ key: 'degreeMatch', label: 'Ступінь за спеціальністю кафедри' });
   if (activated)
     activeFilters.push({
       key: 'activated',
@@ -174,61 +175,63 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
 
   return (
     <div className="space-y-3">
+      {/* **Two rows, and the split is by SHAPE, not by subject** (owner's
+          sketch, 2026-09-21).
+
+          The first row holds everything whose widest possible value is a short
+          phrase, so each control can be given a fixed width and the row never
+          moves. The second holds the two whose values are sentences —
+          «Навчально-науковий інститут менеджменту та неперервної освіти» is 55
+          characters — plus the switches, which have no menu at all.
+
+          One flat row of nine could not do this. A факультет sized to its own
+          longest name pushed everything after it off the end of the card, and a
+          факультет sized to anything less truncated the name somebody had just
+          chosen. Given a row of their own the two of them split it evenly and
+          both fit. */}
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={selectedType} onValueChange={(v) => setType(v as TypeValue)}>
-          <SelectTrigger size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start">
-            {TYPE_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* **Capped at `max-w-88` (352px), and the cap is the point** (owner,
+            2026-09-21). It used to take whatever the row had left, which on a
+            wide screen was a 600px box for a surname — the one control that
+            grew was the one with the least to show. The cap holds it to a size
+            that still shows «Пошук за ПІБ, email, ORCID...» whole.
 
-        <Input
-          placeholder="Пошук за ПІБ, email, ORCID..."
-          defaultValue={q}
-          onChange={(e) => handleSearch(e.target.value)}
-          className="h-8 w-64 text-sm"
-        />
+            Still `flex-1` rather than a flat `w-64`, because it is the only
+            item here that can give anything back. With both switches on this
+            row the contents sum 39px past the card at 1660: fixed, the last
+            switch drops to a line of its own; flexible, the search gives up
+            those 39 and everything stays on one line. `min-w-40` is where it
+            stops and the row wraps instead.
 
-        <Select
-          key={facultyId || '__faculty_reset__'}
-          value={facultyId || undefined}
-          onValueChange={(v) => handleFacultyChange(v === '__all__' ? '' : v)}
-        >
-          <SelectTrigger size="sm">
-            <SelectValue placeholder="Факультет" />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start">
-            <SelectItem value="__all__">Всі факультети</SelectItem>
-            {faculties.map((f) => (
-              <SelectItem key={f.id} value={f.id}>
-                {f.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            No height and no `text-sm`: both come from `fieldSurface()`, and a
+            `text-sm` here would undo the `text-base md:text-sm` that stops iOS
+            zooming a focused field. */}
+        <div className="relative max-w-88 min-w-40 flex-1">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder="Пошук за ПІБ, email, ORCID..."
+            defaultValue={q}
+            onChange={(e) => handleSearch(e.target.value)}
+            aria-label="Пошук"
+            className="pl-9"
+          />
+        </div>
 
-        {/* A combobox, not a select: thirty-one кафедри is a scan, not a
-            choice. Shared with every other кафедра picker in the app. */}
-        <DepartmentCombobox
-          departments={visibleDepts}
-          value={departmentId ?? ''}
-          onChange={(next) => setParam('dept', next || undefined)}
-          allowAll={{ label: 'Всі кафедри' }}
-          placeholder="Кафедра"
-        />
-
+        {/* **Every select below carries a width, and it is the width of its OWN
+            longest row** — placeholder, «всі …» and every option measured, then
+            rounded up the even ladder (§4). A select sizes to its content by
+            default, so choosing «Старший викладач» after «Доцент» grew the
+            trigger and slid every control to its right along with it. A filter
+            bar must not rearrange itself when you use it. */}
         <Select
           key={rank || '__rank_reset__'}
           value={rank || undefined}
           onValueChange={(v) => setParam('rank', v === '__all__' ? undefined : v)}
         >
-          <SelectTrigger size="sm">
+          <SelectTrigger className="w-44">
             <SelectValue placeholder="Вчене звання" />
           </SelectTrigger>
           <SelectContent position="popper" align="start">
@@ -248,7 +251,7 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
           value={degree || undefined}
           onValueChange={(v) => setParam('degree', v === '__all__' ? undefined : v)}
         >
-          <SelectTrigger size="sm">
+          <SelectTrigger className="w-44">
             <SelectValue placeholder="Науковий ступінь" />
           </SelectTrigger>
           <SelectContent position="popper" align="start">
@@ -263,13 +266,28 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
           </SelectContent>
         </Select>
 
+        {/* `w-48`, not `w-44`: measured, «Адміністративний» renders 175px and
+            `w-44` is 176, which is a fit only until a font falls back. */}
+        <Select value={selectedType} onValueChange={(v) => setType(v as TypeValue)}>
+          <SelectTrigger className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start">
+            {TYPE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {showActivation && (
           <Select
             key={activated || '__activated_reset__'}
             value={activated || undefined}
             onValueChange={(v) => setParam('activated', v === '__all__' ? undefined : v)}
           >
-            <SelectTrigger size="sm">
+            <SelectTrigger className="w-40">
               <SelectValue placeholder="Активація" />
             </SelectTrigger>
             <SelectContent position="popper" align="start">
@@ -283,7 +301,11 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
           </Select>
         )}
 
-        <label className="flex cursor-pointer items-center gap-2">
+        {/* **The two switches belong on THIS row** (owner, 2026-09-21). They
+            are narrow, they have no menu to size to, and the row below is for
+            the two controls whose values are sentences — a switch beside those
+            was the only thing on it that was not 600px wide. */}
+        <label className="flex shrink-0 cursor-pointer items-center gap-2">
           <Switch
             checked={partTime}
             onCheckedChange={(checked) => setParam('partTime', checked ? '1' : undefined)}
@@ -293,7 +315,7 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
           </span>
         </label>
 
-        <label className="flex cursor-pointer items-center gap-2">
+        <label className="flex shrink-0 cursor-pointer items-center gap-2">
           <Switch
             checked={degreeMatch}
             onCheckedChange={(checked) => setParam('degreeMatch', checked ? '1' : undefined)}
@@ -301,33 +323,75 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
           <span
             className={cn('text-sm', degreeMatch ? 'text-foreground' : 'text-muted-foreground')}
           >
-            Відповідність ступеня
+            Ступінь за спеціальністю кафедри
           </span>
         </label>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {/* **The two long ones share the row evenly.** `flex-1` rather than a
+            fixed width: no number fits both «Навчально-науковий інститут
+            менеджменту та неперервної освіти» and a card that has to hold two
+            of these plus the switches. Half a row each is ~540px at this width,
+            enough for the longest факультет AND the longest кафедра.
+            `min-w-64` is the floor they wrap at instead of shrinking into
+            uselessness. */}
+        <div className="min-w-64 flex-1">
+          <Select
+            key={facultyId || '__faculty_reset__'}
+            value={facultyId || undefined}
+            onValueChange={(v) => handleFacultyChange(v === '__all__' ? '' : v)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Факультет" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem value="__all__">Всі факультети</SelectItem>
+              {faculties.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* A combobox, not a select: thirty-one кафедри is a scan, not a
+            choice. Shared with every other кафедра picker in the app. */}
+        <div className="min-w-64 flex-1">
+          <DepartmentCombobox
+            departments={visibleDepts}
+            value={departmentId ?? ''}
+            onChange={(next) => setParam('dept', next || undefined)}
+            allowAll={{ label: 'Всі кафедри' }}
+            placeholder="Кафедра"
+            className="w-full"
+          />
+        </div>
 
         {/* Beside the filters rather than over the table: this is the row that
             was clicked, and it is where the eye already is. The search input is
             deliberately never disabled — a debounced navigation is in flight
-            for most of the time somebody is still typing. */}
-        {pending && (
-          <Loader2
-            className="size-4 shrink-0 animate-spin text-muted-foreground"
-            aria-label="Оновлення"
-          />
-        )}
+            for most of the time somebody is still typing.
 
-        {activeFilters.length > 0 && (
-          <button
-            onClick={clearAll}
-            className="ml-auto flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            title="Очистити всі фільтри"
-          >
-            <X className="size-3.5" />
-            Очистити
-          </button>
-        )}
+            Always rendered and faded, not mounted on demand: appearing and
+            disappearing moved the two switches 24px sideways on every
+            navigation. */}
+        <Loader2
+          aria-hidden
+          className={cn(
+            'size-4 shrink-0 animate-spin text-muted-foreground transition-opacity',
+            pending ? 'opacity-100' : 'opacity-0'
+          )}
+        />
       </div>
 
+      {/* **«Очистити» lives HERE, with the chips it clears** — not at the end
+          of the control row, where `ml-auto` used to put it. Once the search
+          box flexes, that row is always full, so the button wrapped onto a line
+          of its own and sat right-aligned above the chips with nothing beside
+          it. It is also the more honest place: this clears the pills, and the
+          pills are what it is next to. */}
       {activeFilters.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           {activeFilters.map((f) => (
@@ -345,6 +409,15 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
               </button>
             </span>
           ))}
+
+          <button
+            onClick={clearAll}
+            className="flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            title="Очистити всі фільтри"
+          >
+            <X className="size-3.5" />
+            Очистити
+          </button>
         </div>
       )}
     </div>

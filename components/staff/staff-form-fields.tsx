@@ -8,6 +8,7 @@ import {
   type UseFormRegister,
   type UseFormSetValue,
 } from 'react-hook-form';
+import { cn } from '@/lib/utils';
 import { Card } from '@/components/aurora/ui/card';
 import { CARD_TITLES } from '@/components/staff/profile/cards';
 import { DateInput } from '@/components/aurora/ui/date-input';
@@ -163,42 +164,72 @@ export function staffToFormValues(staff: StaffDetail): RawStaffFormValues {
  * descendant of it was ever absolutely positioned. It goes in `Card`'s `action`
  * slot, which is where it was already drawn.
  *
+ * **`--foreground-soft`, not `--muted-foreground/30`** (owner, 2026-09-21). At
+ * 30% of the muted grey it measured under 2:1 and was barely on the screen —
+ * and this is the only thing on a scrolling dialog that says how far down the
+ * form you are, which is the opposite of something glanced past.
+ *
  * Local and unexported on purpose: one screen numbers its sections. §11 of
  * `docs/aurora.md` — a component with one caller stays next to its caller.
  */
 function StepNumber({ n }: { n: string }) {
   return (
-    <span className="font-mono text-xs font-bold text-muted-foreground/30 tabular-nums select-none">
+    <span className="font-mono text-xs font-bold text-foreground-soft tabular-nums select-none">
       {n}
     </span>
   );
 }
 
 /**
- * Two fields to a row, and **the controls line up, not the labels**.
+ * Two fields to a row, and **every part lines up with its opposite number**:
+ * label with label, control with control, error with error.
  *
- * A field is a label stacked on a control, and the labels are not the same
- * height: «Базова освіта за спеціальністю кафедри» wraps to two lines where
- * «Спеціальність за дипломом» beside it takes one. Aligned from the top, the
- * two labels start level and the two CONTROLS end up a line apart — so the row
- * reads as broken even though nothing is (owner, 2026-09-11).
+ * A field is three stacked parts and any of them can change height. Aligning
+ * the field as a BLOCK — by its top or by its bottom — lines up one edge and
+ * lets the other two drift, and both drifts are real here:
  *
- * `items-end` aligns each field's bottom edge instead. The boxes you type in
- * sit on one line, which is the line the eye actually follows across a form,
- * and a wrapped label simply grows upward into space the row already had.
+ * - **A label wraps.** «Базова освіта за спеціальністю кафедри» takes two lines
+ *   where «Спеціальність за дипломом» beside it takes one. Aligned from the top,
+ *   the two labels start level and the two CONTROLS end up a line apart.
+ * - **An error appears.** `FieldError` reserves no height when empty, so a
+ *   refused submit makes one field taller at the BOTTOM. Aligned from the
+ *   bottom — which is what this used to do — the invalid field's control rides
+ *   up above its neighbour's (owner, 2026-09-21).
  *
- * One constant rather than the same string at three call sites: the three cards
- * are one decision about how a form row works, and §11 of `docs/aurora.md` is
- * about exactly the drift that happens when they are typed out separately.
+ * `items-end` fixed the first and caused the second; `items-start` does the
+ * reverse. No block alignment fixes both, because the fault is that a field is
+ * being treated as one box when it is three.
  *
- * **The one case it does not cover** is a field showing a validation error.
- * `FormField` renders `FieldError` as the last child and it reserves no height
- * when empty, so an invalid field is taller at the bottom and its control rides
- * up above its neighbour's. That is transient and only after a refused submit;
- * a wrapped label is permanent and on every render. Fixing both needs the label
- * to hold a reserved height, which is a bigger change than the row deserves.
+ * **Subgrid treats it as three.** The ROW owns the rows; each field spans three
+ * of them and inherits them instead of defining its own. Every label then sits
+ * in one shared row whose height is the tallest label, every control in the
+ * next, every error in the third — so a wrapped label grows the label row for
+ * BOTH columns and an error grows the error row for both, and the controls
+ * never move relative to one another.
+ *
+ * Three details that make the spacing come out right:
+ *
+ * - **`gap-y-2`, not `gap-y-4`.** The row gap now falls between label→control
+ *   and control→error as well as between one pair of fields and the next. At 8px
+ *   it gives a field its own internal spacing, and between pairs it applies
+ *   twice across an empty error row — 8 + 0 + 8 — landing back on the 16px these
+ *   rows have always had.
+ * - **The field's own `gap` is zeroed.** `Field` is `flex flex-col gap-2`; as a
+ *   subgrid it takes its spacing from the row, and its own gap would be added on
+ *   top of it.
+ * - **The label is `self-end`.** Grid rows stretch, so a one-line label in a row
+ *   sized for a two-line one would float at the top with a hole under it. Pushed
+ *   to the bottom of its row it hugs its own control, as the wrapped one does.
+ *
+ * Written as child selectors on the ROW rather than as props on `FormField`,
+ * because this is one screen's layout and `FormField` has some seventy callers
+ * that want nothing to do with it.
  */
-const FIELD_ROW = 'grid grid-cols-2 items-end gap-4';
+const FIELD_ROW = cn(
+  'grid grid-cols-2 gap-x-4 gap-y-2',
+  '[&>[data-slot=field]]:grid [&>[data-slot=field]]:grid-rows-subgrid [&>[data-slot=field]]:row-span-3 [&>[data-slot=field]]:gap-0',
+  '[&_[data-slot=field-label]]:self-end'
+);
 
 interface StaffFormFieldsProps {
   register: UseFormRegister<RawStaffFormValues>;
@@ -257,6 +288,19 @@ interface StaffFormFieldsProps {
    * is, this component does not.
    */
   layout?: 'stack' | 'columns';
+  /**
+   * Drop the section cards' shadow.
+   *
+   * For a form inside a DIALOG, which is itself a card: §2 of `docs/aurora.md`
+   * gives no elevation to anything nested inside one, and a `shadow-card` on
+   * every section put five cards on top of a card. On a page the cards sit on
+   * the wash and the shadow is what lifts them off it, so this is off by
+   * default.
+   *
+   * The border stays either way — that is what separates one section from the
+   * next, and it is doing a different job from the shadow.
+   */
+  flat?: boolean;
   /** Anyone creating a record picks the type; only ADMIN may change it later */
   canEditType: boolean;
   /**
@@ -295,6 +339,7 @@ export function StaffFormFields({
   divisions,
   numbered = false,
   layout = 'stack',
+  flat = false,
   canEditType,
   editableFields,
 }: StaffFormFieldsProps) {
@@ -309,6 +354,9 @@ export function StaffFormFields({
    * already behaves on «Місця роботи».
    */
   const locked = (field: string) => editableFields !== undefined && !editableFields.includes(field);
+  // One constant rather than the same ternary at five call sites — the five
+  // cards are one decision about elevation, not five.
+  const CARD_CLASS = flat ? 'shadow-none' : undefined;
   // The two columns «Місця роботи» is a view of. `WorkplacesField` owns the
   // rules that used to live here — one кафедра cannot appear on two rows, and
   // it drops taken options from the other row's list itself.
@@ -327,7 +375,7 @@ export function StaffFormFields({
   // makes one. Assigning them in that same order keeps 01…05 correct.
 
   const basics = (
-    <Card title={CARD_TITLES.basics} action={stepNumber()}>
+    <Card title={CARD_TITLES.basics} action={stepNumber()} className={CARD_CLASS}>
       <FieldGroup className={FIELD_ROW}>
         <FormField htmlFor="lastName" label="Прізвище" error={errors.lastName}>
           <Input
@@ -394,8 +442,17 @@ export function StaffFormFields({
     </Card>
   );
 
-  const workplaces = (
-    <Card title={CARD_TITLES.workplaces} action={stepNumber()}>
+  // **Кафедри for an НПП; a відділ for anybody** (owner, 2026-09-21).
+  //
+  // An administrative employee belongs to no кафедра — that is what `isNpp:
+  // false` means — so the two кафедра rows asked them a question with no right
+  // answer, and the schema does not require one of them either. A відділ is the
+  // opposite: it is the ONLY structure a non-НПП sits in, so it stays.
+  //
+  // The card disappears entirely when neither half applies — a non-НПП being
+  // created by an editor, who may not set a відділ.
+  const workplaces = (isNpp || isAdmin) && (
+    <Card title={CARD_TITLES.workplaces} action={stepNumber()} className={CARD_CLASS}>
       <FieldGroup className="gap-4">
         {/* One row per WORKPLACE (owner's sketch, 2026-08-26). «Основна» and
               «Додаткова» were two controls for one fact and could not express
@@ -405,28 +462,30 @@ export function StaffFormFields({
 
               `lib/staff/workplaces.ts` converts between this list and the two
               columns it still lives in. */}
-        <WorkplacesField
-          departments={departments}
-          // ADMIN only, like the figure itself. The page already refuses to
-          // FETCH it for anyone else — `isAdmin ? getStakeBreakdown(id) : []` —
-          // so nothing leaked; but `[]` is not `null`, so an editor still got
-          // the «Ставка» column with a dash on every row. That reads as «the
-          // завідувач has allocated nothing», which is a claim about the data
-          // rather than about their access, and it is not true (2026-09-07).
-          breakdown={isAdmin ? stakeBreakdown : null}
-          departmentId={primaryDepartmentId ?? ''}
-          partTimeDepartmentIds={partTimeIds ?? []}
-          canEditPartTime={canEditPartTime}
-          canEditPrimary={!locked('departmentId')}
-          disabled={isPending}
-          error={errors.departmentId ?? errors.partTimeDepartmentIds}
-          onChange={(next) => {
-            setValue('departmentId', next.departmentId, { shouldDirty: true });
-            setValue('partTimeDepartmentIds', next.partTimeDepartmentIds, {
-              shouldDirty: true,
-            });
-          }}
-        />
+        {isNpp && (
+          <WorkplacesField
+            departments={departments}
+            // ADMIN only, like the figure itself. The page already refuses to
+            // FETCH it for anyone else — `isAdmin ? getStakeBreakdown(id) : []` —
+            // so nothing leaked; but `[]` is not `null`, so an editor still got
+            // the «Ставка» column with a dash on every row. That reads as «the
+            // завідувач has allocated nothing», which is a claim about the data
+            // rather than about their access, and it is not true (2026-09-07).
+            breakdown={isAdmin ? stakeBreakdown : null}
+            departmentId={primaryDepartmentId ?? ''}
+            partTimeDepartmentIds={partTimeIds ?? []}
+            canEditPartTime={canEditPartTime}
+            canEditPrimary={!locked('departmentId')}
+            disabled={isPending}
+            error={errors.departmentId ?? errors.partTimeDepartmentIds}
+            onChange={(next) => {
+              setValue('departmentId', next.departmentId, { shouldDirty: true });
+              setValue('partTimeDepartmentIds', next.partTimeDepartmentIds, {
+                shouldDirty: true,
+              });
+            }}
+          />
+        )}
 
         {/* ADMIN only: a person's відділ decides which permissions their
               EDITOR role would carry, so the server takes it from nobody else.
@@ -461,30 +520,25 @@ export function StaffFormFields({
     </Card>
   );
 
-  // Only when CREATING somebody (2026-08-24). On an existing record the ставка
-  // belongs to the завідувачі — `saveDistribution` writes it as the sum across
-  // both кафедри — and it is shown under each кафедра above rather than typed
-  // here. A new person has no distribution yet, so somebody has to say what
-  // they were hired at.
-  const stake = isAdmin && stakeBreakdown === null && (
-    <Card title="Ставка" action={stepNumber()}>
-      <FormField htmlFor="employmentRate" label="Ставка" error={errors.employmentRate}>
-        <Input
-          id="employmentRate"
-          type="number"
-          step="0.25"
-          min="0"
-          max="2"
-          placeholder="0.75"
-          disabled={isPending}
-          {...register('employmentRate')}
-        />
-      </FormField>
-    </Card>
-  );
+  // **There is no typed «Ставка» any more** (owner, 2026-09-21).
+  //
+  // It was the last thing on the create form that wrote `Staff.employmentRate`,
+  // and what it wrote never survived: the column is a CACHE of
+  // Σ StakeAllocation for the year, so the first time any завідувач saved a
+  // розподіл touching this person, `syncEmploymentRate` replaced it. A field
+  // whose value is overwritten by the next person to open a different screen is
+  // a question with no consequence, and it read as one.
+  //
+  // Removing it finishes something the 2026-08-24 design set out to do and did
+  // not: «after this, `employmentRate` has exactly one writer». `updateStaff`
+  // already drops the field on the way in; this was the one path left that
+  // still set it, so the column is now derived and nothing else.
+  //
+  // See `docs/audit-2026-08-27.md` §4 for dropping the column itself, which is
+  // a schema change and needs a window.
 
   const academic = isNpp && (
-    <Card title={CARD_TITLES.academic} action={stepNumber()}>
+    <Card title={CARD_TITLES.academic} action={stepNumber()} className={CARD_CLASS}>
       <FieldGroup className={FIELD_ROW}>
         <FormField
           label="Вчене звання"
@@ -687,15 +741,16 @@ export function StaffFormFields({
     </Card>
   );
 
-  {
-    /* Not gated on isNpp: an administrative employee can hold a doctorate and
-          an ORCID too. The citation counts only feed the rating for НПП — see
-          syncProfileDerived — so recording them for anyone else is harmless.
-          «Академічна інформація» above stays НПП-only: звання and ступінь really
-          are academic-staff data. */
-  }
-  const research = (
-    <Card title={CARD_TITLES.research} action={stepNumber()}>
+  // **НПП only** (owner, 2026-09-21), reversing the note that stood here.
+  //
+  // The old argument was that an administrative employee may hold a doctorate
+  // and an ORCID too, and that recording them is harmless because the citation
+  // counts only feed the rating for НПП. Harmless is not the same as useful: on
+  // an administrative record these seven fields are seven questions nobody has
+  // an answer for, and the form's job is to ask for what this person actually
+  // has. Somebody who does publish is an НПП.
+  const research = isNpp && (
+    <Card title={CARD_TITLES.research} action={stepNumber()} className={CARD_CLASS}>
       <FieldGroup className={FIELD_ROW}>
         <FormField htmlFor="wosUrl" label="Web of Science — URL" error={errors.wosUrl}>
           <Input
@@ -793,7 +848,6 @@ export function StaffFormFields({
       <>
         {basics}
         {workplaces}
-        {stake}
         {academic}
         {research}
       </>
@@ -816,8 +870,6 @@ export function StaffFormFields({
   // card is exactly as tall as what is in it. It is what `ProfileDetails` does,
   // and the two pages now stack their cards the same way.
   //
-  // «Ставка» is last in the right column. It only appears on the CREATE form,
-  // which stacks, so in practice it is never drawn here at all.
   return (
     <div className="flex flex-col items-start gap-4 lg:flex-row">
       <div className="flex w-full flex-1 flex-col gap-4">
@@ -828,7 +880,6 @@ export function StaffFormFields({
       <div className="flex w-full flex-1 flex-col gap-4">
         {workplaces}
         {research}
-        {stake}
       </div>
     </div>
   );

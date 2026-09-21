@@ -1,8 +1,14 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import { StaffListHeader } from '@/components/staff/staff-list-header';
 import { StaffTableSkeleton } from '@/components/staff/staff-table-skeleton';
 
 /**
- * The «Персонал» list — filters over a table.
+ * The «Персонал» list — a header card over a table.
+ *
+ * **The same `StaffListHeader` the page uses**, with skeletons in its slots, so
+ * nothing moves when the real one arrives. Drawing the card by hand here is how
+ * the two drift: the page gained a band and a hairline, and a loose stack of
+ * skeletons over the wash would have kept saying the old shape.
  *
  * **In a `(list)` route group, and that is load-bearing** (2026-09-09). A
  * `loading.tsx` covers its own segment AND every route beneath it, so while this
@@ -19,26 +25,40 @@ import { StaffTableSkeleton } from '@/components/staff/staff-table-skeleton';
  */
 export default function StaffLoading() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1.5">
-          <Skeleton className="h-7 w-28" />
-          <Skeleton className="h-4 w-16" />
-        </div>
-        <Skeleton className="h-9 w-20 rounded-lg" />
-      </div>
-
-      <Skeleton className="h-9 w-56 rounded-lg" />
-
-      <div className="flex flex-wrap gap-2">
-        <Skeleton className="h-8 w-64 rounded-lg" />
-        <Skeleton className="h-8 w-28 rounded-lg" />
-        <Skeleton className="h-8 w-28 rounded-lg" />
-        <Skeleton className="h-8 w-32 rounded-lg" />
-        <Skeleton className="h-8 w-36 rounded-lg" />
-        <Skeleton className="h-8 w-20 rounded-lg" />
-        <Skeleton className="h-8 w-36 rounded-lg" />
-      </div>
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <StaffListHeader
+        // Not the word «Персонал»: this boundary cannot read the query string,
+        // and the archive view is titled «Архів» — a guessed heading would flash
+        // the wrong one on the way to the right one.
+        title={<Skeleton className="h-8 w-40" />}
+        subtitle={<Skeleton className="h-4 w-24" />}
+        actions={
+          <>
+            <Skeleton className="h-9 w-20 rounded-lg" />
+            <Skeleton className="h-9 w-28 rounded-lg" />
+            <Skeleton className="h-9 w-24 rounded-lg" />
+          </>
+        }
+        filters={
+          // Two rows, matching `StaffFilters`: the short-valued controls and
+          // the switches above, the two long pickers below.
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Skeleton className="h-8 w-64 rounded-lg" />
+              <Skeleton className="h-8 w-44 rounded-lg" />
+              <Skeleton className="h-8 w-44 rounded-lg" />
+              <Skeleton className="h-8 w-48 rounded-lg" />
+              <Skeleton className="h-8 w-40 rounded-lg" />
+              <Skeleton className="h-5 w-28 rounded-full" />
+              <Skeleton className="h-5 w-60 rounded-full" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Skeleton className="h-8 min-w-64 flex-1 rounded-lg" />
+              <Skeleton className="h-8 min-w-64 flex-1 rounded-lg" />
+            </div>
+          </div>
+        }
+      />
 
       <StaffTableSkeleton />
     </div>
