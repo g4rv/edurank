@@ -2,3 +2,7 @@
 node_modules
 pnpm-lock.yaml
 public
+
+# Vendored third-party skill. skills-lock.json records a hash of these files,
+# so reformatting them would make the copy stop matching what was installed.
+.agents
