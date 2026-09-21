@@ -5,12 +5,12 @@ import { listRatings, type RatingSortField } from '@/lib/queries/list-ratings';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { DownloadButton } from '@/components/ui/download-button';
+import { EmptyState } from '@/components/aurora/ui/card';
+import { ListHeader } from '@/components/aurora/ui/list-header';
+import { SortHead, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { RatingFilters } from '@/components/rating/rating-filters';
+import { RatingRollupTable } from '@/components/rating/rating-rollup-table';
 import { YearSelect } from '@/components/rating/year-select';
-import { SortTh } from '@/components/ui/sort-th';
-import { DataTable } from '@/components/ui/data-table';
-import { RowLinkCell } from '@/components/ui/row-link-cell';
-import { cn } from '@/lib/utils';
 
 export default async function RatingRollupPage({
   searchParams,
@@ -27,10 +27,8 @@ export default async function RatingRollupPage({
   if (!template) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Рейтинг НПП</h1>
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Рейтинговий рік ще не налаштовано.
-        </div>
+        <h1 className="text-2xl font-semibold tracking-[-0.01em]">Рейтинг НПП</h1>
+        <EmptyState>Рейтинговий рік ще не налаштовано.</EmptyState>
       </div>
     );
   }
@@ -99,116 +97,83 @@ export default async function RatingRollupPage({
     return `/rating?${sp.toString()}`;
   }
 
+  const head = (
+    <TableRow>
+      {/* Not sortable: the rank IS the sort, so a chevron on it would promise
+          an order it cannot give. */}
+      <TableHead numeric align="center">
+        №
+      </TableHead>
+      <SortHead label="ПІБ" href={sortHref('name')} active={sortField === 'name'} dir={sortDir} />
+      <SortHead
+        label="Кафедра"
+        href={sortHref('department')}
+        active={sortField === 'department'}
+        dir={sortDir}
+      />
+      {[1, 2, 3, 4, 5].map((n) => (
+        <SortHead
+          key={n}
+          label={`Р${n}`}
+          numeric
+          align="center"
+          href={sortHref(`s${n}` as RatingSortField)}
+          active={sortField === `s${n}`}
+          dir={sortDir}
+          className="px-2"
+        />
+      ))}
+      <SortHead
+        label="Разом"
+        numeric
+        align="center"
+        href={sortHref('total')}
+        active={sortField === 'total'}
+        dir={sortDir}
+      />
+    </TableRow>
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Рейтинг НПП</h1>
-          <p className="mt-0.5 text-sm text-foreground-soft">
+    // Fills the dashboard's main area: the header card keeps its height and the
+    // table takes what is left, scrolling its ~330 rows internally.
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <ListHeader
+        title="Рейтинг НПП"
+        subtitle={
+          <>
             {rows.length} НПП
             {shown?.status === 'CLOSED' && ' · рік закрито'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <YearSelect years={years} value={year} />
-          <DownloadButton
-            href={`/api/export/ratings?year=${year}`}
-            label="Рейтинги (архів)"
-            title="Офіційна форма рейтингового оцінювання для кожного НПП"
+          </>
+        }
+        actions={
+          <>
+            <YearSelect years={years} value={year} />
+            <DownloadButton
+              href={`/api/export/ratings?year=${year}`}
+              label="Рейтинги (.zip)"
+              title="Офіційна форма рейтингового оцінювання для кожного НПП"
+            />
+            <DownloadButton
+              href={`/api/export/kharakterystyka?year=${year}`}
+              label="Характеристики (.zip)"
+              title="Характеристика_РНПАВ для кожного НПП за останні 5 років"
+            />
+          </>
+        }
+        filters={
+          <RatingFilters
+            faculties={faculties.map((f) => ({ id: f.id, name: f.name }))}
+            departments={departments.map((d) => ({
+              id: d.id,
+              name: d.name,
+              facultyId: d.facultyId,
+            }))}
           />
-          <DownloadButton
-            href={`/api/export/kharakterystyka?year=${year}`}
-            label="Характеристики (архів)"
-            title="Характеристика_РНПАВ для кожного НПП за останні 5 років"
-          />
-        </div>
-      </div>
-
-      <RatingFilters
-        faculties={faculties.map((f) => ({ id: f.id, name: f.name }))}
-        departments={departments.map((d) => ({ id: d.id, name: d.name, facultyId: d.facultyId }))}
+        }
       />
 
-      <DataTable>
-        <thead>
-          <tr className="border-b bg-muted/40 text-left">
-            <th className="w-12 px-4 py-3 font-medium text-muted-foreground">№</th>
-            <SortTh
-              label="ПІБ"
-              href={sortHref('name')}
-              active={sortField === 'name'}
-              dir={sortDir}
-            />
-            <SortTh
-              label="Кафедра"
-              href={sortHref('department')}
-              active={sortField === 'department'}
-              dir={sortDir}
-            />
-            {[1, 2, 3, 4, 5].map((n) => (
-              <SortTh
-                key={n}
-                label={`Р${n}`}
-                title={`Розділ ${n}`}
-                href={sortHref(`s${n}` as RatingSortField)}
-                active={sortField === `s${n}`}
-                dir={sortDir}
-                align="right"
-                className="w-20 px-3"
-              />
-            ))}
-            <SortTh
-              label="Разом"
-              href={sortHref('total')}
-              active={sortField === 'total'}
-              dir={sortDir}
-              align="right"
-              className="w-24"
-            />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={row.id} className="transition-colors">
-              <td className="px-4 py-3 text-muted-foreground tabular-nums">{index + 1}</td>
-              <RowLinkCell href={`/staff/${row.id}/rating`}>{row.name}</RowLinkCell>
-              <td className="px-4 py-3 text-muted-foreground">
-                {row.department ?? '—'}
-                {/* Another кафедра also pays them a ставка (2026-08-24). Shown
-                    on every row, filtered or not, so the кафедра column never
-                    tells only half the story. */}
-                {row.partTimeDepartments.length > 0 && (
-                  <span
-                    className="ml-2 inline-flex items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning"
-                    title={`Також працює за сумісництвом: ${row.partTimeDepartments.join(', ')}`}
-                  >
-                    Сумісник
-                  </span>
-                )}
-              </td>
-              {row.sections.map((score, i) => (
-                <td
-                  key={i}
-                  className={cn(
-                    'px-3 py-3 text-right tabular-nums',
-                    score === 0 && 'text-muted-foreground/50'
-                  )}
-                >
-                  {score}
-                </td>
-              ))}
-              <td className="px-4 py-3 text-right font-semibold tabular-nums">{row.total}</td>
-            </tr>
-          ))}
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
-                Нікого не знайдено
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </DataTable>
+      <RatingRollupTable rows={rows} head={head} />
     </div>
   );
 }
