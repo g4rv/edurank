@@ -190,7 +190,7 @@ In dark mode the ramp is 17.18 / 9.60 / 6.91 and **`--muted-foreground` does not
 move**: lifting it there would squeeze it against the new tier, and the dark
 ramp is already the tighter of the two.
 
-### Two tokens that were renamed or removed, and why
+### Three tokens that were renamed or removed, and why
 
 **`--destructive` became `--error`** so the three statuses read as one set. The
 shadcn button VARIANT is still called `destructive`, and that is correct — the
@@ -214,12 +214,43 @@ was «the primary action». That makes it match «Аврора»'s own button, w
 been the brand from the start, so the two sets stop disagreeing while the
 migration finishes.
 
+**The whole `--sidebar-*` set is gone** (2026-09-21). shadcn ships eight tokens
+for the rail — a ground, a foreground, an accent pair, a primary pair, a border
+and a ring. **Seven were never read by anything.** `--sidebar` itself was
+explicitly not used: the rail is `.glass-chrome`, so the wash reads through it.
+Somebody even re-tuned `--sidebar-primary` in dark mode away from shadcn's blue,
+«the one hue that slipped past the brand rule» — tuning a colour nothing painted.
+
+The eighth, `--sidebar-foreground`, was read twice, and it was
+`oklch(0.145 0.012 264)` in light and `oklch(0.985 0 0)` in dark: **`--foreground`
+character for character in both themes.** A second name for ink.
+
+**They are `--foreground` now, which is where they always were** — under the
+other name. `--foreground-soft` was tried for a rail of seventeen links and
+refused (owner, 2026-09-21): §4 gives soft to prose that EXPLAINS, and a nav
+label is a name. **What marks the active item is its pill, not the weight of its
+neighbours** — `bg-brand/12` plus `font-medium` plus the hue, which is three
+signals without borrowing a fourth from dimming everything else.
+
+Renaming the token is what surfaced the real fault. Measured against the rail
+the active item read 4.80 and looked fine; measured against **the pill actually
+behind it** it read **4.01**, under AA — the exact failure the section below
+this one describes, in the one place that had not adopted the fix. It is
+`text-brand-strong` now: **6.40**.
+
 ### Brand text on a brand tint
 
 `--brand` on `bg-brand/10` measures **4.24:1** — under AA — because the tint
 lifts the background toward the text. Use **`--brand-strong`** there (6.76:1):
-the НПП badge, a tab's hover state, anything where the accent sits on its own
-wash. On a plain card `--brand` reads 4.8 and is correct as it is.
+the НПП badge, a tab's hover state, **the active nav item on its `bg-brand/12`
+pill**, anything where the accent sits on its own wash. On a plain card
+`--brand` reads 4.8 and is correct as it is.
+
+**The nav item was missed until 2026-09-21**, and the way it hid is worth
+keeping: measured against the RAIL — the surface the item sits on — it read 4.80
+and passed. The pill is what is actually behind the text, and against that it
+read 4.01. Composite the layer the glyphs are painted on, not the one the
+element sits in.
 
 Dark mode needs no deepening, so `--brand-strong` equals `--brand` there — the
 brand is the light half of the pair, and a tint darkens its background instead
@@ -241,6 +272,19 @@ distinction and the one a reader actually acts on.
 
 Blue therefore means «this leaves EduRank». Keep it that way.
 
+**A column where EVERY cell is a link underlines on HOVER, not at rest**
+(2026-09-21). The rule above is written for a link inside a record, where a
+handful of phrases are navigable among prose. A table column is the other shape:
+on `/departments` fifty-four rows point at twelve факультети, and a permanent
+rule under every one of them is the link farm this section already refuses,
+built out of underlines instead of out of blue — the same objection, one
+property along.
+
+`RowLinkCell` set the precedent before there was a rule for it: the name cell of
+every clickable row underlines under the pointer and carries a small `↗` at
+rest, so which cell is the link is readable without hunting and the affordance
+still arrives when it is wanted. A one-off link keeps its underline.
+
 **The breadcrumb obeys this too, and did not.** It was `--muted-foreground`
 with no underline, which over the wash all but disappeared — and a breadcrumb is
 the one piece of chrome somebody looks for when they are lost, so faint is
@@ -258,6 +302,31 @@ one you cannot, which is the split this section already asks it to carry: the
 underline says «this is a link», the colour says where it goes. A group with no
 route of its own gets neither, and is no longer disguised as faint chrome
 either.
+
+### A row's link is the TEXT, not the cell
+
+Every list in the app once covered its name cell with an absolutely positioned
+`<Link className="absolute inset-0">`, for the bigger click target. That is
+gone (owner, 2026-09-21), and the two costs are why:
+
+- **The name could not be selected or copied.** The overlay sat on top of the
+  text and ate the drag — and `RowLinkCell`'s own comment claimed the opposite
+  benefit, «leaves every other cell selectable», while the one unselectable cell
+  was the кафедра name people actually paste into documents.
+- **Clicking blank space navigated.** «Кафедра менеджменту» is 177px of text in
+  a 575px cell. The other 398px were empty and still opened the record.
+
+It is also the safer construct on WebKit rather than the riskier one. The
+overlay needs `position: relative`, and it had to sit on the CELL rather than
+the `<tr>` because **Safari does not honour `position: relative` on a table
+row** — where it is ignored, every row's overlay resolves against a shared
+ancestor, one row's link covers the whole table, and every click goes to the
+same record. A plain inline `<a>` behaves the same everywhere.
+
+So `RowLinkCell` is a `<td>` around `CellLink` now, the same component that
+draws the факультет, the завідувач and the декан. One link treatment per row
+instead of the name being the exception in a row of text-only links. The row's
+`hover:bg-*` stays: it says «you are on this row», never «this row is a link».
 
 **Do not draw something as a link unless following it does something useful.**
 `mailto:` and `tel:` are the ones that catch people out: on a department desktop
@@ -279,6 +348,48 @@ element is that bug, not a real result.
 **Tint with `--brand`, not with `--foreground`.** A foreground tint on a light
 page is grey, and grey chrome is the look we are getting away from. If a neutral
 really is wanted, use a card.
+
+### Refusing somebody's work is destructive, and there are exactly two shapes
+
+**This is the whole rule, so it does not have to be re-stated per screen
+(owner, 2026-09-21).** It covers every control that throws work away or turns
+somebody's submission down — delete, archive, discard, reject, remove, відхилити.
+Not just deletion: a rejected claim is somebody's evening, and a control that
+refuses it drawn as the quietest thing on the row is lying about what it does.
+
+| the control                              | what it wears                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------- |
+| **Labelled** — «Відхилити», «Архівувати» | `variant="destructive"`                                                         |
+| **Icon-only in a row** — a trash can     | `variant="ghost" size="icon-sm" className="text-error hover:text-error-strong"` |
+| **The confirm inside the dialog**        | `AlertDialogAction`, which already defaults to `destructive`                    |
+
+**Reach for the VARIANT, never `outline` with `text-error` painted on.** The
+variant is where the rest state, the hover and dark mode are decided once;
+a colour override decides one of the three and leaves the other two to drift.
+`discard-activity-button` and `discard-record-button` were both hand-painted
+that way and both had the wrong hover as a result.
+
+Two things this does NOT mean. A **cancel** is not destructive — «Скасувати»
+walks away from an action, it does not perform one, and it stays `ghost`. And
+the weight is the same whatever the consequences: `archive-button` records that
+archiving deletes nothing and still wears the soft `destructive` fill, because
+what the reader needs to know is which of the two buttons in front of them takes
+something away.
+
+### A delete is red AT REST, however many of them there are
+
+`--error` marks the destructive action, and **it does not fade because the
+control repeats**. Muting a row's delete to `--muted-foreground` and bringing
+the colour in on hover was tried on `/faculties` and refused (2026-09-21) on the
+rule the owner had already set on 2026-09-14, in
+`components/rating/delete-activity-button.tsx`: a delete that looks neutral
+until you are already pointing at it announces what it does one moment too late.
+`-strong` on hover keeps the step.
+
+So every delete in the app is the same control —
+`variant="ghost" size="icon-sm" className="text-error hover:text-error-strong"`
+with an `aria-label` — and `delete-activity-button`, `delete-plan-row-button`,
+`delete-record-button` and the факультет / кафедра / відділ trio all wear it.
 
 The gold in the logo (`#f5c518`) is the university crest's second colour. It is
 brand, not status, and appears in the mark only.
@@ -877,6 +988,41 @@ scrollbar reached the end on its own. Pass `fill` and make every ancestor up to
 `main` a `flex min-h-0 flex-col`, which is what asks the layout instead of
 guessing. Keep a `min-h` floor on the card: on a phone the stacked furniture
 leaves `fill` nothing to give, and there the page SHOULD scroll.
+
+**A column that repeats a handful of values down many rows is a HEADING, not a
+column.** `/departments` printed twelve факультет names down fifty-four rows in
+a 16rem column, wrapping most of them to two or three lines — which is what made
+every row 60–80px tall and left the кафедра names wrapping too. As
+`variant="group"` headings the same fact costs one row per group instead of 54
+cells, and the width goes back to the names.
+
+It also fixes something a column could not. Two кафедри can carry the same name
+on different факультети — «Кафедра екології, географії і методики навчання»
+exists twice — and in a flat list they read as duplicate records, with the one
+thing telling them apart three columns away. Under a heading they are plainly
+two кафедри.
+
+**What it costs is the global sort**, and that is the decision to put to
+somebody rather than to make quietly. Grouped, a column heading can only reorder
+rows INSIDE each group; ranking the whole list by that column is gone. On
+`/departments` that was accepted (owner, 2026-09-21) because `/stakes` already
+lists every кафедра with its headcount, which is the screen somebody asking that
+question is on. Where no such screen exists, the trade is not free.
+
+One `<tbody>` per group, never one around all of them: a sticky cell cannot
+leave its own sectioning box, and that is what makes one heading give way to the
+next instead of piling up with it. See `rating-table.tsx`, which does the same
+with Розділ 1–5.
+
+**A `Table`'s declared widths have to ADD UP to less than a laptop's content
+area.** `minWidth` stops the flexible column collapsing; it does not stop the
+card scrolling sideways, and a table whose declared widths already exceed the
+page scrolls on EVERY screen with its last column off the right-hand edge and
+nothing saying so. `/departments` was built at 20 + 22 + 18 + 6 + 7 = 73rem
+(1168px) against the ~1090px a 1366px window leaves beside the sidebar, and
+«Дії» was simply not there. Budget about **60rem**, which fits a 1280px laptop.
+What that costs is wrapping in the long text columns, and кафедра names wrap at
+any width worth giving them.
 
 **A layout is not a guard and cannot read the pathname.** Layouts do not
 re-render on navigation, so `auth()` in one runs once and an `active` tab passed
