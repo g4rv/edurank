@@ -127,9 +127,23 @@ export function PositionEntry({
   const link = 'underline underline-offset-2 transition-colors hover:text-brand';
 
   return (
-    <>
-      <p className="text-sm font-medium text-foreground-soft">{badge}</p>
-      <div className="flex items-center py-2.5 first:pt-0 last:pb-0">
+    // **ONE element per entry, not a fragment.** The card wraps these in
+    // `divide-y`, which draws a rule between its CHILDREN — so a fragment
+    // emitting the badge and the row as two siblings put the rule between a
+    // badge and its own кафедра, and none between one workplace and the next
+    // (2026-09-21). The padding lives here too, so `first:`/`last:` reach the
+    // entry rather than half of one.
+    <div className="py-3 first:pt-0 last:pb-0">
+      {/* `Field`'s own label treatment, because this is the same thing: a label
+          over its value. At `text-sm text-foreground-soft` it was the size and
+          nearly the colour of the кафедра under it, so «Основне» read as another
+          line of content — and every other label on this page is `text-xs`
+          muted. */}
+      <dt className="text-xs font-medium text-muted-foreground">{badge}</dt>
+      {/* `items-baseline`: the ставка sits on the FIRST line's baseline, so a
+          кафедра that wraps to two lines does not leave the figure floating
+          halfway down the row. */}
+      <dd className="mt-0.5 flex items-baseline gap-x-4">
         <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
           {faculty && (
             <>
@@ -154,9 +168,9 @@ export function PositionEntry({
             <span>{department}</span>
           )}
         </p>
-        {trailing && <span className="ml-auto shrink-0 pl-4 text-sm">{trailing}</span>}
-      </div>
-    </>
+        {trailing && <span className="ml-auto shrink-0 text-sm">{trailing}</span>}
+      </dd>
+    </div>
   );
 }
 
