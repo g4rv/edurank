@@ -15,7 +15,7 @@ import { Pagination } from '@/components/aurora/ui/pagination';
 import { SortHead, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { CreateStaffDialog } from '@/components/staff/create-staff-dialog';
 import { StaffFilters } from '@/components/staff/staff-filters';
-import { StaffListHeader } from '@/components/staff/staff-list-header';
+import { ListHeader } from '@/components/aurora/ui/list-header';
 import { StaffTable } from '@/components/staff/staff-table';
 
 // The list is a few hundred people; sending them all is cheap, rendering them
@@ -233,7 +233,7 @@ export default async function StaffPage({
     // Fills the dashboard's main area: the header card keeps its height and the
     // table takes what is left, scrolling its rows internally.
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <StaffListHeader
+      <ListHeader
         title={archivedView ? 'Архів' : 'Персонал'}
         subtitle={
           <>

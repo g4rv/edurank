@@ -1,11 +1,11 @@
 import { Skeleton } from '@/components/ui/skeleton';
-import { StaffListHeader } from '@/components/staff/staff-list-header';
+import { ListHeader } from '@/components/aurora/ui/list-header';
 import { StaffTableSkeleton } from '@/components/staff/staff-table-skeleton';
 
 /**
  * The «Персонал» list — a header card over a table.
  *
- * **The same `StaffListHeader` the page uses**, with skeletons in its slots, so
+ * **The same `ListHeader` the page uses**, with skeletons in its slots, so
  * nothing moves when the real one arrives. Drawing the card by hand here is how
  * the two drift: the page gained a band and a hairline, and a loose stack of
  * skeletons over the wash would have kept saying the old shape.
@@ -20,13 +20,14 @@ import { StaffTableSkeleton } from '@/components/staff/staff-table-skeleton';
  * A route group changes no URL: `/staff` is still `/staff`. It exists only to
  * put a boundary around the list and nothing else.
  *
- * The same trap is still open on `departments`, `faculties`, `divisions` and
- * `admin/rating`, each of which has a `loading.tsx` above an `[id]`.
+ * `departments`, `faculties` and `divisions` were moved into their own `(list)`
+ * groups for the same reason on 2026-09-21. `admin/rating` still has a
+ * `loading.tsx` above an `[id]`.
  */
 export default function StaffLoading() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <StaffListHeader
+      <ListHeader
         // Not the word «Персонал»: this boundary cannot read the query string,
         // and the archive view is titled «Архів» — a guessed heading would flash
         // the wrong one on the way to the right one.

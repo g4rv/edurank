@@ -109,7 +109,7 @@ export function StaffTable({ staff, head, isAdmin, footer, fill }: Props) {
               <RowLinkCell
                 href={`/staff/${member.id}`}
                 className="py-2.5"
-                // In `after`, so the row-hover underline stops running beneath
+                // In `after`, so the hover underline stops running beneath
                 // them: a badge is not a second place the link goes.
                 after={
                   <>

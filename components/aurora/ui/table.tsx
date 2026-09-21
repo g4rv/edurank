@@ -208,14 +208,29 @@ export function Table({
         {/* `overflow-hidden` makes this a scroll container, which is what lets
           `scrollbar-gutter` apply — it gives up the same strip the rows below
           do, so the columns line up. Nothing here ever actually scrolls. */}
-        {/* No `border-b`. The first section heading below already draws a rule on
-          its top edge, and the two together came out as one heavy 2px band
-          (owner, 2026-09-08). One line, drawn by one thing.
+        {/* **A shadow, not a `border-b`** (owner, 2026-09-21). The note that
+          used to sit here said a `border-b` came out as one heavy 2px band
+          against the rule a section heading draws on its own top edge
+          (2026-09-08), and that a table opening with an ORDINARY row would then
+          have no separator at all — «neither caller does, and §11 says to wait
+          for the one that does». Six of them now do: `/staff`, `/faculties`,
+          `/departments`, `/divisions`, `/rating` and the claims review. With
+          the rows scrolling under it, a header with no edge let row 291 sit
+          half-cut against the column names.
 
-          A table whose body opens with an ordinary row rather than a section
-          heading would have no separator here — neither caller does, and §11
-          says to wait for the one that does rather than guess at it now. */}
-        <div className={cn('shrink-0 overflow-hidden [scrollbar-gutter:stable]', FLOOR)}>
+          A shadow answers both. It separates without adding a second hairline
+          for a group heading to double up with, and it says the right thing —
+          the content passes BENEATH this, which a border does not.
+
+          `relative z-10` is what makes it visible: the body is a later sibling,
+          so without a stacking order the rows' own fills — `bg-table-group`, a
+          hover tint — paint straight over it. */}
+        <div
+          className={cn(
+            'relative z-10 shrink-0 overflow-hidden shadow-table-head [scrollbar-gutter:stable]',
+            FLOOR
+          )}
+        >
           <table className={table}>
             {cols}
             <thead>{head}</thead>
@@ -277,10 +292,15 @@ const FLOOR = 'min-w-(--table-min-w)';
  *
  * Same declaration as `components/ui/data-table.tsx`, deliberately — the two
  * have to agree until the lists move onto this component.
+ *
+ * **`--border` at full strength, not `/60`.** Both wore the alpha until
+ * 2026-09-21, which put the densest lines in the app at 1.26 on a card — below
+ * the token that is itself tuned to be «only just visible». An alpha on a
+ * token that already encodes «faint» is faintness applied twice.
  */
 const DIVIDERS = cn(
   '[&_td:not(:last-child)]:border-r [&_th:not(:last-child)]:border-r',
-  '[&_td]:border-border/60 [&_th]:border-border/60'
+  '[&_td]:border-border [&_th]:border-border'
 );
 
 export function TableBody({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
@@ -345,7 +365,7 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        'border-b border-border/60 transition-colors',
+        'border-b border-border transition-colors',
         ROW[variant],
         hoverable && 'hover:bg-muted/50',
         className
@@ -455,27 +475,80 @@ export function TableCell({
  * list's `buildHref` on the other — and share the only part that was ever the
  * same: the drawing.
  *
- * `aria-sort` goes on the `<th>`, which is where ARIA defines it. On the link
- * it is ignored: `aria-sort` is only meaningful on a header cell.
+ * `aria-sort` goes on the `<th>`, which is where ARIA defines it. On the
+ * control it is ignored: `aria-sort` is only meaningful on a header cell.
+ *
+ * **It takes an `href` OR an `onClick`, and draws the same thing either way.**
+ * A list that sorts on the server puts the next order in the URL, so the
+ * heading is a link and the sort survives a reload and a shared link. A table
+ * that already holds every row in the client — `claims-review`, where the rows
+ * are a few hundred and the sort is `useState` — has nothing to navigate to,
+ * and a link there would round-trip the server to reorder an array it already
+ * has. Two mechanisms, one drawing: the alternative was a second copy of this
+ * component, which is §11's «three cards in one day» starting over.
  */
+type SortHeadProps = {
+  label: string;
+  active: boolean;
+  /** The direction the column is sorted in NOW — the chevron. The action carries the next one. */
+  dir: 'asc' | 'desc';
+  numeric?: boolean;
+  align?: keyof typeof ALIGN;
+  className?: string;
+} & ({ href: string; onClick?: never } | { onClick: () => void; href?: never });
+
 export function SortHead({
   label,
   href,
+  onClick,
   active,
   dir,
   numeric = false,
   align,
   className,
-}: {
-  label: string;
-  href: string;
-  active: boolean;
-  /** The direction the column is sorted in NOW — the chevron. `href` carries the next one. */
-  dir: 'asc' | 'desc';
-  numeric?: boolean;
-  align?: keyof typeof ALIGN;
-  className?: string;
-}) {
+}: SortHeadProps) {
+  const inner = cn(
+    'inline-flex items-center gap-1 transition-colors hover:text-brand',
+    // **`text-transform` does not reach a `<button>` on its own.** `TableHead`
+    // is `uppercase`; an `<a>` inherits that, but the UA stylesheet gives form
+    // controls `text-transform: none`, so the sortable headings on
+    // `claims-review` came out «Здобувач» beside a plain «РІШЕННЯ» (owner,
+    // 2026-09-21). `inherit` rather than repeating `uppercase`, so the cell
+    // stays the one place the case is decided.
+    '[text-transform:inherit]',
+    // The chevron follows the label to whichever edge the column is read
+    // from, so it never sits between the heading and its own figures.
+    //
+    // **`align` wins when it is given.** `numeric` implies right, but a numeric
+    // column that is explicitly CENTRED reads left-to-right like any other, and
+    // reversing it there put the chevron in front of the word.
+    (align ? align === 'right' : numeric) && 'flex-row-reverse'
+  );
+
+  // **Written out twice rather than through a `Control` variable.** Building the
+  // wrapper as a component inside the render makes a NEW component type on every
+  // pass, so React unmounts and remounts the subtree — which on a header that
+  // sorts means the button loses focus the moment you press it, and the keyboard
+  // user is dropped back to the top of the page. `react-hooks/static-components`
+  // catches exactly this.
+  const content = (
+    <>
+      {label}
+      {active ? (
+        dir === 'asc' ? (
+          <ChevronUp className="size-3.5" />
+        ) : (
+          <ChevronDown className="size-3.5" />
+        )
+      ) : (
+        // Present but faint on every sortable column: a chevron that appears
+        // only on hover tells nobody with a touch screen that the column
+        // sorts at all.
+        <ChevronsUpDown className="size-3.5 opacity-40" />
+      )}
+    </>
+  );
+
   return (
     <TableHead
       numeric={numeric}
@@ -483,29 +556,17 @@ export function SortHead({
       className={className}
       aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}
     >
-      <Link
-        href={href}
-        className={cn(
-          'inline-flex items-center gap-1 transition-colors hover:text-brand',
-          // The chevron follows the label to whichever edge the column is read
-          // from, so it never sits between the heading and its own figures.
-          (numeric || align === 'right') && 'flex-row-reverse'
-        )}
-      >
-        {label}
-        {active ? (
-          dir === 'asc' ? (
-            <ChevronUp className="size-3.5" />
-          ) : (
-            <ChevronDown className="size-3.5" />
-          )
-        ) : (
-          // Present but faint on every sortable column: a chevron that appears
-          // only on hover tells nobody with a touch screen that the column
-          // sorts at all.
-          <ChevronsUpDown className="size-3.5 opacity-40" />
-        )}
-      </Link>
+      {href ? (
+        <Link href={href} className={inner}>
+          {content}
+        </Link>
+      ) : (
+        // `type="button"`: these sit inside forms on some screens, and a
+        // default-type button in a form submits it.
+        <button type="button" onClick={onClick} className={inner}>
+          {content}
+        </button>
+      )}
     </TableHead>
   );
 }

@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight } from 'lucide-react';
 import { Input } from '@/components/aurora/ui/input';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
 import { DataTable } from '@/components/ui/data-table';
+import { CellLink } from '@/components/ui/cell-link';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import { setBonusPool, setDepartmentStake } from '@/app/(dashboard)/admin/stakes/actions';
 import type { DepartmentStakeRow } from '@/lib/queries/list-stake-settings';
@@ -154,30 +153,31 @@ function PoolRow({
 
   return (
     <>
-      <tr className="group/row transition-colors hover:bg-muted/20">
-        {/* The same treatment every other list in the app gives a row link:
-            the whole cell is the target and an arrow sits on the name, so which
-            cell opens something can be read without hunting for it. A separate
-            chevron column stood here and was a second link to the same place. */}
-        <td className="relative px-3 py-2">
-          <Link href={`/stakes/${row.id}`} className="absolute inset-0" aria-label={row.name} />
-          <span className="inline-flex items-center gap-1.5 font-medium underline-offset-4 group-hover/row:underline">
+      <tr className="transition-colors hover:bg-muted/20">
+        {/* The same treatment every other list in the app gives a row link —
+            `CellLink`, the arrow saying which text opens something without
+            having to be hunted for. A separate chevron column stood here and
+            was a second link to the same place.
+
+            **The TEXT, not the cell** (owner, 2026-09-21). This held its own
+            copy of the absolute-overlay trick `RowLinkCell` used to use, with
+            the same two costs: the кафедра name could not be selected, and the
+            empty half of the cell navigated. See `row-link-cell.tsx`. */}
+        <td className="px-3 py-2">
+          <CellLink href={`/stakes/${row.id}`} className="font-medium">
             {row.name}
-            <ArrowUpRight
-              className="size-3.5 shrink-0 text-muted-foreground/70 transition-colors group-hover/row:text-foreground"
-              aria-hidden
-            />
-          </span>
+          </CellLink>
           {/* Amber, not red: overspending is allowed and shown, never refused —
               ladder rounding can put the формула's own proposal above `Кст`, so
               this is «look at this row», not «something is broken».
 
-              A pill beside the name rather than a tooltip: the row-wide link
-              above covers this cell, so a `title` here would never surface. The
-              amount stays in «Залишок», which carries its own breakdown.
+              A pill beside the name rather than a tooltip: a кафедра that has
+              overspent should say so while somebody is scanning the column, not
+              only once they point at it. The amount stays in «Залишок», which
+              carries its own breakdown.
 
-              Outside the name span on purpose — inside it, the pill picked up
-              the row-hover underline. */}
+              Outside the link on purpose — inside it, the pill picked up the
+              hover underline as if it were a second destination. */}
           {overspent && (
             <span className="ml-2 inline-flex items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">
               Перевитрачено
