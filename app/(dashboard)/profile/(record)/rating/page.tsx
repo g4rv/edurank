@@ -74,19 +74,26 @@ export default async function MyRatingPage({
 
   // Closed year → the frozen snapshot is authoritative; open year → live rows.
   const closed = templateYears.find((t) => t.year === year)?.status === 'CLOSED';
-  const snapshotGroups = closed
-    ? snapshotToGroups((await getRatingEntry(staffId, year))?.snapshot)
-    : null;
 
   // The catalogue fills in the indicators with nothing under them, so the table
-  // shows the whole rating. Only for a year still open: a closed year is frozen
-  // history, and «you could still do this» is not something to say about it.
-  const catalogue = snapshotGroups ? undefined : await listTemplateIndicators(year);
+  // shows the whole rating rather than only the parts already done — **in a
+  // closed year too** (owner, 2026-09-21). It was skipped there, on the ground
+  // that «you could still do this» is not something to say about frozen
+  // history. But the empty row does not say that: it names an indicator, and
+  // the year the НПП most wants named is the finished one they are comparing
+  // themselves against. Nothing frozen changes — an empty row scores 0.
+  const catalogue = await listTemplateIndicators(year);
+
+  const snapshotGroups = closed
+    ? snapshotToGroups((await getRatingEntry(staffId, year))?.snapshot, catalogue)
+    : null;
 
   const groups =
     snapshotGroups ??
     toAchievementGroups(
-      await listStaffActivities(staffId, year),
+      // A closed year reads its own rows, never live ones: whatever was frozen
+      // is what it holds, and a person who scored nothing keeps an empty year.
+      closed ? [] : await listStaffActivities(staffId, year),
       SECTION_NUMBERS,
       false,
       catalogue

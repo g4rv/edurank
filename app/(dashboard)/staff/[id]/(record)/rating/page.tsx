@@ -58,8 +58,20 @@ export default async function StaffRatingPage({
 
   // Closed year → the frozen snapshot is authoritative; open year → live rows
   const closed = status === 'CLOSED';
+
+  // The same whole-rating view the НПП gets of themselves. Without the
+  // catalogue this table listed only the indicators already filled, so an
+  // editor could not tell «this person has nothing under 3.7» from «3.7 does
+  // not exist» — and the two people looking at one rating saw different tables.
+  //
+  // **A closed year gets it too** (owner, 2026-09-21). It was open years only,
+  // because «could still be filled» is not a thing to say about frozen history.
+  // An empty row says no such thing: it names an indicator, and the argument
+  // above — one rating, one table — holds just as hard for 2025.
+  const catalogue = await listTemplateIndicators(year);
+
   const snapshotGroups = closed
-    ? snapshotToGroups((await getRatingEntry(id, year))?.snapshot)
+    ? snapshotToGroups((await getRatingEntry(id, year))?.snapshot, catalogue)
     : null;
 
   /**
@@ -67,27 +79,14 @@ export default async function StaffRatingPage({
    *
    * `closeYear` nulls every snapshot for the year and then writes one back only
    * for people who still hold a counting row — so somebody with nothing scored
-   * ends on `null`. The `??` below then fell through to live rows AND to the
-   * full catalogue, and their frozen year rendered as a list of indicators
-   * «still to fill in» (2026-08-27).
+   * ends on `null`. Without this the `??` below fell through to LIVE rows
+   * (2026-08-27), which is the part that was wrong; the catalogue beside them
+   * was not, and stays.
    */
-  const emptyClosedYear = closed && snapshotGroups === null;
-  // The same whole-rating view the НПП gets of themselves. Without the
-  // catalogue this table listed only the indicators already filled, so an
-  // editor could not tell «this person has nothing under 3.7» from «3.7 does
-  // not exist» — and the two people looking at one rating saw different tables.
-  //
-  // Open years only. A closed year renders from its snapshot, which is frozen
-  // history: «could still be filled» is not a thing to say about it.
-  const catalogue =
-    snapshotGroups || emptyClosedYear ? undefined : await listTemplateIndicators(year);
-
   const groups =
     snapshotGroups ??
     toAchievementGroups(
-      // A closed year reads its own rows, never the catalogue: whatever is
-      // there is what was frozen, and an empty year stays empty.
-      emptyClosedYear ? [] : await listStaffActivities(id, year),
+      closed ? [] : await listStaffActivities(id, year),
       [1, 2, 3, 4, 5],
       false,
       catalogue

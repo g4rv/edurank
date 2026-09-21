@@ -100,6 +100,68 @@ describe('snapshotToGroups', () => {
       expect(item.removeReason).toBeNull();
     }
   });
+
+  // 2025 rendered eleven scored rows and nothing else, so «Показувати
+  // незаповнені» read «(0)» on the one year an НПП compares themselves
+  // against. A finished year is still a whole додаток.
+  describe('with the catalogue', () => {
+    const indicator = (id: string, itemNumber: string, section: number): TemplateIndicator => ({
+      id,
+      itemNumber,
+      label: `Показник ${itemNumber}`,
+      inputSource: 'NPP_SUBMISSION',
+      verifyingDivision: null,
+      section: { number: section, title: `Розділ ${section}` },
+    });
+
+    const catalogue = [
+      indicator('t-9', '1.9', 1),
+      indicator('t-10', '1.10', 1),
+      indicator('t-11', '1.11', 1),
+      indicator('t-21', '2.1', 2),
+    ];
+
+    it('adds a zero row for every indicator the snapshot has nothing under', () => {
+      const groups = snapshotToGroups(snapshot, catalogue)!;
+      const added = groups[0].items.filter((i) => i.isEmpty);
+      expect(added.map((i) => i.itemNumber)).toEqual(['1.11']);
+      expect(added[0].score).toBe(0);
+      expect(added[0].canDelete).toBe(false);
+    });
+
+    it('leaves the frozen rows alone', () => {
+      const groups = snapshotToGroups(snapshot, catalogue)!;
+      const scored = groups[0].items.filter((i) => !i.isEmpty);
+      expect(scored.map((i) => i.score)).toEqual([30, 20]);
+      expect(scored.map((i) => i.label)).toEqual(['Раніший пункт', 'Пізніший пункт']);
+    });
+
+    it('sorts the added rows in among the frozen ones', () => {
+      const groups = snapshotToGroups(snapshot, catalogue)!;
+      expect(groups[0].items.map((i) => i.itemNumber)).toEqual(['1.9', '1.10', '1.11']);
+    });
+
+    // «Розділ 2» said «Немає досягнень» and named none of the eleven things
+    // that could have gone in it. The snapshot never wrote the section at all.
+    it('brings in a section the snapshot never wrote', () => {
+      const groups = snapshotToGroups(snapshot, catalogue)!;
+      expect(groups.map((g) => g.number)).toEqual([1, 2]);
+      expect(groups[1]).toMatchObject({ title: 'Розділ 2' });
+      expect(groups[1].items.map((i) => i.itemNumber)).toEqual(['2.1']);
+    });
+
+    // A snapshot carries no ActivityType id, so the match is the наказ's own
+    // number — and an indicator numbered twice over is filled either way.
+    it('matches on the item number, not the label', () => {
+      const renamed = [{ ...indicator('t-9', '1.9', 1), label: 'Перейменований показник' }];
+      const groups = snapshotToGroups(snapshot, renamed)!;
+      expect(groups[0].items.filter((i) => i.isEmpty)).toHaveLength(0);
+    });
+
+    it('is unchanged when no catalogue is passed', () => {
+      expect(snapshotToGroups(snapshot)).toEqual(snapshotToGroups(snapshot, []));
+    });
+  });
 });
 
 // An open year renders from live rows, and each row carries its own розділ
