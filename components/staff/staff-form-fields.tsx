@@ -301,6 +301,11 @@ interface StaffFormFieldsProps {
    * next, and it is doing a different job from the shadow.
    */
   flat?: boolean;
+  /** Per-кафедра ставка, typed. ADMIN only — see `WorkplacesField`. */
+  rates?: Record<string, string>;
+  onRateChange?: (departmentId: string, value: string) => void;
+  /** ADMIN, and only while a rating year is open */
+  canEditRates?: boolean;
   /** Anyone creating a record picks the type; only ADMIN may change it later */
   canEditType: boolean;
   /**
@@ -340,6 +345,9 @@ export function StaffFormFields({
   numbered = false,
   layout = 'stack',
   flat = false,
+  rates,
+  onRateChange,
+  canEditRates = false,
   canEditType,
   editableFields,
 }: StaffFormFieldsProps) {
@@ -476,6 +484,9 @@ export function StaffFormFields({
             partTimeDepartmentIds={partTimeIds ?? []}
             canEditPartTime={canEditPartTime}
             canEditPrimary={!locked('departmentId')}
+            rates={rates}
+            onRateChange={onRateChange}
+            canEditRates={canEditRates}
             disabled={isPending}
             error={errors.departmentId ?? errors.partTimeDepartmentIds}
             onChange={(next) => {

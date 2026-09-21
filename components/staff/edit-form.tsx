@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { toast } from 'sonner';
@@ -41,6 +41,8 @@ interface StaffEditFormProps {
   staffId: string;
   /** What each кафедра allocated this person — shown under its own select */
   stakeBreakdown: StakePart[];
+  /** ADMIN, and only while a rating year is open — see `WorkplacesField` */
+  canEditRates: boolean;
 }
 
 export function StaffEditForm({
@@ -52,9 +54,19 @@ export function StaffEditForm({
   editableFields,
   staffId,
   stakeBreakdown,
+  canEditRates,
 }: StaffEditFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  /**
+   * A ставка per кафедра, for кафедри that have not allocated one yet.
+   *
+   * Starts empty rather than pre-filled from `stakeBreakdown`: a кафедра that
+   * HAS a number shows it read-only, so anything typed here is by definition a
+   * кафедра with nothing to pre-fill from.
+   */
+  const [rates, setRates] = useState<Record<string, string>>({});
 
   const {
     register,
@@ -68,17 +80,30 @@ export function StaffEditForm({
     defaultValues: staffToFormValues(staff),
   });
 
+  /**
+   * **A typed ставка is an unsaved change too.**
+   *
+   * «Зберегти» is gated on react-hook-form's `isDirty`, and these live in their
+   * own state because they are not fields on the person — so typing one left the
+   * button disabled and the number with no way out of the form (owner,
+   * 2026-09-21). Anything non-empty counts: an empty box is «not decided», which
+   * is what the form already held.
+   */
+  const ratesDirty = Object.values(rates).some((v) => v.trim() !== '');
+  const dirty = isDirty || ratesDirty;
+
   // eslint-disable-next-line react-hooks/incompatible-library
   const isNppValue = watch('isNpp') === 'true';
 
   function onSubmit(data: StaffUpdateSchema) {
     startTransition(async () => {
       try {
-        const result = await updateStaff(staffId, data);
+        const result = await updateStaff(staffId, data, { rates });
         if ('error' in result) {
           toast.error(result.error);
         } else {
           toast.success('Збережено');
+          setRates({});
           router.refresh();
         }
       } catch (e) {
@@ -113,9 +138,9 @@ export function StaffEditForm({
 
           <div className="flex shrink-0 flex-wrap items-center gap-3 self-start">
             <span className="text-sm text-muted-foreground">
-              {isPending ? 'Збереження…' : isDirty ? 'Є незбережені зміни' : 'Без змін'}
+              {isPending ? 'Збереження…' : dirty ? 'Є незбережені зміни' : 'Без змін'}
             </span>
-            <Button type="submit" disabled={isPending || !isDirty}>
+            <Button type="submit" disabled={isPending || !dirty}>
               Зберегти
             </Button>
             <Button asChild variant="outline">
@@ -130,6 +155,11 @@ export function StaffEditForm({
           errors={errors}
           setValue={setValue}
           stakeBreakdown={stakeBreakdown}
+          rates={rates}
+          onRateChange={(departmentId, value) =>
+            setRates((prev) => ({ ...prev, [departmentId]: value }))
+          }
+          canEditRates={canEditRates}
           isPending={isPending}
           isAdmin={isAdmin}
           canEditPartTime={canEditPartTime}

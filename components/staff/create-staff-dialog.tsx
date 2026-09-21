@@ -37,6 +37,8 @@ interface CreateStaffDialogProps {
   isAdmin: boolean;
   /** ADMIN, or a division granted `partTimeDepartmentIds` */
   canEditPartTime: boolean;
+  /** ADMIN, and only while a rating year is open — see `WorkplacesField` */
+  canEditRates: boolean;
 }
 
 /**
@@ -68,6 +70,7 @@ export function CreateStaffDialog({
   divisions,
   isAdmin,
   canEditPartTime,
+  canEditRates,
 }: CreateStaffDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -95,6 +98,15 @@ export function CreateStaffDialog({
   const [sendInvite, setSendInvite] = useState(false);
 
   /**
+   * A ставка per кафедра, keyed by `departmentId`.
+   *
+   * Not a form field: `staffCreateSchema` ends in `.superRefine()` and cannot be
+   * `.extend()`ed, and this is not a property of the person — it is a row in a
+   * кафедра's розподіл. It travels beside `sendInvite`, for the same reason.
+   */
+  const [rates, setRates] = useState<Record<string, string>>({});
+
+  /**
    * Everything typed is dropped when the dialog closes.
    *
    * A dialog that reopens holding the last person's name is worse than one that
@@ -107,13 +119,14 @@ export function CreateStaffDialog({
     if (!next) {
       reset(EMPTY_STAFF_FORM_VALUES);
       setSendInvite(false);
+      setRates({});
     }
   }
 
   function onSubmit(data: StaffCreateSchema) {
     startTransition(async () => {
       try {
-        const result = await createStaff(data, { sendInvite });
+        const result = await createStaff(data, { sendInvite, rates });
         if ('error' in result) {
           toast.error(result.error);
           return;
@@ -210,6 +223,11 @@ export function CreateStaffDialog({
                 numbered
                 // The type has to be chosen up front, whoever is creating the record
                 canEditType
+                rates={rates}
+                onRateChange={(departmentId, value) =>
+                  setRates((prev) => ({ ...prev, [departmentId]: value }))
+                }
+                canEditRates={canEditRates}
                 // No shadow on the sections: this dialog is itself a card, and
                 // §2 gives no elevation to anything nested inside one.
                 flat

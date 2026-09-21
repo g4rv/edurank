@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { DepartmentCombobox } from '@/components/department-combobox';
 import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/aurora/ui/input';
 import { Switch } from '@/components/aurora/ui/switch';
 import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
@@ -59,6 +60,9 @@ export function WorkplacesField({
   canEditPartTime = true,
   canEditPrimary = true,
   error,
+  rates,
+  onRateChange,
+  canEditRates = false,
 }: {
   departments: readonly DepartmentOption[];
   /** What each кафедра allocated. `null` on the CREATE form — nobody to pay yet. */
@@ -84,6 +88,23 @@ export function WorkplacesField({
   canEditPrimary?: boolean;
   /** The schema's own complaint, e.g. «НПП повинен мати кафедру» */
   error?: { message?: string };
+  /**
+   * The ставка typed for each кафедра, keyed by `departmentId`.
+   *
+   * Only ADMIN gets these boxes, and only for a кафедра that has not allocated
+   * this person anything — `breakdown` is what says which have. Typing is
+   * therefore impossible where a завідувач has already decided, which is the
+   * rule `seedAllocations` enforces again on the server.
+   */
+  rates?: Record<string, string>;
+  onRateChange?: (departmentId: string, value: string) => void;
+  /**
+   * May this viewer type a ставка at all — ADMIN, and only while a rating year
+   * is open. An allocation lives in a year; with none active there is nowhere
+   * for the number to go, so the box is disabled rather than accepting a value
+   * the save would refuse.
+   */
+  canEditRates?: boolean;
 }) {
   // BOTH ROWS ARE ALWAYS THERE (owner, 2026-08-26). «додати кафедру» made an
   // empty row appear and a cleared one linger, so the card changed height as it
@@ -220,17 +241,40 @@ export function WorkplacesField({
                 </span>
               </label>
 
-              {/* Set on /stakes/[id] by the кафедра's завідувач, never typed
-                  here — two writers on one number is what let the профіль and
-                  the розподіл disagree. */}
-              {breakdown !== null && (
-                <div className="flex w-16 shrink-0 flex-col">
+              {/* **Typed until the завідувач decides, read-only after** (owner,
+                  2026-09-21).
+
+                  A кафедра that has allocated this person something shows that
+                  number and nothing else: the split belongs to the head, and an
+                  ADMIN who could retype it here would make «завідувач
+                  розподіляє» untrue. One that has not is a кафедра nobody has
+                  spread yet, and somebody has to be able to say what a new hire
+                  was taken on at — that is what this box is, and it is the only
+                  place a ставка is entered by hand.
+
+                  Empty until a кафедра is chosen, because a ставка with no
+                  кафедра has nowhere to be written. */}
+              {(breakdown !== null || canEditRates) && (
+                <div className="flex w-20 shrink-0 flex-col">
                   <span className={cn(ROW_LABEL, 'text-right')}>Ставка</span>
                   <span className={ROW_CONTROL + ' justify-end'}>
                     {part ? (
-                      <span className="text-sm font-medium tabular-nums">
+                      <span
+                        className="text-sm font-medium tabular-nums"
+                        title="Розподілено завідувачем — змінюється на сторінці розподілу"
+                      >
                         {formatStake(part.hundredths)}
                       </span>
+                    ) : canEditRates ? (
+                      <Input
+                        value={rates?.[row.departmentId] ?? ''}
+                        onChange={(e) => onRateChange?.(row.departmentId, e.target.value)}
+                        disabled={disabled || row.departmentId === ''}
+                        placeholder="0,00"
+                        inputMode="decimal"
+                        aria-label="Ставка"
+                        className="text-right tabular-nums"
+                      />
                     ) : (
                       <span
                         className="text-sm text-muted-foreground"

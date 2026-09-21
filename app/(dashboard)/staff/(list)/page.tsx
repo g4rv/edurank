@@ -6,6 +6,7 @@ import { parseStaffListParams, toStaffFilters } from '@/lib/staff/list-params';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { listDivisions } from '@/lib/queries/list-divisions';
+import { activeYear } from '@/lib/queries/get-active-template';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { editorHasFieldGrant } from '@/lib/permissions';
 import { Button } from '@/components/aurora/ui/button';
@@ -79,7 +80,7 @@ export default async function StaffPage({
   // divisions on every visit would send their names to every editor who cannot
   // create anybody. Same rule the deleted page followed, kept.
   const showCreate = canCreate && !archivedView;
-  const [divisions, canEditPartTime] = showCreate
+  const [divisions, canEditPartTime, rateYear] = showCreate
     ? await Promise.all([
         // ADMIN only: a person's відділ decides which permissions their EDITOR
         // role would carry, so the server takes it from nobody else.
@@ -89,8 +90,12 @@ export default async function StaffPage({
         isAdmin
           ? Promise.resolve(true)
           : editorHasFieldGrant(session.user.staffId, 'partTimeDepartmentIds'),
+        // A ставка is written as a `StakeAllocation`, which lives in a year.
+        // With none open there is nowhere to put one, so the boxes are disabled
+        // rather than taking a value the save would then refuse.
+        isAdmin ? activeYear() : Promise.resolve(null),
       ])
-    : [[], false];
+    : [[], false, null];
 
   function buildHref(overrides: Record<string, string | undefined>) {
     const sp = new URLSearchParams();
@@ -267,6 +272,7 @@ export default async function StaffPage({
                 divisions={divisions}
                 isAdmin={isAdmin}
                 canEditPartTime={canEditPartTime}
+                canEditRates={rateYear !== null}
               />
             )}
           </>

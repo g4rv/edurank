@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
+import { activeYear } from '@/lib/queries/get-active-template';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listDivisions } from '@/lib/queries/list-divisions';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
@@ -102,6 +103,8 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
         editableFields={editableFields}
         staffId={id}
         stakeBreakdown={stakeBreakdown}
+        // ADMIN only, and only while a year is open — an allocation lives in one.
+        canEditRates={isAdmin && (await activeYear()) !== null}
       />
     </div>
   );

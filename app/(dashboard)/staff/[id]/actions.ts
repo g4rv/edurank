@@ -18,6 +18,12 @@ import { diffChanges, type DiffValue } from '@/lib/audit';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { syncEmploymentRate } from '@/lib/stake/employment-rate';
 import {
+  RateRefused,
+  parseRateSeeds,
+  seedAllocations,
+  type RateSeed,
+} from '@/lib/stake/seed-allocation';
+import {
   canManageEntity,
   canMutateStaffRecord,
   getEditorDivisionId,
@@ -211,7 +217,19 @@ export async function restoreStaff(id: string): Promise<StaffArchiveState> {
 
 export type StaffUpdateState = { error: string } | { success: true };
 
-export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<StaffUpdateState> {
+export async function updateStaff(
+  id: string,
+  data: StaffUpdateSchema,
+  /**
+   * A ставка per кафедра, as typed — `{ [departmentId]: '0,75' }`.
+   *
+   * Only ever ADDS: `seedAllocations` skips any кафедра where this person
+   * already has an allocation, so an ADMIN editing a profile cannot reach a
+   * number the завідувач decided. The form disables those boxes too, but the
+   * guarantee is here, where it cannot be got around.
+   */
+  options?: { rates?: Record<string, string> }
+): Promise<StaffUpdateState> {
   const session = await auth();
   if (!session) redirect('/login');
 
@@ -240,6 +258,15 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
   // NULL out — a ставка two heads had agreed. It is still accepted when a
   // person is CREATED, where no distribution exists yet to supply it.
   const { partTimeDepartmentIds, employmentRate: _ignored, ...fields } = parsed.data;
+
+  // ADMIN only, like the figure itself. An editor's typed rates are dropped
+  // rather than refused — they are never shown the fields that produce them.
+  const seeded = isAdmin ? parseRateSeeds(options?.rates) : { seeds: [] as RateSeed[] };
+  if ('error' in seeded) return { error: seeded.error };
+  const seedYear = seeded.seeds.length > 0 ? await activeYear() : null;
+  if (seeded.seeds.length > 0 && seedYear === null) {
+    return { error: 'Немає активного рейтингового року — ставку зараз не зберегти' };
+  }
 
   let updateData: Record<string, unknown> = {};
 
@@ -469,6 +496,13 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
         }
       }
 
+      // After the sweep above, so a кафедра being left and re-entered in one
+      // save is seeded rather than seeded-then-deleted.
+      if (seedYear !== null) {
+        const refusal = await seedAllocations(tx, id, seeded.seeds, seedYear);
+        if (refusal) throw new RateRefused(refusal);
+      }
+
       // Re-saving a form without touching anything should not leave a log entry
       // that lists no change. ADMIN still always gets one: they may have edited
       // the part-time departments, which the field diff does not cover.
@@ -488,6 +522,9 @@ export async function updateStaff(id: string, data: StaffUpdateSchema): Promise<
       });
     });
   } catch (e) {
+    // A refused ставка is the person doing what the rules forbid, not a defect:
+    // it carries its own sentence and must not be logged as a stack.
+    if (e instanceof RateRefused) return { error: e.message };
     dbError = parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'staff.updateStaff', {
       userId: session.user.id,
     });

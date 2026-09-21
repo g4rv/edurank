@@ -10,6 +10,13 @@ import { canManageEntity, isEditorWritableField } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 import { logWarning } from '@/lib/log';
 import { issueAndEmailLink } from '@/lib/mail/invite';
+import { activeYear } from '@/lib/queries/get-active-template';
+import {
+  RateRefused,
+  parseRateSeeds,
+  seedAllocations,
+  type RateSeed,
+} from '@/lib/stake/seed-allocation';
 import { syncProfileDerived } from '@/lib/rating/profile-derived';
 
 export type StaffCreateState =
@@ -24,7 +31,14 @@ export type StaffCreateState =
 
 export async function createStaff(
   data: StaffCreateSchema,
-  options?: { sendInvite?: boolean }
+  /**
+   * `rates` is a ставка per кафедра, as typed — `{ [departmentId]: '0,75' }`.
+   *
+   * An argument rather than a schema field, like `sendInvite` beside it and for
+   * the same reason: `staffCreateSchema` ends in `.superRefine()` and cannot be
+   * `.extend()`ed, and neither of these is a property of the person anyway.
+   */
+  options?: { sendInvite?: boolean; rates?: Record<string, string> }
 ): Promise<StaffCreateState> {
   const session = await auth();
   if (!session) redirect('/login');
@@ -34,6 +48,22 @@ export async function createStaff(
 
   const parsed = staffCreateSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
+
+  // ADMIN only, like every other ставка figure: `employmentRate` is confidential
+  // and grantable to nobody, and an allocation is the same number one level
+  // down. An editor's typed rates are dropped, not refused — they cannot see the
+  // fields that produce them.
+  const seeded =
+    session.user.role === 'ADMIN' ? parseRateSeeds(options?.rates) : { seeds: [] as RateSeed[] };
+  if ('error' in seeded) return { error: seeded.error };
+
+  // Allocations live in a YEAR. Before one is activated there is nowhere to put
+  // a ставка, so the form disables the fields — this covers the race where the
+  // year closes between the page rendering and the save.
+  const year = seeded.seeds.length > 0 ? await activeYear() : null;
+  if (seeded.seeds.length > 0 && year === null) {
+    return { error: 'Немає активного рейтингового року — ставку зараз не зберегти' };
+  }
 
   const { partTimeDepartmentIds, departmentId, divisionId, ...rest } = parsed.data;
 
@@ -90,8 +120,18 @@ export async function createStaff(
       });
 
       await syncProfileDerived(tx, created.id);
+
+      // Last, because it needs the person to exist and it recomputes the cached
+      // `employmentRate` from what it wrote.
+      if (year !== null) {
+        const refusal = await seedAllocations(tx, created.id, seeded.seeds, year);
+        if (refusal) throw new RateRefused(refusal);
+      }
     });
   } catch (e) {
+    // A refused ставка is the person doing what the rules forbid, not a defect:
+    // it carries its own sentence and must not be logged as a stack.
+    if (e instanceof RateRefused) return { error: e.message };
     dbError = parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'staff.createStaff', {
       userId: session.user.id,
     });
