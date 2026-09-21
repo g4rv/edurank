@@ -168,7 +168,7 @@ export function StaffTable({ staff, head, isAdmin, footer, fill }: Props) {
                     Amber, like the «Сумісник» pill and for the same reason:
                     that post is paid out of a second кафедра's pool and does
                     not count toward this one's Кнпп. */}
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-0.5 font-medium *:not-last:after:content-[',']">
                   {primary && <span>{primary}</span>}
                   {partTime.map((name) => (
                     <span key={name} className="text-warning">
