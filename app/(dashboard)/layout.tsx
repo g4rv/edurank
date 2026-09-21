@@ -77,6 +77,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     headsDepartment,
     canOverseeSciencePlans,
     ratingTotals,
+    ratingYear: year,
   };
 
   return (

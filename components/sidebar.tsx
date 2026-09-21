@@ -1,35 +1,35 @@
 'use client';
 
-import { Fragment } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import {
-  Users,
-  GraduationCap,
-  Building2,
-  BookOpen,
-  ShieldCheck,
-  ClipboardList,
-  KeyRound,
-  LayoutDashboard,
-  BadgeCheck,
-  Table2,
-  Trophy,
-  CalendarCog,
-  ChartColumn,
-  Scale,
-  MailPlus,
-  UserPlus,
-  FlaskConical,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Logo } from '@/components/aurora/logo';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import type { Role } from '@/lib/generated/prisma/client';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { NPP_RATING_CLOSED_NOTE, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
-import type { Role } from '@/lib/generated/prisma/client';
-import { Logo } from '@/components/aurora/logo';
 import type { SectionTotals } from '@/lib/rating/section-scores';
+import { cn } from '@/lib/utils';
+import {
+  BadgeCheck,
+  BookOpen,
+  Building2,
+  CalendarCog,
+  ChartColumn,
+  ClipboardList,
+  FlaskConical,
+  GraduationCap,
+  KeyRound,
+  LayoutDashboard,
+  MailPlus,
+  Scale,
+  ShieldCheck,
+  Table2,
+  Trophy,
+  UserPlus,
+  Users,
+} from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Fragment } from 'react';
 
 const RATING_SECTIONS = [1, 2, 3, 4, 5];
 
@@ -90,6 +90,12 @@ export interface SidebarProps {
    */
   ratingTotals?: SectionTotals | null;
   /**
+   * Which рік these five sections belong to. Somebody filling their rating in
+   * September is a year behind what the calendar says, and the group gave no
+   * sign of which one it was counting.
+   */
+  ratingYear?: number | null;
+  /**
    * Rendered inside the phone drawer rather than as the rail.
    *
    * The nav itself is identical — same links, same order, same active state —
@@ -124,6 +130,7 @@ export function Sidebar({
   headsDepartment = false,
   canOverseeSciencePlans = false,
   ratingTotals = null,
+  ratingYear = null,
   inDrawer = false,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -281,14 +288,16 @@ export function Sidebar({
             {section.items.map((item) => (
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}
-            {section.showSections && <AddActivityNav pathname={pathname} totals={ratingTotals} />}
+            {section.showSections && (
+              <AddActivityNav pathname={pathname} totals={ratingTotals} year={ratingYear} />
+            )}
           </Fragment>
         ))}
       </nav>
 
-      <div className="border-t border-foreground/8 p-3">
-        <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-        <div className="mt-2">
+      <div className="border-t border-foreground/8 px-3 pt-4 pb-5">
+        <p className="truncate text-sm text-foreground-soft">{user.email}</p>
+        <div className="mt-3">
           <SignOutButton />
         </div>
       </div>
@@ -298,10 +307,29 @@ export function Sidebar({
 
 // Always open: five links are short enough to show outright, and a collapsed
 // group hid the only route an НПП uses to submit anything.
-function AddActivityNav({ pathname, totals }: { pathname: string; totals: SectionTotals | null }) {
+function AddActivityNav({
+  pathname,
+  totals,
+  year,
+}: {
+  pathname: string;
+  totals: SectionTotals | null;
+  year: number | null;
+}) {
   return (
     <div className="mt-1">
-      <p className="px-2 py-1 text-sm font-medium text-foreground">Заповнення рейтингу</p>
+      {/* The YEAR fits here where the total did not (owner, 2026-09-21): four
+          figures beside a 147px heading leave room in the 192px row, where a
+          real total like 29 300 wrapped it onto two lines — see the note on
+          «Разом» below. Somebody filling their rating in September is a year
+          behind the calendar, and the group used to give no sign of which one
+          it was counting. */}
+      <p className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-foreground">
+        Заповнення рейтингу
+        {year !== null && (
+          <span className="ml-auto text-sm font-medium text-foreground">{year}</span>
+        )}
+      </p>
 
       <div className="mt-0.5 ml-3.5 flex flex-col gap-0.5 border-l border-foreground/8 pl-2.5">
         {RATING_SECTIONS.map((section) => {
