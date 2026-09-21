@@ -107,7 +107,7 @@ export function PlanView({
             // Nothing to press: a submitted plan has no add button and no
             // delete on its rows.
             <p className="text-sm text-foreground-soft">
-              План збережено {lockedAt.toLocaleDateString('uk-UA')} — зміни через ННВ
+              План збережено {lockedAt.toLocaleDateString('uk-UA')}
             </p>
           ) : (
             <div className="flex flex-wrap items-center gap-2">

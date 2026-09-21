@@ -46,7 +46,7 @@ class RowNotFoundError extends Error {}
 /** The plan was submitted and is no longer editable (owner, 2026-09-17). */
 class PlanLockedError extends Error {}
 
-const PLAN_LOCKED_MESSAGE = 'План збережено — щоб змінити його, зверніться до ННВ';
+const PLAN_LOCKED_MESSAGE = 'План збережено';
 
 /**
  * Add, or edit, one row of a teacher's plan for the OPEN academic year.
