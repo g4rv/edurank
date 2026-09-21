@@ -139,8 +139,11 @@ describe('formatSpeciality', () => {
   it('writes each style the way its screen needs it', () => {
     expect(formatSpeciality(history, 'name')).toBe(history);
     expect(formatSpeciality(history, 'code')).toBe('A4.03');
-    expect(formatSpeciality(history, 'full')).toBe('A4.03 Середня освіта (історія)');
-    expect(formatSpeciality(history, 'compact')).toBe('A4.03 · Історія');
+    // The NAME leads and the code follows it in brackets (owner, 2026-09-21):
+    // a column of «A4.03 …» is read code-first, and the code is not what
+    // anybody is scanning the column for.
+    expect(formatSpeciality(history, 'full')).toBe('Середня освіта (історія) (A4.03)');
+    expect(formatSpeciality(history, 'compact')).toBe('Історія (A4.03)');
     expect(formatSpeciality(history, 'both')).toBe('014.03 / A4.03');
   });
 

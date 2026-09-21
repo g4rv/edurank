@@ -24,6 +24,7 @@ import {
   TooltipTrigger,
 } from '@/components/aurora/ui/tooltip';
 import { formatBonus } from '@/lib/stake/units';
+import { formatSpeciality } from '@/lib/specialities/codes';
 import {
   STUDENT_DEGREE_LABELS as DEGREE,
   STUDENT_FUNDING_LABELS as FUNDING,
@@ -195,7 +196,7 @@ export function ClaimsTable({ claims, canDelete }: { claims: MyClaim[]; canDelet
         <TableBody className="[&_td]:h-12 [&_td]:align-middle">
           {claims.map((claim) => (
             <TableRow key={claim.id}>
-              <TableCell>{claim.studentName}</TableCell>
+              <TableCell className="font-semibold">{claim.studentName}</TableCell>
               {/* **Ink, like every other cell** (owner, 2026-09-11). These
                   were `muted`, then briefly `--foreground-soft`; both were
                   wrong for the same reason. A cell holds the claim's own data —
@@ -205,7 +206,19 @@ export function ClaimsTable({ claims, canDelete }: { claims: MyClaim[]; canDelet
 
                   At `--muted-foreground`'s 5.51 against the name's 19.8 they
                   read as switched off, which is what started this. */}
-              <TableCell>{claim.speciality}</TableCell>
+              {/* **With its code** (owner, 2026-09-21). The name alone was the
+                  only place a speciality appeared without one: the review
+                  screen prints «A4.03 · Історія», the bonus column «A4.03», and
+                  every export the full form. A claim is priced BY its code —
+                  додаток 5's норматив table is keyed on it — so the person
+                  checking why their claim is worth 0,105 had nothing on the row
+                  to look up.
+
+                  `full` rather than the review screen's `compact`: this column
+                  is the one that absorbs the table's slack, and a personal list
+                  runs to a handful of rows where the parent «Середня освіта»
+                  does not repeat itself into noise. */}
+              <TableCell>{formatSpeciality(claim.speciality, 'full')}</TableCell>
               <TableCell className="whitespace-nowrap">
                 {DEGREE[claim.degree]} · {FORM[claim.form]} · {FUNDING[claim.funding]}
               </TableCell>

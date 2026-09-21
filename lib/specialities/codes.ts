@@ -230,11 +230,11 @@ export function formatSpeciality(name: string, style: CodeStyle = 'name'): strin
     case 'code':
       return code ?? codes?.legacy ?? '—';
     case 'full':
-      return code ? `${code} ${name}` : name;
+      return code ? `${name} (${code})` : name;
     case 'compact': {
       const subject = subjectOf(name);
       if (!code) return name;
-      return subject ? `${code} · ${subject}` : `${code} ${name}`;
+      return subject ? `${subject} (${code})` : `${name} (${code})`;
     }
     case 'both': {
       const legacy = codes?.legacy;
