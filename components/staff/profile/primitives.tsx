@@ -1,6 +1,6 @@
-import Link from 'next/link';
-import { ExternalLink } from 'lucide-react';
 import { UK } from '@/lib/plural';
+import { ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 /**
  * The small pieces every profile card is built from.
@@ -127,36 +127,36 @@ export function PositionEntry({
   const link = 'underline underline-offset-2 transition-colors hover:text-brand';
 
   return (
-    <div className="py-2.5 first:pt-0 last:pb-0">
-      <p className="text-xs font-medium text-muted-foreground">{badge}</p>
+    <>
+      <p className="text-sm font-medium text-foreground-soft">{badge}</p>
+      <div className="flex items-center py-2.5 first:pt-0 last:pb-0">
+        <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+          {faculty && (
+            <>
+              {facultyHref ? (
+                <Link href={facultyHref} className={link}>
+                  {faculty}
+                </Link>
+              ) : (
+                <span>{faculty}</span>
+              )}
+              <span aria-hidden className="text-muted-foreground">
+                •
+              </span>
+            </>
+          )}
 
-      <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-sm">
-        {faculty && (
-          <>
-            {facultyHref ? (
-              <Link href={facultyHref} className={link}>
-                {faculty}
-              </Link>
-            ) : (
-              <span>{faculty}</span>
-            )}
-            <span aria-hidden className="text-muted-foreground/60">
-              ·
-            </span>
-          </>
-        )}
-
-        {departmentHref ? (
-          <Link href={departmentHref} className={link}>
-            {department}
-          </Link>
-        ) : (
-          <span>{department}</span>
-        )}
-
-        {trailing && <span className="ml-auto shrink-0 pl-4">{trailing}</span>}
-      </p>
-    </div>
+          {departmentHref ? (
+            <Link href={departmentHref} className={link}>
+              {department}
+            </Link>
+          ) : (
+            <span>{department}</span>
+          )}
+        </p>
+        {trailing && <span className="ml-auto shrink-0 pl-4 text-sm">{trailing}</span>}
+      </div>
+    </>
   );
 }
 
