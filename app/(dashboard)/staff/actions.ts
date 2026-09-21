@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
 import { canManageEntity, isEditorWritableField } from '@/lib/permissions';
+import { formatStake } from '@/lib/stake/units';
 import { parseDbError } from '@/lib/db-error';
 import { logWarning } from '@/lib/log';
 import { issueAndEmailLink } from '@/lib/mail/invite';
@@ -108,17 +109,6 @@ export async function createStaff(
         });
       }
 
-      await tx.auditLog.create({
-        data: {
-          action: 'CREATE',
-          entity: 'Staff',
-          entityId: created.id,
-          label: `${rest.lastName} ${rest.firstName} ${rest.patronymic}`,
-          userId: session.user.id,
-          changes: diffChanges({}, createData as Record<string, string | number | boolean | null>),
-        },
-      });
-
       await syncProfileDerived(tx, created.id);
 
       // Last, because it needs the person to exist and it recomputes the cached
@@ -127,6 +117,56 @@ export async function createStaff(
         const refusal = await seedAllocations(tx, created.id, seeded.seeds, year);
         if (refusal) throw new RateRefused(refusal);
       }
+
+      // **After the сумісництво and the ставки, so it can record them**
+      // (2026-09-21). The entry used to be written here first and diffed
+      // `createData` alone — which is the Staff COLUMNS. A person created with
+      // a second кафедра and a 0,25 ставка logged neither: the join table is
+      // not a column, and `seedAllocations` writes no audit entry of its own.
+      //
+      // The same two gaps were leaving `updateStaff` with empty diffs, and an
+      // empty diff on a creation is worse — it is the one entry that has to
+      // answer «where did this person come from».
+      const changes = diffChanges(
+        {},
+        createData as Record<string, string | number | boolean | null>
+      );
+
+      if (partTimeDepartmentIds.length > 0) {
+        const named = await tx.department.findMany({
+          where: { id: { in: partTimeDepartmentIds } },
+          select: { name: true },
+          orderBy: { name: 'asc' },
+        });
+        changes.partTimeDepartmentIds = { from: null, to: named.map((d) => d.name).join(', ') };
+      }
+
+      if (seeded.seeds.length > 0) {
+        const named = await tx.department.findMany({
+          where: { id: { in: seeded.seeds.map((r) => r.departmentId) } },
+          select: { id: true, name: true },
+        });
+        const byId = new Map(named.map((d) => [d.id, d.name]));
+        changes.seededRates = {
+          from: null,
+          to: seeded.seeds
+            .map(
+              (r) => `${byId.get(r.departmentId) ?? r.departmentId} — ${formatStake(r.hundredths)}`
+            )
+            .join('; '),
+        };
+      }
+
+      await tx.auditLog.create({
+        data: {
+          action: 'CREATE',
+          entity: 'Staff',
+          entityId: created.id,
+          label: `${rest.lastName} ${rest.firstName} ${rest.patronymic}`,
+          userId: session.user.id,
+          changes,
+        },
+      });
     });
   } catch (e) {
     // A refused ставка is the person doing what the rules forbid, not a defect:

@@ -34,6 +34,7 @@ import {
   isLastActiveAdmin,
   USER_EDITABLE_STAFF_FIELDS,
 } from '@/lib/permissions';
+import { formatStake } from '@/lib/stake/units';
 import { parseDbError } from '@/lib/db-error';
 import { logError } from '@/lib/log';
 import { syncProfileDerived, PROFILE_DERIVED_STAFF_FIELDS } from '@/lib/rating/profile-derived';
@@ -112,7 +113,19 @@ export async function archiveStaff(id: string, reason: string): Promise<StaffArc
 
       await tx.auditLog.create({
         data: {
-          action: 'UPDATE',
+          // **`DELETE`, not `UPDATE`** (owner, 2026-09-21: «archiving a person
+          // should be considered destructive»). It writes a column rather than
+          // removing a row, but archiving IS how a person is deleted here —
+          // the doc comment above says so and `canManageEntity(…, 'STAFF',
+          // 'DELETE')` is the permission that guards it.
+          //
+          // The audit log's own action filter is why this has to be the STORED
+          // action and not just the rendered label: `where: { action }` reads
+          // this column, so while it said `UPDATE`, asking the log for
+          // «Видалено» returned every deletion in the app except the one that
+          // matters most. `describeAudit` still refines it to «Архівовано»,
+          // and still reads the old `UPDATE` rows correctly.
+          action: 'DELETE',
           entity: 'Staff',
           entityId: id,
           label: staffFullName(target),
@@ -183,7 +196,10 @@ export async function restoreStaff(id: string): Promise<StaffArchiveState> {
 
       await tx.auditLog.create({
         data: {
-          action: 'UPDATE',
+          // The other half of the pair above: if archiving is the deletion,
+          // restoring is the creation. Filtering «Створено» should find the
+          // moment somebody came back.
+          action: 'CREATE',
           entity: 'Staff',
           entityId: id,
           label: staffFullName(target),
@@ -503,10 +519,39 @@ export async function updateStaff(
         if (refusal) throw new RateRefused(refusal);
       }
 
-      // Re-saving a form without touching anything should not leave a log entry
-      // that lists no change. ADMIN still always gets one: they may have edited
-      // the part-time departments, which the field diff does not cover.
-      if (Object.keys(changes).length === 0 && !isAdmin) return;
+      // A ставка seeded from this form is a change, and `seedAllocations` logs
+      // nothing of its own — so without this an ADMIN who set one and touched
+      // nothing else left an entry that said «Оновлено» over an empty diff.
+      //
+      // The SUBMITTED seeds, which is what the form can produce: `seedAllocations`
+      // only ever adds, and the form disables the boxes for a кафедра that
+      // already has an allocation, so what was sent is what was written.
+      if (seeded.seeds.length > 0) {
+        const named = await tx.department.findMany({
+          where: { id: { in: seeded.seeds.map((r) => r.departmentId) } },
+          select: { id: true, name: true },
+        });
+        const byId = new Map(named.map((d) => [d.id, d.name]));
+        changes.seededRates = {
+          from: null,
+          to: seeded.seeds
+            .map(
+              (r) => `${byId.get(r.departmentId) ?? r.departmentId} — ${formatStake(r.hundredths)}`
+            )
+            .join('; '),
+        };
+      }
+
+      // **Re-saving a form without touching anything leaves no entry at all**,
+      // ADMIN included (owner, 2026-09-21: «what was the change for her?» over a
+      // row whose diff was «—»).
+      //
+      // The `&& !isAdmin` that used to be here had a reason and it expired: the
+      // carve-out was «they may have edited the part-time departments, which
+      // the field diff does not cover», and the diff covers them a hundred
+      // lines above now. What was left was a rule that logged ADMIN doing
+      // nothing.
+      if (Object.keys(changes).length === 0) return;
 
       await tx.auditLog.create({
         data: {

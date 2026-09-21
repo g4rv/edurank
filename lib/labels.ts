@@ -84,6 +84,9 @@ export const FIELD_LABELS: Record<string, string> = {
   // Had no label at all, so every сумісництво change ever recorded rendered in
   // the audit log as a raw field name (2026-08-24).
   partTimeDepartmentIds: 'Додаткова кафедра',
+  // Not a Staff column: the ставки seeded from the profile form, recorded in the
+  // audit diff because `seedAllocations` writes no entry of its own.
+  seededRates: 'Призначена ставка',
   department: 'Випускова кафедра',
   divisionId: 'Відділ',
   archivedAt: 'Архівовано',

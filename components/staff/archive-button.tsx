@@ -124,7 +124,13 @@ export function RestoreStaffButton({ staffId, staffName }: { staffId: string; st
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Скасувати</AlertDialogCancel>
-          <AlertDialogAction onClick={handleRestore} disabled={isPending}>
+          {/* `default`, not the `destructive` this component defaults to.
+              §10 of `docs/aurora.md` gives that default to «almost every
+              confirm here», which is true — but putting somebody BACK on the
+              roster is the one action on this screen that takes nothing away,
+              and a red button over «Відновити» says the opposite of what it
+              does. */}
+          <AlertDialogAction variant="default" onClick={handleRestore} disabled={isPending}>
             {isPending ? 'Відновлення...' : 'Відновити'}
           </AlertDialogAction>
         </AlertDialogFooter>

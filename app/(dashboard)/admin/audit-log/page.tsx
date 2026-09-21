@@ -1,45 +1,17 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { cn } from '@/lib/utils';
-import {
-  ENTITY_FIELD_LABELS,
-  FIELD_LABELS,
-  STUDENT_DEGREE_LABELS,
-  STUDENT_FUNDING_LABELS,
-  STUDY_FORM_LABELS,
-} from '@/lib/labels';
+import { STUDENT_DEGREE_LABELS, STUDENT_FUNDING_LABELS, STUDY_FORM_LABELS } from '@/lib/labels';
 import { formatStake } from '@/lib/stake/units';
-import { SortTh } from '@/components/ui/sort-th';
-import { DataTable } from '@/components/ui/data-table';
-import { AuditDateFilter } from '@/components/admin/audit-date-filter';
+import { AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/audit/describe';
+import { ListHeader } from '@/components/aurora/ui/list-header';
+import { Pagination } from '@/components/aurora/ui/pagination';
+import { SortHead, TableHead, TableRow } from '@/components/aurora/ui/table';
+import { AuditFilters } from '@/components/admin/audit-filters';
+import { AuditLogTable } from '@/components/admin/audit-log-table';
 import { UK } from '@/lib/plural';
-
-const ACTION_LABELS: Record<string, string> = {
-  CREATE: 'Створено',
-  UPDATE: 'Оновлено',
-  DELETE: 'Видалено',
-};
-
-const ACTION_CLASSES: Record<string, string> = {
-  CREATE: 'bg-success-surface text-success',
-  UPDATE: 'bg-brand/10 text-brand-strong',
-  DELETE: 'bg-error-surface text-error-strong',
-};
-
-const ENTITY_LABELS: Record<string, string> = {
-  Staff: 'Персонал',
-  Faculty: 'Факультет',
-  Department: 'Кафедра',
-  Division: 'Відділ',
-  Activity: 'Досягнення',
-  RatingTemplate: 'Рейтинговий рік',
-  ActivityType: 'Показник рейтингу',
-  AdmittedStudent: 'Здобувач',
-};
 
 const VALUE_LABELS: Record<string, string> = {
   LECTURER: 'Викладач',
@@ -51,6 +23,26 @@ const VALUE_LABELS: Record<string, string> = {
   ADMIN: 'Адміністратор',
   EDITOR: 'Редактор',
   USER: 'Користувач',
+  // Статуси, які раніше друкувались англійською просто тому, що їх тут не було
+  // (owner, 2026-09-21). Every one of these reaches the diff through a `status`
+  // field, which is the commonest thing in the log after a name.
+  PENDING: 'На розгляді',
+  APPROVED: 'Зараховано',
+  REMOVED: 'Відхилено',
+  CONFIRMED: 'Підтверджено',
+  REJECTED: 'Відхилено',
+  DRAFT: 'Чернетка',
+  ACTIVE: 'Активний',
+  CLOSED: 'Закритий',
+  OPEN: 'Відкритий',
+  LOCKED: 'Подано',
+  NPP_SUBMISSION: 'Самостійне подання',
+  DIVISION_MANAGED: 'Вносить відділ',
+  PROFILE_DERIVED: 'З профілю',
+  ONCE: 'Один раз назавжди',
+  YEARLY: 'Щороку заново',
+  SHARED: 'Спільна',
+  INDIVIDUAL: 'Індивідуальна',
   // Реєстр зарахованих. Spread from the shared maps rather than retyped, so a
   // diff and the register page cannot disagree about what «Заочна» is called.
   ...STUDENT_DEGREE_LABELS,
@@ -58,57 +50,6 @@ const VALUE_LABELS: Record<string, string> = {
   ...STUDENT_FUNDING_LABELS,
 };
 
-type ChangeEntry = { from: unknown; to: unknown };
-type Changes = Record<string, ChangeEntry>;
-type Resolve = (field: string, value: unknown) => string;
-
-function ChangesDisplay({
-  changes,
-  entity,
-  resolve,
-}: {
-  changes: Changes;
-  entity: string;
-  resolve: Resolve;
-}) {
-  const entries = Object.entries(changes);
-  if (entries.length === 0) return null;
-  const visible = entries.slice(0, 8);
-  const rest = entries.length - 8;
-
-  return (
-    <dl className="space-y-0.5">
-      {visible.map(([key, { from, to }]) => (
-        <div
-          key={key}
-          className="flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground"
-        >
-          <dt className="font-medium text-foreground/70">
-            {ENTITY_FIELD_LABELS[entity]?.[key] ?? FIELD_LABELS[key] ?? key}:
-          </dt>
-          <dd className="flex items-baseline gap-1">
-            {from !== null && <span>{resolve(key, from)}</span>}
-            {from !== null && to !== null && <span className="text-muted-foreground/50">→</span>}
-            {to !== null && <span>{resolve(key, to)}</span>}
-          </dd>
-        </div>
-      ))}
-      {rest > 0 && <div className="text-xs text-muted-foreground/60">+{rest} полів</div>}
-    </dl>
-  );
-}
-
-const VALID_ACTIONS = ['CREATE', 'UPDATE', 'DELETE'];
-const VALID_ENTITIES = [
-  'Staff',
-  'Faculty',
-  'Department',
-  'Division',
-  'Activity',
-  'RatingTemplate',
-  'ActivityType',
-  'AdmittedStudent',
-];
 const PAGE_SIZE = 50;
 
 export default async function AuditLogPage({
@@ -121,6 +62,7 @@ export default async function AuditLogPage({
   if (session.user.role !== 'ADMIN') redirect('/');
 
   const {
+    q,
     action,
     entity,
     page: pageParam,
@@ -130,10 +72,13 @@ export default async function AuditLogPage({
     to: toParam,
   } = await searchParams;
 
+  const search = typeof q === 'string' ? q.trim() : '';
   const actionFilter =
-    typeof action === 'string' && VALID_ACTIONS.includes(action) ? action : undefined;
+    typeof action === 'string' && (AUDIT_ACTIONS as readonly string[]).includes(action)
+      ? action
+      : undefined;
   const entityFilter =
-    typeof entity === 'string' && VALID_ENTITIES.includes(entity) ? entity : undefined;
+    typeof entity === 'string' && AUDIT_ENTITIES.includes(entity) ? entity : undefined;
   const fromFilter = typeof fromParam === 'string' && fromParam ? fromParam : undefined;
   const toFilter = typeof toParam === 'string' && toParam ? toParam : undefined;
   const page = Math.max(1, parseInt(typeof pageParam === 'string' ? pageParam : '1', 10));
@@ -143,6 +88,7 @@ export default async function AuditLogPage({
   function buildHref(overrides: Record<string, string | undefined>) {
     const sp = new URLSearchParams();
     const base: Record<string, string | undefined> = {
+      q: search || undefined,
       action: actionFilter,
       entity: entityFilter,
       from: fromFilter,
@@ -163,6 +109,16 @@ export default async function AuditLogPage({
   const where = {
     ...(actionFilter ? { action: actionFilter } : {}),
     ...(entityFilter ? { entity: entityFilter } : {}),
+    // «Хто це змінив» is what the log is FOR, and there was no way to ask it.
+    // The label is the entry's own name for the record; the email is the author.
+    ...(search
+      ? {
+          OR: [
+            { label: { contains: search, mode: 'insensitive' as const } },
+            { user: { email: { contains: search, mode: 'insensitive' as const } } },
+          ],
+        }
+      : {}),
     ...(fromDate || toDate
       ? {
           createdAt: { ...(fromDate ? { gte: fromDate } : {}), ...(toDate ? { lte: toDate } : {}) },
@@ -194,7 +150,7 @@ export default async function AuditLogPage({
       db.speciality.findMany({ select: { id: true, name: true } }),
     ]);
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const divisionMap = new Map(divisions.map((d) => [d.id, d.name]));
   const departmentMap = new Map(departments.map((d) => [d.id, d.name]));
@@ -203,7 +159,8 @@ export default async function AuditLogPage({
     staffList.map((s) => [s.id, `${s.lastName} ${s.firstName} ${s.patronymic}`])
   );
   const specialityMap = new Map(specialities.map((s) => [s.id, s.name]));
-  function resolveEntityName(entity: string, entityId: string): string | null {
+
+  function resolveName(entity: string, entityId: string): string | null {
     switch (entity) {
       case 'Staff':
         return staffMap.get(entityId) ?? null;
@@ -218,7 +175,7 @@ export default async function AuditLogPage({
     }
   }
 
-  function resolve(field: string, value: unknown): string {
+  function resolveValue(field: string, value: unknown): string {
     if (value === null || value === undefined) return '—';
     if (typeof value === 'boolean') return value ? 'Так' : 'Ні';
     if (value === '***') return '•••';
@@ -267,163 +224,78 @@ export default async function AuditLogPage({
     return str;
   }
 
+  const head = (
+    <TableRow>
+      <SortHead
+        label="Час"
+        href={buildHref({
+          sort: 'createdAt',
+          dir: sortField === 'createdAt' && sortDir === 'desc' ? 'asc' : 'desc',
+          page: undefined,
+        })}
+        active={sortField === 'createdAt'}
+        dir={sortDir}
+      />
+      <TableHead>Дія</TableHead>
+      <TableHead>Об&apos;єкт</TableHead>
+      <TableHead>Зміни</TableHead>
+      <SortHead
+        label="Користувач"
+        href={buildHref({
+          sort: 'author',
+          dir: sortField === 'author' && sortDir === 'asc' ? 'desc' : 'asc',
+          page: undefined,
+        })}
+        active={sortField === 'author'}
+        dir={sortDir}
+      />
+    </TableRow>
+  );
+
+  // In the table card's own footer strip, pinned under the rows — loose below
+  // the card it is the one piece of furniture the height budget does not know
+  // about, so a short viewport scrolls the page to reach it.
+  const pager = totalPages > 1 && (
+    <tr>
+      <td colSpan={5} className="px-4 py-2">
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          align="center"
+          hrefFor={(p) => buildHref({ page: p > 1 ? String(p) : undefined })}
+          summary={
+            <>
+              Стор. {page} з {totalPages}
+            </>
+          }
+        />
+      </td>
+    </tr>
+  );
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Журнал аудиту</h1>
-        <p className="mt-0.5 text-sm text-foreground-soft">{UK.record(total)}</p>
-      </div>
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <ListHeader
+        title="Журнал аудиту"
+        subtitle={UK.record(total)}
+        filters={
+          <AuditFilters
+            q={search}
+            action={actionFilter ?? ''}
+            entity={entityFilter ?? ''}
+            from={fromFilter ?? ''}
+            to={toFilter ?? ''}
+          />
+        }
+      />
 
-      <div className="space-y-3">
-        <AuditDateFilter from={fromFilter ?? ''} to={toFilter ?? ''} />
-
-        <div className="flex w-fit gap-1 rounded-lg bg-muted p-1">
-          {([undefined, ...VALID_ACTIONS] as (string | undefined)[]).map((a) => (
-            <Link
-              key={a ?? 'all'}
-              href={buildHref({ action: a, entity: entityFilter })}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                actionFilter === a
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {a ? ACTION_LABELS[a] : 'Всі дії'}
-            </Link>
-          ))}
-        </div>
-
-        <div className="flex w-fit gap-1 rounded-lg bg-muted p-1">
-          {([undefined, ...VALID_ENTITIES] as (string | undefined)[]).map((e) => (
-            <Link
-              key={e ?? 'all'}
-              href={buildHref({ action: actionFilter, entity: e })}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                entityFilter === e
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {e ? ENTITY_LABELS[e] : "Всі об'єкти"}
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {logs.length === 0 ? (
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Записів не знайдено
-        </div>
-      ) : (
-        <DataTable>
-          <thead>
-            <tr className="border-b bg-muted/40">
-              <SortTh
-                label="Час"
-                href={buildHref({
-                  sort: 'createdAt',
-                  dir: sortField === 'createdAt' ? (sortDir === 'desc' ? 'asc' : 'desc') : 'desc',
-                })}
-                active={sortField === 'createdAt'}
-                dir={sortDir as 'asc' | 'desc'}
-              />
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Дія</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Об&apos;єкт</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Зміни</th>
-              <SortTh
-                label="Користувач"
-                href={buildHref({
-                  sort: 'author',
-                  dir: sortField === 'author' ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc',
-                })}
-                active={sortField === 'author'}
-                dir={sortDir as 'asc' | 'desc'}
-              />
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((log) => {
-              const changes =
-                log.changes && typeof log.changes === 'object' && !Array.isArray(log.changes)
-                  ? (log.changes as Changes)
-                  : null;
-
-              return (
-                <tr key={log.id} className="transition-colors">
-                  <td className="px-4 py-3 align-top whitespace-nowrap text-muted-foreground">
-                    {new Date(log.createdAt).toLocaleString('uk-UA')}
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        ACTION_CLASSES[log.action] ?? 'bg-muted text-muted-foreground'
-                      )}
-                    >
-                      {ACTION_LABELS[log.action] ?? log.action}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <span className="text-xs text-muted-foreground">
-                      {ENTITY_LABELS[log.entity] ?? log.entity}
-                    </span>
-                    {(() => {
-                      const name = resolveEntityName(log.entity, log.entityId) ?? log.label;
-                      return name ? <p className="mt-0.5 text-sm font-medium">{name}</p> : null;
-                    })()}
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    {changes ? (
-                      <ChangesDisplay changes={changes} entity={log.entity} resolve={resolve} />
-                    ) : (
-                      <span className="text-sm text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 align-top text-muted-foreground">
-                    {log.user?.email ?? '—'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </DataTable>
-      )}
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Сторінка {page} з {totalPages}
-          </span>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <Link
-                href={buildHref({
-                  action: actionFilter,
-                  entity: entityFilter,
-                  page: String(page - 1),
-                })}
-                className="rounded-md border bg-card px-3 py-1.5 text-foreground transition-colors hover:bg-muted/50"
-              >
-                ← Попередня
-              </Link>
-            )}
-            {page < totalPages && (
-              <Link
-                href={buildHref({
-                  action: actionFilter,
-                  entity: entityFilter,
-                  page: String(page + 1),
-                })}
-                className="rounded-md border bg-card px-3 py-1.5 text-foreground transition-colors hover:bg-muted/50"
-              >
-                Наступна →
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
+      <AuditLogTable
+        entries={logs}
+        head={head}
+        footer={pager || undefined}
+        resolveName={resolveName}
+        resolveValue={resolveValue}
+      />
     </div>
   );
 }
