@@ -25,6 +25,7 @@ import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
+import { EvidenceText } from './evidence-text';
 import {
   Select,
   SelectContent,
@@ -291,7 +292,10 @@ function EntryList({
               ) : (
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
-                    <span className="whitespace-pre-line">{entry.text}</span>{' '}
+                    {/* The same cut-and-link treatment as a derived entry: a
+                        typed row sits in the same 42% column and is the one
+                        somebody is most likely to have pasted a URL into. */}
+                    <EvidenceText text={entry.text} />{' '}
                     <span className="text-muted-foreground tabular-nums">({entry.year})</span>
                     {named && (
                       <p className="mt-1 text-muted-foreground">

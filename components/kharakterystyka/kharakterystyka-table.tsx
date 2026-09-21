@@ -25,6 +25,7 @@ const KHARAKTERYSTYKA_HEAD = (
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import type { Kharakterystyka, KharakterystykaPosition } from '@/lib/kharakterystyka/build';
 import { ManualEntries, type ManualEntry } from './manual-entries';
+import { EvidenceText } from './evidence-text';
 
 // The printed document is a three-column table — № з/п, Показник активності,
 // Дані підтвердження показника — and this keeps that shape, because the point of
@@ -240,7 +241,7 @@ function PositionRow({
             {position.entries.map((entry, i) => (
               <li key={`${entry.itemNumber}-${i}`} className="text-xs">
                 <span className="text-muted-foreground tabular-nums">{entry.itemNumber}</span>{' '}
-                <span className="whitespace-pre-line">{entry.summary}</span>{' '}
+                <EvidenceText text={entry.summary} />{' '}
                 <span className="text-muted-foreground">({entry.year})</span>
               </li>
             ))}
