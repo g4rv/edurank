@@ -11,6 +11,14 @@ import { Input } from './input';
  * simply forgotten on the second one. Two fields for the same value that did
  * not look the same, for no reason anybody chose.
  *
+ * **The placeholder is a REAL-shaped address** (owner, 2026-09-21).
+ * `email@example.com` is the shape of an example, not of an account here: every
+ * address in this university is `ім'я.прізвище@uhsp.edu.ua`, and the fastest way
+ * to say so is to show one. It is set here rather than at the staff form,
+ * because the three other fields — login, «забули пароль» — are filled in by the
+ * same people about the same addresses, and one default is the whole argument
+ * of this file.
+ *
  * **The mobile suppressions are the point of this file.** `type="email"` turns
  * off autocapitalisation in most phone keyboards, but not reliably in all of
  * them, and it does nothing about autocorrect: a keyboard is free to capitalise
@@ -41,7 +49,7 @@ export function EmailInput(
       autoCapitalize="off"
       autoCorrect="off"
       spellCheck={false}
-      placeholder="email@example.com"
+      placeholder="ivan.petrenko@uhsp.edu.ua"
       {...props}
     />
   );

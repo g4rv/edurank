@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -70,6 +72,7 @@ export function Table({
   footer,
   footerClassName,
   fill = false,
+  minWidth,
   className,
   containerClassName,
   children,
@@ -108,8 +111,43 @@ export function Table({
    * shell already is bounded (`h-screen`), so what is needed is the chain down
    * from it. Where that chain does not exist the flex rules are inert and the
    * card simply grows, so nothing breaks — it just does not fill.
+   *
+   * **It is a CEILING, not a height** (owner, 2026-09-21). `flex-1` alone is
+   * «grow to fill», so five administrative staff came with 600px of empty card
+   * under them. `flex-1 max-h-fit` is the shape actually wanted: grow into the
+   * space there is, but never past the rows there are.
+   *
+   * `flex: 0 1 auto` was tried first and is the trap. It sizes to the content
+   * and lets the flex algorithm shrink it — which works, and then shrinks the
+   * SIBLINGS too, in proportion to their bases. On `/science-plans` the stat
+   * strip above the table collapsed from 80px to about 16, because a card with
+   * a 3181px basis leaves a sibling no share of the overflow worth having. It
+   * would have needed `shrink-0` on every piece of furniture on every page
+   * that uses `fill`. `max-h-fit` needs nothing from anybody: the card only
+   * ever grows, so nothing else is asked to give anything up.
    */
   fill?: boolean;
+  /**
+   * The narrowest the columns may get before the card scrolls sideways.
+   *
+   * **Without it a narrow window does not squeeze the table, it breaks it.**
+   * `table-layout: fixed` honours the declared widths first and hands what is
+   * LEFT to the `null` column — so once the declared widths alone exceed the
+   * card, «what is left» is zero or less, the name column collapses to nothing
+   * and every name in it paints straight over the column beside it. Measured on
+   * a 1280px window: `/staff` and `/science-plans` both did exactly this, and
+   * neither is an unusual size — it is a laptop.
+   *
+   * Give it the sum of the declared widths plus a floor for the `null` one.
+   * Below that the card scrolls horizontally and all three tables move
+   * together, which is what the scroller around them is for: the header cannot
+   * be its own scroll container, or it would stay behind while the rows moved.
+   *
+   * **Opt-in.** A table that leaves it out behaves exactly as before — the
+   * widths still collapse, and that is a bug it has not adopted the fix for
+   * rather than one this prop introduced.
+   */
+  minWidth?: string;
   /** On every `<table>`. */
   className?: string;
   /**
@@ -146,55 +184,89 @@ export function Table({
         // identity band, the tabs, the switch. A caller with a different header
         // retunes it through `containerClassName` rather than editing this file.
         'flex w-full flex-col overflow-hidden rounded-xl border bg-card shadow-card',
-        fill ? 'min-h-0 flex-1' : 'max-h-(--table-max-h) [--table-max-h:calc(100svh-16rem)]',
+        // `max-h-fit` is what turns «fill the space» into «up to the space».
+        // With a short list `fit-content` resolves to the rows' own height and
+        // binds; with a long one it resolves to the space available and does
+        // not, so the card fills and the body scrolls exactly as before.
+        fill
+          ? 'max-h-fit min-h-0 flex-1'
+          : 'max-h-(--table-max-h) [--table-max-h:calc(100svh-16rem)]',
         containerClassName
       )}
     >
-      {/* `overflow-hidden` makes this a scroll container, which is what lets
+      {/* **One horizontal scroller around all three tables.** Each of them is
+          its own scroll container vertically, and none of them may be one
+          horizontally: the header would stay put while the rows slid under it.
+          Scrolling the box that holds all three moves them as one.
+
+          Inert until `minWidth` is given — `overflow-x` stays `visible`, which
+          is what every table built before this prop existed already had. */}
+      <div
+        className={cn('flex min-h-0 flex-auto flex-col', minWidth && 'overflow-x-auto')}
+        style={minWidth ? ({ '--table-min-w': minWidth } as React.CSSProperties) : undefined}
+      >
+        {/* `overflow-hidden` makes this a scroll container, which is what lets
           `scrollbar-gutter` apply — it gives up the same strip the rows below
           do, so the columns line up. Nothing here ever actually scrolls. */}
-      {/* No `border-b`. The first section heading below already draws a rule on
+        {/* No `border-b`. The first section heading below already draws a rule on
           its top edge, and the two together came out as one heavy 2px band
           (owner, 2026-09-08). One line, drawn by one thing.
 
           A table whose body opens with an ordinary row rather than a section
           heading would have no separator here — neither caller does, and §11
           says to wait for the one that does rather than guess at it now. */}
-      <div className="shrink-0 overflow-hidden [scrollbar-gutter:stable]">
-        <table className={table}>
-          {cols}
-          <thead>{head}</thead>
-        </table>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
-        <table className={table}>
-          {cols}
-          {children}
-        </table>
-      </div>
-
-      {footer && (
-        // `bg-brand/10` here rather than on the row: this is the number the
-        // page exists to show, §3 gives the accent to it, and only the strip
-        // reaches across the scrollbar gutter.
-        <div
-          className={cn(
-            'shrink-0 overflow-hidden border-t [scrollbar-gutter:stable]',
-            // `bg-brand/10` by default: for a grand total this is the number the
-            // page exists to show, and §3 gives the accent to it.
-            footerClassName ?? 'bg-brand/10'
-          )}
-        >
+        <div className={cn('shrink-0 overflow-hidden [scrollbar-gutter:stable]', FLOOR)}>
           <table className={table}>
             {cols}
-            <tfoot>{footer}</tfoot>
+            <thead>{head}</thead>
           </table>
         </div>
-      )}
+
+        {/* **`flex-auto`, never `flex-1`.** `flex-1` sets `flex-basis: 0`, and a
+          card that sizes to its content then measures this box as zero: header
+          plus nothing plus footer, a table with no rows in it. `flex: 1 1 auto`
+          starts from the rows' own height and shrinks from there. */}
+        <div className={cn('min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:stable]', FLOOR)}>
+          <table className={table}>
+            {cols}
+            {children}
+          </table>
+        </div>
+
+        {footer && (
+          // `bg-brand/10` here rather than on the row: this is the number the
+          // page exists to show, §3 gives the accent to it, and only the strip
+          // reaches across the scrollbar gutter.
+          <div
+            className={cn(
+              'shrink-0 overflow-hidden border-t [scrollbar-gutter:stable]',
+              FLOOR,
+              // `bg-brand/10` by default: for a grand total this is the number the
+              // page exists to show, and §3 gives the accent to it.
+              footerClassName ?? 'bg-brand/10'
+            )}
+          >
+            <table className={table}>
+              {cols}
+              <tfoot>{footer}</tfoot>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+/**
+ * The floor all three tables share, read from the `--table-min-w` the scroller
+ * sets. It has to be on the DIVs and not only on the tables: a flex child
+ * stretches to its container's width, so without it the three boxes stay as
+ * narrow as the card while the tables inside them overflow — three independent
+ * overflows instead of one scroll.
+ *
+ * Unset, `min-width` resolves to nothing and the rule is inert.
+ */
+const FLOOR = 'min-w-(--table-min-w)';
 
 /**
  * Column dividers, set on the table rather than on every cell so they land on
@@ -364,5 +436,76 @@ export function TableCell({
       )}
       {...props}
     />
+  );
+}
+
+/**
+ * A column heading that sorts.
+ *
+ * `TableHead` with a link and a chevron in it. It replaces
+ * `components/ui/sort-th.tsx`, which drew its label in `--muted-foreground` —
+ * §4 of `docs/aurora.md` says a column heading is ink, because it is read once
+ * and then used as a landmark for sixty rows.
+ *
+ * **Here because there were two of it.** `department-plans-table.tsx` grew one
+ * privately in September and `/staff` wrote the same thing again three weeks
+ * later, which is §11's «three cards in one day» starting over. It takes a
+ * finished `href` rather than a params object, so the two callers keep their
+ * own very different URL builders — `planListHref` on one side, the staff
+ * list's `buildHref` on the other — and share the only part that was ever the
+ * same: the drawing.
+ *
+ * `aria-sort` goes on the `<th>`, which is where ARIA defines it. On the link
+ * it is ignored: `aria-sort` is only meaningful on a header cell.
+ */
+export function SortHead({
+  label,
+  href,
+  active,
+  dir,
+  numeric = false,
+  align,
+  className,
+}: {
+  label: string;
+  href: string;
+  active: boolean;
+  /** The direction the column is sorted in NOW — the chevron. `href` carries the next one. */
+  dir: 'asc' | 'desc';
+  numeric?: boolean;
+  align?: keyof typeof ALIGN;
+  className?: string;
+}) {
+  return (
+    <TableHead
+      numeric={numeric}
+      align={align}
+      className={className}
+      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}
+    >
+      <Link
+        href={href}
+        className={cn(
+          'inline-flex items-center gap-1 transition-colors hover:text-brand',
+          // The chevron follows the label to whichever edge the column is read
+          // from, so it never sits between the heading and its own figures.
+          (numeric || align === 'right') && 'flex-row-reverse'
+        )}
+      >
+        {label}
+        {active ? (
+          dir === 'asc' ? (
+            <ChevronUp className="size-3.5" />
+          ) : (
+            <ChevronDown className="size-3.5" />
+          )
+        ) : (
+          // Present but faint on every sortable column: a chevron that appears
+          // only on hover tells nobody with a touch screen that the column
+          // sorts at all.
+          <ChevronsUpDown className="size-3.5 opacity-40" />
+        )}
+      </Link>
+    </TableHead>
   );
 }

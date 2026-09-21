@@ -73,7 +73,7 @@ export default async function DivisionsPage({
           </thead>
           <tbody>
             {divisions.map((division) => (
-              <tr key={division.id} className="group/row transition-colors">
+              <tr key={division.id} className="transition-colors">
                 <RowLinkCell href={`/divisions/${division.id}`}>{division.name}</RowLinkCell>
                 <td className="px-4 py-3 text-muted-foreground">{division._count.staff}</td>
                 {isAdmin && (

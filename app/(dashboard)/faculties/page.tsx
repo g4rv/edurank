@@ -79,7 +79,7 @@ export default async function FacultiesPage({
           </thead>
           <tbody>
             {faculties.map((faculty) => (
-              <tr key={faculty.id} className="group/row transition-colors">
+              <tr key={faculty.id} className="transition-colors">
                 <RowLinkCell href={`/faculties/${faculty.id}`}>{faculty.name}</RowLinkCell>
                 <td className="px-4 py-3 text-muted-foreground">{deanName(faculty.dean)}</td>
                 <td className="px-4 py-3 text-muted-foreground">{faculty._count.departments}</td>

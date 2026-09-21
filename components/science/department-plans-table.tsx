@@ -1,14 +1,18 @@
-import Link from 'next/link';
-import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/aurora/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
+import {
+  SortHead,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+} from '@/components/aurora/ui/table';
 import { formatStake } from '@/lib/stake/units';
 import { formatHours } from '@/lib/science/hours';
 import { planListHref, type PlanListParams } from '@/lib/science/list-params';
 import { nextDir, type PlanSortField } from '@/lib/science/plan-rows';
 import type { SciencePlanRowSummary } from '@/lib/queries/list-science-plans';
 import { UnlockPlanButton } from '@/components/science/unlock-plan-button';
-import { cn } from '@/lib/utils';
 
 // Wide enough for the HEADING, not just the figure. «Заплановано» and
 // «Виконано» are 11 and 8 characters plus a sort chevron, and at `6ch` they
@@ -22,15 +26,15 @@ const STATE_COLUMN = '13rem';
 const ACTION_COLUMN = '8rem';
 
 /**
- * A heading that sorts.
+ * This list's sort heading — `href`, and nothing else.
  *
- * **Local and unexported** — §11 of `docs/aurora.md`: one caller means it is
- * not shared yet, and the app's other sortable heading (`components/ui/sort-th`)
- * draws a shadcn `<th>` of its own, which would put a second header look inside
- * an Аврора table. The second screen that wants this is what moves it into
- * `components/aurora/ui/table.tsx`, with this one repointed in the same commit.
+ * The drawing moved into `components/aurora/ui/table.tsx` when `/staff` wanted
+ * the same thing, which is exactly what the note that used to stand here said
+ * would happen: «the second screen that wants this is what moves it». What is
+ * left is this screen's URL, which is its own — `planListHref` and `nextDir`
+ * know about плани and the staff list's `buildHref` does not.
  */
-function SortHead({
+function PlanSortHead({
   label,
   column,
   params,
@@ -45,35 +49,18 @@ function SortHead({
   numeric?: boolean;
   className?: string;
 }) {
-  const active = params.sort === column;
-  const dir = nextDir(params.sort, params.dir, column);
-  const href = planListHref(basePath, params, { sort: column, dir });
-
   return (
-    <TableHead numeric={numeric} className={className}>
-      <Link
-        href={href}
-        aria-sort={active ? (params.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-        className={cn(
-          'inline-flex items-center gap-1 transition-colors hover:text-brand',
-          numeric && 'flex-row-reverse'
-        )}
-      >
-        {label}
-        {active ? (
-          params.dir === 'asc' ? (
-            <ChevronUp className="size-3.5" />
-          ) : (
-            <ChevronDown className="size-3.5" />
-          )
-        ) : (
-          // Present but faint on every sortable column: a chevron that appears
-          // only on hover tells nobody with a touch screen that the column
-          // sorts at all.
-          <ChevronsUpDown className="size-3.5 opacity-40" />
-        )}
-      </Link>
-    </TableHead>
+    <SortHead
+      label={label}
+      href={planListHref(basePath, params, {
+        sort: column,
+        dir: nextDir(params.sort, params.dir, column),
+      })}
+      active={params.sort === column}
+      dir={params.dir}
+      numeric={numeric}
+      className={className}
+    />
   );
 }
 
@@ -134,21 +121,33 @@ export function DepartmentPlansTable({
       columns={columns}
       head={
         <TableRow>
-          <SortHead label="ПІБ" column="name" params={params} basePath={basePath} />
+          <PlanSortHead label="ПІБ" column="name" params={params} basePath={basePath} />
           {showDepartment && (
-            <SortHead label="Кафедра" column="department" params={params} basePath={basePath} />
+            <PlanSortHead label="Кафедра" column="department" params={params} basePath={basePath} />
           )}
-          <SortHead label="Ставка" column="rate" params={params} basePath={basePath} numeric />
-          <SortHead label="Ціль" column="target" params={params} basePath={basePath} numeric />
-          <SortHead
+          <PlanSortHead label="Ставка" column="rate" params={params} basePath={basePath} numeric />
+          <PlanSortHead label="Ціль" column="target" params={params} basePath={basePath} numeric />
+          <PlanSortHead
             label="Заплановано"
             column="planned"
             params={params}
             basePath={basePath}
             numeric
           />
-          <SortHead label="Виконано" column="done" params={params} basePath={basePath} numeric />
-          <SortHead label="Бракує" column="shortfall" params={params} basePath={basePath} numeric />
+          <PlanSortHead
+            label="Виконано"
+            column="done"
+            params={params}
+            basePath={basePath}
+            numeric
+          />
+          <PlanSortHead
+            label="Бракує"
+            column="shortfall"
+            params={params}
+            basePath={basePath}
+            numeric
+          />
           <TableHead>Стан</TableHead>
           {canUnlock && <TableHead align="right">Дії</TableHead>}
         </TableRow>

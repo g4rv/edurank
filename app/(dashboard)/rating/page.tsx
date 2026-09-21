@@ -169,7 +169,7 @@ export default async function RatingRollupPage({
         </thead>
         <tbody>
           {rows.map((row, index) => (
-            <tr key={row.id} className="group/row transition-colors">
+            <tr key={row.id} className="transition-colors">
               <td className="px-4 py-3 text-muted-foreground tabular-nums">{index + 1}</td>
               <RowLinkCell href={`/staff/${row.id}/rating`}>{row.name}</RowLinkCell>
               <td className="px-4 py-3 text-muted-foreground">

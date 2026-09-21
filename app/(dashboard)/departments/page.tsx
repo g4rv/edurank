@@ -115,7 +115,7 @@ export default async function DepartmentsPage({
           </thead>
           <tbody>
             {departments.map((dept) => (
-              <tr key={dept.id} className="group/row transition-colors">
+              <tr key={dept.id} className="transition-colors">
                 <RowLinkCell href={`/departments/${dept.id}`}>{dept.name}</RowLinkCell>
                 <td className="px-4 py-3 text-muted-foreground">{dept.faculty.name}</td>
                 <td className="px-4 py-3 text-muted-foreground">{headName(dept.head)}</td>

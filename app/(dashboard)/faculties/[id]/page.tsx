@@ -165,7 +165,7 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
               {staffList.map((member) => (
                 <tr
                   key={member.id}
-                  className="group/row border-b transition-colors last:border-0 hover:bg-muted/30"
+                  className="border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
                   <RowLinkCell href={`/staff/${member.id}`}>{fullName(member)}</RowLinkCell>
                   <td className="px-4 py-3 text-muted-foreground">

@@ -36,10 +36,32 @@ type Props = {
   onPageChange?: (page: number) => void;
   /** Shown on the left, e.g. «204 записів» */
   summary?: React.ReactNode;
+  /**
+   * Where the page buttons sit.
+   *
+   * `between` — the default, and what every caller had: summary hard left,
+   * buttons hard right.
+   *
+   * `center` — the buttons in the TRUE centre of the strip, with the summary
+   * still on the left (owner, 2026-09-21). It needs a three-column grid rather
+   * than `justify-center`, because a flex row centres the two children
+   * together: the buttons then sit off to the right of the middle by half the
+   * summary's width, and drift further the longer the summary gets. The third
+   * column is empty and exists only to balance the first.
+   */
+  align?: 'between' | 'center';
   className?: string;
 };
 
-export function Pagination({ page, totalPages, hrefFor, onPageChange, summary, className }: Props) {
+export function Pagination({
+  page,
+  totalPages,
+  hrefFor,
+  onPageChange,
+  summary,
+  align = 'between',
+  className,
+}: Props) {
   if (totalPages <= 1) return null;
 
   const items = pageItems(page, totalPages);
@@ -47,9 +69,18 @@ export function Pagination({ page, totalPages, hrefFor, onPageChange, summary, c
   return (
     <nav
       aria-label="Навігація сторінками"
-      className={cn('flex flex-wrap items-center justify-between gap-3 text-sm', className)}
+      className={cn(
+        'gap-3 text-sm',
+        align === 'center'
+          ? // `1fr auto 1fr` — the pager is centred against the strip, not
+            // against what is left of it. `min-w-0` on the summary so a long
+            // count truncates instead of pushing the centre column sideways.
+            'grid grid-cols-[1fr_auto_1fr] items-center'
+          : 'flex flex-wrap items-center justify-between',
+        className
+      )}
     >
-      <span className="text-muted-foreground">
+      <span className={cn('text-foreground', align === 'center' && 'min-w-0 truncate')}>
         {summary ?? (
           <>
             Стор. {page} з {totalPages}
@@ -96,6 +127,10 @@ export function Pagination({ page, totalPages, hrefFor, onPageChange, summary, c
           <ChevronRight />
         </Step>
       </div>
+
+      {/* The balancing third column. Empty, and only in `center` mode — it is
+          what makes the middle column the middle of the STRIP. */}
+      {align === 'center' && <span aria-hidden />}
     </nav>
   );
 }
