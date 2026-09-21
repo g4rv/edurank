@@ -4,6 +4,7 @@ import { Logo } from '@/components/aurora/logo';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import type { Role } from '@/lib/generated/prisma/client';
+import { ROLE_LABELS } from '@/lib/labels';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { NPP_RATING_CLOSED_NOTE, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import type { SectionTotals } from '@/lib/rating/section-scores';
@@ -247,9 +248,25 @@ export function Sidebar({
   const showHeadings = sections.length > 1;
 
   return (
-    // Translucent rather than `bg-sidebar`, so the wash reads through it and the
-    // rail belongs to the page instead of being a grey slab bolted to its edge.
-    // Deliberately unblurred — see `.glass-chrome` in globals.css.
+    // Translucent, so the wash reads through it and the rail belongs to the page
+    // instead of being a grey slab bolted to its edge. Deliberately unblurred —
+    // see `.glass-chrome` in globals.css.
+    //
+    // **Every separator in here is `--border` now** (owner, 2026-09-21: «line
+    // separators almost invisible at least on aside»). All six wore
+    // `border-foreground/8`, which was the faintest line in the app at 1.18 on
+    // the rail AND the only separator not painted in the border token — a
+    // foreground tint, a different colour family, which §3 rules out for
+    // exactly the reason it went unnoticed here. A bare `border-*` picks up
+    // `--border` from the `*` rule in `@layer base`, so the class simply goes.
+    //
+    // shadcn shipped a whole `--sidebar-*` palette for this rail: a ground, a
+    // foreground, an accent pair, a primary pair, a border and a ring. **All
+    // eight are gone** (2026-09-21). Seven were never read by anything, and the
+    // eighth — `--sidebar-foreground`, the one this file used — was
+    // `oklch(0.145 0.012 264)` in light and `oklch(0.985 0 0)` in dark, which is
+    // `--foreground` character for character in both themes. A second name for
+    // ink, on the one surface in the app whose whole list should not be ink.
     <aside
       className={cn(
         'flex flex-col',
@@ -259,14 +276,14 @@ export function Sidebar({
             // 224px and left the page 176px, so a heading wrapped one word to
             // a line. There is no width this is useful at on a phone — it is
             // the drawer's job there, and `NavDrawer` renders the same nav.
-            'glass-chrome hidden h-screen w-56 shrink-0 border-r border-foreground/8 md:flex'
+            'glass-chrome hidden h-screen w-56 shrink-0 border-r md:flex'
       )}
     >
       {/* The drawer has no header of its own: the top bar above it already
           carries the logo and the theme toggle, and `SheetContent` draws the
           close button. */}
       {!inDrawer && (
-        <div className="flex h-14 items-center gap-2 border-b border-foreground/8 px-4">
+        <div className="flex h-14 items-center gap-2 border-b px-4">
           <Logo />
           <ThemeToggle className="-mr-1.5 ml-auto" />
         </div>
@@ -275,7 +292,7 @@ export function Sidebar({
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
         {sections.map((section, i) => (
           <Fragment key={section.label}>
-            {i > 0 && <div className="mx-2 my-1 border-t border-foreground/8" />}
+            {i > 0 && <div className="mx-2 my-1 border-t" />}
             {/* Uppercase, like the card titles on every page, so a group heading
                 reads as a tier above «Додати активність» nested inside this one.
                 Both were the same style and the sub-heading looked like a
@@ -295,11 +312,26 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="border-t border-foreground/8 px-3 pt-4 pb-5">
-        <p className="truncate text-sm text-foreground-soft">{user.email}</p>
-        <div className="mt-3">
-          <SignOutButton />
+      {/* Who you are signed in as, and the one control that ends it — on one
+          row (owner, 2026-09-21). The address used to sit above a full-width
+          «Вийти», which made the sign-out read as the last NAV ITEM in the list
+          rather than as something belonging to the account named over it.
+          Opposite each other they are plainly one block about one person.
+
+          **The role is what the second line adds.** An ADMIN who also lectures
+          and an EDITOR look identical from the outside, and what somebody may
+          do on a screen follows from this word — so it belongs where they
+          already look to check which account they are in. */}
+      <div className="flex items-center gap-2 border-t px-3 py-4">
+        <div className="min-w-0 flex-1">
+          {/* Ink, not `--foreground-soft`. §4 of `docs/aurora.md` keeps that
+              token for prose that EXPLAINS; an address is a value, and this one
+              names the account. */}
+          <p className="truncate text-sm font-medium">{user.email}</p>
+          <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[user.role]}</p>
         </div>
+
+        <SignOutButton />
       </div>
     </aside>
   );
@@ -331,7 +363,7 @@ function AddActivityNav({
         )}
       </p>
 
-      <div className="mt-0.5 ml-3.5 flex flex-col gap-0.5 border-l border-foreground/8 pl-2.5">
+      <div className="mt-0.5 ml-3.5 flex flex-col gap-0.5 border-l pl-2.5">
         {RATING_SECTIONS.map((section) => {
           const href = `/achievements/${section}`;
           const isActive = pathname === href;
@@ -343,8 +375,8 @@ function AddActivityNav({
               className={cn(
                 'rounded-md px-2 py-1.5 text-sm transition-colors',
                 isActive
-                  ? 'bg-brand/12 font-medium text-brand'
-                  : 'text-sidebar-foreground hover:bg-foreground/6'
+                  ? 'bg-brand/12 font-medium text-brand-strong'
+                  : 'text-foreground hover:bg-foreground/6'
               )}
             >
               <span className="flex items-center gap-2">
@@ -374,7 +406,7 @@ function AddActivityNav({
             adds up, rather than a label with a number stuck to its end.
             «Разом» is the word `RatingBars` already uses for this number. */}
         {totals && (
-          <div className="mt-1 flex items-center gap-2 border-t border-foreground/8 px-2 pt-1.5 text-sm">
+          <div className="mt-1 flex items-center gap-2 border-t px-2 pt-1.5 text-sm">
             <span className="font-medium">Разом</span>
             <span className="ml-auto font-medium tabular-nums">
               {totals.total.toLocaleString('uk-UA')}
@@ -415,8 +447,8 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
       className={cn(
         'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
         isActive
-          ? 'bg-brand/12 font-medium text-brand'
-          : 'text-sidebar-foreground hover:bg-foreground/6'
+          ? 'bg-brand/12 font-medium text-brand-strong'
+          : 'text-foreground hover:bg-foreground/6'
       )}
     >
       <Icon className="size-4 shrink-0" />
