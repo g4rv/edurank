@@ -64,15 +64,28 @@ const GRAIN =
  * smear that away, so removing the blur is what exposed it. `closest-side`
  * makes the falloff finish exactly at the edge, so there is nothing left to
  * clip, and the alphas can go back up without the seam coming with them.
+ *
+ * **Alpha is the dial for «how much colour», size is the dial for «does it read
+ * as a blob».** They were cut by about 40 % on 2026-09-21 (owner: «make bg
+ * whiter, not completely white but whiter») — 0.44/0.34/0.34/0.36/0.28 →
+ * 0.26/0.20/0.20/0.22/0.16, the same ratios throughout, so the composition is
+ * unchanged and only its weight moved. The footprints did NOT change, because
+ * shrinking them is what makes light-falling-into-a-corner turn back into five
+ * spots on a page.
+ *
+ * `--background` was left alone at `oklch(0.977 0.004 265)`. It is already only
+ * 2.7 % off white, it is not what carried the colour, and §1 needs it to stay a
+ * step under `--card` — the card separates by being the LIGHTEST thing on
+ * screen, and a pure-white page takes that away.
  */
 const BLOOMS = [
-  { c: '68,114,196', a: 0.44, anim: 'a', dur: 38, cls: '-top-44 -left-36 h-[30rem] w-[38rem]' },
-  { c: '124,92,214', a: 0.34, anim: 'c', dur: 47, cls: '-top-36 left-1/4 h-[22rem] w-[28rem]' },
-  { c: '43,179,163', a: 0.34, anim: 'b', dur: 41, cls: '-top-28 -right-20 h-[20rem] w-[26rem]' },
-  { c: '124,92,214', a: 0.36, anim: 'd', dur: 53, cls: '-bottom-40 -left-28 h-[30rem] w-[38rem]' },
+  { c: '68,114,196', a: 0.26, anim: 'a', dur: 38, cls: '-top-44 -left-36 h-[30rem] w-[38rem]' },
+  { c: '124,92,214', a: 0.2, anim: 'c', dur: 47, cls: '-top-36 left-1/4 h-[22rem] w-[28rem]' },
+  { c: '43,179,163', a: 0.2, anim: 'b', dur: 41, cls: '-top-28 -right-20 h-[20rem] w-[26rem]' },
+  { c: '124,92,214', a: 0.22, anim: 'd', dur: 53, cls: '-bottom-40 -left-28 h-[30rem] w-[38rem]' },
   {
     c: '212,107,168',
-    a: 0.28,
+    a: 0.16,
     anim: 'a',
     dur: 59,
     cls: '-bottom-32 -right-24 h-[24rem] w-[30rem]',

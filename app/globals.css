@@ -29,20 +29,24 @@
     0 1px 2px oklch(0.145 0.02 265 / 0.05), 0 10px 28px -14px oklch(0.145 0.02 265 / 0.18);
   --shadow-card-hover:
     0 1px 2px oklch(0.145 0.02 265 / 0.06), 0 16px 36px -14px oklch(0.145 0.02 265 / 0.26);
+  /* The edge a sticky table header casts over the rows passing under it.
+     Softer and shallower than a card's: the header is not lifted off the page,
+     it is the thing the content disappears beneath, so what is wanted is a
+     gradient of contact rather than elevation.
+
+     **No crisp first layer**, unlike the two above. A `0 1px 0` contact line is
+     a hairline by another name, and on a table with Розділ headings it would
+     land exactly on the rule those already draw — which is the doubled 2px band
+     `table.tsx` refuses a `border-b` over. Both layers are blurred, so nothing
+     stacks. */
+  --shadow-table-head:
+    0 2px 4px -2px oklch(0.145 0.02 265 / 0.1), 0 6px 14px -8px oklch(0.145 0.02 265 / 0.2);
   /* A panel floating ON TOP of a card — a select menu, a combobox list, a date
      picker. `--shadow-card` is tuned to lift a card off the page; over another
      card it disappears, because the two surfaces are the same colour and the
      shadow has nothing to fall on. Same shape, deeper and wider. */
   --shadow-float:
     0 2px 4px oklch(0.145 0.02 265 / 0.08), 0 20px 44px -16px oklch(0.145 0.02 265 / 0.34);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
   --color-chart-accent: var(--chart-accent);
   --color-chart-total: var(--chart-total);
   --color-chart-5: var(--chart-5);
@@ -52,6 +56,7 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
+  --color-input-hover: var(--input-hover);
   --color-border: var(--border);
   /* Status. `--color-destructive` is gone with `--destructive`; the shadcn
      button VARIANT is still named `destructive` and paints itself `bg-error`. */
@@ -248,7 +253,20 @@
      need no such floor, so --border is only lifted enough to be seen (≈1.5:1)
      without turning every table into a cage. */
   --border: oklch(0.87 0.012 264);
-  --input: oklch(0.668 0.018 264);
+  /* **One control edge for the whole app** (owner, 2026-09-21). There were
+     three: this token at 3.01, `.aurora-field` hardcoding ink/0.26 at 1.82, and
+     the outline button on `border-foreground/12` at 1.31 — fainter than a
+     DECORATIVE separator, which inverts §7's «what you can act on comes
+     forward». Everything is `--input` now, so a field, a button and a legacy
+     shadcn control cannot drift apart.
+
+     The value is the Аврора field's, not the old 3.01, and that keeps §7's
+     recorded reason intact: the fill and the inner shadow also identify a
+     control, and a 3:1 hairline on every field turns the page into a 1990s
+     form. Measured on a card: 1.82 at rest, 2.55 on hover — a clear step above
+     `--border`'s 1.49, which is the ladder the three recipes had lost. */
+  --input: oklch(0.808 0.012 264);
+  --input-hover: oklch(0.712 0.012 264);
   --ring: oklch(0.708 0.016 264);
   /* Every scrollbar's thumb — see «The scrollbar» below. Darker than --border,
      which is tuned to be only just visible: a border outlines a shape you
@@ -307,14 +325,6 @@
      default, and every rounded-* utility is derived from this one value, so the
      whole app follows without touching a component. */
   --radius: 0.75rem;
-  --sidebar: oklch(0.985 0.004 264);
-  --sidebar-foreground: oklch(0.145 0.012 264);
-  --sidebar-primary: oklch(0.205 0.014 264);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0.006 264);
-  --sidebar-accent-foreground: oklch(0.205 0.014 264);
-  --sidebar-border: oklch(0.922 0.008 264);
-  --sidebar-ring: oklch(0.708 0.016 264);
   /* Аврора's base tint (#f7f8fb), not white. Two reasons: it is the ground the
      colour wash sits on, and it gives --card (still pure white) something to
      separate from — a white panel on a white page has only its border to say it
@@ -387,7 +397,8 @@
      1.32 and 1.58 against the card. 38% reaches 3.57 over the card and 3.5
      over the page, so a control's edge clears 1.4.11 on both surfaces. */
   --border: oklch(1 0 0 / 18%);
-  --input: oklch(1 0 0 / 38%);
+  --input: oklch(1 0 0 / 22%);
+  --input-hover: oklch(1 0 0 / 34%);
   --ring: oklch(0.556 0 0);
   /* Lighter here rather than the light value flipped: the panel is a card at
      oklch(0.205), so a thumb has to come UP off it, not down. */
@@ -404,17 +415,6 @@
   /* Lightened so #4472C4 / #C00000 still read on the dark card */
   --chart-accent: oklch(0.7 0.135 264);
   --chart-total: oklch(0.62 0.19 25);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  /* Monochrome, like light mode and the primary button — the shadcn default
-     here was a blue (oklch(0.488 0.243 264.376)), the one hue that slipped past
-     the brand rule. A light pill with dark text mirrors --primary in dark. */
-  --sidebar-primary: oklch(0.922 0 0);
-  --sidebar-primary-foreground: oklch(0.205 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
@@ -648,11 +648,11 @@
      comes forward off the page, and the one thing you cannot sinks into it. */
   .aurora-field {
     background: rgb(255 255 255 / 0.55);
-    border-color: oklch(0.145 0 0 / 0.26);
+    border-color: var(--input);
     box-shadow: inset 0 1px 2px oklch(0.145 0 0 / 0.05);
   }
   .aurora-field:hover:not(:disabled):not(:focus-visible):not(:has(:focus-visible)) {
-    border-color: oklch(0.145 0 0 / 0.38);
+    border-color: var(--input-hover);
   }
   /* `:has(:focus-visible)` is the wrapper half of this rule. `TelInput` and
      friends put the surface on a DIV and the focus on the input inside it, and
@@ -675,11 +675,11 @@
 
   .dark .aurora-field {
     background: rgb(255 255 255 / 0.06);
-    border-color: rgb(255 255 255 / 0.22);
+    border-color: var(--input);
     box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
   }
   .dark .aurora-field:hover:not(:disabled):not(:focus-visible):not(:has(:focus-visible)) {
-    border-color: rgb(255 255 255 / 0.34);
+    border-color: var(--input-hover);
   }
   .dark .aurora-field:focus-visible,
   .dark .aurora-field:has(:focus-visible) {
@@ -714,8 +714,22 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 @layer components {
+  /* 0.62 → 0.82 (owner, 2026-09-21): «make bg whiter, not completely white but
+     whiter». At 0.62 the rail took enough of the wash to read as a faintly
+     tinted grey strip beside a white card; at 0.82 it is near-white and the
+     colour behind it is a hint rather than a cast.
+
+     **Not 1.0**, which is the whole point of the token: opaque white would make
+     the rail a slab bolted to the page's edge, and the paragraph above explains
+     that transparency is what lets it sit ON the wash. It also still has to
+     differ from `--card`, or the sidebar and a card touching it become one
+     surface with a line drawn through it.
+
+     Dark is deliberately NOT touched. «Whiter» has no meaning on a dark rail —
+     lifting 0.04 there would wash out a theme whose whole job is to be quiet
+     (owner, 2026-09-09). */
   .glass-chrome {
-    background: rgb(255 255 255 / 0.62);
+    background: rgb(255 255 255 / 0.82);
   }
   .dark .glass-chrome {
     background: rgb(255 255 255 / 0.04);

@@ -42,7 +42,18 @@ export function DeleteFacultyButton({ facultyId, facultyName }: DeleteFacultyBut
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-error hover:text-error">
+        {/* The shape every delete in the app wears — `delete-activity-button`,
+            `delete-plan-row-button`, `delete-record-button`. Red at rest, not
+            only on hover (owner, 2026-09-14): §3 of `docs/aurora.md` gives
+            `--error` to the destructive action, and a delete that looks neutral
+            until you are already pointing at it announces what it does one
+            moment too late. `-strong` on hover keeps the step. */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-error hover:text-error-strong"
+          aria-label={`Видалити факультет ${facultyName}`}
+        >
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>

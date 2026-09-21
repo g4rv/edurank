@@ -126,7 +126,7 @@ function FormSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-border/60 pt-5 first:border-t-0 first:pt-0">
+    <section className="border-t pt-5 first:border-t-0 first:pt-0">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="space-y-0.5">
           <h3 className="text-sm font-semibold">{title}</h3>
@@ -157,7 +157,7 @@ function ReuseSharingPicker<T extends string>({
       {options.map((o) => (
         <label
           key={o.value}
-          className="flex cursor-pointer items-start gap-2 rounded-lg border border-border/60 p-3 has-[:checked]:border-brand has-[:checked]:bg-brand/5"
+          className="flex cursor-pointer items-start gap-2 rounded-lg border p-3 has-[:checked]:border-brand has-[:checked]:bg-brand/5"
         >
           <input
             type="radio"
@@ -214,7 +214,7 @@ function IdentityFieldsPicker({
                 className={
                   isStale
                     ? 'flex items-center gap-1.5 rounded-full border border-error/40 bg-error-surface px-2.5 py-1 text-xs text-error-strong'
-                    : 'flex items-center gap-1.5 rounded-full border border-border/60 bg-muted px-2.5 py-1 text-xs'
+                    : 'flex items-center gap-1.5 rounded-full border bg-muted px-2.5 py-1 text-xs'
                 }
               >
                 <span className="text-foreground-soft">{i + 1}.</span>

@@ -52,7 +52,7 @@ export function NavDrawer(props: SidebarProps) {
     <>
       {/* Matches the rail's own header height, so the two line up at the
           breakpoint instead of the page jumping by a few pixels. */}
-      <header className="glass-chrome flex h-14 shrink-0 items-center gap-1 border-b border-foreground/8 px-2 md:hidden">
+      <header className="glass-chrome flex h-14 shrink-0 items-center gap-1 border-b px-2 md:hidden">
         <Button
           variant="ghost"
           size="icon"

@@ -47,7 +47,7 @@ const buttonVariants = cva(
         // is a glass treatment: on a white card it merely reads as dirty grey,
         // and it pays for a blur that has nothing behind it to blur.
         outline:
-          'border-foreground/12 bg-card text-foreground shadow-xs hover:border-foreground/25 hover:bg-foreground/4 aria-expanded:bg-foreground/6 dark:border-white/15 dark:bg-white/4 dark:hover:bg-white/10',
+          'border-input bg-card text-foreground shadow-xs hover:border-input-hover hover:bg-foreground/4 aria-expanded:bg-foreground/6 dark:bg-white/4 dark:hover:bg-white/10',
         secondary:
           'bg-foreground/6 text-foreground hover:bg-foreground/10 aria-expanded:bg-foreground/10 dark:bg-white/8 dark:hover:bg-white/14',
         ghost:

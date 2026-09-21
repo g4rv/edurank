@@ -49,7 +49,12 @@ export function DiscardActivityButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-error hover:text-error">
+        {/* `destructive`, not `outline` with the colour painted on by hand
+            (2026-09-21). §3 of `docs/aurora.md`: an action that refuses or
+            removes somebody's work wears the VARIANT named for what it does,
+            and the variant is where the rest state, the hover and dark mode are
+            decided once. */}
+        <Button variant="destructive" size="sm">
           <Ban className="size-4" />
           Відхилити
         </Button>
