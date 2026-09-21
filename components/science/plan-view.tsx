@@ -5,12 +5,12 @@ import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
 import type { PlanTarget } from '@/lib/science/target';
 import type { SciencePlanRecordDetail, SciencePlanRowDetail } from '@/lib/queries/get-science-plan';
-import { PlanTotal } from '@/components/science/plan-total';
 import { AddPlanRowDialog, type PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import { AddRecordDialog } from '@/components/science/add-record-dialog';
 import { DeletePlanRowButton } from '@/components/science/delete-plan-row-button';
 import { RecordList } from '@/components/science/record-list';
 import { RecordTabs, type PlanTab } from '@/components/science/record-tabs';
+import { PlanHeader } from '@/components/science/plan-header';
 import { LockPlanButton } from '@/components/science/lock-plan-button';
 
 /**
@@ -23,6 +23,8 @@ import { LockPlanButton } from '@/components/science/lock-plan-button';
  * split `AchievementsList` / `DeleteActivityButton` uses.
  */
 export function PlanView({
+  academicYear,
+  orderRef,
   departments,
   currentDepartmentId,
   tab,
@@ -32,6 +34,8 @@ export function PlanView({
   workTypes,
   lockedAt,
 }: {
+  academicYear: string;
+  orderRef: string | null;
   departments: { id: string; name: string }[];
   currentDepartmentId: string;
   tab: PlanTab;
@@ -80,6 +84,8 @@ export function PlanView({
 
   return (
     <div className="space-y-5">
+      <PlanHeader academicYear={academicYear} orderRef={orderRef} target={target} />
+
       {departments.length > 1 && (
         <DepartmentSwitcher
           departments={departments}
@@ -87,8 +93,6 @@ export function PlanView({
           tab={tab}
         />
       )}
-
-      <PlanTotal target={target} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <RecordTabs
@@ -138,6 +142,11 @@ export function PlanView({
             {groups.map((group) => {
               const planned = group.rows.reduce((sum, r) => sum + r.plannedHundredths, 0);
               const done = doneByItem.get(group.itemNumber) ?? 0;
+              // The пункт's own heading now that the catalogue carries one —
+              // «Рецензування, експертна оцінка, опонування» rather than the
+              // full sentence of whichever вид роботи happened to be first.
+              const firstType = workTypeById.get(group.rows[0].workTypeId);
+              const heading = firstType?.itemTitle || group.rows[0].workTypeLabel;
               return (
                 <li key={group.itemNumber} className="px-5 py-3">
                   {/* Not `flex-wrap`: «Участь у конкурсі проєктів та
@@ -145,10 +154,12 @@ export function PlanView({
                       dropped the figures underneath it, where they read as
                       belonging to the row below (owner, 2026-09-17). The label
                       wraps inside its own column instead. */}
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="min-w-0 flex-1 text-base">
-                      <span className="mr-1.5 text-foreground-soft">Пункт {group.itemNumber}</span>
-                      {group.rows[0].workTypeLabel}
+                  <div className="flex items-baseline justify-between gap-6">
+                    <p className="min-w-0 flex-1 text-base font-medium">
+                      <span className="mr-1.5 font-normal text-foreground-soft">
+                        Пункт {group.itemNumber}
+                      </span>
+                      {heading}
                     </p>
                     <p className="shrink-0 text-sm whitespace-nowrap text-foreground-soft">
                       Заплановано{' '}
@@ -170,10 +181,9 @@ export function PlanView({
 
                   <ul className="mt-1.5 space-y-1">
                     {group.rows.map((row) => {
-                      const summary = summarizeEvidence(
-                        workTypeById.get(row.workTypeId)?.fields ?? [],
-                        row.details
-                      );
+                      const type = workTypeById.get(row.workTypeId);
+                      const summary = summarizeEvidence(type?.fields ?? [], row.details);
+                      const detail = type?.shortLabel || row.workTypeLabel;
                       return (
                         <li
                           key={row.id}
@@ -184,8 +194,11 @@ export function PlanView({
                                 лабораторія) declares no evidence fields, so
                                 `summarizeEvidence` returns an empty string —
                                 which `??` passed straight through, drawing a
-                                row that showed «400 год» and nothing else. */}
-                            {summary || row.workTypeLabel}
+                                row that showed «400 год» and nothing else.
+                                And where the fallback would only repeat the
+                                heading above it word for word, it says nothing
+                                at all rather than saying it twice. */}
+                            {summary || (detail === heading ? '—' : detail)}
                             {row.note && (
                               <span className="text-muted-foreground"> — {row.note}</span>
                             )}

@@ -93,8 +93,7 @@ export function LockPlanButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Зберегти план на рік?</AlertDialogTitle>
           <AlertDialogDescription>
-            Після збереження план не можна буде змінити. Щоб внести правки, доведеться звертатися до
-            ННВ.
+            Після збереження план не можна буде змінити!
           </AlertDialogDescription>
         </AlertDialogHeader>
 

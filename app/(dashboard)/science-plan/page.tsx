@@ -106,14 +106,9 @@ export default async function SciencePlanPage({
   return (
     <div className="space-y-5">
       <Breadcrumbs items={CRUMBS} />
-      <div>
-        <h1 className="text-2xl font-semibold tracking-[-0.01em]">Наукова робота</h1>
-        <p className="mt-0.5 text-sm text-foreground-soft">
-          {template.academicYear} навчальний рік
-          {template.orderRef && ` · наказ ${template.orderRef}`}
-        </p>
-      </div>
       <PlanView
+        academicYear={template.academicYear}
+        orderRef={template.orderRef}
         departments={departments}
         currentDepartmentId={departmentId}
         tab={tab}
