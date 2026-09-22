@@ -4,7 +4,6 @@ import { Logo } from '@/components/aurora/logo';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import type { Role } from '@/lib/generated/prisma/client';
-import { ROLE_LABELS } from '@/lib/labels';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { NPP_RATING_CLOSED_NOTE, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import type { SectionTotals } from '@/lib/rating/section-scores';
@@ -318,18 +317,38 @@ export function Sidebar({
           rather than as something belonging to the account named over it.
           Opposite each other they are plainly one block about one person.
 
-          **The role is what the second line adds.** An ADMIN who also lectures
-          and an EDITOR look identical from the outside, and what somebody may
-          do on a screen follows from this word — so it belongs where they
-          already look to check which account they are in. */}
-      <div className="flex items-center gap-2 border-t px-3 py-4">
-        <div className="min-w-0 flex-1">
-          {/* Ink, not `--foreground-soft`. §4 of `docs/aurora.md` keeps that
-              token for prose that EXPLAINS; an address is a value, and this one
-              names the account. */}
-          <p className="truncate text-sm font-medium">{user.email}</p>
-          <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[user.role]}</p>
-        </div>
+          **The ROLE is gone** (owner, 2026-09-22), reversing the second half of
+          that day's decision. The argument for it was that an ADMIN who also
+          lectures and an EDITOR look identical from the outside. The argument
+          against is simpler and won: you know which role you have, and a word
+          that never changes is a line of chrome charged to every screen. What
+          somebody may do is answered by which nav items are in front of them,
+          which is the same answer arriving without being asked for.
+
+          It also bought the room the button needed for its own name — see
+          `SignOutButton`. */}
+      {/* **Two rows, and the address is never cut** (owner, 2026-09-22).
+          Side by side, the labelled button left 113px and the address showed
+          as «liudmyla.burdo…» — an account name you cannot read is not an
+          account name.
+
+          The sizes are measured, not chosen. 200px of room; at `text-sm` a
+          typical address is 208–216px and the longest real one —
+          `oksana.parkhomenko-kutsevil@uhsp.edu.ua`, 39 characters — is 292.
+          No font size fits that: it is still 250px at 12px and 230 at 11,
+          and §4 retired `text-[11px]` anyway. So the address must be allowed
+          to WRAP, and 12px is the size at which wrapping becomes the exception
+          — 179–185px puts the ordinary account on one line and leaves only a
+          handful of long ones taking two.
+
+          `wrap-anywhere` rather than `break-all`: it breaks only when the word
+          genuinely cannot fit, so a short address is never split for no
+          reason. */}
+      <div className="flex flex-col gap-2 border-t px-3 py-4">
+        {/* Ink, not `--foreground-soft`. §4 of `docs/aurora.md` keeps that
+            token for prose that EXPLAINS; an address is a value, and this one
+            names the account. */}
+        <p className="text-xs font-medium wrap-anywhere">{user.email}</p>
 
         <SignOutButton />
       </div>
