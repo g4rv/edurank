@@ -58,7 +58,14 @@ export function SectionHeader({
         <h1 className="min-w-0 text-2xl font-semibold tracking-[-0.01em]">
           Розділ {section}. {SECTION_TITLES[section]}
         </h1>
-        <div className="flex shrink-0 items-center gap-4">
+        {/* `ml-auto`, not `justify-between` alone. Розділ 5's title fills the
+            line by itself, so this group wraps onto a second one — and
+            `justify-between` puts a LONE item on a line at flex-START. «Бали»
+            and the button landed flush left under the heading, which read as
+            the page's one action having come loose. An auto margin pushes
+            them right on a line of their own and changes nothing on a line
+            they share with the title. */}
+        <div className="ml-auto flex shrink-0 items-center gap-4">
           {/* Labelled, not a bare number. In the sidebar a column of figures
               explains itself; next to a title and a button one number does
               not. Kept quiet deliberately — this is your own record, and a
