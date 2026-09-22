@@ -1,28 +1,59 @@
 import type { Role } from '@/lib/generated/prisma/client';
 import { NPP_RATING_CLOSED_DETAIL } from '@/lib/rating/npp-access';
+import { LICENCE_POSITIONS } from './positions';
+import { positionEvidenceFields } from './position-evidence';
 
 /**
- * The п.38 positions an НПП may type for themselves (owner, 2026-09-14).
+ * The п.38 positions an НПП may type for themselves.
  *
- * **Exactly the two no rating indicator feeds.** `LICENCE_POSITION_LINKS` maps
- * no indicator to 15 or 20, so the importer cannot produce a row here either —
- * a person typing on these two can never collide with derived evidence or with
- * the 2022–2024 history, by construction rather than by a check.
+ * **Every position that has a form** (owner, 2026-09-22). That is 1–15, 19 and
+ * 20 — seventeen of the twenty. п.16–18 are «для вищих військових навчальних
+ * закладів», a claim this university may not make at all, so no form was ever
+ * written for them and none is offered here; the action refuses them a second
+ * time on `fill === 'NOT_APPLICABLE'`.
  *
- * That is also the answer to the objection the ADMIN-only note raised when this
- * was locked down on 2026-08-31: «an НПП who could type their own п.15 could
+ * Derived rather than typed out, so the rule is one sentence: **if the position
+ * has questions to ask, its owner may answer them.** A form added later opens
+ * its position by itself, and there is no second list to forget.
+ *
+ * ── What this replaced, and why ──────────────────────────────────────────────
+ *
+ * Until today this was `[15, 20]` — exactly the two no rating indicator feeds
+ * (owner, 2026-09-14). The argument for that was sound: a person typing there
+ * can never collide with derived evidence, because `LICENCE_POSITION_LINKS`
+ * maps nothing to either. It answered the objection raised when hand-typing was
+ * locked to ADMIN on 2026-08-31 — «an НПП who could type their own п.15 could
  * also type п.1, and п.1 is a licence claim about publications that exist or do
- * not». They cannot. п.1 is DERIVED and stays derived; the list below is what
- * separates «no indicator exists for this» from «the indicator found nothing».
+ * not».
  *
- * - **п.15** — керівництво школярем / журі МАН та учнівських олімпіад. Such НПП
- *   exist, and the вчена рада deliberately added no indicator for them.
- * - **п.20** — досвід практичної роботи за фахом поза викладанням.
+ * That objection is now accepted rather than avoided. The 2022–2024 import
+ * reads the university's own files, and those files say less than the document
+ * needs: a position somebody genuinely satisfies can come out empty because the
+ * source cell held «Так», a bare role, or nothing at all (see the cleanup
+ * section of `docs/kharakterystyka.md`). The only person who can repair that is
+ * the person it is about, and until today they had no screen to do it on —
+ * every repair went through an ADMIN, for ~300 people, by hand.
  *
- * Widening this list is the one change that could let somebody assert work the
- * rating does not support, so the contents are pinned by a test.
+ * **The risk this accepts, stated plainly.** A manual row counts towards the
+ * position's threshold (`build.ts`), so towards «≥4 з 20», so towards `Кнпп`,
+ * which sizes a кафедра's ставка pool. Somebody sitting on three positions can
+ * now reach four by typing about themselves, and nothing checks it.
+ *
+ * What carries that risk instead of a gate:
+ *
+ * - every row prints **«Внесено власноруч»** beside the evidence, so a reader —
+ *   or whoever defends the licence file — can tell a self-declared line from a
+ *   derived one;
+ * - every write and every delete is audited;
+ * - ADMIN sees and deletes any MANUAL row on `/staff/[id]/kharakterystyka`.
+ *
+ * A moderation queue is the remedy if abuse appears — `docs/work-remaining.md`
+ * §H describes what it would cost. This is «for now», and narrowing it again is
+ * a one-line change here.
  */
-export const SELF_TYPEABLE_POSITIONS = [15, 20] as const;
+export const SELF_TYPEABLE_POSITIONS: readonly number[] = LICENCE_POSITIONS.filter(
+  (p) => positionEvidenceFields(p.number).length > 0
+).map((p) => p.number);
 
 interface Who {
   role: Role;
@@ -41,8 +72,12 @@ function ownerProblem(who: Who, targetStaffId: string, position: number): string
   if (who.ownStaffId !== targetStaffId) {
     return 'Можна вносити записи лише до власної характеристики';
   }
-  if (!SELF_TYPEABLE_POSITIONS.includes(position as (typeof SELF_TYPEABLE_POSITIONS)[number])) {
-    return 'Цю позицію заповнює адміністратор — вона формується з вашого рейтингу';
+  // The only positions left out are п.16–18. They ask for бойові дії, миротворчі
+  // операції ООН and навчання НАТО «для вищих військових навчальних закладів» — a
+  // claim this university may not make, so the sentence names that rather than
+  // sending somebody to an administrator who also cannot fill it.
+  if (!SELF_TYPEABLE_POSITIONS.includes(position)) {
+    return 'Ця позиція не застосовується до цього закладу';
   }
   return null;
 }

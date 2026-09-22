@@ -92,12 +92,11 @@ describe('addKharakterystykaEntry', () => {
     );
   });
 
-  // The rest of the document is derived and nobody can edit it. A typed row is
-  // the one exception. It used to be ADMIN-only for the reason the action's own
-  // note gave — «somebody who could type their own п.15 could type п.1, which
-  // is a licence claim about publications that either exist or do not». What
-  // opened on 2026-09-14 is п.15 and п.20 on your OWN document; п.1 is still
-  // nobody's to type, which is what these four cases pin.
+  // A typed row is the one part of this document somebody can write. Who may
+  // write it has widened twice: ADMIN-only until 2026-09-14, then п.15/п.20 on
+  // your OWN document, and since 2026-09-22 **every position that has a form**
+  // — all but the military three. What these cases pin is the boundary that is
+  // left: your own record, and not п.16–п.18.
   it.each(['EDITOR', 'USER'])('refuses %s writing on somebody else', async (role) => {
     mockAuth.mockResolvedValue({ user: { id: 'x', role, staffId: 'x' } });
     const result = await addKharakterystykaEntry(valid);
@@ -115,13 +114,18 @@ describe('addKharakterystykaEntry', () => {
     );
   });
 
-  it('refuses an НПП typing a derived position on their own document', async () => {
-    // п.2 is fed by indicators. A box here would let somebody assert a patent
-    // the rating has no row for.
+  it('lets an НПП type a derived position on their own document', async () => {
+    // п.2 is fed by indicators, and this is exactly what widened on 2026-09-22:
+    // the import left positions empty that people genuinely satisfy, and its
+    // subject is the only one who can repair that. The row prints «Внесено
+    // власноруч» and is audited — see §H of docs/work-remaining.md.
     mockAuth.mockResolvedValue({ user: { id: STAFF_ID, role: 'USER', staffId: STAFF_ID } });
-    const result = await addKharakterystykaEntry(validP2);
-    expect(result).toEqual({ error: expect.stringContaining('адміністратор') });
-    expect(mockCreate).not.toHaveBeenCalled();
+    expect(await addKharakterystykaEntry(validP2)).toEqual({ success: true });
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ position: 2, source: 'MANUAL', createdBy: STAFF_ID }),
+      })
+    );
   });
 
   it('still lets an ADMIN type a derived position', async () => {

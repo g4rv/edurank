@@ -129,6 +129,50 @@ Only what NAMES the achievement is required. A typed row usually records an old
 year from a document that said less than we would like, and a form refusing to
 save until every box is full would send somebody to invent a реєстраційний номер.
 
+## An НПП fills in their own document (decided 2026-09-22)
+
+Hand-typed rows were ADMIN-only until 2026-09-14, when п.15 and п.20 opened to
+the person the document is about — the two positions no rating indicator feeds.
+**Today every position that has a form opens to them**: 1–15, 19 and 20.
+
+п.16–п.18 stay shut. They are «для вищих військових навчальних закладів», a claim
+this university may not make, so no form was ever written for them.
+`SELF_TYPEABLE_POSITIONS` is therefore **derived** from
+`positionEvidenceFields` rather than listed: if a position has questions to ask,
+its subject may answer them.
+
+**Why it widened.** The 2022–2024 backfill reads the university's own files, and
+those files say less than the document needs. A position somebody genuinely
+satisfies can come out empty because the source cell held «Так», a bare role, or
+nothing at all — see the cleanup section below, which removed 113 such rows and
+dropped three people out of `Кнпп`. The only person who can repair that is the
+one it is about, and until now every repair went through an ADMIN, by hand, for
+~300 people.
+
+**What this accepts.** A manual row counts towards the position's threshold, so
+towards «≥4 з 20», so towards `Кнпп`, which sizes a кафедра's ставка pool.
+Somebody sitting on three positions can reach four by typing about themselves,
+and **nothing checks it.** That is the objection raised when hand-typing was
+locked to ADMIN on 2026-08-31 — «an НПП who could type their own п.15 could also
+type п.1, and п.1 is a licence claim about publications that exist or do not».
+It is now accepted rather than avoided.
+
+What carries the risk instead of a gate:
+
+- every row prints **«Внесено власноруч»** beside the derived evidence, so a
+  reader — or whoever defends the licence file — can tell the self-declared
+  lines apart;
+- every write and every delete is audited;
+- ADMIN sees and deletes any MANUAL row on `/staff/[id]/kharakterystyka`.
+
+The text is still **generated, never typed** — the rule of 2026-09-01 is
+untouched. What a person supplies is the answers; the sentence is assembled from
+them, so a self-typed п.1 reads exactly like an ADMIN-typed one.
+
+This is **«for now»**. A moderation queue is the remedy if abuse appears; see
+`docs/work-remaining.md` §H for what it would cost. Narrowing it again is a
+one-line change in `lib/kharakterystyka/self-entry.ts`.
+
 ## Imported evidence that evidences nothing (cleaned 2026-09-01)
 
 The 2022–2024 backfill reads column D (the description) and falls back to

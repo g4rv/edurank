@@ -78,12 +78,16 @@ export default async function MyKharakterystykaPage() {
         </ToolbarGroup>
       </ProfileTabRow>
 
-      {/* **A person types their own п.15 and п.20** (owner, 2026-09-14) — the
-          two the вчена рада wrote no indicator for, so nothing here can
-          contradict the rating. `positions` narrows the control to those; the
-          server checks the same list again in `typeEntryProblem`, because the
-          half of a rule that lives in the browser is the half an attacker
-          skips. */}
+      {/* **A person fills in what is missing from their own document** (owner,
+          2026-09-22). `SELF_TYPEABLE_POSITIONS` is every position that has a
+          form — all but п.16–п.18, which this university may not claim — because
+          the 2022–2024 import left positions empty that people genuinely
+          satisfy, and its own subject is the only one who can repair that.
+
+          `positions` narrows the control; the server checks the same list again
+          in `typeEntryProblem`, because the half of a rule that lives in the
+          browser is the half an attacker skips. A typed row prints «Внесено
+          власноруч» beside the derived ones and is audited. */}
       <KharakterystykaTable
         data={data}
         sources={Object.fromEntries(positionSources)}

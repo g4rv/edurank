@@ -292,34 +292,41 @@ cover Postgres only, and that section's restore drill has never been run
 against an R2 evidence file, only against the database. Turn on bucket
 versioning at minimum before this goes to production.
 
-## H. Moderation for self-typed п.38 rows — deferred (owner, 2026-09-14)
+## H. Moderation for self-typed п.38 rows — deferred (owner, 2026-09-22)
 
-An НПП can now type **п.15 and п.20** of their own Характеристика
-(`SELF_TYPEABLE_POSITIONS`). Nobody checks it.
+An НПП can type **every п.38 position that has a form** — 1–15, 19 and 20 — on
+their own Характеристика (`SELF_TYPEABLE_POSITIONS`). **Nobody checks it.**
 
-Both count toward the «≥4 of 20» threshold, and therefore toward `Кнпп`, which
-decides how a кафедра is funded. A person sitting on 3 positions could reach 4
-by typing two lines about themselves. That is a different blast radius from a
-rating submission, which only ever inflates its own author's score.
+Widened from п.15/п.20 on 2026-09-22, because the 2022–2024 import left positions
+empty that people genuinely satisfy — the source cells held «Так», a bare role or
+nothing — and its subject is the only one who can repair that. See
+[`kharakterystyka.md`](./kharakterystyka.md) for the full reasoning.
 
-**Why it shipped anyway**, and what carries the risk instead:
+A typed row counts toward the «≥4 of 20» threshold, and therefore toward `Кнпп`,
+which decides how a кафедра is funded. A person sitting on 3 positions could
+reach 4 by typing two lines about themselves. That is a different blast radius
+from a rating submission, which only ever inflates its own author's score.
 
-- The two positions are the only ones no indicator feeds, so a typed row can
-  never contradict the rating or the 2022–2024 import — nothing maps to 15 or 20
-  in `LICENCE_POSITION_LINKS`.
+**The widening also gave up the one structural protection the narrow list had:**
+п.15 and п.20 are fed by no indicator, so a typed row there could not contradict
+the rating. п.1 can. A person with no publications in their rating can now type
+five into their licence document, and only a reader notices.
+
+**What carries the risk instead:**
+
 - An ADMIN already sees and can delete every manual row on `/staff/[id]/kharakterystyka`.
   The ability exists; only a QUEUE is missing.
-- Every row now prints **«Внесено власноруч»** or «Внесено адміністратором», so a
+- Every row prints **«Внесено власноруч»** or «Внесено адміністратором», so a
   reader — or whoever defends the licence file — can tell which lines are
   self-declared. That was the real gap: before this, a typed line was
   indistinguishable from derived evidence.
-- Everything is audited, as it was before.
+- Everything is audited.
 
-**What to build if abuse appears:** surface MANUAL п.15/п.20 rows on
-`/moderation` so ННВ can discard one with a reason, exactly like a rating
-submission. The cost is that the moderation list is built around `Activity` —
-its filters, grouping and the «Перевірено» flag all assume that model — so a
-second source is real work rather than a flag.
+**What to build if abuse appears:** surface MANUAL rows on `/moderation` so ННВ
+can discard one with a reason, exactly like a rating submission. The cost is that
+the moderation list is built around `Activity` — its filters, grouping and the
+«Перевірено» flag all assume that model — so a second source is real work
+rather than a flag. This is now more likely to be needed than it was at п.15/п.20.
 
 **Do not** answer this with an approval queue. The project has refused one twice
 (rating entries 2026-07, ставки Q1 2026-08-10), and post-moderation is the
