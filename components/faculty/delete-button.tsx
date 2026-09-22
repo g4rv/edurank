@@ -42,16 +42,17 @@ export function DeleteFacultyButton({ facultyId, facultyName }: DeleteFacultyBut
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        {/* The shape every delete in the app wears — `delete-activity-button`,
-            `delete-plan-row-button`, `delete-record-button`. Red at rest, not
-            only on hover (owner, 2026-09-14): §3 of `docs/aurora.md` gives
-            `--error` to the destructive action, and a delete that looks neutral
-            until you are already pointing at it announces what it does one
-            moment too late. `-strong` on hover keeps the step. */}
+        {/* §3: the destructive action is red AT REST — and since 2026-09-22 that
+            is the TINT as well as the glyph. `variant="destructive"` is the same
+            control the labelled «Архівувати» wears, here at icon size.
+
+            It was `ghost` + `text-error`, which left `ghost`'s own
+            `hover:bg-foreground/6` untouched — so a GREY pill arrived under a red
+            icon the moment you pointed at it, in all seven delete buttons. The
+            className is gone because the variant now carries all of it. */}
         <Button
-          variant="ghost"
+          variant="destructive"
           size="icon-sm"
-          className="text-error hover:text-error-strong"
           aria-label={`Видалити факультет ${facultyName}`}
         >
           <Trash2 className="size-4" />

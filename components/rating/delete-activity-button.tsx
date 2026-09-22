@@ -37,16 +37,14 @@ export function DeleteActivityButton({ activityId, label }: { activityId: string
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          // Red at rest, not only on hover (owner, 2026-09-14). §3 gives
-          // `--error` to the destructive action, and a delete that looks
-          // neutral until you are already pointing at it announces what it
-          // does one moment too late. `-strong` on hover keeps the step.
-          className="size-7 text-error hover:text-error-strong"
-          aria-label="Видалити досягнення"
-        >
+        {/* §3: red AT REST, tint as well as glyph (2026-09-22). This was
+            `ghost` + `text-error`, which kept `ghost`'s own
+            `hover:bg-foreground/6` — a GREY pill under a red icon on hover.
+
+            `size="icon-sm"` replaces `size="icon"` + `className="size-7"`:
+            `icon-sm` IS 28px, and it brings the smaller radius the other six
+            delete buttons already had. */}
+        <Button variant="destructive" size="icon-sm" aria-label="Видалити досягнення">
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>

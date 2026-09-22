@@ -357,11 +357,11 @@ somebody's submission down — delete, archive, discard, reject, remove, від�
 Not just deletion: a rejected claim is somebody's evening, and a control that
 refuses it drawn as the quietest thing on the row is lying about what it does.
 
-| the control                              | what it wears                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------------- |
-| **Labelled** — «Відхилити», «Архівувати» | `variant="destructive"`                                                         |
-| **Icon-only in a row** — a trash can     | `variant="ghost" size="icon-sm" className="text-error hover:text-error-strong"` |
-| **The confirm inside the dialog**        | `AlertDialogAction`, which already defaults to `destructive`                    |
+| the control                              | what it wears                                                |
+| ---------------------------------------- | ------------------------------------------------------------ |
+| **Labelled** — «Відхилити», «Архівувати» | `variant="destructive"`                                      |
+| **Icon-only in a row** — a trash can     | `variant="destructive" size="icon-sm"`, with an `aria-label` |
+| **The confirm inside the dialog**        | `AlertDialogAction`, which already defaults to `destructive` |
 
 **Reach for the VARIANT, never `outline` with `text-error` painted on.** The
 variant is where the rest state, the hover and dark mode are decided once;
@@ -384,12 +384,35 @@ the colour in on hover was tried on `/faculties` and refused (2026-09-21) on the
 rule the owner had already set on 2026-09-14, in
 `components/rating/delete-activity-button.tsx`: a delete that looks neutral
 until you are already pointing at it announces what it does one moment too late.
-`-strong` on hover keeps the step.
 
-So every delete in the app is the same control —
-`variant="ghost" size="icon-sm" className="text-error hover:text-error-strong"`
-with an `aria-label` — and `delete-activity-button`, `delete-plan-row-button`,
-`delete-record-button` and the факультет / кафедра / відділ trio all wear it.
+**Red at rest means the TINT, not only the glyph** (owner, 2026-09-22). Every
+delete in the app is `variant="destructive" size="icon-sm"` with an `aria-label`
+— the same variant the labelled «Архівувати» wears, at icon size — and
+`delete-activity-button`, `delete-plan-row-button`, `delete-record-button`,
+`manual-entries` and the факультет / кафедра / відділ trio all wear it.
+
+It was `variant="ghost" size="icon-sm" className="text-error hover:text-error-strong"`
+until that date, and **that is what this section prescribed** — while the
+paragraph directly above it said to reach for the variant and never paint
+`text-error` on by hand. The document contradicted itself, and the bug was the
+one that rule exists to prevent: `ghost` carries its own
+`hover:bg-foreground/6`, the override named no background, so **a GREY pill
+arrived under a red icon the moment you pointed at one**, in all seven of them.
+`tailwind-merge` stripped `ghost`'s `hover:text-foreground` and had nothing to
+strip the background with.
+
+The objection to the filled variant was that a red pill on twenty rows would be
+loud. Rendered side by side it is not: `bg-error/10` is a very light tint, and
+it reads as the row's one dangerous control rather than as an error on the row.
+`destructive` also already pairs `--error-strong` with that tint, which is the
+§3 contrast rule — `--error` on a red surface measures 3.98, under AA.
+
+`delete-file-button` is the one that is NOT this. It detaches an attached file
+from a form with an `X` at `icon-xs`, not a `Trash2`, and it is still
+`text-muted-foreground` with the colour on hover — the pattern this section
+refuses. Left alone deliberately on 2026-09-22 rather than converted unasked:
+a red pill on a file chip reads as something being wrong with the file. If it
+is ever revisited, it needs its own decision, not this one applied by analogy.
 
 The gold in the logo (`#f5c518`) is the university crest's second colour. It is
 brand, not status, and appears in the mark only.
