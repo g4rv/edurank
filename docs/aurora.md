@@ -877,6 +877,44 @@ painted in it is a hole in the middle of the screen) and `shadow-float` (not
 `shadow-lg`: a dialog opens over cards, where a card-weight shadow has nothing
 to fall on).
 
+### `Dialog` or `AlertDialog` — the question is whether you may walk away
+
+**Asked by the owner 2026-09-22: «why are our popups so different, some close on
+outclick, some don't, some have a cross, some a «Скасувати» button».** Because
+Radix ships two components with deliberately different manners, this document
+had no rule for picking between them, and 33 files chose one while 40 chose the
+other. The difference is not decoration:
+
+|                 | `AlertDialog`      | `Dialog`                          |
+| --------------- | ------------------ | --------------------------------- |
+| click outside   | **ignored**        | closes                            |
+| `Esc`           | closes             | closes                            |
+| × in the corner | **none**           | built in                          |
+| way out         | one of its buttons | ×, `Esc`, click away, or a button |
+
+**Use `AlertDialog` when the answer must be given**, and the two answers are not
+equal: delete, archive, discard, reject, sign out, close a rating year. There is
+no × precisely because dismissing by accident is the failure mode — the person
+should leave by saying yes or no.
+
+**Use `Dialog` for everything else**: a form, a list, a picker, a panel you
+opened to look at something. Walking away is a legitimate answer, so it costs one
+click and needs no button in the footer. A «Закрити» button in a `Dialog` is
+redundant with three things that already close it, and it takes footer width from
+the action the person actually came for.
+
+**The one exception, and it is a rule rather than an exception: a dialog holding
+UNSAVED INPUT does not close on a click outside.** Guard it with
+`onInteractOutside={(e) => e.preventDefault()}` while the form is showing. `Esc`
+and the × still work — those are deliberate, a stray click is not.
+`manual-entries` does exactly this: its list screen dismisses on a click away,
+its form screen does not.
+
+**A panel wearing an alert's manners is the bug to look for.**
+`manual-entries` was an `AlertDialog` until 2026-09-22 — no ×, no click-away,
+and a «Закрити» button eating half the footer — for a screen whose job was
+to list typed rows and offer one more.
+
 **The scrim is one value, in `components/aurora/ui/overlay.ts`.** It was
 `bg-black/50` on the alert dialog and `bg-black/40` on the sheet — nobody chose
 that, and nobody can see it either, which is exactly why the next one would pick

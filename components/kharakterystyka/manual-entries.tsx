@@ -14,13 +14,14 @@ import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { ChevronLeft, PencilLine, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/aurora/ui/alert-dialog';
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/aurora/ui/dialog';
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
@@ -41,6 +42,7 @@ import {
   alternativeLabel,
   licencePosition,
   positionChoices,
+  requiredEntries,
 } from '@/lib/kharakterystyka/positions';
 import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence';
 import { evidenceDefaults, summarizeEvidence } from '@/lib/rating/evidence-fields';
@@ -95,19 +97,44 @@ export function ManualEntries({
   selfId?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const typed = entries.length > 0;
 
   return (
-    <div className="mt-2">
+    // `mt-3`, not `mt-2`. At two the trigger sat the same distance from the last
+    // evidence line as those lines sit from each other, so it read as one more
+    // of them rather than as the cell's action.
+    <div className="mt-3">
+      {/* **`outline`, not `ghost`** (owner, 2026-09-22). As a ghost at
+          `text-xs text-muted-foreground` this was lighter than the evidence
+          above it and the same weight as the «(2024)» after each line — the
+          one interactive thing on the page, drawn as metadata. People had to be
+          told it existed.
+
+          An edge is what says «control», and `outline` is the variant drawn for
+          a solid card, which is what the table sits on. It stays monochrome at
+          rest — §3's chrome rule, and there may be seventeen of these on screen
+          at once — and picks up `--brand` on hover, the same way the breadcrumb
+          does. */}
       <Button
         type="button"
-        variant="ghost"
+        variant="outline"
         size="sm"
-        className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+        className="gap-1.5 hover:border-brand/45 hover:text-brand"
         onClick={() => setOpen(true)}
       >
-        <PencilLine className="size-3.5" />
-        Записи вручну
-        {entries.length > 0 && <span className="tabular-nums">· {entries.length}</span>}
+        {/* **The verb, until there is something to list.** «Записи вручну» on
+            an empty position names a list that does not exist yet and says
+            nothing about what pressing it does. Once rows exist the noun is
+            right, because the dialog then genuinely opens on them. */}
+        {typed ? <PencilLine className="text-muted-foreground" /> : <Plus />}
+        {typed ? 'Записи вручну' : 'Додати запис'}
+        {/* A counter, not «· 2». The middot ran into the label at the same
+            weight and colour, so the number read as part of the words. */}
+        {typed && (
+          <span className="-mr-0.5 ml-0.5 rounded bg-foreground/8 px-1.5 py-px text-[0.7rem] font-semibold tabular-nums dark:bg-white/12">
+            {entries.length}
+          </span>
+        )}
       </Button>
 
       <EntriesDialog
@@ -159,15 +186,30 @@ function EntriesDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={change}>
-      <AlertDialogContent className="max-w-lg">
+    // **`Dialog`, not `AlertDialog`** (owner, 2026-09-22). An alert dialog is
+    // for a decision you must answer — it deliberately ignores a click outside
+    // and carries no ×, so the only way out is one of its buttons. This is not
+    // that. It is a panel you open to read what is already typed and maybe add
+    // one more, and it was wearing an alert's manners: no ×, no Esc-to-dismiss
+    // by click-away, and a «Закрити» button taking footer space from the one
+    // action. `Dialog` brings the ×, the click-away and the Esc for free.
+    <Dialog open={open} onOpenChange={change}>
+      <DialogContent
+        // ...except while a form is half-typed. Walking away from a LIST costs
+        // nothing; walking away from six filled boxes costs them. This is the
+        // rule, not an exception to it: a dialog holding unsaved input does not
+        // vanish on a stray click. The × and Esc still work, because those are
+        // deliberate.
+        onInteractOutside={(e) => {
+          if (screen === 'form') e.preventDefault();
+        }}
+      >
         {screen === 'list' ? (
           <EntryList
             position={position}
             entries={entries}
             selfId={selfId}
             onAdd={() => setScreen('form')}
-            onClose={() => change(false)}
           />
         ) : (
           <EntryForm
@@ -178,35 +220,72 @@ function EntriesDialog({
             onDone={() => setScreen('list')}
           />
         )}
-      </AlertDialogContent>
-    </AlertDialog>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 /**
- * What this position actually asks for, in the положення's own words.
+ * The dialog's heading: which position this is, and what it literally asks for.
  *
- * The dialog said «Записи до позиції 15» and nothing else, so somebody typing
- * had to remember — or close it and read the row behind — what п.15 requires.
- * That is the one thing you need in front of you while deciding whether your
- * achievement qualifies.
+ * The п.38 wording IS the description of this dialog, so it sits in
+ * `DialogDescription` rather than in a grey box under the header. It used to be
+ * third on screen, under a title of «Записи до позиції 1» and a generic note,
+ * which put the only sentence identifying the position last.
  *
  * **Capped and scrollable rather than clamped.** п.15's wording runs to four
  * hundred characters, and cutting a licence requirement mid-sentence is how
  * somebody claims the wrong thing. It gets a ceiling so it cannot swamp the
- * form, and the rest is a scroll away.
+ * panel, and the rest is a scroll away.
  */
-function PositionWording({ position }: { position: number }) {
+function PositionHeader({ position, title }: { position: number; title: string }) {
   const def = licencePosition(position);
-  if (!def) return null;
   return (
-    // 14px, not 12 (owner, 2026-09-14). This is the requirement somebody reads
-    // to decide whether their achievement qualifies — the one paragraph in the
-    // dialog that has to be read rather than glanced at. The cap grows with it
-    // so roughly the same amount stays visible.
-    <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/40 px-3 py-2">
-      <p className="text-sm text-foreground-soft">{def.title}</p>
-      {def.note && <p className="mt-1 text-xs text-muted-foreground">{def.note}</p>}
+    <DialogHeader>
+      <DialogTitle>{title}</DialogTitle>
+      {def && (
+        // 14px, not 12 (owner, 2026-09-14). This is the requirement somebody
+        // reads to decide whether their achievement qualifies — the one
+        // paragraph here that has to be read rather than glanced at.
+        <DialogDescription className="max-h-32 overflow-y-auto text-sm">
+          {def.title}
+        </DialogDescription>
+      )}
+    </DialogHeader>
+  );
+}
+
+/**
+ * What to enter, and how many — the note that replaced «Якщо позиція вимагає
+ * п’ять, внесіть п’ять записів».
+ *
+ * That sentence was a rule with the number left out, printed identically on all
+ * seventeen positions, so the reader had to find the real figure somewhere else
+ * — or count the law's wording themselves. `requiredEntries` knows it.
+ *
+ * п.2 is the one that cannot be answered here: a патент на винахід counts alone
+ * while деклараційні and свідоцтва need five each, so it points at the form,
+ * where the choice carries its own «потрібно N».
+ */
+function PositionDemand({ position }: { position: number }) {
+  const def = licencePosition(position);
+  const need = requiredEntries(position);
+
+  const demand =
+    need === null
+      ? 'Кожен варіант має власну кількість — оберіть його під час додавання.'
+      : need === 1
+        ? 'Для виконання позиції достатньо одного запису.'
+        : `Для виконання позиції потрібно ${need} записів.`;
+
+  return (
+    <div className="space-y-1">
+      <p className="text-sm text-foreground-soft">Один запис — одне досягнення. {demand}</p>
+      {/* The position's own caveat — п.13's «показник 2.3 враховує від 30
+          годин, а ліцензійна умова вимагає 50». It used to ride under
+          the wording in the grey box; it is advice about filling the form, so
+          it belongs with the rest of the advice. */}
+      {def?.note && <p className="text-xs text-muted-foreground">{def.note}</p>}
     </div>
   );
 }
@@ -216,13 +295,11 @@ function EntryList({
   entries,
   selfId,
   onAdd,
-  onClose,
 }: {
   position: number;
   entries: ManualEntry[];
   selfId?: string;
   onAdd: () => void;
-  onClose: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -248,97 +325,119 @@ function EntryList({
 
   return (
     <>
-      <AlertDialogHeader>
-        <AlertDialogTitle>Записи до позиції {position}</AlertDialogTitle>
-        <AlertDialogDescription>
-          Один запис — одне досягнення. Якщо позиція вимагає п’ять, внесіть п’ять записів.
-        </AlertDialogDescription>
-      </AlertDialogHeader>
+      {/* **The position names itself, then says what it wants** (owner,
+          2026-09-22). It read «Записи до позиції 1» — a number and no
+          subject — then a generic note, and only THEN the requirement itself,
+          in a grey box below both. The one sentence that says what п.1 is
+          came third.
 
-      <PositionWording position={position} />
+          It is the description now, where a description belongs, and the
+          generic note has become a specific one under it. */}
+      <PositionHeader position={position} title={`Пункт ${position}`} />
 
-      {entries.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">Записів ще немає</p>
-      ) : (
-        <ul className="max-h-72 space-y-1.5 overflow-y-auto">
-          {entries.map((entry) => (
-            <li key={entry.id} className="rounded-md border px-3 py-2 text-xs">
-              {confirming === entry.id ? (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>Вилучити цей запис?</span>
-                  <div className="flex shrink-0 gap-1.5">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7"
-                      disabled={pending}
-                      onClick={() => setConfirming(null)}
-                    >
-                      Скасувати
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="h-7"
-                      disabled={pending}
-                      onClick={() => remove(entry.id)}
-                    >
-                      Вилучити
-                    </Button>
+      <DialogBody className="space-y-3">
+        <PositionDemand position={position} />
+
+        {entries.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Записів ще немає</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {entries.map((entry) => (
+              // `text-sm`, not `text-xs` (owner, 2026-09-22). §4 puts body text at
+              // 14px and keeps 12 for meta and counts — and this is neither. It is
+              // the evidence sentence itself, the thing the licence document
+              // prints, read here to decide whether to keep it. The two lines
+              // under it stay quiet on COLOUR rather than on size.
+              <li key={entry.id} className="rounded-md border px-3 py-2 text-sm">
+                {confirming === entry.id ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>Вилучити цей запис?</span>
+                    <div className="flex shrink-0 gap-1.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7"
+                        disabled={pending}
+                        onClick={() => setConfirming(null)}
+                      >
+                        Скасувати
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="h-7"
+                        disabled={pending}
+                        onClick={() => remove(entry.id)}
+                      >
+                        Вилучити
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    {/* The same cut-and-link treatment as a derived entry: a
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      {/* The same cut-and-link treatment as a derived entry: a
                         typed row sits in the same 42% column and is the one
                         somebody is most likely to have pasted a URL into. */}
-                    <EvidenceText text={entry.text} />{' '}
-                    <span className="text-muted-foreground tabular-nums">({entry.year})</span>
-                    {named && (
-                      <p className="mt-1 text-muted-foreground">
-                        {alternativeLabel(entry.position, entry.group)}
-                      </p>
-                    )}
-                    {/* **Who wrote this line** (owner, 2026-09-14). Since an НПП
+                      <EvidenceText text={entry.text} />{' '}
+                      <span className="text-muted-foreground tabular-nums">({entry.year})</span>
+                      {named && (
+                        <p className="mt-1 text-muted-foreground">
+                          {alternativeLabel(entry.position, entry.group)}
+                        </p>
+                      )}
+                      {/* **Who wrote this line** (owner, 2026-09-14). Since an НПП
                         can type п.15 and п.20 about themselves, a reader — an
                         administrator, or whoever defends the licence file — has
                         to be able to tell a self-declared line from one an
                         administrator entered. The row already stores it; the
                         account id IS the staff id, so this needs no lookup. */}
-                    <p className="mt-1 text-muted-foreground">
-                      {selfId && entry.createdBy === selfId
-                        ? 'Внесено власноруч'
-                        : 'Внесено адміністратором'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setConfirming(entry.id)}
-                    disabled={pending}
-                    aria-label="Вилучити запис"
-                    className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-error/10 hover:text-error-strong disabled:opacity-50"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                      <p className="mt-1 text-muted-foreground">
+                        {selfId && entry.createdBy === selfId
+                          ? 'Внесено власноруч'
+                          : 'Внесено адміністратором'}
+                      </p>
+                    </div>
+                    {/* **The app's one delete control** — `variant="destructive"`
+                      at icon size, the same one the факультет / кафедра /
+                      відділ trio, `delete-activity-button`,
+                      `delete-plan-row-button` and `delete-record-button` wear.
 
-      <AlertDialogFooter>
-        <Button type="button" variant="outline" disabled={pending} onClick={onClose}>
-          Закрити
-        </Button>
-        <Button type="button" disabled={pending} onClick={onAdd}>
+                      §3 asks for red AT REST, and as of 2026-09-22 that means
+                      the TINT too. The hand-rolled button this replaced was
+                      `text-muted-foreground` — neutral until you point at it,
+                      which §3 refuses — and the `ghost` + `text-error` version
+                      in between kept `ghost`'s grey `hover:bg-foreground/6`. */}
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon-sm"
+                      onClick={() => setConfirming(entry.id)}
+                      disabled={pending}
+                      aria-label="Вилучити запис"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogBody>
+
+      {/* **One action, full width** (owner, 2026-09-22). «Закрити» is gone: the
+          ×, Esc and a click outside all do it, and a button whose only job is
+          to undo opening the dialog was taking half the footer from the thing
+          people came to press. */}
+      <DialogFooter>
+        <Button type="button" className="w-full" disabled={pending} onClick={onAdd}>
           <Plus className="size-4" />
           Додати запис
         </Button>
-      </AlertDialogFooter>
+      </DialogFooter>
     </>
   );
 }
@@ -410,18 +509,18 @@ function EntryForm({
 
   return (
     <RequiredFields schema={schema}>
-      <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Новий запис до позиції {position}</AlertDialogTitle>
-          <AlertDialogDescription>
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+        {/* The same heading as the list, so moving between the two screens does
+            not change what you are looking at — only what you are doing to it. */}
+        <PositionHeader position={position} title={`Пункт ${position} — новий запис`} />
+
+        <DialogBody>
+          <p className="mb-4 text-sm text-foreground-soft">
             Заповніть поля — текст документа складеться з них. Рік має бути в межах {minYear}–
             {maxYear}.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </p>
 
-        <PositionWording position={position} />
-
-        {/* Two columns, because these forms are mostly short answers — a рік, a
+          {/* Two columns, because these forms are mostly short answers — a рік, a
           посада, a місце — and one field per row left the other half of the
           dialog empty beside every one of them (owner, 2026-09-01).
 
@@ -433,110 +532,113 @@ function EntryForm({
           `dense` lets a later short field backfill the gap a full-width one
           leaves behind, so п.1 puts Рік and Посилання on one row instead of
           stranding Рік beside nothing. */}
-        <div
-          className={cn(
-            // `-mx-1 px-1`, not `pr-1`. `overflow-y-auto` clips BOTH axes, and a
-            // focused field draws a 3px ring outside its border box — so the
-            // right ring had 4px of room and the LEFT one was sliced off flush.
-            // The negative margin cancels the padding, so the fields stay exactly
-            // where they were and only the ring gains somewhere to land.
-            '-mx-1 grid max-h-[55vh] grid-cols-1 gap-4 overflow-y-auto px-1',
-            'sm:grid-flow-row-dense sm:grid-cols-2',
-            // Descendant, not child: `contents` drops the renderer's wrapper out
-            // of the LAYOUT, but it is still there in the DOM, so `>` matches
-            // nothing past it.
-            // `:not([data-span])` — a field that states its own width wins.
-            // Without it these descendant selectors outrank the field's own
-            // class and every select goes full-width again, which is what kept
-            // «Етап» and «Призове місце» off one line.
-            'sm:[&_[data-slot=field]:not([data-span]):has(textarea)]:col-span-2',
-            'sm:[&_[data-slot=field]:not([data-span]):has([role=combobox])]:col-span-2',
-            // **Fields align at the TOP, not the bottom.**
-            //
-            // Bottom-aligning was tried (2026-09-14) so that a one-line label
-            // beside a two-line one still put their inputs on one line. It broke
-            // the moment the form was submitted empty: an error message is part
-            // of the cell, so «Етап» growing by one red line pushed «Призове
-            // місце» down beside it — misaligned exactly when a person is
-            // reading the form most carefully.
-            //
-            // The reorder that followed removed the reason for it: every pair
-            // that now shares a row has two short labels. If a position ever
-            // needs a tall label beside a short one, give it `span: 2` rather
-            // than bringing this back — alignment that depends on nothing going
-            // wrong is not alignment.
-            'sm:[&_[data-slot=field]]:self-start'
-          )}
-        >
-          {choices.length > 0 && (
-            <FormField
-              htmlFor="entry-group"
-              label="Що саме підтверджує позицію"
-              description="Кожен варіант має власну кількість, потрібну для виконання позиції"
-              error={errors.group as { message?: string } | undefined}
-            >
-              <Controller
-                name="group"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={(field.value as string | null) ?? undefined}
-                    onValueChange={field.onChange}
-                    disabled={pending}
-                  >
-                    <SelectTrigger id="entry-group" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {choices.map((choice) => (
-                        <SelectItem key={choice.group} value={choice.group}>
-                          {choice.label} — потрібно {choice.min}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </FormField>
-          )}
+          <div
+            className={cn(
+              // `-mx-1 px-1`, not `pr-1`. `overflow-y-auto` clips BOTH axes, and a
+              // focused field draws a 3px ring outside its border box — so the
+              // right ring had 4px of room and the LEFT one was sliced off flush.
+              // The negative margin cancels the padding, so the fields stay exactly
+              // where they were and only the ring gains somewhere to land.
+              // No `max-h`/`overflow` of its own any more: `DialogBody` is the
+              // scroller now, and two nested ones fight over the wheel.
+              '-mx-1 grid grid-cols-1 gap-4 px-1',
+              'sm:grid-flow-row-dense sm:grid-cols-2',
+              // Descendant, not child: `contents` drops the renderer's wrapper out
+              // of the LAYOUT, but it is still there in the DOM, so `>` matches
+              // nothing past it.
+              // `:not([data-span])` — a field that states its own width wins.
+              // Without it these descendant selectors outrank the field's own
+              // class and every select goes full-width again, which is what kept
+              // «Етап» and «Призове місце» off one line.
+              'sm:[&_[data-slot=field]:not([data-span]):has(textarea)]:col-span-2',
+              'sm:[&_[data-slot=field]:not([data-span]):has([role=combobox])]:col-span-2',
+              // **Fields align at the TOP, not the bottom.**
+              //
+              // Bottom-aligning was tried (2026-09-14) so that a one-line label
+              // beside a two-line one still put their inputs on one line. It broke
+              // the moment the form was submitted empty: an error message is part
+              // of the cell, so «Етап» growing by one red line pushed «Призове
+              // місце» down beside it — misaligned exactly when a person is
+              // reading the form most carefully.
+              //
+              // The reorder that followed removed the reason for it: every pair
+              // that now shares a row has two short labels. If a position ever
+              // needs a tall label beside a short one, give it `span: 2` rather
+              // than bringing this back — alignment that depends on nothing going
+              // wrong is not alignment.
+              'sm:[&_[data-slot=field]]:self-start'
+            )}
+          >
+            {choices.length > 0 && (
+              <FormField
+                htmlFor="entry-group"
+                label="Що саме підтверджує позицію"
+                description="Кожен варіант має власну кількість, потрібну для виконання позиції"
+                error={errors.group as { message?: string } | undefined}
+              >
+                <Controller
+                  name="group"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={(field.value as string | null) ?? undefined}
+                      onValueChange={field.onChange}
+                      disabled={pending}
+                    >
+                      <SelectTrigger id="entry-group" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {choices.map((choice) => (
+                          <SelectItem key={choice.group} value={choice.group}>
+                            {choice.label} — потрібно {choice.min}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </FormField>
+            )}
 
-          <EvidenceFields
-            className="contents"
-            fields={fields}
-            register={register}
-            control={control}
-            errors={errors}
-            disabled={pending}
-          />
+            <EvidenceFields
+              className="contents"
+              fields={fields}
+              register={register}
+              control={control}
+              errors={errors}
+              disabled={pending}
+            />
 
-          {/* **Last, not first** (owner, 2026-09-14). It is the only answer on
+            {/* **Last, not first** (owner, 2026-09-14). It is the only answer on
               the form that arrives already filled in, so it belongs where the
               eye ends rather than where it starts — the fields somebody has to
               think about come first. */}
-          {/* The hint appears only where the form asks for years of its own —
+            {/* The hint appears only where the form asks for years of its own —
             п.11 and п.20 both have «Рік початку / завершення», and there «Рік»
             alone does not say which year is meant. On the other fifteen it was
             a wrapped second line explaining the only year on screen. */}
-          <FormField
-            htmlFor="entry-year"
-            label="Рік"
-            description={asksForYears ? 'Рік, за який зараховується запис' : undefined}
-            error={errors.year as { message?: string } | undefined}
-          >
-            <Input
-              id="entry-year"
-              type="number"
-              min={minYear}
-              max={maxYear}
-              disabled={pending}
-              {...register('year')}
-            />
-          </FormField>
+            <FormField
+              htmlFor="entry-year"
+              label="Рік"
+              description={asksForYears ? 'Рік, за який зараховується запис' : undefined}
+              error={errors.year as { message?: string } | undefined}
+            >
+              <Input
+                id="entry-year"
+                type="number"
+                min={minYear}
+                max={maxYear}
+                disabled={pending}
+                {...register('year')}
+              />
+            </FormField>
 
-          <Preview fields={fields} control={control} className="sm:col-span-2" />
-        </div>
+            <Preview fields={fields} control={control} className="sm:col-span-2" />
+          </div>
+        </DialogBody>
 
-        <AlertDialogFooter>
+        <DialogFooter>
           <Button type="button" variant="outline" disabled={pending} onClick={onDone}>
             <ChevronLeft className="size-4" />
             Назад
@@ -544,7 +646,7 @@ function EntryForm({
           <Button type="submit" disabled={pending}>
             Зберегти
           </Button>
-        </AlertDialogFooter>
+        </DialogFooter>
       </form>
     </RequiredFields>
   );
