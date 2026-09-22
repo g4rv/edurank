@@ -873,6 +873,129 @@ against links before a single byte is uploaded.
 
 **Later, unscheduled.** The export document (D19), and a Crossref DOI check.
 
+## D30–D35 — answers from the meeting with the boss (2026-09-22)
+
+The owner met the boss and brought back six points. **Nothing here is built
+yet** — this section records the decisions so the work can be planned against
+them.
+
+| #   | Question                                                      | Answer                                                                                                               |
+| --- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| D30 | Split one article's hours across two years?                   | **No.** Q12 closed. The app already refuses this — no change needed.                                                 |
+| D31 | Conditional items in a PLAN?                                  | **No — remove them from planning, keep them in execution.** You cannot plan to win a competition.                    |
+| D32 | Somebody who overplanned?                                     | **They owe what they planned.** План and факт must match up; the norm is a floor, not a ceiling.                     |
+| D33 | An article published in one year, indexed in Scopus the next? | **Counts in the year it was indexed** — but an OLD article may not be dragged in. Where the line sits is still open. |
+| D34 | An official export form for results?                          | **Not needed.** D19 closes. Instead: **analytics inside the system** — see the analytics spec.                       |
+| D35 | Files for articles?                                           | **No — URL only.** A file upload is for small documents (сертифікат and the like), never for a whole article.        |
+
+### D31 — п.18 named, п.5 still open
+
+**«Unpredictable» means a result you cannot possibly predict** (owner,
+2026-09-22), and the owner named **п.18** — «Керівництво науковою роботою
+здобувачів, які стали **переможцями**…». You can plan to supervise; you
+cannot plan to win.
+
+Checked the other 17 for the same shape:
+
+- **п.8** is roles — Керівник / Відповідальний секретар / Учасник. Taking part is
+  a decision, so it stays plannable.
+- **п.5 is the one open case.** Its heading is «Підготовка та подача заявки» —
+  an action — but every one of its види роботи is «**Отримання** патенту…», which
+  is a result nobody controls. The catalogue disagrees with itself here.
+  **Ask the owner.**
+
+### D31 — what «conditional» means, and what it costs
+
+A new boolean on `ScienceWorkType`, edited by ADMIN like `sharing` and `reuse`:
+a type that is **recordable but not plannable**. It appears in «Виконано» and not
+in «План».
+
+**Which of the 18 items are conditional is NOT decided.** The obvious candidate
+is п.8's «Перемога» variant as against its «Участь» one, and п.5 відрізняє
+«подача заявки» from «отримання патенту» the same way — but guessing the list is
+exactly how a catalogue ends up wrong. **Ask the owner for the list, or send the
+18 rows as a sheet to mark.**
+
+### D32 — the target stops being one number
+
+Today both план and факт are measured against `500 × ставка`. D32 splits them:
+
+```
+план target  = 500 × ставка                 (unchanged — a floor)
+факт target  = max(план, 500 × ставка)       (new)
+```
+
+Plan 700 and you owe 700; plan 400 and you still owe 500. **The owner has not
+confirmed this formula in writing** — it is a reading of «they have to match
+up». Confirm before building: it changes the shortfall shown to all 328 people
+and every number on the oversight screens.
+
+### D33 — the indexing lag, and why it is smaller than it looks
+
+The article is claimed **once**; the only question is which рік it lands in.
+That is not a split, so it does not contradict D30 — and **the app already
+allows it**: enter the article this year and it belongs to this year, because
+nothing asks when it was published.
+
+So what is missing is only the **fence**: stopping a 2019 article being entered
+today. That needs
+
+1. a publication date on п.4's form, which it does not have; and
+2. a rule — «не раніше ніж …».
+
+**Where the line sits is still the open question.** The owner proposed
+«indexed > published» (2026-09-22) — which is a good **sanity** check and is
+worth having, but it is not the fence: an article published in 2019 and indexed
+in 2026 satisfies it too.
+
+**Proposed instead, and matching how this app already works:** ask for both
+dates, show them together on the record, and let ННВ decline the implausible
+ones. That is D20/D21's post-check — the project has refused a gate three
+times, and «публікація 2019, індексація 2026» is exactly the kind of thing a
+human spots instantly and a rule argues about. A hard maximum gap can be added
+later if abuse appears, and would then be one number rather than a redesign.
+
+**Not decided.** Awaiting the owner.
+
+### D35 — URL-only, and the one thing it costs
+
+`requiresFile` exists on the work type and **no row in the 2027 catalogue sets
+it**, so today every record takes «either a link or a file» and an article can
+be uploaded as a PDF. D35 wants the opposite flag — `allowsFile: false` on the
+publication types, so those forms offer a URL box and no upload.
+
+**What that gives up:** п.4 pays 50 год за сторінку, and the page count is read
+from the attached PDF. With URL-only there is no file to count against, and the
+page number becomes a typed claim nobody can check. That may be acceptable — it
+should be a decision, not a surprise.
+
+## CONFIRMED 2026-09-22 — the shared pool is right, and what it still owes
+
+The owner put D14/D16 to the boss and brought back a plain answer: **several
+co-authors write ONE article, and the hours are a fixed rate per article
+(× pages where the пункт prices by page). Who gets what is the co-authors'
+problem to solve — the app only provides the tools.**
+
+So the pool model stays exactly as D14/D16 built it, and the university
+deliberately does not arbitrate the split. No equal division, no approver.
+
+**What «the tools» means, and where we fall short of it:**
+
+| the tool                                   | state                                                                 |
+| ------------------------------------------ | --------------------------------------------------------------------- |
+| add yourself to a work somebody else added | **built** — `joinWork`, showing «залишилось N з 200 год»              |
+| **change your own share afterwards**       | **missing** — no action edits a saved `ScienceRecord.hoursHundredths` |
+| **add a colleague to a work**              | **missing** — a colleague can only add themselves                     |
+
+The first gap is the sharper one: agreeing a split is a conversation that
+happens AFTER somebody has already entered a number, so «150 to me, 50 to you»
+has to be changeable without deleting and retyping the record — which today also
+throws away the attached file, since files hang off the record.
+
+`updateWorkEvidence` already clamps the editor's OWN draw down when a pool
+shrinks (`hoursHundredths: { gt: ownHours }`), so the transaction shape for a
+bounded edit exists; what is missing is a person-facing action.
+
 ## Open questions
 
 All four questions this document opened were answered by the owner on
