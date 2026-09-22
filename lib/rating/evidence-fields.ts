@@ -241,9 +241,30 @@ export const opt = (value: string, label: string) => ({ value, label });
 // and formatted, and an example that repeats it invites the same identifier
 // twice — once validated, once as free text somebody mistyped (owner,
 // 2026-09-01).
+// Checked against the standard on 2026-09-22, because three details of these
+// examples are ones people get wrong and then copy:
+//
+// - **No «//» before the journal name.** ДСТУ 8302:2015 as published used it,
+//   inherited from ДСТУ ГОСТ 7.1:2006 — and the **2017 official corrections
+//   replaced it with a period**. Half the university guides online still print
+//   the old form, so a «// Педагогіка вищої школи» here would look
+//   authoritative and be eight years out of date.
+// - **`№ 3 (42)`, with a space before the bracket.** It read `№ 3(42)` until
+//   today. Every example in every source writes `№ 1` or `Т. 21, № 1`, and
+//   Ukrainian typography puts a space before an opening bracket.
+// - **An EN dash in the page range, `С. 112–124`.** The sources genuinely split
+//   here — КПІ, Grafiati and МАУП print an em dash, ЛНУ an en dash, and ДСТУ
+//   8302 is inconsistent in its own examples. So there is no right answer to
+//   copy, and the tie is broken inside the app: the Характеристика's own
+//   header prints «2022–2026». One document, one dash.
+//
+// Four or more authors take a different shape — title first, then
+// `/ І. П. Прізвище та ін.` — and is deliberately not shown. These are grey
+// hints somebody skims; a second example doubles the length to cover the rarer
+// case.
 export const BIB_ARTICLE =
   'Наприклад: Шевченко О. П., Коваленко І. М. Цифрова трансформація закладів вищої освіти. ' +
-  'Педагогіка вищої школи. 2025. № 3(42). С. 112–124.';
+  'Педагогіка вищої школи. 2025. № 3 (42). С. 112–124.';
 
 export const BIB_MONOGRAPH =
   'Наприклад: Шевченко О. П. Управління якістю вищої освіти : монографія. ' +
