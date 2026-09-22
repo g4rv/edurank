@@ -51,30 +51,49 @@ export default function AchievementsSectionLoading({ params }: { params?: unknow
         </div>
       </Card>
 
-      {/* Three cards of rows, the shape `AchievementsList` settles into. Two
-          bars per row because every achievement has a label and, for almost
-          all of them, a line of evidence under it — the median summary is 190
-          characters, so a row is two lines far more often than one. */}
-      <div className="space-y-4">
-        {[0, 1, 2].map((card) => (
-          <Card key={card} padding="none">
-            <ul className="divide-y">
-              {[0, 1].map((row) => (
-                <li key={row} className="flex items-start justify-between gap-4 px-5 py-3">
-                  <div className="min-w-0 flex-1">
-                    <Skeleton className="h-4 w-2/3" />
-                    <Skeleton className="mt-1.5 h-3 w-5/6" />
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Skeleton className="h-3 w-20" />
-                    <Skeleton className="h-4 w-8" />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        ))}
-      </div>
+      {/* **ONE card, and rows the height the real ones are** (owner, 2026-09-22).
+          This drew three cards of two rows and measured 386px against the real
+          list's 213 — the page dropped 173px the moment content arrived, and
+          further still on a section with nothing in it.
+
+          Both halves of that were §G1 drift, a skeleton hand-built as a second
+          copy of something that then moved:
+
+          - **One card, not three.** `AchievementsList` renders a `Card` per
+            GROUP, and this route filters to a single section, so there is
+            always exactly one group — or an `EmptyState`. Three was the shape
+            of the multi-section rating table, which this page never shows.
+          - **`h-6` and `h-5`, not `h-4` and `h-3`.** A real row is `text-base`
+            over `text-sm`, whose line boxes are 24px and 20px. Both grew on
+            2026-09-14 and the bars stayed at 16 and 12, leaving every row 12px
+            short. The bar heights are the LINE boxes on purpose — the same
+            rule `Figure` follows — so a row measures 71px either way.
+
+          Three rows is still a guess, because how many achievements somebody
+          has is the one thing the query answers and this file cannot know. It
+          is the closest honest number: fewer under-reserves for the common
+          case, more re-creates the collapse this is fixing. */}
+      <Card padding="none">
+        <ul className="divide-y">
+          {[0, 1, 2].map((row) => (
+            // `items-center` and `gap-2`, matching the real row — it was
+            // `items-start gap-4`, which is what the row looked like before
+            // 2026-09-14 moved the meta block to the middle.
+            <li key={row} className="px-5 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <Skeleton className="h-6 w-2/3" />
+                  <Skeleton className="mt-0.5 h-5 w-5/6" />
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Skeleton className="h-5 w-20" />
+                  <Skeleton className="h-5 w-8" />
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Card>
     </div>
   );
 }

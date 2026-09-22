@@ -366,6 +366,21 @@ own empty states, after which `FormShell`, `FieldShell`, `PickerShell` and
 `TableShell` all go. Then the same sweep over every other `loading.tsx` in the
 app — each one is a replica of a screen and none has been checked for drift.
 
+**One of those was swept on 2026-09-22, spotted by the owner without any
+diffing tool** — `/achievements/[section]`, where the drift was big enough to
+see:
+
+| what            | drift              | cause                                                                                                                                                                       |
+| --------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| row height      | **12px** each      | the row is `text-base` over `text-sm`, whose line boxes are 24 and 20; the bars stayed `h-4`/`h-3` when both grew on 2026-09-14                                             |
+| number of cards | **3 vs 1**         | `AchievementsList` draws a `Card` per GROUP, and this route filters to ONE section, so there is always exactly one group — three was the multi-section rating table's shape |
+| the list block  | **386px vs 213px** | the two above, compounded — the page dropped 173px when content arrived, and further on an empty section                                                                    |
+
+Both are now matched and measured at zero delta. It is still a hand-built
+copy: three rows is a guess, since how many achievements somebody has is
+exactly what the query answers. Converting `AchievementsList` to draw its own
+empty bars is the real fix and is part of the sweep above.
+
 ### G2. Names should say what a thing IS
 
 - **`FigureShell` / `FormShell` / `TableShell`** — the `-Shell` suffix names
