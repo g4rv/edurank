@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Combobox,
   ComboboxContent,
@@ -41,25 +41,42 @@ export function WorkTypeCombobox({
   workTypes,
   value,
   onChange,
+  item: pickedItem,
+  onItemChange,
 }: {
   workTypes: PlanWorkType[];
   value: string;
   onChange: (next: string) => void;
-}) {
-  /** One entry per пункт, in the catalogue's own order. */
-  const items = useMemo(() => groupByItem(workTypes), [workTypes]);
-
-  const selectedType = workTypes.find((t) => t.id === value);
-
   /**
-   * The chosen пункт, HELD HERE.
+   * The chosen пункт, OWNED BY THE DIALOG.
    *
    * It cannot be derived from the chosen вид роботи, which was the first
    * attempt and left the field unusable: picking a пункт that holds several
    * види has no вид yet, so there was nothing to derive from and the control
    * cleared itself the instant you chose (owner, 2026-09-20).
+   *
+   * **It was a `useState` in here, and that was the bug** (2026-09-22). Both
+   * dialogs render this picker as a child of an `EvidenceForm` carrying
+   * `key={selected?.id ?? 'none'}` — so choosing a вид роботи remounts the
+   * form AND everything inside it, this control included, wiping the пункт it
+   * had just been told about.
+   *
+   * It only showed on one path, which is why it survived: the key changes only
+   * when `selected?.id` does. Coming FROM a пункт with a single вид (п.2, п.4,
+   * п.5 — those set a real id) TO one with several (which sets `''`) flips the
+   * key back to `'none'`, remounts, and `setPickedItem` is discarded — so the
+   * field went blank and the list closed on nothing. Between two multi-вид
+   * пункти the key never moves off `'none'` and it worked fine.
+   *
+   * State that has to outlive a sibling's remount cannot live under it.
    */
-  const [pickedItem, setPickedItem] = useState('');
+  item: string;
+  onItemChange: (next: string) => void;
+}) {
+  /** One entry per пункт, in the catalogue's own order. */
+  const items = useMemo(() => groupByItem(workTypes), [workTypes]);
+
+  const selectedType = workTypes.find((t) => t.id === value);
 
   // A вид роботи set from outside — editing an existing row — decides the
   // пункт by itself, so it is read first and no effect has to copy it across.
@@ -69,7 +86,7 @@ export function WorkTypeCombobox({
   function pickItem(next: string) {
     const item = items.find((i) => i.itemNumber === next);
     if (!item) return;
-    setPickedItem(next);
+    onItemChange(next);
     // A пункт with one вид роботи has already been answered by choosing it;
     // one with several clears the вид so the second field asks for it.
     onChange(item.types.length === 1 ? item.types[0].id : '');

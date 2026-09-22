@@ -68,12 +68,25 @@ export function AddRecordDialog({
   const [open, setOpen] = useState(false);
   // Empty by default — see the note in `add-plan-row-dialog.tsx`.
   const [typeId, setTypeId] = useState('');
+  // Held HERE, not inside the picker: the picker renders as a child of an
+  // `EvidenceForm` keyed on the chosen вид роботи, so it is remounted every
+  // time that key moves and any state of its own is lost. See the note on
+  // `WorkTypeCombobox`'s `item` prop.
+  const [pickedItem, setPickedItem] = useState('');
   const [conflict, setConflict] = useState<WorkConflict | null>(null);
 
   if (workTypes.length === 0) return null;
 
   const selected = workTypes.find((t) => t.id === typeId);
-  const picker = <WorkTypeCombobox workTypes={workTypes} value={typeId} onChange={setTypeId} />;
+  const picker = (
+    <WorkTypeCombobox
+      workTypes={workTypes}
+      value={typeId}
+      onChange={setTypeId}
+      item={pickedItem}
+      onItemChange={setPickedItem}
+    />
+  );
 
   function close(next: boolean) {
     setOpen(next);
@@ -82,6 +95,7 @@ export function AddRecordDialog({
       // вид роботи that was just added — which reads as «already filled in».
       setConflict(null);
       setTypeId('');
+      setPickedItem('');
     }
   }
 

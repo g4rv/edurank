@@ -93,18 +93,34 @@ export function AddPlanRowDialog({
   // that row on every open — which reads as a flicker. It also said «this is
   // filled in» about a choice nobody had made.
   const [typeId, setTypeId] = useState('');
+  // Held HERE, not inside the picker: the picker renders as a child of an
+  // `EvidenceForm` keyed on the chosen вид роботи, so it is remounted every
+  // time that key moves and any state of its own is lost. See the note on
+  // `WorkTypeCombobox`'s `item` prop.
+  const [pickedItem, setPickedItem] = useState('');
 
   if (workTypes.length === 0) return null;
 
   const selected = workTypes.find((t) => t.id === typeId);
-  const picker = <WorkTypeCombobox workTypes={workTypes} value={typeId} onChange={setTypeId} />;
+  const picker = (
+    <WorkTypeCombobox
+      workTypes={workTypes}
+      value={typeId}
+      onChange={setTypeId}
+      item={pickedItem}
+      onItemChange={setPickedItem}
+    />
+  );
 
   /** Back to the first type on close. Without this the dialog reopens showing
    *  whatever was added last, which reads as «this is already filled in» and
    *  quietly invites a duplicate row (owner, 2026-09-17). */
   function close(next: boolean) {
     setOpen(next);
-    if (!next) setTypeId('');
+    if (!next) {
+      setTypeId('');
+      setPickedItem('');
+    }
   }
 
   return (
