@@ -94,7 +94,13 @@ function record(
     status?: 'APPROVED' | 'REMOVED';
     planRowId?: string | null;
     others?: { staffId: string; hoursHundredths: number; last: string }[];
-    files?: { id: string; fileName: string; sizeBytes: number; pageCount: number | null }[];
+    files?: {
+      id: string;
+      fileName: string;
+      sizeBytes: number;
+      pageCount: number | null;
+      uploadedById: string;
+    }[];
   } = {}
 ) {
   return {
@@ -233,9 +239,11 @@ describe('план and факт', () => {
   it('passes through every attached file, name/size/pageCount and all', async () => {
     // Item 4 prices per page, and that is the number a reviewer compares — so
     // the query has to carry the real row, not a bare count.
+    // f1 is the caller's own upload; f2 a co-author's, on a work somebody else
+    // entered — so only f1 may be replaced or deleted from here (D46).
     const files = [
-      { id: 'f1', fileName: 'стаття.pdf', sizeBytes: 204800, pageCount: 12 },
-      { id: 'f2', fileName: 'наказ.png', sizeBytes: 51200, pageCount: null },
+      { id: 'f1', fileName: 'стаття.pdf', sizeBytes: 204800, pageCount: 12, uploadedById: 's1' },
+      { id: 'f2', fileName: 'наказ.png', sizeBytes: 51200, pageCount: null, uploadedById: 's2' },
     ];
     mockPlan.mockResolvedValue({
       id: 'p1',
@@ -246,7 +254,10 @@ describe('план and факт', () => {
 
     const result = await getSciencePlan('s1', 'd1', 't1');
 
-    expect(result.records[0].files).toEqual(files);
+    expect(result.records[0].files).toEqual([
+      { id: 'f1', fileName: 'стаття.pdf', sizeBytes: 204800, pageCount: 12, canChange: true },
+      { id: 'f2', fileName: 'наказ.png', sizeBytes: 51200, pageCount: null, canChange: false },
+    ]);
   });
 
   it('has an empty files array for a record with no evidence file', async () => {

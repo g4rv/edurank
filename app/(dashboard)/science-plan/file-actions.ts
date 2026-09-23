@@ -56,6 +56,22 @@ function ownsWork(work: { createdById: string; records: { staffId: string }[] },
 }
 
 /**
+ * D46: who may delete or replace ONE file — ADMIN, whoever entered the work,
+ * or whoever uploaded this file. A co-author may take back their own scan,
+ * never a file another author's claim rests on — which is why this is still
+ * narrower than `ownsWork`.
+ */
+function mayChangeFile(
+  file: { uploadedById: string; work: { createdById: string } },
+  staffId: string,
+  isAdmin: boolean
+): boolean {
+  return isAdmin || file.work.createdById === staffId || file.uploadedById === staffId;
+}
+
+const CHANGE_FILE_REFUSED = 'Змінити файл може той, хто його додав, або автор роботи';
+
+/**
  * A presigned PUT for the browser to upload straight to R2 — the app never
  * sees the bytes at this step, only issues the URL. Expires in 5 minutes
  * (`lib/science/r2.ts`).
@@ -281,11 +297,14 @@ export async function fileUrl(
 /**
  * Removes the row and the object.
  *
- * **Creator or ADMIN only — deliberately narrower than `ownsWork`.** A
- * co-author who merely joined a shared work for a small hours draw must not
- * be able to delete the one evidence file every other co-author's — possibly
- * much larger — claim depends on. This mirrors `updateWorkEvidence`'s own
- * edit guard, which is creator/ADMIN only for exactly the same reason.
+ * **Creator, uploader or ADMIN — deliberately narrower than `ownsWork`**
+ * (`mayChangeFile`). A co-author who merely joined a shared work for a small
+ * hours draw must not be able to delete the one evidence file every other
+ * co-author's — possibly much larger — claim depends on; their OWN upload is
+ * theirs to take back (D46).
+ *
+ * **Never the only proof.** That file is swapped with `replaceFile` instead,
+ * so the record is never, even briefly, proved by nothing.
  *
  * **The DB row goes first, the object after.** A failed object delete is
  * `logWarning`, never a blocked user.
@@ -304,6 +323,7 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
       id: true,
       objectKey: true,
       fileName: true,
+      uploadedById: true,
       work: {
         select: {
           templateId: true,
@@ -316,16 +336,14 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
     },
   });
   if (!file || file.work.templateId !== template.id) return { error: 'Файл не знайдено' };
-  if (!isAdmin && file.work.createdById !== staffId) {
-    return { error: 'Видалити файл може лише той, хто додав цю роботу' };
-  }
+  if (!mayChangeFile(file, staffId, isAdmin)) return { error: CHANGE_FILE_REFUSED };
 
   // **D27 survives a delete too.** Now that a record can be proved by a file
   // ALONE, removing the last one is the one way left to end up with a record
   // that proves nothing — the exact state `saveRecord` and
   // `updateWorkEvidence` both refuse to create. Measured against what would
-  // REMAIN, so replacing a bad scan is still two ordinary steps: add the good
-  // one, then delete this.
+  // REMAIN; the way out for the only proof is «Замінити» (`replaceFile`),
+  // which the refusal names.
   const fault = evidenceProblem({
     linkRule: file.work.workType.linkRule,
     fileRule: file.work.workType.fileRule,
@@ -333,7 +351,7 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
     fileCount: file.work._count.files - 1,
   });
   if (fault) {
-    return { error: `${fault}: це єдине підтвердження цього запису` };
+    return { error: `${fault}: це єдине підтвердження цього запису — скористайтеся «Замінити»` };
   }
 
   try {
@@ -368,4 +386,117 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
 
   revalidatePath('/science-plan');
   return { ok: true };
+}
+
+/**
+ * «Замінити» — the new file in, the old one out, in ONE step (D46, owner
+ * 2026-09-23).
+ *
+ * `deleteFile` refuses to remove the only proof of a record, so a bad scan
+ * that is the only proof could not be changed at all without this. The order
+ * is the owner's rule: the old file goes only once the new one is in. Both
+ * rows move in one transaction; the old OBJECT is dropped after the commit.
+ * On any refusal or failure the NEW object is dropped (verification drops it
+ * itself) and the old file is left exactly as it was.
+ *
+ * A replacement never changes how many files the work has, so D27's «link or
+ * file» holds by construction and is not re-checked.
+ */
+export async function replaceFile(input: {
+  fileId: string;
+  objectKey: string;
+  fileName: string;
+}): Promise<{ ok: true; fileId: string } | { error: string }> {
+  const actor = await resolveActor(undefined, { allowAdmin: true });
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, template } = actor.context;
+  const isAdmin = actor.context.role === 'ADMIN';
+
+  const dropNew = () =>
+    safeDeleteObject('science.replaceFile', input.objectKey, { userId, entityId: input.fileId });
+
+  const old = await db.scienceRecordFile.findUnique({
+    where: { id: input.fileId },
+    select: {
+      id: true,
+      objectKey: true,
+      fileName: true,
+      uploadedById: true,
+      work: {
+        select: {
+          id: true,
+          templateId: true,
+          createdById: true,
+          workType: { select: { fileRule: true } },
+        },
+      },
+    },
+  });
+  if (!old || old.work.templateId !== template.id) {
+    await dropNew();
+    return { error: 'Файл не знайдено' };
+  }
+  if (!mayChangeFile(old, staffId, isAdmin)) {
+    await dropNew();
+    return { error: CHANGE_FILE_REFUSED };
+  }
+  // A type that takes no file (D47) but still carries one from before: the
+  // way out is deleting it once a link is there, never putting in another.
+  if (old.work.workType.fileRule === 'NONE') {
+    await dropNew();
+    return { error: FILE_NOT_ALLOWED };
+  }
+
+  const verified = await verifyUploadedObject({
+    objectKey: input.objectKey,
+    fileName: input.fileName,
+    scope: 'science.replaceFile',
+    context: { userId, entityId: old.work.id },
+  });
+  if ('error' in verified) return { error: verified.error };
+
+  let fileId: string;
+  try {
+    fileId = await db.$transaction(async (tx) => {
+      const created = await tx.scienceRecordFile.create({
+        data: { ...verified.file, workId: old.work.id, uploadedById: staffId },
+        select: { id: true },
+      });
+      await tx.scienceRecordFile.delete({ where: { id: old.id } });
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'ScienceRecordFile',
+          entityId: created.id,
+          label: verified.file.fileName,
+          userId,
+          changes: diffChanges(
+            { fileName: old.fileName },
+            { fileName: verified.file.fileName, pageCount: verified.file.pageCount }
+          ),
+        },
+      });
+      return created.id;
+    });
+  } catch (e) {
+    await dropNew();
+    if (isUniqueViolation(e) && isDuplicateFileViolation(e)) {
+      return { error: DUPLICATE_FILE_MESSAGE };
+    }
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося замінити файл. Старий файл залишився без змін',
+        'science.replaceFile',
+        { userId }
+      ),
+    };
+  }
+
+  // After the commit, never inside it: a swap the person saw succeed must not
+  // roll back because R2 was slow to delete.
+  await safeDeleteObject('science.replaceFile', old.objectKey, { userId, entityId: old.id });
+
+  revalidatePath('/science-plan');
+  return { ok: true, fileId };
 }

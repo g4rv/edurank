@@ -6,6 +6,7 @@ import { formatHours } from '@/lib/science/hours';
 import type { SciencePlanRecordDetail } from '@/lib/queries/get-science-plan';
 import { DeleteRecordButton } from '@/components/science/delete-record-button';
 import { DeleteFileButton } from '@/components/science/delete-file-button';
+import { ReplaceFileDialog } from '@/components/science/replace-file-dialog';
 import { FileViewButton } from '@/components/science/file-view-button';
 import { AttachFileDialog } from '@/components/science/attach-file-dialog';
 import { EditRecordDialog } from '@/components/science/edit-record-dialog';
@@ -136,8 +137,14 @@ export function RecordList({
                               never just its byte size. */}
                               {file.pageCount !== null && <span>· {file.pageCount} стор.</span>}
                               <FileViewButton fileId={file.id} fileName={file.fileName} />
-                              {record.canEdit && (
-                                <DeleteFileButton fileId={file.id} fileName={file.fileName} />
+                              {/* D46: whoever entered the work or uploaded this
+                                  file. «Видалити» stays shown on the only proof —
+                                  its refusal names «Замінити» as the way out. */}
+                              {file.canChange && (
+                                <>
+                                  <ReplaceFileDialog fileId={file.id} fileName={file.fileName} />
+                                  <DeleteFileButton fileId={file.id} fileName={file.fileName} />
+                                </>
                               )}
                             </li>
                           ))}

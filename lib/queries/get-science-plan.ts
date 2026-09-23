@@ -96,7 +96,16 @@ export interface SciencePlanRecordDetail {
    *  the «Виконано» tab can offer a «Переглянути» per file and show a PDF's
    *  page count (item 4 prices per page, and that is the number a reviewer
    *  compares). */
-  files: { id: string; fileName: string; sizeBytes: number; pageCount: number | null }[];
+  files: {
+    id: string;
+    fileName: string;
+    sizeBytes: number;
+    pageCount: number | null;
+    /** May this person delete or replace this file — whoever entered the
+     *  work or uploaded the file (D46). `mayChangeFile` on the server says
+     *  the same, and decides. */
+    canChange: boolean;
+  }[];
   /**
    * Everybody else drawing on the same work. The only place a person sees that
    * their 50 год came out of a 200 год pool, and who has the rest.
@@ -207,7 +216,15 @@ export async function getSciencePlan(
                   staff: { select: { lastName: true, firstName: true, patronymic: true } },
                 },
               },
-              files: { select: { id: true, fileName: true, sizeBytes: true, pageCount: true } },
+              files: {
+                select: {
+                  id: true,
+                  fileName: true,
+                  sizeBytes: true,
+                  pageCount: true,
+                  uploadedById: true,
+                },
+              },
             },
           },
         },
@@ -269,7 +286,10 @@ export async function getSciencePlan(
       evidence: r.work.evidence,
       canEdit: r.work.createdById === staffId,
       sharing: r.work.workType.sharing,
-      files: r.work.files,
+      files: r.work.files.map(({ uploadedById, ...file }) => ({
+        ...file,
+        canChange: r.work.createdById === staffId || uploadedById === staffId,
+      })),
       coAuthors: r.work.records
         .filter((other) => other.staffId !== staffId)
         .map((other) => ({

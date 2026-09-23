@@ -29,7 +29,14 @@ import { db } from '@/lib/db';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { logWarning } from '@/lib/log';
 import * as r2 from '@/lib/science/r2';
-import { attachFile, deleteFile, discardUpload, fileUrl, presignUpload } from './file-actions';
+import {
+  attachFile,
+  deleteFile,
+  discardUpload,
+  fileUrl,
+  presignUpload,
+  replaceFile,
+} from './file-actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockTemplate = getActiveScienceTemplate as unknown as Mock;
@@ -399,6 +406,8 @@ describe('deleteFile', () => {
     id: 'f1',
     objectKey: 'evidence/t1/w1/f.pdf',
     fileName: 'сертифікат.pdf',
+    // The work's creator uploaded it, unless a test says otherwise.
+    uploadedById: 'staff-1',
     work: {
       templateId: 't1',
       createdById: 'staff-1',
@@ -425,7 +434,8 @@ describe('deleteFile', () => {
     // `saveRecord` and `updateWorkEvidence` both refuse to create.
     (db.scienceRecordFile.findUnique as Mock).mockResolvedValue(ONLY_EVIDENCE);
     expect(await deleteFile('f1')).toEqual({
-      error: 'Додайте посилання або файл підтвердження: це єдине підтвердження цього запису',
+      error:
+        'Додайте посилання або файл підтвердження: це єдине підтвердження цього запису — скористайтеся «Замінити»',
     });
     expect(db.scienceRecordFile.delete).not.toHaveBeenCalled();
     expect(mockDeleteObject).not.toHaveBeenCalled();
@@ -471,12 +481,24 @@ describe('deleteFile', () => {
     // still refused, because `deleteFile` deliberately does not use it.
     (db.scienceRecordFile.findUnique as Mock).mockResolvedValue({
       ...FILE,
+      uploadedById: 'someone-else',
       work: { ...FILE.work, createdById: 'someone-else', records: [{ staffId: 'staff-1' }] },
     });
     expect(await deleteFile('f1')).toEqual({
-      error: 'Видалити файл може лише той, хто додав цю роботу',
+      error: 'Змінити файл може той, хто його додав, або автор роботи',
     });
     expect(db.scienceRecordFile.delete).not.toHaveBeenCalled();
+  });
+
+  it('lets a co-author delete a file THEY uploaded (D46)', async () => {
+    // Their own scan — taking it back is theirs to do. The work is somebody
+    // else's and a link still proves it.
+    (db.scienceRecordFile.findUnique as Mock).mockResolvedValue({
+      ...FILE,
+      uploadedById: 'staff-1',
+      work: { ...FILE.work, createdById: 'someone-else', records: [{ staffId: 'staff-1' }] },
+    });
+    expect(await deleteFile('f1')).toEqual({ ok: true });
   });
 
   it('refuses a file from a closed year', async () => {
@@ -498,5 +520,116 @@ describe('deleteFile', () => {
     const entry = (db.auditLog.create as Mock).mock.calls[0][0].data;
     expect(entry.action).toBe('DELETE');
     expect(entry.entity).toBe('ScienceRecordFile');
+  });
+});
+
+describe('replaceFile — the new file in before the old one goes (D46)', () => {
+  const OLD = {
+    id: 'f1',
+    objectKey: 'evidence/t1/old.pdf',
+    fileName: 'old.pdf',
+    uploadedById: 'staff-1',
+    work: {
+      id: 'w1',
+      templateId: 't1',
+      createdById: 'staff-1',
+      workType: { fileRule: 'OPTIONAL' },
+    },
+  };
+  const NEW = { fileId: 'f1', objectKey: 'evidence/t1/new.pdf', fileName: 'new.pdf' };
+
+  beforeEach(() => {
+    // One mock answers two questions: the OLD file by id, and — inside the
+    // verification — «is this hash already stored anywhere?» (no).
+    (db.scienceRecordFile.findUnique as Mock).mockImplementation(({ where }) =>
+      Promise.resolve(where.id ? OLD : null)
+    );
+    (db.scienceRecordFile.create as Mock).mockResolvedValue({ id: 'f2' });
+  });
+
+  it('swaps the rows in one transaction, then drops the OLD object only', async () => {
+    expect(await replaceFile(NEW)).toEqual({ ok: true, fileId: 'f2' });
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.scienceRecordFile.create).toHaveBeenCalled();
+    expect(db.scienceRecordFile.delete).toHaveBeenCalledWith({ where: { id: 'f1' } });
+    expect(mockDeleteObject).toHaveBeenCalledWith(OLD.objectKey);
+    expect(mockDeleteObject).not.toHaveBeenCalledWith(NEW.objectKey);
+  });
+
+  it('writes the new row onto the same work, as the caller\u2019s upload', async () => {
+    await replaceFile(NEW);
+    expect((db.scienceRecordFile.create as Mock).mock.calls[0][0].data).toMatchObject({
+      workId: 'w1',
+      uploadedById: 'staff-1',
+      objectKey: NEW.objectKey,
+    });
+  });
+
+  it('keeps the old file when the new one fails verification', async () => {
+    mockGetObjectBytes.mockResolvedValue(new Uint8Array([0x4d, 0x5a])); // not a PDF
+    expect(await replaceFile(NEW)).toMatchObject({ error: expect.any(String) });
+    expect(db.scienceRecordFile.delete).not.toHaveBeenCalled();
+    expect(mockDeleteObject).not.toHaveBeenCalledWith(OLD.objectKey);
+  });
+
+  it('keeps the old file and drops the NEW object when the save fails', async () => {
+    (db.scienceRecordFile.create as Mock).mockRejectedValue(new Error('boom'));
+    expect(await replaceFile(NEW)).toEqual({
+      error: 'Не вдалося замінити файл. Старий файл залишився без змін',
+    });
+    expect(mockDeleteObject).toHaveBeenCalledWith(NEW.objectKey);
+    expect(mockDeleteObject).not.toHaveBeenCalledWith(OLD.objectKey);
+  });
+
+  it('lets a co-author replace a file they uploaded', async () => {
+    (db.scienceRecordFile.findUnique as Mock).mockImplementation(({ where }) =>
+      Promise.resolve(
+        where.id ? { ...OLD, work: { ...OLD.work, createdById: 'someone-else' } } : null
+      )
+    );
+    expect(await replaceFile(NEW)).toEqual({ ok: true, fileId: 'f2' });
+  });
+
+  it('refuses somebody who may not change this file, and drops the new object', async () => {
+    (db.scienceRecordFile.findUnique as Mock).mockImplementation(({ where }) =>
+      Promise.resolve(
+        where.id
+          ? { ...OLD, uploadedById: 'staff-2', work: { ...OLD.work, createdById: 'staff-2' } }
+          : null
+      )
+    );
+    expect(await replaceFile(NEW)).toEqual({
+      error: 'Змінити файл може той, хто його додав, або автор роботи',
+    });
+    expect(mockDeleteObject).toHaveBeenCalledWith(NEW.objectKey);
+    expect(db.scienceRecordFile.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses a file on a type that takes no file (D47), and drops the new object', async () => {
+    (db.scienceRecordFile.findUnique as Mock).mockImplementation(({ where }) =>
+      Promise.resolve(
+        where.id ? { ...OLD, work: { ...OLD.work, workType: { fileRule: 'NONE' } } } : null
+      )
+    );
+    expect(await replaceFile(NEW)).toEqual({
+      error: 'Для цього виду роботи додається лише посилання, без файлу',
+    });
+    expect(mockDeleteObject).toHaveBeenCalledWith(NEW.objectKey);
+  });
+
+  it('refuses a file of another year', async () => {
+    (db.scienceRecordFile.findUnique as Mock).mockImplementation(({ where }) =>
+      Promise.resolve(where.id ? { ...OLD, work: { ...OLD.work, templateId: 'old-year' } } : null)
+    );
+    expect(await replaceFile(NEW)).toEqual({ error: 'Файл не знайдено' });
+    expect(db.scienceRecordFile.create).not.toHaveBeenCalled();
+  });
+
+  it('writes one UPDATE audit entry naming the old and the new file', async () => {
+    await replaceFile(NEW);
+    const entry = (db.auditLog.create as Mock).mock.calls[0][0].data;
+    expect(entry.action).toBe('UPDATE');
+    expect(entry.entity).toBe('ScienceRecordFile');
+    expect(entry.changes).toHaveProperty('fileName');
   });
 });
