@@ -29,16 +29,22 @@ export const saveWorkTypeSchema = z.object({
   itemNumber: z.string().trim().min(1, { error: "Обов'язкове поле" }).max(10),
   // Optional: only a пункт covering several види роботи needs a heading of its
   // own, and it is the наказ's wording, never something the app invents.
+  //
+  // `.nullable()` on both: the dialog runs this schema in the browser, whose
+  // OUTPUT (empty → null) is what reaches the action. Without it, every type
+  // with no heading or short name was unsaveable.
   itemTitle: z
     .string()
     .trim()
     .max(300)
+    .nullable()
     .optional()
     .transform((v) => v || null),
   shortLabel: z
     .string()
     .trim()
     .max(300)
+    .nullable()
     .optional()
     .transform((v) => v || null),
   label: z.string().trim().min(1, { error: "Обов'язкове поле" }).max(500),

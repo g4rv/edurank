@@ -131,6 +131,16 @@ it('refuses a вид роботи nothing could prove (D47)', async () => {
   expect(db.$transaction).not.toHaveBeenCalled();
 });
 
+it('saves a вид роботи with no heading or short name — the dialog sends them as null', async () => {
+  // The dialog runs this same schema in the browser first, which turns an
+  // empty field into null, and then hands that OUTPUT to the action. Refusing
+  // null here made every type without a short name unsaveable, with an
+  // English Zod message as the only explanation (found 2026-09-23).
+  expect(
+    await saveWorkType({ ...VALID, id: 'wt1', itemTitle: null, shortLabel: null } as never)
+  ).toEqual({ ok: true });
+});
+
 it('saves the link and file rules and audits a change to them (D47)', async () => {
   expect(
     await saveWorkType({ ...VALID, id: 'wt1', linkRule: 'REQUIRED', fileRule: 'NONE' })
