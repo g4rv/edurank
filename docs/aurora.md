@@ -434,6 +434,13 @@ every Ukrainian word in the app was falling back to a system font.
 | Meta, counts  | `text-xs text-muted-foreground`                 |
 | Micro-label   | ~~`text-[11px]`~~ — retired, see below          |
 
+**A field label names its control; clicking it does nothing** (owner,
+2026-09-23). `FormField` keeps `for="id"` for screen readers and cancels the
+click the browser would forward — otherwise the label of a date picker, select
+or combobox opened its popover, from text that shows no pointer. Only a
+checkbox or a radio is chosen by clicking its label, and those wrap their own
+`<Label>`.
+
 ### `--foreground-soft` is for PROSE, and for nothing else
 
 **Ink is the default. It needs no class.** Headings, labels, values, names,

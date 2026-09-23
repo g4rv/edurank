@@ -63,7 +63,18 @@ export function FormField({
       className={cn(span === 2 && 'sm:col-span-2', span === 1 && 'sm:col-span-1', className)}
     >
       {label && (
-        <FieldLabel htmlFor={htmlFor} className={cn(hideLabel && 'sr-only')}>
+        <FieldLabel
+          htmlFor={htmlFor}
+          className={cn(hideLabel && 'sr-only')}
+          // A field's label NAMES the control; it is not a second way to click
+          // it (owner, 2026-09-23). `for` still gives screen readers the name,
+          // but a browser also forwards a click on the label to the control —
+          // and where that control is a button (a date or period picker, a
+          // select, a combobox) the label opened its popover. Clicking a label
+          // is right for a checkbox or a radio only, and those wrap their own
+          // `<Label>`, never this.
+          onClick={(e) => e.preventDefault()}
+        >
           {label}
           {isRequired && (
             <>
