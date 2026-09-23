@@ -7,7 +7,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { requireAdmin } from '@/lib/permissions';
 import { isAcademicYear, nextAcademicYear, stakeYearOf } from '@/lib/science/academic-year';
-import { lookbackProblem } from '@/lib/science/execution-month';
+import { lastMonthProblem } from '@/lib/science/execution-month';
 
 export type ScienceYearState = { error: string } | { ok: true; message?: string };
 
@@ -23,8 +23,8 @@ interface CreateScienceYearInput {
   academicYear: string;
   orderRef: string | null;
   minHoursPerRate: number;
-  /** D42 — how many months back a work may be entered. */
-  maxLookbackMonths: number;
+  /** D48 — the last month of the year's execution window, 1–8. */
+  lastExecutionMonth: number;
 }
 
 // A blank planning year — the escape hatch when there is nothing to clone
@@ -39,8 +39,8 @@ export async function createScienceYear(input: CreateScienceYearInput): Promise<
   if (!Number.isInteger(input.minHoursPerRate) || input.minHoursPerRate <= 0) {
     return { error: 'Некоректна кількість годин на ставку' };
   }
-  const lookbackFault = lookbackProblem(input.maxLookbackMonths);
-  if (lookbackFault) return { error: lookbackFault };
+  const lastMonthFault = lastMonthProblem(input.lastExecutionMonth);
+  if (lastMonthFault) return { error: lastMonthFault };
 
   const existing = await db.sciencePlanTemplate.findUnique({
     where: { academicYear: input.academicYear },
@@ -56,7 +56,7 @@ export async function createScienceYear(input: CreateScienceYearInput): Promise<
           academicYear: input.academicYear,
           orderRef,
           minHoursPerRate: input.minHoursPerRate,
-          maxLookbackMonths: input.maxLookbackMonths,
+          lastExecutionMonth: input.lastExecutionMonth,
           // Derived from the навчальний рік's first half, never asked of the
           // caller — September 2027 is worked against the 2027 розподіл.
           stakeYear: stakeYearOf(input.academicYear),
@@ -79,7 +79,7 @@ export async function createScienceYear(input: CreateScienceYearInput): Promise<
               academicYear: input.academicYear,
               orderRef,
               minHoursPerRate: input.minHoursPerRate,
-              maxLookbackMonths: input.maxLookbackMonths,
+              lastExecutionMonth: input.lastExecutionMonth,
             }
           ),
         },
@@ -106,17 +106,15 @@ interface ScienceYearSettingsInput {
   id: string;
   orderRef: string | null;
   minHoursPerRate: number;
-  maxLookbackMonths: number;
+  /** D48 — the last month of the year's execution window, 1–8. */
+  lastExecutionMonth: number;
 }
 
 /**
- * The three numbers a year carries, editable after creation. Before D42 there
- * was nothing worth editing; the lookback is a rule the owner expects to tune
- * («8, or 12 — let the admin set it»), so it needs a way in that is not a new
- * year.
- *
- * Changes apply to what is entered FROM NOW: a work already saved keeps its
- * month even if a shorter window would refuse it today.
+ * A year's наказ reference, hour norm and last execution month, editable
+ * after creation — a typo in «№152 від …» used to be permanent, and both
+ * numbers are set by a наказ reissued every year. Changes apply to what is
+ * entered and computed from now on; a record already saved keeps its month.
  */
 export async function updateScienceYearSettings(
   input: ScienceYearSettingsInput
@@ -127,19 +125,24 @@ export async function updateScienceYearSettings(
   if (!Number.isInteger(input.minHoursPerRate) || input.minHoursPerRate <= 0) {
     return { error: 'Некоректна кількість годин на ставку' };
   }
-  const lookbackFault = lookbackProblem(input.maxLookbackMonths);
-  if (lookbackFault) return { error: lookbackFault };
+  const lastMonthFault = lastMonthProblem(input.lastExecutionMonth);
+  if (lastMonthFault) return { error: lastMonthFault };
 
   const existing = await db.sciencePlanTemplate.findUnique({
     where: { id: input.id },
-    select: { academicYear: true, orderRef: true, minHoursPerRate: true, maxLookbackMonths: true },
+    select: {
+      academicYear: true,
+      orderRef: true,
+      minHoursPerRate: true,
+      lastExecutionMonth: true,
+    },
   });
   if (!existing) return { error: 'Рік не знайдено' };
 
   const next = {
     orderRef: input.orderRef?.trim() || null,
     minHoursPerRate: input.minHoursPerRate,
-    maxLookbackMonths: input.maxLookbackMonths,
+    lastExecutionMonth: input.lastExecutionMonth,
   };
 
   try {
@@ -156,7 +159,7 @@ export async function updateScienceYearSettings(
             {
               orderRef: existing.orderRef,
               minHoursPerRate: existing.minHoursPerRate,
-              maxLookbackMonths: existing.maxLookbackMonths,
+              lastExecutionMonth: existing.lastExecutionMonth,
             },
             next
           ),
@@ -209,7 +212,7 @@ export async function cloneScienceYear(fromAcademicYear: string): Promise<Scienc
             academicYear: toAcademicYear,
             orderRef: source.orderRef,
             minHoursPerRate: source.minHoursPerRate,
-            maxLookbackMonths: source.maxLookbackMonths,
+            lastExecutionMonth: source.lastExecutionMonth,
             stakeYear: stakeYearOf(toAcademicYear),
             status: 'CLOSED',
           },

@@ -204,3 +204,14 @@ describe('D39/D47 — how each type is proved', () => {
     }
   });
 });
+
+describe('D48 — the стаття’s publication date', () => {
+  it('asks for it, and never uses it to tell one article from another', () => {
+    const article = SCIENCE_WORK_TYPES_2027.find((d) => d.code === 'article')!;
+    expect(article.fields.find((f) => f.name === 'publishedOn')).toMatchObject({
+      kind: 'date',
+      label: 'Дата публікації',
+    });
+    expect(article.identityFields).not.toContain('publishedOn');
+  });
+});

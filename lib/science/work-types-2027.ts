@@ -121,6 +121,13 @@ const url = (name: string, label: string, optional?: boolean): EvidenceField => 
   ...(optional ? { optional: true } : {}),
 });
 
+/**
+ * A calendar date. D48: the стаття's «Дата публікації» — shown to ННВ to check
+ * against the linked page, never refused automatically, and NEVER one of a
+ * type's identityFields, so a typed date cannot make one article look like two.
+ */
+const date = (name: string, label: string): EvidenceField => ({ kind: 'date', name, label });
+
 const doi = (name: string, label: string, optional?: boolean): EvidenceField => ({
   kind: 'doi',
   name,
@@ -272,6 +279,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
         { value: 'other', label: 'В інших виданнях', points: 5 },
       ]),
       count('credits', 'Кількість сторінок'),
+      date('publishedOn', 'Дата публікації'),
     ],
   },
   {

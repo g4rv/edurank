@@ -20,11 +20,13 @@ export interface ScienceRecordFeedRow {
   /** The whole work's pool — differs the moment it is shared. */
   totalHundredths: number;
   /**
-   * D41 — the month the work was done, `"YYYY-MM"`. For an article, its
-   * publication month: ННВ compares it with the date on the linked page, which
-   * is how an article from years ago shows itself (D33/D42).
+   * D41/D48 — the month the work was done, `"YYYY-MM"`, within its
+   * навчальний рік. An article's PUBLICATION date is a separate evidence field,
+   * shown in the summary — that is what ННВ compares with the linked page.
    */
   executedMonth: string;
+  /** The start of a several-month work, or null. */
+  startedMonth: string | null;
   /** Each attached file, not a count: ННВ has to be able to OPEN the evidence
    *  it is deciding about, and `fileUrl` already entitles them to. */
   files: { id: string; fileName: string; pageCount: number | null }[];
@@ -82,6 +84,7 @@ export async function listScienceRecords(page: number): Promise<ScienceRecordFee
             link: true,
             evidence: true,
             executedMonth: true,
+            startedMonth: true,
             totalHundredths: true,
             workType: { select: { label: true, itemNumber: true, evidenceFields: true } },
             files: { select: { id: true, fileName: true, pageCount: true } },
@@ -109,6 +112,7 @@ export async function listScienceRecords(page: number): Promise<ScienceRecordFee
       hoursHundredths: r.hoursHundredths,
       totalHundredths: r.work.totalHundredths,
       executedMonth: dateToMonthKey(r.work.executedMonth),
+      startedMonth: r.work.startedMonth ? dateToMonthKey(r.work.startedMonth) : null,
       files: r.work.files,
       sharedFiles: r.work.files.length > 0 && r.work.records.length > 1,
       status: r.status,

@@ -11,8 +11,8 @@ import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { Label } from '@/components/aurora/ui/label';
 import { FormField } from '@/components/ui/form-field';
-import { MonthSelect } from '@/components/science/month-select';
-import { currentMonthKey } from '@/lib/science/execution-month';
+import { ExecutionPeriodField } from '@/components/science/execution-period-field';
+import { monthOptions } from '@/lib/science/execution-month';
 import type { ProofRule } from '@/lib/generated/prisma/client';
 import {
   Dialog,
@@ -65,11 +65,14 @@ import { DialogProblem } from '@/components/science/dialog-problem';
 export function AddRecordDialog({
   departmentId,
   workTypes,
-  lookbackMonths,
+  academicYear,
+  lastExecutionMonth,
 }: {
   departmentId: string;
   workTypes: PlanWorkType[];
-  lookbackMonths: number;
+  academicYear: string;
+  /** The year's last month (1–8) — the month picker stops there. */
+  lastExecutionMonth: number;
 }) {
   const [open, setOpen] = useState(false);
   // Empty by default — see the note in `add-plan-row-dialog.tsx`.
@@ -133,7 +136,7 @@ export function AddRecordDialog({
                 it promised «приєднайтеся» over a work from a closed рік, which
                 is the one case where joining is impossible. */}
             {!conflict
-              ? 'Заповніть дані роботи та додайте посилання, що її підтверджує.'
+              ? 'Оберіть пункт, заповніть дані роботи та додайте підтвердження.'
               : conflict.fromYear
                 ? 'Одна робота існує в системі один раз — і належить тому навчальному році, у якому її внесли.'
                 : 'Одна робота існує в системі один раз. Приєднайтеся до неї та візьміть свою частину годин.'}
@@ -154,7 +157,8 @@ export function AddRecordDialog({
             key={selected?.id ?? 'none'}
             type={selected}
             departmentId={departmentId}
-            lookbackMonths={lookbackMonths}
+            academicYear={academicYear}
+            lastExecutionMonth={lastExecutionMonth}
             onConflict={setConflict}
             onDone={() => close(false)}
             picker={picker}
@@ -168,7 +172,8 @@ export function AddRecordDialog({
 function RecordForm({
   type,
   departmentId,
-  lookbackMonths,
+  academicYear,
+  lastExecutionMonth,
   onConflict,
   onDone,
   picker,
@@ -176,7 +181,8 @@ function RecordForm({
   /** `undefined` until a вид роботи is chosen — the form still draws. */
   type: PlanWorkType | undefined;
   departmentId: string;
-  lookbackMonths: number;
+  academicYear: string;
+  lastExecutionMonth: number;
   onConflict: (conflict: WorkConflict) => void;
   onDone: () => void;
   picker: React.ReactNode;
@@ -186,7 +192,13 @@ function RecordForm({
   const [link, setLink] = useState('');
   const [hours, setHours] = useState('');
   // D41: this month by default — most work is recorded the month it happens.
-  const [month, setMonth] = useState(() => currentMonthKey());
+  // The newest month of the year, which is the same thing while the year runs;
+  // empty before it has begun, when the server would refuse any month anyway.
+  const [month, setMonth] = useState(
+    () => monthOptions(new Date(), academicYear, lastExecutionMonth)[0] ?? ''
+  );
+  // «Робота тривала кілька місяців» — null for a one-month work.
+  const [started, setStarted] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   // The file is ALREADY in R2 by the time this is non-null — see
   // `EvidenceFileField`. The save carries its key and the server verifies the
@@ -257,6 +269,7 @@ function RecordForm({
         link: link.trim() || undefined,
         hoursHundredths,
         executedMonth: month,
+        startedMonth: started ?? undefined,
         // Already uploaded; the server verifies it from the stored bytes and
         // writes its row in the same transaction as the work.
         file: file ?? undefined,
@@ -309,26 +322,27 @@ function RecordForm({
               unitLabel="год"
             />
 
-            {/* D41/D42: for a publication this is the month it came out, which
-                is also what fences an old article out. */}
-            <FormField
-              htmlFor="record-month"
-              label="Місяць виконання"
-              required
-              description={`Для публікації — місяць виходу. Не раніше ніж ${lookbackMonths} міс. тому.`}
-            >
-              <MonthSelect
-                id="record-month"
-                value={month}
-                onChange={setMonth}
-                lookbackMonths={lookbackMonths}
-              />
-            </FormField>
+            {/* D41/D48: for TRACKING execution, every вид роботи — not an
+                article's publication date, which is its own evidence field. */}
+            <ExecutionPeriodField
+              id="record-period"
+              academicYear={academicYear}
+              lastMonth={lastExecutionMonth}
+              finished={month}
+              started={started}
+              onChange={(next) => {
+                setMonth(next.finished);
+                setStarted(next.started);
+              }}
+            />
 
             {/* D47: the link and the file each follow their own rule from the
-                catalogue — shown, required, or not offered at all. Before a вид
-                роботи is chosen both are shown as optional. */}
-            {linkRule !== 'NONE' && (
+                catalogue — shown, required, or not offered at all. Neither is
+                shown before a вид роботи is chosen (owner, 2026-09-23): until
+                then nobody knows which proof it takes. The month above stays,
+                because it applies to every type, and it keeps the dialog from
+                being the empty box rejected on 2026-09-17. */}
+            {type && linkRule !== 'NONE' && (
               <FormField
                 htmlFor="record-link"
                 label="Посилання на підтвердження"
@@ -348,7 +362,7 @@ function RecordForm({
               </FormField>
             )}
 
-            {fileRule !== 'NONE' && (
+            {type && fileRule !== 'NONE' && (
               <FormField
                 htmlFor="record-file"
                 label="Файл підтвердження"

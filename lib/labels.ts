@@ -214,8 +214,9 @@ export const FIELD_LABELS: Record<string, string> = {
   // Kept for audit entries written before D47 replaced the column.
   requiresFile: 'Потребує файл',
   linkRule: 'Посилання',
-  maxLookbackMonths: 'Скільки місяців назад можна вносити',
   executedMonth: 'Місяць виконання',
+  startedMonth: 'Місяць початку',
+  lastExecutionMonth: 'Останній місяць виконання',
   fileRule: 'Файл',
   maxPerYear: 'Максимум на рік',
   // Not columns — a short fingerprint of the JSON evidenceFields/scoring pair

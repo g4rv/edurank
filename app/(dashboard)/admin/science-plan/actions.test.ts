@@ -50,7 +50,7 @@ describe('permission', () => {
           academicYear: '2027/2028',
           orderRef: null,
           minHoursPerRate: 500,
-          maxLookbackMonths: 12,
+          lastExecutionMonth: 7,
         }),
       () => cloneScienceYear('2026/2027'),
       () => openScienceYear('t1'),
@@ -69,7 +69,7 @@ describe('createScienceYear', () => {
         academicYear: '2027',
         orderRef: null,
         minHoursPerRate: 500,
-        maxLookbackMonths: 12,
+        lastExecutionMonth: 7,
       })
     ).toEqual({ error: expect.any(String) });
     expect(
@@ -77,7 +77,7 @@ describe('createScienceYear', () => {
         academicYear: '2027/2029',
         orderRef: null,
         minHoursPerRate: 500,
-        maxLookbackMonths: 12,
+        lastExecutionMonth: 7,
       })
     ).toEqual({ error: expect.any(String) });
   });
@@ -89,7 +89,7 @@ describe('createScienceYear', () => {
         academicYear: '2026/2027',
         orderRef: null,
         minHoursPerRate: 500,
-        maxLookbackMonths: 12,
+        lastExecutionMonth: 7,
       })
     ).toEqual({ error: expect.stringContaining('2026/2027') });
   });
@@ -100,7 +100,7 @@ describe('createScienceYear', () => {
       academicYear: '2027/2028',
       orderRef: 'N160',
       minHoursPerRate: 500,
-      maxLookbackMonths: 12,
+      lastExecutionMonth: 7,
     });
     expect((db.sciencePlanTemplate.create as Mock).mock.calls[0][0].data).toMatchObject({
       academicYear: '2027/2028',
@@ -110,57 +110,33 @@ describe('createScienceYear', () => {
   });
 });
 
-describe('createScienceYear — D42, the lookback', () => {
-  it('writes the lookback and puts it in the audit diff', async () => {
-    (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue(null);
-    await createScienceYear({
-      academicYear: '2027/2028',
-      orderRef: null,
-      minHoursPerRate: 500,
-      maxLookbackMonths: 8,
-    });
-    expect((db.sciencePlanTemplate.create as Mock).mock.calls[0][0].data).toMatchObject({
-      maxLookbackMonths: 8,
-    });
-    const { changes } = (db.auditLog.create as Mock).mock.calls[0][0].data;
-    expect(changes).toHaveProperty('maxLookbackMonths');
-  });
-
-  it('refuses a lookback outside 0–60', async () => {
-    (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue(null);
-    expect(
-      await createScienceYear({
-        academicYear: '2027/2028',
-        orderRef: null,
-        minHoursPerRate: 500,
-        maxLookbackMonths: 99,
-      })
-    ).toEqual({ error: 'Кількість місяців — ціле число від 0 до 60' });
-    expect(db.sciencePlanTemplate.create).not.toHaveBeenCalled();
-  });
-});
-
 describe('updateScienceYearSettings', () => {
   const EXISTING = {
     academicYear: '2026/2027',
     orderRef: '№152',
     minHoursPerRate: 500,
-    maxLookbackMonths: 12,
+    lastExecutionMonth: 7,
   };
-  const INPUT = { id: 't1', orderRef: '№152', minHoursPerRate: 500, maxLookbackMonths: 8 };
+  const INPUT = {
+    id: 't1',
+    orderRef: '№152 від 04.05.2026',
+    minHoursPerRate: 500,
+    lastExecutionMonth: 6,
+  };
 
   beforeEach(() => {
     (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue(EXISTING);
   });
 
-  it('updates the three numbers and audits only what changed', async () => {
+  it('updates the наказ and the norm and audits only what changed', async () => {
     expect(await updateScienceYearSettings(INPUT)).toMatchObject({ ok: true });
     expect(db.sciencePlanTemplate.update).toHaveBeenCalledWith({
       where: { id: 't1' },
-      data: { orderRef: '№152', minHoursPerRate: 500, maxLookbackMonths: 8 },
+      data: { orderRef: '№152 від 04.05.2026', minHoursPerRate: 500, lastExecutionMonth: 6 },
     });
     const { changes } = (db.auditLog.create as Mock).mock.calls[0][0].data;
-    expect(changes).toHaveProperty('maxLookbackMonths');
+    expect(changes).toHaveProperty('orderRef');
+    expect(changes).toHaveProperty('lastExecutionMonth');
     expect(changes).not.toHaveProperty('minHoursPerRate');
   });
 
@@ -170,9 +146,15 @@ describe('updateScienceYearSettings', () => {
     expect(db.sciencePlanTemplate.update).not.toHaveBeenCalled();
   });
 
-  it('refuses a bad lookback', async () => {
-    expect(await updateScienceYearSettings({ ...INPUT, maxLookbackMonths: -1 })).toEqual({
-      error: 'Кількість місяців — ціле число від 0 до 60',
+  it('refuses a last month outside January–August', async () => {
+    expect(await updateScienceYearSettings({ ...INPUT, lastExecutionMonth: 9 })).toEqual({
+      error: 'Останній місяць — від січня до серпня',
+    });
+  });
+
+  it('refuses a bad norm', async () => {
+    expect(await updateScienceYearSettings({ ...INPUT, minHoursPerRate: 0 })).toEqual({
+      error: 'Некоректна кількість годин на ставку',
     });
   });
 
@@ -190,7 +172,7 @@ describe('cloneScienceYear', () => {
             id: 't1',
             academicYear: '2026/2027',
             minHoursPerRate: 500,
-            maxLookbackMonths: 8,
+            lastExecutionMonth: 6,
             workTypes: [
               {
                 code: 'article',
@@ -229,8 +211,8 @@ describe('cloneScienceYear', () => {
       academicYear: '2027/2028',
       stakeYear: 2027,
       status: 'CLOSED',
-      // D42: the next year starts with this year's lookback.
-      maxLookbackMonths: 8,
+      // The next year starts with this year's last month.
+      lastExecutionMonth: 6,
     });
     expect((db.scienceWorkType.create as Mock).mock.calls[0][0].data).toMatchObject({
       code: 'article',

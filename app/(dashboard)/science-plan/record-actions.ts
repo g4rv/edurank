@@ -17,7 +17,12 @@ import { toHundredths } from '@/lib/stake/units';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
-import { dateToMonthKey, monthProblem, monthToDate } from '@/lib/science/execution-month';
+import {
+  dateToMonthKey,
+  monthProblem,
+  monthToDate,
+  startedMonthProblem,
+} from '@/lib/science/execution-month';
 import { initials } from '@/lib/name';
 import {
   DUPLICATE_FILE_MESSAGE,
@@ -53,9 +58,13 @@ export interface SaveRecordInput {
    * record with nothing behind it.
    */
   file?: { objectKey: string; fileName: string };
-  /** D41: `"YYYY-MM"`, the month the work was done. Checked against D42's
-   *  window — the OPEN year's `maxLookbackMonths`, counted from today. */
+  /** D41/D48: `"YYYY-MM"`, the month the work was done — within the OPEN
+   *  навчальний рік, never in the future. Where the work took several months,
+   *  the month it was FINISHED — its hours all count here. */
   executedMonth: string;
+  /** «Робота тривала кілька місяців»: the month it started. A recorded fact,
+   *  never used to split hours. Omitted for a one-month work. */
+  startedMonth?: string;
 }
 
 /** D17 turned into something the screen can act on: who has the work, what it
@@ -360,12 +369,21 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     return { error: LINK_NOT_ALLOWED };
   }
 
-  // D42: no older than the year's window allows, and never in the future.
-  const monthFault = monthProblem({
-    month: input.executedMonth,
+  // D48: within the навчальний рік, and never in the future.
+  const window = {
     now: new Date(),
-    lookbackMonths: template.maxLookbackMonths,
-  });
+    academicYear: template.academicYear,
+    lastMonth: template.lastExecutionMonth,
+  };
+  const monthFault =
+    monthProblem({ month: input.executedMonth, ...window }) ??
+    (input.startedMonth
+      ? startedMonthProblem({
+          started: input.startedMonth,
+          finished: input.executedMonth,
+          ...window,
+        })
+      : null);
   if (monthFault) {
     await dropFile();
     return { error: monthFault };
@@ -476,6 +494,7 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
           evidence: parsed.data as Prisma.InputJsonValue,
           computedValue: score,
           executedMonth: monthToDate(input.executedMonth),
+          startedMonth: input.startedMonth ? monthToDate(input.startedMonth) : null,
           link,
           totalHundredths,
           createdById: staffId,
@@ -519,6 +538,7 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
               totalHundredths,
               link,
               executedMonth: input.executedMonth,
+              startedMonth: input.startedMonth ?? null,
               ...(verifiedFile ? { fileName: verifiedFile.fileName } : {}),
             }
           ),
@@ -766,6 +786,9 @@ export async function updateWorkEvidence(input: {
   link?: string;
   /** D41. Omitted means «keep the stored month». */
   executedMonth?: string;
+  /** The start of a several-month work. Omitted keeps it; `null` clears it —
+   *  «one month after all». */
+  startedMonth?: string | null;
 }): Promise<{ ok: true } | { error: string }> {
   // No кафедра to check: a work belongs to nobody's кафедра, only to its year.
   // `allowAdmin` because the ADMIN branch below is the spec's escape hatch for
@@ -784,6 +807,7 @@ export async function updateWorkEvidence(input: {
       evidence: true,
       link: true,
       executedMonth: true,
+      startedMonth: true,
       createdById: true,
       workType: true,
       // The REAL count, not the zero this used to assume. A work proved by a
@@ -808,18 +832,25 @@ export async function updateWorkEvidence(input: {
   const link = input.link?.trim() || null;
   if (link && type.linkRule === 'NONE') return { error: LINK_NOT_ALLOWED };
 
-  // D42 applies to a CHANGE of month only. A work saved in time keeps its
-  // month when its author later fixes a typo in the title, even if the window
-  // has moved past it since.
+  // D48 applies to a CHANGE of month only: an unchanged month is never
+  // re-judged, so fixing a typo in the title cannot be refused over it.
+  const window = {
+    now: new Date(),
+    academicYear: template.academicYear,
+    lastMonth: template.lastExecutionMonth,
+  };
   const storedMonth = dateToMonthKey(work.executedMonth);
   const nextMonth = input.executedMonth ?? storedMonth;
+  const storedStart = work.startedMonth ? dateToMonthKey(work.startedMonth) : null;
+  const nextStart = input.startedMonth === undefined ? storedStart : input.startedMonth;
   if (nextMonth !== storedMonth) {
-    const monthFault = monthProblem({
-      month: nextMonth,
-      now: new Date(),
-      lookbackMonths: template.maxLookbackMonths,
-    });
+    const monthFault = monthProblem({ month: nextMonth, ...window });
     if (monthFault) return { error: monthFault };
+  }
+  // The start is judged whenever either end of the range moved.
+  if (nextStart !== null && (nextStart !== storedStart || nextMonth !== storedMonth)) {
+    const startFault = startedMonthProblem({ started: nextStart, finished: nextMonth, ...window });
+    if (startFault) return { error: startFault };
   }
   const evidenceFault = evidenceProblem({
     linkRule: type.linkRule,
@@ -895,6 +926,12 @@ export async function updateWorkEvidence(input: {
           computedValue: score,
           // Only written when it moved — «omitted» never rewrites the column.
           executedMonth: nextMonth !== storedMonth ? monthToDate(nextMonth) : undefined,
+          startedMonth:
+            nextStart === storedStart
+              ? undefined
+              : nextStart === null
+                ? null
+                : monthToDate(nextStart),
           link,
           totalHundredths,
           dedupKey: key,
@@ -928,9 +965,16 @@ export async function updateWorkEvidence(input: {
               totalHundredths: work.totalHundredths,
               link: work.link,
               executedMonth: storedMonth,
+              startedMonth: storedStart,
               dedupKey: undefined,
             },
-            { totalHundredths, link, executedMonth: nextMonth, dedupKey: key }
+            {
+              totalHundredths,
+              link,
+              executedMonth: nextMonth,
+              startedMonth: nextStart,
+              dedupKey: key,
+            }
           ),
         },
       });

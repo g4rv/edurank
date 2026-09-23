@@ -109,6 +109,7 @@ export default async function SciencePlanPage({
       <Breadcrumbs items={CRUMBS} />
       <PlanView
         academicYear={template.academicYear}
+        lastExecutionMonth={template.lastExecutionMonth}
         orderRef={template.orderRef}
         departments={departments}
         currentDepartmentId={departmentId}
@@ -118,7 +119,6 @@ export default async function SciencePlanPage({
         target={target}
         workTypes={workTypes}
         lockedAt={plan?.lockedAt ?? null}
-        lookbackMonths={template.maxLookbackMonths}
       />
     </div>
   );

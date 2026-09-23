@@ -1051,10 +1051,10 @@ model SciencePlanTemplate {
   /// a наказ reissued every year, with no obligation to keep the number.
   minHoursPerRate Int @default(500)
 
-  /// D42: how many months back a work may have been done, counted from the
-  /// month it is entered. A column for the reason minHoursPerRate is one — a
-  /// rule the university may change next year. 12 by the owner, 2026-09-23.
-  maxLookbackMonths Int @default(12)
+  /// D48: the last month work may be recorded in, 1–8 — a month of the year's
+  /// SECOND calendar year. Червень by the owner (2026-09-23); a column for the
+  /// reason minHoursPerRate is one.
+  lastExecutionMonth Int @default(6)
 
   /// Which calendar year's StakeAllocation supplies the ставка. Derived from
   /// academicYear on creation and STORED, so reopening an old template cannot
@@ -1287,10 +1287,15 @@ model ScienceWork {
   evidence      Json
   computedValue Float
 
-  /// D41: the month the work was done — for an article, its publication
-  /// month. Always the 1st. Belongs to the WORK, like its DOI: co-authors share
-  /// one article and one month. `lib/science/execution-month.ts` handles it.
+  /// D41/D48: the month the work was done, within its навчальний рік — for
+  /// TRACKING execution, every вид роботи. Not an article's publication date
+  /// (that is an ordinary evidence field). Always the 1st. Belongs to the WORK:
+  /// co-authors share one. `lib/science/execution-month.ts` handles it.
   executedMonth DateTime @db.Date
+  /// When a work took several months, the month it STARTED — a recorded fact,
+  /// never used to split hours: they all count in `executedMonth`, the month
+  /// it was finished (owner, 2026-09-23). Null for a one-month work.
+  startedMonth  DateTime? @db.Date
 
   /// A public link that proves it. D27: a record needs at least one of link or
   /// file, and this is the link half — it lives on the WORK because a

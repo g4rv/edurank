@@ -69,6 +69,9 @@ export interface SciencePlanRecordDetail {
   /** D41 — the month the work was done, `"YYYY-MM"`. The WORK's, so every
    *  co-author sees the same one. */
   executedMonth: string;
+  /** When the work took several months, the month it started — shown as a
+   *  range, never used to split hours. Null for a one-month work. */
+  startedMonth: string | null;
   status: ScienceRecordStatus;
   removedReason: string | null;
   /**
@@ -200,6 +203,7 @@ export async function getSciencePlan(
               link: true,
               evidence: true,
               executedMonth: true,
+              startedMonth: true,
               totalHundredths: true,
               workTypeId: true,
               createdById: true,
@@ -281,6 +285,7 @@ export async function getSciencePlan(
       totalHundredths: r.work.totalHundredths,
       planRowId: r.planRowId,
       executedMonth: dateToMonthKey(r.work.executedMonth),
+      startedMonth: r.work.startedMonth ? dateToMonthKey(r.work.startedMonth) : null,
       status: r.status,
       removedReason: r.removedReason,
       evidence: r.work.evidence,

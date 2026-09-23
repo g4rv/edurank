@@ -10,7 +10,7 @@ import { updateWorkEvidence } from '@/app/(dashboard)/science-plan/record-action
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
-import { MonthSelect } from '@/components/science/month-select';
+import { ExecutionPeriodField } from '@/components/science/execution-period-field';
 import {
   Dialog,
   DialogBody,
@@ -56,7 +56,9 @@ export function EditRecordDialog({
   evidence,
   link,
   executedMonth,
-  lookbackMonths,
+  startedMonth,
+  academicYear,
+  lastExecutionMonth,
   label,
 }: {
   workId: string;
@@ -66,8 +68,12 @@ export function EditRecordDialog({
   link: string | null;
   /** D41 — the stored month, `"YYYY-MM"`. */
   executedMonth: string;
-  /** D42 — how far back the picker reaches. */
-  lookbackMonths: number;
+  /** The start of a several-month work, or null. */
+  startedMonth: string | null;
+  /** D48 — the навчальний рік whose months the picker offers. */
+  academicYear: string;
+  /** The year's last month, 1–8. */
+  lastExecutionMonth: number;
   label: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -103,7 +109,9 @@ export function EditRecordDialog({
             evidence={evidence}
             link={link}
             executedMonth={executedMonth}
-            lookbackMonths={lookbackMonths}
+            startedMonth={startedMonth}
+            academicYear={academicYear}
+            lastExecutionMonth={lastExecutionMonth}
             onDone={() => setOpen(false)}
           />
         )}
@@ -118,7 +126,9 @@ function EditForm({
   evidence,
   link: initialLink,
   executedMonth,
-  lookbackMonths,
+  startedMonth,
+  academicYear,
+  lastExecutionMonth,
   onDone,
 }: {
   workId: string;
@@ -126,13 +136,18 @@ function EditForm({
   evidence: unknown;
   link: string | null;
   executedMonth: string;
-  lookbackMonths: number;
+  /** The start of a several-month work, or null. */
+  startedMonth: string | null;
+  academicYear: string;
+  /** The year's last month, 1–8. */
+  lastExecutionMonth: number;
   onDone: () => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [link, setLink] = useState(initialLink ?? '');
   const [month, setMonth] = useState(executedMonth);
+  const [started, setStarted] = useState<string | null>(startedMonth);
   const [problem, setProblem] = useState<string | null>(null);
 
   const [fields] = useState(() => type.fields);
@@ -184,6 +199,7 @@ function EditForm({
         evidence: data,
         link: link.trim() || undefined,
         executedMonth: month,
+        startedMonth: started,
       });
       if ('error' in result) {
         setProblem(result.error);
@@ -209,23 +225,19 @@ function EditForm({
             unitLabel="год"
           />
 
-          {/* D41. A stored month that has since fallen out of the window stays
-              selectable (`extra`) — keeping it is not a change, and the server
-              accepts it. */}
-          <FormField
-            htmlFor="edit-record-month"
-            label="Місяць виконання"
-            required
-            description="Для публікації — місяць виходу."
-          >
-            <MonthSelect
-              id="edit-record-month"
-              value={month}
-              onChange={setMonth}
-              lookbackMonths={lookbackMonths}
-              extra={executedMonth}
-            />
-          </FormField>
+          {/* D48/D49. The stored period is shown as it is; keeping it is not a
+              change, so the server never re-judges an untouched period. */}
+          <ExecutionPeriodField
+            id="edit-record-period"
+            academicYear={academicYear}
+            lastMonth={lastExecutionMonth}
+            finished={month}
+            started={started}
+            onChange={(next) => {
+              setMonth(next.finished);
+              setStarted(next.started);
+            }}
+          />
 
           {/* D47: hidden where this вид роботи takes no link. Files are added
               and removed on the запис itself, not here. */}

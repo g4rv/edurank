@@ -17,6 +17,13 @@ import { Button } from '@/components/aurora/ui/button';
 import { Badge } from '@/components/aurora/ui/badge';
 import { Input } from '@/components/aurora/ui/input';
 import { Label } from '@/components/aurora/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/aurora/ui/select';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
 import {
@@ -46,8 +53,8 @@ export interface ScienceYearRow {
   academicYear: string;
   orderRef: string | null;
   minHoursPerRate: number;
-  /** D42 — edited in the row's «Налаштування». */
-  maxLookbackMonths: number;
+  /** D48 — the last month of the execution window, 1–8. */
+  lastExecutionMonth: number;
   stakeYear: number;
   status: 'OPEN' | 'CLOSED';
   workTypeCount: number;
@@ -220,11 +227,27 @@ function YearRowView({ year, isLatest }: { year: ScienceYearRow; isLatest: boole
   );
 }
 
+/** D48 — Червень, the owner's end of the execution window (2026-09-23). */
+const DEFAULT_LAST_MONTH = 6;
+
+/** The months a year's execution window may end in — those of its SECOND
+ *  calendar year, before the next year opens in September. */
+const LAST_MONTHS = [
+  'Січень',
+  'Лютий',
+  'Березень',
+  'Квітень',
+  'Травень',
+  'Червень',
+  'Липень',
+  'Серпень',
+].map((label, i) => ({ value: String(i + 1), label }));
+
 /**
  * «Створити рік» and «Налаштування» — one dialog, two uses. Plain controlled
- * inputs rather than react-hook-form: a handful of numbers, no evidence-field
+ * inputs rather than react-hook-form: a handful of fields, no evidence-field
  * machinery to drive, and the server holds every rule worth enforcing
- * (`isAcademicYear`, the duplicate check, `lookbackProblem`).
+ * (`isAcademicYear`, the duplicate check).
  *
  * Given a `year`, it edits that year's settings and hides the навчальний рік
  * itself — that is the year's identity and never changes. Without one, it
@@ -237,13 +260,15 @@ function YearSettingsDialog({ year }: { year?: ScienceYearRow }) {
   const [academicYear, setAcademicYear] = useState('');
   const [orderRef, setOrderRef] = useState(year?.orderRef ?? '');
   const [minHoursPerRate, setMinHoursPerRate] = useState(String(year?.minHoursPerRate ?? 500));
-  const [maxLookbackMonths, setMaxLookbackMonths] = useState(String(year?.maxLookbackMonths ?? 12));
+  const [lastExecutionMonth, setLastExecutionMonth] = useState(
+    String(year?.lastExecutionMonth ?? DEFAULT_LAST_MONTH)
+  );
 
   function reset() {
     setAcademicYear('');
     setOrderRef(year?.orderRef ?? '');
     setMinHoursPerRate(String(year?.minHoursPerRate ?? 500));
-    setMaxLookbackMonths(String(year?.maxLookbackMonths ?? 12));
+    setLastExecutionMonth(String(year?.lastExecutionMonth ?? DEFAULT_LAST_MONTH));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -256,7 +281,7 @@ function YearSettingsDialog({ year }: { year?: ScienceYearRow }) {
     const settings = {
       orderRef: orderRef.trim() || null,
       minHoursPerRate: hours,
-      maxLookbackMonths: Number(maxLookbackMonths),
+      lastExecutionMonth: Number(lastExecutionMonth),
     };
     startTransition(async () => {
       const result = year
@@ -347,19 +372,21 @@ function YearSettingsDialog({ year }: { year?: ScienceYearRow }) {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="science-lookback">Скільки місяців назад можна вносити роботу</Label>
-              <Input
-                id="science-lookback"
-                type="number"
-                min={0}
-                max={60}
-                step={1}
-                value={maxLookbackMonths}
-                onChange={(e) => setMaxLookbackMonths(e.target.value)}
-                required
-              />
+              <Label htmlFor="science-last-month">Останній місяць виконання</Label>
+              <Select value={lastExecutionMonth} onValueChange={setLastExecutionMonth}>
+                <SelectTrigger id="science-last-month" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LAST_MONTHS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-sm text-foreground-soft">
-                Рахується від місяця, коли НПП вносить запис. Для статті — від місяця публікації.
+                До якого місяця НПП можуть вносити виконане. Рік починається у вересні.
               </p>
             </div>
           </DialogBody>

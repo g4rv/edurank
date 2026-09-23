@@ -115,7 +115,7 @@ const TEMPLATE = {
   academicYear: '2026/2027',
   status: 'OPEN',
   stakeYear: 2026,
-  maxLookbackMonths: 12,
+  lastExecutionMonth: 6,
 };
 
 const STAFF = {
@@ -285,26 +285,22 @@ describe('saveRecord — D47, the link and the file rules', () => {
   });
 });
 
-describe('saveRecord — D41/D42, the month', () => {
+describe('saveRecord — D41/D48, the month', () => {
   it('stores the month as the 1st of it', async () => {
-    await saveRecord({ ...base, executedMonth: '2026-05' });
+    await saveRecord({ ...base, executedMonth: '2026-09' });
     expect((db.scienceWork.create as Mock).mock.calls[0][0].data.executedMonth).toEqual(
-      new Date('2026-05-01T00:00:00Z')
+      new Date('2026-09-01T00:00:00Z')
     );
   });
 
-  it('refuses a month older than the year allows, and drops the file', async () => {
-    const result = await saveRecord({ ...base, executedMonth: '2025-09', file: STAGED });
-    expect(result).toEqual({ error: 'Роботу, виконану понад 12 міс. тому, додати не можна' });
+  it('refuses a month before the навчальний рік, and drops the file', async () => {
+    // August belongs to the previous year's plan.
+    const result = await saveRecord({ ...base, executedMonth: '2026-08', file: STAGED });
+    expect(result).toEqual({
+      error: 'Місяць виконання має бути в межах 2026/2027 навчального року',
+    });
     expect(mockDropObject).toHaveBeenCalled();
     expect(db.scienceWork.create).not.toHaveBeenCalled();
-  });
-
-  it('follows the year’s own setting', async () => {
-    mockTemplate.mockResolvedValue({ ...TEMPLATE, maxLookbackMonths: 3 });
-    expect(await saveRecord({ ...base, executedMonth: '2026-06' })).toEqual({
-      error: 'Роботу, виконану понад 3 міс. тому, додати не можна',
-    });
   });
 
   it('refuses the future', async () => {
@@ -316,6 +312,35 @@ describe('saveRecord — D41/D42, the month', () => {
   it('refuses a missing month', async () => {
     expect(await saveRecord({ ...base, executedMonth: '' })).toEqual({
       error: 'Оберіть місяць виконання',
+    });
+  });
+});
+
+describe('saveRecord — «Робота тривала кілька місяців»', () => {
+  it('stores the start beside the finish; the hours stay whole', async () => {
+    await saveRecord({ ...base, startedMonth: '2026-09', executedMonth: '2026-10' });
+    const data = (db.scienceWork.create as Mock).mock.calls[0][0].data;
+    expect(data.startedMonth).toEqual(new Date('2026-09-01T00:00:00Z'));
+    expect(data.executedMonth).toEqual(new Date('2026-10-01T00:00:00Z'));
+    expect(data.totalHundredths).toBe(50000);
+  });
+
+  it('stores no start for a one-month work', async () => {
+    await saveRecord(base);
+    expect((db.scienceWork.create as Mock).mock.calls[0][0].data.startedMonth).toBeNull();
+  });
+
+  it('refuses a start that is not before the finish, and drops the file', async () => {
+    expect(
+      await saveRecord({ ...base, startedMonth: '2026-10', executedMonth: '2026-10', file: STAGED })
+    ).toEqual({ error: 'Місяць початку має бути раніше за місяць завершення' });
+    expect(mockDropObject).toHaveBeenCalled();
+    expect(db.scienceWork.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses a start before the навчальний рік', async () => {
+    expect(await saveRecord({ ...base, startedMonth: '2026-06' })).toEqual({
+      error: 'Місяць виконання має бути в межах 2026/2027 навчального року',
     });
   });
 });
@@ -866,11 +891,54 @@ describe('updateWorkEvidence — the month', () => {
     (db.scienceWork.update as Mock).mockResolvedValue({ id: 'w1' });
   });
 
-  it('moves the month when it is inside the window', async () => {
-    expect(await edit('2026-08')).toEqual({ ok: true });
+  it('moves the month within the навчальний рік', async () => {
+    expect(await edit('2026-10')).toEqual({ ok: true });
     expect((db.scienceWork.update as Mock).mock.calls[0][0].data.executedMonth).toEqual(
-      new Date('2026-08-01T00:00:00Z')
+      new Date('2026-10-01T00:00:00Z')
     );
+  });
+
+  it('records a start when the work turns out to have taken several months', async () => {
+    expect(
+      await updateWorkEvidence({
+        workId: 'w1',
+        evidence: WORK.evidence,
+        link: WORK.link,
+        executedMonth: '2026-10',
+        startedMonth: '2026-09',
+      })
+    ).toEqual({ ok: true });
+    expect((db.scienceWork.update as Mock).mock.calls[0][0].data.startedMonth).toEqual(
+      new Date('2026-09-01T00:00:00Z')
+    );
+  });
+
+  it('clears the start with null — «one month after all»', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...WORK,
+      startedMonth: new Date('2026-09-01T00:00:00Z'),
+      executedMonth: new Date('2026-10-01T00:00:00Z'),
+    });
+    expect(
+      await updateWorkEvidence({
+        workId: 'w1',
+        evidence: WORK.evidence,
+        link: WORK.link,
+        startedMonth: null,
+      })
+    ).toEqual({ ok: true });
+    expect((db.scienceWork.update as Mock).mock.calls[0][0].data.startedMonth).toBeNull();
+  });
+
+  it('refuses a start that is not before the finish', async () => {
+    expect(
+      await updateWorkEvidence({
+        workId: 'w1',
+        evidence: WORK.evidence,
+        link: WORK.link,
+        startedMonth: '2026-10',
+      })
+    ).toEqual({ error: 'Місяць початку має бути раніше за місяць завершення' });
   });
 
   it('keeps the stored month when none is sent', async () => {
@@ -878,7 +946,7 @@ describe('updateWorkEvidence — the month', () => {
     expect((db.scienceWork.update as Mock).mock.calls[0][0].data.executedMonth).toBeUndefined();
   });
 
-  it('keeps an unchanged month even when it has fallen out of the window', async () => {
+  it('keeps an unchanged month even when it is outside the year', async () => {
     // Saved in time; the window has moved past it since. A typo fix in the
     // title must not be refused for that.
     (db.scienceWork.findUnique as Mock).mockResolvedValue({
@@ -888,9 +956,9 @@ describe('updateWorkEvidence — the month', () => {
     expect(await edit('2025-08')).toEqual({ ok: true });
   });
 
-  it('refuses moving it OUT of the window', async () => {
+  it('refuses moving it out of the навчальний рік', async () => {
     expect(await edit('2024-01')).toEqual({
-      error: 'Роботу, виконану понад 12 міс. тому, додати не можна',
+      error: 'Місяць виконання має бути в межах 2026/2027 навчального року',
     });
     expect(db.scienceWork.update).not.toHaveBeenCalled();
   });

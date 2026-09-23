@@ -547,12 +547,18 @@ Easy to get wrong:
   on a NONE side proves nothing and is refused on save. The eight large or
   published documents (D39 — п.1, п.3, п.4, п.6 доповідь, п.10) start as link
   REQUIRED, file NONE. `requiresFile` no longer exists.
-- **Every work has an `executedMonth`** (D41) — for an article, its
-  publication month — fenced at `SciencePlanTemplate.maxLookbackMonths` (12)
-  months back from the month of ENTRY, never in the future (D42). The fence
-  applies to a change of month only, so an old record can still be corrected.
-  Month maths only through `lib/science/execution-month.ts`, which reads Kyiv
-  time.
+- **Every work has an `executedMonth`** (D41/D48) — for TRACKING execution,
+  every вид роботи: a month of the open навчальний рік (September → now, and
+  never past `SciencePlanTemplate.lastExecutionMonth`, Червень by default),
+  never in the future. A work that took several months records a
+  `startedMonth` too (D49) — a fact, never used to split hours: they all count
+  in `executedMonth`, the month it was finished. The rule applies to a change of month only, so an old
+  record can still be corrected. Month maths only through
+  `lib/science/execution-month.ts`, which reads Kyiv time.
+- **An article's publication date is NOT that month** (D48). It is an
+  ordinary `date` evidence field on the стаття, `publishedOn`, which ННВ checks
+  by eye. It is never refused automatically and never one of the type's
+  `identityFields`, so a faked date cannot make one article look like two.
 - **A co-author changes their own share with `updateRecordHours`** (D46),
   bounded by what the others hold, re-read in the transaction. A file is
   changed by whoever entered the work or uploaded it; **a record's only proof

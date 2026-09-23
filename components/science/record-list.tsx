@@ -14,7 +14,7 @@ import { EditHoursDialog } from '@/components/science/edit-hours-dialog';
 import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import { cn } from '@/lib/utils';
 import { groupByMonth } from '@/lib/science/group-by-month';
-import { monthLabel } from '@/lib/science/execution-month';
+import { monthLabel, monthRangeLabel } from '@/lib/science/execution-month';
 
 /**
  * «204,8 КБ» — there is no byte-formatter elsewhere in the codebase to share;
@@ -39,14 +39,16 @@ function formatFileSize(bytes: number): string {
 export function RecordList({
   records,
   workTypes,
-  lookbackMonths,
+  academicYear,
+  lastExecutionMonth,
 }: {
   records: SciencePlanRecordDetail[];
   /** The year's catalogue, for the «Редагувати» form to rebuild the work's own
    *  fields from. Keyed by id below. */
   workTypes: PlanWorkType[];
-  /** D42 — for the «Редагувати» form's month picker. */
-  lookbackMonths: number;
+  /** D48 — the навчальний рік, for the «Редагувати» form's month picker. */
+  academicYear: string;
+  lastExecutionMonth: number;
 }) {
   const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
 
@@ -94,6 +96,13 @@ export function RecordList({
                         {record.workTypeLabel}
                       </p>
                       <p className="mt-0.5 text-sm text-foreground-soft">{record.summary}</p>
+                      {record.startedMonth && (
+                        <p className="mt-0.5 text-sm text-foreground-soft">
+                          {/* Grouped under the month it ended; this is how
+                              long it took. The hours are not split. */}
+                          Тривала: {monthRangeLabel(record.startedMonth, record.executedMonth)}
+                        </p>
+                      )}
 
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                         {record.link && (
@@ -165,7 +174,9 @@ export function RecordList({
                               evidence={record.evidence}
                               link={record.link}
                               executedMonth={record.executedMonth}
-                              lookbackMonths={lookbackMonths}
+                              startedMonth={record.startedMonth}
+                              academicYear={academicYear}
+                              lastExecutionMonth={lastExecutionMonth}
                               label={record.summary}
                             />
                           )}

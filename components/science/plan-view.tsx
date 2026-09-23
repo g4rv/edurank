@@ -24,6 +24,7 @@ import { LockPlanButton } from '@/components/science/lock-plan-button';
  */
 export function PlanView({
   academicYear,
+  lastExecutionMonth,
   orderRef,
   departments,
   currentDepartmentId,
@@ -33,9 +34,10 @@ export function PlanView({
   target,
   workTypes,
   lockedAt,
-  lookbackMonths,
 }: {
   academicYear: string;
+  /** D48 — the year's last month (1–8) for the month pickers. */
+  lastExecutionMonth: number;
   orderRef: string | null;
   departments: { id: string; name: string }[];
   currentDepartmentId: string;
@@ -46,8 +48,6 @@ export function PlanView({
   workTypes: PlanWorkType[];
   /** Submitted — the plan is fixed and recording has opened. */
   lockedAt: Date | null;
-  /** D42 — how many months back the month picker reaches. */
-  lookbackMonths: number;
 }) {
   const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
 
@@ -134,13 +134,19 @@ export function PlanView({
           <AddRecordDialog
             departmentId={currentDepartmentId}
             workTypes={workTypes}
-            lookbackMonths={lookbackMonths}
+            academicYear={academicYear}
+            lastExecutionMonth={lastExecutionMonth}
           />
         )}
       </div>
 
       {tab === 'done' ? (
-        <RecordList records={records} workTypes={workTypes} lookbackMonths={lookbackMonths} />
+        <RecordList
+          records={records}
+          workTypes={workTypes}
+          academicYear={academicYear}
+          lastExecutionMonth={lastExecutionMonth}
+        />
       ) : rows.length === 0 ? (
         <EmptyState>Ще немає запланованих робіт.</EmptyState>
       ) : (

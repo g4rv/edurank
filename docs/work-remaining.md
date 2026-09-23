@@ -283,7 +283,8 @@ applies to the administration rather than planning against nothing.
 `feat/science-rules`): «Перевірка науки» is a division switch and the head's
 view is gone (D43/D44); the fact owes `max(план, норма)` (D37); the link and
 the file are two ADMIN-set rules per вид роботи, eight types link-only
-(D39/D47); every work carries its execution month, fenced 12 months back and
+(D39/D47); every work carries its execution month within the навчальний рік (D48 — an
+article's publication date is a separate field ННВ checks), and it is
 grouped by month in «Виконано» (D41/D42); a co-author changes their own share
 and any file is replaced in one step (D46). Two old bugs fixed on the way:
 cloning a year and creating a вид роботи both dropped the пункт heading.
