@@ -1,6 +1,6 @@
 # Аналітика наукової роботи — design
 
-**Status: PLANNING ONLY. Nothing here is built.** Written 2026-09-22 after the
+**Status: PLANNING ONLY. Nothing here is built. Open questions answered 2026-09-23 — see the end.** Written 2026-09-22 after the
 owner's meeting with the boss, which closed D19 (an official export form) with
 «not needed» and replaced it with «analytics inside the system».
 
@@ -70,7 +70,7 @@ the one that answers «who done what».
 
 The leaf should be **one route**, linked from both the dashboard tree and the
 chase list on `/science-plans` — not two screens showing the same thing. Whoever
-opens it sees the same page; `canViewAcademicRecord` decides whether they may.
+opens it sees the same page; D44 decides whether they may (ADMIN, the overseeing відділ, the person).
 
 ### What does NOT move
 
@@ -88,30 +88,29 @@ data decision, not a screen. Treat it as a separate, later piece.
 
 ## Build order
 
-1. **The НПП page** — план beside факт for one person. The only new screen, and
-   what makes `/science-plans` useful.
-2. **The tab and the tree** — університет → факультет → кафедра → НПП, with
+1. **The rules first** — D36–D46 in the science-plan spec: the oversight flag,
+   the factual target, URL-only publications, the execution month, the НПП's
+   own corrections. Plan: `docs/superpowers/plans/2026-09-23-science-rules.md`.
+   The analytics read the month and the flag, so they come after.
+2. **The НПП page** — план beside факт for one person. The only new screen.
+3. **The tab and the tree** — університет → факультет → кафедра → НПП, with
    the stat strip at each level.
-3. **The charts** — план vs факт, how many meet the norm, which пункти are used.
-4. **Adoption** — separately, once the time-series question is answered.
+4. **The charts** — план vs факт, how many meet the norm, which пункти are
+   used, and **execution per month** (D41) for the university, a факультет or
+   a кафедра.
+5. **Adoption** — separately, once the time-series question is answered.
 
-**3 waits for D31 and D32.** Both move the numbers a chart would draw: D32
-(«overplanned means you owe the plan», confirmed 2026-09-22) changes every
-shortfall, and D31's `plannable` flag changes which пункти can appear in a plan
-at all. Charts built before them get built twice.
+D31 was reversed (D36) and D32 confirmed (D37), so nothing waits on the boss
+any more.
 
-Steps 1 and 2 are safe now: they show план and факт as recorded, and the
-shortfall column already exists on `/science-plans` either way.
+## Answered 2026-09-23 (owner)
 
-## Open before the НПП page can be specced
-
-- **Who may open the НПП page?** `canViewAcademicRecord` already
-  answers this shape for the rating tab — ADMIN, EDITOR, the person's завідувач,
-  their декан, and the person themselves. Reuse it rather than writing a second
-  rule, but confirm наукова робота has the same audience.
-- **Does the НПП page show evidence files?** A signed R2 read already exists (`fileUrl`),
-  gated by `isNnvOversight`. A завідувач is a different caller — say whether they
-  may open a colleague's certificate.
-- **What counts as a «mismatch»?** Planned a стаття and recorded a монографія is
-  one. Planned 5 конференції and did 2 is another. Whether the page flags these or just
-  shows both columns is a design choice, not a given.
+- **Who may open the НПП page?** ADMIN, the відділ that oversees наукова
+  робота (D43 — a division flag, ННВ by default), and the person themselves.
+  **Not** `canViewAcademicRecord`: no завідувач, no декан, no other EDITOR (D44).
+  The whole dashboard science tab has the same audience minus «the person».
+- **Evidence files?** Opened by the person, the overseeing відділ and ADMIN
+  only (D45).
+- **Mismatches?** Not flagged. Hours against hours, as totals (D38).
+- **`/my-department/science-plans` goes.** The owner will bring a head's view
+  back if it is asked for.

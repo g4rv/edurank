@@ -969,6 +969,93 @@ from the attached PDF. With URL-only there is no file to count against, and the
 page number becomes a typed claim nobody can check. That may be acceptable — it
 should be a decision, not a surprise.
 
+## D36–D46 — the owner's answers, 2026-09-23
+
+These settle D31, D32, D33 and D35 above and add four new rules. **Where this
+section and the D31–D35 notes above disagree, this section wins.**
+
+| #   | Question                                       | Answer                                                                                                                                                                                                                                                              |
+| --- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D36 | D31 — remove «unpredictable» пункти from план? | **No, reversed.** Every пункт stays plannable, п.18 included. Only the planned HOURS matter; what a person plans to do to reach them is theirs. No `plannable` flag.                                                                                                |
+| D37 | D32 — the факт target                          | **Confirmed:** `факт target = max(план, 500 × ставка)`. The план target stays `500 × ставка`.                                                                                                                                                                       |
+| D38 | Is a planned-vs-done mismatch flagged?         | **No.** Plan a стаття, deliver a монографія — fine. The comparison is hours against hours, as totals, never пункт against пункт.                                                                                                                                    |
+| D39 | D35 — which types are link only?               | **Every type whose proof is a large or published document** — п.1 (грант, проєкт: звіт), п.3 (both), п.4, п.6 доповідь (матеріали), п.10 (both: екземпляр видання). The other 18 take a link or a file; none requires a file. Reviewed type by type with the owner. |
+| D40 | D35 — the page count with no PDF               | **Typed by the НПП, checked by ННВ.** A wrong URL is declined at once; a valid one, ННВ opens and counts the pages.                                                                                                                                                 |
+| D41 | Month of execution                             | **Every work carries the month it was done** — required, defaults to this month. «Виконано» is grouped by month, and the analytics chart execution per month.                                                                                                       |
+| D42 | D33 — how old may a work be?                   | **No older than 12 months before the month it is entered**, and never in the future. 12 is a per-year setting ADMIN can change.                                                                                                                                     |
+| D43 | Who oversees наукова робота?                   | **ADMIN, plus any відділ ADMIN grants it** — a switch on the division form, like «Модерація рейтингу». ННВ has it on by default. Replaces the hard-coded `registryKey: 'NNV'`.                                                                                      |
+| D44 | Who reads a person's план/факт page?           | **ADMIN, the overseeing відділ, and the person.** Not the завідувач, not the декан. `/my-department/science-plans` is removed.                                                                                                                                      |
+| D45 | Who opens an evidence file?                    | **The person (any co-author on the work), the overseeing відділ, ADMIN.** Unchanged from today apart from D43's flag.                                                                                                                                               |
+| D46 | What can the НПП fix on their own record?      | **Everything that is theirs:** the work's evidence and month (whoever entered it), their own share of hours (every co-author), and a file they uploaded themselves.                                                                                                 |
+
+### D41 + D42 — the month, and why it is also the age fence
+
+`ScienceWork.executedMonth` — the month the work happened. For an article that is
+its publication month, which is exactly what D33 needed: «not older than N
+months» becomes one comparison on a field that exists for its own reason, and
+no second «дата публікації» box is added.
+
+- Stored as a `DATE`, always the 1st of the month. Code handles it as a
+  `"YYYY-MM"` key; the current month is read in **Europe/Kyiv**, for the same
+  reason `currentAcademicYear` does.
+- Belongs to the **work**, not the record: co-authors share one article and one
+  publication month. The person who joins does not choose it.
+- The allowed range is `[this month − lookback, this month]`. With 12 in
+  September 2026 that is September 2025 … September 2026. **The window moves
+  with the date the record is ENTERED** (owner: «from the current date»), not
+  with the навчальний рік — so an article published in May 2026 and indexed in
+  September still gets in, and one from 2019 does not.
+- `SciencePlanTemplate.maxLookbackMonths Int @default(12)`. A column, not a
+  constant, for the reason `minHoursPerRate` is one.
+- **Known consequence, accepted for now:** the fence is the same for every
+  пункт. A конференція attended in October 2025 can be entered in September
+  2026 under 2026/2027. ННВ declines it if that is wrong; a per-type rule is a
+  later change if abuse appears.
+- Existing works are backfilled from `createdAt` by the migration.
+
+### D43 — the flag, and why the old comment is now wrong
+
+`lib/science/oversight.ts` said oversight was «ННВ's specifically, by наказ»
+and deliberately NOT a grantable flag. The owner reversed that: it becomes
+`Division.canOverseeScience`, set on `/divisions/[id]/edit`, with the migration
+turning it on for the division whose `registryKey` is `NNV`. The helper keeps
+its one-call shape; only its body changes.
+
+### D46 — what changes in who may edit what
+
+| action                                | today                                                                   | after                                                                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| edit the work's evidence, link, month | whoever entered the work, or ADMIN                                      | unchanged                                                                                                                                                 |
+| change **my own** share of hours      | nobody — delete and retype                                              | **every co-author, bounded by `pool − others`** (`updateRecordHours`)                                                                                     |
+| delete a file                         | whoever entered the work, or ADMIN                                      | **also whoever uploaded that file**                                                                                                                       |
+| **replace** a file                    | nobody — and delete-then-add is refused when the file is the only proof | **«Замінити»: the new file is verified and saved, the old one removed, in one transaction.** If anything fails the old file stays. Same people as delete. |
+| attach a file                         | anybody on the work                                                     | unchanged — but refused on a URL-only type                                                                                                                |
+
+A co-author still cannot change the page count of a shared article: that moves
+everybody's pool, and D14's «no tiebreak» reasoning stands.
+
+## Аспіранти from the наказ — design only (owner, 2026-09-23)
+
+**Not built, and not planned in detail:** the file format is unknown. Recorded
+so the plan can be written the day the file arrives.
+
+- The university issues a наказ по аспірантурі naming, per аспірант: **the year
+  they started, their ПІБ, and their керівник(и)**. It will come as a file,
+  format unknown.
+- **At most two керівники per аспірант, and each gets the full 50 год** (п.12
+  stays `INDIVIDUAL`). The import refuses a third.
+- The import builds a **personal list per керівник** — it does NOT create
+  records. Some НПП deliberately do not count their аспіранти, so adding one to
+  «Виконано» stays the person's own act: they pick from «Ваші аспіранти за
+  наказом».
+- п.12 stops accepting a typed name. Somebody with no list sees п.12 closed with
+  a sentence saying why, rather than a free-text box.
+- **Matching names to people** is the hard part — the наказ is typed by hand.
+  Same rule as the 2025 import: ПІБ **and** кафедра, never the name alone. The
+  import sorts every row into exact match (assigned), near match (ADMIN confirms
+  once) and no match (listed to fix or skip). Like `db:import-students`, it
+  reports by default and writes with `--apply`, adding and never removing.
+
 ## CONFIRMED 2026-09-22 — the shared pool is right, and what it still owes
 
 The owner put D14/D16 to the boss and brought back a plain answer: **several
