@@ -8,13 +8,11 @@ vi.mock('@/lib/db', () => {
     staff: { findUnique: vi.fn() },
     scienceWork: { findUnique: vi.fn() },
     scienceRecordFile: { findUnique: vi.fn(), create: vi.fn(), delete: vi.fn() },
-    division: { findUnique: vi.fn() },
     auditLog: { create: vi.fn() },
   };
   return { db: { ...tx, $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)) } };
 });
 vi.mock('@/lib/queries/get-science-template', () => ({ getActiveScienceTemplate: vi.fn() }));
-vi.mock('@/lib/permissions', () => ({ canActForDivision: vi.fn() }));
 vi.mock('@/lib/science/r2', () => ({
   objectKeyFor: vi.fn(),
   presignPut: vi.fn(),
@@ -29,14 +27,12 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
-import { canActForDivision } from '@/lib/permissions';
 import { logWarning } from '@/lib/log';
 import * as r2 from '@/lib/science/r2';
 import { attachFile, deleteFile, discardUpload, fileUrl, presignUpload } from './file-actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockTemplate = getActiveScienceTemplate as unknown as Mock;
-const mockCanAct = canActForDivision as unknown as Mock;
 const mockLogWarning = logWarning as unknown as Mock;
 const mockObjectKeyFor = r2.objectKeyFor as unknown as Mock;
 const mockPresignPut = r2.presignPut as unknown as Mock;
@@ -100,8 +96,6 @@ beforeEach(async () => {
   (db.scienceRecordFile.findUnique as Mock).mockResolvedValue(null);
   (db.scienceRecordFile.create as Mock).mockResolvedValue({ id: 'f1' });
   (db.scienceRecordFile.delete as Mock).mockResolvedValue({ id: 'f1' });
-  (db.division.findUnique as Mock).mockResolvedValue({ id: 'nnv-1' });
-  mockCanAct.mockResolvedValue(false);
   (db.$transaction as Mock).mockImplementation(async (fn: (t: unknown) => unknown) => fn(db));
 
   mockObjectKeyFor.mockReturnValue('evidence/t1/generated.pdf');
@@ -332,27 +326,23 @@ describe('fileUrl — the three-way entitlement', () => {
     expect(await fileUrl('f1')).toEqual({ ok: true, url: 'https://r2.example/get' });
   });
 
-  it('signs a GET for an ННВ editor even with no record at all', async () => {
+  it('signs a GET for a «Перевірка науки» editor even with no record at all', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u9', staffId: 'staff-9', role: 'EDITOR' } });
     (db.scienceRecordFile.findUnique as Mock).mockResolvedValue({
       ...FILE,
       work: { createdById: 'someone-else', records: [] },
     });
-    mockCanAct.mockResolvedValue(true);
+    (db.staff.findUnique as Mock).mockResolvedValue({ division: { canOverseeScience: true } });
     expect(await fileUrl('f1')).toEqual({ ok: true, url: 'https://r2.example/get' });
-    expect(db.division.findUnique).toHaveBeenCalledWith({
-      where: { registryKey: 'NNV' },
-      select: { id: true },
-    });
   });
 
-  it('refuses an editor whose division is not ННВ', async () => {
+  it('refuses an editor without «Перевірка науки»', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u9', staffId: 'staff-9', role: 'EDITOR' } });
     (db.scienceRecordFile.findUnique as Mock).mockResolvedValue({
       ...FILE,
       work: { createdById: 'someone-else', records: [] },
     });
-    mockCanAct.mockResolvedValue(false);
+    (db.staff.findUnique as Mock).mockResolvedValue({ division: { canOverseeScience: false } });
     expect(await fileUrl('f1')).toEqual({ error: 'У вас немає доступу до цього файлу' });
     expect(mockPresignGet).not.toHaveBeenCalled();
   });

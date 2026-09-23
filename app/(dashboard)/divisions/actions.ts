@@ -20,6 +20,9 @@ function revalidateDivisions(id?: string) {
   revalidatePath('/admin/permissions/field');
   revalidatePath('/admin/permissions/entity');
   revalidatePath('/division-data');
+  // «Перевірка науки» decides who reaches both of these.
+  revalidatePath('/science-plans');
+  revalidatePath('/moderation');
 }
 
 export async function createDivision(data: DivisionSchema): Promise<DivisionActionState> {
@@ -37,6 +40,7 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
         data: {
           name: parsed.data.name,
           canModerateRating: parsed.data.canModerateRating,
+          canOverseeScience: parsed.data.canOverseeScience,
         },
         select: { id: true },
       });
@@ -52,6 +56,7 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
             {
               name: parsed.data.name,
               canModerateRating: parsed.data.canModerateRating,
+              canOverseeScience: parsed.data.canOverseeScience,
             }
           ),
         },
@@ -89,18 +94,20 @@ export async function updateDivision(
     await db.$transaction(async (tx) => {
       const existing = await tx.division.findUnique({
         where: { id },
-        select: { name: true, canModerateRating: true },
+        select: { name: true, canModerateRating: true, canOverseeScience: true },
       });
-      // Granting or revoking moderation is a permission change — it has to be
+      // Granting or revoking moderation or «Перевірка науки» is a permission change — it has to be
       // as visible in the audit log as a rename is.
       const changes = diffChanges(
         {
           name: existing?.name ?? null,
           canModerateRating: existing?.canModerateRating ?? null,
+          canOverseeScience: existing?.canOverseeScience ?? null,
         },
         {
           name: parsed.data.name,
           canModerateRating: parsed.data.canModerateRating,
+          canOverseeScience: parsed.data.canOverseeScience,
         }
       );
 
@@ -109,6 +116,7 @@ export async function updateDivision(
         data: {
           name: parsed.data.name,
           canModerateRating: parsed.data.canModerateRating,
+          canOverseeScience: parsed.data.canOverseeScience,
         },
       });
       await tx.auditLog.create({

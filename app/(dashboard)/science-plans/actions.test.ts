@@ -10,20 +10,22 @@ vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => {
   const tx = {
     sciencePlan: { findUnique: vi.fn(), updateMany: vi.fn() },
-    division: { findUnique: vi.fn() },
+    staff: { findUnique: vi.fn() },
     auditLog: { create: vi.fn() },
   };
   return { db: { ...tx, $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)) } };
 });
-vi.mock('@/lib/permissions', () => ({ canActForDivision: vi.fn() }));
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { canActForDivision } from '@/lib/permissions';
 import { unlockPlan } from './actions';
 
 const mockAuth = auth as unknown as Mock;
-const mockCanAct = canActForDivision as unknown as Mock;
+// `canOverseeScience` reads the caller's division switch — mocked at the DB so
+// the REAL guard runs.
+const mockStaffFind = db.staff.findUnique as unknown as Mock;
+const withSwitch = (on: boolean) =>
+  mockStaffFind.mockResolvedValue({ division: { canOverseeScience: on } });
 
 const PLAN = {
   id: 'plan-1',
@@ -38,13 +40,12 @@ beforeEach(() => {
   mockAuth.mockResolvedValue({ user: { id: 'u1', staffId: 'staff-9', role: 'EDITOR' } });
   (db.sciencePlan.findUnique as Mock).mockResolvedValue(PLAN);
   (db.sciencePlan.updateMany as Mock).mockResolvedValue({ count: 1 });
-  (db.division.findUnique as Mock).mockResolvedValue({ id: 'nnv-1' });
-  mockCanAct.mockResolvedValue(true);
+  withSwitch(true);
   (db.$transaction as Mock).mockImplementation(async (fn: (t: unknown) => unknown) => fn(db));
 });
 
 describe('unlockPlan — who may reopen a submitted plan', () => {
-  it('lets an ННВ editor reopen one', async () => {
+  it('lets an editor with «Перевірка науки» reopen one', async () => {
     expect(await unlockPlan('plan-1')).toEqual({ ok: true });
     expect(db.sciencePlan.updateMany).toHaveBeenCalledWith({
       where: { id: 'plan-1', lockedAt: { not: null } },
@@ -54,27 +55,26 @@ describe('unlockPlan — who may reopen a submitted plan', () => {
 
   it('lets ADMIN reopen one with no division at all', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u2', staffId: null, role: 'ADMIN' } });
-    mockCanAct.mockResolvedValue(false);
+    withSwitch(false);
     expect(await unlockPlan('plan-1')).toEqual({ ok: true });
   });
 
-  it('refuses an editor whose division is not ННВ', async () => {
-    mockCanAct.mockResolvedValue(false);
+  it('refuses an editor without «Перевірка науки»', async () => {
+    withSwitch(false);
     expect(await unlockPlan('plan-1')).toEqual({ error: 'Недостатньо прав' });
     expect(db.sciencePlan.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses an ordinary НПП — a завідувач reads this list, never decides on it', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u3', staffId: 'staff-1', role: 'USER' } });
-    mockCanAct.mockResolvedValue(false);
     expect(await unlockPlan('plan-1')).toEqual({ error: 'Недостатньо прав' });
   });
 
-  it('resolves ННВ by registryKey, never by its editable name', async () => {
+  it('reads the switch, never the division’s name or registryKey', async () => {
     await unlockPlan('plan-1');
-    expect(db.division.findUnique).toHaveBeenCalledWith({
-      where: { registryKey: 'NNV' },
-      select: { id: true },
+    expect(mockStaffFind).toHaveBeenCalledWith({
+      where: { id: 'staff-9' },
+      select: { division: { select: { canOverseeScience: true } } },
     });
   });
 });

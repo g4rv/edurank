@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { isNnvOversight } from '@/lib/science/oversight';
+import { canOverseeScience } from '@/lib/science/oversight';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { listSciencePlans } from '@/lib/queries/list-science-plans';
 import { listDepartments } from '@/lib/queries/list-departments';
@@ -24,16 +24,9 @@ const full = new Intl.NumberFormat('uk-UA');
  * the university-wide sibling of `/my-department/science-plans`, which shows
  * one head's or декан's own кафедри via `scopeOf`.
  *
- * **Access is ADMIN, or an EDITOR whose division IS ННВ** — resolved by
- * `registryKey`, never by name (the name is editable on `/divisions`, and a
- * rename must not silently revoke this). This is deliberately its own check
- * rather than `canModerateRating` (`lib/rating/moderation.ts`): that flag can
- * be GRANTED to some other division for rating moderation, but наукова робота
- * oversight belongs to ННВ specifically by наказ, not to whoever a future
- * ADMIN hands the moderation flag to. Resolved by `isNnvOversight`
- * (`lib/science/oversight.ts`) — one helper shared with the dashboard nav,
- * `file-actions.ts`'s `fileUrl` and `/moderation`'s science section, rather
- * than each repeating the same `registryKey` lookup.
+ * **Access is ADMIN, or an EDITOR whose division holds «Перевірка науки»**
+ * (`canOverseeScience`, `lib/science/oversight.ts`, D43) — one helper shared
+ * with the dashboard nav, `fileUrl` and `/moderation`'s science section.
  *
  * **Read only** — records and their moderation are Stage 2.
  */
@@ -46,7 +39,7 @@ export default async function AllSciencePlansPage({
   const session = await auth();
   if (!session) redirect('/login');
 
-  const allowed = await isNnvOversight(session.user);
+  const allowed = await canOverseeScience(session.user);
   if (!allowed) redirect('/profile');
 
   const template = await getActiveScienceTemplate();
@@ -178,7 +171,7 @@ export default async function AllSciencePlansPage({
           showDepartment
           params={params}
           basePath={BASE}
-          // Only here. `isNnvOversight` already gated the whole page, and
+          // Only here. `canOverseeScience` already gated the whole page, and
           // `/my-department/science-plans` — the завідувач's and декан's read
           // of the same table — deliberately gets no actions at all.
           canUnlock

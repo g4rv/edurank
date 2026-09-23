@@ -142,6 +142,7 @@ async function main() {
         name: d.name,
         registryKey: d.registryKey,
         canModerateRating: d.canModerateRating,
+        canOverseeScience: d.canOverseeScience,
       })),
       faculties: faculties.map((f) => ({ name: f.name, deanEmail: f.dean?.email ?? null })),
       departments: departments.map((d) => ({

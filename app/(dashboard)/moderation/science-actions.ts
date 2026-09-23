@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
-import { isNnvOversight } from '@/lib/science/oversight';
+import { canOverseeScience } from '@/lib/science/oversight';
 
 /**
  * ННВ (or ADMIN) declines a наукова робота record after the fact — D20's
@@ -17,12 +17,10 @@ import { isNnvOversight } from '@/lib/science/oversight';
  * a required reason, trimmed and capped at 500 characters, a soft status
  * change inside a transaction, an audit entry.
  *
- * **One deliberate difference, per the plan's own note:** the guard is
- * `isNnvOversight` (`lib/science/oversight.ts`), not `canModerateRating`
- * (`lib/rating/moderation.ts`). Наукова робота oversight belongs to ННВ
- * specifically by наказ №152 п.3 — a different permission in principle from
- * whichever division an ADMIN happens to grant the rating's own moderation
- * flag to, even though the seed carries both on ННВ today.
+ * **One deliberate difference:** the guard is `canOverseeScience`
+ * (`lib/science/oversight.ts`, «Перевірка науки»), not `canModerateRating`
+ * (`lib/rating/moderation.ts`). They are two division switches, and an ADMIN
+ * may give them to different divisions, even though ННВ holds both today.
  *
  * **The row STAYS, marked REMOVED.** The person has to be able to read why —
  * `record-list.tsx` already renders `removedReason` for a REMOVED record
@@ -47,7 +45,7 @@ export async function removeScienceRecord(
   const session = await auth();
   if (!session) redirect('/login');
 
-  if (!(await isNnvOversight(session.user))) return { error: 'Недостатньо прав' };
+  if (!(await canOverseeScience(session.user))) return { error: 'Недостатньо прав' };
 
   const trimmedReason = reason.trim();
   if (!trimmedReason) return { error: 'Вкажіть причину відхилення' };
@@ -136,7 +134,7 @@ export async function restoreScienceRecord(
   const session = await auth();
   if (!session) redirect('/login');
 
-  if (!(await isNnvOversight(session.user))) return { error: 'Недостатньо прав' };
+  if (!(await canOverseeScience(session.user))) return { error: 'Недостатньо прав' };
 
   const record = await db.scienceRecord.findUnique({
     where: { id: recordId },

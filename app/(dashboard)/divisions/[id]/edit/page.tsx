@@ -15,7 +15,7 @@ export default async function EditDivisionPage({ params }: { params: Promise<{ i
 
   const division = await db.division.findUnique({
     where: { id },
-    select: { name: true, canModerateRating: true },
+    select: { name: true, canModerateRating: true, canOverseeScience: true },
   });
 
   if (!division) notFound();
@@ -36,6 +36,7 @@ export default async function EditDivisionPage({ params }: { params: Promise<{ i
         defaultValues={{
           name: division.name,
           canModerateRating: division.canModerateRating,
+          canOverseeScience: division.canOverseeScience,
         }}
         action={updateDivision.bind(null, id)}
         submitLabel="Зберегти"

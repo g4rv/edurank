@@ -5,6 +5,9 @@ export const divisionSchema = z.object({
   // Grants this division's editors rating moderation. ADMIN-only to set, like
   // everything else about a division — see lib/rating/moderation.ts.
   canModerateRating: z.boolean().default(false),
+  // «Перевірка науки» (D43) — grants this division's editors наукова робота
+  // oversight. ADMIN-only to set, like everything else about a division.
+  canOverseeScience: z.boolean().default(false),
 });
 
 export type DivisionSchema = z.infer<typeof divisionSchema>;

@@ -9,7 +9,6 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => {
   const tx = {
-    division: { findUnique: vi.fn() },
     staff: { findUnique: vi.fn() },
     scienceRecord: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -22,7 +21,6 @@ import { db } from '@/lib/db';
 import { removeScienceRecord, restoreScienceRecord } from './science-actions';
 
 const mockAuth = auth as unknown as Mock;
-const mockDivisionFind = db.division.findUnique as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
 const mockRecordFind = db.scienceRecord.findUnique as unknown as Mock;
 
@@ -42,26 +40,24 @@ const APPROVED_RECORD = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue(adminSession);
-  // `isNnvOversight` resolves ННВ by registryKey, then checks the caller's own
-  // division against it — both queries are mocked here so an EDITOR session
-  // exercises the REAL guard, the same way `moderation/actions.test.ts` drives
-  // `canModerateRating` through `db.staff.findUnique` rather than stubbing it.
-  mockDivisionFind.mockResolvedValue({ id: 'nnv-div' });
-  mockStaffFind.mockResolvedValue({ divisionId: 'nnv-div' });
+  // `canOverseeScience` reads the caller's division switch through
+  // `db.staff.findUnique` — mocked here so an EDITOR session exercises the
+  // REAL guard, the way `moderation/actions.test.ts` drives `canModerateRating`.
+  mockStaffFind.mockResolvedValue({ division: { canOverseeScience: true } });
   mockRecordFind.mockResolvedValue(APPROVED_RECORD);
 });
 
 describe('removeScienceRecord', () => {
-  it('refuses an editor who is not ННВ', async () => {
+  it('refuses an editor without «Перевірка науки»', async () => {
     mockAuth.mockResolvedValue(otherEditorSession);
-    mockStaffFind.mockResolvedValue({ divisionId: 'other-div' });
+    mockStaffFind.mockResolvedValue({ division: { canOverseeScience: false } });
     expect(await removeScienceRecord('r1', 'Немає підтвердження')).toEqual({
       error: 'Недостатньо прав',
     });
     expect(db.scienceRecord.update).not.toHaveBeenCalled();
   });
 
-  it('allows an editor whose division IS ННВ', async () => {
+  it('allows an editor whose division has «Перевірка науки»', async () => {
     mockAuth.mockResolvedValue(nnvEditorSession);
     expect(await removeScienceRecord('r1', 'Немає підтвердження')).toEqual({ ok: true });
     expect(db.scienceRecord.update).toHaveBeenCalled();
@@ -130,9 +126,9 @@ describe('removeScienceRecord', () => {
 });
 
 describe('restoreScienceRecord', () => {
-  it('refuses an editor who is not ННВ', async () => {
+  it('refuses an editor without «Перевірка науки»', async () => {
     mockAuth.mockResolvedValue(otherEditorSession);
-    mockStaffFind.mockResolvedValue({ divisionId: 'other-div' });
+    mockStaffFind.mockResolvedValue({ division: { canOverseeScience: false } });
     expect(await restoreScienceRecord('r1')).toEqual({ error: 'Недостатньо прав' });
   });
 

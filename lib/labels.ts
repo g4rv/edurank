@@ -98,6 +98,7 @@ export const FIELD_LABELS: Record<string, string> = {
   headId: 'Завідувач',
   role: 'Роль',
   canModerateRating: 'Модерація рейтингу',
+  canOverseeScience: 'Перевірка науки',
   registryKey: 'Ключ у довіднику',
   staffId: 'Співробітник',
   password: 'Пароль',

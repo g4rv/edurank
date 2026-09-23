@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
-import { isNnvOversight } from '@/lib/science/oversight';
+import { canOverseeScience } from '@/lib/science/oversight';
 
 /**
  * Reopen a submitted plan so its author can change it.
@@ -18,9 +18,8 @@ import { isNnvOversight } from '@/lib/science/oversight';
  * remedy short of SQL (owner, 2026-09-20).
  *
  * **ННВ or ADMIN** (owner, 2026-09-20), which is exactly what the sentence on
- * screen already promised. `isNnvOversight` is the same guard that decides who
- * may decline a record — наукова робота oversight belongs to ННВ by наказ
- * №152 п.3, not to whoever holds the rating's moderation flag. A завідувач
+ * screen already promised. `canOverseeScience` («Перевірка науки», D43) is
+ * the same guard that decides who may decline a record. A завідувач
  * still only READS: `scopeOf` answers «may I look», `headOf` «may I decide»,
  * and this is neither of theirs to decide.
  *
@@ -33,7 +32,7 @@ export async function unlockPlan(planId: string): Promise<{ ok: true } | { error
   const session = await auth();
   if (!session) redirect('/login');
 
-  if (!(await isNnvOversight(session.user))) return { error: 'Недостатньо прав' };
+  if (!(await canOverseeScience(session.user))) return { error: 'Недостатньо прав' };
 
   const plan = await db.sciencePlan.findUnique({
     where: { id: planId },

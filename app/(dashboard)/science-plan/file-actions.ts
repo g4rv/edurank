@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { isUniqueViolation, parseDbError } from '@/lib/db-error';
 import { logError } from '@/lib/log';
-import { isNnvOversight } from '@/lib/science/oversight';
+import { canOverseeScience } from '@/lib/science/oversight';
 import { objectKeyFor, presignGet, presignPut } from '@/lib/science/r2';
 import { fileProblem } from '@/lib/science/file-checks';
 import { evidenceProblem } from '@/lib/science/evidence-rule';
@@ -233,7 +233,7 @@ export async function attachFile(input: {
  * reading a file must not depend on this year's template being open at all.
  * So this checks only a session, then the three-way entitlement the spec asks
  * for — the file's work has a record of the caller's own, or the caller is
- * ADMIN, or the caller's division IS ННВ (`isNnvOversight`).
+ * ADMIN, or the caller's division holds «Перевірка науки» (`canOverseeScience`).
  */
 export async function fileUrl(
   fileId: string
@@ -259,7 +259,7 @@ export async function fileUrl(
   const staffId = session.user.staffId;
   let entitled = !!staffId && ownsWork(file.work, staffId);
 
-  if (!entitled) entitled = await isNnvOversight(session.user);
+  if (!entitled) entitled = await canOverseeScience(session.user);
 
   if (!entitled) return { error: 'У вас немає доступу до цього файлу' };
 

@@ -32,7 +32,12 @@ export function DivisionForm({ defaultValues, action, submitLabel }: DivisionFor
     formState: { errors },
   } = useForm<DivisionSchema>({
     resolver: standardSchemaResolver(divisionSchema as never),
-    defaultValues: { name: '', canModerateRating: false, ...defaultValues },
+    defaultValues: {
+      name: '',
+      canModerateRating: false,
+      canOverseeScience: false,
+      ...defaultValues,
+    },
   });
 
   function onSubmit(data: DivisionSchema) {
@@ -77,6 +82,27 @@ export function DivisionForm({ defaultValues, action, submitLabel }: DivisionFor
               <span className="block text-xs text-muted-foreground">
                 Редактори цього відділу зможуть відхиляти подання НПП із зазначенням причини та
                 позначати публікації як перевірені
+              </span>
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3">
+            <Controller
+              name="canOverseeScience"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  checked={!!field.value}
+                  disabled={isPending}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
+            <span className="text-sm">
+              Перевірка науки
+              <span className="block text-xs text-muted-foreground">
+                Редактори цього відділу бачитимуть плани й виконання наукової роботи всіх НПП,
+                відкриватимуть файли підтвердження та зможуть відхиляти записи
               </span>
             </span>
           </label>

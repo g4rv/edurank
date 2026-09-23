@@ -65,10 +65,14 @@ async function seedDivisions(prisma: PrismaClient): Promise<Record<string, strin
   const ids: Record<string, string> = {};
   for (const [key, name] of Object.entries(RATING_DIVISIONS)) {
     const canModerateRating = key === 'NNV';
+    // «Перевірка науки» (D43) on CREATE only: the migration that added the
+    // column already set it for ННВ, and a re-seed must never undo a switch an
+    // ADMIN has since moved on /divisions.
+    const canOverseeScience = key === 'NNV';
     const division = await prisma.division.upsert({
       where: { registryKey: key },
       update: { canModerateRating },
-      create: { name, registryKey: key, canModerateRating },
+      create: { name, registryKey: key, canModerateRating, canOverseeScience },
     });
     ids[key] = division.id;
   }

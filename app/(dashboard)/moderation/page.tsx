@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { canModerateRating } from '@/lib/rating/moderation';
-import { isNnvOversight } from '@/lib/science/oversight';
+import { canOverseeScience } from '@/lib/science/oversight';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { listNppActivities } from '@/lib/queries/list-npp-activities';
 import { listScienceRecords } from '@/lib/queries/list-science-records';
@@ -22,8 +22,8 @@ function fieldsOf(activityType: { evidenceFields: unknown }): readonly EvidenceF
 /**
  * Two post-checks under one nav item, not one merged list: a discard on the
  * rating (`canModerateRating`) and a decline on наукова робота
- * (`isNnvOversight`, D20) are different permissions in principle, even though
- * the seed grants both to ННВ today. Each section fetches and renders
+ * (`canOverseeScience`, D20/D43) are two division switches, even though ННВ
+ * holds both today. Each section fetches and renders
  * strictly on its OWN permission — a division holding only one of the two
  * (should an ADMIN ever configure them apart) must see exactly that one
  * section, never an empty or half-broken sibling.
@@ -38,8 +38,8 @@ export default async function ModerationPage({
   if (!session) redirect('/login');
 
   const canModerate = await canModerateRating(session.user);
-  const canOverseeScience = await isNnvOversight(session.user);
-  if (!canModerate && !canOverseeScience) redirect('/profile');
+  const canCheckScience = await canOverseeScience(session.user);
+  if (!canModerate && !canCheckScience) redirect('/profile');
 
   // **One section fills the screen; two share it by letting the PAGE scroll.**
   // Both sections are built around a `fill` table, which takes whatever height
@@ -47,12 +47,12 @@ export default async function ModerationPage({
   // it, and the rating list — the older, busier one — came out about four rows
   // tall. Only ННВ and ADMIN hold both permissions, so this is exactly the
   // people who read this page most.
-  const both = canModerate && canOverseeScience;
+  const both = canModerate && canCheckScience;
 
   return (
     <div className={both ? 'flex flex-col gap-10' : 'flex h-full min-h-0 flex-col gap-8'}>
       {canModerate && <RatingSection query={query} solo={!both} />}
-      {canOverseeScience && <ScienceSection query={query} solo={!both} />}
+      {canCheckScience && <ScienceSection query={query} solo={!both} />}
     </div>
   );
 }
