@@ -12,6 +12,7 @@ vi.mock('@/lib/db', () => {
       create: vi.fn(),
       findUnique: vi.fn(),
       delete: vi.fn(),
+      update: vi.fn(),
       updateMany: vi.fn(),
       aggregate: vi.fn(),
     },
@@ -38,7 +39,13 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { safeDeleteObject, verifyUploadedObject } from '@/lib/science/file-intake';
-import { deleteRecord, joinWork, saveRecord, updateWorkEvidence } from './record-actions';
+import {
+  deleteRecord,
+  joinWork,
+  saveRecord,
+  updateRecordHours,
+  updateWorkEvidence,
+} from './record-actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockTemplate = getActiveScienceTemplate as unknown as Mock;
@@ -1207,6 +1214,98 @@ describe('a fact needs a submitted plan — and nothing more', () => {
     (db.sciencePlan.findUnique as Mock).mockResolvedValue({ ...LOCKED_PLAN, lockedAt: null });
     expect(await joinWork({ workId: 'w1', departmentId: 'd1', hoursHundredths: 5000 })).toEqual({
       error: 'Спочатку збережіть план — після цього можна вносити виконане',
+    });
+  });
+});
+
+describe('updateRecordHours — D46, my own share', () => {
+  const RECORD = {
+    id: 'r1',
+    staffId: 'staff-1',
+    templateId: 't1',
+    status: 'APPROVED',
+    hoursHundredths: 15000,
+    work: {
+      id: 'w1',
+      totalHundredths: 20000,
+      workType: { label: 'Наукова стаття', sharing: 'SHARED' },
+    },
+  };
+
+  beforeEach(() => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue(RECORD);
+    // A co-author holds 50 of the 200.
+    (db.scienceRecord.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 5000 } });
+    (db.scienceRecord.update as Mock).mockResolvedValue({ id: 'r1' });
+  });
+
+  it('lowers my share and audits it', async () => {
+    expect(await updateRecordHours({ recordId: 'r1', hoursHundredths: 10000 })).toEqual({
+      ok: true,
+    });
+    expect(db.scienceRecord.update).toHaveBeenCalledWith({
+      where: { id: 'r1' },
+      data: { hoursHundredths: 10000 },
+    });
+    const { changes } = (db.auditLog.create as Mock).mock.calls[0][0].data;
+    expect(changes).toHaveProperty('hoursHundredths');
+  });
+
+  it('raises it up to exactly what the others left', async () => {
+    expect(await updateRecordHours({ recordId: 'r1', hoursHundredths: 15000 })).toEqual({
+      ok: true,
+    });
+  });
+
+  it('refuses taking hours a co-author holds', async () => {
+    expect(await updateRecordHours({ recordId: 'r1', hoursHundredths: 16000 })).toEqual({
+      error: 'Залишилось 150 з 200 год',
+    });
+    expect(db.scienceRecord.update).not.toHaveBeenCalled();
+  });
+
+  it('measures against OTHERS only, never my own row, APPROVED only', async () => {
+    await updateRecordHours({ recordId: 'r1', hoursHundredths: 10000 });
+    expect(db.scienceRecord.aggregate).toHaveBeenCalledWith({
+      where: { workId: 'w1', status: 'APPROVED', staffId: { not: 'staff-1' } },
+      _sum: { hoursHundredths: true },
+    });
+  });
+
+  it('refuses zero or less', async () => {
+    expect(await updateRecordHours({ recordId: 'r1', hoursHundredths: 0 })).toEqual({
+      error: 'Вкажіть кількість годин більше нуля',
+    });
+  });
+
+  it('refuses somebody else’s record', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue({ ...RECORD, staffId: 'staff-2' });
+    expect(await updateRecordHours({ recordId: 'r1', hoursHundredths: 10000 })).toEqual({
+      error: 'Запис не знайдено',
+    });
+  });
+
+  it('refuses a record of another year', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue({ ...RECORD, templateId: 'old' });
+    expect(await updateRecordHours({ recordId: 'r1', hoursHundredths: 10000 })).toEqual({
+      error: 'Запис не знайдено',
+    });
+  });
+
+  it('refuses a declined record', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue({ ...RECORD, status: 'REMOVED' });
+    expect(await updateRecordHours({ recordId: 'r1', hoursHundredths: 10000 })).toEqual({
+      error: 'Відхилений запис змінити не можна',
+    });
+  });
+
+  it('refuses an INDIVIDUAL work — its hours come from its data', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue({
+      ...RECORD,
+      work: { ...RECORD.work, workType: { label: 'Конференція', sharing: 'INDIVIDUAL' } },
+    });
+    expect(await updateRecordHours({ recordId: 'r1', hoursHundredths: 10000 })).toEqual({
+      error: 'Години цієї роботи визначаються її даними — змініть їх у «Редагувати»',
     });
   });
 });

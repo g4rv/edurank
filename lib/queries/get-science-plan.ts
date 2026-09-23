@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { planTarget, rateForPlan, type PlanTarget } from '@/lib/science/target';
 import { initials } from '@/lib/name';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
-import type { ScienceRecordStatus } from '@/lib/generated/prisma/client';
+import type { ScienceRecordStatus, ScienceSharing } from '@/lib/generated/prisma/client';
 import { dateToMonthKey } from '@/lib/science/execution-month';
 
 /**
@@ -86,6 +86,12 @@ export interface SciencePlanRecordDetail {
    * checks this again — a flag on a row is not a permission.
    */
   canEdit: boolean;
+  /**
+   * Whether «Моя частка» is offered (D46) — on every SHARED work, including
+   * one only this person drew on so far: a sole author who left room for
+   * co-authors may want it back.
+   */
+  sharing: ScienceSharing;
   /** Every file attached to this work — its own row per file, not a count, so
    *  the «Виконано» tab can offer a «Переглянути» per file and show a PDF's
    *  page count (item 4 prices per page, and that is the number a reviewer
@@ -188,7 +194,9 @@ export async function getSciencePlan(
               totalHundredths: true,
               workTypeId: true,
               createdById: true,
-              workType: { select: { label: true, itemNumber: true, evidenceFields: true } },
+              workType: {
+                select: { label: true, itemNumber: true, evidenceFields: true, sharing: true },
+              },
               // Everybody's APPROVED draw on this work, including this person's
               // own — filtered out below, where the name is already in hand.
               records: {
@@ -260,6 +268,7 @@ export async function getSciencePlan(
       removedReason: r.removedReason,
       evidence: r.work.evidence,
       canEdit: r.work.createdById === staffId,
+      sharing: r.work.workType.sharing,
       files: r.work.files,
       coAuthors: r.work.records
         .filter((other) => other.staffId !== staffId)

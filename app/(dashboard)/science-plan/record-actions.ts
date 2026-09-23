@@ -954,6 +954,104 @@ export async function updateWorkEvidence(input: {
 }
 
 /**
+ * Change MY share of a shared work — D46, and the tool the 2026-09-22 note
+ * («CONFIRMED — the shared pool is right») said was missing.
+ *
+ * Co-authors agree a split AFTER somebody has already entered a number, so
+ * «150 to me, 50 to you» has to be changeable without deleting the record —
+ * which would also throw away its files and, for the one who entered it, the
+ * work itself.
+ *
+ * Bounded by what OTHERS hold, re-read inside the transaction, the rule
+ * `joinWork` follows. Only the caller's own row moves; nobody changes a
+ * colleague's share. An INDIVIDUAL work has no pool to divide: its single
+ * claim IS the pool, moved by correcting the evidence instead.
+ */
+export async function updateRecordHours(input: {
+  recordId: string;
+  hoursHundredths: number;
+}): Promise<{ ok: true } | { error: string }> {
+  const actor = await resolveActor();
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, template } = actor.context;
+
+  const record = await db.scienceRecord.findUnique({
+    where: { id: input.recordId },
+    select: {
+      id: true,
+      staffId: true,
+      templateId: true,
+      status: true,
+      hoursHundredths: true,
+      work: {
+        select: {
+          id: true,
+          totalHundredths: true,
+          workType: { select: { label: true, sharing: true } },
+        },
+      },
+    },
+  });
+  // Ownership and the open рік — the same two checks `deleteRecord` makes.
+  if (!record || record.staffId !== staffId || record.templateId !== template.id) {
+    return { error: 'Запис не знайдено' };
+  }
+  if (record.status !== 'APPROVED') return { error: 'Відхилений запис змінити не можна' };
+  if (record.work.workType.sharing === 'INDIVIDUAL') {
+    return { error: 'Години цієї роботи визначаються її даними — змініть їх у «Редагувати»' };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      // Re-read INSIDE the transaction, never from a figure the client sent:
+      // a co-author joining in the same second must not be double-counted.
+      const drawn = await tx.scienceRecord.aggregate({
+        where: { workId: record.work.id, status: 'APPROVED', staffId: { not: staffId } },
+        _sum: { hoursHundredths: true },
+      });
+      const fault = poolProblem({
+        totalHundredths: record.work.totalHundredths,
+        drawnByOthers: drawn._sum.hoursHundredths ?? 0,
+        requested: input.hoursHundredths,
+      });
+      if (fault) throw new PoolError(fault);
+
+      await tx.scienceRecord.update({
+        where: { id: record.id },
+        data: { hoursHundredths: input.hoursHundredths },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'ScienceRecord',
+          entityId: record.id,
+          label: record.work.workType.label,
+          userId,
+          changes: diffChanges(
+            { hoursHundredths: record.hoursHundredths },
+            { hoursHundredths: input.hoursHundredths }
+          ),
+        },
+      });
+    });
+  } catch (e) {
+    if (e instanceof PoolError) return { error: e.reason };
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'science.updateRecordHours',
+        { userId }
+      ),
+    };
+  }
+
+  revalidatePath('/science-plan');
+  return { ok: true };
+}
+
+/**
  * Withdraw the caller's own draw.
  *
  * **Deletes the record, never the work.** A work with no claims is kept,

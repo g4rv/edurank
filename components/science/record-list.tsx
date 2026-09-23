@@ -9,6 +9,7 @@ import { DeleteFileButton } from '@/components/science/delete-file-button';
 import { FileViewButton } from '@/components/science/file-view-button';
 import { AttachFileDialog } from '@/components/science/attach-file-dialog';
 import { EditRecordDialog } from '@/components/science/edit-record-dialog';
+import { EditHoursDialog } from '@/components/science/edit-hours-dialog';
 import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import { cn } from '@/lib/utils';
 import { groupByMonth } from '@/lib/science/group-by-month';
@@ -143,15 +144,14 @@ export function RecordList({
                         </ul>
                       )}
 
-                      {/* The two ways to put a mistake right, both of which were
-                      server actions nobody could reach: a wrong number is an
-                      edit, and a file that failed to upload (or arrived by
-                      email months later) is an attachment. Without them the
-                      only route was delete-and-retype, which dead-ended on the
-                      work that survived the delete. */}
-                      {record.canEdit && !declined && (
+                      {/* The ways to put a mistake right without delete-and-retype,
+                      which dead-ended on the work that survived the delete: a
+                      wrong number is an edit, a late file is an attachment —
+                      both the author's — and the share of a shared work is
+                      every co-author's own (D46). */}
+                      {!declined && (record.canEdit || record.sharing === 'SHARED') && (
                         <div className="mt-1 -ml-2 flex flex-wrap items-center gap-1">
-                          {workTypeById.has(record.workTypeId) && (
+                          {record.canEdit && workTypeById.has(record.workTypeId) && (
                             <EditRecordDialog
                               workId={record.workId}
                               type={workTypeById.get(record.workTypeId)!}
@@ -162,10 +162,23 @@ export function RecordList({
                               label={record.summary}
                             />
                           )}
-                          {/* D47: not for a вид роботи proved by a link alone. */}
-                          {workTypeById.get(record.workTypeId)?.fileRule !== 'NONE' && (
-                            <AttachFileDialog workId={record.workId} label={record.summary} />
+                          {record.sharing === 'SHARED' && (
+                            <EditHoursDialog
+                              recordId={record.id}
+                              hoursHundredths={record.hoursHundredths}
+                              totalHundredths={record.totalHundredths}
+                              othersHundredths={record.coAuthors.reduce(
+                                (sum, a) => sum + a.hoursHundredths,
+                                0
+                              )}
+                              label={record.summary}
+                            />
                           )}
+                          {/* D47: not for a вид роботи proved by a link alone. */}
+                          {record.canEdit &&
+                            workTypeById.get(record.workTypeId)?.fileRule !== 'NONE' && (
+                              <AttachFileDialog workId={record.workId} label={record.summary} />
+                            )}
                         </div>
                       )}
 
