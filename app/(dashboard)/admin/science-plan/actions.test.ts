@@ -100,6 +100,8 @@ describe('cloneScienceYear', () => {
                 reuse: 'ONCE',
                 sharing: 'SHARED',
                 identityFields: ['pages'],
+                itemTitle: 'Наукові публікації',
+                shortLabel: 'Стаття',
                 linkRule: 'REQUIRED',
                 fileRule: 'NONE',
                 maxPerYear: null,
@@ -129,6 +131,10 @@ describe('cloneScienceYear', () => {
       sharing: 'SHARED',
       scoring: { kind: 'SELECT_MULT' },
       identityFields: ['pages'],
+      // The пункт's heading and the picker's short name — lost by the clone
+      // before 2026-09-23, so the next year's picker read «Пункт 4».
+      itemTitle: 'Наукові публікації',
+      shortLabel: 'Стаття',
       // D47: the next year keeps each type's link and file rules.
       linkRule: 'REQUIRED',
       fileRule: 'NONE',

@@ -112,6 +112,18 @@ it('refuses identityFields naming a field the form does not have', async () => {
   });
 });
 
+it('creates a вид роботи with its пункт heading and short name', async () => {
+  // Both were dropped on CREATE before 2026-09-23 — only an edit saved them.
+  (db.scienceWorkType.create as Mock).mockResolvedValue({ id: 'wt-new' });
+  expect(
+    await saveWorkType({ ...VALID, itemTitle: 'Наукові публікації', shortLabel: 'Стаття' })
+  ).toEqual({ ok: true });
+  expect((db.scienceWorkType.create as Mock).mock.calls[0][0].data).toMatchObject({
+    itemTitle: 'Наукові публікації',
+    shortLabel: 'Стаття',
+  });
+});
+
 it('refuses a вид роботи nothing could prove (D47)', async () => {
   expect(await saveWorkType({ ...VALID, linkRule: 'NONE', fileRule: 'NONE' })).toEqual({
     error: 'Має бути хоча б один спосіб підтвердження',

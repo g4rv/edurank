@@ -138,6 +138,8 @@ export async function cloneScienceYear(fromAcademicYear: string): Promise<Scienc
               order: wt.order,
               code: wt.code,
               itemNumber: wt.itemNumber,
+              itemTitle: wt.itemTitle,
+              shortLabel: wt.shortLabel,
               label: wt.label,
               evidenceFields: wt.evidenceFields as Prisma.InputJsonValue,
               scoring: wt.scoring as Prisma.InputJsonValue,

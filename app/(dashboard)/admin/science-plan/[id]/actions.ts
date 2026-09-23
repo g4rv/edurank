@@ -191,6 +191,8 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
             order: existingCount + 1,
             code: data.code,
             itemNumber: data.itemNumber,
+            itemTitle: data.itemTitle,
+            shortLabel: data.shortLabel,
             label: data.label,
             coefficient: data.coefficient,
             unitNote: data.unitNote,
