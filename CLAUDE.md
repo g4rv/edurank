@@ -301,12 +301,11 @@ app/
     moderation/                   ← ННВ + ADMIN: discard self-reports, verify publications
     division-data/                ← EDITOR: their division's direct-entry grid
     rating/                       ← ADMIN + EDITOR: university-wide rollup
-    science-plans/                ← ADMIN + ННВ: every кафедра's наукова робота plans
+    science-plans/                ← ADMIN + «Перевірка науки» division: every кафедра's plans
     stakes/                       ← ADMIN/проректор: Кст + бонусний фонд across all кафедри
       [id]/                       ← the завідувач's grid for ONE кафедра (додаток 2)
     my-department/                ← завідувач/декан: their кафедра
       students/                   ← ADMIN rules on StudentClaims; a head/декан reads
-      science-plans/              ← a head's/декан's read of their кафедра's/факультет's plans
     actions.ts                    ← sign-out
     layout.tsx                    ← dashboard shell (sidebar), redirects anonymous to /login
   api/                            ← NOT covered by proxy.ts — every route authenticates itself
@@ -533,9 +532,32 @@ Easy to get wrong:
   guards nothing and blocked only the person who owned it — `joinWork` refuses
   an INDIVIDUAL work, so that конференція could never be entered again. A
   SHARED work always survives: a co-author may still draw on it.
-- **Only ННВ or ADMIN reopens a submitted plan** (`unlockPlan`, owner
-  2026-09-20) — the remedy `/science-plan` has always promised in «зміни через
-  ННВ». A завідувач and a декан read that list and decide nothing on it.
+- **Oversight is a division switch, «Перевірка науки»**
+  (`Division.canOverseeScience`, D43), read by `canOverseeScience()` in
+  `lib/science/oversight.ts`; ННВ has it by migration. Never match ННВ by
+  `registryKey` for this again. Only ADMIN and that division see
+  `/science-plans`, decline records, open other people's files and reopen a
+  submitted plan (`unlockPlan`). **A завідувач and a декан see no science
+  data at all** (D44) — `/my-department/science-plans` was removed.
+- **The fact owes `max(план, 500 × ставка)`** (D37, `doneTargetHundredths`);
+  the plan itself is still measured against the norm.
+- **Link and file are two separate rules per вид роботи** (D47,
+  `ScienceWorkType.linkRule` / `fileRule`: REQUIRED / OPTIONAL / NONE, set by
+  ADMIN). Only when neither is REQUIRED must one of the two be given; a proof
+  on a NONE side proves nothing and is refused on save. The eight large or
+  published documents (D39 — п.1, п.3, п.4, п.6 доповідь, п.10) start as link
+  REQUIRED, file NONE. `requiresFile` no longer exists.
+- **Every work has an `executedMonth`** (D41) — for an article, its
+  publication month — fenced at `SciencePlanTemplate.maxLookbackMonths` (12)
+  months back from the month of ENTRY, never in the future (D42). The fence
+  applies to a change of month only, so an old record can still be corrected.
+  Month maths only through `lib/science/execution-month.ts`, which reads Kyiv
+  time.
+- **A co-author changes their own share with `updateRecordHours`** (D46),
+  bounded by what the others hold, re-read in the transaction. A file is
+  changed by whoever entered the work or uploaded it; **a record's only proof
+  is swapped with `replaceFile`, never deleted first** — `deleteFile` refuses
+  it and names «Замінити».
 
 ## Naming conventions
 

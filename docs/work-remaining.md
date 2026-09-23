@@ -247,7 +247,7 @@ and approved by the owner 2026-09-15. **план** shipped 2026-09-17: the
 Додаток III catalogue (ADMIN, clonable per навчальний рік), one план per
 person per кафедра targeted against their per-кафедра ставка and locked on
 submission, and the reading screens — `/science-plan` (own),
-`/my-department/science-plans` (head/декан), `/science-plans` (ADMIN + ННВ),
+`/science-plans` (ADMIN + ННВ),
 `/admin/science-plan[/id]` (the catalogue editor). **факт** shipped
 2026-09-18: an НПП records what was actually done (`ScienceRecord`), against
 any planned вид роботи — not only what was planned (owner, 2026-09-17) — with
@@ -278,10 +278,25 @@ saw it. **The ставка gate on `lockPlan` is deliberate and stays** (owner,
 2026-09-20): the target is computed from the ставка, so somebody without one
 applies to the administration rather than planning against nothing.
 
+**The owner's 2026-09-23 rules — built** (D36–D47 in the spec, plan
+`docs/superpowers/plans/2026-09-23-science-rules.md`, branch
+`feat/science-rules`): «Перевірка науки» is a division switch and the head's
+view is gone (D43/D44); the fact owes `max(план, норма)` (D37); the link and
+the file are two ADMIN-set rules per вид роботи, eight types link-only
+(D39/D47); every work carries its execution month, fenced 12 months back and
+grouped by month in «Виконано» (D41/D42); a co-author changes their own share
+and any file is replaced in one step (D46). Two old bugs fixed on the way:
+cloning a year and creating a вид роботи both dropped the пункт heading.
+
+**Next:** the analytics — `docs/superpowers/specs/2026-09-22-science-analytics-design.md`,
+build order steps 2–5 (the НПП page, the dashboard tab and tree, the charts
+including execution per month). **Waiting on a file:** the аспіранти import
+(design in the spec, «Аспіранти from the наказ»; format unknown).
+
 **Still open from that pass:** the page-count check (a claim higher than the
 attached PDF's real page count is stored and displayed but never refused — item
-4 pays 50 год per page, so it is the obvious cheat); no drill-down for a
-завідувач or ННВ into WHAT a person planned or did, only totals; and the
+4 pays 50 год per page, so it is the obvious cheat); no drill-down for ННВ
+into WHAT a person planned or did, only totals (the analytics' НПП page); and the
 moderation feed has no filter or search over every record university-wide.
 
 **Not built:** an official export form (D19) — the shape is unknown and no
