@@ -69,3 +69,28 @@ describe('план and факт against one ціль', () => {
     expect(t.doneShortfallHundredths).toBe(30000);
   });
 });
+
+describe('D37 — somebody owes what they planned', () => {
+  it('owes the plan when the plan is above the norm', () => {
+    const t = target(100, 70000, 50000); // plan 700, did 500
+    expect(t.doneTargetHundredths).toBe(70000);
+    expect(t.doneShortfallHundredths).toBe(20000);
+  });
+
+  it('still owes the norm when the plan is below it', () => {
+    const t = target(100, 40000, 45000); // plan 400, did 450
+    expect(t.doneTargetHundredths).toBe(50000);
+    expect(t.doneShortfallHundredths).toBe(5000);
+  });
+
+  it('leaves the PLAN shortfall measured against the norm alone', () => {
+    expect(target(100, 70000, 0).shortfallHundredths).toBe(0);
+    expect(target(100, 40000, 0).shortfallHundredths).toBe(10000);
+  });
+
+  it('has no factual target without a ставка', () => {
+    const t = target(null, 70000, 0);
+    expect(t.doneTargetHundredths).toBeNull();
+    expect(t.doneShortfallHundredths).toBeNull();
+  });
+});

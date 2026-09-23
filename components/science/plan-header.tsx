@@ -57,6 +57,20 @@ export function PlanHeader({
                   {formatHours(targetHundredths)}
                 </span>{' '}
                 год
+                {/* D37: once the plan is above the norm, the plan is what the
+                    fact has to reach — say so, or «Виконано: бракує 200»
+                    reads as a sum that does not add up. */}
+                {target.doneTargetHundredths !== null &&
+                  target.doneTargetHundredths > targetHundredths && (
+                    <>
+                      {' '}
+                      · виконати{' '}
+                      <span className="font-medium text-foreground tabular-nums">
+                        {formatHours(target.doneTargetHundredths)}
+                      </span>{' '}
+                      год за планом
+                    </>
+                  )}
               </p>
             )}
           </div>

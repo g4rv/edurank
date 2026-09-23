@@ -122,6 +122,7 @@ const EMPTY_TARGET: PlanTarget = {
   plannedHundredths: 0,
   shortfallHundredths: null,
   doneHundredths: 0,
+  doneTargetHundredths: null,
   doneShortfallHundredths: null,
 };
 

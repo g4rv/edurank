@@ -25,7 +25,14 @@ export interface PlanTarget {
    * both live in the band above them.
    */
   doneHundredths: number;
-  /** null when there is no target; never negative. */
+  /**
+   * D37 (owner, 2026-09-23): what the FACT is measured against —
+   * `max(targetHundredths, plannedHundredths)`. Plan 700 and you owe 700; plan
+   * 400 and you still owe the 500 norm. The norm is a floor for the plan and
+   * the plan is a promise for the fact. Null when there is no target.
+   */
+  doneTargetHundredths: number | null;
+  /** Against `doneTargetHundredths`; null when there is no target; never negative. */
   doneShortfallHundredths: number | null;
 }
 
@@ -48,17 +55,20 @@ export function planTarget(input: {
       plannedHundredths,
       shortfallHundredths: null,
       doneHundredths,
+      doneTargetHundredths: null,
       doneShortfallHundredths: null,
     };
   }
   const targetHundredths = minHoursPerRate * rateHundredths;
+  const doneTargetHundredths = Math.max(targetHundredths, plannedHundredths);
   return {
     rateHundredths,
     targetHundredths,
     plannedHundredths,
     shortfallHundredths: Math.max(0, targetHundredths - plannedHundredths),
     doneHundredths,
-    doneShortfallHundredths: Math.max(0, targetHundredths - doneHundredths),
+    doneTargetHundredths,
+    doneShortfallHundredths: Math.max(0, doneTargetHundredths - doneHundredths),
   };
 }
 
