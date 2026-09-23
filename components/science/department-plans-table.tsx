@@ -84,10 +84,9 @@ export function DepartmentPlansTable({
   params: PlanListParams;
   basePath: string;
   /**
-   * ННВ and ADMIN may reopen a submitted plan (owner, 2026-09-20) — the
-   * remedy the screen has always promised the НПП and never had. Off by
-   * default, so `/my-department/science-plans` stays what it is: a завідувач
-   * and a декан READ their кафедра, they do not decide about it.
+   * «Перевірка науки» and ADMIN may reopen a submitted plan (owner,
+   * 2026-09-20) — the remedy the screen has always promised the НПП. Off by
+   * default: a table shown to anybody else must not offer it.
    *
    * A flag on a table is not a permission — `unlockPlan` re-checks.
    */

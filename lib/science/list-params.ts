@@ -6,13 +6,10 @@ import {
 } from '@/lib/science/plan-rows';
 
 /**
- * The query string both plan lists read — `/science-plans` (ННВ, every
- * кафедра) and `/my-department/science-plans` (a завідувач's or декан's own).
- *
- * One parser and one href builder for the two, for the reason
- * `lib/staff/list-params.ts` gives: parsed in two places they drift on the
- * first filter anybody adds, and the drift is silent — a plausible-looking
- * list with the wrong people in it.
+ * The query string `/science-plans` reads. It had a sibling for a завідувач
+ * and a декан until D44 (owner, 2026-09-23) removed their view; kept as its own
+ * module for the reason `lib/staff/list-params.ts` gives — a list's filters
+ * parsed inline drift the first time a second screen wants them.
  */
 
 /** How many rows one page of the table shows. The university has 348 positions

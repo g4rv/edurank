@@ -19,10 +19,9 @@ const BASE = '/science-plans';
 const full = new Intl.NumberFormat('uk-UA');
 
 /**
- * The ННВ's / ADMIN's read of EVERY кафедра's наукова робота plans — наказ
- * №152 п.3 puts oversight of наукова робота on ННВ, so this is their screen:
- * the university-wide sibling of `/my-department/science-plans`, which shows
- * one head's or декан's own кафедри via `scopeOf`.
+ * Every кафедра's наукова робота plans, for whoever checks наукова робота.
+ * The only list of every person's plan: a завідувач and a декан no longer have
+ * one (D44, owner 2026-09-23).
  *
  * **Access is ADMIN, or an EDITOR whose division holds «Перевірка науки»**
  * (`canOverseeScience`, `lib/science/oversight.ts`, D43) — one helper shared
@@ -171,9 +170,8 @@ export default async function AllSciencePlansPage({
           showDepartment
           params={params}
           basePath={BASE}
-          // Only here. `canOverseeScience` already gated the whole page, and
-          // `/my-department/science-plans` — the завідувач's and декан's read
-          // of the same table — deliberately gets no actions at all.
+          // `canOverseeScience` already gated the whole page, and
+          // `unlockPlan` checks it again.
           canUnlock
         />
       )}

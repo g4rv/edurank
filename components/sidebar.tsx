@@ -174,14 +174,6 @@ export function Sidebar({
   if (headsDepartment) {
     // Exact — otherwise /my-department/students lights both lines at once
     management.push({ href: '/my-department', label: 'Моя кафедра', icon: BookOpen, exact: true });
-    // A завідувач's or декан's read of who on their кафедра has planned their
-    // наукова робота (Task 10) — same `scopeOf` gate as «Моя кафедра» above,
-    // never ADMIN, who gets the university-wide list below instead.
-    management.push({
-      href: '/my-department/science-plans',
-      label: 'Плани кафедри',
-      icon: FlaskConical,
-    });
   }
   if (canSeeRating) {
     management.push(
@@ -206,9 +198,8 @@ export function Sidebar({
     management.push({ href: '/rating', label: 'Рейтинг НПП', icon: Trophy });
   }
   if (canOverseeSciencePlans) {
-    // The ННВ's / ADMIN's university-wide read of every кафедра's наукова
-    // робота plans (Task 11) — the sibling of «Плани кафедри» above, over
-    // everyone rather than just a scoped кафедра or факультет.
+    // Every кафедра's наукова робота plans — ADMIN and «Перевірка науки»
+    // only (D43/D44). A завідувач and a декан have no science list.
     management.push({ href: '/science-plans', label: 'Плани наукової роботи', icon: FlaskConical });
   }
   // `/moderation` holds TWO post-checks — the rating's and наукова робота's —

@@ -25,7 +25,6 @@ function revalidateWorkTypes() {
   revalidatePath('/admin/science-plan');
   revalidatePath('/science-plan');
   revalidatePath('/science-plans');
-  revalidatePath('/my-department/science-plans');
 }
 
 /**

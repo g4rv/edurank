@@ -94,7 +94,6 @@ export async function unlockPlan(planId: string): Promise<{ ok: true } | { error
   }
 
   revalidatePath('/science-plans');
-  revalidatePath('/my-department/science-plans');
   revalidatePath('/science-plan');
   return { ok: true };
 }

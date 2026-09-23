@@ -9,10 +9,9 @@ const DEPARTMENT_COLUMN = '14rem';
 const STATE_COLUMN = '13rem';
 
 /**
- * Same shape as `/my-department/science-plans/loading.tsx`, plus the факультет
- * picker that screen never has — and, like it, the page's own fixed chrome
- * drawn to the pixel: the flex column, the filter row, the strip and the
- * table's `fill`, so nothing moves when the rows arrive.
+ * The page's own fixed chrome drawn to the pixel: the flex column, the filter
+ * row with its факультет picker, the strip and the table's `fill`, so nothing
+ * moves when the rows arrive.
  */
 export default function AllSciencePlansLoading() {
   return (
