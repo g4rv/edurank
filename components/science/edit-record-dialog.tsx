@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { updateWorkEvidence } from '@/app/(dashboard)/science-plan/record-actions';
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
-import { Label } from '@/components/aurora/ui/label';
+import { FormField } from '@/components/ui/form-field';
 import {
   Dialog,
   DialogBody,
@@ -194,21 +194,30 @@ function EditForm({
             unitLabel="год"
           />
 
-          <div className="space-y-1">
-            <Label htmlFor="edit-link">Посилання на підтвердження</Label>
-            <Input
-              id="edit-link"
-              inputMode="url"
-              placeholder="https://…"
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-            />
-            <p className="text-sm text-foreground-soft">
-              {/* Files are added and removed on the запис itself, not here —
-                  the evidence rule still needs one of the two to survive. */}
-              Якщо запис підтверджено лише файлом, посилання можна не вказувати.
-            </p>
-          </div>
+          {/* D47: hidden where this вид роботи takes no link. Files are added
+              and removed on the запис itself, not here. */}
+          {type.linkRule !== 'NONE' && (
+            <FormField
+              htmlFor="edit-link"
+              label="Посилання на підтвердження"
+              required={type.linkRule === 'REQUIRED'}
+              description={
+                type.linkRule === 'REQUIRED'
+                  ? 'Для цього виду роботи посилання обовʼязкове.'
+                  : type.fileRule === 'NONE'
+                    ? 'Для цього виду роботи підтвердженням є лише посилання.'
+                    : 'Якщо запис підтверджено файлом, посилання можна не вказувати.'
+              }
+            >
+              <Input
+                id="edit-link"
+                inputMode="url"
+                placeholder="https://…"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+              />
+            </FormField>
+          )}
 
           <p className="text-sm text-foreground-soft">
             {poolHundredths === null ? (

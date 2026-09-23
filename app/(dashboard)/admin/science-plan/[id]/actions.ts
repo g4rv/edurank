@@ -6,6 +6,7 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { requireAdmin } from '@/lib/permissions';
+import { proofRulesProblem } from '@/lib/science/evidence-rule';
 import { scoringSpecSchema, specProblems } from '@/validations/activity-type-spec';
 import {
   identityFieldProblem,
@@ -75,6 +76,9 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
   const identityProblem = identityFieldProblem(data.identityFields, data.evidenceFields as never);
   if (identityProblem) return { error: identityProblem };
 
+  const proofProblem = proofRulesProblem(data.linkRule, data.fileRule);
+  if (proofProblem) return { error: proofProblem };
+
   const dupe = await db.scienceWorkType.findFirst({
     where: {
       templateId: data.templateId,
@@ -117,7 +121,8 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
             reuse: data.reuse,
             sharing: data.sharing,
             identityFields,
-            requiresFile: data.requiresFile,
+            linkRule: data.linkRule,
+            fileRule: data.fileRule,
             maxPerYear,
             evidenceFields,
             scoring,
@@ -144,7 +149,8 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
                 reuse: existing.reuse,
                 sharing: existing.sharing,
                 identityFields: JSON.stringify(existing.identityFields ?? []),
-                requiresFile: existing.requiresFile,
+                linkRule: existing.linkRule,
+                fileRule: existing.fileRule,
                 maxPerYear: existing.maxPerYear,
                 specs: specsFingerprint(existing.evidenceFields, existing.scoring),
                 plannedRows: rowCount,
@@ -161,7 +167,8 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
                 reuse: data.reuse,
                 sharing: data.sharing,
                 identityFields: JSON.stringify(data.identityFields),
-                requiresFile: data.requiresFile,
+                linkRule: data.linkRule,
+                fileRule: data.fileRule,
                 maxPerYear,
                 specs: specsFingerprint(data.evidenceFields, data.scoring),
                 plannedRows: rowCount,
@@ -191,7 +198,8 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
             reuse: data.reuse,
             sharing: data.sharing,
             identityFields,
-            requiresFile: data.requiresFile,
+            linkRule: data.linkRule,
+            fileRule: data.fileRule,
             maxPerYear,
             evidenceFields,
             scoring,
@@ -212,6 +220,8 @@ export async function saveWorkType(input: SaveWorkTypeInput): Promise<ScienceWor
                 itemNumber: data.itemNumber,
                 label: data.label,
                 coefficient: data.coefficient,
+                linkRule: data.linkRule,
+                fileRule: data.fileRule,
                 specs: specsFingerprint(data.evidenceFields, data.scoring),
               }
             ),

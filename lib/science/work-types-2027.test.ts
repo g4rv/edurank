@@ -175,3 +175,32 @@ describe('the flags the наказ dictates', () => {
     );
   });
 });
+
+describe('D39/D47 — how each type is proved', () => {
+  it('exactly the eight large or published documents are link only', () => {
+    const linkOnly = SCIENCE_WORK_TYPES_2027.filter(
+      (d) => d.linkRule === 'REQUIRED' && d.fileRule === 'NONE'
+    ).map((d) => d.code);
+    expect([...linkOnly].sort()).toEqual(
+      [
+        'article',
+        'conference_paper',
+        'editorial_board',
+        'english_support',
+        'intl_grant_program',
+        'intl_project',
+        'monograph',
+        'monograph_reissue',
+      ].sort()
+    );
+  });
+
+  it('leaves every other type on the defaults (link or file)', () => {
+    const others = SCIENCE_WORK_TYPES_2027.filter((d) => d.fileRule !== 'NONE');
+    expect(others).toHaveLength(18);
+    for (const d of others) {
+      expect(d.linkRule).toBeUndefined();
+      expect(d.fileRule).toBeUndefined();
+    }
+  });
+});

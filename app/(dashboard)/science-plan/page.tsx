@@ -33,7 +33,8 @@ function toPlanWorkType(row: ScienceWorkTypeRow): PlanWorkType {
     fields: fields.success ? fields.data : [],
     scoring: scoring.success ? scoring.data : { kind: 'FIXED' },
     sharing: row.sharing,
-    requiresFile: row.requiresFile,
+    linkRule: row.linkRule,
+    fileRule: row.fileRule,
   };
 }
 

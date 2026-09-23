@@ -70,6 +70,7 @@ const WORK = {
   templateId: 't1',
   createdById: 'staff-1',
   records: [{ staffId: 'staff-1' }],
+  workType: { fileRule: 'OPTIONAL' },
 };
 
 /** `%PDF-1.7` — enough for `sniffType` to read it as a PDF, not a real
@@ -196,6 +197,18 @@ describe('discardUpload', () => {
 });
 
 describe('attachFile', () => {
+  it('refuses a file on a link-only type (D47) and drops the object', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...WORK,
+      workType: { fileRule: 'NONE' },
+    });
+    expect(await attachFile(base)).toEqual({
+      error: 'Для цього виду роботи додається лише посилання, без файлу',
+    });
+    expect(mockDeleteObject).toHaveBeenCalled();
+    expect(db.scienceRecordFile.create).not.toHaveBeenCalled();
+  });
+
   it('trusts the STORED bytes, not the browser', async () => {
     // The browser said PDF; the object is something else.
     mockGetObjectBytes.mockResolvedValue(new Uint8Array([0x4d, 0x5a]));
@@ -391,7 +404,7 @@ describe('deleteFile', () => {
       createdById: 'staff-1',
       records: [{ staffId: 'staff-1' }],
       link: 'https://example.com/a',
-      workType: { requiresFile: false },
+      workType: { linkRule: 'OPTIONAL', fileRule: 'OPTIONAL' },
       _count: { files: 1 },
     },
   };

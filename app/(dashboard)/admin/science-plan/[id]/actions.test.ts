@@ -39,7 +39,8 @@ const EXISTING_WT1 = {
   reuse: 'ONCE',
   sharing: 'SHARED',
   identityFields: ['title'],
-  requiresFile: false,
+  linkRule: 'OPTIONAL',
+  fileRule: 'OPTIONAL',
   maxPerYear: null,
   isActive: true,
 };
@@ -67,7 +68,8 @@ const VALID: SaveWorkTypeInput = {
   reuse: 'ONCE',
   sharing: 'SHARED',
   identityFields: ['title'],
-  requiresFile: false,
+  linkRule: 'OPTIONAL',
+  fileRule: 'OPTIONAL',
   maxPerYear: null,
 };
 
@@ -108,6 +110,27 @@ it('refuses identityFields naming a field the form does not have', async () => {
   expect(await saveWorkType({ ...VALID, identityFields: ['doi'] })).toEqual({
     error: expect.stringContaining('doi'),
   });
+});
+
+it('refuses a вид роботи nothing could prove (D47)', async () => {
+  expect(await saveWorkType({ ...VALID, linkRule: 'NONE', fileRule: 'NONE' })).toEqual({
+    error: 'Має бути хоча б один спосіб підтвердження',
+  });
+  expect(db.$transaction).not.toHaveBeenCalled();
+});
+
+it('saves the link and file rules and audits a change to them (D47)', async () => {
+  expect(
+    await saveWorkType({ ...VALID, id: 'wt1', linkRule: 'REQUIRED', fileRule: 'NONE' })
+  ).toEqual({ ok: true });
+  expect(db.scienceWorkType.update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      data: expect.objectContaining({ linkRule: 'REQUIRED', fileRule: 'NONE' }),
+    })
+  );
+  const { changes } = (db.auditLog.create as Mock).mock.calls[0][0].data;
+  expect(changes).toHaveProperty('linkRule');
+  expect(changes).toHaveProperty('fileRule');
 });
 
 it('allows reuse and sharing to change on a type that already has rows', async () => {

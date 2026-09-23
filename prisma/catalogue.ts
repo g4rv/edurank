@@ -275,7 +275,8 @@ async function seedSciencePlan(prisma: PrismaClient): Promise<void> {
       reuse: def.reuse,
       sharing: def.sharing,
       identityFields: [...def.identityFields] as unknown as Prisma.InputJsonValue,
-      requiresFile: def.requiresFile ?? false,
+      linkRule: def.linkRule ?? 'OPTIONAL',
+      fileRule: def.fileRule ?? 'OPTIONAL',
       maxPerYear: def.maxPerYear ?? null,
     };
 

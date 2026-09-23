@@ -25,7 +25,7 @@ import { WorkTypeCombobox } from '@/components/science/work-type-combobox';
 import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { planFields } from '@/lib/science/plan-fields';
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
-import type { ScienceSharing } from '@/lib/generated/prisma/client';
+import type { ProofRule, ScienceSharing } from '@/lib/generated/prisma/client';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { toHundredths } from '@/lib/stake/units';
@@ -48,8 +48,9 @@ export interface PlanWorkType {
   /** A SHARED work's hours are a pool its co-authors divide (D14); an
    *  INDIVIDUAL one's are not, so the record form shows no hours box. */
   sharing: ScienceSharing;
-  /** «A link alone is not enough for this type» (D27). */
-  requiresFile: boolean;
+  /** D47 — which proof boxes the record form offers, and which it requires. */
+  linkRule: ProofRule;
+  fileRule: ProofRule;
 }
 
 /**

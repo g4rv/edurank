@@ -28,29 +28,29 @@
 
 ## File map
 
-| file                                                                                                                   | change                                                                                                                           |
-| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `prisma/schema.prisma`                                                                                                 | `Division.canOverseeScience`, `ScienceWorkType.allowsFile`, `SciencePlanTemplate.maxLookbackMonths`, `ScienceWork.executedMonth` |
-| `prisma/migrations/…_science_oversight_flag/`                                                                          | column + ННВ = true                                                                                                              |
-| `prisma/migrations/…_science_url_only/`                                                                                | `allowsFile` + the eight link-only codes                                                                                         |
-| `prisma/migrations/…_science_execution_month/`                                                                         | `maxLookbackMonths`, `executedMonth` + backfill                                                                                  |
-| `lib/science/oversight.ts` (+ new test)                                                                                | `isNnvOversight` → `canOverseeScience`, reads the flag                                                                           |
-| `lib/science/target.ts` (+ test)                                                                                       | `doneTargetHundredths`, D37 shortfall                                                                                            |
-| `lib/science/evidence-rule.ts` (+ test)                                                                                | `allowsFile`                                                                                                                     |
-| `lib/science/execution-month.ts` (new, + test)                                                                         | month keys, options, the fence, labels                                                                                           |
-| `app/(dashboard)/science-plan/record-actions.ts` (+ test)                                                              | month, URL-only, `updateRecordHours`                                                                                             |
-| `app/(dashboard)/science-plan/file-actions.ts` (+ test)                                                                | link-only refusal; uploader may change a file; `replaceFile`                                                                     |
-| `app/(dashboard)/admin/science-plan/actions.ts` (+ test)                                                               | lookback on create/clone, `updateScienceYearSettings`                                                                            |
-| `app/(dashboard)/admin/science-plan/[id]/actions.ts`, `validations/science-work-type.ts`, `components/science/admin/*` | `allowsFile` switch                                                                                                              |
-| `app/(dashboard)/divisions/*`, `validations/division.ts`, `components/division/division-form.tsx`                      | oversight switch                                                                                                                 |
-| `components/science/month-select.tsx` (new)                                                                            | the month picker                                                                                                                 |
-| `components/science/edit-hours-dialog.tsx` (new)                                                                       | «Моя частка»                                                                                                                     |
-| `components/science/replace-file-dialog.tsx` (new)                                                                     | «Замінити»                                                                                                                       |
-| `components/science/{add-record-dialog,edit-record-dialog,record-list,plan-header}.tsx`                                | wire it all                                                                                                                      |
-| `lib/queries/{get-science-plan,get-science-template,list-science-records}.ts`                                          | new fields                                                                                                                       |
-| `app/(dashboard)/my-department/science-plans/`                                                                         | **deleted**                                                                                                                      |
-| `components/sidebar.tsx`, `app/(dashboard)/layout.tsx`                                                                 | nav                                                                                                                              |
-| `CLAUDE.md`, `docs/work-remaining.md`                                                                                  | docs                                                                                                                             |
+| file                                                                                                                   | change                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prisma/schema.prisma`                                                                                                 | `Division.canOverseeScience`, `ScienceWorkType.linkRule` + `fileRule`, `SciencePlanTemplate.maxLookbackMonths`, `ScienceWork.executedMonth` |
+| `prisma/migrations/…_science_oversight_flag/`                                                                          | column + ННВ = true                                                                                                                         |
+| `prisma/migrations/…_science_proof_rules/`                                                                             | `ProofRule` enum, `linkRule`/`fileRule`, the eight link-only codes, drop `requiresFile`                                                     |
+| `prisma/migrations/…_science_execution_month/`                                                                         | `maxLookbackMonths`, `executedMonth` + backfill                                                                                             |
+| `lib/science/oversight.ts` (+ new test)                                                                                | `isNnvOversight` → `canOverseeScience`, reads the flag                                                                                      |
+| `lib/science/target.ts` (+ test)                                                                                       | `doneTargetHundredths`, D37 shortfall                                                                                                       |
+| `lib/science/evidence-rule.ts` (+ test)                                                                                | `linkRule`/`fileRule`                                                                                                                       |
+| `lib/science/execution-month.ts` (new, + test)                                                                         | month keys, options, the fence, labels                                                                                                      |
+| `app/(dashboard)/science-plan/record-actions.ts` (+ test)                                                              | month, URL-only, `updateRecordHours`                                                                                                        |
+| `app/(dashboard)/science-plan/file-actions.ts` (+ test)                                                                | link-only refusal; uploader may change a file; `replaceFile`                                                                                |
+| `app/(dashboard)/admin/science-plan/actions.ts` (+ test)                                                               | lookback on create/clone, `updateScienceYearSettings`                                                                                       |
+| `app/(dashboard)/admin/science-plan/[id]/actions.ts`, `validations/science-work-type.ts`, `components/science/admin/*` | `linkRule`/`fileRule` switch                                                                                                                |
+| `app/(dashboard)/divisions/*`, `validations/division.ts`, `components/division/division-form.tsx`                      | oversight switch                                                                                                                            |
+| `components/science/month-select.tsx` (new)                                                                            | the month picker                                                                                                                            |
+| `components/science/edit-hours-dialog.tsx` (new)                                                                       | «Моя частка»                                                                                                                                |
+| `components/science/replace-file-dialog.tsx` (new)                                                                     | «Замінити»                                                                                                                                  |
+| `components/science/{add-record-dialog,edit-record-dialog,record-list,plan-header}.tsx`                                | wire it all                                                                                                                                 |
+| `lib/queries/{get-science-plan,get-science-template,list-science-records}.ts`                                          | new fields                                                                                                                                  |
+| `app/(dashboard)/my-department/science-plans/`                                                                         | **deleted**                                                                                                                                 |
+| `components/sidebar.tsx`, `app/(dashboard)/layout.tsx`                                                                 | nav                                                                                                                                         |
+| `CLAUDE.md`, `docs/work-remaining.md`                                                                                  | docs                                                                                                                                        |
 
 ---
 
@@ -389,200 +389,63 @@ return {
 
 ---
 
-### Task 4: Link-only types (D39, D40)
+### Task 4: Link and file as two separate rules (D39, D40, D47)
 
 **Files:**
 
-- Modify: `prisma/schema.prisma` (`ScienceWorkType`, after `requiresFile`)
-- Create: `prisma/migrations/<timestamp>_science_url_only/migration.sql` (Task 6 makes its own; never edit an applied migration)
-- Modify: `lib/science/evidence-rule.ts` (+ test), `lib/science/work-types-2027.ts`, `prisma/catalogue.ts:274`
+- Modify: `prisma/schema.prisma` (`ScienceWorkType`: drop `requiresFile`, add `linkRule`, `fileRule`, enum `ProofRule`)
+- Create: `prisma/migrations/<timestamp>_science_proof_rules/migration.sql`
+- Modify: `lib/science/evidence-rule.ts` (+ test), `lib/science/work-types-2027.ts` (+ test), `prisma/catalogue.ts`
 - Modify: `app/(dashboard)/science-plan/record-actions.ts` (+ test), `app/(dashboard)/science-plan/file-actions.ts` (+ test)
-- Modify: `validations/science-work-type.ts`, `app/(dashboard)/admin/science-plan/[id]/actions.ts`, `app/(dashboard)/admin/science-plan/[id]/page.tsx`, `app/(dashboard)/admin/science-plan/actions.ts` (clone), `components/science/admin/work-type-dialog.tsx`, `components/science/admin/work-type-list.tsx`
-- Modify: `lib/queries/get-science-template.ts`, `app/(dashboard)/science-plan/page.tsx` (`toPlanWorkType`), `components/science/add-plan-row-dialog.tsx` (`PlanWorkType`), `components/science/add-record-dialog.tsx`, `components/science/record-list.tsx`
+- Modify: `validations/science-work-type.ts`, `app/(dashboard)/admin/science-plan/[id]/actions.ts` (+ test), `app/(dashboard)/admin/science-plan/[id]/page.tsx`, `app/(dashboard)/admin/science-plan/actions.ts` (clone, + test), `components/science/admin/work-type-dialog.tsx`, `components/science/admin/work-type-list.tsx`
+- Modify: `lib/queries/get-science-template.ts`, `app/(dashboard)/science-plan/page.tsx`, `components/science/add-plan-row-dialog.tsx` (`PlanWorkType`), `components/science/add-record-dialog.tsx`, `components/science/edit-record-dialog.tsx`, `components/science/record-list.tsx`
 - Modify: `lib/labels.ts`
+
+**The model (owner, 2026-09-23 — D47).** The link and the file are two different proofs with **two independent settings** per вид роботи, each `REQUIRED | OPTIONAL | NONE`:
+
+|            | link                                  | file                                  |
+| ---------- | ------------------------------------- | ------------------------------------- |
+| `REQUIRED` | must be given                         | must be given                         |
+| `OPTIONAL` | box shown, may be empty               | box shown, may be empty               |
+| `NONE`     | no box; a link sent anyway is refused | no box; a file sent anyway is refused |
+
+Two rules across the pair: **when neither side is REQUIRED, at least one of the two must still be given** (D27), and **both NONE is refused** in the admin action. `requiresFile` is dropped; the migration maps it to `fileRule = REQUIRED`. A proof on a `NONE` side does not count (a file left over from before a type became link-only proves nothing).
+
+Starting values: the eight types of D39 → link `REQUIRED`, file `NONE`; every other type → both `OPTIONAL`.
 
 **Interfaces:**
 
-- Produces: `ScienceWorkType.allowsFile: boolean` (default true); `PlanWorkType.allowsFile: boolean`; `evidenceProblem({ requiresFile, allowsFile, link, fileCount })`.
+- Produces: Prisma enum `ProofRule`; `ScienceWorkType.linkRule`, `.fileRule`; in `lib/science/evidence-rule.ts`: `type ProofRule = 'REQUIRED' | 'OPTIONAL' | 'NONE'`, `evidenceProblem({ linkRule, fileRule, link, fileCount })`, `proofRulesProblem(linkRule, fileRule): string | null`, `LINK_NOT_ALLOWED`, `FILE_NOT_ALLOWED`; `PlanWorkType.linkRule`, `.fileRule`.
 
-- [ ] **Step 1: Schema** — in `model ScienceWorkType`, after `requiresFile`:
-
-```prisma
-  /// D39 (owner, 2026-09-23): may a FILE prove this type at all? False for
-  /// the eight types whose proof is a large or published document — a звіт,
-  /// a монографія, a стаття, матеріали конференції (D39); ННВ opens the link
-  /// and checks it there, pages included (D40). The opposite of `requiresFile`; both false
-  /// never happens in practice, both true is refused by the admin action.
-  allowsFile Boolean @default(true)
-```
-
-- [ ] **Step 2: Migration**
-
-Run: `pnpm prisma migrate dev --create-only --name science_url_only`
-Make the SQL:
+- [ ] **Step 1: Schema + migration.** Enum `ProofRule { REQUIRED OPTIONAL NONE }`; on `ScienceWorkType` replace `requiresFile` with `linkRule ProofRule @default(OPTIONAL)` and `fileRule ProofRule @default(OPTIONAL)`. `pnpm prisma migrate dev --create-only --name science_proof_rules`, then write the SQL so the data moves BEFORE the old column is dropped:
 
 ```sql
-ALTER TABLE "ScienceWorkType" ADD COLUMN "allowsFile" BOOLEAN NOT NULL DEFAULT true;
-
--- D39: eight types are link only, in EVERY template — a cloned year carries its
--- own copy of the catalogue, and production is never reseeded.
-UPDATE "ScienceWorkType" SET "allowsFile" = false
-WHERE "code" IN (
-  'intl_grant_program', 'intl_project', 'monograph', 'monograph_reissue', 'article',
-  'conference_paper', 'editorial_board', 'english_support'
-);
+CREATE TYPE "ProofRule" AS ENUM ('REQUIRED', 'OPTIONAL', 'NONE');
+ALTER TABLE "ScienceWorkType"
+  ADD COLUMN "linkRule" "ProofRule" NOT NULL DEFAULT 'OPTIONAL',
+  ADD COLUMN "fileRule" "ProofRule" NOT NULL DEFAULT 'OPTIONAL';
+UPDATE "ScienceWorkType" SET "fileRule" = 'REQUIRED' WHERE "requiresFile" = true;
+UPDATE "ScienceWorkType" SET "linkRule" = 'REQUIRED', "fileRule" = 'NONE'
+WHERE "code" IN ('intl_grant_program', 'intl_project', 'monograph', 'monograph_reissue',
+                 'article', 'conference_paper', 'editorial_board', 'english_support');
+ALTER TABLE "ScienceWorkType" DROP COLUMN "requiresFile";
 ```
 
-Run `pnpm db:migrate && pnpm db:generate`; tell the owner to restart `pnpm dev`.
+Apply, generate, check `migrate status`, and query the eight rows.
 
-- [ ] **Step 3: Catalogue** — `lib/science/work-types-2027.ts`: add `allowsFile?: boolean;` next to `requiresFile?: boolean;` in the def type (line ~71), and `allowsFile: false,` to exactly these eight defs: `intl_grant_program`, `intl_project`, `monograph`, `monograph_reissue`, `article`, `conference_paper`, `editorial_board`, `english_support`. `prisma/catalogue.ts:274`: add `allowsFile: def.allowsFile ?? true,`. In `work-types-2027.test.ts` add:
+- [ ] **Step 2: The rule, test first.** Rewrite `lib/science/evidence-rule.test.ts` around `linkRule`/`fileRule`: link REQUIRED + none → «Для цього виду роботи потрібне посилання»; file REQUIRED + none → «Для цього виду роботи потрібен файл підтвердження»; both OPTIONAL + nothing → «Додайте посилання або файл підтвердження»; both OPTIONAL + either → ok; link REQUIRED + file NONE + a leftover file and no link → the link sentence; file NONE never satisfies «at least one». `proofRulesProblem('NONE', 'NONE')` → «Має бути хоча б один спосіб підтвердження»; any other pair → null. Then implement.
 
-```ts
-it('D39 — exactly the eight large or published documents are link only', () => {
-  const linkOnly = WORK_TYPES_2027.filter((t) => t.allowsFile === false).map((t) => t.code);
-  expect(linkOnly.sort()).toEqual(
-    [
-      'article',
-      'conference_paper',
-      'editorial_board',
-      'english_support',
-      'intl_grant_program',
-      'intl_project',
-      'monograph',
-      'monograph_reissue',
-    ].sort()
-  );
-});
-```
+- [ ] **Step 3: The actions, test first.** `saveRecord`: a file on a `fileRule: NONE` type → `FILE_NOT_ALLOWED`, object dropped, nothing created; a link on a `linkRule: NONE` type → `LINK_NOT_ALLOWED`, object dropped. `updateWorkEvidence`: same link refusal. `attachFile`: `fileRule: NONE` → `FILE_NOT_ALLOWED`, object dropped. `deleteFile`: passes both rules to `evidenceProblem` (a file on a link-REQUIRED type whose link exists may be deleted). Replace every `requiresFile` fixture with the rule pair.
 
-(use whatever name that test file already imports the catalogue array under).
+- [ ] **Step 4: Catalogue.** `work-types-2027.ts`: `linkRule?`/`fileRule?` replace `requiresFile?` in the def type; the eight D39 defs get `linkRule: 'REQUIRED', fileRule: 'NONE'`. `prisma/catalogue.ts`: `linkRule: def.linkRule ?? 'OPTIONAL', fileRule: def.fileRule ?? 'OPTIONAL'`. A test pins exactly those eight.
 
-- [ ] **Step 4: Failing tests for the rule** — in `lib/science/evidence-rule.test.ts`, every existing call gains `allowsFile: true`; then add:
+- [ ] **Step 5: Admin.** `validations/science-work-type.ts`: `linkRule`/`fileRule` as `z.enum(['REQUIRED','OPTIONAL','NONE'])`, and `proofRulesProblem` refused in `saveWorkType` (a field-level message on the dialog). `[id]/actions.ts`, clone, `[id]/page.tsx`, `work-type-list.tsx`: carry both fields wherever `requiresFile` was. `work-type-dialog.tsx`: the `requiresFile` switch becomes two Selects, «Посилання» and «Файл», each «Обов'язково / Необов'язково / Не використовується». `lib/labels.ts`: `linkRule: 'Посилання'`, `fileRule: 'Файл'`, and a `PROOF_RULE_LABELS` map; keep the old `requiresFile` label so past audit rows still read.
 
-```ts
-describe('D39 — a URL-only type', () => {
-  it('refuses a record with no link, naming the link', () => {
-    expect(
-      evidenceProblem({ requiresFile: false, allowsFile: false, link: null, fileCount: 0 })
-    ).toBe('Для цього виду роботи потрібне посилання');
-  });
+- [ ] **Step 6: The НПП's forms.** `get-science-template.ts` selects both; `PlanWorkType` carries both. `add-record-dialog.tsx`: the link box hides on `NONE` and is marked required on `REQUIRED`; the file box likewise; the hint under them follows the pair («Досить або посилання, або файлу» only when both are OPTIONAL). `edit-record-dialog.tsx`: the link box hides on `NONE`. `record-list.tsx`: «Додати файл» hides on `fileRule: NONE`.
 
-  it('refuses it even when an old file is attached', () => {
-    expect(
-      evidenceProblem({ requiresFile: false, allowsFile: false, link: '', fileCount: 1 })
-    ).toBe('Для цього виду роботи потрібне посилання');
-  });
+- [ ] **Step 7: Check** — `pnpm type-check && pnpm test`, lint the touched files. The owner opens a стаття (link only), a доповідь (link only) and a сертифікат-type (both optional) in the add dialog, and changes one type's rules in `/admin/science-plan/[id]`.
 
-  it('accepts a link', () => {
-    expect(
-      evidenceProblem({
-        requiresFile: false,
-        allowsFile: false,
-        link: 'https://doi.org/x',
-        fileCount: 0,
-      })
-    ).toBeNull();
-  });
-});
-```
-
-Run: `pnpm test lib/science/evidence-rule.test.ts` — FAIL.
-
-- [ ] **Step 5: Implement** — `lib/science/evidence-rule.ts`: add `allowsFile: boolean;` to the input, and after the `requiresFile` check:
-
-```ts
-// D39: a large or published document is proved by its URL, and a file
-// does not stand in for one — ННВ opens the link and checks it (D40).
-if (!input.allowsFile && !hasLink) {
-  return 'Для цього виду роботи потрібне посилання';
-}
-```
-
-Add a paragraph to the doc comment: «`allowsFile` is D39's opposite flag: false means only a link proves this type.» Run the test — PASS.
-
-- [ ] **Step 6: Pass it everywhere** — `pnpm type-check` lists the three callers (`saveRecord`, `updateWorkEvidence`, `deleteFile`). Pass `allowsFile: type.allowsFile` / `work.workType.allowsFile` / `file.work.workType.allowsFile` — extend each `select` (`deleteFile`'s `workType: { select: { requiresFile: true, allowsFile: true } }`).
-
-- [ ] **Step 7: Failing tests for the intake refusal**
-
-In `record-actions.test.ts`, add `allowsFile: true` to `ARTICLE`, then:
-
-```ts
-describe('saveRecord — D39, a URL-only type takes no file', () => {
-  it('refuses a file and drops the object', async () => {
-    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({ ...ARTICLE, allowsFile: false });
-    const result = await saveRecord({ ...base, file: STAGED });
-    expect(result).toEqual({ error: 'Для цього виду роботи додається лише посилання, без файлу' });
-    expect(mockDropObject).toHaveBeenCalledWith('science.saveRecord', STAGED.objectKey, {
-      userId: 'u1',
-    });
-    expect(db.scienceWork.create).not.toHaveBeenCalled();
-  });
-
-  it('saves the same record with the link alone', async () => {
-    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({ ...ARTICLE, allowsFile: false });
-    expect(await saveRecord(base)).toMatchObject({ ok: true });
-  });
-});
-```
-
-In `file-actions.test.ts`, add a test to the `attachFile` describe: the work's `workType` is `{ allowsFile: false }` → result `{ error: 'Для цього виду роботи додається лише посилання, без файлу' }`, `safeDeleteObject` called, `scienceRecordFile.create` not called. Use that file's existing fixtures and add `workType: { allowsFile: true }` to its default work fixture.
-
-Run both files — FAIL.
-
-- [ ] **Step 8: Implement the refusal**
-
-`record-actions.ts` `saveRecord` — immediately after `dropFile` is defined:
-
-```ts
-// D39: a URL-only type takes no file at all. Checked before anything reads
-// the file's count, so a PDF never ends up standing in for the link.
-if (input.file && !type.allowsFile) {
-  await dropFile();
-  return { error: FILE_NOT_ALLOWED };
-}
-```
-
-The sentence lives in `lib/science/evidence-rule.ts`, not in the action file — a `'use server'` file may only export async functions, and both actions need it:
-
-```ts
-/** D39 — shown when a file is offered for a URL-only type. */
-export const FILE_NOT_ALLOWED = 'Для цього виду роботи додається лише посилання, без файлу';
-```
-
-Import it in `record-actions.ts` and `file-actions.ts`.
-
-`file-actions.ts` `attachFile` — select `workType: { select: { allowsFile: true } }` on the work, and after the ownership check:
-
-```ts
-if (!work.workType.allowsFile) {
-  await safeDeleteObject('science.attachFile', input.objectKey, { userId });
-  return { error: FILE_NOT_ALLOWED };
-}
-```
-
-Run both test files — PASS.
-
-- [ ] **Step 9: Admin switch**
-
-- `validations/science-work-type.ts` — after `requiresFile: z.boolean(),` add `allowsFile: z.boolean(),` and a `.refine((d) => d.allowsFile || !d.requiresFile, { error: 'Файл не може бути обовʼязковим, якщо файли заборонено', path: ['allowsFile'] })` on the object (check the file: if the schema is already wrapped in `.superRefine`, add the rule there instead).
-- `app/(dashboard)/admin/science-plan/[id]/actions.ts` — every `requiresFile: data.requiresFile` / `existing.requiresFile` gets an `allowsFile` twin (create, update, both sides of the audit diff).
-- `app/(dashboard)/admin/science-plan/actions.ts:151` (`cloneScienceYear`) — `allowsFile: wt.allowsFile,`.
-- `app/(dashboard)/admin/science-plan/[id]/page.tsx:50,89` — select and pass `allowsFile`.
-- `components/science/admin/work-type-list.tsx:45,78,99` — the row type, the blank draft (`allowsFile: true`), the mapping.
-- `components/science/admin/work-type-dialog.tsx` — `allowsFile: boolean` in the draft type (line ~64), in the submit payload (~334), and a Switch beside the `requiresFile` one (~560), labelled «Можна додати файл» with the hint «Вимкніть для звітів і публікацій: їх підтверджує лише посилання». Copy the `requiresFile` Switch block and change the name.
-- `lib/labels.ts` — `allowsFile: 'Можна додати файл',`.
-- Add a case to `app/(dashboard)/admin/science-plan/[id]/actions.test.ts` asserting `allowsFile` is saved, and one that `cloneScienceYear` copies it (in `app/(dashboard)/admin/science-plan/actions.test.ts`, beside the `requiresFile` assertion).
-
-- [ ] **Step 10: The НПП's form**
-
-- `lib/queries/get-science-template.ts` — `allowsFile: true,` in the `workTypes` select, and extend the comment above it to name it.
-- `PlanWorkType` in `components/science/add-plan-row-dialog.tsx` — add `allowsFile: boolean;`. `toPlanWorkType` in `app/(dashboard)/science-plan/page.tsx` — `allowsFile: row.allowsFile,`.
-- `components/science/add-record-dialog.tsx` — wrap the whole «Файл підтвердження» `<div className="space-y-1">` in `{type?.allowsFile !== false && ( … )}`. When `type?.allowsFile === false`, the link hint `<p>` instead reads: `Лише посилання — на сторінку, де це опубліковано або розміщено. ННВ перевірить його.` Keep the existing text for every other case.
-- `components/science/record-list.tsx` — show `<AttachFileDialog>` only when `workTypeById.get(record.workTypeId)?.allowsFile !== false`.
-
-- [ ] **Step 11: Check** — `pnpm type-check && pnpm test && pnpm lint`. Ask the owner to try adding a стаття (no file box) and a доповідь (file box still there).
-
-- [ ] **Step 12: Ask the owner, then `/commit`** — `feat(science): prove large and published documents by link only`
+- [ ] **Step 8: Ask the owner, then `/commit`** — `feat(science): let ADMIN set the link and the file rule per вид роботи`
 
 ---
 
@@ -1611,7 +1474,12 @@ describe('replaceFile — the new file in before the old one goes', () => {
     objectKey: 'evidence/t1/old.pdf',
     fileName: 'old.pdf',
     uploadedById: 'staff-1',
-    work: { id: 'w1', templateId: 't1', createdById: 'staff-1', workType: { allowsFile: true } },
+    work: {
+      id: 'w1',
+      templateId: 't1',
+      createdById: 'staff-1',
+      workType: { fileRule: 'OPTIONAL' },
+    },
   };
   const NEW = { fileId: 'f1', objectKey: 'evidence/t1/new.pdf', fileName: 'new.pdf' };
 
@@ -1716,7 +1584,7 @@ export async function replaceFile(input: {
           id: true,
           templateId: true,
           createdById: true,
-          workType: { select: { allowsFile: true } },
+          workType: { select: { fileRule: true } },
         },
       },
     },
@@ -1729,9 +1597,9 @@ export async function replaceFile(input: {
     await dropNew();
     return { error: CHANGE_FILE_REFUSED };
   }
-  // A link-only type (D39) still carrying a file from before D39: the way out
-  // is to delete it once a link is there, never to put in another.
-  if (!old.work.workType.allowsFile) {
+  // A type whose file rule is NONE (D47) still carrying a file from before:
+  // the way out is to delete it once a link is there, never to put in another.
+  if (old.work.workType.fileRule === 'NONE') {
     await dropNew();
     return { error: FILE_NOT_ALLOWED };
   }
@@ -1814,7 +1682,7 @@ Check `verifyUploadedObject` in `lib/science/file-intake.ts`: if it already drop
 - [ ] **Step 1: CLAUDE.md** — in «Планування наукової роботи (built)» add bullets:
   - **Oversight is a division switch** (`Division.canOverseeScience`, D43) — `canOverseeScience()` in `lib/science/oversight.ts`; ННВ has it by migration. Never match ННВ by `registryKey` for this again.
   - **The fact owes `max(план, 500 × ставка)`** (D37) — `doneTargetHundredths`.
-  - **Eight types are link only** (`ScienceWorkType.allowsFile`, D39): п.1 both, п.3 both, п.4, п.6 доповідь, п.10 both.
+  - **Link and file are two separate rules per вид роботи** (`linkRule`, `fileRule`: REQUIRED / OPTIONAL / NONE, D47). Only when neither is REQUIRED must one of the two be given. The eight D39 types start as link REQUIRED, file NONE.
   - **Every work has an `executedMonth`** (D41), fenced at `SciencePlanTemplate.maxLookbackMonths` months back from the day of entry (D42). Month maths only through `lib/science/execution-month.ts`, which reads Kyiv time.
   - **A co-author changes their own share with `updateRecordHours`** (D46). A file is changed by whoever uploaded it or entered the work; **the only proof is swapped with `replaceFile`, never deleted first**.
     In the folder tree, remove the `science-plans/` line under `my-department/` and, beside `science-plans/` at the top level, say «ADMIN + the division with `canOverseeScience`».

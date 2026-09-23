@@ -132,7 +132,10 @@ export function RecordList({
                           label={record.summary}
                         />
                       )}
-                      <AttachFileDialog workId={record.workId} label={record.summary} />
+                      {/* D47: not for a вид роботи proved by a link alone. */}
+                      {workTypeById.get(record.workTypeId)?.fileRule !== 'NONE' && (
+                        <AttachFileDialog workId={record.workId} label={record.summary} />
+                      )}
                     </div>
                   )}
 

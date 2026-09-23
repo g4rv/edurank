@@ -18,7 +18,6 @@ import {
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { Textarea } from '@/components/aurora/ui/textarea';
-import { Switch } from '@/components/aurora/ui/switch';
 import {
   Select,
   SelectContent,
@@ -35,11 +34,12 @@ import { saveWorkTypeSchema } from '@/validations/science-work-type';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScoringSpec } from '@/lib/specs/scoring';
 import { saveWorkType } from '@/app/(dashboard)/admin/science-plan/[id]/actions';
-import type { ScienceReuse, ScienceSharing } from '@/lib/generated/prisma/client';
+import type { ProofRule, ScienceReuse, ScienceSharing } from '@/lib/generated/prisma/client';
+import { PROOF_RULE_LABELS } from '@/lib/labels';
 
 // Modelled on `components/admin/activity-type-dialog.tsx` (the rating's own
 // indicator editor), with the science-only columns added — `unitNote`,
-// `reportingForm`, `reuse`, `sharing`, `identityFields`, `requiresFile` — and
+// `reportingForm`, `reuse`, `sharing`, `identityFields`, `linkRule`/`fileRule` — and
 // the rating's розділ / inputSource / licencePositions machinery dropped:
 // Додаток III has none of those.
 //
@@ -61,7 +61,8 @@ export interface WorkTypeDraft {
   reuse: ScienceReuse;
   sharing: ScienceSharing;
   identityFields: string[];
-  requiresFile: boolean;
+  linkRule: ProofRule;
+  fileRule: ProofRule;
   maxPerYear: number | null;
   fields: EvidenceField[];
   scoring: ScoringSpec;
@@ -331,7 +332,8 @@ function WorkTypeForm({
       reuse: draft.reuse,
       sharing: draft.sharing,
       identityFields: draft.identityFields,
-      requiresFile: draft.requiresFile,
+      linkRule: draft.linkRule,
+      fileRule: draft.fileRule,
       maxPerYear: draft.maxPerYear ?? '',
       evidenceFields: draft.fields,
       scoring: draft.scoring,
@@ -341,7 +343,8 @@ function WorkTypeForm({
   // eslint-disable-next-line react-hooks/incompatible-library
   const reuse = watch('reuse') as ScienceReuse;
   const sharing = watch('sharing') as ScienceSharing;
-  const requiresFile = watch('requiresFile') as boolean;
+  const linkRule = watch('linkRule') as ProofRule;
+  const fileRule = watch('fileRule') as ProofRule;
 
   function onScoringChange(next: ScoringSpec) {
     const reconciled = withScoringFields(fields, next);
@@ -554,19 +557,30 @@ function WorkTypeForm({
             </div>
           </FormSection>
 
-          <FormSection title="Підтвердження">
-            <label className="flex cursor-pointer items-center gap-2">
-              <Switch
-                checked={!!requiresFile}
-                onCheckedChange={(v) => setValue('requiresFile', v, { shouldDirty: true })}
+          {/* D47 — two separate proofs, two separate rules. Only when neither
+              is required must the НПП still give one of the two; both «не
+              використовується» is refused on save. */}
+          <FormSection
+            title="Підтвердження"
+            hint="Якщо жодне не обовʼязкове, НПП має додати хоча б одне з двох"
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ProofRuleSelect
+                id="work-type-link-rule"
+                label="Посилання"
+                value={linkRule}
+                onChange={(v) => setValue('linkRule', v, { shouldDirty: true })}
               />
-              <span className="text-sm">
-                Потребує файл
-                <span className="block text-xs text-foreground-soft">
-                  Самого посилання недостатньо — Stage 3 вимагатиме прикріплений файл
-                </span>
-              </span>
-            </label>
+              <ProofRuleSelect
+                id="work-type-file-rule"
+                label="Файл"
+                value={fileRule}
+                onChange={(v) => setValue('fileRule', v, { shouldDirty: true })}
+              />
+            </div>
+            {linkRule === 'NONE' && fileRule === 'NONE' && (
+              <p className="mt-2 text-sm text-error">Має бути хоча б один спосіб підтвердження</p>
+            )}
           </FormSection>
         </DialogBody>
 
@@ -577,5 +591,37 @@ function WorkTypeForm({
         </DialogFooter>
       </form>
     </RequiredFields>
+  );
+}
+
+const PROOF_RULES: ProofRule[] = ['REQUIRED', 'OPTIONAL', 'NONE'];
+
+/** One side of D47's pair — the link or the file. */
+function ProofRuleSelect({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: ProofRule;
+  onChange: (value: ProofRule) => void;
+}) {
+  return (
+    <FormField htmlFor={id} label={label}>
+      <Select value={value} onValueChange={(v) => onChange(v as ProofRule)}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PROOF_RULES.map((rule) => (
+            <SelectItem key={rule} value={rule}>
+              {PROOF_RULE_LABELS[rule]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
   );
 }

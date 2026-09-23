@@ -1016,6 +1016,17 @@ enum ScienceReuse {
   YEARLY
 }
 
+/// How one kind of proof — the link, or the file — is treated for a вид
+/// роботи (D47).
+enum ProofRule {
+  /// Must be given.
+  REQUIRED
+  /// Offered, may be left empty.
+  OPTIONAL
+  /// Not offered; one sent anyway is refused.
+  NONE
+}
+
 enum ScienceSharing {
   /// One work, one pool of hours, several authors draw on it.
   SHARED
@@ -1110,8 +1121,14 @@ model ScienceWorkType {
   /// `reuse` is one. Unused until Stage 2; seeded now so the catalogue is whole.
   identityFields Json @default("[]")
 
-  /// A link is not enough for this type — a file must be attached. Stage 3.
-  requiresFile Boolean @default(false)
+  /// D47 (owner, 2026-09-23): the link and the file are two different proofs,
+  /// each with its own rule, set by ADMIN per вид роботи. Only when neither is
+  /// REQUIRED must one of the two still be given (D27); both NONE is refused.
+  /// `lib/science/evidence-rule.ts` reads them. The eight D39 types — a звіт,
+  /// a монографія, a стаття, матеріали конференції — start as link REQUIRED,
+  /// file NONE: ННВ opens the link and checks it there, pages included (D40).
+  linkRule ProofRule @default(OPTIONAL)
+  fileRule ProofRule @default(OPTIONAL)
 
   /// Item 6's «Участь в конференціях (мах.5)».
   maxPerYear Int?

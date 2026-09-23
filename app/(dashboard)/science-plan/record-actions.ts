@@ -11,7 +11,7 @@ import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { rateForPlan } from '@/lib/science/target';
 import { workKey } from '@/lib/science/work-key';
 import { poolProblem, remainingHundredths } from '@/lib/science/pool';
-import { evidenceProblem } from '@/lib/science/evidence-rule';
+import { evidenceProblem, FILE_NOT_ALLOWED, LINK_NOT_ALLOWED } from '@/lib/science/evidence-rule';
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { toHundredths } from '@/lib/stake/units';
 import { schemaForFields } from '@/validations/activity-evidence';
@@ -343,8 +343,22 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     if (input.file) await safeDeleteObject('science.saveRecord', input.file.objectKey, { userId });
   };
 
+  // D47: a proof on a side this вид роботи does not use is refused, not
+  // silently kept — the form never offers it, so only a hand-made request
+  // gets here, and a stored link or file nobody can see would be a surprise
+  // to ННВ later.
+  if (input.file && type.fileRule === 'NONE') {
+    await dropFile();
+    return { error: FILE_NOT_ALLOWED };
+  }
+  if (link && type.linkRule === 'NONE') {
+    await dropFile();
+    return { error: LINK_NOT_ALLOWED };
+  }
+
   const evidenceFault = evidenceProblem({
-    requiresFile: type.requiresFile,
+    linkRule: type.linkRule,
+    fileRule: type.fileRule,
     link,
     fileCount: verifiedFile ? 1 : 0,
   });
@@ -772,8 +786,10 @@ export async function updateWorkEvidence(input: {
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   const link = input.link?.trim() || null;
+  if (link && type.linkRule === 'NONE') return { error: LINK_NOT_ALLOWED };
   const evidenceFault = evidenceProblem({
-    requiresFile: type.requiresFile,
+    linkRule: type.linkRule,
+    fileRule: type.fileRule,
     link,
     fileCount: work._count.files,
   });

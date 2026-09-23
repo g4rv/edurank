@@ -9,7 +9,7 @@ import { logError } from '@/lib/log';
 import { canOverseeScience } from '@/lib/science/oversight';
 import { objectKeyFor, presignGet, presignPut } from '@/lib/science/r2';
 import { fileProblem } from '@/lib/science/file-checks';
-import { evidenceProblem } from '@/lib/science/evidence-rule';
+import { evidenceProblem, FILE_NOT_ALLOWED } from '@/lib/science/evidence-rule';
 import {
   DUPLICATE_FILE_MESSAGE,
   isDuplicateFileViolation,
@@ -158,6 +158,7 @@ export async function attachFile(input: {
       templateId: true,
       createdById: true,
       records: { where: { status: 'APPROVED' }, select: { staffId: true } },
+      workType: { select: { fileRule: true } },
     },
   });
   // A work from another year, or one the caller neither created nor drew
@@ -166,6 +167,11 @@ export async function attachFile(input: {
   if (!work || work.templateId !== template.id || !ownsWork(work, staffId)) {
     await safeDeleteObject('science.attachFile', input.objectKey, { userId });
     return { error: 'Роботу не знайдено' };
+  }
+  // D47: this вид роботи is proved by a link alone.
+  if (work.workType.fileRule === 'NONE') {
+    await safeDeleteObject('science.attachFile', input.objectKey, { userId });
+    return { error: FILE_NOT_ALLOWED };
   }
 
   const verified = await verifyUploadedObject({
@@ -303,7 +309,7 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
           templateId: true,
           createdById: true,
           link: true,
-          workType: { select: { requiresFile: true } },
+          workType: { select: { linkRule: true, fileRule: true } },
           _count: { select: { files: true } },
         },
       },
@@ -321,7 +327,8 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
   // REMAIN, so replacing a bad scan is still two ordinary steps: add the good
   // one, then delete this.
   const fault = evidenceProblem({
-    requiresFile: file.work.workType.requiresFile,
+    linkRule: file.work.workType.linkRule,
+    fileRule: file.work.workType.fileRule,
     link: file.work.link,
     fileCount: file.work._count.files - 1,
   });

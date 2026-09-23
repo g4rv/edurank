@@ -100,7 +100,8 @@ describe('cloneScienceYear', () => {
                 reuse: 'ONCE',
                 sharing: 'SHARED',
                 identityFields: ['pages'],
-                requiresFile: false,
+                linkRule: 'REQUIRED',
+                fileRule: 'NONE',
                 maxPerYear: null,
                 isActive: true,
               },
@@ -128,6 +129,9 @@ describe('cloneScienceYear', () => {
       sharing: 'SHARED',
       scoring: { kind: 'SELECT_MULT' },
       identityFields: ['pages'],
+      // D47: the next year keeps each type's link and file rules.
+      linkRule: 'REQUIRED',
+      fileRule: 'NONE',
     });
   });
 });

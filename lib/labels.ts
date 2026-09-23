@@ -1,6 +1,7 @@
 import type {
   AcademicRank,
   AdminPosition,
+  ProofRule,
   Role,
   ScientificDegree,
   StudentDegree,
@@ -44,6 +45,13 @@ export const STUDY_FORM_LABELS: Record<StudyForm, string> = {
 export const STUDENT_FUNDING_LABELS: Record<StudentFunding, string> = {
   STATE: 'Бюджет',
   CONTRACT: 'Контракт',
+};
+
+/** D47 — how one kind of proof (the link or the file) is treated. */
+export const PROOF_RULE_LABELS: Record<ProofRule, string> = {
+  REQUIRED: 'Обовʼязково',
+  OPTIONAL: 'Необовʼязково',
+  NONE: 'Не використовується',
 };
 
 export const ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {
@@ -203,7 +211,10 @@ export const FIELD_LABELS: Record<string, string> = {
   reuse: 'Повторне використання',
   sharing: 'Розподіл між співавторами',
   identityFields: 'Поля ідентичності роботи',
+  // Kept for audit entries written before D47 replaced the column.
   requiresFile: 'Потребує файл',
+  linkRule: 'Посилання',
+  fileRule: 'Файл',
   maxPerYear: 'Максимум на рік',
   // Not columns — a short fingerprint of the JSON evidenceFields/scoring pair
   // and a plan-row count, so the audit log shows something a person can read

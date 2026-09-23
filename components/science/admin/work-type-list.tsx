@@ -26,7 +26,7 @@ import {
 import { WorkTypeDialog, type WorkTypeDraft } from '@/components/science/admin/work-type-dialog';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScoringSpec } from '@/lib/specs/scoring';
-import type { ScienceReuse, ScienceSharing } from '@/lib/generated/prisma/client';
+import type { ProofRule, ScienceReuse, ScienceSharing } from '@/lib/generated/prisma/client';
 
 export interface WorkTypeRow {
   id: string;
@@ -42,7 +42,8 @@ export interface WorkTypeRow {
   reuse: ScienceReuse;
   sharing: ScienceSharing;
   identityFields: string[];
-  requiresFile: boolean;
+  linkRule: ProofRule;
+  fileRule: ProofRule;
   maxPerYear: number | null;
   isActive: boolean;
   planRowCount: number;
@@ -75,7 +76,8 @@ function blankDraft(): WorkTypeDraft {
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
     identityFields: [],
-    requiresFile: false,
+    linkRule: 'OPTIONAL',
+    fileRule: 'OPTIONAL',
     maxPerYear: null,
     fields: [{ kind: 'text', name: 'title', label: 'Назва роботи' }],
     scoring: { kind: 'FIXED' },
@@ -96,7 +98,8 @@ function toDraft(row: WorkTypeRow): WorkTypeDraft {
     reuse: row.reuse,
     sharing: row.sharing,
     identityFields: row.identityFields,
-    requiresFile: row.requiresFile,
+    linkRule: row.linkRule,
+    fileRule: row.fileRule,
     maxPerYear: row.maxPerYear,
     fields: row.fields,
     scoring: row.scoring,

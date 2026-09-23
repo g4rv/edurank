@@ -10,6 +10,8 @@ import { saveRecord, type WorkConflict } from '@/app/(dashboard)/science-plan/re
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { Label } from '@/components/aurora/ui/label';
+import { FormField } from '@/components/ui/form-field';
+import type { ProofRule } from '@/lib/generated/prisma/client';
 import {
   Dialog,
   DialogBody,
@@ -220,6 +222,8 @@ function RecordForm({
   }
 
   const shared = type?.sharing === 'SHARED';
+  const linkRule = type?.linkRule ?? 'OPTIONAL';
+  const fileRule = type?.fileRule ?? 'OPTIONAL';
   const poolHundredths = previewHours === null ? null : toHundredths(previewHours);
 
   function onSubmit(data: FieldValues) {
@@ -295,44 +299,44 @@ function RecordForm({
               unitLabel="год"
             />
 
-            <div className="space-y-1">
-              <Label htmlFor="record-link">Посилання на підтвердження</Label>
-              <Input
-                id="record-link"
-                inputMode="url"
-                // Plain `https://…`, never a DOI: the placeholder used to suggest
-                // one for every вид роботи, including «Керівництво аспірантами»,
-                // which is proved by a наказ (owner, 2026-09-17).
-                placeholder="https://…"
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-              />
-              <p className="text-sm text-foreground-soft">
-                {/* Per item, from the наказ's own «Форма звітності» column — it is
-                    already seeded per work type and already ADMIN-editable, so a
-                    new вид роботи gets a correct hint with no code change. */}
-                {type?.reportingForm
-                  ? `${type.reportingForm} — посилання на сторінку, де це опубліковано.`
-                  : 'Сторінка, яку можна відкрити: DOI, сайт видання, репозитарій, наказ.'}
-              </p>
-            </div>
+            {/* D47: the link and the file each follow their own rule from the
+                catalogue — shown, required, or not offered at all. Before a вид
+                роботи is chosen both are shown as optional. */}
+            {linkRule !== 'NONE' && (
+              <FormField
+                htmlFor="record-link"
+                label="Посилання на підтвердження"
+                required={linkRule === 'REQUIRED'}
+                description={linkHint(type)}
+              >
+                <Input
+                  id="record-link"
+                  inputMode="url"
+                  // Plain `https://…`, never a DOI: the placeholder used to suggest
+                  // one for every вид роботи, including «Керівництво аспірантами»,
+                  // which is proved by a наказ (owner, 2026-09-17).
+                  placeholder="https://…"
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                />
+              </FormField>
+            )}
 
-            <div className="space-y-1">
-              <Label htmlFor="record-file">Файл підтвердження</Label>
-              <EvidenceFileField
-                id="record-file"
-                value={file}
-                onChange={setFile}
-                onBusyChange={setFileBusy}
-              />
-              <p className="text-sm text-foreground-soft">
-                {/* D27: a link proves anything with a public page; a file is for
-                    a document that exists only in the person's own hands. One of
-                    the two is required — which one is theirs to decide. */}
-                Сертифікат, довідка або диплом — PDF, JPG чи PNG до 10 МБ. Досить або посилання, або
-                файлу.
-              </p>
-            </div>
+            {fileRule !== 'NONE' && (
+              <FormField
+                htmlFor="record-file"
+                label="Файл підтвердження"
+                required={fileRule === 'REQUIRED'}
+                description={fileHint(linkRule, fileRule)}
+              >
+                <EvidenceFileField
+                  id="record-file"
+                  value={file}
+                  onChange={setFile}
+                  onBusyChange={setFileBusy}
+                />
+              </FormField>
+            )}
 
             {shared && (
               <div className="space-y-1">
@@ -384,4 +388,25 @@ function RecordForm({
       </form>
     </RequiredFields>
   );
+}
+
+/** Under the link box. Per item where it can be, from the наказ's own «Форма
+ *  звітності» column — already seeded per work type and ADMIN-editable, so a
+ *  new вид роботи gets a correct hint with no code change. */
+function linkHint(type: PlanWorkType | undefined): string {
+  if (type?.fileRule === 'NONE') {
+    return 'Лише посилання — на сторінку, де це опубліковано або розміщено. ННВ перевірить його.';
+  }
+  return type?.reportingForm
+    ? `${type.reportingForm} — посилання на сторінку, де це опубліковано.`
+    : 'Сторінка, яку можна відкрити: DOI, сайт видання, репозитарій, наказ.';
+}
+
+/** Under the file box. «One of the two» is said only where it is the rule —
+ *  when neither side is required (D27/D47). */
+function fileHint(linkRule: ProofRule, fileRule: ProofRule): string {
+  const what = 'Сертифікат, довідка або диплом — PDF, JPG чи PNG до 10 МБ.';
+  return linkRule === 'OPTIONAL' && fileRule === 'OPTIONAL'
+    ? `${what} Досить або посилання, або файлу.`
+    : what;
 }

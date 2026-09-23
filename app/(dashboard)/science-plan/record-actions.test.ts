@@ -81,7 +81,8 @@ const ARTICLE = {
   isActive: true,
   coefficient: 1,
   maxPerYear: null as number | null,
-  requiresFile: false,
+  linkRule: 'OPTIONAL' as const,
+  fileRule: 'OPTIONAL' as const,
   reuse: 'ONCE' as const,
   sharing: 'SHARED' as const,
   identityFields: ['doi', 'url', 'title'],
@@ -198,7 +199,7 @@ describe('saveRecord — evidence', () => {
   });
 
   it('refuses a link-only record where the type demands a file', async () => {
-    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({ ...ARTICLE, requiresFile: true });
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({ ...ARTICLE, fileRule: 'REQUIRED' });
     expect(await saveRecord(base)).toEqual({
       error: 'Для цього виду роботи потрібен файл підтвердження',
     });
@@ -218,6 +219,46 @@ describe('saveRecord — evidence', () => {
     expect(await saveRecord({ ...base, evidence: { ...base.evidence } })).toEqual({
       error: 'Вкажіть назву або посилання, щоб роботу можна було розпізнати',
     });
+  });
+});
+
+describe('saveRecord — D47, the link and the file rules', () => {
+  const LINK_ONLY = { ...ARTICLE, linkRule: 'REQUIRED' as const, fileRule: 'NONE' as const };
+
+  it('refuses a file on a link-only type and drops the object', async () => {
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue(LINK_ONLY);
+    expect(await saveRecord({ ...base, file: STAGED })).toEqual({
+      error: 'Для цього виду роботи додається лише посилання, без файлу',
+    });
+    expect(mockDropObject).toHaveBeenCalledWith('science.saveRecord', STAGED.objectKey, {
+      userId: 'u1',
+    });
+    expect(db.scienceWork.create).not.toHaveBeenCalled();
+  });
+
+  it('saves the same record with the link alone', async () => {
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue(LINK_ONLY);
+    expect(await saveRecord(base)).toMatchObject({ ok: true });
+  });
+
+  it('refuses a link-only type with no link', async () => {
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue(LINK_ONLY);
+    expect(await saveRecord({ ...base, link: undefined })).toEqual({
+      error: 'Для цього виду роботи потрібне посилання',
+    });
+  });
+
+  it('refuses a link on a type that takes no link', async () => {
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({
+      ...ARTICLE,
+      linkRule: 'NONE',
+      fileRule: 'REQUIRED',
+    });
+    expect(await saveRecord({ ...base, file: STAGED })).toEqual({
+      error: 'Для цього виду роботи посилання не додається — лише файл',
+    });
+    expect(mockDropObject).toHaveBeenCalled();
+    expect(db.scienceWork.create).not.toHaveBeenCalled();
   });
 });
 
@@ -265,7 +306,7 @@ describe('saveRecord — evidence by FILE (D27)', () => {
   });
 
   it('accepts a link-only record where the type demands a file, once a file is there', async () => {
-    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({ ...ARTICLE, requiresFile: true });
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({ ...ARTICLE, fileRule: 'REQUIRED' });
     expect(await saveRecord({ ...base, file: STAGED })).toMatchObject({ ok: true });
   });
 });

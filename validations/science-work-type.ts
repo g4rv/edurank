@@ -66,7 +66,10 @@ export const saveWorkTypeSchema = z.object({
   // action (rule 2), not here: the schema does not know one field set from
   // another until both are parsed.
   identityFields: z.array(z.string().min(1)),
-  requiresFile: z.boolean(),
+  // D47 — the link and the file, each with its own rule. The pair is
+  // checked by `proofRulesProblem` in the action (both NONE is refused).
+  linkRule: z.enum(['REQUIRED', 'OPTIONAL', 'NONE']),
+  fileRule: z.enum(['REQUIRED', 'OPTIONAL', 'NONE']),
   // Empty string (an untouched number input) and `null` both mean «без
   // обмеження» — the same preprocessing `validations/rating-admin.ts` uses for
   // this exact column on the rating side.

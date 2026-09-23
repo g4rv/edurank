@@ -68,7 +68,10 @@ export interface ScienceWorkTypeDef {
   sharing: 'SHARED' | 'INDIVIDUAL';
   /** Field names, in priority order, that build the work's identity in Stage 2. */
   identityFields: readonly string[];
-  requiresFile?: boolean;
+  /** D47 — how the link and the file prove this type. Both default to
+   *  OPTIONAL; the eight D39 types are link REQUIRED, file NONE. */
+  linkRule?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
+  fileRule?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
   maxPerYear?: number;
   fields: readonly EvidenceField[];
 }
@@ -140,6 +143,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Звіт — грант',
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [title],
   },
@@ -155,6 +160,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Звіт-проєкт',
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [
       title,
@@ -200,6 +207,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Екземпляр видання / ISBN (зараховується після виходу в світ)',
     reuse: 'ONCE',
     sharing: 'SHARED',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [
       title,
@@ -223,6 +232,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Екземпляр видання / ISBN (зараховується після виходу в світ)',
     reuse: 'ONCE',
     sharing: 'SHARED',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [title, count('value', 'Кількість друкованих аркушів')],
   },
@@ -237,6 +248,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Екземпляр видання (зараховується після виходу в світ)',
     reuse: 'ONCE',
     sharing: 'SHARED',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['doi', 'url', 'title'],
     fields: [
       title,
@@ -300,6 +313,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Програма, матеріали конференції (зараховується після виходу в світ)',
     reuse: 'ONCE',
     sharing: 'SHARED',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [
       title,
@@ -467,6 +482,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Екземпляр видання',
     reuse: 'YEARLY',
     sharing: 'INDIVIDUAL',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [
       title,
@@ -491,6 +508,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Екземпляр видання',
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [title, count('value', 'Кількість сторінок')],
   },
