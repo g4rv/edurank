@@ -91,3 +91,11 @@ export function monthLabel(key: string): string {
   const index = toIndex(key);
   return `${MONTH_NAMES[index % 12]} ${Math.floor(index / 12)}`;
 }
+
+/** The setting ADMIN may save. 60 is a sanity ceiling, not policy: five years
+ *  back is already no fence. */
+export function lookbackProblem(months: number): string | null {
+  return Number.isInteger(months) && months >= 0 && months <= 60
+    ? null
+    : 'Кількість місяців — ціле число від 0 до 60';
+}

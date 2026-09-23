@@ -3,6 +3,7 @@ import {
   currentMonthKey,
   dateToMonthKey,
   isMonthKey,
+  lookbackProblem,
   monthLabel,
   monthOptions,
   monthProblem,
@@ -66,5 +67,19 @@ describe('monthProblem — D42', () => {
   it('refuses a missing or malformed month', () => {
     expect(check('')).toBe('Оберіть місяць виконання');
     expect(check('вересень')).toBe('Оберіть місяць виконання');
+  });
+});
+
+describe('lookbackProblem — the setting ADMIN may save', () => {
+  it('accepts 0 to 60 whole months', () => {
+    expect(lookbackProblem(0)).toBeNull();
+    expect(lookbackProblem(12)).toBeNull();
+    expect(lookbackProblem(60)).toBeNull();
+  });
+
+  it('refuses anything else', () => {
+    expect(lookbackProblem(-1)).toBe('Кількість місяців — ціле число від 0 до 60');
+    expect(lookbackProblem(61)).toBe('Кількість місяців — ціле число від 0 до 60');
+    expect(lookbackProblem(1.5)).toBe('Кількість місяців — ціле число від 0 до 60');
   });
 });

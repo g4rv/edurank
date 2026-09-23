@@ -18,7 +18,13 @@ vi.mock('@/lib/db', () => {
 
 import { requireAdmin } from '@/lib/permissions';
 import { db } from '@/lib/db';
-import { createScienceYear, cloneScienceYear, openScienceYear, closeScienceYear } from './actions';
+import {
+  createScienceYear,
+  cloneScienceYear,
+  openScienceYear,
+  closeScienceYear,
+  updateScienceYearSettings,
+} from './actions';
 
 const mockRequireAdmin = requireAdmin as unknown as Mock;
 
@@ -39,7 +45,13 @@ describe('permission', () => {
   it('refuses a non-admin on every action', async () => {
     (requireAdmin as Mock).mockResolvedValue(null);
     for (const call of [
-      () => createScienceYear({ academicYear: '2027/2028', orderRef: null, minHoursPerRate: 500 }),
+      () =>
+        createScienceYear({
+          academicYear: '2027/2028',
+          orderRef: null,
+          minHoursPerRate: 500,
+          maxLookbackMonths: 12,
+        }),
       () => cloneScienceYear('2026/2027'),
       () => openScienceYear('t1'),
       () => closeScienceYear('t1'),
@@ -53,28 +65,120 @@ describe('permission', () => {
 describe('createScienceYear', () => {
   it('refuses a malformed навчальний рік', async () => {
     expect(
-      await createScienceYear({ academicYear: '2027', orderRef: null, minHoursPerRate: 500 })
+      await createScienceYear({
+        academicYear: '2027',
+        orderRef: null,
+        minHoursPerRate: 500,
+        maxLookbackMonths: 12,
+      })
     ).toEqual({ error: expect.any(String) });
     expect(
-      await createScienceYear({ academicYear: '2027/2029', orderRef: null, minHoursPerRate: 500 })
+      await createScienceYear({
+        academicYear: '2027/2029',
+        orderRef: null,
+        minHoursPerRate: 500,
+        maxLookbackMonths: 12,
+      })
     ).toEqual({ error: expect.any(String) });
   });
 
   it('refuses a year that already exists', async () => {
     (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue({ id: 't1' });
     expect(
-      await createScienceYear({ academicYear: '2026/2027', orderRef: null, minHoursPerRate: 500 })
+      await createScienceYear({
+        academicYear: '2026/2027',
+        orderRef: null,
+        minHoursPerRate: 500,
+        maxLookbackMonths: 12,
+      })
     ).toEqual({ error: expect.stringContaining('2026/2027') });
   });
 
   it('derives stakeYear from the first half and creates it CLOSED', async () => {
     (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue(null);
-    await createScienceYear({ academicYear: '2027/2028', orderRef: 'N160', minHoursPerRate: 500 });
+    await createScienceYear({
+      academicYear: '2027/2028',
+      orderRef: 'N160',
+      minHoursPerRate: 500,
+      maxLookbackMonths: 12,
+    });
     expect((db.sciencePlanTemplate.create as Mock).mock.calls[0][0].data).toMatchObject({
       academicYear: '2027/2028',
       stakeYear: 2027,
       status: 'CLOSED',
     });
+  });
+});
+
+describe('createScienceYear — D42, the lookback', () => {
+  it('writes the lookback and puts it in the audit diff', async () => {
+    (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue(null);
+    await createScienceYear({
+      academicYear: '2027/2028',
+      orderRef: null,
+      minHoursPerRate: 500,
+      maxLookbackMonths: 8,
+    });
+    expect((db.sciencePlanTemplate.create as Mock).mock.calls[0][0].data).toMatchObject({
+      maxLookbackMonths: 8,
+    });
+    const { changes } = (db.auditLog.create as Mock).mock.calls[0][0].data;
+    expect(changes).toHaveProperty('maxLookbackMonths');
+  });
+
+  it('refuses a lookback outside 0–60', async () => {
+    (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue(null);
+    expect(
+      await createScienceYear({
+        academicYear: '2027/2028',
+        orderRef: null,
+        minHoursPerRate: 500,
+        maxLookbackMonths: 99,
+      })
+    ).toEqual({ error: 'Кількість місяців — ціле число від 0 до 60' });
+    expect(db.sciencePlanTemplate.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateScienceYearSettings', () => {
+  const EXISTING = {
+    academicYear: '2026/2027',
+    orderRef: '№152',
+    minHoursPerRate: 500,
+    maxLookbackMonths: 12,
+  };
+  const INPUT = { id: 't1', orderRef: '№152', minHoursPerRate: 500, maxLookbackMonths: 8 };
+
+  beforeEach(() => {
+    (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue(EXISTING);
+  });
+
+  it('updates the three numbers and audits only what changed', async () => {
+    expect(await updateScienceYearSettings(INPUT)).toMatchObject({ ok: true });
+    expect(db.sciencePlanTemplate.update).toHaveBeenCalledWith({
+      where: { id: 't1' },
+      data: { orderRef: '№152', minHoursPerRate: 500, maxLookbackMonths: 8 },
+    });
+    const { changes } = (db.auditLog.create as Mock).mock.calls[0][0].data;
+    expect(changes).toHaveProperty('maxLookbackMonths');
+    expect(changes).not.toHaveProperty('minHoursPerRate');
+  });
+
+  it('refuses a non-admin', async () => {
+    mockRequireAdmin.mockResolvedValue(null);
+    expect(await updateScienceYearSettings(INPUT)).toEqual({ error: 'Недостатньо прав' });
+    expect(db.sciencePlanTemplate.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses a bad lookback', async () => {
+    expect(await updateScienceYearSettings({ ...INPUT, maxLookbackMonths: -1 })).toEqual({
+      error: 'Кількість місяців — ціле число від 0 до 60',
+    });
+  });
+
+  it('refuses a year that does not exist', async () => {
+    (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue(null);
+    expect(await updateScienceYearSettings(INPUT)).toEqual({ error: 'Рік не знайдено' });
   });
 });
 
@@ -86,6 +190,7 @@ describe('cloneScienceYear', () => {
             id: 't1',
             academicYear: '2026/2027',
             minHoursPerRate: 500,
+            maxLookbackMonths: 8,
             workTypes: [
               {
                 code: 'article',
@@ -124,6 +229,8 @@ describe('cloneScienceYear', () => {
       academicYear: '2027/2028',
       stakeYear: 2027,
       status: 'CLOSED',
+      // D42: the next year starts with this year's lookback.
+      maxLookbackMonths: 8,
     });
     expect((db.scienceWorkType.create as Mock).mock.calls[0][0].data).toMatchObject({
       code: 'article',

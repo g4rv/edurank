@@ -33,6 +33,7 @@ export function PlanView({
   target,
   workTypes,
   lockedAt,
+  lookbackMonths,
 }: {
   academicYear: string;
   orderRef: string | null;
@@ -45,6 +46,8 @@ export function PlanView({
   workTypes: PlanWorkType[];
   /** Submitted — the plan is fixed and recording has opened. */
   lockedAt: Date | null;
+  /** D42 — how many months back the month picker reaches. */
+  lookbackMonths: number;
 }) {
   const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
 
@@ -128,12 +131,16 @@ export function PlanView({
             </div>
           )
         ) : (
-          <AddRecordDialog departmentId={currentDepartmentId} workTypes={workTypes} />
+          <AddRecordDialog
+            departmentId={currentDepartmentId}
+            workTypes={workTypes}
+            lookbackMonths={lookbackMonths}
+          />
         )}
       </div>
 
       {tab === 'done' ? (
-        <RecordList records={records} workTypes={workTypes} />
+        <RecordList records={records} workTypes={workTypes} lookbackMonths={lookbackMonths} />
       ) : rows.length === 0 ? (
         <EmptyState>Ще немає запланованих робіт.</EmptyState>
       ) : (

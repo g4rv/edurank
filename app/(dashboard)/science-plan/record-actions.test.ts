@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
@@ -103,7 +103,13 @@ const ARTICLE = {
   ],
 };
 
-const TEMPLATE = { id: 't1', academicYear: '2026/2027', status: 'OPEN', stakeYear: 2026 };
+const TEMPLATE = {
+  id: 't1',
+  academicYear: '2026/2027',
+  status: 'OPEN',
+  stakeYear: 2026,
+  maxLookbackMonths: 12,
+};
 
 const STAFF = {
   lastName: 'Петренко',
@@ -127,10 +133,16 @@ const base = {
   workTypeId: 'wt1',
   evidence: { title: 'Стаття про освіту', option: 'scopus', credits: 10 },
   link: 'https://doi.org/10.31392/xyz',
+  // D41: this month, under the frozen clock below.
+  executedMonth: '2026-10',
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // D42 reads «this month», so the clock is frozen: 15 October 2026. Only Date
+  // is faked, so the promise-based transaction mocks still run.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-15T12:00:00Z'));
   mockAuth.mockResolvedValue({ user: { id: 'u1', staffId: 'staff-1', role: 'USER' } });
   mockTemplate.mockResolvedValue(TEMPLATE);
   (db.staff.findUnique as Mock).mockResolvedValue(STAFF);
@@ -146,6 +158,10 @@ beforeEach(() => {
   (db.scienceRecordFile.create as Mock).mockResolvedValue({ id: 'f1' });
   mockVerifyFile.mockResolvedValue({ ok: true, file: VERIFIED });
   mockDropObject.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('saveRecord — the guards', () => {
@@ -259,6 +275,41 @@ describe('saveRecord — D47, the link and the file rules', () => {
     });
     expect(mockDropObject).toHaveBeenCalled();
     expect(db.scienceWork.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('saveRecord — D41/D42, the month', () => {
+  it('stores the month as the 1st of it', async () => {
+    await saveRecord({ ...base, executedMonth: '2026-05' });
+    expect((db.scienceWork.create as Mock).mock.calls[0][0].data.executedMonth).toEqual(
+      new Date('2026-05-01T00:00:00Z')
+    );
+  });
+
+  it('refuses a month older than the year allows, and drops the file', async () => {
+    const result = await saveRecord({ ...base, executedMonth: '2025-09', file: STAGED });
+    expect(result).toEqual({ error: 'Роботу, виконану понад 12 міс. тому, додати не можна' });
+    expect(mockDropObject).toHaveBeenCalled();
+    expect(db.scienceWork.create).not.toHaveBeenCalled();
+  });
+
+  it('follows the year’s own setting', async () => {
+    mockTemplate.mockResolvedValue({ ...TEMPLATE, maxLookbackMonths: 3 });
+    expect(await saveRecord({ ...base, executedMonth: '2026-06' })).toEqual({
+      error: 'Роботу, виконану понад 3 міс. тому, додати не можна',
+    });
+  });
+
+  it('refuses the future', async () => {
+    expect(await saveRecord({ ...base, executedMonth: '2026-11' })).toEqual({
+      error: 'Місяць виконання не може бути в майбутньому',
+    });
+  });
+
+  it('refuses a missing month', async () => {
+    expect(await saveRecord({ ...base, executedMonth: '' })).toEqual({
+      error: 'Оберіть місяць виконання',
+    });
   });
 });
 
@@ -689,6 +740,7 @@ describe('updateWorkEvidence — correcting a work', () => {
     // meant a work proved by a file alone (D27) was refused the moment its
     // author corrected a page number.
     _count: { files: 0 },
+    executedMonth: new Date('2026-09-01T00:00:00Z'),
   };
 
   beforeEach(() => {
@@ -787,6 +839,56 @@ describe('updateWorkEvidence — correcting a work', () => {
   });
 });
 
+describe('updateWorkEvidence — the month', () => {
+  const WORK = {
+    id: 'w1',
+    templateId: 't1',
+    totalHundredths: 50000,
+    evidence: { title: 'Стаття про освіту', option: 'scopus', credits: 10 },
+    link: 'https://example.com/a',
+    createdById: 'staff-1',
+    workType: ARTICLE,
+    _count: { files: 0 },
+    executedMonth: new Date('2026-09-01T00:00:00Z'),
+  };
+  const edit = (executedMonth?: string) =>
+    updateWorkEvidence({ workId: 'w1', evidence: WORK.evidence, link: WORK.link, executedMonth });
+
+  beforeEach(() => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue(WORK);
+    (db.scienceWork.update as Mock).mockResolvedValue({ id: 'w1' });
+  });
+
+  it('moves the month when it is inside the window', async () => {
+    expect(await edit('2026-08')).toEqual({ ok: true });
+    expect((db.scienceWork.update as Mock).mock.calls[0][0].data.executedMonth).toEqual(
+      new Date('2026-08-01T00:00:00Z')
+    );
+  });
+
+  it('keeps the stored month when none is sent', async () => {
+    expect(await edit(undefined)).toEqual({ ok: true });
+    expect((db.scienceWork.update as Mock).mock.calls[0][0].data.executedMonth).toBeUndefined();
+  });
+
+  it('keeps an unchanged month even when it has fallen out of the window', async () => {
+    // Saved in time; the window has moved past it since. A typo fix in the
+    // title must not be refused for that.
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...WORK,
+      executedMonth: new Date('2025-08-01T00:00:00Z'),
+    });
+    expect(await edit('2025-08')).toEqual({ ok: true });
+  });
+
+  it('refuses moving it OUT of the window', async () => {
+    expect(await edit('2024-01')).toEqual({
+      error: 'Роботу, виконану понад 12 міс. тому, додати не можна',
+    });
+    expect(db.scienceWork.update).not.toHaveBeenCalled();
+  });
+});
+
 describe('updateWorkEvidence — an INDIVIDUAL work follows its own claim', () => {
   /** A конференція: 6 год per day, INDIVIDUAL, one claim that IS the pool. */
   const CONFERENCE = {
@@ -816,6 +918,7 @@ describe('updateWorkEvidence — an INDIVIDUAL work follows its own claim', () =
     createdById: 'staff-1',
     workType: CONFERENCE,
     _count: { files: 0 },
+    executedMonth: new Date('2026-09-01T00:00:00Z'),
   };
 
   beforeEach(() => {
@@ -872,6 +975,7 @@ describe('updateWorkEvidence — an INDIVIDUAL work follows its own claim', () =
       createdById: 'staff-1',
       workType: ARTICLE,
       _count: { files: 0 },
+      executedMonth: new Date('2026-09-01T00:00:00Z'),
     });
     (db.scienceRecord.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 0 } });
 
@@ -893,6 +997,7 @@ describe('updateWorkEvidence — an INDIVIDUAL work follows its own claim', () =
       createdById: 'staff-1',
       workType: ARTICLE,
       _count: { files: 0 },
+      executedMonth: new Date('2026-09-01T00:00:00Z'),
     });
     // Somebody else holds 300 год of the 500.
     (db.scienceRecord.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 30000 } });
@@ -916,6 +1021,7 @@ describe('updateWorkEvidence — an INDIVIDUAL work follows its own claim', () =
       createdById: 'staff-1',
       workType: ARTICLE,
       _count: { files: 0 },
+      executedMonth: new Date('2026-09-01T00:00:00Z'),
     });
     (db.scienceRecord.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 20000 } });
     await updateWorkEvidence({
@@ -935,6 +1041,7 @@ describe('updateWorkEvidence — an INDIVIDUAL work follows its own claim', () =
       ...WORK,
       link: null,
       _count: { files: 1 },
+      executedMonth: new Date('2026-09-01T00:00:00Z'),
     });
     const result = await updateWorkEvidence({
       workId: 'w2',
@@ -948,6 +1055,7 @@ describe('updateWorkEvidence — an INDIVIDUAL work follows its own claim', () =
       ...WORK,
       link: null,
       _count: { files: 0 },
+      executedMonth: new Date('2026-09-01T00:00:00Z'),
     });
     expect(
       await updateWorkEvidence({

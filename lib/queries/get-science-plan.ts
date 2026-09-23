@@ -3,6 +3,7 @@ import { planTarget, rateForPlan, type PlanTarget } from '@/lib/science/target';
 import { initials } from '@/lib/name';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScienceRecordStatus } from '@/lib/generated/prisma/client';
+import { dateToMonthKey } from '@/lib/science/execution-month';
 
 /**
  * Every кафедра a person needs a plan on: their primary one (if they have
@@ -65,6 +66,9 @@ export interface SciencePlanRecordDetail {
   /** The whole work's pool — differs from the draw the moment it is shared. */
   totalHundredths: number;
   planRowId: string | null;
+  /** D41 — the month the work was done, `"YYYY-MM"`. The WORK's, so every
+   *  co-author sees the same one. */
+  executedMonth: string;
   status: ScienceRecordStatus;
   removedReason: string | null;
   /**
@@ -180,6 +184,7 @@ export async function getSciencePlan(
               id: true,
               link: true,
               evidence: true,
+              executedMonth: true,
               totalHundredths: true,
               workTypeId: true,
               createdById: true,
@@ -250,6 +255,7 @@ export async function getSciencePlan(
       hoursHundredths: r.hoursHundredths,
       totalHundredths: r.work.totalHundredths,
       planRowId: r.planRowId,
+      executedMonth: dateToMonthKey(r.work.executedMonth),
       status: r.status,
       removedReason: r.removedReason,
       evidence: r.work.evidence,

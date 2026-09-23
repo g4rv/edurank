@@ -1051,6 +1051,11 @@ model SciencePlanTemplate {
   /// a наказ reissued every year, with no obligation to keep the number.
   minHoursPerRate Int @default(500)
 
+  /// D42: how many months back a work may have been done, counted from the
+  /// month it is entered. A column for the reason minHoursPerRate is one — a
+  /// rule the university may change next year. 12 by the owner, 2026-09-23.
+  maxLookbackMonths Int @default(12)
+
   /// Which calendar year's StakeAllocation supplies the ставка. Derived from
   /// academicYear on creation and STORED, so reopening an old template cannot
   /// silently re-target it at a different розподіл.
@@ -1282,6 +1287,11 @@ model ScienceWork {
   evidence      Json
   computedValue Float
 
+  /// D41: the month the work was done — for an article, its publication
+  /// month. Always the 1st. Belongs to the WORK, like its DOI: co-authors share
+  /// one article and one month. `lib/science/execution-month.ts` handles it.
+  executedMonth DateTime @db.Date
+
   /// A public link that proves it. D27: a record needs at least one of link or
   /// file, and this is the link half — it lives on the WORK because a
   /// co-authored article has one DOI, not one per author.
@@ -1312,6 +1322,8 @@ model ScienceWork {
   updatedAt DateTime @updatedAt
 
   @@index([templateId, workTypeId])
+  /// The per-month execution chart groups by it.
+  @@index([templateId, executedMonth])
 }
 
 /// One person's DRAW against a work — what lands in their план and counts

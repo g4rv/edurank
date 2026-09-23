@@ -107,6 +107,7 @@ function record(
       id: 'w1',
       link: 'https://example.com/a',
       evidence: { title: 'Стаття про освіту' },
+      executedMonth: new Date('2026-09-01T00:00:00Z'),
       totalHundredths: 20000,
       workTypeId: 'wt1',
       workType: {
@@ -252,5 +253,15 @@ describe('план and факт', () => {
     mockPlan.mockResolvedValue({ id: 'p1', rateHundredths: 100, rows: [], records: [record()] });
     const result = await getSciencePlan('s1', 'd1', 't1');
     expect(result.records[0].files).toEqual([]);
+  });
+});
+
+describe('D41 — the month travels with each record', () => {
+  it('returns the work’s month as a YYYY-MM key', async () => {
+    mockTemplate.mockResolvedValue({ minHoursPerRate: 500, stakeYear: 2026, status: 'OPEN' });
+    mockAllocation.mockResolvedValue({ proposedHundredths: 100 });
+    mockPlan.mockResolvedValue({ id: 'p1', rateHundredths: 100, rows: [], records: [record()] });
+    const { records } = await getSciencePlan('s1', 'd1', 't1');
+    expect(records[0].executedMonth).toBe('2026-09');
   });
 });

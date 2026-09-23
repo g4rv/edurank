@@ -21,6 +21,8 @@ export const getActiveScienceTemplate = cache(async function getActiveScienceTem
       academicYear: true,
       orderRef: true,
       minHoursPerRate: true,
+      // D42 — the record form's month picker offers exactly this window.
+      maxLookbackMonths: true,
       stakeYear: true,
       status: true,
       workTypes: {

@@ -34,11 +34,14 @@ function formatFileSize(bytes: number): string {
 export function RecordList({
   records,
   workTypes,
+  lookbackMonths,
 }: {
   records: SciencePlanRecordDetail[];
   /** The year's catalogue, for the «Редагувати» form to rebuild the work's own
    *  fields from. Keyed by id below. */
   workTypes: PlanWorkType[];
+  /** D42 — for the «Редагувати» form's month picker. */
+  lookbackMonths: number;
 }) {
   const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
 
@@ -129,6 +132,8 @@ export function RecordList({
                           type={workTypeById.get(record.workTypeId)!}
                           evidence={record.evidence}
                           link={record.link}
+                          executedMonth={record.executedMonth}
+                          lookbackMonths={lookbackMonths}
                           label={record.summary}
                         />
                       )}

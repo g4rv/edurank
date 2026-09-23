@@ -10,6 +10,7 @@ import { updateWorkEvidence } from '@/app/(dashboard)/science-plan/record-action
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
+import { MonthSelect } from '@/components/science/month-select';
 import {
   Dialog,
   DialogBody,
@@ -54,6 +55,8 @@ export function EditRecordDialog({
   type,
   evidence,
   link,
+  executedMonth,
+  lookbackMonths,
   label,
 }: {
   workId: string;
@@ -61,6 +64,10 @@ export function EditRecordDialog({
   type: PlanWorkType;
   evidence: unknown;
   link: string | null;
+  /** D41 — the stored month, `"YYYY-MM"`. */
+  executedMonth: string;
+  /** D42 — how far back the picker reaches. */
+  lookbackMonths: number;
   label: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -95,6 +102,8 @@ export function EditRecordDialog({
             type={type}
             evidence={evidence}
             link={link}
+            executedMonth={executedMonth}
+            lookbackMonths={lookbackMonths}
             onDone={() => setOpen(false)}
           />
         )}
@@ -108,17 +117,22 @@ function EditForm({
   type,
   evidence,
   link: initialLink,
+  executedMonth,
+  lookbackMonths,
   onDone,
 }: {
   workId: string;
   type: PlanWorkType;
   evidence: unknown;
   link: string | null;
+  executedMonth: string;
+  lookbackMonths: number;
   onDone: () => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [link, setLink] = useState(initialLink ?? '');
+  const [month, setMonth] = useState(executedMonth);
   const [problem, setProblem] = useState<string | null>(null);
 
   const [fields] = useState(() => type.fields);
@@ -169,6 +183,7 @@ function EditForm({
         workId,
         evidence: data,
         link: link.trim() || undefined,
+        executedMonth: month,
       });
       if ('error' in result) {
         setProblem(result.error);
@@ -193,6 +208,24 @@ function EditForm({
             errors={errors}
             unitLabel="год"
           />
+
+          {/* D41. A stored month that has since fallen out of the window stays
+              selectable (`extra`) — keeping it is not a change, and the server
+              accepts it. */}
+          <FormField
+            htmlFor="edit-record-month"
+            label="Місяць виконання"
+            required
+            description="Для публікації — місяць виходу."
+          >
+            <MonthSelect
+              id="edit-record-month"
+              value={month}
+              onChange={setMonth}
+              lookbackMonths={lookbackMonths}
+              extra={executedMonth}
+            />
+          </FormField>
 
           {/* D47: hidden where this вид роботи takes no link. Files are added
               and removed on the запис itself, not here. */}

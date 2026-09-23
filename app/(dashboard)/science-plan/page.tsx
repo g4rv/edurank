@@ -118,6 +118,7 @@ export default async function SciencePlanPage({
         target={target}
         workTypes={workTypes}
         lockedAt={plan?.lockedAt ?? null}
+        lookbackMonths={template.maxLookbackMonths}
       />
     </div>
   );

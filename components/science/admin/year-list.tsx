@@ -4,12 +4,13 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { CopyPlus, FlaskConical, Lock, LockOpen, Plus } from 'lucide-react';
+import { CopyPlus, FlaskConical, Lock, LockOpen, Plus, Settings2 } from 'lucide-react';
 import {
   createScienceYear,
   cloneScienceYear,
   openScienceYear,
   closeScienceYear,
+  updateScienceYearSettings,
   type ScienceYearState,
 } from '@/app/(dashboard)/admin/science-plan/actions';
 import { Button } from '@/components/aurora/ui/button';
@@ -45,17 +46,20 @@ export interface ScienceYearRow {
   academicYear: string;
   orderRef: string | null;
   minHoursPerRate: number;
+  /** D42 — edited in the row's «Налаштування». */
+  maxLookbackMonths: number;
   stakeYear: number;
   status: 'OPEN' | 'CLOSED';
   workTypeCount: number;
 }
 
-// The last column holds THREE buttons — «Каталог», «Клонувати», and
-// «Закрити»/«Відкрити» — which need about 19rem together. At 14rem they
+// The last column holds FOUR buttons — «Каталог», the icon-only
+// «Налаштування», «Клонувати», and «Закрити»/«Відкрити» — about 21rem
+// together, so 24rem leaves the same margin 21rem left for three. At 14rem they
 // overflowed leftwards and were drawn straight over the «Відкритий» badge in
 // the Статус column beside them, so the year's status was invisible on screen
 // while sitting perfectly correctly in the DOM.
-const COLUMNS = ['auto', '9rem', '9rem', '7rem', '8rem', '21rem'] as const;
+const COLUMNS = ['auto', '9rem', '9rem', '7rem', '8rem', '24rem'] as const;
 
 /** Runs a server action behind `useTransition`, toasts the outcome, and
  *  refreshes so the table reflects it — the shape every row action shares. */
@@ -88,7 +92,7 @@ export function YearList({ years }: { years: readonly ScienceYearRow[] }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <CreateYearDialog />
+        <YearSettingsDialog />
       </div>
 
       {years.length === 0 ? (
@@ -143,6 +147,8 @@ function YearRowView({ year, isLatest }: { year: ScienceYearRow; isLatest: boole
               Каталог
             </Link>
           </Button>
+
+          <YearSettingsDialog year={year} />
 
           {isLatest && (
             <Button
@@ -215,23 +221,29 @@ function YearRowView({ year, isLatest }: { year: ScienceYearRow; isLatest: boole
 }
 
 /**
- * «Створити рік» — the escape hatch when there is nothing to clone (the very
- * first planning year). Plain controlled inputs rather than react-hook-form:
- * three fields, no evidence-field machinery to drive, and the server holds the
- * one rule worth enforcing (`isAcademicYear` + the duplicate check).
+ * «Створити рік» and «Налаштування» — one dialog, two uses. Plain controlled
+ * inputs rather than react-hook-form: a handful of numbers, no evidence-field
+ * machinery to drive, and the server holds every rule worth enforcing
+ * (`isAcademicYear`, the duplicate check, `lookbackProblem`).
+ *
+ * Given a `year`, it edits that year's settings and hides the навчальний рік
+ * itself — that is the year's identity and never changes. Without one, it
+ * creates a blank year: the escape hatch when there is nothing to clone.
  */
-function CreateYearDialog() {
+function YearSettingsDialog({ year }: { year?: ScienceYearRow }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [academicYear, setAcademicYear] = useState('');
-  const [orderRef, setOrderRef] = useState('');
-  const [minHoursPerRate, setMinHoursPerRate] = useState('500');
+  const [orderRef, setOrderRef] = useState(year?.orderRef ?? '');
+  const [minHoursPerRate, setMinHoursPerRate] = useState(String(year?.minHoursPerRate ?? 500));
+  const [maxLookbackMonths, setMaxLookbackMonths] = useState(String(year?.maxLookbackMonths ?? 12));
 
   function reset() {
     setAcademicYear('');
-    setOrderRef('');
-    setMinHoursPerRate('500');
+    setOrderRef(year?.orderRef ?? '');
+    setMinHoursPerRate(String(year?.minHoursPerRate ?? 500));
+    setMaxLookbackMonths(String(year?.maxLookbackMonths ?? 12));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -241,18 +253,21 @@ function CreateYearDialog() {
       toast.error('Некоректна кількість годин на ставку');
       return;
     }
+    const settings = {
+      orderRef: orderRef.trim() || null,
+      minHoursPerRate: hours,
+      maxLookbackMonths: Number(maxLookbackMonths),
+    };
     startTransition(async () => {
-      const result = await createScienceYear({
-        academicYear: academicYear.trim(),
-        orderRef: orderRef.trim() || null,
-        minHoursPerRate: hours,
-      });
+      const result = year
+        ? await updateScienceYearSettings({ id: year.id, ...settings })
+        : await createScienceYear({ academicYear: academicYear.trim(), ...settings });
       if ('error' in result) {
         toast.error(result.error);
         return;
       }
       if (result.message) toast.success(result.message);
-      reset();
+      if (!year) reset();
       setOpen(false);
       router.refresh();
     });
@@ -267,31 +282,49 @@ function CreateYearDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="size-4" />
-          Створити рік
-        </Button>
+        {year ? (
+          // Icon-only: the row's action cell already holds three labelled
+          // buttons, and a fourth label pushed them over the Статус column.
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label={`Налаштування ${year.academicYear}`}
+            title="Налаштування"
+          >
+            <Settings2 className="size-4" />
+          </Button>
+        ) : (
+          <Button size="sm">
+            <Plus className="size-4" />
+            Створити рік
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Новий рік планування</DialogTitle>
+          <DialogTitle>
+            {year ? `Налаштування ${year.academicYear}` : 'Новий рік планування'}
+          </DialogTitle>
           <DialogDescription>
-            Порожній каталог Додатка III на новий навчальний рік. Якщо минулий рік вже має каталог,
-            зручніше його клонувати замість створення з нуля.
+            {year
+              ? 'Зміни діють для всього, що вноситимуть відтепер. Уже збережені записи не змінюються.'
+              : 'Порожній каталог Додатка III на новий навчальний рік. Якщо минулий рік вже має каталог, зручніше його клонувати замість створення з нуля.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <DialogBody className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <Label htmlFor="science-year">Навчальний рік</Label>
-              <Input
-                id="science-year"
-                placeholder="2027/2028"
-                value={academicYear}
-                onChange={(e) => setAcademicYear(e.target.value)}
-                required
-              />
-            </div>
+            {!year && (
+              <div className="space-y-1">
+                <Label htmlFor="science-year">Навчальний рік</Label>
+                <Input
+                  id="science-year"
+                  placeholder="2027/2028"
+                  value={academicYear}
+                  onChange={(e) => setAcademicYear(e.target.value)}
+                  required
+                />
+              </div>
+            )}
             <div className="space-y-1">
               <Label htmlFor="science-order-ref">Наказ (необов&apos;язково)</Label>
               <Input
@@ -313,10 +346,26 @@ function CreateYearDialog() {
                 required
               />
             </div>
+            <div className="space-y-1">
+              <Label htmlFor="science-lookback">Скільки місяців назад можна вносити роботу</Label>
+              <Input
+                id="science-lookback"
+                type="number"
+                min={0}
+                max={60}
+                step={1}
+                value={maxLookbackMonths}
+                onChange={(e) => setMaxLookbackMonths(e.target.value)}
+                required
+              />
+              <p className="text-sm text-foreground-soft">
+                Рахується від місяця, коли НПП вносить запис. Для статті — від місяця публікації.
+              </p>
+            </div>
           </DialogBody>
           <DialogFooter>
             <Button type="submit" disabled={isPending} loading={isPending}>
-              {isPending ? 'Створення…' : 'Створити'}
+              {isPending ? (year ? 'Збереження…' : 'Створення…') : year ? 'Зберегти' : 'Створити'}
             </Button>
           </DialogFooter>
         </form>

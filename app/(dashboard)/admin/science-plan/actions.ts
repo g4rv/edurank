@@ -7,6 +7,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { requireAdmin } from '@/lib/permissions';
 import { isAcademicYear, nextAcademicYear, stakeYearOf } from '@/lib/science/academic-year';
+import { lookbackProblem } from '@/lib/science/execution-month';
 
 export type ScienceYearState = { error: string } | { ok: true; message?: string };
 
@@ -22,6 +23,8 @@ interface CreateScienceYearInput {
   academicYear: string;
   orderRef: string | null;
   minHoursPerRate: number;
+  /** D42 — how many months back a work may be entered. */
+  maxLookbackMonths: number;
 }
 
 // A blank planning year — the escape hatch when there is nothing to clone
@@ -36,6 +39,8 @@ export async function createScienceYear(input: CreateScienceYearInput): Promise<
   if (!Number.isInteger(input.minHoursPerRate) || input.minHoursPerRate <= 0) {
     return { error: 'Некоректна кількість годин на ставку' };
   }
+  const lookbackFault = lookbackProblem(input.maxLookbackMonths);
+  if (lookbackFault) return { error: lookbackFault };
 
   const existing = await db.sciencePlanTemplate.findUnique({
     where: { academicYear: input.academicYear },
@@ -51,6 +56,7 @@ export async function createScienceYear(input: CreateScienceYearInput): Promise<
           academicYear: input.academicYear,
           orderRef,
           minHoursPerRate: input.minHoursPerRate,
+          maxLookbackMonths: input.maxLookbackMonths,
           // Derived from the навчальний рік's first half, never asked of the
           // caller — September 2027 is worked against the 2027 розподіл.
           stakeYear: stakeYearOf(input.academicYear),
@@ -73,6 +79,7 @@ export async function createScienceYear(input: CreateScienceYearInput): Promise<
               academicYear: input.academicYear,
               orderRef,
               minHoursPerRate: input.minHoursPerRate,
+              maxLookbackMonths: input.maxLookbackMonths,
             }
           ),
         },
@@ -91,6 +98,84 @@ export async function createScienceYear(input: CreateScienceYearInput): Promise<
 
   revalidateSciencePlan();
   return { ok: true, message: `Створено рік ${input.academicYear}` };
+}
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+interface ScienceYearSettingsInput {
+  id: string;
+  orderRef: string | null;
+  minHoursPerRate: number;
+  maxLookbackMonths: number;
+}
+
+/**
+ * The three numbers a year carries, editable after creation. Before D42 there
+ * was nothing worth editing; the lookback is a rule the owner expects to tune
+ * («8, or 12 — let the admin set it»), so it needs a way in that is not a new
+ * year.
+ *
+ * Changes apply to what is entered FROM NOW: a work already saved keeps its
+ * month even if a shorter window would refuse it today.
+ */
+export async function updateScienceYearSettings(
+  input: ScienceYearSettingsInput
+): Promise<ScienceYearState> {
+  const session = await requireAdmin();
+  if (!session) return { error: 'Недостатньо прав' };
+
+  if (!Number.isInteger(input.minHoursPerRate) || input.minHoursPerRate <= 0) {
+    return { error: 'Некоректна кількість годин на ставку' };
+  }
+  const lookbackFault = lookbackProblem(input.maxLookbackMonths);
+  if (lookbackFault) return { error: lookbackFault };
+
+  const existing = await db.sciencePlanTemplate.findUnique({
+    where: { id: input.id },
+    select: { academicYear: true, orderRef: true, minHoursPerRate: true, maxLookbackMonths: true },
+  });
+  if (!existing) return { error: 'Рік не знайдено' };
+
+  const next = {
+    orderRef: input.orderRef?.trim() || null,
+    minHoursPerRate: input.minHoursPerRate,
+    maxLookbackMonths: input.maxLookbackMonths,
+  };
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.sciencePlanTemplate.update({ where: { id: input.id }, data: next });
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'SciencePlanTemplate',
+          entityId: input.id,
+          label: `Планування ${existing.academicYear}`,
+          userId: session.user.id,
+          changes: diffChanges(
+            {
+              orderRef: existing.orderRef,
+              minHoursPerRate: existing.minHoursPerRate,
+              maxLookbackMonths: existing.maxLookbackMonths,
+            },
+            next
+          ),
+        },
+      });
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'science.updateScienceYearSettings',
+        { userId: session.user.id }
+      ),
+    };
+  }
+
+  revalidateSciencePlan();
+  return { ok: true, message: 'Збережено' };
 }
 
 // ─── Clone ───────────────────────────────────────────────────────────────────
@@ -124,6 +209,7 @@ export async function cloneScienceYear(fromAcademicYear: string): Promise<Scienc
             academicYear: toAcademicYear,
             orderRef: source.orderRef,
             minHoursPerRate: source.minHoursPerRate,
+            maxLookbackMonths: source.maxLookbackMonths,
             stakeYear: stakeYearOf(toAcademicYear),
             status: 'CLOSED',
           },

@@ -11,6 +11,8 @@ import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { Label } from '@/components/aurora/ui/label';
 import { FormField } from '@/components/ui/form-field';
+import { MonthSelect } from '@/components/science/month-select';
+import { currentMonthKey } from '@/lib/science/execution-month';
 import type { ProofRule } from '@/lib/generated/prisma/client';
 import {
   Dialog,
@@ -63,9 +65,11 @@ import { DialogProblem } from '@/components/science/dialog-problem';
 export function AddRecordDialog({
   departmentId,
   workTypes,
+  lookbackMonths,
 }: {
   departmentId: string;
   workTypes: PlanWorkType[];
+  lookbackMonths: number;
 }) {
   const [open, setOpen] = useState(false);
   // Empty by default — see the note in `add-plan-row-dialog.tsx`.
@@ -150,6 +154,7 @@ export function AddRecordDialog({
             key={selected?.id ?? 'none'}
             type={selected}
             departmentId={departmentId}
+            lookbackMonths={lookbackMonths}
             onConflict={setConflict}
             onDone={() => close(false)}
             picker={picker}
@@ -163,6 +168,7 @@ export function AddRecordDialog({
 function RecordForm({
   type,
   departmentId,
+  lookbackMonths,
   onConflict,
   onDone,
   picker,
@@ -170,6 +176,7 @@ function RecordForm({
   /** `undefined` until a вид роботи is chosen — the form still draws. */
   type: PlanWorkType | undefined;
   departmentId: string;
+  lookbackMonths: number;
   onConflict: (conflict: WorkConflict) => void;
   onDone: () => void;
   picker: React.ReactNode;
@@ -178,6 +185,8 @@ function RecordForm({
   const [isPending, startTransition] = useTransition();
   const [link, setLink] = useState('');
   const [hours, setHours] = useState('');
+  // D41: this month by default — most work is recorded the month it happens.
+  const [month, setMonth] = useState(() => currentMonthKey());
   const [problem, setProblem] = useState<string | null>(null);
   // The file is ALREADY in R2 by the time this is non-null — see
   // `EvidenceFileField`. The save carries its key and the server verifies the
@@ -247,6 +256,7 @@ function RecordForm({
         evidence: data,
         link: link.trim() || undefined,
         hoursHundredths,
+        executedMonth: month,
         // Already uploaded; the server verifies it from the stored bytes and
         // writes its row in the same transaction as the work.
         file: file ?? undefined,
@@ -298,6 +308,22 @@ function RecordForm({
               // the rating's and defaults to its unit.
               unitLabel="год"
             />
+
+            {/* D41/D42: for a publication this is the month it came out, which
+                is also what fences an old article out. */}
+            <FormField
+              htmlFor="record-month"
+              label="Місяць виконання"
+              required
+              description={`Для публікації — місяць виходу. Не раніше ніж ${lookbackMonths} міс. тому.`}
+            >
+              <MonthSelect
+                id="record-month"
+                value={month}
+                onChange={setMonth}
+                lookbackMonths={lookbackMonths}
+              />
+            </FormField>
 
             {/* D47: the link and the file each follow their own rule from the
                 catalogue — shown, required, or not offered at all. Before a вид

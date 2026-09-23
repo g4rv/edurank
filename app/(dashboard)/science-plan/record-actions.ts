@@ -17,6 +17,7 @@ import { toHundredths } from '@/lib/stake/units';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
+import { dateToMonthKey, monthProblem, monthToDate } from '@/lib/science/execution-month';
 import { initials } from '@/lib/name';
 import {
   DUPLICATE_FILE_MESSAGE,
@@ -52,6 +53,9 @@ export interface SaveRecordInput {
    * record with nothing behind it.
    */
   file?: { objectKey: string; fileName: string };
+  /** D41: `"YYYY-MM"`, the month the work was done. Checked against D42's
+   *  window — the OPEN year's `maxLookbackMonths`, counted from today. */
+  executedMonth: string;
 }
 
 /** D17 turned into something the screen can act on: who has the work, what it
@@ -356,6 +360,17 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     return { error: LINK_NOT_ALLOWED };
   }
 
+  // D42: no older than the year's window allows, and never in the future.
+  const monthFault = monthProblem({
+    month: input.executedMonth,
+    now: new Date(),
+    lookbackMonths: template.maxLookbackMonths,
+  });
+  if (monthFault) {
+    await dropFile();
+    return { error: monthFault };
+  }
+
   const evidenceFault = evidenceProblem({
     linkRule: type.linkRule,
     fileRule: type.fileRule,
@@ -460,6 +475,7 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
           workTypeId: type.id,
           evidence: parsed.data as Prisma.InputJsonValue,
           computedValue: score,
+          executedMonth: monthToDate(input.executedMonth),
           link,
           totalHundredths,
           createdById: staffId,
@@ -502,6 +518,7 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
               hoursHundredths: requested,
               totalHundredths,
               link,
+              executedMonth: input.executedMonth,
               ...(verifiedFile ? { fileName: verifiedFile.fileName } : {}),
             }
           ),
@@ -747,6 +764,8 @@ export async function updateWorkEvidence(input: {
   workId: string;
   evidence: unknown;
   link?: string;
+  /** D41. Omitted means «keep the stored month». */
+  executedMonth?: string;
 }): Promise<{ ok: true } | { error: string }> {
   // No кафедра to check: a work belongs to nobody's кафедра, only to its year.
   // `allowAdmin` because the ADMIN branch below is the spec's escape hatch for
@@ -764,6 +783,7 @@ export async function updateWorkEvidence(input: {
       totalHundredths: true,
       evidence: true,
       link: true,
+      executedMonth: true,
       createdById: true,
       workType: true,
       // The REAL count, not the zero this used to assume. A work proved by a
@@ -787,6 +807,20 @@ export async function updateWorkEvidence(input: {
 
   const link = input.link?.trim() || null;
   if (link && type.linkRule === 'NONE') return { error: LINK_NOT_ALLOWED };
+
+  // D42 applies to a CHANGE of month only. A work saved in time keeps its
+  // month when its author later fixes a typo in the title, even if the window
+  // has moved past it since.
+  const storedMonth = dateToMonthKey(work.executedMonth);
+  const nextMonth = input.executedMonth ?? storedMonth;
+  if (nextMonth !== storedMonth) {
+    const monthFault = monthProblem({
+      month: nextMonth,
+      now: new Date(),
+      lookbackMonths: template.maxLookbackMonths,
+    });
+    if (monthFault) return { error: monthFault };
+  }
   const evidenceFault = evidenceProblem({
     linkRule: type.linkRule,
     fileRule: type.fileRule,
@@ -859,6 +893,8 @@ export async function updateWorkEvidence(input: {
         data: {
           evidence: parsed.data as Prisma.InputJsonValue,
           computedValue: score,
+          // Only written when it moved — «omitted» never rewrites the column.
+          executedMonth: nextMonth !== storedMonth ? monthToDate(nextMonth) : undefined,
           link,
           totalHundredths,
           dedupKey: key,
@@ -888,8 +924,13 @@ export async function updateWorkEvidence(input: {
           label: type.label,
           userId,
           changes: diffChanges(
-            { totalHundredths: work.totalHundredths, link: work.link, dedupKey: undefined },
-            { totalHundredths, link, dedupKey: key }
+            {
+              totalHundredths: work.totalHundredths,
+              link: work.link,
+              executedMonth: storedMonth,
+              dedupKey: undefined,
+            },
+            { totalHundredths, link, executedMonth: nextMonth, dedupKey: key }
           ),
         },
       });
