@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { fullStaffName } from '@/lib/staff-name';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { PLAN_PAGE_SIZE } from '@/lib/science/list-params';
+import { dateToMonthKey } from '@/lib/science/execution-month';
 import type { ScienceRecordStatus } from '@/lib/generated/prisma/client';
 
 export interface ScienceRecordFeedRow {
@@ -18,6 +19,12 @@ export interface ScienceRecordFeedRow {
   hoursHundredths: number;
   /** The whole work's pool — differs the moment it is shared. */
   totalHundredths: number;
+  /**
+   * D41 — the month the work was done, `"YYYY-MM"`. For an article, its
+   * publication month: ННВ compares it with the date on the linked page, which
+   * is how an article from years ago shows itself (D33/D42).
+   */
+  executedMonth: string;
   /** Each attached file, not a count: ННВ has to be able to OPEN the evidence
    *  it is deciding about, and `fileUrl` already entitles them to. */
   files: { id: string; fileName: string; pageCount: number | null }[];
@@ -74,6 +81,7 @@ export async function listScienceRecords(page: number): Promise<ScienceRecordFee
             id: true,
             link: true,
             evidence: true,
+            executedMonth: true,
             totalHundredths: true,
             workType: { select: { label: true, itemNumber: true, evidenceFields: true } },
             files: { select: { id: true, fileName: true, pageCount: true } },
@@ -100,6 +108,7 @@ export async function listScienceRecords(page: number): Promise<ScienceRecordFee
       link: r.work.link,
       hoursHundredths: r.hoursHundredths,
       totalHundredths: r.work.totalHundredths,
+      executedMonth: dateToMonthKey(r.work.executedMonth),
       files: r.work.files,
       sharedFiles: r.work.files.length > 0 && r.work.records.length > 1,
       status: r.status,

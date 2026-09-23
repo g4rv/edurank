@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { ExternalLink, FileText, Users } from 'lucide-react';
 import { Badge } from '@/components/aurora/ui/badge';
 import { Card, EmptyState } from '@/components/aurora/ui/card';
@@ -10,6 +11,8 @@ import { AttachFileDialog } from '@/components/science/attach-file-dialog';
 import { EditRecordDialog } from '@/components/science/edit-record-dialog';
 import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import { cn } from '@/lib/utils';
+import { groupByMonth } from '@/lib/science/group-by-month';
+import { monthLabel } from '@/lib/science/execution-month';
 
 /**
  * «204,8 КБ» — there is no byte-formatter elsewhere in the codebase to share;
@@ -52,132 +55,156 @@ export function RecordList({
   return (
     <Card padding="none">
       <ul className="divide-y">
-        {records.map((record) => {
-          const declined = record.status === 'REMOVED';
-          // Only worth saying when the work is genuinely shared — for a solo
-          // work the draw and the pool are the same number.
-          const shared = record.coAuthors.length > 0;
+        {/* D41: one heading per month, newest first — the same device as a
+            table's `variant="group"` row (aurora.md: a value repeated down
+            many rows is a heading, not a column). The hours beside it count
+            only what still counts, like every other sum here. */}
+        {groupByMonth(records).map((group) => (
+          <Fragment key={group.month}>
+            <li className="flex items-baseline justify-between gap-3 bg-table-group px-5 py-2 text-sm font-semibold">
+              <span>{monthLabel(group.month)}</span>
+              <span className="font-normal text-foreground-soft tabular-nums">
+                {formatHours(
+                  group.rows
+                    .filter((r) => r.status === 'APPROVED')
+                    .reduce((sum, r) => sum + r.hoursHundredths, 0)
+                )}{' '}
+                год
+              </span>
+            </li>
+            {group.rows.map((record) => {
+              const declined = record.status === 'REMOVED';
+              // Only worth saying when the work is genuinely shared — for a solo
+              // work the draw and the pool are the same number.
+              const shared = record.coAuthors.length > 0;
 
-          return (
-            <li key={record.id} className="px-5 py-3">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className={cn('text-base', declined && 'text-muted-foreground line-through')}>
-                    <span className="mr-1.5 text-foreground-soft">{record.itemNumber}</span>
-                    {record.workTypeLabel}
-                  </p>
-                  <p className="mt-0.5 text-sm text-foreground-soft">{record.summary}</p>
-
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    {record.link && (
-                      <a
-                        href={record.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-brand underline decoration-brand/30 underline-offset-4 transition-colors hover:decoration-brand"
+              return (
+                <li key={record.id} className="px-5 py-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={cn(
+                          'text-base',
+                          declined && 'text-muted-foreground line-through'
+                        )}
                       >
-                        <ExternalLink className="size-3.5" />
-                        Підтвердження
-                      </a>
-                    )}
-                    {shared && (
-                      <span className="inline-flex items-center gap-1 text-foreground-soft">
-                        <Users className="size-3.5" />
-                        {/* The only place somebody sees that their 50 год came
-                            out of a 200 год pool, and who holds the rest. */}
-                        Разом з:{' '}
-                        {record.coAuthors
-                          .map((a) => `${a.name} — ${formatHours(a.hoursHundredths)} год`)
-                          .join(', ')}
-                      </span>
-                    )}
-                  </div>
+                        <span className="mr-1.5 text-foreground-soft">{record.itemNumber}</span>
+                        {record.workTypeLabel}
+                      </p>
+                      <p className="mt-0.5 text-sm text-foreground-soft">{record.summary}</p>
 
-                  {record.files.length > 0 && (
-                    <ul className="mt-1.5 space-y-1">
-                      {record.files.map((file) => (
-                        <li
-                          key={file.id}
-                          className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground-soft"
-                        >
-                          <FileText className="size-3.5 shrink-0" />
-                          <span className="min-w-0 truncate" title={file.fileName}>
-                            {file.fileName}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                        {record.link && (
+                          <a
+                            href={record.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-brand underline decoration-brand/30 underline-offset-4 transition-colors hover:decoration-brand"
+                          >
+                            <ExternalLink className="size-3.5" />
+                            Підтвердження
+                          </a>
+                        )}
+                        {shared && (
+                          <span className="inline-flex items-center gap-1 text-foreground-soft">
+                            <Users className="size-3.5" />
+                            {/* The only place somebody sees that their 50 год came
+                            out of a 200 год pool, and who holds the rest. */}
+                            Разом з:{' '}
+                            {record.coAuthors
+                              .map((a) => `${a.name} — ${formatHours(a.hoursHundredths)} год`)
+                              .join(', ')}
                           </span>
-                          <span>· {formatFileSize(file.sizeBytes)}</span>
-                          {/* Item 4 prices per page — the number a reviewer
+                        )}
+                      </div>
+
+                      {record.files.length > 0 && (
+                        <ul className="mt-1.5 space-y-1">
+                          {record.files.map((file) => (
+                            <li
+                              key={file.id}
+                              className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground-soft"
+                            >
+                              <FileText className="size-3.5 shrink-0" />
+                              <span className="min-w-0 truncate" title={file.fileName}>
+                                {file.fileName}
+                              </span>
+                              <span>· {formatFileSize(file.sizeBytes)}</span>
+                              {/* Item 4 prices per page — the number a reviewer
                               compares — so a PDF's page count is worth showing,
                               never just its byte size. */}
-                          {file.pageCount !== null && <span>· {file.pageCount} стор.</span>}
-                          <FileViewButton fileId={file.id} fileName={file.fileName} />
-                          {record.canEdit && (
-                            <DeleteFileButton fileId={file.id} fileName={file.fileName} />
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                              {file.pageCount !== null && <span>· {file.pageCount} стор.</span>}
+                              <FileViewButton fileId={file.id} fileName={file.fileName} />
+                              {record.canEdit && (
+                                <DeleteFileButton fileId={file.id} fileName={file.fileName} />
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
 
-                  {/* The two ways to put a mistake right, both of which were
+                      {/* The two ways to put a mistake right, both of which were
                       server actions nobody could reach: a wrong number is an
                       edit, and a file that failed to upload (or arrived by
                       email months later) is an attachment. Without them the
                       only route was delete-and-retype, which dead-ended on the
                       work that survived the delete. */}
-                  {record.canEdit && !declined && (
-                    <div className="mt-1 -ml-2 flex flex-wrap items-center gap-1">
-                      {workTypeById.has(record.workTypeId) && (
-                        <EditRecordDialog
-                          workId={record.workId}
-                          type={workTypeById.get(record.workTypeId)!}
-                          evidence={record.evidence}
-                          link={record.link}
-                          executedMonth={record.executedMonth}
-                          lookbackMonths={lookbackMonths}
-                          label={record.summary}
-                        />
+                      {record.canEdit && !declined && (
+                        <div className="mt-1 -ml-2 flex flex-wrap items-center gap-1">
+                          {workTypeById.has(record.workTypeId) && (
+                            <EditRecordDialog
+                              workId={record.workId}
+                              type={workTypeById.get(record.workTypeId)!}
+                              evidence={record.evidence}
+                              link={record.link}
+                              executedMonth={record.executedMonth}
+                              lookbackMonths={lookbackMonths}
+                              label={record.summary}
+                            />
+                          )}
+                          {/* D47: not for a вид роботи proved by a link alone. */}
+                          {workTypeById.get(record.workTypeId)?.fileRule !== 'NONE' && (
+                            <AttachFileDialog workId={record.workId} label={record.summary} />
+                          )}
+                        </div>
                       )}
-                      {/* D47: not for a вид роботи proved by a link alone. */}
-                      {workTypeById.get(record.workTypeId)?.fileRule !== 'NONE' && (
-                        <AttachFileDialog workId={record.workId} label={record.summary} />
+
+                      {declined && (
+                        <p className="mt-1.5 text-sm text-error-strong">
+                          {/* Kept on screen on purpose: a declined record is the one
+                          thing the person has to be able to read and answer. */}
+                          {record.removedReason ?? 'Запис відхилено.'}
+                        </p>
                       )}
                     </div>
-                  )}
 
-                  {declined && (
-                    <p className="mt-1.5 text-sm text-error-strong">
-                      {/* Kept on screen on purpose: a declined record is the one
-                          thing the person has to be able to read and answer. */}
-                      {record.removedReason ?? 'Запис відхилено.'}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex shrink-0 items-center gap-2">
-                  {declined && <Badge tone="destructive">Відхилено</Badge>}
-                  <span className="text-sm text-foreground-soft">
-                    Годин:{' '}
-                    <span
-                      className={cn(
-                        'text-base font-semibold tabular-nums',
-                        declined ? 'text-muted-foreground' : 'text-foreground'
-                      )}
-                    >
-                      {formatHours(record.hoursHundredths)}
-                    </span>
-                    {shared && (
-                      <span className="text-foreground-soft">
-                        {' '}
-                        з {formatHours(record.totalHundredths)}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {declined && <Badge tone="destructive">Відхилено</Badge>}
+                      <span className="text-sm text-foreground-soft">
+                        Годин:{' '}
+                        <span
+                          className={cn(
+                            'text-base font-semibold tabular-nums',
+                            declined ? 'text-muted-foreground' : 'text-foreground'
+                          )}
+                        >
+                          {formatHours(record.hoursHundredths)}
+                        </span>
+                        {shared && (
+                          <span className="text-foreground-soft">
+                            {' '}
+                            з {formatHours(record.totalHundredths)}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  <DeleteRecordButton recordId={record.id} label={record.summary} />
-                </div>
-              </div>
-            </li>
-          );
-        })}
+                      <DeleteRecordButton recordId={record.id} label={record.summary} />
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </Fragment>
+        ))}
       </ul>
     </Card>
   );

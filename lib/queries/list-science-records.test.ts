@@ -32,6 +32,7 @@ function scienceRecord(
       id: 'w1',
       link: 'https://example.com/a',
       evidence: { title: 'Стаття про освіту' },
+      executedMonth: new Date('2026-05-01T00:00:00Z'),
       totalHundredths: 20000,
       workType: {
         label: 'Наукова стаття',
@@ -99,6 +100,8 @@ describe('listScienceRecords', () => {
       link: 'https://example.com/a',
       hoursHundredths: 15000,
       totalHundredths: 20000,
+      // D41 — ННВ compares it with the date on the linked page.
+      executedMonth: '2026-05',
       status: 'APPROVED',
       removedReason: null,
     });
