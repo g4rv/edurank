@@ -1,5 +1,6 @@
 'use client';
 
+import { Plus } from 'lucide-react';
 import { useActionState, useId, useState, useTransition } from 'react';
 import { Button } from '@/components/aurora/ui/button';
 import { Card } from '@/components/aurora/ui/card';
@@ -322,8 +323,18 @@ function CascadeFields({
             {/* «Додати здобувача», not «Додати». On its own line the bare verb
                 took its object from the card title above it; on a row beside a
                 field it needs to carry its own. */}
-            <Button type="submit" disabled={disabled || !student} className="shrink-0">
-              {pending ? 'Збереження…' : 'Додати здобувача'}
+            {/* The label never changes (owner, 2026-09-24): «Збереження…» is
+                shorter, so the button shrank mid-save and the field beside it
+                jumped wider. The spinner takes the «+»'s place instead — the
+                same size — and `loading` disables it. */}
+            <Button
+              type="submit"
+              disabled={disabled || !student}
+              loading={pending}
+              className="shrink-0"
+            >
+              {!pending && <Plus className="size-4" />}
+              Додати здобувача
             </Button>
           </div>
 

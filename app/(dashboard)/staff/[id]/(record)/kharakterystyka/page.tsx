@@ -58,10 +58,10 @@ export default async function StaffKharakterystykaPage({
   // only for them, so nobody else's page carries rows it will not render.
   const canEdit = session.user.role === 'ADMIN';
 
-  // A завідувач/декан reaches this page and only this page — `/staff` and the
-  // other two tabs send a USER to their own record. Offering them tabs that
-  // bounce would be worse than offering none, so they get the document alone.
-  const seesStaffPages = session.user.role === 'ADMIN' || session.user.role === 'EDITOR';
+  // Everybody who may read this page may read the other two tabs as well
+  // since 2026-09-24 — a завідувач or декан included, read-only — so all three
+  // are offered. The guard above is the same `canViewAcademicRecord` theirs is.
+  const seesStaffPages = true;
 
   const [data, positionSources, manualEntries] = await Promise.all([
     getKharakterystyka(id, template.year),

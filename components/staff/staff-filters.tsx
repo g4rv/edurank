@@ -55,9 +55,30 @@ type Props = {
    * be a filter whose result the server refuses to narrow.
    */
   showActivation?: boolean;
+  /**
+   * The НПП / Адміністративний / Всі switch. Off on «Мій факультет»: a декан's
+   * list is НПП only — the system is run by administrative staff but tracks
+   * НПП (owner, 2026-09-24).
+   */
+  showType?: boolean;
+  /** The факультет picker. Off where the list is already one факультет. */
+  showFaculty?: boolean;
+  /**
+   * How many rows the filters leave — «37 НПП» — at the end of the filter
+   * row, where the eye is when it changes, rather than on a line of its own
+   * (owner, 2026-09-24). `/staff` carries it in its header instead.
+   */
+  count?: React.ReactNode;
 };
 
-export function StaffFilters({ faculties, departments, showActivation = false }: Props) {
+export function StaffFilters({
+  faculties,
+  departments,
+  showActivation = false,
+  showType = true,
+  showFaculty = true,
+  count,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -268,18 +289,20 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
 
         {/* `w-48`, not `w-44`: measured, «Адміністративний» renders 175px and
             `w-44` is 176, which is a fit only until a font falls back. */}
-        <Select value={selectedType} onValueChange={(v) => setType(v as TypeValue)}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start">
-            {TYPE_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {showType && (
+          <Select value={selectedType} onValueChange={(v) => setType(v as TypeValue)}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              {TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {showActivation && (
           <Select
@@ -336,25 +359,27 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
             enough for the longest факультет AND the longest кафедра.
             `min-w-64` is the floor they wrap at instead of shrinking into
             uselessness. */}
-        <div className="min-w-64 flex-1">
-          <Select
-            key={facultyId || '__faculty_reset__'}
-            value={facultyId || undefined}
-            onValueChange={(v) => handleFacultyChange(v === '__all__' ? '' : v)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Факультет" />
-            </SelectTrigger>
-            <SelectContent position="popper" align="start">
-              <SelectItem value="__all__">Всі факультети</SelectItem>
-              {faculties.map((f) => (
-                <SelectItem key={f.id} value={f.id}>
-                  {f.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {showFaculty && (
+          <div className="min-w-64 flex-1">
+            <Select
+              key={facultyId || '__faculty_reset__'}
+              value={facultyId || undefined}
+              onValueChange={(v) => handleFacultyChange(v === '__all__' ? '' : v)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Факультет" />
+              </SelectTrigger>
+              <SelectContent position="popper" align="start">
+                <SelectItem value="__all__">Всі факультети</SelectItem>
+                {faculties.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* A combobox, not a select: thirty-one кафедри is a scan, not a
             choice. Shared with every other кафедра picker in the app. */}
@@ -384,6 +409,9 @@ export function StaffFilters({ faculties, departments, showActivation = false }:
             pending ? 'opacity-100' : 'opacity-0'
           )}
         />
+        {count !== undefined && (
+          <span className="shrink-0 text-sm whitespace-nowrap text-foreground-soft">{count}</span>
+        )}
       </div>
 
       {/* **«Очистити» lives HERE, with the chips it clears** — not at the end

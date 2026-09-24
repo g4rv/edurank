@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStaffAccount } from '@/lib/queries/get-staff-account';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
-import { canViewAcademicRecord } from '@/lib/queries/scope';
+import { canViewAcademicRecord, deanOf } from '@/lib/queries/scope';
 import { canMutateStaffRecord } from '@/lib/permissions';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
@@ -78,7 +78,19 @@ export async function RecordHeader({ id }: { id: string }) {
 
   return (
     <>
-      <Breadcrumbs items={[{ label: 'Персонал', href: '/staff' }, { label: fullName(staff) }]} />
+      {/* A head reads this record from «Моя кафедра», a декан from «Мій
+          факультет»; `/staff` is closed to both, so a crumb pointing there
+          would lead nowhere. */}
+      <Breadcrumbs
+        items={[
+          session.user.role !== 'USER'
+            ? { label: 'Персонал', href: '/staff' }
+            : (await deanOf(session.user.staffId)).length > 0
+              ? { label: 'Мій факультет', href: '/my-faculty?tab=staff' }
+              : { label: 'Моя кафедра', href: '/my-department' },
+          { label: fullName(staff) },
+        ]}
+      />
       <IdentityBand
         staff={staff}
         badges={account ? <ActivationBadge activated={account.isActivated} /> : null}

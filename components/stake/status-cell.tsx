@@ -56,7 +56,7 @@ export function StatusCell({
   if (!held || held.value <= 0) {
     return (
       <span
-        className="cursor-help text-muted-foreground"
+        className="cursor-help text-foreground-soft"
         title={
           held ? `${tooltip}\n\nНадбавку за посаду «${held.label}» ще не встановлено` : tooltip
         }
@@ -70,7 +70,7 @@ export function StatusCell({
     <span title={tooltip} className="cursor-help">
       <span className="tabular-nums">+{formatStakeValue(held.value)}</span>
       {/* The position itself, small — «+0,05» alone makes the head look it up */}
-      <span className="block text-[10px] text-muted-foreground">{shorten(held.label)}</span>
+      <span className="block text-[10px] text-foreground-soft">{shorten(held.label)}</span>
     </span>
   );
 }

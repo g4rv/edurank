@@ -1,6 +1,7 @@
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import { minimumKst, type DepartmentKnpp } from '@/lib/queries/get-department-knpp';
 import { UK } from '@/lib/plural';
+import { Card } from '@/components/aurora/ui/card';
 
 /**
  * The кафедра's two ставка numbers, side by side — because they are different
@@ -19,10 +20,13 @@ export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number
   const belowBar = data.primaryHeadcount - data.knpp;
 
   return (
-    <div className="rounded-xl border bg-card p-5">
-      <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+    // Аврора's `Card`, with §4's card title — it was a bare bordered box with
+    // its own muted micro-title, the one card on the кафедра pages that did
+    // not match the ones around it.
+    <Card className="shrink-0">
+      <h2 className="mb-3 text-sm font-semibold tracking-wide uppercase">
         Ліцензійні показники — {year}
-      </p>
+      </h2>
 
       <div className="flex flex-wrap gap-x-8 gap-y-3">
         <Figure
@@ -45,20 +49,20 @@ export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number
       {belowBar > 0 && (
         // Not a warning. Кнпп only sizes a divisor: everybody still receives a
         // ставка, and saying so here stops the number reading as a shortlist.
-        <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+        <p className="mt-3 border-t pt-3 text-sm text-foreground">
           {belowBar} {belowBar === 1 ? 'працівник не досягає' : 'працівників не досягають'}{' '}
           {REQUIRED_POSITIONS} позицій. Це впливає лише на дільник Кнпп — ставку отримують усі.
         </p>
       )}
 
       {data.partTimeHeadcount > 0 && (
-        <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+        <p className="mt-3 border-t pt-3 text-sm text-foreground">
           Із них {UK.partTimer(data.partTimeHeadcount)} з інших кафедр. Вони входять у мінімум
           ставок, бо теж отримують ставку тут, але не входять у Кнпп — ліцензійні позиції рахує
           основна кафедра.
         </p>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -67,7 +71,7 @@ function Figure({ value, label, hint }: { value: number | string; label: string;
     <div>
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
       <p className="text-sm font-medium">{label}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+      <p className="mt-0.5 text-sm text-foreground">{hint}</p>
     </div>
   );
 }

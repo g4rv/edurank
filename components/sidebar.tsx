@@ -81,6 +81,11 @@ export interface SidebarProps {
   canEnterData?: boolean;
   /** Heads a кафедра or a факультет — derived from headId/deanId, never a Role */
   headsDepartment?: boolean;
+  /**
+   * Декан of a факультет. Their own screen is «Мій факультет» in place of
+   * «Моя кафедра» — a декан is never also a завідувач (`headDeanConflict`).
+   */
+  isDean?: boolean;
   /** ADMIN, or exactly ННВ's editors (registryKey, never the moderation flag) */
   canOverseeSciencePlans?: boolean;
   /**
@@ -128,6 +133,7 @@ export function Sidebar({
   canModerate = false,
   canEnterData = false,
   headsDepartment = false,
+  isDean = false,
   canOverseeSciencePlans = false,
   ratingTotals = null,
   ratingYear = null,
@@ -171,7 +177,9 @@ export function Sidebar({
   // line is still gated on its own right: a завідувач who is an ordinary USER
   // sees three of these, an ADMIN sees all of them.
   const management: NavItem[] = [];
-  if (headsDepartment) {
+  if (isDean) {
+    management.push({ href: '/my-faculty', label: 'Мій факультет', icon: GraduationCap });
+  } else if (headsDepartment) {
     // Exact — otherwise /my-department/students lights both lines at once
     management.push({ href: '/my-department', label: 'Моя кафедра', icon: BookOpen, exact: true });
   }
@@ -182,7 +190,10 @@ export function Sidebar({
       { href: '/faculties', label: 'Факультети', icon: GraduationCap }
     );
   }
-  if (headsDepartment || isAdmin) {
+  // Not for a декан (owner, 2026-09-24): «Мій факультет» is information about
+  // their кафедри and staff, and nothing else — the students and the ставки
+  // are the завідувач's work and ADMIN's.
+  if ((headsDepartment && !isDean) || isAdmin) {
     management.push(
       { href: '/my-department/students', label: 'Залучені здобувачі', icon: UserPlus },
       // One entry for everyone who may open it. It used to be listed twice —

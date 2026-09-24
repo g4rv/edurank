@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stake-settings';
-import { scopeOf } from '@/lib/queries/scope';
+import { headOf } from '@/lib/queries/scope';
 import { poolTotals } from '@/lib/stake/pool-totals';
 import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
 import { DepartmentPools } from '@/components/stake/department-pools';
@@ -37,7 +37,9 @@ export default async function StakesPage() {
   if (!session) redirect('/login');
 
   const isAdmin = session.user.role === 'ADMIN';
-  const scope = isAdmin ? [] : await scopeOf(session.user.staffId);
+  // `headOf`, not `scopeOf`: a декан no longer sees розподіл ставок at all
+  // (owner, 2026-09-24) — it is the завідувач's work and ADMIN's.
+  const scope = isAdmin ? [] : await headOf(session.user.staffId);
   if (!isAdmin && scope.length === 0) redirect('/profile');
   // One кафедра is not a list. Done here rather than by pointing the sidebar
   // link somewhere else, so that typing the URL behaves the same way — and the

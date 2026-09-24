@@ -397,8 +397,9 @@ Full specification: `docs/stake-distribution.md`. Read it before changing anythi
 
 Two people, two screens. ADMIN/проректор allocates pools across all 31 кафедри on
 `/stakes`; the завідувач spreads one pool among their own people on `/stakes/[id]`,
-which is додаток 2 on screen. A декан may **read** every кафедра of their faculty
-and write none of them.
+which is додаток 2 on screen. **A декан sees neither** (owner, 2026-09-24 — they
+used to read every grid of their faculty): both pages gate on `headOf`, and
+«Мій факультет» (`/my-faculty`) shows no fund and no ставка column.
 
 Three facts shape every model, and all three are easy to lose:
 
@@ -438,10 +439,11 @@ Rules that are easy to get wrong:
   automatic winner and no «assign to».
 - **Only ADMIN confirms or rejects a claim** (2026-08-25, retracting «admin/head can
   approve» of 2026-08-17). A confirmed claim pays a bonus out of a fund the завідувач
-  then spends, so the head is not the one confirming it. A head and a декан still READ
+  then spends, so the head is not the one confirming it. A head still READS
   `/my-department/students` — the duplicate list is context for their own ставка
-  grid — and `canDecide` there is `isAdmin` alone. Headship is not consulted: the page
-  and the action no longer call `headOf`.
+  grid — and `canDecide` there is `isAdmin` alone. **A декан sees neither this page
+  nor the ставки** (owner, 2026-09-24): «Мій факультет» (`/my-faculty`) is
+  information about their кафедри and staff, and the page gates on `headOf`.
 - **`StakeStatusBonus` is information, never money.** The grid shows what somebody's
   positions and recruited students add up to; the head still types the ставка.
 - **A person's Мін/Макс is per кафедра, not per person.** `StaffStakeLimits` carries
@@ -540,7 +542,9 @@ Easy to get wrong:
   submitted plan (`unlockPlan`). **A завідувач and a декан see no science
   data at all** (D44) — `/my-department/science-plans` was removed.
 - **The fact owes `max(план, 500 × ставка)`** (D37, `doneTargetHundredths`);
-  the plan itself is still measured against the norm.
+  the plan itself is still measured against the norm — and **cannot be saved
+  below it** (D52, owner 2026-09-24): `lockPlan` refuses, the dialog disables
+  «Так, зберегти». A draft under the norm is fine; a submitted one is not.
 - **Link and file are two separate rules per вид роботи** (D47,
   `ScienceWorkType.linkRule` / `fileRule`: REQUIRED / OPTIONAL / NONE, set by
   ADMIN). Only when neither is REQUIRED must one of the two be given; a proof

@@ -974,6 +974,19 @@ moderate → close year → reopen, plus the permission matrix.
 
 ---
 
+### C7. «Графіки» for a завідувач and a декан — later (owner, 2026-09-24)
+
+The owner's idea, explicitly NOT for now: each head and декан gets their own
+charts page, the `/dashboard` shape ADMIN has, scoped to their кафедра or
+факультет. Until then both export «ПІБ | кафедра | рейтинг» from «Моя
+кафедра» / «Мій факультет» (`/api/export/department-ratings`).
+
+### C8. One tab bar — refactor, not urgent
+
+`components/aurora/ui/link-tabs.tsx` (2026-09-24, «Мій факультет») is the
+shared link-tab bar. `StaffTabs` and the science `RecordTabs` still draw the
+same bar by hand; move them onto it (§11).
+
 ## D. Waiting on other people
 
 Not blocked on a decision — blocked on a file or a third party.

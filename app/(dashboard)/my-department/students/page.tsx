@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listClaimsForReview } from '@/lib/queries/list-student-claims';
-import { scopeOf } from '@/lib/queries/scope';
+import { headOf } from '@/lib/queries/scope';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { ClaimsReview } from '@/components/stake/claims-review';
 import { DepartmentSelect } from '@/components/department-select';
@@ -21,11 +21,11 @@ import { DepartmentSelect } from '@/components/department-select';
  * approve» of 2026-08-17. A confirmed claim pays a bonus out of a fund the
  * завідувач then spends, so the head is no longer the one confirming it.
  *
- * A head keeps the page read-only, which is what a декан has always had:
- * `scopeOf` still says which кафедри they may look at, and the duplicate list is
- * the reason to keep looking — it is context for their own ставка grid. The
- * controls are hidden here and the action refuses independently; a hidden button
- * is a courtesy, never the check.
+ * A head keeps the page read-only: the duplicate list is context for their own
+ * ставка grid. The controls are hidden here and the action refuses
+ * independently; a hidden button is a courtesy, never the check. **A декан no
+ * longer sees it at all** (owner, 2026-09-24) — «Мій факультет» is information
+ * about their кафедри and staff, and nothing else.
  *
  * **The screen's body is `ClaimsReview`, header card included** (2026-09-21).
  * Searching by здобувач, by НПП and «лише спірні» are client state over rows
@@ -44,9 +44,10 @@ export default async function DepartmentStudentsPage({
   if (!session) redirect('/login');
 
   const isAdmin = session.user.role === 'ADMIN';
-  // `headOf` is deliberately not consulted: since 2026-08-25 headship grants
-  // nothing on this screen, so the only question left is who may LOOK.
-  const scope = await scopeOf(session.user.staffId);
+  // Who may LOOK: the кафедра's head, or ADMIN. Headship decides nothing here
+  // (only ADMIN rules on a claim, 2026-08-25), and a декан is out since
+  // 2026-09-24 — «Мій факультет» is their кафедри and staff, nothing else.
+  const scope = await headOf(session.user.staffId);
   if (!isAdmin && scope.length === 0) redirect('/profile');
 
   const template = await getActiveTemplate();

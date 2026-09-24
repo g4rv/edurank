@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { getStaffAccount } from '@/lib/queries/get-staff-account';
@@ -29,7 +30,17 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
   const { id } = await params;
   const session = await auth();
   if (!session) redirect('/login');
-  if (session.user.role === 'USER') redirect('/profile');
+  // A завідувач or декан READS the records of their кафедра's people
+  // (owner, 2026-09-24) — `canViewAcademicRecord`, the rule the
+  // Характеристика already used. Read-only: every control on the record is
+  // ADMIN's or an EDITOR's, and the ставка stays ADMIN's and the person's own.
+  // A USER on their OWN record still goes to /profile, which is theirs.
+  if (
+    session.user.role === 'USER' &&
+    (session.user.staffId === id || !(await canViewAcademicRecord(session.user, id)))
+  ) {
+    redirect('/profile');
+  }
 
   // A ставка is confidential: ADMIN, or the person themselves. An EDITOR never
   // sees one, however much else they may edit. The ROUTE answers this — a

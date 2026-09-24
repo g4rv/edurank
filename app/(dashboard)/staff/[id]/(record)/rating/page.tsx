@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
@@ -26,9 +27,17 @@ export default async function StaffRatingPage({
   const session = await auth();
   if (!session) redirect('/login');
 
-  // Includes a завідувач, who is an ordinary USER: the record header lets them
-  // past for the Характеристика, and this tab is still not theirs.
-  if (session.user.role === 'USER') redirect('/profile');
+  // A завідувач or декан READS the records of their кафедра's people
+  // (owner, 2026-09-24) — `canViewAcademicRecord`, the rule the
+  // Характеристика already used. Read-only: every control on the record is
+  // ADMIN's or an EDITOR's, and the ставка stays ADMIN's and the person's own.
+  // A USER on their OWN record still goes to /profile, which is theirs.
+  if (
+    session.user.role === 'USER' &&
+    (session.user.staffId === id || !(await canViewAcademicRecord(session.user, id)))
+  ) {
+    redirect('/profile');
+  }
 
   const staff = await db.staff.findUnique({
     where: { id },

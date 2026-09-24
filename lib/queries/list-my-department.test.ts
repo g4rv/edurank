@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 vi.mock('@/lib/db', () => ({
-  db: { department: { findMany: vi.fn() }, staff: { findMany: vi.fn() } },
+  db: {
+    department: { findMany: vi.fn() },
+    staff: { findMany: vi.fn() },
+    stakeDistribution: { findMany: vi.fn() },
+  },
 }));
 vi.mock('./scope', () => ({ scopeOf: vi.fn() }));
 
@@ -12,6 +16,7 @@ import { listMyDepartments } from './list-my-department';
 const mockScope = scopeOf as unknown as Mock;
 const mockDepartments = db.department.findMany as unknown as Mock;
 const mockStaff = db.staff.findMany as unknown as Mock;
+const mockDistributions = db.stakeDistribution.findMany as unknown as Mock;
 
 /** The кафедри in scope, in the order the query returns them. */
 function departments(ids: string[]) {
@@ -38,7 +43,11 @@ function staff(
   );
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // No distribution saved anywhere unless a test says otherwise.
+  mockDistributions.mockResolvedValue([]);
+});
 
 describe('listMyDepartments with a сумісник', () => {
   it('shows them to the head of the кафедра they also work for', async () => {
@@ -109,5 +118,42 @@ describe('listMyDepartments with a сумісник', () => {
     mockScope.mockResolvedValue([]);
     expect(await listMyDepartments('nobody', 2026)).toEqual([]);
     expect(mockStaff).not.toHaveBeenCalled();
+  });
+});
+
+describe('listMyDepartments — the ставка on THIS кафедра', () => {
+  it('shows each кафедра its own allocation, never one from another кафедра', async () => {
+    mockScope.mockResolvedValue(['d1', 'd2']);
+    departments(['d1', 'd2']);
+    staff([{ id: 'guest', departmentId: 'd2', partTimeIn: ['d1'], total: 500 }]);
+    mockDistributions.mockResolvedValue([
+      { departmentId: 'd1', allocations: [{ staffId: 'guest', proposedHundredths: 25 }] },
+      { departmentId: 'd2', allocations: [{ staffId: 'guest', proposedHundredths: 75 }] },
+    ]);
+
+    const [d1, d2] = await listMyDepartments('head', 2026);
+    expect(d1.staff[0]).toMatchObject({ id: 'guest', stakeHundredths: 25 });
+    expect(d2.staff[0]).toMatchObject({ id: 'guest', stakeHundredths: 75 });
+  });
+
+  it('says «none yet» as null, not as a ставка of zero', async () => {
+    mockScope.mockResolvedValue(['d1']);
+    departments(['d1']);
+    staff([{ id: 'p', departmentId: 'd1', total: 100 }]);
+
+    const [d1] = await listMyDepartments('head', 2026);
+    expect(d1.staff[0].stakeHundredths).toBeNull();
+  });
+
+  it('asks only for this year and the кафедри in scope', async () => {
+    mockScope.mockResolvedValue(['d1']);
+    departments(['d1']);
+    staff([]);
+
+    await listMyDepartments('head', 2026);
+    expect(mockDistributions.mock.calls[0][0].where).toEqual({
+      departmentId: { in: ['d1'] },
+      year: 2026,
+    });
   });
 });
