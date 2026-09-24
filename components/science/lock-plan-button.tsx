@@ -118,17 +118,19 @@ export function LockPlanButton({
           {targetHundredths !== null && <> з {formatHours(targetHundredths)} потрібних</>}
         </p>
 
-        {/* Shown, never blocking — the same rule the ставки grid follows for
-            overspending, and D9 for a plan below its target. */}
+        {/* Below the norm the plan cannot be saved (owner, 2026-09-24,
+            reversing D9's «shown, never blocked»). The dialog still opens, so
+            the person sees the whole plan and exactly how much is missing. */}
         {short > 0 && (
           <p className="text-sm text-warning">
-            Бракує {formatHours(short)} год до норми. Зберегти все одно можна, але ННВ це побачить.
+            Бракує {formatHours(short)} год до норми. Додайте роботи до плану — зберегти план нижче
+            норми неможливо.
           </p>
         )}
 
         <AlertDialogFooter>
           <AlertDialogCancel>Скасувати</AlertDialogCancel>
-          <Button onClick={handleLock} disabled={isPending} loading={isPending}>
+          <Button onClick={handleLock} disabled={isPending || short > 0} loading={isPending}>
             {isPending ? 'Збереження…' : 'Так, зберегти'}
           </Button>
         </AlertDialogFooter>

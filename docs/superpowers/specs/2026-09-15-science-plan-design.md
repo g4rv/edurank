@@ -999,6 +999,15 @@ section and the D31–D35 notes above disagree, this section wins.**
 | D51 | Old publications?               | **Refused at once.** The стаття's «Опубліковано/Проіндексовано» (was «Дата публікації») must fall between 1 January of the current calendar year and today. Calendar year, not навчальний рік, until the boss says otherwise. ННВ still checks for a faked date.                  |
 | —   | The PDF page-count check (D40)? | **Dropped.** ННВ counts pages by hand.                                                                                                                                                                                                                                            |
 
+### D52 — an underplanned plan cannot be saved (owner, 2026-09-24)
+
+**Reverses D9 for the SUBMISSION.** A plan below `500 × ставка` may still be
+drafted — rows are added one at a time, so a plan passes through «under» on the
+way to «enough» — but «Зберегти план» refuses it: `lockPlan` re-reads the rows
+and returns «План нижче норми…», and the dialog disables «Так, зберегти» and
+says how many hours are missing. D9's «shown, never blocked» stays true of the
+draft and of the fact.
+
 ### D41 + D42 — the month, and why it is also the age fence (SUPERSEDED by D48)
 
 **Superseded 2026-09-23 by D48.** This section mixed two date ranges into one

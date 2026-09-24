@@ -16,7 +16,7 @@ vi.mock('@/lib/db', () => {
       updateMany: vi.fn(),
       aggregate: vi.fn(),
     },
-    sciencePlan: { findUnique: vi.fn(), create: vi.fn() },
+    sciencePlan: { findUnique: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
     scienceRecordFile: { create: vi.fn() },
     sciencePlanRow: { findUnique: vi.fn() },
     stakeAllocation: { findFirst: vi.fn() },
@@ -42,6 +42,7 @@ import { safeDeleteObject, verifyUploadedObject } from '@/lib/science/file-intak
 import {
   deleteRecord,
   joinWork,
+  lockPlan,
   saveRecord,
   updateRecordHours,
   updateWorkEvidence,
@@ -116,6 +117,7 @@ const TEMPLATE = {
   status: 'OPEN',
   stakeYear: 2026,
   lastExecutionMonth: 6,
+  minHoursPerRate: 500,
 };
 
 const STAFF = {
@@ -1379,5 +1381,39 @@ describe('updateRecordHours — D46, my own share', () => {
     expect(await updateRecordHours({ recordId: 'r1', hoursHundredths: 10000 })).toEqual({
       error: 'Години цієї роботи визначаються її даними — змініть їх у «Редагувати»',
     });
+  });
+});
+
+describe('lockPlan — no saving below the norm (owner, 2026-09-24)', () => {
+  // A full ставка (1,00 = 100 hundredths) owes 500 год = 50 000 hundredths.
+  const open = (planned: number[]) =>
+    (db.sciencePlan.findUnique as Mock).mockResolvedValue({
+      id: 'plan-1',
+      lockedAt: null,
+      rows: planned.map((plannedHundredths, i) => ({ id: `r${i}`, plannedHundredths })),
+    });
+
+  beforeEach(() => {
+    (db.sciencePlan.updateMany as Mock).mockResolvedValue({ count: 1 });
+  });
+
+  it('refuses a plan below 500 × ставка, naming the shortfall', async () => {
+    open([5000]); // 50 год
+    expect(await lockPlan('d1')).toEqual({
+      error: 'План нижче норми: заплановано 50 год з 500 потрібних. Додайте ще 450 год.',
+    });
+    expect(db.sciencePlan.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('saves a plan exactly at the norm', async () => {
+    open([30000, 20000]); // 300 + 200
+    expect(await lockPlan('d1')).toEqual({ ok: true });
+    expect(db.sciencePlan.updateMany).toHaveBeenCalled();
+  });
+
+  it('measures a part-time ставка pro rata — 0,25 owes 125 год', async () => {
+    (db.stakeAllocation.findFirst as Mock).mockResolvedValue({ proposedHundredths: 25 });
+    open([12500]);
+    expect(await lockPlan('d1')).toEqual({ ok: true });
   });
 });

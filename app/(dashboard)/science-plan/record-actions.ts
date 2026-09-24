@@ -8,7 +8,7 @@ import { diffChanges } from '@/lib/audit';
 import { isUniqueViolation, parseDbError } from '@/lib/db-error';
 import { logError } from '@/lib/log';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
-import { rateForPlan } from '@/lib/science/target';
+import { planTarget, rateForPlan } from '@/lib/science/target';
 import { workKey } from '@/lib/science/work-key';
 import { poolProblem, remainingHundredths } from '@/lib/science/pool';
 import { evidenceProblem, FILE_NOT_ALLOWED, LINK_NOT_ALLOWED } from '@/lib/science/evidence-rule';
@@ -248,6 +248,9 @@ async function requireLockedPlan(
  * **Refused while the кафедра has no розподіл.** On 2026-09-15, 306 of 328 НПП
  * had no ставка anywhere, so the page shows no target at all — and nobody
  * should be made to fix a plan against a number it cannot show them.
+ *
+ * **Refused below 500 × ставка** (owner, 2026-09-24): an underplanned year is
+ * not saved at all, rather than saved with a warning ННВ may or may not read.
  */
 export async function lockPlan(departmentId: string): Promise<{ ok: true } | { error: string }> {
   const actor = await resolveActor(departmentId);
@@ -258,7 +261,7 @@ export async function lockPlan(departmentId: string): Promise<{ ok: true } | { e
     where: {
       staffId_departmentId_templateId: { staffId, departmentId, templateId: template.id },
     },
-    select: { id: true, lockedAt: true, rows: { select: { id: true } } },
+    select: { id: true, lockedAt: true, rows: { select: { id: true, plannedHundredths: true } } },
   });
   if (!plan) return { error: 'Спочатку додайте хоча б одну роботу до плану' };
   if (plan.lockedAt) return { error: 'План уже збережено' };
@@ -273,6 +276,25 @@ export async function lockPlan(departmentId: string): Promise<{ ok: true } | { e
   });
   if (rateHundredths === null) {
     return { error: 'Ставку на цій кафедрі ще не визначено — план можна буде зберегти пізніше' };
+  }
+
+  // **No saving below the norm** (owner, 2026-09-24, reversing D9's «shown,
+  // never blocked» for the SUBMISSION). A plan may still be drafted under it —
+  // rows are added one at a time — but it cannot be fixed as the year's plan
+  // until it reaches 500 × ставка. Re-read from the rows here, never taken from
+  // the screen.
+  const { plannedHundredths, targetHundredths, shortfallHundredths } = planTarget({
+    minHoursPerRate: template.minHoursPerRate,
+    rateHundredths,
+    plannedHundredths: plan.rows.reduce((sum, row) => sum + row.plannedHundredths, 0),
+    doneHundredths: 0,
+  });
+  if (shortfallHundredths) {
+    return {
+      error: `План нижче норми: заплановано ${formatHours(plannedHundredths)} год з ${formatHours(
+        targetHundredths!
+      )} потрібних. Додайте ще ${formatHours(shortfallHundredths)} год.`,
+    };
   }
 
   try {
