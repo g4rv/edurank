@@ -107,7 +107,9 @@ export async function listScienceRecords(page: number): Promise<ScienceRecordFee
       workId: r.work.id,
       workTypeLabel: r.work.workType.label,
       itemNumber: r.work.workType.itemNumber,
-      summary: summarizeEvidence(fields, r.work.evidence) || r.work.workType.label,
+      summary:
+        summarizeEvidence(fields, r.work.evidence, undefined, { uaDates: true }) ||
+        r.work.workType.label,
       link: r.work.link,
       hoursHundredths: r.hoursHundredths,
       totalHundredths: r.work.totalHundredths,

@@ -152,11 +152,18 @@ const url = (name: string, label: string, optional?: boolean): EvidenceField => 
 });
 
 /**
- * A calendar date. D48: the стаття's «Дата публікації» — shown to ННВ to check
- * against the linked page, never refused automatically, and NEVER one of a
- * type's identityFields, so a typed date cannot make one article look like two.
+ * A calendar date. D48: the стаття's «Опубліковано/Проіндексовано» — refused
+ * when older than this calendar year or in the future (`currentYear`, owner
+ * 2026-09-24); a faked date inside that window is ННВ's to catch against the
+ * linked page. NEVER one of a type's identityFields, so a typed date cannot
+ * make one article look like two.
  */
-const date = (name: string, label: string): EvidenceField => ({ kind: 'date', name, label });
+const date = (name: string, label: string, rule?: 'currentYear'): EvidenceField => ({
+  kind: 'date',
+  name,
+  label,
+  ...(rule ? { rule } : {}),
+});
 
 const doi = (name: string, label: string, optional?: boolean): EvidenceField => ({
   kind: 'doi',
@@ -309,7 +316,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
         { value: 'other', label: 'В інших виданнях', points: 5 },
       ]),
       count('credits', 'Кількість сторінок'),
-      date('publishedOn', 'Дата публікації'),
+      date('publishedOn', 'Опубліковано/Проіндексовано', 'currentYear'),
     ],
   },
   {

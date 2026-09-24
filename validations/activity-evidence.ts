@@ -31,12 +31,32 @@ export const RANGE_MIN_YEAR = new Date().getFullYear() - 10;
 export const RANGE_MAX_YEAR = new Date().getFullYear() + 20;
 
 /**
+ * A date field's `currentYear` window: 1 January of this calendar year up to
+ * today, both `YYYY-MM-DD`, read in Europe/Kyiv — at 00:30 on 1 January in
+ * Kyiv it is still the old year in UTC. Calendar year, not навчальний рік
+ * (owner, 2026-09-24): in 2026 a 2025 publication is refused.
+ *
+ * Shared by the picker (its bounds) and the schema (the refusal), so the two
+ * cannot disagree.
+ */
+export function currentYearBounds(now: Date = new Date()): { min: string; max: string } {
+  // en-CA formats as YYYY-MM-DD.
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Kyiv',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  return { min: `${today.slice(0, 4)}-01-01`, max: today };
+}
+
+/**
  * One field's rule. Exported for the Характеристика's hand-typed forms, which
  * compose a FLAT schema — `{ рік, варіант, ...поля }` — because the shared
  * renderer registers a field under its own name and nesting the evidence would
  * make every `register('bibliography')` a `register('evidence.bibliography')`.
  */
-export function fieldSchema(f: EvidenceField): z.ZodType {
+export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
   switch (f.kind) {
     case 'text': {
       let base = z
@@ -99,13 +119,25 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
     }
     case 'date': {
       const maxYear = new Date().getFullYear() + 1;
-      const base = z.iso.date({ error: 'Некоректна дата' }).refine(
+      let base = z.iso.date({ error: 'Некоректна дата' }).refine(
         (v) => {
           const year = Number(v.slice(0, 4));
           return year >= MIN_EVIDENCE_YEAR && year <= maxYear;
         },
         { error: `Рік має бути в межах ${MIN_EVIDENCE_YEAR}–${maxYear}` }
       );
+      if (f.rule === 'currentYear') {
+        const { min, max } = currentYearBounds();
+        // The value already saved is not judged again: in January, last
+        // year's article must still take a corrected title. Only a CHANGED
+        // date meets the window — the same rule D48 gives the month.
+        const kept = (v: string) => v === stored;
+        base = base
+          .refine((v) => kept(v) || v >= min, {
+            error: `Приймаються лише публікації ${min.slice(0, 4)} року`,
+          })
+          .refine((v) => kept(v) || v <= max, { error: 'Дата не може бути в майбутньому' });
+      }
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'dateRange': {
@@ -185,9 +217,16 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
 export function schemaForFields(
   fields: readonly EvidenceField[],
   scoring?: ScoringSpec,
-  opts?: { allowUnknownKeys?: boolean }
+  opts?: {
+    allowUnknownKeys?: boolean;
+    /** The evidence already saved, when this validates an EDIT — a value left
+     *  as it was is not re-judged against a window that has since moved. */
+    stored?: Record<string, unknown>;
+  }
 ): z.ZodType<Record<string, unknown>> {
-  const shape = Object.fromEntries(fields.map((f) => [f.name, fieldSchema(f)]));
+  const shape = Object.fromEntries(
+    fields.map((f) => [f.name, fieldSchema(f, opts?.stored?.[f.name])])
+  );
   const object = opts?.allowUnknownKeys ? z.object(shape) : z.strictObject(shape);
 
   // CHECK_SUM with nothing ticked sums to 0. Saving that would record a claim

@@ -18,6 +18,7 @@ import { schemaForFields } from '@/validations/activity-evidence';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
 import {
+  currentMonthKey,
   dateToMonthKey,
   monthProblem,
   monthToDate,
@@ -60,8 +61,11 @@ export interface SaveRecordInput {
   file?: { objectKey: string; fileName: string };
   /** D41/D48: `"YYYY-MM"`, the month the work was done — within the OPEN
    *  навчальний рік, never in the future. Where the work took several months,
-   *  the month it was FINISHED — its hours all count here. */
-  executedMonth: string;
+   *  the month it was FINISHED — its hours all count here.
+   *
+   *  Omitted while `SHOW_EXECUTION_PERIOD` is off: the month the record is
+   *  saved is stored instead, unchecked. */
+  executedMonth?: string;
   /** «Робота тривала кілька місяців»: the month it started. A recorded fact,
    *  never used to split hours. Omitted for a one-month work. */
   startedMonth?: string;
@@ -369,21 +373,28 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     return { error: LINK_NOT_ALLOWED };
   }
 
-  // D48: within the навчальний рік, and never in the future.
+  // D48: within the навчальний рік, and never in the future — judged only when
+  // somebody picked a month. With the picker hidden (2026-09-24) nobody does,
+  // and the save month is stored as it is: there is no choice to refuse.
+  const now = new Date();
   const window = {
-    now: new Date(),
+    now,
     academicYear: template.academicYear,
     lastMonth: template.lastExecutionMonth,
   };
-  const monthFault =
-    monthProblem({ month: input.executedMonth, ...window }) ??
-    (input.startedMonth
-      ? startedMonthProblem({
-          started: input.startedMonth,
-          finished: input.executedMonth,
-          ...window,
-        })
-      : null);
+  const executedMonth = input.executedMonth ?? currentMonthKey(now);
+  // A start means nothing without a finish somebody picked.
+  const startedMonth = input.executedMonth ? input.startedMonth : undefined;
+  const monthFault = input.executedMonth
+    ? (monthProblem({ month: input.executedMonth, ...window }) ??
+      (startedMonth
+        ? startedMonthProblem({
+            started: startedMonth,
+            finished: input.executedMonth,
+            ...window,
+          })
+        : null))
+    : null;
   if (monthFault) {
     await dropFile();
     return { error: monthFault };
@@ -493,8 +504,8 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
           workTypeId: type.id,
           evidence: parsed.data as Prisma.InputJsonValue,
           computedValue: score,
-          executedMonth: monthToDate(input.executedMonth),
-          startedMonth: input.startedMonth ? monthToDate(input.startedMonth) : null,
+          executedMonth: monthToDate(executedMonth),
+          startedMonth: startedMonth ? monthToDate(startedMonth) : null,
           link,
           totalHundredths,
           createdById: staffId,
@@ -537,8 +548,8 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
               hoursHundredths: requested,
               totalHundredths,
               link,
-              executedMonth: input.executedMonth,
-              startedMonth: input.startedMonth ?? null,
+              executedMonth,
+              startedMonth: startedMonth ?? null,
               ...(verifiedFile ? { fileName: verifiedFile.fileName } : {}),
             }
           ),
@@ -826,7 +837,11 @@ export async function updateWorkEvidence(input: {
   const fields = type.evidenceFields as unknown as EvidenceField[];
   const scoring = type.scoring as unknown as ScoringSpec;
 
-  const parsed = schemaForFields(fields, scoring).safeParse(input.evidence);
+  const stored =
+    work.evidence && typeof work.evidence === 'object'
+      ? (work.evidence as Record<string, unknown>)
+      : undefined;
+  const parsed = schemaForFields(fields, scoring, { stored }).safeParse(input.evidence);
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   const link = input.link?.trim() || null;
@@ -1238,7 +1253,8 @@ async function findConflict(
     // `||`, not `??`: an empty summary is what a вид роботи with no evidence
     // fields returns, and `??` let it through — the conflict panel then
     // offered to join a work with no name on it.
-    summary: summarizeEvidence(fields, existing.evidence) || fallbackLabel,
+    summary:
+      summarizeEvidence(fields, existing.evidence, undefined, { uaDates: true }) || fallbackLabel,
     totalHundredths: existing.totalHundredths,
   };
 

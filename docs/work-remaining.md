@@ -289,16 +289,22 @@ grouped by month in «Виконано» (D41/D42); a co-author changes their ow
 and any file is replaced in one step (D46). Two old bugs fixed on the way:
 cloning a year and creating a вид роботи both dropped the пункт heading.
 
-**Next:** the analytics — `docs/superpowers/specs/2026-09-22-science-analytics-design.md`,
-build order steps 2–5 (the НПП page, the dashboard tab and tree, the charts
-including execution per month). **Waiting on a file:** the аспіранти import
-(design in the spec, «Аспіранти from the наказ»; format unknown).
+**Evidence only (2026-09-24, D50/D51):** the university wants a record to
+PROVE the work, not track when — the execution month is hidden behind
+`SHOW_EXECUTION_PERIOD` (not removed), «Виконано» groups by пункт, and the
+стаття's «Опубліковано/Проіндексовано» refuses anything before this calendar
+year. Branch `feat/science-evidence-only`.
 
-**Still open from that pass:** the page-count check (a claim higher than the
-attached PDF's real page count is stored and displayed but never refused — item
-4 pays 50 год per page, so it is the obvious cheat); no drill-down for ННВ
-into WHAT a person planned or did, only totals (the analytics' НПП page); and the
-moderation feed has no filter or search over every record university-wide.
+**Next:** polish the science screens' UI (forms, gaps, type sizes, the
+`/science-plan` page structure), then ship science + the redesign. The
+analytics (`docs/superpowers/specs/2026-09-22-science-analytics-design.md`)
+come AFTER prod (owner, 2026-09-24). **Waiting on a file:** the аспіранти
+import (design in the spec, «Аспіранти from the наказ»; format unknown).
+
+**Still open from that pass:** no drill-down for ННВ into WHAT a person planned
+or did, only totals (the analytics' НПП page); and the moderation feed has no
+filter or search over every record university-wide. The PDF page-count check
+is **dropped** — ННВ counts pages by hand (owner, 2026-09-24).
 
 **Not built:** an official export form (D19) — the shape is unknown and no
 sample file has been supplied yet — and the Crossref DOI check, listed

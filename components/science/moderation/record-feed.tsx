@@ -4,7 +4,7 @@ import { EmptyState } from '@/components/aurora/ui/card';
 import { Pagination } from '@/components/aurora/ui/pagination';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { formatHours } from '@/lib/science/hours';
-import { monthLabel, monthRangeLabel } from '@/lib/science/execution-month';
+import { monthLabel, monthRangeLabel, SHOW_EXECUTION_PERIOD } from '@/lib/science/execution-month';
 import type { ScienceRecordFeedRow } from '@/lib/queries/list-science-records';
 import { FileViewButton } from '@/components/science/file-view-button';
 import { DiscardRecordButton } from '@/components/science/moderation/discard-record-button';
@@ -75,13 +75,19 @@ export function RecordFeed({
                     </span>
                     {row.workTypeLabel}
                   </p>
-                  {/* The month is always there (D41); the summary may not be. */}
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {row.summary && `${row.summary} · `}
-                    {row.startedMonth
-                      ? monthRangeLabel(row.startedMonth, row.executedMonth)
-                      : monthLabel(row.executedMonth)}
-                  </p>
+                  {/* The month only while it is shown (hidden 2026-09-24). */}
+                  {SHOW_EXECUTION_PERIOD ? (
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {row.summary && `${row.summary} · `}
+                      {row.startedMonth
+                        ? monthRangeLabel(row.startedMonth, row.executedMonth)
+                        : monthLabel(row.executedMonth)}
+                    </p>
+                  ) : (
+                    row.summary && (
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.summary}</p>
+                    )
+                  )}
                   {declined && (
                     <p className="mt-1 text-xs text-error-strong">
                       {row.removedReason ?? 'Запис відхилено.'}

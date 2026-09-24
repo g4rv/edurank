@@ -547,18 +547,21 @@ Easy to get wrong:
   on a NONE side proves nothing and is refused on save. The eight large or
   published documents (D39 — п.1, п.3, п.4, п.6 доповідь, п.10) start as link
   REQUIRED, file NONE. `requiresFile` no longer exists.
-- **Every work has an `executedMonth`** (D41/D48) — for TRACKING execution,
-  every вид роботи: a month of the open навчальний рік (September → now, and
-  never past `SciencePlanTemplate.lastExecutionMonth`, Червень by default),
-  never in the future. A work that took several months records a
-  `startedMonth` too (D49) — a fact, never used to split hours: they all count
-  in `executedMonth`, the month it was finished. The rule applies to a change of month only, so an old
-  record can still be corrected. Month maths only through
-  `lib/science/execution-month.ts`, which reads Kyiv time.
-- **An article's publication date is NOT that month** (D48). It is an
-  ordinary `date` evidence field on the стаття, `publishedOn`, which ННВ checks
-  by eye. It is never refused automatically and never one of the type's
-  `identityFields`, so a faked date cannot make one article look like two.
+- **A record PROVES the work; it does not track when it was done** (D50,
+  owner 2026-09-24). The execution month (D41/D48/D49) is **hidden, not
+  removed**: `SHOW_EXECUTION_PERIOD` in `lib/science/execution-month.ts` is
+  `false`, so nobody picks a month, «Виконано» is grouped by пункт like «План»,
+  and `saveRecord` stamps the month of saving into the NOT NULL
+  `executedMonth`. Flip the constant to bring the picker, the month headings,
+  the month on /moderation and ⚙ «Останній місяць» back — every stored row
+  stays valid. Month maths only through that file, which reads Kyiv time.
+- **The стаття's «Опубліковано/Проіндексовано» refuses old publications** (D51).
+  `publishedOn` is a `date` evidence field with `rule: 'currentYear'`: from
+  1 January of the current CALENDAR year (Kyiv) to today — in 2026 a 2025
+  article is refused at once, by the picker and the schema alike
+  (`currentYearBounds`). A value already saved is not re-judged on edit. A
+  faked date inside the window is ННВ's to catch. Never one of the type's
+  `identityFields`, so a typed date cannot make one article look like two.
 - **A co-author changes their own share with `updateRecordHours`** (D46),
   bounded by what the others hold, re-read in the transaction. A file is
   changed by whoever entered the work or uploaded it; **a record's only proof

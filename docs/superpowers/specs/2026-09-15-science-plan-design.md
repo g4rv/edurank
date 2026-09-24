@@ -991,6 +991,14 @@ section and the D31–D35 notes above disagree, this section wins.**
 | D48 | D41/D42 — which dates, which range?            | **Two different dates, reversing D42** (owner, 2026-09-23). The **execution month** tracks when ANY work was done and must be a month of the open навчальний рік, up to now. An **article’s publication date** is a separate field on the стаття, checked by ННВ — no automatic refusal, and not part of the identity key, since it can be faked. `maxLookbackMonths` is removed. |
 | D49 | A work that took several months?               | **One month for the hours, a start month as a fact** (owner, 2026-09-23). «Робота тривала кілька місяців» adds `startedMonth`; every hour counts in `executedMonth`, the month it was FINISHED — splitting 100 год over 3 months would be 33,33… The year’s window runs September → `lastExecutionMonth` (Червень by default, set per year in ⚙).                                 |
 
+### D50–D51 — evidence only (owner, 2026-09-24)
+
+| #   | Question                        | Answer                                                                                                                                                                                                                                                                            |
+| --- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D50 | Does a record track WHEN?       | **No.** The university wants a record to PROVE the work — names, links, DOI, files — not to track execution. The execution month (D41/D48/D49) is **hidden, not removed** (`SHOW_EXECUTION_PERIOD = false`), because they may ask for it back. The save month is stored silently. |
+| D51 | Old publications?               | **Refused at once.** The стаття's «Опубліковано/Проіндексовано» (was «Дата публікації») must fall between 1 January of the current calendar year and today. Calendar year, not навчальний рік, until the boss says otherwise. ННВ still checks for a faked date.                  |
+| —   | The PDF page-count check (D40)? | **Dropped.** ННВ counts pages by hand.                                                                                                                                                                                                                                            |
+
 ### D41 + D42 — the month, and why it is also the age fence (SUPERSEDED by D48)
 
 **Superseded 2026-09-23 by D48.** This section mixed two date ranges into one

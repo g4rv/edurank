@@ -27,6 +27,18 @@ import { stakeYearOf } from '@/lib/science/academic-year';
  * gives: at 00:30 on 1 September in Kyiv it is still August in UTC.
  */
 
+/**
+ * **HIDDEN since 2026-09-24** (owner): the university asked for a record to
+ * PROVE the work with evidence, not to track when it was done. Nobody picks a
+ * month; `saveRecord` stamps the month the record is saved, so the NOT NULL
+ * column stays filled and every stored row stays valid.
+ *
+ * Hidden, not removed — they may ask for it back. Flipping this to `true`
+ * restores the «Період виконання» picker, the month headings in «Виконано»,
+ * the month on /moderation and the ⚙ «Останній місяць» setting.
+ */
+export const SHOW_EXECUTION_PERIOD = false;
+
 const MONTH_KEY = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 const MONTH_NAMES = [

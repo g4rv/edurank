@@ -3,6 +3,7 @@ import { Card, EmptyState } from '@/components/aurora/ui/card';
 import { cn } from '@/lib/utils';
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
+import { groupByItem } from '@/lib/science/group-by-item';
 import type { PlanTarget } from '@/lib/science/target';
 import type { SciencePlanRecordDetail, SciencePlanRowDetail } from '@/lib/queries/get-science-plan';
 import { AddPlanRowDialog, type PlanWorkType } from '@/components/science/add-plan-row-dialog';
@@ -68,22 +69,7 @@ export function PlanView({
     );
   }
 
-  // Grouped the way Додаток III itself is numbered.
-  //
-  // By a MAP, not by consecutive runs: rows arrive in the order they were
-  // typed, so planning п.1, then п.8, then п.1 again produced two «Пункт 1»
-  // groups — a duplicate React key and the same пункт stated twice with two
-  // different totals (owner, 2026-09-17). Sorted numerically for the same
-  // reason the наказ is: «12» belongs after «8», not between «1» and «8».
-  const byItem = new Map<string, SciencePlanRowDetail[]>();
-  for (const row of rows) {
-    const existing = byItem.get(row.itemNumber);
-    if (existing) existing.push(row);
-    else byItem.set(row.itemNumber, [row]);
-  }
-  const groups = [...byItem.entries()]
-    .map(([itemNumber, itemRows]) => ({ itemNumber, rows: itemRows }))
-    .sort((a, b) => Number(a.itemNumber) - Number(b.itemNumber));
+  const groups = groupByItem(rows);
 
   return (
     <div className="space-y-5">

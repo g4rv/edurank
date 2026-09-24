@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/aurora/ui/select';
 import { EmptyState } from '@/components/aurora/ui/card';
+import { SHOW_EXECUTION_PERIOD } from '@/lib/science/execution-month';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
 import {
   Dialog,
@@ -371,24 +372,28 @@ function YearSettingsDialog({ year }: { year?: ScienceYearRow }) {
                 required
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="science-last-month">Останній місяць виконання</Label>
-              <Select value={lastExecutionMonth} onValueChange={setLastExecutionMonth}>
-                <SelectTrigger id="science-last-month" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LAST_MONTHS.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-foreground-soft">
-                До якого місяця НПП можуть вносити виконане. Рік починається у вересні.
-              </p>
-            </div>
+            {/* Hidden with the execution month (2026-09-24); the saved value
+                is kept and sent back unchanged. */}
+            {SHOW_EXECUTION_PERIOD && (
+              <div className="space-y-1">
+                <Label htmlFor="science-last-month">Останній місяць виконання</Label>
+                <Select value={lastExecutionMonth} onValueChange={setLastExecutionMonth}>
+                  <SelectTrigger id="science-last-month" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LAST_MONTHS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-foreground-soft">
+                  До якого місяця НПП можуть вносити виконане. Рік починається у вересні.
+                </p>
+              </div>
+            )}
           </DialogBody>
           <DialogFooter>
             <Button type="submit" disabled={isPending} loading={isPending}>

@@ -67,7 +67,19 @@ export type EvidenceField =
       hosts?: readonly string[];
       hostsError?: string;
     }
-  | { kind: 'date'; name: string; label: string; optional?: boolean }
+  | {
+      kind: 'date';
+      name: string;
+      label: string;
+      optional?: boolean;
+      /**
+       * `currentYear` — 1 January of the CURRENT calendar year (Kyiv) up to
+       * today, never the future (owner, 2026-09-24): the стаття's
+       * «Опубліковано/Проіндексовано», so an old publication is refused at
+       * once. A faked date is ННВ's to catch. See `currentYearBounds`.
+       */
+      rule?: 'currentYear';
+    }
   /**
    * A period, picked as one range rather than typed as two ends.
    *
@@ -164,7 +176,7 @@ export const url = (
 export const date = (
   name: string,
   label: string,
-  opts?: { optional?: boolean }
+  opts?: { optional?: boolean; rule?: 'currentYear' }
 ): EvidenceField => ({
   kind: 'date',
   name,
@@ -313,11 +325,16 @@ function uaDay(isoDay: string): string {
  * Характеристика's «Дані підтвердження показника» column is read against the
  * Ліцензійні умови, and quietly dropping a sixth field there would understate
  * what somebody actually did.
+ *
+ * `uaDates` prints a `date` as «10.09.2026» instead of as stored. Opt-in:
+ * science reads it on screen; the rating and the Характеристика keep what
+ * they print until somebody decides otherwise.
  */
 export function summarizeEvidence(
   fields: readonly EvidenceField[],
   evidence: unknown,
-  maxParts = 5
+  maxParts = 5,
+  opts?: { uaDates?: boolean }
 ): string {
   if (typeof evidence !== 'object' || evidence === null) return '';
   const e = evidence as Record<string, unknown>;
@@ -387,9 +404,11 @@ export function summarizeEvidence(
       case 'doi':
         parts.push(`DOI ${v}`);
         break;
+      case 'date':
+        parts.push(opts?.uaDates ? uaDay(String(v)) : String(v));
+        break;
       case 'text':
       case 'url':
-      case 'date':
         parts.push(String(v));
         break;
     }

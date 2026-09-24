@@ -309,10 +309,14 @@ describe('saveRecord — D41/D48, the month', () => {
     });
   });
 
-  it('refuses a missing month', async () => {
-    expect(await saveRecord({ ...base, executedMonth: '' })).toEqual({
-      error: 'Оберіть місяць виконання',
-    });
+  // The picker is hidden (2026-09-24): nobody chooses a month, so the save
+  // month is stored — the column stays filled if the picker ever comes back.
+  it('stores the month of saving when none is sent, and ignores a start', async () => {
+    const { executedMonth: _, ...noMonth } = base;
+    expect(await saveRecord({ ...noMonth, startedMonth: '2026-09' })).not.toHaveProperty('error');
+    const data = (db.scienceWork.create as Mock).mock.calls[0][0].data;
+    expect(data.executedMonth).toEqual(new Date('2026-10-01T00:00:00Z'));
+    expect(data.startedMonth).toBeNull();
   });
 });
 

@@ -279,7 +279,9 @@ export async function getSciencePlan(
       // вид роботи with no evidence fields (a FIXED one — гурток,
       // лабораторія), and `??` let that empty string through, drawing a row
       // with no label at all.
-      summary: summarizeEvidence(fields, r.work.evidence) || r.work.workType.label,
+      summary:
+        summarizeEvidence(fields, r.work.evidence, undefined, { uaDates: true }) ||
+        r.work.workType.label,
       link: r.work.link,
       hoursHundredths: r.hoursHundredths,
       totalHundredths: r.work.totalHundredths,

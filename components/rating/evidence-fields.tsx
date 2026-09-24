@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/aurora/ui/select';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
-import { MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
+import { currentYearBounds, MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
 
 const DATE_MIN = `${MIN_EVIDENCE_YEAR}-01-01`;
 const DATE_MAX = `${new Date().getFullYear() + 1}-12-31`;
@@ -253,8 +253,9 @@ export function EvidenceFields({
                   // flip the field to uncontrolled halfway through typing.
                   value={typeof field.value === 'string' ? field.value : ''}
                   onChange={field.onChange}
-                  min={DATE_MIN}
-                  max={DATE_MAX}
+                  // The picker greys out what the schema would refuse.
+                  min={f.rule === 'currentYear' ? currentYearBounds().min : DATE_MIN}
+                  max={f.rule === 'currentYear' ? currentYearBounds().max : DATE_MAX}
                   disabled={disabled}
                   // Like the `select` case below it, off the same `error`.
                   aria-invalid={!!error}

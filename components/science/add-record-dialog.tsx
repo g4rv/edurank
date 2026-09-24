@@ -12,7 +12,7 @@ import { Input } from '@/components/aurora/ui/input';
 import { Label } from '@/components/aurora/ui/label';
 import { FormField } from '@/components/ui/form-field';
 import { ExecutionPeriodField } from '@/components/science/execution-period-field';
-import { monthOptions } from '@/lib/science/execution-month';
+import { monthOptions, SHOW_EXECUTION_PERIOD } from '@/lib/science/execution-month';
 import type { ProofRule } from '@/lib/generated/prisma/client';
 import {
   Dialog,
@@ -268,8 +268,10 @@ function RecordForm({
         evidence: data,
         link: link.trim() || undefined,
         hoursHundredths,
-        executedMonth: month,
-        startedMonth: started ?? undefined,
+        // Hidden since 2026-09-24: the server stamps the save month instead.
+        ...(SHOW_EXECUTION_PERIOD
+          ? { executedMonth: month, startedMonth: started ?? undefined }
+          : {}),
         // Already uploaded; the server verifies it from the stored bytes and
         // writes its row in the same transaction as the work.
         file: file ?? undefined,
@@ -324,24 +326,24 @@ function RecordForm({
 
             {/* D41/D48: for TRACKING execution, every вид роботи — not an
                 article's publication date, which is its own evidence field. */}
-            <ExecutionPeriodField
-              id="record-period"
-              academicYear={academicYear}
-              lastMonth={lastExecutionMonth}
-              finished={month}
-              started={started}
-              onChange={(next) => {
-                setMonth(next.finished);
-                setStarted(next.started);
-              }}
-            />
+            {SHOW_EXECUTION_PERIOD && (
+              <ExecutionPeriodField
+                id="record-period"
+                academicYear={academicYear}
+                lastMonth={lastExecutionMonth}
+                finished={month}
+                started={started}
+                onChange={(next) => {
+                  setMonth(next.finished);
+                  setStarted(next.started);
+                }}
+              />
+            )}
 
             {/* D47: the link and the file each follow their own rule from the
                 catalogue — shown, required, or not offered at all. Neither is
                 shown before a вид роботи is chosen (owner, 2026-09-23): until
-                then nobody knows which proof it takes. The month above stays,
-                because it applies to every type, and it keeps the dialog from
-                being the empty box rejected on 2026-09-17. */}
+                then nobody knows which proof it takes. */}
             {type && linkRule !== 'NONE' && (
               <FormField
                 htmlFor="record-link"

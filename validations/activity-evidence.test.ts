@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
 import {
+  date,
   dateRange,
   doi,
   EVIDENCE_FIELDS,
@@ -13,7 +14,7 @@ import {
 } from '@/lib/rating/evidence-fields';
 import { computeScore } from '@/lib/rating/scoring';
 import { catalogueType, SELECT_OPTION_POINTS } from '@/lib/rating/db-specs';
-import { fieldSchema, schemaForFields } from './activity-evidence';
+import { currentYearBounds, fieldSchema, schemaForFields } from './activity-evidence';
 
 // Schemas are built from an activity type's own field specs. Here they are
 // built from the catalogue through `catalogueType`, the same conversion the
@@ -475,5 +476,54 @@ describe('dateRange — one field, two ends, never backwards', () => {
     const opt_ = dateRange('period', 'Період', { optional: true });
     expect(fieldSchema(opt_).safeParse(undefined).success).toBe(true);
     expect(fieldSchema(opt_).safeParse('').success).toBe(true);
+  });
+});
+
+describe('date with `currentYear` — old publications refused (owner, 2026-09-24)', () => {
+  const field = date('publishedOn', 'Опубліковано/Проіндексовано', { rule: 'currentYear' });
+  const parse = (v: unknown) => fieldSchema(field).safeParse(v);
+
+  // 20 March 2026, midday in Kyiv.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-20T10:00:00Z'));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('accepts 1 January and today', () => {
+    expect(parse('2026-01-01').success).toBe(true);
+    expect(parse('2026-03-20').success).toBe(true);
+  });
+
+  it('refuses last year, naming the year that is accepted', () => {
+    const result = parse('2025-12-31');
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].message).toBe('Приймаються лише публікації 2026 року');
+  });
+
+  it('refuses tomorrow', () => {
+    expect(parse('2026-03-21').success).toBe(false);
+  });
+
+  it('does not re-judge a date already saved, only a changed one', () => {
+    const edit = (v: string) =>
+      schemaForFields([field], undefined, { stored: { publishedOn: '2025-11-03' } }).safeParse({
+        publishedOn: v,
+      });
+    expect(edit('2025-11-03').success).toBe(true);
+    expect(edit('2025-11-04').success).toBe(false);
+  });
+
+  it('leaves a date field without the rule as it was', () => {
+    expect(fieldSchema(date('d', 'Дата')).safeParse('2019-05-01').success).toBe(true);
+  });
+});
+
+describe('currentYearBounds', () => {
+  it('reads the year in Kyiv — 00:30 on 1 January there is still December in UTC', () => {
+    expect(currentYearBounds(new Date('2026-12-31T22:30:00Z'))).toEqual({
+      min: '2027-01-01',
+      max: '2027-01-01',
+    });
   });
 });

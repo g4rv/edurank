@@ -213,7 +213,9 @@ describe('D48 — the стаття’s publication date', () => {
     const article = SCIENCE_WORK_TYPES_2027.find((d) => d.code === 'article')!;
     expect(article.fields.find((f) => f.name === 'publishedOn')).toMatchObject({
       kind: 'date',
-      label: 'Дата публікації',
+      label: 'Опубліковано/Проіндексовано',
+      // An old publication is refused at once (owner, 2026-09-24).
+      rule: 'currentYear',
     });
     expect(article.identityFields).not.toContain('publishedOn');
   });

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { EVIDENCE_FIELDS, summarizeEvidence, text, type EvidenceField } from './evidence-fields';
+import {
+  date,
+  EVIDENCE_FIELDS,
+  summarizeEvidence,
+  text,
+  type EvidenceField,
+} from './evidence-fields';
 
 const box = (name: string, label: string, group?: string): EvidenceField => ({
   kind: 'checkbox',
@@ -117,5 +123,19 @@ describe('joined text fields', () => {
       after: 'Б',
     });
     expect(out).toBe('А · Коваленко Марія · Б');
+  });
+});
+
+describe('summarizeEvidence — `uaDates`', () => {
+  const fields = [date('publishedOn', 'Опубліковано/Проіндексовано')];
+
+  it('prints a date the Ukrainian way when asked', () => {
+    expect(summarizeEvidence(fields, { publishedOn: '2026-09-10' }, 5, { uaDates: true })).toBe(
+      '10.09.2026'
+    );
+  });
+
+  it('leaves it as stored by default', () => {
+    expect(summarizeEvidence(fields, { publishedOn: '2026-09-10' })).toBe('2026-09-10');
   });
 });

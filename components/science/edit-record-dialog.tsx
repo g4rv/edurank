@@ -11,6 +11,7 @@ import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import { ExecutionPeriodField } from '@/components/science/execution-period-field';
+import { SHOW_EXECUTION_PERIOD } from '@/lib/science/execution-month';
 import {
   Dialog,
   DialogBody,
@@ -151,7 +152,12 @@ function EditForm({
   const [problem, setProblem] = useState<string | null>(null);
 
   const [fields] = useState(() => type.fields);
-  const [schema] = useState(() => schemaForFields(fields, type.scoring));
+  const [schema] = useState(() =>
+    schemaForFields(fields, type.scoring, {
+      // An untouched date is not re-judged — the server does the same.
+      stored: evidence && typeof evidence === 'object' ? (evidence as FieldValues) : undefined,
+    })
+  );
 
   const {
     register,
@@ -198,8 +204,8 @@ function EditForm({
         workId,
         evidence: data,
         link: link.trim() || undefined,
-        executedMonth: month,
-        startedMonth: started,
+        // Hidden since 2026-09-24: omitted keeps the stored month.
+        ...(SHOW_EXECUTION_PERIOD ? { executedMonth: month, startedMonth: started } : {}),
       });
       if ('error' in result) {
         setProblem(result.error);
@@ -227,17 +233,19 @@ function EditForm({
 
           {/* D48/D49. The stored period is shown as it is; keeping it is not a
               change, so the server never re-judges an untouched period. */}
-          <ExecutionPeriodField
-            id="edit-record-period"
-            academicYear={academicYear}
-            lastMonth={lastExecutionMonth}
-            finished={month}
-            started={started}
-            onChange={(next) => {
-              setMonth(next.finished);
-              setStarted(next.started);
-            }}
-          />
+          {SHOW_EXECUTION_PERIOD && (
+            <ExecutionPeriodField
+              id="edit-record-period"
+              academicYear={academicYear}
+              lastMonth={lastExecutionMonth}
+              finished={month}
+              started={started}
+              onChange={(next) => {
+                setMonth(next.finished);
+                setStarted(next.started);
+              }}
+            />
+          )}
 
           {/* D47: hidden where this вид роботи takes no link. Files are added
               and removed on the запис itself, not here. */}

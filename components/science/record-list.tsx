@@ -14,7 +14,8 @@ import { EditHoursDialog } from '@/components/science/edit-hours-dialog';
 import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import { cn } from '@/lib/utils';
 import { groupByMonth } from '@/lib/science/group-by-month';
-import { monthLabel, monthRangeLabel } from '@/lib/science/execution-month';
+import { groupByItem } from '@/lib/science/group-by-item';
+import { monthLabel, monthRangeLabel, SHOW_EXECUTION_PERIOD } from '@/lib/science/execution-month';
 
 /**
  * «204,8 КБ» — there is no byte-formatter elsewhere in the codebase to share;
@@ -56,17 +57,34 @@ export function RecordList({
     return <EmptyState>Ще немає записів про виконану роботу.</EmptyState>;
   }
 
+  const sections = SHOW_EXECUTION_PERIOD
+    ? groupByMonth(records).map((g) => ({
+        key: g.month,
+        heading: monthLabel(g.month),
+        rows: g.rows,
+      }))
+    : groupByItem(records).map((g) => {
+        // The пункт's own heading, as «План» draws it.
+        const first = workTypeById.get(g.rows[0].workTypeId);
+        return {
+          key: g.itemNumber,
+          heading: `Пункт ${g.itemNumber} · ${first?.itemTitle || g.rows[0].workTypeLabel}`,
+          rows: g.rows,
+        };
+      });
+
   return (
     <Card padding="none">
       <ul className="divide-y">
-        {/* D41: one heading per month, newest first — the same device as a
-            table's `variant="group"` row (aurora.md: a value repeated down
-            many rows is a heading, not a column). The hours beside it count
-            only what still counts, like every other sum here. */}
-        {groupByMonth(records).map((group) => (
-          <Fragment key={group.month}>
+        {/* One heading per пункт, like «План» — or, while the execution month
+            is shown, one per month, newest first (D41). Either way the same
+            device as a table's `variant="group"` row (aurora.md: a value
+            repeated down many rows is a heading, not a column). The hours
+            beside it count only what still counts, like every other sum here. */}
+        {sections.map((group) => (
+          <Fragment key={group.key}>
             <li className="flex items-baseline justify-between gap-3 bg-table-group px-5 py-2 text-sm font-semibold">
-              <span>{monthLabel(group.month)}</span>
+              <span>{group.heading}</span>
               <span className="font-normal text-foreground-soft tabular-nums">
                 {formatHours(
                   group.rows
@@ -92,11 +110,14 @@ export function RecordList({
                           declined && 'text-muted-foreground line-through'
                         )}
                       >
-                        <span className="mr-1.5 text-foreground-soft">{record.itemNumber}</span>
+                        {/* Under a пункт heading the number would repeat it. */}
+                        {SHOW_EXECUTION_PERIOD && (
+                          <span className="mr-1.5 text-foreground-soft">{record.itemNumber}</span>
+                        )}
                         {record.workTypeLabel}
                       </p>
                       <p className="mt-0.5 text-sm text-foreground-soft">{record.summary}</p>
-                      {record.startedMonth && (
+                      {SHOW_EXECUTION_PERIOD && record.startedMonth && (
                         <p className="mt-0.5 text-sm text-foreground-soft">
                           {/* Grouped under the month it ended; this is how
                               long it took. The hours are not split. */}
