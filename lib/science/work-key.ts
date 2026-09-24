@@ -89,6 +89,23 @@ export function workKey(input: {
   let core: string | null = null;
   for (const name of input.identityFields) {
     const field = input.evidenceFields.find((f) => f.name === name);
+    // A ПІБ typed into three boxes — Прізвище / Ім'я / По батькові, joined
+    // under one `join` name (owner, 2026-09-23). The identity list names the
+    // GROUP; its parts are read in order and joined with spaces, which is the
+    // exact key the old one-box field produced for a name typed that way.
+    // Never the surname alone: two Коваленки are two people.
+    const parts = field
+      ? []
+      : input.evidenceFields.filter((f) => f.kind === 'text' && f.join === name);
+    if (parts.length > 0) {
+      const joined = parts
+        .map((p) => input.evidence[p.name])
+        .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+        .join(' ');
+      core = joined ? normalizeTextKey(joined) : null;
+      if (core) break;
+      continue;
+    }
     // An `identityFields` entry naming a field the type does not declare is a
     // catalogue mistake an ADMIN can make on /admin/science-plan/[id]. Skip it
     // rather than throw: the next name in the list is usually `title`, and a

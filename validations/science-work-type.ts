@@ -94,12 +94,41 @@ export const saveWorkTypeSchema = z.object({
 export type SaveWorkTypeInput = z.input<typeof saveWorkTypeSchema>;
 export type SaveWorkTypeData = z.infer<typeof saveWorkTypeSchema>;
 
+/**
+ * What may be an identity: every ordinary field, plus every JOINED group as one
+ * entry — a ПІБ in three boxes (Прізвище / Ім'я / По батькові) is one identity,
+ * named by its `join`, labelled by its `joinLabel`. Its single boxes are not
+ * offered: keying on a surname alone would make two Коваленки one person.
+ * `workKey` reads a group name the same way. Shared by the action's check and
+ * the admin picker, so the two can never disagree.
+ */
+export function identityCandidates(
+  fields: readonly EvidenceField[]
+): { name: string; label: string }[] {
+  const out: { name: string; label: string }[] = [];
+  const seen = new Set<string>();
+  for (const f of fields) {
+    if (f.kind === 'text' && f.join) {
+      if (seen.has(f.join)) continue;
+      seen.add(f.join);
+      const titled = fields.find((o) => o.kind === 'text' && o.join === f.join && o.joinLabel);
+      out.push({
+        name: f.join,
+        label: titled?.kind === 'text' && titled.joinLabel ? titled.joinLabel : f.join,
+      });
+      continue;
+    }
+    out.push({ name: f.name, label: f.label });
+  }
+  return out;
+}
+
 /** The identity check rule 2 asks for — every named field must actually exist. */
 export function identityFieldProblem(
   identityFields: readonly string[],
   fields: readonly EvidenceField[]
 ): string | null {
-  const names = new Set(fields.map((f) => f.name));
+  const names = new Set(identityCandidates(fields).map((c) => c.name));
   const missing = identityFields.find((name) => !names.has(name));
   return missing ? `Поле ідентичності «${missing}» відсутнє серед полів форми` : null;
 }

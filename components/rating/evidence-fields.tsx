@@ -369,15 +369,24 @@ export function EvidenceFields({
               // boxes under it were obligatory.
               required={item.fields.some((f) => f.kind === 'text' && !f.optional)}
             >
-              <div className="flex flex-wrap gap-2 sm:flex-nowrap">
-                {item.fields.map((f) => (
+              {/* At most TWO boxes a row (owner, 2026-09-23): Прізвище and Ім'я
+                  side by side, По батькові under Прізвище. Three in a row left
+                  each box a fraction of a pixel off the grid the fields above
+                  and below sit on, and on a scaled screen their hairline border
+                  rendered visibly darker than everyone else's. A box left alone
+                  on its row spreads across both columns. */}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {item.fields.map((f, i, all) => (
                   <Input
                     key={f.name}
                     id={f.name}
                     placeholder={f.label}
                     aria-label={f.label}
                     disabled={disabled}
-                    className="min-w-0 flex-1"
+                    className={cn(
+                      'min-w-0',
+                      i === all.length - 1 && all.length % 2 === 1 && 'sm:col-span-2'
+                    )}
                     {...register(f.name)}
                   />
                 ))}

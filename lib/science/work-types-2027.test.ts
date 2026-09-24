@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeScore } from '@/lib/specs/scoring';
 import { SCIENCE_WORK_TYPES_2027, scienceDbSpecs } from './work-types-2027';
+import { identityCandidates } from '@/validations/science-work-type';
 
 const byCode = (code: string) => {
   const def = SCIENCE_WORK_TYPES_2027.find((d) => d.code === code);
@@ -28,7 +29,9 @@ describe('the catalogue is whole', () => {
 
   it('names identity fields that its own form actually has', () => {
     for (const def of SCIENCE_WORK_TYPES_2027) {
-      const names = new Set(def.fields.map((f) => f.name));
+      // A joined ПІБ counts by its group name — the rule the admin check and
+      // `workKey` both apply.
+      const names = new Set(identityCandidates(def.fields).map((c) => c.name));
       for (const field of def.identityFields) {
         expect(names, `${def.code} → ${field}`).toContain(field);
       }
@@ -213,5 +216,25 @@ describe('D48 — the стаття’s publication date', () => {
       label: 'Дата публікації',
     });
     expect(article.identityFields).not.toContain('publishedOn');
+  });
+});
+
+describe('a ПІБ is three boxes (owner, 2026-09-23)', () => {
+  const NAMED = ['dissertation', 'review_dissertation', 'phd_supervision', 'student_research_win'];
+
+  it('no вид роботи asks for a ПІБ in one box', () => {
+    for (const d of SCIENCE_WORK_TYPES_2027) {
+      for (const f of d.fields) expect(f.label.startsWith('ПІБ')).toBe(false);
+    }
+  });
+
+  it.each(NAMED)('%s — Прізвище / Ім’я / По батькові, the name as its identity', (code) => {
+    const d = SCIENCE_WORK_TYPES_2027.find((x) => x.code === code)!;
+    const parts = d.fields.filter((f) => f.kind === 'text' && f.join);
+    expect(parts.map((f) => f.label)).toEqual(['Прізвище', 'Ім’я', 'По батькові']);
+    expect(parts[0].kind === 'text' && parts[0].joinLabel).toMatch(/^ПІБ/);
+    // The identity names the GROUP, never a single box.
+    const join = parts[0].kind === 'text' ? parts[0].join : undefined;
+    expect(d.identityFields[0]).toBe(join);
   });
 });

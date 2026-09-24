@@ -104,3 +104,42 @@ describe('workKey', () => {
     expect(withIsbn('978-966-00-0000-1')).toBe(withIsbn('9789660000001'));
   });
 });
+
+describe('workKey — a ПІБ in three boxes is ONE identity', () => {
+  // Прізвище / Ім'я / По батькові, joined under `candidate` — the identity list
+  // still names `candidate`, the GROUP, not any one box.
+  const NAME_FIELDS: EvidenceField[] = [
+    { kind: 'text', name: 'candidateLast', label: 'Прізвище', join: 'candidate' },
+    { kind: 'text', name: 'candidateFirst', label: 'Ім’я', join: 'candidate' },
+    {
+      kind: 'text',
+      name: 'candidateMiddle',
+      label: 'По батькові',
+      join: 'candidate',
+      optional: true,
+    },
+    { kind: 'text', name: 'title', label: 'Назва роботи' },
+  ];
+  const nameKey = (evidence: Record<string, unknown>) =>
+    key({ identityFields: ['candidate', 'title'], evidenceFields: NAME_FIELDS, evidence });
+
+  it('joins the parts in order — the same key the old one-box field gave', () => {
+    expect(
+      nameKey({ candidateLast: 'Коваленко', candidateFirst: 'Іван', candidateMiddle: 'Петрович' })
+    ).toBe('t:коваленко іван петрович');
+  });
+
+  it('never keys on the surname alone — two Коваленки are two people', () => {
+    expect(nameKey({ candidateLast: 'Коваленко', candidateFirst: 'Іван' })).not.toBe(
+      nameKey({ candidateLast: 'Коваленко', candidateFirst: 'Олена' })
+    );
+  });
+
+  it('works without a по батькові', () => {
+    expect(nameKey({ candidateLast: 'Smith', candidateFirst: 'John' })).toBe('t:smith john');
+  });
+
+  it('falls through to the next identity field when the name is empty', () => {
+    expect(nameKey({ title: 'Дисертація про освіту' })).toBe('t:дисертація про освіту');
+  });
+});

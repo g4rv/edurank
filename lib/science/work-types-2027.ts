@@ -97,7 +97,37 @@ const count = (name: 'credits' | 'value', label: string): EvidenceField => ({
   min: 1,
 });
 
-/** A plain descriptive text field — a name, a topic, a committee. */
+/**
+ * A person's ПІБ in three boxes under one label — Прізвище / Ім'я / По батькові
+ * (owner, 2026-09-23), the same joined set the Характеристика's п.15 uses for a
+ * школяр. `cyrillicName` keeps «asd» out; the по батькові is optional, since
+ * not everybody has one.
+ *
+ * The three share `join`, and an `identityFields` entry naming that join means
+ * the WHOLE name (`workKey`) — its key is the one a single box typed «Прізвище
+ * Ім'я По батькові» gave, so nothing already saved changes identity.
+ */
+const personName = (join: string, label: string): EvidenceField[] => [
+  {
+    kind: 'text',
+    name: `${join}Last`,
+    label: 'Прізвище',
+    join,
+    joinLabel: label,
+    rule: 'cyrillicName',
+  },
+  { kind: 'text', name: `${join}First`, label: 'Ім’я', join, rule: 'cyrillicName' },
+  {
+    kind: 'text',
+    name: `${join}Middle`,
+    label: 'По батькові',
+    join,
+    rule: 'cyrillicName',
+    optional: true,
+  },
+];
+
+/** A plain descriptive text field — a topic, a committee, a title. */
 const text = (name: string, label: string, optional?: boolean): EvidenceField => ({
   kind: 'text',
   name,
@@ -193,7 +223,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     sharing: 'INDIVIDUAL',
     identityFields: ['candidate', 'title'],
     fields: [
-      text('candidate', 'ПІБ здобувача'),
+      ...personName('candidate', 'ПІБ здобувача'),
       title,
       option('Науковий ступінь здобувача', [
         { value: 'doctor', label: 'Доктора наук', points: 500 },
@@ -392,7 +422,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
     identityFields: ['candidate'],
-    fields: [text('candidate', 'ПІБ здобувача')],
+    fields: personName('candidate', 'ПІБ здобувача'),
   },
   {
     code: 'review_intl_project',
@@ -582,7 +612,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reuse: 'YEARLY',
     sharing: 'INDIVIDUAL',
     identityFields: ['student'],
-    fields: [text('student', 'ПІБ аспіранта (здобувача)')],
+    fields: personName('student', 'ПІБ аспіранта (здобувача)'),
   },
   {
     code: 'expert_review',
@@ -674,7 +704,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     // the second claim reads as a duplicate of the first (Stage 2).
     identityFields: ['student', 'title'],
     fields: [
-      text('student', 'ПІБ здобувача'),
+      ...personName('student', 'ПІБ здобувача'),
       title,
       option('Місце', [
         { value: 'winner', label: 'Переможець Всеукраїнського конкурсу', points: 30 },

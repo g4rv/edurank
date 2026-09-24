@@ -30,7 +30,7 @@ import { RequiredFields } from '@/components/ui/required-fields';
 import { AddFieldSelect, EvidenceFieldBuilder } from '@/components/admin/evidence-field-builder';
 import { EvidencePreview } from '@/components/admin/evidence-preview';
 import { specProblems, withScoringFields } from '@/validations/activity-type-spec';
-import { saveWorkTypeSchema } from '@/validations/science-work-type';
+import { identityCandidates, saveWorkTypeSchema } from '@/validations/science-work-type';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScoringSpec } from '@/lib/specs/scoring';
 import { saveWorkType } from '@/app/(dashboard)/admin/science-plan/[id]/actions';
@@ -191,12 +191,14 @@ function IdentityFieldsPicker({
   value: string[];
   onChange: (next: string[]) => void;
 }) {
-  const known = new Set(fields.map((f) => f.name));
+  // Ordinary fields plus joined groups (a ПІБ in three boxes is ONE entry).
+  const candidates = identityCandidates(fields);
+  const known = new Set(candidates.map((c) => c.name));
   // A name once picked can vanish from the form (the field was removed) —
   // keep showing it so the admin sees exactly what will be refused on save,
   // rather than have it disappear silently from the chip row.
   const stale = value.filter((name) => !known.has(name));
-  const available = fields.filter((f) => !value.includes(f.name));
+  const available = candidates.filter((c) => !value.includes(c.name));
 
   return (
     <div className="space-y-2">
@@ -207,7 +209,7 @@ function IdentityFieldsPicker({
       ) : (
         <ol className="flex flex-wrap gap-2">
           {value.map((name, i) => {
-            const field = fields.find((f) => f.name === name);
+            const field = candidates.find((c) => c.name === name);
             const isStale = stale.includes(name);
             return (
               <li
