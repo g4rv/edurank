@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/aurora/ui/dialog';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
+import { typedErrors } from '@/components/science/typed-errors';
 import { WorkTypeCombobox } from '@/components/science/work-type-combobox';
 import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { planFields } from '@/lib/science/plan-fields';
@@ -195,6 +196,9 @@ function EvidenceForm({
     formState: { errors },
   } = useForm<FieldValues>({
     resolver: standardSchemaResolver(schema as never) as unknown as Resolver<FieldValues>,
+    // Checked when a field is left, and only a field holding something wrong
+    // shows its message — see `typedErrors` (owner, 2026-09-24).
+    mode: 'onTouched',
     defaultValues: evidenceDefaults(fields),
   });
 
@@ -262,7 +266,7 @@ function EvidenceForm({
               fields={fields}
               register={register}
               control={control}
-              errors={errors}
+              errors={typedErrors(errors, watched)}
               // Додаток III prices in ГОДИНАХ, not балах (D3) — the renderer is
               // the rating's and defaults to its unit.
               unitLabel="год"

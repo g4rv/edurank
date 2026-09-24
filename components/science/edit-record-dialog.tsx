@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from '@/components/aurora/ui/dialog';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
+import { typedErrors } from '@/components/science/typed-errors';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { DialogProblem } from '@/components/science/dialog-problem';
 import { evidenceDefaults } from '@/lib/rating/evidence-fields';
@@ -166,6 +167,9 @@ function EditForm({
     formState: { errors },
   } = useForm<FieldValues>({
     resolver: standardSchemaResolver(schema as never) as unknown as Resolver<FieldValues>,
+    // Checked when a field is left, and only a field holding something wrong
+    // shows its message — see `typedErrors` (owner, 2026-09-24).
+    mode: 'onTouched',
     // What the work already says, falling back to the type's own defaults for
     // any field it predates.
     defaultValues: {
@@ -227,7 +231,7 @@ function EditForm({
             fields={fields}
             register={register}
             control={control}
-            errors={errors}
+            errors={typedErrors(errors, watched)}
             unitLabel="год"
           />
 
