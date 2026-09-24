@@ -92,18 +92,23 @@ describe('evidenceProblem — a NONE side proves nothing (D47)', () => {
   });
 });
 
-describe('proofRulesProblem — the pair ADMIN may save', () => {
-  it('refuses a вид роботи nothing could prove', () => {
-    expect(proofRulesProblem('NONE', 'NONE')).toBe('Має бути хоча б один спосіб підтвердження');
+describe('no proof needed — both NONE (owner, 2026-09-24)', () => {
+  it('accepts a record with neither link nor file', () => {
+    expect(check({ linkRule: 'NONE', fileRule: 'NONE' })).toBeNull();
   });
 
-  it('accepts every other pair', () => {
+  it('is a pair ADMIN may save — like every other pair', () => {
     const rules = ['REQUIRED', 'OPTIONAL', 'NONE'] as const;
     for (const link of rules) {
       for (const file of rules) {
-        if (link === 'NONE' && file === 'NONE') continue;
         expect(proofRulesProblem(link, file)).toBeNull();
       }
     }
+  });
+
+  it('still refuses «neither» wherever one of the two is offered (D27)', () => {
+    expect(check({ linkRule: 'OPTIONAL', fileRule: 'NONE' })).toBe(
+      'Додайте посилання або файл підтвердження'
+    );
   });
 });

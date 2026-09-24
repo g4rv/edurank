@@ -999,6 +999,15 @@ section and the D31–D35 notes above disagree, this section wins.**
 | D51 | Old publications?               | **Refused at once.** The стаття's «Опубліковано/Проіндексовано» (was «Дата публікації») must fall between 1 January of the current calendar year and today. Calendar year, not навчальний рік, until the boss says otherwise. ННВ still checks for a faked date.                  |
 | —   | The PDF page-count check (D40)? | **Dropped.** ННВ counts pages by hand.                                                                                                                                                                                                                                            |
 
+### D53 — a вид роботи may need no proof (owner, 2026-09-24)
+
+**Narrows D27 and reverses D47's «both NONE is refused».** An ADMIN may set
+both the link and the file to «Не використовується», and that now means «no
+proof needed»: the record is saved with its details alone. D27's «never
+neither» still holds wherever one of the two is offered. The seed sets п.12
+«Керівництво аспірантами» this way — the аспірант's ПІБ is the record, and
+the наказ по аспірантурі will prove it once its import exists.
+
 ### D52 — an underplanned plan cannot be saved (owner, 2026-09-24)
 
 **Reverses D9 for the SUBMISSION.** A plan below `500 × ставка` may still be

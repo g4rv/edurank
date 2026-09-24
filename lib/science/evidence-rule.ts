@@ -40,6 +40,12 @@ export function evidenceProblem(input: {
   link: string | null;
   fileCount: number;
 }): string | null {
+  // **Both NONE = no proof needed** (owner, 2026-09-24). A вид роботи an
+  // ADMIN has set to neither link nor file — «Керівництво аспірантами» first —
+  // is recorded by its details alone. D27's «never neither» still holds
+  // wherever one of the two is offered.
+  if (input.linkRule === 'NONE' && input.fileRule === 'NONE') return null;
+
   // A proof on a NONE side proves nothing — a file left over from before a
   // type became link-only must not stand in for the link it now needs.
   const hasLink = input.linkRule !== 'NONE' && Boolean(input.link?.trim());
@@ -60,9 +66,12 @@ export function evidenceProblem(input: {
   return null;
 }
 
-/** The pair ADMIN may save: a вид роботи nothing could prove is refused. */
-export function proofRulesProblem(linkRule: ProofRule, fileRule: ProofRule): string | null {
-  return linkRule === 'NONE' && fileRule === 'NONE'
-    ? 'Має бути хоча б один спосіб підтвердження'
-    : null;
+/**
+ * The pair ADMIN may save. Every pair is legal since 2026-09-24: both NONE
+ * used to be refused as «a вид роботи nothing could prove», and is now how an
+ * ADMIN says a вид роботи needs no proof at all. Kept as the one place a
+ * future constraint on the pair would go.
+ */
+export function proofRulesProblem(_linkRule: ProofRule, _fileRule: ProofRule): string | null {
+  return null;
 }

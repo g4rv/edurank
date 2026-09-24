@@ -619,6 +619,10 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reuse: 'YEARLY',
     sharing: 'INDIVIDUAL',
     identityFields: ['student'],
+    // No proof asked (owner, 2026-09-24): the аспірант's ПІБ is the record.
+    // The наказ по аспірантурі will prove it once its import is built.
+    linkRule: 'NONE',
+    fileRule: 'NONE',
     fields: personName('student', 'ПІБ аспіранта (здобувача)'),
   },
   {

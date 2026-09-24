@@ -580,8 +580,12 @@ function WorkTypeForm({
                 onChange={(v) => setValue('fileRule', v, { shouldDirty: true })}
               />
             </div>
+            {/* A legal choice since 2026-09-24, and worth saying out loud: the
+                record form will then ask for no proof at all. */}
             {linkRule === 'NONE' && fileRule === 'NONE' && (
-              <p className="mt-2 text-sm text-error">Має бути хоча б один спосіб підтвердження</p>
+              <p className="mt-2 text-sm text-foreground-soft">
+                Підтвердження не потрібне — запис вноситься лише з даними роботи.
+              </p>
             )}
           </FormSection>
         </DialogBody>

@@ -124,11 +124,10 @@ it('creates a вид роботи with its пункт heading and short name', a
   });
 });
 
-it('refuses a вид роботи nothing could prove (D47)', async () => {
+it('saves a вид роботи that needs no proof — both NONE (owner, 2026-09-24)', async () => {
   expect(await saveWorkType({ ...VALID, linkRule: 'NONE', fileRule: 'NONE' })).toEqual({
-    error: 'Має бути хоча б один спосіб підтвердження',
+    ok: true,
   });
-  expect(db.$transaction).not.toHaveBeenCalled();
 });
 
 it('saves a вид роботи with no heading or short name — the dialog sends them as null', async () => {

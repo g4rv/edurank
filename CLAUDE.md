@@ -554,7 +554,9 @@ Easy to get wrong:
   ADMIN). Only when neither is REQUIRED must one of the two be given; a proof
   on a NONE side proves nothing and is refused on save. The eight large or
   published documents (D39 — п.1, п.3, п.4, п.6 доповідь, п.10) start as link
-  REQUIRED, file NONE. `requiresFile` no longer exists.
+  REQUIRED, file NONE. `requiresFile` no longer exists. **Both NONE = no
+  proof needed** (D53, owner 2026-09-24): п.12 «Керівництво аспірантами» is
+  recorded by the аспірант's ПІБ alone; «never neither» holds everywhere else.
 - **A record PROVES the work; it does not track when it was done** (D50,
   owner 2026-09-24). The execution month (D41/D48/D49) is **hidden, not
   removed**: `SHOW_EXECUTION_PERIOD` in `lib/science/execution-month.ts` is

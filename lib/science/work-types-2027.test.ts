@@ -198,9 +198,16 @@ describe('D39/D47 — how each type is proved', () => {
     );
   });
 
+  it('asks no proof at all of «Керівництво аспірантами» (owner, 2026-09-24)', () => {
+    const noProof = SCIENCE_WORK_TYPES_2027.filter(
+      (d) => d.linkRule === 'NONE' && d.fileRule === 'NONE'
+    ).map((d) => d.code);
+    expect(noProof).toEqual(['phd_supervision']);
+  });
+
   it('leaves every other type on the defaults (link or file)', () => {
     const others = SCIENCE_WORK_TYPES_2027.filter((d) => d.fileRule !== 'NONE');
-    expect(others).toHaveLength(18);
+    expect(others).toHaveLength(17);
     for (const d of others) {
       expect(d.linkRule).toBeUndefined();
       expect(d.fileRule).toBeUndefined();
