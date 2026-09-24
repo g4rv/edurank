@@ -45,15 +45,6 @@ type ComboboxCtx = {
   /** The field the list hangs off — see the guard in `ComboboxContent`. */
   anchorRef: React.RefObject<HTMLDivElement | null>;
   /**
-   * Which row wears `data-highlighted` — the select's own roving state,
-   * reproduced here (owner, 2026-09-18). Radix starts a select's highlight on
-   * whichever row is already chosen, so opening either control shows the
-   * same tint; this list has no Radix roving focus underneath it, so nothing
-   * ever set that state and the combobox opened with only a checkmark.
-   */
-  highlighted: string;
-  setHighlighted: (v: string) => void;
-  /**
    * The rendered `<ul>`. Keyboard navigation walks its `[role="option"]`
    * children rather than the `filteredItems` array, because only the consumer's
    * render callback knows what VALUE each item carries — DOM order is render
@@ -78,6 +69,30 @@ const ComboboxContext = React.createContext<ComboboxCtx | null>(null);
 function useCombobox() {
   const ctx = React.useContext(ComboboxContext);
   if (!ctx) throw new Error('useCombobox must be inside <Combobox>');
+  return ctx;
+}
+
+/**
+ * Which row wears `data-highlighted` — the select's own roving state,
+ * reproduced here (owner, 2026-09-18). Radix starts a select's highlight on
+ * whichever row is already chosen, so opening either control shows the same
+ * tint; this list has no Radix roving focus underneath it, so nothing ever set
+ * that state and the combobox opened with only a checkmark.
+ *
+ * **Its own context, read only by the input and the rows** (2026-09-24). It
+ * changes on every row the pointer crosses — and a list scrolled under a still
+ * mouse crosses one per wheel step. Kept in the one shared context, each step
+ * rebuilt that object and woke everything reading it, the Radix popover
+ * included, which then committed a second time: ~70 ms of script per wheel
+ * step on a 6×-throttled CPU, felt as a stutter on an ordinary laptop.
+ */
+type HighlightCtx = { highlighted: string; setHighlighted: (v: string) => void };
+
+const HighlightContext = React.createContext<HighlightCtx | null>(null);
+
+function useHighlight() {
+  const ctx = React.useContext(HighlightContext);
+  if (!ctx) throw new Error('useHighlight must be inside <Combobox>');
   return ctx;
 }
 
@@ -118,46 +133,64 @@ function Combobox<T>({
     [items, search, filter]
   );
 
-  function setOpen(v: boolean) {
+  // Read through refs so `setOpen` and `select` keep ONE identity for the life
+  // of the control. `setOpen` is the popover's `onOpenChange`: a new function
+  // on each render changed the Radix popover's own context, and every part of
+  // it re-rendered with it.
+  const valueRef = React.useRef(value);
+  const onChangeRef = React.useRef(onChange);
+  React.useLayoutEffect(() => {
+    valueRef.current = value;
+    onChangeRef.current = onChange;
+  });
+
+  const setOpen = React.useCallback((v: boolean) => {
     setOpenRaw(v);
     if (v) {
-      setHighlighted(value);
+      setHighlighted(valueRef.current);
     } else {
       setSearch('');
     }
-  }
+  }, []);
 
-  function select(v: string) {
-    onChange?.(v);
-    setOpen(false);
-  }
+  const select = React.useCallback(
+    (v: string) => {
+      onChangeRef.current?.(v);
+      setOpen(false);
+    },
+    [setOpen]
+  );
 
   const anchorRef = React.useRef<HTMLDivElement | null>(null);
   const listRef = React.useRef<HTMLUListElement | null>(null);
   const listboxId = React.useId();
 
+  const ctx = React.useMemo<ComboboxCtx>(
+    () => ({
+      open,
+      setOpen,
+      search,
+      setSearch,
+      value,
+      select,
+      displayValue,
+      filteredItems,
+      disabled,
+      anchorRef,
+      listRef,
+      listboxId,
+    }),
+    [open, setOpen, search, value, select, displayValue, filteredItems, disabled, listboxId]
+  );
+  const highlight = React.useMemo(() => ({ highlighted, setHighlighted }), [highlighted]);
+
   return (
-    <ComboboxContext.Provider
-      value={{
-        open,
-        setOpen,
-        search,
-        setSearch,
-        value,
-        select,
-        displayValue,
-        filteredItems,
-        disabled,
-        anchorRef,
-        highlighted,
-        setHighlighted,
-        listRef,
-        listboxId,
-      }}
-    >
-      <Popover open={open} onOpenChange={setOpen}>
-        {children}
-      </Popover>
+    <ComboboxContext.Provider value={ctx}>
+      <HighlightContext.Provider value={highlight}>
+        <Popover open={open} onOpenChange={setOpen}>
+          {children}
+        </Popover>
+      </HighlightContext.Provider>
     </ComboboxContext.Provider>
   );
 }
@@ -199,11 +232,10 @@ function ComboboxInput({
     select,
     disabled: ctxDisabled,
     anchorRef,
-    highlighted,
-    setHighlighted,
     listRef,
     listboxId,
   } = useCombobox();
+  const { highlighted, setHighlighted } = useHighlight();
   const isDisabled = disabledProp ?? ctxDisabled;
 
   /** Every option currently on screen, in the order it is drawn. */
@@ -525,7 +557,8 @@ interface ComboboxItemProps {
 }
 
 function ComboboxItem({ value: itemValue, children, className }: ComboboxItemProps) {
-  const { value, select, highlighted, setHighlighted, listboxId } = useCombobox();
+  const { value, select, listboxId } = useCombobox();
+  const { highlighted, setHighlighted } = useHighlight();
   const isSelected = value === itemValue;
   const isHighlighted = highlighted === itemValue;
 
