@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Card, EmptyState } from '@/components/aurora/ui/card';
+import { EmptyState } from '@/components/aurora/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { cn } from '@/lib/utils';
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
@@ -24,6 +25,14 @@ import { ToolbarGroup, ToolbarRow } from '@/components/staff/record-toolbar';
  * each row's delete button, all of them client components already — the same
  * split `AchievementsList` / `DeleteActivityButton` uses.
  */
+/**
+ * The plan's columns: the вид роботи takes the slack, the hours read down.
+ * Widths add up (§12): 9 + 9 = 18rem declared plus a 14rem floor for the name
+ * = 32rem, and 3rem more for the delete while the plan is open.
+ */
+const PLAN_COLUMNS = [null, '9rem', '9rem'] as const;
+const PLAN_MIN_WIDTH = 'calc(14rem + 9rem + 9rem)';
+
 export function PlanView({
   academicYear,
   lastExecutionMonth,
@@ -73,7 +82,7 @@ export function PlanView({
   const groups = groupByItem(rows);
 
   return (
-    <div className="space-y-5">
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
       <PlanHeader academicYear={academicYear} orderRef={orderRef} target={target} />
 
       {departments.length > 1 && (
@@ -143,89 +152,99 @@ export function PlanView({
       ) : rows.length === 0 ? (
         <EmptyState>Ще немає запланованих робіт.</EmptyState>
       ) : (
-        <Card padding="none">
-          <ul className="divide-y">
-            {groups.map((group) => {
-              const planned = group.rows.reduce((sum, r) => sum + r.plannedHundredths, 0);
-              const done = doneByItem.get(group.itemNumber) ?? 0;
-              // The пункт's own heading now that the catalogue carries one —
-              // «Рецензування, експертна оцінка, опонування» rather than the
-              // full sentence of whichever вид роботи happened to be first.
-              const firstType = workTypeById.get(group.rows[0].workTypeId);
-              const heading = firstType?.itemTitle || group.rows[0].workTypeLabel;
-              return (
-                <li key={group.itemNumber} className="px-5 py-3">
-                  {/* Not `flex-wrap`: «Участь у конкурсі проєктів та
-                      науково-технічних розробок…» is a full line, and wrapping
-                      dropped the figures underneath it, where they read as
-                      belonging to the row below (owner, 2026-09-17). The label
-                      wraps inside its own column instead. */}
-                  <div className="flex items-baseline justify-between gap-6">
-                    <p className="min-w-0 flex-1 text-base font-medium">
-                      <span className="mr-1.5 font-normal text-foreground-soft">
-                        Пункт {group.itemNumber}
-                      </span>
-                      {heading}
-                    </p>
-                    <p className="shrink-0 text-sm whitespace-nowrap text-foreground-soft">
-                      Заплановано{' '}
-                      <span className="font-semibold text-foreground tabular-nums">
-                        {formatHours(planned)}
-                      </span>{' '}
-                      · Виконано{' '}
-                      <span
-                        className={cn(
-                          'font-semibold tabular-nums',
-                          done >= planned ? 'text-success' : 'text-foreground'
-                        )}
-                      >
-                        {formatHours(done)}
-                      </span>{' '}
-                      год
-                    </p>
-                  </div>
-
-                  <ul className="mt-1.5 space-y-1">
-                    {group.rows.map((row) => {
-                      const type = workTypeById.get(row.workTypeId);
-                      const summary = summarizeEvidence(type?.fields ?? [], row.details);
-                      const detail = type?.shortLabel || row.workTypeLabel;
-                      return (
-                        <li
-                          key={row.id}
-                          className="flex flex-wrap items-center justify-between gap-2 text-sm"
-                        >
-                          <span className="min-w-0 flex-1 text-foreground-soft">
-                            {/* `||`, not `??`. A FIXED вид роботи (гурток,
-                                лабораторія) declares no evidence fields, so
-                                `summarizeEvidence` returns an empty string —
-                                which `??` passed straight through, drawing a
-                                row that showed «400 год» and nothing else.
-                                And where the fallback would only repeat the
-                                heading above it word for word, it says nothing
-                                at all rather than saying it twice. */}
-                            {summary || (detail === heading ? '—' : detail)}
-                            {row.note && (
-                              <span className="text-muted-foreground"> — {row.note}</span>
-                            )}
-                          </span>
-                          <span className="flex shrink-0 items-center gap-2">
-                            <span className="text-foreground-soft tabular-nums">
-                              {formatHours(row.plannedHundredths)} год
-                            </span>
-                            {!locked && (
-                              <DeletePlanRowButton rowId={row.id} label={row.workTypeLabel} />
-                            )}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+        // Аврора's `Table` (owner, 2026-09-24): the grey пункт rows of «Мій
+        // рейтинг», the figures in their own columns so they read DOWN the
+        // plan, and a total at the bottom. The hand-drawn list squeezed the
+        // пункт name into a sliver beside its figures on a phone; the table
+        // scrolls sideways inside its card there instead (`minWidth`).
+        <Table
+          columns={locked ? PLAN_COLUMNS : [...PLAN_COLUMNS, '3rem']}
+          minWidth={locked ? PLAN_MIN_WIDTH : `calc(${PLAN_MIN_WIDTH} + 3rem)`}
+          fill
+          head={
+            <TableRow>
+              <TableHead>Вид роботи</TableHead>
+              <TableHead align="center">Заплановано</TableHead>
+              <TableHead align="center">Виконано</TableHead>
+              {!locked && <TableHead />}
+            </TableRow>
+          }
+          footer={
+            <TableRow variant="total">
+              <TableCell>Разом</TableCell>
+              <TableCell numeric align="center">
+                {formatHours(target.plannedHundredths)} год
+              </TableCell>
+              <TableCell numeric align="center">
+                {formatHours(target.doneHundredths)} год
+              </TableCell>
+              {!locked && <TableCell />}
+            </TableRow>
+          }
+        >
+          {groups.map((group) => {
+            const planned = group.rows.reduce((sum, r) => sum + r.plannedHundredths, 0);
+            const done = doneByItem.get(group.itemNumber) ?? 0;
+            // The пункт's own heading now that the catalogue carries one —
+            // «Рецензування, експертна оцінка, опонування» rather than the
+            // full sentence of whichever вид роботи happened to be first.
+            const firstType = workTypeById.get(group.rows[0].workTypeId);
+            const heading = firstType?.itemTitle || group.rows[0].workTypeLabel;
+            return (
+              // One <tbody> per пункт, so its heading sticks while its rows
+              // scroll (see `Table`, note 5).
+              <TableBody key={group.itemNumber}>
+                <TableRow variant="group">
+                  <TableCell>
+                    Пункт {group.itemNumber} · {heading}
+                  </TableCell>
+                  <TableCell numeric align="center">
+                    {formatHours(planned)}
+                  </TableCell>
+                  {/* План and факт are compared as HOURS per пункт (owner,
+                      2026-09-17) — no record is tied to a plan line, so the
+                      «done» figure belongs to the пункт, never to one row. */}
+                  <TableCell
+                    numeric
+                    align="center"
+                    className={cn(done >= planned && done > 0 && 'text-success')}
+                  >
+                    {formatHours(done)}
+                  </TableCell>
+                  {!locked && <TableCell />}
+                </TableRow>
+                {group.rows.map((row) => {
+                  const type = workTypeById.get(row.workTypeId);
+                  const summary = summarizeEvidence(type?.fields ?? [], row.details);
+                  const detail = type?.shortLabel || row.workTypeLabel;
+                  return (
+                    <TableRow key={row.id} className="[&>td]:align-middle">
+                      <TableCell>
+                        {/* `||`, not `??`. A FIXED вид роботи (гурток,
+                            лабораторія) declares no evidence fields, so
+                            `summarizeEvidence` returns an empty string — and
+                            the row then names its вид роботи, even where that
+                            repeats the пункт heading: in a table a lone «—»
+                            reads as a missing value (owner, 2026-09-24). */}
+                        {summary || detail}
+                        {row.note && <span className="text-foreground-soft"> — {row.note}</span>}
+                      </TableCell>
+                      <TableCell numeric align="center">
+                        {formatHours(row.plannedHundredths)}
+                      </TableCell>
+                      <TableCell />
+                      {!locked && (
+                        <TableCell align="center">
+                          <DeletePlanRowButton rowId={row.id} label={row.workTypeLabel} />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            );
+          })}
+        </Table>
       )}
     </div>
   );
