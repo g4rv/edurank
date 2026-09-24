@@ -83,7 +83,7 @@ export function PlanView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <PlanHeader academicYear={academicYear} orderRef={orderRef} target={target} />
+      <PlanHeader academicYear={academicYear} orderRef={orderRef} target={target} locked={locked} />
 
       {departments.length > 1 && (
         <DepartmentSwitcher

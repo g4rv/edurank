@@ -1,5 +1,6 @@
-import { Check, TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import { Card } from '@/components/aurora/ui/card';
+import { cn } from '@/lib/utils';
 import { formatHours } from '@/lib/science/hours';
 import type { PlanTarget } from '@/lib/science/target';
 
@@ -27,10 +28,13 @@ export function PlanHeader({
   academicYear,
   orderRef,
   target,
+  locked,
 }: {
   academicYear: string;
   orderRef: string | null;
   target: PlanTarget;
+  /** The plan is saved — only then is there anything to have done. */
+  locked: boolean;
 }) {
   const { targetHundredths, plannedHundredths, doneHundredths } = target;
 
@@ -49,45 +53,45 @@ export function PlanHeader({
             carry theirs on the right (owner, 2026-09-24) — they were a
             sentence of four numbers and two pills, and nothing on it said at a
             glance how far along somebody is. */}
+        {/* No warning lines under the figures (owner, 2026-09-24): the figure
+            itself says it. A number still short is red; the minimum carries a
+            triangle while the plan is under it and disappears once it is met. */}
         <div>
           <dl className="space-y-1 text-sm">
-            <Row label="Заплановано" hundredths={plannedHundredths}>
-              {targetHundredths !== null && (
-                <span className="text-foreground-soft"> (мін {formatHours(targetHundredths)})</span>
-              )}
+            <Row
+              label="Заплановано"
+              hundredths={plannedHundredths}
+              short={!!target.shortfallHundredths}
+            >
+              {targetHundredths !== null && target.shortfallHundredths ? (
+                <span className="ml-1 text-warning">
+                  (
+                  <TriangleAlert
+                    className="mr-1 mb-0.5 inline size-3.5"
+                    aria-label="нижче мінімуму"
+                  />
+                  мін {formatHours(targetHundredths)})
+                </span>
+              ) : null}
             </Row>
-            <Row label="Виконано" hundredths={doneHundredths} />
+            {/* D37: what is owed is the plan, or the norm when the plan is
+                lower — red until the done hours reach it. */}
+            {/* Only once the plan is saved (owner, 2026-09-24): nothing can be
+                recorded before, so a «0 год» in red would only be noise. */}
+            {locked && (
+              <Row
+                label="Виконано"
+                hundredths={doneHundredths}
+                short={!!target.doneShortfallHundredths}
+              />
+            )}
           </dl>
 
-          <div className="mt-2 space-y-0.5 text-xs">
-            {targetHundredths === null ? (
-              <p className="text-foreground-soft">
-                Ставку на цій кафедрі ще не визначено — мінімум буде показано пізніше.
-              </p>
-            ) : (
-              // Two states, and they are independent: somebody may have planned
-              // enough and done little, which is the ordinary shape of October.
-              // D37: once the plan is above the norm, the plan is what the fact
-              // has to reach, so «не вистачає» counts from the larger of the two.
-              <>
-                {target.shortfallHundredths !== null && target.shortfallHundredths > 0 && (
-                  <Short>
-                    до мінімуму в плані не вистачає {formatHours(target.shortfallHundredths)} год
-                  </Short>
-                )}
-                {target.doneShortfallHundredths === 0 ? (
-                  <p className="flex items-center gap-1 font-medium text-success">
-                    <Check className="size-3.5" />
-                    План виконано
-                  </p>
-                ) : (
-                  target.doneShortfallHundredths !== null && (
-                    <Short>не вистачає: {formatHours(target.doneShortfallHundredths)} год</Short>
-                  )
-                )}
-              </>
-            )}
-          </div>
+          {targetHundredths === null && (
+            <p className="mt-2 text-xs text-foreground-soft">
+              Ставку на цій кафедрі ще не визначено — мінімум буде показано пізніше.
+            </p>
+          )}
         </div>
       </div>
     </Card>
@@ -97,30 +101,25 @@ export function PlanHeader({
 function Row({
   label,
   hundredths,
+  short = false,
   children,
 }: {
   label: string;
   hundredths: number;
+  /** Below what is owed — the figure turns red (§3: a value reporting STATE). */
+  short?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <div className="flex items-baseline gap-1.5">
       <dt>{label}:</dt>
       <dd>
-        <span className="text-lg font-semibold tabular-nums">{formatHours(hundredths)}</span> год
+        <span className={cn('text-lg font-semibold tabular-nums', short && 'text-error')}>
+          {formatHours(hundredths)}
+        </span>{' '}
+        год
         {children}
       </dd>
     </div>
-  );
-}
-
-/** `--warning` text: §3's rule that a small indicator reporting STATE may
- *  carry a hue. */
-function Short({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="flex items-center gap-1 font-medium text-warning">
-      <TriangleAlert className="size-3.5" />
-      {children}
-    </p>
   );
 }
