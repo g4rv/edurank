@@ -531,6 +531,47 @@ interface ComboboxListProps<T> {
 
 function ComboboxList<T>({ children, className }: ComboboxListProps<T>) {
   const { filteredItems, listRef, listboxId } = useCombobox();
+
+  // **Opens on the chosen row, centred** (owner, 2026-09-24). The list mounts
+  // fresh on every open, so it started at the top and a choice from the middle
+  // of 18 пункти was out of sight. Set on `scrollTop`, not `scrollIntoView`,
+  // which would also scroll the dialog and the page around it.
+  //
+  // It keeps re-centring until the person touches the list, because the
+  // layout is not final when the list mounts (measured 2026-09-24): the panel
+  // first renders at the WINDOW's width — 1226px, where no row wraps — and is
+  // narrowed to the field's width later, when the long пункти wrap to two or
+  // three lines and push the chosen row down by tens of pixels. A one-off
+  // centring, or one bounded by a timer, landed low on a slow machine. So
+  // every row is observed as well as the list: a row that grows moves the
+  // chosen one without the list itself changing size. `offsetTop` (the `<ul>`
+  // is the offset parent — `relative` below) also ignores the opening
+  // `zoom-in-95`, which `getBoundingClientRect` would measure mid-scale.
+  React.useLayoutEffect(() => {
+    const list = listRef.current;
+    const row = list?.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
+    if (!list || !row) return;
+    const centre = () => {
+      list.scrollTop = row.offsetTop - (list.clientHeight - row.offsetHeight) / 2;
+    };
+    centre();
+    const resize = new ResizeObserver(centre);
+    resize.observe(list);
+    list.querySelectorAll('[role="option"]').forEach((option) => resize.observe(option));
+    // The person has taken over — scrolling, touching, pointing or typing.
+    const stop = () => resize.disconnect();
+    const events = ['wheel', 'touchstart', 'pointerdown'] as const;
+    events.forEach((name) => list.addEventListener(name, stop, { once: true, passive: true }));
+    document.addEventListener('keydown', stop, { once: true, capture: true });
+    return () => {
+      stop();
+      events.forEach((name) => list.removeEventListener(name, stop));
+      document.removeEventListener('keydown', stop, { capture: true });
+    };
+    // On mount only: re-centring as the person types would fight their search.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (filteredItems.length === 0) return null;
   return (
     <ul
@@ -541,7 +582,7 @@ function ComboboxList<T>({ children, className }: ComboboxListProps<T>) {
       // sliver above and below the hover highlight, which reads as a rendering
       // fault rather than as breathing room. The panel clips its own corners
       // instead — see `ComboboxContent`.
-      className={cn(listScroll, className)}
+      className={cn(listScroll, 'relative', className)}
     >
       {(filteredItems as T[]).map(children)}
     </ul>
