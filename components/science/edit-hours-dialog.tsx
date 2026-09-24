@@ -91,7 +91,12 @@ export function EditHoursDialog({
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" aria-label={`Моя частка годин у «${label}»`}>
           <Scale className="size-3.5" />
-          Моя частка
+          {/* The share itself on the button (owner, 2026-09-24): what it
+              opens is a number, so the number is what it shows. */}
+          Моя частка:{' '}
+          <span className="tabular-nums">
+            {formatHours(hoursHundredths)} з {formatHours(totalHundredths)}
+          </span>
         </Button>
       </DialogTrigger>
 

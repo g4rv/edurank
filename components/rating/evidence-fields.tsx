@@ -181,6 +181,9 @@ export function EvidenceFields({
               step={f.int ? 1 : 'any'}
               min={f.min}
               max={f.max}
+              // The bound said up front, where it used to arrive only as a red
+              // «Мінімальне значення — 1» after a refused save (owner, 2026-09-24).
+              placeholder={f.min !== undefined ? `від ${f.min}` : undefined}
               disabled={disabled}
               {...register(f.name)}
             />

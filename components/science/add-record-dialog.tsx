@@ -33,7 +33,8 @@ import { RequiredFields } from '@/components/ui/required-fields';
 import { toHundredths, parseStake } from '@/lib/stake/units';
 import { formatHours } from '@/lib/science/hours';
 import { JoinWorkPanel } from '@/components/science/join-work-panel';
-import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
+import { unitNote, type PlanWorkType } from '@/components/science/add-plan-row-dialog';
+import { evidenceProblem } from '@/lib/science/evidence-rule';
 import { EvidenceFileField, type StagedFile } from '@/components/science/evidence-file-field';
 import { DialogProblem } from '@/components/science/dialog-problem';
 
@@ -111,7 +112,7 @@ export function AddRecordDialog({
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
-        <Button size="sm" className="shrink-0">
+        <Button variant="brand">
           <Plus className="size-4" />
           Додати виконане
         </Button>
@@ -246,6 +247,16 @@ function RecordForm({
   const linkRule = type?.linkRule ?? 'OPTIONAL';
   const fileRule = type?.fileRule ?? 'OPTIONAL';
   const poolHundredths = previewHours === null ? null : toHundredths(previewHours);
+  const complete =
+    !!type &&
+    parsedPreview.success &&
+    evidenceProblem({
+      linkRule,
+      fileRule,
+      link: link.trim() || null,
+      fileCount: file ? 1 : 0,
+    }) === null &&
+    (!shared || !hours.trim() || parseStake(hours) !== null);
 
   function onSubmit(data: FieldValues) {
     if (!type) return;
@@ -309,7 +320,7 @@ function RecordForm({
 
             {type && (type.unitNote || type.reportingForm) && (
               <div className="space-y-0.5 text-sm text-foreground-soft">
-                {type.unitNote && <p>{type.unitNote}</p>}
+                {unitNote(type) && <p>{unitNote(type)}</p>}
                 {type.reportingForm && <p>Форма звітності: {type.reportingForm}</p>}
               </div>
             )}
@@ -398,30 +409,38 @@ function RecordForm({
                 </p>
               </div>
             )}
-
-            <p className="text-sm text-foreground-soft">
-              {!type ? (
-                'Оберіть вид роботи, щоб побачити кількість годин'
-              ) : poolHundredths !== null ? (
-                <>
-                  Робота варта{' '}
-                  <span className="font-medium text-foreground">{formatHours(poolHundredths)}</span>{' '}
-                  год
-                </>
-              ) : (
-                'Заповніть поля, щоб побачити кількість годин'
-              )}
-            </p>
           </fieldset>
         </DialogBody>
 
         {/* The refusal sits WITH the submit, in the footer that does not
             scroll — see `DialogProblem`. */}
-        <DialogFooter>
-          <DialogProblem>{problem}</DialogProblem>
+        {/* The hours beside the button that commits them, as in the planning
+            dialog: fixed, so filling a field never shifts the form (owner,
+            2026-09-24). A refusal takes their place — it is the one thing the
+            person must read before pressing again. */}
+        <DialogFooter className="flex-row items-center justify-between sm:justify-between">
+          {problem ? (
+            <DialogProblem>{problem}</DialogProblem>
+          ) : (
+            <p className="text-sm text-foreground-soft" aria-live="polite">
+              {poolHundredths !== null && (
+                <>
+                  Робота варта{' '}
+                  <span className="text-xl font-semibold text-foreground tabular-nums">
+                    {formatHours(poolHundredths)}
+                  </span>{' '}
+                  год
+                </>
+              )}
+            </p>
+          )}
+          {/* Off until everything required is there — the fields, and the
+              proof the вид роботи asks for (the server's own D27/D47 rule) —
+              instead of refusing afterwards with a column of red (owner,
+              2026-09-24). */}
           <Button
             type="submit"
-            disabled={isPending || fileBusy || !type}
+            disabled={isPending || fileBusy || !complete}
             loading={isPending || fileBusy}
           >
             {fileBusy ? 'Завантаження файлу…' : isPending ? 'Збереження…' : 'Додати'}

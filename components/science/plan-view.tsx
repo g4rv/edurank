@@ -13,6 +13,7 @@ import { RecordList } from '@/components/science/record-list';
 import { RecordTabs, type PlanTab } from '@/components/science/record-tabs';
 import { PlanHeader } from '@/components/science/plan-header';
 import { LockPlanButton } from '@/components/science/lock-plan-button';
+import { ToolbarGroup, ToolbarRow } from '@/components/staff/record-toolbar';
 
 /**
  * The кафедра switcher, the target band, the two tabs and whichever list the
@@ -83,7 +84,11 @@ export function PlanView({
         />
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* The tab bar left, the actions in a bar of their own right — the
+          record pages' toolbar (`ToolbarRow` + `ToolbarGroup`), so a button
+          keeps its normal size and the strip around it matches the tab bar's
+          height (owner, 2026-09-24). */}
+      <ToolbarRow>
         <RecordTabs
           active={tab}
           departmentId={currentDepartmentId}
@@ -91,40 +96,42 @@ export function PlanView({
           doneCount={records.length}
           doneLocked={!locked}
         />
-        {tab === 'plan' ? (
-          locked ? (
-            // Nothing to press: a submitted plan has no add button and no
-            // delete on its rows.
-            <p className="text-sm text-foreground-soft">
-              План збережено {lockedAt.toLocaleDateString('uk-UA')}
-            </p>
+        <ToolbarGroup>
+          {tab === 'plan' ? (
+            locked ? (
+              // Nothing to press: a submitted plan has no add button and no
+              // delete on its rows.
+              <p className="px-2 text-sm text-foreground-soft">
+                План збережено {lockedAt.toLocaleDateString('uk-UA')}
+              </p>
+            ) : (
+              <>
+                <LockPlanButton
+                  departmentId={currentDepartmentId}
+                  rows={rows.map((row) => ({
+                    id: row.id,
+                    label: row.note?.trim()
+                      ? `${row.workTypeLabel} — ${row.note.trim()}`
+                      : row.workTypeLabel,
+                    hoursHundredths: row.plannedHundredths,
+                  }))}
+                  totalHundredths={target.plannedHundredths}
+                  targetHundredths={target.targetHundredths}
+                  hasRate={target.rateHundredths !== null}
+                />
+                <AddPlanRowDialog departmentId={currentDepartmentId} workTypes={workTypes} />
+              </>
+            )
           ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              <LockPlanButton
-                departmentId={currentDepartmentId}
-                rows={rows.map((row) => ({
-                  id: row.id,
-                  label: row.note?.trim()
-                    ? `${row.workTypeLabel} — ${row.note.trim()}`
-                    : row.workTypeLabel,
-                  hoursHundredths: row.plannedHundredths,
-                }))}
-                totalHundredths={target.plannedHundredths}
-                targetHundredths={target.targetHundredths}
-                hasRate={target.rateHundredths !== null}
-              />
-              <AddPlanRowDialog departmentId={currentDepartmentId} workTypes={workTypes} />
-            </div>
-          )
-        ) : (
-          <AddRecordDialog
-            departmentId={currentDepartmentId}
-            workTypes={workTypes}
-            academicYear={academicYear}
-            lastExecutionMonth={lastExecutionMonth}
-          />
-        )}
-      </div>
+            <AddRecordDialog
+              departmentId={currentDepartmentId}
+              workTypes={workTypes}
+              academicYear={academicYear}
+              lastExecutionMonth={lastExecutionMonth}
+            />
+          )}
+        </ToolbarGroup>
+      </ToolbarRow>
 
       {tab === 'done' ? (
         <RecordList

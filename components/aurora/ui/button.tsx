@@ -55,6 +55,16 @@ const buttonVariants = cva(
         destructive:
           'bg-error/10 text-error-strong hover:bg-error/20 focus-visible:ring-error/25 dark:bg-error/20 dark:hover:bg-error/30',
         link: 'text-brand underline-offset-4 hover:underline',
+        /**
+         * An action INSIDE a toolbar bar (`ToolbarGroup`) beside a tab bar
+         * (owner, 2026-09-24). `default` is a gradient with a glow and the
+         * bar's own 12px radius, so in a bar it read as a separate object
+         * stuck on, glow spilling over the edge. This is the ACTIVE TAB's
+         * look — flat brand fill, the tab's smaller radius — so the action
+         * sits in its bar the way the tab sits in its own.
+         */
+        brand:
+          'rounded-md border-0 bg-brand text-brand-foreground shadow-sm hover:bg-brand/90 aria-expanded:bg-brand/90',
       },
       size: {
         default:

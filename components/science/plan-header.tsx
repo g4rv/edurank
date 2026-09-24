@@ -1,5 +1,4 @@
 import { Check, TriangleAlert } from 'lucide-react';
-import { Badge } from '@/components/aurora/ui/badge';
 import { Card } from '@/components/aurora/ui/card';
 import { formatHours } from '@/lib/science/hours';
 import type { PlanTarget } from '@/lib/science/target';
@@ -46,85 +45,82 @@ export function PlanHeader({
           </p>
         </div>
 
-        <div className="flex flex-col items-start gap-2 sm:items-end">
-          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
-            <Figure label="Заплановано" hundredths={plannedHundredths} />
-            <Figure label="Виконано" hundredths={doneHundredths} />
-            {targetHundredths === null ? null : (
-              <p className="text-sm text-foreground-soft">
-                ціль{' '}
-                <span className="font-medium text-foreground tabular-nums">
-                  {formatHours(targetHundredths)}
-                </span>{' '}
-                год
-                {/* D37: once the plan is above the norm, the plan is what the
-                    fact has to reach — say so, or «Виконано: бракує 200»
-                    reads as a sum that does not add up. */}
-                {target.doneTargetHundredths !== null &&
-                  target.doneTargetHundredths > targetHundredths && (
-                    <>
-                      {' '}
-                      · виконати{' '}
-                      <span className="font-medium text-foreground tabular-nums">
-                        {formatHours(target.doneTargetHundredths)}
-                      </span>{' '}
-                      год за планом
-                    </>
-                  )}
+        {/* The figures straight in the header, as the other rebuilt headers
+            carry theirs on the right (owner, 2026-09-24) — they were a
+            sentence of four numbers and two pills, and nothing on it said at a
+            glance how far along somebody is. */}
+        <div>
+          <dl className="space-y-1 text-sm">
+            <Row label="Заплановано" hundredths={plannedHundredths}>
+              {targetHundredths !== null && (
+                <span className="text-foreground-soft"> (мін {formatHours(targetHundredths)})</span>
+              )}
+            </Row>
+            <Row label="Виконано" hundredths={doneHundredths} />
+          </dl>
+
+          <div className="mt-2 space-y-0.5 text-xs">
+            {targetHundredths === null ? (
+              <p className="text-foreground-soft">
+                Ставку на цій кафедрі ще не визначено — мінімум буде показано пізніше.
               </p>
+            ) : (
+              // Two states, and they are independent: somebody may have planned
+              // enough and done little, which is the ordinary shape of October.
+              // D37: once the plan is above the norm, the plan is what the fact
+              // has to reach, so «не вистачає» counts from the larger of the two.
+              <>
+                {target.shortfallHundredths !== null && target.shortfallHundredths > 0 && (
+                  <Short>
+                    до мінімуму в плані не вистачає {formatHours(target.shortfallHundredths)} год
+                  </Short>
+                )}
+                {target.doneShortfallHundredths === 0 ? (
+                  <p className="flex items-center gap-1 font-medium text-success">
+                    <Check className="size-3.5" />
+                    План виконано
+                  </p>
+                ) : (
+                  target.doneShortfallHundredths !== null && (
+                    <Short>не вистачає: {formatHours(target.doneShortfallHundredths)} год</Short>
+                  )
+                )}
+              </>
             )}
           </div>
-
-          {targetHundredths === null ? (
-            <p className="text-sm text-foreground-soft">
-              Ставку на цій кафедрі ще не визначено — ціль буде показано пізніше.
-            </p>
-          ) : (
-            // Two states, and they are independent: somebody may have planned
-            // enough and done little, which is the ordinary shape of October.
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              <State label="План" shortfallHundredths={target.shortfallHundredths} />
-              <State label="Виконано" shortfallHundredths={target.doneShortfallHundredths} />
-            </div>
-          )}
         </div>
       </div>
     </Card>
   );
 }
 
-function Figure({ label, hundredths }: { label: string; hundredths: number }) {
+function Row({
+  label,
+  hundredths,
+  children,
+}: {
+  label: string;
+  hundredths: number;
+  children?: React.ReactNode;
+}) {
   return (
-    <p className="text-2xl font-semibold tracking-[-0.01em] tabular-nums">
-      <span className="mr-1.5 text-sm font-normal text-foreground-soft">{label}</span>
-      {formatHours(hundredths)}
-      <span className="ml-1 text-sm font-normal text-foreground-soft">год</span>
-    </p>
+    <div className="flex items-baseline gap-1.5">
+      <dt>{label}:</dt>
+      <dd>
+        <span className="text-lg font-semibold tabular-nums">{formatHours(hundredths)}</span> год
+        {children}
+      </dd>
+    </div>
   );
 }
 
-/** `--success` for met, `--warning` for short: §3's rule that a small badge
- *  reporting STATE may carry a hue, where a table row may not. */
-function State({
-  label,
-  shortfallHundredths,
-}: {
-  label: string;
-  shortfallHundredths: number | null;
-}) {
-  if (shortfallHundredths === null) return null;
-  if (shortfallHundredths === 0) {
-    return (
-      <Badge tone="ok">
-        <Check className="mr-1 size-3.5" />
-        {label}: ціль виконано
-      </Badge>
-    );
-  }
+/** `--warning` text: §3's rule that a small indicator reporting STATE may
+ *  carry a hue. */
+function Short({ children }: { children: React.ReactNode }) {
   return (
-    <Badge tone="warn">
-      <TriangleAlert className="mr-1 size-3.5" />
-      {label}: бракує {formatHours(shortfallHundredths)} год
-    </Badge>
+    <p className="flex items-center gap-1 font-medium text-warning">
+      <TriangleAlert className="size-3.5" />
+      {children}
+    </p>
   );
 }

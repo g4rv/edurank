@@ -84,6 +84,10 @@ export function WorkTypeCombobox({
   const selectedItem = items.find((i) => i.itemNumber === itemNumber);
 
   function pickItem(next: string) {
+    // Picking the пункт already chosen changes nothing. Handled as a change it
+    // cleared the вид роботи, which remounted the form and threw away every
+    // value typed into it (owner, 2026-09-24).
+    if (next === itemNumber) return;
     const item = items.find((i) => i.itemNumber === next);
     if (!item) return;
     onItemChange(next);
@@ -93,7 +97,7 @@ export function WorkTypeCombobox({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <Combobox
         items={items}
         value={itemNumber}
@@ -112,10 +116,12 @@ export function WorkTypeCombobox({
         }}
         displayValue={selectedItem ? itemDisplay(selectedItem) : ''}
       >
-        <p className="mb-1 block text-sm font-medium">Пункт Додатка III</p>
+        {/* «Вид роботи» is what a person is choosing — the Додаток III
+            numbering stays visible in every entry (owner, 2026-09-24). */}
+        <p className="mb-1 block text-sm font-medium">Вид роботи</p>
         <ComboboxInput
           placeholder="Почніть вводити назву або номер пункту"
-          aria-label="Пункт Додатка III"
+          aria-label="Вид роботи"
         />
         <ComboboxContent>
           <ComboboxEmpty>Нічого не знайдено</ComboboxEmpty>
@@ -131,7 +137,7 @@ export function WorkTypeCombobox({
 
       {selectedItem && selectedItem.types.length > 1 && (
         <div className="space-y-1">
-          <Label htmlFor="work-type-variant">Вид роботи</Label>
+          <Label htmlFor="work-type-variant">Різновид</Label>
           <Select value={value} onValueChange={onChange}>
             <SelectTrigger id="work-type-variant" className="w-full">
               <SelectValue placeholder="Оберіть…" />
@@ -149,9 +155,13 @@ export function WorkTypeCombobox({
 
       {/* One вид роботи under this пункт — already chosen, and said out loud so
           the form is never silently deciding something on somebody's behalf. */}
-      {selectedItem && selectedItem.types.length === 1 && (
-        <p className="text-sm text-foreground-soft">{selectedItem.types[0].label}</p>
-      )}
+      {selectedItem &&
+        selectedItem.types.length === 1 &&
+        // Not when it would only repeat the entry above it — «4 · Наукова
+        // стаття» over «Наукова стаття» said the same thing twice.
+        selectedItem.types[0].label !== selectedItem.title && (
+          <p className="text-sm text-foreground-soft">{selectedItem.types[0].label}</p>
+        )}
     </div>
   );
 }

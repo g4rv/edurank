@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 export type PlanTab = 'plan' | 'done';
 
 /**
- * «План» / «Виконано» (D29).
+ * «Планування» / «Виконання» (D29; renamed by the owner 2026-09-24).
  *
  * Two lists rather than records nested under the intention they fulfil. The
  * nesting reads well for somebody who did exactly what they planned and badly
@@ -33,8 +33,8 @@ export function RecordTabs({
   doneLocked?: boolean;
 }) {
   const tabs: { key: PlanTab; label: string; count: number }[] = [
-    { key: 'plan', label: 'План', count: planCount },
-    { key: 'done', label: 'Виконано', count: doneCount },
+    { key: 'plan', label: 'Планування', count: planCount },
+    { key: 'done', label: 'Виконання', count: doneCount },
   ];
 
   return (
@@ -51,7 +51,7 @@ export function RecordTabs({
               key={tab.key}
               aria-disabled="true"
               title="Спочатку збережіть план"
-              className="cursor-not-allowed rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground"
+              className="flex h-8 cursor-not-allowed items-center rounded-md px-3 text-sm font-medium text-muted-foreground"
             >
               {tab.label}
             </span>
@@ -66,7 +66,7 @@ export function RecordTabs({
             href={`/science-plan?dept=${departmentId}${tab.key === 'done' ? '&tab=done' : ''}`}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              'flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors',
               isActive
                 ? 'bg-brand text-brand-foreground shadow-sm'
                 : 'text-foreground hover:bg-brand/10 hover:text-brand-strong'

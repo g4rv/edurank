@@ -74,7 +74,10 @@ export function RecordList({
       });
 
   return (
-    <Card padding="none">
+    // `overflow-hidden`: the grey пункт row is square, and without the clip it
+    // painted over the card's rounded top corners — the shared `Table` clips
+    // itself the same way.
+    <Card padding="none" className="overflow-hidden">
       <ul className="divide-y">
         {/* One heading per пункт, like «План» — or, while the execution month
             is shown, one per month, newest first (D41). Either way the same
@@ -186,7 +189,7 @@ export function RecordList({
                       wrong number is an edit, a late file is an attachment —
                       both the author's — and the share of a shared work is
                       every co-author's own (D46). */}
-                      {!declined && (record.canEdit || record.sharing === 'SHARED') && (
+                      {!declined && (record.canEdit || shared) && (
                         <div className="mt-1 -ml-2 flex flex-wrap items-center gap-1">
                           {record.canEdit && workTypeById.has(record.workTypeId) && (
                             <EditRecordDialog
@@ -201,7 +204,10 @@ export function RecordList({
                               label={record.summary}
                             />
                           )}
-                          {record.sharing === 'SHARED' && (
+                          {/* Only where there is somebody to share with (owner,
+                              2026-09-24): a sole author's share is the whole
+                              pool, so the button offered a choice of one. */}
+                          {shared && (
                             <EditHoursDialog
                               recordId={record.id}
                               hoursHundredths={record.hoursHundredths}

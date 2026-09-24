@@ -287,7 +287,16 @@ function EditForm({
 
         <DialogFooter>
           <DialogProblem>{problem}</DialogProblem>
-          <Button type="submit" disabled={isPending} loading={isPending}>
+          {/* Off until the required fields are filled, as in the add dialogs
+              (owner, 2026-09-24). Files are managed on the record itself, so
+              only a REQUIRED link is checked here; the server checks the rest. */}
+          <Button
+            type="submit"
+            disabled={
+              isPending || !parsedPreview.success || (type.linkRule === 'REQUIRED' && !link.trim())
+            }
+            loading={isPending}
+          >
             {isPending ? 'Збереження…' : 'Зберегти'}
           </Button>
         </DialogFooter>

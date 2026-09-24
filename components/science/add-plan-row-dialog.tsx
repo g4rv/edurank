@@ -127,9 +127,9 @@ export function AddPlanRowDialog({
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
-        <Button size="sm" className="shrink-0">
+        <Button variant="brand">
           <Plus className="size-4" />
-          Додати роботу
+          Запланувати роботу
         </Button>
       </DialogTrigger>
 
@@ -140,10 +140,9 @@ export function AddPlanRowDialog({
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Нова робота</DialogTitle>
+          <DialogTitle>Запланувати роботу</DialogTitle>
           <DialogDescription>
-            Оберіть вид роботи з Додатка III, потім заповніть дані. Це намір на рік — доказів поки
-            не потрібно.
+            Оберіть та заповніть пункти, за якими плануєте наукову роботу.
           </DialogDescription>
         </DialogHeader>
 
@@ -201,6 +200,7 @@ function EvidenceForm({
 
   const watched = useWatch({ control });
   const parsedPreview = schema.safeParse(watched);
+  const complete = parsedPreview.success;
   let previewHours: number | null = null;
   if (type && parsedPreview.success) {
     try {
@@ -243,26 +243,35 @@ function EvidenceForm({
           own note on why the browser's native English bubbles are refused. */}
       <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
         <DialogBody className="flex flex-col gap-4">
-          {picker}
+          {/* The picker and what it says about the chosen пункт are ONE block:
+              the note belongs to the field above it, so it sits under it at
+              the label's own distance rather than a field's (owner,
+              2026-09-24). «Форма звітності» is not shown here — it is what
+              the record will ask for, and a plan asks for no proof. */}
+          <div className="space-y-2">
+            {picker}
+            {type && unitNote(type) && (
+              <p className="text-sm text-foreground-soft">{unitNote(type)}</p>
+            )}
+          </div>
 
-          {type && (type.unitNote || type.reportingForm) && (
-            <div className="space-y-0.5 text-sm text-foreground-soft">
-              {type.unitNote && <p>{type.unitNote}</p>}
-              {type.reportingForm && <p>Форма звітності: {type.reportingForm}</p>}
-            </div>
+          {/* Only when there is something to ask — an empty renderer still took
+              two gaps, which opened a hole between the picker and «Опис». */}
+          {fields.length > 0 && (
+            <EvidenceFields
+              fields={fields}
+              register={register}
+              control={control}
+              errors={errors}
+              // Додаток III prices in ГОДИНАХ, not балах (D3) — the renderer is
+              // the rating's and defaults to its unit.
+              unitLabel="год"
+            />
           )}
 
-          <EvidenceFields
-            fields={fields}
-            register={register}
-            control={control}
-            errors={errors}
-            // Додаток III prices in ГОДИНАХ, not балах (D3) — the renderer is
-            // the rating's and defaults to its unit.
-            unitLabel="год"
-          />
-
-          <div className="space-y-1">
+          {/* A hairline between what the пункт requires and what is optional,
+              so the one free-text box does not read as one more requirement. */}
+          <div className="space-y-1 border-t pt-4">
             <Label htmlFor="plan-row-note">Опис (необов&apos;язково)</Label>
             <Textarea
               id="plan-row-note"
@@ -271,29 +280,43 @@ function EvidenceForm({
               onChange={(e) => setNote(e.target.value)}
             />
           </div>
-
-          <p className="text-sm text-foreground-soft">
-            {!type ? (
-              'Оберіть вид роботи, щоб побачити орієнтовну кількість годин'
-            ) : previewHours !== null ? (
+        </DialogBody>
+        {/* The hours live in the footer, beside the button that commits them:
+            fixed, so filling a field never shifts the form, and large, since
+            they are what the whole form is for (owner, 2026-09-24). */}
+        <DialogFooter className="flex-row items-center justify-between sm:justify-between">
+          <p className="text-sm text-foreground-soft" aria-live="polite">
+            {previewHours !== null && (
               <>
-                Орієнтовно:{' '}
-                <span className="font-medium text-foreground">
+                Орієнтовно{' '}
+                <span className="text-xl font-semibold text-foreground tabular-nums">
                   {formatHours(toHundredths(previewHours))}
                 </span>{' '}
                 год
               </>
-            ) : (
-              'Заповніть поля, щоб побачити орієнтовну кількість годин'
             )}
           </p>
-        </DialogBody>
-        <DialogFooter>
-          <Button type="submit" disabled={isPending || !type} loading={isPending}>
+          {/* Off until the form is complete, instead of refusing it afterwards
+              with a column of red (owner, 2026-09-24). */}
+          <Button type="submit" disabled={isPending || !type || !complete} loading={isPending}>
             {isPending ? 'Збереження…' : 'Додати'}
           </Button>
         </DialogFooter>
       </form>
     </RequiredFields>
   );
+}
+
+/**
+ * «За 1 друкований аркуш — 50 год». The catalogue's note says per WHAT; the
+ * rate was missing wherever the hours are a multiple of a typed number, so
+ * «Перевидання» told nobody what one аркуш is worth. A priced option already
+ * carries its own «— 100 год», so only a plain MULT needs it said.
+ */
+export function unitNote(type: PlanWorkType): string | null {
+  if (!type.unitNote) return null;
+  if (type.scoring.kind === 'MULT' && !type.scoring.pageBased) {
+    return `${type.unitNote} — ${formatHours(toHundredths(type.coefficient))} год`;
+  }
+  return type.unitNote;
 }
