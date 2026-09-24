@@ -211,6 +211,21 @@ only needed when the data changes.
 
 Then sign in at `https://edurank.uhsp.edu.ua/login`.
 
+### 4a. Наукова робота — the Додаток III catalogue (a script, never a seed)
+
+Production is never seeded again, and `pnpm db:seed` would also overwrite the
+rating indicators admins have edited. The science catalogue gets its own
+create-only script, run once after the science migrations are deployed:
+
+```bash
+pnpm db:science-catalogue            # reports: what is missing, who has «Перевірка науки»
+pnpm db:science-catalogue --apply    # creates the 2026/2027 рік + the missing види роботи
+```
+
+It never updates or deletes an existing row, so running it twice is harmless.
+The report must list ННВ under «Перевірка науки»; if it lists nobody, switch
+it on at /divisions/[id]/edit — the migration keys on `registryKey = 'NNV'`.
+
 ## 5. Before anybody else gets the URL
 
 - Confirm HTTPS, and that a wrong password says «невірні дані» rather than

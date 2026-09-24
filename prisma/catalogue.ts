@@ -248,6 +248,26 @@ async function seedSciencePlan(prisma: PrismaClient): Promise<void> {
     },
   });
 
+  for (const { code, shape } of scienceWorkTypeRows()) {
+    await prisma.scienceWorkType.upsert({
+      where: { templateId_code: { templateId: template.id, code } },
+      // `isActive` is deliberately absent from the update: an ADMIN who
+      // deactivated a work type must not find it back after a deploy.
+      update: shape,
+      create: { ...shape, templateId: template.id, code },
+    });
+  }
+
+  console.log(`  Додаток III: ${SCIENCE_WORK_TYPES_2027.length} видів роботи (${academicYear})`);
+}
+
+/**
+ * The 2026/2027 Додаток III work types as database rows — shared by the seed
+ * above and by `prisma/science-catalogue.ts`, the create-only script that is
+ * how PRODUCTION gets the catalogue (production is never seeded). One builder,
+ * so the two can never write different rows for the same вид роботи.
+ */
+export function scienceWorkTypeRows() {
   // How many types share each пункт. A пункт with exactly one IS that type, so
   // its heading is the label and nobody has to type it twice; a пункт with
   // several needs the наказ's own heading, which only `itemTitle` can carry.
@@ -256,38 +276,31 @@ async function seedSciencePlan(prisma: PrismaClient): Promise<void> {
     typesPerItem.set(def.itemNumber, (typesPerItem.get(def.itemNumber) ?? 0) + 1);
   }
 
-  for (const def of SCIENCE_WORK_TYPES_2027) {
+  return SCIENCE_WORK_TYPES_2027.map((def) => {
     const { evidenceFields, scoring, coefficient } = scienceDbSpecs(def);
     const alone = typesPerItem.get(def.itemNumber) === 1;
-    const shape = {
-      order: def.order,
-      itemNumber: def.itemNumber,
-      // Never guessed for a shared пункт: an unnamed one shows «Пункт N» in the
-      // picker and is still found by searching its types' labels.
-      itemTitle: def.itemTitle ?? (alone ? def.label : null),
-      label: def.label,
-      shortLabel: def.shortLabel ?? null,
-      evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
-      scoring: scoring as unknown as Prisma.InputJsonValue,
-      coefficient,
-      unitNote: def.unitNote ?? null,
-      reportingForm: def.reportingForm ?? null,
-      reuse: def.reuse,
-      sharing: def.sharing,
-      identityFields: [...def.identityFields] as unknown as Prisma.InputJsonValue,
-      linkRule: def.linkRule ?? 'OPTIONAL',
-      fileRule: def.fileRule ?? 'OPTIONAL',
-      maxPerYear: def.maxPerYear ?? null,
+    return {
+      code: def.code,
+      shape: {
+        order: def.order,
+        itemNumber: def.itemNumber,
+        // Never guessed for a shared пункт: an unnamed one shows «Пункт N» in
+        // the picker and is still found by searching its types' labels.
+        itemTitle: def.itemTitle ?? (alone ? def.label : null),
+        label: def.label,
+        shortLabel: def.shortLabel ?? null,
+        evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
+        scoring: scoring as unknown as Prisma.InputJsonValue,
+        coefficient,
+        unitNote: def.unitNote ?? null,
+        reportingForm: def.reportingForm ?? null,
+        reuse: def.reuse,
+        sharing: def.sharing,
+        identityFields: [...def.identityFields] as unknown as Prisma.InputJsonValue,
+        linkRule: def.linkRule ?? 'OPTIONAL',
+        fileRule: def.fileRule ?? 'OPTIONAL',
+        maxPerYear: def.maxPerYear ?? null,
+      },
     };
-
-    await prisma.scienceWorkType.upsert({
-      where: { templateId_code: { templateId: template.id, code: def.code } },
-      // `isActive` is deliberately absent from the update: an ADMIN who
-      // deactivated a work type must not find it back after a deploy.
-      update: shape,
-      create: { ...shape, templateId: template.id, code: def.code },
-    });
-  }
-
-  console.log(`  Додаток III: ${SCIENCE_WORK_TYPES_2027.length} видів роботи (${academicYear})`);
+  });
 }

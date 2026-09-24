@@ -217,6 +217,10 @@ pnpm db:gate-to-check-sum  # one-off: convert retired GATE indicator rows to CHE
 # and production is never seeded again.
 pnpm db:patent-kind   # one-off: give 3.25 its «Вид патенту» select and route
                       #   п.2 by it; lists patents that still name no kind
+pnpm db:science-catalogue  # how PRODUCTION gets Додаток III: creates the
+                      #   2026/2027 рік and any missing вид роботи, CREATE-ONLY —
+                      #   never updates or deletes a row an admin edited. Not the
+                      #   seed: db:seed would overwrite the rating indicators.
 pnpm db:science-conference-yearly  # one-off: «Участь у конференціях» ONCE →
                       #   YEARLY (D25). The наказ caps it at 5 per рік, and a
                       #   ONCE key carries no year — so the same annual
