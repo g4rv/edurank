@@ -202,6 +202,12 @@ interface ComboboxInputProps {
   disabled?: boolean;
   className?: string;
   /**
+   * The field's accessible name. **It was silently dropped** — callers passed
+   * `aria-label` and the component never read it, so a combobox with a
+   * placeholder like «—» announced as just «combobox» (found 2026-09-25).
+   */
+  'aria-label'?: string;
+  /**
    * Offer a × to unset the value (2026-08-24).
    *
    * The primitive had no way back to «nothing» once a value was picked:
@@ -221,6 +227,7 @@ function ComboboxInput({
   disabled: disabledProp,
   className,
   clearable = false,
+  'aria-label': ariaLabel,
 }: ComboboxInputProps) {
   const {
     open,
@@ -327,6 +334,7 @@ function ComboboxInput({
         <input
           type="text"
           role="combobox"
+          aria-label={ariaLabel}
           aria-expanded={open}
           aria-controls={listboxId}
           aria-autocomplete="list"

@@ -59,6 +59,7 @@ export function DepartmentCombobox({
   onChange,
   allowAll,
   placeholder = '—',
+  label = 'Кафедра',
   emptyText = 'Кафедру не знайдено',
   clearable = false,
   disabled = false,
@@ -77,6 +78,8 @@ export function DepartmentCombobox({
    */
   allowAll?: { label: string };
   placeholder?: string;
+  /** The accessible name — a picker whose placeholder is «—» has none otherwise. */
+  label?: string;
   emptyText?: string;
   /** Offer a × back to «nothing». On a required field that is an invalid state. */
   clearable?: boolean;
@@ -104,7 +107,12 @@ export function DepartmentCombobox({
       displayValue={displayValue}
       disabled={disabled}
     >
-      <ComboboxInput placeholder={placeholder} clearable={clearable} className={className} />
+      <ComboboxInput
+        placeholder={placeholder}
+        aria-label={label}
+        clearable={clearable}
+        className={className}
+      />
       <ComboboxContent>
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
         <ComboboxList<DepartmentComboboxOption>>
