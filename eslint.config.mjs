@@ -5,7 +5,9 @@ import nextTs from 'eslint-config-next/typescript';
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
+  // `.agents/` is vendored tooling (the security-audit skill's CommonJS
+  // validators) — not app code, and not ours to reformat to this repo's rules.
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', '.agents/**']),
   {
     rules: {
       '@typescript-eslint/no-unused-vars': [
