@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Controller, useForm } from 'react-hook-form';
@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 // exists to end.
 import { Button } from '@/components/aurora/ui/button';
 import { Card } from '@/components/aurora/ui/card';
-import { Avatar } from '@/components/ui/avatar';
+import { AvatarEditor } from '@/components/profile/avatar-editor';
 import { Input } from '@/components/aurora/ui/input';
 import { TelInput } from '@/components/aurora/ui/tel-input';
 import { OrcidInput } from '@/components/aurora/ui/orcid-input';
@@ -19,6 +19,7 @@ import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { updateOwnProfile } from '@/app/(dashboard)/profile/actions';
+import { uploadAvatar } from '@/components/profile/upload-avatar';
 import { RequiredFields } from '@/components/ui/required-fields';
 
 /** Empty strings, not nulls: an <input> with a null value is uncontrolled */
@@ -32,14 +33,41 @@ type FormValues = {
 
 export function ProfileEditForm({
   name,
+  avatarSrc,
+  canEditAvatar,
   defaultValues,
 }: {
   /** Whose record this is — the header is the same one `/staff/[id]/edit` uses. */
   name: string;
+  /** The photo's URL, or null for the initials */
+  avatarSrc: string | null;
+  /** ADMIN only for now — see `canSetOwnAvatar` */
+  canEditAvatar: boolean;
   defaultValues: FormValues;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // A framed photo waiting for «Зберегти». It lives here, not in the editor, so
+  // the save button can see it: a photo is part of what is saved, and «Зберегти»
+  // must light up for a photo alone. Nothing is uploaded until that button.
+  const [avatar, setAvatar] = useState<{ blob: Blob; url: string } | null>(null);
+  const previewUrl = useRef<string | null>(null);
+
+  // Object URLs are not garbage collected; release the last one on the way out.
+  useEffect(
+    () => () => {
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    },
+    []
+  );
+
+  function pickAvatar(blob: Blob) {
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    const url = URL.createObjectURL(blob);
+    previewUrl.current = url;
+    setAvatar({ blob, url });
+  }
 
   const {
     register,
@@ -53,18 +81,39 @@ export function ProfileEditForm({
 
   function onSubmit(values: FormValues) {
     startTransition(async () => {
-      const result = await updateOwnProfile(values as unknown as OwnProfileSchema);
-      if ('error' in result) {
-        // Nothing here belongs to one field — the resolver already reports those
-        // inline, so a failure at this point is the save itself going wrong.
-        toast.error(result.error);
-        return;
+      // The fields first, then the photo: the fields are the record, and a photo
+      // that cannot be uploaded (R2 down, a lost connection) must not cost the
+      // person the phone number they just typed.
+      if (isDirty) {
+        const result = await updateOwnProfile(values as unknown as OwnProfileSchema);
+        if ('error' in result) {
+          // Nothing here belongs to one field — the resolver already reports those
+          // inline, so a failure at this point is the save itself going wrong.
+          toast.error(result.error);
+          return;
+        }
       }
+
+      if (avatar) {
+        const uploaded = await uploadAvatar(avatar.blob);
+        if ('error' in uploaded) {
+          // Say what actually happened to each part, and stay on the page: the
+          // framed photo is still here to try again.
+          toast.error(
+            isDirty ? `Дані збережено, але фото — ні. ${uploaded.error}` : uploaded.error
+          );
+          return;
+        }
+      }
+
       toast.success('Збережено');
       router.push('/profile');
       router.refresh();
     });
   }
+
+  // The fields OR the photo: either alone is a change worth saving.
+  const changed = isDirty || avatar !== null;
 
   return (
     <RequiredFields schema={ownProfileSchema}>
@@ -77,7 +126,14 @@ export function ProfileEditForm({
             is, because it is the way out and «no changes yet» is exactly when
             somebody is most likely to want it. */}
         <Card className="flex flex-wrap items-center gap-5">
-          <Avatar name={name} size="lg" />
+          <AvatarEditor
+            name={name}
+            src={avatarSrc}
+            previewUrl={avatar?.url ?? null}
+            canEdit={canEditAvatar}
+            disabled={isPending}
+            onPick={pickAvatar}
+          />
 
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-semibold tracking-[-0.01em]">{name}</h1>
@@ -86,9 +142,9 @@ export function ProfileEditForm({
 
           <div className="flex shrink-0 flex-wrap items-center gap-3 self-start">
             <span className="text-sm text-muted-foreground">
-              {isPending ? 'Збереження…' : isDirty ? 'Є незбережені зміни' : 'Без змін'}
+              {isPending ? 'Збереження…' : changed ? 'Є незбережені зміни' : 'Без змін'}
             </span>
-            <Button type="submit" disabled={isPending || !isDirty}>
+            <Button type="submit" disabled={isPending || !changed}>
               Зберегти
             </Button>
             <Button asChild variant="outline">

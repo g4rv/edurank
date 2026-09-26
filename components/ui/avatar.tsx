@@ -60,7 +60,16 @@ export function Avatar({
       <img
         src={src}
         alt={name}
-        className={cn('shrink-0 rounded-full object-cover', s.box, className)}
+        // A slim rim and a soft shadow, only on a PHOTO: a screenshot or a
+        // portrait on a white wall is white, and the card behind it is white too —
+        // without an edge the circle dissolves into the page (owner, 2026-09-26).
+        // The initials carry their own gradient and shadow below.
+        className={cn(
+          'shrink-0 rounded-full object-cover ring-1 ring-foreground/15',
+          'shadow-[0_1px_3px_oklch(0_0_0/0.12)]',
+          s.box,
+          className
+        )}
       />
     );
   }

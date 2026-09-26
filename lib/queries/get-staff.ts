@@ -23,6 +23,9 @@ export const getStaff = cache(async function getStaff(id: string, includeConfide
       patronymic: true,
       email: true,
       phone: true,
+      // The photo's R2 key; `avatarSrc` turns it into a URL. Not a secret, but the
+      // key itself never reaches a browser — only the /api/avatar path does.
+      avatarKey: true,
       isNpp: true,
       // Whose record this is, in the permission sense: an editor may edit and
       // delete USER rows and their own, never an admin's. The pages need it to

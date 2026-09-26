@@ -214,6 +214,13 @@ model Staff {
   email String  @unique
   phone String?
 
+  // The R2 key of the profile photo (`avatars/<staffId>/<uuid>.<ext>`), or null
+  // for the initials. A KEY, never a URL: the bucket is private and every read
+  // goes through /api/avatar/[staffId], which checks the login first. Only ADMIN
+  // may set one for now (lib/staff/avatar.ts) — the column itself is not
+  // role-specific, so opening it to everybody later needs no migration.
+  avatarKey String?
+
   // ── Account (merged from the former User model) ──
   // null = account not activated yet (person never set a password)
   passwordHash String?

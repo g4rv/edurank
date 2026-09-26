@@ -38,6 +38,7 @@ export const FULL_STAFF: StaffDetail = {
   patronymic: 'Петрівна',
   email: 'n.kovalchuk@uhsp.edu.ua',
   phone: '+380441234567',
+  avatarKey: null,
   isNpp: true,
   role: 'USER',
   archivedAt: null,
