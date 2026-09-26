@@ -71,6 +71,7 @@ export const FIELD_LABELS: Record<string, string> = {
   patronymic: 'По батькові',
   email: 'Email',
   phone: 'Телефон',
+  avatarKey: 'Фото профілю',
   isNpp: 'Тип (НПП / Адм.)',
   employmentRate: 'Ставка',
   pedagogicalExperience: 'Педагогічний стаж',

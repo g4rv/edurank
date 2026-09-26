@@ -50,6 +50,11 @@ const CSP = [
   "font-src 'self'",
   // blob: because the Excel and PDF exports are handed to the browser as an
   // object URL rather than a link to a file on the server.
+  // R2 is NOT listed, and it must be before this policy is ever enforced: the
+  // evidence files and the profile photo are uploaded by the BROWSER straight to
+  // https://<account>[.eu].r2.cloudflarestorage.com with a presigned PUT, so
+  // that origin needs to be here or every upload is refused. Report-Only hides
+  // the problem today — it only warns in the console.
   "connect-src 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",

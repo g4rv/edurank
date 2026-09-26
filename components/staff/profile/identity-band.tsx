@@ -2,6 +2,7 @@ import type { StaffDetail } from '@/lib/queries/get-staff';
 import { Mail, Phone } from 'lucide-react';
 import { formatPhoneDisplay } from '@/lib/phone';
 import { Avatar } from '@/components/ui/avatar';
+import { avatarSrc } from '@/lib/staff/avatar';
 import { CopyButton } from '@/components/ui/copy-button';
 import { Badge } from '@/components/aurora/ui/badge';
 import { fullName } from './primitives';
@@ -57,7 +58,7 @@ export function IdentityBand({
 
   return (
     <div className="flex flex-wrap items-center gap-5 rounded-xl border bg-card p-5 shadow-card">
-      <Avatar name={fullName(staff)} size="lg" />
+      <Avatar name={fullName(staff)} src={avatarSrc(staff)} size="lg" />
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

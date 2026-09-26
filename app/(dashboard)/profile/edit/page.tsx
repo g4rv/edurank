@@ -5,6 +5,7 @@ import { ProfileEditForm } from '@/components/profile/profile-edit-form';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
 import { fullName } from '@/components/staff/profile/primitives';
+import { avatarSrc, canSetOwnAvatar } from '@/lib/staff/avatar';
 
 // The one place a person edits themselves, whatever their role: the only claim
 // it checks is that the record is yours, and the action writes nothing outside
@@ -35,6 +36,8 @@ export default async function ProfileEditPage() {
 
       <ProfileEditForm
         name={fullName(staff)}
+        avatarSrc={avatarSrc(staff)}
+        canEditAvatar={canSetOwnAvatar(session.user.role)}
         defaultValues={{
           phone: staff.phone ?? '',
           wosUrl: staff.wosUrl ?? '',
