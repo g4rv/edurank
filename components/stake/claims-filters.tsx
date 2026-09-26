@@ -2,8 +2,25 @@
 
 import { Search } from 'lucide-react';
 import { Input } from '@/components/aurora/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/aurora/ui/select';
 import { Switch } from '@/components/aurora/ui/switch';
 import { cn } from '@/lib/utils';
+
+/** «Усі» plus the three states a claim can be in */
+export type ClaimStatusFilter = 'ALL' | 'PENDING' | 'CONFIRMED' | 'REJECTED';
+
+const STATUS_OPTIONS: { value: ClaimStatusFilter; label: string }[] = [
+  { value: 'ALL', label: 'Усі статуси' },
+  { value: 'PENDING', label: 'На розгляді' },
+  { value: 'CONFIRMED', label: 'Підтверджені' },
+  { value: 'REJECTED', label: 'Відхилені' },
+];
 
 /**
  * «Залучені здобувачі» — the filter band in the header card.
@@ -23,6 +40,8 @@ import { cn } from '@/lib/utils';
 export function ClaimsFilters({
   search,
   onSearch,
+  status,
+  onStatus,
   contestedOnly,
   onContestedOnly,
   hasContested,
@@ -31,6 +50,8 @@ export function ClaimsFilters({
   /** Matches the здобувач OR the НПП — see the note on the box below */
   search: string;
   onSearch: (v: string) => void;
+  status: ClaimStatusFilter;
+  onStatus: (v: ClaimStatusFilter) => void;
   contestedOnly: boolean;
   onContestedOnly: (v: boolean) => void;
   /** Disables the switch when nothing is contested — a filter that could only empty the table */
@@ -77,10 +98,25 @@ export function ClaimsFilters({
           the search beside it into nothing. */}
       {departmentSelect && <div className="min-w-72 flex-1">{departmentSelect}</div>}
 
+      {/* Client state like the search: the status is a column on rows already in
+          memory, so choosing one answers on the click and needs no round trip. */}
+      <Select value={status} onValueChange={(v) => onStatus(v as ClaimStatusFilter)}>
+        <SelectTrigger className="w-44" aria-label="Статус заявки">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent position="popper" align="start">
+          {STATUS_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       {/* A switch, like «Сумісник» on /staff, and for the same reason: it is one
           condition that is either on or off, and it has no menu to size to.
           No count on the label: the strip under this row already says
-          «Спірних: N» for the ones still PENDING, while this filter reaches
+          «Дублікатів: N» for the ones still PENDING, while this filter reaches
           every duplicate whatever its status. Two different numbers under one
           word is worse than no number at all. */}
       <label
@@ -97,7 +133,7 @@ export function ClaimsFilters({
         <span
           className={cn('text-sm', contestedOnly ? 'text-foreground' : 'text-muted-foreground')}
         >
-          Лише спірні
+          Лише дублікати
         </span>
       </label>
     </div>

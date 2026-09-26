@@ -134,7 +134,7 @@ export interface ReviewClaim extends MyClaim {
    * Who got in first, on a contested row that is NOT the first one. Null on
    * every other row.
    *
-   * Naming them is the point: «спірна» on its own tells the head there is a
+   * Naming them is the point: «дублікат» on its own tells the head there is a
    * problem and gives them nowhere to go. The first claimant can sit in any
    * кафедра in the university, which is why `firstClaimedByDepartment` is
    * carried too — «talk to the other claimant» is unactionable if the head

@@ -28,7 +28,7 @@ import { DepartmentSelect } from '@/components/department-select';
  * about their кафедри and staff, and nothing else.
  *
  * **The screen's body is `ClaimsReview`, header card included** (2026-09-21).
- * Searching by здобувач, by НПП and «лише спірні» are client state over rows
+ * Searching by здобувач, by НПП and «лише дублікати» are client state over rows
  * already sent, so the component that filters owns the band that filters. What
  * stays here is what only the server can answer — who may look, who may decide,
  * and the кафедра picker, which changes what is FETCHED rather than what is

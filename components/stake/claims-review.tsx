@@ -15,7 +15,8 @@ import {
   TableHead,
   TableRow,
 } from '@/components/aurora/ui/table';
-import { ClaimsFilters } from '@/components/stake/claims-filters';
+import { Pagination } from '@/components/aurora/ui/pagination';
+import { ClaimsFilters, type ClaimStatusFilter } from '@/components/stake/claims-filters';
 import { formatBonus } from '@/lib/stake/units';
 import {
   STUDENT_DEGREE_LABELS as DEGREE,
@@ -92,6 +93,13 @@ const DECISION_COLUMN = { decide: '11rem', read: '7rem' } as const;
 /** The floor the flexible claimant column may shrink to before the card scrolls. */
 const CLAIMANT_FLOOR = '11rem';
 
+/**
+ * Rows on one page. A row here is two to four lines tall, so 25 is roughly three
+ * screens — `/moderation` pages its rows the same way, in client state, because
+ * everything is already in memory and the filters answer on the keystroke.
+ */
+const PAGE_ROWS = 25;
+
 /** Substring match, case-folded for Ukrainian. */
 const matches = (haystack: string, needle: string) =>
   haystack.toLocaleLowerCase('uk').includes(needle.toLocaleLowerCase('uk'));
@@ -121,7 +129,7 @@ const matches = (haystack: string, needle: string) =>
  * is a different one; the ступінь is not a lesser fact than the спеціальність.
  * Fading the lower line ranks them, and they are not ranked.
  *
- * `text-xs` survives in **one** place: the «спірна» badge. That is the size
+ * `text-xs` survives in **one** place: the «дублікат» badge. That is the size
  * every badge in the app wears — the НПП and «Архів» pills on `/staff`, «Не
  * активований», «Сумісник» — so it is the convention rather than an exception,
  * and changing it here alone would make this the odd badge out.
@@ -131,9 +139,9 @@ const matches = (haystack: string, needle: string) =>
  */
 
 /**
- * The row that wears the «спірна» mark — the LATER claim of a duplicate.
+ * The row that wears the «дублікат» mark — the LATER claim of a duplicate.
  *
- * **One predicate, three readers**: the badge on the row, the «Лише спірні»
+ * **One predicate, three readers**: the badge on the row, the «Лише дублікати»
  * filter, and the count in the strip. Written out at each of them they drift,
  * and the first version of the filter did exactly that — it matched
  * `c.contested`, which is true of BOTH halves, so switching the filter on
@@ -191,7 +199,7 @@ export function ClaimsReview({
   departmentSelect?: React.ReactNode;
 }) {
   // Both read `isFlagged`, so the strip, the switch and the badge on the row
-  // can never disagree about what «спірна» means.
+  // can never disagree about what «дублікат» means.
   //
   // **The strip counts DISPUTES, not claims caught up in one.** It is work
   // left, so it is the pending ones — and one marked row is one argument to
@@ -206,6 +214,8 @@ export function ClaimsReview({
   // One box over both names — see `ClaimsFilters` for why it is not two.
   const [search, setSearch] = useState('');
   const [contestedOnly, setContestedOnly] = useState(false);
+  const [status, setStatus] = useState<ClaimStatusFilter>('ALL');
+  const [page, setPage] = useState(1);
 
   // Default: the rows that need a decision, disputed ones first, oldest first.
   // That is the order the page exists to produce — sorting is for looking
@@ -223,7 +233,8 @@ export function ClaimsReview({
         // remembered the здобувач or the person who claimed them.
         (!needle || matches(c.studentName, needle) || matches(c.claimedBy, needle)) &&
         // The marked row only — see `isFlagged`.
-        (!contestedOnly || isFlagged(c))
+        (!contestedOnly || isFlagged(c)) &&
+        (status === 'ALL' || c.status === status)
     );
 
     if (!sort) {
@@ -265,16 +276,28 @@ export function ClaimsReview({
           return dir * (a.createdAt.getTime() - b.createdAt.getTime());
       }
     });
-  }, [claims, sort, search, contestedOnly]);
+  }, [claims, sort, search, contestedOnly, status]);
+
+  // Narrowing the list or reordering it invalidates the page number, so every
+  // setter that changes WHAT is shown sends the reader back to the first page.
+  // The clamp is for the row that leaves the last page after a decision.
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_ROWS));
+  const current = Math.min(page, totalPages);
+  const pageRows = visible.slice((current - 1) * PAGE_ROWS, current * PAGE_ROWS);
 
   function toggle(key: SortKey) {
-    setSort((current) =>
+    setPage(1);
+    setSort((currentSort) =>
       // Third click clears it, back to the working order the page opens in.
-      current?.key !== key ? { key, desc: false } : current.desc ? null : { key, desc: true }
+      currentSort?.key !== key
+        ? { key, desc: false }
+        : currentSort.desc
+          ? null
+          : { key, desc: true }
     );
   }
 
-  const filtering = Boolean(search || contestedOnly);
+  const filtering = Boolean(search || contestedOnly || status !== 'ALL');
   const decisionWidth = canDecide ? DECISION_COLUMN.decide : DECISION_COLUMN.read;
   const columns = [
     STUDENT_COLUMN,
@@ -297,6 +320,29 @@ export function ClaimsReview({
     />
   );
 
+  // The pager lives in the card's own footer strip, exactly as on `/staff`:
+  // loose under the card it is a piece of furniture the height budget does not
+  // count, and the page scrolls to reach it. Nothing at one page — an empty
+  // strip under the rows reads as a table that failed to finish. The count is
+  // in the header strip above, so the summary carries only the page.
+  const pager = totalPages > 1 && (
+    <tr>
+      <td colSpan={columns.length} className="px-4 py-2">
+        <Pagination
+          page={current}
+          totalPages={totalPages}
+          align="center"
+          onPageChange={setPage}
+          summary={
+            <>
+              Стор. {current} з {totalPages}
+            </>
+          }
+        />
+      </td>
+    </tr>
+  );
+
   const head = (
     <TableRow>
       {sortHead('student')}
@@ -317,9 +363,20 @@ export function ClaimsReview({
           <div className="space-y-3">
             <ClaimsFilters
               search={search}
-              onSearch={setSearch}
+              onSearch={(v) => {
+                setSearch(v);
+                setPage(1);
+              }}
+              status={status}
+              onStatus={(v) => {
+                setStatus(v);
+                setPage(1);
+              }}
               contestedOnly={contestedOnly}
-              onContestedOnly={setContestedOnly}
+              onContestedOnly={(v) => {
+                setContestedOnly(v);
+                setPage(1);
+              }}
               hasContested={hasContested}
               departmentSelect={departmentSelect}
             />
@@ -337,7 +394,7 @@ export function ClaimsReview({
                 is enough to pick it out, and weight does not split a sentence
                 the way a colour change does.
 
-                «Спірних» takes the hue across the WHOLE phrase for the same
+                «Дублікатів» takes the hue across the WHOLE phrase for the same
                 reason — the colour belongs to the fact, not to the digit. */}
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
               <span>
@@ -350,7 +407,7 @@ export function ClaimsReview({
               </span>
               {contestedPending.length > 0 && (
                 <span className="text-warning">
-                  Спірних:{' '}
+                  Дублікатів:{' '}
                   <strong className="font-semibold tabular-nums">{contestedPending.length}</strong>
                 </span>
               )}
@@ -363,21 +420,6 @@ export function ClaimsReview({
           </div>
         }
       />
-
-      {/* Hidden while filtering: it explains the «спірна» mark, and somebody who
-          has just switched «Лише спірні» on has read it or does not need it.
-          The card is the only thing between the filters and the rows they
-          changed, and a paragraph there pushes the result off the fold. */}
-      {contestedPending.length > 0 && !filtering && (
-        <p className="shrink-0 rounded-xl border border-warning/40 bg-warning-surface px-4 py-3 text-sm text-warning">
-          Позначку «спірна» має лише та заявка, яку подали пізніше — поряд із нею вказано, хто подав
-          цього здобувача першим і на якій він кафедрі. Раніше — не означає правіше: система лише
-          показує збіг,{' '}
-          {canDecide
-            ? 'а рішення ухвалюєте ви, поговоривши з обома.'
-            : 'а рішення ухвалює адміністратор, поговоривши з обома.'}
-        </p>
-      )}
 
       {claims.length === 0 ? (
         <EmptyState>
@@ -396,6 +438,8 @@ export function ClaimsReview({
               onClick={() => {
                 setSearch('');
                 setContestedOnly(false);
+                setStatus('ALL');
+                setPage(1);
               }}
             >
               Скинути фільтри
@@ -405,9 +449,16 @@ export function ClaimsReview({
           Жодна заявка не підходить під фільтри.
         </EmptyState>
       ) : (
-        <Table columns={columns} minWidth={minWidth} head={head} fill>
+        <Table
+          columns={columns}
+          minWidth={minWidth}
+          head={head}
+          footer={pager}
+          footerClassName="bg-card"
+          fill
+        >
           <TableBody>
-            {visible.map((claim) => (
+            {pageRows.map((claim) => (
               <ClaimRow
                 key={claim.id}
                 claim={claim}
@@ -461,7 +512,7 @@ function ClaimRow({
     // `[&>td]:align-middle`, like `/faculties`, `/departments` and `/staff`:
     // rows here are two to four lines tall and the controls are one, so
     // top-aligned they sat at a different height in every row.
-    <TableRow hoverable className={cn('[&>td]:align-middle', flagged && 'bg-warning-surface')}>
+    <TableRow hoverable className={cn('[&>td]:align-middle', flagged && 'bg-warning/8')}>
       {/* **Left horizontally, centred vertically** (owner, 2026-09-21). The
           vertical centring is the row's `[&>td]:align-middle`; horizontally a
           ПІБ starts at the same x on every row, so the column can be read
@@ -489,7 +540,7 @@ function ClaimRow({
                 title="Цього здобувача раніше вказала інша людина"
               >
                 <AlertTriangle className="size-3" />
-                спірна
+                дублікат
               </span>
             )}
             {claim.firstClaimedBy && (
@@ -522,7 +573,7 @@ function ClaimRow({
             is a pattern, and it is the number the reader actually needs. */}
         {claim.claimantContestedCount > 1 && (
           <p className="mt-0.5 text-warning">
-            спірних у цієї людини: {claim.claimantContestedCount}
+            дублікатів у цієї людини: {claim.claimantContestedCount}
           </p>
         )}
       </TableCell>
