@@ -32,7 +32,6 @@ function toRow(a: StaffActivity, canManage: boolean): AchievementRow {
     status: a.status,
     statusLabel: ACTIVITY_STATUS_LABELS[a.status],
     removeReason: a.removeReason,
-    date: a.createdAt.toLocaleDateString('uk-UA'),
     inputSource: a.activityType.inputSource,
     division: a.activityType.verifyingDivision
       ? shortDivisionName(a.activityType.verifyingDivision)
@@ -62,26 +61,94 @@ interface RatingSnapshot {
   }[];
 }
 
-/** Display groups from a closed year's frozen snapshot (authoritative after close) */
-export function snapshotToGroups(snapshot: unknown): AchievementGroup[] | null {
+/**
+ * One indicator nobody has anything under: a row that scores 0 rather than a
+ * gap in the list. `isEmpty` is what the «Показувати незаповнені» switch hides.
+ */
+function emptyRow(indicator: TemplateIndicator): AchievementRow {
+  return {
+    id: `empty-${indicator.id}`,
+    itemNumber: indicator.itemNumber,
+    label: indicator.label,
+    summary: '',
+    score: 0,
+    status: 'APPROVED',
+    statusLabel: '',
+    removeReason: null,
+    canDelete: false,
+    isEmpty: true,
+    inputSource: indicator.inputSource,
+    division: indicator.verifyingDivision ? shortDivisionName(indicator.verifyingDivision) : null,
+  };
+}
+
+/**
+ * Display groups from a closed year's frozen snapshot (authoritative after close).
+ *
+ * **The catalogue fills its gaps too** (owner, 2026-09-21). A closed year used
+ * to render the snapshot alone, so 2025 listed the eleven indicators the person
+ * scored under and nothing else — «Показувати незаповнені (0)», and a Розділ 2
+ * that said «Немає досягнень» without saying what it was missing. The table's
+ * whole reason for listing empty rows is that two people reading one rating
+ * must see one table, and that argument does not stop when the year closes.
+ *
+ * The frozen figures are untouched: an empty row scores 0 and no subtotal is
+ * recomputed. What is added is the NAME of an indicator that was there to be
+ * filled, which is exactly what somebody comparing 2025 against 2026 is after.
+ *
+ * Matched on `itemNumber` — the number the наказ prints and the one thing a
+ * snapshot item and a catalogue row are sure to share; a snapshot carries no
+ * `ActivityType` id. Label is the fallback for an indicator with no number.
+ */
+export function snapshotToGroups(
+  snapshot: unknown,
+  catalogue?: readonly TemplateIndicator[]
+): AchievementGroup[] | null {
   const s = snapshot as RatingSnapshot | null;
   if (!s || !Array.isArray(s.sections)) return null;
-  return s.sections.map((section) => ({
-    number: section.number,
-    title: section.title,
-    items: section.items
-      .map((item) => ({
-        ...item,
-        // Read the status word from the current constant rather than the one
-        // frozen into the snapshot: it is presentation, not data, so renaming it
-        // should apply to already-closed years too.
-        statusLabel: ACTIVITY_STATUS_LABELS[item.status] ?? item.statusLabel,
-        removeReason: null,
-        date: '',
-        canDelete: false,
-      }))
-      .sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber)),
-  }));
+
+  const groups = new Map<number, AchievementGroup>(
+    s.sections.map((section) => [
+      section.number,
+      {
+        number: section.number,
+        title: section.title,
+        items: section.items.map((item) => ({
+          ...item,
+          // Read the status word from the current constant rather than the one
+          // frozen into the snapshot: it is presentation, not data, so renaming
+          // it should apply to already-closed years too.
+          statusLabel: ACTIVITY_STATUS_LABELS[item.status] ?? item.statusLabel,
+          removeReason: null,
+          canDelete: false,
+        })),
+      },
+    ])
+  );
+
+  const filled = new Set<string>();
+  for (const group of groups.values()) {
+    for (const item of group.items) filled.add(item.itemNumber || item.label);
+  }
+
+  for (const indicator of catalogue ?? []) {
+    if (filled.has(indicator.itemNumber || indicator.label)) continue;
+    const number = indicator.section.number;
+    let group = groups.get(number);
+    if (!group) {
+      // A section the snapshot never wrote — every indicator in it is empty.
+      group = { number, title: indicator.section.title, items: [] };
+      groups.set(number, group);
+    }
+    group.items.push(emptyRow(indicator));
+  }
+
+  return [...groups.values()]
+    .sort((a, b) => a.number - b.number)
+    .map((group) => ({
+      ...group,
+      items: [...group.items].sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber)),
+    }));
 }
 
 /**
@@ -118,21 +185,7 @@ export function toAchievementGroups(
     if (filled.has(indicator.id)) continue;
     const n = indicator.section.number;
     const rows = rowsBySection.get(n) ?? [];
-    rows.push({
-      id: `empty-${indicator.id}`,
-      itemNumber: indicator.itemNumber,
-      label: indicator.label,
-      summary: '',
-      score: 0,
-      status: 'APPROVED',
-      statusLabel: '',
-      removeReason: null,
-      date: '',
-      canDelete: false,
-      isEmpty: true,
-      inputSource: indicator.inputSource,
-      division: indicator.verifyingDivision ? shortDivisionName(indicator.verifyingDivision) : null,
-    });
+    rows.push(emptyRow(indicator));
     rowsBySection.set(n, rows);
     titleBySection.set(n, indicator.section.title);
   }

@@ -240,6 +240,207 @@ edit) and merging rows server-side (an audit log must not rewrite itself).
 
 ---
 
+## I. Планування наукової роботи — shipped (2026-09-18)
+
+Full spec: `docs/superpowers/specs/2026-09-15-science-plan-design.md`, decided
+and approved by the owner 2026-09-15. **план** shipped 2026-09-17: the
+Додаток III catalogue (ADMIN, clonable per навчальний рік), one план per
+person per кафедра targeted against their per-кафедра ставка and locked on
+submission, and the reading screens — `/science-plan` (own),
+`/science-plans` (ADMIN + ННВ),
+`/admin/science-plan[/id]` (the catalogue editor). **факт** shipped
+2026-09-18: an НПП records what was actually done (`ScienceRecord`), against
+any planned вид роботи — not only what was planned (owner, 2026-09-17) — with
+evidence (link and/or a file in Cloudflare R2, D27, presigned upload +
+re-sniffed/re-hashed on confirm) and a shared hour pool for `SHARED` types
+(`ScienceWork`, joined by a second co-author and drawn down inside a
+transaction, D14–D17); a name clash (`dedupKey` UNIQUE) is refused and offers
+the existing work instead (D17), and a file's SHA-256 is unique
+university-wide (D28). Post-check moderation (D20/D21) — ННВ (by
+`registryKey`, `lib/science/oversight.ts`) or ADMIN decline a record with a
+reason on `/moderation`'s «Наукова робота» section, never a gate; every sum
+over `hoursHundredths` filters `status: 'APPROVED'`, so a decline frees its
+hours back into the pool by construction. See CLAUDE.md's «Планування
+наукової роботи» section for the rules easy to get wrong.
+
+**Repaired after the pre-ship QA pass (2026-09-20).** The browser walk-through
+found seven blockers no test could see, and they are fixed: evidence files are
+uploaded BEFORE the record is saved (`presignUpload` needs no work), which is
+what makes a file-only record possible at all and what stops a failed upload
+stranding a saved record; «Додати файл», «Редагувати» and a file delete exist
+on `/science-plan`, so a mistake no longer needs delete-and-retype; deleting
+the last claim on an INDIVIDUAL work deletes the work, closing the dead end
+where a конференція could never be re-entered; `updateWorkEvidence` measures a
+cut against what CO-AUTHORS hold rather than every claim; ННВ and ADMIN can
+reopen a submitted plan (`unlockPlan`); and a form-wide refusal is drawn in the
+dialog footer, which does not scroll, instead of below the fold where nobody
+saw it. **The ставка gate on `lockPlan` is deliberate and stays** (owner,
+2026-09-20): the target is computed from the ставка, so somebody without one
+applies to the administration rather than planning against nothing.
+
+**The owner's 2026-09-23 rules — built** (D36–D47 in the spec, plan
+`docs/superpowers/plans/2026-09-23-science-rules.md`, branch
+`feat/science-rules`): «Перевірка науки» is a division switch and the head's
+view is gone (D43/D44); the fact owes `max(план, норма)` (D37); the link and
+the file are two ADMIN-set rules per вид роботи, eight types link-only
+(D39/D47); every work carries its execution month within the навчальний рік (D48 — an
+article's publication date is a separate field ННВ checks), and it is
+grouped by month in «Виконано» (D41/D42); a co-author changes their own share
+and any file is replaced in one step (D46). Two old bugs fixed on the way:
+cloning a year and creating a вид роботи both dropped the пункт heading.
+
+**Evidence only (2026-09-24, D50/D51):** the university wants a record to
+PROVE the work, not track when — the execution month is hidden behind
+`SHOW_EXECUTION_PERIOD` (not removed), «Виконано» groups by пункт, and the
+стаття's «Опубліковано/Проіндексовано» refuses anything before this calendar
+year. Branch `feat/science-evidence-only`.
+
+**Next:** polish the science screens' UI (forms, gaps, type sizes, the
+`/science-plan` page structure), then ship science + the redesign. The
+analytics (`docs/superpowers/specs/2026-09-22-science-analytics-design.md`)
+come AFTER prod (owner, 2026-09-24). **Waiting on a file:** the аспіранти
+import (design in the spec, «Аспіранти from the наказ»; format unknown).
+
+**Still open from that pass:** no drill-down for ННВ into WHAT a person planned
+or did, only totals (the analytics' НПП page); and the moderation feed has no
+filter or search over every record university-wide. The PDF page-count check
+is **dropped** — ННВ counts pages by hand (owner, 2026-09-24).
+
+**Not built:** an official export form (D19) — the shape is unknown and no
+sample file has been supplied yet — and the Crossref DOI check, listed
+«optional, later» in the spec. Also outstanding: R2 has no backup coverage at
+all — `docker-compose.yml`'s `backup` service and §7 of `docs/deployment.md`
+cover Postgres only, and that section's restore drill has never been run
+against an R2 evidence file, only against the database. Turn on bucket
+versioning at minimum before this goes to production.
+
+## H. Moderation for self-typed п.38 rows — deferred (owner, 2026-09-22)
+
+An НПП can type **every п.38 position that has a form** — 1–15, 19 and 20 — on
+their own Характеристика (`SELF_TYPEABLE_POSITIONS`). **Nobody checks it.**
+
+Widened from п.15/п.20 on 2026-09-22, because the 2022–2024 import left positions
+empty that people genuinely satisfy — the source cells held «Так», a bare role or
+nothing — and its subject is the only one who can repair that. See
+[`kharakterystyka.md`](./kharakterystyka.md) for the full reasoning.
+
+A typed row counts toward the «≥4 of 20» threshold, and therefore toward `Кнпп`,
+which decides how a кафедра is funded. A person sitting on 3 positions could
+reach 4 by typing two lines about themselves. That is a different blast radius
+from a rating submission, which only ever inflates its own author's score.
+
+**The widening also gave up the one structural protection the narrow list had:**
+п.15 and п.20 are fed by no indicator, so a typed row there could not contradict
+the rating. п.1 can. A person with no publications in their rating can now type
+five into their licence document, and only a reader notices.
+
+**What carries the risk instead:**
+
+- An ADMIN already sees and can delete every manual row on `/staff/[id]/kharakterystyka`.
+  The ability exists; only a QUEUE is missing.
+- Every row prints **«Внесено власноруч»** or «Внесено адміністратором», so a
+  reader — or whoever defends the licence file — can tell which lines are
+  self-declared. That was the real gap: before this, a typed line was
+  indistinguishable from derived evidence.
+- Everything is audited.
+
+**What to build if abuse appears:** surface MANUAL rows on `/moderation` so ННВ
+can discard one with a reason, exactly like a rating submission. The cost is that
+the moderation list is built around `Activity` — its filters, grouping and the
+«Перевірено» flag all assume that model — so a second source is real work
+rather than a flag. This is now more likely to be needed than it was at п.15/п.20.
+
+**Do not** answer this with an approval queue. The project has refused one twice
+(rating entries 2026-07, ставки Q1 2026-08-10), and post-moderation is the
+established shape.
+
+## G. Refactor backlog — AFTER the redesign (owner, 2026-09-11)
+
+**Do not do any of this mid-redesign.** It is recorded here because it was
+FOUND during it, on «Мої залучені здобувачі», and the same shapes exist on
+screens not yet rebuilt. Each item is a pattern, not a one-off.
+
+### G1. A skeleton must not be a second copy of the thing it stands for
+
+`loading.tsx` declared its own `FigureShell`, `FormShell`, `FieldShell`,
+`PickerShell` and `TableShell` — hand-built replicas of the real components.
+**Three of them had already drifted, and every drift was a layout shift the
+reader sees as the page settling:**
+
+| what                           | drift                                        | cause                                                                                                                                                                  |
+| ------------------------------ | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FigureShell` vs `Figure`      | **4px** per card                             | the shell pinned `h-4` on a row the real card lets a `text-sm` line size at 20px                                                                                       |
+| `FormShell` vs `CascadeFields` | **8px** on the form, and everything under it | the real form is wrapped in `<form>`; Radix's `Select` renders a hidden native `<select>` **only** inside one, so each of three rows was 56px against the shell's 52px |
+| the picker row                 | **4px** the other way                        | «Здобувач» is a `Combobox` (an `<input>`) on the real form and a `Select` in the shell — a select gets that hidden node, an input does not                             |
+
+None of these is visible in either screen on its own. They were found only by
+rendering the real composition and the skeleton side by side in a throwaway
+route and diffing every node's geometry.
+
+**The fix is not «keep them in sync», it is to delete the second copy.** A
+skeleton is not a different component; it is the same component with nothing in
+it yet. `Figure` was converted on 2026-09-11 and is the pattern to follow: the
+props that carry data become optional, and the component draws its own bars
+where they are missing. `loading.tsx` then holds a composition and no markup.
+
+Still to convert: **`AddClaimForm`** and **`ClaimsTable`** should render their
+own empty states, after which `FormShell`, `FieldShell`, `PickerShell` and
+`TableShell` all go. Then the same sweep over every other `loading.tsx` in the
+app — each one is a replica of a screen and none has been checked for drift.
+
+**One of those was swept on 2026-09-22, spotted by the owner without any
+diffing tool** — `/achievements/[section]`, where the drift was big enough to
+see:
+
+| what            | drift              | cause                                                                                                                                                                       |
+| --------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| row height      | **12px** each      | the row is `text-base` over `text-sm`, whose line boxes are 24 and 20; the bars stayed `h-4`/`h-3` when both grew on 2026-09-14                                             |
+| number of cards | **3 vs 1**         | `AchievementsList` draws a `Card` per GROUP, and this route filters to ONE section, so there is always exactly one group — three was the multi-section rating table's shape |
+| the list block  | **386px vs 213px** | the two above, compounded — the page dropped 173px when content arrived, and further on an empty section                                                                    |
+
+Both are now matched and measured at zero delta. It is still a hand-built
+copy: three rows is a guess, since how many achievements somebody has is
+exactly what the query answers. Converting `AchievementsList` to draw its own
+empty bars is the real fix and is part of the sweep above.
+
+### G2. Names should say what a thing IS
+
+- **`FigureShell` / `FormShell` / `TableShell`** — the `-Shell` suffix names
+  _when_ a component is used, not what it is. §11 of `docs/aurora.md` already
+  refuses that for `AuroraButton`; it went unnoticed here because the suffix
+  looks descriptive. Once G1 is done these names disappear rather than get
+  renamed, which is the point.
+- **`record-toolbar.tsx`** holds only `ToolbarGroup` / `ToolbarDivider` /
+  `ToolbarRow` and belongs at `components/aurora/ui/toolbar.tsx`. Noted since
+  2026-09-09 and still true.
+- **`muted` on `TableCell`** meant «an id, a source, a count» and was used for a
+  programme name, because the docstring was vague enough to invite it. Tightened
+  2026-09-11; worth re-reading any other boolean prop whose name is a colour.
+
+### G3. Duplicated prose
+
+The «2 етап розподілу ставок» note was copied verbatim into `my-claims.tsx` and
+the students `loading.tsx`. Extracted to `components/stake/second-stage-note.tsx`
+on 2026-09-11.
+
+A paragraph cannot drift in height, but it can drift in WORDING — and that one
+is a promise about money. **Every sentence the app makes about what somebody
+will be paid should exist once.** Worth grepping for others: the ставка screens
+carry several.
+
+**Where a shared piece goes:** `components/[feature]/`, not the route folder.
+Its callers here were `components/stake/my-claims.tsx` and the route's
+`loading.tsx`, so colocating with the page would have meant `components/`
+importing from `app/` — a component reaching up into a route, which would be
+the only such import in the project.
+
+### G4. `text-foreground` audit
+
+154 call sites write `text-foreground` explicitly. Ink is the default and needs
+no class, so most of those either predate that or mean «not muted» rather than
+«emphasised». Some are genuine (hover states, `TableHead`, which must be
+explicit — see §4). The rest should simply go.
+
 ## Session log — what shipped and why
 
 Recorded so a new session does not re-derive any of it.
@@ -773,6 +974,19 @@ moderate → close year → reopen, plus the permission matrix.
 
 ---
 
+### C7. «Графіки» for a завідувач and a декан — later (owner, 2026-09-24)
+
+The owner's idea, explicitly NOT for now: each head and декан gets their own
+charts page, the `/dashboard` shape ADMIN has, scoped to their кафедра or
+факультет. Until then both export «ПІБ | кафедра | рейтинг» from «Моя
+кафедра» / «Мій факультет» (`/api/export/department-ratings`).
+
+### C8. One tab bar — refactor, not urgent
+
+`components/aurora/ui/link-tabs.tsx` (2026-09-24, «Мій факультет») is the
+shared link-tab bar. `StaffTabs` and the science `RecordTabs` still draw the
+same bar by hand; move them onto it (§11).
+
 ## D. Waiting on other people
 
 Not blocked on a decision — blocked on a file or a third party.
@@ -888,7 +1102,13 @@ answers. The deadline is **25 August**.
 7. **The leftovers of B1 and B2** — the п.38 mapping editor, manual п.15/п.20,
    bulk caps. All small, none blocking. The 1С/додаток 2 export is **not
    wanted** — confirmed 2026-08-17.
-8. **«Аврора»** at `/admin/design` — chosen, and explicitly last.
+8. **«Аврора»** at `/admin/design` — chosen, and explicitly last. **In progress
+   since 2026-09-04.**
+9. **G — the refactor backlog**, and only once the redesign is finished (owner,
+   2026-09-11). Skeletons that are second copies of real components, `-Shell`
+   names, duplicated prose, the `text-foreground` audit. None of it changes what
+   the app does; all of it is cheaper after the screens have stopped moving, and
+   more of it will have been found by then.
 
 **Done since the last revision of this list:** bulk invite (C3), the seed guard
 and `--structure` mode, the year pinned on every ставка write, the декан's read

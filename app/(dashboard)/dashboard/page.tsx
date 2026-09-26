@@ -5,7 +5,6 @@ import { auth } from '@/lib/auth';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { getDashboard } from '@/lib/queries/get-dashboard';
 import { getReportData } from '@/lib/queries/get-rating-chart';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { YearSelect } from '@/components/rating/year-select';
 import { StatStrip } from '@/components/dashboard/stat-strip';
 import { OrgTree } from '@/components/dashboard/org-tree';
@@ -53,14 +52,16 @@ export default async function DashboardPage({
   const params = await searchParams;
   const session = await auth();
   if (!session) redirect('/login');
-  // НПП have their own rating page; the university-wide picture is not theirs
-  if (session.user.role === 'USER') redirect('/achievements');
+  // НПП have their own record; the university-wide picture is not theirs.
+  // `/profile` and not `/profile/rating`: the rating is a tab of it now, and a
+  // non-НПП USER has no rating tab to be sent to.
+  if (session.user.role === 'USER') redirect('/profile');
 
   const template = await getActiveTemplate();
 
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Графіки</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center">
           <p className="text-sm text-muted-foreground">
@@ -76,7 +77,7 @@ export default async function DashboardPage({
             </Link>
           )}
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
@@ -92,11 +93,11 @@ export default async function DashboardPage({
   const [data, reportData] = await Promise.all([getDashboard(year), getReportData(year)]);
 
   return (
-    <AnimatedPage className="space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Графіки</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {year} рік · {shown.status === 'CLOSED' ? 'закрито' : 'активний'}
           </p>
         </div>
@@ -177,6 +178,6 @@ export default async function DashboardPage({
           <OrgTree faculties={data.faculties} />
         </Panel>
       </div>
-    </AnimatedPage>
+    </div>
   );
 }

@@ -5,7 +5,6 @@ import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { FIELD_LABELS } from '@/lib/labels';
 import { FieldPermissionToggle } from '@/components/admin/field-permission-toggle';
-import { AnimatedList, AnimatedItem } from '@/components/ui/animated-list';
 
 const FIELD_GROUPS = [
   {
@@ -71,7 +70,7 @@ export default async function FieldPermissionsPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Доступ до полів</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-sm text-foreground-soft">
           Які поля персоналу редактори кожного відділу можуть змінювати
         </p>
       </div>
@@ -94,7 +93,7 @@ export default async function FieldPermissionsPage({
                 className={cn(
                   'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
                   div.id === selectedId
-                    ? 'border-primary bg-primary text-primary-foreground'
+                    ? 'border-brand bg-brand text-brand-foreground'
                     : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
                 )}
               >
@@ -110,9 +109,9 @@ export default async function FieldPermissionsPage({
                   <div className="border-b px-4 py-3">
                     <p className="text-sm font-medium">{group.label}</p>
                   </div>
-                  <AnimatedList className="divide-y">
+                  <div className="divide-y">
                     {group.fields.map((field) => (
-                      <AnimatedItem key={field}>
+                      <div key={field}>
                         <label className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-muted/30">
                           <FieldPermissionToggle
                             divisionId={selectedId}
@@ -121,9 +120,9 @@ export default async function FieldPermissionsPage({
                           />
                           <span className="text-sm">{FIELD_LABELS[field] ?? field}</span>
                         </label>
-                      </AnimatedItem>
+                      </div>
                     ))}
-                  </AnimatedList>
+                  </div>
                 </div>
               ))}
             </div>

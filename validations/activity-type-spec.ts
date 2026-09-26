@@ -25,6 +25,10 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     kind: z.literal('text'),
     ...common,
     multiline: z.boolean().optional(),
+    join: z.string().min(1).optional(),
+    joinLabel: z.string().min(1).max(200).optional(),
+    span: z.union([z.literal(1), z.literal(2)]).optional(),
+    rule: z.literal('cyrillicName').optional(),
     optional: z.boolean().optional(),
     // Display only — never read by the scoring engine or the Характеристика
     placeholder: z.string().max(300).optional(),
@@ -33,6 +37,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     kind: z.literal('number'),
     ...common,
     min: z.number().optional(),
+    max: z.number().optional(),
     int: z.boolean().optional(),
     optional: z.boolean().optional(),
   }),
@@ -43,7 +48,13 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     hosts: z.array(z.string().min(1)).readonly().optional(),
     hostsError: z.string().max(500).optional(),
   }),
-  z.strictObject({ kind: z.literal('date'), ...common, optional: z.boolean().optional() }),
+  z.strictObject({
+    kind: z.literal('date'),
+    ...common,
+    optional: z.boolean().optional(),
+    rule: z.literal('currentYear').optional(),
+  }),
+  z.strictObject({ kind: z.literal('dateRange'), ...common, optional: z.boolean().optional() }),
   z.strictObject({ kind: z.literal('isbn'), ...common, optional: z.boolean().optional() }),
   z.strictObject({ kind: z.literal('doi'), ...common, optional: z.boolean().optional() }),
   z.strictObject({
@@ -67,6 +78,8 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
       )
       .min(1, { error: 'Додайте хоча б один варіант' })
       .readonly(),
+    optional: z.boolean().optional(),
+    span: z.union([z.literal(1), z.literal(2)]).optional(),
   }),
 ]) as z.ZodType<EvidenceField>;
 

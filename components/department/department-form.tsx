@@ -7,8 +7,8 @@ import { toast } from 'sonner';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/aurora/ui/button';
+import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import {
   Select,
@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 import {
   Combobox,
   ComboboxContent,
@@ -24,10 +24,11 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from '@/components/ui/combobox';
+} from '@/components/aurora/ui/combobox';
 import { normaliseDepartmentName } from '@/lib/specialities/departments';
 import { departmentSchema, type DepartmentSchema } from '@/validations/department';
 import type { DepartmentActionState } from '@/app/(dashboard)/departments/actions';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 type FacultyOption = { id: string; name: string };
 type StaffOption = { id: string; lastName: string; firstName: string; patronymic: string };
@@ -113,81 +114,87 @@ export function DepartmentForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-4 rounded-xl border bg-card p-5">
-        <FormField htmlFor="name" label="Назва" error={errors.name}>
-          <Input id="name" disabled={isPending} {...register('name')} />
-          {unknownName && !errors.name && (
-            <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-500">
-              Для цієї кафедри ще не вказано випускових спеціальностей. Зберегти можна — у розподілі
-              ставок здобувачі просто не позначатимуться як «своя спеціальність». Вказати їх можна
-              пізніше на сторінці «Нормативи чисельності».
-            </p>
-          )}
-        </FormField>
-
-        <FormField label="Факультет" error={errors.facultyId}>
-          <Controller
-            name="facultyId"
-            control={control}
-            render={({ field }) => (
-              <Select value={field.value ?? ''} onValueChange={field.onChange} disabled={isPending}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Оберіть факультет" />
-                </SelectTrigger>
-                <SelectContent>
-                  {faculties.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    <RequiredFields schema={departmentSchema}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-4 rounded-xl border bg-card p-5">
+          <FormField htmlFor="name" label="Назва" error={errors.name}>
+            <Input id="name" disabled={isPending} {...register('name')} />
+            {unknownName && !errors.name && (
+              <p className="mt-1.5 text-xs text-warning">
+                Для цієї кафедри ще не вказано випускових спеціальностей. Зберегти можна — у
+                розподілі ставок здобувачі просто не позначатимуться як «своя спеціальність».
+                Вказати їх можна пізніше на сторінці «Нормативи чисельності».
+              </p>
             )}
-          />
-        </FormField>
+          </FormField>
 
-        <FormField label="Завідувач кафедри" error={errors.headId}>
-          <Controller
-            name="headId"
-            control={control}
-            render={({ field }) => {
-              const selected = staff.find((s) => s.id === field.value);
-              return (
-                <Combobox
-                  items={staff}
+          <FormField label="Факультет" error={errors.facultyId}>
+            <Controller
+              name="facultyId"
+              control={control}
+              render={({ field }) => (
+                <Select
                   value={field.value ?? ''}
-                  onChange={(v) => field.onChange(v || null)}
-                  filter={(s, q) => staffName(s).toLowerCase().includes(q.toLowerCase())}
-                  displayValue={selected ? staffName(selected) : ''}
+                  onValueChange={field.onChange}
                   disabled={isPending}
                 >
-                  <ComboboxInput placeholder="—" />
-                  <ComboboxContent>
-                    <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
-                    <ComboboxList<StaffOption>>
-                      {(s) => (
-                        <ComboboxItem key={s.id} value={s.id}>
-                          {staffName(s)}
-                        </ComboboxItem>
-                      )}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              );
-            }}
-          />
-        </FormField>
-      </div>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Оберіть факультет" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {faculties.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </FormField>
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Збереження...' : submitLabel}
-        </Button>
-        <Button asChild variant="outline" disabled={isPending}>
-          <Link href="/departments">Скасувати</Link>
-        </Button>
-      </div>
-    </form>
+          <FormField label="Завідувач кафедри" error={errors.headId}>
+            <Controller
+              name="headId"
+              control={control}
+              render={({ field }) => {
+                const selected = staff.find((s) => s.id === field.value);
+                return (
+                  <Combobox
+                    items={staff}
+                    value={field.value ?? ''}
+                    onChange={(v) => field.onChange(v || null)}
+                    filter={(s, q) => staffName(s).toLowerCase().includes(q.toLowerCase())}
+                    displayValue={selected ? staffName(selected) : ''}
+                    disabled={isPending}
+                  >
+                    <ComboboxInput placeholder="—" />
+                    <ComboboxContent>
+                      <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
+                      <ComboboxList<StaffOption>>
+                        {(s) => (
+                          <ComboboxItem key={s.id} value={s.id}>
+                            {staffName(s)}
+                          </ComboboxItem>
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+                );
+              }}
+            />
+          </FormField>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Збереження...' : submitLabel}
+          </Button>
+          <Button asChild variant="outline" disabled={isPending}>
+            <Link href="/departments">Скасувати</Link>
+          </Button>
+        </div>
+      </form>
+    </RequiredFields>
   );
 }

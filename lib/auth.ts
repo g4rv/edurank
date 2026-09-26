@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { compare } from 'bcryptjs';
@@ -18,7 +19,12 @@ if (!process.env.AUTH_SECRET) {
   console.warn(`[auth] ${message} Sessions will not survive a restart.`);
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const {
+  handlers,
+  auth: readSession,
+  signIn,
+  signOut,
+} = NextAuth({
   // Behind Coolify's Traefik the app sees `http://0.0.0.0:3000`, not
   // `https://edurank.uhsp.edu.ua`. NextAuth v5 refuses to build a callback URL
   // from a host it has not been told to trust, so without this every sign-in
@@ -146,3 +152,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: '/login',
   },
 });
+
+export { handlers, signIn, signOut };
+
+/**
+ * The current session — **deduped per request** (2026-09-10).
+ *
+ * Every call runs the `jwt` callback above, and that callback reads the Staff
+ * row on purpose: it is what makes a role change and the `tokenVersion`
+ * kill-switch take effect on the very next request instead of whenever the JWT
+ * happens to expire. Keep that.
+ *
+ * What it should not do is charge for the same answer twice in one render. The
+ * record pages now split the identity band into its own async component behind
+ * `Suspense`, so a layout and its page both ask — `/profile` went from one read
+ * to two the moment that landed. React `cache` gives them one.
+ *
+ * **A request is the whole cache lifetime**, which is the point: the next
+ * request re-reads the row, so nothing about the kill-switch is weakened. A
+ * cookie cannot change midway through rendering the page it was sent with.
+ *
+ * Wrapped as a zero-argument call deliberately. NextAuth's own `auth` is
+ * overloaded — it also wraps a route handler and takes a request — and nothing
+ * here uses those shapes; narrowing it keeps a second, uncached form from
+ * quietly appearing.
+ */
+export const auth = cache(() => readSession());

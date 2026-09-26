@@ -7,8 +7,8 @@ import { toast } from 'sonner';
 import { useForm, Controller } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/aurora/ui/button';
+import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
 import {
   Combobox,
@@ -17,9 +17,10 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from '@/components/ui/combobox';
+} from '@/components/aurora/ui/combobox';
 import { facultySchema, type FacultySchema } from '@/validations/faculty';
 import type { FacultyActionState } from '@/app/(dashboard)/faculties/actions';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 type StaffOption = { id: string; lastName: string; firstName: string; patronymic: string };
 
@@ -66,53 +67,55 @@ export function FacultyForm({ defaultValues, staff, action, submitLabel }: Facul
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-4 rounded-xl border bg-card p-5">
-        <FormField htmlFor="name" label="Назва" error={errors.name}>
-          <Input id="name" disabled={isPending} {...register('name')} />
-        </FormField>
+    <RequiredFields schema={facultySchema}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-4 rounded-xl border bg-card p-5">
+          <FormField htmlFor="name" label="Назва" error={errors.name}>
+            <Input id="name" disabled={isPending} {...register('name')} />
+          </FormField>
 
-        <FormField label="Декан" error={errors.deanId}>
-          <Controller
-            name="deanId"
-            control={control}
-            render={({ field }) => {
-              const selected = staff.find((s) => s.id === field.value);
-              return (
-                <Combobox
-                  items={staff}
-                  value={field.value ?? ''}
-                  onChange={(v) => field.onChange(v || null)}
-                  filter={(s, q) => staffName(s).toLowerCase().includes(q.toLowerCase())}
-                  displayValue={selected ? staffName(selected) : ''}
-                  disabled={isPending}
-                >
-                  <ComboboxInput placeholder="—" />
-                  <ComboboxContent>
-                    <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
-                    <ComboboxList<StaffOption>>
-                      {(s) => (
-                        <ComboboxItem key={s.id} value={s.id}>
-                          {staffName(s)}
-                        </ComboboxItem>
-                      )}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              );
-            }}
-          />
-        </FormField>
-      </div>
+          <FormField label="Декан" error={errors.deanId}>
+            <Controller
+              name="deanId"
+              control={control}
+              render={({ field }) => {
+                const selected = staff.find((s) => s.id === field.value);
+                return (
+                  <Combobox
+                    items={staff}
+                    value={field.value ?? ''}
+                    onChange={(v) => field.onChange(v || null)}
+                    filter={(s, q) => staffName(s).toLowerCase().includes(q.toLowerCase())}
+                    displayValue={selected ? staffName(selected) : ''}
+                    disabled={isPending}
+                  >
+                    <ComboboxInput placeholder="—" />
+                    <ComboboxContent>
+                      <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
+                      <ComboboxList<StaffOption>>
+                        {(s) => (
+                          <ComboboxItem key={s.id} value={s.id}>
+                            {staffName(s)}
+                          </ComboboxItem>
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+                );
+              }}
+            />
+          </FormField>
+        </div>
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Збереження...' : submitLabel}
-        </Button>
-        <Button asChild variant="outline" disabled={isPending}>
-          <Link href="/faculties">Скасувати</Link>
-        </Button>
-      </div>
-    </form>
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Збереження...' : submitLabel}
+          </Button>
+          <Button asChild variant="outline" disabled={isPending}>
+            <Link href="/faculties">Скасувати</Link>
+          </Button>
+        </div>
+      </form>
+    </RequiredFields>
   );
 }

@@ -12,11 +12,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
+} from '@/components/aurora/ui/alert-dialog';
+import { Button } from '@/components/aurora/ui/button';
 import { FormField } from '@/components/ui/form-field';
-import { FileInput } from '@/components/ui/file-input';
-import { Input } from '@/components/ui/input';
+import { FileInput } from '@/components/aurora/ui/file-input';
+import { Input } from '@/components/aurora/ui/input';
 import { UK } from '@/lib/plural';
 import {
   importAdmittedStudents,
@@ -156,8 +156,8 @@ export function ImportAdmittedStudents({ defaultYear }: { defaultYear: number })
           )}
 
           {failed && (
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
-              <p className="font-medium text-destructive">
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-error/40 bg-error/5 p-3 text-sm">
+              <p className="font-medium text-error">
                 Нічого не імпортовано. Виправте файл і спробуйте ще раз.
               </p>
               <ul className="mt-2 space-y-1 text-muted-foreground">

@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { ActivityTypeRow, type EditableActivityType } from '@/components/admin/activity-type-row';
 import { AddActivityType } from '@/components/admin/add-activity-type';
 import { NewActivityType } from '@/components/admin/new-activity-type';
@@ -115,7 +114,7 @@ export default async function RatingTemplatePage({
   const noPositionsAtAll = presentCodes.size > 0 && linkedToPositions === 0;
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <Link
         href="/admin/rating"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -132,20 +131,20 @@ export default async function RatingTemplatePage({
               className={cn(
                 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
                 template.status === 'OPEN'
-                  ? 'bg-green-500/10 text-green-600'
+                  ? 'bg-success-surface text-success'
                   : 'bg-muted text-muted-foreground'
               )}
             >
               {RATING_YEAR_STATUS_LABELS[template.status]}
             </span>
             {template.isActive && (
-              <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              <span className="inline-flex items-center rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
                 Активний
               </span>
             )}
           </div>
           {!editable && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-sm text-foreground-soft">
               Рік закрито — показники доступні лише для перегляду
             </p>
           )}
@@ -156,11 +155,11 @@ export default async function RatingTemplatePage({
       </div>
 
       {noPositionsAtAll && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 px-5 py-4">
-          <p className="text-sm font-medium text-amber-700 dark:text-amber-500">
+        <div className="rounded-xl border border-warning/40 bg-warning-surface px-5 py-4">
+          <p className="text-sm font-medium text-warning">
             Жоден показник цього року не пов’язаний з позиціями ліцензійних умов
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-foreground-soft">
             Характеристика будується саме з цього зв’язку, тому для всіх НПП вона буде порожня, а
             Кнпп кожної кафедри — нульовим. Відкрийте показник і відмітьте позиції, які він
             закриває.
@@ -234,6 +233,6 @@ export default async function RatingTemplatePage({
           )}
         </div>
       ))}
-    </AnimatedPage>
+    </div>
   );
 }

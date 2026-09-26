@@ -53,7 +53,7 @@ export function OrcidInput({
           'flex h-9 items-center rounded-md border border-input bg-transparent pr-2 pl-3 shadow-xs',
           'focus-within:ring-1 focus-within:ring-ring',
           disabled && 'cursor-not-allowed opacity-50',
-          (ariaInvalid || state === 'invalid') && 'border-destructive',
+          (ariaInvalid || state === 'invalid') && 'border-error',
           className
         )}
       >
@@ -69,9 +69,7 @@ export function OrcidInput({
           onChange={(e) => onChange(formatOrcid(e.target.value))}
           className="h-full min-w-0 flex-1 bg-transparent font-mono text-sm outline-none placeholder:font-sans disabled:cursor-not-allowed"
         />
-        {state === 'valid' && (
-          <Check className="size-4 shrink-0 text-green-600 dark:text-green-500" />
-        )}
+        {state === 'valid' && <Check className="size-4 shrink-0 text-success" />}
       </div>
 
       {/* Only while something is half-typed. «16 цифр» to somebody who has typed
@@ -83,7 +81,7 @@ export function OrcidInput({
         </p>
       )}
       {state === 'invalid' && (
-        <p className="text-xs text-destructive">
+        <p className="text-xs text-error">
           Контрольна цифра не збігається — перевірте, чи немає помилки
         </p>
       )}

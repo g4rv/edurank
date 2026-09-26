@@ -1,14 +1,16 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ChevronLeft, Wallet } from 'lucide-react';
+import { Wallet } from 'lucide-react';
+import { Badge } from '@/components/aurora/ui/badge';
+import { Card } from '@/components/aurora/ui/card';
+import { ListHeader } from '@/components/aurora/ui/list-header';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getStakeDistribution } from '@/lib/queries/get-stake-distribution';
 import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stake-settings';
-import { headOf, scopeOf } from '@/lib/queries/scope';
+import { headOf } from '@/lib/queries/scope';
 import { formatStake } from '@/lib/stake/units';
 import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { DistributionGrid } from '@/components/stake/distribution-grid';
 import { StakeTermHint } from '@/components/stake/stake-term-hint';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
@@ -35,10 +37,11 @@ export default async function DepartmentStakesPage({
   if (!session) redirect('/login');
 
   const isAdmin = session.user.role === 'ADMIN';
-  const [scope, led] = isAdmin
-    ? [[], []]
-    : await Promise.all([scopeOf(session.user.staffId), headOf(session.user.staffId)]);
-  if (!isAdmin && !scope.includes(departmentId)) notFound();
+  // The кафедра's head, or ADMIN. A декан used to read every grid of their
+  // факультет here; розподіл ставок is not theirs any more (owner,
+  // 2026-09-24), and saving always required `headOf`.
+  const led = isAdmin ? [] : await headOf(session.user.staffId);
+  if (!isAdmin && !led.includes(departmentId)) notFound();
 
   const template = await getActiveTemplate();
   if (!template) notFound();
@@ -99,77 +102,57 @@ export default async function DepartmentStakesPage({
   ) as Record<AdminPosition, number | undefined>;
 
   return (
-    <AnimatedPage className="space-y-4">
-      <Link
-        href="/stakes"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" />
-        Усі кафедри
-      </Link>
+    // `flex h-full min-h-0 flex-col`: the grid's table takes the height that is
+    // left and its rows scroll inside it, so the page itself does not — the
+    // `fill` pattern of `/rating` and `/my-department`.
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      {/* ADMIN arrives from the overview of all 31 кафедри and goes back to it.
+          A head has one кафедра: «Усі кафедри» sent them to `/stakes`, which
+          redirects straight back here — a link that looped to its own page. */}
+      {isAdmin && (
+        <Breadcrumbs
+          items={[{ label: 'Розподіл ставок', href: '/stakes' }, { label: view.departmentName }]}
+        />
+      )}
 
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h1 className="text-2xl font-semibold">{view.departmentName}</h1>
-          {/* Both years, whenever they differ. The ставки are for one year and
-              the rating that ranked them comes from another, and an all-zero
-              column is only explainable once the screen says which. */}
-          <span className="text-sm text-muted-foreground">
+      <ListHeader
+        title={view.departmentName}
+        subtitle={
+          // The strip that sat under the title, folded in. Its two fund
+          // figures are gone: the cards below state both, with what is left
+          // of each, and saying them twice on one screen is how the two
+          // copies drift. Both years, whenever they differ — the ставки are
+          // for one year and the rating that ranked them comes from another.
+          <span className="inline-flex flex-wrap items-center gap-x-1">
             {year} рік
             {view.ratingYear !== year && ` · за рейтингом ${view.ratingYear}`}
+            {` · ${view.facultyName} · ${view.headcount} НПП · ліцензійним умовам відповідають ${view.knpp}`}
+            <StakeTermHint term="knpp" />
+            {` · середній рейтинг ${Math.round(view.averageRating)}`}
           </span>
-        </div>
-
-        <div className="inline-flex items-center gap-2">
-          {!canEditAllocation && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+        }
+        actions={
+          !canEditAllocation ? (
+            <Badge tone="muted">
               лише перегляд
               <StakeTermHint term="deanReadonly" />
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-xl border bg-card px-4 py-2 text-xs text-muted-foreground">
-        <span>{view.facultyName}</span>
-        <span> · {view.headcount} НПП</span>
-        <span className="inline-flex items-center gap-1">
-          {' '}
-          · ліцензійним умовам відповідають {view.knpp}
-          <StakeTermHint term="knpp" />
-        </span>
-        <span>
-          {' '}
-          · середній рейтинг {Math.round(view.averageRating)} за {view.ratingYear}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          {' '}
-          · основний фонд{' '}
-          {view.kstHundredths === null ? 'не задано' : formatStake(view.kstHundredths)}
-          <StakeTermHint term="kst" />
-        </span>
-        <span className="inline-flex items-center gap-1">
-          {' '}
-          · бонусний фонд{' '}
-          {selected?.bonusPoolHundredths == null
-            ? 'не задано'
-            : formatStake(selected.bonusPoolHundredths)}
-          <StakeTermHint term="bonusPool" />
-        </span>
-      </div>
+            </Badge>
+          ) : undefined
+        }
+      />
 
       {selected?.belowMinimum && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
+        <p className="shrink-0 rounded-lg border border-error/30 bg-error-surface px-4 py-2 text-xs text-error-strong">
           Основний фонд нижче мінімуму: на кафедрі {selected.headcount} НПП, потрібно щонайменше{' '}
           {formatStake(selected.minimumHundredths)}
         </p>
       )}
 
       {noPool && !isAdmin ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed bg-card px-6 py-16 text-center">
+        <Card className="flex flex-col items-center gap-3 py-16 text-center">
           <Wallet className="size-8 text-muted-foreground/50" aria-hidden />
-          <h2 className="text-base font-medium">Основний фонд ще не встановлено</h2>
-          <p className="max-w-md text-sm text-muted-foreground">
+          <h2 className="text-base font-semibold">Основний фонд ще не встановлено</h2>
+          <p className="max-w-md text-sm text-foreground-soft">
             Розподіл відкриється, щойно адміністратор виділить кафедрі фонд ставок на {year} рік.
             Поки його немає, формула не рахується й зберегти розподіл неможливо.
           </p>
@@ -177,12 +160,12 @@ export default async function DepartmentStakesPage({
             // The number to ask for, not just «ask somebody». A head who has to
             // request an allocation may as well be able to say how much the
             // кафедра needs at minimum.
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-foreground-soft">
               Кафедрі потрібно щонайменше {formatStake(selected.minimumHundredths)} —{' '}
               {selected.headcount} НПП × 0,10.
             </p>
           )}
-        </div>
+        </Card>
       ) : (
         <DistributionGrid
           key={`${departmentId}:${limitsSignature}`}
@@ -197,6 +180,6 @@ export default async function DepartmentStakesPage({
           filledAt={view.filledAt}
         />
       )}
-    </AnimatedPage>
+    </div>
   );
 }

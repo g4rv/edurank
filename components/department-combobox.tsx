@@ -1,5 +1,7 @@
 'use client';
 
+// «Аврора»'s combobox, so a кафедра picker is the same height as every other
+// control in the form it sits in — see the note in `staff-form-fields.tsx`.
 import {
   Combobox,
   ComboboxContent,
@@ -7,7 +9,7 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from '@/components/ui/combobox';
+} from '@/components/aurora/ui/combobox';
 import { cn } from '@/lib/utils';
 
 /** Stands for «every кафедра». Not `''` — that is «nothing chosen» to the primitive. */
@@ -57,6 +59,7 @@ export function DepartmentCombobox({
   onChange,
   allowAll,
   placeholder = '—',
+  label = 'Кафедра',
   emptyText = 'Кафедру не знайдено',
   clearable = false,
   disabled = false,
@@ -75,6 +78,8 @@ export function DepartmentCombobox({
    */
   allowAll?: { label: string };
   placeholder?: string;
+  /** The accessible name — a picker whose placeholder is «—» has none otherwise. */
+  label?: string;
   emptyText?: string;
   /** Offer a × back to «nothing». On a required field that is an invalid state. */
   clearable?: boolean;
@@ -102,7 +107,12 @@ export function DepartmentCombobox({
       displayValue={displayValue}
       disabled={disabled}
     >
-      <ComboboxInput placeholder={placeholder} clearable={clearable} className={className} />
+      <ComboboxInput
+        placeholder={placeholder}
+        aria-label={label}
+        clearable={clearable}
+        className={className}
+      />
       <ComboboxContent>
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
         <ComboboxList<DepartmentComboboxOption>>
@@ -114,7 +124,7 @@ export function DepartmentCombobox({
                   className={cn(
                     'ml-auto shrink-0 rounded px-1.5 py-px text-xs tabular-nums',
                     dept.tagTone === 'warn'
-                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-500'
+                      ? 'bg-warning-surface text-warning'
                       : 'bg-muted text-muted-foreground'
                   )}
                 >

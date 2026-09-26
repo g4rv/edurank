@@ -3,10 +3,7 @@ import Link from 'next/link';
 import { ChevronLeft, Pencil, SlidersHorizontal } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { Button } from '@/components/ui/button';
-import { AnimatedPage } from '@/components/ui/animated-page';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
-import { AnimatedRow } from '@/components/ui/animated-row';
+import { Button } from '@/components/aurora/ui/button';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { cn } from '@/lib/utils';
@@ -107,7 +104,7 @@ export default async function DepartmentDetailPage({
   ];
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <Link
         href="/departments"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -119,7 +116,7 @@ export default async function DepartmentDetailPage({
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{department.name}</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-foreground-soft">
             {UK.primary(department.primaryStaff.length)} ·{' '}
             {UK.partTimer(department.partTimeStaff.length)}
           </p>
@@ -203,11 +200,11 @@ export default async function DepartmentDetailPage({
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Тип</th>
               </tr>
             </thead>
-            <AnimatedTableBody>
+            <tbody>
               {allStaff.map((member) => (
-                <AnimatedRow
+                <tr
                   key={member.id}
-                  className="group/row border-b transition-colors last:border-0 hover:bg-muted/30"
+                  className="border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
                   <RowLinkCell href={`/staff/${member.id}`}>{fullName(member)}</RowLinkCell>
                   <td className="px-4 py-3 text-muted-foreground">
@@ -227,22 +224,22 @@ export default async function DepartmentDetailPage({
                       className={cn(
                         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
                         member.type === 'primary'
-                          ? 'bg-primary/10 text-primary'
+                          ? 'bg-brand/10 text-brand'
                           : // Amber: a сумісник is the row on this кафедра that
                             // needs a second look — their ставка comes out of two
                             // pools and they raise this кафедра's own minimum.
-                            'bg-amber-500/10 text-amber-700 dark:text-amber-500'
+                            'bg-warning-surface text-warning'
                       )}
                     >
                       {member.type === 'primary' ? 'Основний' : 'Сумісник'}
                     </span>
                   </td>
-                </AnimatedRow>
+                </tr>
               ))}
-            </AnimatedTableBody>
+            </tbody>
           </table>
         </div>
       )}
-    </AnimatedPage>
+    </div>
   );
 }

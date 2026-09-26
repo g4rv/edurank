@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { revertInviteSent } from '@/app/(dashboard)/admin/invites/actions';
 
 /**

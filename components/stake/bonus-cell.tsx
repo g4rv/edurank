@@ -23,15 +23,15 @@ import { cn } from '@/lib/utils';
  */
 export function BonusCell({ bonus, audience }: { bonus: StaffBonus; audience: 'admin' | 'head' }) {
   if (bonus.total === 0 && bonus.students === 0) {
-    return <span className="text-muted-foreground">—</span>;
+    return <span className="text-foreground-soft">—</span>;
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-center gap-1">
       <span className="tabular-nums">{formatBonus(bonus.total)}</span>
 
       {audience === 'admin' ? (
-        <span className="text-[11px] text-muted-foreground tabular-nums">
+        <span className="text-xs text-foreground-soft tabular-nums">
           {bonus.students} {plural(bonus.students)}
         </span>
       ) : (
@@ -59,7 +59,7 @@ function SpecialityChips({ bonus }: { bonus: StaffBonus }) {
   const hidden = bonus.bySpeciality.slice(VISIBLE_CHIPS);
 
   return (
-    <div className="flex flex-wrap justify-end gap-1">
+    <div className="flex flex-wrap justify-center gap-1">
       {shown.map((entry) => {
         // Decided server-side, against the кафедра this grid belongs to — see
         // `getStakeDistribution`. `unknown` is a real answer, not a fallback:
@@ -97,8 +97,8 @@ function SpecialityChips({ bonus }: { bonus: StaffBonus }) {
 }
 
 const ORIGIN_TONE: Record<SpecialityOrigin, string> = {
-  own: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-  other: 'bg-amber-500/10 text-amber-700 dark:text-amber-500',
+  own: 'bg-success-surface text-success',
+  other: 'bg-warning-surface text-warning',
   unknown: 'bg-muted text-muted-foreground',
 };
 

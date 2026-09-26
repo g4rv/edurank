@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { pageItems } from '@/lib/pagination';
+
+const ELLIPSIS = 'ellipsis';
+import { Button } from '@/components/aurora/ui/button';
 
 /**
  * Shared pager: a summary on the left, numbered pages and prev/next on the right.
@@ -13,29 +16,6 @@ import { Button } from '@/components/ui/button';
  * component; imported by a client one it is compiled into that bundle and the
  * handler works. Pass exactly one of the two.
  */
-
-const ELLIPSIS = 'ellipsis' as const;
-type PageItem = number | typeof ELLIPSIS;
-
-/**
- * Page numbers with gaps collapsed: always the first and last page, the current
- * one and its neighbours, and an ellipsis wherever a run was dropped.
- * e.g. page 7 of 20 → 1 … 6 7 8 … 20
- */
-export function pageItems(page: number, totalPages: number): PageItem[] {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-
-  const items: PageItem[] = [1];
-  const from = Math.max(2, page - 1);
-  const to = Math.min(totalPages - 1, page + 1);
-
-  if (from > 2) items.push(ELLIPSIS);
-  for (let p = from; p <= to; p++) items.push(p);
-  if (to < totalPages - 1) items.push(ELLIPSIS);
-
-  items.push(totalPages);
-  return items;
-}
 
 type Props = {
   page: number;

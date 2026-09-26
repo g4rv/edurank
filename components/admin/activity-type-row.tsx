@@ -15,8 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
+} from '@/components/aurora/ui/alert-dialog';
+import { Button } from '@/components/aurora/ui/button';
 import {
   ActivityTypeDialog,
   type ActivityTypeDraft,
@@ -124,7 +124,7 @@ function DeleteButton({ type }: { type: EditableActivityType }) {
               ? `За показником «${type.label}» вже є записи — його можна лише вимкнути`
               : `Видалити: ${type.label}`
           }
-          className="text-muted-foreground hover:text-destructive"
+          className="text-muted-foreground hover:text-error"
         >
           <Trash2 className="size-4" />
         </Button>

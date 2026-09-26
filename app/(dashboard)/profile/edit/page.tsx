@@ -1,9 +1,10 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
+import { fullName } from '@/components/staff/profile/primitives';
 
 // The one place a person edits themselves, whatever their role: the only claim
 // it checks is that the record is yours, and the action writes nothing outside
@@ -24,23 +25,16 @@ export default async function ProfileEditPage() {
   if (!staff) notFound();
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <Link
-        href="/profile"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" />
-        Мій профіль
-      </Link>
-
-      <div>
-        <h1 className="text-2xl font-semibold">Редагування профілю</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Контактні дані та посилання на наукові профілі
-        </p>
-      </div>
+    // No heading of its own — the form carries one in its header card, beside
+    // the actions it belongs with.
+    <div className="space-y-5">
+      {/* Three levels, not two. This hardcoded «Мій профіль › Редагування» and
+          dropped whichever root the role gets, so walking from /profile to
+          /profile/edit lost a level instead of gaining one. */}
+      <Breadcrumbs items={profileCrumbs(session.user.role, 'Редагування')} />
 
       <ProfileEditForm
+        name={fullName(staff)}
         defaultValues={{
           phone: staff.phone ?? '',
           wosUrl: staff.wosUrl ?? '',

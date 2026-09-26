@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import {
   ActivityTypeDialog,
   type ActivityTypeDraft,

@@ -29,13 +29,21 @@ interface MyDepartmentStaff {
   total: number;
   /** This кафедра is their ADDITIONAL one — badge and sort key off it */
   isPartTime: boolean;
+  /**
+   * The ставка THIS кафедра gives them this year, in hundredths — the head's
+   * own saved split, exactly what their grid on `/stakes/[id]` holds. Never
+   * `Staff.employmentRate`: that is the sum over every кафедра paying the
+   * person, and a сумісник's other ставка is not this head's to read (the
+   * confidential-field rule). `null` while no split is saved.
+   */
+  stakeHundredths: number | null;
 }
 
 export async function listMyDepartments(staffId: string | null | undefined, year: number) {
   const departmentIds = await scopeOf(staffId);
   if (departmentIds.length === 0) return [];
 
-  const [departments, staff] = await Promise.all([
+  const [departments, staff, distributions] = await Promise.all([
     db.department.findMany({
       where: { id: { in: departmentIds } },
       select: { id: true, name: true, faculty: { select: { name: true } } },
@@ -55,7 +63,23 @@ export async function listMyDepartments(staffId: string | null | undefined, year
         ratingEntries: { where: { year }, select: { totalScore: true } },
       },
     }),
+    db.stakeDistribution.findMany({
+      where: { departmentId: { in: departmentIds }, year },
+      select: {
+        departmentId: true,
+        allocations: { select: { staffId: true, proposedHundredths: true } },
+      },
+    }),
   ]);
+
+  // «кафедра:person» → the ставка that кафедра saved for them.
+  const stakes = new Map(
+    distributions.flatMap((d) =>
+      d.allocations.map((a) => [`${d.departmentId}:${a.staffId}`, a.proposedHundredths] as const)
+    )
+  );
+  const stakeOf = (departmentId: string, staffId: string) =>
+    stakes.get(`${departmentId}:${staffId}`) ?? null;
 
   const inScope = new Set(departmentIds);
   const byDepartment = new Map<string, MyDepartmentStaff[]>();
@@ -71,13 +95,21 @@ export async function listMyDepartments(staffId: string | null | undefined, year
     };
 
     if (s.departmentId && inScope.has(s.departmentId)) {
-      byDepartment.get(s.departmentId)!.push({ ...person, isPartTime: false });
+      byDepartment.get(s.departmentId)!.push({
+        ...person,
+        isPartTime: false,
+        stakeHundredths: stakeOf(s.departmentId, s.id),
+      });
     }
     for (const { departmentId } of s.partTimeDepartments) {
       // Their own кафедра is already handled above, and a кафедра outside this
       // head's scope is none of their business even though the row is real.
       if (departmentId === s.departmentId || !inScope.has(departmentId)) continue;
-      byDepartment.get(departmentId)!.push({ ...person, isPartTime: true });
+      byDepartment.get(departmentId)!.push({
+        ...person,
+        isPartTime: true,
+        stakeHundredths: stakeOf(departmentId, s.id),
+      });
     }
   }
 

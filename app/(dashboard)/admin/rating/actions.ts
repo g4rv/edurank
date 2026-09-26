@@ -50,7 +50,7 @@ async function syncDerivedOrWarn(): Promise<{ synced: number; warning: string | 
 function revalidateRating() {
   revalidatePath('/admin/rating');
   revalidatePath('/rating');
-  revalidatePath('/achievements');
+  revalidatePath('/profile/rating');
   revalidatePath('/division-data');
 }
 

@@ -1,7 +1,13 @@
 'use client';
 
 import { Info } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/aurora/ui/tooltip';
+import { HINT_TRIGGER } from '@/components/ui/field-hint';
 import {
   RATING_FIELD_HINTS,
   type ProfileDerivedStaffField,
@@ -20,11 +26,7 @@ export function RatingFieldHint({ field }: { field: string }) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span
-            tabIndex={0}
-            aria-label="Впливає на рейтинг"
-            className="inline-flex cursor-help align-middle text-muted-foreground hover:text-foreground"
-          >
+          <span tabIndex={0} aria-label="Впливає на рейтинг" className={HINT_TRIGGER}>
             <Info className="size-3.5" />
           </span>
         </TooltipTrigger>

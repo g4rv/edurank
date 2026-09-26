@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Paperclip, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
@@ -82,7 +82,7 @@ export function FileInput({
             disabled={disabled}
             onClick={clear}
             aria-label="Прибрати файл"
-            className="text-muted-foreground hover:text-destructive"
+            className="text-muted-foreground hover:text-error"
           >
             <X className="size-4" />
           </Button>

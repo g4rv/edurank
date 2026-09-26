@@ -1,8 +1,31 @@
 import { Check, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+
+/**
+ * Shared by the table and by `KharakterystykaTable.Shell`, so the loading state
+ * is the same width as the document.
+ *
+ * «Дані підтвердження» takes a share rather than the slack: both middle columns
+ * are prose, and left to fight for the leftover width one of them wins by
+ * however long this person's publication titles happen to be.
+ */
+const KHARAKTERYSTYKA_COLUMNS = ['calc(4ch + 2.5rem)', null, '42%', '9rem'];
+
+/** Static, so the shell prints it rather than drawing four grey bars. */
+const KHARAKTERYSTYKA_HEAD = (
+  <TableRow>
+    <TableHead align="center">№</TableHead>
+    <TableHead>Показник активності</TableHead>
+    <TableHead>Дані підтвердження показника</TableHead>
+    <TableHead align="center">Статус</TableHead>
+  </TableRow>
+);
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
 import type { Kharakterystyka, KharakterystykaPosition } from '@/lib/kharakterystyka/build';
 import { ManualEntries, type ManualEntry } from './manual-entries';
+import { EvidenceText } from './evidence-text';
 
 // The printed document is a three-column table — № з/п, Показник активності,
 // Дані підтвердження показника — and this keeps that shape, because the point of
@@ -11,12 +34,11 @@ import { ManualEntries, type ManualEntry } from './manual-entries';
 // screen the reader wants to know whether it is empty because nothing qualifies
 // or because nobody has typed it.
 
-const cell = 'border border-border px-3 py-2 align-top';
-
 export function KharakterystykaTable({
   data,
   sources,
   editing,
+  fill = false,
 }: {
   data: Kharakterystyka;
   /** Position number → the indicators that count towards it, from the template */
@@ -25,74 +47,128 @@ export function KharakterystykaTable({
    * Typing evidence by hand — ADMIN only, and absent everywhere else, so the
    * document stays read-only for the people who merely read it.
    */
-  editing?: { staffId: string; entries: ManualEntry[] };
+  editing?: {
+    staffId: string;
+    entries: ManualEntry[];
+    /** Positions this viewer may type. Omitted = every applicable one (ADMIN). */
+    positions?: readonly number[];
+    /** Whose document this is — a row `createdBy` this id was self-typed. */
+    selfId?: string;
+  };
+  /** Take the height the layout has left — see `Table`'s own note. */
+  fill?: boolean;
 }) {
   return (
-    <div className="space-y-4">
-      <Summary data={data} />
+    <Table
+      // «Дані підтвердження» takes a share rather than the slack: both middle
+      // columns are prose, and left to fight for the leftover width one of them
+      // wins by however long this person's publication titles happen to be.
+      columns={KHARAKTERYSTYKA_COLUMNS}
+      fill={fill}
+      head={KHARAKTERYSTYKA_HEAD}
+    >
+      <TableBody>
+        {data.positions.map((position) => (
+          <PositionRow
+            key={position.number}
+            position={position}
+            sources={sources?.[position.number]}
+            editing={editing}
+            years={{ from: data.from, to: data.to }}
+          />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
 
-      <div className="overflow-x-auto rounded-xl border bg-card">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-muted/60 text-left">
-              <th className={cn(cell, 'w-14 font-medium text-muted-foreground')}>№</th>
-              <th className={cn(cell, 'font-medium text-muted-foreground')}>Показник активності</th>
-              <th className={cn(cell, 'w-[45%] font-medium text-muted-foreground')}>
-                Дані підтвердження показника
-              </th>
-              <th className={cn(cell, 'w-28 font-medium text-muted-foreground')}>Стан</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.positions.map((position) => (
-              <PositionRow
-                key={position.number}
-                position={position}
-                sources={sources?.[position.number]}
-                editing={editing}
-                years={{ from: data.from, to: data.to }}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+/**
+ * The pill both the Статус column and the summary's verdict wear.
+ *
+ * They were the same seven classes written twice, one of which had already
+ * drifted — the summary's verdict was plain coloured text while the row's was a
+ * tinted capsule, so the same fact looked like two different kinds of thing on
+ * one screen (owner, 2026-09-08).
+ *
+ * Green means «meets it», amber «does not yet» — the narrow status-indicator
+ * exception to the monochrome rule, and this is one condition rather than a
+ * category.
+ */
+function Pill({
+  tone,
+  icon,
+  children,
+}: {
+  tone: 'met' | 'short';
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+        tone === 'met' ? 'bg-success-surface text-success' : 'bg-warning-surface text-warning'
+      )}
+    >
+      {icon}
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The verdict — «8 з 20 · Відповідає».
+ *
+ * Its own component rather than a row of the table (owner, 2026-09-08). It was
+ * tried as the pinned footer, on the argument that it is what the twenty rows
+ * add up to — but it is not a total the way the rating's is: it is a STATE, and
+ * a state belongs with the other controls that say what you are looking at,
+ * beside the tabs, not at the bottom of the thing it describes.
+ *
+ * **Neutral shell, coloured verdict** (owner, 2026-09-08). A whole green bar
+ * shouts a status the reader is not being asked to act on; the one word that
+ * carries the answer is enough, and §3 keeps hue for exactly that — one
+ * condition, on the narrowest thing that can say it.
+ *
+ * Built the same way as the tab bar beside it — `p-1` around `h-8` content —
+ * rather than given a height of its own. A fixed `h-10` came out a pixel short,
+ * and a box that nearly matches reads worse than one that plainly does not;
+ * sharing the construction means they cannot drift again.
+ */
+export function KharakterystykaSummary({ data }: { data: Kharakterystyka }) {
+  return (
+    // No border and no fill of its own: it is one item inside the tab's
+    // `ToolbarGroup`, which draws the strip for everything on the row.
+    <div className="flex h-8 items-center gap-2.5 px-2">
+      <span className="text-sm font-semibold tabular-nums">
+        {data.metCount} з {data.positions.length}
+      </span>
+      <span className="text-sm whitespace-nowrap text-muted-foreground">
+        позицій · {data.from}–{data.to}
+      </span>
+      <Pill
+        tone={data.qualifies ? 'met' : 'short'}
+        icon={data.qualifies ? <Check className="size-3" /> : undefined}
+      >
+        {data.qualifies ? 'Відповідає' : `Потрібно ${REQUIRED_POSITIONS}`}
+      </Pill>
     </div>
   );
 }
 
-function Summary({ data }: { data: Kharakterystyka }) {
-  return (
-    <div
-      className={cn(
-        'flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-xl border px-4 py-3',
-        // Green for «meets the licence bar», amber for «does not yet» — the
-        // narrow status-indicator exception to the monochrome rule, and this is
-        // one condition rather than a category.
-        data.qualifies
-          ? 'border-emerald-600/30 bg-emerald-600/5'
-          : 'border-amber-600/30 bg-amber-600/5'
-      )}
-    >
-      <span className="text-lg font-semibold tabular-nums">
-        {data.metCount} з {data.positions.length}
-      </span>
-      <span className="text-sm text-muted-foreground">
-        позицій за {data.from}–{data.to} рр.
-      </span>
-      <span
-        className={cn(
-          'ml-auto text-sm font-medium',
-          data.qualifies
-            ? 'text-emerald-700 dark:text-emerald-400'
-            : 'text-amber-700 dark:text-amber-500'
-        )}
-      >
-        {data.qualifies
-          ? `Відповідає (потрібно ${REQUIRED_POSITIONS})`
-          : `Потрібно щонайменше ${REQUIRED_POSITIONS}`}
-      </span>
-    </div>
-  );
+function dedupe(
+  sources: { itemNumber: string; label: string }[]
+): { itemNumber: string; label: string }[] {
+  const byNumber = new Map<string, string[]>();
+  for (const s of sources) {
+    const labels = byNumber.get(s.itemNumber) ?? [];
+    if (!labels.includes(s.label)) labels.push(s.label);
+    byNumber.set(s.itemNumber, labels);
+  }
+  return [...byNumber].map(([itemNumber, labels]) => ({
+    itemNumber,
+    label: labels.join(' · '),
+  }));
 }
 
 function PositionRow({
@@ -104,7 +180,14 @@ function PositionRow({
   position: KharakterystykaPosition;
   /** Indicators that count towards this position, from the year's template */
   sources?: { itemNumber: string; label: string }[];
-  editing?: { staffId: string; entries: ManualEntry[] };
+  editing?: {
+    staffId: string;
+    entries: ManualEntry[];
+    /** Positions this viewer may type. Omitted = every applicable one (ADMIN). */
+    positions?: readonly number[];
+    /** Whose document this is — a row `createdBy` this id was self-typed. */
+    selfId?: string;
+  };
   /** The document's five-year window, so a typed row cannot fall outside it */
   years: { from: number; to: number };
 }) {
@@ -113,13 +196,20 @@ function PositionRow({
   const inapplicable = position.fill === 'NOT_APPLICABLE';
   // Everything but the military positions, which this university may not claim
   // at all — there is nothing to type there, so no control is offered.
-  const canType = !!editing && !inapplicable;
+  //
+  // `positions` narrows it further for an НПП on their own document: they get
+  // п.15 and п.20 and nothing else, so a derived position keeps showing what
+  // the rating found rather than offering a box to contradict it.
+  const allowedHere = !editing?.positions || editing.positions.includes(position.number);
+  const canType = !!editing && !inapplicable && allowedHere;
 
   return (
-    <tr className={cn('transition-colors hover:bg-muted/20', inapplicable && 'opacity-55')}>
-      <td className={cn(cell, 'text-muted-foreground tabular-nums')}>{position.number}</td>
+    <TableRow className={cn(inapplicable && 'opacity-55')}>
+      <TableCell muted align="center" className="tabular-nums">
+        {position.number}
+      </TableCell>
 
-      <td className={cell}>
+      <TableCell>
         <p>{position.title}</p>
         {position.note && <p className="mt-1 text-xs text-muted-foreground">{position.note}</p>}
         {/* Where this position takes its value from. Only the exceptions used to
@@ -131,7 +221,7 @@ function PositionRow({
         {position.fill === 'DERIVED' && sources && sources.length > 0 && (
           <p className="mt-1 text-xs text-muted-foreground">
             Зараховуються показники:{' '}
-            {sources.map((s, i) => (
+            {dedupe(sources).map((s, i) => (
               <span key={s.itemNumber}>
                 {i > 0 && ', '}
                 <span className="tabular-nums" title={s.label}>
@@ -141,9 +231,9 @@ function PositionRow({
             ))}
           </p>
         )}
-      </td>
+      </TableCell>
 
-      <td className={cell}>
+      <TableCell>
         {position.entries.length === 0 && !canType ? (
           <span className="text-xs text-muted-foreground">—</span>
         ) : (
@@ -151,7 +241,7 @@ function PositionRow({
             {position.entries.map((entry, i) => (
               <li key={`${entry.itemNumber}-${i}`} className="text-xs">
                 <span className="text-muted-foreground tabular-nums">{entry.itemNumber}</span>{' '}
-                <span className="whitespace-pre-line">{entry.summary}</span>{' '}
+                <EvidenceText text={entry.summary} />{' '}
                 <span className="text-muted-foreground">({entry.year})</span>
               </li>
             ))}
@@ -162,26 +252,26 @@ function PositionRow({
             staffId={editing.staffId}
             position={position.number}
             entries={editing.entries.filter((e: ManualEntry) => e.position === position.number)}
+            selfId={editing.selfId}
             minYear={years.from}
             maxYear={years.to}
           />
         )}
-      </td>
+      </TableCell>
 
-      <td className={cell}>
+      <TableCell align="center">
         <Status position={position} />
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
 function Status({ position }: { position: KharakterystykaPosition }) {
   if (position.met) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/10 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-emerald-700 dark:text-emerald-400">
-        <Check className="size-3" />
+      <Pill tone="met" icon={<Check className="size-3" />}>
         Виконано
-      </span>
+      </Pill>
     );
   }
 
@@ -206,3 +296,41 @@ function Status({ position }: { position: KharakterystykaPosition }) {
 
   return <span className="text-xs whitespace-nowrap text-muted-foreground">Не виконано</span>;
 }
+
+/**
+ * The document with its real head, and a shimmer per cell.
+ *
+ * **Twenty licence positions, always** — the count is the п.38 list, not this
+ * person's data — so the shell shows rows of the right shape. `fill` matches
+ * the real table: the card takes the height that is left.
+ *
+ * Two lines of prose in the middle columns, because that is what a position's
+ * wording and its evidence are; a single line would settle into the real height
+ * with a visible jump.
+ */
+KharakterystykaTable.Shell = function KharakterystykaTableShell() {
+  return (
+    <Table fill columns={KHARAKTERYSTYKA_COLUMNS} head={KHARAKTERYSTYKA_HEAD}>
+      <TableBody>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <TableRow key={i}>
+            <TableCell align="center">
+              <Skeleton className="mx-auto h-4 w-5" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="mt-1.5 h-4 w-4/5" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="mt-1.5 h-4 w-3/4" />
+            </TableCell>
+            <TableCell align="center">
+              <Skeleton className="mx-auto h-5 w-24 rounded-full" />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};

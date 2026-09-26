@@ -18,17 +18,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Pagination } from '@/components/ui/pagination';
+} from '@/components/aurora/ui/alert-dialog';
+import { Button } from '@/components/aurora/ui/button';
+import { Input } from '@/components/aurora/ui/input';
+import { Pagination } from '@/components/aurora/ui/pagination';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import {
   evidenceDefaults,
@@ -39,6 +39,7 @@ import type { ScoringSpec } from '@/lib/rating/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { cn } from '@/lib/utils';
 import { sumScores } from '@/lib/round';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 export interface EntryGridType {
   id: string;
@@ -295,9 +296,9 @@ function EntryCell({
       className={cn(
         'min-w-14 rounded-md border px-2.5 py-1 text-left tabular-nums transition-colors',
         entries.length > 0
-          ? 'border-transparent bg-primary/10 font-medium text-primary'
+          ? 'border-transparent bg-brand/10 font-medium text-brand'
           : 'border-dashed text-muted-foreground',
-        !readOnly && 'cursor-pointer hover:border-primary/50'
+        !readOnly && 'cursor-pointer hover:border-brand/50'
       )}
       aria-label={
         entries.length > 0
@@ -421,7 +422,7 @@ function EntryList({
               disabled={isPending}
               onClick={() => remove(e.id)}
               aria-label="Видалити запис"
-              className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+              className="size-8 shrink-0 text-muted-foreground hover:text-error"
             >
               <Trash2 className="size-4" />
             </Button>
@@ -482,19 +483,28 @@ function CellForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {type.coefficientNote && (
-        <p className="text-xs whitespace-pre-line text-muted-foreground">{type.coefficientNote}</p>
-      )}
-      <EvidenceFields fields={type.fields} register={register} control={control} errors={errors} />
-      <div className="flex items-center gap-2">
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? 'Збереження…' : 'Зберегти'}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={onCancel}>
-          Назад
-        </Button>
-      </div>
-    </form>
+    <RequiredFields schema={schema}>
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {type.coefficientNote && (
+          <p className="text-xs whitespace-pre-line text-muted-foreground">
+            {type.coefficientNote}
+          </p>
+        )}
+        <EvidenceFields
+          fields={type.fields}
+          register={register}
+          control={control}
+          errors={errors}
+        />
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm" disabled={isPending}>
+            {isPending ? 'Збереження…' : 'Зберегти'}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={isPending} onClick={onCancel}>
+            Назад
+          </Button>
+        </div>
+      </form>
+    </RequiredFields>
   );
 }

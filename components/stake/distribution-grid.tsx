@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Save, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,8 +16,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
+} from '@/components/aurora/ui/alert-dialog';
+import { Input } from '@/components/aurora/ui/input';
+import { Card } from '@/components/aurora/ui/card';
+import { Table, TableBody, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { cn } from '@/lib/utils';
 import { round2 } from '@/lib/round';
 import {
@@ -522,13 +524,16 @@ export function DistributionGrid({
     });
   }
 
+  const ownStaff = view.rows.filter((row) => !row.isPartTime);
+  const partTimers = view.rows.filter((row) => row.isPartTime);
+
   return (
-    // An ordinary block, NOT a `h-full` flex column. It used to be one, which
-    // worked only while the grid was the last thing on the page: the moment
-    // anything followed it, `flex-1` had nothing left to claim and the table
-    // collapsed to the height of its own scrollbar. The rows scroll inside a
-    // bounded box instead, which cannot be squeezed by a sibling.
-    <div className="flex flex-col gap-4">
+    // A flex column that takes the height the page leaves (2026-09-24), so the
+    // table can `fill` it and its rows scroll inside the card. It used to be an
+    // ordinary block with its own capped scroll box, because a `flex-1` grid
+    // collapsed once anything followed it — nothing does now, and the page is
+    // `flex h-full min-h-0 flex-col` down to here.
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <Totals
         kst={kst}
         distributed={distributed}
@@ -601,17 +606,17 @@ export function DistributionGrid({
                   moves the proposal only, and closing the tab loses it. */}
               <span className="text-xs">
                 {pending ? (
-                  <span className="text-muted-foreground">Збереження…</span>
+                  <span className="text-foreground-soft">Збереження…</span>
                 ) : blockedBy ? (
                   // Said BEFORE anything is typed, not after (2026-08-17). It
                   // used to wait for `dirty`, so a head with no Кст met a grid
                   // that looked ordinary, typed into it, and only then learned
                   // nothing could be saved — and only they could not fix it.
-                  <span className="text-amber-700 dark:text-amber-500">{blockedBy}</span>
+                  <span className="text-warning">{blockedBy}</span>
                 ) : dirty ? (
-                  <span className="text-muted-foreground">Незбережені зміни</span>
+                  <span className="text-foreground-soft">Незбережені зміни</span>
                 ) : savedAt ? (
-                  <span className="text-emerald-700 dark:text-emerald-400">Збережено</span>
+                  <span className="text-success">Збережено</span>
                 ) : null}
               </span>
             </>
@@ -625,7 +630,7 @@ export function DistributionGrid({
       />
 
       {!view.computable && (
-        <p className="rounded-lg border border-amber-600/30 bg-amber-600/5 px-4 py-2 text-xs text-amber-700 dark:text-amber-500">
+        <p className="rounded-lg border border-warning/40 bg-warning-surface px-4 py-2 text-xs text-warning">
           {view.knpp === 0
             ? 'Кнпп = 0 — на кафедрі немає НПП із 4+ позиціями ліцензійних умов, тому формула не рахується. Усі отримують мінімальну ставку, доки це не зміниться.'
             : 'Ні в кого немає рейтингових балів за цей рік, тому формула не рахується.'}
@@ -633,7 +638,7 @@ export function DistributionGrid({
       )}
 
       {error && (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+        <p className="rounded-lg border border-error/40 bg-error/5 px-4 py-2 text-sm text-error-strong">
           {error}
         </p>
       )}
@@ -677,91 +682,120 @@ export function DistributionGrid({
           thirty does not push «Усі кафедри» off the bottom of the world, and a
           кафедра of three takes only the height it needs. Dashed while this is
 */}
-      <div className={cn('max-h-[min(60vh,40rem)] overflow-auto rounded-xl border bg-card')}>
-        {/* Headings are pinned, because scrolling a кафедра of thirty carries
-            «Розподілено» and «Макс» off the top otherwise, and the columns are
-            all numbers that look alike. Each cell needs its own background:
-            rows would show through the row's translucent tint. */}
-        <table className="w-full border-collapse text-sm [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted">
-          <thead>
-            <tr className="text-left">
-              {/* Column order is the owner's, given 2026-08-17 and not to be
-                  rearranged again: ПІБ → рейтинг → здобувачі → статуси → мін →
-                  макс → ставка → рекомендовано. It reads as one sentence — who
-                  they are, what they scored, what they brought in, what bounds
-                  them, what they get, what they were owed.
+      {/* Аврора's `Table` (2026-09-24): the header stays on screen, the rows
+          scroll inside the card, and one hairline separates the cells where
+          every cell used to carry a border of its own — the spreadsheet look
+          the table component exists to end. `fill` takes the height the page
+          leaves, so the page itself does not scroll.
 
-                  «За формулою» is deliberately NOT a column of its own. It was
-                  added as one and taken out again: the owner's list does not
-                  have it, and the number matters in exactly one place — under
-                  the ставка it is the floor for. It sits there instead. */}
-              <th className="min-w-40 border border-border px-2 py-2 font-medium whitespace-nowrap text-muted-foreground">
-                НПП
-              </th>
-              <th className="w-20 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
-                Рейтинг
-              </th>
-              <th
-                className={cn(
-                  'border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground',
-                  audience === 'head' ? 'w-52' : 'w-28'
-                )}
-              >
-                <span className="inline-flex items-center gap-1">
-                  Здобувачі
-                  <StakeTermHint term="bonus" />
-                </span>
-              </th>
-              <th className="w-24 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  Статуси
-                  <StakeTermHint term="status" />
-                </span>
-              </th>
-              <th
-                className={cn(
-                  'border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground',
-                  canEditLimits ? 'w-28' : 'w-20'
-                )}
-              >
-                <span className="inline-flex items-center gap-1">
-                  Мін
-                  <StakeTermHint term="min" />
-                </span>
-              </th>
-              <th
-                className={cn(
-                  'border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground',
-                  canEditLimits ? 'w-28' : 'w-20'
-                )}
-              >
-                {/* Макс had no explanation at all, and it is the one bound that
-                    also moves the formula — a lower ceiling makes the proposal
-                    smaller, which is not guessable from the column. */}
-                <span className="inline-flex items-center gap-1">
-                  Макс
-                  <StakeTermHint term="max" />
-                </span>
-              </th>
-              <th className="w-28 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  За формулою
-                  <StakeTermHint term="formula" />
-                </span>
-              </th>
-              <th className="w-32 border border-border px-2 py-2 text-right font-medium whitespace-nowrap text-muted-foreground">
-                Ставка
-              </th>
-              <th className="w-24 border border-border px-2 py-2 text-right font-medium text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  Рекомендовано
-                  <StakeTermHint term="recommended" />
-                </span>
-              </th>
+          Column order is the owner's, given 2026-08-17 and not to be
+          rearranged again: ПІБ → рейтинг → здобувачі → статуси → мін → макс →
+          за формулою → ставка → рекомендовано. It reads as one sentence — who
+          they are, what they scored, what they brought in, what bounds them,
+          what they get, what they were owed. */}
+      <Table
+        columns={gridColumns(audience, canEditLimits)}
+        minWidth={gridMinWidth(audience, canEditLimits)}
+        // The rows a size up from the table's 14px (owner, 2026-09-24): this is
+        // a working screen of figures somebody compares for an hour. Headings
+        // keep their own size; the fields keep theirs (§4 — never below 14px
+        // inside a field, and 16px would widen every one of them).
+        className="[&_tbody]:text-base"
+        fill
+        head={
+          <TableRow>
+            <TableHead>НПП</TableHead>
+            {/* Every heading but the name centred and on one line, with 8px sides
+                instead of 16 so nine of them fit (owner, 2026-09-24). */}
+            <TableHead align="center" className="px-2 whitespace-nowrap">
+              Рейтинг
+            </TableHead>
+            <TableHead align="center" className="px-2 whitespace-nowrap">
+              <HeadHint term="bonus">Бонус за здобувачів</HeadHint>
+            </TableHead>
+            <TableHead align="center" className="px-2 whitespace-nowrap">
+              <HeadHint term="status">Бонус за статус</HeadHint>
+            </TableHead>
+            <TableHead align="center" className="px-2 whitespace-nowrap">
+              <HeadHint term="min">Мін</HeadHint>
+            </TableHead>
+            <TableHead align="center" className="px-2 whitespace-nowrap">
+              {/* Макс had no explanation at all, and it is the one bound that
+                  also moves the formula — a lower ceiling makes the proposal
+                  smaller, which is not guessable from the column. */}
+              <HeadHint term="max">Макс</HeadHint>
+            </TableHead>
+            <TableHead align="center" className="px-2 whitespace-nowrap">
+              <HeadHint term="formula">За формулою</HeadHint>
+            </TableHead>
+            <TableHead align="center" className="px-2 whitespace-nowrap">
+              Ставка
+            </TableHead>
+            <TableHead align="center" className="px-2 whitespace-nowrap">
+              <HeadHint term="recommended">Рекомендовано</HeadHint>
+            </TableHead>
+          </TableRow>
+        }
+      >
+        {/* The кафедра's own people, then «Сумісники» under a heading of their
+            own (owner, 2026-09-24) — the rating table's section rows on the
+            profile, in place of a «Сумісник» badge on every one of their rows.
+            They were already sorted last; the heading says why. Each section
+            is its own <tbody>, which is what lets its heading stick while the
+            rows scroll (see `Table`, note 5). */}
+        <TableBody>
+          {ownStaff.map((row) => (
+            <Row
+              key={row.staffId}
+              row={row}
+              view={view}
+              audience={audience}
+              value={values[row.staffId]}
+              canEdit={canEdit}
+              canEditLimits={canEditLimits}
+              canOpenStaffProfile={canOpenStaffProfile}
+              disabled={pending}
+              overspent={floorLifted}
+              statusValues={statusValues}
+              // Only the ставка field. With no Кст the distribution cannot be
+              // saved, so an enabled field there is an invitation to lose
+              // work — but Мін/Макс write through `setStaffLimits`, which does
+              // not need a pool, and ADMIN may legitimately set bounds before
+              // the проректор funds the кафедра.
+              distributionBlocked={!!blockedBy}
+              headroom={headroom}
+              limits={limits[row.staffId] ?? { min: '', max: '' }}
+              limitError={limitErrors[row.staffId] ?? null}
+              limitsPending={limitsPending}
+              onChange={(next) => setValue(row, next)}
+              onLimitChange={(bound, next) =>
+                setLimits((l) => ({
+                  ...l,
+                  [row.staffId]: { ...l[row.staffId], [bound]: next },
+                }))
+              }
+              onLimitCommit={(next) => commitLimits(row, next)}
+            />
+          ))}
+          {view.rows.length === 0 && (
+            <tr>
+              <td colSpan={9} className="px-3 py-10 text-center text-foreground-soft">
+                На кафедрі немає НПП
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {view.rows.map((row) => (
+          )}
+        </TableBody>
+        {partTimers.length > 0 && (
+          <TableBody>
+            <TableRow variant="group">
+              {/* Their кафедра is elsewhere and this one also pays them
+                  (2026-08-24): the ставка comes out of two pools, and they do
+                  not count toward this кафедра's Кнпп. */}
+              <td colSpan={9} className="px-3 py-2 text-sm">
+                Сумісники
+              </td>
+            </TableRow>
+            {partTimers.map((row) => (
               <Row
                 key={row.staffId}
                 row={row}
@@ -794,30 +828,55 @@ export function DistributionGrid({
                 onLimitCommit={(next) => commitLimits(row, next)}
               />
             ))}
-            {view.rows.length === 0 && (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="border border-border px-3 py-10 text-center text-muted-foreground"
-                >
-                  На кафедрі немає НПП
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        )}
+      </Table>
 
       {/* Only for the head, and only when at least one chip came back
           `unknown`. Without it a gray chip is an unexplained absence of
           colour rather than an answer. */}
       {audience === 'head' && hasUnknownOrigin && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-foreground-soft">
           Деякі спеціальності у колонці «Бонус» показані сірим: визначити «своя / чужа кафедра» для
           них неможливо.
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * The grid's column widths, in the owner's column order. `null` is the ПІБ,
+ * which absorbs the slack. The widths ADD UP (§12): a head's editable grid is
+ * 6 + 12 + 9.5 + 7 + 7 + 8.5 + 7 + 9.5 = 66.5rem plus a 14rem floor for the
+ * ПІБ = 80.5rem (1288px). Every width is still an even number of pixels. A window narrower than ~1570px scrolls the table sideways
+ * inside its card rather than breaking a heading or squeezing the names.
+ */
+function gridColumns(audience: 'admin' | 'head', canEditLimits: boolean): (string | null)[] {
+  const limit = canEditLimits ? '7rem' : '5rem';
+  // **Every heading on ONE line** (owner, 2026-09-24), so each column is at
+  // least its heading — measured in the browser, text + «ⓘ» + the heading's
+  // 8px sides: «Бонус за здобувачів» 182px, «Бонус за статус» 151px, «За
+  // формулою» 130px, «Рекомендовано» 149px, «Рейтинг» 74px. An editable Мін /
+  // Макс / Ставка is set by its field and ▲▼ (104px), not by its heading.
+  // Рейтинг is set by its widest VALUE, «5015.63» at 16px, not its heading.
+  // Every value is centred under its centred heading (owner, 2026-09-24).
+  return [null, '6rem', '12rem', '9.5rem', limit, limit, '8.5rem', '7rem', '9.5rem'];
+}
+
+function gridMinWidth(audience: 'admin' | 'head', canEditLimits: boolean): string {
+  const widths = gridColumns(audience, canEditLimits).filter((w): w is string => w !== null);
+  return `calc(14rem + ${widths.join(' + ')})`;
+}
+
+/** A column heading with its «ⓘ» — kept together so the hint never wraps away
+ *  from the word it explains. */
+function HeadHint({ term, children }: { term: StakeTerm; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      {children}
+      <StakeTermHint term={term} />
+    </span>
   );
 }
 
@@ -914,39 +973,44 @@ function Totals({
   const leftTotal = leftBase + leftBonus;
 
   return (
-    <div className="rounded-xl border bg-card">
-      <div className="flex flex-wrap items-stretch gap-3 px-5 py-4">
-        <PoolCard
-          label="Основний фонд"
-          term="kst"
-          value={kst === null ? '—' : formatStake(kst)}
-          note={kst === null ? 'не задано' : `залишок ${formatStake(leftBase)}`}
-          noteTone={kst !== null && leftBase < 0 ? 'bad' : undefined}
-        />
-        <PoolCard
-          label="Бонусний фонд"
-          term="bonusPool"
-          value={bonusPool === null ? '—' : formatStake(bonusPool)}
-          note={bonusPool === null ? 'не задано' : `залишок ${formatStake(leftBonus)}`}
-        />
-        {/* The addition is kept visible under the sum. «7,50» alone is a number
+    <Card padding="none" className="shrink-0">
+      <div className="flex flex-wrap items-stretch gap-x-3 gap-y-3 px-5 py-4">
+        {/* Figures side by side with a hairline between them, inside the one
+            card — they were three bordered boxes inside it, a card within a
+            card (owner, 2026-09-24). */}
+        <div className="flex flex-wrap divide-x">
+          <PoolCard
+            label="Основний фонд"
+            term="kst"
+            value={kst === null ? '—' : formatStake(kst)}
+            note={kst === null ? 'не задано' : `залишок ${formatStake(leftBase)}`}
+            noteTone={kst !== null && leftBase < 0 ? 'bad' : undefined}
+          />
+          <PoolCard
+            label="Бонусний фонд"
+            term="bonusPool"
+            value={bonusPool === null ? '—' : formatStake(bonusPool)}
+            note={bonusPool === null ? 'не задано' : `залишок ${formatStake(leftBonus)}`}
+          />
+          {/* The addition is kept visible under the sum. «7,50» alone is a number
             somebody has to trust; «6,25 + 1,25» is one they can check. */}
-        <PoolCard
-          label="Залишок"
-          term="remaining"
-          value={kst === null ? '—' : formatStake(leftTotal)}
-          // Named, not just added. «0,00 + 1,00» made the reader work out which
-          // half was which from the two cards to its left; saying it costs one
-          // wrapped line and removes the guess.
-          note={
-            kst === null
-              ? undefined
-              : `основний ${formatStake(leftBase)} + бонусний ${formatStake(leftBonus)}`
-          }
-          tone={overspent ? 'bad' : 'good'}
-        />
+          <PoolCard
+            label="Залишок"
+            term="remaining"
+            value={kst === null ? '—' : formatStake(leftTotal)}
+            // Named, not just added. «0,00 + 1,00» made the reader work out which
+            // half was which from the two cards to its left; saying it costs one
+            // wrapped line and removes the guess.
+            note={
+              kst === null
+                ? undefined
+                : `основний ${formatStake(leftBase)} + бонусний ${formatStake(leftBonus)}`
+            }
+            tone={overspent ? 'bad' : 'good'}
+          />
+        </div>
 
-        <div className="ml-auto flex flex-col justify-center gap-1 text-right text-xs text-muted-foreground">
+        <div className="ml-auto flex flex-col justify-center gap-1 text-right text-sm text-foreground">
           <span>Розподілено: {formatStake(distributed)}</span>
           <span className="inline-flex items-center justify-end gap-1">
             Формула пропонує: {formatStake(formulaTotal)}
@@ -960,7 +1024,7 @@ function Totals({
       </div>
 
       {remainingNote && (
-        <p className="border-t border-amber-600/30 bg-amber-600/5 px-5 py-2 text-xs text-amber-700 dark:text-amber-500">
+        <p className="border-t border-warning/40 bg-warning-surface px-5 py-2 text-xs text-warning">
           {remainingNote}
         </p>
       )}
@@ -968,10 +1032,10 @@ function Totals({
       {(actions || filled) && (
         <div className="flex flex-wrap items-center gap-3 border-t px-5 py-2.5">
           {actions}
-          {filled && <span className="ml-auto text-xs text-muted-foreground">{filled}</span>}
+          {filled && <span className="ml-auto text-xs text-foreground-soft">{filled}</span>}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -999,16 +1063,16 @@ function PoolCard({
   tone?: 'good' | 'bad';
 }) {
   return (
-    <div className="min-w-40 rounded-lg border px-4 py-3">
-      <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+    <div className="min-w-40 px-5 first:pl-0">
+      <p className="inline-flex items-center gap-1 text-xs text-foreground-soft">
         {label}
         {term && <StakeTermHint term={term} />}
       </p>
       <p
         className={cn(
           'mt-1 text-2xl font-semibold tabular-nums',
-          tone === 'bad' && 'text-destructive',
-          tone === 'good' && 'text-emerald-700 dark:text-emerald-400'
+          tone === 'bad' && 'text-error',
+          tone === 'good' && 'text-success'
         )}
       >
         {value}
@@ -1017,7 +1081,7 @@ function PoolCard({
         <p
           className={cn(
             'mt-0.5 text-xs tabular-nums',
-            noteTone === 'bad' ? 'text-destructive' : 'text-muted-foreground'
+            noteTone === 'bad' ? 'text-error' : 'text-foreground-soft'
           )}
         >
           {note}
@@ -1070,11 +1134,7 @@ function LimitCell({
 
   if (!editable) {
     // A head sees the bounds they are working inside but cannot move them.
-    return (
-      <td className="border border-border px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
-        {value}
-      </td>
-    );
+    return <td className="px-3 py-2 text-center text-foreground-soft tabular-nums">{value}</td>;
   }
 
   const stored = bound === 'min' ? row.minHundredths : row.maxHundredths;
@@ -1095,8 +1155,8 @@ function LimitCell({
   }
 
   return (
-    <td className="border border-border px-2 py-2">
-      <div className="flex items-center justify-end gap-1">
+    <td className="px-2 py-2">
+      <div className="flex items-center justify-center gap-1">
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -1116,8 +1176,8 @@ function LimitCell({
             // Dimmed while these are the defaults, so «set for this person»
             // still reads differently from «nobody has decided» without a word
             // of text repeated down every row.
-            !row.hasOwnLimits && 'text-muted-foreground',
-            error && 'border-destructive'
+            !row.hasOwnLimits && 'text-foreground-soft',
+            error && 'border-error'
           )}
         />
         <StakeStepper
@@ -1130,7 +1190,7 @@ function LimitCell({
           label={`${accusative} ставку для ${row.name}`}
         />
       </div>
-      {error && <p className="mt-1 max-w-40 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1 max-w-40 text-xs text-error">{error}</p>}
     </td>
   );
 }
@@ -1241,59 +1301,53 @@ function Row({
   });
 
   return (
-    <tr className="transition-colors hover:bg-muted/20">
-      <td className="border border-border px-3 py-2 align-middle">
-        {/* Opens in a new tab on purpose: this grid holds unsaved work, and
-            navigating away in place would drop it. */}
-        <Link
-          href={
-            canOpenStaffProfile ? `/staff/${row.staffId}` : `/staff/${row.staffId}/kharakterystyka`
-          }
-          target="_blank"
-          rel="noopener noreferrer"
-          title={
-            canOpenStaffProfile
-              ? 'Відкрити профіль НПП у новій вкладці'
-              : 'Відкрити характеристику НПП у новій вкладці'
-          }
-          className="whitespace-nowrap underline-offset-4 hover:underline"
-        >
-          {row.name}
-        </Link>
-        {/* Their кафедра is elsewhere and this one also pays them (2026-08-24).
-            A muted pill rather than a coloured row: hue is for a chart series
-            or a small state indicator, and «works here part-time» is neither an
-            error nor a warning. Their bounds and their sort differ; nothing
-            else about the row does. */}
-        {row.isPartTime && (
-          <span
-            className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-500"
-            title="Основна кафедра цієї людини — інша. Тут вона працює за сумісництвом, і ця кафедра теж призначає їй ставку."
-          >
-            Сумісник
+    <TableRow hoverable className="[&>td]:align-middle">
+      <td className="px-3 py-2 align-middle">
+        {/* The name on the left, «позицій із 20» at
+            the cell's right edge (owner, 2026-09-24), so the scores form a
+            column of their own down the grid instead of trailing each name at
+            a different x. */}
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="min-w-0">
+            {/* Opens in a new tab on purpose: this grid holds unsaved work, and
+                navigating away in place would drop it. */}
+            <Link
+              href={
+                canOpenStaffProfile
+                  ? `/staff/${row.staffId}`
+                  : `/staff/${row.staffId}/kharakterystyka`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              title={
+                canOpenStaffProfile
+                  ? 'Відкрити профіль НПП у новій вкладці'
+                  : 'Відкрити характеристику НПП у новій вкладці'
+              }
+              className="underline-offset-4 hover:underline"
+            >
+              {row.name}
+            </Link>
           </span>
-        )}
-        {/* «позицій із 20» on every row, not only the ones falling short: the
-            head is looking at who counts towards Кнпп, and a badge that appears
-            only on failures makes its absence the message, which is easy to
-            read as «not measured». Green clears the licence bar, red does not.
-
-            Red here does NOT mean this person is paid less. Кнпп is a divisor
-            in the formula and nothing else — everybody on the кафедра receives
-            a ставка, which the title says in full. */}
-        <span
-          className={cn(
-            'ml-2 text-xs font-medium tabular-nums',
-            row.qualifies ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'
-          )}
-          title={
-            row.qualifies
-              ? `${row.positions} із 20 позицій ліцензійних умов — входить до Кнпп`
-              : `${row.positions} із 20 позицій ліцензійних умов — не входить до Кнпп, але ставку отримує`
-          }
-        >
-          {row.positions}/20
-        </span>
+          {/* On every row, not only the ones falling short: the head is looking
+              at who counts towards Кнпп, and a badge that appears only on
+              failures makes its absence the message. Green clears the licence
+              bar, red does not — and red does NOT mean this person is paid
+              less: Кнпп is a divisor in the formula and nothing else. */}
+          <span
+            className={cn(
+              'shrink-0 text-sm font-medium whitespace-nowrap tabular-nums',
+              row.qualifies ? 'text-success' : 'text-error-strong'
+            )}
+            title={
+              row.qualifies
+                ? `${row.positions} із 20 позицій ліцензійних умов — входить до Кнпп`
+                : `${row.positions} із 20 позицій ліцензійних умов — не входить до Кнпп, але ставку отримує`
+            }
+          >
+            {row.positions}/20
+          </span>
+        </div>
       </td>
 
       {/* The stored score, not a rounded one. A завідувач reads this column
@@ -1303,17 +1357,17 @@ function Row({
           it. `round2` only strips float dust; the value is already 2-decimal
           in RatingEntry, and /profile has always shown it unrounded. */}
       <td
-        className="border border-border px-3 py-2 text-right text-muted-foreground tabular-nums"
+        className="px-3 py-2 text-center text-foreground-soft tabular-nums"
         title={`${row.rating} балів`}
       >
         {round2(row.rating)}
       </td>
 
-      <td className="border border-border px-2 py-2 text-right text-xs tabular-nums">
+      <td className="px-2 py-2 text-center tabular-nums">
         <BonusCell bonus={row.bonus} audience={audience} />
       </td>
 
-      <td className="border border-border px-2 py-2 text-right text-xs">
+      <td className="px-2 py-2 text-center">
         <StatusCell position={row.adminPosition} values={statusValues} />
       </td>
 
@@ -1338,7 +1392,7 @@ function Row({
         onCommit={onLimitCommit}
       />
 
-      <td className="border border-border px-2 py-2 text-right tabular-nums">
+      <td className="px-2 py-2 text-center tabular-nums">
         {/* `row.clampedTo` is deliberately NOT drawn here (owner, 2026-08-25).
             A bare ↑ or ↓ beside the number said nothing a head could act on —
             the Мін/Макс that caused it are two columns to the left and already
@@ -1347,8 +1401,8 @@ function Row({
         {formatStake(row.formulaHundredths)}
       </td>
 
-      <td className="border border-border px-2 py-2">
-        <div className="flex items-center justify-end gap-1">
+      <td className="px-2 py-2">
+        <div className="flex items-center justify-center gap-1">
           <Input
             value={draft ?? formatStake(value)}
             onChange={(e) => setDraft(e.target.value)}
@@ -1372,7 +1426,7 @@ function Row({
             className={cn(
               'h-8 w-16 text-right tabular-nums',
               differs && 'font-medium',
-              outOfRange && 'border-destructive text-destructive'
+              outOfRange && 'border-error text-error'
             )}
           />
           <StakeStepper
@@ -1394,23 +1448,19 @@ function Row({
           this person earned. It may exceed Макс, and when it does the row says
           so rather than quietly showing the ceiling: that gap is exactly what a
           завідувач takes to the проректор. Nothing is applied from it. */}
-      <td className="border border-border px-3 py-2 text-right font-medium tabular-nums">
-        <span
-          className={cn(
-            recommended > fromHundredths(row.maxHundredths) && 'text-amber-700 dark:text-amber-500'
-          )}
-        >
+      <td className="px-3 py-2 text-center font-medium tabular-nums">
+        <span className={cn(recommended > fromHundredths(row.maxHundredths) && 'text-warning')}>
           {formatStakeValue(recommended)}
         </span>
         {recommended > fromHundredths(row.maxHundredths) && (
           <span
-            className="block text-[10px] font-normal text-muted-foreground"
+            className="block text-xs font-normal text-foreground-soft"
             title={`Понад Макс ${formatStake(row.maxHundredths)} — щоб дати більше, потрібно підняти межу`}
           >
             понад Макс
           </span>
         )}
       </td>
-    </tr>
+    </TableRow>
   );
 }

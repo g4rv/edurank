@@ -40,14 +40,14 @@ export function isEditorWritableField(fieldName: string): boolean {
   );
 }
 
-/** Staff fields a USER may edit on their own profile */
-export const USER_EDITABLE_STAFF_FIELDS: ReadonlySet<string> = new Set([
-  'phone',
-  'wosUrl',
-  'scopusUrl',
-  'googleScholarUrl',
-  'orcidId',
-]);
+/**
+ * Staff fields a USER may edit on their own profile.
+ *
+ * Defined in `lib/staff/editable-fields` and re-exported here so every existing
+ * import keeps working. It moved because this module imports `lib/auth`, which
+ * makes it unusable from pure code and from tests — see the note there.
+ */
+export { USER_EDITABLE_STAFF_FIELDS } from '@/lib/staff/editable-fields';
 
 /**
  * True when demoting or deleting this person would leave nobody able to sign

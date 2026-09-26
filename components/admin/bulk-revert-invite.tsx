@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +14,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import type { PendingInvite } from '@/lib/queries/list-pending-invites';
 import { revertInviteSentMany } from '@/app/(dashboard)/admin/invites/actions';
 

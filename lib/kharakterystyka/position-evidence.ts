@@ -34,6 +34,7 @@ import {
   isbn,
   number,
   opt,
+  dateRange,
   select,
   text,
   url,
@@ -46,7 +47,23 @@ const DEGREE_OPTIONS = [
 ];
 
 /** Position number → the fields its typed rows ask for */
-export const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
+export /**
+ * The range a «Рік …» field accepts.
+ *
+ * These carried a floor of 1950 and nothing above it, so 123123 was a valid
+ * year of employment: it saved, and printed into the licence document as «Рік
+ * початку: 123123». A floor alone is not a range.
+ *
+ * The ceiling is **twenty years out**, not the rating window and not today
+ * (owner, 2026-09-14). п.20 asks for practical work that may have ended long
+ * before the window opened, and an end year can legitimately sit in the future
+ * — an appointment someone still holds, a contract with a term. What it refuses
+ * is a year outside any plausible working life: 123123 saved before this and
+ * printed into a licence document as a year of employment.
+ */
+const LATEST_YEAR = new Date().getFullYear() + 20;
+
+const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   // ≥5 публікацій у фахових виданнях / Scopus / WoS. No quartile: the licence
   // asks only that the publication be in one of those lists, and a quartile the
   // rating uses for points would be a box nobody can answer for a 2022 article.
@@ -173,8 +190,10 @@ export const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   11: [
     text('organization', 'Назва установи / організації'),
     text('basis', 'Договір / підстава'),
-    number('fromYear', 'Рік початку', { min: 1950, int: true }),
-    number('toYear', 'Рік завершення', { min: 1950, int: true }),
+    // One range, not two ends (owner, 2026-09-14): a picker that writes them in
+    // order cannot produce «2019 → 2014», which two independent fields let
+    // through however they were validated.
+    dateRange('period', 'Період роботи'),
     url('link', 'Посилання', { optional: true }),
   ],
 
@@ -219,21 +238,52 @@ export const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   // vote and they declined to add one (2026-08-07). Every row here is typed, so
   // it is the position that most needs a form worth the name.
   15: [
+    // **Order and grouping are the owner's** (2026-09-14): who the школяр is,
+    // what you did, how far they got and where they placed, what the subject
+    // was — and the year last, because it is the one answer already filled in.
+    // All three obligatory (owner, 2026-09-14). `cyrillicName` is what keeps
+    // «фів» and «asdawdsad» out of a licence document.
+    text('pupilLast', 'Прізвище', {
+      join: 'pupil',
+      joinLabel: 'Дані про школяра',
+      rule: 'cyrillicName',
+    }),
+    text('pupilFirst', 'Ім’я', { join: 'pupil', rule: 'cyrillicName' }),
+    text('pupilMiddle', 'По батькові', { join: 'pupil', rule: 'cyrillicName' }),
     select('option', 'Вид', [
       opt('olympiad_winner', 'керівництво школярем — призером учнівської олімпіади'),
       opt('man_winner', 'керівництво школярем — призером конкурсу-захисту МАН'),
       opt('olympiad_jury', 'участь у журі учнівської олімпіади'),
       opt('man_jury', 'участь у журі конкурсу-захисту МАН'),
     ]),
-    select('stage', 'Етап', [
-      opt('stage_3', 'III етап'),
-      opt('stage_4', 'IV етап'),
-      opt('man_stage_2', 'II етап (МАН)'),
-      opt('man_stage_3', 'III етап (МАН)'),
-    ]),
-    text('event', 'Навчальний предмет / назва заходу'),
-    text('pupil', 'ПІБ школяра', { optional: true }),
-    text('place', 'Призове місце', { optional: true }),
+    // Half-width each, so the two sit on one line. A select is full-width by
+    // default because its options are usually sentences; these are four short
+    // words apiece.
+    select(
+      'stage',
+      'Етап',
+      [
+        opt('stage_3', 'III етап'),
+        opt('stage_4', 'IV етап'),
+        opt('man_stage_2', 'II етап (МАН)'),
+        opt('man_stage_3', 'III етап (МАН)'),
+      ],
+      { span: 1 }
+    ),
+    select(
+      'place',
+      'Призове місце',
+      [
+        opt('first', 'I місце'),
+        opt('second', 'II місце'),
+        opt('third', 'III місце'),
+        opt('laureate', 'лауреат'),
+      ],
+      { span: 1 }
+    ),
+    // No-break spaces on BOTH sides of the pair, leaving the slash as the only
+    // place the label can wrap: «Навчальний предмет /» then «назва заходу».
+    text('event', 'Навчальний предмет / назва заходу', { span: 2 }),
   ],
 
   19: [
@@ -248,8 +298,10 @@ export const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   20: [
     text('organization', 'Назва організації'),
     text('jobTitle', 'Посада'),
-    number('fromYear', 'Рік початку', { min: 1950, int: true }),
-    number('toYear', 'Рік завершення', { min: 1950, int: true }),
+    // One range, not two ends (owner, 2026-09-14): a picker that writes them in
+    // order cannot produce «2019 → 2014», which two independent fields let
+    // through however they were validated.
+    dateRange('period', 'Період роботи'),
   ],
 };
 

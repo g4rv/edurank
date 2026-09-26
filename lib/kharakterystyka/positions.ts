@@ -386,6 +386,24 @@ export function positionChoices(number: number): readonly PositionAlternative[] 
 }
 
 /**
+ * How many typed rows this position needs — for the sentence above the list.
+ *
+ * `null` means «it depends», which is true of п.2 alone: a патент на винахід
+ * counts by itself while деклараційні and свідоцтва need five each, so no one
+ * number is honest and the form asks which bar the row is for.
+ *
+ * A position with no alternatives at all — п.5 from the profile, п.15 and п.20
+ * typed by hand — needs one: `buildKharakterystyka` meets them on
+ * `mine.length >= 1`.
+ */
+export function requiredEntries(number: number): number | null {
+  const def = licencePosition(number);
+  if (!def) return null;
+  if (def.alternatives.length > 1) return null;
+  return def.alternatives[0]?.min ?? 1;
+}
+
+/**
  * The alternative's name, for listing a typed row back to whoever typed it.
  * Null where there was no choice to make, so the ordinary position shows nothing.
  */

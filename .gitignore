@@ -71,3 +71,6 @@ next-env.d.ts
 # carried to the server by hand, never through the repository.
 /kharakterystyka.json
 /kharakterystyka-*.json
+
+# Subagent-driven-development scratch (ledger, briefs, review packages)
+.superpowers/sdd/

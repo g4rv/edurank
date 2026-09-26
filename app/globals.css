@@ -7,18 +7,46 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-foreground-soft: var(--foreground-soft);
   --color-placeholder: var(--placeholder);
-  --font-sans: var(--font-geist-sans);
+  --color-mask-ghost: var(--mask-ghost);
+  --font-sans: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
+  --font-heading: var(--font-manrope);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-strong: var(--brand-strong);
+  --color-gold: var(--gold);
+  --color-gold-strong: var(--gold-strong);
+  --color-brand-gradient: var(--brand-gradient);
+  --color-table-group: var(--table-group);
+  /* «Аврора»'s elevation scale — two layers, «tight and wide at once» as the
+     concept puts it: a contact shadow that says the edge is real, and a wide
+     ambient one that says the surface is lifted. A single flat shadow reads as
+     a sticker. Tinted toward the ink rather than pure black, so it sits on a
+     coloured wash without going muddy. */
+  --shadow-card:
+    0 1px 2px oklch(0.145 0.02 265 / 0.05), 0 10px 28px -14px oklch(0.145 0.02 265 / 0.18);
+  --shadow-card-hover:
+    0 1px 2px oklch(0.145 0.02 265 / 0.06), 0 16px 36px -14px oklch(0.145 0.02 265 / 0.26);
+  /* The edge a sticky table header casts over the rows passing under it.
+     Softer and shallower than a card's: the header is not lifted off the page,
+     it is the thing the content disappears beneath, so what is wanted is a
+     gradient of contact rather than elevation.
+
+     **No crisp first layer**, unlike the two above. A `0 1px 0` contact line is
+     a hairline by another name, and on a table with Розділ headings it would
+     land exactly on the rule those already draw — which is the doubled 2px band
+     `table.tsx` refuses a `border-b` over. Both layers are blurred, so nothing
+     stacks. */
+  --shadow-table-head:
+    0 2px 4px -2px oklch(0.145 0.02 265 / 0.1), 0 6px 14px -8px oklch(0.145 0.02 265 / 0.2);
+  /* A panel floating ON TOP of a card — a select menu, a combobox list, a date
+     picker. `--shadow-card` is tuned to lift a card off the page; over another
+     card it disappears, because the two surfaces are the same colour and the
+     shadow has nothing to fall on. Same shape, deeper and wider. */
+  --shadow-float:
+    0 2px 4px oklch(0.145 0.02 265 / 0.08), 0 20px 44px -16px oklch(0.145 0.02 265 / 0.34);
   --color-chart-accent: var(--chart-accent);
   --color-chart-total: var(--chart-total);
   --color-chart-5: var(--chart-5);
@@ -28,16 +56,23 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
+  --color-input-hover: var(--input-hover);
   --color-border: var(--border);
-  --color-destructive: var(--destructive);
+  /* Status. `--color-destructive` is gone with `--destructive`; the shadcn
+     button VARIANT is still named `destructive` and paints itself `bg-error`. */
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-error: var(--error);
+  --color-error-strong: var(--error-strong);
+  --color-error-surface: var(--error-surface);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -51,24 +86,163 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* The type scale is Tailwind's default — 12 · 14 · 16 · 18 · 20 · 24 — and is
+   deliberately NOT redefined here. A larger one was built and abandoned on
+   2026-09-11; `docs/aurora.md` §4 records why, and why browser zoom is the
+   answer to «I cannot read this» instead. */
+
+/* ── The palette ──────────────────────────────────────────────────────────────
+   **One hue, and chroma says what a colour is FOR** (owner, 2026-09-11).
+
+   Everything that is not a status sits on hue **264**, the university's
+   #4472C4. Lightness gives the ramp — ink 0.145, muted 0.556, border 0.87,
+   surface 0.97, card 1.0 — and chroma gives the ROLE:
+
+     chroma 0.00–0.02   chrome: text, borders, fills you read past
+     chroma 0.13        accent: the brand, the one thing you are meant to look at
+
+   The neutrals used to be chroma **0** — flat grey, a different family from the
+   blue bolted on beside it, which is why a subtitle read as belonging to some
+   other app. They now carry 0.02 at the widest point of the ramp, tapering to
+   nothing at both ends because near-black and near-white cannot show chroma
+   anyway.
+
+   **This costs no contrast.** OKLCH lightness is perceptual, so adding chroma at
+   a fixed L barely moves a ratio: `--muted-foreground` measured 4.74 on the card
+   at chroma 0 and measures 4.76 at 0.02. Every value below was checked by
+   compositing on a canvas (see §3 of `docs/aurora.md` — a browser's contrast
+   inspector reports nonsense for these).
+
+   Two things deliberately stay pure:
+
+   - **`--card` and `--popover` are `oklch(1 0 0)`, untinted.** §1 says a surface
+     separates by getting LIGHTER than the page; the card is the lightest thing
+     on screen and tinting it takes that away.
+   - **Status hues leave 264**, because their whole job is to not belong to the
+     brand — see `--success` / `--warning` / `--error` below. */
+
 :root {
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.145 0.012 264);
+  /* A section heading inside a table: the brand at about 10%, already
+     composited onto the card rather than left as an alpha.
+
+     At the SAME strength as the total's `bg-brand/10`, not a step under it
+     (owner, 2026-09-08). A lighter tint was tried and read as white — it blended
+     with the rows it was supposed to divide, which is the whole job. The two
+     never sit next to each other anyway: the total lives in its own strip below
+     the scroll box, and it still has `font-bold` of its own.
+
+     Solid because the row is STICKY — rows scroll underneath it, and a
+     translucent band would show them through. Composited here rather than at
+     the call site so the light and dark values sit next to each other and
+     cannot drift, the same argument as `.aurora-field`. */
+  --table-group: oklch(0.955 0.014 264);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --popover-foreground: oklch(0.145 0.012 264);
+  /* **`--primary` is gone** (owner, 2026-09-11). It was shadcn's name for «the
+     default button's fill», which here was near-black — so the app had a
+     `--primary` that was not the brand and a `--brand` that was not primary,
+     and a name meaning «the important one» sitting on a colour nobody chose for
+     importance. With no `--secondary` or `--tertiary` worth the name beside it,
+     the ladder said nothing at all.
+
+     Its 52 call sites split cleanly, and the split is the interesting part:
+     **almost all of them meant the accent and were rendering grey.** Links
+     written `text-primary underline`, selected rows, and «this counts» badges
+     like `APPROVED: bg-primary/10 text-primary` — `rating-table.tsx` had
+     already noticed, with a comment reading «`bg-primary/10` was a GREY tint,
+     which §3 rules out», and `orcid-field.tsx` records fixing one instance of
+     it by hand. All of those are `--brand` now.
+
+     That includes the legacy `Button`'s `default` variant, which is the one
+     place that genuinely was «the primary action»: it is the brand now, which
+     is what «Аврора»'s own button has always been, so the two sets stop
+     disagreeing while the migration finishes. */
+  --secondary: oklch(0.97 0.006 264);
+  --secondary-foreground: oklch(0.205 0.014 264);
+  --muted: oklch(0.97 0.006 264);
+  /* ── Three text strengths, not two ──────────────────────────────────────
+     `--foreground` measures 19.8 on a card and `--muted-foreground` 5.51.
+     Until 2026-09-11 there was nothing between them and muted sat at 4.76, so
+     everything that was not body text had one place to go and it was the
+     faintest thing on the page: a column heading, a field label and a row
+     count all landed on the same grey, and labels people needed to READ were
+     as quiet as the meta they were meant to skip.
+
+       --foreground        19.8   body, values, names
+       --foreground-soft    8.49  labels, column headings, secondary values
+       --muted-foreground   5.51  meta, counts, hints — glanced at, not read
+
+     `--muted-foreground` moved 0.556 → 0.52 in the same change. Adding a tier
+     above it fixes what to use for labels; it does nothing for the meta that
+     stays, which was the other half of the complaint.
+
+     Below these sit `--placeholder` (4.50) and `--mask-ghost` (2.12), which are
+     not text strengths at all — they say «nothing here yet», and §7 keeps them
+     separate for that reason. */
+  --foreground-soft: oklch(0.42 0.022 264);
+  --muted-foreground: oklch(0.52 0.02 264);
   /* Fainter than --muted-foreground — a placeholder is an example of what to
      type and must never read as a value already filled in — but still text, so
-     it holds WCAG AA (4.5:1). At the old 0.72 it measured 2.49 and vanished. */
-  --placeholder: oklch(0.568 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+     it holds WCAG AA (4.5:1). At the old 0.72 it measured 2.49 and vanished.
+
+     **Not the same value as --mask-ghost, and the difference is the point.**
+     They were briefly merged, on the reasonable-sounding grounds that both are
+     «the hint». What that missed is WHERE each one is read. A mask sits behind
+     a caret in a field whose fill, border and inner shadow already say the
+     control is live, so it can go faint. A Radix select trigger has no caret
+     and no typed text: its placeholder is the ENTIRE content of the control,
+     and at the ghost's 2.07:1 a row of unchosen filters on /staff and /rating
+     read as disabled — which §7 spends its length making a DIFFERENT state.
+     «Nothing chosen yet» and «you may not touch this» must not look alike. */
+  --placeholder: oklch(0.568 0.02 264);
+  /* The unfilled tail of a mask (`MaskGhost`), and nothing else. 2.07:1 on the
+     page, deliberately below AA: it is not content, it is not a label, and it
+     is never the only thing in its control — the value being typed is right on
+     top of it. Lives here rather than as `text-muted-foreground/55` inside the
+     component so that it and --placeholder are visibly two decisions. */
+  --mask-ghost: oklch(0.556 0.02 264 / 0.55);
+  --accent: oklch(0.97 0.006 264);
+  --accent-foreground: oklch(0.205 0.014 264);
+
+  /* ── Status ─────────────────────────────────────────────────────────────
+     **These leave hue 264 on purpose.** Everything else in this file is the
+     brand at some chroma; a status colour's whole job is to NOT read as part
+     of the furniture. §3 of `docs/aurora.md` fixes what each one means, and
+     nothing else may use them.
+
+     Before these existed there were **160 hardcoded Tailwind classes** doing
+     the job: «ok» was written eight ways (`green-600`, `green-500`,
+     `green-700`, `green-400`, `emerald-700`, `emerald-600`, `emerald-500`,
+     `emerald-400` — green and emerald are not even the same hue), and
+     «pending» twelve. No call site was wrong on its own; there was simply
+     nothing to point at.
+
+     Each comes as a **pair**, because a status appears in two shapes and one
+     colour cannot serve both:
+
+       --x          the text, and any solid fill
+       --x-surface  the badge tint it sits on
+
+     `--error` also gets `--error-strong`, for the same reason `--brand` does:
+     `--error` on `--error-surface` measures 4.31 — under AA — because the tint
+     lifts the background toward the text. `--error-strong` measures 5.15
+     there, and 6.16 on a plain card.
+
+     Green and amber need no `-strong`: they are already dark enough to clear
+     AA on their own tint (4.55 and 4.87). */
+  --success: oklch(0.52 0.14 150); /* #0a7e3a · 5.17 on a card */
+  --success-surface: oklch(0.95 0.045 150);
+  --warning: oklch(0.52 0.13 70);
+  --warning-surface: oklch(0.95 0.05 80);
+  /* Was `--destructive`, renamed 2026-09-11 so the three statuses read as one
+     set. The shadcn BUTTON VARIANT is still called `destructive`, and that is
+     correct — the variant describes what the action does, this describes the
+     colour it is painted in. */
+  --error: oklch(0.577 0.245 27.325);
+  --error-strong: oklch(0.52 0.21 27);
+  --error-surface: oklch(0.95 0.04 27);
   /* --border draws separators (table rules, card edges) and --input draws the
      boundary of a control. They were the same value, and at oklch(0.922) both
      measured 1.26:1 against the page — which is why fields were "barely
@@ -78,9 +252,32 @@
      lightest grey that reaches it on white. Separators are not controls and
      need no such floor, so --border is only lifted enough to be seen (≈1.5:1)
      without turning every table into a cage. */
-  --border: oklch(0.87 0 0);
-  --input: oklch(0.668 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.87 0.012 264);
+  /* **One control edge for the whole app** (owner, 2026-09-21). There were
+     three: this token at 3.01, `.aurora-field` hardcoding ink/0.26 at 1.82, and
+     the outline button on `border-foreground/12` at 1.31 — fainter than a
+     DECORATIVE separator, which inverts §7's «what you can act on comes
+     forward». Everything is `--input` now, so a field, a button and a legacy
+     shadcn control cannot drift apart.
+
+     The value is the Аврора field's, not the old 3.01, and that keeps §7's
+     recorded reason intact: the fill and the inner shadow also identify a
+     control, and a 3:1 hairline on every field turns the page into a 1990s
+     form. Measured on a card: 1.82 at rest, 2.55 on hover — a clear step above
+     `--border`'s 1.49, which is the ladder the three recipes had lost. */
+  --input: oklch(0.808 0.012 264);
+  --input-hover: oklch(0.712 0.012 264);
+  --ring: oklch(0.708 0.016 264);
+  /* Every scrollbar's thumb — see «The scrollbar» below. Darker than --border,
+     which is tuned to be only just visible: a border outlines a shape you
+     already see, while this IS the whole signal for how long a thing is and
+     where in it you stand. Measured 2.41 on the sidebar, 4.20 on hover.
+
+     Hue 264 at chroma 0.014 — the brand's own hue, inside §3's «chrome» band,
+     and deliberately not brand-blue. A scrollbar means nothing, and the active
+     nav item, which does, sits right beside it. */
+  --scroll-thumb: oklch(0.72 0.014 264);
+  --scroll-thumb-hover: oklch(0.58 0.016 264);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -92,44 +289,121 @@
      розділ, exactly as the printed кафедра chart pairs them. */
   --chart-accent: oklch(0.556 0.132 264);
   --chart-total: oklch(0.505 0.208 27);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* «Аврора» — the brand accent as a first-class token rather than a chart-only
+     one. Same #4472C4 as --chart-accent and as the university's circulated Word
+     reports, so screen, chart and print stay one family. It exists separately
+     because a chart colour and a button colour drift apart the moment either is
+     tuned, and this one is now load-bearing for both. */
+  --brand: oklch(0.556 0.132 264);
+  --brand-foreground: oklch(0.985 0 0);
+  /* Brand text sitting ON a brand tint — the НПП badge, a tab's hover state.
+     `--brand` on `bg-brand/10` measures 4.24:1, just under AA's 4.5, because the
+     tint lifts the background toward the text. Deepened until it clears:
+     6.92:1. Only for that case; on a plain card `--brand` reads 4.8 and is
+     fine. */
+  --brand-strong: oklch(0.45 0.13 266);
+  /* The university's gold — the second colour of the crest in
+     `public/logo.png`, and «Аврора»'s warm accent (#eaa439). Used to MARK
+     rather than to mean a state: today's date on a calendar, the tallest bar in
+     the logo. It is not the amber that means «pending» — that one is a badge
+     inside a table and the two never share a surface. */
+  --gold: oklch(0.76 0.13 70);
+  /* The same gold, deepened until it clears 3:1 on a card (2.20 → 3.52) — the
+     bar for a UI indicator like a ring or an outline. `--gold` itself is a
+     FILL colour: at 2.20 it is a fine background with dark text on it and a
+     poor line on white. Pushing it far enough for TEXT (4.5) lands on #9c5313,
+     which is brown, not the amber this palette is. So the two are separate:
+     fill stays amber, the line gets the deeper one. */
+  --gold-strong: oklch(0.64 0.14 60);
+  /* The filled-button surface. A gradient rather than a flat fill because
+     Аврора's whole language is light bending through things — a flat #4472C4
+     rectangle on a drifting wash looks stamped on rather than lit. It leans
+     toward the same violet (#7C5CD6) the wash uses, so the button belongs to
+     the background instead of interrupting it. */
+  --brand-gradient: linear-gradient(140deg, oklch(0.6 0.14 264), oklch(0.52 0.16 285));
+  /* 0.625 → 0.75rem. Аврора's planes are noticeably rounder than shadcn's
+     default, and every rounded-* utility is derived from this one value, so the
+     whole app follows without touching a component. */
+  --radius: 0.75rem;
+  /* Аврора's base tint (#f7f8fb), not white. Two reasons: it is the ground the
+     colour wash sits on, and it gives --card (still pure white) something to
+     separate from — a white panel on a white page has only its border to say it
+     is a panel. --card stays SOLID on purpose; glass is opt-in below. */
+  --background: oklch(0.977 0.004 265);
+  --foreground: oklch(0.145 0.012 264);
 }
 
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
+  /* Lightened for the dark card, exactly as --chart-accent is: #4472C4 at its
+     light-mode lightness sinks into oklch(0.205). */
+  --brand: oklch(0.7 0.135 264);
+  --brand-foreground: oklch(0.16 0 0);
+  /* Dark needs no deepening — the brand is already the LIGHT half of the pair
+     here, and a brand tint darkens rather than lifts its background. */
+  --brand-strong: oklch(0.7 0.135 264);
+  /* Lifted for the dark card, like every other hue here */
+  --gold: oklch(0.82 0.13 75);
+  /* Dark needs no deepening — gold on a dark card already measures 10:1. */
+  --gold-strong: oklch(0.82 0.13 75);
+  --brand-gradient: linear-gradient(140deg, oklch(0.66 0.14 264), oklch(0.58 0.16 285));
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
+  /* Lifted rather than tinted down: on a dark card the brand is the LIGHT half
+     of the pair, so the band separates by getting brighter — §1's rule, which
+     holds in both directions. */
+  --table-group: oklch(0.253 0.016 264);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  --muted: oklch(0.269 0.01 264);
+  /* 9.60 on the dark card, against `--foreground`'s 17.18 and muted's 6.91.
+     Muted does NOT move here the way it does in light: lifting it would squeeze
+     it against this new tier, and the dark ramp is already the tighter of the
+     two. */
+  --foreground-soft: oklch(0.8 0.022 264);
+  --muted-foreground: oklch(0.708 0.018 264);
   /* On dark, fainter means closer to the background, so lower rather than
      higher — but still AA against the card (0.52 measured 3.27, now 4.92) */
-  --placeholder: oklch(0.62 0 0);
-  --accent: oklch(0.269 0 0);
+  --placeholder: oklch(0.62 0.018 264);
+  /* The same 55%, over the dark card's own `--muted-foreground`. Fainter here
+     means closer to the background, so the lightness goes UP rather than down —
+     the opposite direction from --placeholder above, because this one is
+     allowed to approach the card and that one is not. */
+  --mask-ghost: oklch(0.708 0.018 264 / 0.55);
+  --accent: oklch(0.269 0.01 264);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+
+  /* Status, dark. The text is LIGHT here and the surface is a dark tint — a
+     status reads by separating from its ground, and the ground has swapped
+     ends. Measured on the dark card: text 9.46 / 10.13 / 6.21, and on its own
+     surface 7.00 / 7.25 / 4.73.
+
+     **No `--error-strong` in dark, and that is the same rule `--brand-strong`
+     follows** (§3): a tint on a dark ground DARKENS the background instead of
+     lifting it toward the text, so the pair never loses contrast and there is
+     nothing to deepen. It is aliased to `--error` so call sites need no
+     `dark:` variant. */
+  --success: oklch(0.78 0.15 152);
+  --success-surface: oklch(0.3 0.055 152);
+  --warning: oklch(0.82 0.13 78);
+  --warning-surface: oklch(0.32 0.055 75);
+  --error: oklch(0.704 0.191 22.216);
+  --error-strong: oklch(0.704 0.191 22.216);
+  --error-surface: oklch(0.31 0.085 25);
   /* Same split as light, expressed as white overlays: 10%/15% measured
      1.32 and 1.58 against the card. 38% reaches 3.57 over the card and 3.5
      over the page, so a control's edge clears 1.4.11 on both surfaces. */
   --border: oklch(1 0 0 / 18%);
-  --input: oklch(1 0 0 / 38%);
+  --input: oklch(1 0 0 / 22%);
+  --input-hover: oklch(1 0 0 / 34%);
   --ring: oklch(0.556 0 0);
+  /* Lighter here rather than the light value flipped: the panel is a card at
+     oklch(0.205), so a thumb has to come UP off it, not down. */
+  --scroll-thumb: oklch(1 0 0 / 30%);
+  --scroll-thumb-hover: oklch(1 0 0 / 48%);
   /* Stepped for this surface, not flipped from light: the card here is
      oklch(0.205), so the light ramp's dark end would sink into it. Step 1 stays
      the quietest against the surface and step 5 the loudest, as in light. */
@@ -141,23 +415,29 @@
   /* Lightened so #4472C4 / #C00000 still read on the dark card */
   --chart-accent: oklch(0.7 0.135 264);
   --chart-total: oklch(0.62 0.19 25);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  /* Monochrome, like light mode and the primary button — the shadcn default
-     here was a blue (oklch(0.488 0.243 264.376)), the one hue that slipped past
-     the brand rule. A light pill with dark text mirrors --primary in dark. */
-  --sidebar-primary: oklch(0.922 0 0);
-  --sidebar-primary-foreground: oklch(0.205 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  /* **The default is ink, and `--foreground-soft` is for PROSE** (owner,
+     2026-09-11).
+
+     The page default was briefly flipped to `--foreground-soft` on the reading
+     that «everything except headings» should recede. That was wrong, and the
+     owner's markup of a real screen is what showed it: what recedes is not
+     everything-that-is-not-a-heading, it is the EXPLAINING — the page's
+     description, a form's instruction, a footnote.
+
+     Labels, values, names, figures and column headings all stayed ink in that
+     markup, and they belong together: a label names a thing and a cell holds
+     it, and neither is commentary. Softening them made a table of real data
+     look switched off while the sentence above it kept full weight.
+
+     So: **ink is the default and needs no class**, `text-foreground-soft` is
+     applied deliberately to prose, and `--muted-foreground` stays below both
+     for meta — counts, row numbers, hints. See §4 of `docs/aurora.md`. */
   body {
     @apply bg-background text-foreground;
   }
@@ -174,5 +454,421 @@
      with no ::placeholder, so its trigger carries data-[placeholder] instead. */
   ::placeholder {
     color: var(--placeholder);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   «Аврора» — the glass surface
+
+   Deliberately a SEPARATE surface, not a change to --card.
+
+   `bg-card` is used 121 times in this app and 23 of those are data tables. If
+   --card became translucent, every table would become a blurred pane on a
+   gradient: unreadable for dense figures, and 121 backdrop-filter layers on the
+   weakest laptop in the department. So --card stays solid and this is opt-in —
+   chrome and summary panels wear it, working surfaces do not.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .glass {
+    background: rgb(255 255 255 / 0.72);
+    box-shadow:
+      0 1px 2px rgb(15 23 41 / 0.05),
+      0 16px 40px -14px rgb(15 23 41 / 0.22),
+      inset 0 1px 0 rgb(255 255 255 / 0.85),
+      inset 0 0 0 1px rgb(255 255 255 / 0.5);
+  }
+
+  /* Only blur where the browser can actually do it. Аврора's own notes flag
+     that the concept has no fallback; this is it. Without the blur a 72 % white
+     panel over a colour wash reads as dirty grey, so the no-support case gets
+     an almost-opaque panel instead — plainer, but still a clean surface. */
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .glass {
+      background: rgb(255 255 255 / 0.72);
+      -webkit-backdrop-filter: blur(24px) saturate(1.6);
+      backdrop-filter: blur(24px) saturate(1.6);
+    }
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background: rgb(255 255 255 / 0.94);
+    }
+  }
+
+  /* «Кристал» is the dark twin, and dark glass is harder: a pale wash behind a
+     translucent white panel turns it muddy grey. So the panel is white at 6 %
+     and the edge highlight, not the fill, is what makes it read as a surface. */
+  .dark .glass {
+    background: rgb(255 255 255 / 0.06);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.4),
+      0 16px 40px -14px rgb(0 0 0 / 0.55),
+      inset 0 1px 0 rgb(255 255 255 / 0.14),
+      inset 0 0 0 1px rgb(255 255 255 / 0.09);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .dark .glass {
+      background: oklch(0.235 0 0);
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   «Аврора» — the wash's drift
+
+   Transform only. A blurred layer is rasterised once and then composited, so
+   moving it is GPU work and costs almost nothing; animating the gradient or the
+   blur radius would re-render it every frame and is what makes these
+   backgrounds notorious on weak machines. `will-change` keeps each bloom on its
+   own layer so the compositor never has to rebuild it.
+
+   Long, prime-ish, mismatched durations: the blooms never return to the same
+   arrangement twice, so the wash reads as alive rather than as a loop.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes aurora-drift-a {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(9%, 6%, 0);
+  }
+}
+
+@keyframes aurora-drift-b {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-11%, 7%, 0);
+  }
+}
+
+@keyframes aurora-drift-c {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(7%, -9%, 0);
+  }
+}
+
+@keyframes aurora-drift-d {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-8%, -6%, 0);
+  }
+}
+
+@layer components {
+  .aurora-bloom {
+    will-change: transform;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  }
+
+  /* Movement is atmosphere, never information — so it is the first thing to go
+     for anybody who has asked the system for less of it. The blooms stay
+     exactly where they are; only the drift stops. */
+  @media (prefers-reduced-motion: reduce) {
+    .aurora-bloom {
+      animation: none !important;
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   «Аврора» — control surfaces
+
+   Kept here rather than inline in the components for the same reason `.glass`
+   is: these are surface definitions, and the dark variant of each has to sit
+   next to the light one or the two drift apart. The components in
+   `components/aurora/` compose these and own only layout and behaviour.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* The filled action. The shadow is brand-tinted, not black — a neutral drop
+     shadow under a coloured button reads as dirt on a wash this pale. */
+  .aurora-primary {
+    background-image: var(--brand-gradient);
+    color: var(--brand-foreground);
+    box-shadow:
+      0 1px 2px oklch(0.45 0.13 270 / 0.24),
+      0 8px 20px -8px oklch(0.5 0.15 270 / 0.5),
+      inset 0 1px 0 rgb(255 255 255 / 0.22);
+  }
+  /* The lift on hover is an OPACITY change on an overlay, never `filter` and
+     never a new `background-image`. Both of those are repaints, and this button
+     sits inside a `.glass` card — so repainting it forces that card's whole
+     backdrop to re-blur. Opacity is composited on the GPU and touches nothing
+     underneath. This was the «renders in chunks» on hover. */
+  .aurora-primary {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .aurora-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgb(255 255 255 / 0.14);
+    opacity: 0;
+    transition: opacity 150ms ease;
+    pointer-events: none;
+  }
+  .aurora-primary:hover:not(:disabled)::after {
+    opacity: 1;
+  }
+
+  /* A field on glass. Slightly lighter than the panel it sits on, so it reads
+     as cut INTO the surface — the shadcn default is transparent with a border,
+     which on a translucent card leaves the field indistinguishable from it. */
+  /* A form control has three states and each one has to be readable from across
+     the room, not measured. The pattern is:
+
+       enabled   — LIGHTER than the page, with an inner shadow: a hollow you can
+                   put something into
+       focused   — brighter still, plus the brand ring
+       disabled  — DARKER than the page and flat: it recedes instead of fading
+
+     Disabled used to be `opacity-50` over the whole control, which changed
+     nothing anyone could see (owner, 2026-09-07). The border was already
+     `/0.12` — about 1.24:1 on white — so half of almost nothing is still almost
+     nothing, and a disabled field sat beside an active one looking identical.
+     Fading also takes the LABEL text down with it, so the one thing a person
+     might still want to read got harder while the state stayed unclear.
+
+     Inverting the surface instead is the signal: everything you can act on
+     comes forward off the page, and the one thing you cannot sinks into it. */
+  .aurora-field {
+    background: rgb(255 255 255 / 0.55);
+    border-color: var(--input);
+    box-shadow: inset 0 1px 2px oklch(0.145 0 0 / 0.05);
+  }
+  .aurora-field:hover:not(:disabled):not(:focus-visible):not(:has(:focus-visible)) {
+    border-color: var(--input-hover);
+  }
+  /* `:has(:focus-visible)` is the wrapper half of this rule. `TelInput` and
+     friends put the surface on a DIV and the focus on the input inside it, and
+     a div is never `:focus-visible` itself — so those controls took the brand
+     ring from `fieldSurfaceWrapper` and none of the brightening, which is the
+     half you actually notice. */
+  .aurora-field:focus-visible,
+  .aurora-field:has(:focus-visible) {
+    background: rgb(255 255 255 / 0.85);
+  }
+  /* `:has(:disabled)` covers the wrapper controls — `TelInput` and friends put
+     the surface on a div and the `disabled` attribute on the input inside it. */
+  .aurora-field:disabled,
+  .aurora-field:has(:disabled) {
+    background: oklch(0.145 0 0 / 0.05);
+    border-color: oklch(0.145 0 0 / 0.1);
+    box-shadow: none;
+    color: var(--muted-foreground);
+  }
+
+  .dark .aurora-field {
+    background: rgb(255 255 255 / 0.06);
+    border-color: var(--input);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
+  }
+  .dark .aurora-field:hover:not(:disabled):not(:focus-visible):not(:has(:focus-visible)) {
+    border-color: var(--input-hover);
+  }
+  .dark .aurora-field:focus-visible,
+  .dark .aurora-field:has(:focus-visible) {
+    background: rgb(255 255 255 / 0.1);
+  }
+  /* On a dark ground «recedes» is the other direction: the page is already
+     dark, so a disabled field goes darker still rather than lighter. */
+  .dark .aurora-field:disabled,
+  .dark .aurora-field:has(:disabled) {
+    background: rgb(0 0 0 / 0.2);
+    border-color: rgb(255 255 255 / 0.08);
+    box-shadow: none;
+    color: var(--muted-foreground);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   «Аврора» — full-bleed chrome (the sidebar, page headers)
+
+   Translucent, and deliberately NOT blurred.
+
+   `.glass` blurs what is behind it, which is affordable for one small card on
+   an otherwise empty page. This is different: the sidebar is ~224px wide, full
+   height, and on screen on every route — a permanent `backdrop-filter` over a
+   wash that is also moving means re-blurring that whole strip every frame. That
+   is the single most expensive combination available here, and we know some of
+   these machines have no GPU acceleration at all.
+
+   Transparency alone costs nothing and does most of the work: the wash still
+   shows through, so the panel reads as sitting ON the colour rather than
+   covering it. Only the blur is dropped.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* 0.62 → 0.82 (owner, 2026-09-21): «make bg whiter, not completely white but
+     whiter». At 0.62 the rail took enough of the wash to read as a faintly
+     tinted grey strip beside a white card; at 0.82 it is near-white and the
+     colour behind it is a hint rather than a cast.
+
+     **Not 1.0**, which is the whole point of the token: opaque white would make
+     the rail a slab bolted to the page's edge, and the paragraph above explains
+     that transparency is what lets it sit ON the wash. It also still has to
+     differ from `--card`, or the sidebar and a card touching it become one
+     surface with a line drawn through it.
+
+     Dark is deliberately NOT touched. «Whiter» has no meaning on a dark rail —
+     lifting 0.04 there would wash out a theme whose whole job is to be quiet
+     (owner, 2026-09-09). */
+  .glass-chrome {
+    background: rgb(255 255 255 / 0.82);
+  }
+  .dark .glass-chrome {
+    background: rgb(255 255 255 / 0.04);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Switching theme, smoothly
+
+   Only while the switch is happening. `ThemeToggle` puts `.theme-transition`
+   on <html>, flips the theme, and takes the class off again once the fade is
+   done — so nothing on the page carries a permanent transition it did not ask
+   for, and every component keeps its own hover timing.
+
+   The property list is deliberately short. Transitioning `all` would animate
+   layout properties too and repaint the entire document on every frame of the
+   fade, which is a bad trade on machines with no GPU acceleration — and we know
+   there are some.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* Inside `@layer components`, like every other block here. A bare top-level
+     `@media` in this file is dropped from the build — `.glass`, `.aurora-primary`
+     and the bloom keyframes all survive because they are layered, and this rule
+     silently did not until it was moved in beside them. */
+  @media (prefers-reduced-motion: no-preference) {
+    .theme-transition,
+    .theme-transition *,
+    .theme-transition *::before,
+    .theme-transition *::after {
+      transition:
+        background-color 260ms ease,
+        border-color 260ms ease,
+        color 260ms ease,
+        fill 260ms ease,
+        stroke 260ms ease,
+        opacity 260ms ease !important;
+      transition-delay: 0ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* The theme cross-fade. `ThemeToggle` drives it with `startViewTransition`,
+     which snapshots the old frame and fades it into the new one — so icons,
+     borders and shadows all move together instead of each depending on whether
+     its own property happens to be transitionable. */
+  @media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 260ms;
+      animation-timing-function: ease;
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The scrollbar — every one of them
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  /* **Every scrollbar in the app** (owner, 2026-09-17). It was the select and
+     combobox menus only until then, on the reasoning that one skinned bar was
+     enough and the platform could keep the rest. Looking at the real sidebar
+     killed that: the native bar was the last pure-grey, zero-chroma element on
+     screen, it painted an opaque slab down a translucent `.glass-chrome` edge,
+     and it wore stepper arrows nothing else in «Аврора» has.
+
+     **`scrollbar-color` inherits; `scrollbar-width` does NOT.** Writing both on
+     `:root` and expecting them to reach every scroll container is wrong, and
+     wrong in the way that hides: the colour lands, the width silently stays
+     `auto`, and the bar keeps the platform's chunk while looking like it was
+     styled. Measured on the sidebar before this was fixed — `scrollbar-color`
+     inherited fine, `scrollbar-width` computed `auto`, gutter still 15px. So
+     the width needs `*`, and the colour rides along with it.
+
+     The colour is `--scroll-thumb`, which already sits on hue 264 at chroma
+     0.014: the brand's hue, inside §3's «chrome» band. It is deliberately NOT
+     brand-blue. A scrollbar means nothing, and the active nav item — which IS
+     brand-blue, and does mean something — sits directly beside it. */
+  *,
+  ::backdrop {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
+  }
+}
+
+@layer components {
+  /* WebKit's own properties, for engines that predate the standard two above.
+     Chrome ignores these once `scrollbar-width` is set, so they are a fallback
+     and not the main event — which is why the width here (10px) and the
+     browser's own «thin» need not agree to the pixel.
+
+     The border plus `background-clip` is what makes a 10px track hold a 4px
+     thumb with a margin, without a second element to inset it. */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--scroll-thumb);
+    background-clip: content-box;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scroll-thumb-hover);
+  }
+
+  /* The escape hatch, and the ONLY thing this class is still for: Radix hides
+     a select's bar at runtime with
+
+       [data-radix-select-viewport] { scrollbar-width: none }
+       [data-radix-select-viewport]::-webkit-scrollbar { display: none }
+
+     because its own design replaces the bar with up/down arrow buttons — and
+     those were removed for shifting the list as they mounted, which left a
+     list you could scroll with no sign of how long it was.
+
+     `!important` here is about the cascade, not force. These rules live in a
+     LAYER, and a layered normal declaration loses to an UNLAYERED one whatever
+     its specificity — which is exactly what Radix injects. For important
+     declarations that order reverses, so this is the only thing that reaches
+     the element. Without it `scrollbar-width` computes `none` and the bar
+     stays hidden however the rules above are written. */
+  .slim-scrollbar {
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--scroll-thumb) transparent !important;
+  }
+
+  .slim-scrollbar::-webkit-scrollbar {
+    display: block !important;
+    width: 10px;
+    height: 10px;
   }
 }

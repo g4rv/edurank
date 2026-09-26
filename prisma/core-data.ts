@@ -26,6 +26,8 @@ export interface CoreDivision {
   name: string;
   registryKey: string | null;
   canModerateRating: boolean;
+  /** Optional: a prod-core.json written before D43 has no such key. */
+  canOverseeScience?: boolean;
 }
 
 export interface CoreFaculty {

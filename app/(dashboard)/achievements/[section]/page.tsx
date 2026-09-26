@@ -1,14 +1,18 @@
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
-import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
+import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listStaffActivities } from '@/lib/queries/list-activities';
-import { AnimatedPage } from '@/components/ui/animated-page';
+import { getRatingEntry } from '@/lib/queries/get-rating';
+import { sectionScores } from '@/lib/rating/section-scores';
 import { RatingClosedNote } from '@/components/rating/rating-closed-note';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { AchievementsList } from '@/components/rating/achievements-list';
 import { AddAchievementForm } from '@/components/rating/add-achievement-form';
-import { YearSelect } from '@/components/rating/year-select';
+import { SectionHeader } from '@/components/rating/section-header';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { RATING_CRUMBS } from '@/components/rating/section-header';
+import { EmptyState } from '@/components/aurora/ui/card';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { toAchievementGroups } from '@/lib/rating/achievement-rows';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
@@ -30,18 +34,28 @@ function scoringOf(activityType: { scoring: unknown }): ScoringSpec {
 
 const SECTION_NUMBERS = [1, 2, 3, 4, 5];
 
+/**
+ * One section of the rating, as an НПП fills it in.
+ *
+ * **There is no year picker** (owner, 2026-09-11). This page is data ENTRY, and
+ * an НПП only ever fills in the open year — so a control offering 2025 could
+ * only ever lead somewhere nothing can be typed. It is the active template's
+ * year or nothing.
+ *
+ * Reading a closed year is a different job and already has a screen:
+ * `/profile/rating` shows any year, renders it from the frozen snapshot, and is
+ * where a person goes to look rather than to add. Appeals go through ADMIN
+ * `reopenYear`.
+ */
 export default async function AchievementsSectionPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ section: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { section: sectionParam } = await params;
   const section = Number(sectionParam);
   if (!SECTION_NUMBERS.includes(section)) notFound();
 
-  const query = await searchParams;
   const session = await auth();
   if (!session) redirect('/login');
 
@@ -64,28 +78,28 @@ export default async function AchievementsSectionPage({
     return <RatingClosedNote title={`Розділ ${section}. ${SECTION_TITLES[section]}`} />;
 
   const template = await getActiveTemplate();
-  const templateYears = await listTemplateYears();
-  const years = templateYears.map((t) => t.year);
-  const yearParam = typeof query.year === 'string' ? Number(query.year) : NaN;
-  const selectedYear = years.includes(yearParam) ? yearParam : (template?.year ?? years[0]);
 
-  if (!selectedYear) {
+  if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
-        <h1 className="text-2xl font-semibold">
-          Розділ {section}. {SECTION_TITLES[section]}
-        </h1>
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.
-        </div>
-      </AnimatedPage>
+      <div className="space-y-5">
+        <Breadcrumbs items={[...RATING_CRUMBS, { label: `Розділ ${section}` }]} />
+        <SectionHeader section={section} />
+        <EmptyState>Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.</EmptyState>
+      </div>
     );
   }
 
-  // The active template's OPEN year is the one the NPP can edit (submit + delete)
-  const canManage = !!template && template.status === 'OPEN' && selectedYear === template.year;
+  // Only an OPEN year can be added to. A template that exists but is closed
+  // still shows what is already in it — the list is the person's own record —
+  // and simply offers no way to add.
+  const canManage = template.status === 'OPEN';
 
-  const activities = await listStaffActivities(staffId, selectedYear, section);
+  // The SAME stored row the sidebar reads, not a sum of the rows below. A
+  // deactivated indicator still has rows on screen and scores nothing, so
+  // adding up what is listed could disagree with the record — one source.
+  const totals = sectionScores(await getRatingEntry(staffId, template.year));
+
+  const activities = await listStaffActivities(staffId, template.year, section);
   const groups = toAchievementGroups(activities, undefined, canManage);
 
   const submittableTypes = canManage
@@ -102,17 +116,19 @@ export default async function AchievementsSectionPage({
     : [];
 
   return (
-    <AnimatedPage className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">
-          Розділ {section}. {SECTION_TITLES[section]}
-        </h1>
-        <YearSelect years={years} value={selectedYear} />
-      </div>
-
-      {submittableTypes.length > 0 && <AddAchievementForm types={submittableTypes} />}
+    <div className="space-y-5">
+      {/* «Мої здобувачі» next door has had a trail since it was rebuilt; this
+          page never got one, so the two siblings answered «where am I»
+          differently. Three levels because that is the sidebar's own shape —
+          Особисте › Заповнення рейтингу › Розділ N. */}
+      <Breadcrumbs items={[...RATING_CRUMBS, { label: `Розділ ${section}` }]} />
+      <SectionHeader
+        section={section}
+        score={totals?.sections[section - 1] ?? 0}
+        action={<AddAchievementForm types={submittableTypes} />}
+      />
 
       <AchievementsList groups={groups} />
-    </AnimatedPage>
+    </div>
   );
 }

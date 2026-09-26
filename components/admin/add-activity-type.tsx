@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
 import { addActivityType } from '@/app/(dashboard)/admin/rating/actions';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 
 interface AddActivityTypeProps {
   templateId: string;

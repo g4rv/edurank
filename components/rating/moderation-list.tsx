@@ -4,17 +4,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ChevronUp, ChevronDown, ChevronsUpDown, Eye, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Input } from '@/components/aurora/ui/input';
+import { Button } from '@/components/aurora/ui/button';
 import { DataTable } from '@/components/ui/data-table';
-import { Pagination } from '@/components/ui/pagination';
+import { Pagination } from '@/components/aurora/ui/pagination';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/aurora/ui/select';
 import { DiscardActivityButton } from '@/components/rating/discard-activity-button';
 import { VerifyActivityButton } from '@/components/rating/verify-activity-button';
 import { SubmissionPanel } from '@/components/rating/submission-panel';
@@ -47,9 +47,9 @@ export interface ModerationRow {
 }
 
 const STATUS_STYLES: Record<ModerationRow['status'], string> = {
-  APPROVED: 'bg-primary/10 text-primary',
+  APPROVED: 'bg-brand/10 text-brand',
   PENDING: 'bg-muted text-muted-foreground',
-  REMOVED: 'bg-destructive/10 text-destructive',
+  REMOVED: 'bg-error/10 text-error-strong',
 };
 
 const SECTIONS = [1, 2, 3, 4, 5];
@@ -535,7 +535,7 @@ function TableView({
                   </span>
                 )}
                 {row.status === 'REMOVED' && row.removeReason && (
-                  <span className="mt-0.5 block text-xs text-destructive">
+                  <span className="mt-0.5 block text-xs text-error">
                     Причина: {row.removeReason}
                   </span>
                 )}
@@ -734,7 +734,7 @@ function RowActions({ row }: { row: ModerationRow }) {
       ) : (
         // Read-only (closed year): state only, no toggle.
         row.verified && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+          <span className="inline-flex items-center gap-1 rounded-full bg-success-surface px-2 py-0.5 text-xs font-medium text-success">
             <Eye className="size-3.5" />
             Перевірено
           </span>

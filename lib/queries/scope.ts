@@ -52,6 +52,22 @@ export async function headOf(staffId: string | null | undefined): Promise<string
 }
 
 /**
+ * The факультети this person is декан of — the dean half of `scopeOf`, for the
+ * screens that are about a факультет as a whole («Мій факультет»). Almost
+ * always one; a list for the same reason `headOf` is one.
+ */
+export async function deanOf(
+  staffId: string | null | undefined
+): Promise<{ id: string; name: string }[]> {
+  if (!staffId) return [];
+  return db.faculty.findMany({
+    where: { deanId: staffId },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+}
+
+/**
  * Ukrainian message if this person cannot hold that post, else null.
  *
  * **A завідувач is never a декан** (owner, 2026-08-18). They are different jobs

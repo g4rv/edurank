@@ -25,7 +25,7 @@ export function EntityPermissionToggle({
       type="checkbox"
       checked={checked}
       disabled={pending}
-      className="size-4 cursor-pointer rounded border-border accent-primary disabled:cursor-wait"
+      className="size-4 cursor-pointer rounded border-border accent-brand disabled:cursor-wait"
       onChange={(e) => {
         startTransition(async () => {
           const result = await setEntityPermission(divisionId, entity, action, e.target.checked);

@@ -95,7 +95,7 @@ export async function removeActivity(
   }
 
   revalidatePath('/moderation');
-  revalidatePath('/achievements');
+  revalidatePath('/profile/rating');
   return { success: true };
 }
 

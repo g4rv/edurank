@@ -4,9 +4,8 @@ import { cn } from '@/lib/utils';
  * Shared table shell so every list in the app reads the same way: one card,
  * zebra rows, subtle column dividers, a consistent hover.
  *
- * The styling is applied at the <table> level with descendant selectors, so it
- * lands on a plain <tbody> and on the motion.tbody used by AnimatedTableBody
- * alike — the animated rows don't need to know about any of it.
+ * The styling is applied at the <table> level with descendant selectors, so a
+ * caller writes plain <tbody> and <tr> and gets the texture for free.
  *
  * All neutral gray: zebra and dividers are legibility, not categorical colour,
  * so the monochrome brand rule (globals.css) still holds. Column dividers use a
@@ -39,9 +38,13 @@ export function DataTable({
       <table
         className={cn(
           'w-full text-sm',
-          // Column dividers — a hairline between columns, none after the last
+          // Column dividers — a hairline between columns, none after the last.
+          // `--border` at full strength, not `/60`: these are the densest lines
+          // in the app, and at 60 % they measured 1.26 on a card — the second
+          // faintest separator in the whole codebase, under the one token that
+          // was already tuned to be «only just visible» (2026-09-21).
           '[&_td:not(:last-child)]:border-r [&_th:not(:last-child)]:border-r',
-          '[&_td]:border-border/60 [&_th]:border-border/60',
+          '[&_td]:border-border [&_th]:border-border',
           // Zebra — every other body row a step up from the card
           '[&_tbody_tr:nth-child(even)]:bg-muted/40',
           // Hover clearly wins over the zebra shade — it is the only cue that a

@@ -5,6 +5,12 @@ import {
 } from '../lib/rating/activity-types';
 import { dbSpecs } from '../lib/rating/db-specs';
 import { SPECIALITY_NORMS_2026, DEFAULT_CONTRACT_COEFFICIENT } from '../lib/stake/norms';
+import { stakeYearOf } from '../lib/science/academic-year';
+import {
+  SCIENCE_WORK_TYPES_2027,
+  SCIENCE_TEMPLATE_2027,
+  scienceDbSpecs,
+} from '../lib/science/work-types-2027';
 import type { PrismaClient } from '../lib/generated/prisma/client';
 import type { Prisma } from '../lib/generated/prisma/client';
 
@@ -39,6 +45,7 @@ export async function seedCatalogue(prisma: PrismaClient, year = 2026): Promise<
   await seedNnvPermissions(prisma, divisionIds.NNV);
   const { templateId, activityTypeCount } = await seedTemplate(prisma, year, divisionIds);
   const specialityCount = await seedSpecialities(prisma, year);
+  await seedSciencePlan(prisma);
 
   return { templateId, year, divisionIds, activityTypeCount, specialityCount };
 }
@@ -58,10 +65,14 @@ async function seedDivisions(prisma: PrismaClient): Promise<Record<string, strin
   const ids: Record<string, string> = {};
   for (const [key, name] of Object.entries(RATING_DIVISIONS)) {
     const canModerateRating = key === 'NNV';
+    // «Перевірка науки» (D43) on CREATE only: the migration that added the
+    // column already set it for ННВ, and a re-seed must never undo a switch an
+    // ADMIN has since moved on /divisions.
+    const canOverseeScience = key === 'NNV';
     const division = await prisma.division.upsert({
       where: { registryKey: key },
       update: { canModerateRating },
-      create: { name, registryKey: key, canModerateRating },
+      create: { name, registryKey: key, canModerateRating, canOverseeScience },
     });
     ids[key] = division.id;
   }
@@ -206,4 +217,90 @@ async function seedSpecialities(prisma: PrismaClient, year: number): Promise<num
   });
 
   return prisma.speciality.count();
+}
+
+/**
+ * Додаток III до наказу №152 — the 2026/2027 planning catalogue.
+ *
+ * Idempotent and production-safe, like the rating catalogue beside it: the
+ * template is upserted on `academicYear`, every work type on
+ * `[templateId, code]`. It creates no accounts, writes no plans and overwrites
+ * nothing a person typed.
+ *
+ * `status` (on the template) and `isActive` (on each work type) are set on
+ * CREATE only — the same rule `seedTemplate` above already follows for the
+ * rating's own `isActive`. An ADMIN who closed 2026/2027, or deactivated one
+ * work type in it, must not find either reverted by a deploy that happened to
+ * run this seed.
+ */
+async function seedSciencePlan(prisma: PrismaClient): Promise<void> {
+  const { academicYear, orderRef, minHoursPerRate } = SCIENCE_TEMPLATE_2027;
+
+  const template = await prisma.sciencePlanTemplate.upsert({
+    where: { academicYear },
+    update: { orderRef, minHoursPerRate },
+    create: {
+      academicYear,
+      orderRef,
+      minHoursPerRate,
+      stakeYear: stakeYearOf(academicYear),
+      status: 'OPEN',
+    },
+  });
+
+  for (const { code, shape } of scienceWorkTypeRows()) {
+    await prisma.scienceWorkType.upsert({
+      where: { templateId_code: { templateId: template.id, code } },
+      // `isActive` is deliberately absent from the update: an ADMIN who
+      // deactivated a work type must not find it back after a deploy.
+      update: shape,
+      create: { ...shape, templateId: template.id, code },
+    });
+  }
+
+  console.log(`  Додаток III: ${SCIENCE_WORK_TYPES_2027.length} видів роботи (${academicYear})`);
+}
+
+/**
+ * The 2026/2027 Додаток III work types as database rows — shared by the seed
+ * above and by `prisma/science-catalogue.ts`, the create-only script that is
+ * how PRODUCTION gets the catalogue (production is never seeded). One builder,
+ * so the two can never write different rows for the same вид роботи.
+ */
+export function scienceWorkTypeRows() {
+  // How many types share each пункт. A пункт with exactly one IS that type, so
+  // its heading is the label and nobody has to type it twice; a пункт with
+  // several needs the наказ's own heading, which only `itemTitle` can carry.
+  const typesPerItem = new Map<string, number>();
+  for (const def of SCIENCE_WORK_TYPES_2027) {
+    typesPerItem.set(def.itemNumber, (typesPerItem.get(def.itemNumber) ?? 0) + 1);
+  }
+
+  return SCIENCE_WORK_TYPES_2027.map((def) => {
+    const { evidenceFields, scoring, coefficient } = scienceDbSpecs(def);
+    const alone = typesPerItem.get(def.itemNumber) === 1;
+    return {
+      code: def.code,
+      shape: {
+        order: def.order,
+        itemNumber: def.itemNumber,
+        // Never guessed for a shared пункт: an unnamed one shows «Пункт N» in
+        // the picker and is still found by searching its types' labels.
+        itemTitle: def.itemTitle ?? (alone ? def.label : null),
+        label: def.label,
+        shortLabel: def.shortLabel ?? null,
+        evidenceFields: evidenceFields as unknown as Prisma.InputJsonValue,
+        scoring: scoring as unknown as Prisma.InputJsonValue,
+        coefficient,
+        unitNote: def.unitNote ?? null,
+        reportingForm: def.reportingForm ?? null,
+        reuse: def.reuse,
+        sharing: def.sharing,
+        identityFields: [...def.identityFields] as unknown as Prisma.InputJsonValue,
+        linkRule: def.linkRule ?? 'OPTIONAL',
+        fileRule: def.fileRule ?? 'OPTIONAL',
+        maxPerYear: def.maxPerYear ?? null,
+      },
+    };
+  });
 }

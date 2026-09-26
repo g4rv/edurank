@@ -5,8 +5,6 @@ import { db } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { EntityPermissionToggle } from '@/components/admin/entity-permission-toggle';
 import type { EntityType, EntityAction } from '@/lib/generated/prisma/client';
-import { AnimatedTableBody } from '@/components/ui/animated-table-body';
-import { AnimatedRow } from '@/components/ui/animated-row';
 
 const ENTITIES: { value: EntityType; label: string }[] = [
   { value: 'STAFF', label: 'Персонал' },
@@ -46,7 +44,7 @@ export default async function EntityPermissionsPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Дії доступу</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-sm text-foreground-soft">
           Які операції над сутностями редактори кожного відділу можуть виконувати
         </p>
       </div>
@@ -69,7 +67,7 @@ export default async function EntityPermissionsPage({
                 className={cn(
                   'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
                   div.id === selectedId
-                    ? 'border-primary bg-primary text-primary-foreground'
+                    ? 'border-brand bg-brand text-brand-foreground'
                     : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
                 )}
               >
@@ -96,9 +94,9 @@ export default async function EntityPermissionsPage({
                     ))}
                   </tr>
                 </thead>
-                <AnimatedTableBody>
+                <tbody>
                   {ENTITIES.map((e) => (
-                    <AnimatedRow key={e.value} className="border-b last:border-0">
+                    <tr key={e.value} className="border-b last:border-0">
                       <td className="px-4 py-3 font-medium">{e.label}</td>
                       {ACTIONS.map((a) => (
                         <td key={a.value} className="px-4 py-3 text-center">
@@ -110,9 +108,9 @@ export default async function EntityPermissionsPage({
                           />
                         </td>
                       ))}
-                    </AnimatedRow>
+                    </tr>
                   ))}
-                </AnimatedTableBody>
+                </tbody>
               </table>
             </div>
           )}

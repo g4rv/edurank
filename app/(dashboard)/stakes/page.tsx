@@ -3,10 +3,9 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listDepartmentStakes, listStatusBonuses } from '@/lib/queries/list-stake-settings';
-import { scopeOf } from '@/lib/queries/scope';
+import { headOf } from '@/lib/queries/scope';
 import { poolTotals } from '@/lib/stake/pool-totals';
 import { PRICED_POSITIONS } from '@/lib/stake/status-bonus';
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { DepartmentPools } from '@/components/stake/department-pools';
 import { PoolSummary } from '@/components/stake/pool-summary';
 import { StatusBonusSettings } from '@/components/stake/status-bonus-settings';
@@ -38,7 +37,9 @@ export default async function StakesPage() {
   if (!session) redirect('/login');
 
   const isAdmin = session.user.role === 'ADMIN';
-  const scope = isAdmin ? [] : await scopeOf(session.user.staffId);
+  // `headOf`, not `scopeOf`: a декан no longer sees розподіл ставок at all
+  // (owner, 2026-09-24) — it is the завідувач's work and ADMIN's.
+  const scope = isAdmin ? [] : await headOf(session.user.staffId);
   if (!isAdmin && scope.length === 0) redirect('/profile');
   // One кафедра is not a list. Done here rather than by pointing the sidebar
   // link somewhere else, so that typing the URL behaves the same way — and the
@@ -50,12 +51,12 @@ export default async function StakesPage() {
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
+      <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Розподіл ставок</h1>
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Рейтинговий рік ще не налаштовано.
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
   const year = template.year;
@@ -80,7 +81,7 @@ export default async function StakesPage() {
   const totals = poolTotals(rows);
 
   return (
-    <AnimatedPage className="space-y-5">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-semibold">Розподіл ставок</h1>
@@ -104,6 +105,6 @@ export default async function StakesPage() {
       <DepartmentPools rows={rows} year={year} canEdit={isAdmin} />
 
       {isAdmin && <StatusBonusSettings values={statusValues} year={year} />}
-    </AnimatedPage>
+    </div>
   );
 }

@@ -7,12 +7,13 @@ import { toast } from 'sonner';
 import { Controller, useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/aurora/ui/button';
+import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '@/components/aurora/ui/switch';
 import { divisionSchema, type DivisionSchema } from '@/validations/division';
 import type { DivisionActionState } from '@/app/(dashboard)/divisions/actions';
+import { RequiredFields } from '@/components/ui/required-fields';
 
 interface DivisionFormProps {
   defaultValues?: Partial<DivisionSchema>;
@@ -31,7 +32,12 @@ export function DivisionForm({ defaultValues, action, submitLabel }: DivisionFor
     formState: { errors },
   } = useForm<DivisionSchema>({
     resolver: standardSchemaResolver(divisionSchema as never),
-    defaultValues: { name: '', canModerateRating: false, ...defaultValues },
+    defaultValues: {
+      name: '',
+      canModerateRating: false,
+      canOverseeScience: false,
+      ...defaultValues,
+    },
   });
 
   function onSubmit(data: DivisionSchema) {
@@ -52,42 +58,65 @@ export function DivisionForm({ defaultValues, action, submitLabel }: DivisionFor
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-5 rounded-xl border bg-card p-5">
-        <FormField htmlFor="name" label="Назва" error={errors.name}>
-          <Input id="name" disabled={isPending} {...register('name')} />
-        </FormField>
+    <RequiredFields schema={divisionSchema}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-5 rounded-xl border bg-card p-5">
+          <FormField htmlFor="name" label="Назва" error={errors.name}>
+            <Input id="name" disabled={isPending} {...register('name')} />
+          </FormField>
 
-        <label className="flex cursor-pointer items-start gap-3">
-          <Controller
-            name="canModerateRating"
-            control={control}
-            render={({ field }) => (
-              <Switch
-                checked={!!field.value}
-                disabled={isPending}
-                onCheckedChange={field.onChange}
-              />
-            )}
-          />
-          <span className="text-sm">
-            Модерація рейтингу
-            <span className="block text-xs text-muted-foreground">
-              Редактори цього відділу зможуть відхиляти подання НПП із зазначенням причини та
-              позначати публікації як перевірені
+          <label className="flex cursor-pointer items-start gap-3">
+            <Controller
+              name="canModerateRating"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  checked={!!field.value}
+                  disabled={isPending}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
+            <span className="text-sm">
+              Модерація рейтингу
+              <span className="block text-xs text-muted-foreground">
+                Редактори цього відділу зможуть відхиляти подання НПП із зазначенням причини та
+                позначати публікації як перевірені
+              </span>
             </span>
-          </span>
-        </label>
-      </div>
+          </label>
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Збереження...' : submitLabel}
-        </Button>
-        <Button asChild variant="outline" disabled={isPending}>
-          <Link href="/divisions">Скасувати</Link>
-        </Button>
-      </div>
-    </form>
+          <label className="flex cursor-pointer items-start gap-3">
+            <Controller
+              name="canOverseeScience"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  checked={!!field.value}
+                  disabled={isPending}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
+            <span className="text-sm">
+              Перевірка науки
+              <span className="block text-xs text-muted-foreground">
+                Редактори цього відділу бачитимуть плани й виконання наукової роботи всіх НПП,
+                відкриватимуть файли підтвердження та зможуть відхиляти записи
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Збереження...' : submitLabel}
+          </Button>
+          <Button asChild variant="outline" disabled={isPending}>
+            <Link href="/divisions">Скасувати</Link>
+          </Button>
+        </div>
+      </form>
+    </RequiredFields>
   );
 }

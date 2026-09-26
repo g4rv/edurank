@@ -1,26 +1,95 @@
 'use client';
 
 import * as React from 'react';
-import { DayPicker, getDefaultClassNames, type DayButton, type Locale } from 'react-day-picker';
+import {
+  DayPicker,
+  formatCaption as defaultFormatCaption,
+  getDefaultClassNames,
+  type DateRange,
+  type DayButton,
+  type Locale,
+  type OnSelectHandler,
+} from 'react-day-picker';
+import { uk } from 'date-fns/locale';
+
+import { stepRange, type RangeEnd } from '@/lib/forms/date-range';
 
 import { cn } from '@/lib/utils';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/aurora/ui/button';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from 'lucide-react';
 
-function Calendar({
-  className,
-  classNames,
-  showOutsideDays = true,
-  captionLayout = 'label',
-  buttonVariant = 'ghost',
-  locale,
-  formatters,
-  components,
-  ...props
-}: React.ComponentProps<typeof DayPicker> & {
-  buttonVariant?: React.ComponentProps<typeof Button>['variant'];
-}) {
+/**
+ * date-fns gives Ukrainian month names in lower case («вересень»), because that
+ * is how the word is written mid-sentence. A calendar caption is a heading, not
+ * a sentence, so it takes a capital. `toLocaleUpperCase` rather than
+ * `toUpperCase` so Cyrillic follows the locale's own casing rules.
+ *
+ * Weekday abbreviations stay lower case (`пн вт ср`) — that is the Ukrainian
+ * convention, and unlike the caption they are not headings.
+ */
+function capitaliseCaption(value: string) {
+  return value.charAt(0).toLocaleUpperCase('uk') + value.slice(1);
+}
+
+/**
+ * Ukrainian by default (owner, 2026-09-07). react-day-picker ships `en-US` as
+ * its built-in locale and does NOT read the browser's — so every calendar in
+ * the app said «September 2026 / Su Mo Tu» until this default existed. The
+ * `locale` prop still overrides it; nothing else in the app has a reason to.
+ */
+function Calendar(
+  allProps: React.ComponentProps<typeof DayPicker> & {
+    buttonVariant?: React.ComponentProps<typeof Button>['variant'];
+  }
+) {
+  const {
+    className,
+    classNames,
+    showOutsideDays = true,
+    captionLayout = 'label',
+    buttonVariant = 'ghost',
+    locale = uk,
+    formatters,
+    components,
+    ...props
+  } = allProps;
   const defaultClassNames = getDefaultClassNames();
+
+  // Clicks write the two ends in turn — see `stepRange` for the rule and for
+  // what is wrong with react-day-picker's own. Which end is next cannot be read
+  // off the range, so it is the one piece of state this component keeps.
+  //
+  // It resets to `from` on remount, which means closing and reopening a date
+  // popover starts the cycle at the start date. That is the right default:
+  // reopening reads as beginning again, not as resuming mid-pick.
+  const [nextEnd, setNextEnd] = React.useState<RangeEnd>('from');
+
+  // Two type notes, both about the same union. It is narrowed off `allProps`
+  // rather than the rest object, because destructuring a discriminated union
+  // loses the tie between `mode`, `selected` and `onSelect` — only here does
+  // TypeScript still know all three are the range flavour. And the handler is
+  // annotated with `OnSelectHandler` rather than an `Extract` off the union,
+  // because `mode="range"` has two prop shapes (`required` or not) whose
+  // `onSelect` signatures differ, and a union of signatures leaves the
+  // parameters with no contextual type at all. The cast on `dayPickerProps` is
+  // what hands the result back across that boundary.
+  let rangeSelect: OnSelectHandler<DateRange | undefined> | undefined;
+  if (allProps.mode === 'range' && allProps.onSelect) {
+    const onSelect = allProps.onSelect as OnSelectHandler<DateRange | undefined>;
+    const selected = allProps.selected;
+    // react-day-picker's own proposal is dropped on the floor, deliberately —
+    // `stepRange` decides the whole range from the day that was clicked.
+    rangeSelect = (_proposed, triggerDate, modifiers, e) => {
+      const step = stepRange(selected, triggerDate, nextEnd);
+      setNextEnd(step.next);
+      onSelect(step.range, triggerDate, modifiers, e);
+    };
+  }
+
+  const dayPickerProps = {
+    ...props,
+    ...(rangeSelect ? { onSelect: rangeSelect } : {}),
+  } as React.ComponentProps<typeof DayPicker>;
 
   return (
     <DayPicker
@@ -34,7 +103,10 @@ function Calendar({
       captionLayout={captionLayout}
       locale={locale}
       formatters={{
-        formatMonthDropdown: (date) => date.toLocaleString(locale?.code, { month: 'short' }),
+        formatCaption: (month, options, dateLib) =>
+          capitaliseCaption(defaultFormatCaption(month, options, dateLib)),
+        formatMonthDropdown: (date) =>
+          capitaliseCaption(date.toLocaleString(locale?.code, { month: 'short' })),
         ...formatters,
       }}
       classNames={{
@@ -139,7 +211,7 @@ function Calendar({
         },
         ...components,
       }}
-      {...props}
+      {...dayPickerProps}
     />
   );
 }
@@ -174,7 +246,7 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        'relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-r-(--cell-radius) data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-l-(--cell-radius) data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70',
+        'relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-r-(--cell-radius) data-[range-end=true]:bg-brand data-[range-end=true]:text-brand-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-l-(--cell-radius) data-[range-start=true]:bg-brand data-[range-start=true]:text-brand-foreground data-[selected-single=true]:bg-brand data-[selected-single=true]:text-brand-foreground dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70',
         defaultClassNames.day,
         className
       )}

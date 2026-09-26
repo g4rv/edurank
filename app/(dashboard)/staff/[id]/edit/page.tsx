@@ -1,9 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
+import { activeYear } from '@/lib/queries/get-active-template';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listDivisions } from '@/lib/queries/list-divisions';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
@@ -15,6 +14,8 @@ import {
   isEditorWritableField,
 } from '@/lib/permissions';
 import { StaffEditForm } from '@/components/staff/edit-form';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+import { fullName } from '@/components/staff/profile/primitives';
 
 export default async function StaffEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -81,21 +82,17 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <Link
-        href={`/staff/${id}`}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" />
-        Профіль
-      </Link>
-
-      <div>
-        <h1 className="text-2xl font-semibold">Редагування</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {staff.lastName} {staff.firstName} {staff.patronymic}
-        </p>
-      </div>
+    // No back link and no heading of its own: the form carries both in its own
+    // header card, beside the actions they belong with. `max-w-3xl` is gone too
+    // — the fields are two columns now and were being squeezed into one.
+    <div className="space-y-5">
+      <Breadcrumbs
+        items={[
+          { label: 'Персонал', href: '/staff' },
+          { label: fullName(staff), href: `/staff/${id}` },
+          { label: 'Редагування' },
+        ]}
+      />
 
       <StaffEditForm
         staff={staff}
@@ -106,6 +103,8 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
         editableFields={editableFields}
         staffId={id}
         stakeBreakdown={stakeBreakdown}
+        // ADMIN only, and only while a year is open — an allocation lives in one.
+        canEditRates={isAdmin && (await activeYear()) !== null}
       />
     </div>
   );

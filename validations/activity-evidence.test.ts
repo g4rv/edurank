@@ -1,9 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
-import { EVIDENCE_FIELDS, type EvidenceField } from '@/lib/rating/evidence-fields';
+import {
+  date,
+  dateRange,
+  doi,
+  EVIDENCE_FIELDS,
+  isbn,
+  number,
+  opt,
+  select,
+  url,
+  type EvidenceField,
+} from '@/lib/rating/evidence-fields';
 import { computeScore } from '@/lib/rating/scoring';
 import { catalogueType, SELECT_OPTION_POINTS } from '@/lib/rating/db-specs';
-import { schemaForFields } from './activity-evidence';
+import { currentYearBounds, fieldSchema, schemaForFields } from './activity-evidence';
 
 // Schemas are built from an activity type's own field specs. Here they are
 // built from the catalogue through `catalogueType`, the same conversion the
@@ -313,5 +324,206 @@ describe('schema validation behavior', () => {
     expect(schema.safeParse({ title: 'Журі', count: 0 }).success).toBe(false);
     expect(schema.safeParse({ title: 'Журі', count: 1.5 }).success).toBe(false);
     expect(schema.safeParse({ title: 'Журі', count: 2, extra: 1 }).success).toBe(false);
+  });
+});
+
+describe('an empty required field says it is required, not malformed', () => {
+  // A person who typed nothing is told what is WRONG with what they typed.
+  // «Некоректне посилання» over an empty box sends them looking for a typo in
+  // a field they never touched; the three kinds below all did this, because
+  // each pipes an empty string straight into a format check.
+  const messageFor = (field: EvidenceField, value: unknown) => {
+    const result = fieldSchema(field).safeParse(value);
+    return result.success ? null : result.error.issues[0].message;
+  };
+
+  it('url', () => {
+    expect(messageFor(url('link', 'Посилання'), '')).toBe("Обов'язкове поле");
+  });
+
+  it('isbn', () => {
+    expect(messageFor(isbn('isbn', 'ISBN'), '')).toBe("Обов'язкове поле");
+  });
+
+  it('doi', () => {
+    expect(messageFor(doi('doi', 'DOI'), '')).toBe("Обов'язкове поле");
+  });
+
+  it('still names the real fault when something WAS typed', () => {
+    expect(messageFor(url('link', 'Посилання'), 'not-a-url')).toBe('Некоректне посилання');
+    expect(messageFor(isbn('isbn', 'ISBN'), '978-3-16-148410-1')).toMatch(/ISBN/);
+    expect(messageFor(doi('doi', 'DOI'), 'nonsense')).toMatch(/DOI/);
+  });
+
+  it('leaves the optional form of each kind accepting an empty box', () => {
+    expect(fieldSchema(url('link', 'Посилання', { optional: true })).safeParse('').success).toBe(
+      true
+    );
+    expect(fieldSchema(isbn('isbn', 'ISBN', { optional: true })).safeParse('').success).toBe(true);
+    expect(fieldSchema(doi('doi', 'DOI', { optional: true })).safeParse('').success).toBe(true);
+  });
+});
+
+describe('a number field can have a ceiling, not only a floor', () => {
+  // «Рік початку» carried `min: 1950` and nothing above it, so 123123 was a
+  // valid year of employment — it saved, and printed into the licence document
+  // as «Рік початку: 123123». A floor alone is not a range.
+  const yearField = number('fromYear', 'Рік початку', { min: 1950, max: 2026, int: true });
+
+  const problem = (value: unknown) => {
+    const result = fieldSchema(yearField).safeParse(value);
+    return result.success ? null : result.error.issues[0].message;
+  };
+
+  it('accepts a year inside the range', () => {
+    expect(problem(1998)).toBeNull();
+    expect(problem(2026)).toBeNull();
+    expect(problem(1950)).toBeNull();
+  });
+
+  it('refuses a year above the ceiling, in Ukrainian', () => {
+    expect(problem(123123)).toBe('Максимальне значення — 2026');
+    expect(problem(2027)).toBe('Максимальне значення — 2026');
+  });
+
+  it('still refuses one below the floor', () => {
+    expect(problem(123)).toBe('Мінімальне значення — 1950');
+  });
+
+  it('leaves a field with no ceiling unbounded', () => {
+    // Most numbers in the catalogue are counts — сторінки, співавтори, дні —
+    // and inventing a maximum for those would refuse real work.
+    const pages = number('pages', 'Кількість сторінок', { min: 1, int: true });
+    expect(fieldSchema(pages).safeParse(100000).success).toBe(true);
+  });
+});
+
+describe('an optional select may be left unanswered', () => {
+  // «Призове місце» on п.15 has four real answers, but the jury variants of
+  // that position have no place to record — so the field has to be a list AND
+  // skippable. Before this a select was always required.
+  const field = select(
+    'place',
+    'Призове місце',
+    [opt('first', 'I місце'), opt('laureate', 'лауреат')],
+    { optional: true }
+  );
+
+  it('accepts a chosen option', () => {
+    expect(fieldSchema(field).safeParse('first').success).toBe(true);
+  });
+
+  it('accepts an empty answer', () => {
+    expect(fieldSchema(field).safeParse('').success).toBe(true);
+    expect(fieldSchema(field).safeParse(undefined).success).toBe(true);
+  });
+
+  it('still refuses a value outside the list', () => {
+    expect(fieldSchema(field).safeParse('second').success).toBe(false);
+  });
+
+  it('leaves a required select required', () => {
+    const required = select('stage', 'Етап', [opt('a', 'A')]);
+    expect(fieldSchema(required).safeParse('').success).toBe(false);
+    expect(fieldSchema(required).safeParse('a').success).toBe(true);
+  });
+});
+
+describe('dateRange — one field, two ends, never backwards', () => {
+  // «Рік початку / Рік завершення» were two independent answers, so 2019 → 2014
+  // saved happily. A range cannot express that: the picker writes the two ends
+  // in order, and the schema refuses the inversion a request could still forge.
+  const field = dateRange('period', 'Період роботи');
+  const parse = (v: unknown) => fieldSchema(field).safeParse(v);
+
+  const year = new Date().getFullYear();
+  const recent = `${year - 3}-09-01`;
+  const later = `${year - 1}-08-31`;
+
+  it('accepts a range in order', () => {
+    expect(parse({ from: recent, to: later }).success).toBe(true);
+  });
+
+  it('accepts a single day at both ends', () => {
+    expect(parse({ from: recent, to: recent }).success).toBe(true);
+  });
+
+  it('refuses an end before its start', () => {
+    const result = parse({ from: later, to: recent });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0].message).toMatch(/раніше/);
+  });
+
+  it('refuses a half-filled range', () => {
+    expect(parse({ from: recent }).success).toBe(false);
+    expect(parse({ to: later }).success).toBe(false);
+  });
+
+  it('refuses nonsense in place of a date', () => {
+    expect(parse({ from: '123123', to: later }).success).toBe(false);
+    expect(parse('2014-2019').success).toBe(false);
+  });
+
+  it('refuses a period before the university could have signed anything', () => {
+    // A decade back, not 1950 (owner, 2026-09-14): п.11 records consulting «на
+    // підставі договору із закладом вищої освіти».
+    expect(parse({ from: '1994-09-01', to: '1999-08-31' }).success).toBe(false);
+    expect(parse({ from: `${year - 11}-01-01`, to: later }).success).toBe(false);
+    expect(parse({ from: `${year - 9}-01-01`, to: later }).success).toBe(true);
+  });
+
+  it('lets an optional range be left empty', () => {
+    const opt_ = dateRange('period', 'Період', { optional: true });
+    expect(fieldSchema(opt_).safeParse(undefined).success).toBe(true);
+    expect(fieldSchema(opt_).safeParse('').success).toBe(true);
+  });
+});
+
+describe('date with `currentYear` — old publications refused (owner, 2026-09-24)', () => {
+  const field = date('publishedOn', 'Опубліковано/Проіндексовано', { rule: 'currentYear' });
+  const parse = (v: unknown) => fieldSchema(field).safeParse(v);
+
+  // 20 March 2026, midday in Kyiv.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-20T10:00:00Z'));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('accepts 1 January and today', () => {
+    expect(parse('2026-01-01').success).toBe(true);
+    expect(parse('2026-03-20').success).toBe(true);
+  });
+
+  it('refuses last year, naming the year that is accepted', () => {
+    const result = parse('2025-12-31');
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].message).toBe('Приймаються лише публікації 2026 року');
+  });
+
+  it('refuses tomorrow', () => {
+    expect(parse('2026-03-21').success).toBe(false);
+  });
+
+  it('does not re-judge a date already saved, only a changed one', () => {
+    const edit = (v: string) =>
+      schemaForFields([field], undefined, { stored: { publishedOn: '2025-11-03' } }).safeParse({
+        publishedOn: v,
+      });
+    expect(edit('2025-11-03').success).toBe(true);
+    expect(edit('2025-11-04').success).toBe(false);
+  });
+
+  it('leaves a date field without the rule as it was', () => {
+    expect(fieldSchema(date('d', 'Дата')).safeParse('2019-05-01').success).toBe(true);
+  });
+});
+
+describe('currentYearBounds', () => {
+  it('reads the year in Kyiv — 00:30 on 1 January there is still December in UTC', () => {
+    expect(currentYearBounds(new Date('2026-12-31T22:30:00Z'))).toEqual({
+      min: '2027-01-01',
+      max: '2027-01-01',
+    });
   });
 });

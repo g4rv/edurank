@@ -1,9 +1,16 @@
+import { cache } from 'react';
 import { db } from '@/lib/db';
 import { emailLockedUntil } from '@/lib/auth/throttle';
 
 // Account state for the ADMIN card on the staff detail page.
 // passwordHash itself never leaves this function — only its presence.
-export async function getStaffAccount(id: string) {
+//
+// **`cache()`d, for the same reason `getStaff` is** (2026-09-10). Two components
+// of one request want this row: `RecordHeader` reads it for the «Активовано»
+// badge on the band, and the Профіль tab's `AccountBar` reads it for the
+// controls on the tab row. Both pass the id alone, so they share the entry
+// instead of each paying for a `findUnique` and a throttle lookup.
+export const getStaffAccount = cache(async function getStaffAccount(id: string) {
   const staff = await db.staff.findUnique({
     where: { id },
     select: {
@@ -34,6 +41,6 @@ export async function getStaffAccount(id: string) {
      */
     lockedUntil: await emailLockedUntil(staff.email),
   };
-}
+});
 
 export type StaffAccount = NonNullable<Awaited<ReturnType<typeof getStaffAccount>>>;

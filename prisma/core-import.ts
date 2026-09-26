@@ -66,10 +66,22 @@ export async function importCoreData(
 
   // ── Відділи ────────────────────────────────────────────────────────────────
   for (const d of data.divisions) {
+    // A file exported before D43 carries no «Перевірка науки» — fall back to
+    // what the migration did: ННВ has it.
+    const canOverseeScience = d.canOverseeScience ?? d.registryKey === 'NNV';
     await prisma.division.upsert({
       where: { name: d.name },
-      create: { name: d.name, registryKey: d.registryKey, canModerateRating: d.canModerateRating },
-      update: { registryKey: d.registryKey, canModerateRating: d.canModerateRating },
+      create: {
+        name: d.name,
+        registryKey: d.registryKey,
+        canModerateRating: d.canModerateRating,
+        canOverseeScience,
+      },
+      update: {
+        registryKey: d.registryKey,
+        canModerateRating: d.canModerateRating,
+        canOverseeScience,
+      },
     });
   }
   const divisionIds = await idsByName(

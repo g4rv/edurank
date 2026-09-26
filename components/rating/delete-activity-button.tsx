@@ -4,7 +4,7 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/aurora/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { deleteActivity } from '@/app/(dashboard)/achievements/actions';
 
 export function DeleteActivityButton({ activityId, label }: { activityId: string; label: string }) {
@@ -37,12 +37,14 @@ export function DeleteActivityButton({ activityId, label }: { activityId: string
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 text-muted-foreground hover:text-destructive"
-          aria-label="Видалити досягнення"
-        >
+        {/* §3: red AT REST, tint as well as glyph (2026-09-22). This was
+            `ghost` + `text-error`, which kept `ghost`'s own
+            `hover:bg-foreground/6` — a GREY pill under a red icon on hover.
+
+            `size="icon-sm"` replaces `size="icon"` + `className="size-7"`:
+            `icon-sm` IS 28px, and it brings the smaller radius the other six
+            delete buttons already had. */}
+        <Button variant="destructive" size="icon-sm" aria-label="Видалити досягнення">
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>

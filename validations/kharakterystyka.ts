@@ -81,7 +81,7 @@ export function positionFormSchema(position: number, minYear: number, maxYear: n
   const fields = positionEvidenceFields(position);
   const evidence = Object.fromEntries(fields.map((f) => [f.name, fieldSchema(f)]));
 
-  return z.strictObject({
+  const shape = z.strictObject({
     year: z.preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
       z
@@ -93,6 +93,8 @@ export function positionFormSchema(position: number, minYear: number, maxYear: n
     group: z.string().nullable().optional(),
     ...evidence,
   });
+
+  return shape;
 }
 
 /**

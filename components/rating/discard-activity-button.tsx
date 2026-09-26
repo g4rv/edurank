@@ -4,9 +4,9 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Ban } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/aurora/ui/button';
+import { Label } from '@/components/aurora/ui/label';
+import { Textarea } from '@/components/aurora/ui/textarea';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { removeActivity } from '@/app/(dashboard)/moderation/actions';
 
 export function DiscardActivityButton({
@@ -49,7 +49,12 @@ export function DiscardActivityButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+        {/* `destructive`, not `outline` with the colour painted on by hand
+            (2026-09-21). §3 of `docs/aurora.md`: an action that refuses or
+            removes somebody's work wears the VARIANT named for what it does,
+            and the variant is where the rest state, the hover and dark mode are
+            decided once. */}
+        <Button variant="destructive" size="sm">
           <Ban className="size-4" />
           Відхилити
         </Button>

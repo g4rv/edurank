@@ -16,18 +16,65 @@ const emptyToUndefined = (v: unknown) =>
 export const MIN_EVIDENCE_YEAR = 1950;
 
 /**
+ * What a `dateRange` may span — roughly a decade back, two ahead of that.
+ *
+ * **Not `MIN_EVIDENCE_YEAR`** (owner, 2026-09-14). 1950 is a floor for a
+ * PUBLICATION year, where an old citation is ordinary. A period is not that:
+ * п.11 records consulting «на підставі договору із закладом вищої освіти», and
+ * the university did not exist to sign one. Offering 1950 in the picker invited
+ * a date nobody could hold a contract for.
+ *
+ * Forward, because an end can be ahead of today — an appointment somebody still
+ * holds, a contract with a term left to run.
+ */
+export const RANGE_MIN_YEAR = new Date().getFullYear() - 10;
+export const RANGE_MAX_YEAR = new Date().getFullYear() + 20;
+
+/**
+ * A date field's `currentYear` window: 1 January of this calendar year up to
+ * today, both `YYYY-MM-DD`, read in Europe/Kyiv — at 00:30 on 1 January in
+ * Kyiv it is still the old year in UTC. Calendar year, not навчальний рік
+ * (owner, 2026-09-24): in 2026 a 2025 publication is refused.
+ *
+ * Shared by the picker (its bounds) and the schema (the refusal), so the two
+ * cannot disagree.
+ */
+export function currentYearBounds(now: Date = new Date()): { min: string; max: string } {
+  // en-CA formats as YYYY-MM-DD.
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Kyiv',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  return { min: `${today.slice(0, 4)}-01-01`, max: today };
+}
+
+/**
  * One field's rule. Exported for the Характеристика's hand-typed forms, which
  * compose a FLAT schema — `{ рік, варіант, ...поля }` — because the shared
  * renderer registers a field under its own name and nesting the evidence would
  * make every `register('bibliography')` a `register('evidence.bibliography')`.
  */
-export function fieldSchema(f: EvidenceField): z.ZodType {
+export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
   switch (f.kind) {
     case 'text': {
-      const base = z
+      let base = z
         .string({ error: "Обов'язкове поле" })
         .trim()
         .max(2000, { error: 'Занадто довге значення' });
+      if (f.rule === 'cyrillicName') {
+        // Ukrainian letters, plus the apostrophe and hyphen its orthography
+        // needs — «Дем'янчук», «Кос-Анатольський». Both apostrophe shapes,
+        // because a keyboard produces one and Word the other. Latin letters are
+        // refused deliberately: a transcription in this document is a claim
+        // nobody made.
+        base = base
+          .min(2, { error: 'Щонайменше дві літери' })
+          .regex(/^[А-ЩЬЮЯЄІЇҐа-щьюяєіїґ'’\-]+$/u, {
+            error: 'Лише українські літери, апостроф і дефіс',
+          });
+      }
       return f.optional
         ? z.preprocess(emptyToUndefined, base.min(1).optional())
         : base.min(1, { error: "Обов'язкове поле" });
@@ -37,6 +84,14 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       let base = z.coerce
         .number({ error: 'Має бути числом' })
         .min(min, { error: `Мінімальне значення — ${min}` });
+      // A ceiling only where the spec sets one. Most numbers here are counts —
+      // сторінки, співавтори, дні — and inventing a maximum for those would
+      // refuse real work. A YEAR is the case that needs it: «Рік початку» had a
+      // floor of 1950 and nothing above, so 123123 was a valid year of
+      // employment and printed into the licence document as one.
+      if (f.max !== undefined) {
+        base = base.max(f.max, { error: `Максимальне значення — ${f.max}` });
+      }
       if (f.int) base = base.int({ error: 'Має бути цілим числом' });
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
@@ -46,6 +101,11 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       let base: z.ZodType<string> = z
         .string({ error: "Обов'язкове поле" })
         .trim()
+        // Before the format check, not after. `withProtocol('')` is `''`, which
+        // `z.url()` rejects as «Некоректне посилання» — telling somebody who
+        // typed nothing that what they typed is malformed, and sending them
+        // hunting for a typo in an empty box.
+        .min(1, { error: "Обов'язкове поле" })
         .transform(withProtocol)
         .pipe(z.url({ error: 'Некоректне посилання' }).max(2000))
         .refine(hasDomainHost, { error: 'Некоректне посилання' });
@@ -59,14 +119,47 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
     }
     case 'date': {
       const maxYear = new Date().getFullYear() + 1;
-      const base = z.iso.date({ error: 'Некоректна дата' }).refine(
+      let base = z.iso.date({ error: 'Некоректна дата' }).refine(
         (v) => {
           const year = Number(v.slice(0, 4));
           return year >= MIN_EVIDENCE_YEAR && year <= maxYear;
         },
         { error: `Рік має бути в межах ${MIN_EVIDENCE_YEAR}–${maxYear}` }
       );
+      if (f.rule === 'currentYear') {
+        const { min, max } = currentYearBounds();
+        // The value already saved is not judged again: in January, last
+        // year's article must still take a corrected title. Only a CHANGED
+        // date meets the window — the same rule D48 gives the month.
+        const kept = (v: string) => v === stored;
+        base = base
+          .refine((v) => kept(v) || v >= min, {
+            error: `Приймаються лише публікації ${min.slice(0, 4)} року`,
+          })
+          .refine((v) => kept(v) || v <= max, { error: 'Дата не може бути в майбутньому' });
+      }
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
+    }
+    case 'dateRange': {
+      // Both ends, and the end never before the start. The picker cannot
+      // produce an inverted range, so this is here for the request that skips
+      // the picker — the half of a shared rule an attacker keeps.
+      const day = z.iso.date({ error: 'Некоректна дата' }).refine(
+        (v) => {
+          const year = Number(v.slice(0, 4));
+          return year >= RANGE_MIN_YEAR && year <= RANGE_MAX_YEAR;
+        },
+        { error: `Рік має бути в межах ${RANGE_MIN_YEAR}–${RANGE_MAX_YEAR}` }
+      );
+      const base = z
+        .object({ from: day, to: day })
+        .refine((r) => r.from <= r.to, { error: 'Дата завершення раніше за дату початку' });
+      // An untouched range arrives as '' from the form, like every other kind.
+      const blank = (v: unknown) =>
+        v === '' || v === null || (typeof v === 'object' && v !== null && !('from' in v))
+          ? undefined
+          : v;
+      return f.optional ? z.preprocess(blank, base.optional()) : base;
     }
     case 'isbn': {
       // Stored as typed — publishers hyphenate differently, and the check
@@ -74,6 +167,8 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       const base = z
         .string({ error: "Обов'язкове поле" })
         .trim()
+        // See the url case: an empty box is not a failed check digit.
+        .min(1, { error: "Обов'язкове поле" })
         .refine(isValidIsbn, { error: 'Некоректний ISBN — перевірте контрольну цифру' });
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
@@ -81,6 +176,11 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
       // Stored bare (resolver prefix stripped) so the checker can query it directly
       const base = z
         .string({ error: "Обов'язкове поле" })
+        .trim()
+        // See the url case. `normalizeDoi` trims on its own, so the `trim()`
+        // here changes no stored value — it only lets `min` see a box holding
+        // nothing but spaces for what it is.
+        .min(1, { error: "Обов'язкове поле" })
         .transform(normalizeDoi)
         .refine(isValidDoi, { error: 'Некоректний DOI — очікується 10.XXXX/…' });
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
@@ -92,7 +192,12 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
     }
     case 'select': {
       const values = f.options.map((o) => o.value) as [string, ...string[]];
-      return z.enum(values, { error: 'Оберіть значення зі списку' });
+      const base = z.enum(values, { error: 'Оберіть значення зі списку' });
+      // An optional list is a real case, not a contradiction: п.15's «Призове
+      // місце» has four answers for the two winner variants and none for the
+      // two jury ones. Blank arrives as '' from an untouched Radix select, so
+      // it goes through the same `emptyToUndefined` every other kind uses.
+      return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
   }
 }
@@ -100,13 +205,29 @@ export function fieldSchema(f: EvidenceField): z.ZodType {
 /** Zod schema for an arbitrary subset of evidence fields (e.g. the shared
  *  fields of an entity-first group entry, validated apart from the role).
  *  Pass `scoring` to also apply the rule-level checks — without it only the
- *  per-field ones run, which is what a partial subset wants. */
+ *  per-field ones run, which is what a partial subset wants.
+ *
+ *  `allowUnknownKeys` (default off — every other caller wants a typo in
+ *  evidence to fail loudly) lets a payload carry MORE than this subset
+ *  without failing. The science plan needs exactly that: a row saved before
+ *  D23 still holds a `title` in `details` alongside the planning fields, and
+ *  removing a requirement must not turn into rejecting the rows that used to
+ *  satisfy it. Unknown keys are silently dropped from `parsed.data`, not kept —
+ *  a plan row writes back only what it actually validated. */
 export function schemaForFields(
   fields: readonly EvidenceField[],
-  scoring?: ScoringSpec
+  scoring?: ScoringSpec,
+  opts?: {
+    allowUnknownKeys?: boolean;
+    /** The evidence already saved, when this validates an EDIT — a value left
+     *  as it was is not re-judged against a window that has since moved. */
+    stored?: Record<string, unknown>;
+  }
 ): z.ZodType<Record<string, unknown>> {
-  const shape = Object.fromEntries(fields.map((f) => [f.name, fieldSchema(f)]));
-  const object = z.strictObject(shape);
+  const shape = Object.fromEntries(
+    fields.map((f) => [f.name, fieldSchema(f, opts?.stored?.[f.name])])
+  );
+  const object = opts?.allowUnknownKeys ? z.object(shape) : z.strictObject(shape);
 
   // CHECK_SUM with nothing ticked sums to 0. Saving that would record a claim
   // of no work at all — «Зараховано» beside a score of 0, which reads as a

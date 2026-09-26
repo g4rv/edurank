@@ -4,9 +4,9 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ArchiveRestore, ArchiveX } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/aurora/ui/button';
+import { Label } from '@/components/aurora/ui/label';
+import { Textarea } from '@/components/aurora/ui/textarea';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from '@/components/aurora/ui/alert-dialog';
 import { archiveStaff, restoreStaff } from '@/app/(dashboard)/staff/[id]/actions';
 
 /**
@@ -47,7 +47,13 @@ export function ArchiveStaffButton({ staffId, staffName }: { staffId: string; st
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        {/* Semi-destructive, and drawn that way (owner, 2026-09-09). Archiving
+            deletes nothing — every activity and every closed year survives —
+            but the person leaves every list, grid and «Кнпп» in the app and is
+            locked out of their own login. The soft `destructive` fill is the
+            right weight for that: heavier than «Редагувати» beside it, lighter
+            than a real delete, which this app does not have for a person. */}
+        <Button variant="destructive" size="sm">
           <ArchiveX className="size-4" />
           Архівувати
         </Button>
@@ -118,7 +124,13 @@ export function RestoreStaffButton({ staffId, staffName }: { staffId: string; st
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Скасувати</AlertDialogCancel>
-          <AlertDialogAction onClick={handleRestore} disabled={isPending}>
+          {/* `default`, not the `destructive` this component defaults to.
+              §10 of `docs/aurora.md` gives that default to «almost every
+              confirm here», which is true — but putting somebody BACK on the
+              roster is the one action on this screen that takes nothing away,
+              and a red button over «Відновити» says the opposite of what it
+              does. */}
+          <AlertDialogAction variant="default" onClick={handleRestore} disabled={isPending}>
             {isPending ? 'Відновлення...' : 'Відновити'}
           </AlertDialogAction>
         </AlertDialogFooter>

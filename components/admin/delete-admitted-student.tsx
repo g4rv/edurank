@@ -13,8 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
+} from '@/components/aurora/ui/alert-dialog';
+import { Button } from '@/components/aurora/ui/button';
 import { STUDENT_FUNDING_LABELS, STUDY_FORM_LABELS } from '@/lib/labels';
 import { formatBonus } from '@/lib/stake/units';
 import type { AdmittedStudentRow } from '@/lib/queries/list-admitted-students';
@@ -81,7 +81,7 @@ export function DeleteAdmittedStudent({ student }: { student: AdmittedStudentRow
           variant="ghost"
           size="icon"
           aria-label={`Видалити: ${student.name}`}
-          className="text-muted-foreground hover:text-destructive"
+          className="text-muted-foreground hover:text-error"
         >
           <Trash2 className="size-4" />
         </Button>
@@ -104,7 +104,7 @@ export function DeleteAdmittedStudent({ student }: { student: AdmittedStudentRow
                 // Amber is the project's «needs attention», and this is a status
                 // indicator rather than decoration — the one place off the chart
                 // palette where a hue is allowed.
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-400">
+                <div className="rounded-lg border border-warning/40 bg-warning-surface p-3 text-warning">
                   <p className="font-medium">
                     Цього здобувача вже заявили. Їхні заявки буде видалено разом із ним.
                   </p>

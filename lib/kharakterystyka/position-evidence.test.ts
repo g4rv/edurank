@@ -67,12 +67,26 @@ describe('a filled form produces a printable sentence', () => {
             return [f.name, 2024];
           case 'date':
             return [f.name, '2024-05-01'];
+          case 'dateRange':
+            return [
+              f.name,
+              {
+                from: `${new Date().getFullYear() - 5}-09-01`,
+                to: `${new Date().getFullYear() - 1}-05-01`,
+              },
+            ];
           case 'url':
             return [f.name, 'https://example.org/1'];
           case 'isbn':
             return [f.name, '978-3-16-148410-0'];
           default:
-            return [f.name, `Значення ${f.name}`];
+            // A field with a named rule needs a value that satisfies it — a
+            // ПІБ box takes Ukrainian letters only, so the generic
+            // «Значення pupilLast» is not a plausible answer for it.
+            return [
+              f.name,
+              f.kind === 'text' && f.rule === 'cyrillicName' ? 'Коваленко' : `Значення ${f.name}`,
+            ];
         }
       })
     );

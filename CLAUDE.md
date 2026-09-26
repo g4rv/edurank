@@ -103,7 +103,14 @@ Rules:
 
 **Scale:** ~300 staff, tens of editors, a couple of admins.
 
-**Design direction:** Clean & modern — whitespace, card-based profiles, polished SaaS feel. shadcn/ui base. All UI text in Ukrainian.
+**Design direction:** «Аврора» — glass and a colour wash over the university's own
+`#4472C4`, Manrope, card-based. **The rules live in `docs/aurora.md` — read it
+before touching any UI, and change it there rather than deciding per screen.**
+shadcn/ui remains the component base. All UI text in Ukrainian.
+
+The strict monochrome rule below is being superseded by that document as Аврора
+rolls out: chrome is still neutral, but `--brand` now marks the primary action,
+the active tab and nav item, links and one accent figure.
 
 **Also installed:**
 
@@ -142,9 +149,17 @@ sits at `oklch(0.205)` and a flipped light ramp would sink into it.
 sidebar, tables, and text are gray. A small badge or icon that reports **state** is the one
 place hue is allowed off the chart palette, because it encodes one condition, not a category:
 
-- **green** — ok / verified / valid (activation done, «Перевірено», a valid DOI/ISBN)
-- **amber** — pending / needs attention (not activated, «не вказано», «Сумісник»)
-- **red** (`--destructive`) — destructive / error (delete, discard)
+- **`--success`** — ok / verified / valid (activation done, «Перевірено», a valid DOI/ISBN)
+- **`--warning`** — pending / needs attention (not activated, «не вказано», «Сумісник»)
+- **`--error`** — destructive / error (delete, discard)
+
+**Always the token, never a Tailwind palette class.** There were 160 hardcoded
+`green-*` / `amber-*` / `red-*` classes before these tokens existed, in a dozen
+shades that did not agree. Each status is a PAIR — `--x` for the text and
+`--x-surface` for the tint it sits on — and red text on a red tint takes
+`text-error-strong`, because `--error` measures 3.98 there, under AA. The whole
+palette is rendered with live values at `/admin/style-guide`; the rules are
+§3 of `docs/aurora.md`.
 
 Examples live in `staff-table`, `account-card`, `moderation-list`, `audit-log`,
 `admin/rating`, and the `doi-input` / `isbn-input` checkmarks. The «Сумісник»
@@ -202,6 +217,14 @@ pnpm db:gate-to-check-sum  # one-off: convert retired GATE indicator rows to CHE
 # and production is never seeded again.
 pnpm db:patent-kind   # one-off: give 3.25 its «Вид патенту» select and route
                       #   п.2 by it; lists patents that still name no kind
+pnpm db:science-catalogue  # how PRODUCTION gets Додаток III: creates the
+                      #   2026/2027 рік and any missing вид роботи, CREATE-ONLY —
+                      #   never updates or deletes a row an admin edited. Not the
+                      #   seed: db:seed would overwrite the rating indicators.
+pnpm db:science-conference-yearly  # one-off: «Участь у конференціях» ONCE →
+                      #   YEARLY (D25). The наказ caps it at 5 per рік, and a
+                      #   ONCE key carries no year — so the same annual
+                      #   конференція could never be attended twice.
 pnpm db:kharakterystyka-cleanup  # one-off: drop imported «evidence» that
                       #   evidences nothing («Так»/«Ні», a bare role) and strip
                       #   the «Оберіть …:» prompts. --bare also drops the
@@ -258,6 +281,8 @@ app/
         [year]/                   ← per-section indicator editor
       stakes/                     ← redirects to /stakes (merged 2026-08-12)
         norms/                    ← додаток 5's норматив table + the year's contract coefficient
+      science-plan/                ← ADMIN: planning years — create/clone/open/close
+        [id]/                     ← the Додаток III catalogue editor for one year
       invites/                    ← bulk «надіслати запрошення» over people with no password
       rating-debug/               ← service page: renders every evidence form (no nav link)
       design/                     ← service page: design concepts (no nav link)
@@ -276,9 +301,11 @@ app/
       [section]/                  ← add an activity from section 1–5
       students/                   ← «Мої залучені здобувачі» — own StudentClaim list
       kharakterystyka/            ← own Характеристика
+    science-plan/                 ← НПП: their own план наукової роботи (Додаток III)
     moderation/                   ← ННВ + ADMIN: discard self-reports, verify publications
     division-data/                ← EDITOR: their division's direct-entry grid
     rating/                       ← ADMIN + EDITOR: university-wide rollup
+    science-plans/                ← ADMIN + «Перевірка науки» division: every кафедра's plans
     stakes/                       ← ADMIN/проректор: Кст + бонусний фонд across all кафедри
       [id]/                       ← the завідувач's grid for ONE кафедра (додаток 2)
     my-department/                ← завідувач/декан: their кафедра
@@ -374,8 +401,9 @@ Full specification: `docs/stake-distribution.md`. Read it before changing anythi
 
 Two people, two screens. ADMIN/проректор allocates pools across all 31 кафедри on
 `/stakes`; the завідувач spreads one pool among their own people on `/stakes/[id]`,
-which is додаток 2 on screen. A декан may **read** every кафедра of their faculty
-and write none of them.
+which is додаток 2 on screen. **A декан sees neither** (owner, 2026-09-24 — they
+used to read every grid of their faculty): both pages gate on `headOf`, and
+«Мій факультет» (`/my-faculty`) shows no fund and no ставка column.
 
 Three facts shape every model, and all three are easy to lose:
 
@@ -415,10 +443,11 @@ Rules that are easy to get wrong:
   automatic winner and no «assign to».
 - **Only ADMIN confirms or rejects a claim** (2026-08-25, retracting «admin/head can
   approve» of 2026-08-17). A confirmed claim pays a bonus out of a fund the завідувач
-  then spends, so the head is not the one confirming it. A head and a декан still READ
+  then spends, so the head is not the one confirming it. A head still READS
   `/my-department/students` — the duplicate list is context for their own ставка
-  grid — and `canDecide` there is `isAdmin` alone. Headship is not consulted: the page
-  and the action no longer call `headOf`.
+  grid — and `canDecide` there is `isAdmin` alone. **A декан sees neither this page
+  nor the ставки** (owner, 2026-09-24): «Мій факультет» (`/my-faculty`) is
+  information about their кафедри and staff, and the page gates on `headOf`.
 - **`StakeStatusBonus` is information, never money.** The grid shows what somebody's
   positions and recruited students add up to; the head still types the ставка.
 - **A person's Мін/Макс is per кафедра, not per person.** `StaffStakeLimits` carries
@@ -443,6 +472,111 @@ Which indicators satisfy which position is `ActivityType.licencePositions`, a JS
 column and not a list in code — for the same reason `requiresVerification` and
 `entityFirstEntry` are columns: a code list silently excludes every indicator an
 admin builds themselves, and the вчена рада votes new ones in yearly.
+
+## Планування наукової роботи (built)
+
+Full specification: `docs/superpowers/specs/2026-09-15-science-plan-design.md`.
+Наказ №152's Додаток III: an НПП plans **≥500 годин of наукова робота per
+ставку per навчальний рік** (pro-rata below a full ставка), split across 18
+printed items, each catalogued as a `ScienceWorkType`. **план** (the target
+and the rows a person intends) and **факт** — a `ScienceRecord`, what one
+person draws from a `ScienceWork`'s pool, with evidence and post-check
+moderation — are both built. Only the official export form (D19, no sample
+supplied) and the Crossref DOI check (optional, later) are not.
+
+**This is not the rating.** The rating scores achievements in **балах** with
+its own coefficients, to rank people. Додаток III prices the same real-world
+work in **годинах**, to fill a workload quota — two measuring systems over one
+world, D3's fully separate tables, sharing only the scoring engine and
+evidence-field machinery lifted out of `lib/rating/`.
+
+Easy to get wrong:
+
+- **Hours are INTEGER HUNDREDTHS OF AN HOUR, never a float** — the same rule
+  `lib/stake/units.ts` enforces for ставки, applied to `plannedHundredths`,
+  `hoursHundredths` and `totalHundredths` alike. `toHundredths` freezes the
+  value at save; editing the наказ later never rewrites a row already saved.
+- **The ставка behind a plan's target is the PER-КАФЕДРА one from
+  `StakeAllocation`, never `Staff.employmentRate`.** A сумісник on two кафедри
+  has two plans, each targeted by its own share. `SciencePlan.rateHundredths`
+  refreshes from the кафедра's розподіл while the template is OPEN; `null`
+  means **no target shown at all**, not a guessed one (D8). A plan **locks**
+  on submission (`lockedAt`) — факт can only be recorded against a locked plan.
+- **One `ScienceWork` per identity, `dedupKey` UNIQUE.** `identityFields`
+  (doi, url, title, in priority order) build the key; `ONCE` carries the
+  навчальний рік and `SHARED` no person-prefix, so the SAME article can never
+  be entered twice university-wide — a second person who tries it is offered
+  the existing work instead (D17).
+- **The pool is a TRANSACTION.** `ScienceWork.totalHundredths` is the whole
+  pool a `SHARED` type divides; `joinWork` re-reads what is already drawn
+  INSIDE the transaction, never from a client figure, and
+  `@@unique([staffId, workId])` stops the same person drawing twice. Every SUM
+  over `hoursHundredths` filters `status: 'APPROVED'` — a REMOVED draw (D20,
+  ННВ/ADMIN decline it with a reason, post-check not a gate) frees its hours
+  back into the pool by construction, not by a second cleanup step.
+- **D27 — a record needs at least one of link or file, never neither.** The
+  link lives on the WORK (one DOI, not one per co-author); a file
+  (`ScienceRecordFile`, in R2) is proved by re-sniffing and re-hashing the
+  STORED bytes, never the browser's own claim, and its SHA-256 is **UNIQUE
+  university-wide** (D28) — the same evidence can back only one work, ever.
+- **The file goes up BEFORE the record is saved.** `presignUpload` needs no
+  work — `objectKeyFor` names only the навчальний рік — so `saveRecord` takes
+  an `{ objectKey, fileName }` it verifies from the stored bytes and attaches
+  in the same transaction that creates the work. The old order (key contained
+  the workId, so the upload waited for the record) made a file-only record
+  impossible and a failed upload unrecoverable. Every refusal after the
+  verification drops the object; an abandoned pick is swept by `discardUpload`.
+  **The R2 bucket needs a CORS rule or nothing uploads at all** — see
+  `docs/deployment.md` §3a and `pnpm r2:cors`.
+- **Correcting is an edit, not a delete-and-retype.** `updateWorkEvidence`
+  recomputes the pool from the evidence and moves the EDITOR's own draw with
+  it; what it refuses is dropping the pool below what **other** people already
+  took (`staffId: { not: staffId }`). Measuring against every claim, the
+  author's own included, refused the two commonest corrections there are.
+- **Deleting the last claim on an INDIVIDUAL work deletes the work.** Its
+  `dedupKey` is prefixed with the owner's `staffId` (D24), so with no claim it
+  guards nothing and blocked only the person who owned it — `joinWork` refuses
+  an INDIVIDUAL work, so that конференція could never be entered again. A
+  SHARED work always survives: a co-author may still draw on it.
+- **Oversight is a division switch, «Перевірка науки»**
+  (`Division.canOverseeScience`, D43), read by `canOverseeScience()` in
+  `lib/science/oversight.ts`; ННВ has it by migration. Never match ННВ by
+  `registryKey` for this again. Only ADMIN and that division see
+  `/science-plans`, decline records, open other people's files and reopen a
+  submitted plan (`unlockPlan`). **A завідувач and a декан see no science
+  data at all** (D44) — `/my-department/science-plans` was removed.
+- **The fact owes `max(план, 500 × ставка)`** (D37, `doneTargetHundredths`);
+  the plan itself is still measured against the norm — and **cannot be saved
+  below it** (D52, owner 2026-09-24): `lockPlan` refuses, the dialog disables
+  «Так, зберегти». A draft under the norm is fine; a submitted one is not.
+- **Link and file are two separate rules per вид роботи** (D47,
+  `ScienceWorkType.linkRule` / `fileRule`: REQUIRED / OPTIONAL / NONE, set by
+  ADMIN). Only when neither is REQUIRED must one of the two be given; a proof
+  on a NONE side proves nothing and is refused on save. The eight large or
+  published documents (D39 — п.1, п.3, п.4, п.6 доповідь, п.10) start as link
+  REQUIRED, file NONE. `requiresFile` no longer exists. **Both NONE = no
+  proof needed** (D53, owner 2026-09-24): п.12 «Керівництво аспірантами» is
+  recorded by the аспірант's ПІБ alone; «never neither» holds everywhere else.
+- **A record PROVES the work; it does not track when it was done** (D50,
+  owner 2026-09-24). The execution month (D41/D48/D49) is **hidden, not
+  removed**: `SHOW_EXECUTION_PERIOD` in `lib/science/execution-month.ts` is
+  `false`, so nobody picks a month, «Виконано» is grouped by пункт like «План»,
+  and `saveRecord` stamps the month of saving into the NOT NULL
+  `executedMonth`. Flip the constant to bring the picker, the month headings,
+  the month on /moderation and ⚙ «Останній місяць» back — every stored row
+  stays valid. Month maths only through that file, which reads Kyiv time.
+- **The стаття's «Опубліковано/Проіндексовано» refuses old publications** (D51).
+  `publishedOn` is a `date` evidence field with `rule: 'currentYear'`: from
+  1 January of the current CALENDAR year (Kyiv) to today — in 2026 a 2025
+  article is refused at once, by the picker and the schema alike
+  (`currentYearBounds`). A value already saved is not re-judged on edit. A
+  faked date inside the window is ННВ's to catch. Never one of the type's
+  `identityFields`, so a typed date cannot make one article look like two.
+- **A co-author changes their own share with `updateRecordHours`** (D46),
+  bounded by what the others hold, re-read in the transaction. A file is
+  changed by whoever entered the work or uploaded it; **a record's only proof
+  is swapped with `replaceFile`, never deleted first** — `deleteFile` refuses
+  it and names «Замінити».
 
 ## Naming conventions
 

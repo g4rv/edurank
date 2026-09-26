@@ -1,4 +1,3 @@
-import { AnimatedPage } from '@/components/ui/animated-page';
 import { NPP_RATING_CLOSED_DETAIL, NPP_RATING_CLOSED_NOTE } from '@/lib/rating/npp-access';
 
 /**
@@ -11,7 +10,7 @@ import { NPP_RATING_CLOSED_DETAIL, NPP_RATING_CLOSED_NOTE } from '@/lib/rating/n
  */
 export function RatingClosedNote({ title }: { title: string }) {
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="space-y-6">
       <h1 className="text-2xl font-semibold">{title}</h1>
       <div className="rounded-xl border bg-card px-6 py-12 text-center">
         <p className="font-medium">{NPP_RATING_CLOSED_NOTE}</p>
@@ -19,6 +18,6 @@ export function RatingClosedNote({ title }: { title: string }) {
           {NPP_RATING_CLOSED_DETAIL}
         </p>
       </div>
-    </AnimatedPage>
+    </div>
   );
 }

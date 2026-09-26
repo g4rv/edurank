@@ -158,7 +158,7 @@ export async function createActivity(
     };
   }
 
-  revalidatePath('/achievements');
+  revalidatePath('/profile/rating');
   return { success: true, score };
 }
 
@@ -235,6 +235,6 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
     };
   }
 
-  revalidatePath('/achievements');
+  revalidatePath('/profile/rating');
   return { success: true };
 }

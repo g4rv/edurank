@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { DepartmentCombobox } from '@/components/department-combobox';
 import { FormField } from '@/components/ui/form-field';
-import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/aurora/ui/input';
+import { Switch } from '@/components/aurora/ui/switch';
+import { cn } from '@/lib/utils';
 import { formatStake } from '@/lib/stake/units';
 import { toStorage, toWorkplaces, workplaceProblem, type Workplace } from '@/lib/staff/workplaces';
 
@@ -14,6 +16,26 @@ export type DepartmentOption = {
 };
 
 export type StakePart = { departmentId: string; hundredths: number };
+
+/**
+ * `Label`'s own look, on a `<span>`.
+ *
+ * These three name controls that carry no id to point a real `<label for>` at —
+ * the кафедра picker is a combobox, «Ставка» is a read-only figure — and an
+ * empty `<label>` is announced as labelling nothing, which is worse than a
+ * plain caption. What matters here is that they MATCH «Відділ» below them: they
+ * were `text-xs text-muted-foreground`, so one card carried two label styles
+ * and the кафедра rows read as the lesser of the two (owner, 2026-09-07).
+ */
+const ROW_LABEL = 'mb-1.5 block text-sm leading-none font-medium';
+
+/**
+ * The band a row's control sits in — `h-8`, the height of the кафедра picker.
+ *
+ * Everything in a row then shares one centre line. Without it a 20px switch and
+ * a 32px select share their TOP edge instead, and the eye lines up centres.
+ */
+const ROW_CONTROL = 'flex h-8 items-center';
 
 /**
  * «Місця роботи» — every кафедра a person holds a post on, and on what terms.
@@ -38,6 +60,9 @@ export function WorkplacesField({
   canEditPartTime = true,
   canEditPrimary = true,
   error,
+  rates,
+  onRateChange,
+  canEditRates = false,
 }: {
   departments: readonly DepartmentOption[];
   /** What each кафедра allocated. `null` on the CREATE form — nobody to pay yet. */
@@ -63,6 +88,23 @@ export function WorkplacesField({
   canEditPrimary?: boolean;
   /** The schema's own complaint, e.g. «НПП повинен мати кафедру» */
   error?: { message?: string };
+  /**
+   * The ставка typed for each кафедра, keyed by `departmentId`.
+   *
+   * Only ADMIN gets these boxes, and only for a кафедра that has not allocated
+   * this person anything — `breakdown` is what says which have. Typing is
+   * therefore impossible where a завідувач has already decided, which is the
+   * rule `seedAllocations` enforces again on the server.
+   */
+  rates?: Record<string, string>;
+  onRateChange?: (departmentId: string, value: string) => void;
+  /**
+   * May this viewer type a ставка at all — ADMIN, and only while a rating year
+   * is open. An allocation lives in a year; with none active there is nowhere
+   * for the number to go, so the box is disabled rather than accepting a value
+   * the save would refuse.
+   */
+  canEditRates?: boolean;
 }) {
   // BOTH ROWS ARE ALWAYS THERE (owner, 2026-08-26). «додати кафедру» made an
   // empty row appear and a cleared one linger, so the card changed height as it
@@ -136,7 +178,7 @@ export function WorkplacesField({
 
   return (
     <FormField error={problem ? { message: problem } : error}>
-      <div className="space-y-4">
+      <div className="space-y-3">
         {rows.map((row, index) => {
           // Clearing a кафедра is how a workplace is removed — the row stays on
           // screen, empty, and is simply not saved. There is no separate delete
@@ -149,9 +191,14 @@ export function WorkplacesField({
           const part = breakdown?.find((p) => p.departmentId === row.departmentId);
 
           return (
-            <div key={index} className="flex items-start gap-4">
+            <div key={index} className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
-                <span className="mb-1.5 block text-xs text-muted-foreground">Кафедра</span>
+                {/* A real `Label`, like «Відділ» under it. These three were
+                    `text-xs text-muted-foreground` — captions rather than
+                    labels — so one card held two different label styles and the
+                    кафедра rows read as less important than the відділ below
+                    them (owner, 2026-09-07). */}
+                <span className={ROW_LABEL}>Кафедра</span>
                 <DepartmentCombobox
                   departments={departments.filter((d) => !takenElsewhere.includes(d.id))}
                   value={row.departmentId}
@@ -173,37 +220,70 @@ export function WorkplacesField({
                   the positive question — is this the person's main post — so on
                   means yes and off means сумісництво, and the common case is the
                   one that reads as set rather than as missing. */}
-              <label className="flex w-20 shrink-0 flex-col items-center gap-1.5 pt-1">
-                <span className="text-xs text-muted-foreground">Основне</span>
-                <Switch
-                  checked={!row.isPartTime}
-                  onCheckedChange={(next) => replace(index, { ...row, isPartTime: !next })}
-                  // Flipping this rewrites `departmentId` AND
-                  // `partTimeDepartmentIds`, so it takes both grants.
-                  disabled={
-                    disabled || row.departmentId === '' || !canEditPartTime || !canEditPrimary
-                  }
-                  className="data-[state=checked]:bg-green-600"
-                  aria-label="Основне місце роботи"
-                />
+              <label className="flex w-16 shrink-0 flex-col">
+                <span className={cn(ROW_LABEL, 'text-center')}>Основне</span>
+                {/* `h-8` is the height of the кафедра control beside it, so the
+                    switch sits on its middle line rather than at its top. A
+                    20px switch and a 32px select share a top edge and look
+                    misaligned, because the eye lines up centres (owner,
+                    2026-09-07). */}
+                <span className={ROW_CONTROL + ' justify-center'}>
+                  <Switch
+                    checked={!row.isPartTime}
+                    onCheckedChange={(next) => replace(index, { ...row, isPartTime: !next })}
+                    // Flipping this rewrites `departmentId` AND
+                    // `partTimeDepartmentIds`, so it takes both grants.
+                    disabled={
+                      disabled || row.departmentId === '' || !canEditPartTime || !canEditPrimary
+                    }
+                    aria-label="Основне місце роботи"
+                  />
+                </span>
               </label>
 
-              {/* Set on /stakes/[id] by the кафедра's завідувач, never typed
-                  here — two writers on one number is what let the профіль and
-                  the розподіл disagree. */}
-              {breakdown !== null && (
-                <div className="flex w-24 shrink-0 flex-col items-end gap-1.5 pt-1">
-                  <span className="text-xs text-muted-foreground">Ставка</span>
-                  {part ? (
-                    <span className="text-sm font-medium">{formatStake(part.hundredths)}</span>
-                  ) : (
-                    <span
-                      className="text-sm text-muted-foreground"
-                      title="Завідувач ще не розподілив ставки цієї кафедри"
-                    >
-                      —
-                    </span>
-                  )}
+              {/* **Typed until the завідувач decides, read-only after** (owner,
+                  2026-09-21).
+
+                  A кафедра that has allocated this person something shows that
+                  number and nothing else: the split belongs to the head, and an
+                  ADMIN who could retype it here would make «завідувач
+                  розподіляє» untrue. One that has not is a кафедра nobody has
+                  spread yet, and somebody has to be able to say what a new hire
+                  was taken on at — that is what this box is, and it is the only
+                  place a ставка is entered by hand.
+
+                  Empty until a кафедра is chosen, because a ставка with no
+                  кафедра has nowhere to be written. */}
+              {(breakdown !== null || canEditRates) && (
+                <div className="flex w-20 shrink-0 flex-col">
+                  <span className={cn(ROW_LABEL, 'text-right')}>Ставка</span>
+                  <span className={ROW_CONTROL + ' justify-end'}>
+                    {part ? (
+                      <span
+                        className="text-sm font-medium tabular-nums"
+                        title="Розподілено завідувачем — змінюється на сторінці розподілу"
+                      >
+                        {formatStake(part.hundredths)}
+                      </span>
+                    ) : canEditRates ? (
+                      <Input
+                        value={rates?.[row.departmentId] ?? ''}
+                        onChange={(e) => onRateChange?.(row.departmentId, e.target.value)}
+                        disabled={disabled || row.departmentId === ''}
+                        placeholder="0,00"
+                        inputMode="decimal"
+                        aria-label="Ставка"
+                        className="text-right tabular-nums"
+                      />
+                    ) : (
+                      <span
+                        className="text-sm text-muted-foreground"
+                        title="Завідувач ще не розподілив ставки цієї кафедри"
+                      >
+                        —
+                      </span>
+                    )}
+                  </span>
                 </div>
               )}
             </div>

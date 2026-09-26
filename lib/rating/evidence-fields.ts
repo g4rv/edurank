@@ -20,18 +20,40 @@ export type EvidenceField =
       multiline?: boolean;
       optional?: boolean;
       /**
+       * Fields sharing a key print as ONE part, space-separated, in the
+       * position of the first — «Коваленко Марія Ігорівна», not
+       * «Коваленко · Марія · Ігорівна». For an answer that is one value to a
+       * reader and several boxes to whoever types it.
+       */
+      join?: string;
+      /**
        * Grey example text. Used where the SHAPE of the answer matters and the
        * label cannot carry it — a бібліографічний опис is read straight into a
        * licence document, and «Бібліографічний опис» alone tells nobody whether
        * to write the year before the pages or after.
        */
       placeholder?: string;
+      /** The one label drawn over a joined set, on its FIRST member */
+      joinLabel?: string;
+      /** Columns this field takes in a two-column form. Omitted = the kind decides. */
+      span?: 1 | 2;
+      /**
+       * A named extra rule. Named rather than a regex, because these specs are
+       * admin-editable JSON and a bad pattern there would be a broken form
+       * nobody could fix from the UI.
+       *
+       * `cyrillicName` — Ukrainian letters, apostrophes and hyphens, at least
+       * two characters. For a ПІБ printed into a licence document.
+       */
+      rule?: 'cyrillicName';
     }
   | {
       kind: 'number';
       name: string;
       label: string;
       min?: number;
+      /** Set it only where a number has a real ceiling — a YEAR does, a count does not */
+      max?: number;
       int?: boolean;
       optional?: boolean;
     }
@@ -45,7 +67,28 @@ export type EvidenceField =
       hosts?: readonly string[];
       hostsError?: string;
     }
-  | { kind: 'date'; name: string; label: string; optional?: boolean }
+  | {
+      kind: 'date';
+      name: string;
+      label: string;
+      optional?: boolean;
+      /**
+       * `currentYear` — 1 January of the CURRENT calendar year (Kyiv) up to
+       * today, never the future (owner, 2026-09-24): the стаття's
+       * «Опубліковано/Проіндексовано», so an old publication is refused at
+       * once. A faked date is ННВ's to catch. See `currentYearBounds`.
+       */
+      rule?: 'currentYear';
+    }
+  /**
+   * A period, picked as one range rather than typed as two ends.
+   *
+   * Two independent year boxes let «2019 → 2014» through, and no amount of
+   * validation makes that control honest — the person still has to be told
+   * afterwards. A range writes its ends in order, so the mistake is not
+   * expressible. Stored as `{ from, to }`, both `YYYY-MM-DD`.
+   */
+  | { kind: 'dateRange'; name: string; label: string; optional?: boolean }
   // Check-digit validated; see lib/isbn.ts for what that does and does not prove
   | { kind: 'isbn'; name: string; label: string; optional?: boolean }
   // Syntax-checked only — a DOI has no check digit; see lib/doi.ts
@@ -82,6 +125,15 @@ export type EvidenceField =
       name: string;
       label: string;
       options: readonly { value: string; label: string; points?: number }[];
+      /** A list that may be left unanswered — п.15's «Призове місце» on a jury row */
+      optional?: boolean;
+      /**
+       * Columns this select takes. A list defaults to full width, because its
+       * options are usually long sentences and the panel is only as wide as its
+       * trigger — but «Етап» and «Призове місце» are four short words each and
+       * read better side by side.
+       */
+      span?: 1 | 2;
     };
 
 // The field constructors below are exported for one other caller: the
@@ -93,13 +145,21 @@ export type EvidenceField =
 export const text = (
   name: string,
   label: string,
-  opts?: { multiline?: boolean; optional?: boolean; placeholder?: string }
+  opts?: {
+    multiline?: boolean;
+    optional?: boolean;
+    placeholder?: string;
+    join?: string;
+    joinLabel?: string;
+    span?: 1 | 2;
+    rule?: 'cyrillicName';
+  }
 ): EvidenceField => ({ kind: 'text', name, label, ...opts });
 
 export const number = (
   name: string,
   label: string,
-  opts?: { min?: number; int?: boolean; optional?: boolean }
+  opts?: { min?: number; max?: number; int?: boolean; optional?: boolean }
 ): EvidenceField => ({ kind: 'number', name, label, ...opts });
 
 export const url = (
@@ -116,13 +176,19 @@ export const url = (
 export const date = (
   name: string,
   label: string,
-  opts?: { optional?: boolean }
+  opts?: { optional?: boolean; rule?: 'currentYear' }
 ): EvidenceField => ({
   kind: 'date',
   name,
   label,
   ...opts,
 });
+
+export const dateRange = (
+  name: string,
+  label: string,
+  opts?: { optional?: boolean }
+): EvidenceField => ({ kind: 'dateRange', name, label, ...opts });
 
 export const isbn = (
   name: string,
@@ -161,8 +227,9 @@ export const checkbox = (
 export const select = (
   name: string,
   label: string,
-  options: readonly { value: string; label: string }[]
-): EvidenceField => ({ kind: 'select', name, label, options });
+  options: readonly { value: string; label: string }[],
+  opts?: { optional?: boolean; span?: 1 | 2 }
+): EvidenceField => ({ kind: 'select', name, label, options, ...opts });
 
 export const opt = (value: string, label: string) => ({ value, label });
 
@@ -186,9 +253,30 @@ export const opt = (value: string, label: string) => ({ value, label });
 // and formatted, and an example that repeats it invites the same identifier
 // twice — once validated, once as free text somebody mistyped (owner,
 // 2026-09-01).
+// Checked against the standard on 2026-09-22, because three details of these
+// examples are ones people get wrong and then copy:
+//
+// - **No «//» before the journal name.** ДСТУ 8302:2015 as published used it,
+//   inherited from ДСТУ ГОСТ 7.1:2006 — and the **2017 official corrections
+//   replaced it with a period**. Half the university guides online still print
+//   the old form, so a «// Педагогіка вищої школи» here would look
+//   authoritative and be eight years out of date.
+// - **`№ 3 (42)`, with a space before the bracket.** It read `№ 3(42)` until
+//   today. Every example in every source writes `№ 1` or `Т. 21, № 1`, and
+//   Ukrainian typography puts a space before an opening bracket.
+// - **An EN dash in the page range, `С. 112–124`.** The sources genuinely split
+//   here — КПІ, Grafiati and МАУП print an em dash, ЛНУ an en dash, and ДСТУ
+//   8302 is inconsistent in its own examples. So there is no right answer to
+//   copy, and the tie is broken inside the app: the Характеристика's own
+//   header prints «2022–2026». One document, one dash.
+//
+// Four or more authors take a different shape — title first, then
+// `/ І. П. Прізвище та ін.` — and is deliberately not shown. These are grey
+// hints somebody skims; a second example doubles the length to cover the rarer
+// case.
 export const BIB_ARTICLE =
   'Наприклад: Шевченко О. П., Коваленко І. М. Цифрова трансформація закладів вищої освіти. ' +
-  'Педагогіка вищої школи. 2025. № 3(42). С. 112–124.';
+  'Педагогіка вищої школи. 2025. № 3 (42). С. 112–124.';
 
 export const BIB_MONOGRAPH =
   'Наприклад: Шевченко О. П. Управління якістю вищої освіти : монографія. ' +
@@ -222,6 +310,12 @@ const GUARANTOR_PERIOD_OPTIONS = [
   opt('accreditation_year', 'на рік акредитації'),
 ];
 
+/** `2014-09-01` as the document writes it: `01.09.2014` */
+function uaDay(isoDay: string): string {
+  const [y, m, d] = isoDay.split('-');
+  return `${d}.${m}.${y}`;
+}
+
 /**
  * Short human-readable line for lists and audit views,
  * e.g. «Квартиль Q1 · Nature 2026 · https://doi.org/…».
@@ -231,11 +325,16 @@ const GUARANTOR_PERIOD_OPTIONS = [
  * Характеристика's «Дані підтвердження показника» column is read against the
  * Ліцензійні умови, and quietly dropping a sixth field there would understate
  * what somebody actually did.
+ *
+ * `uaDates` prints a `date` as «10.09.2026» instead of as stored. Opt-in:
+ * science reads it on screen; the rating and the Характеристика keep what
+ * they print until somebody decides otherwise.
  */
 export function summarizeEvidence(
   fields: readonly EvidenceField[],
   evidence: unknown,
-  maxParts = 5
+  maxParts = 5,
+  opts?: { uaDates?: boolean }
 ): string {
   if (typeof evidence !== 'object' || evidence === null) return '';
   const e = evidence as Record<string, unknown>;
@@ -265,6 +364,21 @@ export function summarizeEvidence(
       continue;
     }
 
+    // A joined set is emitted once, where its first member sits — the same
+    // shape a grouped checkbox set uses, minus the group label: these are parts
+    // of one value, not several answers.
+    if (f.kind === 'text' && f.join) {
+      if (summarised.has(f.join)) continue;
+      summarised.add(f.join);
+      const parts_ = fields
+        .filter((o) => o.kind === 'text' && o.join === f.join)
+        .map((o) => e[o.name])
+        .filter((x) => typeof x === 'string' && x.trim() !== '')
+        .map((x) => String(x).trim());
+      if (parts_.length > 0) parts.push(parts_.join(' '));
+      continue;
+    }
+
     const v = e[f.name];
     if (v === undefined || v === null || v === '') continue;
     switch (f.kind) {
@@ -277,15 +391,24 @@ export function summarizeEvidence(
       case 'number':
         parts.push(`${f.label}: ${v}`);
         break;
+      case 'dateRange': {
+        // «з 01.09.2014 до 31.08.2019» — the shape the document already uses for
+        // a period, and the one a reader counts five years in.
+        const r = v as { from?: string; to?: string };
+        if (r?.from && r?.to) parts.push(`з ${uaDay(r.from)} до ${uaDay(r.to)}`);
+        break;
+      }
       case 'isbn':
         parts.push(`ISBN ${v}`);
         break;
       case 'doi':
         parts.push(`DOI ${v}`);
         break;
+      case 'date':
+        parts.push(opts?.uaDates ? uaDay(String(v)) : String(v));
+        break;
       case 'text':
       case 'url':
-      case 'date':
         parts.push(String(v));
         break;
     }

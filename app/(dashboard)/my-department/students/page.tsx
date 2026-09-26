@@ -5,8 +5,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listClaimsForReview } from '@/lib/queries/list-student-claims';
-import { scopeOf } from '@/lib/queries/scope';
-import { AnimatedPage } from '@/components/ui/animated-page';
+import { headOf } from '@/lib/queries/scope';
+import { EmptyState } from '@/components/aurora/ui/card';
 import { ClaimsReview } from '@/components/stake/claims-review';
 import { DepartmentSelect } from '@/components/department-select';
 
@@ -21,11 +21,18 @@ import { DepartmentSelect } from '@/components/department-select';
  * approve» of 2026-08-17. A confirmed claim pays a bonus out of a fund the
  * завідувач then spends, so the head is no longer the one confirming it.
  *
- * A head keeps the page read-only, which is what a декан has always had:
- * `scopeOf` still says which кафедри they may look at, and the duplicate list is
- * the reason to keep looking — it is context for their own ставка grid. The
- * controls are hidden here and the action refuses independently; a hidden button
- * is a courtesy, never the check.
+ * A head keeps the page read-only: the duplicate list is context for their own
+ * ставка grid. The controls are hidden here and the action refuses
+ * independently; a hidden button is a courtesy, never the check. **A декан no
+ * longer sees it at all** (owner, 2026-09-24) — «Мій факультет» is information
+ * about their кафедри and staff, and nothing else.
+ *
+ * **The screen's body is `ClaimsReview`, header card included** (2026-09-21).
+ * Searching by здобувач, by НПП and «лише дублікати» are client state over rows
+ * already sent, so the component that filters owns the band that filters. What
+ * stays here is what only the server can answer — who may look, who may decide,
+ * and the кафедра picker, which changes what is FETCHED rather than what is
+ * shown.
  */
 export default async function DepartmentStudentsPage({
   searchParams,
@@ -37,20 +44,19 @@ export default async function DepartmentStudentsPage({
   if (!session) redirect('/login');
 
   const isAdmin = session.user.role === 'ADMIN';
-  // `headOf` is deliberately not consulted: since 2026-08-25 headship grants
-  // nothing on this screen, so the only question left is who may LOOK.
-  const scope = await scopeOf(session.user.staffId);
+  // Who may LOOK: the кафедра's head, or ADMIN. Headship decides nothing here
+  // (only ADMIN rules on a claim, 2026-08-25), and a декан is out since
+  // 2026-09-24 — «Мій факультет» is their кафедри and staff, nothing else.
+  const scope = await headOf(session.user.staffId);
   if (!isAdmin && scope.length === 0) redirect('/profile');
 
   const template = await getActiveTemplate();
   if (!template) {
     return (
-      <AnimatedPage className="space-y-6">
-        <h1 className="text-2xl font-semibold">Залучені здобувачі</h1>
-        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Рейтинговий рік ще не налаштовано.
-        </div>
-      </AnimatedPage>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold tracking-[-0.01em]">Залучені здобувачі</h1>
+        <EmptyState>Рейтинговий рік ще не налаштовано.</EmptyState>
+      </div>
     );
   }
 
@@ -76,59 +82,51 @@ export default async function DepartmentStudentsPage({
   );
   const canSwitch = departments.length > 1;
   const canDecide = isAdmin;
-  // Only worth a column when the rows can come from more than one of them.
+  // Only worth showing when the rows can come from more than one of them.
   const showDepartment = !selected && canSwitch;
 
   return (
-    <AnimatedPage className="space-y-6">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {!isAdmin && (
         <Link
           href="/my-department"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="size-4" />
           Моя кафедра
         </Link>
       )}
 
-      {/* Whoever names the кафедра does it once. With the picker on screen the
-          heading printed the same words the select already showed, side by
-          side, and the control read as a stray duplicate label rather than
-          something to press. A head who has only one кафедра has no picker, so
-          for them the heading is the only place it can be said. */}
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            Залучені здобувачі
-            {!canSwitch && ` — ${departments[0]!.name}`}
-          </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {template.year} рік ·{' '}
-            {canDecide
-              ? 'підтверджені заявки враховуються на 2 етапі розподілу ставок'
-              : 'лише перегляд — рішення ухвалює адміністратор'}
-          </p>
-        </div>
-
-        {canSwitch && (
-          <div className="space-y-1">
-            <span className="block text-xs font-medium text-muted-foreground">Кафедра</span>
-            <DepartmentSelect
-              departments={departments}
-              value={selected?.id ?? ''}
-              allowAll={{ label: 'Усі кафедри' }}
-              basePath="/my-department/students"
-            />
-          </div>
-        )}
-      </div>
-
       <ClaimsReview
         claims={claims}
         year={template.year}
         canDecide={canDecide}
         showDepartment={showDepartment}
+        // Whoever names the кафедра does it once. With the picker on screen the
+        // heading printed the same words the select already showed, side by
+        // side. A head who has only one кафедра has no picker, so for them the
+        // heading is the only place it can be said.
+        title={`Залучені здобувачі${!canSwitch ? ` — ${departments[0]!.name}` : ''}`}
+        subtitle={
+          <>
+            {template.year} рік ·{' '}
+            {canDecide
+              ? 'підтверджені заявки враховуються на 2 етапі розподілу ставок'
+              : 'лише перегляд — рішення ухвалює адміністратор'}
+          </>
+        }
+        departmentSelect={
+          canSwitch ? (
+            <DepartmentSelect
+              departments={departments}
+              value={selected?.id ?? ''}
+              allowAll={{ label: 'Усі кафедри' }}
+              basePath="/my-department/students"
+              className="w-full"
+            />
+          ) : undefined
+        }
       />
-    </AnimatedPage>
+    </div>
   );
 }

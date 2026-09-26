@@ -21,8 +21,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
+} from '@/components/aurora/ui/alert-dialog';
+import { Button } from '@/components/aurora/ui/button';
 
 interface RatingYearActionsProps {
   year: number;

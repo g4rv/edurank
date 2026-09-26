@@ -1,6 +1,7 @@
 import type {
   AcademicRank,
   AdminPosition,
+  ProofRule,
   Role,
   ScientificDegree,
   StudentDegree,
@@ -46,6 +47,13 @@ export const STUDENT_FUNDING_LABELS: Record<StudentFunding, string> = {
   CONTRACT: 'Контракт',
 };
 
+/** D47 — how one kind of proof (the link or the file) is treated. */
+export const PROOF_RULE_LABELS: Record<ProofRule, string> = {
+  REQUIRED: 'Обовʼязково',
+  OPTIONAL: 'Необовʼязково',
+  NONE: 'Не використовується',
+};
+
 export const ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {
   VICE_RECTOR: 'Проректор',
   DEAN: 'Декан',
@@ -84,6 +92,9 @@ export const FIELD_LABELS: Record<string, string> = {
   // Had no label at all, so every сумісництво change ever recorded rendered in
   // the audit log as a raw field name (2026-08-24).
   partTimeDepartmentIds: 'Додаткова кафедра',
+  // Not a Staff column: the ставки seeded from the profile form, recorded in the
+  // audit diff because `seedAllocations` writes no entry of its own.
+  seededRates: 'Призначена ставка',
   department: 'Випускова кафедра',
   divisionId: 'Відділ',
   archivedAt: 'Архівовано',
@@ -95,6 +106,7 @@ export const FIELD_LABELS: Record<string, string> = {
   headId: 'Завідувач',
   role: 'Роль',
   canModerateRating: 'Модерація рейтингу',
+  canOverseeScience: 'Перевірка науки',
   registryKey: 'Ключ у довіднику',
   staffId: 'Співробітник',
   password: 'Пароль',
@@ -165,6 +177,54 @@ export const FIELD_LABELS: Record<string, string> = {
   added: 'Додано',
   skipped: 'Вже було в списку',
   file: 'Файл',
+  // SciencePlanRow (Розподіл ставок → план наукової роботи). `workType` is not
+  // a column — it stands in for `workTypeId` so the audit log prints the
+  // Ukrainian label of the chosen work type, not its id.
+  workType: 'Вид роботи',
+  plannedHundredths: 'Заплановані години',
+  note: 'Примітка',
+  // ScienceRecord / ScienceWork — the факт half. `hoursHundredths` is what ONE
+  // person drew; `totalHundredths` is the whole pool the work is worth, which
+  // is a different number the moment a work has co-authors.
+  hoursHundredths: 'Години',
+  totalHundredths: 'Загальні години роботи',
+  // SciencePlan. `lockedAt` is diffed by `lockPlan` and by `unlockPlan` — the
+  // audit log printed the bare column name until both had entries here.
+  lockedAt: 'План збережено',
+  rateHundredths: 'Ставка на кафедрі',
+  link: 'Посилання',
+  dedupKey: 'Ключ роботи',
+  removedReason: 'Причина відхилення',
+  fileName: 'Файл підтвердження',
+  pageCount: 'Сторінок у файлі',
+  // SciencePlanTemplate — the навчальний рік a Додаток III catalogue belongs to.
+  academicYear: 'Навчальний рік',
+  orderRef: 'Наказ',
+  minHoursPerRate: 'Мін. годин на ставку',
+  // ScienceWorkType — one row of Додаток III's catalogue, edited on
+  // /admin/science-plan/[id]. `code` (Код показника), `label` (Показник),
+  // `coefficient` (Коефіцієнт), `isActive` (Активний) and `status` (Статус)
+  // already have entries above and apply here unchanged.
+  itemNumber: 'Номер пункту',
+  unitNote: 'Примітка до одиниці',
+  reportingForm: 'Форма звітності',
+  reuse: 'Повторне використання',
+  sharing: 'Розподіл між співавторами',
+  identityFields: 'Поля ідентичності роботи',
+  // Kept for audit entries written before D47 replaced the column.
+  requiresFile: 'Потребує файл',
+  linkRule: 'Посилання',
+  executedMonth: 'Місяць виконання',
+  startedMonth: 'Місяць початку',
+  lastExecutionMonth: 'Останній місяць виконання',
+  fileRule: 'Файл',
+  maxPerYear: 'Максимум на рік',
+  // Not columns — a short fingerprint of the JSON evidenceFields/scoring pair
+  // and a plan-row count, so the audit log shows something a person can read
+  // instead of two blobs of JSON (see `specsFingerprint` in
+  // app/(dashboard)/admin/science-plan/[id]/actions.ts).
+  specs: 'Специфікації форми',
+  plannedRows: 'Запланованих рядків',
 };
 
 /**

@@ -47,8 +47,8 @@ export function nationalDigits(input: string): string {
   return digits.slice(0, NATIONAL_LENGTH);
 }
 
-/** What an empty field shows after the fixed «+380»: «__-___-____» */
-export const PHONE_PLACEHOLDER = '__-___-____';
+/** What an empty field shows after the fixed «+380»: «00-000-0000» */
+export const PHONE_PLACEHOLDER = '00-000-0000';
 
 /** «441234567» → «44-123-4567» — the grouping the owner asked for (2026-08-24) */
 export function formatNational(digits: string): string {
