@@ -169,7 +169,16 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
       name: true,
       facultyId: true,
       headId: true,
-      _count: { select: { primaryStaff: true, partTimeStaff: true } },
+      // Archived staff are already off every roster and current list — an
+      // кафедра whose only remaining people left the university must still be
+      // deletable, so the count that blocks it has to ask the same question
+      // `ON_ROSTER` does everywhere else.
+      _count: {
+        select: {
+          primaryStaff: { where: { archivedAt: null } },
+          partTimeStaff: { where: { staff: { archivedAt: null } } },
+        },
+      },
     },
   });
 
