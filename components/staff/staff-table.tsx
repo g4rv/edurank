@@ -206,7 +206,15 @@ export function StaffTable({ staff, head, isAdmin, footer, fill }: Props) {
 
               {isAdmin && (
                 <TableCell align="center">
-                  <div className="flex flex-col items-center gap-1">
+                  {/* `min-w-0`: without it, Safari lets this flex column report
+                      its own min-content width back to the fixed-width `<td>`
+                      instead of wrapping «Не активований» inside it — Chrome
+                      and Firefox already respect `table-layout: fixed` here,
+                      but WebKit widened the whole ROLE column (and with it the
+                      table's declared `minWidth`, so the card scrolled
+                      sideways) once every row on the «не активовані» filter
+                      carried the pill at once. */}
+                  <div className="flex min-w-0 flex-col items-center gap-1">
                     <span>{member.role ? ROLE_LABELS[member.role] : '—'}</span>
                     {member.isActivated === false && (
                       <span className="inline-flex items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">
