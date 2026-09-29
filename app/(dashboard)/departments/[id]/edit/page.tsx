@@ -53,8 +53,9 @@ export default async function EditDepartmentPage({ params }: { params: Promise<{
     }),
     db.staff.findMany({
       // Nobody archived can be picked as a head or a dean — they are off the
-      // roster, and an archived person cannot even sign in.
-      where: ON_ROSTER,
+      // roster, and an archived person cannot even sign in. Nor can a
+      // non-НПП: завідувач is an НПП's post.
+      where: { ...ON_ROSTER, isNpp: true },
       select: { id: true, lastName: true, firstName: true, patronymic: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     }),
