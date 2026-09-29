@@ -211,6 +211,7 @@ function FieldShell({ label, placeholder = 'Оберіть…' }: { label: strin
 function TableShell() {
   return (
     <Table
+      fill
       containerClassName="min-h-0"
       columns={['20rem', null, '15rem', 'calc(6ch + 2.5rem)', '9rem']}
       head={
