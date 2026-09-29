@@ -90,6 +90,22 @@ describe('division actions authorization', () => {
     });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
+
+  it('deleteDivision counts only non-archived staff', async () => {
+    // Same rule as `deleteDepartment` — an archived person must not be the
+    // reason a відділ cannot be deleted. The mock cannot apply Prisma's own
+    // `where`, so this pins the query SHAPE instead — a regression guard
+    // against the filter quietly being dropped again.
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockDivisionFind.mockResolvedValue({ name: 'ННВ', _count: { staff: 0 } });
+    const tx = mockTx();
+    expect(await deleteDivision('div-1')).toEqual({ redirectTo: '/divisions' });
+    expect(tx.division.delete).toHaveBeenCalled();
+    expect(mockDivisionFind).toHaveBeenCalledWith({
+      where: { id: 'div-1' },
+      select: { name: true, _count: { select: { staff: { where: { archivedAt: null } } } } },
+    });
+  });
 });
 
 // «Перевірка науки» (D43) is a permission change — written and audited exactly

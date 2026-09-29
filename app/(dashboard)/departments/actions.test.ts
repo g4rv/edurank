@@ -86,4 +86,36 @@ describe('department actions authorization', () => {
     });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
+
+  it('deleteDepartment counts only non-archived staff', async () => {
+    // An archived person is already off every current list (ON_ROSTER), so
+    // they must not be the reason a кафедра with nobody left cannot be
+    // deleted. The mock cannot apply Prisma's own `where`, so this pins the
+    // query SHAPE instead — a regression guard against the filter quietly
+    // being dropped again.
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockDepartmentFind.mockResolvedValue({
+      name: 'Кафедра',
+      facultyId: 'fac-1',
+      headId: null,
+      _count: { primaryStaff: 0, partTimeStaff: 0 },
+    });
+    const tx = mockTx();
+    expect(await deleteDepartment('dep-1')).toEqual({ redirectTo: '/departments' });
+    expect(tx.department.delete).toHaveBeenCalled();
+    expect(mockDepartmentFind).toHaveBeenCalledWith({
+      where: { id: 'dep-1' },
+      select: {
+        name: true,
+        facultyId: true,
+        headId: true,
+        _count: {
+          select: {
+            primaryStaff: { where: { archivedAt: null } },
+            partTimeStaff: { where: { staff: { archivedAt: null } } },
+          },
+        },
+      },
+    });
+  });
 });

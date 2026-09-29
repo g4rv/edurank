@@ -152,7 +152,10 @@ export async function deleteDivision(id: string): Promise<DivisionActionState> {
 
   const division = await db.division.findUnique({
     where: { id },
-    select: { name: true, _count: { select: { staff: true } } },
+    // Same rule as `deleteDepartment`: an archived person is already off
+    // every current list, so they must not be the reason a відділ cannot be
+    // deleted either.
+    select: { name: true, _count: { select: { staff: { where: { archivedAt: null } } } } },
   });
 
   if (!division) return { error: 'Відділ не знайдено' };
