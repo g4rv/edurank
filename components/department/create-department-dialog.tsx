@@ -59,6 +59,7 @@ export function CreateDepartmentDialog({
             knownNames={knownNames}
             action={createDepartment}
             submitLabel="Створити"
+            flat
             onCancel={() => setOpen(false)}
             onSuccess={() => {
               setOpen(false);

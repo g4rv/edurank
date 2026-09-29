@@ -48,6 +48,7 @@ export function CreateDivisionDialog() {
           <DivisionForm
             action={createDivision}
             submitLabel="Створити"
+            flat
             onCancel={() => setOpen(false)}
             onSuccess={() => {
               setOpen(false);

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useForm, Controller } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
@@ -40,6 +41,13 @@ interface FacultyFormProps {
    */
   onCancel?: () => void;
   onSuccess?: () => void;
+  /**
+   * No card, no border, no padding — `CreateFacultyDialog` sets this because
+   * the dialog panel is already a card (§2 of `docs/aurora.md`: no elevation
+   * nested inside one). The edit page leaves it out and keeps the card, the
+   * one thing on an otherwise bare page.
+   */
+  flat?: boolean;
 }
 
 export function FacultyForm({
@@ -49,6 +57,7 @@ export function FacultyForm({
   submitLabel,
   onCancel,
   onSuccess,
+  flat,
 }: FacultyFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -84,7 +93,7 @@ export function FacultyForm({
   return (
     <RequiredFields schema={facultySchema}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-4 rounded-xl border bg-card p-5">
+        <div className={cn('space-y-4', !flat && 'rounded-xl border bg-card p-5')}>
           <FormField htmlFor="name" label="Назва" error={errors.name}>
             <Input id="name" disabled={isPending} {...register('name')} />
           </FormField>

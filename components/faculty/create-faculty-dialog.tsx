@@ -50,6 +50,7 @@ export function CreateFacultyDialog({ staff }: CreateFacultyDialogProps) {
             staff={staff}
             action={createFaculty}
             submitLabel="Створити"
+            flat
             onCancel={() => setOpen(false)}
             onSuccess={() => {
               setOpen(false);
