@@ -93,7 +93,7 @@ export function LockPlanButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Зберегти план на рік?</AlertDialogTitle>
           <AlertDialogDescription>
-            Після збереження план не можна буде змінити!
+            План буде показано нижче — перевірте його перед збереженням.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -118,22 +118,29 @@ export function LockPlanButton({
           {targetHundredths !== null && <> з {formatHours(targetHundredths)} потрібних</>}
         </p>
 
-        {/* Below the norm the plan cannot be saved (owner, 2026-09-24,
-            reversing D9's «shown, never blocked»). The dialog still opens, so
-            the person sees the whole plan and exactly how much is missing. */}
-        {short > 0 && (
-          <p className="text-sm text-warning">
-            Бракує {formatHours(short)} год до норми. Додайте роботи до плану — зберегти план нижче
-            норми неможливо.
+        {/* Both warnings sit right above the button they concern, not up by
+            the title — «are you sure» needs its reason next to the decision,
+            not scrolled away above the plan list. */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-bold text-error">
+            ! Після збереження план не можна буде змінити !
           </p>
-        )}
-
-        <AlertDialogFooter>
-          <AlertDialogCancel>Скасувати</AlertDialogCancel>
-          <Button onClick={handleLock} disabled={isPending || short > 0} loading={isPending}>
-            {isPending ? 'Збереження…' : 'Так, зберегти'}
-          </Button>
-        </AlertDialogFooter>
+          {/* Below the norm the plan cannot be saved (owner, 2026-09-24,
+              reversing D9's «shown, never blocked»). The dialog still opens, so
+              the person sees the whole plan and exactly how much is missing. */}
+          {short > 0 && (
+            <p className="text-sm text-warning">
+              Бракує {formatHours(short)} год до норми. Додайте роботи до плану — зберегти план
+              нижче норми неможливо.
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Скасувати</AlertDialogCancel>
+            <Button onClick={handleLock} disabled={isPending || short > 0} loading={isPending}>
+              {isPending ? 'Збереження…' : 'Так, зберегти'}
+            </Button>
+          </AlertDialogFooter>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );
