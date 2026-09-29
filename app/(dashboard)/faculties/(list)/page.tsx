@@ -1,14 +1,14 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { Plus } from 'lucide-react';
 import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { ON_ROSTER } from '@/lib/queries/roster';
 import { listFaculties, parseFacultySort, type FacultySort } from '@/lib/queries/list-faculties';
 import { parseSortDir } from '@/lib/queries/sort';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
-import { Button } from '@/components/aurora/ui/button';
 import { ListHeader } from '@/components/aurora/ui/list-header';
 import { SortHead, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { FacultyTable } from '@/components/faculty/faculty-table';
+import { CreateFacultyDialog } from '@/components/faculty/create-faculty-dialog';
 import { UK } from '@/lib/plural';
 
 export default async function FacultiesPage({
@@ -41,6 +41,29 @@ export default async function FacultiesPage({
   // `canUpdate` is not read here. Editing is reached from the record's own
   // header, not from a pencil on the row — see `faculty-table.tsx`.
   const departmentTotal = faculties.reduce((sum, f) => sum + f._count.departments, 0);
+
+  // What «Додати факультет» needs, resolved here because the form is a
+  // dialog on this page now rather than a `/faculties/new` route of its
+  // own. Fetched only when the button will actually be drawn — see
+  // `/staff`'s own version of this comment for why.
+  const deanCandidates = canCreate
+    ? await (async () => {
+        const [takenDeanRows, takenHeadRows, allStaff] = await Promise.all([
+          db.faculty.findMany({ select: { deanId: true }, where: { deanId: { not: null } } }),
+          db.department.findMany({ select: { headId: true }, where: { headId: { not: null } } }),
+          db.staff.findMany({
+            where: ON_ROSTER,
+            select: { id: true, lastName: true, firstName: true, patronymic: true },
+            orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+          }),
+        ]);
+        const takenIds = new Set([
+          ...takenDeanRows.map((r) => r.deanId as string),
+          ...takenHeadRows.map((r) => r.headId as string),
+        ]);
+        return allStaff.filter((s) => !takenIds.has(s.id));
+      })()
+    : [];
 
   /**
    * The URL a column heading points at.
@@ -94,16 +117,7 @@ export default async function FacultiesPage({
       <ListHeader
         title="Факультети"
         subtitle={`${UK.record(faculties.length)} · ${UK.department(departmentTotal)}`}
-        actions={
-          canCreate && (
-            <Button asChild>
-              <Link href="/faculties/new">
-                <Plus />
-                Додати факультет
-              </Link>
-            </Button>
-          )
-        }
+        actions={canCreate && <CreateFacultyDialog staff={deanCandidates} />}
       />
 
       <FacultyTable faculties={faculties} head={head} canDelete={canDelete} fill />

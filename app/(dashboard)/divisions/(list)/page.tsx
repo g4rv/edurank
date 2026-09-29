@@ -1,6 +1,4 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { Plus } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import {
   listDivisionRows,
@@ -8,10 +6,10 @@ import {
   type DivisionSort,
 } from '@/lib/queries/list-divisions';
 import { parseSortDir } from '@/lib/queries/sort';
-import { Button } from '@/components/aurora/ui/button';
 import { ListHeader } from '@/components/aurora/ui/list-header';
 import { SortHead, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { DivisionTable } from '@/components/division/division-table';
+import { CreateDivisionDialog } from '@/components/division/create-division-dialog';
 import { UK } from '@/lib/plural';
 
 export default async function DivisionsPage({
@@ -75,14 +73,7 @@ export default async function DivisionsPage({
       <ListHeader
         title="Відділи"
         subtitle={`${UK.record(divisions.length)} · ${UK.person(staffTotal)}`}
-        actions={
-          <Button asChild>
-            <Link href="/divisions/new">
-              <Plus />
-              Додати відділ
-            </Link>
-          </Button>
-        }
+        actions={<CreateDivisionDialog />}
       />
 
       {/* `showActions` is unconditional: the page is ADMIN-only, and ADMIN is

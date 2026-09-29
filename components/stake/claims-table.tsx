@@ -148,14 +148,22 @@ export function ClaimsTable({ claims, canDelete }: { claims: MyClaim[]; canDelet
     // One provider for the table rather than one per row: only the «Ставка»
     // cell of an unpriced claim opens a tooltip, and Radix needs an ancestor.
     <TooltipProvider>
-      {/* **Not `fill`** (owner, 2026-09-10). `fill` takes every pixel left in
-          the page, so a list of one claim was a header, a row, and four hundred
-          pixels of empty card. The card is its content's height again, and the
-          `min-h-0` makes it a flex item that can be SHRUNK — so a long list is
-          capped by what the page has left instead of pushing the window into a
-          scroll, and the rows scroll inside the card as they do everywhere
-          else. Short list: natural height. Long list: one screen. */}
+      {/* **`fill`** (owner, 2026-09-29, reversing 2026-09-10's «not fill»).
+          The default cap is `calc(100svh - 16rem)` — a GUESS at how tall the
+          furniture above the table is, and this page's is a two-figure card
+          plus the whole cascade form, which routinely runs past that guess
+          once it stacks to one column below `xl`. On a 1280×720 screen the
+          table then asked for more room than the estimate left it and had
+          none to give — the reported bug, a list that is simply not there,
+          not a list that needs scrolling to reach.
+          `fill`'s own `max-h-fit` ceiling (added after the note above was
+          written) is what makes this safe for a short list too: it grows
+          into the space the flex column actually has left, never past the
+          rows there are — so one claim is still one row, not four hundred
+          empty pixels, and a long list still scrolls inside the card exactly
+          as it did before. */}
       <Table
+        fill
         containerClassName="min-h-0"
         columns={showActions ? [...COLUMNS, ACTIONS_COLUMN] : COLUMNS}
         head={

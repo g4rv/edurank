@@ -41,9 +41,8 @@ interface StaffTabsProps {
    */
   showStaffPages?: boolean;
   /**
-   * Route prefix the tabs point at. Exists so the rehearsal at `/staff-mock`
-   * can reuse this unchanged — when that becomes the real page the only edit is
-   * deleting the prop.
+   * Route prefix the tabs point at — `/staff` for a record, `/profile` for
+   * the viewer's own (no id in the URL at all).
    */
   basePath?: string;
   /**

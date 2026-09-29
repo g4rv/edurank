@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useForm, Controller } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
@@ -33,9 +34,31 @@ interface FacultyFormProps {
   staff: StaffOption[];
   action: (data: FacultySchema) => Promise<FacultyActionState>;
   submitLabel: string;
+  /**
+   * Set by `CreateFacultyDialog`, which has no page of its own to navigate
+   * away from. Left out, the edit page's own behaviour is unchanged: push
+   * `result.redirectTo` and follow the Cancel link back to `/faculties`.
+   */
+  onCancel?: () => void;
+  onSuccess?: () => void;
+  /**
+   * No card, no border, no padding — `CreateFacultyDialog` sets this because
+   * the dialog panel is already a card (§2 of `docs/aurora.md`: no elevation
+   * nested inside one). The edit page leaves it out and keeps the card, the
+   * one thing on an otherwise bare page.
+   */
+  flat?: boolean;
 }
 
-export function FacultyForm({ defaultValues, staff, action, submitLabel }: FacultyFormProps) {
+export function FacultyForm({
+  defaultValues,
+  staff,
+  action,
+  submitLabel,
+  onCancel,
+  onSuccess,
+  flat,
+}: FacultyFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -58,7 +81,8 @@ export function FacultyForm({ defaultValues, staff, action, submitLabel }: Facul
           return;
         }
         toast.success('Збережено');
-        router.push(result.redirectTo);
+        if (onSuccess) onSuccess();
+        else router.push(result.redirectTo);
       } catch (e) {
         if (isRedirectError(e)) throw e;
         toast.error('Помилка сервера');
@@ -69,7 +93,7 @@ export function FacultyForm({ defaultValues, staff, action, submitLabel }: Facul
   return (
     <RequiredFields schema={facultySchema}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-4 rounded-xl border bg-card p-5">
+        <div className={cn('space-y-4', !flat && 'rounded-xl border bg-card p-5')}>
           <FormField htmlFor="name" label="Назва" error={errors.name}>
             <Input id="name" disabled={isPending} {...register('name')} />
           </FormField>
@@ -111,9 +135,15 @@ export function FacultyForm({ defaultValues, staff, action, submitLabel }: Facul
           <Button type="submit" disabled={isPending}>
             {isPending ? 'Збереження...' : submitLabel}
           </Button>
-          <Button asChild variant="outline" disabled={isPending}>
-            <Link href="/faculties">Скасувати</Link>
-          </Button>
+          {onCancel ? (
+            <Button type="button" variant="outline" disabled={isPending} onClick={onCancel}>
+              Скасувати
+            </Button>
+          ) : (
+            <Button asChild variant="outline" disabled={isPending}>
+              <Link href="/faculties">Скасувати</Link>
+            </Button>
+          )}
         </div>
       </form>
     </RequiredFields>

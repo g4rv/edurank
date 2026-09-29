@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { Plus } from 'lucide-react';
 import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { ON_ROSTER } from '@/lib/queries/roster';
 import {
   listDepartmentsByFaculty,
   parseDepartmentSort,
@@ -9,10 +9,11 @@ import {
 } from '@/lib/queries/list-departments';
 import { parseSortDir } from '@/lib/queries/sort';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
-import { Button } from '@/components/aurora/ui/button';
+import { getSpecialityOwnerNames } from '@/lib/queries/get-speciality-departments';
 import { ListHeader } from '@/components/aurora/ui/list-header';
 import { SortHead, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { DepartmentTable } from '@/components/department/department-table';
+import { CreateDepartmentDialog } from '@/components/department/create-department-dialog';
 import { UK } from '@/lib/plural';
 
 export default async function DepartmentsPage({
@@ -49,6 +50,35 @@ export default async function DepartmentsPage({
   // page holds, and the кафедри per факультет are on each heading.
   const departmentTotal = groups.reduce((sum, g) => sum + g.count, 0);
   const staffTotal = groups.reduce((sum, g) => sum + g.staffTotal, 0);
+
+  // What «Додати кафедру» needs, resolved here because the form is a dialog
+  // on this page now rather than a `/departments/new` route of its own.
+  // Fetched only when the button will actually be drawn — see `/staff`'s own
+  // version of this comment for why.
+  const createData = canCreate
+    ? await (async () => {
+        const [faculties, takenDeanRows, takenHeadRows, allStaff, owners] = await Promise.all([
+          db.faculty.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+          db.faculty.findMany({ select: { deanId: true }, where: { deanId: { not: null } } }),
+          db.department.findMany({ select: { headId: true }, where: { headId: { not: null } } }),
+          db.staff.findMany({
+            where: ON_ROSTER,
+            select: { id: true, lastName: true, firstName: true, patronymic: true },
+            orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+          }),
+          getSpecialityOwnerNames(),
+        ]);
+        const takenIds = new Set([
+          ...takenDeanRows.map((r) => r.deanId as string),
+          ...takenHeadRows.map((r) => r.headId as string),
+        ]);
+        return {
+          faculties,
+          staff: allStaff.filter((s) => !takenIds.has(s.id)),
+          knownNames: [...new Set([...owners.values()].flat())],
+        };
+      })()
+    : null;
 
   /**
    * See `/faculties` — same rule: flip the active column, start any other one
@@ -98,13 +128,12 @@ export default async function DepartmentsPage({
         title="Кафедри"
         subtitle={`${UK.record(departmentTotal)} · ${UK.person(staffTotal)}`}
         actions={
-          canCreate && (
-            <Button asChild>
-              <Link href="/departments/new">
-                <Plus />
-                Додати кафедру
-              </Link>
-            </Button>
+          createData && (
+            <CreateDepartmentDialog
+              faculties={createData.faculties}
+              staff={createData.staff}
+              knownNames={createData.knownNames}
+            />
           )
         }
       />
