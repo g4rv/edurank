@@ -287,13 +287,15 @@ app/
       rating-debug/               ← service page: renders every evidence form (no nav link)
       design/                     ← service page: design concepts (no nav link)
       audit-log/
-    staff/                        ← ADMIN + EDITOR (НПП + non-НПП unified list)
+    staff/                        ← ADMIN + EDITOR (НПП + non-НПП unified list); create
+                                    is a dialog on the list, not a route — see faculties/
       [id]/
         edit/
         rating/                   ← the staff member's rating tab
         kharakterystyka/          ← their Характеристика (п.38 licence positions)
-      new/
-    faculties/                    ← [id]/, [id]/edit/, new/
+    faculties/                    ← [id]/, [id]/edit/; create is a dialog on the list
+                                    (`CreateFacultyDialog`), not a `new/` route — same
+                                    move as staff's, 2026-09-21, followed here 2026-09-29
     departments/                  ← same shape; [id]/stakes/ redirects to /stakes/[id]
     divisions/                    ← same shape; create/delete is ADMIN-only
     profile/                      ← own profile (personal data only)

@@ -19,9 +19,22 @@ interface DivisionFormProps {
   defaultValues?: Partial<DivisionSchema>;
   action: (data: DivisionSchema) => Promise<DivisionActionState>;
   submitLabel: string;
+  /**
+   * Set by `CreateDivisionDialog`, which has no page of its own to navigate
+   * away from. Left out, the edit page's own behaviour is unchanged: push
+   * `result.redirectTo` and follow the Cancel link back to `/divisions`.
+   */
+  onCancel?: () => void;
+  onSuccess?: () => void;
 }
 
-export function DivisionForm({ defaultValues, action, submitLabel }: DivisionFormProps) {
+export function DivisionForm({
+  defaultValues,
+  action,
+  submitLabel,
+  onCancel,
+  onSuccess,
+}: DivisionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -49,7 +62,8 @@ export function DivisionForm({ defaultValues, action, submitLabel }: DivisionFor
           return;
         }
         toast.success('Збережено');
-        router.push(result.redirectTo);
+        if (onSuccess) onSuccess();
+        else router.push(result.redirectTo);
       } catch (e) {
         if (isRedirectError(e)) throw e;
         toast.error('Помилка сервера');
@@ -112,9 +126,15 @@ export function DivisionForm({ defaultValues, action, submitLabel }: DivisionFor
           <Button type="submit" disabled={isPending}>
             {isPending ? 'Збереження...' : submitLabel}
           </Button>
-          <Button asChild variant="outline" disabled={isPending}>
-            <Link href="/divisions">Скасувати</Link>
-          </Button>
+          {onCancel ? (
+            <Button type="button" variant="outline" disabled={isPending} onClick={onCancel}>
+              Скасувати
+            </Button>
+          ) : (
+            <Button asChild variant="outline" disabled={isPending}>
+              <Link href="/divisions">Скасувати</Link>
+            </Button>
+          )}
         </div>
       </form>
     </RequiredFields>

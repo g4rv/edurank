@@ -78,7 +78,7 @@ export default async function FieldPermissionsPage({
       {divisions.length === 0 ? (
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           Відділів не знайдено. Спочатку{' '}
-          <Link href="/divisions/new" className="underline underline-offset-4">
+          <Link href="/divisions" className="underline underline-offset-4">
             додайте відділ
           </Link>
           .
