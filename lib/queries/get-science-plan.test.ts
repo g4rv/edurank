@@ -94,6 +94,9 @@ function record(
     status?: 'APPROVED' | 'REMOVED';
     planRowId?: string | null;
     others?: { staffId: string; hoursHundredths: number; last: string }[];
+    createdById?: string;
+    createdByLast?: string;
+    reserved?: { staffId: string; hoursHundredths: number; last: string }[];
     files?: {
       id: string;
       fileName: string;
@@ -101,8 +104,16 @@ function record(
       pageCount: number | null;
       uploadedById: string;
     }[];
+    /** The work was declined as a whole; every record below carries this stamp. */
+    declinedAt?: Date;
+    resubmittedAt?: Date;
   } = {}
 ) {
+  const declinedAt = over.declinedAt ?? null;
+  // What the decline did to the records it switched off.
+  const held = declinedAt
+    ? { status: 'REMOVED' as const, removedAt: declinedAt }
+    : { status: 'APPROVED' as const, removedAt: null };
   return {
     id: over.id ?? 'rec-1',
     hoursHundredths: over.hours ?? 15000,
@@ -116,14 +127,27 @@ function record(
       executedMonth: new Date('2026-09-01T00:00:00Z'),
       totalHundredths: 20000,
       workTypeId: 'wt1',
+      // Somebody else entered it unless a test says otherwise: most fixtures
+      // stand for a co-author's row, and «who entered it» changes what a person
+      // may do to its files.
+      createdById: over.createdById ?? 'author',
+      createdBy: NAME(over.createdByLast ?? 'Петренко'),
+      declinedAt,
+      resubmittedAt: over.resubmittedAt ?? null,
       workType: {
         label: 'Наукова стаття',
         itemNumber: '4',
         evidenceFields: [{ kind: 'text', name: 'title', label: 'Назва' }],
       },
+      coauthorShares: (over.reserved ?? []).map((o) => ({
+        staffId: o.staffId,
+        hoursHundredths: o.hoursHundredths,
+        staff: NAME(o.last),
+      })),
       records: [
-        { staffId: 's1', hoursHundredths: over.hours ?? 15000, staff: NAME('Петренко') },
+        { ...held, staffId: 's1', hoursHundredths: over.hours ?? 15000, staff: NAME('Петренко') },
         ...(over.others ?? []).map((o) => ({
+          ...held,
           staffId: o.staffId,
           hoursHundredths: o.hoursHundredths,
           staff: NAME(o.last),
@@ -224,10 +248,100 @@ describe('план and факт', () => {
     const result = await getSciencePlan('s1', 'd1', 't1');
 
     expect(result.records[0].coAuthors).toEqual([
-      { name: 'Іваненко І. І.', hoursHundredths: 5000 },
+      { staffId: 's2', name: 'Іваненко І. І.', hoursHundredths: 5000, pending: false },
     ]);
     expect(result.records[0].totalHundredths).toBe(20000);
     expect(result.records[0].hoursHundredths).toBe(15000);
+  });
+
+  describe('a work declined as a whole (owner, 2026-09-30)', () => {
+    const declinedAt = new Date('2026-10-01T09:00:00Z');
+    const declinedPlan = (over: object = {}) => ({
+      id: 'p1',
+      rateHundredths: 100,
+      rows: [],
+      records: [
+        record({
+          status: 'REMOVED',
+          declinedAt,
+          others: [{ staffId: 's2', hoursHundredths: 5000, last: 'Іваненко' }],
+          ...over,
+        }),
+      ],
+    });
+
+    it('says so, and counts nothing towards виконано', async () => {
+      mockPlan.mockResolvedValue(declinedPlan());
+      const result = await getSciencePlan('s1', 'd1', 't1');
+      expect(result.records[0].workDeclined).toBe(true);
+      expect(result.records[0].resubmitted).toBe(false);
+      expect(result.target.doneHundredths).toBe(0);
+    });
+
+    it('still lists the co-authors — their records are switched off by the same decline', async () => {
+      mockPlan.mockResolvedValue(declinedPlan());
+      const result = await getSciencePlan('s1', 'd1', 't1');
+      expect(result.records[0].coAuthors.map((a) => a.staffId)).toEqual(['s2']);
+    });
+
+    it('does NOT list somebody who was switched off some other way', async () => {
+      const plan = declinedPlan();
+      // a co-author withdrawn earlier, at a different moment
+      plan.records[0].work.records.push({
+        staffId: 's9',
+        hoursHundredths: 1000,
+        staff: NAME('Давніш'),
+        status: 'REMOVED' as const,
+        removedAt: new Date('2026-09-01T00:00:00Z'),
+      });
+      mockPlan.mockResolvedValue(plan);
+      const result = await getSciencePlan('s1', 'd1', 't1');
+      expect(result.records[0].coAuthors.map((a) => a.staffId)).toEqual(['s2']);
+    });
+
+    it('a work sent back and not yet looked at again reads «виправлено»', async () => {
+      mockPlan.mockResolvedValue({
+        id: 'p1',
+        rateHundredths: 100,
+        rows: [],
+        records: [record({ resubmittedAt: new Date('2026-10-02T09:00:00Z') })],
+      });
+      const result = await getSciencePlan('s1', 'd1', 't1');
+      expect(result.records[0].workDeclined).toBe(false);
+      expect(result.records[0].resubmitted).toBe(true);
+    });
+  });
+
+  it('lists hours RESERVED for somebody who has no plan yet, marked pending', async () => {
+    mockPlan.mockResolvedValue({
+      id: 'p1',
+      rateHundredths: 100,
+      rows: [],
+      records: [
+        record({
+          hours: 15000,
+          reserved: [{ staffId: 's3', hoursHundredths: 2000, last: 'Бойко' }],
+        }),
+      ],
+    });
+
+    const result = await getSciencePlan('s1', 'd1', 't1');
+
+    expect(result.records[0].coAuthors).toEqual([
+      { staffId: 's3', name: 'Бойко І. І.', hoursHundredths: 2000, pending: true },
+    ]);
+  });
+
+  it('names whoever entered the work — the person a co-author agrees their hours with', async () => {
+    mockPlan.mockResolvedValue({
+      id: 'p1',
+      rateHundredths: 100,
+      rows: [],
+      records: [record({ createdById: 's9', createdByLast: 'Шевченко' })],
+    });
+    const result = await getSciencePlan('s1', 'd1', 't1');
+    expect(result.records[0].authorName).toBe('Шевченко І. І.');
+    expect(result.records[0].canEdit).toBe(false);
   });
 
   it('has no co-authors for a work only this person drew on', async () => {

@@ -170,7 +170,9 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
         // See the url case: an empty box is not a failed check digit.
         .min(1, { error: "Обов'язкове поле" })
         .refine(isValidIsbn, { error: 'Некоректний ISBN — перевірте контрольну цифру' });
-      return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
+      // `requiredWhen` is enforced by `schemaForFields`, which can see the
+      // select it names; on its own the box may then be empty.
+      return f.optional || f.requiredWhen ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'doi': {
       // Stored bare (resolver prefix stripped) so the checker can query it directly
@@ -227,7 +229,26 @@ export function schemaForFields(
   const shape = Object.fromEntries(
     fields.map((f) => [f.name, fieldSchema(f, opts?.stored?.[f.name])])
   );
-  const object = opts?.allowUnknownKeys ? z.object(shape) : z.strictObject(shape);
+  const baseObject = opts?.allowUnknownKeys ? z.object(shape) : z.strictObject(shape);
+
+  // A box that is required only for some answer of a select (a book's ISBN for
+  // a монографія): the select is in the same object, so the check lives here.
+  const conditional = fields.flatMap((f) =>
+    f.kind === 'isbn' && f.requiredWhen ? [{ name: f.name, when: f.requiredWhen }] : []
+  );
+  const object =
+    conditional.length === 0
+      ? baseObject
+      : baseObject.superRefine((v, ctx) => {
+          const value = v as Record<string, unknown>;
+          for (const { name, when } of conditional) {
+            const answer = value[when.field];
+            const blank = typeof value[name] !== 'string' || !(value[name] as string).trim();
+            if (blank && typeof answer === 'string' && when.in.includes(answer)) {
+              ctx.addIssue({ code: 'custom', path: [name], message: "Обов'язкове поле" });
+            }
+          }
+        });
 
   // CHECK_SUM with nothing ticked sums to 0. Saving that would record a claim
   // of no work at all — «Зараховано» beside a score of 0, which reads as a

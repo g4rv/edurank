@@ -22,6 +22,12 @@ import { canOverseeScience } from '@/lib/science/oversight';
  * (`lib/rating/moderation.ts`). They are two division switches, and an ADMIN
  * may give them to different divisions, even though ННВ holds both today.
  *
+ * **It declines the WHOLE WORK (owner, 2026-09-30), not only the record ННВ
+ * opened.** The proof is shared: a wrong link or document stops every
+ * co-author's hours until the author fixes it and sends it back
+ * (`resubmitScienceWork`), and a work still declined when its рік closes is
+ * dropped. ННВ can decline, never remove.
+ *
  * **The row STAYS, marked REMOVED.** The person has to be able to read why —
  * `record-list.tsx` already renders `removedReason` for a REMOVED record
  * (built before anything could set the status). And every sum over
@@ -56,14 +62,17 @@ export async function removeScienceRecord(
     select: {
       id: true,
       status: true,
+      workId: true,
       staff: { select: { lastName: true, firstName: true, patronymic: true } },
-      work: { select: { workType: { select: { label: true } } } },
+      work: { select: { declinedAt: true, workType: { select: { label: true } } } },
       template: { select: { status: true } },
     },
   });
 
   if (!record) return { error: 'Запис не знайдено' };
-  if (record.status !== 'APPROVED') return { error: 'Цей запис не можна відхилити' };
+  if (record.work.declinedAt || record.status !== 'APPROVED') {
+    return { error: 'Цей запис не можна відхилити' };
+  }
   if (record.template.status !== 'OPEN') return { error: 'Планування на цей рік закрито' };
 
   const auditLabel =
@@ -71,12 +80,26 @@ export async function removeScienceRecord(
 
   try {
     await db.$transaction(async (tx) => {
-      await tx.scienceRecord.update({
-        where: { id: record.id },
+      // ONE stamp on the work and on every record it switches off: it is how
+      // `resubmitScienceWork` / `restoreScienceRecord` find exactly these again.
+      const at = new Date();
+      await tx.scienceWork.update({
+        where: { id: record.workId },
+        data: {
+          declinedAt: at,
+          declineReason: trimmedReason,
+          declinedById: session.user.id,
+          resubmittedAt: null,
+        },
+      });
+      // The proof is shared, so a wrong one stops EVERY co-author's hours, not
+      // only the person whose row ННВ happened to open (owner, 2026-09-30).
+      await tx.scienceRecord.updateMany({
+        where: { workId: record.workId, status: 'APPROVED' },
         data: {
           status: 'REMOVED',
           removedByUserId: session.user.id,
-          removedAt: new Date(),
+          removedAt: at,
           removedReason: trimmedReason,
         },
       });
@@ -84,14 +107,11 @@ export async function removeScienceRecord(
       await tx.auditLog.create({
         data: {
           action: 'UPDATE',
-          entity: 'ScienceRecord',
-          entityId: record.id,
+          entity: 'ScienceWork',
+          entityId: record.workId,
           label: auditLabel,
           userId: session.user.id,
-          changes: diffChanges(
-            { status: record.status, removedReason: null },
-            { status: 'REMOVED', removedReason: trimmedReason }
-          ),
+          changes: diffChanges({ declineReason: null }, { declineReason: trimmedReason }),
         },
       });
     });
@@ -141,8 +161,9 @@ export async function restoreScienceRecord(
     select: {
       id: true,
       status: true,
+      workId: true,
       staff: { select: { lastName: true, firstName: true, patronymic: true } },
-      work: { select: { workType: { select: { label: true } } } },
+      work: { select: { declinedAt: true, workType: { select: { label: true } } } },
       template: { select: { status: true } },
     },
   });
@@ -156,15 +177,25 @@ export async function restoreScienceRecord(
 
   try {
     await db.$transaction(async (tx) => {
-      await tx.scienceRecord.update({
-        where: { id: record.id },
-        data: {
-          status: 'APPROVED',
-          removedByUserId: null,
-          removedAt: null,
-          removedReason: null,
-        },
-      });
+      const declinedAt = record.work.declinedAt;
+      if (declinedAt) {
+        // A decline is of the whole work, so undoing it brings back every record
+        // it switched off — and only those (they carry its stamp).
+        await tx.scienceRecord.updateMany({
+          where: { workId: record.workId, status: 'REMOVED', removedAt: declinedAt },
+          data: { status: 'APPROVED', removedByUserId: null, removedAt: null, removedReason: null },
+        });
+        await tx.scienceWork.update({
+          where: { id: record.workId },
+          data: { declinedAt: null, declineReason: null, declinedById: null, resubmittedAt: null },
+        });
+      } else {
+        // A record declined one at a time, before a decline became the work's.
+        await tx.scienceRecord.update({
+          where: { id: record.id },
+          data: { status: 'APPROVED', removedByUserId: null, removedAt: null, removedReason: null },
+        });
+      }
 
       await tx.auditLog.create({
         data: {

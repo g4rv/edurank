@@ -10,7 +10,8 @@ vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => {
   const tx = {
     staff: { findUnique: vi.fn() },
-    scienceRecord: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    scienceRecord: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
+    scienceWork: { update: vi.fn() },
     auditLog: { create: vi.fn() },
   };
   return { db: { ...tx, $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)) } };
@@ -32,8 +33,9 @@ const otherEditorSession = { user: { id: 'editor-2', role: 'EDITOR', staffId: 's
 const APPROVED_RECORD = {
   id: 'r1',
   status: 'APPROVED',
+  workId: 'w1',
   staff: { lastName: 'Петренко', firstName: 'Петро', patronymic: 'Петрович' },
-  work: { workType: { label: 'Наукова стаття' } },
+  work: { declinedAt: null as Date | null, workType: { label: 'Наукова стаття' } },
   template: { status: 'OPEN' },
 };
 
@@ -54,18 +56,18 @@ describe('removeScienceRecord', () => {
     expect(await removeScienceRecord('r1', 'Немає підтвердження')).toEqual({
       error: 'Недостатньо прав',
     });
-    expect(db.scienceRecord.update).not.toHaveBeenCalled();
+    expect(db.scienceRecord.updateMany).not.toHaveBeenCalled();
   });
 
   it('allows an editor whose division has «Перевірка науки»', async () => {
     mockAuth.mockResolvedValue(nnvEditorSession);
     expect(await removeScienceRecord('r1', 'Немає підтвердження')).toEqual({ ok: true });
-    expect(db.scienceRecord.update).toHaveBeenCalled();
+    expect(db.scienceRecord.updateMany).toHaveBeenCalled();
   });
 
   it('demands a reason', async () => {
     expect(await removeScienceRecord('r1', '   ')).toEqual({ error: 'Вкажіть причину відхилення' });
-    expect(db.scienceRecord.update).not.toHaveBeenCalled();
+    expect(db.scienceRecord.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses a reason over 500 characters', async () => {
@@ -91,22 +93,46 @@ describe('removeScienceRecord', () => {
     expect(await removeScienceRecord('r1', 'причина')).toEqual({
       error: 'Планування на цей рік закрито',
     });
+    expect(db.scienceRecord.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses a work that is already declined', async () => {
+    mockRecordFind.mockResolvedValue({
+      ...APPROVED_RECORD,
+      work: { ...APPROVED_RECORD.work, declinedAt: new Date() },
+    });
+    expect(await removeScienceRecord('r1', 'причина')).toEqual({
+      error: 'Цей запис не можна відхилити',
+    });
+  });
+
+  it('declines the WHOLE WORK — every record on it, not only the one ННВ opened', async () => {
+    await removeScienceRecord('r1', 'Посилання веде на іншу статтю');
+    const many = (db.scienceRecord.updateMany as Mock).mock.calls[0][0];
+    // every APPROVED record of the work, by work id — never by the one record id
+    expect(many.where).toEqual({ workId: 'w1', status: 'APPROVED' });
+    expect(many.data.status).toBe('REMOVED');
+    expect(many.data.removedReason).toBe('Посилання веде на іншу статтю');
+    expect(db.scienceRecord.delete).not.toHaveBeenCalled();
     expect(db.scienceRecord.update).not.toHaveBeenCalled();
   });
 
-  it('sets REMOVED and keeps the row — the person has to be able to read why', async () => {
-    await removeScienceRecord('r1', 'Посилання веде на іншу статтю');
-    const data = (db.scienceRecord.update as Mock).mock.calls[0][0].data;
-    expect(data.status).toBe('REMOVED');
-    expect(data.removedReason).toBe('Посилання веде на іншу статтю');
-    expect(db.scienceRecord.delete).not.toHaveBeenCalled();
+  it('stamps the work and every record with the SAME moment — how a resubmit finds them again', async () => {
+    await removeScienceRecord('r1', 'причина');
+    const work = (db.scienceWork.update as Mock).mock.calls[0][0];
+    const many = (db.scienceRecord.updateMany as Mock).mock.calls[0][0];
+    expect(work.where).toEqual({ id: 'w1' });
+    expect(work.data.declineReason).toBe('причина');
+    expect(work.data.declinedById).toBe('admin-1');
+    expect(work.data.declinedAt).toBeInstanceOf(Date);
+    expect(many.data.removedAt).toBe(work.data.declinedAt);
   });
 
   it('writes an audit entry naming who and what', async () => {
     await removeScienceRecord('r1', 'причина');
     expect(db.auditLog.create).toHaveBeenCalled();
     const entry = (db.auditLog.create as Mock).mock.calls[0][0].data;
-    expect(entry.entity).toBe('ScienceRecord');
+    expect(entry.entity).toBe('ScienceWork');
     expect(entry.action).toBe('UPDATE');
     expect(entry.label).toContain('Наукова стаття');
   });
@@ -120,7 +146,7 @@ describe('removeScienceRecord', () => {
     // flip — touching the hours figure itself would be a second, unnecessary
     // way for the two to disagree.
     await removeScienceRecord('r1', 'причина');
-    const data = (db.scienceRecord.update as Mock).mock.calls[0][0].data;
+    const data = (db.scienceRecord.updateMany as Mock).mock.calls[0][0].data;
     expect(data.hoursHundredths).toBeUndefined();
   });
 });
@@ -139,6 +165,21 @@ describe('restoreScienceRecord', () => {
   it('refuses a record that does not exist', async () => {
     mockRecordFind.mockResolvedValue(null);
     expect(await restoreScienceRecord('r1')).toEqual({ error: 'Запис не знайдено' });
+  });
+
+  it('undoes a decline of the WHOLE WORK — every record it switched off, and only those', async () => {
+    const declinedAt = new Date('2026-09-30T10:00:00Z');
+    mockRecordFind.mockResolvedValue({
+      ...APPROVED_RECORD,
+      status: 'REMOVED',
+      work: { ...APPROVED_RECORD.work, declinedAt },
+    });
+    expect(await restoreScienceRecord('r1')).toEqual({ ok: true });
+    const many = (db.scienceRecord.updateMany as Mock).mock.calls[0][0];
+    expect(many.where).toEqual({ workId: 'w1', status: 'REMOVED', removedAt: declinedAt });
+    expect(many.data).toMatchObject({ status: 'APPROVED', removedReason: null });
+    const work = (db.scienceWork.update as Mock).mock.calls[0][0];
+    expect(work.data).toMatchObject({ declinedAt: null, declineReason: null, resubmittedAt: null });
   });
 
   it('restores a record, clearing the reason', async () => {

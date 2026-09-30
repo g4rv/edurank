@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evidenceProblem, proofRulesProblem } from './evidence-rule';
+import { evidenceProblem, linkHint, linkLabel, proofRulesProblem } from './evidence-rule';
 
 const check = (over: Partial<Parameters<typeof evidenceProblem>[0]> = {}) =>
   evidenceProblem({
@@ -110,5 +110,32 @@ describe('no proof needed — both NONE (owner, 2026-09-24)', () => {
     expect(check({ linkRule: 'OPTIONAL', fileRule: 'NONE' })).toBe(
       'Додайте посилання або файл підтвердження'
     );
+  });
+});
+
+describe('what the link box is called', () => {
+  it('is the link to the WORK itself where it is the only proof', () => {
+    // An article's link IS the article. Calling it «підтвердження» beside a
+    // form that has no other proof read as a second, different link
+    // (owner, 2026-09-30).
+    expect(linkLabel('NONE')).toBe('Посилання на роботу');
+  });
+
+  it('stays a proof link where a file may stand in for it', () => {
+    expect(linkLabel('OPTIONAL')).toBe('Посилання на підтвердження');
+    expect(linkLabel('REQUIRED')).toBe('Посилання на підтвердження');
+  });
+
+  it('tells a link-only type where the page is, and does not talk about a proof', () => {
+    expect(linkHint({ fileRule: 'NONE', reportingForm: null })).toBe(
+      'Джерело, яке підтверджує виконання роботи.'
+    );
+  });
+
+  it('uses the наказ’s own «Форма звітності» when a file is allowed too', () => {
+    expect(linkHint({ fileRule: 'OPTIONAL', reportingForm: 'Свідоцтво' })).toBe(
+      'Свідоцтво — посилання на сторінку, де це опубліковано.'
+    );
+    expect(linkHint({ fileRule: 'OPTIONAL', reportingForm: null })).toMatch(/DOI/);
   });
 });

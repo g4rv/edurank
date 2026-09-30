@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { saveRecord, type WorkConflict } from '@/app/(dashboard)/science-plan/record-actions';
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
-import { Label } from '@/components/aurora/ui/label';
 import { FormField } from '@/components/ui/form-field';
 import { ExecutionPeriodField } from '@/components/science/execution-period-field';
 import { monthOptions, SHOW_EXECUTION_PERIOD } from '@/lib/science/execution-month';
@@ -27,17 +26,22 @@ import {
 import { EvidenceFields } from '@/components/rating/evidence-fields';
 import { typedErrors } from '@/components/science/typed-errors';
 import { WorkTypeCombobox } from '@/components/science/work-type-combobox';
-import { evidenceDefaults } from '@/lib/rating/evidence-fields';
+import { evidenceDefaults, type EvidenceField } from '@/lib/rating/evidence-fields';
+import { splitAtLink } from '@/lib/science/field-order';
 import { computeScore } from '@/lib/specs/scoring';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { RequiredFields } from '@/components/ui/required-fields';
-import { toHundredths, parseStake } from '@/lib/stake/units';
+import { toHundredths } from '@/lib/stake/units';
 import { formatHours } from '@/lib/science/hours';
-import { JoinWorkPanel } from '@/components/science/join-work-panel';
+import { coauthorsProblem, parseCoauthorRows, type CoauthorRow } from '@/lib/science/coauthors';
+import { CoauthorsField } from '@/components/science/coauthors-field';
+import { ExistingWorkPanel } from '@/components/science/existing-work-panel';
+import type { CoauthorCandidate } from '@/lib/queries/list-coauthor-candidates';
 import { unitNote, type PlanWorkType } from '@/components/science/add-plan-row-dialog';
-import { evidenceProblem } from '@/lib/science/evidence-rule';
+import { evidenceProblem, linkHint, linkLabel } from '@/lib/science/evidence-rule';
 import { EvidenceFileField, type StagedFile } from '@/components/science/evidence-file-field';
 import { DialogProblem } from '@/components/science/dialog-problem';
+import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
 
 /**
  * «Додати виконане» — records one work that actually happened.
@@ -51,11 +55,14 @@ import { DialogProblem } from '@/components/science/dialog-problem';
  * 2. **A link box**, because a record must be proved (D27). It sits outside the
  *    generated schema: the schema is a `z.strictObject` over the type's own
  *    fields, and a stray key fails it.
- * 3. **An hours box, only for a SHARED type**, defaulting to the whole pool.
+ * 3. **A co-authors list, only for a SHARED type** (owner, 2026-09-30): people
+ *    picked from the НПП, each with the hours they get. The author's own share
+ *    is what is left, so nobody ever types their own.
  *
  * And one thing no rating form has: a save can come back a THIRD way. When the
  * work already exists the dialog does not close and shows no red error — it
- * swaps to `JoinWorkPanel` (D17).
+ * swaps to `ExistingWorkPanel`, which says who has it and tells the person to
+ * agree the hours with them (D17, as amended 2026-09-30: nobody joins alone).
  *
  * **Every вид роботи is offered** (owner, 2026-09-17). The plan says what
  * somebody intended and, through that, the hours they must reach — it does not
@@ -69,12 +76,15 @@ export function AddRecordDialog({
   workTypes,
   academicYear,
   lastExecutionMonth,
+  coauthorCandidates,
 }: {
   departmentId: string;
   workTypes: PlanWorkType[];
   academicYear: string;
   /** The year's last month (1–8) — the month picker stops there. */
   lastExecutionMonth: number;
+  /** Everybody the author may name as a co-author. */
+  coauthorCandidates: CoauthorCandidate[];
 }) {
   const [open, setOpen] = useState(false);
   // Empty by default — see the note in `add-plan-row-dialog.tsx`.
@@ -141,17 +151,12 @@ export function AddRecordDialog({
               ? 'Оберіть пункт, заповніть дані роботи та додайте підтвердження.'
               : conflict.fromYear
                 ? 'Одна робота існує в системі один раз — і належить тому навчальному році, у якому її внесли.'
-                : 'Одна робота існує в системі один раз. Приєднайтеся до неї та візьміть свою частину годин.'}
+                : 'Одна робота існує в системі один раз. Години між співавторами розподіляє той, хто її додав.'}
           </DialogDescription>
         </DialogHeader>
 
         {conflict ? (
-          <JoinWorkPanel
-            conflict={conflict}
-            departmentId={departmentId}
-            onDone={() => close(false)}
-            onCancel={() => setConflict(null)}
-          />
+          <ExistingWorkPanel conflict={conflict} onBack={() => setConflict(null)} />
         ) : (
           /* Always rendered, chosen вид роботи or not — see the note in
              `add-plan-row-dialog.tsx`. */
@@ -164,6 +169,7 @@ export function AddRecordDialog({
             onConflict={setConflict}
             onDone={() => close(false)}
             picker={picker}
+            coauthorCandidates={coauthorCandidates}
           />
         )}
       </DialogContent>
@@ -179,6 +185,7 @@ function RecordForm({
   onConflict,
   onDone,
   picker,
+  coauthorCandidates,
 }: {
   /** `undefined` until a вид роботи is chosen — the form still draws. */
   type: PlanWorkType | undefined;
@@ -188,11 +195,13 @@ function RecordForm({
   onConflict: (conflict: WorkConflict) => void;
   onDone: () => void;
   picker: React.ReactNode;
+  coauthorCandidates: CoauthorCandidate[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [link, setLink] = useState('');
-  const [hours, setHours] = useState('');
+  // Who the work is shared with — none until the author adds a row.
+  const [coauthorRows, setCoauthorRows] = useState<CoauthorRow[]>([]);
   // D41: this month by default — most work is recorded the month it happens.
   // The newest month of the year, which is the same thing while the year runs;
   // empty before it has begun, when the server would refuse any month anyway.
@@ -251,6 +260,20 @@ function RecordForm({
   const linkRule = type?.linkRule ?? 'OPTIONAL';
   const fileRule = type?.fileRule ?? 'OPTIONAL';
   const poolHundredths = previewHours === null ? null : toHundredths(previewHours);
+  // The list as shares, or the one thing wrong with it. The pool is known only
+  // once the fields above are valid; before that the split cannot be judged, and
+  // the server checks it again in any case.
+  const parsedCoauthors = shared ? parseCoauthorRows(coauthorRows) : { shares: [] };
+  const coauthorProblem =
+    'error' in parsedCoauthors
+      ? parsedCoauthors.error
+      : poolHundredths === null
+        ? null
+        : coauthorsProblem({
+            totalHundredths: poolHundredths,
+            authorStaffId: '',
+            shares: parsedCoauthors.shares,
+          });
   const complete =
     !!type &&
     parsedPreview.success &&
@@ -260,37 +283,33 @@ function RecordForm({
       link: link.trim() || null,
       fileCount: file ? 1 : 0,
     }) === null &&
-    (!shared || !hours.trim() || parseStake(hours) !== null);
+    coauthorProblem === null;
 
   function onSubmit(data: FieldValues) {
     if (!type) return;
     setProblem(null);
 
-    let hoursHundredths: number | undefined;
-    if (shared && hours.trim()) {
-      const parsed = parseStake(hours);
-      if (parsed === null) {
-        setProblem('Вкажіть кількість годин, наприклад 200 або 12,5');
-        return;
-      }
-      hoursHundredths = parsed;
-    }
+    // Never sent when there are none: the server gives the author the whole
+    // pool. Their OWN share is what the co-authors leave, so it is not an input.
+    const coauthors = 'shares' in parsedCoauthors ? parsedCoauthors.shares : [];
 
     startTransition(async () => {
-      const result = await saveRecord({
-        departmentId,
-        workTypeId: type.id,
-        evidence: data,
-        link: link.trim() || undefined,
-        hoursHundredths,
-        // Hidden since 2026-09-24: the server stamps the save month instead.
-        ...(SHOW_EXECUTION_PERIOD
-          ? { executedMonth: month, startedMonth: started ?? undefined }
-          : {}),
-        // Already uploaded; the server verifies it from the stored bytes and
-        // writes its row in the same transaction as the work.
-        file: file ?? undefined,
-      });
+      const result = await attempt(() =>
+        saveRecord({
+          departmentId,
+          workTypeId: type.id,
+          evidence: data,
+          link: link.trim() || undefined,
+          coauthors: coauthors.length > 0 ? coauthors : undefined,
+          // Hidden since 2026-09-24: the server stamps the save month instead.
+          ...(SHOW_EXECUTION_PERIOD
+            ? { executedMonth: month, startedMonth: started ?? undefined }
+            : {}),
+          // Already uploaded; the server verifies it from the stored bytes and
+          // writes its row in the same transaction as the work.
+          file: file ?? undefined,
+        })
+      );
 
       if ('conflict' in result) {
         // Not a failure — an offer. The dialog stays open and swaps its body.
@@ -300,7 +319,9 @@ function RecordForm({
       if ('error' in result) {
         // The server dropped the staged object on every refusal, so the
         // picker must stop claiming to hold one.
-        if (file) setFile(null);
+        // …except when the request never arrived: then the object is still
+        // staged, and clearing it would make somebody upload it again.
+        if (file && result.error !== CONNECTION_PROBLEM) setFile(null);
         setProblem(result.error);
         return;
       }
@@ -310,6 +331,21 @@ function RecordForm({
       onDone();
     });
   }
+
+  // The fields split around the link box: name and kind of work, the link, then
+  // the details. See `lib/science/field-order.ts`.
+  const { before: beforeLink, after: afterLink } = splitAtLink(fields);
+  const evidenceFields = (list: EvidenceField[]) => (
+    <EvidenceFields
+      fields={list}
+      register={register}
+      control={control}
+      errors={typedErrors(errors, watched)}
+      // Додаток III prices in ГОДИНАХ, not балах (D3) — the renderer is the
+      // rating's and defaults to its unit.
+      unitLabel="год"
+    />
+  );
 
   return (
     <RequiredFields schema={schema} alwaysMark>
@@ -329,15 +365,7 @@ function RecordForm({
               </div>
             )}
 
-            <EvidenceFields
-              fields={fields}
-              register={register}
-              control={control}
-              errors={typedErrors(errors, watched)}
-              // Додаток III prices in ГОДИНАХ, not балах (D3) — the renderer is
-              // the rating's and defaults to its unit.
-              unitLabel="год"
-            />
+            {evidenceFields(beforeLink)}
 
             {/* D41/D48: for TRACKING execution, every вид роботи — not an
                 article's publication date, which is its own evidence field. */}
@@ -362,7 +390,7 @@ function RecordForm({
             {type && linkRule !== 'NONE' && (
               <FormField
                 htmlFor="record-link"
-                label="Посилання на підтвердження"
+                label={linkLabel(fileRule)}
                 required={linkRule === 'REQUIRED'}
                 description={linkHint(type)}
               >
@@ -395,23 +423,18 @@ function RecordForm({
               </FormField>
             )}
 
+            {/* The details — DOI, pages, dates — come AFTER the link, and the
+                people the work is shared with come last (owner, 2026-09-30). */}
+            {afterLink.length > 0 && evidenceFields(afterLink)}
+
             {shared && (
-              <div className="space-y-1">
-                <Label htmlFor="record-hours">Скільки годин берете ви</Label>
-                <Input
-                  id="record-hours"
-                  inputMode="decimal"
-                  placeholder={poolHundredths === null ? 'усі' : formatHours(poolHundredths)}
-                  value={hours}
-                  onChange={(e) => setHours(e.target.value)}
-                />
-                <p className="text-sm text-foreground-soft">
-                  {/* Said here because it is the only moment the person can act on
-                      it — once saved, the rest is a colleague's to claim. */}
-                  Залиште порожнім, щоб узяти всі години. Якщо робота у співавторстві, вкажіть свою
-                  частину — решту зможуть взяти співавтори.
-                </p>
-              </div>
+              <CoauthorsField
+                rows={coauthorRows}
+                onChange={setCoauthorRows}
+                candidates={coauthorCandidates}
+                poolHundredths={poolHundredths}
+                problem={coauthorProblem}
+              />
             )}
           </fieldset>
         </DialogBody>
@@ -453,18 +476,6 @@ function RecordForm({
       </form>
     </RequiredFields>
   );
-}
-
-/** Under the link box. Per item where it can be, from the наказ's own «Форма
- *  звітності» column — already seeded per work type and ADMIN-editable, so a
- *  new вид роботи gets a correct hint with no code change. */
-function linkHint(type: PlanWorkType | undefined): string {
-  if (type?.fileRule === 'NONE') {
-    return 'Лише посилання — на сторінку, де це опубліковано або розміщено. ННВ перевірить його.';
-  }
-  return type?.reportingForm
-    ? `${type.reportingForm} — посилання на сторінку, де це опубліковано.`
-    : 'Сторінка, яку можна відкрити: DOI, сайт видання, репозитарій, наказ.';
 }
 
 /** Under the file box. «One of the two» is said only where it is the rule —

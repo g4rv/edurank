@@ -13,6 +13,7 @@ import { DeletePlanRowButton } from '@/components/science/delete-plan-row-button
 import { RecordList } from '@/components/science/record-list';
 import { RecordTabs, type PlanTab } from '@/components/science/record-tabs';
 import { PlanHeader } from '@/components/science/plan-header';
+import type { CoauthorCandidate } from '@/lib/queries/list-coauthor-candidates';
 import { LockPlanButton } from '@/components/science/lock-plan-button';
 import { ToolbarGroup, ToolbarRow } from '@/components/staff/record-toolbar';
 
@@ -45,6 +46,7 @@ export function PlanView({
   target,
   workTypes,
   lockedAt,
+  coauthorCandidates,
 }: {
   academicYear: string;
   /** D48 — the year's last month (1–8) for the month pickers. */
@@ -59,6 +61,8 @@ export function PlanView({
   workTypes: PlanWorkType[];
   /** Submitted — the plan is fixed and recording has opened. */
   lockedAt: Date | null;
+  /** Everybody an author may name as a co-author (empty off the «Виконано» tab). */
+  coauthorCandidates: CoauthorCandidate[];
 }) {
   const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
 
@@ -137,6 +141,7 @@ export function PlanView({
               workTypes={workTypes}
               academicYear={academicYear}
               lastExecutionMonth={lastExecutionMonth}
+              coauthorCandidates={coauthorCandidates}
             />
           )}
         </ToolbarGroup>
@@ -148,6 +153,7 @@ export function PlanView({
           workTypes={workTypes}
           academicYear={academicYear}
           lastExecutionMonth={lastExecutionMonth}
+          coauthorCandidates={coauthorCandidates}
         />
       ) : rows.length === 0 ? (
         <EmptyState>Ще немає запланованих робіт.</EmptyState>

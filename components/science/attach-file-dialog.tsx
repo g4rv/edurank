@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from '@/components/aurora/ui/dialog';
 import { attachFile } from '@/app/(dashboard)/science-plan/file-actions';
+import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
 import { EvidenceFileField, type StagedFile } from '@/components/science/evidence-file-field';
 import { DialogProblem } from '@/components/science/dialog-problem';
 
@@ -54,11 +55,11 @@ export function AttachFileDialog({ workId, label }: { workId: string; label: str
     if (!file) return;
     setProblem(null);
     startTransition(async () => {
-      const result = await attachFile({ ...file, workId });
+      const result = await attempt(() => attachFile({ ...file, workId }));
       if ('error' in result) {
         // The server dropped the object on refusal — the picker must not go on
         // claiming to hold one.
-        setFile(null);
+        if (result.error !== CONNECTION_PROBLEM) setFile(null);
         setProblem(result.error);
         return;
       }

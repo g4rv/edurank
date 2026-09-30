@@ -1,4 +1,4 @@
-import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { isbn, type EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScoringSpec } from '@/lib/specs/scoring';
 import type { ActivityKind } from '@/lib/rating/activity-types';
 
@@ -144,13 +144,6 @@ const option = (
   options: readonly { value: string; label: string; points: number }[]
 ): EvidenceField => ({ kind: 'select', name: 'option', label, options });
 
-const url = (name: string, label: string, optional?: boolean): EvidenceField => ({
-  kind: 'url',
-  name,
-  label,
-  ...(optional ? { optional: true } : {}),
-});
-
 /**
  * A calendar date. D48: the стаття's «Опубліковано/Проіндексовано» — refused
  * when older than this calendar year or in the future (`currentYear`, owner
@@ -187,8 +180,6 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Звіт — грант',
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
-    linkRule: 'REQUIRED',
-    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [title],
   },
@@ -204,8 +195,6 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Звіт-проєкт',
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
-    linkRule: 'REQUIRED',
-    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [
       title,
@@ -228,6 +217,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
       'Звіт на кафедрі: не менше 1 розділу та 4 статей у фахових виданнях (доктор наук) або 2 статей (доктор філософії)',
     reuse: 'YEARLY',
     sharing: 'INDIVIDUAL',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['candidate', 'title'],
     fields: [
       ...personName('candidate', 'ПІБ здобувача'),
@@ -253,13 +244,18 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     sharing: 'SHARED',
     linkRule: 'REQUIRED',
     fileRule: 'NONE',
-    identityFields: ['title'],
+    // ISBN is mandatory and tells one book from another better than a title
+    // typed twice two ways (owner, 2026-09-30).
+    identityFields: ['isbn', 'title'],
     fields: [
       title,
       option('Вид видання', [
         { value: 'monograph', label: 'Монографія, підручник', points: 200 },
         { value: 'manual', label: 'Посібник', points: 100 },
       ]),
+      // Mandatory for a монографія / підручник, optional for a посібник
+      // (owner, 2026-09-30) — `requiredWhen` reads the «Вид видання» above.
+      isbn('isbn', 'ISBN', { requiredWhen: { field: 'option', in: ['monograph'] } }),
       count('credits', 'Кількість друкованих аркушів'),
     ],
   },
@@ -278,8 +274,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     sharing: 'SHARED',
     linkRule: 'REQUIRED',
     fileRule: 'NONE',
-    identityFields: ['title'],
-    fields: [title, count('value', 'Кількість друкованих аркушів')],
+    identityFields: ['isbn', 'title'],
+    fields: [title, isbn('isbn', 'ISBN'), count('value', 'Кількість друкованих аркушів')],
   },
   {
     code: 'article',
@@ -294,11 +290,11 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     sharing: 'SHARED',
     linkRule: 'REQUIRED',
     fileRule: 'NONE',
-    identityFields: ['doi', 'url', 'title'],
+    // The record's own link is the article's address — it used to be asked for a
+    // SECOND time here as «Посилання на статтю» (2026-09-30). `link` reads it.
+    identityFields: ['doi', 'link', 'title'],
     fields: [
       title,
-      doi('doi', 'DOI', true),
-      url('url', 'Посилання на статтю', true),
       option('Категорія видання', [
         {
           value: 'scopus',
@@ -315,6 +311,9 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
         { value: 'proceedings', label: 'У збірниках наукових праць', points: 10 },
         { value: 'other', label: 'В інших виданнях', points: 5 },
       ]),
+      // After the link, which the form puts right behind the category
+      // (`lib/science/field-order.ts`): name, category, link, THEN the details.
+      doi('doi', 'DOI', true),
       count('credits', 'Кількість сторінок'),
       date('publishedOn', 'Опубліковано/Проіндексовано', 'currentYear'),
     ],
@@ -358,8 +357,6 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Програма, матеріали конференції (зараховується після виходу в світ)',
     reuse: 'ONCE',
     sharing: 'SHARED',
-    linkRule: 'REQUIRED',
-    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [
       title,

@@ -7,6 +7,7 @@ import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { savePlanRow } from '@/app/(dashboard)/science-plan/actions';
+import { attempt } from '@/lib/science/attempt';
 import { Button } from '@/components/aurora/ui/button';
 import { Label } from '@/components/aurora/ui/label';
 import { Textarea } from '@/components/aurora/ui/textarea';
@@ -225,12 +226,14 @@ function EvidenceForm({
   function onSubmit(data: FieldValues) {
     if (!type) return;
     startTransition(async () => {
-      const result = await savePlanRow({
-        departmentId,
-        workTypeId: type.id,
-        details: data,
-        note: note.trim() || undefined,
-      });
+      const result = await attempt(() =>
+        savePlanRow({
+          departmentId,
+          workTypeId: type.id,
+          details: data,
+          note: note.trim() || undefined,
+        })
+      );
       if ('error' in result) {
         toast.error(result.error);
       } else {

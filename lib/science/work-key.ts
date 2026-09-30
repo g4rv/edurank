@@ -1,5 +1,6 @@
 import { normalizeDoi } from '@/lib/doi';
 import { normalizeIsbn } from '@/lib/isbn';
+import { RECORD_LINK_IDENTITY } from '@/lib/science/identity';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScienceReuse, ScienceSharing } from '@/lib/generated/prisma/client';
 
@@ -83,11 +84,26 @@ export function workKey(input: {
   reuse: ScienceReuse;
   sharing: ScienceSharing;
   evidence: Record<string, unknown>;
+  /**
+   * The record's own link («Посилання на роботу»). An identity entry named
+   * `link` (see `RECORD_LINK_IDENTITY`) reads it, and keys exactly as a `url`
+   * evidence field would — so a type no longer has to ask for the same address
+   * twice just to tell two works apart.
+   */
+  link?: string | null;
   academicYear: string;
   staffId: string;
 }): string | null {
   let core: string | null = null;
   for (const name of input.identityFields) {
+    if (name === RECORD_LINK_IDENTITY) {
+      // `url:` on purpose: it is the prefix a `url` field always gave, so a
+      // work keyed before this existed keeps its identity.
+      const url = input.link ? normalizeUrl(input.link) : null;
+      core = url ? `url:${url}` : input.link ? normalizeTextKey(input.link) : null;
+      if (core) break;
+      continue;
+    }
     const field = input.evidenceFields.find((f) => f.name === name);
     // A ПІБ typed into three boxes — Прізвище / Ім'я / По батькові, joined
     // under one `join` name (owner, 2026-09-23). The identity list names the

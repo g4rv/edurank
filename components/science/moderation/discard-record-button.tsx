@@ -70,7 +70,9 @@ export function DiscardRecordButton({
           <AlertDialogTitle>Відхилити запис?</AlertDialogTitle>
           <AlertDialogDescription>
             <span className="font-medium text-foreground">{label}</span> ({staffName}) перестане
-            рахуватись у виконано. Людина побачить вказану причину; запис можна відновити.
+            рахуватись у виконано — і в усіх співавторів теж, бо підтвердження в них спільне. Автор
+            побачить вказану причину, виправить підтвердження й надішле роботу повторно; ви також
+            можете відновити її самі.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2">

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { evidenceFieldsSpecSchema, scoringSpecSchema } from '@/validations/activity-type-spec';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { RECORD_LINK_IDENTITY, RECORD_LINK_LABEL } from '@/lib/science/identity';
 
 // Validates ADMIN input for one Додаток III row (`ScienceWorkType`).
 // `evidenceFields` reuses the rating's OWN `evidenceFieldsSpecSchema` verbatim
@@ -120,6 +121,9 @@ export function identityCandidates(
     }
     out.push({ name: f.name, label: f.label });
   }
+  // Not a field of the form, but every record has one — and naming it as an
+  // identity is what lets a type ask for a link only once.
+  out.push({ name: RECORD_LINK_IDENTITY, label: RECORD_LINK_LABEL });
   return out;
 }
 

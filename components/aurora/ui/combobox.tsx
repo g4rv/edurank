@@ -41,6 +41,13 @@ type ComboboxCtx = {
   select: (v: string) => void;
   displayValue: string;
   filteredItems: unknown[];
+  /** How many matches `maxResults` cut off — `ComboboxMore` says so. */
+  hiddenCount: number;
+  /** False while an auto-suggest field has not been typed into enough yet: the
+   *  field is «open» (it is being typed in) but there is no list to show. */
+  listVisible: boolean;
+  /** An auto-suggest field — see `minSearchLength`. */
+  suggest: boolean;
   disabled: boolean;
   /** The field the list hangs off — see the guard in `ComboboxContent`. */
   anchorRef: React.RefObject<HTMLDivElement | null>;
@@ -105,6 +112,17 @@ interface ComboboxProps<T> {
   filter?: (item: T, search: string) => boolean;
   displayValue?: string;
   disabled?: boolean;
+  /**
+   * **Make it an auto-suggest instead of a select** (owner, 2026-09-30): no
+   * list until the person has typed this many characters. For a long list of
+   * people — three hundred НПП — a dropdown of everybody is not a list anybody
+   * reads; it is a wall to scroll before you can type a surname. 0 (the default)
+   * is the ordinary combobox that opens on focus.
+   */
+  minSearchLength?: number;
+  /** Show at most this many matches (default: all). Pair it with `ComboboxMore`
+   *  so the person is told there are more and to type further. */
+  maxResults?: number;
   children: React.ReactNode;
 }
 
@@ -115,6 +133,8 @@ function Combobox<T>({
   filter,
   displayValue = '',
   disabled = false,
+  minSearchLength = 0,
+  maxResults,
   children,
 }: ComboboxProps<T>) {
   const [open, setOpenRaw] = React.useState(false);
@@ -124,7 +144,10 @@ function Combobox<T>({
   const defaultFilter = (item: T, s: string) =>
     String(item).toLowerCase().includes(s.toLowerCase());
 
-  const filteredItems: unknown[] = React.useMemo(
+  const suggest = minSearchLength > 0;
+  const listVisible = !suggest || search.trim().length >= minSearchLength;
+
+  const matches: unknown[] = React.useMemo(
     () =>
       search
         ? (items as T[]).filter((item) => (filter ?? defaultFilter)(item, search))
@@ -132,6 +155,11 @@ function Combobox<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [items, search, filter]
   );
+  const filteredItems = React.useMemo(
+    () => (maxResults === undefined ? matches : matches.slice(0, maxResults)),
+    [matches, maxResults]
+  );
+  const hiddenCount = matches.length - filteredItems.length;
 
   // Read through refs so `setOpen` and `select` keep ONE identity for the life
   // of the control. `setOpen` is the popover's `onOpenChange`: a new function
@@ -175,19 +203,35 @@ function Combobox<T>({
       select,
       displayValue,
       filteredItems,
+      hiddenCount,
+      listVisible,
+      suggest,
       disabled,
       anchorRef,
       listRef,
       listboxId,
     }),
-    [open, setOpen, search, value, select, displayValue, filteredItems, disabled, listboxId]
+    [
+      open,
+      setOpen,
+      search,
+      value,
+      select,
+      displayValue,
+      filteredItems,
+      hiddenCount,
+      listVisible,
+      suggest,
+      disabled,
+      listboxId,
+    ]
   );
   const highlight = React.useMemo(() => ({ highlighted, setHighlighted }), [highlighted]);
 
   return (
     <ComboboxContext.Provider value={ctx}>
       <HighlightContext.Provider value={highlight}>
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open && listVisible} onOpenChange={setOpen}>
           {children}
         </Popover>
       </HighlightContext.Provider>
@@ -237,6 +281,8 @@ function ComboboxInput({
     displayValue,
     value,
     select,
+    suggest,
+    listVisible,
     disabled: ctxDisabled,
     anchorRef,
     listRef,
@@ -335,13 +381,20 @@ function ComboboxInput({
           type="text"
           role="combobox"
           aria-label={ariaLabel}
-          aria-expanded={open}
+          aria-expanded={open && listVisible}
           aria-controls={listboxId}
           aria-autocomplete="list"
-          aria-activedescendant={open && highlighted ? optionId(listboxId, highlighted) : undefined}
+          aria-activedescendant={
+            open && listVisible && highlighted ? optionId(listboxId, highlighted) : undefined
+          }
           onKeyDown={onKeyDown}
           disabled={isDisabled}
-          placeholder={value ? undefined : placeholder}
+          // While an auto-suggest is being typed into, the chosen person's name
+          // is not in the box (it shows the search) — so it moves to the
+          // placeholder, and the field still says who is chosen.
+          placeholder={
+            value ? (open && suggest ? displayValue || undefined : undefined) : placeholder
+          }
           value={shownValue}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -405,12 +458,16 @@ function ComboboxInput({
               <X className="size-4" />
             </button>
           )}
-          <ChevronDown
-            className={cn(
-              'size-4 text-muted-foreground transition-transform duration-150',
-              open && 'rotate-180'
-            )}
-          />
+          {/* An auto-suggest is a text box, not a dropdown: no chevron promising
+              a list that is not there until you type. */}
+          {!suggest && (
+            <ChevronDown
+              className={cn(
+                'size-4 text-muted-foreground transition-transform duration-150',
+                open && 'rotate-180'
+              )}
+            />
+          )}
         </div>
       </div>
     </PopoverAnchor>
@@ -426,7 +483,41 @@ function ComboboxContent({
   children: React.ReactNode;
   className?: string;
 }) {
-  const { anchorRef } = useCombobox();
+  const { anchorRef, open, listVisible, setOpen } = useCombobox();
+
+  /**
+   * **Close the list when whatever holds the field scrolls** (owner,
+   * 2026-09-30). The list is portalled into the dialog, outside the dialog's
+   * scrolling body, so scrolling the modal moved the field and left the open
+   * list behind — floating over other fields and the footer, attached to
+   * nothing. A list that has lost its field is not a suggestion any more.
+   *
+   * Only when the field has really MOVED. A phone scrolls a field into view as
+   * its keyboard opens, a few pixels at a time, and that must not close the
+   * list the person is in the middle of using; so the field's position is
+   * taken when the list opens and compared, and a nudge under `MOVED` is
+   * ignored. Scrolling the list itself never counts — it is not the field's
+   * ancestor.
+   */
+  React.useEffect(() => {
+    if (!open || !listVisible) return;
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const startTop = anchor.getBoundingClientRect().top;
+    const MOVED = 16;
+
+    const onScroll = (event: Event) => {
+      const target = event.target;
+      // `document` scrolls the page itself, which also moves the field.
+      const scrolled = target instanceof Node && target !== document ? target : document;
+      const holdsField = scrolled === document || scrolled.contains(anchor);
+      if (!holdsField) return;
+      if (Math.abs(anchor.getBoundingClientRect().top - startTop) > MOVED) setOpen(false);
+    };
+    // Capture: scroll does not bubble, and the scroller is some ancestor.
+    document.addEventListener('scroll', onScroll, true);
+    return () => document.removeEventListener('scroll', onScroll, true);
+  }, [open, listVisible, anchorRef, setOpen]);
 
   /**
    * The overlay this field sits in, if any — the panel is portalled there
@@ -495,6 +586,15 @@ function ComboboxContent({
       // window the list ended up flush against it (and a rounding pixel past
       // it). Eight is the same breathing room the shell gives everything else.
       collisionPadding={8}
+      // **Hide the list when its field scrolls out of view** (owner,
+      // 2026-09-30). Portalled into a dialog, the list is not inside the
+      // dialog's scrolling body, so scrolling the modal moved the FIELD but
+      // left the open list where it was — floating over the other fields and
+      // the footer, attached to nothing, with the input it belonged to off
+      // screen. Radix already knows when the anchor has been scrolled out of
+      // its clipping ancestor; this tells it to act on that. While the field
+      // is on screen the list keeps following it, exactly as before.
+      hideWhenDetached
       className={cn(
         listPanel,
         'w-(--radix-popover-trigger-width) overflow-hidden',
@@ -528,6 +628,18 @@ function ComboboxEmpty({ children }: { children: React.ReactNode }) {
   const { filteredItems } = useCombobox();
   if (filteredItems.length > 0) return null;
   return <div className={listEmpty}>{children}</div>;
+}
+
+// ─── ComboboxMore ─────────────────────────────────────────────────────────────
+
+/**
+ * «Ще N — уточніть пошук» under a list `maxResults` has cut short, so the
+ * person knows the eight in front of them are not everybody.
+ */
+function ComboboxMore({ children }: { children?: (hidden: number) => React.ReactNode }) {
+  const { hiddenCount } = useCombobox();
+  if (hiddenCount <= 0) return null;
+  return <div className={listEmpty}>{children ? children(hiddenCount) : `Ще ${hiddenCount}…`}</div>;
 }
 
 // ─── ComboboxList ─────────────────────────────────────────────────────────────
@@ -639,4 +751,12 @@ function ComboboxItem({ value: itemValue, children, className }: ComboboxItemPro
   );
 }
 
-export { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList };
+export {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxMore,
+};

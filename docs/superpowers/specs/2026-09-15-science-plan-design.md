@@ -1251,3 +1251,37 @@ and a link whose host matches what it claims to be (`lib/link-hosts.ts`).
 Not checkable: whether a certificate is genuine, whether the person really did
 the work, whether a group's split of shared hours is the one they agreed. That is
 what ННВ is for, and why D20 keeps a human able to decline anything.
+
+## D54 — the author divides the pool; nobody joins alone (owner, 2026-09-30)
+
+Supersedes D17 («refused, then offered to join») and D46's «every co-author
+changes their own share».
+
+**Why.** With free claiming, a pool of 500 год had no answer to «who gets what»:
+the first author took all of it, a second took 300 from them, and a third
+wanting 250 had no rule to be measured against. An author who did not think of
+co-authors also blocked every colleague by leaving the hours box empty.
+
+**The rule.**
+
+1. Whoever enters a `SHARED` work names its co-authors from the НПП list, with
+   the hours each one gets. **The author's own share is what is left**, never
+   typed, and always more than nothing.
+2. A co-author with a **saved plan** gets a `ScienceRecord` at once. One
+   **without** gets a `ScienceCoauthorShare` — a reservation that counts against
+   the pool exactly like a record — and `lockPlan` converts it into a record on
+   the plan they are saving. A reservation that would break the yearly cap, or
+   one on a work of another year, is left alone and never stops a plan being
+   saved.
+3. A colleague who was not named and enters the same work is refused and told
+   who has it and to agree the hours with them. There is nothing to press. A
+   person who WAS named is told they are already on it; one holding only a
+   reservation is told it will appear when they save their plan.
+4. Only the author (or ADMIN) changes the list — `updateCoauthors` — from the
+   author's own record («Співавтори»). Co-authors see their share read-only and
+   who divides it. The old «Моя частка» is removed.
+5. A co-author withdrawing their record returns its hours to the author. The
+   author withdrawing theirs leaves the work and its co-authors standing.
+   Correcting the work's evidence moves the AUTHOR's share to what is left, up
+   or down.
+6. A record ННВ declined cannot be named again: it would undo the decision.

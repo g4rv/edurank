@@ -39,6 +39,9 @@ export interface ScienceRecordFeedRow {
   sharedFiles: boolean;
   status: ScienceRecordStatus;
   removedReason: string | null;
+  /** The author fixed a declined work and sent it back — ННВ's «виправлено»,
+   *  shown until they decline it again or the record is left alone. */
+  resubmitted: boolean;
   createdAt: Date;
 }
 
@@ -86,6 +89,8 @@ export async function listScienceRecords(page: number): Promise<ScienceRecordFee
             executedMonth: true,
             startedMonth: true,
             totalHundredths: true,
+            declinedAt: true,
+            resubmittedAt: true,
             workType: { select: { label: true, itemNumber: true, evidenceFields: true } },
             files: { select: { id: true, fileName: true, pageCount: true } },
             // D28 — every still-APPROVED draw on the same work, to tell a file
@@ -119,6 +124,7 @@ export async function listScienceRecords(page: number): Promise<ScienceRecordFee
       sharedFiles: r.work.files.length > 0 && r.work.records.length > 1,
       status: r.status,
       removedReason: r.removedReason,
+      resubmitted: (r.work.declinedAt ?? null) === null && (r.work.resubmittedAt ?? null) !== null,
       createdAt: r.createdAt,
     };
   });
