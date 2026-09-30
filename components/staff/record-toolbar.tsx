@@ -32,6 +32,12 @@ import { cn } from '@/lib/utils';
  *
  * `p-1` around `h-8` controls comes to the tab bar's own height, so the two
  * read as one row rather than as two things that happen to be adjacent.
+ *
+ * **A button in the strip is OUTLINED, with `rounded-md`** (owner, 2026-09-30).
+ * It was borderless until then, on the reasoning that a border inside the
+ * strip's border makes a row of buttons read as several objects — and the
+ * result was «Скинути пароль» and «Вивантажити Excel» that did not read as
+ * buttons at all. The primary action is `variant="brand"`, which is filled.
  */
 export function ToolbarGroup({
   children,

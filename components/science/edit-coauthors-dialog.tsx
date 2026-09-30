@@ -122,7 +122,7 @@ export function EditCoauthorsDialog({
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label={`Співавтори роботи «${label}»`}>
+        <Button variant="outline" size="sm" aria-label={`Співавтори роботи «${label}»`}>
           <Users className="size-3.5" />
           {/* What it opens is a split, so the split is what it shows. */}
           Співавтори:{' '}

@@ -73,7 +73,7 @@ export default async function MyKharakterystykaPage() {
             href={`/api/export/kharakterystyka?year=${template.year}&staffId=${staffId}`}
             label="Вивантажити Excel"
             title="Характеристика_РНПАВ у форматі документа"
-            variant="ghost"
+            className="rounded-md"
           />
         </ToolbarGroup>
       </ProfileTabRow>

@@ -72,7 +72,7 @@ export function AttachFileDialog({ workId, label }: { workId: string; label: str
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label={`Додати файл до «${label}»`}>
+        <Button variant="outline" size="sm" aria-label={`Додати файл до «${label}»`}>
           <Paperclip className="size-3.5" />
           Додати файл
         </Button>

@@ -112,7 +112,7 @@ export default async function MyRatingPage({
             href={`/api/export/ratings?year=${year}&staffId=${staffId}`}
             label="Вивантажити Excel"
             title="Ваша офіційна форма рейтингового оцінювання"
-            variant="ghost"
+            className="rounded-md"
           />
         </ToolbarGroup>
       </ProfileTabRow>
