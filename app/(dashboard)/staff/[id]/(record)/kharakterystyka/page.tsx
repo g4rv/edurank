@@ -82,7 +82,7 @@ export default async function StaffKharakterystykaPage({
             href={`/api/export/kharakterystyka?year=${template.year}&staffId=${id}`}
             label="Вивантажити Excel"
             title="Характеристика_РНПАВ у форматі документа"
-            variant="ghost"
+            className="rounded-md"
           />
         </ToolbarGroup>
       </RecordTabRow>

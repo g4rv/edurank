@@ -210,7 +210,7 @@ export function RecordList({
                           ННВ declined on its own, before a decline became the
                           work's, still cannot be edited. */}
                       {(!declined || record.workDeclined) && record.canEdit && (
-                        <div className="mt-1 -ml-2 flex flex-wrap items-center gap-1">
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           {record.canEdit &&
                             !record.workDeclined &&
                             workTypeById.has(record.workTypeId) && (

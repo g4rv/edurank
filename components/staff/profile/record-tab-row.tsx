@@ -154,7 +154,7 @@ export function KharakterystykaToolbarShell() {
  */
 function ExportShell() {
   return (
-    <Button variant="ghost" disabled>
+    <Button variant="outline" className="rounded-md" disabled>
       <FileDown className="size-4" />
       Вивантажити Excel
     </Button>

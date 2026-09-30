@@ -141,7 +141,8 @@ export function AccountControls({
       <div className={cn('flex gap-2', bar ? 'flex-wrap items-center' : 'flex-col')}>
         {account.lockedUntil && (
           <Button
-            variant={bar ? 'ghost' : 'outline'}
+            variant="outline"
+            className={bar ? 'rounded-md' : undefined}
             size={bar ? 'default' : 'sm'}
             disabled={isPending}
             onClick={() => run(() => unlockLogin(staffId))}
@@ -153,7 +154,8 @@ export function AccountControls({
 
         {!account.isActivated && (
           <Button
-            variant={bar ? 'ghost' : 'outline'}
+            variant="outline"
+            className={bar ? 'rounded-md' : undefined}
             size={bar ? 'default' : 'sm'}
             disabled={isPending}
             onClick={() => run(() => sendInvite(staffId))}
@@ -171,7 +173,7 @@ export function AccountControls({
             description="Пароль буде видалено, всі сесії завершено, а на email прийде лист із посиланням для встановлення нового пароля."
             confirmLabel="Скинути"
             size={bar ? 'default' : 'sm'}
-            variant={bar ? 'ghost' : 'outline'}
+            className={bar ? 'rounded-md' : undefined}
             disabled={isPending}
             onConfirm={() => run(() => resetPassword(staffId))}
           />
@@ -179,7 +181,7 @@ export function AccountControls({
 
         <ManualPasswordDialog
           size={bar ? 'default' : 'sm'}
-          variant={bar ? 'ghost' : 'outline'}
+          className={bar ? 'rounded-md' : undefined}
           disabled={isPending}
           onSubmit={(data) => run(() => setPasswordManually(staffId, data))}
         />
@@ -192,7 +194,7 @@ export function AccountControls({
             description="Людину буде розлогінено на всіх пристроях при наступному запиті."
             confirmLabel="Завершити"
             size={bar ? 'default' : 'sm'}
-            variant={bar ? 'ghost' : 'outline'}
+            className={bar ? 'rounded-md' : undefined}
             disabled={isPending}
             onConfirm={() => run(() => forceLogout(staffId))}
           />
@@ -255,7 +257,7 @@ function ConfirmButton({
   description,
   confirmLabel,
   size = 'sm',
-  variant = 'outline',
+  className,
   disabled,
   onConfirm,
 }: {
@@ -266,21 +268,21 @@ function ConfirmButton({
   confirmLabel: string;
   size?: 'sm' | 'default';
   /**
-   * `ghost` inside a `ToolbarGroup`, `outline` on the card.
-   *
-   * A strip is the object and its contents are not (owner, 2026-09-09): an
-   * outlined button inside an outlined bar draws a border inside a border, and
-   * a row of four of them reads as four objects rather than one toolbar. On the
-   * card there is no strip, so the button has to draw its own edge.
+   * Always `outline`, in a `ToolbarGroup` and on the card alike (owner,
+   * 2026-09-30, reversing 2026-09-09's «a strip is the object and its contents
+   * are not»). Borderless, «Скинути пароль» and «Завершити всі сесії» did not
+   * read as buttons at all — they looked like captions in the bar. The bar
+   * passes `rounded-md`, the radius of the tab beside it, so the outline sits
+   * inside the strip's own corner.
    */
-  variant?: 'outline' | 'ghost';
+  className?: string;
   disabled: boolean;
   onConfirm: () => void;
 }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant={variant} size={size} disabled={disabled}>
+        <Button variant="outline" size={size} className={className} disabled={disabled}>
           {icon}
           {label}
         </Button>
@@ -301,13 +303,13 @@ function ConfirmButton({
 
 function ManualPasswordDialog({
   size = 'sm',
-  variant = 'outline',
+  className,
   disabled,
   onSubmit,
 }: {
   size?: 'sm' | 'default';
-  /** `ghost` in a `ToolbarGroup` — see the note on `ConfirmButton`. */
-  variant?: 'outline' | 'ghost';
+  /** `rounded-md` in a `ToolbarGroup` — see the note on `ConfirmButton`. */
+  className?: string;
   disabled: boolean;
   onSubmit: (data: SetPasswordSchema) => void;
 }) {
@@ -335,7 +337,7 @@ function ManualPasswordDialog({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant={variant} size={size} disabled={disabled}>
+        <Button variant="outline" size={size} className={className} disabled={disabled}>
           <KeyRound />
           Встановити пароль вручну
         </Button>

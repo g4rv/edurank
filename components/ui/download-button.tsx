@@ -33,6 +33,7 @@ export function DownloadButton({
   title,
   variant = 'outline',
   size,
+  className,
 }: {
   href: string;
   label: string;
@@ -40,6 +41,7 @@ export function DownloadButton({
   title?: string;
   variant?: React.ComponentProps<typeof Button>['variant'];
   size?: React.ComponentProps<typeof Button>['size'];
+  className?: string;
 }) {
   const [pending, setPending] = useState(false);
   // A second click while the first is in flight would fetch the whole thing
@@ -97,7 +99,7 @@ export function DownloadButton({
   }
 
   return (
-    <Button asChild variant={variant} size={size} title={title ?? label}>
+    <Button asChild variant={variant} size={size} className={className} title={title ?? label}>
       {/* `loading` on Button is ignored under asChild — the child owns its
           content — so the spinner is swapped in here instead. */}
       <a href={href} download onClick={handleClick} aria-busy={pending || undefined}>

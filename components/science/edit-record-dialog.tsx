@@ -110,7 +110,7 @@ export function EditRecordDialog({
             Виправити і надіслати на повторну перевірку
           </Button>
         ) : (
-          <Button variant="ghost" size="sm" aria-label={`Редагувати «${label}»`}>
+          <Button variant="outline" size="sm" aria-label={`Редагувати «${label}»`}>
             <Pencil className="size-3.5" />
             Редагувати
           </Button>

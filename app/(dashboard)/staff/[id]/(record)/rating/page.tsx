@@ -118,7 +118,7 @@ export default async function StaffRatingPage({
             href={`/api/export/ratings?year=${year}&staffId=${id}`}
             label="Вивантажити Excel"
             title="Офіційна форма рейтингового оцінювання для цього НПП"
-            variant="ghost"
+            className="rounded-md"
           />
         </ToolbarGroup>
       </RecordTabRow>
