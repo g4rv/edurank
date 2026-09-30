@@ -7,6 +7,8 @@ import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateWorkEvidence } from '@/app/(dashboard)/science-plan/record-actions';
+import { attempt } from '@/lib/science/attempt';
+import { linkLabel } from '@/lib/science/evidence-rule';
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
@@ -23,6 +25,8 @@ import {
   DialogTrigger,
 } from '@/components/aurora/ui/dialog';
 import { EvidenceFields } from '@/components/rating/evidence-fields';
+import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { splitAtLink } from '@/lib/science/field-order';
 import { typedErrors } from '@/components/science/typed-errors';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { DialogProblem } from '@/components/science/dialog-problem';
@@ -204,13 +208,15 @@ function EditForm({
   function onSubmit(data: FieldValues) {
     setProblem(null);
     startTransition(async () => {
-      const result = await updateWorkEvidence({
-        workId,
-        evidence: data,
-        link: link.trim() || undefined,
-        // Hidden since 2026-09-24: omitted keeps the stored month.
-        ...(SHOW_EXECUTION_PERIOD ? { executedMonth: month, startedMonth: started } : {}),
-      });
+      const result = await attempt(() =>
+        updateWorkEvidence({
+          workId,
+          evidence: data,
+          link: link.trim() || undefined,
+          // Hidden since 2026-09-24: omitted keeps the stored month.
+          ...(SHOW_EXECUTION_PERIOD ? { executedMonth: month, startedMonth: started } : {}),
+        })
+      );
       if ('error' in result) {
         setProblem(result.error);
         return;
@@ -221,19 +227,24 @@ function EditForm({
     });
   }
 
+  const { before: beforeLink, after: afterLink } = splitAtLink(fields);
+  const evidenceFields = (list: EvidenceField[]) => (
+    <EvidenceFields
+      fields={list}
+      register={register}
+      control={control}
+      errors={typedErrors(errors, watched)}
+      unitLabel="год"
+    />
+  );
+
   return (
     <RequiredFields schema={schema} alwaysMark>
       <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
         <DialogBody className="flex flex-col gap-4">
           {type.unitNote && <p className="text-sm text-foreground-soft">{type.unitNote}</p>}
 
-          <EvidenceFields
-            fields={fields}
-            register={register}
-            control={control}
-            errors={typedErrors(errors, watched)}
-            unitLabel="год"
-          />
+          {evidenceFields(beforeLink)}
 
           {/* D48/D49. The stored period is shown as it is; keeping it is not a
               change, so the server never re-judges an untouched period. */}
@@ -256,7 +267,7 @@ function EditForm({
           {type.linkRule !== 'NONE' && (
             <FormField
               htmlFor="edit-link"
-              label="Посилання на підтвердження"
+              label={linkLabel(type.fileRule ?? 'OPTIONAL')}
               required={type.linkRule === 'REQUIRED'}
               description={
                 type.linkRule === 'REQUIRED'
@@ -275,6 +286,9 @@ function EditForm({
               />
             </FormField>
           )}
+
+          {/* The same order as the add form: the details follow the link. */}
+          {afterLink.length > 0 && evidenceFields(afterLink)}
 
           <p className="text-sm text-foreground-soft">
             {poolHundredths === null ? (

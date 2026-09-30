@@ -189,6 +189,11 @@ export const FIELD_LABELS: Record<string, string> = {
   // is a different number the moment a work has co-authors.
   hoursHundredths: 'Години',
   totalHundredths: 'Загальні години роботи',
+  // Co-authors named by the author (2026-09-30): `coauthors` is how many were
+  // named when the work was saved, `coauthor` marks a record that was GIVEN to
+  // somebody rather than entered by them.
+  coauthors: 'Співавторів',
+  coauthor: 'Внесено автором роботи',
   // SciencePlan. `lockedAt` is diffed by `lockPlan` and by `unlockPlan` — the
   // audit log printed the bare column name until both had entries here.
   lockedAt: 'План збережено',

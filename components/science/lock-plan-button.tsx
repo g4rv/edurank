@@ -84,7 +84,7 @@ export function LockPlanButton({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost">
+        <Button variant="outline" className="rounded-md">
           <Lock className="size-4" />
           Зберегти план
         </Button>

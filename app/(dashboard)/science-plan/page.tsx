@@ -6,6 +6,7 @@ import {
   type ScienceWorkTypeRow,
 } from '@/lib/queries/get-science-template';
 import { planDepartmentsFor, getSciencePlan } from '@/lib/queries/get-science-plan';
+import { listCoauthorCandidates } from '@/lib/queries/list-coauthor-candidates';
 import { evidenceFieldsSpecSchema, scoringSpecSchema } from '@/validations/activity-type-spec';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { EmptyState } from '@/components/aurora/ui/card';
@@ -103,6 +104,8 @@ export default async function SciencePlanPage({
 
   const { plan, rows, records, target } = await getSciencePlan(staffId, departmentId, template.id);
   const workTypes = template.workTypes.map(toPlanWorkType);
+  // Only the «Виконано» tab has a co-author picker, so only it pays for the list.
+  const coauthorCandidates = tab === 'done' ? await listCoauthorCandidates(staffId) : [];
 
   return (
     // A flex column down to the table, so the plan's `Table` can `fill` the
@@ -121,6 +124,7 @@ export default async function SciencePlanPage({
         target={target}
         workTypes={workTypes}
         lockedAt={plan?.lockedAt ?? null}
+        coauthorCandidates={coauthorCandidates}
       />
     </div>
   );

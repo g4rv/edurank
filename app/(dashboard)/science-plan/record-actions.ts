@@ -10,7 +10,14 @@ import { logError } from '@/lib/log';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { planTarget, rateForPlan } from '@/lib/science/target';
 import { workKey } from '@/lib/science/work-key';
-import { poolProblem, remainingHundredths } from '@/lib/science/pool';
+import {
+  attachReservations,
+  CoauthorError,
+  grantShare,
+  replaceCoauthors,
+  type WorkRef,
+} from '@/lib/science/coauthor-store';
+import { authorShare, coauthorsProblem, type CoauthorShare } from '@/lib/science/coauthors';
 import { evidenceProblem, FILE_NOT_ALLOWED, LINK_NOT_ALLOWED } from '@/lib/science/evidence-rule';
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { toHundredths } from '@/lib/stake/units';
@@ -49,8 +56,13 @@ export interface SaveRecordInput {
   evidence: unknown;
   link?: string;
   planRowId?: string;
-  /** Only meaningful for a SHARED type; an INDIVIDUAL one takes its whole pool. */
-  hoursHundredths?: number;
+  /**
+   * The people the author shares the work with, and the hours each one gets
+   * (owner, 2026-09-30). Only for a SHARED type. **The author's own share is
+   * never typed: it is what is left.** Nobody else can add themselves later —
+   * they are told to agree the hours with the author, who edits this list.
+   */
+  coauthors?: CoauthorShare[];
   /**
    * An object the browser has ALREADY put in R2 (`presignUpload` → `PUT`).
    * Verified here from the stored bytes and attached inside the same
@@ -71,25 +83,22 @@ export interface SaveRecordInput {
   startedMonth?: string;
 }
 
-/** D17 turned into something the screen can act on: who has the work, what it
- *  is, and how much of its pool is still free. */
+/** D17 turned into something the screen can act on: who has the work and what
+ *  it is. **There is nothing to take** — a colleague is told to agree the hours
+ *  with whoever entered it, and that person changes the co-author list. */
 export interface WorkConflict {
   workId: string;
   createdByName: string;
   summary: string;
   totalHundredths: number;
-  remainingHundredths: number;
   /**
    * The навчальний рік the work was entered in, when that is NOT the open one.
-   * `null` for a work of the current year, which is the only kind that can be
-   * joined.
+   * `null` for a work of the current year.
    *
-   * **Why it has to travel to the screen.** A `SHARED` + `ONCE` key carries no
-   * year, so the lookup finds an article recorded in ANY past рік. The dialog
-   * used to offer «Приєднатися» for one of those, quoting a pool that belonged
-   * to a closed рік, and `joinWork` then answered «Роботу не знайдено» — a
-   * button that could not work and a sentence that read as if the work had
-   * vanished (owner, 2026-09-20).
+   * A `SHARED` + `ONCE` key carries no year, so the lookup finds an article
+   * recorded in ANY past рік, and the panel has to say which — «цю роботу
+   * внесено у 2025/2026», not «зверніться до автора», for a work nobody can
+   * change any more (owner, 2026-09-20).
    */
   fromYear: string | null;
 }
@@ -113,7 +122,7 @@ class PlanRowNotFoundError extends Error {}
  * is really theirs, in the OPEN навчальний рік.
  *
  * Returns the resolved context or the sentence to show. Factored out when
- * `joinWork` became the second caller — §11's rule applied one level down from
+ * a second action became its caller — §11's rule applied one level down from
  * components: two callers is what makes something shared.
  */
 export type ActorContext = {
@@ -307,6 +316,15 @@ export async function lockPlan(departmentId: string): Promise<{ ok: true } | { e
       });
       if (locked.count === 0) throw new AlreadyLockedError();
 
+      // Hours the authors of shared works set aside for this person while they
+      // had no plan to hold them: they land here, on the plan just submitted.
+      await attachReservations(tx, {
+        staffId,
+        planId: plan.id,
+        templateId: template.id,
+        userId,
+      });
+
       await tx.auditLog.create({
         data: {
           action: 'UPDATE',
@@ -439,6 +457,7 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     reuse: type.reuse,
     sharing: type.sharing,
     evidence: parsed.data,
+    link,
     academicYear: template.academicYear,
     staffId,
   });
@@ -472,16 +491,28 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     return conflict;
   }
 
-  // D16 — «first come, takes what they need». A SHARED work's creator may
-  // leave hours for co-authors; an INDIVIDUAL one has no pool to divide, so
-  // the control is never shown and a figure sent anyway is ignored.
-  const requested =
-    type.sharing === 'INDIVIDUAL' ? totalHundredths : (input.hoursHundredths ?? totalHundredths);
-  const poolFault = poolProblem({ totalHundredths, drawnByOthers: 0, requested });
-  if (poolFault) {
+  // The author names the co-authors and what each one gets (owner,
+  // 2026-09-30); their OWN share is what is left, never a figure they type. An
+  // INDIVIDUAL work has no pool to divide, so it takes none.
+  const coauthors = input.coauthors ?? [];
+  if (coauthors.length > 0 && type.sharing === 'INDIVIDUAL') {
     await dropFile();
-    return { error: poolFault };
+    return { error: 'У цієї роботи не може бути співавторів' };
   }
+  if (totalHundredths <= 0) {
+    await dropFile();
+    return { error: 'Вкажіть кількість годин більше нуля' };
+  }
+  const coauthorFault = coauthorsProblem({
+    totalHundredths,
+    authorStaffId: staffId,
+    shares: coauthors,
+  });
+  if (coauthorFault) {
+    await dropFile();
+    return { error: coauthorFault };
+  }
+  const requested = authorShare(totalHundredths, coauthors);
 
   const auditLabel =
     `${staff.lastName} ${staff.firstName} ${staff.patronymic ?? ''} — ${type.label}`.trim();
@@ -556,6 +587,25 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
         });
       }
 
+      // The co-authors' shares, in the SAME transaction: a refused one rolls the
+      // whole work back, so nothing is ever half-shared.
+      const ref: WorkRef = {
+        id: work.id,
+        templateId: template.id,
+        workTypeId: type.id,
+        totalHundredths,
+        typeLabel: type.label,
+        maxPerYear: type.maxPerYear,
+      };
+      for (const c of coauthors) {
+        await grantShare(tx, {
+          work: ref,
+          staffId: c.staffId,
+          hoursHundredths: c.hoursHundredths,
+          userId,
+        });
+      }
+
       await tx.auditLog.create({
         data: {
           action: 'CREATE',
@@ -569,6 +619,7 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
               workType: type.label,
               hoursHundredths: requested,
               totalHundredths,
+              coauthors: coauthors.length,
               link,
               executedMonth,
               startedMonth: startedMonth ?? null,
@@ -590,6 +641,7 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     if (e instanceof CapExceededError) {
       return { error: `Не більше ${e.cap} записів цього виду роботи на рік` };
     }
+    if (e instanceof CoauthorError) return { error: e.reason };
     if (e instanceof PlanRowNotFoundError) return { error: 'Рядок плану не знайдено' };
     if (e instanceof PlanNotLockedError) {
       return { error: 'Спочатку збережіть план — після цього можна вносити виконане' };
@@ -614,186 +666,6 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
 
     return {
       error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'science.saveRecord', {
-        userId,
-      }),
-    };
-  }
-}
-
-/** The pool refused the draw. Raised inside the transaction, because the sum it
- *  is measured against has to be read there. */
-class PoolError extends Error {
-  constructor(public readonly reason: string) {
-    super(reason);
-  }
-}
-
-/**
- * Take a share of a work somebody else already recorded — D17's refusal turned
- * into an offer.
- *
- * The person saw «цей запис уже додав Іваненко І. І. — залишилось 50 з 200
- * год», typed what they take, and pressed «Приєднатися». No approval, no
- * automatic equal split: first come, takes what they need (D16). The co-author
- * list the first author may fill in is a convenience, never a gate — nobody
- * depends on being remembered.
- *
- * The WORK is never touched here. Its evidence and its pool belong to whoever
- * entered it, and only they or ADMIN may correct it; two authors disagreeing
- * about a page count has no tiebreak otherwise (spec, «Correcting a work»).
- */
-export async function joinWork(input: {
-  workId: string;
-  departmentId: string;
-  hoursHundredths: number;
-  planRowId?: string;
-}): Promise<SaveRecordResult> {
-  const actor = await resolveActor(input.departmentId);
-  if (!actor.ok) return { error: actor.error };
-  const { userId, staffId, staff, template } = actor.context;
-
-  const work = await db.scienceWork.findUnique({
-    where: { id: input.workId },
-    select: {
-      id: true,
-      templateId: true,
-      totalHundredths: true,
-      template: { select: { academicYear: true } },
-      workType: { select: { id: true, label: true, sharing: true, maxPerYear: true } },
-    },
-  });
-  if (!work) return { error: 'Роботу не знайдено' };
-
-  // **A work from another рік NAMES that рік.** This used to answer «Роботу не
-  // знайдено», on the reasoning that such a work «is not on their screen
-  // either way» — which stopped being true the moment the conflict panel
-  // started showing it. A `SHARED` + `ONCE` key carries no year, so the search
-  // finds an article from any past рік and offered to join it; pressing the
-  // button then said the work did not exist (owner, 2026-09-20). The dialog no
-  // longer offers it, and this says what is actually so for anything that
-  // reaches the action another way.
-  if (work.templateId !== template.id) {
-    return {
-      error: `Цю роботу внесено у ${work.template.academicYear} н.р. — години за неї нараховуються в тому році`,
-    };
-  }
-
-  if (work.workType.sharing === 'INDIVIDUAL') {
-    // D24: an INDIVIDUAL type's key is already prefixed per person, so nobody
-    // should ever REACH this work — but a hand-made request could, and an
-    // individual work has no pool to divide.
-    return { error: 'Ця робота індивідуальна — до неї не можна приєднатися' };
-  }
-
-  const auditLabel =
-    `${staff.lastName} ${staff.firstName} ${staff.patronymic ?? ''} — ${work.workType.label}`.trim();
-
-  try {
-    const recordId = await db.$transaction(async (tx) => {
-      const planId = await requireLockedPlan(tx, {
-        staffId,
-        departmentId: input.departmentId,
-        templateId: template.id,
-      });
-
-      if (input.planRowId) {
-        const row = await tx.sciencePlanRow.findUnique({
-          where: { id: input.planRowId },
-          select: { planId: true, workTypeId: true },
-        });
-        if (!row || row.planId !== planId || row.workTypeId !== work.workType.id) {
-          throw new PlanRowNotFoundError();
-        }
-      }
-
-      if (work.workType.maxPerYear) {
-        const count = await tx.scienceRecord.count({
-          where: {
-            staffId,
-            templateId: template.id,
-            status: 'APPROVED',
-            work: { workTypeId: work.workType.id },
-          },
-        });
-        if (count >= work.workType.maxPerYear) throw new CapExceededError(work.workType.maxPerYear);
-      }
-
-      // Re-read INSIDE the transaction, never from a figure the client sent.
-      // Two co-authors saving in the same second must not both see 50 free
-      // hours and both take them — the rule `saveDistribution` follows for a
-      // кафедра's pool, for the same reason.
-      //
-      // APPROVED only, and never the caller's own row: a declined draw holds no
-      // hours, and an edit to one's own share must be measured against everybody
-      // else's, not against itself.
-      const drawn = await tx.scienceRecord.aggregate({
-        where: { workId: work.id, status: 'APPROVED', staffId: { not: staffId } },
-        _sum: { hoursHundredths: true },
-      });
-      const fault = poolProblem({
-        totalHundredths: work.totalHundredths,
-        drawnByOthers: drawn._sum.hoursHundredths ?? 0,
-        requested: input.hoursHundredths,
-      });
-      if (fault) throw new PoolError(fault);
-
-      const record = await tx.scienceRecord.create({
-        data: {
-          staffId,
-          workId: work.id,
-          templateId: template.id,
-          planId,
-          planRowId: input.planRowId ?? null,
-          hoursHundredths: input.hoursHundredths,
-        },
-        select: { id: true },
-      });
-
-      // Joining is open, so who attached themselves to which work, and for how
-      // many hours, has to stay answerable (spec, «Joining a work»).
-      await tx.auditLog.create({
-        data: {
-          action: 'CREATE',
-          entity: 'ScienceRecord',
-          entityId: record.id,
-          label: auditLabel,
-          userId,
-          changes: diffChanges(
-            {},
-            {
-              workType: work.workType.label,
-              hoursHundredths: input.hoursHundredths,
-              totalHundredths: work.totalHundredths,
-            }
-          ),
-        },
-      });
-
-      return record.id;
-    });
-
-    revalidatePath('/science-plan');
-    // `workId` is already the caller's own input — `joinWork`'s caller
-    // (`JoinWorkPanel`) never needs it back out of the result, unlike
-    // `saveRecord`'s, which has no other way to learn the work it just
-    // created. Included only to satisfy the shared `SaveRecordResult` shape.
-    return { ok: true, recordId, workId: work.id };
-  } catch (e) {
-    if (e instanceof PoolError) return { error: e.reason };
-    if (e instanceof CapExceededError) {
-      return { error: `Не більше ${e.cap} записів цього виду роботи на рік` };
-    }
-    if (e instanceof PlanRowNotFoundError) return { error: 'Рядок плану не знайдено' };
-    if (e instanceof PlanNotLockedError) {
-      return { error: 'Спочатку збережіть план — після цього можна вносити виконане' };
-    }
-
-    // `@@unique([staffId, workId])` — the person pressed «Приєднатися» twice,
-    // or had the page open in two tabs. The index is what decides.
-    if (isUniqueViolation(e)) return { error: 'Ви вже додали цю роботу' };
-
-    return {
-      error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'science.joinWork', {
         userId,
       }),
     };
@@ -903,6 +775,7 @@ export async function updateWorkEvidence(input: {
     reuse: type.reuse,
     sharing: type.sharing,
     evidence: parsed.data,
+    link,
     academicYear: template.academicYear,
     // The key's person-prefix stays the ORIGINAL author's, not the editor's —
     // an ADMIN correcting somebody's work must not move it into their own key
@@ -935,24 +808,29 @@ export async function updateWorkEvidence(input: {
   //   * the sole author of an article correcting a page count downwards, which
   //     is most articles.
   //
-  // So the measure is what OTHERS hold. Their numbers are theirs; the editor's
-  // own follows the pool, because they are the one moving it.
+  // So the measure is what the CO-AUTHORS hold — their records AND the hours
+  // reserved for people who have not saved a plan yet. Their numbers are
+  // theirs; the AUTHOR's own share is what is left, so it follows the pool.
+  const individual = type.sharing === 'INDIVIDUAL';
   const drawn = await db.scienceRecord.aggregate({
-    where: { workId: work.id, status: 'APPROVED', staffId: { not: staffId } },
+    where: { workId: work.id, status: 'APPROVED', staffId: { not: work.createdById } },
     _sum: { hoursHundredths: true },
   });
-  const drawnByOthers = drawn._sum.hoursHundredths ?? 0;
-  if (totalHundredths < drawnByOthers) {
+  const reserved = await db.scienceCoauthorShare.aggregate({
+    where: { workId: work.id },
+    _sum: { hoursHundredths: true },
+  });
+  const drawnByOthers = (drawn._sum.hoursHundredths ?? 0) + (reserved._sum.hoursHundredths ?? 0);
+  if (!individual && totalHundredths <= drawnByOthers) {
     return {
-      error: `Співавтори вже взяли ${formatHours(drawnByOthers)} год — менше цього зробити не можна`,
+      error: `Співавторам віддано ${formatHours(drawnByOthers)} год — робота має коштувати більше, щоб вам щось залишилось`,
     };
   }
 
-  const individual = type.sharing === 'INDIVIDUAL';
-  // An INDIVIDUAL work's claim always EQUALS its pool, up or down. A SHARED
-  // one's is only ever pulled DOWN, and only as far as it has to go: an author
-  // who left room for co-authors keeps having left it.
-  const ownHours = individual ? totalHundredths : Math.max(0, totalHundredths - drawnByOthers);
+  // An INDIVIDUAL work's claim always EQUALS its pool. A SHARED one's is what
+  // the co-authors leave, up or down: they were given fixed hours, so a bigger
+  // pool is the author's and a smaller one comes out of theirs alone.
+  const ownHours = individual ? totalHundredths : totalHundredths - drawnByOthers;
 
   try {
     await db.$transaction(async (tx) => {
@@ -975,17 +853,14 @@ export async function updateWorkEvidence(input: {
         },
       });
 
-      // The editor's OWN draw follows the pool they just moved. Without this
-      // the work says 18 год while their «Виконано» goes on counting 30.
-      // Scoped to `staffId`, so a co-author's agreed share is never rewritten
-      // by somebody else's edit.
+      // The AUTHOR's draw follows the pool that just moved. Without this the
+      // work says 18 год while their «Виконано» goes on counting 30. Scoped to
+      // the work's author — never the editor, who may be an ADMIN with no
+      // record — so a co-author's agreed share is never rewritten.
       await tx.scienceRecord.updateMany({
         where: {
           workId: work.id,
-          staffId: individual ? undefined : staffId,
-          // Only ever pulled down for a SHARED work; raising somebody's claim
-          // because the pool grew is their decision, not this action's.
-          ...(individual ? {} : { hoursHundredths: { gt: ownHours } }),
+          staffId: individual ? undefined : work.createdById,
         },
         data: { hoursHundredths: ownHours },
       });
@@ -1035,104 +910,6 @@ export async function updateWorkEvidence(input: {
 }
 
 /**
- * Change MY share of a shared work — D46, and the tool the 2026-09-22 note
- * («CONFIRMED — the shared pool is right») said was missing.
- *
- * Co-authors agree a split AFTER somebody has already entered a number, so
- * «150 to me, 50 to you» has to be changeable without deleting the record —
- * which would also throw away its files and, for the one who entered it, the
- * work itself.
- *
- * Bounded by what OTHERS hold, re-read inside the transaction, the rule
- * `joinWork` follows. Only the caller's own row moves; nobody changes a
- * colleague's share. An INDIVIDUAL work has no pool to divide: its single
- * claim IS the pool, moved by correcting the evidence instead.
- */
-export async function updateRecordHours(input: {
-  recordId: string;
-  hoursHundredths: number;
-}): Promise<{ ok: true } | { error: string }> {
-  const actor = await resolveActor();
-  if (!actor.ok) return { error: actor.error };
-  const { userId, staffId, template } = actor.context;
-
-  const record = await db.scienceRecord.findUnique({
-    where: { id: input.recordId },
-    select: {
-      id: true,
-      staffId: true,
-      templateId: true,
-      status: true,
-      hoursHundredths: true,
-      work: {
-        select: {
-          id: true,
-          totalHundredths: true,
-          workType: { select: { label: true, sharing: true } },
-        },
-      },
-    },
-  });
-  // Ownership and the open рік — the same two checks `deleteRecord` makes.
-  if (!record || record.staffId !== staffId || record.templateId !== template.id) {
-    return { error: 'Запис не знайдено' };
-  }
-  if (record.status !== 'APPROVED') return { error: 'Відхилений запис змінити не можна' };
-  if (record.work.workType.sharing === 'INDIVIDUAL') {
-    return { error: 'Години цієї роботи визначаються її даними — змініть їх у «Редагувати»' };
-  }
-
-  try {
-    await db.$transaction(async (tx) => {
-      // Re-read INSIDE the transaction, never from a figure the client sent:
-      // a co-author joining in the same second must not be double-counted.
-      const drawn = await tx.scienceRecord.aggregate({
-        where: { workId: record.work.id, status: 'APPROVED', staffId: { not: staffId } },
-        _sum: { hoursHundredths: true },
-      });
-      const fault = poolProblem({
-        totalHundredths: record.work.totalHundredths,
-        drawnByOthers: drawn._sum.hoursHundredths ?? 0,
-        requested: input.hoursHundredths,
-      });
-      if (fault) throw new PoolError(fault);
-
-      await tx.scienceRecord.update({
-        where: { id: record.id },
-        data: { hoursHundredths: input.hoursHundredths },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          action: 'UPDATE',
-          entity: 'ScienceRecord',
-          entityId: record.id,
-          label: record.work.workType.label,
-          userId,
-          changes: diffChanges(
-            { hoursHundredths: record.hoursHundredths },
-            { hoursHundredths: input.hoursHundredths }
-          ),
-        },
-      });
-    });
-  } catch (e) {
-    if (e instanceof PoolError) return { error: e.reason };
-    return {
-      error: parseDbError(
-        e,
-        'Не вдалося зберегти. Зміни не застосовано',
-        'science.updateRecordHours',
-        { userId }
-      ),
-    };
-  }
-
-  revalidatePath('/science-plan');
-  return { ok: true };
-}
-
-/**
  * Withdraw the caller's own draw.
  *
  * **Deletes the record, never the work.** A work with no claims is kept,
@@ -1154,6 +931,7 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
       work: {
         select: {
           id: true,
+          createdById: true,
           workType: { select: { label: true, sharing: true } },
           files: { select: { objectKey: true } },
         },
@@ -1173,6 +951,17 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
     await db.$transaction(async (tx) => {
       await tx.scienceRecord.delete({ where: { id: recordId } });
 
+      // A co-author withdrawing gives their hours BACK to the author: the
+      // author's share is what is left, and nobody can take the rest by
+      // themselves any more. The author withdrawing their own leaves the work
+      // and its co-authors standing.
+      if (record.work.workType.sharing === 'SHARED' && record.work.createdById !== staffId) {
+        await tx.scienceRecord.updateMany({
+          where: { workId: record.work.id, staffId: record.work.createdById, status: 'APPROVED' },
+          data: { hoursHundredths: { increment: record.hoursHundredths } },
+        });
+      }
+
       // **An INDIVIDUAL work with no claims left goes with it.**
       //
       // A work normally survives its last claim, because its `dedupKey` is
@@ -1184,7 +973,7 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
       // Left standing it protected nothing and blocked one person — the one
       // who owned it. Deleting a конференція record to fix «3 дні» into «5»
       // and adding it again hit «цю роботу вже додав …», naming the person to
-      // themselves, and `joinWork` refuses an INDIVIDUAL work, so that
+      // themselves, and nobody may be added to an INDIVIDUAL work, so that
       // конференція could never be recorded again (owner, 2026-09-20).
       if (record.work.workType.sharing === 'INDIVIDUAL') {
         const left = await tx.scienceRecord.count({ where: { workId: record.work.id } });
@@ -1232,12 +1021,96 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
 }
 
 /**
+ * Change who a work is shared with and how many hours each person gets — the ONE
+ * way a co-author is added, removed or given a different share once the work is
+ * saved (owner, 2026-09-30).
+ *
+ * **Only whoever entered the work, or ADMIN.** A colleague who was not named is
+ * told to agree the hours with them, and this is where that agreement is
+ * written down. Co-authors cannot change their own share — with two people able
+ * to move the same pool, «who has how much» has no answer.
+ *
+ * The author's own share is not an input: it is what remains.
+ */
+export async function updateCoauthors(input: {
+  workId: string;
+  coauthors: CoauthorShare[];
+}): Promise<{ ok: true } | { error: string }> {
+  // `allowAdmin`: an ADMIN may correct any work, and most ADMIN accounts are not
+  // НПП (see `updateWorkEvidence`).
+  const actor = await resolveActor(undefined, { allowAdmin: true });
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, template } = actor.context;
+  const isAdmin = actor.context.role === 'ADMIN';
+
+  if (
+    !Array.isArray(input.coauthors) ||
+    input.coauthors.some(
+      (c) => typeof c?.staffId !== 'string' || typeof c?.hoursHundredths !== 'number'
+    )
+  ) {
+    return { error: 'Невірні дані співавторів' };
+  }
+
+  const work = await db.scienceWork.findUnique({
+    where: { id: input.workId },
+    select: {
+      id: true,
+      templateId: true,
+      totalHundredths: true,
+      createdById: true,
+      workType: { select: { id: true, label: true, sharing: true, maxPerYear: true } },
+    },
+  });
+  if (!work || work.templateId !== template.id) return { error: 'Роботу не знайдено' };
+  if (work.createdById !== staffId && !isAdmin) {
+    return { error: 'Змінювати співавторів може лише той, хто додав роботу' };
+  }
+  if (work.workType.sharing === 'INDIVIDUAL') {
+    return { error: 'У цієї роботи не може бути співавторів' };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      await replaceCoauthors(tx, {
+        work: {
+          id: work.id,
+          templateId: work.templateId,
+          workTypeId: work.workType.id,
+          totalHundredths: work.totalHundredths,
+          typeLabel: work.workType.label,
+          maxPerYear: work.workType.maxPerYear,
+        },
+        authorStaffId: work.createdById,
+        desired: input.coauthors,
+        userId,
+      });
+    });
+  } catch (e) {
+    if (e instanceof CoauthorError) return { error: e.reason };
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося зберегти. Зміни не застосовано',
+        'science.updateCoauthors',
+        { userId }
+      ),
+    };
+  }
+
+  revalidatePath('/science-plan');
+  return { ok: true };
+}
+
+/**
  * Is this work already recorded, and if so, what does the person need to know?
  *
- * Returns `null` when the work is new, an `error` when the caller already drew
- * on it this рік, and a `conflict` when somebody else holds it. Called twice:
- * once before the insert for the ordinary case, once after a P2002 for the
- * race.
+ * Returns `null` when the work is new. Otherwise it says what the person is to
+ * DO, because since 2026-09-30 nobody can add themselves to somebody else's
+ * work: an `error` where they are already on it (recorded or reserved), and a
+ * `conflict` where they are not — which tells them to agree the hours with
+ * whoever entered it. Called twice: once before the insert for the ordinary
+ * case, once after a P2002 for the race.
  *
  * **The lookup is deliberately not scoped to the open рік**, and cannot be: a
  * `SHARED` + `ONCE` key carries no year precisely so one article exists in the
@@ -1260,11 +1133,14 @@ async function findConflict(
       templateId: true,
       totalHundredths: true,
       evidence: true,
+      createdById: true,
       template: { select: { academicYear: true } },
       createdBy: { select: { lastName: true, firstName: true, patronymic: true } },
-      // APPROVED only: a declined draw holds no hours, and its share of the
-      // pool is free for somebody else to take.
-      records: { where: { status: 'APPROVED' }, select: { staffId: true, hoursHundredths: true } },
+      // Who is already on the work: a declined record still occupies its
+      // person's one row, so it is read too, and the reservations are the
+      // people named before they had a plan to hold hours in.
+      records: { select: { staffId: true } },
+      coauthorShares: { select: { staffId: true } },
     },
   });
   if (!existing) return null;
@@ -1273,40 +1149,37 @@ async function findConflict(
     workId: existing.id,
     createdByName: initials(existing.createdBy),
     // `||`, not `??`: an empty summary is what a вид роботи with no evidence
-    // fields returns, and `??` let it through — the conflict panel then
-    // offered to join a work with no name on it.
+    // fields returns, and `??` let it through — the panel then showed a work
+    // with no name on it.
     summary:
       summarizeEvidence(fields, existing.evidence, undefined, { uaDates: true }) || fallbackLabel,
     totalHundredths: existing.totalHundredths,
   };
 
-  // **A work from another рік, checked FIRST.** Its pool belongs to that рік
-  // and nothing can be drawn from it now, whether or not this person already
-  // has a claim on it — so naming the рік is the useful answer either way, and
-  // more useful than «Ви вже додали цю роботу», which reads as if it meant
-  // this рік.
+  // **A work from another рік, checked FIRST.** Nothing about it can change now,
+  // whether or not this person is on it — so naming the рік is the useful answer
+  // either way, and more useful than «Ви вже додали цю роботу», which reads as
+  // if it meant this рік.
   if (existing.templateId !== template.id) {
-    return {
-      conflict: {
-        ...base,
-        // Nothing is on offer, so no remainder is quoted: the figure would be
-        // a closed рік's arithmetic shown against this рік's plan.
-        remainingHundredths: 0,
-        fromYear: existing.template.academicYear,
-      },
-    };
+    return { conflict: { ...base, fromYear: existing.template.academicYear } };
   }
 
   if (existing.records.some((r) => r.staffId === staffId)) {
-    return { error: 'Ви вже додали цю роботу' };
+    // Said differently for the person who was NAMED by the author: «you added
+    // it» would be untrue, and they are the one most likely to hit this.
+    return {
+      error:
+        existing.createdById === staffId
+          ? 'Ви вже додали цю роботу'
+          : 'Вас уже вказано співавтором цієї роботи — вона у вашому «Виконанні»',
+    };
+  }
+  if (existing.coauthorShares.some((c) => c.staffId === staffId)) {
+    return {
+      error:
+        'Вас уже вказано співавтором цієї роботи. Вона з’явиться у «Виконанні», щойно ви збережете план наукової роботи',
+    };
   }
 
-  const drawn = existing.records.reduce((sum, r) => sum + r.hoursHundredths, 0);
-  return {
-    conflict: {
-      ...base,
-      remainingHundredths: remainingHundredths(existing.totalHundredths, drawn),
-      fromYear: null,
-    },
-  };
+  return { conflict: { ...base, fromYear: null } };
 }

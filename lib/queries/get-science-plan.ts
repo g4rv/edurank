@@ -90,9 +90,9 @@ export interface SciencePlanRecordDetail {
    */
   canEdit: boolean;
   /**
-   * Whether «Моя частка» is offered (D46) — on every SHARED work, including
-   * one only this person drew on so far: a sole author who left room for
-   * co-authors may want it back.
+   * Whether the work has a pool to divide. The author may name co-authors on a
+   * SHARED one — including one nobody shares yet — from «Співавтори»; an
+   * INDIVIDUAL work has no pool, and no such button.
    */
   sharing: ScienceSharing;
   /** Every file attached to this work — its own row per file, not a count, so
@@ -110,10 +110,16 @@ export interface SciencePlanRecordDetail {
     canChange: boolean;
   }[];
   /**
-   * Everybody else drawing on the same work. The only place a person sees that
-   * their 50 год came out of a 200 год pool, and who has the rest.
+   * Everybody else the work is shared with — their records AND the hours
+   * reserved for people who have not saved a plan yet (`pending`). The only
+   * place a person sees that their 50 год came out of a 200 год pool, and who
+   * has the rest; and the list the author's «Співавтори» form opens filled in
+   * with. `staffId` is what that form's picker selects by.
    */
-  coAuthors: { name: string; hoursHundredths: number }[];
+  coAuthors: { staffId: string; name: string; hoursHundredths: number; pending: boolean }[];
+  /** Whoever entered the work — named to a co-author, who must agree any change
+   *  to their hours with this person. */
+  authorName: string;
 }
 
 export interface SciencePlanDetail {
@@ -207,8 +213,18 @@ export async function getSciencePlan(
               totalHundredths: true,
               workTypeId: true,
               createdById: true,
+              createdBy: { select: { lastName: true, firstName: true, patronymic: true } },
               workType: {
                 select: { label: true, itemNumber: true, evidenceFields: true, sharing: true },
+              },
+              // Hours set aside for people with no saved plan yet — part of
+              // the split even though they are not a record (yet).
+              coauthorShares: {
+                select: {
+                  staffId: true,
+                  hoursHundredths: true,
+                  staff: { select: { lastName: true, firstName: true, patronymic: true } },
+                },
               },
               // Everybody's APPROVED draw on this work, including this person's
               // own — filtered out below, where the name is already in hand.
@@ -297,12 +313,25 @@ export async function getSciencePlan(
         ...file,
         canChange: r.work.createdById === staffId || uploadedById === staffId,
       })),
-      coAuthors: r.work.records
-        .filter((other) => other.staffId !== staffId)
-        .map((other) => ({
-          name: initials(other.staff),
-          hoursHundredths: other.hoursHundredths,
-        })),
+      coAuthors: [
+        ...r.work.records
+          .filter((other) => other.staffId !== staffId)
+          .map((other) => ({
+            staffId: other.staffId,
+            name: initials(other.staff),
+            hoursHundredths: other.hoursHundredths,
+            pending: false,
+          })),
+        ...r.work.coauthorShares
+          .filter((other) => other.staffId !== staffId)
+          .map((other) => ({
+            staffId: other.staffId,
+            name: initials(other.staff),
+            hoursHundredths: other.hoursHundredths,
+            pending: true,
+          })),
+      ],
+      authorName: initials(r.work.createdBy),
     };
   });
 

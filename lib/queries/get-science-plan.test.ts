@@ -94,6 +94,9 @@ function record(
     status?: 'APPROVED' | 'REMOVED';
     planRowId?: string | null;
     others?: { staffId: string; hoursHundredths: number; last: string }[];
+    createdById?: string;
+    createdByLast?: string;
+    reserved?: { staffId: string; hoursHundredths: number; last: string }[];
     files?: {
       id: string;
       fileName: string;
@@ -116,11 +119,21 @@ function record(
       executedMonth: new Date('2026-09-01T00:00:00Z'),
       totalHundredths: 20000,
       workTypeId: 'wt1',
+      // Somebody else entered it unless a test says otherwise: most fixtures
+      // stand for a co-author's row, and «who entered it» changes what a person
+      // may do to its files.
+      createdById: over.createdById ?? 'author',
+      createdBy: NAME(over.createdByLast ?? 'Петренко'),
       workType: {
         label: 'Наукова стаття',
         itemNumber: '4',
         evidenceFields: [{ kind: 'text', name: 'title', label: 'Назва' }],
       },
+      coauthorShares: (over.reserved ?? []).map((o) => ({
+        staffId: o.staffId,
+        hoursHundredths: o.hoursHundredths,
+        staff: NAME(o.last),
+      })),
       records: [
         { staffId: 's1', hoursHundredths: over.hours ?? 15000, staff: NAME('Петренко') },
         ...(over.others ?? []).map((o) => ({
@@ -224,10 +237,42 @@ describe('план and факт', () => {
     const result = await getSciencePlan('s1', 'd1', 't1');
 
     expect(result.records[0].coAuthors).toEqual([
-      { name: 'Іваненко І. І.', hoursHundredths: 5000 },
+      { staffId: 's2', name: 'Іваненко І. І.', hoursHundredths: 5000, pending: false },
     ]);
     expect(result.records[0].totalHundredths).toBe(20000);
     expect(result.records[0].hoursHundredths).toBe(15000);
+  });
+
+  it('lists hours RESERVED for somebody who has no plan yet, marked pending', async () => {
+    mockPlan.mockResolvedValue({
+      id: 'p1',
+      rateHundredths: 100,
+      rows: [],
+      records: [
+        record({
+          hours: 15000,
+          reserved: [{ staffId: 's3', hoursHundredths: 2000, last: 'Бойко' }],
+        }),
+      ],
+    });
+
+    const result = await getSciencePlan('s1', 'd1', 't1');
+
+    expect(result.records[0].coAuthors).toEqual([
+      { staffId: 's3', name: 'Бойко І. І.', hoursHundredths: 2000, pending: true },
+    ]);
+  });
+
+  it('names whoever entered the work — the person a co-author agrees their hours with', async () => {
+    mockPlan.mockResolvedValue({
+      id: 'p1',
+      rateHundredths: 100,
+      rows: [],
+      records: [record({ createdById: 's9', createdByLast: 'Шевченко' })],
+    });
+    const result = await getSciencePlan('s1', 'd1', 't1');
+    expect(result.records[0].authorName).toBe('Шевченко І. І.');
+    expect(result.records[0].canEdit).toBe(false);
   });
 
   it('has no co-authors for a work only this person drew on', async () => {

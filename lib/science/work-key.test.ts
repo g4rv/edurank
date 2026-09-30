@@ -105,6 +105,43 @@ describe('workKey', () => {
   });
 });
 
+describe('workKey — the record link as an identity', () => {
+  // The proof link is one box on the record form. An article used to ask for
+  // its address a SECOND time as an evidence field just so it could be an
+  // identity; naming `link` here reads the one box instead.
+  const withLink = (over: Partial<Parameters<typeof workKey>[0]> = {}) =>
+    key({
+      identityFields: ['doi', 'link', 'title'],
+      evidenceFields: [FIELDS[0], FIELDS[2]],
+      ...over,
+    });
+
+  it('keys on the link when there is no DOI — normalised like a url field', () => {
+    expect(withLink({ link: 'https://Example.com/A/?utm=1#top' })).toBe('url:example.com/a');
+  });
+
+  it('gives the same key a `url` evidence field used to give, so nothing saved drifts', () => {
+    expect(withLink({ link: 'https://example.com/a' })).toBe(
+      key({ evidence: { url: 'https://example.com/a', title: 'Стаття про освіту' } })
+    );
+  });
+
+  it('still prefers a DOI, which is listed first', () => {
+    expect(
+      withLink({
+        evidence: { doi: '10.31392/xyz', title: 'Стаття' },
+        link: 'https://example.com/a',
+      })
+    ).toBe('doi:10.31392/xyz');
+  });
+
+  it('falls through to the title when the record has no link', () => {
+    expect(withLink({ link: null })).toBe('t:стаття про освіту');
+    expect(withLink({ link: '   ' })).toBe('t:стаття про освіту');
+    expect(withLink({})).toBe('t:стаття про освіту');
+  });
+});
+
 describe('workKey — a ПІБ in three boxes is ONE identity', () => {
   // Прізвище / Ім'я / По батькові, joined under `candidate` — the identity list
   // still names `candidate`, the GROUP, not any one box.

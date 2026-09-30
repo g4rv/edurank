@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computeScore } from '@/lib/specs/scoring';
 import { SCIENCE_WORK_TYPES_2027, scienceDbSpecs } from './work-types-2027';
 import { identityCandidates } from '@/validations/science-work-type';
+import { schemaForFields } from '@/validations/activity-evidence';
 
 const byCode = (code: string) => {
   const def = SCIENCE_WORK_TYPES_2027.find((d) => d.code === code);
@@ -225,6 +226,50 @@ describe('D48 — the стаття’s publication date', () => {
       rule: 'currentYear',
     });
     expect(article.identityFields).not.toContain('publishedOn');
+  });
+});
+
+describe('a link is asked for once', () => {
+  it('no вид роботи both has a link box of its own and asks for a url field', () => {
+    // The record's link box is on every record form whose linkRule is not
+    // NONE. A second url field beside it asked the person for the same address
+    // twice, and the article's was even optional.
+    for (const d of SCIENCE_WORK_TYPES_2027) {
+      const urlFields = d.fields.filter((f) => f.kind === 'url');
+      if (d.linkRule !== 'NONE') expect(urlFields, d.code).toEqual([]);
+    }
+  });
+
+  it('the стаття is told apart by its DOI, then by the one link, then by its title', () => {
+    const article = SCIENCE_WORK_TYPES_2027.find((d) => d.code === 'article')!;
+    expect(article.identityFields).toEqual(['doi', 'link', 'title']);
+    expect(article.linkRule).toBe('REQUIRED');
+  });
+});
+
+describe('a монографія carries its ISBN', () => {
+  it.each(['monograph', 'monograph_reissue'])(
+    '%s — the ISBN is mandatory and is its identity',
+    (code) => {
+      const d = SCIENCE_WORK_TYPES_2027.find((x) => x.code === code)!;
+      const isbn = d.fields.find((f) => f.kind === 'isbn');
+      expect(isbn, code).toBeDefined();
+      // Not optional: an ISBN is what makes a book one book (no `optional` key).
+      expect(isbn).not.toHaveProperty('optional', true);
+      expect(d.identityFields[0]).toBe(isbn!.name);
+    }
+  );
+
+  it('a monograph without an ISBN is refused by the type’s own schema', () => {
+    const { evidenceFields, scoring } = scienceDbSpecs(
+      SCIENCE_WORK_TYPES_2027.find((x) => x.code === 'monograph')!
+    );
+    const base = { title: 'Історія освіти', option: 'monograph', credits: 3 };
+    expect(schemaForFields(evidenceFields, scoring).safeParse(base).success).toBe(false);
+    expect(
+      schemaForFields(evidenceFields, scoring).safeParse({ ...base, isbn: '978-966-00-0000-1' })
+        .success
+    ).toBe(true);
   });
 });
 

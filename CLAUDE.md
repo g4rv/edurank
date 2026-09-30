@@ -505,17 +505,27 @@ Easy to get wrong:
   means **no target shown at all**, not a guessed one (D8). A plan **locks**
   on submission (`lockedAt`) — факт can only be recorded against a locked plan.
 - **One `ScienceWork` per identity, `dedupKey` UNIQUE.** `identityFields`
-  (doi, url, title, in priority order) build the key; `ONCE` carries the
-  навчальний рік and `SHARED` no person-prefix, so the SAME article can never
-  be entered twice university-wide — a second person who tries it is offered
-  the existing work instead (D17).
-- **The pool is a TRANSACTION.** `ScienceWork.totalHundredths` is the whole
-  pool a `SHARED` type divides; `joinWork` re-reads what is already drawn
-  INSIDE the transaction, never from a client figure, and
-  `@@unique([staffId, workId])` stops the same person drawing twice. Every SUM
-  over `hoursHundredths` filters `status: 'APPROVED'` — a REMOVED draw (D20,
-  ННВ/ADMIN decline it with a reason, post-check not a gate) frees its hours
-  back into the pool by construction, not by a second cleanup step.
+  (doi, link, title, in priority order) build the key — `link` is the RECORD's
+  own «Посилання на роботу» (`lib/science/identity.ts`), so a type never asks
+  for the same address twice; `ONCE` carries the навчальний рік and `SHARED` no
+  person-prefix, so the SAME article can never be entered twice
+  university-wide. A second person who tries it is told who has it and to
+  agree the hours with them (`ExistingWorkPanel`) — **nobody joins a work by
+  themselves** (owner, 2026-09-30, replacing D17's «Приєднатися»).
+- **The pool is divided by the AUTHOR, not by whoever types fastest**
+  (owner, 2026-09-30). `ScienceWork.totalHundredths` is the whole pool a
+  `SHARED` type divides. Whoever enters the work names its co-authors from the
+  НПП list and the hours each gets; **the author's own share is what is left
+  and is never typed**. `lib/science/coauthor-store.ts` writes it: a co-author
+  with a SAVED plan gets a `ScienceRecord`, one without gets a
+  `ScienceCoauthorShare` (a reservation that counts against the pool the same
+  way) which `lockPlan` turns into a record the moment they save the plan.
+  Only the author (or ADMIN) changes the list afterwards, with
+  `updateCoauthors` — a co-author cannot move their own share, and withdrawing
+  a record returns its hours to the author. `@@unique([staffId, workId])` stops
+  the same person holding a work twice. Every SUM over `hoursHundredths`
+  filters `status: 'APPROVED'`, and every pool arithmetic counts reservations
+  too (D20, ННВ/ADMIN decline a record with a reason, post-check not a gate).
 - **D27 — a record needs at least one of link or file, never neither.** The
   link lives on the WORK (one DOI, not one per co-author); a file
   (`ScienceRecordFile`, in R2) is proved by re-sniffing and re-hashing the
@@ -531,15 +541,16 @@ Easy to get wrong:
   **The R2 bucket needs a CORS rule or nothing uploads at all** — see
   `docs/deployment.md` §3a and `pnpm r2:cors`.
 - **Correcting is an edit, not a delete-and-retype.** `updateWorkEvidence`
-  recomputes the pool from the evidence and moves the EDITOR's own draw with
-  it; what it refuses is dropping the pool below what **other** people already
-  took (`staffId: { not: staffId }`). Measuring against every claim, the
-  author's own included, refused the two commonest corrections there are.
+  recomputes the pool from the evidence and moves the AUTHOR's draw with it
+  (what the co-authors and reservations leave — never the editor's, who may be
+  an ADMIN with no record); what it refuses is a pool that leaves the author
+  nothing. Measuring against every claim, the author's own included, refused
+  the two commonest corrections there are.
 - **Deleting the last claim on an INDIVIDUAL work deletes the work.** Its
   `dedupKey` is prefixed with the owner's `staffId` (D24), so with no claim it
-  guards nothing and blocked only the person who owned it — `joinWork` refuses
-  an INDIVIDUAL work, so that конференція could never be entered again. A
-  SHARED work always survives: a co-author may still draw on it.
+  guards nothing and blocked only the person who owned it — nobody can be
+  added to an INDIVIDUAL work, so that конференція could never be entered
+  again. A SHARED work always survives: its co-authors still hold it.
 - **Oversight is a division switch, «Перевірка науки»**
   (`Division.canOverseeScience`, D43), read by `canOverseeScience()` in
   `lib/science/oversight.ts`; ННВ has it by migration. Never match ННВ by
@@ -574,11 +585,29 @@ Easy to get wrong:
   (`currentYearBounds`). A value already saved is not re-judged on edit. A
   faked date inside the window is ННВ's to catch. Never one of the type's
   `identityFields`, so a typed date cannot make one article look like two.
-- **A co-author changes their own share with `updateRecordHours`** (D46),
-  bounded by what the others hold, re-read in the transaction. A file is
-  changed by whoever entered the work or uploaded it; **a record's only proof
-  is swapped with `replaceFile`, never deleted first** — `deleteFile` refuses
-  it and names «Замінити».
+- **A file is changed by whoever entered the work or uploaded it; a record's
+  only proof is swapped with `replaceFile`, never deleted first** —
+  `deleteFile` refuses it and names «Замінити». (D46's «every co-author
+  changes their own share» is retired: `updateRecordHours` and «Моя частка» no
+  longer exist — see the pool bullet above.)
+- **The record form reads: name → kind → link → details → co-authors** (owner,
+  2026-09-30). `splitAtLink` (`lib/science/field-order.ts`) puts the link box
+  after the first choice field (the article's category), or after the title when
+  there is none; the file box follows it; the rest of the вид роботи's own fields
+  (DOI, ISBN, pages, dates) come next and «Співавтори» last. The order of the
+  fields themselves is the catalogue's, stored in JSON — so a database made
+  earlier is reordered by `pnpm db:science-link-isbn`, not by the seed.
+- **A failed save must never destroy a form.** Every science dialog runs its
+  action through `attempt()` (`lib/science/attempt.ts`): a rejected request
+  (a phone losing signal, a server error) would otherwise be re-thrown into
+  the page's error boundary, replacing the whole page — dialog and everything
+  typed with it. It becomes the same `{ error }` a refusal is, shown inside
+  the dialog beside the button to try again.
+- **Catalogue changes reach existing databases through a one-off script**, not
+  the seed (`pnpm db:science-link-isbn` for the article link and the monograph
+  ISBN): the seed overwrites what an admin edited, production is never seeded
+  again, and a cloned template is never reseeded. Report first, `--apply` to
+  write.
 
 ## Naming conventions
 

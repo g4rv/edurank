@@ -319,6 +319,7 @@ model Staff {
   stakeSandboxes         StakeSandbox[]
   sciencePlans           SciencePlan[]
   scienceRecords         ScienceRecord[]
+  scienceCoauthorShares  ScienceCoauthorShare[]
   scienceWorksCreated    ScienceWork[]          @relation("ScienceWorkAuthor")
   removedScienceRecords  ScienceRecord[]        @relation("ScienceRecordRemover")
   scienceFilesUploaded   ScienceRecordFile[]    @relation("ScienceFileUploader")
@@ -1298,7 +1299,7 @@ model ScienceWork {
   /// TRACKING execution, every вид роботи. Not an article's publication date
   /// (that is an ordinary evidence field). Always the 1st. Belongs to the WORK:
   /// co-authors share one. `lib/science/execution-month.ts` handles it.
-  executedMonth DateTime @db.Date
+  executedMonth DateTime  @db.Date
   /// When a work took several months, the month it STARTED — a recorded fact,
   /// never used to split hours: they all count in `executedMonth`, the month
   /// it was finished (owner, 2026-09-23). Null for a one-month work.
@@ -1327,8 +1328,9 @@ model ScienceWork {
   /// legitimately share (D24).
   dedupKey String @unique
 
-  records ScienceRecord[]
-  files   ScienceRecordFile[]
+  records        ScienceRecord[]
+  files          ScienceRecordFile[]
+  coauthorShares ScienceCoauthorShare[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1403,6 +1405,37 @@ model ScienceRecord {
 enum ScienceRecordStatus {
   APPROVED
   REMOVED
+}
+
+/// Hours the FIRST author has set aside for a co-author who cannot hold them
+/// yet — a record needs a SAVED plan, and this person has not saved theirs
+/// (owner, 2026-09-30). It is a reservation, not a claim: it counts against the
+/// work's pool exactly like a record does, and `lockPlan` turns it into a real
+/// `ScienceRecord` the moment its person saves the plan, then deletes it.
+///
+/// Nothing here is ever the person's own to change: the co-author list belongs
+/// to whoever entered the work (`updateCoauthors`), which is what stops a
+/// pool being carved up by whoever types fastest.
+model ScienceCoauthorShare {
+  id String @id @default(cuid())
+
+  workId String
+  work   ScienceWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// INTEGER HUNDREDTHS OF AN HOUR, like every hours figure here.
+  hoursHundredths Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One reservation per person per work — and `ScienceRecord`'s own
+  /// `@@unique([staffId, workId])` makes «reserved AND recorded» impossible
+  /// for the code below, which deletes this row when it writes that one.
+  @@unique([workId, staffId])
+  @@index([staffId])
 }
 
 /// A document proving a work, kept in Cloudflare R2.

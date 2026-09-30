@@ -75,3 +75,26 @@ export function evidenceProblem(input: {
 export function proofRulesProblem(_linkRule: ProofRule, _fileRule: ProofRule): string | null {
   return null;
 }
+
+/**
+ * What the link box is called on the record form.
+ *
+ * Where a file cannot stand in for it (`fileRule` NONE) the link is not a
+ * separate «proof» of something else — it IS the work: the article's page, the
+ * book's page. «Посилання на підтвердження» there sat under a form with no other
+ * proof and read as a second link to ask for. Where a file is allowed the link
+ * really is one of two proofs, and the old wording stays.
+ */
+export function linkLabel(fileRule: ProofRule): string {
+  return fileRule === 'NONE' ? 'Посилання на роботу' : 'Посилання на підтвердження';
+}
+
+/** The line under the link box — from the наказ's «Форма звітності» where a file may also be given. */
+export function linkHint(type: { fileRule?: ProofRule; reportingForm?: string | null }): string {
+  if (type.fileRule === 'NONE') {
+    return 'Сторінка, де роботу опубліковано або розміщено. ННВ перевірить її.';
+  }
+  return type.reportingForm
+    ? `${type.reportingForm} — посилання на сторінку, де це опубліковано.`
+    : 'Сторінка, яку можна відкрити: DOI, сайт видання, репозитарій, наказ.';
+}

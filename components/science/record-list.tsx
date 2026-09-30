@@ -10,7 +10,8 @@ import { ReplaceFileDialog } from '@/components/science/replace-file-dialog';
 import { FileViewButton } from '@/components/science/file-view-button';
 import { AttachFileDialog } from '@/components/science/attach-file-dialog';
 import { EditRecordDialog } from '@/components/science/edit-record-dialog';
-import { EditHoursDialog } from '@/components/science/edit-hours-dialog';
+import { EditCoauthorsDialog } from '@/components/science/edit-coauthors-dialog';
+import type { CoauthorCandidate } from '@/lib/queries/list-coauthor-candidates';
 import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import { cn } from '@/lib/utils';
 import { groupByMonth } from '@/lib/science/group-by-month';
@@ -42,6 +43,7 @@ export function RecordList({
   workTypes,
   academicYear,
   lastExecutionMonth,
+  coauthorCandidates,
 }: {
   records: SciencePlanRecordDetail[];
   /** The year's catalogue, for the «Редагувати» form to rebuild the work's own
@@ -50,6 +52,8 @@ export function RecordList({
   /** D48 — the навчальний рік, for the «Редагувати» form's month picker. */
   academicYear: string;
   lastExecutionMonth: number;
+  /** Everybody the author may name in «Співавтори». */
+  coauthorCandidates: CoauthorCandidate[];
 }) {
   const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
 
@@ -147,8 +151,20 @@ export function RecordList({
                             out of a 200 год pool, and who holds the rest. */}
                             Разом з:{' '}
                             {record.coAuthors
-                              .map((a) => `${a.name} — ${formatHours(a.hoursHundredths)} год`)
+                              .map(
+                                (a) =>
+                                  `${a.name} — ${formatHours(a.hoursHundredths)} год${a.pending ? ' (чекає на план)' : ''}`
+                              )
                               .join(', ')}
+                          </span>
+                        )}
+                        {/* Told to the people who cannot change it: with two
+                            people able to move the same pool «who has how much»
+                            would have no answer, so the author does (owner,
+                            2026-09-30). */}
+                        {shared && !record.canEdit && (
+                          <span className="text-foreground-soft">
+                            Години розподіляє автор — {record.authorName}
                           </span>
                         )}
                       </div>
@@ -186,10 +202,10 @@ export function RecordList({
 
                       {/* The ways to put a mistake right without delete-and-retype,
                       which dead-ended on the work that survived the delete: a
-                      wrong number is an edit, a late file is an attachment —
-                      both the author's — and the share of a shared work is
-                      every co-author's own (D46). */}
-                      {!declined && (record.canEdit || shared) && (
+                      wrong number is an edit, a late file is an attachment, and
+                      the split of a shared work is «Співавтори» — all the
+                      author's, and nobody else's (owner, 2026-09-30). */}
+                      {!declined && record.canEdit && (
                         <div className="mt-1 -ml-2 flex flex-wrap items-center gap-1">
                           {record.canEdit && workTypeById.has(record.workTypeId) && (
                             <EditRecordDialog
@@ -204,19 +220,22 @@ export function RecordList({
                               label={record.summary}
                             />
                           )}
-                          {/* Only where there is somebody to share with (owner,
-                              2026-09-24): a sole author's share is the whole
-                              pool, so the button offered a choice of one. */}
-                          {shared && (
-                            <EditHoursDialog
-                              recordId={record.id}
-                              hoursHundredths={record.hoursHundredths}
-                              totalHundredths={record.totalHundredths}
-                              othersHundredths={record.coAuthors.reduce(
-                                (sum, a) => sum + a.hoursHundredths,
-                                0
-                              )}
+                          {/* On every SHARED work — also one nobody shares yet: how a
+                              co-author is added later, since nobody can add
+                              themselves. An INDIVIDUAL work has no pool. */}
+                          {record.sharing === 'SHARED' && (
+                            <EditCoauthorsDialog
+                              // Remounts when the saved split changes, so the
+                              // form never opens on a list that is already gone.
+                              key={record.coAuthors
+                                .map((a) => `${a.staffId}:${a.hoursHundredths}`)
+                                .join('|')}
+                              workId={record.workId}
                               label={record.summary}
+                              totalHundredths={record.totalHundredths}
+                              myHundredths={record.hoursHundredths}
+                              coauthors={record.coAuthors}
+                              candidates={coauthorCandidates}
                             />
                           )}
                           {/* D47: not for a вид роботи proved by a link alone. */}
