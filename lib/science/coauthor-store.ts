@@ -37,6 +37,37 @@ export interface WorkRef {
   /** The вид роботи's own label — for audit lines. */
   typeLabel: string;
   maxPerYear: number | null;
+  /**
+   * Set while ННВ has DECLINED the work (owner, 2026-09-30). A decline switches
+   * off every record of the work under one stamp, and the author fixing it may
+   * add, remove or re-split co-authors — the very thing a decline can be about.
+   * Whoever is added meanwhile must be added SWITCHED OFF with that same stamp,
+   * or they would count before the author has sent the work back, and the
+   * resubmit (which restores by stamp) would skip them.
+   */
+  declined?: { at: Date; reason: string | null; byUserId: string | null } | null;
+}
+
+/** The fields that create a record already switched off by the work's decline. */
+function switchedOff(work: WorkRef) {
+  return work.declined
+    ? {
+        status: 'REMOVED' as const,
+        removedAt: work.declined.at,
+        removedReason: work.declined.reason,
+        removedByUserId: work.declined.byUserId,
+      }
+    : {};
+}
+
+/** Was this record switched off by the decline the work is under right now? */
+function bySameDecline(work: WorkRef, record: { status: string; removedAt: Date | null }) {
+  return (
+    work.declined !== undefined &&
+    work.declined !== null &&
+    record.status === 'REMOVED' &&
+    record.removedAt?.getTime() === work.declined.at.getTime()
+  );
 }
 
 interface PersonName {
@@ -132,6 +163,7 @@ export async function grantShare(
         planId: plan.id,
         planRowId: null,
         hoursHundredths,
+        ...switchedOff(work),
       },
       select: { id: true },
     });
@@ -196,6 +228,7 @@ export async function replaceCoauthors(
       id: true,
       staffId: true,
       status: true,
+      removedAt: true,
       hoursHundredths: true,
       staff: { select: { lastName: true, firstName: true, patronymic: true } },
     },
@@ -216,7 +249,7 @@ export async function replaceCoauthors(
     const label = `${fullName(record.staff)} — ${work.typeLabel}`;
     const hours = wanted.get(record.staffId);
 
-    if (record.status === 'REMOVED') {
+    if (record.status === 'REMOVED' && !bySameDecline(work, record)) {
       // A record ННВ declined holds no hours and stays as the person's
       // explanation. Naming them again would collide with it (one row per
       // person per work) and quietly undo the moderator's decision.
@@ -322,10 +355,18 @@ export async function setAuthorShare(
   const { work, authorStaffId, hoursHundredths, userId } = input;
   const own = await tx.scienceRecord.findUnique({
     where: { staffId_workId: { staffId: authorStaffId, workId: work.id } },
-    select: { id: true, status: true, hoursHundredths: true },
+    select: { id: true, status: true, removedAt: true, hoursHundredths: true },
   });
-  // No record (the author withdrew theirs) or a declined one: nothing to move.
-  if (!own || own.status !== 'APPROVED' || own.hoursHundredths === hoursHundredths) return;
+  // No record (the author withdrew theirs) or one declined on its own: nothing
+  // to move. The author's row switched off by the WORK's decline does move — it
+  // comes back with the rest, at the split the author just set.
+  if (
+    !own ||
+    (own.status !== 'APPROVED' && !bySameDecline(work, own)) ||
+    own.hoursHundredths === hoursHundredths
+  ) {
+    return;
+  }
 
   await tx.scienceRecord.update({ where: { id: own.id }, data: { hoursHundredths } });
   await tx.auditLog.create({
@@ -366,6 +407,9 @@ export async function attachReservations(
           templateId: true,
           workTypeId: true,
           totalHundredths: true,
+          declinedAt: true,
+          declineReason: true,
+          declinedById: true,
           workType: { select: { label: true, maxPerYear: true } },
         },
       },
@@ -381,6 +425,13 @@ export async function attachReservations(
       totalHundredths: reservation.work.totalHundredths,
       typeLabel: reservation.work.workType.label,
       maxPerYear: reservation.work.workType.maxPerYear,
+      declined: reservation.work.declinedAt
+        ? {
+            at: reservation.work.declinedAt,
+            reason: reservation.work.declineReason,
+            byUserId: reservation.work.declinedById,
+          }
+        : null,
     };
     if (await capProblem(tx, work, staffId, '')) continue;
 
@@ -392,6 +443,9 @@ export async function attachReservations(
         planId,
         planRowId: null,
         hoursHundredths: reservation.hoursHundredths,
+        // Reserved on a work ННВ has since declined: it joins switched off, like
+        // everybody else on it, and comes back on the resubmit.
+        ...switchedOff(work),
       },
       select: { id: true },
     });

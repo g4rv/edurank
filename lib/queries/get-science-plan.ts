@@ -75,6 +75,15 @@ export interface SciencePlanRecordDetail {
   status: ScienceRecordStatus;
   removedReason: string | null;
   /**
+   * ННВ declined the WHOLE WORK (owner, 2026-09-30) — every co-author's record
+   * is switched off until the author fixes the proof and sends it back. Not the
+   * same as `status`, which is this one person's row: a work declined before
+   * that rule shows only one record REMOVED and this false.
+   */
+  workDeclined: boolean;
+  /** The author sent a declined work back and ННВ has not looked again. */
+  resubmitted: boolean;
+  /**
    * The work's own data, for the «Редагувати» form to open already filled in.
    * It belongs to the WORK, not to this draw — a co-author sees the same
    * values and may not change them (see `canEdit`).
@@ -213,6 +222,8 @@ export async function getSciencePlan(
               totalHundredths: true,
               workTypeId: true,
               createdById: true,
+              declinedAt: true,
+              resubmittedAt: true,
               createdBy: { select: { lastName: true, firstName: true, patronymic: true } },
               workType: {
                 select: { label: true, itemNumber: true, evidenceFields: true, sharing: true },
@@ -226,11 +237,15 @@ export async function getSciencePlan(
                   staff: { select: { lastName: true, firstName: true, patronymic: true } },
                 },
               },
-              // Everybody's APPROVED draw on this work, including this person's
-              // own — filtered out below, where the name is already in hand.
+              // Everybody's draw on this work, including this person's own —
+              // filtered out below, where the name is already in hand. Not
+              // filtered on APPROVED here: a DECLINED work has every record
+              // switched off and its co-authors must still be listed, so the
+              // filter needs the work's `declinedAt` and lives below.
               records: {
-                where: { status: 'APPROVED' },
                 select: {
+                  status: true,
+                  removedAt: true,
                   staffId: true,
                   hoursHundredths: true,
                   staff: { select: { lastName: true, firstName: true, patronymic: true } },
@@ -285,6 +300,7 @@ export async function getSciencePlan(
 
   const records: SciencePlanRecordDetail[] = plan.records.map((r) => {
     const fields = r.work.workType.evidenceFields as unknown as EvidenceField[];
+    const declinedAt = r.work.declinedAt ?? null;
     return {
       id: r.id,
       workId: r.work.id,
@@ -306,6 +322,8 @@ export async function getSciencePlan(
       startedMonth: r.work.startedMonth ? dateToMonthKey(r.work.startedMonth) : null,
       status: r.status,
       removedReason: r.removedReason,
+      workDeclined: declinedAt !== null,
+      resubmitted: declinedAt === null && (r.work.resubmittedAt ?? null) !== null,
       evidence: r.work.evidence,
       canEdit: r.work.createdById === staffId,
       sharing: r.work.workType.sharing,
@@ -315,6 +333,13 @@ export async function getSciencePlan(
       })),
       coAuthors: [
         ...r.work.records
+          .filter(
+            (other) =>
+              // Counting, or switched off by the very decline that stopped this
+              // work — a person withdrawn earlier is not a co-author.
+              other.status === 'APPROVED' ||
+              (declinedAt !== null && other.removedAt?.getTime() === declinedAt.getTime())
+          )
           .filter((other) => other.staffId !== staffId)
           .map((other) => ({
             staffId: other.staffId,

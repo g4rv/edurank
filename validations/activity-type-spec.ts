@@ -55,7 +55,14 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     rule: z.literal('currentYear').optional(),
   }),
   z.strictObject({ kind: z.literal('dateRange'), ...common, optional: z.boolean().optional() }),
-  z.strictObject({ kind: z.literal('isbn'), ...common, optional: z.boolean().optional() }),
+  z.strictObject({
+    kind: z.literal('isbn'),
+    ...common,
+    optional: z.boolean().optional(),
+    requiredWhen: z
+      .strictObject({ field: z.string().min(1), in: z.array(z.string()).min(1) })
+      .optional(),
+  }),
   z.strictObject({ kind: z.literal('doi'), ...common, optional: z.boolean().optional() }),
   z.strictObject({
     kind: z.literal('checkbox'),

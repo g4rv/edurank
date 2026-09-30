@@ -5,6 +5,7 @@ import { Card, EmptyState } from '@/components/aurora/ui/card';
 import { formatHours } from '@/lib/science/hours';
 import type { SciencePlanRecordDetail } from '@/lib/queries/get-science-plan';
 import { DeleteRecordButton } from '@/components/science/delete-record-button';
+import { ResubmitWorkButton } from '@/components/science/resubmit-work-button';
 import { DeleteFileButton } from '@/components/science/delete-file-button';
 import { ReplaceFileDialog } from '@/components/science/replace-file-dialog';
 import { FileViewButton } from '@/components/science/file-view-button';
@@ -164,7 +165,7 @@ export function RecordList({
                             2026-09-30). */}
                         {shared && !record.canEdit && (
                           <span className="text-foreground-soft">
-                            Години розподіляє автор — {record.authorName}
+                            Змінити частку — зверніться до автора ({record.authorName})
                           </span>
                         )}
                       </div>
@@ -205,7 +206,11 @@ export function RecordList({
                       wrong number is an edit, a late file is an attachment, and
                       the split of a shared work is «Співавтори» — all the
                       author's, and nobody else's (owner, 2026-09-30). */}
-                      {!declined && record.canEdit && (
+                      {/* Also while the WORK is declined: fixing the proof is
+                          exactly what a declined work is waiting for. A record
+                          ННВ declined on its own, before a decline became the
+                          work's, still cannot be edited. */}
+                      {(!declined || record.workDeclined) && record.canEdit && (
                         <div className="mt-1 -ml-2 flex flex-wrap items-center gap-1">
                           {record.canEdit && workTypeById.has(record.workTypeId) && (
                             <EditRecordDialog
@@ -253,10 +258,34 @@ export function RecordList({
                           {record.removedReason ?? 'Запис відхилено.'}
                         </p>
                       )}
+                      {/* A decline is of the WORK, so it stops every co-author's
+                          hours until the author fixes the proof (owner,
+                          2026-09-30). The author is told what to do and given the
+                          button; a co-author is told whom to ask. */}
+                      {declined && record.workDeclined && (
+                        <div className="mt-1.5 space-y-2 text-sm text-foreground-soft">
+                          {record.canEdit ? (
+                            <>
+                              <p>
+                                Години не зараховуються ні вам, ні співавторам, доки роботу не
+                                виправлено. Змініть посилання, файл чи співавторів — залежно від
+                                причини, — а потім надішліть роботу на повторну перевірку.
+                              </p>
+                              <ResubmitWorkButton workId={record.workId} />
+                            </>
+                          ) : (
+                            <p>
+                              Години не зараховуються, доки автор ({record.authorName}) не виправить
+                              підтвердження й не надішле роботу повторно.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2">
                       {declined && <Badge tone="destructive">Відхилено</Badge>}
+                      {record.resubmitted && <Badge tone="warn">Виправлено</Badge>}
                       <span className="text-sm text-foreground-soft">
                         Годин:{' '}
                         <span
@@ -274,7 +303,12 @@ export function RecordList({
                           </span>
                         )}
                       </span>
-                      <DeleteRecordButton recordId={record.id} label={record.summary} />
+                      <DeleteRecordButton
+                        recordId={record.id}
+                        label={record.summary}
+                        isAuthor={record.canEdit}
+                        coauthorCount={record.coAuthors.length}
+                      />
                     </div>
                   </div>
                 </li>

@@ -30,7 +30,11 @@ export function splitAtLink(fields: readonly EvidenceField[]): {
   const choice = fields.findIndex((f) => f.kind === 'select');
   const title = fields.findIndex((f) => f.name === 'title');
   // No choice and no title: the link ends the form, as it always did.
-  const anchor = choice !== -1 ? choice : title !== -1 ? title : fields.length - 1;
+  let anchor = choice !== -1 ? choice : title !== -1 ? title : fields.length - 1;
+  // A book's ISBN belongs to what IDENTIFIES it, so it sits before the link
+  // (owner, 2026-09-30): Назва → Вид → ISBN → Посилання. Only an ISBN — an
+  // article's DOI, right after its category, stays after the link.
+  if (fields[anchor + 1]?.kind === 'isbn') anchor += 1;
 
   return { before: fields.slice(0, anchor + 1), after: fields.slice(anchor + 1) };
 }

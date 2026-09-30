@@ -181,18 +181,16 @@ describe('the flags the наказ dictates', () => {
 });
 
 describe('D39/D47 — how each type is proved', () => {
-  it('exactly the eight large or published documents are link only', () => {
+  it('link only where the наказ names a published edition or a report to the кафедра', () => {
     const linkOnly = SCIENCE_WORK_TYPES_2027.filter(
       (d) => d.linkRule === 'REQUIRED' && d.fileRule === 'NONE'
     ).map((d) => d.code);
     expect([...linkOnly].sort()).toEqual(
       [
         'article',
-        'conference_paper',
+        'dissertation',
         'editorial_board',
         'english_support',
-        'intl_grant_program',
-        'intl_project',
         'monograph',
         'monograph_reissue',
       ].sort()
@@ -208,7 +206,7 @@ describe('D39/D47 — how each type is proved', () => {
 
   it('leaves every other type on the defaults (link or file)', () => {
     const others = SCIENCE_WORK_TYPES_2027.filter((d) => d.fileRule !== 'NONE');
-    expect(others).toHaveLength(17);
+    expect(others).toHaveLength(19);
     for (const d of others) {
       expect(d.linkRule).toBeUndefined();
       expect(d.fileRule).toBeUndefined();
@@ -254,11 +252,28 @@ describe('a монографія carries its ISBN', () => {
       const d = SCIENCE_WORK_TYPES_2027.find((x) => x.code === code)!;
       const isbn = d.fields.find((f) => f.kind === 'isbn');
       expect(isbn, code).toBeDefined();
-      // Not optional: an ISBN is what makes a book one book (no `optional` key).
+      // Not optional in itself: an ISBN is what makes a book one book. A
+      // посібник's is excused by `requiredWhen`, never by `optional`.
       expect(isbn).not.toHaveProperty('optional', true);
       expect(d.identityFields[0]).toBe(isbn!.name);
     }
   );
+
+  it('a посібник may leave the ISBN empty; a монографія / підручник may not (owner, 2026-09-30)', () => {
+    const { evidenceFields, scoring } = scienceDbSpecs(
+      SCIENCE_WORK_TYPES_2027.find((x) => x.code === 'monograph')!
+    );
+    const schema = schemaForFields(evidenceFields, scoring);
+    const manual = { title: 'Методичний посібник', option: 'manual', credits: 3 };
+    expect(schema.safeParse(manual).success).toBe(true);
+    // a wrong ISBN is still refused, mandatory or not
+    expect(schema.safeParse({ ...manual, isbn: '123' }).success).toBe(false);
+    expect(schema.safeParse({ ...manual, option: 'monograph' }).success).toBe(false);
+    expect(schema.safeParse({ ...manual, option: 'monograph', isbn: ' ' }).success).toBe(false);
+    expect(
+      schema.safeParse({ ...manual, option: 'monograph', isbn: '978-966-00-0000-1' }).success
+    ).toBe(true);
+  });
 
   it('a monograph without an ISBN is refused by the type’s own schema', () => {
     const { evidenceFields, scoring } = scienceDbSpecs(

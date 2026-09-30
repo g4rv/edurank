@@ -714,6 +714,7 @@ export async function updateWorkEvidence(input: {
       executedMonth: true,
       startedMonth: true,
       createdById: true,
+      declinedAt: true,
       workType: true,
       // The REAL count, not the zero this used to assume. A work proved by a
       // file alone (D27) would otherwise be refused the moment its author
@@ -813,7 +814,15 @@ export async function updateWorkEvidence(input: {
   // theirs; the AUTHOR's own share is what is left, so it follows the pool.
   const individual = type.sharing === 'INDIVIDUAL';
   const drawn = await db.scienceRecord.aggregate({
-    where: { workId: work.id, status: 'APPROVED', staffId: { not: work.createdById } },
+    where: {
+      workId: work.id,
+      staffId: { not: work.createdById },
+      // A declined work has every record switched off, but they all come back
+      // together — so their hours still bound the pool (see `declinedAt`).
+      ...(work.declinedAt
+        ? { OR: [{ status: 'APPROVED' as const }, { removedAt: work.declinedAt }] }
+        : { status: 'APPROVED' as const }),
+    },
     _sum: { hoursHundredths: true },
   });
   const reserved = await db.scienceCoauthorShare.aggregate({
@@ -912,9 +921,15 @@ export async function updateWorkEvidence(input: {
 /**
  * Withdraw the caller's own draw.
  *
- * **Deletes the record, never the work.** A work with no claims is kept,
- * because its `dedupKey` is what stops it being re-entered and a co-author may
- * still draw on it. ADMIN deletes a genuinely wrong work, which cascades.
+ * **When the caller is the work's AUTHOR, the whole work goes** — its co-authors'
+ * records, their reservations and its files (owner, 2026-09-30). The co-authors
+ * hold hours the author gave them from a pool the author's proof stands behind;
+ * with the author's record gone nobody can change those hours, and the work's
+ * `dedupKey` would block the article from ever being entered again. The screen
+ * warns the author, by number, before this runs.
+ *
+ * A co-author withdrawing deletes only their own record and gives the hours
+ * back to the author. ADMIN deletes a genuinely wrong work elsewhere.
  */
 export async function deleteRecord(recordId: string): Promise<{ ok: true } | { error: string }> {
   const actor = await resolveActor();
@@ -943,53 +958,38 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
   if (!record || record.staffId !== staffId) return { error: 'Запис не знайдено' };
   if (record.templateId !== template.id) return { error: 'Запис не знайдено' };
 
+  const isAuthor = record.work.createdById === staffId;
+
   // Objects to clear once the rows are gone — collected BEFORE the delete,
-  // because the cascade takes the rows that name them (see below).
+  // because the cascade takes the rows that name them.
   let orphanedObjectKeys: string[] = [];
 
   try {
     await db.$transaction(async (tx) => {
-      await tx.scienceRecord.delete({ where: { id: recordId } });
-
-      // A co-author withdrawing gives their hours BACK to the author: the
-      // author's share is what is left, and nobody can take the rest by
-      // themselves any more. The author withdrawing their own leaves the work
-      // and its co-authors standing.
-      if (record.work.workType.sharing === 'SHARED' && record.work.createdById !== staffId) {
-        await tx.scienceRecord.updateMany({
-          where: { workId: record.work.id, staffId: record.work.createdById, status: 'APPROVED' },
-          data: { hoursHundredths: { increment: record.hoursHundredths } },
-        });
-      }
-
-      // **An INDIVIDUAL work with no claims left goes with it.**
-      //
-      // A work normally survives its last claim, because its `dedupKey` is
-      // what stops the same article being entered twice and a co-author may
-      // still draw on it. Neither reason holds for an INDIVIDUAL type: D24
-      // prefixes its key with the owner's `staffId`, so no other person could
-      // ever collide with it, and there are no co-authors to keep it for.
-      //
-      // Left standing it protected nothing and blocked one person — the one
-      // who owned it. Deleting a конференція record to fix «3 дні» into «5»
-      // and adding it again hit «цю роботу вже додав …», naming the person to
-      // themselves, and nobody may be added to an INDIVIDUAL work, so that
-      // конференція could never be recorded again (owner, 2026-09-20).
-      if (record.work.workType.sharing === 'INDIVIDUAL') {
-        const left = await tx.scienceRecord.count({ where: { workId: record.work.id } });
-        if (left === 0) {
-          orphanedObjectKeys = record.work.files.map((f) => f.objectKey);
-          // Cascades its files' rows; their R2 objects are dropped after the
-          // transaction commits.
-          await tx.scienceWork.delete({ where: { id: record.work.id } });
+      if (isAuthor) {
+        // Cascades every record, reservation and file row of the work; the R2
+        // objects are dropped after the transaction commits.
+        orphanedObjectKeys = record.work.files.map((f) => f.objectKey);
+        await tx.scienceWork.delete({ where: { id: record.work.id } });
+      } else {
+        await tx.scienceRecord.delete({ where: { id: recordId } });
+        // A co-author withdrawing gives their hours BACK to the author: the
+        // author's share is what is left, and nobody can take the rest by
+        // themselves any more. No status filter: the author's row may be
+        // switched off by a decline, and it comes back with these hours.
+        if (record.work.workType.sharing === 'SHARED') {
+          await tx.scienceRecord.updateMany({
+            where: { workId: record.work.id, staffId: record.work.createdById },
+            data: { hoursHundredths: { increment: record.hoursHundredths } },
+          });
         }
       }
 
       await tx.auditLog.create({
         data: {
           action: 'DELETE',
-          entity: 'ScienceRecord',
-          entityId: recordId,
+          entity: isAuthor ? 'ScienceWork' : 'ScienceRecord',
+          entityId: isAuthor ? record.work.id : recordId,
           label: record.work.workType.label,
           userId,
           changes: diffChanges(
@@ -1017,6 +1017,97 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
   }
 
   revalidatePath('/science-plan');
+  return { ok: true };
+}
+
+/**
+ * The author sends a DECLINED work back for review (owner, 2026-09-30).
+ *
+ * ННВ declined it because its proof was wrong — a mistyped link, the wrong
+ * document. The author fixes it (`updateWorkEvidence`, the file actions) and
+ * calls this: every record the decline switched off counts again **at once**,
+ * like anything else saved here, and the work carries `resubmittedAt` so ННВ
+ * sees it as «виправлено» and can decline it again. It is not an approval step —
+ * the app has none for science records.
+ *
+ * Refused while the proof is still missing (the same `evidenceProblem` a save
+ * runs), so the button cannot bring back a work with nothing behind it. Only the
+ * author or ADMIN — co-authors ask the author.
+ */
+export async function resubmitScienceWork(
+  workId: string
+): Promise<{ ok: true } | { error: string }> {
+  const actor = await resolveActor(undefined, { allowAdmin: true });
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, template } = actor.context;
+  const isAdmin = actor.context.role === 'ADMIN';
+
+  const work = await db.scienceWork.findUnique({
+    where: { id: workId },
+    select: {
+      id: true,
+      templateId: true,
+      createdById: true,
+      declinedAt: true,
+      link: true,
+      workType: { select: { label: true, linkRule: true, fileRule: true } },
+      _count: { select: { files: true } },
+    },
+  });
+  if (!work || work.templateId !== template.id) return { error: 'Роботу не знайдено' };
+  if (work.createdById !== staffId && !isAdmin) {
+    return { error: 'Надіслати роботу повторно може лише той, хто її додав' };
+  }
+  if (!work.declinedAt) return { error: 'Цю роботу не відхилено' };
+
+  const fault = evidenceProblem({
+    linkRule: work.workType.linkRule,
+    fileRule: work.workType.fileRule,
+    link: work.link,
+    fileCount: work._count.files,
+  });
+  if (fault) return { error: fault };
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.scienceRecord.updateMany({
+        where: { workId: work.id, status: 'REMOVED', removedAt: work.declinedAt },
+        data: { status: 'APPROVED', removedByUserId: null, removedAt: null, removedReason: null },
+      });
+      await tx.scienceWork.update({
+        where: { id: work.id },
+        data: {
+          declinedAt: null,
+          declineReason: null,
+          declinedById: null,
+          resubmittedAt: new Date(),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'ScienceWork',
+          entityId: work.id,
+          label: work.workType.label,
+          userId,
+          changes: diffChanges({ declined: true }, { declined: false }),
+        },
+      });
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося надіслати. Зміни не застосовано',
+        'science.resubmitScienceWork',
+        { userId }
+      ),
+    };
+  }
+
+  revalidatePath('/science-plan');
+  revalidatePath('/moderation');
+  revalidatePath('/science-plans');
   return { ok: true };
 }
 
@@ -1059,6 +1150,9 @@ export async function updateCoauthors(input: {
       templateId: true,
       totalHundredths: true,
       createdById: true,
+      declinedAt: true,
+      declineReason: true,
+      declinedById: true,
       workType: { select: { id: true, label: true, sharing: true, maxPerYear: true } },
     },
   });
@@ -1080,6 +1174,16 @@ export async function updateCoauthors(input: {
           totalHundredths: work.totalHundredths,
           typeLabel: work.workType.label,
           maxPerYear: work.workType.maxPerYear,
+          // Adding somebody to a DECLINED work is often the very fix ННВ asked
+          // for (a valid co-author the author left out). They join switched
+          // off, with the work, and count when it is sent back.
+          declined: work.declinedAt
+            ? {
+                at: work.declinedAt,
+                reason: work.declineReason,
+                byUserId: work.declinedById,
+              }
+            : null,
         },
         authorStaffId: work.createdById,
         desired: input.coauthors,

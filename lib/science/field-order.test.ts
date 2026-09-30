@@ -31,6 +31,21 @@ describe('splitAtLink — where the link box goes among a вид роботи’
     expect(names(after)).toEqual(['isbn', 'value']);
   });
 
+  it('keeps a book’s ISBN before the link: Назва → Вид → ISBN → Посилання', () => {
+    const isbn: EvidenceField = { kind: 'isbn', name: 'isbn', label: 'ISBN' };
+    const { before, after } = splitAtLink([
+      text('title'),
+      select('option'),
+      isbn,
+      number('credits'),
+    ]);
+    expect(names(before)).toEqual(['title', 'option', 'isbn']);
+    expect(names(after)).toEqual(['credits']);
+    // …and a reissue, which has no kind: the ISBN follows the name.
+    const reissue = splitAtLink([text('title'), isbn, number('value')]);
+    expect(names(reissue.before)).toEqual(['title', 'isbn']);
+  });
+
   it('leaves nothing after it when the choice is the last field — the link just ends the form, as before', () => {
     const { before, after } = splitAtLink([text('title'), select('option')]);
     expect(names(before)).toEqual(['title', 'option']);
@@ -73,13 +88,16 @@ describe('the catalogue’s own order (owner, 2026-09-30)', () => {
     expect(names(after)).toEqual(['doi', 'credits', 'publishedOn']);
   });
 
-  it('the монографія: name, kind of edition, then — after the link — ISBN, sheets', () => {
+  it('the монографія: name, kind of edition, ISBN, then — after the link — sheets', () => {
     expect(fieldNames('monograph')).toEqual(['title', 'option', 'isbn', 'credits']);
+    const book = SCIENCE_WORK_TYPES_2027.find((d) => d.code === 'monograph')!;
+    expect(names(splitAtLink(book.fields).before)).toEqual(['title', 'option', 'isbn']);
+    expect(names(splitAtLink(book.fields).after)).toEqual(['credits']);
   });
 
-  it('the перевидання has no choice, so the link follows the name: name, link, ISBN, sheets', () => {
+  it('the перевидання has no choice: name, ISBN, then — after the link — sheets', () => {
     const reissue = SCIENCE_WORK_TYPES_2027.find((d) => d.code === 'monograph_reissue')!;
-    expect(names(splitAtLink(reissue.fields).before)).toEqual(['title']);
-    expect(names(splitAtLink(reissue.fields).after)).toEqual(['isbn', 'value']);
+    expect(names(splitAtLink(reissue.fields).before)).toEqual(['title', 'isbn']);
+    expect(names(splitAtLink(reissue.fields).after)).toEqual(['value']);
   });
 });

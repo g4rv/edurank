@@ -6,6 +6,7 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { requireAdmin } from '@/lib/permissions';
+import { safeDeleteObject } from '@/lib/science/file-intake';
 import { isAcademicYear, nextAcademicYear, stakeYearOf } from '@/lib/science/academic-year';
 import { lastMonthProblem } from '@/lib/science/execution-month';
 
@@ -323,9 +324,15 @@ export async function openScienceYear(id: string): Promise<ScienceYearState> {
   return { ok: true, message: `Рік ${template.academicYear} відкрито` };
 }
 
-// Freezes the year against further planning. No purge and no snapshot — a
-// science plan is not scored history the way a closed rating year is, it is
-// simply not editable any more once its наказ's window has passed.
+// Freezes the year against further planning. No snapshot — a science plan is
+// not scored history the way a closed rating year is, it is simply not editable
+// any more once its наказ's window has passed.
+//
+// **One purge (owner, 2026-09-30):** a declined work is never removed while the
+// year is open — its author may still fix the proof and resubmit — but one still
+// declined when the year closes is dropped, with its records, reservations and
+// files. So is a record ННВ declined on its own, before a decline became the
+// work's. Nothing an approved record holds is touched.
 export async function closeScienceYear(id: string): Promise<ScienceYearState> {
   const session = await requireAdmin();
   if (!session) return { error: 'Недостатньо прав' };
@@ -336,8 +343,24 @@ export async function closeScienceYear(id: string): Promise<ScienceYearState> {
   // for the state a thing is already in.
   if (template.status === 'CLOSED') return { ok: true };
 
+  // R2 objects to clear once the rows are gone — read BEFORE the cascade takes
+  // the rows that name them.
+  let orphanedObjectKeys: string[] = [];
+
   try {
     await db.$transaction(async (tx) => {
+      const declined = await tx.scienceWork.findMany({
+        where: { templateId: id, declinedAt: { not: null } },
+        select: { id: true, files: { select: { objectKey: true } } },
+      });
+      orphanedObjectKeys = declined.flatMap((w) => w.files.map((f) => f.objectKey));
+      if (declined.length > 0) {
+        await tx.scienceWork.deleteMany({ where: { id: { in: declined.map((w) => w.id) } } });
+      }
+      const single = await tx.scienceRecord.deleteMany({
+        where: { templateId: id, status: 'REMOVED' },
+      });
+
       await tx.sciencePlanTemplate.update({ where: { id }, data: { status: 'CLOSED' } });
       await tx.auditLog.create({
         data: {
@@ -346,7 +369,14 @@ export async function closeScienceYear(id: string): Promise<ScienceYearState> {
           entityId: id,
           label: template.academicYear,
           userId: session.user.id,
-          changes: diffChanges({ status: 'OPEN' }, { status: 'CLOSED' }),
+          changes: diffChanges(
+            { status: 'OPEN', droppedDeclinedWorks: 0, droppedDeclinedRecords: 0 },
+            {
+              status: 'CLOSED',
+              droppedDeclinedWorks: declined.length,
+              droppedDeclinedRecords: single.count,
+            }
+          ),
         },
       });
     });
@@ -359,6 +389,14 @@ export async function closeScienceYear(id: string): Promise<ScienceYearState> {
         { userId: session.user.id }
       ),
     };
+  }
+
+  // After the commit, never inside it — see `deleteRecord`.
+  for (const objectKey of orphanedObjectKeys) {
+    await safeDeleteObject('science.closeScienceYear', objectKey, {
+      userId: session.user.id,
+      entityId: id,
+    });
   }
 
   revalidateSciencePlan();

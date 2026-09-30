@@ -50,6 +50,7 @@ import { safeDeleteObject, verifyUploadedObject } from '@/lib/science/file-intak
 import {
   deleteRecord,
   lockPlan,
+  resubmitScienceWork,
   saveRecord,
   updateCoauthors,
   updateWorkEvidence,
@@ -1147,6 +1148,24 @@ describe('updateWorkEvidence — an INDIVIDUAL work follows its own claim', () =
     });
   });
 
+  it('on a DECLINED work the co-authors’ switched-off records still hold their hours', async () => {
+    // They come back together with the work, so an edit made while it is
+    // declined must not hand their hours to the author.
+    const declinedAt = new Date('2026-10-01T09:00:00Z');
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({ ...SHARED_WORK, declinedAt });
+    (db.scienceRecord.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 20000 } });
+    await editTo(6);
+    expect((db.scienceRecord.aggregate as Mock).mock.calls[0][0].where).toEqual({
+      workId: 'w1',
+      staffId: { not: 'staff-1' },
+      OR: [{ status: 'APPROVED' }, { removedAt: declinedAt }],
+    });
+    expect(db.scienceRecord.updateMany).toHaveBeenCalledWith({
+      where: { workId: 'w1', staffId: 'staff-1' },
+      data: { hoursHundredths: 10000 },
+    });
+  });
+
   it('…and UP when it grows — the co-authors were given fixed hours, so the rest is the author’s', async () => {
     (db.scienceWork.findUnique as Mock).mockResolvedValue({
       ...SHARED_WORK,
@@ -1265,41 +1284,28 @@ describe('deleteRecord — withdrawing a draw', () => {
     expect(await deleteRecord('r1')).toEqual({ error: 'Запис не знайдено' });
   });
 
-  it('deletes an ORPHANED INDIVIDUAL work with the last draw', async () => {
-    // The dead end this closes: an INDIVIDUAL work's key is prefixed with the
-    // owner's staffId (D24), so nobody else could ever collide with it, and
-    // `joinWork` refuses an INDIVIDUAL work outright. Left standing after its
-    // only claim went, it protected nothing and made that конференція
-    // permanently un-recordable for the one person it belonged to.
-    (db.scienceRecord.findUnique as Mock).mockResolvedValue(INDIVIDUAL_RECORD);
-    (db.scienceRecord.count as Mock).mockResolvedValue(0);
+  it('an AUTHOR withdrawing deletes the WHOLE WORK — co-authors and reservations go with it', async () => {
+    // Owner, 2026-09-30. The co-authors hold hours the author gave them, the
+    // author's proof stands behind the pool, and the work's dedupKey would block
+    // the article from ever being entered again. The screen warns first.
+    expect(await deleteRecord('r1')).toEqual({ ok: true });
+    expect(db.scienceWork.delete).toHaveBeenCalledWith({ where: { id: 'w1' } });
+    // the cascade takes the records: no separate delete, no hours moved
+    expect(db.scienceRecord.delete).not.toHaveBeenCalled();
+    expect(db.scienceRecord.updateMany).not.toHaveBeenCalled();
+  });
 
+  it('an INDIVIDUAL work goes with its owner’s record', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue(INDIVIDUAL_RECORD);
     expect(await deleteRecord('r1')).toEqual({ ok: true });
     expect(db.scienceWork.delete).toHaveBeenCalledWith({ where: { id: 'w2' } });
   });
 
-  it('keeps an INDIVIDUAL work that still has another draw', async () => {
-    (db.scienceRecord.findUnique as Mock).mockResolvedValue(INDIVIDUAL_RECORD);
-    (db.scienceRecord.count as Mock).mockResolvedValue(1);
-
-    await deleteRecord('r1');
-    expect(db.scienceWork.delete).not.toHaveBeenCalled();
-  });
-
-  it('NEVER deletes a SHARED work, even with no draws left', async () => {
-    // A co-author may still join it, and its key is what stops the article
-    // being entered twice university-wide.
-    (db.scienceRecord.count as Mock).mockResolvedValue(0);
-    await deleteRecord('r1');
-    expect(db.scienceWork.delete).not.toHaveBeenCalled();
-  });
-
-  it('clears the orphaned work’s R2 objects AFTER the commit', async () => {
+  it('clears the deleted work’s R2 objects AFTER the commit', async () => {
     (db.scienceRecord.findUnique as Mock).mockResolvedValue({
-      ...INDIVIDUAL_RECORD,
-      work: { ...INDIVIDUAL_RECORD.work, files: [{ objectKey: 'evidence/t1/gone.pdf' }] },
+      ...RECORD,
+      work: { ...RECORD.work, files: [{ objectKey: 'evidence/t1/gone.pdf' }] },
     });
-    (db.scienceRecord.count as Mock).mockResolvedValue(0);
 
     await deleteRecord('r1');
     expect(mockDropObject).toHaveBeenCalledWith('science.deleteRecord', 'evidence/t1/gone.pdf', {
@@ -1308,10 +1314,11 @@ describe('deleteRecord — withdrawing a draw', () => {
     });
   });
 
-  it('deletes the draw and LEAVES the work standing', async () => {
-    // The work's dedupKey is what stops it being re-entered, and a co-author
-    // may still be drawing on it (spec, «Deleting the last claim does not
-    // delete the work»).
+  it('a CO-AUTHOR withdrawing deletes only their own record and LEAVES the work standing', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue({
+      ...RECORD,
+      work: { ...RECORD.work, createdById: 'author-1' },
+    });
     expect(await deleteRecord('r1')).toEqual({ ok: true });
     expect(db.scienceRecord.delete).toHaveBeenCalledWith({ where: { id: 'r1' } });
     expect(db.scienceWork.delete).not.toHaveBeenCalled();
@@ -1323,21 +1330,27 @@ describe('deleteRecord — withdrawing a draw', () => {
       work: { ...RECORD.work, createdById: 'author-1' },
     });
     expect(await deleteRecord('r1')).toEqual({ ok: true });
+    // No status filter: a declined work has the author's row switched off too,
+    // and it comes back with these hours.
     expect(db.scienceRecord.updateMany).toHaveBeenCalledWith({
-      where: { workId: 'w1', staffId: 'author-1', status: 'APPROVED' },
+      where: { workId: 'w1', staffId: 'author-1' },
       data: { hoursHundredths: { increment: 5000 } },
     });
   });
 
-  it('leaves the co-authors alone when the AUTHOR withdraws their own', async () => {
+  it('audits the withdrawal — the work when the author deleted it, the record for a co-author', async () => {
     await deleteRecord('r1');
-    expect(db.scienceRecord.updateMany).not.toHaveBeenCalled();
-  });
-
-  it('audits the withdrawal', async () => {
-    await deleteRecord('r1');
-    const entry = (db.auditLog.create as Mock).mock.calls[0][0].data;
+    let entry = (db.auditLog.create as Mock).mock.calls[0][0].data;
     expect(entry.action).toBe('DELETE');
+    expect(entry.entity).toBe('ScienceWork');
+
+    (db.auditLog.create as Mock).mockClear();
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue({
+      ...RECORD,
+      work: { ...RECORD.work, createdById: 'author-1' },
+    });
+    await deleteRecord('r1');
+    entry = (db.auditLog.create as Mock).mock.calls[0][0].data;
     expect(entry.entity).toBe('ScienceRecord');
   });
 });
@@ -1448,6 +1461,31 @@ describe('lockPlan — hours reserved for me become records (owner, 2026-09-30)'
     expect(db.scienceCoauthorShare.delete).toHaveBeenCalledWith({ where: { id: 's1' } });
   });
 
+  it('joins a work ННВ has DECLINED switched off, like everybody else on it', async () => {
+    const declinedAt = new Date('2026-10-01T09:00:00Z');
+    (db.scienceCoauthorShare.findMany as Mock).mockResolvedValue([
+      reservation({
+        work: {
+          id: 'w9',
+          templateId: 't1',
+          workTypeId: 'wt1',
+          totalHundredths: 50000,
+          declinedAt,
+          declineReason: 'Не вказано співавтора',
+          declinedById: 'editor-1',
+          workType: { label: 'Наукова стаття', maxPerYear: null as number | null },
+        },
+      }),
+    ]);
+    expect(await lockPlan('d1')).toEqual({ ok: true });
+    expect((db.scienceRecord.create as Mock).mock.calls[0][0].data).toMatchObject({
+      status: 'REMOVED',
+      removedAt: declinedAt,
+      removedReason: 'Не вказано співавтора',
+      removedByUserId: 'editor-1',
+    });
+  });
+
   it('reads only THIS person’s reservations on works of THIS year', async () => {
     await lockPlan('d1');
     expect(db.scienceCoauthorShare.findMany).toHaveBeenCalledWith(
@@ -1504,6 +1542,92 @@ describe('updateCoauthors — the one way a share changes (owner, 2026-09-30)', 
     // The author's own record — `setAuthorShare` reads it by (person, work).
     (db.scienceRecord.findUnique as Mock).mockResolvedValue(OWN);
     (db.scienceRecord.update as Mock).mockResolvedValue({ id: 'x' });
+  });
+
+  describe('while the work is DECLINED (owner, 2026-09-30)', () => {
+    // Adding a valid co-author the author left out is often exactly what ННВ
+    // declined it for — so it must be possible, without counting anybody early.
+    const DECLINED_AT = new Date('2026-10-01T09:00:00Z');
+    const DECLINED = {
+      ...WORK,
+      declinedAt: DECLINED_AT,
+      declineReason: 'Не вказано співавтора',
+      declinedById: 'editor-1',
+    };
+    const switchedOffByDecline = (id: string, staffId: string, hours: number) => ({
+      ...held(id, staffId, hours, 'REMOVED'),
+      removedAt: DECLINED_AT,
+    });
+
+    beforeEach(() => {
+      (db.scienceWork.findUnique as Mock).mockResolvedValue(DECLINED);
+    });
+
+    it('adds a co-author SWITCHED OFF with the work’s own stamp — they count when it is sent back', async () => {
+      (db.sciencePlan.findMany as Mock).mockResolvedValue([{ id: 'plan-2', departmentId: 'd1' }]);
+      expect(
+        await updateCoauthors({
+          workId: 'w1',
+          coauthors: [{ staffId: 'staff-2', hoursHundredths: 15000 }],
+        })
+      ).toEqual({ ok: true });
+      expect((db.scienceRecord.create as Mock).mock.calls[0][0].data).toMatchObject({
+        staffId: 'staff-2',
+        hoursHundredths: 15000,
+        status: 'REMOVED',
+        removedAt: DECLINED_AT,
+        removedReason: 'Не вказано співавтора',
+        removedByUserId: 'editor-1',
+      });
+    });
+
+    it('changes the hours of a co-author the decline switched off — and the author’s own row follows', async () => {
+      (db.scienceRecord.findMany as Mock).mockResolvedValue([
+        switchedOffByDecline('r2', 'staff-2', 15000),
+      ]);
+      (db.scienceRecord.findUnique as Mock).mockResolvedValue({
+        ...OWN,
+        status: 'REMOVED',
+        removedAt: DECLINED_AT,
+        hoursHundredths: 35000,
+      });
+      expect(
+        await updateCoauthors({
+          workId: 'w1',
+          coauthors: [{ staffId: 'staff-2', hoursHundredths: 20000 }],
+        })
+      ).toEqual({ ok: true });
+      expect(db.scienceRecord.update).toHaveBeenCalledWith({
+        where: { id: 'r2' },
+        data: { hoursHundredths: 20000 },
+      });
+      expect(ownUpdates()[0][0].data).toEqual({ hoursHundredths: 30000 });
+    });
+
+    it('removes one the decline switched off, when the author leaves them out', async () => {
+      (db.scienceRecord.findMany as Mock).mockResolvedValue([
+        switchedOffByDecline('r2', 'staff-2', 15000),
+      ]);
+      (db.scienceRecord.findUnique as Mock).mockResolvedValue({
+        ...OWN,
+        status: 'REMOVED',
+        removedAt: DECLINED_AT,
+        hoursHundredths: 35000,
+      });
+      await updateCoauthors({ workId: 'w1', coauthors: [] });
+      expect(db.scienceRecord.delete).toHaveBeenCalledWith({ where: { id: 'r2' } });
+    });
+
+    it('still refuses to re-add somebody declined on their own, earlier', async () => {
+      (db.scienceRecord.findMany as Mock).mockResolvedValue([
+        { ...held('r3', 'staff-3', 5000, 'REMOVED'), removedAt: new Date('2026-09-01T00:00:00Z') },
+      ]);
+      const result = await updateCoauthors({
+        workId: 'w1',
+        coauthors: [{ staffId: 'staff-3', hoursHundredths: 5000 }],
+      });
+      expect(result).toMatchObject({ error: expect.stringContaining('запис відхилено ННВ') });
+    });
   });
 
   it('adds a co-author who has a saved plan as a record, and moves the author to what is left', async () => {
@@ -1658,5 +1782,72 @@ describe('updateCoauthors — the one way a share changes (owner, 2026-09-30)', 
     await updateCoauthors({ workId: 'w1', coauthors: [] });
     const actions = (db.auditLog.create as Mock).mock.calls.map((c) => c[0].data.action);
     expect(actions).toEqual(['DELETE', 'UPDATE']);
+  });
+});
+
+describe('resubmitScienceWork — the author sends a declined work back (owner, 2026-09-30)', () => {
+  const DECLINED_AT = new Date('2026-10-01T09:00:00Z');
+  const DECLINED_WORK = {
+    id: 'w1',
+    templateId: 't1',
+    createdById: 'staff-1',
+    declinedAt: DECLINED_AT,
+    link: 'https://doi.org/10.31392/fixed',
+    workType: { label: 'Наукова стаття', linkRule: 'REQUIRED', fileRule: 'NONE' },
+    _count: { files: 0 },
+  };
+
+  beforeEach(() => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue(DECLINED_WORK);
+  });
+
+  it('brings back every record the decline switched off — and only those', async () => {
+    expect(await resubmitScienceWork('w1')).toEqual({ ok: true });
+    expect(db.scienceRecord.updateMany).toHaveBeenCalledWith({
+      where: { workId: 'w1', status: 'REMOVED', removedAt: DECLINED_AT },
+      data: { status: 'APPROVED', removedByUserId: null, removedAt: null, removedReason: null },
+    });
+  });
+
+  it('clears the decline and stamps «виправлено» for ННВ', async () => {
+    await resubmitScienceWork('w1');
+    const data = (db.scienceWork.update as Mock).mock.calls[0][0].data;
+    expect(data).toMatchObject({ declinedAt: null, declineReason: null, declinedById: null });
+    expect(data.resubmittedAt).toBeInstanceOf(Date);
+  });
+
+  it('audits it', async () => {
+    await resubmitScienceWork('w1');
+    const entry = (db.auditLog.create as Mock).mock.calls[0][0].data;
+    expect(entry).toMatchObject({ action: 'UPDATE', entity: 'ScienceWork', entityId: 'w1' });
+  });
+
+  it('refuses a co-author — only the author (or ADMIN) sends it back', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...DECLINED_WORK,
+      createdById: 'author-1',
+    });
+    expect(await resubmitScienceWork('w1')).toEqual({
+      error: 'Надіслати роботу повторно може лише той, хто її додав',
+    });
+    expect(db.scienceRecord.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses a work that is not declined', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({ ...DECLINED_WORK, declinedAt: null });
+    expect(await resubmitScienceWork('w1')).toEqual({ error: 'Цю роботу не відхилено' });
+  });
+
+  it('refuses while the proof is still missing — the button cannot bring back a work with nothing behind it', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({ ...DECLINED_WORK, link: null });
+    expect(await resubmitScienceWork('w1')).toEqual({
+      error: 'Для цього виду роботи потрібне посилання',
+    });
+    expect(db.scienceRecord.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses a work of another year', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({ ...DECLINED_WORK, templateId: 'old' });
+    expect(await resubmitScienceWork('w1')).toEqual({ error: 'Роботу не знайдено' });
   });
 });

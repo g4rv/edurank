@@ -128,7 +128,7 @@ describe('what the link box is called', () => {
 
   it('tells a link-only type where the page is, and does not talk about a proof', () => {
     expect(linkHint({ fileRule: 'NONE', reportingForm: null })).toBe(
-      'Сторінка, де роботу опубліковано або розміщено. ННВ перевірить її.'
+      'Джерело, яке підтверджує виконання роботи.'
     );
   });
 

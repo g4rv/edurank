@@ -321,6 +321,7 @@ model Staff {
   scienceRecords         ScienceRecord[]
   scienceCoauthorShares  ScienceCoauthorShare[]
   scienceWorksCreated    ScienceWork[]          @relation("ScienceWorkAuthor")
+  scienceWorksDeclined   ScienceWork[]          @relation("ScienceWorkDecliner")
   removedScienceRecords  ScienceRecord[]        @relation("ScienceRecordRemover")
   scienceFilesUploaded   ScienceRecordFile[]    @relation("ScienceFileUploader")
 
@@ -1327,6 +1328,19 @@ model ScienceWork {
   /// for an INDIVIDUAL one, whose identity is often a name several people
   /// legitimately share (D24).
   dedupKey String @unique
+
+  /// A decline is of the WORK, not of one person's record (owner, 2026-09-30):
+  /// the proof is shared, so when it is wrong nobody counts until it is fixed.
+  /// `declinedAt` is also the stamp `removedAt` carries on every record the
+  /// decline switched off, which is how a resubmit restores exactly those and not
+  /// one somebody withdrew earlier. Cleared when the author resubmits or ННВ
+  /// undoes it; a work still declined when its рік closes is dropped.
+  declinedAt       DateTime?
+  declineReason    String?
+  declinedById     String?
+  declinedBy       Staff?    @relation("ScienceWorkDecliner", fields: [declinedById], references: [id])
+  /// When the author last sent a declined work back for review — ННВ's «виправлено».
+  resubmittedAt    DateTime?
 
   records        ScienceRecord[]
   files          ScienceRecordFile[]

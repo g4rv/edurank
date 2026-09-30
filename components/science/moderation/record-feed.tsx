@@ -147,7 +147,11 @@ export function RecordFeed({
                   {declined ? (
                     <Badge tone="destructive">Відхилено</Badge>
                   ) : (
-                    <Badge tone="ok">Зараховано</Badge>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge tone="ok">Зараховано</Badge>
+                      {/* The author fixed the proof and sent it back — look again. */}
+                      {row.resubmitted && <Badge tone="warn">Виправлено</Badge>}
+                    </div>
                   )}
                 </TableCell>
 

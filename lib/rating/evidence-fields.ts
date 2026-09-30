@@ -90,7 +90,16 @@ export type EvidenceField =
    */
   | { kind: 'dateRange'; name: string; label: string; optional?: boolean }
   // Check-digit validated; see lib/isbn.ts for what that does and does not prove
-  | { kind: 'isbn'; name: string; label: string; optional?: boolean }
+  // `requiredWhen`: the box may stay empty EXCEPT when the select named in
+  // `field` holds one of `in` — a book's ISBN is mandatory for a монографія and
+  // optional for a посібник (owner, 2026-09-30)
+  | {
+      kind: 'isbn';
+      name: string;
+      label: string;
+      optional?: boolean;
+      requiredWhen?: { field: string; in: readonly string[] };
+    }
   // Syntax-checked only — a DOI has no check digit; see lib/doi.ts
   | { kind: 'doi'; name: string; label: string; optional?: boolean }
   // `mustBeTrue` makes the box a condition of submitting, not just a flag;
@@ -193,7 +202,7 @@ export const dateRange = (
 export const isbn = (
   name: string,
   label: string,
-  opts?: { optional?: boolean }
+  opts?: { optional?: boolean; requiredWhen?: { field: string; in: readonly string[] } }
 ): EvidenceField => ({
   kind: 'isbn',
   name,

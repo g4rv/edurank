@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/lib/permissions', () => ({ requireAdmin: vi.fn() }));
+vi.mock('@/lib/science/file-intake', () => ({ safeDeleteObject: vi.fn() }));
 vi.mock('@/lib/db', () => {
   const tx = {
     sciencePlanTemplate: {
@@ -11,12 +12,15 @@ vi.mock('@/lib/db', () => {
       updateMany: vi.fn(),
     },
     scienceWorkType: { create: vi.fn() },
+    scienceWork: { findMany: vi.fn(), deleteMany: vi.fn() },
+    scienceRecord: { deleteMany: vi.fn() },
     auditLog: { create: vi.fn() },
   };
   return { db: { ...tx, $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)) } };
 });
 
 import { requireAdmin } from '@/lib/permissions';
+import { safeDeleteObject } from '@/lib/science/file-intake';
 import { db } from '@/lib/db';
 import {
   createScienceYear,
@@ -250,5 +254,57 @@ describe('closeScienceYear', () => {
     (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue({ id: 't1', status: 'CLOSED' });
     expect(await closeScienceYear('t1')).toEqual({ ok: true });
     expect(db.sciencePlanTemplate.update).not.toHaveBeenCalled();
+  });
+
+  describe('drops what is still declined (owner, 2026-09-30)', () => {
+    beforeEach(() => {
+      (db.sciencePlanTemplate.findUnique as Mock).mockResolvedValue({
+        id: 't1',
+        academicYear: '2026/2027',
+        status: 'OPEN',
+      });
+      (db.scienceWork.findMany as Mock).mockResolvedValue([
+        { id: 'w1', files: [{ objectKey: 'evidence/t1/a.pdf' }] },
+        { id: 'w2', files: [] },
+      ]);
+      (db.scienceRecord.deleteMany as Mock).mockResolvedValue({ count: 1 });
+    });
+
+    it('deletes every work still declined, with its records — and only those', async () => {
+      expect(await closeScienceYear('t1')).toMatchObject({ ok: true });
+      expect((db.scienceWork.findMany as Mock).mock.calls[0][0].where).toEqual({
+        templateId: 't1',
+        declinedAt: { not: null },
+      });
+      expect(db.scienceWork.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['w1', 'w2'] } },
+      });
+    });
+
+    it('also drops a record ННВ declined on its own, before a decline became the work’s', async () => {
+      await closeScienceYear('t1');
+      expect(db.scienceRecord.deleteMany).toHaveBeenCalledWith({
+        where: { templateId: 't1', status: 'REMOVED' },
+      });
+    });
+
+    it('clears the dropped works’ files from R2 AFTER the commit', async () => {
+      await closeScienceYear('t1');
+      expect(safeDeleteObject).toHaveBeenCalledWith(
+        'science.closeScienceYear',
+        'evidence/t1/a.pdf',
+        {
+          userId: 'admin1',
+          entityId: 't1',
+        }
+      );
+    });
+
+    it('touches nothing when no work is declined', async () => {
+      (db.scienceWork.findMany as Mock).mockResolvedValue([]);
+      await closeScienceYear('t1');
+      expect(db.scienceWork.deleteMany).not.toHaveBeenCalled();
+      expect(safeDeleteObject).not.toHaveBeenCalled();
+    });
   });
 });

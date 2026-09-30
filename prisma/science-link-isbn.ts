@@ -26,6 +26,18 @@ import { Prisma, PrismaClient } from '../lib/generated/prisma/client';
 // so a database made before it keeps the old one until this runs. Only the ORDER
 // of fields already there changes — never a label, a rule or a point value.
 //
+// Since 2026-09-30 it also:
+//
+//   3. puts a book's ISBN in front of the link — Назва → Вид → ISBN — and makes it
+//      required only for a монографія / підручник (`requiredWhen`), optional for a
+//      посібник;
+//   4. sets each вид роботи's PROOF rules to what the owner decided after reading
+//      the наказ's «Форма звітності»: link REQUIRED and no file for the article,
+//      дисертація, both books and the п.10 editorial pair; link OR file (both
+//      OPTIONAL, at least one) for every other type. «Керівництво аспірантами» is
+//      left alone — it asks no proof. **This overwrites a rule an admin set by
+//      hand on any of those types, in every template**, so read the report first.
+//
 //   pnpm db:science-link-isbn            reports
 //   pnpm db:science-link-isbn --apply    writes
 
@@ -41,6 +53,18 @@ const ISBN_FIELD: Field = { kind: 'isbn', name: 'isbn', label: 'ISBN' };
 /** `code` is the stable semantic key here — `label` is editable by an admin. */
 const ARTICLE = 'article';
 const BOOKS = ['monograph', 'monograph_reissue'];
+
+/** Link required, no file box. Everything else — bar `phd_supervision` — is link OR file. */
+const LINK_ONLY = [
+  'article',
+  'dissertation',
+  'editorial_board',
+  'english_support',
+  'monograph',
+  'monograph_reissue',
+];
+/** Asks no proof at all; never touched here. */
+const NO_PROOF = ['phd_supervision'];
 
 function asFields(value: unknown): Field[] {
   return Array.isArray(value) ? (value as Field[]) : [];
@@ -71,6 +95,15 @@ function inOrder(fields: Field[], code: string): Field[] {
 
 const namesOf = (fields: Field[]) => fields.map((f) => f.name).join();
 
+/** JSON with sorted keys — jsonb hands keys back in its own order, so comparing
+ *  plain `JSON.stringify` calls reports a change that is not one. */
+const stable = (value: unknown): string =>
+  JSON.stringify(value, (_key, v) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+      : v
+  );
+
 function fixArticle(fields: Field[], identity: string[]) {
   const nextFields = inOrder(
     fields.filter((f) => !(f.name === 'url' && f.kind === 'url')),
@@ -85,13 +118,18 @@ function fixArticle(fields: Field[], identity: string[]) {
 function fixBook(code: string, fields: Field[], identity: string[]) {
   const hasIsbn = fields.some((f) => f.kind === 'isbn');
   // Added last, then put in its place by `inOrder`.
-  const nextFields = inOrder(hasIsbn ? fields : [...fields, ISBN_FIELD], code);
+  const ordered = inOrder(hasIsbn ? fields : [...fields, ISBN_FIELD], code);
+  // A монографія / підручник needs its ISBN, a посібник does not.
+  const nextFields =
+    code === 'monograph'
+      ? ordered.map((f) =>
+          f.kind === 'isbn' ? { ...f, requiredWhen: { field: 'option', in: ['monograph'] } } : f
+        )
+      : ordered;
   const nextIdentity = identity.includes('isbn') ? identity : ['isbn', ...identity];
   return {
     changed:
-      !hasIsbn ||
-      namesOf(nextFields) !== namesOf(fields) ||
-      nextIdentity.join() !== identity.join(),
+      !hasIsbn || stable(nextFields) !== stable(fields) || nextIdentity.join() !== identity.join(),
     fields: nextFields,
     identity: nextIdentity,
   };
@@ -126,6 +164,30 @@ async function main() {
     );
   }
 
+  // The proof rules, in every template and every вид роботи.
+  const all = await prisma.scienceWorkType.findMany({
+    where: { code: { notIn: NO_PROOF } },
+    select: {
+      id: true,
+      code: true,
+      linkRule: true,
+      fileRule: true,
+      template: { select: { academicYear: true } },
+    },
+    orderBy: [{ template: { academicYear: 'asc' } }, { order: 'asc' }],
+  });
+  const ruleChanges = all.flatMap((row) => {
+    const want = LINK_ONLY.includes(row.code)
+      ? { linkRule: 'REQUIRED' as const, fileRule: 'NONE' as const }
+      : { linkRule: 'OPTIONAL' as const, fileRule: 'OPTIONAL' as const };
+    if (row.linkRule === want.linkRule && row.fileRule === want.fileRule) return [];
+    console.log(
+      `  ${row.template.academicYear} · ${row.code} — підтвердження: ` +
+        `${row.linkRule}/${row.fileRule} → ${want.linkRule}/${want.fileRule}`
+    );
+    return [{ id: row.id, ...want }];
+  });
+
   // Articles already saved with the second link typed into their evidence.
   const articleTypeIds = types.filter((t) => t.code === ARTICLE).map((t) => t.id);
   const works = await prisma.scienceWork.findMany({
@@ -150,13 +212,13 @@ async function main() {
     );
   }
 
-  if (typeChanges.length === 0 && workChanges.length === 0) {
+  if (typeChanges.length === 0 && workChanges.length === 0 && ruleChanges.length === 0) {
     console.log('Нічого змінювати: усе вже відповідає новому опису.');
     return;
   }
   if (!apply) {
     console.log(
-      `\nВидів роботи: ${typeChanges.length}, робіт: ${workChanges.length}. Запустіть з --apply, щоб записати.`
+      `\nВидів роботи: ${typeChanges.length}, правил підтвердження: ${ruleChanges.length}, робіт: ${workChanges.length}. Запустіть з --apply, щоб записати.`
     );
     return;
   }
@@ -171,6 +233,12 @@ async function main() {
         },
       })
     ),
+    ...ruleChanges.map((c) =>
+      prisma.scienceWorkType.update({
+        where: { id: c.id },
+        data: { linkRule: c.linkRule, fileRule: c.fileRule },
+      })
+    ),
     ...workChanges.map((w) =>
       prisma.scienceWork.update({
         where: { id: w.id },
@@ -178,7 +246,9 @@ async function main() {
       })
     ),
   ]);
-  console.log(`\nГотово. Видів роботи: ${typeChanges.length}, робіт: ${workChanges.length}.`);
+  console.log(
+    `\nГотово. Видів роботи: ${typeChanges.length}, правил підтвердження: ${ruleChanges.length}, робіт: ${workChanges.length}.`
+  );
 }
 
 main()

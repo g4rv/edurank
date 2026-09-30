@@ -180,8 +180,6 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Звіт — грант',
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
-    linkRule: 'REQUIRED',
-    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [title],
   },
@@ -197,8 +195,6 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Звіт-проєкт',
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
-    linkRule: 'REQUIRED',
-    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [
       title,
@@ -221,6 +217,8 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
       'Звіт на кафедрі: не менше 1 розділу та 4 статей у фахових виданнях (доктор наук) або 2 статей (доктор філософії)',
     reuse: 'YEARLY',
     sharing: 'INDIVIDUAL',
+    linkRule: 'REQUIRED',
+    fileRule: 'NONE',
     identityFields: ['candidate', 'title'],
     fields: [
       ...personName('candidate', 'ПІБ здобувача'),
@@ -255,7 +253,9 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
         { value: 'monograph', label: 'Монографія, підручник', points: 200 },
         { value: 'manual', label: 'Посібник', points: 100 },
       ]),
-      isbn('isbn', 'ISBN'),
+      // Mandatory for a монографія / підручник, optional for a посібник
+      // (owner, 2026-09-30) — `requiredWhen` reads the «Вид видання» above.
+      isbn('isbn', 'ISBN', { requiredWhen: { field: 'option', in: ['monograph'] } }),
       count('credits', 'Кількість друкованих аркушів'),
     ],
   },
@@ -357,8 +357,6 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Програма, матеріали конференції (зараховується після виходу в світ)',
     reuse: 'ONCE',
     sharing: 'SHARED',
-    linkRule: 'REQUIRED',
-    fileRule: 'NONE',
     identityFields: ['title'],
     fields: [
       title,

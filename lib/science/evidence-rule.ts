@@ -92,7 +92,7 @@ export function linkLabel(fileRule: ProofRule): string {
 /** The line under the link box — from the наказ's «Форма звітності» where a file may also be given. */
 export function linkHint(type: { fileRule?: ProofRule; reportingForm?: string | null }): string {
   if (type.fileRule === 'NONE') {
-    return 'Сторінка, де роботу опубліковано або розміщено. ННВ перевірить її.';
+    return 'Джерело, яке підтверджує виконання роботи.';
   }
   return type.reportingForm
     ? `${type.reportingForm} — посилання на сторінку, де це опубліковано.`
