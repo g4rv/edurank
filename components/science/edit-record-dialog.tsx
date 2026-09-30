@@ -4,9 +4,12 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useWatch, type FieldValues, type Resolver } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { Pencil } from 'lucide-react';
+import { Pencil, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
-import { updateWorkEvidence } from '@/app/(dashboard)/science-plan/record-actions';
+import {
+  resubmitScienceWork,
+  updateWorkEvidence,
+} from '@/app/(dashboard)/science-plan/record-actions';
 import { attempt } from '@/lib/science/attempt';
 import { linkLabel } from '@/lib/science/evidence-rule';
 import { Button } from '@/components/aurora/ui/button';
@@ -55,6 +58,14 @@ import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
  *
  * Offered only where `canEdit` says so — whoever entered the work. The server
  * checks the same thing again.
+ *
+ * **`resubmit` turns it into «Виправити і надіслати на повторну перевірку»**
+ * (owner, 2026-09-30) — the author's one step on a DECLINED work. The same form,
+ * opened by a wrench button that says what pressing it does, and saving it both
+ * writes the correction and sends the work back (`resubmitScienceWork`), so the
+ * author is never left with a fixed work that still counts for nobody. The
+ * file and the co-authors have their own buttons on the record: change those
+ * first when they are what the reason names.
  */
 export function EditRecordDialog({
   workId,
@@ -66,7 +77,13 @@ export function EditRecordDialog({
   academicYear,
   lastExecutionMonth,
   label,
+  resubmit = false,
+  declineReason = null,
 }: {
+  /** The work is DECLINED: saving also sends it back for review. */
+  resubmit?: boolean;
+  /** Why ННВ declined it, shown above the form. */
+  declineReason?: string | null;
   workId: string;
   /** The catalogue row this work belongs to — its fields and its scoring rule. */
   type: PlanWorkType;
@@ -87,10 +104,17 @@ export function EditRecordDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label={`Редагувати «${label}»`}>
-          <Pencil className="size-3.5" />
-          Редагувати
-        </Button>
+        {resubmit ? (
+          <Button size="sm" aria-label={`Виправити і надіслати на повторну перевірку «${label}»`}>
+            <Wrench className="size-4" />
+            Виправити і надіслати на повторну перевірку
+          </Button>
+        ) : (
+          <Button variant="ghost" size="sm" aria-label={`Редагувати «${label}»`}>
+            <Pencil className="size-3.5" />
+            Редагувати
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent
@@ -99,9 +123,23 @@ export function EditRecordDialog({
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Редагувати роботу</DialogTitle>
+          <DialogTitle>
+            {resubmit ? 'Виправити і надіслати на повторну перевірку' : 'Редагувати роботу'}
+          </DialogTitle>
           <DialogDescription>
-            Години перераховуються з цих даних. Зміни побачать і співавтори.
+            {resubmit ? (
+              <>
+                {declineReason && (
+                  <>
+                    Причина відхилення: <span className="font-medium">{declineReason}</span>.{' '}
+                  </>
+                )}
+                Виправте дані, а після збереження робота піде на повторну перевірку. Файл і
+                співавторів змінюйте кнопками під записом — до збереження.
+              </>
+            ) : (
+              'Години перераховуються з цих даних. Зміни побачать і співавтори.'
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -118,6 +156,7 @@ export function EditRecordDialog({
             startedMonth={startedMonth}
             academicYear={academicYear}
             lastExecutionMonth={lastExecutionMonth}
+            resubmit={resubmit}
             onDone={() => setOpen(false)}
           />
         )}
@@ -135,8 +174,10 @@ function EditForm({
   startedMonth,
   academicYear,
   lastExecutionMonth,
+  resubmit,
   onDone,
 }: {
+  resubmit: boolean;
   workId: string;
   type: PlanWorkType;
   evidence: unknown;
@@ -221,7 +262,20 @@ function EditForm({
         setProblem(result.error);
         return;
       }
-      toast.success('Роботу оновлено');
+      if (resubmit) {
+        // The correction is saved; sending it back is the second half. If that
+        // is refused (the proof is still missing) the person is told here, with
+        // what they typed already stored.
+        const sent = await attempt(() => resubmitScienceWork(workId));
+        if ('error' in sent) {
+          router.refresh();
+          setProblem(sent.error);
+          return;
+        }
+        toast.success('Роботу виправлено й надіслано на повторну перевірку');
+      } else {
+        toast.success('Роботу оновлено');
+      }
       router.refresh();
       onDone();
     });
@@ -315,7 +369,13 @@ function EditForm({
             }
             loading={isPending}
           >
-            {isPending ? 'Збереження…' : 'Зберегти'}
+            {isPending
+              ? resubmit
+                ? 'Надсилання…'
+                : 'Збереження…'
+              : resubmit
+                ? 'Виправити і надіслати'
+                : 'Зберегти'}
           </Button>
         </DialogFooter>
       </form>
