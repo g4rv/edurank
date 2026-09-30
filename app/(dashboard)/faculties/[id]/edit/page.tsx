@@ -44,8 +44,9 @@ export default async function EditFacultyPage({ params }: { params: Promise<{ id
     db.department.findMany({ select: { headId: true }, where: { headId: { not: null } } }),
     db.staff.findMany({
       // Nobody archived can be picked as a head or a dean — they are off the
-      // roster, and an archived person cannot even sign in.
-      where: ON_ROSTER,
+      // roster, and an archived person cannot even sign in. Nor can a
+      // non-НПП: декан is an НПП's post.
+      where: { ...ON_ROSTER, isNpp: true },
       select: { id: true, lastName: true, firstName: true, patronymic: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     }),

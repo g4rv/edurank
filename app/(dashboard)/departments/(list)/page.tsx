@@ -62,7 +62,9 @@ export default async function DepartmentsPage({
           db.faculty.findMany({ select: { deanId: true }, where: { deanId: { not: null } } }),
           db.department.findMany({ select: { headId: true }, where: { headId: { not: null } } }),
           db.staff.findMany({
-            where: ON_ROSTER,
+            // A завідувач is an НПП's post — an administrative person on the
+            // roster is not a candidate for it.
+            where: { ...ON_ROSTER, isNpp: true },
             select: { id: true, lastName: true, firstName: true, patronymic: true },
             orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
           }),
