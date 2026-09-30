@@ -5,7 +5,6 @@ import { Card, EmptyState } from '@/components/aurora/ui/card';
 import { formatHours } from '@/lib/science/hours';
 import type { SciencePlanRecordDetail } from '@/lib/queries/get-science-plan';
 import { DeleteRecordButton } from '@/components/science/delete-record-button';
-import { ResubmitWorkButton } from '@/components/science/resubmit-work-button';
 import { DeleteFileButton } from '@/components/science/delete-file-button';
 import { ReplaceFileDialog } from '@/components/science/replace-file-dialog';
 import { FileViewButton } from '@/components/science/file-view-button';
@@ -212,19 +211,21 @@ export function RecordList({
                           work's, still cannot be edited. */}
                       {(!declined || record.workDeclined) && record.canEdit && (
                         <div className="mt-1 -ml-2 flex flex-wrap items-center gap-1">
-                          {record.canEdit && workTypeById.has(record.workTypeId) && (
-                            <EditRecordDialog
-                              workId={record.workId}
-                              type={workTypeById.get(record.workTypeId)!}
-                              evidence={record.evidence}
-                              link={record.link}
-                              executedMonth={record.executedMonth}
-                              startedMonth={record.startedMonth}
-                              academicYear={academicYear}
-                              lastExecutionMonth={lastExecutionMonth}
-                              label={record.summary}
-                            />
-                          )}
+                          {record.canEdit &&
+                            !record.workDeclined &&
+                            workTypeById.has(record.workTypeId) && (
+                              <EditRecordDialog
+                                workId={record.workId}
+                                type={workTypeById.get(record.workTypeId)!}
+                                evidence={record.evidence}
+                                link={record.link}
+                                executedMonth={record.executedMonth}
+                                startedMonth={record.startedMonth}
+                                academicYear={academicYear}
+                                lastExecutionMonth={lastExecutionMonth}
+                                label={record.summary}
+                              />
+                            )}
                           {/* On every SHARED work — also one nobody shares yet: how a
                               co-author is added later, since nobody can add
                               themselves. An INDIVIDUAL work has no pool. */}
@@ -268,10 +269,25 @@ export function RecordList({
                             <>
                               <p>
                                 Години не зараховуються ні вам, ні співавторам, доки роботу не
-                                виправлено. Змініть посилання, файл чи співавторів — залежно від
-                                причини, — а потім надішліть роботу на повторну перевірку.
+                                виправлено. Якщо причина — файл чи співавтори, змініть їх кнопками
+                                вище, а потім виправте дані й надішліть роботу на повторну
+                                перевірку.
                               </p>
-                              <ResubmitWorkButton workId={record.workId} />
+                              {workTypeById.has(record.workTypeId) && (
+                                <EditRecordDialog
+                                  resubmit
+                                  declineReason={record.removedReason}
+                                  workId={record.workId}
+                                  type={workTypeById.get(record.workTypeId)!}
+                                  evidence={record.evidence}
+                                  link={record.link}
+                                  executedMonth={record.executedMonth}
+                                  startedMonth={record.startedMonth}
+                                  academicYear={academicYear}
+                                  lastExecutionMonth={lastExecutionMonth}
+                                  label={record.summary}
+                                />
+                              )}
                             </>
                           ) : (
                             <p>
