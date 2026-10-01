@@ -131,7 +131,10 @@ export function EditRecordDialog({
               <>
                 {declineReason && (
                   <>
-                    Причина відхилення: <span className="font-medium">{declineReason}</span>.{' '}
+                    Причина відхилення: <span className="font-medium">{declineReason}</span>
+                    {/* ННВ usually ends the reason with a full stop already —
+                        adding another printed «статтю..». */}
+                    {/[.!?…]$/.test(declineReason.trim()) ? '' : '.'}{' '}
                   </>
                 )}
                 Виправте дані, а після збереження робота піде на повторну перевірку. Файл і
