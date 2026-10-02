@@ -12,9 +12,20 @@ import { cn } from '@/lib/utils';
  */
 export function LinkTabs({
   tabs,
+  outlined = false,
   className,
 }: {
   tabs: readonly { href: string; label: string; active: boolean; count?: number }[];
+  /**
+   * Draw each INACTIVE tab as an outlined button, not bare text (owner,
+   * 2026-10-02). For a bar whose labels are long names — the сумісник's two
+   * кафедри — where a borderless «Кафедра політології та журналістики» read
+   * as a caption, not as the other choice. Short labels («Кафедри / Штат»)
+   * read as tabs without it. A border on the same white, never a darker fill
+   * (§1's separation rule); the active tab carries a transparent border so
+   * both are one size.
+   */
+  outlined?: boolean;
   className?: string;
 }) {
   return (
@@ -26,9 +37,13 @@ export function LinkTabs({
           aria-current={tab.active ? 'page' : undefined}
           className={cn(
             'flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors',
+            outlined && 'border',
             tab.active
-              ? 'bg-brand text-brand-foreground shadow-sm'
-              : 'text-foreground hover:bg-brand/10 hover:text-brand-strong'
+              ? cn('bg-brand text-brand-foreground shadow-sm', outlined && 'border-transparent')
+              : cn(
+                  'text-foreground hover:bg-brand/10 hover:text-brand-strong',
+                  outlined && 'border-border bg-card shadow-xs hover:border-brand/40'
+                )
           )}
         >
           {tab.label}

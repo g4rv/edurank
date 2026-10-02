@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LinkTabs } from '@/components/aurora/ui/link-tabs';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { cn } from '@/lib/utils';
@@ -257,10 +257,12 @@ export function PlanView({
 }
 
 /**
- * Two links styled as `StaffTabs`'s own tab bar, not a dropdown — there are at
- * most two кафедри a person plans on (D6), so this is a choice between two,
- * not a list. `bg-card` on the wash, not a darker fill (§1's separation rule),
- * and the active one takes `--brand` (§3: it marks the active tab).
+ * A tab bar of links, not a dropdown — there are at most two кафедри a person
+ * plans on (D6), so this is a choice between two, not a list.
+ *
+ * **Labelled, and the other кафедра outlined** (owner, 2026-10-02). With no
+ * label and a borderless inactive tab, the second кафедра's long name read as
+ * plain text beside a blue one — nobody could tell it was the other plan.
  */
 function DepartmentSwitcher({
   departments,
@@ -272,27 +274,18 @@ function DepartmentSwitcher({
   tab: PlanTab;
 }) {
   return (
-    <div className="flex w-fit gap-1 rounded-lg border bg-card p-1 shadow-xs">
-      {departments.map((d) => {
-        const active = d.id === currentDepartmentId;
-        return (
-          <Link
-            key={d.id}
-            // The tab is carried across, or switching кафедра from «Виконано»
-            // would silently drop somebody back onto «План».
-            href={`/science-plan?dept=${d.id}${tab === 'done' ? '&tab=done' : ''}`}
-            aria-current={active ? 'page' : undefined}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              active
-                ? 'bg-brand text-brand-foreground shadow-sm'
-                : 'text-foreground hover:bg-brand/10 hover:text-brand-strong'
-            )}
-          >
-            {d.name}
-          </Link>
-        );
-      })}
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-sm text-foreground-soft">Оберіть кафедру:</span>
+      <LinkTabs
+        outlined
+        tabs={departments.map((d) => ({
+          // The tab is carried across, or switching кафедра from «Виконано»
+          // would silently drop somebody back onto «План».
+          href: `/science-plan?dept=${d.id}${tab === 'done' ? '&tab=done' : ''}`,
+          label: d.name,
+          active: d.id === currentDepartmentId,
+        }))}
+      />
     </div>
   );
 }
