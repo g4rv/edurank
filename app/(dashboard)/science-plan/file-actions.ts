@@ -9,7 +9,8 @@ import { logError } from '@/lib/log';
 import { canOverseeScience } from '@/lib/science/oversight';
 import { objectKeyFor, presignGet, presignPut } from '@/lib/science/r2';
 import { fileProblem } from '@/lib/science/file-checks';
-import { evidenceProblem, FILE_NOT_ALLOWED } from '@/lib/science/evidence-rule';
+import { doiProof, evidenceProblem, FILE_NOT_ALLOWED } from '@/lib/science/evidence-rule';
+import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import {
   DUPLICATE_FILE_MESSAGE,
   isDuplicateFileViolation,
@@ -329,7 +330,8 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
           templateId: true,
           createdById: true,
           link: true,
-          workType: { select: { linkRule: true, fileRule: true } },
+          evidence: true,
+          workType: { select: { linkRule: true, fileRule: true, evidenceFields: true } },
           _count: { select: { files: true } },
         },
       },
@@ -349,6 +351,10 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
     fileRule: file.work.workType.fileRule,
     link: file.work.link,
     fileCount: file.work._count.files - 1,
+    doi: doiProof(
+      file.work.workType.evidenceFields as unknown as EvidenceField[],
+      file.work.evidence
+    ),
   });
   if (fault) {
     return { error: `${fault}: це єдине підтвердження цього запису — скористайтеся «Замінити»` };

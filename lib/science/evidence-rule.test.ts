@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { evidenceProblem, linkHint, linkLabel, proofRulesProblem } from './evidence-rule';
+import {
+  DOI_IN_LINK,
+  doiProof,
+  evidenceProblem,
+  linkHint,
+  linkLabel,
+  linkProblem,
+  proofRulesProblem,
+} from './evidence-rule';
 
 const check = (over: Partial<Parameters<typeof evidenceProblem>[0]> = {}) =>
   evidenceProblem({
@@ -78,16 +86,13 @@ describe('evidenceProblem — a NONE side proves nothing (D47)', () => {
   });
 
   it('an optional link beside a NONE file is in practice the only proof', () => {
-    expect(check({ fileRule: 'NONE', fileCount: 1 })).toBe(
-      'Додайте посилання або файл підтвердження'
-    );
+    // Names only what this вид роботи offers — there is no file box to fill.
+    expect(check({ fileRule: 'NONE', fileCount: 1 })).toBe('Додайте посилання');
     expect(check({ fileRule: 'NONE', link: LINK })).toBeNull();
   });
 
   it('a NONE link never satisfies «one of the two»', () => {
-    expect(check({ linkRule: 'NONE', link: LINK })).toBe(
-      'Додайте посилання або файл підтвердження'
-    );
+    expect(check({ linkRule: 'NONE', link: LINK })).toBe('Додайте файл підтвердження');
     expect(check({ linkRule: 'NONE', fileCount: 1 })).toBeNull();
   });
 });
@@ -107,9 +112,7 @@ describe('no proof needed — both NONE (owner, 2026-09-24)', () => {
   });
 
   it('still refuses «neither» wherever one of the two is offered (D27)', () => {
-    expect(check({ linkRule: 'OPTIONAL', fileRule: 'NONE' })).toBe(
-      'Додайте посилання або файл підтвердження'
-    );
+    expect(check({ linkRule: 'OPTIONAL', fileRule: 'NONE' })).toBe('Додайте посилання');
   });
 });
 
@@ -137,5 +140,78 @@ describe('what the link box is called', () => {
       'Свідоцтво — посилання на сторінку, де це опубліковано.'
     );
     expect(linkHint({ fileRule: 'OPTIONAL', reportingForm: null })).toMatch(/DOI/);
+  });
+});
+
+// The стаття: link OR DOI, at least one (owner, 2026-10-02).
+describe('a DOI is a third proof', () => {
+  const article = (over: Partial<Parameters<typeof evidenceProblem>[0]> = {}) =>
+    check({ linkRule: 'OPTIONAL', fileRule: 'NONE', doi: null, ...over });
+
+  it('accepts a DOI alone', () => {
+    expect(article({ doi: '10.31392/xyz' })).toBeNull();
+  });
+
+  it('accepts a link alone', () => {
+    expect(article({ link: 'https://journal.example/a' })).toBeNull();
+  });
+
+  it('refuses neither, and names the two it offers', () => {
+    expect(article()).toBe('Додайте посилання або DOI');
+  });
+
+  it('names all three where a file is offered too', () => {
+    expect(check({ doi: null })).toBe('Додайте посилання, DOI або файл підтвердження');
+  });
+
+  it('does not stand in for a REQUIRED link', () => {
+    expect(article({ linkRule: 'REQUIRED', doi: '10.31392/xyz' })).toBe(
+      'Для цього виду роботи потрібне посилання'
+    );
+  });
+
+  it('is not offered where the type has no DOI field', () => {
+    expect(check({ fileRule: 'NONE' })).toBe('Додайте посилання');
+  });
+});
+
+describe('doiProof', () => {
+  const fields = [
+    { kind: 'text', name: 'title' },
+    { kind: 'doi', name: 'doi' },
+  ];
+
+  it('reads the DOI field, trimmed', () => {
+    expect(doiProof(fields, { doi: ' 10.31392/xyz ' })).toBe('10.31392/xyz');
+  });
+
+  it('is null when the field is empty, undefined when the type has none', () => {
+    expect(doiProof(fields, { doi: '  ' })).toBeNull();
+    expect(doiProof(fields, {})).toBeNull();
+    expect(doiProof([{ kind: 'text', name: 'title' }], { doi: '10.1/x' })).toBeUndefined();
+  });
+});
+
+describe('linkProblem — a DOI belongs in the DOI field', () => {
+  it('refuses a doi.org link, a doi: prefix and a bare DOI', () => {
+    expect(linkProblem('https://doi.org/10.31392/xyz', true)).toBe(DOI_IN_LINK);
+    expect(linkProblem('doi:10.31392/xyz', true)).toBe(DOI_IN_LINK);
+    expect(linkProblem('10.31392/xyz', true)).toBe(DOI_IN_LINK);
+  });
+
+  it('accepts a journal page, even one with «doi» in its path', () => {
+    expect(linkProblem('https://journal.example/doi/10.31392/xyz', true)).toBeNull();
+  });
+
+  it('accepts anything on a type with no DOI field', () => {
+    expect(linkProblem('https://doi.org/10.31392/xyz', false)).toBeNull();
+  });
+});
+
+describe('linkHint on a type with a DOI field', () => {
+  it('says the link may be skipped when the DOI is there', () => {
+    expect(linkHint({ fileRule: 'NONE', fields: [{ kind: 'doi' }] })).toBe(
+      'Сторінка, де опубліковано роботу. Можна не вказувати, якщо нижче є DOI.'
+    );
   });
 });

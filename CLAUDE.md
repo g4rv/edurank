@@ -586,10 +586,16 @@ Easy to get wrong:
 - **Link and file are two separate rules per вид роботи** (D47,
   `ScienceWorkType.linkRule` / `fileRule`: REQUIRED / OPTIONAL / NONE, set by
   ADMIN). Only when neither is REQUIRED must one of the two be given; a proof
-  on a NONE side proves nothing and is refused on save. **Six types are link
+  on a NONE side proves nothing and is refused on save. **Five types are link
   REQUIRED, file NONE** (owner, 2026-09-30, after reading the наказ's «Форма
-  звітності»): the стаття, the дисертація, both п.3 books and the two п.10
-  editorial types. Every other type is link OR file, at least one — a
+  звітності»): the дисертація, both п.3 books and the two п.10 editorial
+  types. **The стаття is link OR DOI, at least one** (owner, 2026-10-02): link
+  OPTIONAL, file NONE, and a filled DOI counts as a proof (`doiProof` in
+  `lib/science/evidence-rule.ts`). The DOI stays its own field and the link
+  box REFUSES one (`linkProblem`) — pasted as a link, the same DOI keyed as two
+  works and the article went in twice. `pnpm db:science-link-isbn` carries the
+  rule to existing databases and moves a DOI already saved in a link box into
+  the DOI field. Every other type is link OR file, at least one — a
   certificate, order or review is a document, and a person holds it as a PDF as
   often as a URL. `requiresFile` no longer exists. **Both NONE = no
   proof needed** (D53, owner 2026-09-24): п.12 «Керівництво аспірантами» is

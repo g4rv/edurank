@@ -140,6 +140,32 @@ describe('workKey — the record link as an identity', () => {
     expect(withLink({ link: '   ' })).toBe('t:стаття про освіту');
     expect(withLink({})).toBe('t:стаття про освіту');
   });
+
+  // The same article got in twice (owner, 2026-10-02): one author typed the
+  // DOI into «DOI», the other pasted its doi.org address into «Посилання на
+  // роботу», and the two keys — `doi:` and `url:doi.org/…` — never met.
+  it('keys a doi.org link as the DOI it is, so it meets the same DOI typed into «DOI»', () => {
+    const byField = withLink({ evidence: { doi: '10.31392/XYZ', title: 'Стаття' } });
+    expect(withLink({ link: 'https://doi.org/10.31392/xyz' })).toBe(byField);
+    expect(withLink({ link: 'https://dx.doi.org/10.31392/XYZ' })).toBe(byField);
+    expect(withLink({ link: 'doi:10.31392/xyz' })).toBe(byField);
+  });
+
+  it('keys a bare DOI pasted into the link box as that DOI', () => {
+    expect(withLink({ link: '10.31392/XYZ' })).toBe('doi:10.31392/xyz');
+  });
+
+  it('leaves an ordinary journal address alone', () => {
+    expect(withLink({ link: 'https://journal.example/doi/10.31392/xyz' })).toBe(
+      'url:journal.example/doi/10.31392/xyz'
+    );
+  });
+});
+
+describe('workKey — a DOI in a `url` evidence field', () => {
+  it('keys it as the DOI, for the same reason as the record link', () => {
+    expect(key({ evidence: { url: 'https://doi.org/10.31392/XYZ' } })).toBe('doi:10.31392/xyz');
+  });
 });
 
 describe('workKey — a ПІБ in three boxes is ONE identity', () => {

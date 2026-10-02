@@ -69,7 +69,8 @@ export interface ScienceWorkTypeDef {
   /** Field names, in priority order, that build the work's identity in Stage 2. */
   identityFields: readonly string[];
   /** D47 — how the link and the file prove this type. Both default to
-   *  OPTIONAL; the eight D39 types are link REQUIRED, file NONE. */
+   *  OPTIONAL; the link-only types are link REQUIRED, file NONE, and the
+   *  стаття is link OPTIONAL, file NONE — link OR DOI (2026-10-02). */
   linkRule?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
   fileRule?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
   maxPerYear?: number;
@@ -288,7 +289,9 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Екземпляр видання (зараховується після виходу в світ)',
     reuse: 'ONCE',
     sharing: 'SHARED',
-    linkRule: 'REQUIRED',
+    // Link OR DOI, at least one (owner, 2026-10-02): the DOI field below is a
+    // proof of its own (`doiProof`), so the link is no longer required.
+    linkRule: 'OPTIONAL',
     fileRule: 'NONE',
     // The record's own link is the article's address — it used to be asked for a
     // SECOND time here as «Посилання на статтю» (2026-09-30). `link` reads it.

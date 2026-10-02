@@ -24,9 +24,44 @@
  * paper is that people «tend to photoshop their certificates and print them on
  * paper». A typed name is weaker than the paper it replaces — and unlike
  * paper, a file can at least be hashed, kept, and looked at again next year.
+ *
+ * **A DOI is a third proof** (owner, 2026-10-02). On a вид роботи whose form
+ * has a DOI field — the стаття — a filled DOI proves the work as well as a link
+ * does, so «at least one» there means link OR DOI (OR file, where offered). The
+ * DOI stays its own field and the link box refuses one (`linkProblem`): pasted
+ * as a link, the same DOI keyed as two different works.
  */
 
+import { isValidDoi } from '@/lib/doi';
+
 export type ProofRule = 'REQUIRED' | 'OPTIONAL' | 'NONE';
+
+/** Shown when a DOI is typed into the link box of a вид роботи that has a DOI field. */
+export const DOI_IN_LINK =
+  'Це DOI — вкажіть його в полі «DOI», а тут — посилання на сторінку роботи';
+
+/**
+ * The DOI a record carries, read from its evidence — `undefined` when the
+ * вид роботи has no DOI field at all, so `evidenceProblem` knows not to offer it.
+ */
+export function doiProof(
+  fields: readonly { kind: string; name: string }[],
+  evidence: unknown
+): string | null | undefined {
+  // A JSON column read straight off a row — anything but a list means no fields.
+  const field = Array.isArray(fields) ? fields.find((f) => f.kind === 'doi') : undefined;
+  if (!field) return undefined;
+  const value =
+    evidence && typeof evidence === 'object'
+      ? (evidence as Record<string, unknown>)[field.name]
+      : undefined;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+/** A DOI in the link box, on a type that asks for the DOI separately. */
+export function linkProblem(link: string | null, doiOffered: boolean): string | null {
+  return doiOffered && link && isValidDoi(link) ? DOI_IN_LINK : null;
+}
 
 /** Shown when a file reaches a type whose file rule is NONE. */
 export const FILE_NOT_ALLOWED = 'Для цього виду роботи додається лише посилання, без файлу';
@@ -39,6 +74,9 @@ export function evidenceProblem(input: {
   fileRule: ProofRule;
   link: string | null;
   fileCount: number;
+  /** From `doiProof`: the record's DOI, `null` when empty, `undefined` when
+   *  the вид роботи has no DOI field. */
+  doi?: string | null;
 }): string | null {
   // **Both NONE = no proof needed** (owner, 2026-09-24). A вид роботи an
   // ADMIN has set to neither link nor file — «Керівництво аспірантами» first —
@@ -60,8 +98,19 @@ export function evidenceProblem(input: {
   if (input.linkRule === 'REQUIRED' && !hasLink) {
     return 'Для цього виду роботи потрібне посилання';
   }
-  if (!hasLink && !hasFile) {
-    return 'Додайте посилання або файл підтвердження';
+  const hasDoi = Boolean(input.doi);
+  if (!hasLink && !hasFile && !hasDoi) {
+    // Name exactly the proofs this вид роботи offers.
+    const offered = [
+      input.linkRule !== 'NONE' && 'посилання',
+      input.doi !== undefined && 'DOI',
+      input.fileRule !== 'NONE' && 'файл підтвердження',
+    ].filter((x): x is string => Boolean(x));
+    const list =
+      offered.length > 1
+        ? `${offered.slice(0, -1).join(', ')} або ${offered[offered.length - 1]}`
+        : offered[0];
+    return `Додайте ${list}`;
   }
   return null;
 }
@@ -90,7 +139,15 @@ export function linkLabel(fileRule: ProofRule): string {
 }
 
 /** The line under the link box — from the наказ's «Форма звітності» where a file may also be given. */
-export function linkHint(type: { fileRule?: ProofRule; reportingForm?: string | null }): string {
+export function linkHint(type: {
+  fileRule?: ProofRule;
+  reportingForm?: string | null;
+  fields?: readonly { kind: string }[];
+}): string {
+  // The стаття: link OR DOI, at least one (owner, 2026-10-02).
+  if (type.fields?.some((f) => f.kind === 'doi')) {
+    return 'Сторінка, де опубліковано роботу. Можна не вказувати, якщо нижче є DOI.';
+  }
   if (type.fileRule === 'NONE') {
     return 'Джерело, яке підтверджує виконання роботи.';
   }

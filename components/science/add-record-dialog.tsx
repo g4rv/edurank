@@ -38,7 +38,13 @@ import { CoauthorsField } from '@/components/science/coauthors-field';
 import { ExistingWorkPanel } from '@/components/science/existing-work-panel';
 import type { CoauthorCandidate } from '@/lib/queries/list-coauthor-candidates';
 import { unitNote, type PlanWorkType } from '@/components/science/add-plan-row-dialog';
-import { evidenceProblem, linkHint, linkLabel } from '@/lib/science/evidence-rule';
+import {
+  doiProof,
+  evidenceProblem,
+  linkHint,
+  linkLabel,
+  linkProblem,
+} from '@/lib/science/evidence-rule';
 import { EvidenceFileField, type StagedFile } from '@/components/science/evidence-file-field';
 import { DialogProblem } from '@/components/science/dialog-problem';
 import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
@@ -274,14 +280,20 @@ function RecordForm({
             authorStaffId: '',
             shares: parsedCoauthors.shares,
           });
+  // The стаття: link OR DOI, and never the DOI pasted as the link (owner,
+  // 2026-10-02) — the same two checks `saveRecord` runs.
+  const doi = doiProof(fields, watched);
+  const linkFault = linkProblem(link.trim() || null, doi !== undefined);
   const complete =
     !!type &&
     parsedPreview.success &&
+    linkFault === null &&
     evidenceProblem({
       linkRule,
       fileRule,
       link: link.trim() || null,
       fileCount: file ? 1 : 0,
+      doi,
     }) === null &&
     coauthorProblem === null;
 
@@ -393,6 +405,7 @@ function RecordForm({
                 label={linkLabel(fileRule)}
                 required={linkRule === 'REQUIRED'}
                 description={linkHint(type)}
+                error={linkFault ? { message: linkFault } : undefined}
               >
                 <Input
                   id="record-link"

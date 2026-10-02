@@ -18,7 +18,13 @@ import {
   type WorkRef,
 } from '@/lib/science/coauthor-store';
 import { authorShare, coauthorsProblem, type CoauthorShare } from '@/lib/science/coauthors';
-import { evidenceProblem, FILE_NOT_ALLOWED, LINK_NOT_ALLOWED } from '@/lib/science/evidence-rule';
+import {
+  doiProof,
+  evidenceProblem,
+  FILE_NOT_ALLOWED,
+  LINK_NOT_ALLOWED,
+  linkProblem,
+} from '@/lib/science/evidence-rule';
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { toHundredths } from '@/lib/stake/units';
 import { schemaForFields } from '@/validations/activity-evidence';
@@ -440,12 +446,18 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     return { error: monthFault };
   }
 
-  const evidenceFault = evidenceProblem({
-    linkRule: type.linkRule,
-    fileRule: type.fileRule,
-    link,
-    fileCount: verifiedFile ? 1 : 0,
-  });
+  // The стаття's DOI is a proof of its own, and never belongs in the link
+  // box (owner, 2026-10-02) — see `doiProof` / `linkProblem`.
+  const doi = doiProof(fields, parsed.data);
+  const evidenceFault =
+    linkProblem(link, doi !== undefined) ??
+    evidenceProblem({
+      linkRule: type.linkRule,
+      fileRule: type.fileRule,
+      link,
+      fileCount: verifiedFile ? 1 : 0,
+      doi,
+    });
   if (evidenceFault) {
     await dropFile();
     return { error: evidenceFault };
@@ -762,12 +774,16 @@ export async function updateWorkEvidence(input: {
     const startFault = startedMonthProblem({ started: nextStart, finished: nextMonth, ...window });
     if (startFault) return { error: startFault };
   }
-  const evidenceFault = evidenceProblem({
-    linkRule: type.linkRule,
-    fileRule: type.fileRule,
-    link,
-    fileCount: work._count.files,
-  });
+  const doi = doiProof(fields, parsed.data);
+  const evidenceFault =
+    linkProblem(link, doi !== undefined) ??
+    evidenceProblem({
+      linkRule: type.linkRule,
+      fileRule: type.fileRule,
+      link,
+      fileCount: work._count.files,
+      doi,
+    });
   if (evidenceFault) return { error: evidenceFault };
 
   const key = workKey({
@@ -1050,7 +1066,8 @@ export async function resubmitScienceWork(
       createdById: true,
       declinedAt: true,
       link: true,
-      workType: { select: { label: true, linkRule: true, fileRule: true } },
+      evidence: true,
+      workType: { select: { label: true, linkRule: true, fileRule: true, evidenceFields: true } },
       _count: { select: { files: true } },
     },
   });
@@ -1065,6 +1082,7 @@ export async function resubmitScienceWork(
     fileRule: work.workType.fileRule,
     link: work.link,
     fileCount: work._count.files,
+    doi: doiProof(work.workType.evidenceFields as unknown as EvidenceField[], work.evidence),
   });
   if (fault) return { error: fault };
 

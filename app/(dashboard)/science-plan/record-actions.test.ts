@@ -46,6 +46,7 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
+import { DOI_IN_LINK } from '@/lib/science/evidence-rule';
 import { safeDeleteObject, verifyUploadedObject } from '@/lib/science/file-intake';
 import {
   deleteRecord,
@@ -149,7 +150,7 @@ const base = {
   departmentId: 'd1',
   workTypeId: 'wt1',
   evidence: { title: 'Стаття про освіту', option: 'scopus', credits: 10 },
-  link: 'https://doi.org/10.31392/xyz',
+  link: 'https://journal.example/article/xyz',
   // D41: this month, under the frozen clock below.
   executedMonth: '2026-10',
 };
@@ -234,7 +235,7 @@ describe('saveRecord — the guards', () => {
 describe('saveRecord — evidence', () => {
   it('refuses a record with neither link nor file (D27)', async () => {
     expect(await saveRecord({ ...base, link: undefined })).toEqual({
-      error: 'Додайте посилання або файл підтвердження',
+      error: 'Додайте посилання, DOI або файл підтвердження',
     });
   });
 
@@ -405,7 +406,7 @@ describe('saveRecord — evidence by FILE (D27)', () => {
 
   it('still refuses a record with NEITHER link nor file', async () => {
     expect(await saveRecord({ ...base, link: undefined })).toEqual({
-      error: 'Додайте посилання або файл підтвердження',
+      error: 'Додайте посилання, DOI або файл підтвердження',
     });
   });
 
@@ -475,10 +476,10 @@ describe('saveRecord — creating the work', () => {
   });
 
   it('keys on the DOI when one is typed, and on the назва when none is', async () => {
-    // The «Посилання» box is a separate column that PROVES the work (D27); it
-    // is the evidence FIELDS that identify it. A person who pastes a doi.org
-    // link into «Посилання» but leaves the DOI box empty is keyed by title,
-    // which is the weaker key and the reason the DOI box exists.
+    // The «Посилання» box is a separate column that PROVES the work (D27); on
+    // this fixture it is the evidence FIELDS that identify it, so a journal
+    // link with the DOI box empty is keyed by title — the weaker key, and the
+    // reason the DOI box exists.
     await saveRecord(base);
     expect((db.scienceWork.create as Mock).mock.calls[0][0].data.dedupKey).toBe(
       't:стаття про освіту'
@@ -892,7 +893,7 @@ describe('updateWorkEvidence — correcting a work', () => {
   it('refuses an edit that leaves the work with no evidence at all (D27)', async () => {
     expect(
       await updateWorkEvidence({ workId: 'w1', evidence: WORK.evidence, link: undefined })
-    ).toEqual({ error: 'Додайте посилання або файл підтвердження' });
+    ).toEqual({ error: 'Додайте посилання, DOI або файл підтвердження' });
   });
 
   it('refuses a work from a closed year', async () => {
@@ -1782,6 +1783,40 @@ describe('updateCoauthors — the one way a share changes (owner, 2026-09-30)', 
     await updateCoauthors({ workId: 'w1', coauthors: [] });
     const actions = (db.auditLog.create as Mock).mock.calls.map((c) => c[0].data.action);
     expect(actions).toEqual(['DELETE', 'UPDATE']);
+  });
+});
+
+describe('saveRecord — link OR DOI on the стаття (owner, 2026-10-02)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (db.staff.findUnique as Mock).mockResolvedValue(STAFF);
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue(ARTICLE);
+    (db.scienceWork.findUnique as Mock).mockResolvedValue(null);
+    (db.sciencePlan.findUnique as Mock).mockResolvedValue(LOCKED_PLAN);
+    (db.scienceRecord.count as Mock).mockResolvedValue(0);
+    (db.scienceWork.create as Mock).mockResolvedValue({ id: 'w1' });
+    (db.scienceRecord.create as Mock).mockResolvedValue({ id: 'r1' });
+    (db.$transaction as Mock).mockImplementation(async (fn: (t: unknown) => unknown) => fn(db));
+  });
+
+  it('refuses a DOI pasted into the link box — it belongs in «DOI»', async () => {
+    const result = await saveRecord({ ...base, link: 'https://doi.org/10.31392/xyz' });
+    expect(result).toEqual({ error: DOI_IN_LINK });
+    expect(db.scienceWork.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts a DOI with no link at all', async () => {
+    const result = await saveRecord({
+      ...base,
+      link: undefined,
+      evidence: { ...base.evidence, doi: '10.31392/XYZ' },
+    });
+    expect(result).toMatchObject({ ok: true });
+  });
+
+  it('refuses neither, naming the two it offers', async () => {
+    const result = await saveRecord({ ...base, link: undefined });
+    expect(result).toMatchObject({ error: expect.stringContaining('DOI') });
   });
 });
 
