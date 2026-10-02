@@ -405,7 +405,9 @@ Two people, two screens. ADMIN/проректор allocates pools across all 31 
 `/stakes`; the завідувач spreads one pool among their own people on `/stakes/[id]`,
 which is додаток 2 on screen. **A декан sees neither** (owner, 2026-09-24 — they
 used to read every grid of their faculty): both pages gate on `headOf`, and
-«Мій факультет» (`/my-faculty`) shows no fund and no ставка column.
+«Мій факультет» (`/my-faculty`) shows no fund. It DOES show the saved ставки
+(owner, 2026-10-02, reversing 2026-09-24): a total per кафедра on «Кафедри» and
+the Ставка column on each кафедра's page — read-only, the head's own split.
 
 Three facts shape every model, and all three are easy to lose:
 
@@ -447,9 +449,9 @@ Rules that are easy to get wrong:
   approve» of 2026-08-17). A confirmed claim pays a bonus out of a fund the завідувач
   then spends, so the head is not the one confirming it. A head still READS
   `/my-department/students` — the duplicate list is context for their own ставка
-  grid — and `canDecide` there is `isAdmin` alone. **A декан sees neither this page
-  nor the ставки** (owner, 2026-09-24): «Мій факультет» (`/my-faculty`) is
-  information about their кафедри and staff, and the page gates on `headOf`.
+  grid — and `canDecide` there is `isAdmin` alone. **A декан does not see this page**
+  (owner, 2026-09-24): it gates on `headOf`. Since 2026-10-02 a декан does see
+  the saved ставки on «Мій факультет», read-only.
 - **`StakeStatusBonus` is information, never money.** The grid shows what somebody's
   positions and recruited students add up to; the head still types the ставка.
 - **A person's Мін/Макс is per кафедра, not per person.** `StaffStakeLimits` carries
