@@ -43,7 +43,7 @@ export interface SubmittableType {
 }
 
 /**
- * «Додати досягнення» — a centred dialog, opened from the page header.
+ * «Додати показник» — a centred dialog, opened from the page header.
  *
  * **It used to expand the page** (owner, 2026-09-11). A button revealed a card
  * that pushed the list of everything already submitted down the screen, so the
@@ -61,7 +61,16 @@ export interface SubmittableType {
  * The trigger lives in the header card beside the section title, so the action
  * is where the page says what it is, not floating above the list.
  */
-export function AddAchievementForm({ types: unsortedTypes }: { types: SubmittableType[] }) {
+export function AddAchievementForm({
+  types: unsortedTypes,
+  title,
+}: {
+  types: SubmittableType[];
+  /** The section's own name — «Розділ 2. Показники навчальної діяльності» —
+   *  as the dialog's title, so the form says WHERE it is adding (owner,
+   *  2026-10-02; it read «Нове досягнення» on every section). */
+  title: string;
+}) {
   const types = [...unsortedTypes].sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber));
   const [open, setOpen] = useState(false);
   const [typeId, setTypeId] = useState(types[0]?.id ?? '');
@@ -75,13 +84,13 @@ export function AddAchievementForm({ types: unsortedTypes }: { types: Submittabl
       <DialogTrigger asChild>
         <Button className="shrink-0">
           <Plus className="size-4" />
-          Додати досягнення
+          Додати показник
         </Button>
       </DialogTrigger>
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Нове досягнення</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             Оберіть показник, потім заповніть докази. Збережене зараховується одразу.
           </DialogDescription>
@@ -119,7 +128,7 @@ function TypePicker({
 }) {
   return (
     <div className="space-y-1">
-      <Label htmlFor="achievement-type">Показник</Label>
+      <Label htmlFor="achievement-type">Оберіть показник</Label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger id="achievement-type" className="w-full">
           <SelectValue />

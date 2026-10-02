@@ -23,7 +23,7 @@ export const RATING_CRUMBS: Crumb[] = [{ label: 'Особисте' }, { label: '
  * floating opposite it, so the first thing on screen was the one thing not
  * sitting on a surface.
  *
- * **The action lives here** (owner, 2026-09-11). «Додати досягнення» used to be
+ * **The action lives here** (owner, 2026-09-11). «Додати показник» used to be
  * a button above the list that expanded into a form and pushed the record down
  * the page. In the header it sits beside the title, and it opens a sheet
  * instead — see `AddAchievementForm`.
