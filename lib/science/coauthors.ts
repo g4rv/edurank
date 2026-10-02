@@ -16,6 +16,14 @@ import { parseStake } from '@/lib/stake/units';
  * This file is only the arithmetic and the sentences.
  */
 
+/**
+ * Only whoever entered a work deletes it (owner, 2026-10-02, reversing
+ * 2026-09-30's «a co-author withdraws their own record»). A co-author named by
+ * mistake is taken off by the author, in «Співавтори».
+ */
+export const COAUTHOR_CANNOT_DELETE =
+  'Видалити роботу може лише той, хто її додав. Якщо вас указали помилково, попросіть автора прибрати вас зі співавторів';
+
 export interface CoauthorShare {
   staffId: string;
   hoursHundredths: number;

@@ -523,8 +523,9 @@ Easy to get wrong:
   `ScienceCoauthorShare` (a reservation that counts against the pool the same
   way) which `lockPlan` turns into a record the moment they save the plan.
   Only the author (or ADMIN) changes the list afterwards, with
-  `updateCoauthors` — a co-author cannot move their own share, and withdrawing
-  a record returns its hours to the author. `@@unique([staffId, workId])` stops
+  `updateCoauthors` — a co-author cannot move their own share, nor delete
+  their record (owner, 2026-10-02): one named by mistake asks the author to
+  take them off. `@@unique([staffId, workId])` stops
   the same person holding a work twice. Every SUM over `hoursHundredths`
   filters `status: 'APPROVED'`, and every pool arithmetic counts reservations
   too (D20, ННВ/ADMIN decline a record with a reason, post-check not a gate).
@@ -552,10 +553,21 @@ Easy to get wrong:
   2026-09-30): every co-author's record, every reservation and its files. The
   co-authors' hours were the author's to give and nobody else can move them, and
   the work's `dedupKey` would block the article from ever being entered again;
-  `DeleteRecordButton` warns the author, by number, first. A co-author
-  withdrawing removes only their own record and their hours go back to the
-  author. (An INDIVIDUAL work goes with its owner for the same reason: D24
+  `DeleteRecordButton` warns the author, by number, first. **Only the author
+  deletes** (owner, 2026-10-02, reversing «a co-author withdraws their own
+  record»): a co-author has no bin and `deleteRecord` refuses them with
+  `COAUTHOR_CANNOT_DELETE`. (An INDIVIDUAL work goes with its owner for the same reason: D24
   prefixes its key with their `staffId`, so it guards nothing else.)
+- **A co-author may count their share in the NEXT навчальний рік** (D55,
+  owner 2026-10-02 — the boss's proposal, amending D30's «no splitting across
+  years»). Only a co-author, never the author; only on a SHARED work; only
+  while its year is open; and only when its date (the стаття's publication
+  date, otherwise the day it was entered) falls January–August of the year the
+  рік ends in — spring 2027 can go to 2027/2028, autumn 2026 cannot
+  (`deferralYear`, `lib/science/count-year.ts`). The share becomes a
+  `ScienceCoauthorShare` with `academicYear` set and turns into a record in
+  that year when the person saves its plan — so **a record's `templateId` may
+  differ from its work's**. Never re-entered next year.
 - **A decline is of the WORK, not of one record** (owner, 2026-09-30). The proof
   is shared, so when it is wrong nobody counts until it is fixed:
   `removeScienceRecord` switches off EVERY record of the work and stamps

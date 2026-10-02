@@ -6,7 +6,11 @@ import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
 import { groupByItem } from '@/lib/science/group-by-item';
 import type { PlanTarget } from '@/lib/science/target';
-import type { SciencePlanRecordDetail, SciencePlanRowDetail } from '@/lib/queries/get-science-plan';
+import type {
+  DeferredShareDetail,
+  SciencePlanRecordDetail,
+  SciencePlanRowDetail,
+} from '@/lib/queries/get-science-plan';
 import { AddPlanRowDialog, type PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import { AddRecordDialog } from '@/components/science/add-record-dialog';
 import { DeletePlanRowButton } from '@/components/science/delete-plan-row-button';
@@ -43,6 +47,7 @@ export function PlanView({
   tab,
   rows,
   records,
+  deferred,
   target,
   workTypes,
   lockedAt,
@@ -57,6 +62,8 @@ export function PlanView({
   tab: PlanTab;
   rows: SciencePlanRowDetail[];
   records: SciencePlanRecordDetail[];
+  /** Shares this person moved to the next навчальний рік. */
+  deferred: DeferredShareDetail[];
   target: PlanTarget;
   workTypes: PlanWorkType[];
   /** Submitted — the plan is fixed and recording has opened. */
@@ -150,6 +157,7 @@ export function PlanView({
       {tab === 'done' ? (
         <RecordList
           records={records}
+          deferred={deferred}
           workTypes={workTypes}
           academicYear={academicYear}
           lastExecutionMonth={lastExecutionMonth}

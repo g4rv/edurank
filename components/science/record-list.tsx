@@ -3,7 +3,8 @@ import { ExternalLink, FileText, Users } from 'lucide-react';
 import { Badge } from '@/components/aurora/ui/badge';
 import { Card, EmptyState } from '@/components/aurora/ui/card';
 import { formatHours } from '@/lib/science/hours';
-import type { SciencePlanRecordDetail } from '@/lib/queries/get-science-plan';
+import type { DeferredShareDetail, SciencePlanRecordDetail } from '@/lib/queries/get-science-plan';
+import { ShareYearButton } from '@/components/science/share-year-button';
 import { DeleteRecordButton } from '@/components/science/delete-record-button';
 import { DeleteFileButton } from '@/components/science/delete-file-button';
 import { ReplaceFileDialog } from '@/components/science/replace-file-dialog';
@@ -40,12 +41,15 @@ function formatFileSize(bytes: number): string {
  */
 export function RecordList({
   records,
+  deferred = [],
   workTypes,
   academicYear,
   lastExecutionMonth,
   coauthorCandidates,
 }: {
   records: SciencePlanRecordDetail[];
+  /** This person's shares of this year's works moved to the next year. */
+  deferred?: DeferredShareDetail[];
   /** The year's catalogue, for the «Редагувати» form to rebuild the work's own
    *  fields from. Keyed by id below. */
   workTypes: PlanWorkType[];
@@ -57,7 +61,7 @@ export function RecordList({
 }) {
   const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
 
-  if (records.length === 0) {
+  if (records.length === 0 && deferred.length === 0) {
     return <EmptyState>Ще немає записів про виконану роботу.</EmptyState>;
   }
 
@@ -153,7 +157,13 @@ export function RecordList({
                             {record.coAuthors
                               .map(
                                 (a) =>
-                                  `${a.name} — ${formatHours(a.hoursHundredths)} год${a.pending ? ' (чекає на план)' : ''}`
+                                  `${a.name} — ${formatHours(a.hoursHundredths)} год${
+                                    a.deferredTo
+                                      ? ` (перенесено на ${a.deferredTo})`
+                                      : a.pending
+                                        ? ' (чекає на план)'
+                                        : ''
+                                  }`
                               )
                               .join(', ')}
                           </span>
@@ -252,6 +262,21 @@ export function RecordList({
                         </div>
                       )}
 
+                      {/* A co-author picks the year their share counts in
+                          (owner, 2026-10-02). Never on the author's row. */}
+                      {record.deferrable && (
+                        <div className="mt-2">
+                          <ShareYearButton
+                            mode="defer"
+                            workId={record.workId}
+                            label={record.summary}
+                            hoursHundredths={record.hoursHundredths}
+                            targetYear={record.deferrable}
+                            currentYear={academicYear}
+                          />
+                        </div>
+                      )}
+
                       {declined && (
                         <p className="mt-1.5 text-sm text-error-strong">
                           {/* Kept on screen on purpose: a declined record is the one
@@ -319,12 +344,15 @@ export function RecordList({
                           </span>
                         )}
                       </span>
-                      <DeleteRecordButton
-                        recordId={record.id}
-                        label={record.summary}
-                        isAuthor={record.canEdit}
-                        coauthorCount={record.coAuthors.length}
-                      />
+                      {/* Only the author deletes, and it takes the whole work
+                          (owner, 2026-10-02) — a co-author has no bin. */}
+                      {record.canEdit && (
+                        <DeleteRecordButton
+                          recordId={record.id}
+                          label={record.summary}
+                          coauthorCount={record.coAuthors.length}
+                        />
+                      )}
                     </div>
                   </div>
                 </li>
@@ -332,6 +360,57 @@ export function RecordList({
             })}
           </Fragment>
         ))}
+
+        {/* Shares moved to the next year — listed, never counted here. */}
+        {deferred.length > 0 && (
+          <>
+            <li className="flex items-baseline justify-between gap-3 bg-table-group px-5 py-2 text-sm font-semibold">
+              <span>Перенесено на {deferred[0].academicYear}</span>
+              <span className="font-normal text-foreground-soft">у цьому році не рахуються</span>
+            </li>
+            {deferred.map((share) => (
+              <li key={share.workId} className="px-5 py-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base text-foreground-soft">{share.workTypeLabel}</p>
+                    <p className="mt-0.5 text-sm text-foreground-soft">{share.summary}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                      {share.link && (
+                        <a
+                          href={share.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-brand underline decoration-brand/30 underline-offset-4 transition-colors hover:decoration-brand"
+                        >
+                          <ExternalLink className="size-3.5" />
+                          Підтвердження
+                        </a>
+                      )}
+                      <span className="text-foreground-soft">Автор: {share.authorName}</span>
+                    </div>
+                    <div className="mt-2">
+                      <ShareYearButton
+                        mode="back"
+                        workId={share.workId}
+                        label={share.summary}
+                        hoursHundredths={share.hoursHundredths}
+                        targetYear={academicYear}
+                        currentYear={academicYear}
+                      />
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-sm text-foreground-soft">
+                    Годин:{' '}
+                    <span className="text-base font-semibold text-foreground-soft tabular-nums">
+                      {formatHours(share.hoursHundredths)}
+                    </span>{' '}
+                    з {formatHours(share.totalHundredths)} · у {share.academicYear}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </>
+        )}
       </ul>
     </Card>
   );

@@ -4,6 +4,7 @@ import { initials } from '@/lib/name';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScienceRecordStatus, ScienceSharing } from '@/lib/generated/prisma/client';
 import { dateToMonthKey } from '@/lib/science/execution-month';
+import { deferralYear } from '@/lib/science/count-year';
 
 /**
  * Every кафедра a person needs a plan on: their primary one (if they have
@@ -125,9 +126,40 @@ export interface SciencePlanRecordDetail {
    * has the rest; and the list the author's «Співавтори» form opens filled in
    * with. `staffId` is what that form's picker selects by.
    */
-  coAuthors: { staffId: string; name: string; hoursHundredths: number; pending: boolean }[];
+  coAuthors: {
+    staffId: string;
+    name: string;
+    hoursHundredths: number;
+    pending: boolean;
+    /** The co-author moved their share to this later навчальний рік. */
+    deferredTo: string | null;
+  }[];
   /** Whoever entered the work — named to a co-author, who must agree any change
    *  to their hours with this person. */
+  authorName: string;
+  /**
+   * The next навчальний рік this CO-AUTHOR may move their share to, or null
+   * (owner, 2026-10-02; `lib/science/count-year.ts`). Never offered to the
+   * author, on a closed year, or on a row that is not counting.
+   */
+  deferrable: string | null;
+}
+
+/**
+ * A co-author's share of one of this year's works that they moved to the next
+ * навчальний рік — not counted here, listed so they can see it and bring it
+ * back while this year is open.
+ */
+export interface DeferredShareDetail {
+  workId: string;
+  workTypeLabel: string;
+  itemNumber: string;
+  summary: string;
+  link: string | null;
+  hoursHundredths: number;
+  totalHundredths: number;
+  /** Where it will count, «2027/2028». */
+  academicYear: string;
   authorName: string;
 }
 
@@ -139,6 +171,8 @@ export interface SciencePlanDetail {
   plan: { id: string; lockedAt: Date | null } | null;
   rows: SciencePlanRowDetail[];
   records: SciencePlanRecordDetail[];
+  /** Shares moved to the next year — shown on ONE of the person's plans, never counted. */
+  deferred: DeferredShareDetail[];
   target: PlanTarget;
   /**
    * Which пункти of Додаток III this person committed to.
@@ -179,12 +213,19 @@ export async function getSciencePlan(
 ): Promise<SciencePlanDetail> {
   const template = await db.sciencePlanTemplate.findUnique({
     where: { id: templateId },
-    select: { minHoursPerRate: true, stakeYear: true, status: true },
+    select: { minHoursPerRate: true, stakeYear: true, status: true, academicYear: true },
   });
   if (!template) {
     // Nothing to compute a target against — a caller passing a bad templateId
     // gets an empty, targetless result rather than a throw.
-    return { plan: null, rows: [], records: [], target: EMPTY_TARGET, plannedWorkTypeIds: [] };
+    return {
+      plan: null,
+      rows: [],
+      records: [],
+      deferred: [],
+      target: EMPTY_TARGET,
+      plannedWorkTypeIds: [],
+    };
   }
 
   const plan = await db.sciencePlan.findUnique({
@@ -215,6 +256,8 @@ export async function getSciencePlan(
           work: {
             select: {
               id: true,
+              templateId: true,
+              createdAt: true,
               link: true,
               evidence: true,
               executedMonth: true,
@@ -234,6 +277,7 @@ export async function getSciencePlan(
                 select: {
                   staffId: true,
                   hoursHundredths: true,
+                  academicYear: true,
                   staff: { select: { lastName: true, firstName: true, patronymic: true } },
                 },
               },
@@ -288,6 +332,7 @@ export async function getSciencePlan(
       plan: null,
       rows: [],
       records: [],
+      deferred: [],
       plannedWorkTypeIds: [],
       target: planTarget({
         minHoursPerRate: template.minHoursPerRate,
@@ -346,6 +391,7 @@ export async function getSciencePlan(
             name: initials(other.staff),
             hoursHundredths: other.hoursHundredths,
             pending: false,
+            deferredTo: null,
           })),
         ...r.work.coauthorShares
           .filter((other) => other.staffId !== staffId)
@@ -354,11 +400,27 @@ export async function getSciencePlan(
             name: initials(other.staff),
             hoursHundredths: other.hoursHundredths,
             pending: true,
+            deferredTo: other.academicYear,
           })),
       ],
       authorName: initials(r.work.createdBy),
+      deferrable:
+        template.status === 'OPEN' &&
+        r.work.templateId === templateId &&
+        r.work.createdById !== staffId &&
+        r.status === 'APPROVED'
+          ? deferralYear({
+              academicYear: template.academicYear,
+              sharing: r.work.workType.sharing,
+              fields,
+              evidence: r.work.evidence,
+              createdAt: r.work.createdAt,
+            })
+          : null,
     };
   });
+
+  const deferred = await deferredSharesFor(staffId, departmentId, templateId);
 
   const counted = records.filter((r) => r.status === 'APPROVED');
   const doneHundredths = counted.reduce((sum, r) => sum + r.hoursHundredths, 0);
@@ -388,6 +450,7 @@ export async function getSciencePlan(
       doneHundredths: donePerRow.get(r.id) ?? 0,
     })),
     records,
+    deferred,
     target: planTarget({
       minHoursPerRate: template.minHoursPerRate,
       rateHundredths,
@@ -395,4 +458,65 @@ export async function getSciencePlan(
       doneHundredths,
     }),
   };
+}
+
+/**
+ * This year's works whose share this person moved to a later year. A share
+ * hangs off no plan, so it is listed on the plan that would have held its
+ * record — the primary кафедра's, or the first one — never on both of a
+ * сумісник's plans.
+ */
+async function deferredSharesFor(
+  staffId: string,
+  departmentId: string,
+  templateId: string
+): Promise<DeferredShareDetail[]> {
+  const [staff, plans] = await Promise.all([
+    db.staff.findUnique({ where: { id: staffId }, select: { departmentId: true } }),
+    db.sciencePlan.findMany({
+      where: { staffId, templateId },
+      select: { departmentId: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+  ]);
+  const home =
+    plans.find((p) => p.departmentId === staff?.departmentId)?.departmentId ??
+    plans[0]?.departmentId;
+  if (home !== departmentId) return [];
+
+  const shares = await db.scienceCoauthorShare.findMany({
+    where: { staffId, academicYear: { not: null }, work: { templateId } },
+    select: {
+      hoursHundredths: true,
+      academicYear: true,
+      work: {
+        select: {
+          id: true,
+          link: true,
+          evidence: true,
+          totalHundredths: true,
+          createdBy: { select: { lastName: true, firstName: true, patronymic: true } },
+          workType: { select: { label: true, itemNumber: true, evidenceFields: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return shares.map((share) => {
+    const fields = share.work.workType.evidenceFields as unknown as EvidenceField[];
+    return {
+      workId: share.work.id,
+      workTypeLabel: share.work.workType.label,
+      itemNumber: share.work.workType.itemNumber,
+      summary:
+        summarizeEvidence(fields, share.work.evidence, undefined, { uaDates: true }) ||
+        share.work.workType.label,
+      link: share.work.link,
+      hoursHundredths: share.hoursHundredths,
+      totalHundredths: share.work.totalHundredths,
+      academicYear: share.academicYear!,
+      authorName: initials(share.work.createdBy),
+    };
+  });
 }

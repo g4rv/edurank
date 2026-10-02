@@ -102,7 +102,11 @@ export default async function SciencePlanPage({
 
   const tab: PlanTab = params.tab === 'done' ? 'done' : 'plan';
 
-  const { plan, rows, records, target } = await getSciencePlan(staffId, departmentId, template.id);
+  const { plan, rows, records, deferred, target } = await getSciencePlan(
+    staffId,
+    departmentId,
+    template.id
+  );
   const workTypes = template.workTypes.map(toPlanWorkType);
   // Only the «Виконано» tab has a co-author picker, so only it pays for the list.
   const coauthorCandidates = tab === 'done' ? await listCoauthorCandidates(staffId) : [];
@@ -121,6 +125,7 @@ export default async function SciencePlanPage({
         tab={tab}
         rows={rows}
         records={records}
+        deferred={deferred}
         target={target}
         workTypes={workTypes}
         lockedAt={plan?.lockedAt ?? null}

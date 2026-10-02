@@ -19,25 +19,21 @@ import {
 import { deleteRecord } from '@/app/(dashboard)/science-plan/record-actions';
 
 /**
- * Withdraw one's own draw. A confirm rather than a plain button: it moves the
- * year's total, and the record is the evidence that the work happened.
+ * The author deletes their work. A confirm rather than a plain button: it moves
+ * the year's total, and the record is the evidence that the work happened.
  *
- * The wording is careful about what actually goes, and it depends on who asks
- * (owner, 2026-09-30). A CO-AUTHOR removes only their own record — the work
- * stays with the author, so this says «ваш запис». The AUTHOR removes the whole
- * work, and with it every co-author's record and reserved hours, so it says so,
- * by number, before anything happens.
+ * **Only the author ever sees this** (owner, 2026-10-02) — a co-author has no
+ * bin, and the server refuses them (`COAUTHOR_CANNOT_DELETE`). The whole work
+ * goes, with every co-author's record and reserved hours, so the confirm says
+ * so, by number, before anything happens.
  */
 export function DeleteRecordButton({
   recordId,
   label,
-  isAuthor = false,
   coauthorCount = 0,
 }: {
   recordId: string;
   label: string;
-  /** The person entered the work — deleting it deletes it for everybody. */
-  isAuthor?: boolean;
   /** How many other people hold hours on it, recorded or reserved. */
   coauthorCount?: number;
 }) {
@@ -51,7 +47,7 @@ export function DeleteRecordButton({
         toast.error(result.error);
         return;
       }
-      toast.success(isAuthor ? 'Роботу видалено' : 'Запис видалено');
+      toast.success('Роботу видалено');
       router.refresh();
     });
   }
@@ -67,36 +63,23 @@ export function DeleteRecordButton({
             `hover:bg-foreground/6` untouched — so a GREY pill arrived under a red
             icon the moment you pointed at it, in all seven delete buttons. The
             className is gone because the variant now carries all of it. */}
-        <Button
-          variant="destructive"
-          size="icon-sm"
-          aria-label={isAuthor ? 'Видалити роботу' : 'Видалити запис'}
-        >
+        <Button variant="destructive" size="icon-sm" aria-label="Видалити роботу">
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {isAuthor ? 'Видалити роботу?' : 'Видалити ваш запис?'}
-          </AlertDialogTitle>
+          <AlertDialogTitle>Видалити роботу?</AlertDialogTitle>
           <AlertDialogDescription>
             <span className="font-medium text-foreground">{label}</span>{' '}
-            {isAuthor ? (
-              coauthorCount > 0 ? (
-                <>
-                  буде видалено повністю — разом із записами та годинами співавторів (
-                  {coauthorCount}). Вони втратять ці години, і хтось із вас має додати роботу знову.
-                  Це не можна скасувати.
-                </>
-              ) : (
-                <>буде видалено повністю. Це не можна скасувати.</>
-              )
-            ) : (
+            {coauthorCount > 0 ? (
               <>
-                більше не зараховуватиметься до ваших годин. Саму роботу не буде видалено — вона
-                залишиться в автора, і ваші години повернуться до нього.
+                буде видалено повністю — разом із записами та годинами співавторів ({coauthorCount}
+                ). Вони втратять ці години, і хтось із вас має додати роботу знову. Це не можна
+                скасувати.
               </>
+            ) : (
+              <>буде видалено повністю. Це не можна скасувати.</>
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>

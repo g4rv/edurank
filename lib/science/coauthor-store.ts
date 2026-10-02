@@ -99,14 +99,17 @@ async function capProblem(
   tx: Tx,
   work: WorkRef,
   staffId: string,
-  name: string
+  name: string,
+  /** The year the record would count in — the work's own unless a co-author
+   *  moved their share to the next one. */
+  templateId: string = work.templateId
 ): Promise<string | null> {
   if (!work.maxPerYear) return null;
   // APPROVED only: a declined record must not keep a slot nobody can use.
   const count = await tx.scienceRecord.count({
     where: {
       staffId,
-      templateId: work.templateId,
+      templateId,
       status: 'APPROVED',
       work: { workTypeId: work.workTypeId },
     },
@@ -392,12 +395,28 @@ export async function setAuthorShare(
  */
 export async function attachReservations(
   tx: Tx,
-  input: { staffId: string; planId: string; templateId: string; userId: string }
+  input: {
+    staffId: string;
+    planId: string;
+    templateId: string;
+    /** The plan's навчальний рік — what a share moved to a later year names. */
+    academicYear: string;
+    userId: string;
+  }
 ): Promise<number> {
-  const { staffId, planId, templateId, userId } = input;
+  const { staffId, planId, templateId, academicYear, userId } = input;
 
   const reservations = await tx.scienceCoauthorShare.findMany({
-    where: { staffId, work: { templateId } },
+    where: {
+      staffId,
+      OR: [
+        // Reserved in this year, on this year's work — the ordinary case.
+        { academicYear: null, work: { templateId } },
+        // Moved here from the year before by the co-author (owner, 2026-10-02):
+        // the work is last year's, the record is this year's.
+        { academicYear },
+      ],
+    },
     select: {
       id: true,
       hoursHundredths: true,
@@ -433,7 +452,7 @@ export async function attachReservations(
           }
         : null,
     };
-    if (await capProblem(tx, work, staffId, '')) continue;
+    if (await capProblem(tx, work, staffId, '', templateId)) continue;
 
     const record = await tx.scienceRecord.create({
       data: {
@@ -466,4 +485,123 @@ export async function attachReservations(
     attached += 1;
   }
   return attached;
+}
+
+/**
+ * A CO-AUTHOR moves their share of a work to the next навчальний рік (owner,
+ * 2026-10-02; see `lib/science/count-year.ts` for when that is allowed).
+ *
+ * Their record — or their reservation, if they never had one — becomes a
+ * reservation marked with that year. It stops counting now and counts again
+ * when they save that year's plan (`attachReservations`). The hours stay the
+ * author's split: the row keeps its `hoursHundredths`, so the pool is unchanged.
+ */
+export async function deferShare(
+  tx: Tx,
+  input: { work: WorkRef; staffId: string; academicYear: string; userId: string }
+): Promise<void> {
+  const { work, staffId, academicYear, userId } = input;
+
+  const record = await tx.scienceRecord.findUnique({
+    where: { staffId_workId: { staffId, workId: work.id } },
+    select: { id: true, status: true, hoursHundredths: true },
+  });
+  if (record) {
+    // A declined record holds no hours to move; the author fixes the work first.
+    if (record.status !== 'APPROVED') {
+      throw new CoauthorError('Роботу відхилено — перенести частку можна, коли автор її виправить');
+    }
+    await tx.scienceRecord.delete({ where: { id: record.id } });
+    const share = await tx.scienceCoauthorShare.create({
+      data: { workId: work.id, staffId, hoursHundredths: record.hoursHundredths, academicYear },
+      select: { id: true },
+    });
+    await tx.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'ScienceCoauthorShare',
+        entityId: share.id,
+        label: work.typeLabel,
+        userId,
+        changes: diffChanges({ academicYear: null }, { academicYear }),
+      },
+    });
+    return;
+  }
+
+  const share = await tx.scienceCoauthorShare.findUnique({
+    where: { workId_staffId: { workId: work.id, staffId } },
+    select: { id: true, academicYear: true },
+  });
+  if (!share) throw new CoauthorError('Вас немає серед співавторів цієї роботи');
+  if (share.academicYear === academicYear) return;
+  await tx.scienceCoauthorShare.update({ where: { id: share.id }, data: { academicYear } });
+  await tx.auditLog.create({
+    data: {
+      action: 'UPDATE',
+      entity: 'ScienceCoauthorShare',
+      entityId: share.id,
+      label: work.typeLabel,
+      userId,
+      changes: diffChanges({ academicYear: share.academicYear }, { academicYear }),
+    },
+  });
+}
+
+/**
+ * The co-author changes their mind: the share counts in the work's own year
+ * again. A record straight away when they have a saved plan for it, otherwise
+ * an ordinary reservation that `lockPlan` attaches.
+ */
+export async function undeferShare(
+  tx: Tx,
+  input: { work: WorkRef; staffId: string; userId: string }
+): Promise<void> {
+  const { work, staffId, userId } = input;
+
+  const share = await tx.scienceCoauthorShare.findUnique({
+    where: { workId_staffId: { workId: work.id, staffId } },
+    select: { id: true, academicYear: true, hoursHundredths: true },
+  });
+  // Already counting in the work's year (a record, or a plain reservation).
+  if (!share || share.academicYear === null) return;
+
+  const person = await tx.staff.findUnique({
+    where: { id: staffId },
+    select: { departmentId: true },
+  });
+  const plan = await lockedPlanFor(
+    tx,
+    { id: staffId, departmentId: person?.departmentId ?? null },
+    work.templateId
+  );
+
+  if (!plan) {
+    await tx.scienceCoauthorShare.update({ where: { id: share.id }, data: { academicYear: null } });
+  } else {
+    const cap = await capProblem(tx, work, staffId, 'Ви');
+    if (cap) throw new CoauthorError(cap);
+    await tx.scienceCoauthorShare.delete({ where: { id: share.id } });
+    await tx.scienceRecord.create({
+      data: {
+        staffId,
+        workId: work.id,
+        templateId: work.templateId,
+        planId: plan.id,
+        planRowId: null,
+        hoursHundredths: share.hoursHundredths,
+        ...switchedOff(work),
+      },
+    });
+  }
+  await tx.auditLog.create({
+    data: {
+      action: 'UPDATE',
+      entity: 'ScienceCoauthorShare',
+      entityId: share.id,
+      label: work.typeLabel,
+      userId,
+      changes: diffChanges({ academicYear: share.academicYear }, { academicYear: null }),
+    },
+  });
 }
