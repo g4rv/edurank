@@ -35,6 +35,9 @@ export interface CurrentCoauthor {
   hoursHundredths: number;
   /** Hours set aside for somebody who has not saved their plan yet. */
   pending: boolean;
+  /** The co-author moved their share to this later навчальний рік (D55) —
+   *  also a reservation, but not one waiting for this year's plan. */
+  deferredTo?: string | null;
 }
 
 const rowsOf = (coauthors: CurrentCoauthor[]): CoauthorRow[] =>
@@ -152,7 +155,13 @@ export function EditCoauthorsDialog({
               poolHundredths={totalHundredths}
               problem={rowsProblem}
             />
-            {coauthors.some((c) => c.pending) && (
+            {coauthors.some((c) => c.deferredTo) && (
+              <p className="text-sm text-foreground-soft">
+                Дехто зі співавторів переніс свої години на наступний навчальний рік — вони
+                рахуватимуться там. Розподіл годин і далі змінюєте ви.
+              </p>
+            )}
+            {coauthors.some((c) => c.pending && !c.deferredTo) && (
               <p className="text-sm text-foreground-soft">
                 Години тих, хто ще не зберіг план наукової роботи, чекають на них і з’являться у
                 їхньому «Виконанні», щойно вони його збережуть.

@@ -1442,6 +1442,16 @@ model ScienceCoauthorShare {
   /// INTEGER HUNDREDTHS OF AN HOUR, like every hours figure here.
   hoursHundredths Int
 
+  /// The навчальний рік this share counts in, «2027/2028» — set when a
+  /// CO-AUTHOR chose to count their share in the year after the work's own
+  /// (owner, 2026-10-02; `lib/science/count-year.ts`). Null means the work's
+  /// own year, which is every share made before the choice existed.
+  ///
+  /// A string, not a template id: the next year usually has no template yet
+  /// when the choice is made. `attachReservations` matches it against the
+  /// template's `academicYear` when the person saves that year's plan.
+  academicYear String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

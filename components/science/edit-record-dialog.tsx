@@ -11,7 +11,13 @@ import {
   updateWorkEvidence,
 } from '@/app/(dashboard)/science-plan/record-actions';
 import { attempt } from '@/lib/science/attempt';
-import { linkLabel } from '@/lib/science/evidence-rule';
+import {
+  doiProof,
+  evidenceProblem,
+  linkHint,
+  linkLabel,
+  linkProblem,
+} from '@/lib/science/evidence-rule';
 import { Button } from '@/components/aurora/ui/button';
 import { Input } from '@/components/aurora/ui/input';
 import { FormField } from '@/components/ui/form-field';
@@ -131,7 +137,10 @@ export function EditRecordDialog({
               <>
                 {declineReason && (
                   <>
-                    Причина відхилення: <span className="font-medium">{declineReason}</span>.{' '}
+                    Причина відхилення: <span className="font-medium">{declineReason}</span>
+                    {/* ННВ usually ends the reason with a full stop already —
+                        adding another printed «статтю..». */}
+                    {/[.!?…]$/.test(declineReason.trim()) ? '' : '.'}{' '}
                   </>
                 )}
                 Виправте дані, а після збереження робота піде на повторну перевірку. Файл і
@@ -246,6 +255,23 @@ function EditForm({
     }
   }
 
+  // A DOI in the link box, and — on a type with a DOI field — neither of the
+  // two (owner, 2026-10-02). A file-proved type is still checked on the server:
+  // files are managed on the record, not here.
+  const doi = doiProof(fields, watched);
+  const linkFault = linkProblem(link.trim() || null, doi !== undefined);
+  const proofMissing =
+    (type.linkRule === 'REQUIRED' && !link.trim()) ||
+    (doi !== undefined &&
+      type.fileRule === 'NONE' &&
+      evidenceProblem({
+        linkRule: type.linkRule ?? 'OPTIONAL',
+        fileRule: 'NONE',
+        link: link.trim() || null,
+        fileCount: 0,
+        doi,
+      }) !== null);
+
   function onSubmit(data: FieldValues) {
     setProblem(null);
     startTransition(async () => {
@@ -326,10 +352,13 @@ function EditForm({
               description={
                 type.linkRule === 'REQUIRED'
                   ? 'Для цього виду роботи посилання обовʼязкове.'
-                  : type.fileRule === 'NONE'
-                    ? 'Для цього виду роботи підтвердженням є лише посилання.'
-                    : 'Якщо запис підтверджено файлом, посилання можна не вказувати.'
+                  : doi !== undefined
+                    ? linkHint(type)
+                    : type.fileRule === 'NONE'
+                      ? 'Для цього виду роботи підтвердженням є лише посилання.'
+                      : 'Якщо запис підтверджено файлом, посилання можна не вказувати.'
               }
+              error={linkFault ? { message: linkFault } : undefined}
             >
               <Input
                 id="edit-link"
@@ -364,9 +393,7 @@ function EditForm({
               only a REQUIRED link is checked here; the server checks the rest. */}
           <Button
             type="submit"
-            disabled={
-              isPending || !parsedPreview.success || (type.linkRule === 'REQUIRED' && !link.trim())
-            }
+            disabled={isPending || !parsedPreview.success || linkFault !== null || proofMissing}
             loading={isPending}
           >
             {isPending

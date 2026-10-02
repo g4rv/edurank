@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '../lib/generated/prisma/client';
+import { isValidDoi, normalizeDoi } from '../lib/doi';
 
 // One-time correction for two things the record form got wrong (owner,
 // 2026-09-30):
@@ -38,6 +39,16 @@ import { Prisma, PrismaClient } from '../lib/generated/prisma/client';
 //      left alone — it asks no proof. **This overwrites a rule an admin set by
 //      hand on any of those types, in every template**, so read the report first.
 //
+// Since 2026-10-02 it also:
+//
+//   5. makes the article LINK OR DOI — link OPTIONAL, no file: a filled DOI is a
+//      proof of its own, so the link is no longer required (`doiProof`);
+//   6. moves a DOI somebody pasted into an article's LINK box into its «DOI»
+//      field, where it belongs now that the link box refuses one, and re-keys
+//      the work by that DOI (`doi:…`). A work whose DOI another work already
+//      holds is reported and left alone — that pair is a duplicate for a person
+//      to resolve, not for a script.
+//
 //   pnpm db:science-link-isbn            reports
 //   pnpm db:science-link-isbn --apply    writes
 
@@ -56,13 +67,14 @@ const BOOKS = ['monograph', 'monograph_reissue'];
 
 /** Link required, no file box. Everything else — bar `phd_supervision` — is link OR file. */
 const LINK_ONLY = [
-  'article',
   'dissertation',
   'editorial_board',
   'english_support',
   'monograph',
   'monograph_reissue',
 ];
+/** Link OR DOI, at least one; no file box (owner, 2026-10-02). */
+const LINK_OR_DOI = ['article'];
 /** Asks no proof at all; never touched here. */
 const NO_PROOF = ['phd_supervision'];
 
@@ -179,7 +191,9 @@ async function main() {
   const ruleChanges = all.flatMap((row) => {
     const want = LINK_ONLY.includes(row.code)
       ? { linkRule: 'REQUIRED' as const, fileRule: 'NONE' as const }
-      : { linkRule: 'OPTIONAL' as const, fileRule: 'OPTIONAL' as const };
+      : LINK_OR_DOI.includes(row.code)
+        ? { linkRule: 'OPTIONAL' as const, fileRule: 'NONE' as const }
+        : { linkRule: 'OPTIONAL' as const, fileRule: 'OPTIONAL' as const };
     if (row.linkRule === want.linkRule && row.fileRule === want.fileRule) return [];
     console.log(
       `  ${row.template.academicYear} · ${row.code} — підтвердження: ` +
@@ -192,7 +206,7 @@ async function main() {
   const articleTypeIds = types.filter((t) => t.code === ARTICLE).map((t) => t.id);
   const works = await prisma.scienceWork.findMany({
     where: { workTypeId: { in: articleTypeIds } },
-    select: { id: true, evidence: true, link: true },
+    select: { id: true, evidence: true, link: true, dedupKey: true },
   });
   const workChanges = works
     .filter((w) => w.evidence && typeof w.evidence === 'object' && 'url' in w.evidence)
@@ -203,6 +217,34 @@ async function main() {
     });
   for (const w of workChanges) console.log(`  робота ${w.id} — адреса статті з evidence → link`);
 
+  // A DOI pasted into the link box → the «DOI» field (step 6). Read off the
+  // link each work will have after the move above.
+  const moved = new Map(workChanges.map((w) => [w.id, w]));
+  const allKeys = new Set(
+    (await prisma.scienceWork.findMany({ select: { dedupKey: true } })).map((w) => w.dedupKey)
+  );
+  const doiMoves: { id: string; evidence: Record<string, unknown>; dedupKey: string }[] = [];
+  for (const w of works) {
+    const evidence = (moved.get(w.id)?.evidence ??
+      (w.evidence as Record<string, unknown> | null) ??
+      {}) as Record<string, unknown>;
+    const link = moved.get(w.id)?.link ?? w.link;
+    if (!link || !isValidDoi(link)) continue;
+    if (typeof evidence.doi === 'string' && evidence.doi.trim()) {
+      console.log(`  робота ${w.id} — DOI у посиланні, але поле DOI вже заповнене; лишаю як є`);
+      continue;
+    }
+    const doi = normalizeDoi(link);
+    const dedupKey = `doi:${doi.toLowerCase()}`;
+    if (allKeys.has(dedupKey) && w.dedupKey !== dedupKey) {
+      console.log(`  робота ${w.id} — DOI ${doi} уже має інша робота: це дубль, вирішіть вручну`);
+      continue;
+    }
+    allKeys.add(dedupKey);
+    doiMoves.push({ id: w.id, evidence: { ...evidence, doi }, dedupKey });
+    console.log(`  робота ${w.id} — DOI ${doi} з посилання → поле DOI`);
+  }
+
   const books = await prisma.scienceWork.count({
     where: { workType: { code: { in: BOOKS } } },
   });
@@ -212,13 +254,18 @@ async function main() {
     );
   }
 
-  if (typeChanges.length === 0 && workChanges.length === 0 && ruleChanges.length === 0) {
+  if (
+    typeChanges.length === 0 &&
+    workChanges.length === 0 &&
+    ruleChanges.length === 0 &&
+    doiMoves.length === 0
+  ) {
     console.log('Нічого змінювати: усе вже відповідає новому опису.');
     return;
   }
   if (!apply) {
     console.log(
-      `\nВидів роботи: ${typeChanges.length}, правил підтвердження: ${ruleChanges.length}, робіт: ${workChanges.length}. Запустіть з --apply, щоб записати.`
+      `\nВидів роботи: ${typeChanges.length}, правил підтвердження: ${ruleChanges.length}, робіт: ${workChanges.length}, DOI з посилань: ${doiMoves.length}. Запустіть з --apply, щоб записати.`
     );
     return;
   }
@@ -245,9 +292,21 @@ async function main() {
         data: { evidence: w.evidence as Prisma.InputJsonValue, link: w.link },
       })
     ),
+    // After the url → link move: these overwrite the same rows' evidence and
+    // link with the DOI taken out of the link.
+    ...doiMoves.map((w) =>
+      prisma.scienceWork.update({
+        where: { id: w.id },
+        data: {
+          evidence: w.evidence as Prisma.InputJsonValue,
+          link: null,
+          dedupKey: w.dedupKey,
+        },
+      })
+    ),
   ]);
   console.log(
-    `\nГотово. Видів роботи: ${typeChanges.length}, правил підтвердження: ${ruleChanges.length}, робіт: ${workChanges.length}.`
+    `\nГотово. Видів роботи: ${typeChanges.length}, правил підтвердження: ${ruleChanges.length}, робіт: ${workChanges.length}, DOI з посилань: ${doiMoves.length}.`
   );
 }
 

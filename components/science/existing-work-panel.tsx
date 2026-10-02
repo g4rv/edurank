@@ -38,7 +38,9 @@ export function ExistingWorkPanel({
             )}
             {fromOtherYear
               ? `Цю роботу внесено у ${conflict.fromYear} н.р.`
-              : `Цю роботу вже додав ${conflict.createdByName}`}
+              : // «Додано:», never «додав» — the verb would have to agree with a
+                // gender the app does not know (see the note below).
+                `Цю роботу вже додано: ${conflict.createdByName}`}
           </p>
           <p className="mt-1 text-sm text-foreground">{conflict.summary}</p>
           {fromOtherYear && (

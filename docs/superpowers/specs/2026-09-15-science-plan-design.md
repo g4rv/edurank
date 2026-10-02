@@ -881,7 +881,7 @@ them.
 
 | #   | Question                                                      | Answer                                                                                                               |
 | --- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| D30 | Split one article's hours across two years?                   | **No.** Q12 closed. The app already refuses this — no change needed.                                                 |
+| D30 | Split one article's hours across two years?                   | **No.** Q12 closed. **Amended by D55** (2026-10-02): a co-author may count their share in the next рік.              |
 | D31 | Conditional items in a PLAN?                                  | **No — remove them from planning, keep them in execution.** You cannot plan to win a competition.                    |
 | D32 | Somebody who overplanned?                                     | **They owe what they planned.** План and факт must match up; the norm is a floor, not a ceiling.                     |
 | D33 | An article published in one year, indexed in Scopus the next? | **Counts in the year it was indexed** — but an OLD article may not be dragged in. Where the line sits is still open. |
@@ -1280,8 +1280,40 @@ co-authors also blocked every colleague by leaving the hours box empty.
 4. Only the author (or ADMIN) changes the list — `updateCoauthors` — from the
    author's own record («Співавтори»). Co-authors see their share read-only and
    who divides it. The old «Моя частка» is removed.
-5. A co-author withdrawing their record returns its hours to the author. The
-   author withdrawing theirs leaves the work and its co-authors standing.
+5. ~~A co-author withdrawing their record returns its hours to the author. The
+   author withdrawing theirs leaves the work and its co-authors standing.~~
+   **Superseded** — the author deleting deletes the whole work (owner,
+   2026-09-30), and **a co-author cannot delete at all** (owner, 2026-10-02):
+   one named by mistake asks the author to take them off in «Співавтори».
    Correcting the work's evidence moves the AUTHOR's share to what is left, up
    or down.
 6. A record ННВ declined cannot be named again: it would undo the decision.
+
+## D55 — a co-author chooses the year their share counts in (owner, 2026-10-02)
+
+The boss's own proposal, amending D30. Reported case: an article published in
+spring 2027 sits in 2026/2027 and, by calendar year, also in 2027/2028; the
+author counts it in 2026/2027, a co-author wants it in 2027/2028.
+
+- **The author is unchanged.** Enters the work, spreads the hours, names the
+  co-authors; the work and the author's own share belong to the year it was
+  entered. «If you decided to add an article you are meant to use it» — an
+  author who wants the next year enters it in September.
+- **A co-author may move THEIR share to the next навчальний рік**, on every
+  SHARED вид роботи, only while the work's own year is OPEN.
+- **Only when the work sits in the part of the calendar year the two роки
+  share**: its date falls January–August of the year the work's рік ends in.
+  Spring 2027 → choice; autumn 2026 → none. The date is the publication date
+  where the form has one (the стаття's `publishedOn`, a `date` field with the
+  `currentYear` rule) and otherwise the day the work was entered.
+  `lib/science/count-year.ts` (`deferralYear`).
+- **Nobody re-enters the work next year.** The share becomes a
+  `ScienceCoauthorShare` with `academicYear` set; it counts nowhere until the
+  person saves that year's plan, when `attachReservations` turns it into a
+  record in THAT year (a record's `templateId` may differ from its work's).
+- **An unclaimed moved share stays waiting** — it attaches whenever the person
+  saves the next year's plan; if that year closes first, it is lost.
+- The co-author may bring it back until the work's year closes
+  (`setShareYear` → `undeferShare`). The author sees «(перенесено на …)» beside
+  them. The author still controls the split: changing it or deleting the work
+  moves or removes a moved share like any other.

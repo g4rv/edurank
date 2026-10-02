@@ -125,7 +125,12 @@ export default async function AchievementsSectionPage({
       <SectionHeader
         section={section}
         score={totals?.sections[section - 1] ?? 0}
-        action={<AddAchievementForm types={submittableTypes} />}
+        action={
+          <AddAchievementForm
+            types={submittableTypes}
+            title={`Розділ ${section}. ${SECTION_TITLES[section]}`}
+          />
+        }
       />
 
       <AchievementsList groups={groups} />

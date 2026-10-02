@@ -23,6 +23,7 @@ import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { StaffFilters } from '@/components/staff/staff-filters';
 import { StaffTable } from '@/components/staff/staff-table';
 import { ToolbarRow } from '@/components/staff/record-toolbar';
+import { formatStake } from '@/lib/stake/units';
 
 const PAGE_SIZE = 50;
 
@@ -36,8 +37,10 @@ const PAGE_SIZE = 50;
  * - **Кафедри** — one row per кафедра: its head, its people and their rating.
  *   The кафедра opens as its head sees it and the head opens their record,
  *   both read-only. Розподіл ставок is not
- *   a декан's (owner, 2026-09-24), so neither the fund nor the grid is here.
- * - **Персонал** — `/staff`'s list, search and filters, fixed to this факультет
+ *   a декан's (owner, 2026-09-24), so neither the fund nor the grid is here —
+ *   but the saved ставки are (owner, 2026-10-02): a total per кафедра here,
+ *   one per person on the кафедра's page.
+ * - **Штат** (tab label; «Персонал» until 2026-10-02) — `/staff`'s list, search and filters, fixed to this факультет
  *   and to НПП: the system is run by administrative staff but tracks НПП, and
  *   a декан's view has no administrative people in it.
  */
@@ -88,7 +91,8 @@ export default async function MyFacultyPage({
               label: 'Кафедри',
               active: tab === 'departments',
             },
-            { href: `${base}tab=staff`, label: 'Персонал', active: tab === 'staff' },
+            // «Штат», not «Персонал» (owner, 2026-10-02) — the word a декан uses.
+            { href: `${base}tab=staff`, label: 'Штат', active: tab === 'staff' },
           ]}
         />
       </ToolbarRow>
@@ -107,10 +111,11 @@ export default async function MyFacultyPage({
 }
 
 /**
- * Кафедра | Завідувач | НПП | Рейтинг <рік> (owner, 2026-09-24). Widths add up
- * (§12): 18 + 6 + 10 = 34rem declared plus an 18rem floor for the кафедра.
+ * Кафедра | Завідувач | НПП | Ставки | Рейтинг <рік> (owner, 2026-09-24;
+ * Ставки 2026-10-02). Widths add up (§12): 18 + 6 + 7 + 10 = 41rem declared
+ * plus an 18rem floor for the кафедра.
  */
-const DEPARTMENT_COLUMNS = [null, '18rem', '6rem', '10rem'] as const;
+const DEPARTMENT_COLUMNS = [null, '18rem', '6rem', '7rem', '10rem'] as const;
 
 async function DepartmentsTab({
   facultyId,
@@ -143,13 +148,16 @@ async function DepartmentsTab({
   return (
     <Table
       columns={DEPARTMENT_COLUMNS}
-      minWidth="calc(18rem + 18rem + 6rem + 10rem)"
+      minWidth="calc(18rem + 18rem + 6rem + 7rem + 10rem)"
       fill
       head={
         <TableRow>
           <TableHead>Кафедра</TableHead>
           <TableHead>Завідувач</TableHead>
           <TableHead align="center">НПП</TableHead>
+          {/* What the head has spread so far — the sum of the Ставка column
+              on that кафедра's page, сумісники's share on it included. */}
+          <TableHead align="center">Ставки</TableHead>
           {/* The SUM of the кафедра's НПП, the owner's call. The university's
               own «Рейтинг кафедр» chart plots the average instead. */}
           <TableHead align="center" className="whitespace-nowrap">
@@ -162,6 +170,10 @@ async function DepartmentsTab({
         {departments.map((d) => {
           const head = headOfDepartment.get(d.id);
           const total = d.staff.reduce((sum, person) => sum + person.total, 0);
+          // Integer hundredths, summed as integers (lib/stake/units.ts). «—»
+          // until the head has saved a split at all.
+          const saved = d.staff.filter((person) => person.stakeHundredths !== null);
+          const stakes = saved.reduce((sum, person) => sum + (person.stakeHundredths ?? 0), 0);
           return (
             <TableRow key={d.id} className="[&>td]:align-middle" hoverable>
               {/* That кафедра exactly as its head sees it — read-only. */}
@@ -177,6 +189,13 @@ async function DepartmentsTab({
               )}
               <TableCell numeric align="center">
                 {d.staff.length}
+              </TableCell>
+              <TableCell numeric align="center">
+                {saved.length === 0 ? (
+                  <span className="text-foreground-soft">—</span>
+                ) : (
+                  formatStake(stakes)
+                )}
               </TableCell>
               <TableCell numeric align="center" className="font-semibold">
                 {Math.round(total * 100) / 100}

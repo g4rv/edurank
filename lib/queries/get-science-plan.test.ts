@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 vi.mock('@/lib/db', () => ({
   db: {
     sciencePlanTemplate: { findUnique: vi.fn() },
-    sciencePlan: { findUnique: vi.fn() },
+    sciencePlan: { findUnique: vi.fn(), findMany: vi.fn() },
     stakeAllocation: { findFirst: vi.fn() },
+    staff: { findUnique: vi.fn() },
+    scienceCoauthorShare: { findMany: vi.fn() },
   },
 }));
 
@@ -17,6 +19,10 @@ const mockAllocation = db.stakeAllocation.findFirst as unknown as Mock;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // No shares moved to the next year unless a test says so.
+  (db.staff.findUnique as unknown as Mock).mockResolvedValue({ departmentId: 'd1' });
+  (db.sciencePlan.findMany as unknown as Mock).mockResolvedValue([]);
+  (db.scienceCoauthorShare.findMany as unknown as Mock).mockResolvedValue([]);
 });
 
 describe('an OPEN template always reads the live розподіл', () => {
@@ -96,7 +102,16 @@ function record(
     others?: { staffId: string; hoursHundredths: number; last: string }[];
     createdById?: string;
     createdByLast?: string;
-    reserved?: { staffId: string; hoursHundredths: number; last: string }[];
+    reserved?: {
+      staffId: string;
+      hoursHundredths: number;
+      last: string;
+      academicYear?: string | null;
+    }[];
+    /** The work's own year — 't1', the template under test, unless said. */
+    templateId?: string;
+    /** The стаття's «Опубліковано/Проіндексовано», for the year choice. */
+    publishedOn?: string;
     files?: {
       id: string;
       fileName: string;
@@ -122,8 +137,12 @@ function record(
     planRowId: over.planRowId ?? null,
     work: {
       id: 'w1',
+      templateId: over.templateId ?? 't1',
+      createdAt: new Date('2026-09-10T10:00:00Z'),
       link: 'https://example.com/a',
-      evidence: { title: 'Стаття про освіту' },
+      evidence: over.publishedOn
+        ? { title: 'Стаття про освіту', publishedOn: over.publishedOn }
+        : { title: 'Стаття про освіту' },
       executedMonth: new Date('2026-09-01T00:00:00Z'),
       totalHundredths: 20000,
       workTypeId: 'wt1',
@@ -137,11 +156,16 @@ function record(
       workType: {
         label: 'Наукова стаття',
         itemNumber: '4',
-        evidenceFields: [{ kind: 'text', name: 'title', label: 'Назва' }],
+        sharing: 'SHARED',
+        evidenceFields: [
+          { kind: 'text', name: 'title', label: 'Назва' },
+          { kind: 'date', name: 'publishedOn', label: 'Опубліковано', rule: 'currentYear' },
+        ],
       },
       coauthorShares: (over.reserved ?? []).map((o) => ({
         staffId: o.staffId,
         hoursHundredths: o.hoursHundredths,
+        academicYear: o.academicYear ?? null,
         staff: NAME(o.last),
       })),
       records: [
@@ -248,7 +272,13 @@ describe('план and факт', () => {
     const result = await getSciencePlan('s1', 'd1', 't1');
 
     expect(result.records[0].coAuthors).toEqual([
-      { staffId: 's2', name: 'Іваненко І. І.', hoursHundredths: 5000, pending: false },
+      {
+        staffId: 's2',
+        name: 'Іваненко І. І.',
+        hoursHundredths: 5000,
+        pending: false,
+        deferredTo: null,
+      },
     ]);
     expect(result.records[0].totalHundredths).toBe(20000);
     expect(result.records[0].hoursHundredths).toBe(15000);
@@ -328,7 +358,13 @@ describe('план and факт', () => {
     const result = await getSciencePlan('s1', 'd1', 't1');
 
     expect(result.records[0].coAuthors).toEqual([
-      { staffId: 's3', name: 'Бойко І. І.', hoursHundredths: 2000, pending: true },
+      {
+        staffId: 's3',
+        name: 'Бойко І. І.',
+        hoursHundredths: 2000,
+        pending: true,
+        deferredTo: null,
+      },
     ]);
   });
 
@@ -388,5 +424,125 @@ describe('D41 — the month travels with each record', () => {
     mockPlan.mockResolvedValue({ id: 'p1', rateHundredths: 100, rows: [], records: [record()] });
     const { records } = await getSciencePlan('s1', 'd1', 't1');
     expect(records[0].executedMonth).toBe('2026-09');
+  });
+});
+
+describe('the year a co-author counts their share in (owner, 2026-10-02)', () => {
+  const OPEN = {
+    minHoursPerRate: 500,
+    stakeYear: 2026,
+    status: 'OPEN',
+    academicYear: '2026/2027',
+  };
+  const plan = (records: unknown[]) => ({
+    id: 'p1',
+    rateHundredths: 100,
+    lockedAt: new Date('2026-09-20'),
+    rows: [],
+    records,
+  });
+
+  beforeEach(() => {
+    mockTemplate.mockResolvedValue(OPEN);
+    mockAllocation.mockResolvedValue({ proposedHundredths: 100 });
+  });
+
+  it('offers a co-author the next year for an article published in spring', async () => {
+    mockPlan.mockResolvedValue(plan([record({ publishedOn: '2027-03-15' })]));
+    const { records } = await getSciencePlan('s1', 'd1', 't1');
+    expect(records[0].deferrable).toBe('2027/2028');
+  });
+
+  it('offers nothing for an article published in autumn', async () => {
+    mockPlan.mockResolvedValue(plan([record({ publishedOn: '2026-10-05' })]));
+    const { records } = await getSciencePlan('s1', 'd1', 't1');
+    expect(records[0].deferrable).toBeNull();
+  });
+
+  it('never offers it to the author', async () => {
+    mockPlan.mockResolvedValue(plan([record({ publishedOn: '2027-03-15', createdById: 's1' })]));
+    const { records } = await getSciencePlan('s1', 'd1', 't1');
+    expect(records[0].deferrable).toBeNull();
+  });
+
+  it("never on a record of last year's work that already moved here", async () => {
+    mockPlan.mockResolvedValue(plan([record({ publishedOn: '2027-03-15', templateId: 't0' })]));
+    const { records } = await getSciencePlan('s1', 'd1', 't1');
+    expect(records[0].deferrable).toBeNull();
+  });
+
+  it('never once the year is closed', async () => {
+    mockTemplate.mockResolvedValue({ ...OPEN, status: 'CLOSED' });
+    mockPlan.mockResolvedValue(plan([record({ publishedOn: '2027-03-15' })]));
+    const { records } = await getSciencePlan('s1', 'd1', 't1');
+    expect(records[0].deferrable).toBeNull();
+  });
+
+  it('tells the author which co-author moved their share, and where', async () => {
+    mockPlan.mockResolvedValue(
+      plan([
+        record({
+          createdById: 's1',
+          reserved: [
+            { staffId: 's4', hoursHundredths: 5000, last: 'Шевченко', academicYear: '2027/2028' },
+          ],
+        }),
+      ])
+    );
+    const { records } = await getSciencePlan('s1', 'd1', 't1');
+    expect(records[0].coAuthors).toEqual([
+      {
+        staffId: 's4',
+        name: 'Шевченко І. І.',
+        hoursHundredths: 5000,
+        pending: true,
+        deferredTo: '2027/2028',
+      },
+    ]);
+  });
+
+  it('lists a moved share on the home plan, never counted', async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    (db.sciencePlan.findMany as unknown as Mock).mockResolvedValue([{ departmentId: 'd1' }]);
+    (db.scienceCoauthorShare.findMany as unknown as Mock).mockResolvedValue([
+      {
+        hoursHundredths: 5000,
+        academicYear: '2027/2028',
+        work: {
+          id: 'w1',
+          link: 'https://example.com/a',
+          evidence: { title: 'Стаття про освіту' },
+          totalHundredths: 15000,
+          createdBy: NAME('Руденко'),
+          workType: {
+            label: 'Наукова стаття',
+            itemNumber: '4',
+            evidenceFields: [{ kind: 'text', name: 'title', label: 'Назва' }],
+          },
+        },
+      },
+    ]);
+    const result = await getSciencePlan('s1', 'd1', 't1');
+    expect(result.deferred).toEqual([
+      expect.objectContaining({
+        workId: 'w1',
+        hoursHundredths: 5000,
+        totalHundredths: 15000,
+        academicYear: '2027/2028',
+        authorName: 'Руденко І. І.',
+      }),
+    ]);
+    expect(result.target.doneHundredths).toBe(0);
+  });
+
+  it("shows a сумісник's moved share on one plan only — not the second кафедра's", async () => {
+    mockPlan.mockResolvedValue(plan([]));
+    (db.sciencePlan.findMany as unknown as Mock).mockResolvedValue([
+      { departmentId: 'd1' },
+      { departmentId: 'd2' },
+    ]);
+    const result = await getSciencePlan('s1', 'd2', 't1');
+    expect(result.deferred).toEqual([]);
+    expect(db.scienceCoauthorShare.findMany).not.toHaveBeenCalled();
   });
 });

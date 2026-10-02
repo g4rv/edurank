@@ -405,7 +405,9 @@ Two people, two screens. ADMIN/проректор allocates pools across all 31 
 `/stakes`; the завідувач spreads one pool among their own people on `/stakes/[id]`,
 which is додаток 2 on screen. **A декан sees neither** (owner, 2026-09-24 — they
 used to read every grid of their faculty): both pages gate on `headOf`, and
-«Мій факультет» (`/my-faculty`) shows no fund and no ставка column.
+«Мій факультет» (`/my-faculty`) shows no fund. It DOES show the saved ставки
+(owner, 2026-10-02, reversing 2026-09-24): a total per кафедра on «Кафедри» and
+the Ставка column on each кафедра's page — read-only, the head's own split.
 
 Three facts shape every model, and all three are easy to lose:
 
@@ -447,9 +449,9 @@ Rules that are easy to get wrong:
   approve» of 2026-08-17). A confirmed claim pays a bonus out of a fund the завідувач
   then spends, so the head is not the one confirming it. A head still READS
   `/my-department/students` — the duplicate list is context for their own ставка
-  grid — and `canDecide` there is `isAdmin` alone. **A декан sees neither this page
-  nor the ставки** (owner, 2026-09-24): «Мій факультет» (`/my-faculty`) is
-  information about their кафедри and staff, and the page gates on `headOf`.
+  grid — and `canDecide` there is `isAdmin` alone. **A декан does not see this page**
+  (owner, 2026-09-24): it gates on `headOf`. Since 2026-10-02 a декан does see
+  the saved ставки on «Мій факультет», read-only.
 - **`StakeStatusBonus` is information, never money.** The grid shows what somebody's
   positions and recruited students add up to; the head still types the ставка.
 - **A person's Мін/Макс is per кафедра, not per person.** `StaffStakeLimits` carries
@@ -521,8 +523,9 @@ Easy to get wrong:
   `ScienceCoauthorShare` (a reservation that counts against the pool the same
   way) which `lockPlan` turns into a record the moment they save the plan.
   Only the author (or ADMIN) changes the list afterwards, with
-  `updateCoauthors` — a co-author cannot move their own share, and withdrawing
-  a record returns its hours to the author. `@@unique([staffId, workId])` stops
+  `updateCoauthors` — a co-author cannot move their own share, nor delete
+  their record (owner, 2026-10-02): one named by mistake asks the author to
+  take them off. `@@unique([staffId, workId])` stops
   the same person holding a work twice. Every SUM over `hoursHundredths`
   filters `status: 'APPROVED'`, and every pool arithmetic counts reservations
   too (D20, ННВ/ADMIN decline a record with a reason, post-check not a gate).
@@ -550,10 +553,21 @@ Easy to get wrong:
   2026-09-30): every co-author's record, every reservation and its files. The
   co-authors' hours were the author's to give and nobody else can move them, and
   the work's `dedupKey` would block the article from ever being entered again;
-  `DeleteRecordButton` warns the author, by number, first. A co-author
-  withdrawing removes only their own record and their hours go back to the
-  author. (An INDIVIDUAL work goes with its owner for the same reason: D24
+  `DeleteRecordButton` warns the author, by number, first. **Only the author
+  deletes** (owner, 2026-10-02, reversing «a co-author withdraws their own
+  record»): a co-author has no bin and `deleteRecord` refuses them with
+  `COAUTHOR_CANNOT_DELETE`. (An INDIVIDUAL work goes with its owner for the same reason: D24
   prefixes its key with their `staffId`, so it guards nothing else.)
+- **A co-author may count their share in the NEXT навчальний рік** (D55,
+  owner 2026-10-02 — the boss's proposal, amending D30's «no splitting across
+  years»). Only a co-author, never the author; only on a SHARED work; only
+  while its year is open; and only when its date (the стаття's publication
+  date, otherwise the day it was entered) falls January–August of the year the
+  рік ends in — spring 2027 can go to 2027/2028, autumn 2026 cannot
+  (`deferralYear`, `lib/science/count-year.ts`). The share becomes a
+  `ScienceCoauthorShare` with `academicYear` set and turns into a record in
+  that year when the person saves its plan — so **a record's `templateId` may
+  differ from its work's**. Never re-entered next year.
 - **A decline is of the WORK, not of one record** (owner, 2026-09-30). The proof
   is shared, so when it is wrong nobody counts until it is fixed:
   `removeScienceRecord` switches off EVERY record of the work and stamps
@@ -584,10 +598,16 @@ Easy to get wrong:
 - **Link and file are two separate rules per вид роботи** (D47,
   `ScienceWorkType.linkRule` / `fileRule`: REQUIRED / OPTIONAL / NONE, set by
   ADMIN). Only when neither is REQUIRED must one of the two be given; a proof
-  on a NONE side proves nothing and is refused on save. **Six types are link
+  on a NONE side proves nothing and is refused on save. **Five types are link
   REQUIRED, file NONE** (owner, 2026-09-30, after reading the наказ's «Форма
-  звітності»): the стаття, the дисертація, both п.3 books and the two п.10
-  editorial types. Every other type is link OR file, at least one — a
+  звітності»): the дисертація, both п.3 books and the two п.10 editorial
+  types. **The стаття is link OR DOI, at least one** (owner, 2026-10-02): link
+  OPTIONAL, file NONE, and a filled DOI counts as a proof (`doiProof` in
+  `lib/science/evidence-rule.ts`). The DOI stays its own field and the link
+  box REFUSES one (`linkProblem`) — pasted as a link, the same DOI keyed as two
+  works and the article went in twice. `pnpm db:science-link-isbn` carries the
+  rule to existing databases and moves a DOI already saved in a link box into
+  the DOI field. Every other type is link OR file, at least one — a
   certificate, order or review is a document, and a person holds it as a PDF as
   often as a URL. `requiresFile` no longer exists. **Both NONE = no
   proof needed** (D53, owner 2026-09-24): п.12 «Керівництво аспірантами» is

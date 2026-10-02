@@ -1,4 +1,4 @@
-import { normalizeDoi } from '@/lib/doi';
+import { isValidDoi, normalizeDoi } from '@/lib/doi';
 import { normalizeIsbn } from '@/lib/isbn';
 import { RECORD_LINK_IDENTITY } from '@/lib/science/identity';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
@@ -39,6 +39,16 @@ function normalizeUrl(raw: string): string | null {
   }
 }
 
+/**
+ * A link that IS a DOI — `https://doi.org/10.x/y`, `doi:10.x/y` or the bare
+ * DOI — keys as that DOI. Without this the same article entered once with its
+ * DOI in «DOI» and once with the doi.org address in «Посилання на роботу» got
+ * two keys, `doi:…` and `url:doi.org/…`, and went in twice (owner, 2026-10-02).
+ */
+function doiLinkKey(raw: string): string | null {
+  return isValidDoi(raw) ? `doi:${normalizeDoi(raw).toLowerCase()}` : null;
+}
+
 function normalizeText(raw: string): string | null {
   const value = raw
     .toLowerCase()
@@ -65,6 +75,8 @@ function valueFor(field: EvidenceField, raw: unknown): string | null {
       return isbn ? `isbn:${isbn}` : null;
     }
     case 'url': {
+      const doi = doiLinkKey(raw);
+      if (doi) return doi;
       const url = normalizeUrl(raw);
       return url ? `url:${url}` : normalizeTextKey(raw);
     }
@@ -99,8 +111,9 @@ export function workKey(input: {
     if (name === RECORD_LINK_IDENTITY) {
       // `url:` on purpose: it is the prefix a `url` field always gave, so a
       // work keyed before this existed keeps its identity.
+      const doi = input.link ? doiLinkKey(input.link) : null;
       const url = input.link ? normalizeUrl(input.link) : null;
-      core = url ? `url:${url}` : input.link ? normalizeTextKey(input.link) : null;
+      core = doi ?? (url ? `url:${url}` : input.link ? normalizeTextKey(input.link) : null);
       if (core) break;
       continue;
     }

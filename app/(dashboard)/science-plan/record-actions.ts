@@ -13,12 +13,26 @@ import { workKey } from '@/lib/science/work-key';
 import {
   attachReservations,
   CoauthorError,
+  deferShare,
   grantShare,
   replaceCoauthors,
+  undeferShare,
   type WorkRef,
 } from '@/lib/science/coauthor-store';
-import { authorShare, coauthorsProblem, type CoauthorShare } from '@/lib/science/coauthors';
-import { evidenceProblem, FILE_NOT_ALLOWED, LINK_NOT_ALLOWED } from '@/lib/science/evidence-rule';
+import { deferralYear } from '@/lib/science/count-year';
+import {
+  authorShare,
+  COAUTHOR_CANNOT_DELETE,
+  coauthorsProblem,
+  type CoauthorShare,
+} from '@/lib/science/coauthors';
+import {
+  doiProof,
+  evidenceProblem,
+  FILE_NOT_ALLOWED,
+  LINK_NOT_ALLOWED,
+  linkProblem,
+} from '@/lib/science/evidence-rule';
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { toHundredths } from '@/lib/stake/units';
 import { schemaForFields } from '@/validations/activity-evidence';
@@ -322,6 +336,7 @@ export async function lockPlan(departmentId: string): Promise<{ ok: true } | { e
         staffId,
         planId: plan.id,
         templateId: template.id,
+        academicYear: template.academicYear,
         userId,
       });
 
@@ -440,12 +455,18 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
     return { error: monthFault };
   }
 
-  const evidenceFault = evidenceProblem({
-    linkRule: type.linkRule,
-    fileRule: type.fileRule,
-    link,
-    fileCount: verifiedFile ? 1 : 0,
-  });
+  // The стаття's DOI is a proof of its own, and never belongs in the link
+  // box (owner, 2026-10-02) — see `doiProof` / `linkProblem`.
+  const doi = doiProof(fields, parsed.data);
+  const evidenceFault =
+    linkProblem(link, doi !== undefined) ??
+    evidenceProblem({
+      linkRule: type.linkRule,
+      fileRule: type.fileRule,
+      link,
+      fileCount: verifiedFile ? 1 : 0,
+      doi,
+    });
   if (evidenceFault) {
     await dropFile();
     return { error: evidenceFault };
@@ -762,12 +783,16 @@ export async function updateWorkEvidence(input: {
     const startFault = startedMonthProblem({ started: nextStart, finished: nextMonth, ...window });
     if (startFault) return { error: startFault };
   }
-  const evidenceFault = evidenceProblem({
-    linkRule: type.linkRule,
-    fileRule: type.fileRule,
-    link,
-    fileCount: work._count.files,
-  });
+  const doi = doiProof(fields, parsed.data);
+  const evidenceFault =
+    linkProblem(link, doi !== undefined) ??
+    evidenceProblem({
+      linkRule: type.linkRule,
+      fileRule: type.fileRule,
+      link,
+      fileCount: work._count.files,
+      doi,
+    });
   if (evidenceFault) return { error: evidenceFault };
 
   const key = workKey({
@@ -919,17 +944,17 @@ export async function updateWorkEvidence(input: {
 }
 
 /**
- * Withdraw the caller's own draw.
+ * Delete a work — **only its author can, and the whole work goes**: its
+ * co-authors' records, their reservations and its files (owner, 2026-09-30).
+ * The co-authors hold hours the author gave them from a pool the author's proof
+ * stands behind; with the author's record gone nobody can change those hours,
+ * and the work's `dedupKey` would block the article from ever being entered
+ * again. The screen warns the author, by number, before this runs.
  *
- * **When the caller is the work's AUTHOR, the whole work goes** — its co-authors'
- * records, their reservations and its files (owner, 2026-09-30). The co-authors
- * hold hours the author gave them from a pool the author's proof stands behind;
- * with the author's record gone nobody can change those hours, and the work's
- * `dedupKey` would block the article from ever being entered again. The screen
- * warns the author, by number, before this runs.
- *
- * A co-author withdrawing deletes only their own record and gives the hours
- * back to the author. ADMIN deletes a genuinely wrong work elsewhere.
+ * **A co-author cannot delete at all** (owner, 2026-10-02, reversing
+ * 2026-09-30's «a co-author withdraws their own record»). One named by mistake
+ * asks the author to take them off in «Співавтори». ADMIN deletes a genuinely
+ * wrong work elsewhere.
  */
 export async function deleteRecord(recordId: string): Promise<{ ok: true } | { error: string }> {
   const actor = await resolveActor();
@@ -958,7 +983,7 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
   if (!record || record.staffId !== staffId) return { error: 'Запис не знайдено' };
   if (record.templateId !== template.id) return { error: 'Запис не знайдено' };
 
-  const isAuthor = record.work.createdById === staffId;
+  if (record.work.createdById !== staffId) return { error: COAUTHOR_CANNOT_DELETE };
 
   // Objects to clear once the rows are gone — collected BEFORE the delete,
   // because the cascade takes the rows that name them.
@@ -966,30 +991,16 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
 
   try {
     await db.$transaction(async (tx) => {
-      if (isAuthor) {
-        // Cascades every record, reservation and file row of the work; the R2
-        // objects are dropped after the transaction commits.
-        orphanedObjectKeys = record.work.files.map((f) => f.objectKey);
-        await tx.scienceWork.delete({ where: { id: record.work.id } });
-      } else {
-        await tx.scienceRecord.delete({ where: { id: recordId } });
-        // A co-author withdrawing gives their hours BACK to the author: the
-        // author's share is what is left, and nobody can take the rest by
-        // themselves any more. No status filter: the author's row may be
-        // switched off by a decline, and it comes back with these hours.
-        if (record.work.workType.sharing === 'SHARED') {
-          await tx.scienceRecord.updateMany({
-            where: { workId: record.work.id, staffId: record.work.createdById },
-            data: { hoursHundredths: { increment: record.hoursHundredths } },
-          });
-        }
-      }
+      // Cascades every record, reservation and file row of the work; the R2
+      // objects are dropped after the transaction commits.
+      orphanedObjectKeys = record.work.files.map((f) => f.objectKey);
+      await tx.scienceWork.delete({ where: { id: record.work.id } });
 
       await tx.auditLog.create({
         data: {
           action: 'DELETE',
-          entity: isAuthor ? 'ScienceWork' : 'ScienceRecord',
-          entityId: isAuthor ? record.work.id : recordId,
+          entity: 'ScienceWork',
+          entityId: record.work.id,
           label: record.work.workType.label,
           userId,
           changes: diffChanges(
@@ -1050,7 +1061,8 @@ export async function resubmitScienceWork(
       createdById: true,
       declinedAt: true,
       link: true,
-      workType: { select: { label: true, linkRule: true, fileRule: true } },
+      evidence: true,
+      workType: { select: { label: true, linkRule: true, fileRule: true, evidenceFields: true } },
       _count: { select: { files: true } },
     },
   });
@@ -1065,6 +1077,7 @@ export async function resubmitScienceWork(
     fileRule: work.workType.fileRule,
     link: work.link,
     fileCount: work._count.files,
+    doi: doiProof(work.workType.evidenceFields as unknown as EvidenceField[], work.evidence),
   });
   if (fault) return { error: fault };
 
@@ -1199,6 +1212,95 @@ export async function updateCoauthors(input: {
         'science.updateCoauthors',
         { userId }
       ),
+    };
+  }
+
+  revalidatePath('/science-plan');
+  return { ok: true };
+}
+
+/**
+ * A CO-AUTHOR chooses the навчальний рік their share counts in — the work's own,
+ * or the next one (owner, 2026-10-02; the window is `deferralYear`).
+ *
+ * **Never the author.** Whoever adds a work is meant to count it in the year
+ * they add it; an author who wants the next year enters it in September. And
+ * only while the work's own year is OPEN — once it closes, the choice is fixed.
+ */
+export async function setShareYear(input: {
+  workId: string;
+  academicYear: string;
+}): Promise<{ ok: true } | { error: string }> {
+  const actor = await resolveActor(undefined);
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, template } = actor.context;
+
+  const work = await db.scienceWork.findUnique({
+    where: { id: input.workId },
+    select: {
+      id: true,
+      templateId: true,
+      totalHundredths: true,
+      createdById: true,
+      createdAt: true,
+      evidence: true,
+      declinedAt: true,
+      declineReason: true,
+      declinedById: true,
+      workType: {
+        select: { id: true, label: true, sharing: true, maxPerYear: true, evidenceFields: true },
+      },
+    },
+  });
+  if (!work) return { error: 'Роботу не знайдено' };
+  if (work.templateId !== template.id) {
+    return { error: 'Рік цієї роботи вже закрито — рік зарахування змінити не можна' };
+  }
+  if (work.createdById === staffId) {
+    return { error: 'Автор зараховує роботу в той рік, коли її додав' };
+  }
+
+  const next = deferralYear({
+    academicYear: template.academicYear,
+    sharing: work.workType.sharing,
+    fields: work.workType.evidenceFields as unknown as EvidenceField[],
+    evidence: work.evidence,
+    createdAt: work.createdAt,
+  });
+  if (input.academicYear !== template.academicYear && input.academicYear !== next) {
+    return {
+      error: next
+        ? `Цю роботу можна зарахувати лише в ${template.academicYear} або ${next}`
+        : `Цю роботу можна зарахувати лише в ${template.academicYear}`,
+    };
+  }
+
+  const ref: WorkRef = {
+    id: work.id,
+    templateId: work.templateId,
+    workTypeId: work.workType.id,
+    totalHundredths: work.totalHundredths,
+    typeLabel: work.workType.label,
+    maxPerYear: work.workType.maxPerYear,
+    declined: work.declinedAt
+      ? { at: work.declinedAt, reason: work.declineReason, byUserId: work.declinedById }
+      : null,
+  };
+
+  try {
+    await db.$transaction(async (tx) => {
+      if (input.academicYear === template.academicYear) {
+        await undeferShare(tx, { work: ref, staffId, userId });
+      } else {
+        await deferShare(tx, { work: ref, staffId, academicYear: input.academicYear, userId });
+      }
+    });
+  } catch (e) {
+    if (e instanceof CoauthorError) return { error: e.reason };
+    return {
+      error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'science.setShareYear', {
+        userId,
+      }),
     };
   }
 

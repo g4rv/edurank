@@ -187,7 +187,6 @@ describe('D39/D47 — how each type is proved', () => {
     ).map((d) => d.code);
     expect([...linkOnly].sort()).toEqual(
       [
-        'article',
         'dissertation',
         'editorial_board',
         'english_support',
@@ -241,7 +240,13 @@ describe('a link is asked for once', () => {
   it('the стаття is told apart by its DOI, then by the one link, then by its title', () => {
     const article = SCIENCE_WORK_TYPES_2027.find((d) => d.code === 'article')!;
     expect(article.identityFields).toEqual(['doi', 'link', 'title']);
-    expect(article.linkRule).toBe('REQUIRED');
+  });
+
+  it('the стаття is proved by a link OR its DOI, never a file (owner, 2026-10-02)', () => {
+    const article = SCIENCE_WORK_TYPES_2027.find((d) => d.code === 'article')!;
+    expect(article.linkRule).toBe('OPTIONAL');
+    expect(article.fileRule).toBe('NONE');
+    expect(article.fields.some((f) => f.kind === 'doi')).toBe(true);
   });
 });
 

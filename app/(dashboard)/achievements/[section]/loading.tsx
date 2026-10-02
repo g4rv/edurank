@@ -13,7 +13,7 @@ import { RATING_CRUMBS } from '@/components/rating/section-header';
  *   WHICH section it is standing in for. The title is the one thing on the
  *   header that is otherwise fully knowable, and the route knows it — but not
  *   here.
- * - The real header carries the «Додати досягнення» trigger, and whether that
+ * - The real header carries the «Додати показник» trigger, and whether that
  *   exists depends on the template being OPEN and on the section holding
  *   indicators an НПП may submit. With no session and no template it would have
  *   to guess, and a button that appears and then vanishes is worse than one

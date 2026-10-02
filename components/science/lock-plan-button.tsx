@@ -25,7 +25,7 @@ export interface LockRow {
 }
 
 /**
- * «Зберегти план» — the НПП submits their plan and it stops being editable.
+ * «Зберегти планування» — the НПП submits their plan and it stops being editable.
  *
  * An `AlertDialog`, not a `Dialog`: this is a decision, not a task, and it is
  * the one action on this screen that cannot be undone by the person taking it.
@@ -86,7 +86,7 @@ export function LockPlanButton({
       <AlertDialogTrigger asChild>
         <Button variant="outline" className="rounded-md">
           <Lock className="size-4" />
-          Зберегти план
+          Зберегти планування
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

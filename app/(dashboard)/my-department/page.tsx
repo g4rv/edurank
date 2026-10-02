@@ -139,7 +139,6 @@ export default async function MyDepartmentPage({
             positionsByStaff={positionsByStaff}
             year={template?.year ?? null}
             fill={single}
-            showStake={!isDean}
           />
         </section>
       ))}
@@ -199,30 +198,29 @@ function DepartmentLinks({
  */
 const COLUMNS = [null, '16rem', '9rem', '7rem', '12rem'] as const;
 const MIN_WIDTH = 'calc(16rem + 16rem + 9rem + 7rem + 12rem)';
-/** A декан's view: no Ставка column — розподіл ставок is not theirs. */
-const DEAN_COLUMNS = [null, '16rem', '9rem', '12rem'] as const;
-const DEAN_MIN_WIDTH = 'calc(16rem + 16rem + 9rem + 12rem)';
 
+/**
+ * A декан sees the Ставка column too (owner, 2026-10-02, reversing
+ * 2026-09-24): the saved split, read-only. The grid and the fund stay the
+ * head's — `/stakes/[id]` still gates on `headOf`.
+ */
 function StaffTable({
   staff,
   positionsByStaff,
   year,
   fill,
-  showStake,
 }: {
   staff: Awaited<ReturnType<typeof listMyDepartments>>[number]['staff'];
   positionsByStaff: Map<string, { metCount: number; qualifies: boolean }>;
   year: number | null;
   fill: boolean;
-  /** Off for a декан (owner, 2026-09-24) — розподіл ставок is not theirs. */
-  showStake: boolean;
 }) {
   if (staff.length === 0) return <EmptyState>На кафедрі немає НПП</EmptyState>;
 
   return (
     <Table
-      columns={showStake ? COLUMNS : DEAN_COLUMNS}
-      minWidth={showStake ? MIN_WIDTH : DEAN_MIN_WIDTH}
+      columns={COLUMNS}
+      minWidth={MIN_WIDTH}
       fill={fill}
       head={
         <TableRow>
@@ -233,7 +231,7 @@ function StaffTable({
           <TableHead align="center" className="whitespace-nowrap">
             {year === null ? 'Рейтинг' : `Рейтинг ${year}`}
           </TableHead>
-          {showStake && <TableHead align="center">Ставка</TableHead>}
+          <TableHead align="center">Ставка</TableHead>
           <TableHead align="center">Характеристика</TableHead>
         </TableRow>
       }
@@ -269,15 +267,13 @@ function StaffTable({
             </TableCell>
             {/* THIS кафедра's ставка for them — the head's own saved split, the
                 number on their grid. «—» until a split is saved. */}
-            {showStake && (
-              <TableCell numeric align="center">
-                {person.stakeHundredths === null ? (
-                  <span className="text-foreground-soft">—</span>
-                ) : (
-                  formatStake(person.stakeHundredths)
-                )}
-              </TableCell>
-            )}
+            <TableCell numeric align="center">
+              {person.stakeHundredths === null ? (
+                <span className="text-foreground-soft">—</span>
+              ) : (
+                formatStake(person.stakeHundredths)
+              )}
+            </TableCell>
             <TableCell align="center">
               {/* The licence score and the document it comes from, side by
                   side — the head reads the one and downloads the other. */}
