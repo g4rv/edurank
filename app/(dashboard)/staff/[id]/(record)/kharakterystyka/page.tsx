@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { canOverseeScience } from '@/lib/science/oversight';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
@@ -31,6 +32,8 @@ export default async function StaffKharakterystykaPage({
   const { id } = await params;
   const session = await auth();
   if (!session) redirect('/login');
+  // «Наукова робота» is ADMIN's and «Перевірка науки»'s alone (D43).
+  const showScience = await canOverseeScience(session.user);
 
   // An НПП reaching their own record belongs on «Мій рейтинг», which carries the
   // same document plus the forms to do something about it.
@@ -74,7 +77,12 @@ export default async function StaffKharakterystykaPage({
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       {/* «7 з 20 · Відповідає» belongs on the tab row: it says WHAT you are
           looking at rather than being part of the document. */}
-      <RecordTabRow staffId={id} showRating showStaffPages={seesStaffPages}>
+      <RecordTabRow
+        staffId={id}
+        showRating
+        showStaffPages={seesStaffPages}
+        showScience={showScience}
+      >
         <ToolbarGroup>
           <KharakterystykaSummary data={data} />
           <ToolbarDivider />

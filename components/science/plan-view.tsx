@@ -52,6 +52,8 @@ export function PlanView({
   workTypes,
   lockedAt,
   coauthorCandidates,
+  readOnly = false,
+  basePath = '/science-plan',
 }: {
   academicYear: string;
   /** D48 — the year's last month (1–8) for the month pickers. */
@@ -70,6 +72,15 @@ export function PlanView({
   lockedAt: Date | null;
   /** Everybody an author may name as a co-author (empty off the «Виконано» tab). */
   coauthorCandidates: CoauthorCandidate[];
+  /**
+   * Somebody else's plan, read by ADMIN or «Перевірка науки» on
+   * `/staff/[id]/science` (owner, 2026-10-05). Every control goes: the
+   * `canEdit` flags below describe the plan's OWNER, not the reader, so they
+   * cannot be trusted to hide anything here. Moderation stays on /moderation.
+   */
+  readOnly?: boolean;
+  /** Where the кафедра and tab links point. */
+  basePath?: string;
 }) {
   const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
 
@@ -77,6 +88,8 @@ export function PlanView({
   // can only ever offer this person's own intentions — the server checks it
   // again, because a list is not a permission.
   const locked = lockedAt !== null;
+  // No delete column when nothing may be deleted from here.
+  const rowActions = !locked && !readOnly;
 
   // План and факт are compared as HOURS, broken down by пункт (owner,
   // 2026-09-17) — no record is tied to a plan line, so the пункт number is what
@@ -101,6 +114,7 @@ export function PlanView({
           departments={departments}
           currentDepartmentId={currentDepartmentId}
           tab={tab}
+          basePath={basePath}
         />
       )}
 
@@ -115,9 +129,18 @@ export function PlanView({
           planCount={rows.length}
           doneCount={records.length}
           doneLocked={!locked}
+          basePath={basePath}
         />
         <ToolbarGroup>
-          {tab === 'plan' ? (
+          {readOnly ? (
+            // What a reader needs instead of the buttons: has it been
+            // submitted, and when.
+            <p className="px-2 text-sm text-foreground-soft">
+              {locked
+                ? `План збережено ${lockedAt.toLocaleDateString('uk-UA')}`
+                : 'План ще не збережено'}
+            </p>
+          ) : tab === 'plan' ? (
             locked ? (
               // Nothing to press: a submitted plan has no add button and no
               // delete on its rows.
@@ -166,6 +189,7 @@ export function PlanView({
           academicYear={academicYear}
           lastExecutionMonth={lastExecutionMonth}
           coauthorCandidates={coauthorCandidates}
+          readOnly={readOnly}
         />
       ) : rows.length === 0 ? (
         <EmptyState>Ще немає запланованих робіт.</EmptyState>
@@ -176,15 +200,15 @@ export function PlanView({
         // пункт name into a sliver beside its figures on a phone; the table
         // scrolls sideways inside its card there instead (`minWidth`).
         <Table
-          columns={locked ? PLAN_COLUMNS : [...PLAN_COLUMNS, '3rem']}
-          minWidth={locked ? PLAN_MIN_WIDTH : `calc(${PLAN_MIN_WIDTH} + 3rem)`}
+          columns={rowActions ? [...PLAN_COLUMNS, '3rem'] : PLAN_COLUMNS}
+          minWidth={rowActions ? `calc(${PLAN_MIN_WIDTH} + 3rem)` : PLAN_MIN_WIDTH}
           fill
           head={
             <TableRow>
               <TableHead>Вид роботи</TableHead>
               <TableHead align="center">Заплановано</TableHead>
               <TableHead align="center">Виконано</TableHead>
-              {!locked && <TableHead />}
+              {rowActions && <TableHead />}
             </TableRow>
           }
           footer={
@@ -196,7 +220,7 @@ export function PlanView({
               <TableCell numeric align="center">
                 {formatHours(target.doneHundredths)} год
               </TableCell>
-              {!locked && <TableCell />}
+              {rowActions && <TableCell />}
             </TableRow>
           }
         >
@@ -229,7 +253,7 @@ export function PlanView({
                   >
                     {formatHours(done)}
                   </TableCell>
-                  {!locked && <TableCell />}
+                  {rowActions && <TableCell />}
                 </TableRow>
                 {group.rows.map((row) => {
                   const type = workTypeById.get(row.workTypeId);
@@ -251,7 +275,7 @@ export function PlanView({
                         {formatHours(row.plannedHundredths)}
                       </TableCell>
                       <TableCell />
-                      {!locked && (
+                      {rowActions && (
                         <TableCell align="center">
                           <DeletePlanRowButton rowId={row.id} label={row.workTypeLabel} />
                         </TableCell>
@@ -280,10 +304,12 @@ function DepartmentSwitcher({
   departments,
   currentDepartmentId,
   tab,
+  basePath,
 }: {
   departments: { id: string; name: string }[];
   currentDepartmentId: string;
   tab: PlanTab;
+  basePath: string;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -293,7 +319,7 @@ function DepartmentSwitcher({
         tabs={departments.map((d) => ({
           // The tab is carried across, or switching кафедра from «Виконано»
           // would silently drop somebody back onto «План».
-          href: `/science-plan?dept=${d.id}${tab === 'done' ? '&tab=done' : ''}`,
+          href: `${basePath}?dept=${d.id}${tab === 'done' ? '&tab=done' : ''}`,
           label: d.name,
           active: d.id === currentDepartmentId,
         }))}

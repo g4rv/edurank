@@ -1,43 +1,17 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
-import {
-  getActiveScienceTemplate,
-  type ScienceWorkTypeRow,
-} from '@/lib/queries/get-science-template';
+import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { planDepartmentsFor, getSciencePlan } from '@/lib/queries/get-science-plan';
 import { listCoauthorCandidates } from '@/lib/queries/list-coauthor-candidates';
-import { evidenceFieldsSpecSchema, scoringSpecSchema } from '@/validations/activity-type-spec';
+import { pickPlanDepartment } from '@/lib/science/plan-department';
+import { toPlanWorkType } from '@/lib/science/to-plan-work-type';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { PlanView } from '@/components/science/plan-view';
-import type { PlanWorkType } from '@/components/science/add-plan-row-dialog';
 import type { PlanTab } from '@/components/science/record-tabs';
 
 const CRUMBS = [{ label: 'Особисте' }, { label: 'Планування наукової роботи' }];
-
-/** Field specs off the row's JSON; a malformed row degrades to an empty form —
- *  same defensive shape `achievements/[section]/page.tsx` uses for the rating. */
-function toPlanWorkType(row: ScienceWorkTypeRow): PlanWorkType {
-  const fields = evidenceFieldsSpecSchema.safeParse(row.evidenceFields);
-  const scoring = scoringSpecSchema.safeParse(row.scoring);
-  return {
-    id: row.id,
-    code: row.code,
-    label: row.label,
-    itemNumber: row.itemNumber,
-    itemTitle: row.itemTitle,
-    shortLabel: row.shortLabel,
-    coefficient: row.coefficient,
-    unitNote: row.unitNote,
-    reportingForm: row.reportingForm,
-    fields: fields.success ? fields.data : [],
-    scoring: scoring.success ? scoring.data : { kind: 'FIXED' },
-    sharing: row.sharing,
-    linkRule: row.linkRule,
-    fileRule: row.fileRule,
-  };
-}
 
 /**
  * An НПП's own наукова робота — Додаток III planned and recorded against a
@@ -89,16 +63,11 @@ export default async function SciencePlanPage({
     );
   }
 
-  // `?dept=` when given and this person's; otherwise the primary кафедра when
-  // it is one of theirs (a сумісник with no primary has none to fall back to);
-  // otherwise the first, sorted, кафедра — which is the whole list for
-  // everybody with only one.
-  const askedDept = typeof params.dept === 'string' ? params.dept : undefined;
-  const primaryId = staff.department?.id;
-  const departmentId =
-    (askedDept && departments.some((d) => d.id === askedDept) ? askedDept : undefined) ??
-    (primaryId && departments.some((d) => d.id === primaryId) ? primaryId : undefined) ??
-    departments[0].id;
+  const departmentId = pickPlanDepartment(
+    typeof params.dept === 'string' ? params.dept : undefined,
+    staff.department?.id,
+    departments
+  );
 
   const tab: PlanTab = params.tab === 'done' ? 'done' : 'plan';
 

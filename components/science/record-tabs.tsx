@@ -24,6 +24,7 @@ export function RecordTabs({
   planCount,
   doneCount,
   doneLocked = false,
+  basePath = '/science-plan',
 }: {
   active: PlanTab;
   departmentId: string;
@@ -31,6 +32,9 @@ export function RecordTabs({
   doneCount: number;
   /** The plan is not submitted yet, so there is nothing to record against. */
   doneLocked?: boolean;
+  /** Where the tabs point — the НПП's own page, or a record's
+   *  `/staff/[id]/science` when ADMIN or ННВ reads it. */
+  basePath?: string;
 }) {
   const tabs: { key: PlanTab; label: string; count: number }[] = [
     { key: 'plan', label: 'Планування', count: planCount },
@@ -63,7 +67,7 @@ export function RecordTabs({
             key={tab.key}
             // `?dept=` is carried, or a сумісник switching tabs would be thrown
             // back to their other кафедра.
-            href={`/science-plan?dept=${departmentId}${tab.key === 'done' ? '&tab=done' : ''}`}
+            href={`${basePath}?dept=${departmentId}${tab.key === 'done' ? '&tab=done' : ''}`}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
               'flex h-8 items-center rounded-md px-3 text-sm font-medium transition-colors',

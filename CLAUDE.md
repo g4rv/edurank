@@ -293,6 +293,7 @@ app/
         edit/
         rating/                   ← the staff member's rating tab
         kharakterystyka/          ← their Характеристика (п.38 licence positions)
+        science/                  ← their наукова робота, read-only — ADMIN + «Перевірка науки»
     faculties/                    ← [id]/, [id]/edit/; create is a dialog on the list
                                     (`CreateFacultyDialog`), not a `new/` route — same
                                     move as staff's, 2026-09-21, followed here 2026-09-29
@@ -589,8 +590,9 @@ Easy to get wrong:
   `lib/science/oversight.ts`; ННВ has it by migration. Never match ННВ by
   `registryKey` for this again. Only ADMIN and that division see
   `/science-plans`, decline records, open other people's files and reopen a
-  submitted plan (`unlockPlan`). **A завідувач and a декан see no science
-  data at all** (D44) — `/my-department/science-plans` was removed.
+  submitted plan (`unlockPlan`), and read one НПП's plan and records on the
+  record tab `/staff/[id]/science` (owner, 2026-10-05). **A завідувач and a
+  декан see no science data at all** (D44) — `/my-department/science-plans` was removed.
 - **The fact owes `max(план, 500 × ставка)`** (D37, `doneTargetHundredths`);
   the plan itself is still measured against the norm — and **cannot be saved
   below it** (D52, owner 2026-09-24): `lockPlan` refuses, the dialog disables
