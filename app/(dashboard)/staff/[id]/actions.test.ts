@@ -412,6 +412,17 @@ describe('archiveStaff authorization', () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
+  // Nobody archives themselves, an ADMIN included (owner, 2026-10-05). Plenty
+  // of other admins, so it is THIS rule refusing, not the last-admin guard.
+  it('refuses an ADMIN archiving their own record', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'admin-1' } });
+    mockStaffLookups({ targetRole: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(5);
+
+    expect(await archiveStaff('admin-1', '')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
   it('still lets an EDITOR archive an ordinary USER', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });

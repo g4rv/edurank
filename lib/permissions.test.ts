@@ -159,6 +159,21 @@ describe('canMutateStaffRecord', () => {
     ).toBe(false);
   });
 
+  // Nobody archives themselves — an ADMIN included (owner, 2026-10-05). The
+  // ADMIN shortcut used to answer before `allowSelf` was read, so the button
+  // showed on an admin's own record and the action accepted it.
+  it('withholds self from an ADMIN too when the caller asks for it (archiving)', () => {
+    expect(
+      canMutateStaffRecord(admin, { id: 'staff-admin', role: 'ADMIN' }, { allowSelf: false })
+    ).toBe(false);
+  });
+
+  it('still lets an ADMIN archive anybody else', () => {
+    expect(canMutateStaffRecord(admin, { id: 'other', role: 'ADMIN' }, { allowSelf: false })).toBe(
+      true
+    );
+  });
+
   // A USER reaching the action directly must not edit a peer just because the
   // peer is also a USER — the own-record branch is the only one open to them.
   it('refuses a USER acting on another USER', () => {

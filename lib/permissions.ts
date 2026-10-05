@@ -134,16 +134,20 @@ export async function canManageEntity(
  * everyone but ADMIN (see isEditorWritableField), so a self-edit reaches
  * nothing but ordinary profile data.
  *
- * Deleting passes `allowSelf: false` — removing yourself is not a self-service
- * action, and an editor deleting their own row only strands the record.
+ * Archiving passes `allowSelf: false` — taking yourself off the roster is not a
+ * self-service action, **for an ADMIN as much as anybody** (owner, 2026-10-05):
+ * it ends your own session and locks you out. So that check comes BEFORE the
+ * ADMIN shortcut, which used to answer first and let it through.
  */
 export function canMutateStaffRecord(
   caller: { role: Role; staffId?: string | null },
   target: { id: string; role: Role },
   { allowSelf = true }: { allowSelf?: boolean } = {}
 ): boolean {
+  const self = !!caller.staffId && caller.staffId === target.id;
+  if (self && !allowSelf) return false;
   if (caller.role === 'ADMIN') return true;
-  if (allowSelf && caller.staffId && caller.staffId === target.id) return true;
+  if (self) return true;
   if (caller.role !== 'EDITOR') return false;
   return target.role === 'USER';
 }
