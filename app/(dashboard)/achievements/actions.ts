@@ -13,6 +13,8 @@ import { recomputeRatingEntry } from '@/lib/rating/recompute';
 import { computeScore } from '@/lib/rating/scoring';
 import { logError } from '@/lib/log';
 import { NPP_RATING_CLOSED_DETAIL, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
+import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
+import { PLAN_GATE_DETAIL } from '@/lib/science/plan-gate';
 
 export type CreateActivityState = { error: string } | { success: true; score: number };
 
@@ -49,6 +51,10 @@ export async function createActivity(
   // Archiving blocks the login, so this is only reachable with a session that
   // was already open — belt and braces on the year's numbers.
   if (staff.archivedAt) return { error: 'Ваш запис архівовано' };
+
+  // The rating waits for a saved science plan (owner, 2026-10-05). The section
+  // page shows the same sentence instead of the form; this is for a tab left open.
+  if (!(await getSciencePlanGate(staffId)).open) return { error: PLAN_GATE_DETAIL };
 
   const type = await db.activityType.findUnique({
     where: { id: activityTypeId },
@@ -181,6 +187,9 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
   // their own mistyped submission (2026-08-17).
   const staffId = session.user.staffId;
   if (!staffId) return { error: 'Недостатньо прав' };
+
+  // Deleting is filling the rating too — the gate covers the whole section page.
+  if (!(await getSciencePlanGate(staffId)).open) return { error: PLAN_GATE_DETAIL };
 
   const activity = await db.activity.findUnique({
     where: { id: activityId },

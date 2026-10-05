@@ -139,7 +139,11 @@ export function PlanView({
                   targetHundredths={target.targetHundredths}
                   hasRate={target.rateHundredths !== null}
                 />
-                <AddPlanRowDialog departmentId={currentDepartmentId} workTypes={workTypes} />
+                <AddPlanRowDialog
+                  departmentId={currentDepartmentId}
+                  workTypes={workTypes}
+                  disabled={target.rateHundredths === null}
+                />
               </>
             )
           ) : (

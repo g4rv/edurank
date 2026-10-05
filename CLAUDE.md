@@ -595,6 +595,14 @@ Easy to get wrong:
   the plan itself is still measured against the norm — and **cannot be saved
   below it** (D52, owner 2026-09-24): `lockPlan` refuses, the dialog disables
   «Так, зберегти». A draft under the norm is fine; a submitted one is not.
+- **The rating waits for a saved plan** (D56, owner 2026-10-05). «Розділ 1–5»
+  show «Спершу збережіть планування…» until EVERY кафедра the НПП is on has a
+  `lockedAt` plan in the open навчальний рік, and `createActivity` /
+  `deleteActivity` refuse the same way — `planGate` in
+  `lib/science/plan-gate.ts`. No open science year means no gate. **No ставка,
+  no planning**: «Запланувати роботу» is disabled and `savePlanRow` refuses a
+  NEW row (an edit still saves); the header says why (`NO_RATE_DETAIL`). Such a
+  person stays blocked from the rating until the завідувач distributes.
 - **Link and file are two separate rules per вид роботи** (D47,
   `ScienceWorkType.linkRule` / `fileRule`: REQUIRED / OPTIONAL / NONE, set by
   ADMIN). Only when neither is REQUIRED must one of the two be given; a proof

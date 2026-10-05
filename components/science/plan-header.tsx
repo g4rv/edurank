@@ -2,7 +2,7 @@ import { TriangleAlert } from 'lucide-react';
 import { Card } from '@/components/aurora/ui/card';
 import { cn } from '@/lib/utils';
 import { formatHours } from '@/lib/science/hours';
-import type { PlanTarget } from '@/lib/science/target';
+import { NO_RATE_DETAIL, type PlanTarget } from '@/lib/science/target';
 
 /**
  * The band an НПП checks their year against, folded INTO the page header.
@@ -87,9 +87,12 @@ export function PlanHeader({
             )}
           </dl>
 
+          {/* It blocks «Запланувати роботу» now (owner, 2026-10-05), so it
+              reports a STATE the person has to act on — warning, not grey. */}
           {targetHundredths === null && (
-            <p className="mt-2 text-xs text-foreground-soft">
-              Ставку на цій кафедрі ще не визначено — мінімум буде показано пізніше.
+            <p className="mt-2 max-w-md text-xs text-warning">
+              <TriangleAlert className="mr-1 mb-0.5 inline size-3.5" aria-hidden />
+              {NO_RATE_DETAIL}
             </p>
           )}
         </div>

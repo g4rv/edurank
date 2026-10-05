@@ -1317,3 +1317,29 @@ author counts it in 2026/2027, a co-author wants it in 2027/2028.
   (`setShareYear` → `undeferShare`). The author sees «(перенесено на …)» beside
   them. The author still controls the split: changing it or deleting the work
   moves or removes a moved share like any other.
+
+## D56 — the rating waits for a saved plan; no ставка, no planning (owner, 2026-10-05)
+
+Two rules that meet on one person.
+
+- **«Розділ 1–5» open only once every кафедра has a SAVED plan.** An НПП whose
+  plan for the open навчальний рік is not saved (`lockedAt`) sees
+  «Спершу збережіть планування наукової роботи…» and «Перейти до планування»
+  in place of the section, and `createActivity` / `deleteActivity` refuse with
+  the same sentence. A сумісник needs BOTH plans saved and is told which is
+  missing. `lib/science/plan-gate.ts` (`planGate`), read through
+  `lib/queries/get-science-plan-gate.ts`.
+- **No ставка on a кафедра, no new plan row there.** «Запланувати роботу» is
+  disabled and `savePlanRow` refuses a new row; the plan header says why
+  (`NO_RATE_DETAIL`, `lib/science/target.ts`). Editing a draft row typed
+  before the rule is still allowed — fixing is not adding.
+- **No ставка is no excuse for the rating** — such a person is blocked until
+  the завідувач distributes. Measured on the production copy of 2026-09-26:
+  one НПП had no ставка, so the cost is small.
+- **No open science year opens the rating** — between years nobody can save a
+  plan.
+- **Accepted consequences:** opening the next science year in September locks
+  everybody out of the calendar-year rating until they save the new plan
+  («~10 minutes, manageable»); ННВ reopening a plan (`unlockPlan`) locks that
+  person's rating again until it is saved. Only a person's OWN submission is
+  gated — ADMIN, division editors, «Мій рейтинг» and the Характеристика are not.

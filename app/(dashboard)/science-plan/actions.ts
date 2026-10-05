@@ -9,7 +9,7 @@ import { parseDbError } from '@/lib/db-error';
 import { logError } from '@/lib/log';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { planFields } from '@/lib/science/plan-fields';
-import { rateForPlan } from '@/lib/science/target';
+import { NO_RATE_DETAIL, rateForPlan } from '@/lib/science/target';
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { toHundredths } from '@/lib/stake/units';
 import { schemaForFields } from '@/validations/activity-evidence';
@@ -45,6 +45,9 @@ class RowNotFoundError extends Error {}
 
 /** The plan was submitted and is no longer editable (owner, 2026-09-17). */
 class PlanLockedError extends Error {}
+
+/** No ставка on this кафедра yet — nothing new may be planned (owner, 2026-10-05). */
+class NoRateError extends Error {}
 
 const PLAN_LOCKED_MESSAGE = 'План збережено';
 
@@ -155,6 +158,11 @@ export async function savePlanRow(input: SavePlanRowInput): Promise<SavePlanRowR
         stakeYear: template.stakeYear,
       });
 
+      // Planning waits for the ставка (owner, 2026-10-05) — the button is
+      // disabled too; this is for a tab left open. A NEW row only: editing a
+      // draft typed before the rule existed is not adding to it.
+      if (rateHundredths === null && !input.rowId) throw new NoRateError();
+
       let planId: string;
       if (existingPlan) {
         planId = existingPlan.id;
@@ -257,6 +265,7 @@ export async function savePlanRow(input: SavePlanRowInput): Promise<SavePlanRowR
     }
     if (e instanceof RowNotFoundError) return { error: 'Рядок плану не знайдено' };
     if (e instanceof PlanLockedError) return { error: PLAN_LOCKED_MESSAGE };
+    if (e instanceof NoRateError) return { error: NO_RATE_DETAIL };
     return {
       error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'science.savePlanRow', {
         userId,

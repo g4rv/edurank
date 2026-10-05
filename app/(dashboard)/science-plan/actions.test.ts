@@ -212,14 +212,33 @@ describe('savePlanRow — the plan and its ставка', () => {
     });
   });
 
-  it('leaves rateHundredths null when the кафедра has no розподіл', async () => {
+  // No ставка, no planning (owner, 2026-10-05): a plan with no target cannot be
+  // saved, so letting rows pile up on it only builds work that goes nowhere.
+  it('refuses a NEW row while the кафедра has no розподіл, creating no plan', async () => {
     (db.sciencePlan.findUnique as Mock).mockResolvedValue(null);
     (db.stakeAllocation.findFirst as Mock).mockResolvedValue(null);
-    (db.sciencePlan.create as Mock).mockResolvedValue({ id: 'p1', rateHundredths: null });
 
-    await savePlanRow(GOOD);
+    await expect(savePlanRow(GOOD)).resolves.toEqual({
+      error:
+        'Вам ще не розподілено ставку на цій кафедрі — планування стане доступним після розподілу. Зверніться до завідувача кафедри.',
+    });
+    expect(db.sciencePlan.create).not.toHaveBeenCalled();
+    expect(db.sciencePlanRow.create).not.toHaveBeenCalled();
+  });
 
-    expect((db.sciencePlan.create as Mock).mock.calls[0][0].data.rateHundredths).toBeNull();
+  // A row typed before this rule existed is the person's own draft; fixing it
+  // is not adding to it.
+  it('still saves an edit to an existing row while there is no ставка', async () => {
+    (db.stakeAllocation.findFirst as Mock).mockResolvedValue(null);
+    (db.sciencePlanRow.findUnique as Mock).mockResolvedValue({
+      plannedHundredths: 50000,
+      note: null,
+      plan: { id: 'p1' },
+      workType: { label: 'Наукова стаття' },
+    });
+
+    await expect(savePlanRow({ ...GOOD, rowId: 'r1' })).resolves.toEqual({ ok: true });
+    expect(db.sciencePlanRow.update).toHaveBeenCalled();
   });
 
   it('asks for the allocation on THIS кафедра and THIS stake year', async () => {

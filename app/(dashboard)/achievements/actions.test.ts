@@ -21,6 +21,9 @@ vi.mock('@/lib/rating/npp-access', async (importOriginal) => {
     },
   };
 });
+// The science-plan gate has its own tests; here it is a switch, open unless a
+// test says otherwise, so the rest of the file stays about the rating itself.
+vi.mock('@/lib/queries/get-science-plan-gate', () => ({ getSciencePlanGate: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn() },
@@ -33,6 +36,7 @@ vi.mock('@/lib/db', () => ({
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { catalogueType } from '@/lib/rating/db-specs';
+import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { createActivity, deleteActivity } from './actions';
 
 const mockAuth = auth as unknown as Mock;
@@ -40,6 +44,7 @@ const mockStaffFind = db.staff.findUnique as unknown as Mock;
 const mockTypeFind = db.activityType.findUnique as unknown as Mock;
 const mockActivityFind = db.activity.findUnique as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
+const mockPlanGate = getSciencePlanGate as unknown as Mock;
 
 const userSession = { user: { id: 'user-1', role: 'USER', staffId: 'staff-1' } };
 const nppStaff = { isNpp: true, lastName: 'Тест', firstName: 'Тест', patronymic: 'Тестович' };
@@ -82,6 +87,7 @@ beforeEach(() => {
   mockAuth.mockResolvedValue(userSession);
   mockStaffFind.mockResolvedValue(nppStaff);
   mockTypeFind.mockResolvedValue(confUkraineType);
+  mockPlanGate.mockResolvedValue({ open: true });
 });
 
 describe('createActivity', () => {
@@ -276,6 +282,33 @@ describe('while the rating is closed to НПП', () => {
   it('refuses deleteActivity', async () => {
     access.open = false;
     expect(await deleteActivity('activity-1')).toEqual(closed);
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+});
+
+// The rating waits for the science plan (owner, 2026-10-05). On the server too:
+// the section page hides the form, but a tab left open still posts it.
+describe('while the science plan is not saved', () => {
+  const unsaved = {
+    error: 'Спершу збережіть планування наукової роботи — після цього можна заповнювати рейтинг.',
+  };
+
+  beforeEach(() => {
+    mockPlanGate.mockResolvedValue({
+      open: false,
+      unsaved: [{ id: 'd1', name: 'Історії' }],
+    });
+  });
+
+  it('refuses createActivity', async () => {
+    expect(await createActivity('type-1', { title: 'Конференція' })).toEqual(unsaved);
+    expect(mockPlanGate).toHaveBeenCalledWith('staff-1');
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses deleteActivity', async () => {
+    mockActivityFind.mockResolvedValue(ownActivity);
+    expect(await deleteActivity('activity-1')).toEqual(unsaved);
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 });

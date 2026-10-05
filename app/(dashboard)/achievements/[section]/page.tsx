@@ -7,6 +7,8 @@ import { getRatingEntry } from '@/lib/queries/get-rating';
 import { sectionScores } from '@/lib/rating/section-scores';
 import { RatingClosedNote } from '@/components/rating/rating-closed-note';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
+import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
+import { PlanGateNote } from '@/components/rating/plan-gate-note';
 import { AchievementsList } from '@/components/rating/achievements-list';
 import { AddAchievementForm } from '@/components/rating/add-achievement-form';
 import { SectionHeader } from '@/components/rating/section-header';
@@ -93,6 +95,27 @@ export default async function AchievementsSectionPage({
   // still shows what is already in it — the list is the person's own record —
   // and simply offers no way to add.
   const canManage = template.status === 'OPEN';
+
+  // The rating waits for a saved science plan (owner, 2026-10-05). The whole
+  // section goes — list and form — because deleting is filling it in too, and
+  // `deleteActivity` refuses on its own. Heading and trail stay, so the person
+  // sees where they are and why it is empty.
+  //
+  // Only while the year can be filled in: a CLOSED year is read-only anyway,
+  // and hiding a person's own finished record behind «save your plan» would
+  // block nothing and only take the list away (owner, 2026-10-05).
+  if (canManage) {
+    const gate = await getSciencePlanGate(staffId);
+    if (!gate.open) {
+      return (
+        <div className="space-y-5">
+          <Breadcrumbs items={[...RATING_CRUMBS, { label: `Розділ ${section}` }]} />
+          <SectionHeader section={section} />
+          <PlanGateNote unsaved={gate.unsaved} />
+        </div>
+      );
+    }
+  }
 
   // The SAME stored row the sidebar reads, not a sum of the rows below. A
   // deactivated indicator still has rows on screen and scores nothing, so

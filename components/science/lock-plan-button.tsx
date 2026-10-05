@@ -32,9 +32,9 @@ export interface LockRow {
  * The confirm LISTS the whole plan, because «are you sure» about something you
  * cannot see again is not a question anybody can answer.
  *
- * Disabled while the кафедра has no розподіл, with the reason on screen rather
- * than in a tooltip — on 2026-09-15 that was 306 of 328 НПП, so it is the
- * ordinary September state and deserves a sentence, not a mystery.
+ * Absent while the кафедра has no розподіл. The reason is on screen rather than
+ * in a tooltip — the plan header's warning (`NO_RATE_DETAIL`), which since
+ * 2026-10-05 also covers the disabled «Запланувати роботу».
  */
 export function LockPlanButton({
   departmentId,
@@ -73,13 +73,10 @@ export function LockPlanButton({
     });
   }
 
-  if (!hasRate) {
-    return (
-      <p className="text-sm text-foreground-soft">
-        План можна буде зберегти, коли на кафедрі визначать вашу ставку.
-      </p>
-    );
-  }
+  // No button and no sentence: the header's NO_RATE_DETAIL already says why,
+  // beside the disabled «Запланувати роботу» (owner, 2026-10-05). Saying it
+  // here as well put the same reason on screen twice.
+  if (!hasRate) return null;
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
