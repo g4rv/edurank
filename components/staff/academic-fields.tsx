@@ -303,6 +303,19 @@ export function EducationCard({
   return (
     <Card title={CARD_TITLES.education} action={action} className={className}>
       <div className="space-y-5">
+        {/* Базова освіта first, as on the record (owner, 2026-10-06) */}
+        <FormField
+          htmlFor="basicEducationSpecialty"
+          label="Спеціальність базової освіти"
+          labelSuffix={<RatingFieldHint field="basicEducationSpecialty" />}
+          error={errors.basicEducationSpecialty}
+        >
+          <Input
+            id="basicEducationSpecialty"
+            disabled={isPending || locked('basicEducationSpecialty')}
+            {...register('basicEducationSpecialty')}
+          />
+        </FormField>
         <DegreeBlock
           title="Кандидат наук / доктор філософії (PhD)"
           prefix="candidate"
@@ -366,18 +379,6 @@ export function EducationCard({
             />
           </FormField>
         </FieldGroup>
-        <FormField
-          htmlFor="basicEducationSpecialty"
-          label="Спеціальність базової освіти"
-          labelSuffix={<RatingFieldHint field="basicEducationSpecialty" />}
-          error={errors.basicEducationSpecialty}
-        >
-          <Input
-            id="basicEducationSpecialty"
-            disabled={isPending || locked('basicEducationSpecialty')}
-            {...register('basicEducationSpecialty')}
-          />
-        </FormField>
       </div>
     </Card>
   );

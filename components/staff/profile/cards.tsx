@@ -140,72 +140,95 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
 export function EducationCard({ staff, showEmpty = true }: CardProps) {
   if (!staff.isNpp) return null;
 
+  // Базова освіта on top, then the two degrees side by side — each its own
+  // column, so on a phone «Кандидат» reads through before «Доктор» begins
+  // (owner, 2026-10-06).
+  const degree = (
+    label: string,
+    value: string | null,
+    specialty: string | null,
+    date: Date | null
+  ) => (
+    <Fields>
+      <MaybeField label={label} value={value} showEmpty={showEmpty} />
+      <MaybeField
+        label={EDUCATION_LABELS.candidateSpecialty}
+        value={specialty}
+        showEmpty={showEmpty}
+      />
+      <MaybeField
+        label={EDUCATION_LABELS.candidateDefence}
+        value={defence(date)}
+        showEmpty={showEmpty}
+      />
+    </Fields>
+  );
+
   return (
     <Card title={CARD_TITLES.education}>
-      <Fields columns={2}>
-        <MaybeField
-          label={EDUCATION_LABELS.candidate}
-          value={
-            staff.candidateDegree ? optionLabel(CANDIDATE_DEGREES, staff.candidateDegree) : null
-          }
-          showEmpty={showEmpty}
-        />
-        <MaybeField
-          label={EDUCATION_LABELS.candidateDefence}
-          value={defence(staff.candidateDefenceDate)}
-          showEmpty={showEmpty}
-        />
-        <MaybeField
-          label={EDUCATION_LABELS.candidateSpecialty}
-          value={staff.candidateSpecialty}
-          showEmpty={showEmpty}
-        />
-        <span />
-        <MaybeField
-          label={EDUCATION_LABELS.doctor}
-          value={staff.doctorDegree ? optionLabel(DOCTOR_DEGREES, staff.doctorDegree) : null}
-          showEmpty={showEmpty}
-        />
-        <MaybeField
-          label={EDUCATION_LABELS.doctorDefence}
-          value={defence(staff.doctorDefenceDate)}
-          showEmpty={showEmpty}
-        />
-        <MaybeField
-          label={EDUCATION_LABELS.doctorSpecialty}
-          value={staff.doctorSpecialty}
-          showEmpty={showEmpty}
-        />
-        <span />
-        <MaybeField
-          label={EDUCATION_LABELS.degreeMatch}
-          value={yesNo(staff.degreeMatchesDepartment)}
-          showEmpty={showEmpty}
-        />
-        <MaybeField
-          label={EDUCATION_LABELS.educationMatch}
-          value={yesNo(staff.basicEducationMatch)}
-          showEmpty={showEmpty}
-        />
-        <MaybeField
-          label={EDUCATION_LABELS.specialty}
-          value={staff.basicEducationSpecialty}
-          showEmpty={showEmpty}
-        />
-      </Fields>
+      <div className="space-y-5">
+        <Fields columns={2}>
+          <MaybeField
+            label={EDUCATION_LABELS.specialty}
+            value={staff.basicEducationSpecialty}
+            showEmpty={showEmpty}
+          />
+          <MaybeField
+            label={EDUCATION_LABELS.educationMatch}
+            value={yesNo(staff.basicEducationMatch)}
+            showEmpty={showEmpty}
+          />
+        </Fields>
+        <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+          {degree(
+            EDUCATION_LABELS.candidate,
+            staff.candidateDegree ? optionLabel(CANDIDATE_DEGREES, staff.candidateDegree) : null,
+            staff.candidateSpecialty,
+            staff.candidateDefenceDate
+          )}
+          {degree(
+            EDUCATION_LABELS.doctor,
+            staff.doctorDegree ? optionLabel(DOCTOR_DEGREES, staff.doctorDegree) : null,
+            staff.doctorSpecialty,
+            staff.doctorDefenceDate
+          )}
+        </div>
+        <Fields columns={2}>
+          <MaybeField
+            label={EDUCATION_LABELS.degreeMatch}
+            value={yesNo(staff.degreeMatchesDepartment)}
+            showEmpty={showEmpty}
+          />
+        </Fields>
+      </div>
     </Card>
   );
 }
 
+/** The same shape with a shimmer for every value — nothing jumps when it loads */
 EducationCard.Shell = function EducationCardShell({ isNpp = true }: { isNpp?: boolean }) {
   if (!isNpp) return null;
+  const shimmer = (label: string) => <Field label={label} value={<ValueShimmer />} />;
+  const degree = (label: string) => (
+    <Fields>
+      {shimmer(label)}
+      {shimmer(EDUCATION_LABELS.candidateSpecialty)}
+      {shimmer(EDUCATION_LABELS.candidateDefence)}
+    </Fields>
+  );
   return (
     <Card title={CARD_TITLES.education}>
-      <Fields columns={2}>
-        {Object.values(EDUCATION_LABELS).map((label, i) => (
-          <Field key={i} label={label} value={<ValueShimmer />} />
-        ))}
-      </Fields>
+      <div className="space-y-5">
+        <Fields columns={2}>
+          {shimmer(EDUCATION_LABELS.specialty)}
+          {shimmer(EDUCATION_LABELS.educationMatch)}
+        </Fields>
+        <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+          {degree(EDUCATION_LABELS.candidate)}
+          {degree(EDUCATION_LABELS.doctor)}
+        </div>
+        <Fields columns={2}>{shimmer(EDUCATION_LABELS.degreeMatch)}</Fields>
+      </div>
     </Card>
   );
 };
