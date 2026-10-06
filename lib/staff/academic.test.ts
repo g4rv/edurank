@@ -8,7 +8,13 @@ import {
   mirrorsForUpdate,
   offeredAdminPositions,
 } from './academic';
-import { CANDIDATE_DEGREES, DOCTOR_DEGREES, HONORARY_TITLES } from './academic-options';
+import {
+  CANDIDATE_DEGREES,
+  DOCTOR_DEGREES,
+  HONORARY_TITLES,
+  degreeName,
+  isUnspecifiedDegree,
+} from './academic-options';
 
 const EMPTY = {
   position: null,
@@ -165,10 +171,20 @@ describe('offeredAdminPositions — what the badge list still offers', () => {
 });
 
 describe('the option lists', () => {
-  it('match the university’s lists in size, plus one «уточніть» key per level', () => {
-    expect(CANDIDATE_DEGREES).toHaveLength(18 + 1);
-    expect(DOCTOR_DEGREES).toHaveLength(17 + 1);
+  it('match the university’s lists in size', () => {
+    expect(CANDIDATE_DEGREES).toHaveLength(18);
+    expect(DOCTOR_DEGREES).toHaveLength(17);
     expect(HONORARY_TITLES).toHaveLength(12);
+  });
+
+  // «There should be no blank option» (owner, 2026-10-06): the migrated
+  // placeholder is stored, never offered, and reads as the plain level.
+  it('offer no «branch not chosen» placeholder, and name one as the plain level', () => {
+    const keys = [...CANDIDATE_DEGREES, ...DOCTOR_DEGREES].map((o) => o.value);
+    expect(keys.some(isUnspecifiedDegree)).toBe(false);
+    expect(degreeName('candidate', 'candidate_unspecified')).toBe('Кандидат наук');
+    expect(degreeName('doctor', 'doctor_unspecified')).toBe('Доктор наук');
+    expect(degreeName('candidate', 'cand_pedagogy')).toBe('Кандидат педагогічних наук');
   });
 
   it('never repeat a key', () => {

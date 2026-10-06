@@ -8,7 +8,13 @@ import {
   WOS_HOSTS,
 } from '@/lib/link-hosts';
 import { isValidOrcid } from '@/lib/orcid';
-import { CANDIDATE_DEGREES, DOCTOR_DEGREES, HONORARY_TITLES } from '@/lib/staff/academic-options';
+import {
+  CANDIDATE_DEGREES,
+  DOCTOR_DEGREES,
+  HONORARY_TITLES,
+  UNSPECIFIED_CANDIDATE,
+  UNSPECIFIED_DOCTOR,
+} from '@/lib/staff/academic-options';
 import { adminPostProblem, type AdminPostProblem } from '@/lib/staff/academic';
 
 const str = (v: unknown) =>
@@ -163,11 +169,20 @@ export const academicFields = {
     const problem = adminPostProblem(list);
     if (problem) ctx.addIssue({ code: 'custom', message: ADMIN_POST_PROBLEM_MESSAGES[problem] });
   }),
-  candidateDegree: oneOf(CANDIDATE_DEGREES, 'Оберіть ступінь зі списку'),
+  // The placeholder is no option (`UNSPECIFIED_CANDIDATE`), but a form re-sends
+  // what is stored: refusing it would block every save — a phone number, by an
+  // admin who cannot know the branch — until somebody chose the degree.
+  candidateDegree: oneOf(
+    [...CANDIDATE_DEGREES, { value: UNSPECIFIED_CANDIDATE }],
+    'Оберіть ступінь зі списку'
+  ),
   candidateSpecialty: specialty,
   candidateDefenceDate: defenceDate,
   candidateMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
-  doctorDegree: oneOf(DOCTOR_DEGREES, 'Оберіть ступінь зі списку'),
+  doctorDegree: oneOf(
+    [...DOCTOR_DEGREES, { value: UNSPECIFIED_DOCTOR }],
+    'Оберіть ступінь зі списку'
+  ),
   doctorSpecialty: specialty,
   doctorDefenceDate: defenceDate,
   doctorMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),

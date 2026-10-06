@@ -6,14 +6,25 @@ import { Loader2, Search, X } from 'lucide-react';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/aurora/ui/select';
 import { Input } from '@/components/aurora/ui/input';
 import { Switch } from '@/components/aurora/ui/switch';
 import { cn } from '@/lib/utils';
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
+import type { AcademicTitle, AdminPosition, StaffPosition } from '@/lib/generated/prisma/client';
+import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
+import {
+  CANDIDATE_DEGREES,
+  DOCTOR_DEGREES,
+  HONORARY_TITLES,
+  degreeName,
+  optionLabel,
+} from '@/lib/staff/academic-options';
 import { DepartmentCombobox } from '@/components/department-combobox';
 
 // Staff type for the ?type= param, keyed on isNpp — not Role. A vice-rector or
@@ -26,17 +37,37 @@ const TYPE_OPTIONS = [
 ] as const;
 type TypeValue = (typeof TYPE_OPTIONS)[number]['value'];
 
-const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
-  LECTURER: 'Викладач',
-  SENIOR_LECTURER: 'Старший викладач',
-  DOCENT: 'Доцент',
-  PROFESSOR: 'Професор',
-};
+/**
+ * «Науковий ступінь» (owner, 2026-10-06): a whole level first, then every
+ * exact degree. The level means HOLDING a degree of it — a доктор наук who was
+ * a кандидат first is found under both (`degreeCondition`).
+ */
+const DEGREE_LEVELS = [
+  { value: 'CANDIDATE', label: 'Кандидат наук / PhD — будь-який' },
+  { value: 'DOCTOR', label: 'Доктор наук — будь-який' },
+] as const;
 
-const SCIENTIFIC_DEGREE_LABELS: Record<ScientificDegree, string> = {
-  CANDIDATE: 'Кандидат наук',
-  DOCTOR: 'Доктор наук',
-};
+function degreeFilterLabel(value: string): string {
+  const level = DEGREE_LEVELS.find((l) => l.value === value);
+  if (level) return level.label;
+  return degreeName(DOCTOR_DEGREES.some((d) => d.value === value) ? 'doctor' : 'candidate', value);
+}
+
+/** Every filter param this bar sets — what «Очистити» clears */
+const FILTER_KEYS = [
+  'q',
+  'faculty',
+  'dept',
+  'position',
+  'rank',
+  'title',
+  'degree',
+  'admin',
+  'honor',
+  'partTime',
+  'degreeMatch',
+  'activated',
+];
 
 // Has the person ever set a password. `1` / `0` rather than a word, matching
 // the other boolean params in this URL, and absent means «всі» — the same
@@ -94,8 +125,12 @@ export function StaffFilters({
   const q = searchParams.get('q') ?? '';
   const facultyId = searchParams.get('faculty') ?? '';
   const departmentId = searchParams.get('dept') ?? '';
-  const rank = searchParams.get('rank') ?? '';
+  // `rank` is the old name of the посада filter — see `parseStaffListParams`
+  const position = searchParams.get('position') ?? searchParams.get('rank') ?? '';
+  const title = searchParams.get('title') ?? '';
   const degree = searchParams.get('degree') ?? '';
+  const adminPosition = searchParams.get('admin') ?? '';
+  const honor = searchParams.get('honor') ?? '';
   const partTime = searchParams.get('partTime') === '1';
   const degreeMatch = searchParams.get('degreeMatch') === '1';
   const activatedParam = searchParams.get('activated') ?? '';
@@ -165,12 +200,23 @@ export function StaffFilters({
     const dept = departments.find((d) => d.id === departmentId);
     if (dept) activeFilters.push({ key: 'dept', label: dept.name });
   }
-  if (rank) activeFilters.push({ key: 'rank', label: ACADEMIC_RANK_LABELS[rank as AcademicRank] });
-  if (degree)
+  if (position in STAFF_POSITION_LABELS)
     activeFilters.push({
-      key: 'degree',
-      label: SCIENTIFIC_DEGREE_LABELS[degree as ScientificDegree],
+      key: 'position',
+      label: STAFF_POSITION_LABELS[position as StaffPosition],
     });
+  if (title in ACADEMIC_TITLE_LABELS)
+    activeFilters.push({
+      key: 'title',
+      label: `Вчене звання: ${ACADEMIC_TITLE_LABELS[title as AcademicTitle].toLowerCase()}`,
+    });
+  if (degree) activeFilters.push({ key: 'degree', label: degreeFilterLabel(degree) });
+  if (adminPosition in ADMIN_POSITION_LABELS)
+    activeFilters.push({
+      key: 'admin',
+      label: ADMIN_POSITION_LABELS[adminPosition as AdminPosition],
+    });
+  if (honor) activeFilters.push({ key: 'honor', label: optionLabel(HONORARY_TITLES, honor) });
   if (partTime) activeFilters.push({ key: 'partTime', label: 'Сумісник' });
   if (degreeMatch)
     activeFilters.push({ key: 'degreeMatch', label: 'Ступінь за спеціальністю кафедри' });
@@ -183,14 +229,14 @@ export function StaffFilters({
   function clearFilter(key: string) {
     const overrides: Record<string, undefined> = { [key]: undefined };
     if (key === 'faculty') overrides['dept'] = undefined;
+    // The посада may still be in the URL under its old name
+    if (key === 'position') overrides['rank'] = undefined;
     navigate(`${pathname}?${buildParams(overrides)}`);
   }
 
   function clearAll() {
     const sp = new URLSearchParams(searchParams.toString());
-    ['q', 'faculty', 'dept', 'rank', 'degree', 'partTime', 'degreeMatch', 'activated'].forEach(
-      (k) => sp.delete(k)
-    );
+    FILTER_KEYS.forEach((k) => sp.delete(k));
     navigate(`${pathname}?${sp.toString()}`);
   }
 
@@ -247,17 +293,24 @@ export function StaffFilters({
             default, so choosing «Старший викладач» after «Доцент» grew the
             trigger and slid every control to its right along with it. A filter
             bar must not rearrange itself when you use it. */}
+        {/* The посада — what this select filtered all along, under the label
+            «Вчене звання» until the two became separate fields (2026-10-06). */}
         <Select
-          key={rank || '__rank_reset__'}
-          value={rank || undefined}
-          onValueChange={(v) => setParam('rank', v === '__all__' ? undefined : v)}
+          key={position || '__position_reset__'}
+          value={position || undefined}
+          onValueChange={(v) => {
+            // Written under its new name, the old one dropped with it
+            navigate(
+              `${pathname}?${buildParams({ position: v === '__all__' ? undefined : v, rank: undefined })}`
+            );
+          }}
         >
           <SelectTrigger className="w-44">
-            <SelectValue placeholder="Вчене звання" />
+            <SelectValue placeholder="Посада" />
           </SelectTrigger>
           <SelectContent position="popper" align="start">
-            <SelectItem value="__all__">Всі звання</SelectItem>
-            {(Object.entries(ACADEMIC_RANK_LABELS) as [AcademicRank, string][]).map(
+            <SelectItem value="__all__">Всі посади</SelectItem>
+            {(Object.entries(STAFF_POSITION_LABELS) as [StaffPosition, string][]).map(
               ([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
@@ -268,16 +321,16 @@ export function StaffFilters({
         </Select>
 
         <Select
-          key={degree || '__degree_reset__'}
-          value={degree || undefined}
-          onValueChange={(v) => setParam('degree', v === '__all__' ? undefined : v)}
+          key={title || '__title_reset__'}
+          value={title || undefined}
+          onValueChange={(v) => setParam('title', v === '__all__' ? undefined : v)}
         >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Науковий ступінь" />
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Вчене звання" />
           </SelectTrigger>
           <SelectContent position="popper" align="start">
-            <SelectItem value="__all__">Всі ступені</SelectItem>
-            {(Object.entries(SCIENTIFIC_DEGREE_LABELS) as [ScientificDegree, string][]).map(
+            <SelectItem value="__all__">Всі вчені звання</SelectItem>
+            {(Object.entries(ACADEMIC_TITLE_LABELS) as [AcademicTitle, string][]).map(
               ([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
@@ -412,6 +465,93 @@ export function StaffFilters({
         {count !== undefined && (
           <span className="shrink-0 text-sm whitespace-nowrap text-foreground-soft">{count}</span>
         )}
+      </div>
+
+      {/* **A third row for the three whose values are sentences** (owner,
+          2026-10-06) — «Заступник відповідального секретаря приймальної
+          комісії», «Заслужений майстер народної творчості України». The rule of
+          the row above: they share it evenly rather than each sizing to its own
+          longest option. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-64 flex-1">
+          <Select
+            key={degree || '__degree_reset__'}
+            value={degree || undefined}
+            onValueChange={(v) => setParam('degree', v === '__all__' ? undefined : v)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Науковий ступінь" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem value="__all__">Всі ступені</SelectItem>
+              {DEGREE_LEVELS.map((l) => (
+                <SelectItem key={l.value} value={l.value}>
+                  {l.label}
+                </SelectItem>
+              ))}
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel>Кандидат наук / PhD</SelectLabel>
+                {CANDIDATE_DEGREES.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel>Доктор наук</SelectLabel>
+                {DOCTOR_DEGREES.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="min-w-64 flex-1">
+          <Select
+            key={adminPosition || '__admin_reset__'}
+            value={adminPosition || undefined}
+            onValueChange={(v) => setParam('admin', v === '__all__' ? undefined : v)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Адміністративна посада" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem value="__all__">Всі адміністративні посади</SelectItem>
+              {(Object.entries(ADMIN_POSITION_LABELS) as [AdminPosition, string][]).map(
+                ([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                )
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="min-w-64 flex-1">
+          <Select
+            key={honor || '__honor_reset__'}
+            value={honor || undefined}
+            onValueChange={(v) => setParam('honor', v === '__all__' ? undefined : v)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Почесне звання" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem value="__all__">Всі почесні звання</SelectItem>
+              {HONORARY_TITLES.map((h) => (
+                <SelectItem key={h.value} value={h.value}>
+                  {h.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* **«Очистити» lives HERE, with the chips it clears** — not at the end

@@ -1,13 +1,19 @@
 import { db } from '@/lib/db';
 import { nameSearch } from './name-search';
 import { ON_ROSTER, REAL_PEOPLE, onDepartment, onFaculty } from './roster';
-import type { AcademicRank, Role, ScientificDegree } from '@/lib/generated/prisma/client';
+import type {
+  AcademicTitle,
+  AdminPosition,
+  Role,
+  StaffPosition,
+} from '@/lib/generated/prisma/client';
+import { DOCTOR_DEGREES } from '@/lib/staff/academic-options';
 
 /** Columns listStaff can order by — the query owns this list; pages validate against it */
 export const STAFF_SORT_FIELDS = [
   'lastName',
   'email',
-  'academicRank',
+  'position',
   'department',
   'employmentRate',
 ] as const;
@@ -25,8 +31,19 @@ export type StaffFilters = {
   q?: string;
   facultyId?: string;
   departmentId?: string;
-  rank?: AcademicRank;
-  degree?: ScientificDegree;
+  /** Посада (owner, 2026-10-06 — the old `academicRank` filter was this) */
+  position?: StaffPosition;
+  /** Вчене звання */
+  title?: AcademicTitle;
+  /**
+   * Науковий ступінь: `'CANDIDATE'` / `'DOCTOR'` for any degree of that level,
+   * or one exact degree key from `CANDIDATE_DEGREES` / `DOCTOR_DEGREES`.
+   */
+  degree?: string;
+  /** One administrative post — a headship counts (`adminPositionCondition`) */
+  adminPosition?: AdminPosition;
+  /** One почесне звання key from `HONORARY_TITLES` */
+  honoraryTitle?: string;
   partTime?: boolean;
   degreeMatch?: boolean;
   includeConfidential?: boolean;
@@ -51,6 +68,31 @@ export type StaffFilters = {
    */
   archived?: 'exclude' | 'only' | 'all';
 };
+
+const DOCTOR_KEYS = new Set(DOCTOR_DEGREES.map((d) => d.value));
+
+/**
+ * The «Науковий ступінь» filter (owner, 2026-10-06): a whole level, or one
+ * exact degree. A level means HOLDING one of that level — a доктор наук who was
+ * a кандидат first is found under both, because both are true of them.
+ */
+export function degreeCondition(degree: string): object {
+  if (degree === 'CANDIDATE') return { candidateDegree: { not: null } };
+  if (degree === 'DOCTOR') return { doctorDegree: { not: null } };
+  return DOCTOR_KEYS.has(degree) ? { doctorDegree: degree } : { candidateDegree: degree };
+}
+
+/**
+ * One administrative post. «Декан» and «Завідувач кафедри» are made by a
+ * факультет or кафедра naming the person, not picked (owner, 2026-10-06), so
+ * those two also find whoever the факультет / кафедра names.
+ */
+export function adminPositionCondition(post: AdminPosition): object {
+  const picked = { adminPositions: { has: post } };
+  if (post === 'DEAN') return { OR: [picked, { deanOfFaculty: { isNot: null } }] };
+  if (post === 'DEPARTMENT_HEAD') return { OR: [picked, { headOfDepartment: { isNot: null } }] };
+  return picked;
+}
 
 export async function listStaff(filters?: StaffFilters) {
   const sortField = filters?.sort ?? 'lastName';
@@ -89,8 +131,11 @@ export async function listStaff(filters?: StaffFilters) {
   // Primary or сумісник — filtering by кафедра must find everyone the кафедра
   // actually has, which is everyone its ставка grid will show.
   if (filters?.departmentId) conditions.push(onDepartment(filters.departmentId));
-  if (filters?.rank) conditions.push({ academicRank: filters.rank });
-  if (filters?.degree) conditions.push({ scientificDegree: filters.degree });
+  if (filters?.position) conditions.push({ position: filters.position });
+  if (filters?.title) conditions.push({ academicTitle: filters.title });
+  if (filters?.degree) conditions.push(degreeCondition(filters.degree));
+  if (filters?.adminPosition) conditions.push(adminPositionCondition(filters.adminPosition));
+  if (filters?.honoraryTitle) conditions.push({ honoraryTitles: { has: filters.honoraryTitle } });
   if (filters?.activated !== undefined) {
     conditions.push({ passwordHash: filters.activated ? { not: null } : null });
   }
@@ -118,8 +163,10 @@ export async function listStaff(filters?: StaffFilters) {
       email: true,
       isNpp: true,
       archivedAt: true,
-      academicRank: true,
-      scientificDegree: true,
+      position: true,
+      academicTitle: true,
+      candidateDegree: true,
+      doctorDegree: true,
       ...(filters?.includeConfidential ? { employmentRate: true } : {}),
       ...(filters?.includeAccount ? { role: true, passwordHash: true } : {}),
       department: { select: { name: true } },

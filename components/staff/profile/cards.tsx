@@ -1,11 +1,6 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
-import {
-  CANDIDATE_DEGREES,
-  DOCTOR_DEGREES,
-  HONORARY_TITLES,
-  optionLabel,
-} from '@/lib/staff/academic-options';
+import { HONORARY_TITLES, degreeName, optionLabel } from '@/lib/staff/academic-options';
 import { formatStake } from '@/lib/stake/units';
 import { OrcidField } from '@/components/profile/orcid-field';
 import { Card } from '@/components/aurora/ui/card';
@@ -191,14 +186,14 @@ export function EducationCard({ staff, showEmpty = true }: CardProps) {
         <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
           {degree(
             EDUCATION_LABELS.doctor,
-            staff.doctorDegree ? optionLabel(DOCTOR_DEGREES, staff.doctorDegree) : null,
+            staff.doctorDegree ? degreeName('doctor', staff.doctorDegree) : null,
             staff.doctorSpecialty,
             staff.doctorDefenceDate,
             staff.doctorMatchesDepartment
           )}
           {degree(
             EDUCATION_LABELS.candidate,
-            staff.candidateDegree ? optionLabel(CANDIDATE_DEGREES, staff.candidateDegree) : null,
+            staff.candidateDegree ? degreeName('candidate', staff.candidateDegree) : null,
             staff.candidateSpecialty,
             staff.candidateDefenceDate,
             staff.candidateMatchesDepartment

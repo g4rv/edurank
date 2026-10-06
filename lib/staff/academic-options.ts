@@ -38,8 +38,14 @@ const BRANCHES = [
 
 /**
  * A degree carried over from the old single field, which knew the level but
- * not the branch (2026-10-06 migration). Shown, never offered: the person picks
- * the exact option, and until then the level still counts for rating 1.3.
+ * not the branch (2026-10-06 migration) — no file the university holds names
+ * the branch either, so the person picks it.
+ *
+ * **Never an option** (owner, 2026-10-06: «there should be no blank option»):
+ * not in the lists below, so nobody picks it and no filter offers it. It stays
+ * STORED until the exact degree is chosen, because rating 1.3 pays the level
+ * and clearing it would take 20–50 points off ~230 people at their next save.
+ * Read anywhere as the plain level — `degreeName`.
  */
 export const UNSPECIFIED_CANDIDATE = 'candidate_unspecified';
 export const UNSPECIFIED_DOCTOR = 'doctor_unspecified';
@@ -48,14 +54,27 @@ export const UNSPECIFIED_DOCTOR = 'doctor_unspecified';
 export const CANDIDATE_DEGREES: readonly AcademicOption[] = [
   { value: 'phd', label: 'Доктор філософії (PhD)' },
   ...BRANCHES.map(([key, branch]) => ({ value: `cand_${key}`, label: `Кандидат ${branch}` })),
-  { value: UNSPECIFIED_CANDIDATE, label: 'Кандидат наук (уточніть галузь)' },
 ];
 
 /** «Доктор наук» slot: 17 «Доктор … наук» */
 export const DOCTOR_DEGREES: readonly AcademicOption[] = [
   ...BRANCHES.map(([key, branch]) => ({ value: `doc_${key}`, label: `Доктор ${branch}` })),
-  { value: UNSPECIFIED_DOCTOR, label: 'Доктор наук (уточніть галузь)' },
 ];
+
+/** A stored degree whose branch nobody has chosen yet — see `UNSPECIFIED_CANDIDATE` */
+export function isUnspecifiedDegree(value: string | null | undefined): boolean {
+  return value === UNSPECIFIED_CANDIDATE || value === UNSPECIFIED_DOCTOR;
+}
+
+/**
+ * A stored degree as words: its exact name, or the plain level while the
+ * branch is not chosen — «Кандидат наук», never «уточніть галузь».
+ */
+export function degreeName(slot: 'candidate' | 'doctor', value: string): string {
+  if (value === UNSPECIFIED_CANDIDATE) return 'Кандидат наук';
+  if (value === UNSPECIFIED_DOCTOR) return 'Доктор наук';
+  return optionLabel(slot === 'doctor' ? DOCTOR_DEGREES : CANDIDATE_DEGREES, value);
+}
 
 /** Почесні звання — information only; rating 1.4 is entered by відділ кадрів */
 export const HONORARY_TITLES: readonly AcademicOption[] = [

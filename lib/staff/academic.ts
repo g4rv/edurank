@@ -7,12 +7,7 @@ import type {
 } from '@/lib/generated/prisma/client';
 import type { DiffValue } from '@/lib/audit';
 import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
-import {
-  CANDIDATE_DEGREES,
-  DOCTOR_DEGREES,
-  HONORARY_TITLES,
-  optionLabel,
-} from '@/lib/staff/academic-options';
+import { HONORARY_TITLES, degreeName, optionLabel } from '@/lib/staff/academic-options';
 
 /**
  * The old academic columns, derived from the new ones (owner, 2026-10-06).
@@ -252,9 +247,9 @@ export function academicAuditValue(key: string, value: unknown): DiffValue {
     case 'adminPositions':
       return many(value as AdminPosition[], (v) => ADMIN_POSITION_LABELS[v as AdminPosition] ?? v);
     case 'candidateDegree':
-      return value ? optionLabel(CANDIDATE_DEGREES, String(value)) : null;
+      return value ? degreeName('candidate', String(value)) : null;
     case 'doctorDegree':
-      return value ? optionLabel(DOCTOR_DEGREES, String(value)) : null;
+      return value ? degreeName('doctor', String(value)) : null;
     case 'position':
       return value ? STAFF_POSITION_LABELS[value as StaffPosition] : null;
     case 'academicTitle':

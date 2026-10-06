@@ -148,8 +148,10 @@ function MatchCheckbox({
  * A degree list as offered: the «уточніть галузь» key the migration gave an
  * old degree is shown only while it is the current value — nobody picks it.
  */
-function degreeOptions(list: readonly AcademicOption[], unspecified: string, current: string) {
-  return list.filter((o) => o.value !== unspecified || o.value === current);
+function shownDegree(value: string, unspecified: string): string {
+  // The stored placeholder is no option: the select reads empty until a real
+  // degree is picked, and the form keeps sending what is stored meanwhile.
+  return value === unspecified ? '' : value;
 }
 
 export function AcademicCard({
@@ -325,13 +327,13 @@ function DegreeBlock({
               <>
                 <PlainSelect
                   id={degree}
-                  value={field.value}
+                  value={shownDegree(field.value, unspecified)}
                   onChange={field.onChange}
-                  options={degreeOptions(list, unspecified, field.value)}
+                  options={list}
                   disabled={isPending || locked(degree)}
                 />
                 {field.value === unspecified && (
-                  <p className="mt-1 text-xs text-warning">Оберіть галузь науки зі списку</p>
+                  <p className="mt-1 text-xs text-warning">Оберіть точний науковий ступінь</p>
                 )}
               </>
             )}

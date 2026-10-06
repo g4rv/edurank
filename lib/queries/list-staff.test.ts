@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 vi.mock('@/lib/db', () => ({ db: { staff: { findMany: vi.fn() } } }));
 
 import { db } from '@/lib/db';
-import { listStaff } from './list-staff';
+import { adminPositionCondition, degreeCondition, listStaff } from './list-staff';
 
 const mockStaff = db.staff.findMany as unknown as Mock;
 
@@ -35,8 +35,10 @@ describe('filtering by кафедра', () => {
         email: 'g@u.ua',
         isNpp: true,
         archivedAt: null,
-        academicRank: null,
-        scientificDegree: null,
+        position: null,
+        academicTitle: null,
+        candidateDegree: null,
+        doctorDegree: null,
         department: { name: 'Кафедра ботаніки' },
         division: null,
         partTimeDepartments: [{ department: { name: 'Кафедра екології' } }],
@@ -57,8 +59,10 @@ describe('filtering by кафедра', () => {
         email: 'g@u.ua',
         isNpp: true,
         archivedAt: null,
-        academicRank: null,
-        scientificDegree: null,
+        position: null,
+        academicTitle: null,
+        candidateDegree: null,
+        doctorDegree: null,
         department: { name: 'Кафедра ботаніки' },
         division: null,
         partTimeDepartments: [{ department: { name: 'Кафедра екології' } }],
@@ -108,8 +112,10 @@ describe('filtering by activation', () => {
         email: 'g@u.ua',
         isNpp: true,
         archivedAt: null,
-        academicRank: null,
-        scientificDegree: null,
+        position: null,
+        academicTitle: null,
+        candidateDegree: null,
+        doctorDegree: null,
         passwordHash: '$2b$10$secret',
         department: null,
         division: null,
@@ -120,5 +126,37 @@ describe('filtering by activation', () => {
     const rows = await listStaff({ activated: true, includeAccount: true });
     expect(rows[0]).not.toHaveProperty('passwordHash');
     expect(rows[0].isActivated).toBe(true);
+  });
+});
+
+// The academic filters on the new fields (owner, 2026-10-06)
+describe('degreeCondition', () => {
+  it('finds anybody holding a degree of the level', () => {
+    expect(degreeCondition('CANDIDATE')).toEqual({ candidateDegree: { not: null } });
+    expect(degreeCondition('DOCTOR')).toEqual({ doctorDegree: { not: null } });
+  });
+
+  it('finds one exact degree in its own slot', () => {
+    expect(degreeCondition('cand_pedagogy')).toEqual({ candidateDegree: 'cand_pedagogy' });
+    expect(degreeCondition('phd')).toEqual({ candidateDegree: 'phd' });
+    expect(degreeCondition('doc_history')).toEqual({ doctorDegree: 'doc_history' });
+  });
+});
+
+describe('adminPositionCondition', () => {
+  // Naming somebody декан or завідувач is what makes them one — nobody picks it
+  it('finds a декан and a завідувач by the факультет / кафедра naming them too', () => {
+    expect(adminPositionCondition('DEAN')).toEqual({
+      OR: [{ adminPositions: { has: 'DEAN' } }, { deanOfFaculty: { isNot: null } }],
+    });
+    expect(adminPositionCondition('DEPARTMENT_HEAD')).toEqual({
+      OR: [{ adminPositions: { has: 'DEPARTMENT_HEAD' } }, { headOfDepartment: { isNot: null } }],
+    });
+  });
+
+  it('finds any other post among the picked ones', () => {
+    expect(adminPositionCondition('ACADEMIC_SECRETARY')).toEqual({
+      adminPositions: { has: 'ACADEMIC_SECRETARY' },
+    });
   });
 });

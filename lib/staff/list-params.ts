@@ -3,7 +3,9 @@ import {
   type StaffFilters,
   type StaffSortField,
 } from '@/lib/queries/list-staff';
-import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
+import type { AcademicTitle, AdminPosition, StaffPosition } from '@/lib/generated/prisma/client';
+import { CANDIDATE_DEGREES, DOCTOR_DEGREES, HONORARY_TITLES } from '@/lib/staff/academic-options';
+import { ADMIN_POSITIONS } from '@/validations/staff';
 
 /**
  * The `/staff` URL, read once.
@@ -15,8 +17,22 @@ import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/clie
  * wrong people in it. So the parsing lives here and both callers ask for it.
  */
 
-const VALID_RANKS = new Set<string>(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
-const VALID_DEGREES = new Set<string>(['CANDIDATE', 'DOCTOR']);
+const VALID_POSITIONS = new Set<string>(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']);
+const VALID_TITLES = new Set<string>(['SENIOR_RESEARCHER', 'DOCENT', 'PROFESSOR']);
+/** A whole level, or any one exact degree (owner, 2026-10-06) */
+const VALID_DEGREES = new Set<string>([
+  'CANDIDATE',
+  'DOCTOR',
+  ...CANDIDATE_DEGREES.map((d) => d.value),
+  ...DOCTOR_DEGREES.map((d) => d.value),
+]);
+const VALID_ADMIN = new Set<string>(ADMIN_POSITIONS);
+const VALID_HONORS = new Set<string>(HONORARY_TITLES.map((h) => h.value));
+
+/** A URL value if it is one of the allowed ones, else nothing at all */
+function oneOf<T extends string>(value: string | undefined, valid: Set<string>): T | undefined {
+  return value && valid.has(value) ? (value as T) : undefined;
+}
 const VALID_TYPES = new Set<string>(['npp', 'adm', 'all']);
 
 export type StaffType = 'npp' | 'adm' | 'all';
@@ -38,8 +54,11 @@ export interface StaffListParams {
   q: string | undefined;
   facultyId: string | undefined;
   departmentId: string | undefined;
-  rank: AcademicRank | undefined;
-  degree: ScientificDegree | undefined;
+  position: StaffPosition | undefined;
+  title: AcademicTitle | undefined;
+  degree: string | undefined;
+  adminPosition: AdminPosition | undefined;
+  honoraryTitle: string | undefined;
   partTime: boolean;
   degreeMatch: boolean;
   activated: boolean | undefined;
@@ -56,7 +75,10 @@ export function parseStaffListParams(
   const rawType = read(source, 'type');
   const type: StaffType = rawType && VALID_TYPES.has(rawType) ? (rawType as StaffType) : 'npp';
 
-  const rawSort = read(source, 'sort');
+  // `academicRank` was the sort key until the посада got its own field
+  // (2026-10-06); a bookmarked link still sorts by it.
+  const rawSortParam = read(source, 'sort');
+  const rawSort = rawSortParam === 'academicRank' ? 'position' : rawSortParam;
   const sort: StaffSortField =
     rawSort && (STAFF_SORT_FIELDS as readonly string[]).includes(rawSort)
       ? (rawSort as StaffSortField)
@@ -65,9 +87,6 @@ export function parseStaffListParams(
   // Ставка is confidential, so sorting by it is ADMIN-only — a non-admin
   // asking for it is put back on the name rather than refused.
   const effectiveSort: StaffSortField = sort === 'employmentRate' && !isAdmin ? 'lastName' : sort;
-
-  const rawRank = read(source, 'rank');
-  const rawDegree = read(source, 'degree');
 
   // ?activated=1|0 — whether the person has ever set a password. ADMIN only,
   // and the guard is here rather than only on the control: activation is
@@ -91,8 +110,13 @@ export function parseStaffListParams(
     q: read(source, 'q'),
     facultyId: read(source, 'faculty'),
     departmentId: read(source, 'dept'),
-    rank: rawRank && VALID_RANKS.has(rawRank) ? (rawRank as AcademicRank) : undefined,
-    degree: rawDegree && VALID_DEGREES.has(rawDegree) ? (rawDegree as ScientificDegree) : undefined,
+    // `rank` is the old name of this filter, which always held the посада —
+    // a link made before 2026-10-06 keeps working.
+    position: oneOf(read(source, 'position') ?? read(source, 'rank'), VALID_POSITIONS),
+    title: oneOf(read(source, 'title'), VALID_TITLES),
+    degree: oneOf(read(source, 'degree'), VALID_DEGREES),
+    adminPosition: oneOf(read(source, 'admin'), VALID_ADMIN),
+    honoraryTitle: oneOf(read(source, 'honor'), VALID_HONORS),
     partTime: read(source, 'partTime') === '1',
     degreeMatch: read(source, 'degreeMatch') === '1',
     activated,
@@ -121,12 +145,30 @@ export function toStaffFilters(
     q: p.q,
     facultyId: p.facultyId,
     departmentId: p.departmentId,
-    rank: p.rank,
+    position: p.position,
+    title: p.title,
     degree: p.degree,
+    adminPosition: p.adminPosition,
+    honoraryTitle: p.honoraryTitle,
     partTime: p.partTime,
     degreeMatch: p.degreeMatch,
     activated: p.activated,
     includeConfidential: isAdmin,
     archived: p.archivedView ? 'only' : 'exclude',
+  };
+}
+
+/**
+ * The academic filters as URL params — what a page puts back into every link
+ * it builds (sort, page). One place, so `/staff` and «Мій факультет» cannot
+ * drop a filter the other keeps.
+ */
+export function academicFilterParams(p: StaffListParams): Record<string, string | undefined> {
+  return {
+    position: p.position,
+    title: p.title,
+    degree: p.degree,
+    admin: p.adminPosition,
+    honor: p.honoraryTitle,
   };
 }
