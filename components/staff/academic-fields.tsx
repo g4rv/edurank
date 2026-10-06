@@ -247,8 +247,11 @@ function DegreeBlock({
   const defence = `${prefix}DefenceDate` as const;
   const matches = `${prefix}MatchesDepartment` as const;
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium">{title}</p>
+    <div className="space-y-3">
+      {/* A group heading, not a field label (owner, 2026-10-06): at the label's
+          own size and weight «Доктор наук» read as one more field above
+          «Ступінь». See «Group heading» in docs/aurora.md §4. */}
+      <h3 className="border-b pb-1.5 text-base font-semibold">{title}</h3>
       {/* One column per degree (owner, 2026-10-06): the card sets the two
           degrees side by side, so each stacks its own four fields. */}
       <FieldGroup className="flex flex-col gap-4">
@@ -385,7 +388,7 @@ export function EducationCard({
             {...shared}
           />
           <DegreeBlock
-            title="Кандидат наук / доктор філософії (PhD)"
+            title="Кандидат наук / PhD"
             prefix="candidate"
             list={CANDIDATE_DEGREES}
             unspecified={UNSPECIFIED_CANDIDATE}

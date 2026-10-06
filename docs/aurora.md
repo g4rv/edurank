@@ -424,15 +424,16 @@ brand, not status, and appears in the mark only.
 **Manrope**, everywhere. Geist is gone — it has **no Cyrillic glyphs at all**, so
 every Ukrainian word in the app was falling back to a system font.
 
-| Role          | Size and colour                                 |
-| ------------- | ----------------------------------------------- |
-| Page title    | `text-2xl font-semibold tracking-[-0.01em]`     |
-| Page subtitle | `text-sm text-foreground-soft` — prose          |
-| Card title    | `text-sm font-semibold uppercase tracking-wide` |
-| Body / values | `text-sm` — full ink, the default               |
-| Field label   | `text-sm font-medium` — ink, like its value     |
-| Meta, counts  | `text-xs text-muted-foreground`                 |
-| Micro-label   | ~~`text-[11px]`~~ — retired, see below          |
+| Role          | Size and colour                                                                                                                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Page title    | `text-2xl font-semibold tracking-[-0.01em]`                                                                                                                                                                              |
+| Page subtitle | `text-sm text-foreground-soft` — prose                                                                                                                                                                                   |
+| Card title    | `text-sm font-semibold uppercase tracking-wide`                                                                                                                                                                          |
+| Group heading | `text-base font-semibold` + `border-b pb-1.5` — a titled group of fields inside one card («Доктор наук» \| «Кандидат наук» in «Освіта»). Larger than a field label so it never reads as one; ink and a rule, never a hue |
+| Body / values | `text-sm` — full ink, the default                                                                                                                                                                                        |
+| Field label   | `text-sm font-medium` — ink, like its value                                                                                                                                                                              |
+| Meta, counts  | `text-xs text-muted-foreground`                                                                                                                                                                                          |
+| Micro-label   | ~~`text-[11px]`~~ — retired, see below                                                                                                                                                                                   |
 
 **A field label names its control; clicking it does nothing** (owner,
 2026-09-23). `FormField` keeps `for="id"` for screen readers and cancels the
