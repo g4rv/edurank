@@ -20,6 +20,7 @@ import { PlanHeader } from '@/components/science/plan-header';
 import type { CoauthorCandidate } from '@/lib/queries/list-coauthor-candidates';
 import { LockPlanButton } from '@/components/science/lock-plan-button';
 import { ToolbarGroup, ToolbarRow } from '@/components/staff/record-toolbar';
+import { KYIV } from '@/lib/kyiv-time';
 
 /**
  * The кафедра switcher, the target band, the two tabs and whichever list the
@@ -137,7 +138,7 @@ export function PlanView({
             // submitted, and when.
             <p className="px-2 text-sm text-foreground-soft">
               {locked
-                ? `План збережено ${lockedAt.toLocaleDateString('uk-UA')}`
+                ? `План збережено ${lockedAt.toLocaleDateString('uk-UA', KYIV)}`
                 : 'План ще не збережено'}
             </p>
           ) : tab === 'plan' ? (
@@ -145,7 +146,7 @@ export function PlanView({
               // Nothing to press: a submitted plan has no add button and no
               // delete on its rows.
               <p className="px-2 text-sm text-foreground-soft">
-                План збережено {lockedAt.toLocaleDateString('uk-UA')}
+                План збережено {lockedAt.toLocaleDateString('uk-UA', KYIV)}
               </p>
             ) : (
               <>

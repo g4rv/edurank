@@ -17,6 +17,8 @@ import { SortHead, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { AuditFilters } from '@/components/admin/audit-filters';
 import { AuditLogTable } from '@/components/admin/audit-log-table';
 import { UK } from '@/lib/plural';
+import { KYIV, kyivDayBounds } from '@/lib/kyiv-time';
+import { formatHours } from '@/lib/science/hours';
 
 const VALUE_LABELS: Record<string, string> = {
   LECTURER: 'Викладач',
@@ -115,8 +117,9 @@ export default async function AuditLogPage({
     return `/admin/audit-log${qs ? `?${qs}` : ''}`;
   }
 
-  const fromDate = fromFilter ? new Date(`${fromFilter}T00:00:00.000Z`) : undefined;
-  const toDate = toFilter ? new Date(`${toFilter}T23:59:59.999Z`) : undefined;
+  // Kyiv days, not UTC ones (`kyivDayBounds`): «7 жовтня» began at 03:00
+  const fromDate = fromFilter ? kyivDayBounds(fromFilter).start : undefined;
+  const toDate = toFilter ? kyivDayBounds(toFilter).end : undefined;
 
   const where = {
     ...(actionFilter ? { action: actionFilter } : {}),
@@ -220,9 +223,17 @@ export default async function AuditLogPage({
         const d = new Date(str);
         return Number.isNaN(d.getTime()) ? str : d.toLocaleDateString('uk-UA', { timeZone: 'UTC' });
       }
-      case 'archivedAt': {
+      // Science hours are INTEGER HUNDREDTHS too: «24000» was 240 годин, and
+      // read as twenty-four thousand (owner, 2026-10-07).
+      case 'plannedHundredths':
+      case 'hoursHundredths':
+      case 'totalHundredths':
+        return Number.isFinite(Number(value)) ? `${formatHours(Number(value))} год` : str;
+      // An instant, in Kyiv time — the server runs on UTC (`lib/kyiv-time.ts`)
+      case 'archivedAt':
+      case 'lockedAt': {
         const d = new Date(str);
-        return Number.isNaN(d.getTime()) ? str : d.toLocaleString('uk-UA');
+        return Number.isNaN(d.getTime()) ? str : d.toLocaleString('uk-UA', KYIV);
       }
       case 'divisionId':
         return divisionMap.get(str) ?? str;

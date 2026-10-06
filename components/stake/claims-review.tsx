@@ -27,6 +27,7 @@ import { formatSpeciality, specialityCodeSortKey } from '@/lib/specialities/code
 import { cn } from '@/lib/utils';
 import type { ReviewClaim } from '@/lib/queries/list-student-claims';
 import { decideStudentClaim } from '@/app/(dashboard)/my-department/students/actions';
+import { KYIV } from '@/lib/kyiv-time';
 
 /** Every column except «Рішення», which has no order worth putting rows in */
 type SortKey = 'student' | 'claimant' | 'speciality' | 'value' | 'date';
@@ -615,7 +616,7 @@ function ClaimRow({
           right edge to line up and a centred column sits under its own heading
           instead of against the divider. */}
       <TableCell numeric align="center" className="whitespace-nowrap">
-        {claim.createdAt.toLocaleDateString('uk-UA')}
+        {claim.createdAt.toLocaleDateString('uk-UA', KYIV)}
         {/* Same colour as the date above it, weight for the emphasis — the
             fault the counts strip had, one cell over: «22.08.2026» muted with
             «подано першим» in near-black underneath made one cell read as two

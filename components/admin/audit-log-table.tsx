@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableRow } from '@/components/aurora/ui/ta
 import { cn } from '@/lib/utils';
 import { ENTITY_FIELD_LABELS, FIELD_LABELS } from '@/lib/labels';
 import { AUDIT_ENTITY_LABELS, describeAudit, type AuditChanges } from '@/lib/audit/describe';
+import { KYIV } from '@/lib/kyiv-time';
 
 /**
  * One CSS width per column. **`null` is «Зміни»**, the only column whose
@@ -93,7 +94,7 @@ export function AuditLogTable({
           return (
             <TableRow key={entry.id} hoverable>
               <TableCell className="whitespace-nowrap">
-                {entry.createdAt.toLocaleString('uk-UA')}
+                {entry.createdAt.toLocaleString('uk-UA', KYIV)}
               </TableCell>
 
               <TableCell>

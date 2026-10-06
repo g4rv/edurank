@@ -120,7 +120,9 @@ function mockTx() {
     // when the placement they were typed for is gone.
     staffStakeLimits: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     // The audit diff resolves сумісництво ids to кафедра names
-    department: { findMany: vi.fn().mockResolvedValue([]) },
+    department: { findMany: vi.fn().mockResolvedValue([]), update: vi.fn() },
+    // Archiving a завідувач / декан takes the post away (2026-10-07)
+    faculty: { findMany: vi.fn().mockResolvedValue([]), update: vi.fn() },
     // Removing сумісництво drops that кафедра's allocation and re-sums the rate
     stakeAllocation: {
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -526,6 +528,34 @@ describe('archiveStaff', () => {
     // An archived account cannot sign in; a session open right now must end too
     expect(data.tokenVersion).toEqual({ increment: 1 });
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  // The кафедра kept pointing at an account that cannot sign in, and its edit
+  // page showed the id in place of a name (owner, 2026-10-07).
+  it('takes the post away from a завідувач and says which кафедра is left without one', async () => {
+    adminArchives();
+    mockStaffLookups({ targetRole: 'USER' });
+    const tx = mockTx();
+    tx.department.findMany.mockResolvedValue([{ id: 'dep-1', name: 'Кафедра менеджменту' }]);
+
+    const result = await archiveStaff('staff-1', '');
+    expect(result).toEqual({
+      success: true,
+      message: 'Запис архівовано. Без керівника: «Кафедра менеджменту»',
+    });
+    expect(tx.department.update).toHaveBeenCalledWith({
+      where: { id: 'dep-1' },
+      data: { headId: null },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          entity: 'Department',
+          changes: { headId: { from: 'staff-1', to: null } },
+        }),
+      })
+    );
+    expect(tx.faculty.update).not.toHaveBeenCalled();
   });
 
   it('keeps an empty reason as null rather than an empty string', async () => {

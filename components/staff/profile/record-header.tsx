@@ -115,7 +115,13 @@ export async function RecordHeader({ id }: { id: string }) {
               (archived ? (
                 <RestoreStaffButton staffId={id} staffName={fullName(staff)} />
               ) : (
-                <ArchiveStaffButton staffId={id} staffName={fullName(staff)} />
+                <ArchiveStaffButton
+                  staffId={id}
+                  staffName={fullName(staff)}
+                  heads={[staff.headOfDepartment, staff.deanOfFaculty]
+                    .filter((x): x is { id: string; name: string } => !!x)
+                    .map((x) => `«${x.name}»`)}
+                />
               ))}
           </>
         }

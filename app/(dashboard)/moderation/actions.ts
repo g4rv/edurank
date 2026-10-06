@@ -12,6 +12,7 @@ import { evidenceItems, type EvidenceItem } from '@/lib/rating/evidence-detail';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { fullStaffName } from '@/lib/staff-name';
+import { KYIV } from '@/lib/kyiv-time';
 
 export type RemoveActivityState = { error: string } | { success: true };
 
@@ -263,9 +264,9 @@ export async function getSubmissionDetail(activityId: string): Promise<Submissio
       status: activity.status,
       statusLabel: ACTIVITY_STATUS_LABELS[activity.status],
       removeReason: activity.removeReason,
-      date: activity.createdAt.toLocaleDateString('uk-UA'),
+      date: activity.createdAt.toLocaleDateString('uk-UA', KYIV),
       verified: activity.verifiedAt !== null,
-      verifiedAt: activity.verifiedAt?.toLocaleDateString('uk-UA') ?? null,
+      verifiedAt: activity.verifiedAt?.toLocaleDateString('uk-UA', KYIV) ?? null,
       items: evidenceItems(parsed.success ? parsed.data : [], activity.evidence),
     },
   };

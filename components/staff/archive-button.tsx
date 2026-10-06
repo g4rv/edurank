@@ -26,7 +26,16 @@ import { archiveStaff, restoreStaff } from '@/app/(dashboard)/staff/[id]/actions
  * admin that the login stops working — nor that nothing is lost, which is the
  * part that makes it safe to click.
  */
-export function ArchiveStaffButton({ staffId, staffName }: { staffId: string; staffName: string }) {
+export function ArchiveStaffButton({
+  staffId,
+  staffName,
+  heads = [],
+}: {
+  staffId: string;
+  staffName: string;
+  /** The кафедри and факультети this person heads — they lose their head */
+  heads?: string[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [reason, setReason] = useState('');
@@ -65,6 +74,14 @@ export function ArchiveStaffButton({ staffId, staffName }: { staffId: string; st
             <span className="font-medium text-foreground">{staffName}</span> зникне зі списків і з
             рейтингу поточного року та більше не зможе увійти в систему. Усі бали, подання та
             закриті роки залишаться незмінними. Запис можна відновити будь-коли.
+            {/* Said before, not only after: archiving takes the post away
+                (owner, 2026-10-07), and the post does not come back on restore. */}
+            {heads.length > 0 && (
+              <span className="mt-2 block font-medium text-foreground">
+                Ця людина очолює {heads.join(', ')} — після архівування там не буде керівника, доки
+                адміністратор не призначить нового.
+              </span>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2">

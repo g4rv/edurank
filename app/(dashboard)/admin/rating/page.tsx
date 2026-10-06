@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { RatingYearActions } from '@/components/admin/rating-year-actions';
 import { RATING_YEAR_STATUS_LABELS } from '@/lib/rating/labels';
 import { cn } from '@/lib/utils';
+import { KYIV } from '@/lib/kyiv-time';
 
 export default async function RatingAdminPage() {
   const session = await auth();
@@ -86,7 +87,7 @@ export default async function RatingAdminPage() {
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {t.closedAt
-                    ? `${t.closedAt.toLocaleDateString('uk-UA')}${
+                    ? `${t.closedAt.toLocaleDateString('uk-UA', KYIV)}${
                         t.closedBy
                           ? ` — ${t.closedBy.lastName} ${t.closedBy.firstName.charAt(0)}.`
                           : ''

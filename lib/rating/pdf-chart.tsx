@@ -8,6 +8,7 @@ import {
   View,
   type DocumentProps,
 } from '@react-pdf/renderer';
+import { KYIV } from '@/lib/kyiv-time';
 
 // The two ranked bar charts the university already circulates, rebuilt from the
 // database. Geometry and colours follow the reference PDFs (produced in Word),
@@ -259,7 +260,7 @@ function Footer({ generatedAt }: { generatedAt: Date }) {
   return (
     <View style={styles.footer} fixed>
       <Text style={styles.footerText}>
-        EduRank · сформовано {generatedAt.toLocaleDateString('uk-UA')}
+        EduRank · сформовано {generatedAt.toLocaleDateString('uk-UA', KYIV)}
       </Text>
     </View>
   );

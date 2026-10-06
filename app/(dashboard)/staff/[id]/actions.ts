@@ -45,7 +45,7 @@ import {
   storedAcademic,
 } from '@/lib/staff/academic';
 import { adminPostsConflict } from '@/lib/queries/scope';
-import type { AdminPosition } from '@/lib/generated/prisma/client';
+import type { AdminPosition, Prisma } from '@/lib/generated/prisma/client';
 
 export type StaffArchiveState = { error: string } | { success: true; message: string };
 
@@ -97,6 +97,7 @@ export async function archiveStaff(id: string, reason: string): Promise<StaffArc
   if (trimmedReason.length > 500) return { error: 'Причина занадто довга (до 500 символів)' };
 
   let dbError: string | null = null;
+  let headship: string[] = [];
 
   try {
     await db.$transaction(async (tx) => {
@@ -113,6 +114,14 @@ export async function archiveStaff(id: string, reason: string): Promise<StaffArc
           tokenVersion: { increment: 1 },
         },
       });
+
+      // **A завідувач or декан who leaves stops being one** (owner, 2026-10-07).
+      // The кафедра kept pointing at an account that cannot sign in, its edit
+      // page showed the person's id in place of a name (the head list offers
+      // only people on the roster), and nobody held the post. The кафедра reads
+      // «—» until ADMIN names somebody; restoring the person does not bring the
+      // post back — the кафедра may have a new head by then.
+      headship = await clearHeadship(tx, id, session.user.id);
 
       // The rating rows stay untouched on purpose: the person leaves the lists,
       // the history does not move. syncProfileDerived drops their derived rows
@@ -159,7 +168,59 @@ export async function archiveStaff(id: string, reason: string): Promise<StaffArc
   if (dbError) return { error: dbError };
   revalidatePath('/staff');
   revalidatePath(`/staff/${id}`);
-  return { success: true, message: 'Запис архівовано' };
+  if (headship.length > 0) {
+    revalidatePath('/departments');
+    revalidatePath('/faculties');
+  }
+  return {
+    success: true,
+    message: headship.length
+      ? `Запис архівовано. Без керівника: ${headship.join(', ')}`
+      : 'Запис архівовано',
+  };
+}
+
+/**
+ * Takes the person off every кафедра they head and every факультет they lead,
+ * with an audit entry for each — the change is to the кафедра, so it is filed
+ * under it. Returns what was left without a head, for the archive message.
+ */
+async function clearHeadship(
+  tx: Prisma.TransactionClient,
+  staffId: string,
+  userId: string
+): Promise<string[]> {
+  const [departments, faculties] = await Promise.all([
+    tx.department.findMany({ where: { headId: staffId }, select: { id: true, name: true } }),
+    tx.faculty.findMany({ where: { deanId: staffId }, select: { id: true, name: true } }),
+  ]);
+  for (const d of departments) {
+    await tx.department.update({ where: { id: d.id }, data: { headId: null } });
+    await tx.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'Department',
+        entityId: d.id,
+        label: d.name,
+        userId,
+        changes: diffChanges({ headId: staffId }, { headId: null }),
+      },
+    });
+  }
+  for (const f of faculties) {
+    await tx.faculty.update({ where: { id: f.id }, data: { deanId: null } });
+    await tx.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'Faculty',
+        entityId: f.id,
+        label: f.name,
+        userId,
+        changes: diffChanges({ deanId: staffId }, { deanId: null }),
+      },
+    });
+  }
+  return [...departments, ...faculties].map((x) => `«${x.name}»`);
 }
 
 /** Back onto the roster: the login works again and the current year counts them */

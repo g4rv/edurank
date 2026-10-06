@@ -13,6 +13,7 @@ import { fullStaffName, shortStaffName } from '@/lib/staff-name';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import { UK } from '@/lib/plural';
+import { KYIV } from '@/lib/kyiv-time';
 
 function fieldsOf(activityType: { evidenceFields: unknown }): readonly EvidenceField[] {
   const parsed = evidenceFieldsSpecSchema.safeParse(activityType.evidenceFields);
@@ -106,7 +107,7 @@ async function RatingSection({
     status: a.status,
     statusLabel: ACTIVITY_STATUS_LABELS[a.status],
     removeReason: a.removeReason,
-    date: a.createdAt.toLocaleDateString('uk-UA'),
+    date: a.createdAt.toLocaleDateString('uk-UA', KYIV),
     canDiscard: yearOpen && a.status === 'APPROVED',
     verified: a.verifiedAt !== null,
     canVerify: yearOpen && a.status === 'APPROVED' && a.activityType.requiresVerification,

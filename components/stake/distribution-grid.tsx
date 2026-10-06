@@ -57,6 +57,7 @@ import {
 } from '@/lib/stake/settle';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 import { saveDistribution, setStaffLimits } from '@/app/(dashboard)/stakes/actions';
+import { KYIV } from '@/lib/kyiv-time';
 
 /** The two bounds of one row, as typed */
 type LimitDraft = { min: string; max: string };
@@ -624,7 +625,7 @@ export function DistributionGrid({
         }
         filled={
           view.filledAt
-            ? `Заповнив: ${view.filledBy ?? '—'}, ${view.filledAt.toLocaleDateString('uk-UA')}`
+            ? `Заповнив: ${view.filledBy ?? '—'}, ${view.filledAt.toLocaleDateString('uk-UA', KYIV)}`
             : null
         }
       />
@@ -655,8 +656,8 @@ export function DistributionGrid({
             <AlertDialogTitle>Розподіл уже заповнено</AlertDialogTitle>
             <AlertDialogDescription>
               Цю кафедру заповнив {filledBy ?? '—'}
-              {filledAt ? `, ${filledAt.toLocaleDateString('uk-UA')}` : ''}. Ваші зміни перезапишуть
-              його розподіл і будуть записані на вас.
+              {filledAt ? `, ${filledAt.toLocaleDateString('uk-UA', KYIV)}` : ''}. Ваші зміни
+              перезапишуть його розподіл і будуть записані на вас.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
