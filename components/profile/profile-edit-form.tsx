@@ -22,6 +22,7 @@ import { updateOwnProfile } from '@/app/(dashboard)/profile/actions';
 import { uploadAvatar } from '@/components/profile/upload-avatar';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
+import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
 import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 
@@ -183,6 +184,7 @@ export function ProfileEditForm({
               disabled={isPending}
               {...register('wosCitationCount')}
             />
+            <CitationNoLinkNote control={control} url="wosUrl" count="wosCitationCount" />
           </FormField>
         </div>
 
@@ -213,6 +215,7 @@ export function ProfileEditForm({
               disabled={isPending}
               {...register('scopusCitationCount')}
             />
+            <CitationNoLinkNote control={control} url="scopusUrl" count="scopusCitationCount" />
           </FormField>
         </div>
 
@@ -242,6 +245,11 @@ export function ProfileEditForm({
               min="0"
               disabled={isPending}
               {...register('googleScholarCitationCount')}
+            />
+            <CitationNoLinkNote
+              control={control}
+              url="googleScholarUrl"
+              count="googleScholarCitationCount"
             />
           </FormField>
         </div>

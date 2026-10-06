@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/aurora/ui/select';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
+import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard, FIELD_ROW } from '@/components/staff/academic-fields';
 import {
   EMPTY_ACADEMIC_VALUES,
@@ -560,6 +561,7 @@ export function StaffFormFields({
             disabled={isPending || locked('wosCitationCount')}
             {...register('wosCitationCount')}
           />
+          <CitationNoLinkNote control={control} url="wosUrl" count="wosCitationCount" />
         </FormField>
         <FormField htmlFor="scopusUrl" label="Scopus — URL" error={errors.scopusUrl}>
           <Input
@@ -582,6 +584,7 @@ export function StaffFormFields({
             disabled={isPending || locked('scopusCitationCount')}
             {...register('scopusCitationCount')}
           />
+          <CitationNoLinkNote control={control} url="scopusUrl" count="scopusCitationCount" />
         </FormField>
         <FormField
           htmlFor="googleScholarUrl"
@@ -607,6 +610,11 @@ export function StaffFormFields({
             min="0"
             disabled={isPending || locked('googleScholarCitationCount')}
             {...register('googleScholarCitationCount')}
+          />
+          <CitationNoLinkNote
+            control={control}
+            url="googleScholarUrl"
+            count="googleScholarCitationCount"
           />
         </FormField>
         <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>

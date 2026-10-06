@@ -43,6 +43,9 @@ interface DerivedStaff {
   wosCitationCount: number | null;
   scopusCitationCount: number | null;
   googleScholarCitationCount: number | null;
+  wosUrl: string | null;
+  scopusUrl: string | null;
+  googleScholarUrl: string | null;
 }
 
 const DERIVED_STAFF_SELECT = {
@@ -58,6 +61,9 @@ const DERIVED_STAFF_SELECT = {
   wosCitationCount: true,
   scopusCitationCount: true,
   googleScholarCitationCount: true,
+  wosUrl: true,
+  scopusUrl: true,
+  googleScholarUrl: true,
 } satisfies Prisma.StaffSelect;
 
 // Enum → evidence option keys (keys defined in lib/rating/evidence-fields.ts)
@@ -83,6 +89,11 @@ function degreeOption(degree: ScientificDegree, matches: boolean | null): string
   return matches ? 'phd_dept_match' : 'phd';
 }
 
+/** A citation count counts only beside the profile link it can be checked on */
+function citations(count: number | null, link: string | null): { value: number } | null {
+  return count && count > 0 && link?.trim() ? { value: count } : null;
+}
+
 /** Evidence for one derived type from the profile; null = the indicator does not apply */
 export function derivedEvidence(
   code: ProfileDerivedCode,
@@ -105,18 +116,14 @@ export function derivedEvidence(
       return staff.basicEducationMatch
         ? { confirmed: true, specialty: staff.basicEducationSpecialty ?? '' }
         : null;
+    // No link, no points (owner, 2026-10-06): a count can only be checked
+    // against the profile it came from, and an НПП now types it themselves.
     case 'citations_wos':
-      return staff.wosCitationCount && staff.wosCitationCount > 0
-        ? { value: staff.wosCitationCount }
-        : null;
+      return citations(staff.wosCitationCount, staff.wosUrl);
     case 'citations_scopus':
-      return staff.scopusCitationCount && staff.scopusCitationCount > 0
-        ? { value: staff.scopusCitationCount }
-        : null;
+      return citations(staff.scopusCitationCount, staff.scopusUrl);
     case 'citations_scholar':
-      return staff.googleScholarCitationCount && staff.googleScholarCitationCount > 0
-        ? { value: staff.googleScholarCitationCount }
-        : null;
+      return citations(staff.googleScholarCitationCount, staff.googleScholarUrl);
   }
 }
 

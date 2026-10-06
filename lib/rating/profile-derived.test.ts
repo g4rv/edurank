@@ -32,6 +32,9 @@ const emptyStaff = {
   wosCitationCount: null,
   scopusCitationCount: null,
   googleScholarCitationCount: null,
+  wosUrl: null,
+  scopusUrl: null,
+  googleScholarUrl: null,
 } as const;
 
 describe('derivedEvidence', () => {
@@ -99,13 +102,30 @@ describe('derivedEvidence', () => {
   });
 
   it('maps h-index fields, treating 0 as no indicator', () => {
-    expect(derivedEvidence('citations_wos', { ...emptyStaff, wosCitationCount: 4 })).toEqual({
+    const wos = { ...emptyStaff, wosUrl: 'https://www.webofscience.com/wos/author/record/1' };
+    expect(derivedEvidence('citations_wos', { ...wos, wosCitationCount: 4 })).toEqual({
       value: 4,
     });
-    expect(derivedEvidence('citations_wos', { ...emptyStaff, wosCitationCount: 0 })).toBeNull();
+    expect(derivedEvidence('citations_wos', { ...wos, wosCitationCount: 0 })).toBeNull();
+    expect(
+      derivedEvidence('citations_scholar', {
+        ...emptyStaff,
+        googleScholarUrl: 'https://scholar.google.com/citations?user=x',
+        googleScholarCitationCount: 7,
+      })
+    ).toEqual({ value: 7 });
+  });
+
+  // No link, no points (owner, 2026-10-06): a count is checkable only against
+  // the profile it came from, and an НПП now types it themselves.
+  it('counts nothing for citations whose profile link is missing', () => {
+    expect(derivedEvidence('citations_wos', { ...emptyStaff, wosCitationCount: 4 })).toBeNull();
+    expect(
+      derivedEvidence('citations_scopus', { ...emptyStaff, scopusCitationCount: 200 })
+    ).toBeNull();
     expect(
       derivedEvidence('citations_scholar', { ...emptyStaff, googleScholarCitationCount: 7 })
-    ).toEqual({ value: 7 });
+    ).toBeNull();
   });
 
   it('exposes each source staff field exactly once', () => {
