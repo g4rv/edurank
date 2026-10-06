@@ -24,6 +24,8 @@ import {
   PICKED_ADMIN_POSITION_LABELS,
   STAFF_POSITION_LABELS,
 } from '@/lib/labels';
+import { offeredAdminPositions, type HeadshipPost } from '@/lib/staff/academic';
+import type { AdminPosition } from '@/lib/generated/prisma/client';
 import {
   CANDIDATE_DEGREES,
   DOCTOR_DEGREES,
@@ -57,23 +59,20 @@ interface CardProps {
   locked?: (field: keyof AcademicFormValues) => boolean;
   className?: string;
   action?: React.ReactNode;
+  /**
+   * The post a кафедра or факультет gives this person by naming them — counted
+   * by itself, never picked (owner, 2026-10-06). Null on a new profile.
+   */
+  headship?: HeadshipPost | null;
 }
+
+const HEADSHIP_NOTE: Record<HeadshipPost, string> = {
+  DEPARTMENT_OR_UNIT_HEAD: 'Завідувач кафедри — зараховано автоматично',
+  DEAN: 'Декан — зараховано автоматично',
+};
 
 const entries = (labels: Record<string, string>) =>
   Object.entries(labels).map(([value, label]) => ({ value, label }));
-
-/**
- * The posts a person picks by hand. «Декан» and «Завідувач кафедри» are not
- * among them: a факультет or кафедра naming the person is what makes them one
- * (owner, 2026-10-06), so the old «Завідувач кафедри / керівник відділу» is
- * just «Керівник відділу» here. A «Декан» stored before then is still shown —
- * otherwise the select would read «—» over a value it keeps saving.
- */
-function adminPositionOptions(current: string) {
-  return entries(PICKED_ADMIN_POSITION_LABELS).filter(
-    (o) => o.value !== 'DEAN' || current === 'DEAN'
-  );
-}
 
 /** A single-choice select with «—» for none, as the rest of the form draws them */
 function PlainSelect({
@@ -165,6 +164,7 @@ export function AcademicCard({
   locked = () => false,
   className,
   action,
+  headship = null,
 }: CardProps) {
   return (
     <Card title={CARD_TITLES.academic} action={action} className={className}>
@@ -219,32 +219,10 @@ export function AcademicCard({
             {...register('pedagogicalExperience')}
           />
         </FormField>
-        {/* One post, the highest (owner, 2026-10-06: «if it's vice-rector —
-            that's it»). */}
-        <FormField
-          label="Адміністративна посада"
-          htmlFor="adminPosition"
-          labelSuffix={<RatingFieldHint field="adminPosition" />}
-          description="Завідувача кафедри і декана зараховано автоматично"
-          error={errors.adminPosition}
-        >
-          <Controller
-            name="adminPosition"
-            control={control}
-            render={({ field }) => (
-              <PlainSelect
-                id="adminPosition"
-                value={field.value}
-                onChange={field.onChange}
-                options={adminPositionOptions(field.value)}
-                disabled={isPending || locked('adminPosition')}
-              />
-            )}
-          />
-        </FormField>
+        <div />
       </FieldGroup>
 
-      {/* A list of badges takes the full width — a person may hold several, and
+      {/* Lists of badges take the full width — a person may hold several, and
           half a card squeezed «Заслужений працівник фізичної культури і спорту
           України» into three lines. */}
       <FieldGroup className="mt-4 flex flex-col gap-4">
@@ -264,6 +242,32 @@ export function AcademicCard({
                 onChange={field.onChange}
                 disabled={isPending || locked('honoraryTitles')}
                 addLabel="Додати почесне звання…"
+              />
+            )}
+          />
+        </FormField>
+        {/* Several posts, one leading one at most, and a проректор holds
+            nothing else (owner, 2026-10-06). The list offers only what can go
+            with what is already there; the schema and the save refuse the rest. */}
+        <FormField
+          label="Адміністративні посади"
+          htmlFor="adminPositions"
+          labelSuffix={<RatingFieldHint field="adminPosition" />}
+          description={headship ? HEADSHIP_NOTE[headship] : undefined}
+          error={errors.adminPositions as never}
+        >
+          <Controller
+            name="adminPositions"
+            control={control}
+            render={({ field }) => (
+              <BadgePicker
+                id="adminPositions"
+                options={entries(PICKED_ADMIN_POSITION_LABELS)}
+                offered={offeredAdminPositions(field.value as AdminPosition[], headship)}
+                value={field.value}
+                onChange={field.onChange}
+                disabled={isPending || locked('adminPositions')}
+                addLabel="Додати посаду…"
               />
             )}
           />

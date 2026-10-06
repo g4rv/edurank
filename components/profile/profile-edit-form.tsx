@@ -24,6 +24,7 @@ import { RequiredFields } from '@/components/ui/required-fields';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
+import type { HeadshipPost } from '@/lib/staff/academic';
 import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 
 /** Empty strings, not nulls: an <input> with a null value is uncontrolled */
@@ -44,6 +45,7 @@ export function ProfileEditForm({
   canEditAvatar,
   defaultValues,
   isNpp = false,
+  headship = null,
 }: {
   /** Whose record this is — the header is the same one `/staff/[id]/edit` uses. */
   name: string;
@@ -59,6 +61,8 @@ export function ProfileEditForm({
    * save leaves them as they are.
    */
   isNpp?: boolean;
+  /** Their завідувач / декан post, counted by itself (2026-10-06) */
+  headship?: HeadshipPost | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -333,6 +337,7 @@ export function ProfileEditForm({
                   control={control as never}
                   errors={errors as never}
                   isPending={isPending}
+                  headship={headship}
                 />
                 <EducationCard
                   register={register as never}

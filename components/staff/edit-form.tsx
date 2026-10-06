@@ -14,6 +14,7 @@ import { fullName } from '@/components/staff/profile/primitives';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
 import { updateStaff } from '@/app/(dashboard)/staff/[id]/actions';
 import type { StaffDetail } from '@/lib/queries/get-staff';
+import { headshipOf } from '@/lib/staff/academic';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
 import type { StakePart } from '@/lib/queries/get-stake-breakdown';
@@ -165,6 +166,7 @@ export function StaffEditForm({
           canEditPartTime={canEditPartTime}
           editableFields={editableFields}
           isNpp={isNppValue}
+          headship={headshipOf(staff)}
           departments={departments}
           divisions={divisions}
           // Switching someone between НПП and administrative changes which rating

@@ -32,6 +32,7 @@ import {
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard, FIELD_ROW } from '@/components/staff/academic-fields';
+import type { HeadshipPost } from '@/lib/staff/academic';
 import {
   EMPTY_ACADEMIC_VALUES,
   academicToFormValues,
@@ -187,6 +188,8 @@ function StepNumber({ n }: { n: string }) {
 // `FIELD_ROW` now lives in academic-fields.tsx, which both forms share.
 
 interface StaffFormFieldsProps {
+  /** Their завідувач / декан post, counted by itself (2026-10-06); null on create */
+  headship?: HeadshipPost | null;
   register: UseFormRegister<RawStaffFormValues>;
   control: Control<RawStaffFormValues>;
   errors: FieldErrors<RawStaffFormValues>;
@@ -305,6 +308,7 @@ export function StaffFormFields({
   canEditRates = false,
   canEditType,
   editableFields,
+  headship = null,
 }: StaffFormFieldsProps) {
   /**
    * Is this column outside what the viewer's division may write?
@@ -515,6 +519,7 @@ export function StaffFormFields({
       locked={academicLocked}
       className={CARD_CLASS}
       action={stepNumber()}
+      headship={headship}
     />
   );
   const education = isNpp && (

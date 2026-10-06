@@ -17,6 +17,8 @@ import {
 } from '@/lib/staff/academic';
 import { PROFILE_DERIVED_STAFF_FIELDS, syncProfileDerived } from '@/lib/rating/profile-derived';
 import type { DiffValue } from '@/lib/audit';
+import { adminPostsConflict } from '@/lib/queries/scope';
+import type { AdminPosition } from '@/lib/generated/prisma/client';
 
 export type OwnProfileState = { error: string } | { success: true };
 
@@ -68,6 +70,15 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
   const updateData: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(parsed.data)) {
     if (USER_EDITABLE_STAFF_FIELDS.has(key) && sent.has(key)) updateData[key] = value;
+  }
+
+  // One leading post at most, a headship counted (owner, 2026-10-06).
+  if (Array.isArray(updateData.adminPositions)) {
+    const conflict = await adminPostsConflict(
+      staffId,
+      updateData.adminPositions as AdminPosition[]
+    );
+    if (conflict) return { error: conflict };
   }
 
   try {

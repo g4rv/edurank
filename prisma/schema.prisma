@@ -288,10 +288,10 @@ model Staff {
   pedagogicalExperience Int?
 
   // LEGACY MIRRORS (2026-10-06). `academicRank`, `scientificDegree`,
-  // `degreeDefenceDate` and `degreeMatchesDepartment` are no longer edited
-  // directly: every save derives them from the fields below
-  // (`lib/staff/academic.ts`), so the rating, the Характеристика and every list
-  // keep reading what they always read. A later release moves those reads over and drops these.
+  // `degreeDefenceDate` and `adminPosition` are no longer edited directly: every
+  // save derives them from the fields below (`lib/staff/academic.ts`), so the
+  // rating, the Характеристика, the ставки grid and every list keep reading what
+  // they always read. A later release moves those reads over and drops these.
   academicRank            AcademicRank?
   scientificDegree        ScientificDegree?
   degreeMatchesDepartment Boolean?
@@ -327,12 +327,13 @@ model Staff {
   degreeDefenceDate DateTime?
 
   // Rating item 1.6 — administrative position (profile-derived indicator).
-  // ONE post, picked by hand (owner, 2026-10-06). A завідувач and a декан hold
-  // theirs through `headOfDepartment` / `deanOfFaculty`, and 1.6 pays the higher
-  // of the two — `effectiveAdminPosition` in lib/staff/academic.ts.
+  // LEGACY MIRROR of the highest of `adminPositions` — see above.
   adminPosition  AdminPosition?
-  /// UNUSED since 2026-10-06 (the badges were taken back the same day). Dropped
-  /// with the legacy columns.
+  /// Адміністративні посади as badges (owner, 2026-10-06); 1.6 pays the highest.
+  /// One LEADING post at most (проректор, декан, завідувач / керівник відділу),
+  /// a headship counted, and a проректор holds nothing else — `adminPostProblem`.
+  /// Завідувач кафедри and декан are never picked: `Department.headId` /
+  /// `Faculty.deanId` make them, and `effectiveAdminPosition` adds them to 1.6.
   adminPositions AdminPosition[] @default([])
 
   // Rating item 1.9 — basic education matches the department specialty

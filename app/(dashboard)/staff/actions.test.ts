@@ -40,7 +40,7 @@ const payload: StaffCreateSchema = {
   position: null,
   academicTitle: null,
   honoraryTitles: [],
-  adminPosition: null,
+  adminPositions: [],
   candidateDegree: null,
   candidateSpecialty: null,
   candidateDefenceDate: null,

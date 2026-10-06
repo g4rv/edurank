@@ -317,12 +317,13 @@ ResearchProfilesCard.Shell = function ResearchProfilesCardShell() {
  * Every post this person holds.
  *
  * Headship is derived from `headId`/`deanId`, never from a Role — one person is
- * routinely a завідувач, an НПП and a division editor at once. The post picked
- * by hand is ONE (owner, 2026-10-06), and never «декан» or «завідувач кафедри»:
- * those two are the lines below it.
+ * routinely a завідувач, an НПП and a division editor at once. The posts picked
+ * by hand sit beside it — a завідувач may also be вчений секретар (owner,
+ * 2026-10-06) — and a picked «Завідувач … / керівник відділу» reads «Керівник
+ * відділу» here, because the кафедра's own is the line above it.
  *
- * **`adminPosition` lives here.** «Академічна інформація» is НПП-only, so an
- * administrative employee's «проректор» would have nowhere else to go.
+ * **The administrative posts live here.** «Академічна інформація» is НПП-only,
+ * so an administrative employee's «проректор» would have nowhere else to go.
  *
  * **The exception to «every field renders».** No `showEmpty`, at any price.
  *
@@ -337,7 +338,7 @@ ResearchProfilesCard.Shell = function ResearchProfilesCardShell() {
  * post that is not held is absent, and somebody holding none has no card.
  */
 export function LeadershipCard({ staff }: { staff: StaffDetail }) {
-  if (!staff.headOfDepartment && !staff.deanOfFaculty && !staff.adminPosition) {
+  if (!staff.headOfDepartment && !staff.deanOfFaculty && staff.adminPositions.length === 0) {
     return null;
   }
 
@@ -345,8 +346,12 @@ export function LeadershipCard({ staff }: { staff: StaffDetail }) {
     <Card title={CARD_TITLES.leadership}>
       <Fields>
         <MaybeField
-          label="Адміністративна посада"
-          value={staff.adminPosition ? PICKED_ADMIN_POSITION_LABELS[staff.adminPosition] : null}
+          label="Адміністративні посади"
+          value={
+            staff.adminPositions.length
+              ? staff.adminPositions.map((p) => PICKED_ADMIN_POSITION_LABELS[p]).join(', ')
+              : null
+          }
           showEmpty={false}
         />
         <MaybeField

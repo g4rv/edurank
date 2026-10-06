@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
+import { headshipOf } from '@/lib/staff/academic';
 import { academicToFormValues } from '@/components/staff/academic-form-values';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
@@ -40,6 +41,7 @@ export default async function ProfileEditPage() {
         avatarSrc={avatarSrc(staff)}
         canEditAvatar={canSetOwnAvatar(session.user.role)}
         isNpp={staff.isNpp}
+        headship={headshipOf(staff)}
         defaultValues={{
           phone: staff.phone ?? '',
           wosUrl: staff.wosUrl ?? '',

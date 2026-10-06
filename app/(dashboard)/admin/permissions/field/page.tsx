@@ -17,7 +17,7 @@ const FIELD_GROUPS = [
       'position',
       'academicTitle',
       'honoraryTitles',
-      'adminPosition',
+      'adminPositions',
       'pedagogicalExperience',
     ],
   },

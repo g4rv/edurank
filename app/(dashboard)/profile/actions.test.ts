@@ -10,6 +10,8 @@ vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: { staff: { update: vi.fn() }, $transaction: vi.fn() },
 }));
+// The headship half of «one leading post» reads the database (2026-10-06).
+vi.mock('@/lib/queries/scope', () => ({ adminPostsConflict: vi.fn().mockResolvedValue(null) }));
 vi.mock('@/lib/rating/profile-derived', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/rating/profile-derived')>()),
   syncProfileDerived: vi.fn(),
@@ -19,6 +21,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import type { OwnProfileSchema } from '@/validations/staff';
 import { syncProfileDerived } from '@/lib/rating/profile-derived';
+import { adminPostsConflict } from '@/lib/queries/scope';
 import { updateOwnProfile } from './actions';
 
 const mockAuth = auth as unknown as Mock;
@@ -40,7 +43,7 @@ const ACADEMIC = {
   position: 'DOCENT',
   academicTitle: 'DOCENT',
   honoraryTitles: ['merited_teacher'],
-  adminPosition: 'VICE_RECTOR',
+  adminPositions: ['DEAN'],
   candidateDegree: 'cand_history',
   candidateSpecialty: 'Історія',
   candidateDefenceDate: '2015-06-01',
@@ -166,14 +169,31 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     expect(data).toMatchObject({
       position: 'DOCENT',
       honoraryTitles: ['merited_teacher'],
-      adminPosition: 'VICE_RECTOR',
+      adminPositions: ['DEAN'],
       candidateDegree: 'cand_history',
-      // the mirrors rating 1.2 / 1.3 read
+      // the mirrors rating 1.2 / 1.3 / 1.6 read
       academicRank: 'DOCENT',
       scientificDegree: 'CANDIDATE',
+      adminPosition: 'DEAN',
     });
     expect(data.degreeDefenceDate).toEqual(new Date(Date.UTC(2015, 5, 1)));
     expect(syncProfileDerived).toHaveBeenCalledWith(tx, 'staff-own');
+  });
+
+  // One leading post at most, a headship counted (owner, 2026-10-06): a
+  // завідувач who also picks «Керівник відділу» is refused before any write.
+  it('refuses a second leading post beside a headship', async () => {
+    const tx = mockTx();
+    (adminPostsConflict as Mock).mockResolvedValueOnce('Керівна посада може бути лише одна');
+    expect(
+      await updateOwnProfile({
+        ...payload,
+        ...ACADEMIC,
+        adminPositions: ['DEPARTMENT_OR_UNIT_HEAD'],
+      } as unknown as OwnProfileSchema)
+    ).toEqual({ error: 'Керівна посада може бути лише одна' });
+    expect(adminPostsConflict).toHaveBeenCalledWith('staff-own', ['DEPARTMENT_OR_UNIT_HEAD']);
+    expect(tx.staff.update).not.toHaveBeenCalled();
   });
 
   // A save that does not carry the academic fields (an old open tab, the

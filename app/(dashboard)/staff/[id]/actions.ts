@@ -44,6 +44,8 @@ import {
   mirrorsForUpdate,
   storedAcademic,
 } from '@/lib/staff/academic';
+import { adminPostsConflict } from '@/lib/queries/scope';
+import type { AdminPosition } from '@/lib/generated/prisma/client';
 
 export type StaffArchiveState = { error: string } | { success: true; message: string };
 
@@ -335,6 +337,12 @@ export async function updateStaff(
   // would be told it may edit nothing — which is the opposite of the grant.
   if (Object.keys(updateData).length === 0 && !canWritePartTime) {
     return { error: 'Немає полів, доступних для редагування' };
+  }
+
+  // One leading post at most, a headship counted (owner, 2026-10-06).
+  if (Array.isArray(updateData.adminPositions)) {
+    const conflict = await adminPostsConflict(id, updateData.adminPositions as AdminPosition[]);
+    if (conflict) return { error: conflict };
   }
 
   let dbError: string | null = null;

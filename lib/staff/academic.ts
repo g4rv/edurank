@@ -17,9 +17,9 @@ import {
 /**
  * The old academic columns, derived from the new ones (owner, 2026-10-06).
  *
- * `academicRank`, `scientificDegree`, `degreeDefenceDate` and
- * `degreeMatchesDepartment` are read by the rating (1.2, 1.3), the
- * Характеристика (п.5) and every staff list. Rather than move all of those in
+ * `academicRank`, `scientificDegree`, `degreeDefenceDate` and `adminPosition`
+ * are read by the rating (1.2, 1.3, 1.6), the Характеристика (п.5), the ставки
+ * grid's status column and every staff list. Rather than move all of those in
  * one release, every save writes these mirrors from the new fields — so each
  * reader keeps getting exactly the value it always got, and no rating point can
  * move. A later release switches the readers over and drops the columns.
@@ -49,6 +49,7 @@ export interface AcademicFields {
   doctorDegree: string | null;
   doctorDefenceDate: Date | null;
   doctorMatchesDepartment: boolean | null;
+  adminPositions: readonly AdminPosition[];
 }
 
 export interface LegacyMirrors {
@@ -56,6 +57,7 @@ export interface LegacyMirrors {
   scientificDegree: ScientificDegree | null;
   degreeDefenceDate: Date | null;
   degreeMatchesDepartment: boolean | null;
+  adminPosition: AdminPosition | null;
 }
 
 export function legacyMirrors(fields: AcademicFields): LegacyMirrors {
@@ -85,7 +87,15 @@ export function legacyMirrors(fields: AcademicFields): LegacyMirrors {
       ? fields.candidateMatchesDepartment
       : null;
 
-  return { academicRank, scientificDegree, degreeDefenceDate, degreeMatchesDepartment };
+  const adminPosition = ADMIN_POSITION_ORDER.find((p) => fields.adminPositions.includes(p)) ?? null;
+
+  return {
+    academicRank,
+    scientificDegree,
+    degreeDefenceDate,
+    degreeMatchesDepartment,
+    adminPosition,
+  };
 }
 
 /**
@@ -93,9 +103,9 @@ export function legacyMirrors(fields: AcademicFields): LegacyMirrors {
  *
  * A завідувач and a декан are made one by a кафедра or факультет naming them
  * (`Department.headId`, `Faculty.deanId`) — nobody picks it on the profile
- * (owner, 2026-10-06). `Staff.adminPosition` holds the ONE post picked by hand
- * — проректор, керівник відділу, заступник, … — and when both apply, the
- * higher counts: a person has one leading post, never two.
+ * (owner, 2026-10-06). `adminPosition` is the highest post picked by hand (the
+ * mirror above); when a headship pays more, the headship counts. One post is
+ * paid, never two.
  */
 export function effectiveAdminPosition({
   adminPosition,
@@ -113,6 +123,67 @@ export function effectiveAdminPosition({
   return ADMIN_POSITION_ORDER.find((p) => held.has(p)) ?? null;
 }
 
+/**
+ * The posts a person holds only ONE of (owner, 2026-10-06): проректор, декан,
+ * завідувач кафедри / керівник відділу. The others sit beside one freely —
+ * «завідувач кафедри та вчений секретар університету», as an НПП wrote.
+ */
+const LEADING_ADMIN_POSITIONS: ReadonlySet<AdminPosition> = new Set([
+  'VICE_RECTOR',
+  'DEAN',
+  'DEPARTMENT_OR_UNIT_HEAD',
+]);
+
+/** The post a кафедра or факультет gives a person by naming them */
+export type HeadshipPost = 'DEPARTMENT_OR_UNIT_HEAD' | 'DEAN';
+
+/** Which headship a person holds — a завідувач is never also a декан */
+export function headshipOf(staff: {
+  headOfDepartment: unknown;
+  deanOfFaculty: unknown;
+}): HeadshipPost | null {
+  if (staff.deanOfFaculty) return 'DEAN';
+  return staff.headOfDepartment ? 'DEPARTMENT_OR_UNIT_HEAD' : null;
+}
+
+export type AdminPostProblem = 'VICE_RECTOR_ALONE' | 'ONE_LEADING';
+
+/**
+ * Why this set of posts cannot be held together, or null.
+ *
+ * A проректор holds nothing else at all («if it's vice-rector — that's it»).
+ * Anybody else holds at most one leading post, a headship counted. A picked
+ * «Керівник відділу» is a відділ, so it is a SECOND post beside a кафедра's
+ * headship; a picked «Декан» (stored before deans became automatic) is the same
+ * post as the факультет's, and is not counted twice.
+ */
+export function adminPostProblem(
+  picked: readonly AdminPosition[],
+  headship: HeadshipPost | null = null
+): AdminPostProblem | null {
+  const held = new Set(picked);
+  if (held.has('VICE_RECTOR') && (held.size > 1 || headship)) return 'VICE_RECTOR_ALONE';
+  const sameAsHeadship = headship === 'DEAN' && held.has('DEAN');
+  const leading =
+    [...held].filter((p) => LEADING_ADMIN_POSITIONS.has(p)).length +
+    (headship && !sameAsHeadship ? 1 : 0);
+  return leading > 1 ? 'ONE_LEADING' : null;
+}
+
+/**
+ * What the badge list may still offer: every post that would not break
+ * `adminPostProblem`, and never «Декан» — a факультет naming the person is
+ * what makes them one.
+ */
+export function offeredAdminPositions(
+  picked: readonly AdminPosition[],
+  headship: HeadshipPost | null = null
+): AdminPosition[] {
+  return ADMIN_POSITION_ORDER.filter(
+    (p) => p !== 'DEAN' && !picked.includes(p) && !adminPostProblem([...picked, p], headship)
+  );
+}
+
 /** The new fields the mirrors are derived from */
 export const ACADEMIC_SOURCE_FIELDS = [
   'position',
@@ -122,6 +193,7 @@ export const ACADEMIC_SOURCE_FIELDS = [
   'doctorDegree',
   'doctorDefenceDate',
   'doctorMatchesDepartment',
+  'adminPositions',
 ] as const satisfies readonly (keyof AcademicFields)[];
 
 /**
@@ -140,7 +212,7 @@ export function mirrorsForUpdate(
 }
 
 /**
- * A value as the audit log should print it. Badge lists and option keys are
+ * A value as the audit log should print it. Badge lists and degree keys are
  * stored as keys the reader cannot decode, and the audit diff takes no arrays,
  * so both become their labels, comma-joined; anything else passes through.
  */
@@ -151,8 +223,8 @@ export function academicAuditValue(key: string, value: unknown): DiffValue {
   switch (key) {
     case 'honoraryTitles':
       return many(value as string[], (v) => optionLabel(HONORARY_TITLES, v));
-    case 'adminPosition':
-      return value ? ADMIN_POSITION_LABELS[value as AdminPosition] : null;
+    case 'adminPositions':
+      return many(value as AdminPosition[], (v) => ADMIN_POSITION_LABELS[v as AdminPosition] ?? v);
     case 'candidateDegree':
       return value ? optionLabel(CANDIDATE_DEGREES, String(value)) : null;
     case 'doctorDegree':
@@ -175,7 +247,7 @@ export const ACADEMIC_STORED_SELECT = {
   position: true,
   academicTitle: true,
   honoraryTitles: true,
-  adminPosition: true,
+  adminPositions: true,
   candidateDegree: true,
   candidateSpecialty: true,
   candidateDefenceDate: true,
@@ -199,5 +271,6 @@ export function storedAcademic(row: Record<string, unknown> | null | undefined):
     doctorDegree: (row?.doctorDegree as string | null | undefined) ?? null,
     doctorDefenceDate: (row?.doctorDefenceDate as Date | null | undefined) ?? null,
     doctorMatchesDepartment: (row?.doctorMatchesDepartment as boolean | null | undefined) ?? null,
+    adminPositions: (row?.adminPositions as AdminPosition[] | undefined) ?? [],
   };
 }

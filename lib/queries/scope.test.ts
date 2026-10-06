@@ -193,4 +193,17 @@ describe('headDeanConflict', () => {
     departmentFirst.mockResolvedValue({ name: 'Кафедра економіки' });
     expect(await headDeanConflict('staff-1', 'HEAD')).toBeNull();
   });
+  // One leading post at most, and a проректор holds nothing else (owner,
+  // 2026-10-06) — what the profile already holds counts too.
+  it('refuses to name a проректор or a керівник відділу', async () => {
+    mockStaff.mockResolvedValue({ adminPositions: ['VICE_RECTOR'] });
+    expect(await headDeanConflict('staff-1', 'DEAN')).toContain('Проректор');
+    mockStaff.mockResolvedValue({ adminPositions: ['DEPARTMENT_OR_UNIT_HEAD'] });
+    expect(await headDeanConflict('staff-1', 'HEAD')).toContain('лише одна');
+  });
+
+  it('names a вчений секретар as завідувач', async () => {
+    mockStaff.mockResolvedValue({ adminPositions: ['VICE_DEAN_OR_SECRETARY'] });
+    expect(await headDeanConflict('staff-1', 'HEAD')).toBeNull();
+  });
 });

@@ -1,8 +1,8 @@
 /**
  * Proof that the academic split moves no rating point (2026-10-06).
  *
- * The rating (1.2, 1.3) and the Характеристика (п.5) read the OLD columns.
- * (`adminPosition` is no mirror: it is picked by hand again since 2026-10-06.) From now on every save writes them from the new ones
+ * The rating (1.2, 1.3, 1.6), the Характеристика (п.5) and the ставки grid
+ * read the OLD columns. From now on every save writes them from the new ones
  * (`legacyMirrors`). So if, for every person, the mirrors derived from the
  * migrated new columns equal the old columns as they stand, no save can change
  * anybody's score. Read-only: run it against a copy after `migrate deploy`.
@@ -27,6 +27,7 @@ async function main() {
       scientificDegree: true,
       degreeDefenceDate: true,
       degreeMatchesDepartment: true,
+      adminPosition: true,
       position: true,
       candidateDegree: true,
       candidateDefenceDate: true,
@@ -34,6 +35,7 @@ async function main() {
       doctorDegree: true,
       doctorDefenceDate: true,
       doctorMatchesDepartment: true,
+      adminPositions: true,
     },
   });
 
@@ -51,6 +53,8 @@ async function main() {
       s.scientificDegree !== null &&
         m.degreeMatchesDepartment !== s.degreeMatchesDepartment &&
         `degreeMatchesDepartment ${s.degreeMatchesDepartment} → ${m.degreeMatchesDepartment}`,
+      m.adminPosition !== s.adminPosition &&
+        `adminPosition ${s.adminPosition} → ${m.adminPosition}`,
     ].filter(Boolean);
     if (diffs.length) {
       bad++;

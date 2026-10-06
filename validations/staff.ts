@@ -9,6 +9,7 @@ import {
 } from '@/lib/link-hosts';
 import { isValidOrcid } from '@/lib/orcid';
 import { CANDIDATE_DEGREES, DOCTOR_DEGREES, HONORARY_TITLES } from '@/lib/staff/academic-options';
+import { adminPostProblem, type AdminPostProblem } from '@/lib/staff/academic';
 
 const str = (v: unknown) =>
   v === '' || v === undefined || (typeof v === 'string' && !v.trim()) ? null : v;
@@ -110,6 +111,18 @@ const ADMIN_POSITIONS = [
   'LAB_OR_CENTER_HEAD',
 ] as const;
 
+/**
+ * Why a set of administrative posts cannot be held together (owner,
+ * 2026-10-06) — see `adminPostProblem`. The form shows it under the badge list;
+ * the save and the кафедра / факультет screens show it when a headship is what
+ * makes the second post.
+ */
+export const ADMIN_POST_PROBLEM_MESSAGES: Record<AdminPostProblem, string> = {
+  VICE_RECTOR_ALONE: 'Проректор не обіймає інших адміністративних посад',
+  ONE_LEADING:
+    'Керівна посада може бути лише одна: проректор, декан або завідувач кафедри / керівник відділу',
+};
+
 const specialty = z.preprocess(
   str,
   z.string().max(200, { error: 'Занадто довге значення' }).nullable()
@@ -122,15 +135,9 @@ const specialty = z.preprocess(
  * never accept different values.
  *
  * The old `academicRank`, `scientificDegree`, `degreeDefenceDate` and
- * `degreeMatchesDepartment` are NOT here: nobody types them any more. Every
- * save derives them from these (`lib/staff/academic.ts`), because the rating
- * still reads them.
- *
- * `adminPosition` is ONE post, picked by hand (owner, 2026-10-06: «if it's
- * vice-rector — that's it»). The form offers no «Декан», and a завідувач is
- * «Керівник відділу» there: both headships come from the кафедра / факультет
- * that names the person. The enum stays whole so a value stored earlier still
- * round-trips through a save.
+ * `adminPosition` are NOT here: nobody types them any more. Every save derives
+ * them from these (`lib/staff/academic.ts`), because the rating still reads
+ * them.
  */
 export const academicFields = {
   pedagogicalExperience: z.preprocess(num, z.number().int().nonnegative().nullable()),
@@ -144,7 +151,13 @@ export const academicFields = {
       error: 'Невідоме почесне звання',
     })
   ),
-  adminPosition: z.preprocess(str, z.enum(ADMIN_POSITIONS).nullable()),
+  // Several posts, but one leading one at most (owner, 2026-10-06). Only the
+  // picked list is judged here; a headship is the database's to know, so the
+  // save checks the pair again (`adminPostProblem` with the headship).
+  adminPositions: badges(z.enum(ADMIN_POSITIONS)).superRefine((list, ctx) => {
+    const problem = adminPostProblem(list);
+    if (problem) ctx.addIssue({ code: 'custom', message: ADMIN_POST_PROBLEM_MESSAGES[problem] });
+  }),
   candidateDegree: oneOf(CANDIDATE_DEGREES, 'Оберіть ступінь зі списку'),
   candidateSpecialty: specialty,
   candidateDefenceDate: defenceDate,

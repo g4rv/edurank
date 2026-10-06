@@ -24,18 +24,27 @@ export function BadgePicker({
   options,
   value,
   onChange,
+  offered,
   disabled = false,
   addLabel = 'Додати…',
 }: {
   id?: string;
+  /** Every value's label — what the chips read */
   options: readonly { value: string; label: string }[];
+  /**
+   * What the select may add, when not everything may go together (one leading
+   * post at most, 2026-10-06). Omitted, every option not picked yet.
+   */
+  offered?: readonly string[];
   value: readonly string[];
   onChange: (next: string[]) => void;
   disabled?: boolean;
   addLabel?: string;
 }) {
   const labelOf = (v: string) => options.find((o) => o.value === v)?.label ?? v;
-  const available = options.filter((o) => !value.includes(o.value));
+  const available = options.filter(
+    (o) => !value.includes(o.value) && (!offered || offered.includes(o.value))
+  );
 
   return (
     <div className="space-y-2">

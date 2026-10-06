@@ -1,4 +1,7 @@
 import { db } from '@/lib/db';
+import type { AdminPosition } from '@/lib/generated/prisma/client';
+import { adminPostProblem, headshipOf } from '@/lib/staff/academic';
+import { ADMIN_POST_PROBLEM_MESSAGES } from '@/validations/staff';
 
 /**
  * Which кафедри does this person oversee?
@@ -76,6 +79,10 @@ export async function deanOf(
  * to be a завідувач with access to кафедри that are not theirs — which is what
  * the owner reported after seeing it in the seeded data.
  *
+ * Nor is somebody named who already holds another leading post on their
+ * profile — a проректор, a керівник відділу (owner, 2026-10-06, see
+ * `adminPostProblem`).
+ *
  * Checked here rather than in a Zod schema because it needs the database: the
  * question is what this person ALREADY holds, not what the form said.
  */
@@ -84,6 +91,18 @@ export async function headDeanConflict(
   post: 'HEAD' | 'DEAN'
 ): Promise<string | null> {
   if (!staffId) return null;
+
+  const picked = await db.staff.findUnique({
+    where: { id: staffId },
+    select: { adminPositions: true },
+  });
+  const problem = adminPostProblem(
+    picked?.adminPositions ?? [],
+    post === 'DEAN' ? 'DEAN' : 'DEPARTMENT_OR_UNIT_HEAD'
+  );
+  if (problem) {
+    return `${ADMIN_POST_PROBLEM_MESSAGES[problem]}. Спершу приберіть іншу посаду в профілі цієї людини.`;
+  }
 
   if (post === 'DEAN') {
     const heads = await db.department.findFirst({
@@ -149,4 +168,21 @@ export async function canViewAcademicRecord(
   return [target.departmentId, ...target.partTimeDepartments.map((p) => p.departmentId)].some(
     (id) => id !== null && departments.includes(id)
   );
+}
+
+/**
+ * Ukrainian message if this person cannot hold these picked posts beside their
+ * headship, else null (owner, 2026-10-06). The form already refuses a bad list
+ * on its own; only the database knows the headship, so the save asks again.
+ */
+export async function adminPostsConflict(
+  staffId: string,
+  picked: readonly AdminPosition[]
+): Promise<string | null> {
+  const held = await db.staff.findUnique({
+    where: { id: staffId },
+    select: { headOfDepartment: { select: { id: true } }, deanOfFaculty: { select: { id: true } } },
+  });
+  const problem = adminPostProblem(picked, held ? headshipOf(held) : null);
+  return problem ? ADMIN_POST_PROBLEM_MESSAGES[problem] : null;
 }
