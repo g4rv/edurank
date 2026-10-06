@@ -9,6 +9,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { logWarning } from '@/lib/log';
 import { USER_EDITABLE_STAFF_FIELDS } from '@/lib/permissions';
+import { ACADEMIC_EDITABLE_FIELDS } from '@/lib/staff/editable-fields';
 import {
   ACADEMIC_STORED_SELECT,
   academicAuditValue,
@@ -70,6 +71,17 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
   const updateData: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(parsed.data)) {
     if (USER_EDITABLE_STAFF_FIELDS.has(key) && sent.has(key)) updateData[key] = value;
+  }
+
+  // «Академічна інформація» and «Освіта» are an НПП's to fill in. The form only
+  // draws them for one; the server says the same, so a hand-made request from
+  // an administrative account cannot give itself a посада or a ступінь.
+  const academicSent = ACADEMIC_EDITABLE_FIELDS.some((key) => key in updateData);
+  if (academicSent) {
+    const self = await db.staff.findUnique({ where: { id: staffId }, select: { isNpp: true } });
+    if (!self?.isNpp) {
+      for (const key of ACADEMIC_EDITABLE_FIELDS) delete updateData[key];
+    }
   }
 
   // One leading post at most, a headship counted (owner, 2026-10-06).

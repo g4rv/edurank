@@ -416,6 +416,25 @@ describe('removeKharakterystykaLine', () => {
 });
 
 describe('previewLineRemoval', () => {
+  // Said in the dialog, before «Вилучити» — not as a refusal after it
+  it('tells an НПП without a saved plan before they confirm', async () => {
+    mockAuth.mockResolvedValue({ user: { id: STAFF_ID, role: 'USER', staffId: STAFF_ID } });
+    mockActivityFind.mockResolvedValue({
+      staffId: STAFF_ID,
+      status: 'APPROVED',
+      score: 80,
+      submittedByRole: 'NPP',
+      activityType: { licencePositions: [{ position: 1 }], template: { status: 'OPEN' } },
+    });
+    (getSciencePlanGate as Mock).mockResolvedValueOnce({ open: false });
+    const result = await previewLineRemoval(STAFF_ID, {
+      kind: 'activity',
+      activityId: 'act-1',
+      position: 1,
+    });
+    expect(result).toHaveProperty('error');
+  });
+
   const doc = (met: boolean, metCount: number) => ({
     from: 2022,
     to: 2026,

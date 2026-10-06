@@ -386,10 +386,14 @@ export async function previewLineRemoval(
   const { session, denied } = await removalSession(staffId);
   if (denied) return { error: denied };
 
-  const stored = await storedLine(staffId, parsed.data, {
-    isAdmin: session.user.role === 'ADMIN',
-  });
+  const isAdmin = session.user.role === 'ADMIN';
+  const stored = await storedLine(staffId, parsed.data, { isAdmin });
   if ('error' in stored) return stored;
+  // Asked here as well as on removal, so the dialog says it before the button
+  // is pressed rather than after (a rating change waits for a saved plan, D56).
+  if (stored.mode === 'delete-activity' && !isAdmin) {
+    if (!(await getSciencePlanGate(staffId)).open) return { error: PLAN_GATE_DETAIL };
+  }
 
   const template = await getActiveTemplate();
   if (!template) return { error: 'Рейтинговий рік ще не налаштовано' };

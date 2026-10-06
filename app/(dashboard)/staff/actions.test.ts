@@ -105,6 +105,36 @@ describe('createStaff authorization', () => {
   });
 });
 
+// The audit entry of a new person reads in words (2026-10-06): raw, a badge list
+// went into the log as `["merited_teacher"]`, an empty one as «— →», and the
+// rating's mirror columns appeared as keys nobody typed.
+describe('createStaff audit entry', () => {
+  it('prints badges and posts as words and leaves out the mirrors', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    const tx = mockTx();
+    await createStaff({
+      ...payload,
+      isNpp: true,
+      departmentId: 'dep-1',
+      position: 'DOCENT',
+      honoraryTitles: ['merited_teacher'],
+      adminPositions: ['VICE_DEAN'],
+    });
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes.honoraryTitles).toEqual({ from: null, to: 'Заслужений вчитель' });
+    expect(changes.adminPositions).toEqual({ from: null, to: 'Заступник декана' });
+    expect(changes.position).toEqual({ from: null, to: 'Доцент' });
+    expect(changes).not.toHaveProperty('academicRank');
+    expect(changes).not.toHaveProperty('adminPosition');
+    // An empty list is no change at all
+    const empty = mockTx();
+    await createStaff(payload);
+    expect(empty.auditLog.create.mock.calls[0][0].data.changes).not.toHaveProperty(
+      'honoraryTitles'
+    );
+  });
+});
+
 // Creating a record must not be the way around the filter updateStaff applies:
 // ставка is confidential and відділ decides an editor's own permission scope.
 describe('createStaff field filtering', () => {

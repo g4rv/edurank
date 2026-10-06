@@ -8,7 +8,10 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
-  db: { staff: { update: vi.fn() }, $transaction: vi.fn() },
+  db: {
+    staff: { update: vi.fn(), findUnique: vi.fn().mockResolvedValue({ isNpp: true }) },
+    $transaction: vi.fn(),
+  },
 }));
 // The headship half of «one leading post» reads the database (2026-10-06).
 vi.mock('@/lib/queries/scope', () => ({ adminPostsConflict: vi.fn().mockResolvedValue(null) }));
@@ -194,6 +197,19 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     ).toEqual({ error: 'Керівна посада може бути лише одна' });
     expect(adminPostsConflict).toHaveBeenCalledWith('staff-own', ['UNIT_HEAD']);
     expect(tx.staff.update).not.toHaveBeenCalled();
+  });
+
+  // The form draws these for an НПП only; a hand-made request from an
+  // administrative account must not give itself a посада or a ступінь.
+  it('drops academic fields for somebody who is not an НПП', async () => {
+    (db.staff.findUnique as Mock).mockResolvedValueOnce({ isNpp: false });
+    const tx = mockTx();
+    await updateOwnProfile({ ...payload, ...ACADEMIC } as unknown as OwnProfileSchema);
+    const fields = writtenFields(tx);
+    expect(fields).toContain('phone');
+    expect(fields).not.toContain('position');
+    expect(fields).not.toContain('adminPositions');
+    expect(fields).not.toContain('academicRank');
   });
 
   // A save that does not carry the academic fields (an old open tab, the
