@@ -38,6 +38,11 @@ export const USER_EDITABLE_STAFF_FIELDS: ReadonlySet<string> = new Set([
   'scopusUrl',
   'googleScholarUrl',
   'orcidId',
+  // Citation counts (owner, 2026-10-06) — they pay rating points through the
+  // citation indicators, so they are audited like the academic fields.
+  'wosCitationCount',
+  'scopusCitationCount',
+  'googleScholarCitationCount',
   // «Академічна інформація» and «Освіта» (owner, 2026-10-06) — an НПП fills
   // these in about themselves until somebody in HR owns them. Several move
   // rating points (посада 1.2, ступінь 1.3, адмін. посада 1.6), so every

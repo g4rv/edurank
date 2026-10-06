@@ -46,6 +46,13 @@ export default async function ProfileEditPage() {
           scopusUrl: staff.scopusUrl ?? '',
           googleScholarUrl: staff.googleScholarUrl ?? '',
           orcidId: staff.orcidId ?? '',
+          wosCitationCount: staff.wosCitationCount != null ? String(staff.wosCitationCount) : '',
+          scopusCitationCount:
+            staff.scopusCitationCount != null ? String(staff.scopusCitationCount) : '',
+          googleScholarCitationCount:
+            staff.googleScholarCitationCount != null
+              ? String(staff.googleScholarCitationCount)
+              : '',
           // Only an НПП's own academic info is theirs to edit (2026-10-06).
           ...(staff.isNpp ? academicToFormValues(staff) : {}),
         }}

@@ -83,6 +83,9 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
           scopusUrl: true,
           googleScholarUrl: true,
           orcidId: true,
+          wosCitationCount: true,
+          scopusCitationCount: true,
+          googleScholarCitationCount: true,
           ...ACADEMIC_STORED_SELECT,
         },
       });

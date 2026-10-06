@@ -21,6 +21,7 @@ import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { updateOwnProfile } from '@/app/(dashboard)/profile/actions';
 import { uploadAvatar } from '@/components/profile/upload-avatar';
 import { RequiredFields } from '@/components/ui/required-fields';
+import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
 import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 
@@ -31,6 +32,9 @@ type FormValues = {
   scopusUrl: string;
   googleScholarUrl: string;
   orcidId: string;
+  wosCitationCount: string;
+  scopusCitationCount: string;
+  googleScholarCitationCount: string;
 } & Partial<AcademicFormValues>;
 
 export function ProfileEditForm({
@@ -150,36 +154,97 @@ export function ProfileEditForm({
   const profilesCard = (
     <Card title="Наукові профілі">
       <FieldGroup className="flex flex-col gap-4">
-        <FormField htmlFor="wosUrl" label="Web of Science" error={errors.wosUrl}>
-          <Input
-            id="wosUrl"
-            placeholder="Посилання на ваш профіль"
-            disabled={isPending}
-            {...register('wosUrl')}
-          />
-        </FormField>
+        {/* Each link with its citation count beside it (owner, 2026-10-06):
+            an НПП now types their own counts, which pay rating points. */}
+        <div className="grid grid-cols-3 gap-x-4">
+          <FormField
+            htmlFor="wosUrl"
+            label="Web of Science"
+            error={errors.wosUrl}
+            className="col-span-2"
+          >
+            <Input
+              id="wosUrl"
+              placeholder="Посилання на ваш профіль"
+              disabled={isPending}
+              {...register('wosUrl')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="wosCitationCount"
+            label="Цитувань"
+            labelSuffix={<RatingFieldHint field="wosCitationCount" />}
+            error={errors.wosCitationCount}
+          >
+            <Input
+              id="wosCitationCount"
+              type="number"
+              min="0"
+              disabled={isPending}
+              {...register('wosCitationCount')}
+            />
+          </FormField>
+        </div>
 
-        <FormField htmlFor="scopusUrl" label="Scopus" error={errors.scopusUrl}>
-          <Input
-            id="scopusUrl"
-            placeholder="Посилання на ваш профіль"
-            disabled={isPending}
-            {...register('scopusUrl')}
-          />
-        </FormField>
+        <div className="grid grid-cols-3 gap-x-4">
+          <FormField
+            htmlFor="scopusUrl"
+            label="Scopus"
+            error={errors.scopusUrl}
+            className="col-span-2"
+          >
+            <Input
+              id="scopusUrl"
+              placeholder="Посилання на ваш профіль"
+              disabled={isPending}
+              {...register('scopusUrl')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="scopusCitationCount"
+            label="Цитувань"
+            labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
+            error={errors.scopusCitationCount}
+          >
+            <Input
+              id="scopusCitationCount"
+              type="number"
+              min="0"
+              disabled={isPending}
+              {...register('scopusCitationCount')}
+            />
+          </FormField>
+        </div>
 
-        <FormField
-          htmlFor="googleScholarUrl"
-          label="Google Scholar"
-          error={errors.googleScholarUrl}
-        >
-          <Input
-            id="googleScholarUrl"
-            placeholder="Посилання на ваш профіль"
-            disabled={isPending}
-            {...register('googleScholarUrl')}
-          />
-        </FormField>
+        <div className="grid grid-cols-3 gap-x-4">
+          <FormField
+            htmlFor="googleScholarUrl"
+            label="Google Scholar"
+            error={errors.googleScholarUrl}
+            className="col-span-2"
+          >
+            <Input
+              id="googleScholarUrl"
+              placeholder="Посилання на ваш профіль"
+              disabled={isPending}
+              {...register('googleScholarUrl')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="googleScholarCitationCount"
+            label="Цитувань"
+            labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
+            error={errors.googleScholarCitationCount}
+          >
+            <Input
+              id="googleScholarCitationCount"
+              type="number"
+              min="0"
+              disabled={isPending}
+              {...register('googleScholarCitationCount')}
+            />
+          </FormField>
+        </div>
 
         <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
           {/* Controlled: the field reformats on every keystroke, which an

@@ -209,3 +209,25 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     expect(changes.academicRank).toBeUndefined();
   });
 });
+
+// Citation counts (owner, 2026-10-06): an НПП now types their own. They feed
+// the citation indicators, so the save re-scores.
+describe('updateOwnProfile — citations', () => {
+  it('saves the three citation counts and re-scores', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
+    const tx = mockTx();
+    await updateOwnProfile({
+      ...payload,
+      wosCitationCount: '12',
+      scopusCitationCount: '7',
+      googleScholarCitationCount: '140',
+    } as unknown as OwnProfileSchema);
+
+    expect(tx.staff.update.mock.calls[0][0].data).toMatchObject({
+      wosCitationCount: 12,
+      scopusCitationCount: 7,
+      googleScholarCitationCount: 140,
+    });
+    expect(syncProfileDerived).toHaveBeenCalledWith(tx, 'staff-own');
+  });
+});

@@ -220,7 +220,8 @@ describe('updateStaff field filtering', () => {
     expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 
-  // Contacts, research links, and since 2026-10-06 their own academic info —
+  // Contacts, research links and citation counts, and since 2026-10-06 their
+  // own academic info —
   // plus the five legacy mirrors derived from it. Never name, кафедра, ставка.
   it('USER edits own profile: only the whitelisted fields', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
@@ -235,6 +236,9 @@ describe('updateStaff field filtering', () => {
         'phone',
         'scopusUrl',
         'wosUrl',
+        'wosCitationCount',
+        'scopusCitationCount',
+        'googleScholarCitationCount',
         ...ACADEMIC_EDITABLE_FIELDS,
         'academicRank',
         'scientificDegree',

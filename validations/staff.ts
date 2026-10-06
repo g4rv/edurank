@@ -290,6 +290,10 @@ export const ownProfileSchema = z.object({
       .refine(isValidOrcid, { error: 'Некоректний ORCID' })
       .nullable()
   ),
+  // Citation counts (owner, 2026-10-06) — the same rule as the staff form's.
+  wosCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
+  scopusCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
+  googleScholarCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
   ...academicFields,
 });
 
