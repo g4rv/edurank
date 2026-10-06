@@ -1,9 +1,11 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
+import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
 import {
-  ACADEMIC_RANK_LABELS,
-  SCIENTIFIC_DEGREE_LABELS,
-  ADMIN_POSITION_LABELS,
-} from '@/lib/labels';
+  CANDIDATE_DEGREES,
+  DOCTOR_DEGREES,
+  HONORARY_TITLES,
+  optionLabel,
+} from '@/lib/staff/academic-options';
 import { formatStake } from '@/lib/stake/units';
 import { OrcidField } from '@/components/profile/orcid-field';
 import { Card } from '@/components/aurora/ui/card';
@@ -51,20 +53,35 @@ export const CARD_TITLES = {
   /** The edit form's first card — the record page has no equivalent. */
   basics: 'Основна інформація',
   academic: 'Академічна інформація',
+  education: 'Освіта',
   research: 'Наукові профілі',
   leadership: 'Керівні посади',
   workplaces: 'Місця роботи',
 } as const;
 
 export const ACADEMIC_LABELS = {
-  rank: 'Вчене звання',
-  degree: 'Науковий ступінь',
+  position: 'Посада',
+  title: 'Вчене звання',
   experience: 'Педагогічний стаж',
-  defence: 'Дата захисту дисертації',
-  degreeMatch: 'Ступінь відповідає кафедрі',
-  specialty: 'Спеціальність за дипломом',
-  educationMatch: 'Освіта відповідає кафедрі',
+  honorary: 'Почесні звання',
 } as const;
+
+/** «Освіта» (owner, 2026-10-06), in render order — the shell maps these too */
+export const EDUCATION_LABELS = {
+  candidate: 'Кандидат наук / PhD',
+  candidateSpecialty: 'Спеціальність за дипломом',
+  candidateDefence: 'Дата захисту',
+  doctor: 'Доктор наук',
+  doctorSpecialty: 'Спеціальність за дипломом',
+  doctorDefence: 'Дата захисту',
+  degreeMatch: 'Ступінь відповідає кафедрі',
+  educationMatch: 'Базова освіта відповідає кафедрі',
+  specialty: 'Спеціальність базової освіти',
+} as const;
+
+/** A defence date, in UTC like the column is written — local time would show the day before */
+const defence = (d: Date | null) => (d ? d.toLocaleDateString('uk-UA', { timeZone: 'UTC' }) : null);
+const yesNo = (v: boolean | null) => (v === null ? null : v ? 'Так' : 'Ні');
 
 export const RESEARCH_LABELS = {
   wos: 'Web of Science',
@@ -78,7 +95,7 @@ interface CardProps {
   showEmpty?: boolean;
 }
 
-/** НПП only — звання and ступінь really are academic-staff data. */
+/** НПП only — посада and звання really are academic-staff data. */
 export function AcademicCard({ staff, showEmpty = true }: CardProps) {
   if (!staff.isNpp) return null;
 
@@ -86,13 +103,13 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
     <Card title={CARD_TITLES.academic}>
       <Fields columns={2}>
         <MaybeField
-          label={ACADEMIC_LABELS.rank}
-          value={staff.academicRank ? ACADEMIC_RANK_LABELS[staff.academicRank] : null}
+          label={ACADEMIC_LABELS.position}
+          value={staff.position ? STAFF_POSITION_LABELS[staff.position] : null}
           showEmpty={showEmpty}
         />
         <MaybeField
-          label={ACADEMIC_LABELS.degree}
-          value={staff.scientificDegree ? SCIENTIFIC_DEGREE_LABELS[staff.scientificDegree] : null}
+          label={ACADEMIC_LABELS.title}
+          value={staff.academicTitle ? ACADEMIC_TITLE_LABELS[staff.academicTitle] : null}
           showEmpty={showEmpty}
         />
         <MaybeField
@@ -103,39 +120,11 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
           showEmpty={showEmpty}
         />
         <MaybeField
-          label={ACADEMIC_LABELS.defence}
+          label={ACADEMIC_LABELS.honorary}
           value={
-            // Formatted in UTC, matching how the column is written — a
-            // local-calendar render would show the previous day for any
-            // deployment west of UTC.
-            staff.degreeDefenceDate
-              ? staff.degreeDefenceDate.toLocaleDateString('uk-UA', { timeZone: 'UTC' })
+            staff.honoraryTitles.length
+              ? staff.honoraryTitles.map((t) => optionLabel(HONORARY_TITLES, t)).join(', ')
               : null
-          }
-          showEmpty={showEmpty}
-        />
-        <MaybeField
-          label={ACADEMIC_LABELS.degreeMatch}
-          value={
-            staff.degreeMatchesDepartment === null
-              ? null
-              : staff.degreeMatchesDepartment
-                ? 'Так'
-                : 'Ні'
-          }
-          showEmpty={showEmpty}
-        />
-        {/* Neither old page showed these two, though both feed the rating through
-            PROFILE_DERIVED indicators — so a gap here silently costs points. */}
-        <MaybeField
-          label={ACADEMIC_LABELS.specialty}
-          value={staff.basicEducationSpecialty}
-          showEmpty={showEmpty}
-        />
-        <MaybeField
-          label={ACADEMIC_LABELS.educationMatch}
-          value={
-            staff.basicEducationMatch === null ? null : staff.basicEducationMatch ? 'Так' : 'Ні'
           }
           showEmpty={showEmpty}
         />
@@ -143,6 +132,83 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
     </Card>
   );
 }
+
+/**
+ * «Освіта» (owner, 2026-10-06): both degrees with their own speciality and
+ * defence date, and the basic education the rating asks about.
+ */
+export function EducationCard({ staff, showEmpty = true }: CardProps) {
+  if (!staff.isNpp) return null;
+
+  return (
+    <Card title={CARD_TITLES.education}>
+      <Fields columns={2}>
+        <MaybeField
+          label={EDUCATION_LABELS.candidate}
+          value={
+            staff.candidateDegree ? optionLabel(CANDIDATE_DEGREES, staff.candidateDegree) : null
+          }
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label={EDUCATION_LABELS.candidateDefence}
+          value={defence(staff.candidateDefenceDate)}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label={EDUCATION_LABELS.candidateSpecialty}
+          value={staff.candidateSpecialty}
+          showEmpty={showEmpty}
+        />
+        <span />
+        <MaybeField
+          label={EDUCATION_LABELS.doctor}
+          value={staff.doctorDegree ? optionLabel(DOCTOR_DEGREES, staff.doctorDegree) : null}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label={EDUCATION_LABELS.doctorDefence}
+          value={defence(staff.doctorDefenceDate)}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label={EDUCATION_LABELS.doctorSpecialty}
+          value={staff.doctorSpecialty}
+          showEmpty={showEmpty}
+        />
+        <span />
+        <MaybeField
+          label={EDUCATION_LABELS.degreeMatch}
+          value={yesNo(staff.degreeMatchesDepartment)}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label={EDUCATION_LABELS.educationMatch}
+          value={yesNo(staff.basicEducationMatch)}
+          showEmpty={showEmpty}
+        />
+        <MaybeField
+          label={EDUCATION_LABELS.specialty}
+          value={staff.basicEducationSpecialty}
+          showEmpty={showEmpty}
+        />
+      </Fields>
+    </Card>
+  );
+}
+
+EducationCard.Shell = function EducationCardShell({ isNpp = true }: { isNpp?: boolean }) {
+  if (!isNpp) return null;
+  return (
+    <Card title={CARD_TITLES.education}>
+      <Fields columns={2}>
+        {Object.values(EDUCATION_LABELS).map((label, i) => (
+          <Field key={i} label={label} value={<ValueShimmer />} />
+        ))}
+      </Fields>
+    </Card>
+  );
+};
 
 /**
  * The card with its real title and labels, and a shimmer where each value goes.
@@ -243,14 +309,20 @@ ResearchProfilesCard.Shell = function ResearchProfilesCardShell() {
  * post that is not held is absent, and somebody holding none has no card.
  */
 export function LeadershipCard({ staff }: { staff: StaffDetail }) {
-  if (!staff.headOfDepartment && !staff.deanOfFaculty && !staff.adminPosition) return null;
+  if (!staff.headOfDepartment && !staff.deanOfFaculty && staff.adminPositions.length === 0) {
+    return null;
+  }
 
   return (
     <Card title={CARD_TITLES.leadership}>
       <Fields>
         <MaybeField
-          label="Адміністративна посада"
-          value={staff.adminPosition ? ADMIN_POSITION_LABELS[staff.adminPosition] : null}
+          label="Адміністративні посади"
+          value={
+            staff.adminPositions.length
+              ? staff.adminPositions.map((p) => ADMIN_POSITION_LABELS[p]).join(', ')
+              : null
+          }
           showEmpty={false}
         />
         <MaybeField

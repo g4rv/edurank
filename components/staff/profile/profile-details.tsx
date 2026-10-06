@@ -1,6 +1,7 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import {
   AcademicCard,
+  EducationCard,
   ResearchProfilesCard,
   LeadershipCard,
   WorkplacesCard,
@@ -57,6 +58,7 @@ export function ProfileDetails({
       <div className="flex flex-col items-start gap-4 lg:flex-row">
         <div className="flex w-full flex-1 flex-col gap-4">
           <AcademicCard staff={staff} showEmpty={showEmpty} />
+          <EducationCard staff={staff} showEmpty={showEmpty} />
           <ResearchProfilesCard staff={staff} showEmpty={showEmpty} />
         </div>
 

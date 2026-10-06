@@ -1,0 +1,459 @@
+'use client';
+
+import { Controller, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
+import { cn } from '@/lib/utils';
+import { Card } from '@/components/aurora/ui/card';
+import { DateInput } from '@/components/aurora/ui/date-input';
+import { Input } from '@/components/aurora/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/aurora/ui/select';
+import { FieldGroup } from '@/components/ui/field';
+import { FormField } from '@/components/ui/form-field';
+import { RatingFieldHint } from '@/components/staff/rating-field-hint';
+import { BadgePicker } from '@/components/staff/badge-picker';
+import { CARD_TITLES } from '@/components/staff/profile/cards';
+import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
+import {
+  CANDIDATE_DEGREES,
+  DOCTOR_DEGREES,
+  HONORARY_TITLES,
+  UNSPECIFIED_CANDIDATE,
+  UNSPECIFIED_DOCTOR,
+  type AcademicOption,
+} from '@/lib/staff/academic-options';
+
+/**
+ * «Академічна інформація» and «Освіта» (owner, 2026-10-06), written once for
+ * both forms that edit them: the staff record (`StaffFormFields`, ADMIN and
+ * granted editors) and the НПП's own profile (`ProfileEditForm`). Both forms
+ * hold these values under the same names, so both hand their own `control`
+ * over cast to this shape.
+ */
+
+/** A two-column row whose labels line up — see the note in StaffFormFields */
+export const FIELD_ROW = cn(
+  'grid grid-cols-2 gap-x-4 gap-y-2',
+  '[&>[data-slot=field]]:grid [&>[data-slot=field]]:grid-rows-subgrid [&>[data-slot=field]]:row-span-3 [&>[data-slot=field]]:gap-0',
+  '[&_[data-slot=field-label]]:self-end'
+);
+
+/** Every academic field as the inputs produce it; Zod coerces on submit */
+export type AcademicFormValues = {
+  pedagogicalExperience: string;
+  position: string;
+  academicTitle: string;
+  honoraryTitles: string[];
+  adminPositions: string[];
+  candidateDegree: string;
+  candidateSpecialty: string;
+  candidateDefenceDate: string;
+  doctorDegree: string;
+  doctorSpecialty: string;
+  doctorDefenceDate: string;
+  degreeMatchesDepartment: string;
+  basicEducationMatch: string;
+  basicEducationSpecialty: string;
+};
+
+export const EMPTY_ACADEMIC_VALUES: AcademicFormValues = {
+  pedagogicalExperience: '',
+  position: '',
+  academicTitle: '',
+  honoraryTitles: [],
+  adminPositions: [],
+  candidateDegree: '',
+  candidateSpecialty: '',
+  candidateDefenceDate: '',
+  doctorDegree: '',
+  doctorSpecialty: '',
+  doctorDefenceDate: '',
+  degreeMatchesDepartment: '',
+  basicEducationMatch: '',
+  basicEducationSpecialty: '',
+};
+
+/** The stored academic columns a record carries */
+export interface StoredAcademic {
+  pedagogicalExperience: number | null;
+  position: string | null;
+  academicTitle: string | null;
+  honoraryTitles: string[];
+  adminPositions: string[];
+  candidateDegree: string | null;
+  candidateSpecialty: string | null;
+  candidateDefenceDate: Date | null;
+  doctorDegree: string | null;
+  doctorSpecialty: string | null;
+  doctorDefenceDate: Date | null;
+  degreeMatchesDepartment: boolean | null;
+  basicEducationMatch: boolean | null;
+  basicEducationSpecialty: string | null;
+}
+
+export function academicToFormValues(staff: StoredAcademic): AcademicFormValues {
+  const bool = (v: boolean | null) => (v === null ? '' : String(v));
+  // `DateInput` reads and writes «YYYY-MM-DD»; the column holds UTC midnight.
+  const date = (v: Date | null) => (v ? v.toISOString().slice(0, 10) : '');
+  return {
+    pedagogicalExperience:
+      staff.pedagogicalExperience != null ? String(staff.pedagogicalExperience) : '',
+    position: staff.position ?? '',
+    academicTitle: staff.academicTitle ?? '',
+    honoraryTitles: [...staff.honoraryTitles],
+    adminPositions: [...staff.adminPositions],
+    candidateDegree: staff.candidateDegree ?? '',
+    candidateSpecialty: staff.candidateSpecialty ?? '',
+    candidateDefenceDate: date(staff.candidateDefenceDate),
+    doctorDegree: staff.doctorDegree ?? '',
+    doctorSpecialty: staff.doctorSpecialty ?? '',
+    doctorDefenceDate: date(staff.doctorDefenceDate),
+    degreeMatchesDepartment: bool(staff.degreeMatchesDepartment),
+    basicEducationMatch: bool(staff.basicEducationMatch),
+    basicEducationSpecialty: staff.basicEducationSpecialty ?? '',
+  };
+}
+
+interface CardProps {
+  register: UseFormRegister<AcademicFormValues>;
+  control: Control<AcademicFormValues>;
+  errors: FieldErrors<AcademicFormValues>;
+  isPending: boolean;
+  /** A field outside what this viewer may write — greyed, still readable */
+  locked?: (field: keyof AcademicFormValues) => boolean;
+  className?: string;
+  action?: React.ReactNode;
+}
+
+const entries = (labels: Record<string, string>) =>
+  Object.entries(labels).map(([value, label]) => ({ value, label }));
+
+/** A single-choice select with «—» for none, as the rest of the form draws them */
+function PlainSelect({
+  id,
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  id?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: readonly { value: string; label: string }[];
+  disabled: boolean;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger id={id} className="w-full">
+        <SelectValue placeholder="—" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value=" ">—</SelectItem>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/**
+ * A degree list as offered: the «уточніть галузь» key the migration gave an
+ * old degree is shown only while it is the current value — nobody picks it.
+ */
+function degreeOptions(list: readonly AcademicOption[], unspecified: string, current: string) {
+  return list.filter((o) => o.value !== unspecified || o.value === current);
+}
+
+export function AcademicCard({
+  register,
+  control,
+  errors,
+  isPending,
+  locked = () => false,
+  className,
+  action,
+}: CardProps) {
+  return (
+    <Card title={CARD_TITLES.academic} action={action} className={className}>
+      <FieldGroup className={FIELD_ROW}>
+        <FormField
+          label="Посада"
+          htmlFor="position"
+          labelSuffix={<RatingFieldHint field="academicRank" />}
+          error={errors.position}
+        >
+          <Controller
+            name="position"
+            control={control}
+            render={({ field }) => (
+              <PlainSelect
+                id="position"
+                value={field.value}
+                onChange={field.onChange}
+                options={entries(STAFF_POSITION_LABELS)}
+                disabled={isPending || locked('position')}
+              />
+            )}
+          />
+        </FormField>
+        <FormField label="Вчене звання" htmlFor="academicTitle" error={errors.academicTitle}>
+          <Controller
+            name="academicTitle"
+            control={control}
+            render={({ field }) => (
+              <PlainSelect
+                id="academicTitle"
+                value={field.value}
+                onChange={field.onChange}
+                options={entries(ACADEMIC_TITLE_LABELS)}
+                disabled={isPending || locked('academicTitle')}
+              />
+            )}
+          />
+        </FormField>
+        <FormField
+          htmlFor="pedagogicalExperience"
+          label="Педагогічний досвід (років)"
+          labelSuffix={<RatingFieldHint field="pedagogicalExperience" />}
+          error={errors.pedagogicalExperience}
+        >
+          <Input
+            id="pedagogicalExperience"
+            type="number"
+            min="0"
+            placeholder="12"
+            disabled={isPending || locked('pedagogicalExperience')}
+            {...register('pedagogicalExperience')}
+          />
+        </FormField>
+        <div />
+      </FieldGroup>
+
+      {/* Lists of badges take the full width — a person may hold several, and
+          half a card squeezed «Заслужений працівник фізичної культури і спорту
+          України» into three lines. */}
+      <FieldGroup className="mt-4 flex flex-col gap-4">
+        <FormField
+          label="Почесні звання"
+          htmlFor="honoraryTitles"
+          error={errors.honoraryTitles as never}
+        >
+          <Controller
+            name="honoraryTitles"
+            control={control}
+            render={({ field }) => (
+              <BadgePicker
+                id="honoraryTitles"
+                options={HONORARY_TITLES}
+                value={field.value}
+                onChange={field.onChange}
+                disabled={isPending || locked('honoraryTitles')}
+                addLabel="Додати почесне звання…"
+              />
+            )}
+          />
+        </FormField>
+        <FormField
+          label="Адміністративні посади"
+          htmlFor="adminPositions"
+          labelSuffix={<RatingFieldHint field="adminPosition" />}
+          error={errors.adminPositions as never}
+        >
+          <Controller
+            name="adminPositions"
+            control={control}
+            render={({ field }) => (
+              <BadgePicker
+                id="adminPositions"
+                options={entries(ADMIN_POSITION_LABELS)}
+                value={field.value}
+                onChange={field.onChange}
+                disabled={isPending || locked('adminPositions')}
+                addLabel="Додати посаду…"
+              />
+            )}
+          />
+        </FormField>
+      </FieldGroup>
+    </Card>
+  );
+}
+
+/** One degree: its exact name, the diploma speciality and the defence date */
+function DegreeBlock({
+  title,
+  prefix,
+  list,
+  unspecified,
+  control,
+  register,
+  errors,
+  isPending,
+  locked,
+}: {
+  title: string;
+  prefix: 'candidate' | 'doctor';
+  list: readonly AcademicOption[];
+  unspecified: string;
+  control: Control<AcademicFormValues>;
+  register: UseFormRegister<AcademicFormValues>;
+  errors: FieldErrors<AcademicFormValues>;
+  isPending: boolean;
+  locked: (field: keyof AcademicFormValues) => boolean;
+}) {
+  const degree = `${prefix}Degree` as const;
+  const specialty = `${prefix}Specialty` as const;
+  const defence = `${prefix}DefenceDate` as const;
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">{title}</p>
+      <FieldGroup className={FIELD_ROW}>
+        <FormField
+          label="Ступінь"
+          htmlFor={degree}
+          labelSuffix={<RatingFieldHint field="scientificDegree" />}
+          error={errors[degree]}
+        >
+          <Controller
+            name={degree}
+            control={control}
+            render={({ field }) => (
+              <>
+                <PlainSelect
+                  id={degree}
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={degreeOptions(list, unspecified, field.value)}
+                  disabled={isPending || locked(degree)}
+                />
+                {field.value === unspecified && (
+                  <p className="mt-1 text-xs text-warning">Оберіть галузь науки зі списку</p>
+                )}
+              </>
+            )}
+          />
+        </FormField>
+        <FormField label="Дата захисту" htmlFor={defence} error={errors[defence]}>
+          <Controller
+            name={defence}
+            control={control}
+            render={({ field }) => (
+              <DateInput
+                id={defence}
+                value={field.value}
+                onChange={field.onChange}
+                min="1950-01-01"
+                max="2100-12-31"
+                disabled={isPending || locked(defence)}
+                aria-invalid={!!errors[defence]}
+              />
+            )}
+          />
+        </FormField>
+      </FieldGroup>
+      <FormField htmlFor={specialty} label="Спеціальність за дипломом" error={errors[specialty]}>
+        <Input id={specialty} disabled={isPending || locked(specialty)} {...register(specialty)} />
+      </FormField>
+    </div>
+  );
+}
+
+export function EducationCard({
+  register,
+  control,
+  errors,
+  isPending,
+  locked = () => false,
+  className,
+  action,
+}: CardProps) {
+  const shared = { control, register, errors, isPending, locked };
+  return (
+    <Card title={CARD_TITLES.education} action={action} className={className}>
+      <div className="space-y-5">
+        <DegreeBlock
+          title="Кандидат наук / доктор філософії (PhD)"
+          prefix="candidate"
+          list={CANDIDATE_DEGREES}
+          unspecified={UNSPECIFIED_CANDIDATE}
+          {...shared}
+        />
+        <DegreeBlock
+          title="Доктор наук"
+          prefix="doctor"
+          list={DOCTOR_DEGREES}
+          unspecified={UNSPECIFIED_DOCTOR}
+          {...shared}
+        />
+
+        <FieldGroup className={FIELD_ROW}>
+          <FormField
+            label="Ступінь відповідає кафедрі"
+            htmlFor="degreeMatchesDepartment"
+            labelSuffix={<RatingFieldHint field="degreeMatchesDepartment" />}
+            error={errors.degreeMatchesDepartment}
+          >
+            <Controller
+              name="degreeMatchesDepartment"
+              control={control}
+              render={({ field }) => (
+                <PlainSelect
+                  id="degreeMatchesDepartment"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    { value: 'true', label: 'Так' },
+                    { value: 'false', label: 'Ні' },
+                  ]}
+                  disabled={isPending || locked('degreeMatchesDepartment')}
+                />
+              )}
+            />
+          </FormField>
+          <FormField
+            label="Базова освіта за спеціальністю кафедри"
+            htmlFor="basicEducationMatch"
+            labelSuffix={<RatingFieldHint field="basicEducationMatch" />}
+            error={errors.basicEducationMatch}
+          >
+            <Controller
+              name="basicEducationMatch"
+              control={control}
+              render={({ field }) => (
+                <PlainSelect
+                  id="basicEducationMatch"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    { value: 'true', label: 'Так' },
+                    { value: 'false', label: 'Ні' },
+                  ]}
+                  disabled={isPending || locked('basicEducationMatch')}
+                />
+              )}
+            />
+          </FormField>
+        </FieldGroup>
+        <FormField
+          htmlFor="basicEducationSpecialty"
+          label="Спеціальність базової освіти"
+          labelSuffix={<RatingFieldHint field="basicEducationSpecialty" />}
+          error={errors.basicEducationSpecialty}
+        >
+          <Input
+            id="basicEducationSpecialty"
+            disabled={isPending || locked('basicEducationSpecialty')}
+            {...register('basicEducationSpecialty')}
+          />
+        </FormField>
+      </div>
+    </Card>
+  );
+}

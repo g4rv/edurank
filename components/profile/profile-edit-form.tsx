@@ -21,6 +21,11 @@ import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { updateOwnProfile } from '@/app/(dashboard)/profile/actions';
 import { uploadAvatar } from '@/components/profile/upload-avatar';
 import { RequiredFields } from '@/components/ui/required-fields';
+import {
+  AcademicCard,
+  EducationCard,
+  type AcademicFormValues,
+} from '@/components/staff/academic-fields';
 
 /** Empty strings, not nulls: an <input> with a null value is uncontrolled */
 type FormValues = {
@@ -29,13 +34,14 @@ type FormValues = {
   scopusUrl: string;
   googleScholarUrl: string;
   orcidId: string;
-};
+} & Partial<AcademicFormValues>;
 
 export function ProfileEditForm({
   name,
   avatarSrc,
   canEditAvatar,
   defaultValues,
+  isNpp = false,
 }: {
   /** Whose record this is — the header is the same one `/staff/[id]/edit` uses. */
   name: string;
@@ -44,6 +50,13 @@ export function ProfileEditForm({
   /** ADMIN only for now — see `canSetOwnAvatar` */
   canEditAvatar: boolean;
   defaultValues: FormValues;
+  /**
+   * An НПП fills in their own «Академічна інформація» and «Освіта» (owner,
+   * 2026-10-06, until HR owns them). Without it the two cards are not drawn and
+   * their values are not in `defaultValues` — so they are never sent, and the
+   * save leaves them as they are.
+   */
+  isNpp?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -240,6 +253,27 @@ export function ProfileEditForm({
             </Card>
           </div>
         </div>
+
+        {isNpp && (
+          <div className="flex flex-col items-start gap-4 lg:flex-row">
+            <div className="flex w-full flex-1 flex-col gap-4">
+              <AcademicCard
+                register={register as never}
+                control={control as never}
+                errors={errors as never}
+                isPending={isPending}
+              />
+            </div>
+            <div className="flex w-full flex-1 flex-col gap-4">
+              <EducationCard
+                register={register as never}
+                control={control as never}
+                errors={errors as never}
+                isPending={isPending}
+              />
+            </div>
+          </div>
+        )}
       </form>
     </RequiredFields>
   );

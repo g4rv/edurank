@@ -1,7 +1,7 @@
 import { Pencil, ArchiveX } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/aurora/ui/button';
-import { AcademicCard, ResearchProfilesCard, WorkplacesCard } from './cards';
+import { AcademicCard, EducationCard, ResearchProfilesCard, WorkplacesCard } from './cards';
 
 /**
  * The record's loading shapes.
@@ -99,6 +99,7 @@ export function ProfileBodySkeleton({ isNpp = true }: { isNpp?: boolean }) {
     <div className="flex flex-col items-start gap-4 lg:flex-row">
       <div className="flex w-full flex-1 flex-col gap-4">
         <AcademicCard.Shell isNpp={isNpp} />
+        <EducationCard.Shell isNpp={isNpp} />
         <ResearchProfilesCard.Shell />
       </div>
       <div className="flex w-full flex-1 flex-col gap-4">

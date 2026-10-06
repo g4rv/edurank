@@ -8,10 +8,8 @@ import {
   type UseFormRegister,
   type UseFormSetValue,
 } from 'react-hook-form';
-import { cn } from '@/lib/utils';
 import { Card } from '@/components/aurora/ui/card';
 import { CARD_TITLES } from '@/components/staff/profile/cards';
-import { DateInput } from '@/components/aurora/ui/date-input';
 import { FormField } from '@/components/ui/form-field';
 import { WorkplacesField } from '@/components/staff/workplaces-field';
 import { FieldGroup } from '@/components/ui/field';
@@ -31,9 +29,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/aurora/ui/select';
-import { ADMIN_POSITION_LABELS } from '@/lib/labels';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
-import { FieldHint } from '@/components/ui/field-hint';
+import {
+  AcademicCard,
+  EducationCard,
+  EMPTY_ACADEMIC_VALUES,
+  FIELD_ROW,
+  academicToFormValues,
+  type AcademicFormValues,
+} from '@/components/staff/academic-fields';
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
@@ -44,23 +48,6 @@ import type { StakePart } from '@/lib/queries/get-stake-breakdown';
 // label, placeholder or new column is written once instead of twice — the two
 // copies had already drifted apart before this was extracted.
 
-const ACADEMIC_RANK_OPTIONS = [
-  { value: 'LECTURER', label: 'Викладач' },
-  { value: 'SENIOR_LECTURER', label: 'Старший викладач' },
-  { value: 'DOCENT', label: 'Доцент' },
-  { value: 'PROFESSOR', label: 'Професор' },
-] as const;
-
-const SCIENTIFIC_DEGREE_OPTIONS = [
-  { value: 'CANDIDATE', label: 'Кандидат наук' },
-  { value: 'DOCTOR', label: 'Доктор наук' },
-] as const;
-
-const ADMIN_POSITION_OPTIONS = Object.entries(ADMIN_POSITION_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
-
 /** Every field as a string, which is what the inputs produce; Zod coerces on submit */
 export type RawStaffFormValues = {
   lastName: string;
@@ -70,14 +57,6 @@ export type RawStaffFormValues = {
   phone: string;
   isNpp: string;
   employmentRate: string;
-  pedagogicalExperience: string;
-  academicRank: string;
-  scientificDegree: string;
-  degreeMatchesDepartment: string;
-  degreeDefenceDate: string;
-  adminPosition: string;
-  basicEducationMatch: string;
-  basicEducationSpecialty: string;
   wosUrl: string;
   wosCitationCount: string;
   scopusUrl: string;
@@ -88,7 +67,7 @@ export type RawStaffFormValues = {
   departmentId: string;
   divisionId: string;
   partTimeDepartmentIds: string[];
-};
+} & AcademicFormValues;
 
 export const EMPTY_STAFF_FORM_VALUES: RawStaffFormValues = {
   lastName: '',
@@ -98,14 +77,7 @@ export const EMPTY_STAFF_FORM_VALUES: RawStaffFormValues = {
   phone: '',
   isNpp: 'true',
   employmentRate: '',
-  pedagogicalExperience: '',
-  academicRank: '',
-  scientificDegree: '',
-  degreeMatchesDepartment: '',
-  degreeDefenceDate: '',
-  adminPosition: '',
-  basicEducationMatch: '',
-  basicEducationSpecialty: '',
+  ...EMPTY_ACADEMIC_VALUES,
   wosUrl: '',
   wosCitationCount: '',
   scopusUrl: '',
@@ -121,11 +93,6 @@ export const EMPTY_STAFF_FORM_VALUES: RawStaffFormValues = {
 /** An existing record as form strings; null becomes '' so inputs stay controlled */
 export function staffToFormValues(staff: StaffDetail): RawStaffFormValues {
   const numberOrEmpty = (v: number | null | undefined) => (v != null ? String(v) : '');
-  const boolOrEmpty = (v: boolean | null | undefined) =>
-    v !== null && v !== undefined ? String(v) : '';
-  // `DateInput` reads and writes «YYYY-MM-DD», and the column holds UTC
-  // midnight — sliced in UTC so the value round-trips unchanged.
-  const dateOrEmpty = (v: Date | null | undefined) => (v ? v.toISOString().slice(0, 10) : '');
 
   return {
     lastName: staff.lastName,
@@ -135,14 +102,7 @@ export function staffToFormValues(staff: StaffDetail): RawStaffFormValues {
     phone: staff.phone ?? '',
     isNpp: staff.isNpp ? 'true' : 'false',
     employmentRate: numberOrEmpty(staff.employmentRate),
-    pedagogicalExperience: numberOrEmpty(staff.pedagogicalExperience),
-    academicRank: staff.academicRank ?? '',
-    scientificDegree: staff.scientificDegree ?? '',
-    degreeMatchesDepartment: boolOrEmpty(staff.degreeMatchesDepartment),
-    degreeDefenceDate: dateOrEmpty(staff.degreeDefenceDate),
-    adminPosition: staff.adminPosition ?? '',
-    basicEducationMatch: boolOrEmpty(staff.basicEducationMatch),
-    basicEducationSpecialty: staff.basicEducationSpecialty ?? '',
+    ...academicToFormValues(staff),
     wosUrl: staff.wosUrl ?? '',
     wosCitationCount: numberOrEmpty(staff.wosCitationCount),
     scopusUrl: staff.scopusUrl ?? '',
@@ -225,11 +185,7 @@ function StepNumber({ n }: { n: string }) {
  * because this is one screen's layout and `FormField` has some seventy callers
  * that want nothing to do with it.
  */
-const FIELD_ROW = cn(
-  'grid grid-cols-2 gap-x-4 gap-y-2',
-  '[&>[data-slot=field]]:grid [&>[data-slot=field]]:grid-rows-subgrid [&>[data-slot=field]]:row-span-3 [&>[data-slot=field]]:gap-0',
-  '[&_[data-slot=field-label]]:self-end'
-);
+// `FIELD_ROW` now lives in academic-fields.tsx, which both forms share.
 
 interface StaffFormFieldsProps {
   register: UseFormRegister<RawStaffFormValues>;
@@ -548,208 +504,30 @@ export function StaffFormFields({
   // See `docs/audit-2026-08-27.md` §4 for dropping the column itself, which is
   // a schema change and needs a window.
 
+  // «Академічна інформація» and «Освіта» (owner, 2026-10-06) — the same two
+  // cards the НПП's own profile form shows, written once in academic-fields.
+  const academicLocked = (field: keyof AcademicFormValues) => locked(field);
   const academic = isNpp && (
-    <Card title={CARD_TITLES.academic} action={stepNumber()} className={CARD_CLASS}>
-      <FieldGroup className={FIELD_ROW}>
-        <FormField
-          label="Вчене звання"
-          labelSuffix={<RatingFieldHint field="academicRank" />}
-          error={errors.academicRank}
-        >
-          <Controller
-            name="academicRank"
-            control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={isPending || locked('academicRank')}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value=" ">—</SelectItem>
-                  {ACADEMIC_RANK_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </FormField>
-        <FormField
-          label="Науковий ступінь"
-          labelSuffix={<RatingFieldHint field="scientificDegree" />}
-          error={errors.scientificDegree}
-        >
-          <Controller
-            name="scientificDegree"
-            control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={isPending || locked('scientificDegree')}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value=" ">—</SelectItem>
-                  {SCIENTIFIC_DEGREE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </FormField>
-        <FormField
-          htmlFor="pedagogicalExperience"
-          label="Педагогічний досвід (років)"
-          labelSuffix={<RatingFieldHint field="pedagogicalExperience" />}
-          error={errors.pedagogicalExperience}
-        >
-          <Input
-            id="pedagogicalExperience"
-            type="number"
-            min="0"
-            placeholder="12"
-            disabled={isPending || locked('pedagogicalExperience')}
-            {...register('pedagogicalExperience')}
-          />
-        </FormField>
-        <FormField
-          htmlFor="degreeDefenceDate"
-          label="Дата захисту дисертації"
-          // One date, for the HIGHEST degree — п.5 of the Характеристика asks
-          // for a defence in the last five years. It was a line of small print
-          // under the control, which made this field taller than «Педагогічний
-          // досвід» beside it and knocked the whole row out of line.
-          labelSuffix={
-            <FieldHint>За найвищим науковим ступенем — для характеристики (п.5)</FieldHint>
-          }
-          error={errors.degreeDefenceDate}
-        >
-          <Controller
-            name="degreeDefenceDate"
-            control={control}
-            render={({ field }) => (
-              <DateInput
-                id="degreeDefenceDate"
-                value={field.value}
-                onChange={field.onChange}
-                // The window the schema will actually accept — `validations/staff.ts`
-                // refuses a year outside 1950–2100, so the dropdown offers no year
-                // that would come back as «Некоректна дата».
-                min="1950-01-01"
-                max="2100-12-31"
-                disabled={isPending || locked('degreeDefenceDate')}
-                aria-invalid={!!errors.degreeDefenceDate}
-              />
-            )}
-          />
-        </FormField>
-        <FormField
-          label="Ступінь відповідає кафедрі"
-          labelSuffix={<RatingFieldHint field="degreeMatchesDepartment" />}
-          error={errors.degreeMatchesDepartment}
-        >
-          <Controller
-            name="degreeMatchesDepartment"
-            control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={isPending || locked('degreeMatchesDepartment')}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value=" ">—</SelectItem>
-                  <SelectItem value="true">Так</SelectItem>
-                  <SelectItem value="false">Ні</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </FormField>
-        <FormField
-          label="Адміністративна посада"
-          labelSuffix={<RatingFieldHint field="adminPosition" />}
-          error={errors.adminPosition}
-        >
-          <Controller
-            name="adminPosition"
-            control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={isPending || locked('adminPosition')}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value=" ">—</SelectItem>
-                  {ADMIN_POSITION_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </FormField>
-        <FormField
-          label="Базова освіта за спеціальністю кафедри"
-          labelSuffix={<RatingFieldHint field="basicEducationMatch" />}
-          error={errors.basicEducationMatch}
-        >
-          <Controller
-            name="basicEducationMatch"
-            control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={isPending || locked('basicEducationMatch')}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value=" ">—</SelectItem>
-                  <SelectItem value="true">Так</SelectItem>
-                  <SelectItem value="false">Ні</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </FormField>
-        <FormField
-          htmlFor="basicEducationSpecialty"
-          label="Спеціальність за дипломом"
-          labelSuffix={<RatingFieldHint field="basicEducationSpecialty" />}
-          error={errors.basicEducationSpecialty}
-        >
-          <Input
-            id="basicEducationSpecialty"
-            disabled={isPending || locked('basicEducationSpecialty')}
-            {...register('basicEducationSpecialty')}
-          />
-        </FormField>
-      </FieldGroup>
-    </Card>
+    <AcademicCard
+      register={register as never}
+      control={control as never}
+      errors={errors as never}
+      isPending={isPending}
+      locked={academicLocked}
+      className={CARD_CLASS}
+      action={stepNumber()}
+    />
+  );
+  const education = isNpp && (
+    <EducationCard
+      register={register as never}
+      control={control as never}
+      errors={errors as never}
+      isPending={isPending}
+      locked={academicLocked}
+      className={CARD_CLASS}
+      action={stepNumber()}
+    />
   );
 
   // **НПП only** (owner, 2026-09-21), reversing the note that stood here.
@@ -860,6 +638,7 @@ export function StaffFormFields({
         {basics}
         {workplaces}
         {academic}
+        {education}
         {research}
       </>
     );
@@ -890,6 +669,7 @@ export function StaffFormFields({
 
       <div className="flex w-full flex-1 flex-col gap-4">
         {workplaces}
+        {education}
         {research}
       </div>
     </div>
