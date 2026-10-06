@@ -2,6 +2,7 @@
 
 import { Controller, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
 import { cn } from '@/lib/utils';
+import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 import { Card } from '@/components/aurora/ui/card';
 import { DateInput } from '@/components/aurora/ui/date-input';
 import { Input } from '@/components/aurora/ui/input';
@@ -41,82 +42,6 @@ export const FIELD_ROW = cn(
   '[&>[data-slot=field]]:grid [&>[data-slot=field]]:grid-rows-subgrid [&>[data-slot=field]]:row-span-3 [&>[data-slot=field]]:gap-0',
   '[&_[data-slot=field-label]]:self-end'
 );
-
-/** Every academic field as the inputs produce it; Zod coerces on submit */
-export type AcademicFormValues = {
-  pedagogicalExperience: string;
-  position: string;
-  academicTitle: string;
-  honoraryTitles: string[];
-  adminPositions: string[];
-  candidateDegree: string;
-  candidateSpecialty: string;
-  candidateDefenceDate: string;
-  doctorDegree: string;
-  doctorSpecialty: string;
-  doctorDefenceDate: string;
-  degreeMatchesDepartment: string;
-  basicEducationMatch: string;
-  basicEducationSpecialty: string;
-};
-
-export const EMPTY_ACADEMIC_VALUES: AcademicFormValues = {
-  pedagogicalExperience: '',
-  position: '',
-  academicTitle: '',
-  honoraryTitles: [],
-  adminPositions: [],
-  candidateDegree: '',
-  candidateSpecialty: '',
-  candidateDefenceDate: '',
-  doctorDegree: '',
-  doctorSpecialty: '',
-  doctorDefenceDate: '',
-  degreeMatchesDepartment: '',
-  basicEducationMatch: '',
-  basicEducationSpecialty: '',
-};
-
-/** The stored academic columns a record carries */
-export interface StoredAcademic {
-  pedagogicalExperience: number | null;
-  position: string | null;
-  academicTitle: string | null;
-  honoraryTitles: string[];
-  adminPositions: string[];
-  candidateDegree: string | null;
-  candidateSpecialty: string | null;
-  candidateDefenceDate: Date | null;
-  doctorDegree: string | null;
-  doctorSpecialty: string | null;
-  doctorDefenceDate: Date | null;
-  degreeMatchesDepartment: boolean | null;
-  basicEducationMatch: boolean | null;
-  basicEducationSpecialty: string | null;
-}
-
-export function academicToFormValues(staff: StoredAcademic): AcademicFormValues {
-  const bool = (v: boolean | null) => (v === null ? '' : String(v));
-  // `DateInput` reads and writes «YYYY-MM-DD»; the column holds UTC midnight.
-  const date = (v: Date | null) => (v ? v.toISOString().slice(0, 10) : '');
-  return {
-    pedagogicalExperience:
-      staff.pedagogicalExperience != null ? String(staff.pedagogicalExperience) : '',
-    position: staff.position ?? '',
-    academicTitle: staff.academicTitle ?? '',
-    honoraryTitles: [...staff.honoraryTitles],
-    adminPositions: [...staff.adminPositions],
-    candidateDegree: staff.candidateDegree ?? '',
-    candidateSpecialty: staff.candidateSpecialty ?? '',
-    candidateDefenceDate: date(staff.candidateDefenceDate),
-    doctorDegree: staff.doctorDegree ?? '',
-    doctorSpecialty: staff.doctorSpecialty ?? '',
-    doctorDefenceDate: date(staff.doctorDefenceDate),
-    degreeMatchesDepartment: bool(staff.degreeMatchesDepartment),
-    basicEducationMatch: bool(staff.basicEducationMatch),
-    basicEducationSpecialty: staff.basicEducationSpecialty ?? '',
-  };
-}
 
 interface CardProps {
   register: UseFormRegister<AcademicFormValues>;

@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
-import { academicToFormValues } from '@/components/staff/academic-fields';
+import { academicToFormValues } from '@/components/staff/academic-form-values';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
 import { fullName } from '@/components/staff/profile/primitives';

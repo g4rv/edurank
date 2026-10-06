@@ -30,14 +30,12 @@ import {
   SelectValue,
 } from '@/components/aurora/ui/select';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
+import { AcademicCard, EducationCard, FIELD_ROW } from '@/components/staff/academic-fields';
 import {
-  AcademicCard,
-  EducationCard,
   EMPTY_ACADEMIC_VALUES,
-  FIELD_ROW,
   academicToFormValues,
   type AcademicFormValues,
-} from '@/components/staff/academic-fields';
+} from '@/components/staff/academic-form-values';
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';

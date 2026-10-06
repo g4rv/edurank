@@ -21,11 +21,8 @@ import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { updateOwnProfile } from '@/app/(dashboard)/profile/actions';
 import { uploadAvatar } from '@/components/profile/upload-avatar';
 import { RequiredFields } from '@/components/ui/required-fields';
-import {
-  AcademicCard,
-  EducationCard,
-  type AcademicFormValues,
-} from '@/components/staff/academic-fields';
+import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
+import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 
 /** Empty strings, not nulls: an <input> with a null value is uncontrolled */
 type FormValues = {
