@@ -18,6 +18,7 @@ import {
 
 const EMPTY = {
   position: null,
+  academicTitle: null,
   candidateDegree: null,
   candidateDefenceDate: null,
   candidateMatchesDepartment: null,
@@ -33,6 +34,21 @@ describe('legacyMirrors — the old columns the rating still reads (2026-10-06)'
       'SENIOR_LECTURER'
     );
     expect(legacyMirrors(EMPTY).academicRank).toBeNull();
+  });
+
+  // Rating 1.2 is «Вчене звання» in the order and lists професор, доцент,
+  // старший викладач, викладач: the звання counts, and without one the посада
+  // (owner, 2026-10-06) — the higher of the two.
+  it('pays 1.2 by the вчене звання where it is higher than the посада', () => {
+    const rank = (position: string | null, academicTitle: string | null) =>
+      legacyMirrors({ ...EMPTY, position, academicTitle } as never).academicRank;
+    expect(rank('SENIOR_LECTURER', 'DOCENT')).toBe('DOCENT');
+    expect(rank('DOCENT', 'PROFESSOR')).toBe('PROFESSOR');
+    expect(rank('PROFESSOR', 'DOCENT')).toBe('PROFESSOR');
+    expect(rank(null, 'DOCENT')).toBe('DOCENT');
+    // «Старший дослідник» is not on 1.2's list — the посада counts
+    expect(rank('LECTURER', 'SENIOR_RESEARCHER')).toBe('LECTURER');
+    expect(rank(null, 'SENIOR_RESEARCHER')).toBeNull();
   });
 
   it('gives the old ступінь the HIGHEST filled level', () => {
@@ -198,6 +214,7 @@ describe('the option lists', () => {
 describe('mirrorsForUpdate — merge what was saved with what is stored', () => {
   const STORED = {
     position: 'DOCENT',
+    academicTitle: null,
     candidateDegree: 'cand_history',
     candidateDefenceDate: null,
     candidateMatchesDepartment: null,

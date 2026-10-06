@@ -43,6 +43,7 @@ const ADMIN_POSITION_ORDER: readonly AdminPosition[] = [
 
 export interface AcademicFields {
   position: StaffPosition | null;
+  academicTitle: AcademicTitle | null;
   candidateDegree: string | null;
   candidateDefenceDate: Date | null;
   candidateMatchesDepartment: boolean | null;
@@ -60,9 +61,32 @@ export interface LegacyMirrors {
   adminPosition: AdminPosition | null;
 }
 
-export function legacyMirrors(fields: AcademicFields): LegacyMirrors {
+/**
+ * Rating 1.2's four values, by what they pay: професор 50, доцент 30, старший
+ * викладач 15, викладач 10.
+ */
+const RANK_ORDER: readonly AcademicRank[] = ['PROFESSOR', 'DOCENT', 'SENIOR_LECTURER', 'LECTURER'];
+
+/**
+ * What rating 1.2 «Вчене звання» pays (owner, 2026-10-06): the вчене звання
+ * професора or доцента, and where there is none, the посада — the order's own
+ * list mixes the two (професор, доцент, старший викладач, викладач). So the
+ * higher of the two. «Старший дослідник» is not on that list and pays nothing
+ * by itself; the посада counts for such a person.
+ */
+export function ratingRank(
+  position: StaffPosition | null,
+  academicTitle: AcademicTitle | null
+): AcademicRank | null {
+  const held = new Set<AcademicRank>();
   // StaffPosition holds exactly AcademicRank's four values, by design.
-  const academicRank = fields.position as AcademicRank | null;
+  if (position) held.add(position as AcademicRank);
+  if (academicTitle === 'DOCENT' || academicTitle === 'PROFESSOR') held.add(academicTitle);
+  return RANK_ORDER.find((r) => held.has(r)) ?? null;
+}
+
+export function legacyMirrors(fields: AcademicFields): LegacyMirrors {
+  const academicRank = ratingRank(fields.position, fields.academicTitle);
 
   const scientificDegree: ScientificDegree | null = fields.doctorDegree
     ? 'DOCTOR'
@@ -208,6 +232,7 @@ export function offeredAdminPositions(
 /** The new fields the mirrors are derived from */
 export const ACADEMIC_SOURCE_FIELDS = [
   'position',
+  'academicTitle',
   'candidateDegree',
   'candidateDefenceDate',
   'candidateMatchesDepartment',
@@ -285,6 +310,7 @@ export const ACADEMIC_STORED_SELECT = {
 export function storedAcademic(row: Record<string, unknown> | null | undefined): AcademicFields {
   return {
     position: (row?.position as StaffPosition | null | undefined) ?? null,
+    academicTitle: (row?.academicTitle as AcademicTitle | null | undefined) ?? null,
     candidateDegree: (row?.candidateDegree as string | null | undefined) ?? null,
     candidateDefenceDate: (row?.candidateDefenceDate as Date | null | undefined) ?? null,
     candidateMatchesDepartment:

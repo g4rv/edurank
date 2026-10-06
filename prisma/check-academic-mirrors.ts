@@ -29,6 +29,7 @@ async function main() {
       degreeMatchesDepartment: true,
       adminPosition: true,
       position: true,
+      academicTitle: true,
       candidateDegree: true,
       candidateDefenceDate: true,
       candidateMatchesDepartment: true,

@@ -18,7 +18,14 @@ import {
  * Renders nothing for fields outside the profile-derived mapping, so it can
  * be placed unconditionally and stays correct when the mapping changes.
  */
-export function RatingFieldHint({ field }: { field: string }) {
+export function RatingFieldHint({
+  field,
+  note,
+}: {
+  field: string;
+  /** One more line, for a field whose way into the rating needs saying */
+  note?: string;
+}) {
   const hints = RATING_FIELD_HINTS[field as ProfileDerivedStaffField];
   if (!hints || hints.length === 0) return null;
 
@@ -39,6 +46,7 @@ export function RatingFieldHint({ field }: { field: string }) {
                 {h.coefficientNote ? ` (${h.coefficientNote})` : ''}
               </p>
             ))}
+            {note && <p>{note}</p>}
             <p className="text-xs opacity-80">
               Значення підтягується в рейтинг автоматично з профілю.
             </p>

@@ -62,6 +62,14 @@ interface CardProps {
   headship?: HeadshipPost | null;
 }
 
+/**
+ * Rating 1.2 is «Вчене звання» in the order, and its list mixes звання and
+ * посади — so both fields feed it, the higher counting (`ratingRank`). Said on
+ * both, because the rating line reading «Вчене звання: старший викладач» beside
+ * an empty вчене звання looked like a mistake (owner, 2026-10-06).
+ */
+const RANK_NOTE = 'Зараховується вчене звання професора або доцента, а якщо його немає — посада';
+
 const HEADSHIP_NOTE: Record<HeadshipPost, string> = {
   DEPARTMENT_HEAD: 'Завідувач кафедри — зараховано автоматично',
   DEAN: 'Декан — зараховано автоматично',
@@ -170,7 +178,7 @@ export function AcademicCard({
         <FormField
           label="Посада"
           htmlFor="position"
-          labelSuffix={<RatingFieldHint field="academicRank" />}
+          labelSuffix={<RatingFieldHint field="academicRank" note={RANK_NOTE} />}
           error={errors.position}
         >
           <Controller
@@ -187,7 +195,12 @@ export function AcademicCard({
             )}
           />
         </FormField>
-        <FormField label="Вчене звання" htmlFor="academicTitle" error={errors.academicTitle}>
+        <FormField
+          label="Вчене звання"
+          htmlFor="academicTitle"
+          labelSuffix={<RatingFieldHint field="academicRank" note={RANK_NOTE} />}
+          error={errors.academicTitle}
+        >
           <Controller
             name="academicTitle"
             control={control}
