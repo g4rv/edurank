@@ -88,6 +88,11 @@ function PlainSelect({
   );
 }
 
+const YES_NO = [
+  { value: 'true', label: 'Так' },
+  { value: 'false', label: 'Ні' },
+] as const;
+
 /**
  * A degree list as offered: the «уточніть галузь» key the migration gave an
  * old degree is shown only while it is the current value — nobody picks it.
@@ -211,7 +216,11 @@ export function AcademicCard({
   );
 }
 
-/** One degree: its exact name, the diploma speciality and the defence date */
+/**
+ * One degree: its exact name and defence date, then the diploma speciality and
+ * whether it matches the кафедра — that answer is per degree (owner,
+ * 2026-10-06), because rating 1.3 pays it for the degree it pays for.
+ */
 function DegreeBlock({
   title,
   prefix,
@@ -236,10 +245,13 @@ function DegreeBlock({
   const degree = `${prefix}Degree` as const;
   const specialty = `${prefix}Specialty` as const;
   const defence = `${prefix}DefenceDate` as const;
+  const matches = `${prefix}MatchesDepartment` as const;
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium">{title}</p>
-      <FieldGroup className={FIELD_ROW}>
+      {/* One column per degree (owner, 2026-10-06): the card sets the two
+          degrees side by side, so each stacks its own four fields. */}
+      <FieldGroup className="flex flex-col gap-4">
         <FormField
           label="Ступінь"
           htmlFor={degree}
@@ -282,10 +294,34 @@ function DegreeBlock({
             )}
           />
         </FormField>
+        <FormField htmlFor={specialty} label="Спеціальність за дипломом" error={errors[specialty]}>
+          <Input
+            id={specialty}
+            disabled={isPending || locked(specialty)}
+            {...register(specialty)}
+          />
+        </FormField>
+        <FormField
+          label="Відповідає кафедрі"
+          htmlFor={matches}
+          labelSuffix={<RatingFieldHint field="degreeMatchesDepartment" />}
+          error={errors[matches]}
+        >
+          <Controller
+            name={matches}
+            control={control}
+            render={({ field }) => (
+              <PlainSelect
+                id={matches}
+                value={field.value}
+                onChange={field.onChange}
+                options={YES_NO}
+                disabled={isPending || locked(matches)}
+              />
+            )}
+          />
+        </FormField>
       </FieldGroup>
-      <FormField htmlFor={specialty} label="Спеціальність за дипломом" error={errors[specialty]}>
-        <Input id={specialty} disabled={isPending || locked(specialty)} {...register(specialty)} />
-      </FormField>
     </div>
   );
 }
@@ -304,59 +340,21 @@ export function EducationCard({
     <Card title={CARD_TITLES.education} action={action} className={className}>
       <div className="space-y-5">
         {/* Базова освіта first, as on the record (owner, 2026-10-06) */}
-        <FormField
-          htmlFor="basicEducationSpecialty"
-          label="Спеціальність базової освіти"
-          labelSuffix={<RatingFieldHint field="basicEducationSpecialty" />}
-          error={errors.basicEducationSpecialty}
-        >
-          <Input
-            id="basicEducationSpecialty"
-            disabled={isPending || locked('basicEducationSpecialty')}
-            {...register('basicEducationSpecialty')}
-          />
-        </FormField>
-        <DegreeBlock
-          title="Кандидат наук / доктор філософії (PhD)"
-          prefix="candidate"
-          list={CANDIDATE_DEGREES}
-          unspecified={UNSPECIFIED_CANDIDATE}
-          {...shared}
-        />
-        <DegreeBlock
-          title="Доктор наук"
-          prefix="doctor"
-          list={DOCTOR_DEGREES}
-          unspecified={UNSPECIFIED_DOCTOR}
-          {...shared}
-        />
-
         <FieldGroup className={FIELD_ROW}>
           <FormField
-            label="Ступінь відповідає кафедрі"
-            htmlFor="degreeMatchesDepartment"
-            labelSuffix={<RatingFieldHint field="degreeMatchesDepartment" />}
-            error={errors.degreeMatchesDepartment}
+            htmlFor="basicEducationSpecialty"
+            label="Спеціальність базової освіти"
+            labelSuffix={<RatingFieldHint field="basicEducationSpecialty" />}
+            error={errors.basicEducationSpecialty}
           >
-            <Controller
-              name="degreeMatchesDepartment"
-              control={control}
-              render={({ field }) => (
-                <PlainSelect
-                  id="degreeMatchesDepartment"
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={[
-                    { value: 'true', label: 'Так' },
-                    { value: 'false', label: 'Ні' },
-                  ]}
-                  disabled={isPending || locked('degreeMatchesDepartment')}
-                />
-              )}
+            <Input
+              id="basicEducationSpecialty"
+              disabled={isPending || locked('basicEducationSpecialty')}
+              {...register('basicEducationSpecialty')}
             />
           </FormField>
           <FormField
-            label="Базова освіта за спеціальністю кафедри"
+            label="Відповідає кафедрі"
             htmlFor="basicEducationMatch"
             labelSuffix={<RatingFieldHint field="basicEducationMatch" />}
             error={errors.basicEducationMatch}
@@ -369,16 +367,31 @@ export function EducationCard({
                   id="basicEducationMatch"
                   value={field.value}
                   onChange={field.onChange}
-                  options={[
-                    { value: 'true', label: 'Так' },
-                    { value: 'false', label: 'Ні' },
-                  ]}
+                  options={YES_NO}
                   disabled={isPending || locked('basicEducationMatch')}
                 />
               )}
             />
           </FormField>
         </FieldGroup>
+        {/* Two columns, доктор наук first (owner, 2026-10-06) — the same order as
+            the record shows them. One column each on a phone. */}
+        <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+          <DegreeBlock
+            title="Доктор наук"
+            prefix="doctor"
+            list={DOCTOR_DEGREES}
+            unspecified={UNSPECIFIED_DOCTOR}
+            {...shared}
+          />
+          <DegreeBlock
+            title="Кандидат наук / доктор філософії (PhD)"
+            prefix="candidate"
+            list={CANDIDATE_DEGREES}
+            unspecified={UNSPECIFIED_CANDIDATE}
+            {...shared}
+          />
+        </div>
       </div>
     </Card>
   );

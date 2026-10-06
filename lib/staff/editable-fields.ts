@@ -11,10 +11,11 @@ export const ACADEMIC_EDITABLE_FIELDS = [
   'candidateDegree',
   'candidateSpecialty',
   'candidateDefenceDate',
+  'candidateMatchesDepartment',
   'doctorDegree',
   'doctorSpecialty',
   'doctorDefenceDate',
-  'degreeMatchesDepartment',
+  'doctorMatchesDepartment',
   'basicEducationMatch',
   'basicEducationSpecialty',
 ] as const;

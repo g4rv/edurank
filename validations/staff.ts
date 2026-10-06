@@ -142,10 +142,11 @@ export const academicFields = {
   candidateDegree: oneOf(CANDIDATE_DEGREES, 'Оберіть ступінь зі списку'),
   candidateSpecialty: specialty,
   candidateDefenceDate: defenceDate,
+  candidateMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
   doctorDegree: oneOf(DOCTOR_DEGREES, 'Оберіть ступінь зі списку'),
   doctorSpecialty: specialty,
   doctorDefenceDate: defenceDate,
-  degreeMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+  doctorMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
   basicEducationMatch: z.preprocess(boolStr, z.boolean().nullable()),
   basicEducationSpecialty: specialty,
 };

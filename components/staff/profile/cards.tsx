@@ -74,7 +74,7 @@ export const EDUCATION_LABELS = {
   doctor: 'Доктор наук',
   doctorSpecialty: 'Спеціальність за дипломом',
   doctorDefence: 'Дата захисту',
-  degreeMatch: 'Ступінь відповідає кафедрі',
+  degreeMatch: 'Відповідає кафедрі',
   educationMatch: 'Базова освіта відповідає кафедрі',
   specialty: 'Спеціальність базової освіти',
 } as const;
@@ -140,25 +140,32 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
 export function EducationCard({ staff, showEmpty = true }: CardProps) {
   if (!staff.isNpp) return null;
 
-  // Базова освіта on top, then the two degrees side by side — each its own
-  // column, so on a phone «Кандидат» reads through before «Доктор» begins
-  // (owner, 2026-10-06).
+  // Базова освіта on top, then the two degrees side by side, доктор наук first
+  // — the edit form's order (owner, 2026-10-06). Each degree is its own column,
+  // so on a phone one reads through before the other begins, and carries its
+  // own «відповідає кафедрі»: rating 1.3 pays it for the degree it pays for.
   const degree = (
     label: string,
     value: string | null,
     specialty: string | null,
-    date: Date | null
+    date: Date | null,
+    matches: boolean | null
   ) => (
     <Fields>
       <MaybeField label={label} value={value} showEmpty={showEmpty} />
+      <MaybeField
+        label={EDUCATION_LABELS.candidateDefence}
+        value={defence(date)}
+        showEmpty={showEmpty}
+      />
       <MaybeField
         label={EDUCATION_LABELS.candidateSpecialty}
         value={specialty}
         showEmpty={showEmpty}
       />
       <MaybeField
-        label={EDUCATION_LABELS.candidateDefence}
-        value={defence(date)}
+        label={EDUCATION_LABELS.degreeMatch}
+        value={yesNo(matches)}
         showEmpty={showEmpty}
       />
     </Fields>
@@ -181,25 +188,20 @@ export function EducationCard({ staff, showEmpty = true }: CardProps) {
         </Fields>
         <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
           {degree(
-            EDUCATION_LABELS.candidate,
-            staff.candidateDegree ? optionLabel(CANDIDATE_DEGREES, staff.candidateDegree) : null,
-            staff.candidateSpecialty,
-            staff.candidateDefenceDate
-          )}
-          {degree(
             EDUCATION_LABELS.doctor,
             staff.doctorDegree ? optionLabel(DOCTOR_DEGREES, staff.doctorDegree) : null,
             staff.doctorSpecialty,
-            staff.doctorDefenceDate
+            staff.doctorDefenceDate,
+            staff.doctorMatchesDepartment
+          )}
+          {degree(
+            EDUCATION_LABELS.candidate,
+            staff.candidateDegree ? optionLabel(CANDIDATE_DEGREES, staff.candidateDegree) : null,
+            staff.candidateSpecialty,
+            staff.candidateDefenceDate,
+            staff.candidateMatchesDepartment
           )}
         </div>
-        <Fields columns={2}>
-          <MaybeField
-            label={EDUCATION_LABELS.degreeMatch}
-            value={yesNo(staff.degreeMatchesDepartment)}
-            showEmpty={showEmpty}
-          />
-        </Fields>
       </div>
     </Card>
   );
@@ -212,8 +214,9 @@ EducationCard.Shell = function EducationCardShell({ isNpp = true }: { isNpp?: bo
   const degree = (label: string) => (
     <Fields>
       {shimmer(label)}
-      {shimmer(EDUCATION_LABELS.candidateSpecialty)}
       {shimmer(EDUCATION_LABELS.candidateDefence)}
+      {shimmer(EDUCATION_LABELS.candidateSpecialty)}
+      {shimmer(EDUCATION_LABELS.degreeMatch)}
     </Fields>
   );
   return (
@@ -224,10 +227,9 @@ EducationCard.Shell = function EducationCardShell({ isNpp = true }: { isNpp?: bo
           {shimmer(EDUCATION_LABELS.educationMatch)}
         </Fields>
         <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-          {degree(EDUCATION_LABELS.candidate)}
           {degree(EDUCATION_LABELS.doctor)}
+          {degree(EDUCATION_LABELS.candidate)}
         </div>
-        <Fields columns={2}>{shimmer(EDUCATION_LABELS.degreeMatch)}</Fields>
       </div>
     </Card>
   );

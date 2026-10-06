@@ -16,10 +16,11 @@ export type AcademicFormValues = {
   candidateDegree: string;
   candidateSpecialty: string;
   candidateDefenceDate: string;
+  candidateMatchesDepartment: string;
   doctorDegree: string;
   doctorSpecialty: string;
   doctorDefenceDate: string;
-  degreeMatchesDepartment: string;
+  doctorMatchesDepartment: string;
   basicEducationMatch: string;
   basicEducationSpecialty: string;
 };
@@ -33,10 +34,11 @@ export const EMPTY_ACADEMIC_VALUES: AcademicFormValues = {
   candidateDegree: '',
   candidateSpecialty: '',
   candidateDefenceDate: '',
+  candidateMatchesDepartment: '',
   doctorDegree: '',
   doctorSpecialty: '',
   doctorDefenceDate: '',
-  degreeMatchesDepartment: '',
+  doctorMatchesDepartment: '',
   basicEducationMatch: '',
   basicEducationSpecialty: '',
 };
@@ -51,10 +53,11 @@ export interface StoredAcademic {
   candidateDegree: string | null;
   candidateSpecialty: string | null;
   candidateDefenceDate: Date | null;
+  candidateMatchesDepartment: boolean | null;
   doctorDegree: string | null;
   doctorSpecialty: string | null;
   doctorDefenceDate: Date | null;
-  degreeMatchesDepartment: boolean | null;
+  doctorMatchesDepartment: boolean | null;
   basicEducationMatch: boolean | null;
   basicEducationSpecialty: string | null;
 }
@@ -73,10 +76,11 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
     candidateDegree: staff.candidateDegree ?? '',
     candidateSpecialty: staff.candidateSpecialty ?? '',
     candidateDefenceDate: date(staff.candidateDefenceDate),
+    candidateMatchesDepartment: bool(staff.candidateMatchesDepartment),
     doctorDegree: staff.doctorDegree ?? '',
     doctorSpecialty: staff.doctorSpecialty ?? '',
     doctorDefenceDate: date(staff.doctorDefenceDate),
-    degreeMatchesDepartment: bool(staff.degreeMatchesDepartment),
+    doctorMatchesDepartment: bool(staff.doctorMatchesDepartment),
     basicEducationMatch: bool(staff.basicEducationMatch),
     basicEducationSpecialty: staff.basicEducationSpecialty ?? '',
   };

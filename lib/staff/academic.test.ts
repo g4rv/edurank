@@ -6,8 +6,10 @@ const EMPTY = {
   position: null,
   candidateDegree: null,
   candidateDefenceDate: null,
+  candidateMatchesDepartment: null,
   doctorDegree: null,
   doctorDefenceDate: null,
+  doctorMatchesDepartment: null,
   adminPositions: [],
 } as const;
 
@@ -41,6 +43,25 @@ describe('legacyMirrors — the old columns the rating still reads (2026-10-06)'
     ).toEqual(doc);
     expect(legacyMirrors({ ...EMPTY, candidateDefenceDate: cand }).degreeDefenceDate).toEqual(cand);
     expect(legacyMirrors(EMPTY).degreeDefenceDate).toBeNull();
+  });
+
+  // Rating 1.3 pays «за спеціальністю кафедри» for the degree it pays for —
+  // the highest one — so the old single answer is that degree's (2026-10-06).
+  it('gives the old «ступінь відповідає кафедрі» the highest degree’s answer', () => {
+    expect(
+      legacyMirrors({
+        ...EMPTY,
+        candidateDegree: 'cand_history',
+        candidateMatchesDepartment: true,
+        doctorDegree: 'doc_history',
+        doctorMatchesDepartment: false,
+      }).degreeMatchesDepartment
+    ).toBe(false);
+    expect(
+      legacyMirrors({ ...EMPTY, candidateDegree: 'phd', candidateMatchesDepartment: true })
+        .degreeMatchesDepartment
+    ).toBe(true);
+    expect(legacyMirrors(EMPTY).degreeMatchesDepartment).toBeNull();
   });
 
   // Rating 1.6 pays the highest badge only (owner, 2026-10-06): проректор 100,
@@ -79,8 +100,10 @@ describe('mirrorsForUpdate — merge what was saved with what is stored', () => 
     position: 'DOCENT',
     candidateDegree: 'cand_history',
     candidateDefenceDate: null,
+    candidateMatchesDepartment: null,
     doctorDegree: null,
     doctorDefenceDate: null,
+    doctorMatchesDepartment: null,
     adminPositions: ['DEAN'],
   } as const;
 
@@ -94,6 +117,7 @@ describe('mirrorsForUpdate — merge what was saved with what is stored', () => 
       academicRank: 'DOCENT',
       scientificDegree: 'DOCTOR',
       degreeDefenceDate: null,
+      degreeMatchesDepartment: null,
       adminPosition: 'DEAN',
     });
   });

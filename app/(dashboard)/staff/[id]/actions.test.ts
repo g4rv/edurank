@@ -73,7 +73,8 @@ const fullPayload: StaffUpdateSchema = {
   doctorDegree: 'doc_history',
   doctorSpecialty: null,
   doctorDefenceDate: null,
-  degreeMatchesDepartment: true,
+  candidateMatchesDepartment: true,
+  doctorMatchesDepartment: true,
   basicEducationMatch: true,
   basicEducationSpecialty: 'Історія',
   wosUrl: 'https://www.webofscience.com/wos/author/record/1',
@@ -220,7 +221,7 @@ describe('updateStaff field filtering', () => {
   });
 
   // Contacts, research links, and since 2026-10-06 their own academic info —
-  // plus the four legacy mirrors derived from it. Never name, кафедра, ставка.
+  // plus the five legacy mirrors derived from it. Never name, кафедра, ставка.
   it('USER edits own profile: only the whitelisted fields', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
     mockStaffLookups();
@@ -238,6 +239,7 @@ describe('updateStaff field filtering', () => {
         'academicRank',
         'scientificDegree',
         'degreeDefenceDate',
+        'degreeMatchesDepartment',
         'adminPosition',
       ].sort()
     );

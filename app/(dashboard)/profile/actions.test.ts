@@ -47,7 +47,8 @@ const ACADEMIC = {
   doctorDegree: null,
   doctorSpecialty: null,
   doctorDefenceDate: null,
-  degreeMatchesDepartment: true,
+  candidateMatchesDepartment: true,
+  doctorMatchesDepartment: null,
   basicEducationMatch: true,
   basicEducationSpecialty: 'Історія',
 };

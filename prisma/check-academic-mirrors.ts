@@ -26,12 +26,15 @@ async function main() {
       academicRank: true,
       scientificDegree: true,
       degreeDefenceDate: true,
+      degreeMatchesDepartment: true,
       adminPosition: true,
       position: true,
       candidateDegree: true,
       candidateDefenceDate: true,
+      candidateMatchesDepartment: true,
       doctorDegree: true,
       doctorDefenceDate: true,
+      doctorMatchesDepartment: true,
       adminPositions: true,
     },
   });
@@ -45,6 +48,11 @@ async function main() {
       m.scientificDegree !== s.scientificDegree &&
         `scientificDegree ${s.scientificDegree} → ${m.scientificDegree}`,
       time(m.degreeDefenceDate) !== time(s.degreeDefenceDate) && `degreeDefenceDate differs`,
+      // Only where a degree exists: 1.3 pays nothing without one, so an answer
+      // left on a degree-less record moves no point.
+      s.scientificDegree !== null &&
+        m.degreeMatchesDepartment !== s.degreeMatchesDepartment &&
+        `degreeMatchesDepartment ${s.degreeMatchesDepartment} → ${m.degreeMatchesDepartment}`,
       m.adminPosition !== s.adminPosition &&
         `adminPosition ${s.adminPosition} → ${m.adminPosition}`,
     ].filter(Boolean);

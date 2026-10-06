@@ -45,8 +45,10 @@ export interface AcademicFields {
   position: StaffPosition | null;
   candidateDegree: string | null;
   candidateDefenceDate: Date | null;
+  candidateMatchesDepartment: boolean | null;
   doctorDegree: string | null;
   doctorDefenceDate: Date | null;
+  doctorMatchesDepartment: boolean | null;
   adminPositions: readonly AdminPosition[];
 }
 
@@ -54,6 +56,7 @@ export interface LegacyMirrors {
   academicRank: AcademicRank | null;
   scientificDegree: ScientificDegree | null;
   degreeDefenceDate: Date | null;
+  degreeMatchesDepartment: boolean | null;
   adminPosition: AdminPosition | null;
 }
 
@@ -76,9 +79,23 @@ export function legacyMirrors(fields: AcademicFields): LegacyMirrors {
     ? dates.reduce((a, b) => (b.getTime() > a.getTime() ? b : a))
     : null;
 
+  // Rating 1.3's «за спеціальністю кафедри» is about the degree it pays for —
+  // the highest one — so the old single answer is that degree's.
+  const degreeMatchesDepartment = fields.doctorDegree
+    ? fields.doctorMatchesDepartment
+    : fields.candidateDegree
+      ? fields.candidateMatchesDepartment
+      : null;
+
   const adminPosition = ADMIN_POSITION_ORDER.find((p) => fields.adminPositions.includes(p)) ?? null;
 
-  return { academicRank, scientificDegree, degreeDefenceDate, adminPosition };
+  return {
+    academicRank,
+    scientificDegree,
+    degreeDefenceDate,
+    degreeMatchesDepartment,
+    adminPosition,
+  };
 }
 
 /** The new fields the mirrors are derived from */
@@ -86,8 +103,10 @@ export const ACADEMIC_SOURCE_FIELDS = [
   'position',
   'candidateDegree',
   'candidateDefenceDate',
+  'candidateMatchesDepartment',
   'doctorDegree',
   'doctorDefenceDate',
+  'doctorMatchesDepartment',
   'adminPositions',
 ] as const satisfies readonly (keyof AcademicFields)[];
 
@@ -146,10 +165,11 @@ export const ACADEMIC_STORED_SELECT = {
   candidateDegree: true,
   candidateSpecialty: true,
   candidateDefenceDate: true,
+  candidateMatchesDepartment: true,
   doctorDegree: true,
   doctorSpecialty: true,
   doctorDefenceDate: true,
-  degreeMatchesDepartment: true,
+  doctorMatchesDepartment: true,
   basicEducationMatch: true,
   basicEducationSpecialty: true,
 } as const;
@@ -160,8 +180,11 @@ export function storedAcademic(row: Record<string, unknown> | null | undefined):
     position: (row?.position as StaffPosition | null | undefined) ?? null,
     candidateDegree: (row?.candidateDegree as string | null | undefined) ?? null,
     candidateDefenceDate: (row?.candidateDefenceDate as Date | null | undefined) ?? null,
+    candidateMatchesDepartment:
+      (row?.candidateMatchesDepartment as boolean | null | undefined) ?? null,
     doctorDegree: (row?.doctorDegree as string | null | undefined) ?? null,
     doctorDefenceDate: (row?.doctorDefenceDate as Date | null | undefined) ?? null,
+    doctorMatchesDepartment: (row?.doctorMatchesDepartment as boolean | null | undefined) ?? null,
     adminPositions: (row?.adminPositions as AdminPosition[] | undefined) ?? [],
   };
 }
