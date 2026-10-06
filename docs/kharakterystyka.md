@@ -173,7 +173,34 @@ This is **«for now»**. A moderation queue is the remedy if abuse appears; see
 `docs/work-remaining.md` §H for what it would cost. Narrowing it again is a
 one-line change in `lib/kharakterystyka/self-entry.ts`.
 
-## Imported evidence that evidences nothing (cleaned 2026-09-01)
+## Removing a line (decided 2026-10-06)
+
+**ADMIN on anybody's document, an НПП on their own — any line, whatever its
+source.** Every line of evidence carries a bin; п.5's defence date does not (it
+is the profile's, changed there). The import and the rating both put lines in
+front of people that were wrong about them, and until now nobody could take one
+out.
+
+**Final.** Nothing in the app restores a removed line, and the confirmation says
+so. Before anything is written, the dialog shows the line, whether its position
+stays met («стане невиконаною, залишиться 4 з 5»), «N з 20» before and after
+(what `Кнпп` counts), and a warning when the document drops below four — asked
+of the server from the same builder (`previewLineRemoval`), so the warning and
+the result agree.
+
+What removing does depends on the line:
+
+| Line                                     | What happens                                                                                                                                        |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| rating, **open** year, entered by НПП    | **deleted from the rating** — points, rating Excel — and so from every position it fed. An НПП needs a saved science plan, as for any rating change |
+| rating, **open** year, entered by відділ | the same, **ADMIN only**; the НПП sees no bin on it                                                                                                 |
+| rating, **closed** year                  | hidden at THIS position (`KharakterystykaRemovedLine`); the year's rating and snapshot never change                                                 |
+| imported 2022–2024                       | hidden (`removedAt`), not deleted — both importers keep such rows and never re-add the same line (`lib/kharakterystyka/import-guard.ts`)            |
+| typed by hand                            | deleted, as the «Записи вручну» dialog always did                                                                                                   |
+
+An open-year line is deleted from the rating because a line somebody says is
+wrong is wrong there too, and the year is still open to fix it (owner). The one
+way back is re-entering the achievement in the rating — a new, audited claim.
 
 The 2022–2024 backfill reads column D (the description) and falls back to
 column B when it is empty — and column B is a dropdown. So a monograph row whose

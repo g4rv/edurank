@@ -2,9 +2,11 @@ import { cache } from 'react';
 import { db } from '@/lib/db';
 import {
   buildKharakterystyka,
+  removedLineKey,
   type KharakterystykaEntry,
   type Kharakterystyka,
   type KharakterystykaActivity,
+  type LineRef,
 } from '@/lib/kharakterystyka/build';
 import { windowFor } from '@/lib/kharakterystyka/positions';
 
@@ -19,11 +21,14 @@ import { windowFor } from '@/lib/kharakterystyka/positions';
  * record, not from whatever the open year happens to hold.
  */
 const ACTIVITY_SELECT = {
+  id: true,
+  submittedByRole: true,
   year: true,
   status: true,
   evidence: true,
   activityType: {
     select: {
+      template: { select: { status: true } },
       itemNumber: true,
       label: true,
       isActive: true,
@@ -42,12 +47,20 @@ const ACTIVITY_SELECT = {
  * print them by accident.
  */
 const ENTRY_SELECT = {
+  id: true,
+  source: true,
   position: true,
   group: true,
   year: true,
   text: true,
   itemNumber: true,
 } as const;
+
+/**
+ * Rows taken out of the document are never read (owner, 2026-10-06). They stay
+ * in the table only so a re-import cannot bring them back.
+ */
+const NOT_REMOVED = { removedAt: null } as const;
 
 /**
  * One person's Характеристика over the five years ending at `lastYear`.
@@ -65,6 +78,33 @@ export const getKharakterystyka = cache(async function getKharakterystyka(
   staffId: string,
   lastYear: number
 ): Promise<Kharakterystyka | null> {
+  return loadKharakterystyka(staffId, lastYear);
+});
+
+/**
+ * The document as it would read with one more line removed — what the removal
+ * dialog compares against, so it can say «п.1 стане не виконано» BEFORE anything
+ * is written (owner, 2026-10-06). Built by the same builder, so the preview and
+ * the result cannot disagree.
+ *
+ * `wholeActivity` is an open-year rating line: removing it deletes the entry
+ * from the rating, so it leaves EVERY position it fed, not only this one.
+ */
+export function getKharakterystykaWithout(
+  staffId: string,
+  lastYear: number,
+  line: LineRef,
+  wholeActivity = false
+): Promise<Kharakterystyka | null> {
+  return loadKharakterystyka(staffId, lastYear, line, wholeActivity);
+}
+
+async function loadKharakterystyka(
+  staffId: string,
+  lastYear: number,
+  without?: LineRef,
+  wholeActivity = false
+): Promise<Kharakterystyka | null> {
   const { from, to } = windowFor(lastYear);
 
   const staff = await db.staff.findUnique({
@@ -76,7 +116,7 @@ export const getKharakterystyka = cache(async function getKharakterystyka(
   // something false rather than merely being empty.
   if (!staff?.isNpp) return null;
 
-  const [activities, entries] = await Promise.all([
+  const [activities, entries, removed] = await Promise.all([
     db.activity.findMany({
       where: { staffId, year: { gte: from, lte: to } },
       select: ACTIVITY_SELECT,
@@ -85,13 +125,34 @@ export const getKharakterystyka = cache(async function getKharakterystyka(
     // is applied in `buildKharakterystyka` as well, which is where the rule
     // lives; narrowing here only keeps the query small.
     db.kharakterystykaEntry.findMany({
-      where: { staffId, year: { gte: from, lte: to } },
+      where: { staffId, year: { gte: from, lte: to }, ...NOT_REMOVED },
       select: ENTRY_SELECT,
+    }),
+    db.kharakterystykaRemovedLine.findMany({
+      where: { activity: { staffId } },
+      select: { activityId: true, position: true },
     }),
   ]);
 
-  return buildKharakterystyka(activities as KharakterystykaActivity[], staff, lastYear, entries);
-});
+  const removedLines = new Set(removed.map((r) => removedLineKey(r.activityId, r.position)));
+  if (without?.kind === 'activity') {
+    removedLines.add(removedLineKey(without.activityId, without.position));
+  }
+  const kept =
+    without?.kind === 'entry' ? entries.filter((e) => e.id !== without.entryId) : entries;
+  const counted =
+    without?.kind === 'activity' && wholeActivity
+      ? activities.filter((a) => a.id !== without.activityId)
+      : activities;
+
+  return buildKharakterystyka(
+    counted as KharakterystykaActivity[],
+    staff,
+    lastYear,
+    kept,
+    removedLines
+  );
+}
 
 /**
  * The same document for many people at once — TWO queries for the whole set
@@ -111,7 +172,7 @@ export async function getKharakterystykaMany(
 
   const { from, to } = windowFor(lastYear);
 
-  const [staff, activities, entries] = await Promise.all([
+  const [staff, activities, entries, removed] = await Promise.all([
     db.staff.findMany({
       where: { id: { in: [...staffIds] }, isNpp: true },
       select: { id: true, scientificDegree: true, degreeDefenceDate: true },
@@ -123,10 +184,16 @@ export async function getKharakterystykaMany(
     // Still one query for the whole set, not one per person — the bulk export
     // and `Кнпп` for all 31 кафедри both come through here.
     db.kharakterystykaEntry.findMany({
-      where: { staffId: { in: [...staffIds] }, year: { gte: from, lte: to } },
+      where: { staffId: { in: [...staffIds] }, year: { gte: from, lte: to }, ...NOT_REMOVED },
       select: { staffId: true, ...ENTRY_SELECT },
     }),
+    db.kharakterystykaRemovedLine.findMany({
+      where: { activity: { staffId: { in: [...staffIds] } } },
+      select: { activityId: true, position: true },
+    }),
   ]);
+  // Activity ids are unique across people, so one set serves everybody.
+  const removedLines = new Set(removed.map((r) => removedLineKey(r.activityId, r.position)));
 
   const byStaff = new Map<string, KharakterystykaActivity[]>();
   for (const a of activities) {
@@ -148,7 +215,13 @@ export async function getKharakterystykaMany(
   for (const s of staff) {
     result.set(
       s.id,
-      buildKharakterystyka(byStaff.get(s.id) ?? [], s, lastYear, entriesByStaff.get(s.id) ?? [])
+      buildKharakterystyka(
+        byStaff.get(s.id) ?? [],
+        s,
+        lastYear,
+        entriesByStaff.get(s.id) ?? [],
+        removedLines
+      )
     );
   }
 

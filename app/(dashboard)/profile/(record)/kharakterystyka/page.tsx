@@ -97,6 +97,9 @@ export default async function MyKharakterystykaPage() {
           positions: SELF_TYPEABLE_POSITIONS,
           selfId: staffId,
         }}
+        // Any line of their own document, final (owner, 2026-10-06) — the
+        // server asks `removeLineProblem` again.
+        removing={{ staffId, asOwner: true }}
         fill
       />
     </div>

@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
+import { withoutRemovedLines } from '../lib/kharakterystyka/import-guard';
 
 // Carries the 2022–2024 Характеристика backfill from a maintainer's machine to
 // production.
@@ -62,8 +63,9 @@ const only = onlyAt === -1 ? undefined : process.argv[onlyAt + 1];
 
 async function exportRows() {
   const rows = await prisma.kharakterystykaEntry.findMany({
-    // MANUAL rows belong to the database they were typed in — see the note above
-    where: { source: 'IMPORT' },
+    // MANUAL rows belong to the database they were typed in — see the note above.
+    // A line removed from somebody's document here does not travel either.
+    where: { source: 'IMPORT', removedAt: null },
     select: {
       position: true,
       group: true,
@@ -165,12 +167,23 @@ async function importRows() {
     return;
   }
 
+  // Lines somebody took out of their Характеристика on THIS database stay out
+  // (owner, 2026-10-06): their hidden rows are kept, the same line not re-added.
+  const removedLines = await prisma.kharakterystykaEntry.findMany({
+    where: { staffId: { in: ids }, source: 'IMPORT', removedAt: { not: null } },
+    select: { staffId: true, position: true, group: true, year: true, text: true },
+  });
+  const { kept, skipped } = withoutRemovedLines(
+    landing.map((r) => ({ ...r, staffId: byEmail.get(r.email)!.id })),
+    removedLines
+  );
+  if (skipped > 0) console.log(`не повернуто вилучених з характеристики: ${skipped}`);
   const removed = await prisma.kharakterystykaEntry.deleteMany({
-    where: { staffId: { in: ids }, source: 'IMPORT' },
+    where: { staffId: { in: ids }, source: 'IMPORT', removedAt: null },
   });
   const created = await prisma.kharakterystykaEntry.createMany({
-    data: landing.map((r) => ({
-      staffId: byEmail.get(r.email)!.id,
+    data: kept.map((r) => ({
+      staffId: r.staffId,
       position: r.position,
       group: r.group,
       year: r.year,

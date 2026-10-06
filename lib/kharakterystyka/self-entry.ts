@@ -98,15 +98,31 @@ export function typeEntryProblem(
 }
 
 /**
- * May this person remove an existing row?
+ * May this person remove a line from `targetStaffId`'s document?
  *
- * **An IMPORT row is nobody's to delete, ADMIN included.** It came from the
- * university's own files and the importer rewrites them wholesale, so a delete
- * here would reappear on the next run and read as a delete that failed.
+ * **Any line, whatever its source** (owner, 2026-10-06): a rating line, an
+ * imported 2022–2024 one, a typed one — ADMIN on anybody's document, an НПП on
+ * their own, while the rating is open to them. It used to be typed rows only,
+ * and an НПП only their own: the import and the rating both put lines in front
+ * of a person that were wrong about them, and nobody could take one out.
  *
- * **An НПП removes only what they typed themselves**, matched on `createdBy`.
- * This is the rating's rule in another place: there an НПП may delete a row
- * only while `submittedByRole === 'NPP'`, never one an editor entered for them.
+ * Final: nothing restores a removed line, and the dialog says so first.
+ */
+export function removeLineProblem(who: Who & { targetStaffId: string }): string | null {
+  if (who.role === 'ADMIN') return null;
+  if (!who.ratingOpen) return NPP_RATING_CLOSED_DETAIL;
+  if (!who.ownStaffId) return 'Характеристика ведеться лише для НПП';
+  if (who.ownStaffId !== who.targetStaffId) {
+    return 'Вилучати записи можна лише з власної характеристики';
+  }
+  return null;
+}
+
+/**
+ * May this person delete a typed row from the «Записи вручну» dialog? The same
+ * rule as any other line — `removeLineProblem` — for MANUAL rows; an imported
+ * row is removed from the document's own line, which keeps it hidden rather
+ * than deleting it.
  */
 export function deleteEntryProblem(
   who: Who & {
@@ -114,14 +130,7 @@ export function deleteEntryProblem(
   }
 ): string | null {
   if (who.entry.source !== 'MANUAL') {
-    return 'Імпортовані записи вилучаються повторним імпортом, не вручну';
+    return 'Імпортований запис вилучається з рядка характеристики';
   }
-  if (who.role === 'ADMIN') return null;
-
-  const problem = ownerProblem(who, who.entry.staffId, who.entry.position);
-  if (problem) return problem;
-  if (who.entry.createdBy !== who.ownUserId) {
-    return 'Цей запис внесено адміністратором — вилучити його може лише він';
-  }
-  return null;
+  return removeLineProblem({ ...who, targetStaffId: who.entry.staffId });
 }

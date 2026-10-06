@@ -123,3 +123,20 @@ export function positionEvidenceProblems(position: number): string[] {
 
   return problems;
 }
+
+/**
+ * Which line of a Характеристика to remove (owner, 2026-10-06) — `LineRef` in
+ * `lib/kharakterystyka/build.ts`. Only the shape is checked here; whether the
+ * line is really on that person's document is the action's to ask.
+ */
+export const lineRefSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('activity'),
+    activityId: z.string().min(1),
+    position: z
+      .number()
+      .int()
+      .refine((n) => POSITION_NUMBERS.includes(n)),
+  }),
+  z.object({ kind: z.literal('entry'), entryId: z.string().min(1) }),
+]);

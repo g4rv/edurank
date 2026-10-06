@@ -576,6 +576,9 @@ model Activity {
   verifiedBy       Staff?    @relation("ActivityVerifier", fields: [verifiedByUserId], references: [id])
   verifiedAt       DateTime?
 
+  /// Positions of a Характеристика this activity was taken out of
+  kharakterystykaRemovals KharakterystykaRemovedLine[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -676,11 +679,42 @@ model KharakterystykaEntry {
   /// and the audit log already carries the full trail.
   createdBy String
 
+  /// Taken out of the document by ADMIN or by the person it is about (owner,
+  /// 2026-10-06). The row STAYS, hidden and counted nowhere: deleted, an
+  /// imported line would come back on the next import run. Final — nothing in
+  /// the app restores it. A typed (MANUAL) row is deleted outright instead.
+  removedAt DateTime?
+  /// The account that removed it. Not a relation, like `createdBy`.
+  removedBy String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([staffId, year])
   @@index([position])
+}
+
+/// A rating line taken out of a Характеристика (owner, 2026-10-06).
+///
+/// The document is a VIEW of the rating, so a line there is an activity at a
+/// position — this says «not this one, not here». The activity, its score, its
+/// `RatingEntry` and a closed year's snapshot are untouched: the line leaves the
+/// Характеристика, `Кнпп` and the Excel export, and nothing else. Per position,
+/// because one activity can feed several and each is removed on its own.
+///
+/// Final, like a removed `KharakterystykaEntry`. Goes with its activity: once
+/// the achievement itself is deleted there is nothing left to hide.
+model KharakterystykaRemovedLine {
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  /// 1–20, the п.38 position it was removed from
+  position   Int
+
+  /// The account that removed it. Not a relation, like `createdBy`.
+  removedBy String
+  removedAt DateTime @default(now())
+
+  @@id([activityId, position])
 }
 
 // ─── Розподіл ставок ─────────────────────────────────────────────────────────

@@ -113,7 +113,7 @@ async function build(staffId: string, dropIds: Set<string>) {
       select: SEL,
     }),
     prisma.kharakterystykaEntry.findMany({
-      where: { staffId, year: { gte: from, lte: to } },
+      where: { staffId, year: { gte: from, lte: to }, removedAt: null },
       select: { id: true, position: true, group: true, year: true, text: true, itemNumber: true },
     }),
   ]);

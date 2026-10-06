@@ -4,6 +4,7 @@ import { join } from 'path';
 import ExcelJS from 'exceljs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
+import { withoutRemovedLines } from '../lib/kharakterystyka/import-guard';
 import { ACTIVITY_TYPES_2026 } from '../lib/rating/activity-types';
 import { LICENCE_POSITION_LINKS, dbSpecs } from '../lib/rating/db-specs';
 import type { LicencePositionLink } from '../lib/kharakterystyka/positions';
@@ -312,8 +313,10 @@ const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1
 
 async function main() {
   if (undo) {
+    // A removed line stays (owner, 2026-10-06): it is what stops a later import
+    // from bringing the line back.
     const { count } = await prisma.kharakterystykaEntry.deleteMany({
-      where: { source: 'IMPORT' },
+      where: { source: 'IMPORT', removedAt: null },
     });
     console.log(`ПОВЕРНУТО: вилучено ${count} імпортованих записів.`);
     console.log('Записи, внесені вручну (MANUAL), не змінено.');
@@ -456,13 +459,23 @@ async function main() {
     return;
   }
 
+  // Lines somebody took out of their Характеристика stay out (owner,
+  // 2026-10-06): their hidden rows are kept, and the same line is not re-added.
+  const removedLines = await prisma.kharakterystykaEntry.findMany({
+    where: { source: 'IMPORT', year: { in: [...YEARS] }, removedAt: { not: null } },
+    select: { staffId: true, position: true, group: true, year: true, text: true },
+  });
+  const { kept, skipped } = withoutRemovedLines(ready, removedLines);
   const removed = await prisma.kharakterystykaEntry.deleteMany({
-    where: { source: 'IMPORT', year: { in: [...YEARS] } },
+    where: { source: 'IMPORT', year: { in: [...YEARS] }, removedAt: null },
   });
   await prisma.kharakterystykaEntry.createMany({
-    data: ready.map((r) => ({ ...r, source: 'IMPORT' as const, createdBy: 'import' })),
+    data: kept.map((r) => ({ ...r, source: 'IMPORT' as const, createdBy: 'import' })),
   });
-  console.log(`ЗАПИСАНО: ${ready.length} (видалено попередніх: ${removed.count})`);
+  console.log(
+    `ЗАПИСАНО: ${kept.length} (видалено попередніх: ${removed.count}; ` +
+      `не повернуто вилучених з характеристики: ${skipped})`
+  );
 }
 
 main()

@@ -99,6 +99,8 @@ export default async function StaffKharakterystykaPage({
         data={data}
         sources={Object.fromEntries(positionSources)}
         editing={canEdit ? { staffId: id, entries: manualEntries, selfId: id } : undefined}
+        // ADMIN takes any line out (owner, 2026-10-06); everybody else reads.
+        removing={canEdit ? { staffId: id } : undefined}
         fill
       />
     </div>
