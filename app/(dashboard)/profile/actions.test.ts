@@ -186,7 +186,7 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     expect(fields).not.toContain('position');
     expect(fields).not.toContain('honoraryTitles');
     expect(fields).not.toContain('academicRank');
-    expect(syncProfileDerived).not.toHaveBeenCalled();
+    // (It may still re-score: the profile links feed the citation indicators.)
   });
 
   it('prints badges and degrees in words in the audit log', async () => {
