@@ -91,7 +91,7 @@ export const FIELD_LABELS: Record<string, string> = {
   avatarKey: 'Фото профілю',
   isNpp: 'Тип (НПП / Адм.)',
   employmentRate: 'Ставка',
-  pedagogicalExperience: 'Педагогічний стаж',
+  pedagogicalExperience: 'Науково-педагогічний стаж',
   academicRank: 'Вчене звання (старе поле)',
   position: 'Посада',
   academicTitle: 'Вчене звання',

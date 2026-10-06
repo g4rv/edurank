@@ -150,7 +150,7 @@ export function AcademicCard({
         </FormField>
         <FormField
           htmlFor="pedagogicalExperience"
-          label="Педагогічний досвід (років)"
+          label="Науково-педагогічний стаж (років)"
           labelSuffix={<RatingFieldHint field="pedagogicalExperience" />}
           error={errors.pedagogicalExperience}
         >

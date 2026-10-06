@@ -62,7 +62,7 @@ export const CARD_TITLES = {
 export const ACADEMIC_LABELS = {
   position: 'Посада',
   title: 'Вчене звання',
-  experience: 'Педагогічний стаж',
+  experience: 'Науково-педагогічний стаж',
   honorary: 'Почесні звання',
 } as const;
 
