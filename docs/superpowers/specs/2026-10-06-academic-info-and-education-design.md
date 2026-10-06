@@ -40,7 +40,11 @@ this data, **every НПП fills it in themselves**.
 ## Decisions
 
 1. **Rating 1.2 reads «Посада»** — it holds exactly the four values the old
-   field held, so every point stays.
+   field held, so every point stays. **Amended the same day (owner):** the
+   order calls 1.2 «Вчене звання», so it pays the вчене звання професора or
+   доцента and, without one, the посада — the higher of the two
+   (`ratingRank` in `lib/staff/academic.ts`). Both fields carry a hint saying
+   so. No point moves at deploy: the two fields start with the same value.
 2. **«Вчене звання» is pre-filled** from the old field: доцент → Доцент,
    професор → Професор (176 + 50 on the 2026-09-26 production copy); the rest
    start empty.
