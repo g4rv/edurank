@@ -98,7 +98,7 @@ async function main() {
   // importer now puts such a row into its «невідомий варіант» report instead,
   // which is the point; these are the ones already imported under the old rule.
   const imported = await prisma.kharakterystykaEntry.findMany({
-    where: { position: 2, group: 'patent', source: 'IMPORT' },
+    where: { position: 2, group: 'patent', source: 'IMPORT', removedAt: null },
     select: {
       year: true,
       text: true,

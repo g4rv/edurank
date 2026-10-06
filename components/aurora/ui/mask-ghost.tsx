@@ -61,14 +61,8 @@ export const ORCID_MASK = '0000-0000-0000-0000';
 
 /**
  * ISBN-13, in the grouping of the example this app has always shown
- * (`978-3-16-148410-0`).
- *
- * **It is a hint about LENGTH, not a rule about grouping.** Only three things
- * are fixed in an ISBN-13: it starts 978 or 979, it is thirteen digits, and the
- * last one is a checksum. Where the hyphens fall depends on the registration
- * group and the publisher — a Ukrainian book is usually `978-966-…`, which
- * splits 3-3 rather than 3-1. So this mask is drawn and nothing is enforced:
- * the field still accepts whatever hyphenation the book itself prints, and the
- * checksum ignores separators entirely.
+ * (`978-3-16-148410-0`). **Enforced** since 2026-10-07 (`formatIsbn`): a real
+ * book may group differently (`978-966-…`), but the grouping carries no
+ * meaning — the checksum and the work key both ignore separators.
  */
 export const ISBN_MASK = '000-0-00-000000-0';

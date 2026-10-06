@@ -82,6 +82,15 @@ export function planTarget(input: {
  * 2026-09-15: 306 of 328 НПП had no allocation at all, so this is the common
  * case in September, not an edge case.
  */
+/**
+ * What a person with no ставка on a кафедра is told — under the plan's header,
+ * and back from `savePlanRow` when they try to add a row anyway (owner,
+ * 2026-10-05). Planning waits for the розподіл: a plan with no target cannot be
+ * saved (`lockPlan`), so rows typed before it would only pile up.
+ */
+export const NO_RATE_DETAIL =
+  'Вам ще не розподілено ставку на цій кафедрі — планування стане доступним після розподілу. Зверніться до завідувача кафедри.';
+
 export async function rateForPlan(
   tx: Prisma.TransactionClient,
   where: { staffId: string; departmentId: string; stakeYear: number }

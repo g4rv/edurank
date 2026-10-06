@@ -12,6 +12,7 @@ import {
   PROFILE_DERIVED_CODES,
   type ProfileDerivedCode,
 } from '@/lib/rating/profile-derived-fields';
+import { effectiveAdminPosition } from '@/lib/staff/academic';
 
 // Profile-derived indicators: rating activity types whose value comes from the
 // Staff profile instead of manual entry (NPP submission or division panel).
@@ -38,11 +39,17 @@ interface DerivedStaff {
   scientificDegree: ScientificDegree | null;
   degreeMatchesDepartment: boolean | null;
   adminPosition: AdminPosition | null;
+  /** Being named завідувач / декан is itself a 1.6 post (owner, 2026-10-06) */
+  headOfDepartment: { id: string } | null;
+  deanOfFaculty: { id: string } | null;
   basicEducationMatch: boolean | null;
   basicEducationSpecialty: string | null;
   wosCitationCount: number | null;
   scopusCitationCount: number | null;
   googleScholarCitationCount: number | null;
+  wosUrl: string | null;
+  scopusUrl: string | null;
+  googleScholarUrl: string | null;
 }
 
 const DERIVED_STAFF_SELECT = {
@@ -53,11 +60,16 @@ const DERIVED_STAFF_SELECT = {
   scientificDegree: true,
   degreeMatchesDepartment: true,
   adminPosition: true,
+  headOfDepartment: { select: { id: true } },
+  deanOfFaculty: { select: { id: true } },
   basicEducationMatch: true,
   basicEducationSpecialty: true,
   wosCitationCount: true,
   scopusCitationCount: true,
   googleScholarCitationCount: true,
+  wosUrl: true,
+  scopusUrl: true,
+  googleScholarUrl: true,
 } satisfies Prisma.StaffSelect;
 
 // Enum → evidence option keys (keys defined in lib/rating/evidence-fields.ts)
@@ -68,19 +80,33 @@ const RANK_OPTION: Record<AcademicRank, string> = {
   LECTURER: 'lecturer',
 };
 
+/**
+ * Each post's rating 1.6 option. The положення prints some posts together
+ * because they share the points; the profile holds them apart (owner,
+ * 2026-10-06), so several posts map to one option.
+ */
 const POSITION_OPTION: Record<AdminPosition, string> = {
   VICE_RECTOR: 'vice_rector',
   DEAN: 'dean',
-  VICE_DEAN_OR_SECRETARY: 'vice_dean_or_secretary',
-  DEPARTMENT_OR_UNIT_HEAD: 'department_or_unit_head',
+  VICE_DEAN: 'vice_dean_or_secretary',
+  ACADEMIC_SECRETARY: 'vice_dean_or_secretary',
+  ADMISSION_SECRETARY: 'vice_dean_or_secretary',
+  DEPARTMENT_HEAD: 'department_or_unit_head',
+  UNIT_HEAD: 'department_or_unit_head',
   DEPUTY_DEPARTMENT_HEAD: 'deputy_department_head',
   DEPUTY_ADMISSION_SECRETARY: 'deputy_admission_secretary',
-  LAB_OR_CENTER_HEAD: 'lab_or_center_head',
+  LAB_HEAD: 'lab_or_center_head',
+  CENTER_HEAD: 'lab_or_center_head',
 };
 
 function degreeOption(degree: ScientificDegree, matches: boolean | null): string {
   if (degree === 'DOCTOR') return matches ? 'doctor_dept_match' : 'doctor';
   return matches ? 'phd_dept_match' : 'phd';
+}
+
+/** A citation count counts only beside the profile link it can be checked on */
+function citations(count: number | null, link: string | null): { value: number } | null {
+  return count && count > 0 && link?.trim() ? { value: count } : null;
 }
 
 /** Evidence for one derived type from the profile; null = the indicator does not apply */
@@ -99,24 +125,26 @@ export function derivedEvidence(
       return staff.scientificDegree
         ? { option: degreeOption(staff.scientificDegree, staff.degreeMatchesDepartment) }
         : null;
-    case 'admin_position':
-      return staff.adminPosition ? { option: POSITION_OPTION[staff.adminPosition] } : null;
+    case 'admin_position': {
+      const post = effectiveAdminPosition({
+        adminPosition: staff.adminPosition,
+        isHead: staff.headOfDepartment !== null,
+        isDean: staff.deanOfFaculty !== null,
+      });
+      return post ? { option: POSITION_OPTION[post] } : null;
+    }
     case 'basic_education_match':
       return staff.basicEducationMatch
         ? { confirmed: true, specialty: staff.basicEducationSpecialty ?? '' }
         : null;
+    // No link, no points (owner, 2026-10-06): a count can only be checked
+    // against the profile it came from, and an НПП now types it themselves.
     case 'citations_wos':
-      return staff.wosCitationCount && staff.wosCitationCount > 0
-        ? { value: staff.wosCitationCount }
-        : null;
+      return citations(staff.wosCitationCount, staff.wosUrl);
     case 'citations_scopus':
-      return staff.scopusCitationCount && staff.scopusCitationCount > 0
-        ? { value: staff.scopusCitationCount }
-        : null;
+      return citations(staff.scopusCitationCount, staff.scopusUrl);
     case 'citations_scholar':
-      return staff.googleScholarCitationCount && staff.googleScholarCitationCount > 0
-        ? { value: staff.googleScholarCitationCount }
-        : null;
+      return citations(staff.googleScholarCitationCount, staff.googleScholarUrl);
   }
 }
 
@@ -310,6 +338,20 @@ export async function syncProfileDerived(
 
   await applyPlan(tx, plan);
   await recomputeRatingEntry(tx, staffId, active.year);
+}
+
+/**
+ * Syncs several people — each once, skipping the empty ids.
+ *
+ * For a кафедра or факультет changing its завідувач / декан (2026-10-06): the
+ * headship is itself a 1.6 post, so the person who gains it and the person who
+ * loses it both move, in the same transaction as the change.
+ */
+export async function syncProfileDerivedFor(
+  tx: Prisma.TransactionClient,
+  staffIds: readonly (string | null | undefined)[]
+): Promise<void> {
+  for (const id of new Set(staffIds)) if (id) await syncProfileDerived(tx, id);
 }
 
 /**

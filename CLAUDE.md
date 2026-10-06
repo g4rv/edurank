@@ -241,6 +241,14 @@ pnpm db:clean-student-names  # one-off: take the birth dates out of ПІБ in
                       #   «Вступник» column («ПІБ 16.05.1985») into 781 rows;
                       #   the parser strips it now, this catches up what went in
                       #   before. Refuses to touch a row a StudentClaim names.
+pnpm tsx prisma/check-academic-mirrors.ts  # after the 2026-10-06 academic-info
+                      #   migrations: the old academicRank / scientificDegree /
+                      #   degreeDefenceDate / adminPosition columns must equal what
+                      #   the new fields derive. Expect «розбіжностей: 0».
+pnpm db:headship-admin-position  # one-off, on that deploy: rating 1.6 now pays
+                      #   a завідувач / декан for being named on the кафедра /
+                      #   факультет. Reports who moves (~36 on prod); --apply writes.
+                      #   Order: back up → migrate deploy → mirror check → this.
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 
@@ -293,6 +301,7 @@ app/
         edit/
         rating/                   ← the staff member's rating tab
         kharakterystyka/          ← their Характеристика (п.38 licence positions)
+        science/                  ← their наукова робота, read-only — ADMIN + «Перевірка науки»
     faculties/                    ← [id]/, [id]/edit/; create is a dialog on the list
                                     (`CreateFacultyDialog`), not a `new/` route — same
                                     move as staff's, 2026-09-21, followed here 2026-09-29
@@ -472,6 +481,12 @@ five-year window. `Кнпп` — how many people on a кафедра meet enough
 **never stored**; it is computed in `lib/queries/get-department-knpp.ts`, because
 freezing it would go stale the moment somebody submits an achievement.
 
+**Any line can be removed — final — by ADMIN, or by the НПП on their own**
+(2026-10-06). An open year's rating line is deleted from the rating too; a
+closed year's is only hidden (`KharakterystykaRemovedLine`); an imported one is
+hidden (`removedAt`) so a re-import cannot bring it back. The table is
+«Removing a line» in `docs/kharakterystyka.md`.
+
 Which indicators satisfy which position is `ActivityType.licencePositions`, a JSON
 column and not a list in code — for the same reason `requiresVerification` and
 `entityFirstEntry` are columns: a code list silently excludes every indicator an
@@ -589,12 +604,21 @@ Easy to get wrong:
   `lib/science/oversight.ts`; ННВ has it by migration. Never match ННВ by
   `registryKey` for this again. Only ADMIN and that division see
   `/science-plans`, decline records, open other people's files and reopen a
-  submitted plan (`unlockPlan`). **A завідувач and a декан see no science
-  data at all** (D44) — `/my-department/science-plans` was removed.
+  submitted plan (`unlockPlan`), and read one НПП's plan and records on the
+  record tab `/staff/[id]/science` (owner, 2026-10-05). **A завідувач and a
+  декан see no science data at all** (D44) — `/my-department/science-plans` was removed.
 - **The fact owes `max(план, 500 × ставка)`** (D37, `doneTargetHundredths`);
   the plan itself is still measured against the norm — and **cannot be saved
   below it** (D52, owner 2026-09-24): `lockPlan` refuses, the dialog disables
   «Так, зберегти». A draft under the norm is fine; a submitted one is not.
+- **The rating waits for a saved plan** (D56, owner 2026-10-05). «Розділ 1–5»
+  show «Спершу збережіть планування…» until EVERY кафедра the НПП is on has a
+  `lockedAt` plan in the open навчальний рік, and `createActivity` /
+  `deleteActivity` refuse the same way — `planGate` in
+  `lib/science/plan-gate.ts`. No open science year means no gate. **No ставка,
+  no planning**: «Запланувати роботу» is disabled and `savePlanRow` refuses a
+  NEW row (an edit still saves); the header says why (`NO_RATE_DETAIL`). Such a
+  person stays blocked from the rating until the завідувач distributes.
 - **Link and file are two separate rules per вид роботи** (D47,
   `ScienceWorkType.linkRule` / `fileRule`: REQUIRED / OPTIONAL / NONE, set by
   ADMIN). Only when neither is REQUIRED must one of the two be given; a proof

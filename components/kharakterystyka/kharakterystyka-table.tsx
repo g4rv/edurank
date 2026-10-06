@@ -23,9 +23,14 @@ const KHARAKTERYSTYKA_HEAD = (
   </TableRow>
 );
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
-import type { Kharakterystyka, KharakterystykaPosition } from '@/lib/kharakterystyka/build';
+import type {
+  Kharakterystyka,
+  KharakterystykaPosition,
+  LineRef,
+} from '@/lib/kharakterystyka/build';
 import { ManualEntries, type ManualEntry } from './manual-entries';
 import { EvidenceText } from './evidence-text';
+import { RemoveLineButton } from './remove-line-button';
 
 // The printed document is a three-column table — № з/п, Показник активності,
 // Дані підтвердження показника — and this keeps that shape, because the point of
@@ -34,10 +39,26 @@ import { EvidenceText } from './evidence-text';
 // screen the reader wants to know whether it is empty because nothing qualifies
 // or because nobody has typed it.
 
+interface RemovingProps {
+  staffId: string;
+  /**
+   * The person removing lines from their OWN document. They get no bin on an
+   * open year's entry a відділ put in their rating — deleting it is ADMIN's
+   * (owner, 2026-10-06), and the server refuses it the same way.
+   */
+  asOwner?: boolean;
+}
+
+function mayRemove(ref: LineRef, removing: RemovingProps): boolean {
+  if (!removing.asOwner || ref.kind !== 'activity' || !ref.openYearBy) return true;
+  return ref.openYearBy === 'NPP';
+}
+
 export function KharakterystykaTable({
   data,
   sources,
   editing,
+  removing,
   fill = false,
 }: {
   data: Kharakterystyka;
@@ -55,6 +76,11 @@ export function KharakterystykaTable({
     /** Whose document this is — a row `createdBy` this id was self-typed. */
     selfId?: string;
   };
+  /**
+   * Taking lines out of the document — ADMIN on anybody's, the НПП on their
+   * own (owner, 2026-10-06). Absent for everybody who only reads it.
+   */
+  removing?: RemovingProps;
   /** Take the height the layout has left — see `Table`'s own note. */
   fill?: boolean;
 }) {
@@ -74,6 +100,7 @@ export function KharakterystykaTable({
             position={position}
             sources={sources?.[position.number]}
             editing={editing}
+            removing={removing}
             years={{ from: data.from, to: data.to }}
           />
         ))}
@@ -175,6 +202,7 @@ function PositionRow({
   position,
   sources,
   editing,
+  removing,
   years,
 }: {
   position: KharakterystykaPosition;
@@ -188,6 +216,7 @@ function PositionRow({
     /** Whose document this is — a row `createdBy` this id was self-typed. */
     selfId?: string;
   };
+  removing?: RemovingProps;
   /** The document's five-year window, so a typed row cannot fall outside it */
   years: { from: number; to: number };
 }) {
@@ -239,10 +268,23 @@ function PositionRow({
         ) : (
           <ul className="space-y-2">
             {position.entries.map((entry, i) => (
-              <li key={`${entry.itemNumber}-${i}`} className="text-xs">
-                <span className="text-muted-foreground tabular-nums">{entry.itemNumber}</span>{' '}
-                <EvidenceText text={entry.summary} />{' '}
-                <span className="text-muted-foreground">({entry.year})</span>
+              <li key={`${entry.itemNumber}-${i}`} className="flex items-start gap-2 text-xs">
+                <span className="min-w-0 flex-1">
+                  <span className="text-muted-foreground tabular-nums">{entry.itemNumber}</span>{' '}
+                  <EvidenceText text={entry.summary} />{' '}
+                  <span className="text-muted-foreground">({entry.year})</span>
+                </span>
+                {/* Every line that is a stored thing — not п.5's defence date,
+                    which is the profile's and is changed there. */}
+                {removing && entry.ref && mayRemove(entry.ref, removing) && (
+                  <RemoveLineButton
+                    staffId={removing.staffId}
+                    line={entry.ref}
+                    itemNumber={entry.itemNumber}
+                    summary={entry.summary}
+                    year={entry.year}
+                  />
+                )}
               </li>
             ))}
           </ul>

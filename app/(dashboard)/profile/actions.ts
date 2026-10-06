@@ -9,6 +9,17 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { logWarning } from '@/lib/log';
 import { USER_EDITABLE_STAFF_FIELDS } from '@/lib/permissions';
+import { ACADEMIC_EDITABLE_FIELDS } from '@/lib/staff/editable-fields';
+import {
+  ACADEMIC_STORED_SELECT,
+  academicAuditValue,
+  mirrorsForUpdate,
+  storedAcademic,
+} from '@/lib/staff/academic';
+import { PROFILE_DERIVED_STAFF_FIELDS, syncProfileDerived } from '@/lib/rating/profile-derived';
+import type { DiffValue } from '@/lib/audit';
+import { adminPostsConflict } from '@/lib/queries/scope';
+import type { AdminPosition } from '@/lib/generated/prisma/client';
 
 export type OwnProfileState = { error: string } | { success: true };
 
@@ -21,9 +32,12 @@ export type OwnProfileState = { error: string } | { success: true };
  * permissions at all, and still owns their phone number.
  *
  * The write is filtered through USER_EDITABLE_STAFF_FIELDS after parsing, so
- * widening the schema by accident cannot widen what reaches the database. None
- * of these fields feed a profile-derived indicator — those read counts and
- * titles, not links — so there is nothing to re-sync.
+ * widening the schema by accident cannot widen what reaches the database.
+ *
+ * Since 2026-10-06 that includes the person's own academic info, and three of
+ * those fields pay rating points through the legacy mirrors
+ * (`lib/staff/academic.ts`) — so a save that touches them writes the mirrors
+ * and re-scores the profile-derived indicators.
  */
 export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfileState> {
   const session = await auth();
@@ -50,9 +64,33 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
     return { error: 'Невірні дані' };
   }
 
+  // Only what was actually SENT. The schema fills every field it knows —
+  // an absent badge list becomes [] — and a save from a form that does not
+  // carry the academic fields would otherwise wipe them (2026-10-06).
+  const sent = new Set(Object.keys((data ?? {}) as object));
   const updateData: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(parsed.data)) {
-    if (USER_EDITABLE_STAFF_FIELDS.has(key)) updateData[key] = value;
+    if (USER_EDITABLE_STAFF_FIELDS.has(key) && sent.has(key)) updateData[key] = value;
+  }
+
+  // «Академічна інформація» and «Освіта» are an НПП's to fill in. The form only
+  // draws them for one; the server says the same, so a hand-made request from
+  // an administrative account cannot give itself a посада or a ступінь.
+  const academicSent = ACADEMIC_EDITABLE_FIELDS.some((key) => key in updateData);
+  if (academicSent) {
+    const self = await db.staff.findUnique({ where: { id: staffId }, select: { isNpp: true } });
+    if (!self?.isNpp) {
+      for (const key of ACADEMIC_EDITABLE_FIELDS) delete updateData[key];
+    }
+  }
+
+  // One leading post at most, a headship counted (owner, 2026-10-06).
+  if (Array.isArray(updateData.adminPositions)) {
+    const conflict = await adminPostsConflict(
+      staffId,
+      updateData.adminPositions as AdminPosition[]
+    );
+    if (conflict) return { error: conflict };
   }
 
   try {
@@ -68,23 +106,37 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
           scopusUrl: true,
           googleScholarUrl: true,
           orcidId: true,
+          wosCitationCount: true,
+          scopusCitationCount: true,
+          googleScholarCitationCount: true,
+          ...ACADEMIC_STORED_SELECT,
         },
       });
 
-      const before: Record<string, string | number | boolean | null> = {};
+      // Badge lists and degree keys reach the log as words, never as keys.
+      const before: Record<string, DiffValue> = {};
+      const after: Record<string, DiffValue> = {};
       for (const key of Object.keys(updateData)) {
-        before[key] = ((existing as Record<string, unknown> | null)?.[key] ?? null) as
-          | string
-          | number
-          | boolean
-          | null;
+        const stored = (existing as Record<string, unknown> | null)?.[key] ?? null;
+        before[key] = academicAuditValue(key, stored);
+        after[key] = academicAuditValue(key, updateData[key]);
       }
-      const changes = diffChanges(
-        before,
-        updateData as Record<string, string | number | boolean | null>
+      const changes = diffChanges(before, after);
+
+      // The old columns the rating still reads, derived AFTER the diff: they
+      // are bookkeeping, not something the person changed.
+      const mirrors = mirrorsForUpdate(
+        storedAcademic(existing as Record<string, unknown> | null),
+        updateData
       );
+      if (mirrors) Object.assign(updateData, mirrors);
 
       await tx.staff.update({ where: { id: staffId }, data: updateData });
+
+      const touchesDerived = Object.keys(updateData).some((key) =>
+        (PROFILE_DERIVED_STAFF_FIELDS as readonly string[]).includes(key)
+      );
+      if (touchesDerived) await syncProfileDerived(tx, staffId);
 
       // Re-saving the form untouched should not leave a log entry listing no change
       if (Object.keys(changes).length === 0) return;

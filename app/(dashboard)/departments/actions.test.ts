@@ -7,6 +7,7 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+vi.mock('@/lib/rating/profile-derived', () => ({ syncProfileDerivedFor: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn() },
@@ -18,6 +19,7 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { syncProfileDerivedFor } from '@/lib/rating/profile-derived';
 import { createDepartment, updateDepartment, deleteDepartment } from './actions';
 
 const mockAuth = auth as unknown as Mock;
@@ -117,5 +119,30 @@ describe('department actions authorization', () => {
         },
       },
     });
+  });
+});
+
+// Being named завідувач is a rating 1.6 post (owner, 2026-10-06), so changing
+// the head moves both people's points in the same transaction.
+describe('a change of завідувач re-scores both people', () => {
+  const admin = { user: { id: 'a1', role: 'ADMIN', staffId: null } };
+
+  it('re-scores the old head when the кафедра drops them', async () => {
+    mockAuth.mockResolvedValue(admin);
+    const tx = mockTx();
+    tx.department.findUnique.mockResolvedValue({
+      name: 'Кафедра',
+      facultyId: 'fac-1',
+      headId: 'old-head',
+    });
+    await updateDepartment('dep-1', payload);
+    expect(syncProfileDerivedFor).toHaveBeenCalledWith(tx, ['old-head', null]);
+  });
+
+  it('re-scores nobody when the head stays', async () => {
+    mockAuth.mockResolvedValue(admin);
+    mockTx();
+    await updateDepartment('dep-1', payload);
+    expect(syncProfileDerivedFor).not.toHaveBeenCalled();
   });
 });

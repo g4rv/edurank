@@ -3,7 +3,9 @@
 import { CopyButton } from '@/components/ui/copy-button';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { cn } from '@/lib/utils';
-import { ACADEMIC_RANK_LABELS, ROLE_LABELS, SCIENTIFIC_DEGREE_LABELS } from '@/lib/labels';
+import { ROLE_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
+import { degreeName } from '@/lib/staff/academic-options';
+import type { AcademicTitle } from '@/lib/generated/prisma/client';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/aurora/ui/table';
 import type { StaffListItem } from '@/lib/queries/list-staff';
@@ -50,6 +52,24 @@ const MIN_WIDTH = {
 } as const;
 
 type TableStaffItem = Omit<StaffListItem, 'employmentRate'> & { employmentRate?: number | null };
+
+/**
+ * «Вчене звання доцента», not «Доцент»: the посада on the line above is very
+ * often «Доцент» too, and two bare «Доцент» lines read as a mistake. The
+ * genitive is how the title is said in Ukrainian anyway.
+ */
+const TITLE_PHRASE: Record<AcademicTitle, string> = {
+  SENIOR_RESEARCHER: 'Вчене звання старшого дослідника',
+  DOCENT: 'Вчене звання доцента',
+  PROFESSOR: 'Вчене звання професора',
+};
+
+/** The highest degree, by its exact name — «Кандидат педагогічних наук» */
+function degreeLabel(member: Pick<TableStaffItem, 'candidateDegree' | 'doctorDegree'>) {
+  if (member.doctorDegree) return degreeName('doctor', member.doctorDegree);
+  if (member.candidateDegree) return degreeName('candidate', member.candidateDegree);
+  return null;
+}
 
 type Props = {
   staff: TableStaffItem[];
@@ -182,23 +202,20 @@ export function StaffTable({ staff, head, isAdmin, footer, fill }: Props) {
               </TableCell>
 
               <TableCell>
-                {/* Звання over ступінь, not «Доцент, Кандидат наук» on one
-                    line: they are two different facts about a person and the
-                    comma made them read as one long title.
+                {/* Посада, вчене звання, ступінь — one per line (owner,
+                    2026-10-06), not «Доцент, Кандидат наук» on one: they are
+                    different facts about a person and the comma made them read
+                    as one long title.
 
-                    **Two lines, one size.** The ступінь was `text-xs` and the
-                    звання above it `text-sm`, which drew a hierarchy that does
-                    not exist — «Доцент» does not outrank «Кандидат наук», they
-                    answer different questions. §4 of `docs/aurora.md`: a table
-                    cell is a value, and values are ink at `text-sm`. */}
+                    **One size for all three.** The ступінь was `text-xs` once,
+                    which drew a hierarchy that does not exist — they answer
+                    different questions. §4 of `docs/aurora.md`: a table cell is
+                    a value, and values are ink at `text-sm`. */}
                 <div className="flex flex-col gap-0.5">
-                  {member.academicRank ? (
-                    <span>{ACADEMIC_RANK_LABELS[member.academicRank]}</span>
-                  ) : null}
-                  {member.scientificDegree ? (
-                    <span>{SCIENTIFIC_DEGREE_LABELS[member.scientificDegree]}</span>
-                  ) : null}
-                  {!member.academicRank && !member.scientificDegree && (
+                  {member.position && <span>{STAFF_POSITION_LABELS[member.position]}</span>}
+                  {member.academicTitle && <span>{TITLE_PHRASE[member.academicTitle]}</span>}
+                  {degreeLabel(member) && <span>{degreeLabel(member)}</span>}
+                  {!member.position && !member.academicTitle && !degreeLabel(member) && (
                     <span className="text-muted-foreground">—</span>
                   )}
                 </div>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { findStaffByActivationToken } from '@/lib/activation';
 import { Logo } from '@/components/aurora/logo';
+import { Button } from '@/components/aurora/ui/button';
 import { ActivateForm } from './activate-form';
 
 export default async function ActivatePage({ params }: { params: Promise<{ token: string }> }) {
@@ -19,12 +20,13 @@ export default async function ActivatePage({ params }: { params: Promise<{ token
             Діє лише останнє надіслане посилання — перевірте, чи немає в пошті новішого листа. Якщо
             його немає, скористайтеся відновленням пароля або зверніться до адміністратора.
           </p>
-          <Link
-            href="/login"
-            className="mt-4 inline-block text-sm text-brand underline-offset-4 hover:underline"
-          >
-            До сторінки входу
-          </Link>
+          {/* A filled button, not a text link (owner, 2026-10-05): people come
+              back through their old activation link to sign in, read
+              «недійсне», and miss a blue line of text — this is the one way
+              on from here, so it looks like the login page's own button. */}
+          <Button asChild size="xl" className="mt-6 w-full">
+            <Link href="/login">Перейти до сторінки входу</Link>
+          </Button>
         </div>
       </div>
     );

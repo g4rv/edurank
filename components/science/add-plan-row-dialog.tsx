@@ -86,9 +86,12 @@ export interface PlanWorkType {
 export function AddPlanRowDialog({
   departmentId,
   workTypes,
+  disabled = false,
 }: {
   departmentId: string;
   workTypes: PlanWorkType[];
+  /** No ставка on this кафедра yet (owner, 2026-10-05) — the header says why */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // **Empty by default** (owner, 2026-09-17). Pre-selecting the first work type
@@ -129,7 +132,7 @@ export function AddPlanRowDialog({
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
-        <Button variant="brand">
+        <Button variant="brand" disabled={disabled}>
           <Plus className="size-4" />
           Запланувати роботу
         </Button>

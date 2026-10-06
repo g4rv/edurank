@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildKharakterystyka,
+  removedLineKey,
   type KharakterystykaActivity,
   type KharakterystykaEntry,
 } from './build';
@@ -568,6 +569,80 @@ describe('buildKharakterystyka — manual and imported entries', () => {
 // has it, through both the 2025 rating import and the 2022–2024 one. In a
 // document the licence is read against, that looks like the university cannot
 // format a sentence.
+
+// A line taken out of the document (owner, 2026-10-06) neither prints nor counts
+// there — and only there: the activity still scores in the rating, and still
+// feeds any other position it reaches.
+describe('removed lines', () => {
+  const five = [1, 2, 3, 4, 5].map((n) => ({ ...publication(n), id: `act-${n}` }));
+
+  it('names every rating line by its activity and position', () => {
+    expect(position(buildKharakterystyka(five, NO_PROFILE, YEAR), 1).entries[0]?.ref).toEqual({
+      kind: 'activity',
+      activityId: expect.stringMatching(/^act-/),
+      position: 1,
+    });
+  });
+
+  it('drops a removed rating line from its position, and the count with it', () => {
+    const result = buildKharakterystyka(
+      five,
+      NO_PROFILE,
+      YEAR,
+      [],
+      new Set([removedLineKey('act-3', 1)])
+    );
+    expect(position(result, 1).entries).toHaveLength(4);
+    expect(position(result, 1).met).toBe(false);
+    expect(position(result, 1).progress).toEqual({ have: 4, need: 5 });
+  });
+
+  it('keeps the line where it was removed from another position only', () => {
+    const result = buildKharakterystyka(
+      five,
+      NO_PROFILE,
+      YEAR,
+      [],
+      new Set([removedLineKey('act-3', 12)])
+    );
+    expect(position(result, 1).entries).toHaveLength(5);
+  });
+
+  // Removing an OPEN year's line deletes it from the rating, which an НПП may do
+  // only to their own entry — so the line says who entered it.
+  it('says who entered an open year’s line, and nothing for a closed year', () => {
+    const open = (role: 'NPP' | 'DIVISION') => ({
+      ...publication(1),
+      id: 'act-1',
+      submittedByRole: role,
+      activityType: { ...publication(1).activityType, template: { status: 'OPEN' as const } },
+    });
+    const refOf = (a: KharakterystykaActivity) =>
+      position(buildKharakterystyka([a], NO_PROFILE, YEAR), 1).entries[0]?.ref;
+
+    expect(refOf(open('DIVISION'))).toMatchObject({ openYearBy: 'DIVISION' });
+    expect(refOf(open('NPP'))).toMatchObject({ openYearBy: 'NPP' });
+    const closed = {
+      ...open('NPP'),
+      activityType: { ...open('NPP').activityType, template: { status: 'CLOSED' as const } },
+    };
+    expect(refOf(closed)).not.toHaveProperty('openYearBy');
+  });
+
+  it('names a stored row by its id', () => {
+    const entry = {
+      id: 'e-1',
+      position: 15,
+      group: null,
+      year: 2024,
+      text: 'Олімпіада',
+      itemNumber: null,
+    };
+    expect(
+      position(buildKharakterystyka([], NO_PROFILE, YEAR, [entry]), 15).entries[0]?.ref
+    ).toEqual({ kind: 'entry', entryId: 'e-1' });
+  });
+});
 
 describe('buildKharakterystyka — printed evidence', () => {
   const textOf = (result: ReturnType<typeof buildKharakterystyka>, n: number) =>

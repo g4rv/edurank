@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { auth } from '@/lib/auth';
+import { canOverseeScience } from '@/lib/science/oversight';
 import { db } from '@/lib/db';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
@@ -26,6 +27,8 @@ export default async function StaffRatingPage({
   const query = await searchParams;
   const session = await auth();
   if (!session) redirect('/login');
+  // «Наукова робота» is ADMIN's and «Перевірка науки»'s alone (D43).
+  const showScience = await canOverseeScience(session.user);
 
   // A завідувач or декан READS the records of their кафедра's people
   // (owner, 2026-09-24) — `canViewAcademicRecord`, the rule the
@@ -107,7 +110,7 @@ export default async function StaffRatingPage({
           page renders that row. The switch and the table are in ONE page again,
           which is what lets the count travel between them — it read «(0)» for as
           long as they sat in two different parallel-route slots. */}
-      <RecordTabRow staffId={id} showRating>
+      <RecordTabRow staffId={id} showRating showScience={showScience}>
         <ToolbarGroup className="pl-3">
           <span className="text-sm text-muted-foreground">Рік</span>
           <YearSelect years={years} value={year} />

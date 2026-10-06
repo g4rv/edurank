@@ -11,9 +11,11 @@ export const PROFILE_DERIVED_SOURCES = {
   scientific_degree: ['scientificDegree', 'degreeMatchesDepartment'],
   admin_position: ['adminPosition'],
   basic_education_match: ['basicEducationMatch', 'basicEducationSpecialty'],
-  citations_wos: ['wosCitationCount'],
-  citations_scopus: ['scopusCitationCount'],
-  citations_scholar: ['googleScholarCitationCount'],
+  // The link as well as the count (owner, 2026-10-06): no link, no points, so
+  // adding or clearing one re-scores the indicator.
+  citations_wos: ['wosCitationCount', 'wosUrl'],
+  citations_scopus: ['scopusCitationCount', 'scopusUrl'],
+  citations_scholar: ['googleScholarCitationCount', 'googleScholarUrl'],
 } as const satisfies Record<string, readonly ProfileDerivedStaffField[]>;
 
 export type ProfileDerivedCode = keyof typeof PROFILE_DERIVED_SOURCES;
@@ -30,7 +32,10 @@ export type ProfileDerivedStaffField =
   | 'basicEducationSpecialty'
   | 'wosCitationCount'
   | 'scopusCitationCount'
-  | 'googleScholarCitationCount';
+  | 'googleScholarCitationCount'
+  | 'wosUrl'
+  | 'scopusUrl'
+  | 'googleScholarUrl';
 
 export const PROFILE_DERIVED_STAFF_FIELDS: readonly ProfileDerivedStaffField[] = [
   ...new Set(Object.values(PROFILE_DERIVED_SOURCES).flat()),

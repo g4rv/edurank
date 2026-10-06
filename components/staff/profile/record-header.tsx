@@ -59,7 +59,11 @@ export async function RecordHeader({ id }: { id: string }) {
   const account = isAdmin ? await getStaffAccount(id) : null;
 
   let canEdit = isAdmin;
-  let canArchive = isAdmin;
+  // Nobody archives their own record, an ADMIN included (owner, 2026-10-05) —
+  // the same rule `archiveStaff` enforces, so the button never offers it.
+  let canArchive =
+    isAdmin &&
+    canMutateStaffRecord(session.user, { id: staff.id, role: staff.role }, { allowSelf: false });
   if (session.user.role === 'EDITOR') {
     const perms = await getEditorEntityPermissions(session.user.staffId ?? '', 'STAFF');
     // The entity permission says an editor may edit staff; `canMutateStaffRecord`

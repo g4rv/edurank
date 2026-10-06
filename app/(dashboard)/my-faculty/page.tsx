@@ -5,7 +5,11 @@ import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listMyDepartments } from '@/lib/queries/list-my-department';
 import { listStaff } from '@/lib/queries/list-staff';
 import { deanOf } from '@/lib/queries/scope';
-import { parseStaffListParams, toStaffFilters } from '@/lib/staff/list-params';
+import {
+  academicFilterParams,
+  parseStaffListParams,
+  toStaffFilters,
+} from '@/lib/staff/list-params';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { LinkTabs } from '@/components/aurora/ui/link-tabs';
 import { ListHeader } from '@/components/aurora/ui/list-header';
@@ -249,8 +253,7 @@ async function StaffTab({
       dir: filters.dir !== 'asc' ? filters.dir : undefined,
       q: filters.q,
       dept: filters.departmentId,
-      rank: filters.rank,
-      degree: filters.degree,
+      ...academicFilterParams(filters),
       partTime: filters.partTime ? '1' : undefined,
       degreeMatch: filters.degreeMatch ? '1' : undefined,
     };
@@ -286,9 +289,9 @@ async function StaffTab({
         dir={filters.dir}
       />
       <SortHead
-        label="Вчене звання"
-        href={sortHref('academicRank')}
-        active={filters.sort === 'academicRank'}
+        label="Посада, звання, ступінь"
+        href={sortHref('position')}
+        active={filters.sort === 'position'}
         dir={filters.dir}
       />
     </TableRow>

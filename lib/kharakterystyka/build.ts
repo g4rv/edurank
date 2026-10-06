@@ -35,10 +35,16 @@ import {
 
 /** One rating entry, selected straight off an Activity row */
 export interface KharakterystykaActivity {
+  /** The Activity row's id — what removing its line names. Optional for tests. */
+  id?: string;
+  /** Who entered it — an НПП may take only their own open-year entry out */
+  submittedByRole?: 'NPP' | 'DIVISION' | 'SYSTEM';
   year: number;
   status: ActivityStatus;
   evidence: unknown;
   activityType: {
+    /** Whether its rating year is still open — see `LineRef.openYearBy` */
+    template?: { status: 'OPEN' | 'CLOSED' };
     itemNumber: string;
     label: string;
     isActive: boolean;
@@ -79,9 +85,43 @@ export interface KharakterystykaEntry {
   year: number;
   text: string;
   itemNumber: string | null;
+  /** The row's id — what removing it names. Optional for tests. */
+  id?: string;
+  /** Absent = MANUAL, the only source tests construct */
+  source?: 'MANUAL' | 'IMPORT';
+}
+
+/**
+ * The key of a rating line taken out of the document — an activity AT a
+ * position, because one activity can feed several and each is removed on its
+ * own (`KharakterystykaRemovedLine`, owner 2026-10-06).
+ */
+export function removedLineKey(activityId: string, position: number): string {
+  return `${activityId}:${position}`;
 }
 
 // ─── Output ──────────────────────────────────────────────────────────────────
+
+/**
+ * Which stored thing a printed line is, so it can be removed (owner,
+ * 2026-10-06): an activity at a position, or a typed / imported row. Absent on
+ * п.5, which is the profile's defence date and not a line anybody removes.
+ */
+export type LineRef =
+  | {
+      kind: 'activity';
+      activityId: string;
+      position: number;
+      /**
+       * Set while the activity's rating year is OPEN: who entered it. Removing
+       * such a line deletes the entry from the rating too (owner, 2026-10-06),
+       * and an НПП may do that only to what they entered themselves — so the
+       * screen offers them no bin on a відділ's entry. Absent for a closed
+       * year, where the line leaves the Характеристика only.
+       */
+      openYearBy?: 'NPP' | 'DIVISION' | 'SYSTEM';
+    }
+  | { kind: 'entry'; entryId: string };
 
 export interface PositionEntry {
   itemNumber: string;
@@ -89,6 +129,8 @@ export interface PositionEntry {
   /** The generated sentence, without the year */
   summary: string;
   year: number;
+  /** What this line is — see `LineRef` */
+  ref?: LineRef;
 }
 
 export interface KharakterystykaPosition {
@@ -138,6 +180,19 @@ function fieldsOf(activityType: { evidenceFields: unknown }): readonly EvidenceF
 function asEvidenceRecord(evidence: unknown): Record<string, unknown> {
   if (typeof evidence !== 'object' || evidence === null || Array.isArray(evidence)) return {};
   return evidence as Record<string, unknown>;
+}
+
+/**
+ * The sentence an activity prints in the document. Exported so removing a line
+ * can record in the audit log exactly what was on screen.
+ */
+export function activityLineText(
+  activityType: { evidenceFields: unknown },
+  evidence: unknown
+): string {
+  // Infinity, not the default 5: this text is the deliverable, and a dropped
+  // field would understate what the person did to a licensing authority.
+  return readable(summarizeEvidence(fieldsOf(activityType), asEvidenceRecord(evidence), Infinity));
 }
 
 /** An entry that reached a position, kept with what the rule still needs to test */
@@ -193,7 +248,9 @@ function counts(activity: KharakterystykaActivity, from: number, to: number): bo
 function bucketEntries(
   activities: readonly KharakterystykaActivity[],
   from: number,
-  to: number
+  to: number,
+  /** `removedLineKey`s of the rating lines taken out of the document */
+  removed: ReadonlySet<string>
 ): Map<string, Candidate[]> {
   const buckets = new Map<string, Candidate[]>();
 
@@ -204,13 +261,12 @@ function bucketEntries(
     if (links.length === 0) continue;
 
     const evidence = asEvidenceRecord(activity.evidence);
-    const fields = fieldsOf(activity.activityType);
-    // Infinity, not the default 5: this text is the deliverable, and a dropped
-    // field would understate what the person did to a licensing authority.
-    const summary = readable(summarizeEvidence(fields, evidence, Infinity));
+    const summary = activityLineText(activity.activityType, evidence);
 
     for (const link of links) {
       if (!linkMatches(link, evidence)) continue;
+      // Taken out of this position — it neither prints nor counts here
+      if (activity.id && removed.has(removedLineKey(activity.id, link.position))) continue;
       const key = `${link.position}:${groupOf(link)}`;
       const candidate: Candidate = {
         itemNumber: activity.activityType.itemNumber,
@@ -219,6 +275,18 @@ function bucketEntries(
         year: activity.year,
         row: { year: activity.year, evidence },
         source,
+        ...(activity.id
+          ? {
+              ref: {
+                kind: 'activity',
+                activityId: activity.id,
+                position: link.position,
+                ...(activity.activityType.template?.status === 'OPEN' && activity.submittedByRole
+                  ? { openYearBy: activity.submittedByRole }
+                  : {}),
+              },
+            }
+          : {}),
       };
       const bucket = buckets.get(key);
       if (bucket) bucket.push(candidate);
@@ -287,6 +355,7 @@ function entryAsPositionEntry(entry: KharakterystykaEntry): PositionEntry {
     label: 'Внесено вручну',
     summary: readable(entry.text),
     year: entry.year,
+    ...(entry.id ? { ref: { kind: 'entry', entryId: entry.id } } : {}),
   };
 }
 
@@ -342,7 +411,13 @@ function derivedPosition(
       return true;
     })
     .sort(byRecency)
-    .map(({ itemNumber, label, summary, year }) => ({ itemNumber, label, summary, year }));
+    .map(({ itemNumber, label, summary, year, ref }) => ({
+      itemNumber,
+      label,
+      summary,
+      year,
+      ...(ref ? { ref } : {}),
+    }));
 
   // After the rating's own, newest first among themselves. A row appearing under
   // two alternatives of one position is listed once, for the same reason a
@@ -447,10 +522,15 @@ export function buildKharakterystyka(
   activities: readonly KharakterystykaActivity[],
   profile: KharakterystykaProfile,
   lastYear: number,
-  manualEntries: readonly KharakterystykaEntry[] = []
+  manualEntries: readonly KharakterystykaEntry[] = [],
+  /**
+   * `removedLineKey`s of the rating lines taken out of the document. A removed
+   * typed or imported row is simply not passed in — the query leaves it out.
+   */
+  removedLines: ReadonlySet<string> = new Set()
 ): Kharakterystyka {
   const { from, to } = windowFor(lastYear);
-  const buckets = bucketEntries(activities, from, to);
+  const buckets = bucketEntries(activities, from, to, removedLines);
 
   // The same window as the activities, applied here rather than in the query,
   // for the same reason the status filter is: one place decides what counts.

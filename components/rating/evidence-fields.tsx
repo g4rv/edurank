@@ -208,7 +208,21 @@ export function EvidenceFields({
       case 'isbn':
         return (
           <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
-            <IsbnInput id={f.name} disabled={disabled} {...register(f.name)} />
+            {/* Controlled: the mask rewrites what is typed (2026-10-07) */}
+            <Controller
+              name={f.name}
+              control={control}
+              render={({ field }) => (
+                <IsbnInput
+                  id={f.name}
+                  disabled={disabled}
+                  value={field.value as string | undefined}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  ref={field.ref}
+                />
+              )}
+            />
           </FormField>
         );
 

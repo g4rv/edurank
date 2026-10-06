@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { canOverseeScience } from '@/lib/science/oversight';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
@@ -30,6 +31,8 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
   const { id } = await params;
   const session = await auth();
   if (!session) redirect('/login');
+  // «Наукова робота» is ADMIN's and «Перевірка науки»'s alone (D43).
+  const showScience = await canOverseeScience(session.user);
   // A завідувач or декан READS the records of their кафедра's people
   // (owner, 2026-09-24) — `canViewAcademicRecord`, the rule the
   // Характеристика already used. Read-only: every control on the record is
@@ -55,7 +58,7 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <RecordTabRow staffId={id} showRating={staff.isNpp}>
+      <RecordTabRow staffId={id} showRating={staff.isNpp} showScience={showScience}>
         {/* Only an ADMIN gets these, and only an ADMIN gets the placeholder —
             which is why the decision is HERE and not in `loading.tsx`. A
             loading file has no session, so a placeholder drawn there would show

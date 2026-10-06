@@ -21,6 +21,11 @@ import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { updateOwnProfile } from '@/app/(dashboard)/profile/actions';
 import { uploadAvatar } from '@/components/profile/upload-avatar';
 import { RequiredFields } from '@/components/ui/required-fields';
+import { RatingFieldHint } from '@/components/staff/rating-field-hint';
+import { CitationNoLinkNote } from '@/components/staff/citation-note';
+import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
+import type { HeadshipPost } from '@/lib/staff/academic';
+import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 
 /** Empty strings, not nulls: an <input> with a null value is uncontrolled */
 type FormValues = {
@@ -29,13 +34,18 @@ type FormValues = {
   scopusUrl: string;
   googleScholarUrl: string;
   orcidId: string;
-};
+  wosCitationCount: string;
+  scopusCitationCount: string;
+  googleScholarCitationCount: string;
+} & Partial<AcademicFormValues>;
 
 export function ProfileEditForm({
   name,
   avatarSrc,
   canEditAvatar,
   defaultValues,
+  isNpp = false,
+  headship = null,
 }: {
   /** Whose record this is — the header is the same one `/staff/[id]/edit` uses. */
   name: string;
@@ -44,6 +54,15 @@ export function ProfileEditForm({
   /** ADMIN only for now — see `canSetOwnAvatar` */
   canEditAvatar: boolean;
   defaultValues: FormValues;
+  /**
+   * An НПП fills in their own «Академічна інформація» and «Освіта» (owner,
+   * 2026-10-06, until HR owns them). Without it the two cards are not drawn and
+   * their values are not in `defaultValues` — so they are never sent, and the
+   * save leaves them as they are.
+   */
+  isNpp?: boolean;
+  /** Their завідувач / декан post, counted by itself (2026-10-06) */
+  headship?: HeadshipPost | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -113,6 +132,152 @@ export function ProfileEditForm({
   }
 
   // The fields OR the photo: either alone is a change worth saving.
+  // The four cards, named so the two columns can arrange them (owner,
+  // 2026-10-06): an НПП's academic record on the left — the record page's
+  // order — and their contacts and research links on the right.
+  const contactsCard = (
+    <Card title="Контакти">
+      <FieldGroup className="flex flex-col gap-4">
+        <FormField htmlFor="phone" label="Телефон" error={errors.phone}>
+          <Controller
+            name="phone"
+            control={control}
+            render={({ field }) => (
+              <TelInput
+                id="phone"
+                value={field.value}
+                onChange={field.onChange}
+                disabled={isPending}
+                aria-invalid={!!errors.phone}
+              />
+            )}
+          />
+        </FormField>
+      </FieldGroup>
+    </Card>
+  );
+  const profilesCard = (
+    <Card title="Наукові профілі">
+      <FieldGroup className="flex flex-col gap-4">
+        {/* Each link with its citation count beside it (owner, 2026-10-06):
+            an НПП now types their own counts, which pay rating points. */}
+        <div className="grid grid-cols-3 gap-x-4">
+          <FormField
+            htmlFor="wosUrl"
+            label="Web of Science"
+            error={errors.wosUrl}
+            className="col-span-2"
+          >
+            <Input
+              id="wosUrl"
+              placeholder="Посилання на ваш профіль"
+              disabled={isPending}
+              {...register('wosUrl')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="wosCitationCount"
+            label="Цитувань"
+            labelSuffix={<RatingFieldHint field="wosCitationCount" />}
+            error={errors.wosCitationCount}
+          >
+            <Input
+              id="wosCitationCount"
+              type="number"
+              min="0"
+              disabled={isPending}
+              {...register('wosCitationCount')}
+            />
+            <CitationNoLinkNote control={control} url="wosUrl" count="wosCitationCount" />
+          </FormField>
+        </div>
+
+        <div className="grid grid-cols-3 gap-x-4">
+          <FormField
+            htmlFor="scopusUrl"
+            label="Scopus"
+            error={errors.scopusUrl}
+            className="col-span-2"
+          >
+            <Input
+              id="scopusUrl"
+              placeholder="Посилання на ваш профіль"
+              disabled={isPending}
+              {...register('scopusUrl')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="scopusCitationCount"
+            label="Цитувань"
+            labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
+            error={errors.scopusCitationCount}
+          >
+            <Input
+              id="scopusCitationCount"
+              type="number"
+              min="0"
+              disabled={isPending}
+              {...register('scopusCitationCount')}
+            />
+            <CitationNoLinkNote control={control} url="scopusUrl" count="scopusCitationCount" />
+          </FormField>
+        </div>
+
+        <div className="grid grid-cols-3 gap-x-4">
+          <FormField
+            htmlFor="googleScholarUrl"
+            label="Google Scholar"
+            error={errors.googleScholarUrl}
+            className="col-span-2"
+          >
+            <Input
+              id="googleScholarUrl"
+              placeholder="Посилання на ваш профіль"
+              disabled={isPending}
+              {...register('googleScholarUrl')}
+            />
+          </FormField>
+          <FormField
+            htmlFor="googleScholarCitationCount"
+            label="Цитувань"
+            labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
+            error={errors.googleScholarCitationCount}
+          >
+            <Input
+              id="googleScholarCitationCount"
+              type="number"
+              min="0"
+              disabled={isPending}
+              {...register('googleScholarCitationCount')}
+            />
+            <CitationNoLinkNote
+              control={control}
+              url="googleScholarUrl"
+              count="googleScholarCitationCount"
+            />
+          </FormField>
+        </div>
+
+        <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
+          {/* Controlled: the field reformats on every keystroke, which an
+              uncontrolled input cannot do without the caret jumping. */}
+          <Controller
+            name="orcidId"
+            control={control}
+            render={({ field }) => (
+              <OrcidInput
+                id="orcidId"
+                disabled={isPending}
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </FormField>
+      </FieldGroup>
+    </Card>
+  );
+
   const changed = isDirty || avatar !== null;
 
   return (
@@ -153,91 +318,41 @@ export function ProfileEditForm({
           </div>
         </Card>
 
-        {/* Two cards, not one — and two columns that each FLOW rather than a
-            grid. A grid row is as tall as its tallest cell, so «Контакти» with
-            one field would either stretch to match four profile links or sit
-            with a hole under it. `StaffFormFields` reaches the same conclusion
-            for the same reason, and the two forms now stack their cards alike.
+        {/* Two columns that each FLOW, not a grid (owner, 2026-10-06 — «bento»).
+            A grid row is as tall as its tallest cell, so «Контакти», one field,
+            left a hole under it the height of four profile links. Flowing
+            columns stack each card straight under the one above it, which is
+            what the record page and `StaffFormFields` already do.
 
-            Телефон left, the profiles right (owner, 2026-09-08): a phone number
-            is a contact and the four links are one list of the same kind of
-            thing, and folding them together made «Контакти та профілі» a card
-            with two subjects. */}
+            The same places as on the record page — academic info and «Освіта»
+            left, contacts and research links right — so a person finds a field
+            where they just read it. Somebody who is not an НПП has no academic
+            cards, and keeps Контакти | Наукові профілі. */}
         <div className="flex flex-col items-start gap-4 lg:flex-row">
           <div className="flex w-full flex-1 flex-col gap-4">
-            <Card title="Контакти">
-              <FieldGroup className="flex flex-col gap-4">
-                <FormField htmlFor="phone" label="Телефон" error={errors.phone}>
-                  <Controller
-                    name="phone"
-                    control={control}
-                    render={({ field }) => (
-                      <TelInput
-                        id="phone"
-                        value={field.value}
-                        onChange={field.onChange}
-                        disabled={isPending}
-                        aria-invalid={!!errors.phone}
-                      />
-                    )}
-                  />
-                </FormField>
-              </FieldGroup>
-            </Card>
+            {isNpp ? (
+              <>
+                <AcademicCard
+                  register={register as never}
+                  control={control as never}
+                  errors={errors as never}
+                  isPending={isPending}
+                  headship={headship}
+                />
+                <EducationCard
+                  register={register as never}
+                  control={control as never}
+                  errors={errors as never}
+                  isPending={isPending}
+                />
+              </>
+            ) : (
+              contactsCard
+            )}
           </div>
-
           <div className="flex w-full flex-1 flex-col gap-4">
-            <Card title="Наукові профілі">
-              <FieldGroup className="flex flex-col gap-4">
-                <FormField htmlFor="wosUrl" label="Web of Science" error={errors.wosUrl}>
-                  <Input
-                    id="wosUrl"
-                    placeholder="Посилання на ваш профіль"
-                    disabled={isPending}
-                    {...register('wosUrl')}
-                  />
-                </FormField>
-
-                <FormField htmlFor="scopusUrl" label="Scopus" error={errors.scopusUrl}>
-                  <Input
-                    id="scopusUrl"
-                    placeholder="Посилання на ваш профіль"
-                    disabled={isPending}
-                    {...register('scopusUrl')}
-                  />
-                </FormField>
-
-                <FormField
-                  htmlFor="googleScholarUrl"
-                  label="Google Scholar"
-                  error={errors.googleScholarUrl}
-                >
-                  <Input
-                    id="googleScholarUrl"
-                    placeholder="Посилання на ваш профіль"
-                    disabled={isPending}
-                    {...register('googleScholarUrl')}
-                  />
-                </FormField>
-
-                <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
-                  {/* Controlled: the field reformats on every keystroke, which an
-                  uncontrolled input cannot do without the caret jumping. */}
-                  <Controller
-                    name="orcidId"
-                    control={control}
-                    render={({ field }) => (
-                      <OrcidInput
-                        id="orcidId"
-                        disabled={isPending}
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                    )}
-                  />
-                </FormField>
-              </FieldGroup>
-            </Card>
+            {isNpp && contactsCard}
+            {profilesCard}
           </div>
         </div>
       </form>

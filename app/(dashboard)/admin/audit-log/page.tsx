@@ -3,7 +3,12 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { STUDENT_DEGREE_LABELS, STUDENT_FUNDING_LABELS, STUDY_FORM_LABELS } from '@/lib/labels';
+import {
+  ADMIN_POSITION_LABELS,
+  STUDENT_DEGREE_LABELS,
+  STUDENT_FUNDING_LABELS,
+  STUDY_FORM_LABELS,
+} from '@/lib/labels';
 import { formatStake } from '@/lib/stake/units';
 import { AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/audit/describe';
 import { ListHeader } from '@/components/aurora/ui/list-header';
@@ -48,6 +53,13 @@ const VALUE_LABELS: Record<string, string> = {
   ...STUDENT_DEGREE_LABELS,
   ...STUDY_FORM_LABELS,
   ...STUDENT_FUNDING_LABELS,
+  // Адміністративні посади: written as keys before 2026-10-06 (`adminPosition`
+  // was logged raw — «VICE_RECTOR»). Since then a save logs words already.
+  ...ADMIN_POSITION_LABELS,
+  // The three combined values split that day: old entries still carry them.
+  VICE_DEAN_OR_SECRETARY: 'Заступник декана / вчений секретар / відп. секретар прийм. комісії',
+  DEPARTMENT_OR_UNIT_HEAD: 'Завідувач кафедри / керівник відділу',
+  LAB_OR_CENTER_HEAD: 'Завідувач лабораторії / керівник центру',
 };
 
 const PAGE_SIZE = 50;
@@ -200,7 +212,11 @@ export default async function AuditLogPage({
       // Кафедра п.5's defence date is a DATE — stored as UTC midnight, so it is
       // formatted in UTC or a negative offset shows the day before. `archivedAt`
       // is an instant and keeps its time.
-      case 'degreeDefenceDate': {
+      // The two degrees' own dates since the split (2026-10-06) — the same kind
+      // of DATE, and they printed raw until they were listed here.
+      case 'degreeDefenceDate':
+      case 'candidateDefenceDate':
+      case 'doctorDefenceDate': {
         const d = new Date(str);
         return Number.isNaN(d.getTime()) ? str : d.toLocaleDateString('uk-UA', { timeZone: 'UTC' });
       }

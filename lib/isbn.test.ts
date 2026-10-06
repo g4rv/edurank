@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isValidIsbn, isbnState, normalizeIsbn } from './isbn';
+import { formatIsbn, isValidIsbn, isbnState, normalizeIsbn } from './isbn';
 
 // Real ISBNs, used so the checksums are genuine rather than made to fit
 const ISBN13 = '9783161484100';
@@ -92,5 +92,32 @@ describe('isbnState', () => {
 
   it('is invalid once the input is too long to be either format', () => {
     expect(isbnState('97831614841000')).toBe('invalid');
+  });
+});
+
+// The mask enforced, as ORCID and the phone enforce theirs (owner, 2026-10-07)
+describe('formatIsbn', () => {
+  it('puts the mask’s hyphens in as digits are typed', () => {
+    expect(formatIsbn('978')).toBe('978');
+    expect(formatIsbn('9783')).toBe('978-3');
+    expect(formatIsbn('978316148')).toBe('978-3-16-148');
+    expect(formatIsbn('9783161484100')).toBe('978-3-16-148410-0');
+  });
+
+  it('stops at thirteen digits and drops letters and stray characters', () => {
+    expect(formatIsbn('1231231241231231411 23')).toBe('123-1-23-124123-1');
+    expect(formatIsbn('97a8-3 16/148410-0zz')).toBe('978-3-16-148410-0');
+  });
+
+  it('regroups a book’s own hyphenation into the mask, losing no digit', () => {
+    const own = '978-966-03-4567-8';
+    expect(normalizeIsbn(formatIsbn(own))).toBe(normalizeIsbn(own));
+  });
+
+  it('takes an X only as the tenth character, and nothing after it', () => {
+    expect(formatIsbn('080442957X')).toBe('080-4-42-957X');
+    expect(formatIsbn('080442957X123')).toBe('080-4-42-957X');
+    expect(formatIsbn('X12')).toBe('12');
+    expect(isValidIsbn(formatIsbn('080442957X'))).toBe(true);
   });
 });

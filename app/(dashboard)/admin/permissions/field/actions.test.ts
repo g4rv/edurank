@@ -60,19 +60,19 @@ describe('setFieldPermission', () => {
 
   it('grants a whitelisted field', async () => {
     mockUpsert.mockResolvedValue({});
-    expect(await setFieldPermission('div-1', 'academicRank', true)).toBeNull();
+    expect(await setFieldPermission('div-1', 'position', true)).toBeNull();
     expect(mockUpsert).toHaveBeenCalledWith({
-      where: { divisionId_fieldName: { divisionId: 'div-1', fieldName: 'academicRank' } },
-      create: { divisionId: 'div-1', fieldName: 'academicRank' },
+      where: { divisionId_fieldName: { divisionId: 'div-1', fieldName: 'position' } },
+      create: { divisionId: 'div-1', fieldName: 'position' },
       update: {},
     });
   });
 
   it('revokes a granted field', async () => {
     mockDeleteMany.mockResolvedValue({});
-    expect(await setFieldPermission('div-1', 'academicRank', false)).toBeNull();
+    expect(await setFieldPermission('div-1', 'position', false)).toBeNull();
     expect(mockDeleteMany).toHaveBeenCalledWith({
-      where: { divisionId: 'div-1', fieldName: 'academicRank' },
+      where: { divisionId: 'div-1', fieldName: 'position' },
     });
   });
 });

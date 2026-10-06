@@ -46,6 +46,7 @@ export function RecordList({
   academicYear,
   lastExecutionMonth,
   coauthorCandidates,
+  readOnly = false,
 }: {
   records: SciencePlanRecordDetail[];
   /** This person's shares of this year's works moved to the next year. */
@@ -58,6 +59,12 @@ export function RecordList({
   lastExecutionMonth: number;
   /** Everybody the author may name in «Співавтори». */
   coauthorCandidates: CoauthorCandidate[];
+  /**
+   * Read by ADMIN or «Перевірка науки» on `/staff/[id]/science` (owner,
+   * 2026-10-05). `canEdit`, `canChange` and `deferrable` describe the record's
+   * OWNER, so every control and every sentence addressed to them goes.
+   */
+  readOnly?: boolean;
 }) {
   const workTypeById = new Map(workTypes.map((t) => [t.id, t]));
 
@@ -110,6 +117,8 @@ export function RecordList({
               // Only worth saying when the work is genuinely shared — for a solo
               // work the draw and the pool are the same number.
               const shared = record.coAuthors.length > 0;
+              // The owner's rights, never the reader's — see `readOnly`.
+              const canEdit = record.canEdit && !readOnly;
 
               return (
                 <li key={record.id} className="px-5 py-3">
@@ -172,7 +181,7 @@ export function RecordList({
                             people able to move the same pool «who has how much»
                             would have no answer, so the author does (owner,
                             2026-09-30). */}
-                        {shared && !record.canEdit && (
+                        {shared && !record.canEdit && !readOnly && (
                           <span className="text-foreground-soft">
                             Змінити частку — зверніться до автора ({record.authorName})
                           </span>
@@ -199,7 +208,7 @@ export function RecordList({
                               {/* D46: whoever entered the work or uploaded this
                                   file. «Видалити» stays shown on the only proof —
                                   its refusal names «Замінити» as the way out. */}
-                              {file.canChange && (
+                              {file.canChange && !readOnly && (
                                 <>
                                   <ReplaceFileDialog fileId={file.id} fileName={file.fileName} />
                                   <DeleteFileButton fileId={file.id} fileName={file.fileName} />
@@ -219,23 +228,21 @@ export function RecordList({
                           exactly what a declined work is waiting for. A record
                           ННВ declined on its own, before a decline became the
                           work's, still cannot be edited. */}
-                      {(!declined || record.workDeclined) && record.canEdit && (
+                      {(!declined || record.workDeclined) && canEdit && (
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                          {record.canEdit &&
-                            !record.workDeclined &&
-                            workTypeById.has(record.workTypeId) && (
-                              <EditRecordDialog
-                                workId={record.workId}
-                                type={workTypeById.get(record.workTypeId)!}
-                                evidence={record.evidence}
-                                link={record.link}
-                                executedMonth={record.executedMonth}
-                                startedMonth={record.startedMonth}
-                                academicYear={academicYear}
-                                lastExecutionMonth={lastExecutionMonth}
-                                label={record.summary}
-                              />
-                            )}
+                          {!record.workDeclined && workTypeById.has(record.workTypeId) && (
+                            <EditRecordDialog
+                              workId={record.workId}
+                              type={workTypeById.get(record.workTypeId)!}
+                              evidence={record.evidence}
+                              link={record.link}
+                              executedMonth={record.executedMonth}
+                              startedMonth={record.startedMonth}
+                              academicYear={academicYear}
+                              lastExecutionMonth={lastExecutionMonth}
+                              label={record.summary}
+                            />
+                          )}
                           {/* On every SHARED work — also one nobody shares yet: how a
                               co-author is added later, since nobody can add
                               themselves. An INDIVIDUAL work has no pool. */}
@@ -255,16 +262,15 @@ export function RecordList({
                             />
                           )}
                           {/* D47: not for a вид роботи proved by a link alone. */}
-                          {record.canEdit &&
-                            workTypeById.get(record.workTypeId)?.fileRule !== 'NONE' && (
-                              <AttachFileDialog workId={record.workId} label={record.summary} />
-                            )}
+                          {workTypeById.get(record.workTypeId)?.fileRule !== 'NONE' && (
+                            <AttachFileDialog workId={record.workId} label={record.summary} />
+                          )}
                         </div>
                       )}
 
                       {/* A co-author picks the year their share counts in
                           (owner, 2026-10-02). Never on the author's row. */}
-                      {record.deferrable && (
+                      {record.deferrable && !readOnly && (
                         <div className="mt-2">
                           <ShareYearButton
                             mode="defer"
@@ -288,7 +294,9 @@ export function RecordList({
                           hours until the author fixes the proof (owner,
                           2026-09-30). The author is told what to do and given the
                           button; a co-author is told whom to ask. */}
-                      {declined && record.workDeclined && (
+                      {/* Addressed to the owner or a co-author — nothing a
+                          reader on the record tab can act on. */}
+                      {declined && record.workDeclined && !readOnly && (
                         <div className="mt-1.5 space-y-2 text-sm text-foreground-soft">
                           {record.canEdit ? (
                             <>
@@ -346,7 +354,7 @@ export function RecordList({
                       </span>
                       {/* Only the author deletes, and it takes the whole work
                           (owner, 2026-10-02) — a co-author has no bin. */}
-                      {record.canEdit && (
+                      {canEdit && (
                         <DeleteRecordButton
                           recordId={record.id}
                           label={record.summary}
@@ -388,16 +396,18 @@ export function RecordList({
                       )}
                       <span className="text-foreground-soft">Автор: {share.authorName}</span>
                     </div>
-                    <div className="mt-2">
-                      <ShareYearButton
-                        mode="back"
-                        workId={share.workId}
-                        label={share.summary}
-                        hoursHundredths={share.hoursHundredths}
-                        targetYear={academicYear}
-                        currentYear={academicYear}
-                      />
-                    </div>
+                    {!readOnly && (
+                      <div className="mt-2">
+                        <ShareYearButton
+                          mode="back"
+                          workId={share.workId}
+                          label={share.summary}
+                          hoursHundredths={share.hoursHundredths}
+                          targetYear={academicYear}
+                          currentYear={academicYear}
+                        />
+                      </div>
+                    )}
                   </div>
                   <span className="shrink-0 text-sm text-foreground-soft">
                     Годин:{' '}

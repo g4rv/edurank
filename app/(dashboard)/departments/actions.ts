@@ -9,6 +9,7 @@ import { diffChanges } from '@/lib/audit';
 import { canManageEntity } from '@/lib/permissions';
 import { headDeanConflict } from '@/lib/queries/scope';
 import { parseDbError } from '@/lib/db-error';
+import { syncProfileDerivedFor } from '@/lib/rating/profile-derived';
 
 export type DepartmentActionState = { error: string } | { redirectTo: string };
 
@@ -67,6 +68,8 @@ export async function createDepartment(data: DepartmentSchema): Promise<Departme
           ),
         },
       });
+      // Being named завідувач is a rating 1.6 post (owner, 2026-10-06).
+      await syncProfileDerivedFor(tx, [parsed.data.headId]);
     });
   } catch (e) {
     dbError = parseDbError(
@@ -139,6 +142,10 @@ export async function updateDepartment(
           changes,
         },
       });
+      // The old завідувач loses the 1.6 post and the new one gains it.
+      if (existing?.headId !== (parsed.data.headId ?? null)) {
+        await syncProfileDerivedFor(tx, [existing?.headId, parsed.data.headId]);
+      }
     });
   } catch (e) {
     dbError = parseDbError(
@@ -208,6 +215,7 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
           ),
         },
       });
+      await syncProfileDerivedFor(tx, [department.headId]);
     });
   } catch (e) {
     dbError = parseDbError(

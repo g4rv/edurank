@@ -8,10 +8,25 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/queries/get-active-template', () => ({ getActiveTemplate: vi.fn() }));
+vi.mock('@/lib/rating/recompute', () => ({ recomputeRatingEntry: vi.fn() }));
+vi.mock('@/lib/queries/get-science-plan-gate', () => ({
+  getSciencePlanGate: vi.fn().mockResolvedValue({ open: true }),
+}));
+vi.mock('@/lib/queries/get-kharakterystyka', () => ({
+  getKharakterystyka: vi.fn(),
+  getKharakterystykaWithout: vi.fn(),
+}));
 vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn() },
-    kharakterystykaEntry: { findUnique: vi.fn(), create: vi.fn(), delete: vi.fn() },
+    activity: { findUnique: vi.fn(), delete: vi.fn() },
+    kharakterystykaEntry: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      delete: vi.fn(),
+      update: vi.fn(),
+    },
+    kharakterystykaRemovedLine: { createMany: vi.fn() },
     auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -20,7 +35,15 @@ vi.mock('@/lib/db', () => ({
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
-import { addKharakterystykaEntry, deleteKharakterystykaEntry } from './actions';
+import { getKharakterystyka, getKharakterystykaWithout } from '@/lib/queries/get-kharakterystyka';
+import { recomputeRatingEntry } from '@/lib/rating/recompute';
+import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
+import {
+  addKharakterystykaEntry,
+  deleteKharakterystykaEntry,
+  previewLineRemoval,
+  removeKharakterystykaLine,
+} from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockTemplate = getActiveTemplate as unknown as Mock;
@@ -29,6 +52,10 @@ const mockEntryFind = db.kharakterystykaEntry.findUnique as unknown as Mock;
 const mockCreate = db.kharakterystykaEntry.create as unknown as Mock;
 const mockDelete = db.kharakterystykaEntry.delete as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
+const mockActivityFind = db.activity.findUnique as unknown as Mock;
+const mockActivityDelete = db.activity.delete as unknown as Mock;
+const mockUpdate = db.kharakterystykaEntry.update as unknown as Mock;
+const mockRemovedLine = db.kharakterystykaRemovedLine.createMany as unknown as Mock;
 
 const STAFF_ID = 'staff-1';
 
@@ -75,7 +102,9 @@ beforeEach(() => {
   mockCreate.mockResolvedValue({ id: 'entry-1' });
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
     fn({
-      kharakterystykaEntry: { create: mockCreate, delete: mockDelete },
+      kharakterystykaEntry: { create: mockCreate, delete: mockDelete, update: mockUpdate },
+      kharakterystykaRemovedLine: { createMany: mockRemovedLine },
+      activity: { delete: mockActivityDelete },
       auditLog: { create: db.auditLog.create },
     })
   );
@@ -242,7 +271,7 @@ describe('deleteKharakterystykaEntry', () => {
   it('refuses an imported row', async () => {
     mockEntryFind.mockResolvedValue({ ...manual, source: 'IMPORT' });
     const result = await deleteKharakterystykaEntry('entry-1');
-    expect(result).toEqual({ error: expect.stringContaining('імпорт') });
+    expect(result).toEqual({ error: expect.stringContaining('рядка характеристики') });
     expect(mockDelete).not.toHaveBeenCalled();
   });
 
@@ -261,12 +290,186 @@ describe('deleteKharakterystykaEntry', () => {
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'entry-1' } });
   });
 
-  it('refuses an НПП removing a row an administrator typed for them', async () => {
-    // Mirrors the rating, where an НПП deletes only their own submission.
+  // Any line of their own document, whoever typed it (owner, 2026-10-06)
+  it('lets an НПП remove a row an administrator typed for them', async () => {
     mockEntryFind.mockResolvedValue(manual); // createdBy: 'admin-1'
     mockAuth.mockResolvedValue({ user: { id: STAFF_ID, role: 'USER', staffId: STAFF_ID } });
-    const result = await deleteKharakterystykaEntry('entry-1');
-    expect(result).toEqual({ error: expect.stringContaining('адміністратором') });
+    expect(await deleteKharakterystykaEntry('entry-1')).toEqual({ success: true });
+    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'entry-1' } });
+  });
+});
+
+// Any line of the document, whatever its source (owner, 2026-10-06) — and final.
+describe('removeKharakterystykaLine', () => {
+  const asNpp = () =>
+    mockAuth.mockResolvedValue({ user: { id: STAFF_ID, role: 'USER', staffId: STAFF_ID } });
+  const activityIn = (status: 'OPEN' | 'CLOSED', submittedByRole = 'NPP') => ({
+    staffId: STAFF_ID,
+    year: status === 'OPEN' ? 2026 : 2025,
+    score: 40,
+    status: 'APPROVED',
+    evidence: { title: 'Стаття' },
+    submittedByRole,
+    activityType: {
+      label: 'Публікація',
+      licencePositions: [{ position: 1 }],
+      evidenceFields: [],
+      template: { status },
+    },
+  });
+  const ratingLine = { kind: 'activity', activityId: 'act-1', position: 1 };
+  const entry = {
+    staffId: STAFF_ID,
+    position: 1,
+    group: null,
+    year: 2023,
+    text: 'Стаття 2023',
+    source: 'IMPORT',
+    removedAt: null,
+  };
+
+  // A closed year is frozen: the line leaves the Характеристика only.
+  it('hides a closed year’s rating line and leaves the rating alone', async () => {
+    asNpp();
+    mockActivityFind.mockResolvedValue(activityIn('CLOSED'));
+    expect(await removeKharakterystykaLine(STAFF_ID, ratingLine)).toEqual({ success: true });
+    expect(mockRemovedLine).toHaveBeenCalledWith({
+      data: [{ activityId: 'act-1', position: 1, removedBy: STAFF_ID }],
+      skipDuplicates: true,
+    });
+    expect(mockActivityDelete).not.toHaveBeenCalled();
+    expect(recomputeRatingEntry).not.toHaveBeenCalled();
+  });
+
+  // An open year's line is wrong in the rating too, and it can still be fixed.
+  it('deletes an open year’s entry from the rating, the НПП’s own', async () => {
+    asNpp();
+    mockActivityFind.mockResolvedValue(activityIn('OPEN'));
+    expect(await removeKharakterystykaLine(STAFF_ID, ratingLine)).toEqual({ success: true });
+    expect(mockActivityDelete).toHaveBeenCalledWith({ where: { id: 'act-1' } });
+    expect(recomputeRatingEntry).toHaveBeenCalledWith(expect.anything(), STAFF_ID, 2026);
+    expect(mockRemovedLine).not.toHaveBeenCalled();
+  });
+
+  it('asks an НПП for a saved science plan first, as any rating change does', async () => {
+    asNpp();
+    mockActivityFind.mockResolvedValue(activityIn('OPEN'));
+    (getSciencePlanGate as Mock).mockResolvedValueOnce({ open: false });
+    const result = await removeKharakterystykaLine(STAFF_ID, ratingLine);
+    expect(result).toHaveProperty('error');
+    expect(mockActivityDelete).not.toHaveBeenCalled();
+  });
+
+  it('refuses an НПП a відділ’s open-year entry', async () => {
+    asNpp();
+    mockActivityFind.mockResolvedValue(activityIn('OPEN', 'DIVISION'));
+    const result = await removeKharakterystykaLine(STAFF_ID, ratingLine);
+    expect(result).toEqual({ error: expect.stringContaining('відділом') });
+    expect(mockActivityDelete).not.toHaveBeenCalled();
+  });
+
+  it('lets ADMIN delete a відділ’s open-year entry from the rating', async () => {
+    mockActivityFind.mockResolvedValue(activityIn('OPEN', 'DIVISION'));
+    expect(await removeKharakterystykaLine(STAFF_ID, ratingLine)).toEqual({ success: true });
+    expect(mockActivityDelete).toHaveBeenCalledWith({ where: { id: 'act-1' } });
+  });
+
+  it('refuses a position the activity does not feed', async () => {
+    mockActivityFind.mockResolvedValue(activityIn('CLOSED'));
+    const result = await removeKharakterystykaLine(STAFF_ID, { ...ratingLine, position: 3 });
+    expect(result).toEqual({ error: 'Запис не знайдено' });
+    expect(mockRemovedLine).not.toHaveBeenCalled();
+  });
+
+  it('refuses somebody else’s activity', async () => {
+    mockActivityFind.mockResolvedValue({ ...activityIn('CLOSED'), staffId: 'someone-else' });
+    expect(await removeKharakterystykaLine(STAFF_ID, ratingLine)).toEqual({
+      error: 'Запис не знайдено',
+    });
+  });
+
+  // Deleted, an imported line would come back with the next import run.
+  it('hides an imported line rather than deleting it', async () => {
+    mockEntryFind.mockResolvedValue(entry);
+    expect(
+      await removeKharakterystykaLine(STAFF_ID, { kind: 'entry', entryId: 'entry-9' })
+    ).toEqual({ success: true });
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'entry-9' },
+      data: { removedAt: expect.any(Date), removedBy: 'admin-1' },
+    });
     expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  it('deletes a typed line outright', async () => {
+    mockEntryFind.mockResolvedValue({ ...entry, source: 'MANUAL' });
+    await removeKharakterystykaLine(STAFF_ID, { kind: 'entry', entryId: 'entry-9' });
+    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'entry-9' } });
+  });
+
+  it('refuses an НПП on somebody else’s document', async () => {
+    asNpp();
+    const result = await removeKharakterystykaLine('other-staff', ratingLine);
+    expect(result).toEqual({ error: expect.stringContaining('власної') });
+    expect(mockActivityFind).not.toHaveBeenCalled();
+  });
+});
+
+describe('previewLineRemoval', () => {
+  // Said in the dialog, before «Вилучити» — not as a refusal after it
+  it('tells an НПП without a saved plan before they confirm', async () => {
+    mockAuth.mockResolvedValue({ user: { id: STAFF_ID, role: 'USER', staffId: STAFF_ID } });
+    mockActivityFind.mockResolvedValue({
+      staffId: STAFF_ID,
+      status: 'APPROVED',
+      score: 80,
+      submittedByRole: 'NPP',
+      activityType: { licencePositions: [{ position: 1 }], template: { status: 'OPEN' } },
+    });
+    (getSciencePlanGate as Mock).mockResolvedValueOnce({ open: false });
+    const result = await previewLineRemoval(STAFF_ID, {
+      kind: 'activity',
+      activityId: 'act-1',
+      position: 1,
+    });
+    expect(result).toHaveProperty('error');
+  });
+
+  const doc = (met: boolean, metCount: number) => ({
+    from: 2022,
+    to: 2026,
+    metCount,
+    qualifies: metCount >= 4,
+    positions: [
+      { number: 1, title: 'Публікації', met, progress: met ? null : { have: 4, need: 5 } },
+    ],
+  });
+
+  it('says what the position and the count become', async () => {
+    mockActivityFind.mockResolvedValue({
+      staffId: STAFF_ID,
+      status: 'APPROVED',
+      score: 40,
+      submittedByRole: 'NPP',
+      activityType: { licencePositions: [{ position: 1 }], template: { status: 'CLOSED' } },
+    });
+    (getKharakterystyka as Mock).mockResolvedValue(doc(true, 4));
+    (getKharakterystykaWithout as Mock).mockResolvedValue(doc(false, 3));
+    expect(
+      await previewLineRemoval(STAFF_ID, { kind: 'activity', activityId: 'act-1', position: 1 })
+    ).toEqual({
+      mode: 'hide',
+      score: null,
+      position: 1,
+      title: 'Публікації',
+      metBefore: true,
+      metAfter: false,
+      progressAfter: { have: 4, need: 5 },
+      metCountBefore: 4,
+      metCountAfter: 3,
+      total: 1,
+      qualifiesBefore: true,
+      qualifiesAfter: false,
+    });
   });
 });

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import { requireAdmin, isEditorWritableField } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
+import { ACADEMIC_EDITABLE_FIELDS } from '@/lib/staff/editable-fields';
 
 export type PermissionToggleState = { error: string } | null;
 
@@ -14,14 +15,11 @@ const ALLOWED_FIELD_NAMES = new Set([
   'email',
   'phone',
   'isNpp',
-  'academicRank',
-  'scientificDegree',
-  'degreeMatchesDepartment',
-  'degreeDefenceDate',
-  'pedagogicalExperience',
-  'adminPosition',
-  'basicEducationMatch',
-  'basicEducationSpecialty',
+  // «Академічна інформація» and «Освіта» (2026-10-06). The old academicRank /
+  // scientificDegree / degreeDefenceDate / adminPosition are derived mirrors now
+  // and nobody's to grant; the migration gave every division that held one of
+  // them the new fields in its place.
+  ...ACADEMIC_EDITABLE_FIELDS,
   'wosUrl',
   'wosCitationCount',
   'scopusUrl',

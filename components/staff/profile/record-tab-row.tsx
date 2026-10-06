@@ -17,6 +17,7 @@ export function RecordTabRow({
   staffId,
   showRating,
   showStaffPages = true,
+  showScience = false,
   children,
 }: {
   staffId: string;
@@ -31,6 +32,8 @@ export function RecordTabRow({
    * ADMIN or EDITOR, so only that page passes this.
    */
   showStaffPages?: boolean;
+  /** «Наукова робота» — pass `canOverseeScience(session.user)`. */
+  showScience?: boolean;
   /** This tab's controls — normally one `ToolbarGroup`. */
   children?: React.ReactNode;
 }) {
@@ -38,7 +41,12 @@ export function RecordTabRow({
     <ToolbarRow>
       {/* No `active` prop: `StaffTabs` reads the pathname, which is also how it
           survives being re-rendered by each tab in turn. */}
-      <StaffTabs staffId={staffId} showRating={showRating} showStaffPages={showStaffPages} />
+      <StaffTabs
+        staffId={staffId}
+        showRating={showRating}
+        showStaffPages={showStaffPages}
+        showScience={showScience}
+      />
       {children}
     </ToolbarRow>
   );

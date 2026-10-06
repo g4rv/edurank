@@ -19,6 +19,8 @@ import {
   type RateSeed,
 } from '@/lib/stake/seed-allocation';
 import { syncProfileDerived } from '@/lib/rating/profile-derived';
+import { academicAuditValue, mirrorsForUpdate, storedAcademic } from '@/lib/staff/academic';
+import type { DiffValue } from '@/lib/audit';
 
 export type StaffCreateState =
   | { error: string }
@@ -68,10 +70,14 @@ export async function createStaff(
 
   const { partTimeDepartmentIds, departmentId, divisionId, ...rest } = parsed.data;
 
+  // The old columns the rating still reads, derived from the new fields
+  // (2026-10-06) — see lib/staff/academic.ts.
+  const mirrors = mirrorsForUpdate(storedAcademic(null), rest) ?? {};
   const createData: Record<string, unknown> = {
     ...rest,
     departmentId: departmentId ?? null,
     divisionId: divisionId ?? null,
+    ...mirrors,
   };
 
   // STAFF CREATE authorises the record and its ordinary data — not the columns
@@ -127,10 +133,17 @@ export async function createStaff(
       // The same two gaps were leaving `updateStaff` with empty diffs, and an
       // empty diff on a creation is worse — it is the one entry that has to
       // answer «where did this person come from».
-      const changes = diffChanges(
-        {},
-        createData as Record<string, string | number | boolean | null>
-      );
+      // Badge lists and degree keys as words, like `updateStaff` writes them:
+      // raw, a list went into the log as `["merited_teacher"]` and an empty
+      // one as a change from «—» to nothing.
+      const after: Record<string, DiffValue> = {};
+      for (const [key, value] of Object.entries(createData)) {
+        // The mirrors are bookkeeping, not something anybody typed — the same
+        // reason `updateStaff` derives them after its diff.
+        if (key in mirrors) continue;
+        after[key] = academicAuditValue(key, value);
+      }
+      const changes = diffChanges({}, after);
 
       if (partTimeDepartmentIds.length > 0) {
         const named = await tx.department.findMany({

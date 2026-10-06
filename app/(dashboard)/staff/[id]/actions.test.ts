@@ -34,6 +34,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { sendMail } from '@/lib/mail/mailer';
 import type { StaffUpdateSchema } from '@/validations/staff';
+import { ACADEMIC_EDITABLE_FIELDS } from '@/lib/staff/editable-fields';
 import {
   updateStaff,
   archiveStaff,
@@ -62,11 +63,18 @@ const fullPayload: StaffUpdateSchema = {
   isNpp: false,
   employmentRate: 0.25, // confidential — EDITOR/USER must never write it
   pedagogicalExperience: 30,
-  degreeDefenceDate: null,
-  academicRank: 'PROFESSOR',
-  scientificDegree: 'DOCTOR',
-  degreeMatchesDepartment: true,
-  adminPosition: 'DEAN',
+  position: 'PROFESSOR',
+  academicTitle: 'PROFESSOR',
+  honoraryTitles: [],
+  adminPositions: ['DEAN'],
+  candidateDegree: 'cand_history',
+  candidateSpecialty: null,
+  candidateDefenceDate: null,
+  doctorDegree: 'doc_history',
+  doctorSpecialty: null,
+  doctorDefenceDate: null,
+  candidateMatchesDepartment: true,
+  doctorMatchesDepartment: true,
   basicEducationMatch: true,
   basicEducationSpecialty: 'Історія',
   wosUrl: 'https://www.webofscience.com/wos/author/record/1',
@@ -159,14 +167,14 @@ describe('updateStaff field filtering', () => {
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     // employmentRate granted here on purpose: the confidential filter must still block it
     mockFieldPerms.mockResolvedValue([
-      { fieldName: 'academicRank' },
+      { fieldName: 'basicEducationSpecialty' },
       { fieldName: 'pedagogicalExperience' },
       { fieldName: 'employmentRate' },
     ]);
     const tx = mockTx();
 
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx).sort()).toEqual(['academicRank', 'pedagogicalExperience']);
+    expect(writtenFields(tx).sort()).toEqual(['basicEducationSpecialty', 'pedagogicalExperience']);
   });
 
   // Division decides an editor's permission scope, so writing it is escalation:
@@ -175,11 +183,14 @@ describe('updateStaff field filtering', () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockStaffLookups();
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
-    mockFieldPerms.mockResolvedValue([{ fieldName: 'academicRank' }, { fieldName: 'divisionId' }]);
+    mockFieldPerms.mockResolvedValue([
+      { fieldName: 'basicEducationSpecialty' },
+      { fieldName: 'divisionId' },
+    ]);
     const tx = mockTx();
 
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx)).toEqual(['academicRank']);
+    expect(writtenFields(tx)).toEqual(['basicEducationSpecialty']);
   });
 
   // Without this the editor gets an empty UPDATE and a «Збережено» toast
@@ -199,29 +210,43 @@ describe('updateStaff field filtering', () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockStaffLookups();
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
-    mockFieldPerms.mockResolvedValue([{ fieldName: 'academicRank' }]);
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'position' }]);
     const tx = mockTx();
     // Stored value already equals what the form submits
-    tx.staff.findUnique.mockResolvedValue({ academicRank: fullPayload.academicRank });
+    tx.staff.findUnique.mockResolvedValue({ position: fullPayload.position });
 
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
     expect(tx.staff.update).toHaveBeenCalled();
     expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 
-  it('USER edits own profile: only the whitelisted contact/profile fields', async () => {
+  // Contacts, research links and citation counts, and since 2026-10-06 their
+  // own academic info —
+  // plus the five legacy mirrors derived from it. Never name, кафедра, ставка.
+  it('USER edits own profile: only the whitelisted fields', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
     mockStaffLookups();
     const tx = mockTx();
 
     expect(await updateStaff('staff-own', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx).sort()).toEqual([
-      'googleScholarUrl',
-      'orcidId',
-      'phone',
-      'scopusUrl',
-      'wosUrl',
-    ]);
+    expect(writtenFields(tx).sort()).toEqual(
+      [
+        'googleScholarUrl',
+        'orcidId',
+        'phone',
+        'scopusUrl',
+        'wosUrl',
+        'wosCitationCount',
+        'scopusCitationCount',
+        'googleScholarCitationCount',
+        ...ACADEMIC_EDITABLE_FIELDS,
+        'academicRank',
+        'scientificDegree',
+        'degreeDefenceDate',
+        'degreeMatchesDepartment',
+        'adminPosition',
+      ].sort()
+    );
   });
 
   it('ADMIN writes every schema field they own', async () => {
@@ -309,7 +334,7 @@ describe('updateStaff records сумісництво in the audit log', () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockStaffLookups();
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
-    mockFieldPerms.mockResolvedValue([{ fieldName: 'academicRank' }]);
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'basicEducationSpecialty' }]);
     const tx = mockTx();
 
     await updateStaff('staff-1', { ...fullPayload, partTimeDepartmentIds: ['d2'] });
@@ -326,7 +351,10 @@ describe('updateStaff target-role guard', () => {
   const editorWithEmailGrant = () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
-    mockFieldPerms.mockResolvedValue([{ fieldName: 'email' }, { fieldName: 'academicRank' }]);
+    mockFieldPerms.mockResolvedValue([
+      { fieldName: 'email' },
+      { fieldName: 'basicEducationSpecialty' },
+    ]);
   };
 
   it('refuses an EDITOR editing an ADMIN, even with every grant', async () => {
@@ -353,7 +381,7 @@ describe('updateStaff target-role guard', () => {
     const tx = mockTx();
 
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx).sort()).toEqual(['academicRank', 'email']);
+    expect(writtenFields(tx).sort()).toEqual(['basicEducationSpecialty', 'email']);
   });
 
   // Their own row is theirs whatever their role: the field filters still apply
@@ -364,7 +392,7 @@ describe('updateStaff target-role guard', () => {
     const tx = mockTx();
 
     expect(await updateStaff('staff-editor', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx).sort()).toEqual(['academicRank', 'email']);
+    expect(writtenFields(tx).sort()).toEqual(['basicEducationSpecialty', 'email']);
   });
 
   it('reports a missing record instead of pretending it saved', async () => {
@@ -409,6 +437,17 @@ describe('archiveStaff authorization', () => {
     mockStaffLookups({ targetRole: 'EDITOR' });
 
     expect(await archiveStaff('staff-editor', '')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  // Nobody archives themselves, an ADMIN included (owner, 2026-10-05). Plenty
+  // of other admins, so it is THIS rule refusing, not the last-admin guard.
+  it('refuses an ADMIN archiving their own record', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'admin-1' } });
+    mockStaffLookups({ targetRole: 'ADMIN' });
+    mockStaffCount.mockResolvedValue(5);
+
+    expect(await archiveStaff('admin-1', '')).toEqual({ error: 'Недостатньо прав' });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
@@ -776,7 +815,7 @@ describe('updateStaff — сумісництво is a grantable field', () => {
   });
 
   it('an EDITOR granted the field writes it', async () => {
-    const tx = editor(['academicRank', 'partTimeDepartmentIds']);
+    const tx = editor(['basicEducationSpecialty', 'partTimeDepartmentIds']);
 
     expect(await updateStaff('staff-1', withPartTime)).toEqual({ success: true });
     expect(tx.staffDepartment.createMany).toHaveBeenCalledWith(
@@ -787,7 +826,7 @@ describe('updateStaff — сумісництво is a grantable field', () => {
   });
 
   it('an EDITOR without the grant leaves сумісництво untouched', async () => {
-    const tx = editor(['academicRank']);
+    const tx = editor(['basicEducationSpecialty']);
 
     expect(await updateStaff('staff-1', withPartTime)).toEqual({ success: true });
     expect(tx.staffDepartment.createMany).not.toHaveBeenCalled();
@@ -987,5 +1026,42 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
     });
 
     expect(kept(tx)).toEqual([]);
+  });
+});
+
+// The rating still reads the old columns (2026-10-06): an ADMIN save of the
+// new fields must keep them in step, or 1.2 / 1.3 / 1.6 would score the
+// person's previous values.
+describe('updateStaff — legacy mirrors', () => {
+  it('writes academicRank, scientificDegree and adminPosition from the new fields', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'admin-1' } });
+    mockStaffLookups();
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
+    expect(tx.staff.update.mock.calls[0][0].data).toMatchObject({
+      position: 'PROFESSOR',
+      academicRank: 'PROFESSOR',
+      scientificDegree: 'DOCTOR',
+      adminPosition: 'DEAN',
+    });
+  });
+});
+
+// A form that does not carry the academic fields (an old open tab, a narrower
+// form) must not empty them with the schema's defaults (2026-10-06).
+describe('updateStaff — writes only what was sent', () => {
+  it('leaves academic fields alone when the payload did not include them', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'admin-1' } });
+    mockStaffLookups();
+    const tx = mockTx();
+    const { position: _p, honoraryTitles: _h, adminPositions: _a, ...withoutSome } = fullPayload;
+
+    await updateStaff('staff-1', withoutSome as StaffUpdateSchema);
+    const written = writtenFields(tx);
+    expect(written).not.toContain('position');
+    expect(written).not.toContain('honoraryTitles');
+    expect(written).not.toContain('adminPositions');
+    expect(written).toContain('lastName');
   });
 });

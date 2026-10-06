@@ -1,9 +1,11 @@
 import type {
   AcademicRank,
+  AcademicTitle,
   AdminPosition,
   ProofRule,
   Role,
   ScientificDegree,
+  StaffPosition,
   StudentDegree,
   StudentFunding,
   StudyForm,
@@ -18,6 +20,21 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const ACADEMIC_RANK_LABELS: Record<AcademicRank, string> = {
   LECTURER: 'Викладач',
   SENIOR_LECTURER: 'Старший викладач',
+  DOCENT: 'Доцент',
+  PROFESSOR: 'Професор',
+};
+
+/** Посада (owner, 2026-10-06) — the four values the old «вчене звання» held */
+export const STAFF_POSITION_LABELS: Record<StaffPosition, string> = {
+  LECTURER: 'Викладач',
+  SENIOR_LECTURER: 'Старший викладач',
+  DOCENT: 'Доцент',
+  PROFESSOR: 'Професор',
+};
+
+/** Вчене звання proper (owner, 2026-10-06) */
+export const ACADEMIC_TITLE_LABELS: Record<AcademicTitle, string> = {
+  SENIOR_RESEARCHER: 'Старший дослідник',
   DOCENT: 'Доцент',
   PROFESSOR: 'Професор',
 };
@@ -57,11 +74,15 @@ export const PROOF_RULE_LABELS: Record<ProofRule, string> = {
 export const ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {
   VICE_RECTOR: 'Проректор',
   DEAN: 'Декан',
-  VICE_DEAN_OR_SECRETARY: 'Заступник декана / вчений секретар / відп. секретар прийм. комісії',
-  DEPARTMENT_OR_UNIT_HEAD: 'Завідувач кафедри / керівник відділу',
+  VICE_DEAN: 'Заступник декана',
+  ACADEMIC_SECRETARY: 'Вчений секретар',
+  ADMISSION_SECRETARY: 'Відповідальний секретар приймальної комісії',
+  DEPARTMENT_HEAD: 'Завідувач кафедри',
+  UNIT_HEAD: 'Керівник відділу',
   DEPUTY_DEPARTMENT_HEAD: 'Заступник завідувача кафедри',
   DEPUTY_ADMISSION_SECRETARY: 'Заступник відповідального секретаря приймальної комісії',
-  LAB_OR_CENTER_HEAD: 'Завідувач лабораторії / керівник центру',
+  LAB_HEAD: 'Завідувач лабораторії',
+  CENTER_HEAD: 'Керівник центру',
 };
 
 export const FIELD_LABELS: Record<string, string> = {
@@ -74,8 +95,20 @@ export const FIELD_LABELS: Record<string, string> = {
   avatarKey: 'Фото профілю',
   isNpp: 'Тип (НПП / Адм.)',
   employmentRate: 'Ставка',
-  pedagogicalExperience: 'Педагогічний стаж',
-  academicRank: 'Вчене звання',
+  pedagogicalExperience: 'Науково-педагогічний стаж',
+  academicRank: 'Вчене звання (старе поле)',
+  position: 'Посада',
+  academicTitle: 'Вчене звання',
+  honoraryTitles: 'Почесні звання',
+  adminPositions: 'Адміністративні посади',
+  candidateDegree: 'Науковий ступінь: кандидат / PhD',
+  candidateSpecialty: 'Спеціальність за дипломом (кандидат / PhD)',
+  candidateDefenceDate: 'Дата захисту (кандидат / PhD)',
+  candidateMatchesDepartment: 'Відповідає спеціальності кафедри (кандидат / PhD)',
+  doctorDegree: 'Науковий ступінь: доктор наук',
+  doctorSpecialty: 'Спеціальність за дипломом (доктор наук)',
+  doctorDefenceDate: 'Дата захисту (доктор наук)',
+  doctorMatchesDepartment: 'Відповідає спеціальності кафедри (доктор наук)',
   scientificDegree: 'Науковий ступінь',
   degreeMatchesDepartment: 'Відповідність ступеня кафедрі',
   degreeDefenceDate: 'Дата захисту дисертації',
@@ -140,8 +173,9 @@ export const FIELD_LABELS: Record<string, string> = {
   licencePositions: 'Позиції ліцензійних умов',
   // Характеристика — evidence typed by hand or carried in from the pre-2025
   // files. `text` is deliberately plain: the audit log prints it verbatim, and
-  // this is the one place the document's content is editable.
-  position: 'Позиція ліцензійних умов',
+  // this is the one place the document's content is editable. Its `position`
+  // is «Позиція ліцензійних умов» via ENTITY_FIELD_LABELS — the plain key is
+  // the Staff посада (2026-10-06).
   text: 'Дані підтвердження',
   // Which alternative of the position — п.2 alone has more than one. The stored
   // value is the machine name («patent»), which is what the audit log shows; the
@@ -243,6 +277,9 @@ export const FIELD_LABELS: Record<string, string> = {
  * override the few keys that mean something different to it.
  */
 export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
+  KharakterystykaEntry: {
+    position: 'Позиція ліцензійних умов',
+  },
   AdmittedStudent: {
     name: 'ПІБ',
     year: 'Рік вступу',

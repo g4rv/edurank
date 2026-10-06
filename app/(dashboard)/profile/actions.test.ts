@@ -8,23 +8,55 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
-  db: { staff: { update: vi.fn() }, $transaction: vi.fn() },
+  db: {
+    staff: { update: vi.fn(), findUnique: vi.fn().mockResolvedValue({ isNpp: true }) },
+    $transaction: vi.fn(),
+  },
+}));
+// The headship half of «one leading post» reads the database (2026-10-06).
+vi.mock('@/lib/queries/scope', () => ({ adminPostsConflict: vi.fn().mockResolvedValue(null) }));
+vi.mock('@/lib/rating/profile-derived', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/rating/profile-derived')>()),
+  syncProfileDerived: vi.fn(),
 }));
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import type { OwnProfileSchema } from '@/validations/staff';
+import { syncProfileDerived } from '@/lib/rating/profile-derived';
+import { adminPostsConflict } from '@/lib/queries/scope';
 import { updateOwnProfile } from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 
-const payload: OwnProfileSchema = {
+// Contacts only — what the form sent before academic info opened to НПП. Cast,
+// because the parsed type now lists every academic field too.
+const payload = {
   phone: '+380501112233',
   wosUrl: 'https://www.webofscience.com/wos/author/record/1',
   scopusUrl: null,
   googleScholarUrl: null,
   orcidId: '0000-0001-2345-6789',
+} as unknown as OwnProfileSchema;
+
+// What an НПП now fills in about themselves (owner, 2026-10-06).
+const ACADEMIC = {
+  pedagogicalExperience: 12,
+  position: 'DOCENT',
+  academicTitle: 'DOCENT',
+  honoraryTitles: ['merited_teacher'],
+  adminPositions: ['DEAN'],
+  candidateDegree: 'cand_history',
+  candidateSpecialty: 'Історія',
+  candidateDefenceDate: '2015-06-01',
+  doctorDegree: null,
+  doctorSpecialty: null,
+  doctorDefenceDate: null,
+  candidateMatchesDepartment: true,
+  doctorMatchesDepartment: null,
+  basicEducationMatch: true,
+  basicEducationSpecialty: 'Історія',
 };
 
 function mockTx() {
@@ -122,5 +154,115 @@ describe('updateOwnProfile', () => {
 
     expect(await updateOwnProfile(payload)).toEqual({ success: true });
     expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateOwnProfile — academic info (2026-10-06)', () => {
+  beforeEach(() => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
+  });
+
+  it('lets an НПП save it, keeps the rating’s old fields in step and re-scores', async () => {
+    const tx = mockTx();
+    expect(
+      await updateOwnProfile({ ...payload, ...ACADEMIC } as unknown as OwnProfileSchema)
+    ).toEqual({ success: true });
+
+    const data = tx.staff.update.mock.calls[0][0].data;
+    expect(data).toMatchObject({
+      position: 'DOCENT',
+      honoraryTitles: ['merited_teacher'],
+      adminPositions: ['DEAN'],
+      candidateDegree: 'cand_history',
+      // the mirrors rating 1.2 / 1.3 / 1.6 read
+      academicRank: 'DOCENT',
+      scientificDegree: 'CANDIDATE',
+      adminPosition: 'DEAN',
+    });
+    expect(data.degreeDefenceDate).toEqual(new Date(Date.UTC(2015, 5, 1)));
+    expect(syncProfileDerived).toHaveBeenCalledWith(tx, 'staff-own');
+  });
+
+  // One leading post at most, a headship counted (owner, 2026-10-06): a
+  // завідувач who also picks «Керівник відділу» is refused before any write.
+  it('refuses a second leading post beside a headship', async () => {
+    const tx = mockTx();
+    (adminPostsConflict as Mock).mockResolvedValueOnce('Керівна посада може бути лише одна');
+    expect(
+      await updateOwnProfile({
+        ...payload,
+        ...ACADEMIC,
+        adminPositions: ['UNIT_HEAD'],
+      } as unknown as OwnProfileSchema)
+    ).toEqual({ error: 'Керівна посада може бути лише одна' });
+    expect(adminPostsConflict).toHaveBeenCalledWith('staff-own', ['UNIT_HEAD']);
+    expect(tx.staff.update).not.toHaveBeenCalled();
+  });
+
+  // The form draws these for an НПП only; a hand-made request from an
+  // administrative account must not give itself a посада or a ступінь.
+  it('drops academic fields for somebody who is not an НПП', async () => {
+    (db.staff.findUnique as Mock).mockResolvedValueOnce({ isNpp: false });
+    const tx = mockTx();
+    await updateOwnProfile({ ...payload, ...ACADEMIC } as unknown as OwnProfileSchema);
+    const fields = writtenFields(tx);
+    expect(fields).toContain('phone');
+    expect(fields).not.toContain('position');
+    expect(fields).not.toContain('adminPositions');
+    expect(fields).not.toContain('academicRank');
+  });
+
+  // A save that does not carry the academic fields (an old open tab, the
+  // contacts-only form) must not wipe them with the schema's empty defaults.
+  it('leaves academic fields alone when the save did not send them', async () => {
+    const tx = mockTx();
+    await updateOwnProfile(payload);
+    const fields = writtenFields(tx);
+    expect(fields).not.toContain('position');
+    expect(fields).not.toContain('honoraryTitles');
+    expect(fields).not.toContain('academicRank');
+    // (It may still re-score: the profile links feed the citation indicators.)
+  });
+
+  it('prints badges and degrees in words in the audit log', async () => {
+    const tx = mockTx();
+    tx.staff.findUnique.mockResolvedValue({
+      lastName: 'Коваленко',
+      firstName: 'Іван',
+      patronymic: 'Петрович',
+      honoraryTitles: [],
+      adminPositions: [],
+      candidateDegree: null,
+      position: null,
+    });
+    await updateOwnProfile({ ...payload, ...ACADEMIC } as unknown as OwnProfileSchema);
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes.honoraryTitles).toEqual({ from: null, to: 'Заслужений вчитель' });
+    expect(changes.candidateDegree).toEqual({ from: null, to: 'Кандидат історичних наук' });
+    expect(changes.position).toEqual({ from: null, to: 'Доцент' });
+    // The mirrors are bookkeeping, not something the person changed.
+    expect(changes.academicRank).toBeUndefined();
+  });
+});
+
+// Citation counts (owner, 2026-10-06): an НПП now types their own. They feed
+// the citation indicators, so the save re-scores.
+describe('updateOwnProfile — citations', () => {
+  it('saves the three citation counts and re-scores', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
+    const tx = mockTx();
+    await updateOwnProfile({
+      ...payload,
+      wosCitationCount: '12',
+      scopusCitationCount: '7',
+      googleScholarCitationCount: '140',
+    } as unknown as OwnProfileSchema);
+
+    expect(tx.staff.update.mock.calls[0][0].data).toMatchObject({
+      wosCitationCount: 12,
+      scopusCitationCount: 7,
+      googleScholarCitationCount: 140,
+    });
+    expect(syncProfileDerived).toHaveBeenCalledWith(tx, 'staff-own');
   });
 });

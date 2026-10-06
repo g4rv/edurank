@@ -8,6 +8,14 @@ import {
   WOS_HOSTS,
 } from '@/lib/link-hosts';
 import { isValidOrcid } from '@/lib/orcid';
+import {
+  CANDIDATE_DEGREES,
+  DOCTOR_DEGREES,
+  HONORARY_TITLES,
+  UNSPECIFIED_CANDIDATE,
+  UNSPECIFIED_DOCTOR,
+} from '@/lib/staff/academic-options';
+import { adminPostProblem, type AdminPostProblem } from '@/lib/staff/academic';
 
 const str = (v: unknown) =>
   v === '' || v === undefined || (typeof v === 'string' && !v.trim()) ? null : v;
@@ -71,6 +79,117 @@ const profileLink = (hosts: readonly string[], error: string) =>
       .nullable()
   );
 
+/** A date in a sane range — a typo must not land a defence in 1024 or 2924 */
+const defenceDate = z.preprocess(
+  dateStr,
+  z
+    .date()
+    .refine((d) => d.getUTCFullYear() >= 1950 && d.getUTCFullYear() <= 2100, {
+      error: 'Некоректна дата',
+    })
+    .nullable()
+);
+
+/** One of a list's keys, or nothing */
+const oneOf = (list: readonly { value: string }[], error: string) =>
+  z.preprocess(
+    str,
+    z
+      .string()
+      .refine((v) => list.some((o) => o.value === v), { error })
+      .nullable()
+  );
+
+/** A badge list: keys of the list, each once, in the order they were added */
+const badges = <T extends string>(item: z.ZodType<T>) =>
+  z
+    .array(item)
+    .default([])
+    .transform((list) => [...new Set(list)]);
+
+/** Every `AdminPosition` — one per real post since 2026-10-06 */
+export const ADMIN_POSITIONS = [
+  'VICE_RECTOR',
+  'DEAN',
+  'VICE_DEAN',
+  'ACADEMIC_SECRETARY',
+  'ADMISSION_SECRETARY',
+  'DEPARTMENT_HEAD',
+  'UNIT_HEAD',
+  'DEPUTY_DEPARTMENT_HEAD',
+  'DEPUTY_ADMISSION_SECRETARY',
+  'LAB_HEAD',
+  'CENTER_HEAD',
+] as const;
+
+/**
+ * Why a set of administrative posts cannot be held together (owner,
+ * 2026-10-06) — see `adminPostProblem`. The form shows it under the badge list;
+ * the save and the кафедра / факультет screens show it when a headship is what
+ * makes the second post.
+ */
+export const ADMIN_POST_PROBLEM_MESSAGES: Record<AdminPostProblem, string> = {
+  VICE_RECTOR_ALONE: 'Проректор не обіймає інших адміністративних посад',
+  ONE_LEADING:
+    'Керівна посада може бути лише одна: проректор, декан, завідувач кафедри або керівник відділу',
+};
+
+const specialty = z.preprocess(
+  str,
+  z.string().max(200, { error: 'Занадто довге значення' }).nullable()
+);
+
+/**
+ * «Академічна інформація» and «Освіта» (owner, 2026-10-06) — the fields an НПП
+ * now fills in about themselves, and ADMIN and granted editors about anybody.
+ * Shared by `staffUpdateSchema` and `ownProfileSchema`, so the two forms can
+ * never accept different values.
+ *
+ * The old `academicRank`, `scientificDegree`, `degreeDefenceDate` and
+ * `adminPosition` are NOT here: nobody types them any more. Every save derives
+ * them from these (`lib/staff/academic.ts`), because the rating still reads
+ * them.
+ */
+export const academicFields = {
+  pedagogicalExperience: z.preprocess(num, z.number().int().nonnegative().nullable()),
+  position: z.preprocess(
+    str,
+    z.enum(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']).nullable()
+  ),
+  academicTitle: z.preprocess(str, z.enum(['SENIOR_RESEARCHER', 'DOCENT', 'PROFESSOR']).nullable()),
+  honoraryTitles: badges(
+    z.string().refine((v) => HONORARY_TITLES.some((o) => o.value === v), {
+      error: 'Невідоме почесне звання',
+    })
+  ),
+  // Several posts, but one leading one at most (owner, 2026-10-06). Only the
+  // picked list is judged here; a headship is the database's to know, so the
+  // save checks the pair again (`adminPostProblem` with the headship).
+  adminPositions: badges(z.enum(ADMIN_POSITIONS)).superRefine((list, ctx) => {
+    const problem = adminPostProblem(list);
+    if (problem) ctx.addIssue({ code: 'custom', message: ADMIN_POST_PROBLEM_MESSAGES[problem] });
+  }),
+  // The placeholder is no option (`UNSPECIFIED_CANDIDATE`), but a form re-sends
+  // what is stored: refusing it would block every save — a phone number, by an
+  // admin who cannot know the branch — until somebody chose the degree.
+  candidateDegree: oneOf(
+    [...CANDIDATE_DEGREES, { value: UNSPECIFIED_CANDIDATE }],
+    'Оберіть ступінь зі списку'
+  ),
+  candidateSpecialty: specialty,
+  candidateDefenceDate: defenceDate,
+  candidateMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+  doctorDegree: oneOf(
+    [...DOCTOR_DEGREES, { value: UNSPECIFIED_DOCTOR }],
+    'Оберіть ступінь зі списку'
+  ),
+  doctorSpecialty: specialty,
+  doctorDefenceDate: defenceDate,
+  doctorMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+  basicEducationMatch: z.preprocess(boolStr, z.boolean().nullable()),
+  basicEducationSpecialty: specialty,
+};
+
 export const staffUpdateSchema = z
   .object({
     lastName: z.string().trim().min(1, { error: "Обов'язкове поле" }),
@@ -97,45 +216,7 @@ export const staffUpdateSchema = z
     phone: phoneField,
     isNpp: z.preprocess((v) => v === true || v === 'true', z.boolean()),
     employmentRate: z.preprocess(num, z.number().nonnegative().nullable()),
-    pedagogicalExperience: z.preprocess(num, z.number().int().nonnegative().nullable()),
-    academicRank: z.preprocess(
-      str,
-      z.enum(['LECTURER', 'SENIOR_LECTURER', 'DOCENT', 'PROFESSOR']).nullable()
-    ),
-    scientificDegree: z.preprocess(str, z.enum(['CANDIDATE', 'DOCTOR']).nullable()),
-    degreeMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
-    // Характеристика п.5 — one date, for the highest degree only. Bounded so a
-    // typo cannot land a defence in 1024 or 2924: the document tests whether it
-    // falls inside a five-year window, and either extreme would silently answer
-    // «no» with nothing on screen to explain it.
-    degreeDefenceDate: z.preprocess(
-      dateStr,
-      z
-        .date()
-        .refine((d) => d.getUTCFullYear() >= 1950 && d.getUTCFullYear() <= 2100, {
-          error: 'Некоректна дата',
-        })
-        .nullable()
-    ),
-    adminPosition: z.preprocess(
-      str,
-      z
-        .enum([
-          'VICE_RECTOR',
-          'DEAN',
-          'VICE_DEAN_OR_SECRETARY',
-          'DEPARTMENT_OR_UNIT_HEAD',
-          'DEPUTY_DEPARTMENT_HEAD',
-          'DEPUTY_ADMISSION_SECRETARY',
-          'LAB_OR_CENTER_HEAD',
-        ])
-        .nullable()
-    ),
-    basicEducationMatch: z.preprocess(boolStr, z.boolean().nullable()),
-    basicEducationSpecialty: z.preprocess(
-      str,
-      z.string().max(200, { error: 'Занадто довге значення' }).nullable()
-    ),
+    ...academicFields,
     wosUrl: profileLink(WOS_HOSTS, 'Очікується посилання на Web of Science'),
     wosCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
     scopusUrl: profileLink(SCOPUS_HOSTS, 'Очікується посилання на Scopus'),
@@ -227,10 +308,10 @@ export type StaffCreateSchema = StaffUpdateSchema;
 
 /**
  * What a person may change about themselves, whatever their role: how to reach
- * them and where their public research profiles are. Everything else on a Staff
- * row — name, department, звання, ставка — is somebody else's to set, which is
- * why this is a separate, much smaller shape than staffUpdateSchema rather than
- * a subset of it.
+ * them, where their public research profiles are, and — since 2026-10-06, until
+ * HR owns it — their own «Академічна інформація» and «Освіта». Everything else
+ * on a Staff row — name, department, ставка — is somebody else's to set, which
+ * is why this is a separate shape from staffUpdateSchema rather than a subset.
  *
  * Kept in step with USER_EDITABLE_STAFF_FIELDS in lib/permissions.ts, which
  * filters the write again on the server.
@@ -248,6 +329,11 @@ export const ownProfileSchema = z.object({
       .refine(isValidOrcid, { error: 'Некоректний ORCID' })
       .nullable()
   ),
+  // Citation counts (owner, 2026-10-06) — the same rule as the staff form's.
+  wosCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
+  scopusCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
+  googleScholarCitationCount: z.preprocess(num, z.number().int().nonnegative().nullable()),
+  ...academicFields,
 });
 
 export type OwnProfileSchema = z.infer<typeof ownProfileSchema>;

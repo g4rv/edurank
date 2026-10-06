@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-
-type TabKey = 'profile' | 'rating' | 'kharakterystyka';
+import { staffTabList, type StaffTabKey as TabKey } from '@/components/staff/staff-tab-list';
 
 interface StaffTabsProps {
   /** Omit inside a `loading.tsx` — it is read from the pathname instead. */
@@ -57,6 +56,14 @@ interface StaffTabsProps {
    * `Профіль` is never disabled — it is not rating data.
    */
   frozen?: boolean;
+  /**
+   * «Наукова робота» — ADMIN and «Перевірка науки» only (owner, 2026-10-05).
+   *
+   * Defaults to false, so a `loading.tsx`, which has no session, draws the
+   * three tabs everybody has; for an overseer the fourth appears at the END
+   * once the page arrives, so nothing already drawn moves.
+   */
+  showScience?: boolean;
 }
 
 export function StaffTabs({
@@ -66,6 +73,7 @@ export function StaffTabs({
   showStaffPages = true,
   basePath = '/staff',
   frozen = false,
+  showScience = false,
 }: StaffTabsProps) {
   const pathname = usePathname();
 
@@ -89,19 +97,7 @@ export function StaffTabs({
   // root, and an id is appended only when one is given or found in the path.
   const id = staffId ?? (basePath === '/profile' ? null : pathname.split('/').filter(Boolean)[1]);
   const root = id ? `${basePath}/${id}` : basePath;
-  const tabs = [
-    ...(showStaffPages
-      ? [
-          { key: 'profile' as const, label: 'Профіль', href: root },
-          { key: 'rating' as const, label: 'Рейтинг', href: `${root}/rating` },
-        ]
-      : []),
-    {
-      key: 'kharakterystyka' as const,
-      label: 'Характеристика',
-      href: `${root}/kharakterystyka`,
-    },
-  ];
+  const tabs = staffTabList({ root, showStaffPages, showScience });
 
   // One tab is not a tab bar — it is a label pretending to be a control.
   if (tabs.length < 2) return null;

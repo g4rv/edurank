@@ -10,31 +10,37 @@ import {
 const VALUES = new Map([
   ['VICE_RECTOR', 10] as const,
   ['DEAN', 5] as const,
-  ['VICE_DEAN_OR_SECRETARY', 2] as const,
-  ['DEPARTMENT_OR_UNIT_HEAD', 6] as const,
+  ['VICE_DEAN', 2] as const,
+  ['LAB_HEAD', 3] as const,
+  ['DEPARTMENT_HEAD', 6] as const,
 ]);
 
 describe('statusValue', () => {
   it('is zero for somebody with no administrative position', () => {
-    expect(statusValue(null, VALUES)).toBe(0);
-    expect(statusValue(undefined, VALUES)).toBe(0);
+    expect(statusValue([], VALUES)).toBe(0);
   });
 
   it('reads the value ADMIN set for the position held', () => {
-    expect(statusValue('DEAN', VALUES)).toBe(0.05);
-    expect(statusValue('VICE_DEAN_OR_SECRETARY', VALUES)).toBe(0.02);
+    expect(statusValue(['DEAN'], VALUES)).toBe(0.05);
+    expect(statusValue(['VICE_DEAN'], VALUES)).toBe(0.02);
+  });
+
+  // Every post is priced on its own and they add up (owner, 2026-10-06).
+  it('adds up every position held, each once', () => {
+    expect(statusValue(['VICE_DEAN', 'LAB_HEAD'], VALUES)).toBe(0.05);
+    expect(statusValue(['VICE_DEAN', 'VICE_DEAN'], VALUES)).toBe(0.02);
   });
 
   // A position ADMIN has not priced counts nothing rather than throwing: the
-  // seven positions exist whether or not anybody has decided what they are worth.
+  // positions exist whether or not anybody has decided what they are worth.
   it('is zero for a position the year has no value for', () => {
-    expect(statusValue('LAB_OR_CENTER_HEAD', VALUES)).toBe(0);
+    expect(statusValue(['CENTER_HEAD'], VALUES)).toBe(0);
   });
 });
 
 describe('statusLines', () => {
-  it('returns every PRICED position, not only the one held', () => {
-    const lines = statusLines('VICE_DEAN_OR_SECRETARY', VALUES);
+  it('returns every PRICED position, not only the ones held', () => {
+    const lines = statusLines(['VICE_DEAN'], VALUES);
     expect(lines).toHaveLength(PRICED_POSITIONS.length);
     expect(lines.map((l) => l.position)).toEqual([...PRICED_POSITIONS]);
   });
@@ -42,36 +48,32 @@ describe('statusLines', () => {
   // Проректор and декан are paid outside EduRank (owner, 2026-08-24), so a row
   // for them on the надбавка tooltip would invite paying the same thing twice.
   it('never lists проректор or декан, even when the year prices them', () => {
-    const shown = statusLines(null, VALUES).map((l) => l.position);
+    const shown = statusLines([], VALUES).map((l) => l.position);
     expect(shown).not.toContain('VICE_RECTOR');
     expect(shown).not.toContain('DEAN');
   });
 
-  it('marks exactly the position held', () => {
-    const lines = statusLines('VICE_DEAN_OR_SECRETARY', VALUES);
-    expect(lines.filter((l) => l.counts).map((l) => l.position)).toEqual([
-      'VICE_DEAN_OR_SECRETARY',
-    ]);
+  it('marks exactly the positions held', () => {
+    const lines = statusLines(['VICE_DEAN', 'LAB_HEAD'], VALUES);
+    expect(lines.filter((l) => l.counts).map((l) => l.position)).toEqual(['VICE_DEAN', 'LAB_HEAD']);
   });
 
   it('marks nothing when the person holds no position', () => {
-    expect(statusLines(null, VALUES).some((l) => l.counts)).toBe(false);
+    expect(statusLines([], VALUES).some((l) => l.counts)).toBe(false);
   });
 
   it('marks nothing for a декан — their position is not on this list at all', () => {
-    expect(statusLines('DEAN', VALUES).some((l) => l.counts)).toBe(false);
+    expect(statusLines(['DEAN'], VALUES).some((l) => l.counts)).toBe(false);
   });
 
   // The point of showing unheld positions: «what would this have been worth».
   it('carries the value of positions the person does not hold', () => {
-    const head = statusLines('VICE_DEAN_OR_SECRETARY', VALUES).find(
-      (l) => l.position === 'DEPARTMENT_OR_UNIT_HEAD'
-    );
+    const head = statusLines(['VICE_DEAN'], VALUES).find((l) => l.position === 'DEPARTMENT_HEAD');
     expect(head).toMatchObject({ value: 0.06, counts: false });
   });
 
   it('labels every line in Ukrainian', () => {
-    for (const line of statusLines(null, VALUES)) {
+    for (const line of statusLines([], VALUES)) {
       expect(line.label).not.toHaveLength(0);
       expect(line.label).toMatch(/[а-яіїєґА-ЯІЇЄҐ]/);
     }

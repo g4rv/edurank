@@ -2,7 +2,11 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { listStaff } from '@/lib/queries/list-staff';
-import { parseStaffListParams, toStaffFilters } from '@/lib/staff/list-params';
+import {
+  academicFilterParams,
+  parseStaffListParams,
+  toStaffFilters,
+} from '@/lib/staff/list-params';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listFaculties } from '@/lib/queries/list-faculties';
 import { listDivisions } from '@/lib/queries/list-divisions';
@@ -41,14 +45,7 @@ export default async function StaffPage({
   // spreadsheet the button below produces is the list on this screen, and stays
   // that way when a filter is added.
   const filters = parseStaffListParams(params, { isAdmin });
-  const {
-    type: typeParam,
-    sort: effectiveSortField,
-    dir: sortDir,
-    archivedView,
-    rank: rankFilter,
-    degree: degreeFilter,
-  } = filters;
+  const { type: typeParam, sort: effectiveSortField, dir: sortDir, archivedView } = filters;
   const { page } = params;
 
   const [staff, faculties, departments] = await Promise.all([
@@ -106,8 +103,7 @@ export default async function StaffPage({
       q: filters.q,
       faculty: filters.facultyId,
       dept: filters.departmentId,
-      rank: rankFilter,
-      degree: degreeFilter,
+      ...academicFilterParams(filters),
       partTime: filters.partTime ? '1' : undefined,
       degreeMatch: filters.degreeMatch ? '1' : undefined,
       activated: filters.activated === undefined ? undefined : filters.activated ? '1' : '0',
@@ -158,13 +154,15 @@ export default async function StaffPage({
         active={effectiveSortField === 'department'}
         dir={sortDir}
       />
+      {/* Посада, then вчене звання and ступінь under it (owner, 2026-10-06);
+          sorted by the посада, the one of the three every НПП has. */}
       <SortHead
-        label="Вчене звання"
+        label="Посада, звання, ступінь"
         href={buildHref({
-          sort: 'academicRank',
-          dir: effectiveSortField === 'academicRank' && sortDir === 'asc' ? 'desc' : 'asc',
+          sort: 'position',
+          dir: effectiveSortField === 'position' && sortDir === 'asc' ? 'desc' : 'asc',
         })}
-        active={effectiveSortField === 'academicRank'}
+        active={effectiveSortField === 'position'}
         dir={sortDir}
       />
       {isAdmin && <TableHead align="center">Роль</TableHead>}
@@ -191,8 +189,7 @@ export default async function StaffPage({
     filters.q,
     filters.facultyId,
     filters.departmentId,
-    rankFilter,
-    degreeFilter,
+    ...Object.values(academicFilterParams(filters)),
     filters.partTime,
     filters.degreeMatch,
     // Was missing, so switching «Активовані» ↔ «Не активовані» re-rendered the

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { SELF_TYPEABLE_POSITIONS, typeEntryProblem, deleteEntryProblem } from './self-entry';
+import {
+  SELF_TYPEABLE_POSITIONS,
+  typeEntryProblem,
+  deleteEntryProblem,
+  removeLineProblem,
+} from './self-entry';
 import { positionEvidenceFields } from './position-evidence';
 
 const ADMIN = { role: 'ADMIN' as const, ownStaffId: 'admin-staff', ownUserId: 'admin-user' };
@@ -103,15 +108,15 @@ describe('deleteEntryProblem', () => {
     expect(deleting()).toBeNull();
   });
 
-  it('refuses a row an administrator typed for them', () => {
-    // Mirrors the rating: an НПП deletes their own submission, never one
-    // somebody else put there.
-    expect(deleting({ entry: { createdBy: 'admin-user' } })).not.toBeNull();
+  // Any line of their own document, whoever typed it (owner, 2026-10-06)
+  it('lets an НПП remove a row an administrator typed for them', () => {
+    expect(deleting({ entry: { createdBy: 'admin-user' } })).toBeNull();
   });
 
   it('refuses an imported row for everybody, ADMIN included', () => {
-    // 6 422 of these carry the 2022–2024 history. The importer rewrites them
-    // wholesale, so a delete here would reappear on the next run.
+    // 6 422 of these carry the 2022–2024 history. They are removed from the
+    // document's own line, which HIDES the row so the importer cannot bring it
+    // back — this dialog's delete would erase it outright.
     expect(deleting({ entry: { source: 'IMPORT' } })).not.toBeNull();
     expect(
       deleteEntryProblem({
@@ -124,10 +129,6 @@ describe('deleteEntryProblem', () => {
 
   it('refuses a row on somebody else’s record', () => {
     expect(deleting({ entry: { staffId: 'his-staff' } })).not.toBeNull();
-  });
-
-  it('refuses a position an НПП may not type, even if they somehow own the row', () => {
-    expect(deleting({ entry: { position: 17 } })).not.toBeNull();
   });
 
   it('lets an НПП remove a derived-position row they typed themselves', () => {
@@ -148,6 +149,37 @@ describe('deleteEntryProblem', () => {
         ratingOpen: false,
         entry: { staffId: 'her-staff', position: 1, source: 'MANUAL', createdBy: 'her-user' },
       })
+    ).toBeNull();
+  });
+});
+
+// Any line of a Характеристика: ADMIN on anybody's, an НПП on their own while
+// the rating is open to them (owner, 2026-10-06).
+describe('removeLineProblem', () => {
+  const NPP = {
+    role: 'USER' as const,
+    ownStaffId: 'her-staff',
+    ownUserId: 'her-user',
+    ratingOpen: true,
+  };
+
+  it('lets an НПП remove a line of their own document', () => {
+    expect(removeLineProblem({ ...NPP, targetStaffId: 'her-staff' })).toBeNull();
+  });
+
+  it('refuses somebody else’s document', () => {
+    expect(removeLineProblem({ ...NPP, targetStaffId: 'his-staff' })).not.toBeNull();
+  });
+
+  it('refuses an НПП while the rating is closed', () => {
+    expect(
+      removeLineProblem({ ...NPP, ratingOpen: false, targetStaffId: 'her-staff' })
+    ).not.toBeNull();
+  });
+
+  it('lets ADMIN remove a line of anybody’s, the rating open or not', () => {
+    expect(
+      removeLineProblem({ ...ADMIN, ratingOpen: false, targetStaffId: 'her-staff' })
     ).toBeNull();
   });
 });

@@ -2,6 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
+import { headshipOf } from '@/lib/staff/academic';
+import { academicToFormValues } from '@/components/staff/academic-form-values';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
 import { fullName } from '@/components/staff/profile/primitives';
@@ -38,12 +40,23 @@ export default async function ProfileEditPage() {
         name={fullName(staff)}
         avatarSrc={avatarSrc(staff)}
         canEditAvatar={canSetOwnAvatar(session.user.role)}
+        isNpp={staff.isNpp}
+        headship={headshipOf(staff)}
         defaultValues={{
           phone: staff.phone ?? '',
           wosUrl: staff.wosUrl ?? '',
           scopusUrl: staff.scopusUrl ?? '',
           googleScholarUrl: staff.googleScholarUrl ?? '',
           orcidId: staff.orcidId ?? '',
+          wosCitationCount: staff.wosCitationCount != null ? String(staff.wosCitationCount) : '',
+          scopusCitationCount:
+            staff.scopusCitationCount != null ? String(staff.scopusCitationCount) : '',
+          googleScholarCitationCount:
+            staff.googleScholarCitationCount != null
+              ? String(staff.googleScholarCitationCount)
+              : '',
+          // Only an НПП's own academic info is theirs to edit (2026-10-06).
+          ...(staff.isNpp ? academicToFormValues(staff) : {}),
         }}
       />
     </div>

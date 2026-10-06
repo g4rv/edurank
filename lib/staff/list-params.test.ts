@@ -26,12 +26,23 @@ describe('parseStaffListParams', () => {
 
   it('ignores values that are not in the allowed set', () => {
     const p = parseStaffListParams(
-      { type: 'wat', rank: 'ARCHMAGE', degree: 'HONORARY', sort: 'passwordHash' },
+      {
+        type: 'wat',
+        position: 'ARCHMAGE',
+        title: 'KNIGHT',
+        degree: 'HONORARY',
+        admin: 'KING',
+        honor: 'hero',
+        sort: 'passwordHash',
+      },
       admin
     );
     expect(p.type).toBe('npp');
-    expect(p.rank).toBeUndefined();
+    expect(p.position).toBeUndefined();
+    expect(p.title).toBeUndefined();
     expect(p.degree).toBeUndefined();
+    expect(p.adminPosition).toBeUndefined();
+    expect(p.honoraryTitle).toBeUndefined();
     expect(p.sort).toBe('lastName');
   });
 
@@ -83,8 +94,11 @@ describe('toStaffFilters', () => {
         q: 'Дудар',
         faculty: 'f1',
         dept: 'd1',
-        rank: 'DOCENT',
+        position: 'DOCENT',
+        title: 'PROFESSOR',
         degree: 'DOCTOR',
+        admin: 'VICE_DEAN',
+        honor: 'merited_teacher',
         partTime: '1',
         degreeMatch: '1',
         activated: '0',
@@ -97,8 +111,11 @@ describe('toStaffFilters', () => {
       q: 'Дудар',
       facultyId: 'f1',
       departmentId: 'd1',
-      rank: 'DOCENT',
+      position: 'DOCENT',
+      title: 'PROFESSOR',
       degree: 'DOCTOR',
+      adminPosition: 'VICE_DEAN',
+      honoraryTitle: 'merited_teacher',
       partTime: true,
       degreeMatch: true,
       activated: false,
@@ -117,5 +134,37 @@ describe('toStaffFilters', () => {
     const { includeAccount: _a, includeConfidential: _b, ...adminWhere } = asAdmin;
     const { includeAccount: _c, includeConfidential: _d, ...editorWhere } = asEditor;
     expect(editorWhere).toEqual(adminWhere);
+  });
+});
+
+// The academic filters on the new fields (owner, 2026-10-06)
+describe('academic filters', () => {
+  const admin = { isAdmin: true };
+
+  it('reads every filter, and an exact degree as well as a whole level', () => {
+    const p = parseStaffListParams(
+      {
+        position: 'DOCENT',
+        title: 'PROFESSOR',
+        degree: 'cand_pedagogy',
+        admin: 'UNIT_HEAD',
+        honor: 'merited_teacher',
+      },
+      admin
+    );
+    expect(p).toMatchObject({
+      position: 'DOCENT',
+      title: 'PROFESSOR',
+      degree: 'cand_pedagogy',
+      adminPosition: 'UNIT_HEAD',
+      honoraryTitle: 'merited_teacher',
+    });
+    expect(parseStaffListParams({ degree: 'DOCTOR' }, admin).degree).toBe('DOCTOR');
+  });
+
+  // `rank` always held the посада; a link made before the split keeps working
+  it('reads the old rank param and sort key as the посада', () => {
+    expect(parseStaffListParams({ rank: 'DOCENT' }, admin).position).toBe('DOCENT');
+    expect(parseStaffListParams({ sort: 'academicRank' }, admin).sort).toBe('position');
   });
 });

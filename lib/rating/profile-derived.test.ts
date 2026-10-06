@@ -27,11 +27,16 @@ const emptyStaff = {
   scientificDegree: null,
   degreeMatchesDepartment: null,
   adminPosition: null,
+  headOfDepartment: null,
+  deanOfFaculty: null,
   basicEducationMatch: null,
   basicEducationSpecialty: null,
   wosCitationCount: null,
   scopusCitationCount: null,
   googleScholarCitationCount: null,
+  wosUrl: null,
+  scopusUrl: null,
+  googleScholarUrl: null,
 } as const;
 
 describe('derivedEvidence', () => {
@@ -80,9 +85,33 @@ describe('derivedEvidence', () => {
     expect(derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'DEAN' })).toEqual({
       option: 'dean',
     });
+    // Split posts share their printed 1.6 option (owner, 2026-10-06)
     expect(
-      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'LAB_OR_CENTER_HEAD' })
+      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'CENTER_HEAD' })
     ).toEqual({ option: 'lab_or_center_head' });
+    expect(
+      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'ACADEMIC_SECRETARY' })
+    ).toEqual({ option: 'vice_dean_or_secretary' });
+    expect(
+      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'UNIT_HEAD' })
+    ).toEqual({ option: 'department_or_unit_head' });
+  });
+
+  // Naming somebody завідувач or декан is what makes them one (owner, 2026-10-06).
+  it('pays a head and a dean for the headship itself, the higher post winning', () => {
+    expect(
+      derivedEvidence('admin_position', { ...emptyStaff, headOfDepartment: { id: 'd1' } })
+    ).toEqual({ option: 'department_or_unit_head' });
+    expect(
+      derivedEvidence('admin_position', { ...emptyStaff, deanOfFaculty: { id: 'f1' } })
+    ).toEqual({ option: 'dean' });
+    expect(
+      derivedEvidence('admin_position', {
+        ...emptyStaff,
+        adminPosition: 'VICE_RECTOR',
+        headOfDepartment: { id: 'd1' },
+      })
+    ).toEqual({ option: 'vice_rector' });
   });
 
   it('maps basic education only when confirmed', () => {
@@ -99,13 +128,30 @@ describe('derivedEvidence', () => {
   });
 
   it('maps h-index fields, treating 0 as no indicator', () => {
-    expect(derivedEvidence('citations_wos', { ...emptyStaff, wosCitationCount: 4 })).toEqual({
+    const wos = { ...emptyStaff, wosUrl: 'https://www.webofscience.com/wos/author/record/1' };
+    expect(derivedEvidence('citations_wos', { ...wos, wosCitationCount: 4 })).toEqual({
       value: 4,
     });
-    expect(derivedEvidence('citations_wos', { ...emptyStaff, wosCitationCount: 0 })).toBeNull();
+    expect(derivedEvidence('citations_wos', { ...wos, wosCitationCount: 0 })).toBeNull();
+    expect(
+      derivedEvidence('citations_scholar', {
+        ...emptyStaff,
+        googleScholarUrl: 'https://scholar.google.com/citations?user=x',
+        googleScholarCitationCount: 7,
+      })
+    ).toEqual({ value: 7 });
+  });
+
+  // No link, no points (owner, 2026-10-06): a count is checkable only against
+  // the profile it came from, and an НПП now types it themselves.
+  it('counts nothing for citations whose profile link is missing', () => {
+    expect(derivedEvidence('citations_wos', { ...emptyStaff, wosCitationCount: 4 })).toBeNull();
+    expect(
+      derivedEvidence('citations_scopus', { ...emptyStaff, scopusCitationCount: 200 })
+    ).toBeNull();
     expect(
       derivedEvidence('citations_scholar', { ...emptyStaff, googleScholarCitationCount: 7 })
-    ).toEqual({ value: 7 });
+    ).toBeNull();
   });
 
   it('exposes each source staff field exactly once', () => {

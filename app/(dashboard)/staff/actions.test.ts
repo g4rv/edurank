@@ -37,11 +37,18 @@ const payload: StaffCreateSchema = {
   isNpp: false,
   employmentRate: null,
   pedagogicalExperience: null,
-  degreeDefenceDate: null,
-  academicRank: null,
-  scientificDegree: null,
-  degreeMatchesDepartment: null,
-  adminPosition: null,
+  position: null,
+  academicTitle: null,
+  honoraryTitles: [],
+  adminPositions: [],
+  candidateDegree: null,
+  candidateSpecialty: null,
+  candidateDefenceDate: null,
+  doctorDegree: null,
+  doctorSpecialty: null,
+  doctorDefenceDate: null,
+  candidateMatchesDepartment: null,
+  doctorMatchesDepartment: null,
   basicEducationMatch: null,
   basicEducationSpecialty: null,
   wosUrl: null,
@@ -95,6 +102,36 @@ describe('createStaff authorization', () => {
     expect(await createStaff(payload)).toEqual({ redirectTo: '/staff/staff-new' });
     expect(tx.staff.create).toHaveBeenCalled();
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+});
+
+// The audit entry of a new person reads in words (2026-10-06): raw, a badge list
+// went into the log as `["merited_teacher"]`, an empty one as «— →», and the
+// rating's mirror columns appeared as keys nobody typed.
+describe('createStaff audit entry', () => {
+  it('prints badges and posts as words and leaves out the mirrors', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    const tx = mockTx();
+    await createStaff({
+      ...payload,
+      isNpp: true,
+      departmentId: 'dep-1',
+      position: 'DOCENT',
+      honoraryTitles: ['merited_teacher'],
+      adminPositions: ['VICE_DEAN'],
+    });
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes.honoraryTitles).toEqual({ from: null, to: 'Заслужений вчитель' });
+    expect(changes.adminPositions).toEqual({ from: null, to: 'Заступник декана' });
+    expect(changes.position).toEqual({ from: null, to: 'Доцент' });
+    expect(changes).not.toHaveProperty('academicRank');
+    expect(changes).not.toHaveProperty('adminPosition');
+    // An empty list is no change at all
+    const empty = mockTx();
+    await createStaff(payload);
+    expect(empty.auditLog.create.mock.calls[0][0].data.changes).not.toHaveProperty(
+      'honoraryTitles'
+    );
   });
 });
 
