@@ -8,6 +8,7 @@ import { RevertInviteButton } from '@/components/admin/revert-invite-button';
 import { BulkRevertInvite } from '@/components/admin/bulk-revert-invite';
 import { DepartmentSelect } from '@/components/department-select';
 import { DomainFilter } from '@/components/admin/domain-filter';
+import { KYIV } from '@/lib/kyiv-time';
 
 /**
  * «Запрошення» — everyone who still has no account, and one button to write to
@@ -218,7 +219,7 @@ export default async function InvitesPage({
                   <td className="px-4 py-2.5 text-muted-foreground">
                     {p.invitedAt ? (
                       <span className="inline-flex items-center gap-1">
-                        {p.invitedAt.toLocaleDateString('uk-UA')}
+                        {p.invitedAt.toLocaleDateString('uk-UA', KYIV)}
                         {/* Only where there is something to revert — somebody
                             already reading «не надсилалося» has no token. */}
                         <RevertInviteButton staffId={p.id} fullName={p.fullName} />

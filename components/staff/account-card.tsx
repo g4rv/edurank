@@ -43,6 +43,7 @@ import type { Role } from '@/lib/generated/prisma/client';
 import type { StaffAccount } from '@/lib/queries/get-staff-account';
 import { cn } from '@/lib/utils';
 import { RequiredFields } from '@/components/ui/required-fields';
+import { KYIV } from '@/lib/kyiv-time';
 
 interface AccountCardProps {
   staffId: string;
@@ -209,7 +210,7 @@ export function AccountControls({
 
           {!account.isActivated && account.invite && (
             <p className="text-xs text-muted-foreground">
-              Запрошення надіслано {account.invite.sentAt.toLocaleDateString('uk-UA')}
+              Запрошення надіслано {account.invite.sentAt.toLocaleDateString('uk-UA', KYIV)}
               {account.invite.expired && ' — посилання протерміноване'}
             </p>
           )}
@@ -220,6 +221,7 @@ export function AccountControls({
             <p className="rounded-lg border border-warning/40 bg-warning-surface px-3 py-2 text-xs text-warning">
               Вхід заблоковано після невдалих спроб — до{' '}
               {account.lockedUntil.toLocaleTimeString('uk-UA', {
+                ...KYIV,
                 hour: '2-digit',
                 minute: '2-digit',
               })}
