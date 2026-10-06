@@ -27,6 +27,25 @@ enum ScientificDegree {
   DOCTOR // доктор наук
 }
 
+// Посада (owner, 2026-10-06). Exactly the four values `AcademicRank` held —
+// that field was named «вчене звання» but two of its values are посади. Rating
+// 1.2 pays for these; `academicRank` is kept in step with this field on every
+// save so the rating reads the same value it always did.
+enum StaffPosition {
+  LECTURER // викладач
+  SENIOR_LECTURER // старший викладач
+  DOCENT // доцент
+  PROFESSOR // професор
+}
+
+// Вчене звання proper (owner, 2026-10-06). Information only — no rating item
+// reads it; the вчена рада decides whether one ever will.
+enum AcademicTitle {
+  SENIOR_RESEARCHER // старший дослідник
+  DOCENT // доцент
+  PROFESSOR // професор
+}
+
 // Entity types that division permissions can apply to
 enum EntityType {
   STAFF
@@ -268,9 +287,33 @@ model Staff {
 
   pedagogicalExperience Int?
 
+  // LEGACY MIRRORS (2026-10-06). `academicRank`, `scientificDegree`,
+  // `degreeDefenceDate` and `adminPosition` are no longer edited directly: every
+  // save derives them from the fields below (`lib/staff/academic.ts`), so the
+  // rating, the Характеристика, the ставки grid and every list keep reading what
+  // they always read. A later release moves those reads over and drops these.
   academicRank            AcademicRank?
   scientificDegree        ScientificDegree?
   degreeMatchesDepartment Boolean?
+
+  /// Посада — rating 1.2 (via the `academicRank` mirror)
+  position       StaffPosition?
+  /// Вчене звання proper — information only
+  academicTitle  AcademicTitle?
+  /// Почесні звання — keys of HONORARY_TITLES in lib/staff/academic-options.ts.
+  /// Information only; rating 1.4 stays entered by відділ кадрів.
+  honoraryTitles String[]       @default([])
+
+  /// Науковий ступінь, two slots (owner, 2026-10-06). Keys of
+  /// CANDIDATE_DEGREES / DOCTOR_DEGREES in lib/staff/academic-options.ts —
+  /// text, not an enum, because the list changes and a new branch of science
+  /// should not need a migration.
+  candidateDegree      String?
+  candidateSpecialty   String?
+  candidateDefenceDate DateTime?
+  doctorDegree         String?
+  doctorSpecialty      String?
+  doctorDefenceDate    DateTime?
 
   // Характеристика п.5 — «Захист дисертації на здобуття наукового ступеня».
   // ONE date, for the highest degree only (decided 2026-08-07), not one per
@@ -279,8 +322,11 @@ model Staff {
   // the window, no earlier defence falls inside it either.
   degreeDefenceDate DateTime?
 
-  // Rating item 1.6 — administrative position (profile-derived indicator)
-  adminPosition AdminPosition?
+  // Rating item 1.6 — administrative position (profile-derived indicator).
+  // LEGACY MIRROR of the highest of `adminPositions` — see above.
+  adminPosition  AdminPosition?
+  /// Адміністративні посади as badges (owner, 2026-10-06); 1.6 pays the highest.
+  adminPositions AdminPosition[] @default([])
 
   // Rating item 1.9 — basic education matches the department specialty
   basicEducationMatch     Boolean?
@@ -1335,12 +1381,12 @@ model ScienceWork {
   /// decline switched off, which is how a resubmit restores exactly those and not
   /// one somebody withdrew earlier. Cleared when the author resubmits or ННВ
   /// undoes it; a work still declined when its рік closes is dropped.
-  declinedAt       DateTime?
-  declineReason    String?
-  declinedById     String?
-  declinedBy       Staff?    @relation("ScienceWorkDecliner", fields: [declinedById], references: [id])
+  declinedAt    DateTime?
+  declineReason String?
+  declinedById  String?
+  declinedBy    Staff?    @relation("ScienceWorkDecliner", fields: [declinedById], references: [id])
   /// When the author last sent a declined work back for review — ННВ's «виправлено».
-  resubmittedAt    DateTime?
+  resubmittedAt DateTime?
 
   records        ScienceRecord[]
   files          ScienceRecordFile[]
