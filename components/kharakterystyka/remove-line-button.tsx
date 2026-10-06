@@ -120,7 +120,11 @@ export function RemoveLineButton({
                 {ready && <Consequences preview={ready} fromRating={line.kind === 'activity'} />}
 
                 <p className="font-medium text-foreground">
-                  Цю дію неможливо скасувати — повернути запис буде не можна.
+                  Цю дію неможливо скасувати — повернути запис буде{' '}
+                  {/* The one word that must not be missed (owner, 2026-10-07):
+                      the removal is final. Red text on the white dialog is
+                      `--error`, the destructive token (§3). */}
+                  <span className="font-bold text-error">неможливо!</span>
                 </p>
               </div>
             </AlertDialogDescription>
