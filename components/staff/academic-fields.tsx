@@ -6,6 +6,7 @@ import type { AcademicFormValues } from '@/components/staff/academic-form-values
 import { Card } from '@/components/aurora/ui/card';
 import { DateInput } from '@/components/aurora/ui/date-input';
 import { Input } from '@/components/aurora/ui/input';
+import { Checkbox } from '@/components/aurora/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -88,10 +89,48 @@ function PlainSelect({
   );
 }
 
-const YES_NO = [
-  { value: 'true', label: 'Так' },
-  { value: 'false', label: 'Ні' },
-] as const;
+/**
+ * «Відповідає кафедрі» as a checkbox under the speciality it is about (owner,
+ * 2026-10-06). Ticked is «так»; unticked stores nothing, not «ні» — rating 1.3
+ * and 1.9 ask only whether it is so, and the record shows «—» rather than
+ * claiming «Ні» for somebody who never answered.
+ *
+ * The label wraps the box, the one case §4 of docs/aurora.md lets a label click
+ * its control; the rating hint sits outside it, so opening the hint does not
+ * tick the box.
+ */
+function MatchCheckbox({
+  name,
+  hint,
+  control,
+  disabled,
+}: {
+  name: 'basicEducationMatch' | 'candidateMatchesDepartment' | 'doctorMatchesDepartment';
+  hint: string;
+  control: Control<AcademicFormValues>;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Controller
+        name={name}
+        control={control}
+        render={({ field }) => (
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+            <Checkbox
+              id={name}
+              checked={field.value === 'true'}
+              onCheckedChange={(checked) => field.onChange(checked === true ? 'true' : '')}
+              disabled={disabled}
+            />
+            Відповідає кафедрі
+          </label>
+        )}
+      />
+      <RatingFieldHint field={hint} />
+    </div>
+  );
+}
 
 /**
  * A degree list as offered: the «уточніть галузь» key the migration gave an
@@ -304,26 +343,12 @@ function DegreeBlock({
             {...register(specialty)}
           />
         </FormField>
-        <FormField
-          label="Відповідає кафедрі"
-          htmlFor={matches}
-          labelSuffix={<RatingFieldHint field="degreeMatchesDepartment" />}
-          error={errors[matches]}
-        >
-          <Controller
-            name={matches}
-            control={control}
-            render={({ field }) => (
-              <PlainSelect
-                id={matches}
-                value={field.value}
-                onChange={field.onChange}
-                options={YES_NO}
-                disabled={isPending || locked(matches)}
-              />
-            )}
-          />
-        </FormField>
+        <MatchCheckbox
+          name={matches}
+          hint="degreeMatchesDepartment"
+          control={control}
+          disabled={isPending || locked(matches)}
+        />
       </FieldGroup>
     </div>
   );
@@ -343,7 +368,7 @@ export function EducationCard({
     <Card title={CARD_TITLES.education} action={action} className={className}>
       <div className="space-y-5">
         {/* Базова освіта first, as on the record (owner, 2026-10-06) */}
-        <FieldGroup className={FIELD_ROW}>
+        <FieldGroup className="flex flex-col gap-3">
           <FormField
             htmlFor="basicEducationSpecialty"
             label="Спеціальність базової освіти"
@@ -356,26 +381,12 @@ export function EducationCard({
               {...register('basicEducationSpecialty')}
             />
           </FormField>
-          <FormField
-            label="Відповідає кафедрі"
-            htmlFor="basicEducationMatch"
-            labelSuffix={<RatingFieldHint field="basicEducationMatch" />}
-            error={errors.basicEducationMatch}
-          >
-            <Controller
-              name="basicEducationMatch"
-              control={control}
-              render={({ field }) => (
-                <PlainSelect
-                  id="basicEducationMatch"
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={YES_NO}
-                  disabled={isPending || locked('basicEducationMatch')}
-                />
-              )}
-            />
-          </FormField>
+          <MatchCheckbox
+            name="basicEducationMatch"
+            hint="basicEducationMatch"
+            control={control}
+            disabled={isPending || locked('basicEducationMatch')}
+          />
         </FieldGroup>
         {/* Two columns, доктор наук first (owner, 2026-10-06) — the same order as
             the record shows them. One column each on a phone. */}

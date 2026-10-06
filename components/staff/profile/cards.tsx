@@ -81,7 +81,9 @@ export const EDUCATION_LABELS = {
 
 /** A defence date, in UTC like the column is written — local time would show the day before */
 const defence = (d: Date | null) => (d ? d.toLocaleDateString('uk-UA', { timeZone: 'UTC' }) : null);
-const yesNo = (v: boolean | null) => (v === null ? null : v ? 'Так' : 'Ні');
+// «Так» or nothing (owner, 2026-10-06): the forms ask with a checkbox, and an
+// unticked box means «not confirmed», not «ні».
+const yesNo = (v: boolean | null) => (v ? 'Так' : null);
 
 export const RESEARCH_LABELS = {
   wos: 'Web of Science',
