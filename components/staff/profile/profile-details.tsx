@@ -59,7 +59,6 @@ export function ProfileDetails({
         <div className="flex w-full flex-1 flex-col gap-4">
           <AcademicCard staff={staff} showEmpty={showEmpty} />
           <EducationCard staff={staff} showEmpty={showEmpty} />
-          <ResearchProfilesCard staff={staff} showEmpty={showEmpty} />
         </div>
 
         <div className="flex w-full flex-1 flex-col gap-4">
@@ -70,6 +69,10 @@ export function ProfileDetails({
             showStake={showStake}
             showEmpty={showEmpty}
           />
+          {/* Under «Місця роботи» (owner, 2026-10-06): the left column now
+              holds the person's academic record — «Академічна інформація» and
+              «Освіта» — and the links sit with the other facts about them. */}
+          <ResearchProfilesCard staff={staff} showEmpty={showEmpty} />
           <LeadershipCard staff={staff} />
         </div>
       </div>

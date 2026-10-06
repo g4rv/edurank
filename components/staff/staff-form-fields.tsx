@@ -665,11 +665,11 @@ export function StaffFormFields({
       <div className="flex w-full flex-1 flex-col gap-4">
         {basics}
         {academic}
+        {education}
       </div>
 
       <div className="flex w-full flex-1 flex-col gap-4">
         {workplaces}
-        {education}
         {research}
       </div>
     </div>

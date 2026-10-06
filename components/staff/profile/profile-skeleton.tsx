@@ -100,10 +100,10 @@ export function ProfileBodySkeleton({ isNpp = true }: { isNpp?: boolean }) {
       <div className="flex w-full flex-1 flex-col gap-4">
         <AcademicCard.Shell isNpp={isNpp} />
         <EducationCard.Shell isNpp={isNpp} />
-        <ResearchProfilesCard.Shell />
       </div>
       <div className="flex w-full flex-1 flex-col gap-4">
         <WorkplacesCard.Shell />
+        <ResearchProfilesCard.Shell />
       </div>
     </div>
   );
