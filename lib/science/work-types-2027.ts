@@ -623,9 +623,11 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     // No proof asked (owner, 2026-09-24): the аспірант's ПІБ is the record.
     linkRule: 'NONE',
     fileRule: 'NONE',
-    // Chosen from the аспірантура's own list, never typed (owner,
-    // 2026-10-07): only the аспіранти this НПП supervises are offered.
-    fields: personName('student', 'ПІБ аспіранта (здобувача)', 'aspirants'),
+    // Typed for now. The select of the НПП's own аспіранти (`pickFrom:
+    // 'aspirants'`) is built and switched on by `pnpm db:import-aspirants
+    // --pick` once the аспірантура's list is complete (owner, 2026-10-07: the
+    // first one left out the first year).
+    fields: personName('student', 'ПІБ аспіранта (здобувача)'),
   },
   {
     code: 'expert_review',

@@ -9,8 +9,9 @@ import { aspirantKey, type SourceAspirant } from '../lib/aspirants/source';
 // Loads the аспіранти list and switches п.12 to choosing from it (owner,
 // 2026-10-07).
 //
-//   pnpm db:import-aspirants          — report only, writes nothing
-//   pnpm db:import-aspirants --apply  — write
+//   pnpm db:import-aspirants                — report only, writes nothing
+//   pnpm db:import-aspirants --apply        — write the list
+//   pnpm db:import-aspirants --apply --pick — write it AND switch п.12 to the select
 //
 // Reads lib/aspirants/aspirants.json (`pnpm aspirants:build` makes it from the
 // аспірантура's docx). Safe to run again with a newer list:
@@ -21,15 +22,18 @@ import { aspirantKey, type SourceAspirant } from '../lib/aspirants/source';
 // - one the new list no longer has is marked removed, not deleted: a record
 //   may already name them.
 //
-// It also puts `pickFrom: 'aspirants'` on п.12's ПІБ in every year's catalogue
-// — the JSON lives in the database, so the code change alone reaches nothing —
-// and lists the п.12 records typed before, by whether the name is in the list
-// under that НПП as керівник.
+// With `--pick` it also puts `pickFrom: 'aspirants'` on п.12's ПІБ in every
+// year's catalogue — the JSON lives in the database, so the code alone reaches
+// nothing. **Off by default** (owner, 2026-10-07): the first list left out the
+// first-year аспіранти, so п.12 stays typed until a complete list is in;
+// `--pick` then turns the select on. Every run lists the п.12 records typed
+// so far, by whether the name is in the list under that НПП as керівник.
 
 const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
 
 async function main() {
   const apply = process.argv.includes('--apply');
+  const pick = process.argv.includes('--pick');
   const file = resolve('lib/aspirants/aspirants.json');
   const source = JSON.parse(readFileSync(file, 'utf8')) as SourceAspirant[];
   console.log(`${file}: ${source.length} аспірантів\n`);
@@ -138,6 +142,11 @@ async function main() {
         data: { removedAt: now },
       });
       console.log(`\nЗаписано аспірантів: ${seen.length}; більше немає у списку: ${dropped.count}`);
+
+      if (!pick) {
+        console.log('п.12 лишається з введенням ПІБ вручну. Щоб увімкнути вибір зі списку: --pick');
+        return;
+      }
 
       // п.12 chooses from the list in every year's catalogue
       const types = await tx.scienceWorkType.findMany({

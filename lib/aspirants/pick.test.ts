@@ -8,15 +8,24 @@ const catalogueScienceType = (code: string) => {
   return def;
 };
 
-// п.12 names an аспірант from the аспірантура's list (owner, 2026-10-07)
-describe('the п.12 ПІБ is chosen, not typed', () => {
-  const fields = catalogueScienceType('phd_supervision').fields;
+// п.12 names an аспірант from the аспірантура's list (owner, 2026-10-07), once
+// `db:import-aspirants --pick` marks the group — shown here on its own fields.
+describe('a ПІБ chosen, not typed', () => {
+  const fields = [
+    ...catalogueScienceType('phd_supervision').fields.map((f) =>
+      f.kind === 'text' && f.name === 'studentLast' ? { ...f, pickFrom: 'aspirants' as const } : f
+    ),
+  ];
 
   it('marks the group, keeping its three stored fields', () => {
     expect(pickedGroup(fields)).toEqual({
       pickFrom: 'aspirants',
       names: ['studentLast', 'studentFirst', 'studentMiddle'],
     });
+  });
+
+  it('is off in the catalogue until a complete list is in', () => {
+    expect(pickedGroup(catalogueScienceType('phd_supervision').fields)).toBeNull();
   });
 
   it('keys the stored name the way the list does, case and apostrophes folded', () => {

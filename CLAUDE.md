@@ -251,9 +251,10 @@ pnpm db:headship-admin-position  # one-off, on that deploy: rating 1.6 now pays
                       #   Order: back up → migrate deploy → mirror check → this.
 pnpm db:import-aspirants  # the аспіранти list into Aspirant + their керівники
                       #   (matched to НПП by surname ±1 letter AND initials; the
-                      #   rest reported, never guessed), and switches п.12 to
-                      #   choosing from it. Report first; --apply writes. Re-run
-                      #   with every new list — upserts, never doubles.
+                      #   rest reported, never guessed). Report first; --apply
+                      #   writes; --apply --pick ALSO switches п.12 to the select
+                      #   (off until a complete list is in). Re-run with every
+                      #   new list — upserts, never doubles.
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 
@@ -644,12 +645,14 @@ Easy to get wrong:
   often as a URL. `requiresFile` no longer exists. **Both NONE = no
   proof needed** (D53, owner 2026-09-24): п.12 «Керівництво аспірантами» is
   recorded by the аспірант's ПІБ alone; «never neither» holds everywhere else.
-  **That ПІБ is CHOSEN, never typed** (owner, 2026-10-07): `pickFrom:
+  **That ПІБ is to be CHOSEN, not typed** (owner, 2026-10-07): `pickFrom:
 'aspirants'` on the group's first field draws one select of the аспіранти
   the НПП supervises by the аспірантура's list (`listMyAspirants`), and
   `saveRecord` / `updateWorkEvidence` refuse anyone else's
-  (`pickedPersonProblem`). The stored answer is still the three name fields,
-  so a record typed before keeps its key and text, and stays editable.
+  (`pickedPersonProblem`). **Built but switched OFF** until a complete list
+  is in — the first left out the first year; `db:import-aspirants --pick`
+  turns it on. The stored answer is the three name fields either way, so a
+  record typed before keeps its key and text, and stays editable.
 - **A record PROVES the work; it does not track when it was done** (D50,
   owner 2026-09-24). The execution month (D41/D48/D49) is **hidden, not
   removed**: `SHOW_EXECUTION_PERIOD` in `lib/science/execution-month.ts` is
