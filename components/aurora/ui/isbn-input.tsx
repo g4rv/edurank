@@ -1,9 +1,9 @@
 'use client';
 
-import { forwardRef, useState } from 'react';
+import { forwardRef } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { isbnState, normalizeIsbn } from '@/lib/isbn';
+import { formatIsbn, isbnState, normalizeIsbn } from '@/lib/isbn';
 import { fieldSurface, type FieldSize } from './field-surface';
 import { ISBN_MASK, MaskGhost } from './mask-ghost';
 
@@ -11,11 +11,14 @@ import { ISBN_MASK, MaskGhost } from './mask-ghost';
  * «Аврора»'s ISBN field — a drop-in replacement for
  * `components/ui/isbn-input`.
  *
- * **Uncontrolled, like `PassInput` and unlike `TelInput`**, so
- * `{...register(name)}` keeps working. The mirrored state exists only to drive
- * the hint; nothing is rewritten as the user types, because hyphenation styles
- * differ between publishers — the entered form is kept and the checksum simply
- * ignores separators.
+ * **The mask is enforced** (owner, 2026-10-07), the way `OrcidInput` and
+ * `TelInput` enforce theirs: digits only, thirteen at most, an `X` only where
+ * an ISBN-10 puts its check character, and the hyphens are the mask's —
+ * `formatIsbn` in `lib/isbn.ts` says why one fixed grouping loses nothing. It
+ * was a drawn hint before, and accepted 22 digits and any letter.
+ *
+ * **Controlled, like `OrcidInput`** — a field that reformats as you type has
+ * to own its value, so it is wired through a `Controller`, not `register`.
  *
  * The hint never shows an error while the number is still too short to judge.
  * Being told you are wrong halfway through typing is noise; Zod reports the
@@ -24,25 +27,16 @@ import { ISBN_MASK, MaskGhost } from './mask-ghost';
  * The tick sits INSIDE the field rather than beside it, so the surface is
  * `fieldSurface()` on the input itself — the wrapper helper is for controls
  * like `TelInput` that print something to the left of the value.
- *
- * **The mask is drawn, and it is a hint about LENGTH only.** `000-0-00-000000-0`
- * shows thirteen digits and roughly where the breaks fall, replacing a
- * «Наприклад: 978-3-16-148410-0» placeholder that vanished the moment anyone
- * typed. It is not enforced and could not be: an ISBN's hyphens depend on the
- * registration group and the publisher, so a Ukrainian book usually splits
- * `978-966-…` where the example splits `978-3-…`, and an ISBN-10 has ten digits
- * and a different shape again. The ghost therefore keeps the mask under
- * whatever is typed and never rewrites it — see `ISBN_MASK`. The example moved
- * into the hint line, where it survives being typed over.
  */
 const IsbnInput = forwardRef<
   HTMLInputElement,
-  Omit<React.ComponentProps<'input'>, 'type' | 'size'> & {
-    defaultValue?: string;
+  Omit<React.ComponentProps<'input'>, 'type' | 'size' | 'value' | 'onChange' | 'defaultValue'> & {
+    value: string | null | undefined;
+    onChange: (next: string) => void;
     size?: FieldSize;
   }
->(({ className, onChange, defaultValue, size = 'default', ...props }, ref) => {
-  const [value, setValue] = useState(typeof defaultValue === 'string' ? defaultValue : '');
+>(({ className, onChange, value: raw, size = 'default', ...props }, ref) => {
+  const value = formatIsbn(raw ?? '');
   const state = isbnState(value);
   const count = normalizeIsbn(value).length;
   const lg = size === 'lg';
@@ -53,7 +47,7 @@ const IsbnInput = forwardRef<
         <input
           {...props}
           ref={ref}
-          defaultValue={defaultValue}
+          value={value}
           type="text"
           inputMode="numeric"
           autoComplete="off"
@@ -61,10 +55,7 @@ const IsbnInput = forwardRef<
           placeholder={ISBN_MASK}
           data-slot="input"
           aria-invalid={state === 'invalid' || props['aria-invalid']}
-          onChange={(e) => {
-            setValue(e.target.value);
-            onChange?.(e);
-          }}
+          onChange={(e) => onChange(formatIsbn(e.target.value))}
           className={cn(
             fieldSurface(size, 'font-mono tabular-nums placeholder:text-transparent'),
             lg ? 'pr-11' : 'pr-9',
@@ -94,8 +85,7 @@ const IsbnInput = forwardRef<
 
       {state === 'partial' && (
         <p className="text-xs text-muted-foreground">
-          {count} з 10 або 13 цифр — дефіси розставляйте як у книзі, вони не враховуються.
-          Наприклад: 978-3-16-148410-0
+          {count} з 10 або 13 цифр — дефіси ставляться самі
         </p>
       )}
       {state === 'invalid' && (

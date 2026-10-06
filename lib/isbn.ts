@@ -61,3 +61,37 @@ export function isbnState(input: string): IsbnState {
   if (digits.length < 10 || (digits.length > 10 && digits.length < 13)) return 'partial';
   return 'invalid';
 }
+
+/** Where `ISBN_MASK` (`000-0-00-000000-0`) puts its hyphens: after 3, 4, 6, 12 */
+const ISBN_GROUPS = [3, 1, 2, 6, 1];
+
+/**
+ * What the ISBN field shows for whatever was typed or pasted — the mask,
+ * enforced (owner, 2026-10-07: «mask should enforce the typing», as ORCID and
+ * the phone do).
+ *
+ * - **Digits only**, at most thirteen; anything else is dropped as it is typed.
+ * - **`X` only as the tenth character**, where an ISBN-10 puts its check
+ *   character, and nothing after it.
+ * - **Hyphens are the mask's**, `978-3-16-148410-0`, never the typist's. Real
+ *   books group differently (`978-966-…`), but the grouping carries no meaning:
+ *   the checksum and the science work key both strip separators
+ *   (`normalizeIsbn`), so one fixed shape loses nothing and keeps every stored
+ *   ISBN looking the same.
+ */
+export function formatIsbn(input: string): string {
+  let chars = '';
+  for (const c of input.toUpperCase()) {
+    if (chars.length === 13 || chars.endsWith('X')) break;
+    if (c >= '0' && c <= '9') chars += c;
+    else if (c === 'X' && chars.length === 9) chars += c;
+  }
+  const parts: string[] = [];
+  let at = 0;
+  for (const size of ISBN_GROUPS) {
+    if (at >= chars.length) break;
+    parts.push(chars.slice(at, at + size));
+    at += size;
+  }
+  return parts.join('-');
+}
