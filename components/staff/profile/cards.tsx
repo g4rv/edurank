@@ -74,7 +74,7 @@ export const EDUCATION_LABELS = {
   doctor: 'Доктор наук',
   doctorSpecialty: 'Спеціальність за дипломом',
   doctorDefence: 'Дата захисту',
-  degreeMatch: 'Відповідає кафедрі',
+  degreeMatch: 'Відповідає спеціальності кафедри',
   educationMatch: 'Базова освіта відповідає кафедрі',
   specialty: 'Спеціальність базової освіти',
 } as const;

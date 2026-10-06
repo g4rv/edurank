@@ -102,8 +102,8 @@ function PlainSelect({
 }
 
 /**
- * «Відповідає кафедрі» as a checkbox under the speciality it is about (owner,
- * 2026-10-06). Ticked is «так»; unticked stores nothing, not «ні» — rating 1.3
+ * «Відповідає спеціальності кафедри» as a checkbox under the speciality it is
+ * about (owner, 2026-10-06). Ticked is «так»; unticked stores nothing, not «ні» — rating 1.3
  * and 1.9 ask only whether it is so, and the record shows «—» rather than
  * claiming «Ні» for somebody who never answered.
  *
@@ -135,7 +135,7 @@ function MatchCheckbox({
               onCheckedChange={(checked) => field.onChange(checked === true ? 'true' : '')}
               disabled={disabled}
             />
-            Відповідає кафедрі
+            Відповідає спеціальності кафедри
           </label>
         )}
       />
