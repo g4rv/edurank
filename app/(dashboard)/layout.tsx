@@ -97,8 +97,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Below `md` only; the rail above it. Same props, same component. */}
         <NavDrawer {...nav} />
-        {/* `p-4` on a phone: `p-6` spent 48 of 400px on margin. */}
-        <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+        {/* `p-4` on a phone: `p-6` spent 48 of 400px on margin.
+
+            `relative`: the scroll box must also be the containing block of
+            anything absolutely positioned inside it. Radix renders a hidden
+            native <select> beside every Select in a form, absolutely placed;
+            with no positioned ancestor it measured against the page, and a
+            select low on a long form (the «Освіта» card) stretched the window
+            past the shell — a second scrollbar over an empty band
+            (2026-10-06). */}
+        <main className="relative flex-1 overflow-auto p-4 md:p-6">{children}</main>
       </div>
       <Toaster position="bottom-right" richColors />
     </div>
