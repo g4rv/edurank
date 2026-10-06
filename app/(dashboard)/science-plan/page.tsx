@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { planDepartmentsFor, getSciencePlan } from '@/lib/queries/get-science-plan';
+import { listMyAspirants } from '@/lib/queries/list-my-aspirants';
+import { PickListsProvider } from '@/components/rating/pick-lists';
 import { listCoauthorCandidates } from '@/lib/queries/list-coauthor-candidates';
 import { pickPlanDepartment } from '@/lib/science/plan-department';
 import { toPlanWorkType } from '@/lib/science/to-plan-work-type';
@@ -79,27 +81,32 @@ export default async function SciencePlanPage({
   const workTypes = template.workTypes.map(toPlanWorkType);
   // Only the «Виконано» tab has a co-author picker, so only it pays for the list.
   const coauthorCandidates = tab === 'done' ? await listCoauthorCandidates(staffId) : [];
+  // п.12 names an аспірант from the аспірантура's list, never a typed ПІБ
+  // (owner, 2026-10-07) — only the ones this person supervises.
+  const aspirants = tab === 'done' ? await listMyAspirants(staffId) : [];
 
   return (
     // A flex column down to the table, so the plan's `Table` can `fill` the
     // height that is left and scroll its rows inside the card.
     <div className="flex h-full min-h-0 flex-col gap-5">
       <Breadcrumbs items={CRUMBS} />
-      <PlanView
-        academicYear={template.academicYear}
-        lastExecutionMonth={template.lastExecutionMonth}
-        orderRef={template.orderRef}
-        departments={departments}
-        currentDepartmentId={departmentId}
-        tab={tab}
-        rows={rows}
-        records={records}
-        deferred={deferred}
-        target={target}
-        workTypes={workTypes}
-        lockedAt={plan?.lockedAt ?? null}
-        coauthorCandidates={coauthorCandidates}
-      />
+      <PickListsProvider aspirants={aspirants}>
+        <PlanView
+          academicYear={template.academicYear}
+          lastExecutionMonth={template.lastExecutionMonth}
+          orderRef={template.orderRef}
+          departments={departments}
+          currentDepartmentId={departmentId}
+          tab={tab}
+          rows={rows}
+          records={records}
+          deferred={deferred}
+          target={target}
+          workTypes={workTypes}
+          lockedAt={plan?.lockedAt ?? null}
+          coauthorCandidates={coauthorCandidates}
+        />
+      </PickListsProvider>
     </div>
   );
 }

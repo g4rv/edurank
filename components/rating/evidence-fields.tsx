@@ -16,6 +16,9 @@ import { DateRangeInput } from '@/components/aurora/ui/date-range-input';
 import { Input } from '@/components/aurora/ui/input';
 import { DoiInput } from '@/components/aurora/ui/doi-input';
 import { IsbnInput } from '@/components/aurora/ui/isbn-input';
+import { PersonPick } from '@/components/rating/person-pick';
+import type { PersonOption } from '@/lib/aspirants/pick';
+import { usePickLists } from '@/components/rating/pick-lists';
 import { Textarea } from '@/components/aurora/ui/textarea';
 import { Switch } from '@/components/aurora/ui/switch';
 import {
@@ -61,6 +64,12 @@ interface EvidenceFieldsProps {
    * spoken aloud, so it is the one place that takes it as a prop.
    */
   unitLabel?: string;
+  /**
+   * Who a `pickFrom` ПІБ may name (owner, 2026-10-07): for `aspirants`, the
+   * аспіранти this person supervises — `listMyAspirants`. A form showing no
+   * such field passes nothing.
+   */
+  pick?: { aspirants?: readonly PersonOption[] };
 }
 
 export type RenderItem =
@@ -131,7 +140,11 @@ export function EvidenceFields({
   disabled,
   className = 'space-y-4',
   unitLabel = 'балів',
+  pick: pickProp,
 }: EvidenceFieldsProps) {
+  // The page provides the lists once (`PickListsProvider`); a prop overrides it
+  const fromPage = usePickLists();
+  const pick = pickProp ?? fromPage;
   // A CHECK_SUM checkbox is worth a different amount per mode, so the « — N
   // балів» suffix has to follow the mode the person has actually chosen. Any
   // other rule has no `mode` field and this stays undefined, costing nothing.
@@ -393,22 +406,35 @@ export function EvidenceFields({
                   and below sit on, and on a scaled screen their hairline border
                   rendered visibly darker than everyone else's. A box left alone
                   on its row spreads across both columns. */}
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {item.fields.map((f, i, all) => (
-                  <Input
-                    key={f.name}
-                    id={f.name}
-                    placeholder={f.label}
-                    aria-label={f.label}
-                    disabled={disabled}
-                    className={cn(
-                      'min-w-0',
-                      i === all.length - 1 && all.length % 2 === 1 && 'sm:col-span-2'
-                    )}
-                    {...register(f.name)}
-                  />
-                ))}
-              </div>
+              {/* Chosen from a list, not typed (2026-10-07) */}
+              {item.fields[0].kind === 'text' && item.fields[0].pickFrom === 'aspirants' ? (
+                <PersonPick
+                  id={item.fields[0].name}
+                  names={item.fields.map((f) => f.name)}
+                  control={control}
+                  options={pick?.aspirants ?? []}
+                  disabled={disabled}
+                  invalid={!!joinedError}
+                  emptyNote="У списку аспірантури немає аспірантів, де ви науковий керівник. Якщо це помилка — зверніться до адміністратора."
+                />
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {item.fields.map((f, i, all) => (
+                    <Input
+                      key={f.name}
+                      id={f.name}
+                      placeholder={f.label}
+                      aria-label={f.label}
+                      disabled={disabled}
+                      className={cn(
+                        'min-w-0',
+                        i === all.length - 1 && all.length % 2 === 1 && 'sm:col-span-2'
+                      )}
+                      {...register(f.name)}
+                    />
+                  ))}
+                </div>
+              )}
             </FormField>
           );
         }

@@ -36,6 +36,7 @@ import {
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { toHundredths } from '@/lib/stake/units';
 import { schemaForFields } from '@/validations/activity-evidence';
+import { pickedPersonProblem } from '@/lib/queries/list-my-aspirants';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
 import {
@@ -393,6 +394,11 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
   // назва, a DOI and a page count to give.
   const parsed = schemaForFields(fields, scoring).safeParse(input.evidence);
   if (!parsed.success) return { error: 'Невірні дані форми' };
+
+  // п.12: the аспірант is one of this person's own (owner, 2026-10-07) — the
+  // form offers nothing else; a hand-made request is told the same.
+  const pickFault = await pickedPersonProblem(fields, parsed.data, staffId);
+  if (pickFault) return { error: pickFault };
 
   const link = input.link?.trim() || null;
 
@@ -759,6 +765,11 @@ export async function updateWorkEvidence(input: {
       : undefined;
   const parsed = schemaForFields(fields, scoring, { stored }).safeParse(input.evidence);
   if (!parsed.success) return { error: 'Невірні дані форми' };
+
+  // п.12, judged against the work's OWNER (an ADMIN may be the one editing);
+  // a name already stored passes unchanged — see `pickedPersonProblem`.
+  const pickFault = await pickedPersonProblem(fields, parsed.data, work.createdById, stored);
+  if (pickFault) return { error: pickFault };
 
   const link = input.link?.trim() || null;
   if (link && type.linkRule === 'NONE') return { error: LINK_NOT_ALLOWED };

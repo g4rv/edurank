@@ -108,7 +108,7 @@ const count = (name: 'credits' | 'value', label: string): EvidenceField => ({
  * the WHOLE name (`workKey`) — its key is the one a single box typed «Прізвище
  * Ім'я По батькові» gave, so nothing already saved changes identity.
  */
-const personName = (join: string, label: string): EvidenceField[] => [
+const personName = (join: string, label: string, pickFrom?: 'aspirants'): EvidenceField[] => [
   {
     kind: 'text',
     name: `${join}Last`,
@@ -116,6 +116,7 @@ const personName = (join: string, label: string): EvidenceField[] => [
     join,
     joinLabel: label,
     rule: 'cyrillicName',
+    ...(pickFrom ? { pickFrom } : {}),
   },
   { kind: 'text', name: `${join}First`, label: 'Ім’я', join, rule: 'cyrillicName' },
   {
@@ -620,10 +621,11 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     sharing: 'INDIVIDUAL',
     identityFields: ['student'],
     // No proof asked (owner, 2026-09-24): the аспірант's ПІБ is the record.
-    // The наказ по аспірантурі will prove it once its import is built.
     linkRule: 'NONE',
     fileRule: 'NONE',
-    fields: personName('student', 'ПІБ аспіранта (здобувача)'),
+    // Chosen from the аспірантура's own list, never typed (owner,
+    // 2026-10-07): only the аспіранти this НПП supervises are offered.
+    fields: personName('student', 'ПІБ аспіранта (здобувача)', 'aspirants'),
   },
   {
     code: 'expert_review',

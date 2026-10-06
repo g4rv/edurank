@@ -382,6 +382,8 @@ model Staff {
   stakeSandboxes         StakeSandbox[]
   sciencePlans           SciencePlan[]
   scienceRecords         ScienceRecord[]
+  /// The аспіранти this person is науковий керівник of (`Aspirant`)
+  supervisedAspirants    AspirantSupervisor[]
   scienceCoauthorShares  ScienceCoauthorShare[]
   scienceWorksCreated    ScienceWork[]          @relation("ScienceWorkAuthor")
   scienceWorksDeclined   ScienceWork[]          @relation("ScienceWorkDecliner")
@@ -1616,4 +1618,54 @@ model AuditLog {
   // are the two shapes worth covering.
   @@index([createdAt])
   @@index([entity, createdAt])
+}
+
+// ─── Аспіранти (owner, 2026-10-07) ──────────────────────────────────────────
+//
+// The official list of аспіранти and their наукові керівники — what п.12
+// «Керівництво аспірантами» of the science plan picks from, so an НПП records
+// only an аспірант they actually supervise, by the name the list spells.
+// Loaded by `pnpm db:import-aspirants` from lib/aspirants/aspirants.json, which
+// `pnpm aspirants:build` makes from the docx the аспірантура sends.
+
+model Aspirant {
+  id String @id @default(cuid())
+
+  lastName   String
+  firstName  String
+  /// Empty when the list gives none
+  middleName String @default("")
+  /// Lower-case, apostrophes and spaces folded — what matching and «the same
+  /// person» compare. With the спеціальність it identifies the row: one
+  /// person appears under two спеціальності with different керівники.
+  nameNormalised String
+
+  speciality     String
+  departmentText String @default("")
+  admissionYear  Int?
+  studyForm      String @default("")
+  /// The «Науковий керівник» cell exactly as the list prints it — what the
+  /// matching read, kept so an unmatched керівник can be looked at.
+  supervisorsRaw String @default("")
+
+  /// Dropped by a later list. Kept, not deleted: a record already names them.
+  removedAt DateTime?
+
+  supervisors AspirantSupervisor[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([nameNormalised, speciality])
+}
+
+/// An НПП matched as one of an аспірант's керівники (at most two)
+model AspirantSupervisor {
+  aspirantId String
+  aspirant   Aspirant @relation(fields: [aspirantId], references: [id], onDelete: Cascade)
+  staffId    String
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@id([aspirantId, staffId])
+  @@index([staffId])
 }

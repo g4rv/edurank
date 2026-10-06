@@ -1,0 +1,1422 @@
+[
+  {
+    "lastName": "Устименко",
+    "firstName": "Богдан",
+    "middleName": "Валерійович",
+    "speciality": "А1 Освітні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2025,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф. Ю.П. Шапран"
+  },
+  {
+    "lastName": "Яловий",
+    "firstName": "Володимир",
+    "middleName": "Володимирович",
+    "speciality": "А1 Освітні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2025,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф. О.П. Онищенко"
+  },
+  {
+    "lastName": "Гірич",
+    "firstName": "Олександр",
+    "middleName": "Сергійович",
+    "speciality": "А1 Освітні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2025,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф.А.К.Мартинюк"
+  },
+  {
+    "lastName": "Симонович",
+    "firstName": "Владислав",
+    "middleName": "Павлович",
+    "speciality": "А1 Освітні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2025,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н.,доц.Н.С.Калюжка"
+  },
+  {
+    "lastName": "Коцур",
+    "firstName": "Юлія",
+    "middleName": "Петрівна",
+    "speciality": "А1 Освітні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2025,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф. О.І.Шапран"
+  },
+  {
+    "lastName": "Шапран",
+    "firstName": "Олексій",
+    "middleName": "Юрійович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф. Н.П. Онищенко"
+  },
+  {
+    "lastName": "Носаченко",
+    "firstName": "Дмитро",
+    "middleName": "Миколайович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н.,доц.  В.В.Різник"
+  },
+  {
+    "lastName": "Ткаченко",
+    "firstName": "Максим",
+    "middleName": "Тарасович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н., доц.О.М.Сергійчук"
+  },
+  {
+    "lastName": "Савченко",
+    "firstName": "Андрій",
+    "middleName": "Володимирович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н., доц. А.Л.Сембрат"
+  },
+  {
+    "lastName": "Смірнов",
+    "firstName": "Віктор",
+    "middleName": "Ігорович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф.А.К.Мартинюк"
+  },
+  {
+    "lastName": "Пуглій",
+    "firstName": "Віталій",
+    "middleName": "Володимирович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.іст.н., доц. О.О.Костенко"
+  },
+  {
+    "lastName": "Гуназа",
+    "firstName": "Леся",
+    "middleName": "Миколаївна",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2024,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.пед.н, проф. Л.Д.Шевчук"
+  },
+  {
+    "lastName": "Бован",
+    "firstName": "Ніна",
+    "middleName": "Петрівна",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н, проф.Л.Д.Шевчук"
+  },
+  {
+    "lastName": "Войтенко",
+    "firstName": "Андрій",
+    "middleName": "Андрійович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "к.пед.н, доц. В.В.Троценко"
+  },
+  {
+    "lastName": "Бовт",
+    "firstName": "Олексій",
+    "middleName": "Сергійович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н., доц.О.М.Сергійчук"
+  },
+  {
+    "lastName": "Дібров",
+    "firstName": "Віталій",
+    "middleName": "Валерійович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.іст.н., доц. Васенко О.В."
+  },
+  {
+    "lastName": "Зима",
+    "firstName": "Володимир",
+    "middleName": "Вячеславович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.пед.н, проф. Л.Д.Шевчук"
+  },
+  {
+    "lastName": "Калошин",
+    "firstName": "Михайло",
+    "middleName": "Володимирович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт) / 01.10.24-30.09.2025",
+    "supervisorsRaw": "к.пед.н. доц. О.А.Ковтун"
+  },
+  {
+    "lastName": "Карпінський",
+    "firstName": "Никита",
+    "middleName": "Вікторович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н, доц. О.С.Хмельницька"
+  },
+  {
+    "lastName": "Кошіль",
+    "firstName": "Роман",
+    "middleName": "Валентинович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н.,доц. Н.І.Самойленко"
+  },
+  {
+    "lastName": "Кучеренко",
+    "firstName": "Олексій",
+    "middleName": "Валерійович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н., доц. О.М.Сергійчук"
+  },
+  {
+    "lastName": "Кушнірук",
+    "firstName": "Іван",
+    "middleName": "Іванович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.пед.н., проф. О.І.Шапран"
+  },
+  {
+    "lastName": "Легейда",
+    "firstName": "Андрій",
+    "middleName": "Олександрович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н., доц. Н.І.Самойленко"
+  },
+  {
+    "lastName": "Легейда",
+    "firstName": "Гліб",
+    "middleName": "Андрійович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н., доц. Н.І.Самойленко"
+  },
+  {
+    "lastName": "Чаруха",
+    "firstName": "Ростислав",
+    "middleName": "Ростиславович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н., проф. А.П.Розсоха"
+  },
+  {
+    "lastName": "Чорнобай",
+    "firstName": "Віталій",
+    "middleName": "Анатолійович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н., доц. Ю.М.Багно"
+  },
+  {
+    "lastName": "Давидов",
+    "firstName": "Денис",
+    "middleName": "Іванович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "к.пед.н., доц. Ю.М.Багно"
+  },
+  {
+    "lastName": "Солодовник",
+    "firstName": "Дмитро",
+    "middleName": "Сергійович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2022,
+    "studyForm": "денна / (контракт)",
+    "supervisorsRaw": "д.пед.н., проф. О.І. Шапран"
+  },
+  {
+    "lastName": "Сухаревський",
+    "firstName": "Олександр",
+    "middleName": "Олександрович",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2021,
+    "studyForm": "Вечірня / (контракт) / академка з 01.12.2023 по 30.11.2024 продовжена з 1.12.2024 по",
+    "supervisorsRaw": "к.пед.н., доц. / А.П. Розсоха"
+  },
+  {
+    "lastName": "Давидова",
+    "firstName": "Вікторія",
+    "middleName": "Олегівна",
+    "speciality": "011 Освітні, педагогічні науки",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2023,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.пед.н., проф. Г.Л.Токмань"
+  },
+  {
+    "lastName": "Жовна",
+    "firstName": "Роман",
+    "middleName": "Олександрович",
+    "speciality": "012 Дошкільна освіта",
+    "departmentText": "Загальної педагогіки і педагогіки вищої школи",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н.,докт.псих.н., проф., Л.О. Калмикова"
+  },
+  {
+    "lastName": "Кожуховський",
+    "firstName": "Олег",
+    "middleName": "Вікторович",
+    "speciality": "014 Середня освіта( українська мова і література)",
+    "departmentText": "Української лінгвістики і методики навчання",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед. н., доц. Н.В.Черниш"
+  },
+  {
+    "lastName": "Боярськой",
+    "firstName": "Максим",
+    "middleName": "Костянтинович",
+    "speciality": "014 Середня освіта( українська мова і література)",
+    "departmentText": "Української лінгвістики і методики навчання",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф. О.Д.Кулик"
+  },
+  {
+    "lastName": "Радчук",
+    "firstName": "Сергій",
+    "middleName": "Олександрович",
+    "speciality": "014 Середня освіта( українська мова і література)",
+    "departmentText": "Української лінгвістики і методики навчання",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н., доц.Н.Д.Юрійчук"
+  },
+  {
+    "lastName": "Горовий",
+    "firstName": "Микола",
+    "middleName": "Миколайович",
+    "speciality": "014 Середня освіта( українська мова і література)",
+    "departmentText": "Української лінгвістики і методики навчання",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н,проф. О.І.Потапенко"
+  },
+  {
+    "lastName": "Кузьменко",
+    "firstName": "Владислав",
+    "middleName": "Миколайович",
+    "speciality": "014 Середня освіта( українська мова і література)",
+    "departmentText": "Української лінгвістики і методики навчання",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н, проф. О.І.Потапенко"
+  },
+  {
+    "lastName": "Ярошенко",
+    "firstName": "Надія",
+    "middleName": "Вікторівна",
+    "speciality": "014 Середня освіта( українська мова і література)",
+    "departmentText": "Української лінгвістики і методики навчання",
+    "admissionYear": 2022,
+    "studyForm": "вечірня / 01.02.2024-31.01.2025",
+    "supervisorsRaw": "д.філол.н.,проф. Г.Л. Токмань"
+  },
+  {
+    "lastName": "Ковальов",
+    "firstName": "Віктора",
+    "middleName": "Валерійович",
+    "speciality": "А5 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2025,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф. Н.П. Онищенко"
+  },
+  {
+    "lastName": "Свідерський",
+    "firstName": "Андрій",
+    "middleName": "Андрійович",
+    "speciality": "А5 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2025,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н. доц. В.В.Троценко"
+  },
+  {
+    "lastName": "Худайберенов",
+    "firstName": "Азіз",
+    "middleName": "Акмиратович",
+    "speciality": "А5 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2025,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н., доц. О.В.Васенко"
+  },
+  {
+    "lastName": "Кузнєцов",
+    "firstName": "Євген",
+    "middleName": "Сергійович",
+    "speciality": "015 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф..І.І.Доброскок"
+  },
+  {
+    "lastName": "Оверчук",
+    "firstName": "Олександр",
+    "middleName": "Олександрович",
+    "speciality": "015 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н., доц. Богатирьова Г.А."
+  },
+  {
+    "lastName": "Плужник",
+    "firstName": "Артем",
+    "middleName": "Леонідович",
+    "speciality": "015 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.пед.н., проф. Доброскок І.І."
+  },
+  {
+    "lastName": "Андрієнко",
+    "firstName": "Валентин",
+    "middleName": "Васильович",
+    "speciality": "015 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2023,
+    "studyForm": "денна (контрак)",
+    "supervisorsRaw": "д.пед.н., проф. О.Д.Кулик"
+  },
+  {
+    "lastName": "Новіков",
+    "firstName": "Олександр",
+    "middleName": "Анатолійович",
+    "speciality": "015 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2023,
+    "studyForm": "денна (контрак)",
+    "supervisorsRaw": "к.пед.н., доц. Г.А.Богатирьова"
+  },
+  {
+    "lastName": "Салманов",
+    "firstName": "Ігор",
+    "middleName": "Сарханович",
+    "speciality": "015 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2023,
+    "studyForm": "денна (контрак)",
+    "supervisorsRaw": "к.пед.н., доц., Л.В.Басюк"
+  },
+  {
+    "lastName": "Зарва",
+    "firstName": "Аліна",
+    "middleName": "Олексіївна",
+    "speciality": "015 Професійна освіта",
+    "departmentText": "Професійної освіти",
+    "admissionYear": 2022,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "д.пед.н., проф. І.І. Доброскок"
+  },
+  {
+    "lastName": "Чорний",
+    "firstName": "Євгеній",
+    "middleName": "Олегович",
+    "speciality": "А7 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2025,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.н. з фіз. виховання та спорту, проф. Н.Є.Пангелова"
+  },
+  {
+    "lastName": "Бортульов",
+    "firstName": "Євген",
+    "middleName": "Сергійович",
+    "speciality": "017 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н. доц. В.В.Троценко"
+  },
+  {
+    "lastName": "Ковальов",
+    "firstName": "Денис",
+    "middleName": "Сергійович",
+    "speciality": "017 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.пед.н., доц.Чупрун Н.Ф."
+  },
+  {
+    "lastName": "Калмиков",
+    "firstName": "Кирило",
+    "middleName": "Олегович",
+    "speciality": "017 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2023,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.н. з фіз. виховання та спорту, проф. Н.Є.Пангелова"
+  },
+  {
+    "lastName": "Бухтєєв",
+    "firstName": "Андрій",
+    "middleName": "Іванович",
+    "speciality": "017 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.н. з фіз. виховання та спорту, проф. Пангелова Н.Є проф.; к.н. з фіз. виховання та спорту, доц. А.А.Пивовар"
+  },
+  {
+    "lastName": "Іващенко",
+    "firstName": "Анатолій",
+    "middleName": "Іванович",
+    "speciality": "017 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.н. з фіз. виховання та спорту, доц. В.В.Поліщук"
+  },
+  {
+    "lastName": "Іващенко",
+    "firstName": "Володимир",
+    "middleName": "Анатолійович",
+    "speciality": "017 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.н. з фіз. виховання та спорту, доц. В.В.Поліщук"
+  },
+  {
+    "lastName": "Капелян",
+    "firstName": "Андрій",
+    "middleName": "Віталійович",
+    "speciality": "017 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.н. з фіз. виховання та спорту, доц. В.М.Степаненко"
+  },
+  {
+    "lastName": "Свириденко",
+    "firstName": "Владислав",
+    "middleName": "Васильович",
+    "speciality": "017 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед.н, доц. Т.П.Кравченко"
+  },
+  {
+    "lastName": "Пальчик",
+    "firstName": "Максим",
+    "middleName": "Сергійович",
+    "speciality": "017 Фізична культура і спорт",
+    "departmentText": "Теорії та методики фізичного виховання і спорту",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.н. з фіз. виховання і спорту, доц. А.А. Пивовар"
+  },
+  {
+    "lastName": "Шеховцов",
+    "firstName": "Максим",
+    "middleName": "Анатолійович",
+    "speciality": "В9 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.і.н., проф. Н.І.Коцур"
+  },
+  {
+    "lastName": "Мірзоєв",
+    "firstName": "Валерій",
+    "middleName": "Сатторович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2024,
+    "studyForm": "заочна",
+    "supervisorsRaw": "к.і.н., доц. Л.М.Коцур"
+  },
+  {
+    "lastName": "Карпань",
+    "firstName": "Анна",
+    "middleName": "Петрівна",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2024,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.і.н., проф. І.М.Левченко"
+  },
+  {
+    "lastName": "Власюк",
+    "firstName": "Вікторія",
+    "middleName": "Вячеславівна",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.і.н., доц. Л.М. Коцур"
+  },
+  {
+    "lastName": "Коломієць",
+    "firstName": "Ольга",
+    "middleName": "Юріївна",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.і.н., проф. В.П. Коцур"
+  },
+  {
+    "lastName": "Давидов",
+    "firstName": "Дмитро",
+    "middleName": "Володимирович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.і.н., доц. О.А.Тарапон"
+  },
+  {
+    "lastName": "Костюченко",
+    "firstName": "Ігор",
+    "middleName": "Іванович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.і.н.,доц. Л.В.Хмельницька"
+  },
+  {
+    "lastName": "Кошлаков",
+    "firstName": "Сергій",
+    "middleName": "Андрійович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.і.н., проф. Н.І.Коцур"
+  },
+  {
+    "lastName": "Оношко",
+    "firstName": "Богдан",
+    "middleName": "Ігорович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.і.н.,проф. В.К.Молоткіна"
+  },
+  {
+    "lastName": "Панчук",
+    "firstName": "Юрій",
+    "middleName": "Павлович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.і.н., доц. В.Л.Дудар"
+  },
+  {
+    "lastName": "Чурій",
+    "firstName": "Денис",
+    "middleName": "Олегович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.і.н., проф. Н.І.Коцур"
+  },
+  {
+    "lastName": "Швидун",
+    "firstName": "Михайло",
+    "middleName": "Васильович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.і.н., доц. О.А.Тарапон"
+  },
+  {
+    "lastName": "Щербина",
+    "firstName": "Олег",
+    "middleName": "Олегович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.і.н.,доц. Л.В.Хмельницька"
+  },
+  {
+    "lastName": "Юрчук",
+    "firstName": "Богдан",
+    "middleName": "Юрійович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.і.н., доц. О.О.Костенко"
+  },
+  {
+    "lastName": "Задорожній",
+    "firstName": "Олександр",
+    "middleName": "Михайлович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "д.і.н., проф. В.П.Коцур"
+  },
+  {
+    "lastName": "Червінська",
+    "firstName": "Тетяна",
+    "middleName": "Богданівна",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "д.і.н.,проф. В.К.Молоткіна"
+  },
+  {
+    "lastName": "Черненко",
+    "firstName": "Володимир",
+    "middleName": "Федорович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "вечірня (контракт)",
+    "supervisorsRaw": "к.і.н., доц. В.Л.Дудар"
+  },
+  {
+    "lastName": "Левченко",
+    "firstName": "Максим",
+    "middleName": "Андрійович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.і.н., проф. В.П.Коцур, д.і.н., проф. О.І.Курко"
+  },
+  {
+    "lastName": "Рудич",
+    "firstName": "Максим",
+    "middleName": "Володимирович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "д.і.н., проф. Н.І.Коцур"
+  },
+  {
+    "lastName": "Таран",
+    "firstName": "Іван",
+    "middleName": "Вікторович",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2022,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.і.н., проф. Н.І. Коцур"
+  },
+  {
+    "lastName": "Павленко",
+    "firstName": "Ольга",
+    "middleName": "Анатоліївна",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2022,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "д.і.н., проф.В.В. Коцур"
+  },
+  {
+    "lastName": "Тенькова",
+    "firstName": "Зоя",
+    "middleName": "Юріївна",
+    "speciality": "032 Історія та археологія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2021,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.і.н., проф. Н.І. Коцур"
+  },
+  {
+    "lastName": "Полковніков",
+    "firstName": "Анатолій",
+    "middleName": "Анатолійович",
+    "speciality": "В10 Філософія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "к.філос.н., доц. С.М.Рик"
+  },
+  {
+    "lastName": "Хома",
+    "firstName": "Іван",
+    "middleName": "Васильович",
+    "speciality": "033 Філософія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.філос.н., доц. С.М.Рик"
+  },
+  {
+    "lastName": "Дев’ятьяров",
+    "firstName": "Станіслав",
+    "middleName": "Фідаільович",
+    "speciality": "033 Філософія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.філол..н,доц. Н.Ф.Юхименко"
+  },
+  {
+    "lastName": "Домарецький",
+    "firstName": "Вадим",
+    "middleName": "Сергійович",
+    "speciality": "033 Філософія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.філос.н.,доц. / Л.М.Харченко"
+  },
+  {
+    "lastName": "Хоменко",
+    "firstName": "Ольга",
+    "middleName": "Василівна",
+    "speciality": "033 Філософія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2023,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "к.філос.н., доц. С.М. Рик"
+  },
+  {
+    "lastName": "Бойчук",
+    "firstName": "Олег",
+    "middleName": "Іванович",
+    "speciality": "033 Філософія",
+    "departmentText": "Історії та культури України та спеціальних історичних дисциплін",
+    "admissionYear": 2026,
+    "studyForm": "заочна",
+    "supervisorsRaw": "к.філол..н,доц. Н.Ф.Юхименко"
+  },
+  {
+    "lastName": "Білоусько",
+    "firstName": "Святослав",
+    "middleName": "Віталійович",
+    "speciality": "035 Філологія",
+    "departmentText": "Української лінгвістики і методики навчання",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.філол.н., доц. Ю.М.Бродюк"
+  },
+  {
+    "lastName": "Демко",
+    "firstName": "Олександр",
+    "middleName": "Олександрович",
+    "speciality": "035 Філологія",
+    "departmentText": "Української лінгвістики і методики навчання",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.філол.н., доц. М.Б.Пангелова"
+  },
+  {
+    "lastName": "Дричкін",
+    "firstName": "Олег",
+    "middleName": "Володимирович",
+    "speciality": "035 Філологія",
+    "departmentText": "Української лінгвістики і методики навчання",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.пед. н., доц. Н.В.Черниш"
+  },
+  {
+    "lastName": "Заболотній",
+    "firstName": "Андрій",
+    "middleName": "Олександрович",
+    "speciality": "051 Економіка",
+    "departmentText": "Економіки",
+    "admissionYear": 2023,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.е.н., проф. Ігнатенко М.М."
+  },
+  {
+    "lastName": "Клочко",
+    "firstName": "Максим",
+    "middleName": "Юрійович",
+    "speciality": "051 Економіка",
+    "departmentText": "Економіки",
+    "admissionYear": 2023,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.е.н., доц. Л.В.Тірбах"
+  },
+  {
+    "lastName": "Бикало",
+    "firstName": "Микола",
+    "middleName": "Володимирович",
+    "speciality": "051 Економіка",
+    "departmentText": "Економіки",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.е.н., проф. М.М.Ігнатенко"
+  },
+  {
+    "lastName": "Білоусов",
+    "firstName": "Євгеній",
+    "middleName": "Юрійович",
+    "speciality": "051 Економіка",
+    "departmentText": "Економіки",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.е.н., проф. Л.О.Мармуль"
+  },
+  {
+    "lastName": "Храпко",
+    "firstName": "Олег",
+    "middleName": "Андрійович",
+    "speciality": "051 Економіка",
+    "departmentText": "Економіки",
+    "admissionYear": 2022,
+    "studyForm": "денна (контракт) / 01.04.2024-31.03.2025",
+    "supervisorsRaw": "к.і.н., доц. Є.П. Костик"
+  },
+  {
+    "lastName": "Дем`яненко",
+    "firstName": "Віталій",
+    "middleName": "Сергійович",
+    "speciality": "С4 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.псих.н., проф., Л.О. Калмикова"
+  },
+  {
+    "lastName": "Дорошенко",
+    "firstName": "Ярослав",
+    "middleName": "Валерійович",
+    "speciality": "С4 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.психолог.н, проф. І.В.Волженцева"
+  },
+  {
+    "lastName": "Миколюк",
+    "firstName": "Олександр",
+    "middleName": "Юрійович",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.психолог.н, проф. І.В.Волженцева"
+  },
+  {
+    "lastName": "Бабак",
+    "firstName": "Арсеній",
+    "middleName": "Максимович",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.псих.н., проф., Л.О. Калмикова"
+  },
+  {
+    "lastName": "Соловей",
+    "firstName": "Олександр",
+    "middleName": "Миколайович",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.психолог.н, проф. І.В.Волженцева"
+  },
+  {
+    "lastName": "Яковець",
+    "firstName": "Михайло",
+    "middleName": "Вікторович",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.псих.н.,доц. Н.В.Харченко"
+  },
+  {
+    "lastName": "Леженко",
+    "firstName": "Сергій",
+    "middleName": "Олександрович",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2024,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.псих.наук, проф. Калмикова Г.В."
+  },
+  {
+    "lastName": "Бобир",
+    "firstName": "Олександр",
+    "middleName": "Вікторович",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.психолог.проф, Т.В. Ткач / к.психолог.н., доц. О.В.Дудар"
+  },
+  {
+    "lastName": "Гущенко",
+    "firstName": "Олександр",
+    "middleName": "Валерійович",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.психолог.н, доц. В.А.Вінс"
+  },
+  {
+    "lastName": "Храпко",
+    "firstName": "Олександр",
+    "middleName": "Олегович",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.психолог.н, проф. І.В.Волженцева"
+  },
+  {
+    "lastName": "Барська",
+    "firstName": "Наталія",
+    "middleName": "Валентинівна",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2023,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "к.психолог.н., доц. Т.В.Кириченко"
+  },
+  {
+    "lastName": "Шафорост",
+    "firstName": "Аліна",
+    "middleName": "Вікторівна",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2023,
+    "studyForm": "заочна",
+    "supervisorsRaw": "к.психолог.н., доц. Ю.І.Лановенко / к.психолог.н., проф. Г.О.Хомич"
+  },
+  {
+    "lastName": "Ткач",
+    "firstName": "Олена",
+    "middleName": "Сергіївна",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2020,
+    "studyForm": "Заочна академіка",
+    "supervisorsRaw": "к.псих.н., проф. Гомич Г.О."
+  },
+  {
+    "lastName": "Обелець",
+    "firstName": "Інна",
+    "middleName": "Михайлівна",
+    "speciality": "053 Психологія",
+    "departmentText": "Психології",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "к.психолог.н., доц. В.А.Вінс"
+  },
+  {
+    "lastName": "Біденко",
+    "firstName": "Віталій",
+    "middleName": "Ігорович",
+    "speciality": "071 Облік та оподаткування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.е.н., доц. Р.С.Вовченко"
+  },
+  {
+    "lastName": "Білько",
+    "firstName": "Михайло",
+    "middleName": "Миколайович",
+    "speciality": "071 Облік та оподаткування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.е.н, доц. Л.І.Бурдонос"
+  },
+  {
+    "lastName": "Ліщенко",
+    "firstName": "Дмитро",
+    "middleName": "Петрович",
+    "speciality": "071 Облік та оподаткування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.е.н.доц. Л.І.Бурдонос"
+  },
+  {
+    "lastName": "Мидловець",
+    "firstName": "Іван",
+    "middleName": "Васильович",
+    "speciality": "D2 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "к.е.н, доц. І.М.Макарчук"
+  },
+  {
+    "lastName": "Довгий",
+    "firstName": "Владислав",
+    "middleName": "Анатолійович",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.е.н., проф.,  О.М.Калівошка"
+  },
+  {
+    "lastName": "Котляров",
+    "firstName": "Олександр",
+    "middleName": "Іванович",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.е.н, доц. І.М.Макарчук"
+  },
+  {
+    "lastName": "Овсієнко",
+    "firstName": "Олександр",
+    "middleName": "Сергійович",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2024,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.е.н., проф.,  О.М.Калівошка"
+  },
+  {
+    "lastName": "Макарчук",
+    "firstName": "Іван",
+    "middleName": "Іванович",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2023,
+    "studyForm": "денна",
+    "supervisorsRaw": "к.е.н., доц.О.В. Калмиков"
+  },
+  {
+    "lastName": "Грановський",
+    "firstName": "Олександр",
+    "middleName": "Сергійович",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.е.н, доц. І.М.Макарчук"
+  },
+  {
+    "lastName": "Макарчук",
+    "firstName": "Іван",
+    "middleName": "Михайлович",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.е.н., доц. І.В.Грановська"
+  },
+  {
+    "lastName": "Рогачов",
+    "firstName": "Микола",
+    "middleName": "Анатолійович",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.е.н., доц.Ю.В.Кривенко"
+  },
+  {
+    "lastName": "Фортонюк",
+    "firstName": "Костянтин",
+    "middleName": "Володимирович",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "к.е.н., доц. О.В. Калмиков"
+  },
+  {
+    "lastName": "Устич",
+    "firstName": "Наталія",
+    "middleName": "Миколаївна",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2023,
+    "studyForm": "вечірня",
+    "supervisorsRaw": "к.е.н., доц. І.В. Грановська"
+  },
+  {
+    "lastName": "Паньків",
+    "firstName": "Нікіта",
+    "middleName": "Едуардович",
+    "speciality": "072 Фінанси, банківська справа та страхування",
+    "departmentText": "Фінансів, обліку і ополаткування",
+    "admissionYear": 2022,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.е.н., проф.,  О.М.Калівошко"
+  },
+  {
+    "lastName": "Одинець",
+    "firstName": "Тарас",
+    "middleName": "Ігорович",
+    "speciality": "D4 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "к.н. з. держ. управління Д.Г. Дармостука."
+  },
+  {
+    "lastName": "Черніков",
+    "firstName": "Владислав",
+    "middleName": "Юрійович",
+    "speciality": "D4 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "к.н. з. держ. управління М.М.Бурик ."
+  },
+  {
+    "lastName": "Шеховцов",
+    "firstName": "Максим",
+    "middleName": "Анатолійович",
+    "speciality": "D4 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "к.н. з. держ. управління М.М.Бурик"
+  },
+  {
+    "lastName": "Міщенко",
+    "firstName": "Олексій",
+    "middleName": "Миколайович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2024,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.н.з.д.у., І.І. Крилова"
+  },
+  {
+    "lastName": "Корбань",
+    "firstName": "Владислав",
+    "middleName": "Володимирович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2024,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.н.з.д.у., І.І. Крилова"
+  },
+  {
+    "lastName": "Олійник",
+    "firstName": "Костянтин",
+    "middleName": "Костянтинович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2024,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.н.з.д.у., І.І. Крилова"
+  },
+  {
+    "lastName": "Луков",
+    "firstName": "Павло",
+    "middleName": "Миколайович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2024,
+    "studyForm": "Заочна",
+    "supervisorsRaw": "д. н. з держ. управ., проф. Гбур З.М."
+  },
+  {
+    "lastName": "Холодов",
+    "firstName": "Сергій",
+    "middleName": "Сергійович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2024,
+    "studyForm": "Заочна",
+    "supervisorsRaw": "д. н. з держ. управ., проф. Пархоменко-Куцевіл"
+  },
+  {
+    "lastName": "Глущенко",
+    "firstName": "Ганна",
+    "middleName": "Анатоліївна",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2024,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д. н. з держ. управ., проф. Карпа М.І."
+  },
+  {
+    "lastName": "Левченко",
+    "firstName": "Андрій",
+    "middleName": "Геннадійович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д. н. з. держ. управ., проф. М.І.Карпа"
+  },
+  {
+    "lastName": "Михайлюк",
+    "firstName": "Артем",
+    "middleName": "Олександрович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.н.з.держ.управ., проф.Н.С.Орлова"
+  },
+  {
+    "lastName": "Орган",
+    "firstName": "Сергій",
+    "middleName": "Іванович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.н.з.держ.управ., проф. З.В.Гбур"
+  },
+  {
+    "lastName": "Паєнок",
+    "firstName": "Андрій",
+    "middleName": "Миколайович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.н.з.держ.управ., проф.М.І.Карпа"
+  },
+  {
+    "lastName": "Яценко",
+    "firstName": "Владислав",
+    "middleName": "Сергійович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2023,
+    "studyForm": "денна (контракт)",
+    "supervisorsRaw": "д.н.з.держ.управ., проф. З.В.Гбур"
+  },
+  {
+    "lastName": "Бойко",
+    "firstName": "Євген",
+    "middleName": "Олександрович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2023,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.н.з.держ.управ., проф. З.В.Гбур"
+  },
+  {
+    "lastName": "Ананченко",
+    "firstName": "Михайло",
+    "middleName": "Олегович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2025,
+    "studyForm": "заочна",
+    "supervisorsRaw": "д.н.з.д.у. проф. В.О.Саламатов"
+  },
+  {
+    "lastName": "Губенко",
+    "firstName": "Валентина",
+    "middleName": "Валеріївна",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2022,
+    "studyForm": "денна",
+    "supervisorsRaw": "д.н.з.д.у. проф. / Карамишев Д.В."
+  },
+  {
+    "lastName": "Куртинець",
+    "firstName": "Олександр",
+    "middleName": "Семенович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2022,
+    "studyForm": "Вечірня (контракт)",
+    "supervisorsRaw": "д.н.з.д.у. доц. / М.І. Карпа"
+  },
+  {
+    "lastName": "Чеховський",
+    "firstName": "Андрій",
+    "middleName": "Анатолійович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2026,
+    "studyForm": "Заочна",
+    "supervisorsRaw": "д. н. з держ. управ., проф. Пархоменко-Куцевіл"
+  },
+  {
+    "lastName": "Трухан",
+    "firstName": "Іван",
+    "middleName": "Васильович",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2026,
+    "studyForm": "Заочна",
+    "supervisorsRaw": "д.н.з.д.у. доц. / М.І. Карпа"
+  },
+  {
+    "lastName": "Алієв",
+    "firstName": "Азер",
+    "middleName": "Аріф огли",
+    "speciality": "281 Публічне управління та адміністрування",
+    "departmentText": "Кафедра публічного та управління",
+    "admissionYear": 2026,
+    "studyForm": "Заочна",
+    "supervisorsRaw": "д. н. з держ. управ., проф. Пархоменко-Куцевіл"
+  }
+]

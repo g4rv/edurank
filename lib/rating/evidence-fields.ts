@@ -46,6 +46,15 @@ export type EvidenceField =
        * two characters. For a ПІБ printed into a licence document.
        */
       rule?: 'cyrillicName';
+      /**
+       * On the FIRST field of a joined ПІБ: the person is CHOSEN from a list,
+       * not typed — one select fills every field of the group (owner,
+       * 2026-10-07). `aspirants` is the official аспіранти list, narrowed to
+       * the ones the person filling it in supervises; the server checks the
+       * same. The stored answer is still the joined text fields, so a record
+       * typed before keeps reading, keying and printing as it did.
+       */
+      pickFrom?: 'aspirants';
     }
   | {
       kind: 'number';
