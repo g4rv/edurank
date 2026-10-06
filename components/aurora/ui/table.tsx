@@ -190,7 +190,8 @@ export function Table({
         // not, so the card fills and the body scrolls exactly as before.
         fill
           ? 'max-h-fit min-h-0 flex-1'
-          : 'max-h-(--table-max-h) [--table-max-h:calc(100svh-16rem)]',
+          : // `vh` first for a browser that does not know `svh` — see `DialogContent`
+            'max-h-(--table-max-h) [--table-max-h:calc(100vh-16rem)] supports-[height:100svh]:[--table-max-h:calc(100svh-16rem)]',
         containerClassName
       )}
     >

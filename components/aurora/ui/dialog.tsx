@@ -65,7 +65,14 @@ function DialogContent({
           // `max-h` and a flex column, so a long form scrolls inside rather than
           // pushing the panel off the screen. `w-[calc(100%-2rem)]` keeps a
           // gutter on a phone, matching the alert dialog.
-          'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100svh-4rem)] w-[calc(100%-2rem)] max-w-lg',
+          //
+          // `vh` first, `svh` where the browser knows it (owner, 2026-10-07: «the
+          // science popup does not scroll for some users»). A browser older than
+          // the unit (Chrome < 108, Safari < 15.4) dropped the whole `max-h`, so
+          // the panel grew past the screen with the page behind it locked —
+          // nothing scrolled and «Додати» was out of reach.
+          'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100vh-4rem)] w-[calc(100%-2rem)] max-w-lg',
+          'supports-[height:100svh]:max-h-[calc(100svh-4rem)]',
           // **No `overflow-hidden` here** (owner, 2026-09-20). A combobox inside
           // a dialog has to portal INTO this element — Radix locks scrolling
           // with `shards: [contentRef]`, so a list portalled anywhere else
