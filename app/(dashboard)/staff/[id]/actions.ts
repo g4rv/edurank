@@ -38,6 +38,12 @@ import { formatStake } from '@/lib/stake/units';
 import { parseDbError } from '@/lib/db-error';
 import { logError } from '@/lib/log';
 import { syncProfileDerived, PROFILE_DERIVED_STAFF_FIELDS } from '@/lib/rating/profile-derived';
+import {
+  ACADEMIC_STORED_SELECT,
+  academicAuditValue,
+  mirrorsForUpdate,
+  storedAcademic,
+} from '@/lib/staff/academic';
 
 export type StaffArchiveState = { error: string } | { success: true; message: string };
 
@@ -273,7 +279,15 @@ export async function updateStaff(
   // payload would let a profile save overwrite — or with an empty form field,
   // NULL out — a ставка two heads had agreed. It is still accepted when a
   // person is CREATED, where no distribution exists yet to supply it.
-  const { partTimeDepartmentIds, employmentRate: _ignored, ...fields } = parsed.data;
+  const { partTimeDepartmentIds, employmentRate: _ignored, ...parsedFields } = parsed.data;
+
+  // Only what was actually SENT (2026-10-06). The schema fills every field it
+  // knows — an absent badge list becomes [] — so a form that does not carry a
+  // field (an old open tab, a narrower form) would otherwise empty it.
+  const sent = new Set(Object.keys((data ?? {}) as object));
+  const fields = Object.fromEntries(
+    Object.entries(parsedFields).filter(([key]) => sent.has(key))
+  ) as Partial<typeof parsedFields>;
 
   // ADMIN only, like the figure itself. An editor's typed rates are dropped
   // rather than refused — they are never shown the fields that produce them.
@@ -337,19 +351,10 @@ export async function updateStaff(
           phone: true,
           isNpp: true,
           employmentRate: true,
-          pedagogicalExperience: true,
-          academicRank: true,
-          scientificDegree: true,
-          degreeMatchesDepartment: true,
-          // Editable (it is in `staffUpdateSchema`, on the form and in
-          // `ALLOWED_FIELD_NAMES`) and was the one writable column missing
-          // here, so its before-value read as null on every save: an existing
-          // date logged a phantom «— → 12.05.2019», and CLEARING one logged
-          // nothing at all, because null → null is not a change (2026-08-28).
-          degreeDefenceDate: true,
-          adminPosition: true,
-          basicEducationMatch: true,
-          basicEducationSpecialty: true,
+          // Every editable academic column (2026-10-06). A writable column
+          // missing here reads as null before every save — an existing value
+          // logs a phantom «— → …» and clearing one logs nothing (2026-08-28).
+          ...ACADEMIC_STORED_SELECT,
           wosUrl: true,
           wosCitationCount: true,
           scopusUrl: true,
@@ -377,12 +382,26 @@ export async function updateStaff(
       // all the way into `diffChanges`, which normalises both sides. The old
       // cast claimed `degreeDefenceDate` was a string on both sides and it was
       // a Date on both — two objects that are never `!==`-equal.
+      //
+      // Badge lists and degree keys go through `academicAuditValue`, so the log
+      // reads «Заслужений вчитель», not a key nor an array it cannot diff.
       const beforeFiltered: Record<string, DiffValue> = {};
+      const afterFiltered: Record<string, DiffValue> = {};
       for (const key of Object.keys(updateData)) {
-        beforeFiltered[key] = ((existing as Record<string, unknown> | null)?.[key] ??
-          null) as DiffValue;
+        const stored = (existing as Record<string, unknown> | null)?.[key] ?? null;
+        beforeFiltered[key] = academicAuditValue(key, stored);
+        afterFiltered[key] = academicAuditValue(key, updateData[key]);
       }
-      const changes = diffChanges(beforeFiltered, updateData as Record<string, DiffValue>);
+      const changes = diffChanges(beforeFiltered, afterFiltered);
+
+      // The old columns the rating still reads (2026-10-06), derived AFTER the
+      // diff — bookkeeping, not a change anybody made — and before the write,
+      // so the re-score below sees them.
+      const mirrors = mirrorsForUpdate(
+        storedAcademic(existing as Record<string, unknown> | null),
+        updateData
+      );
+      if (mirrors) Object.assign(updateData, mirrors);
 
       // Сумісництво, as кафедра NAMES rather than ids: the audit is read by a
       // person, and «Кафедра екології → —» says what a pair of cuids does not.

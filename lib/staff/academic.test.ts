@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { legacyMirrors } from './academic';
+import { academicAuditValue, legacyMirrors, mirrorsForUpdate } from './academic';
 import { CANDIDATE_DEGREES, DOCTOR_DEGREES, HONORARY_TITLES } from './academic-options';
 
 const EMPTY = {
@@ -71,5 +71,50 @@ describe('the option lists', () => {
       const keys = list.map((o) => o.value);
       expect(new Set(keys).size).toBe(keys.length);
     }
+  });
+});
+
+describe('mirrorsForUpdate — merge what was saved with what is stored', () => {
+  const STORED = {
+    position: 'DOCENT',
+    candidateDegree: 'cand_history',
+    candidateDefenceDate: null,
+    doctorDegree: null,
+    doctorDefenceDate: null,
+    adminPositions: ['DEAN'],
+  } as const;
+
+  it('leaves the mirrors alone when no source field was saved', () => {
+    expect(mirrorsForUpdate(STORED, { phone: '+380671234567' })).toBeNull();
+  });
+
+  // An editor granted only one field still keeps the others in the mirrors.
+  it('derives from the stored values for every field not being saved', () => {
+    expect(mirrorsForUpdate(STORED, { doctorDegree: 'doc_history' })).toEqual({
+      academicRank: 'DOCENT',
+      scientificDegree: 'DOCTOR',
+      degreeDefenceDate: null,
+      adminPosition: 'DEAN',
+    });
+  });
+
+  it('lets a cleared field clear its mirror', () => {
+    expect(mirrorsForUpdate(STORED, { position: null })?.academicRank).toBeNull();
+  });
+});
+
+describe('academicAuditValue — what the audit log prints', () => {
+  it('prints badge lists and degree keys as their labels', () => {
+    expect(academicAuditValue('honoraryTitles', ['merited_teacher', 'people_artist'])).toBe(
+      'Заслужений вчитель, Народний художник'
+    );
+    expect(academicAuditValue('adminPositions', ['DEAN'])).toBe('Декан');
+    expect(academicAuditValue('adminPositions', [])).toBeNull();
+    expect(academicAuditValue('candidateDegree', 'phd')).toBe('Доктор філософії (PhD)');
+    expect(academicAuditValue('position', 'DOCENT')).toBe('Доцент');
+  });
+
+  it('passes every other value through', () => {
+    expect(academicAuditValue('phone', '+380671234567')).toBe('+380671234567');
   });
 });

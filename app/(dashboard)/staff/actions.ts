@@ -19,6 +19,7 @@ import {
   type RateSeed,
 } from '@/lib/stake/seed-allocation';
 import { syncProfileDerived } from '@/lib/rating/profile-derived';
+import { mirrorsForUpdate, storedAcademic } from '@/lib/staff/academic';
 
 export type StaffCreateState =
   | { error: string }
@@ -72,6 +73,9 @@ export async function createStaff(
     ...rest,
     departmentId: departmentId ?? null,
     divisionId: divisionId ?? null,
+    // The old columns the rating still reads, derived from the new fields
+    // (2026-10-06) — see lib/staff/academic.ts.
+    ...mirrorsForUpdate(storedAcademic(null), rest),
   };
 
   // STAFF CREATE authorises the record and its ordinary data — not the columns
