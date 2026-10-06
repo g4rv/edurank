@@ -241,6 +241,14 @@ pnpm db:clean-student-names  # one-off: take the birth dates out of ПІБ in
                       #   «Вступник» column («ПІБ 16.05.1985») into 781 rows;
                       #   the parser strips it now, this catches up what went in
                       #   before. Refuses to touch a row a StudentClaim names.
+pnpm tsx prisma/check-academic-mirrors.ts  # after the 2026-10-06 academic-info
+                      #   migrations: the old academicRank / scientificDegree /
+                      #   degreeDefenceDate / adminPosition columns must equal what
+                      #   the new fields derive. Expect «розбіжностей: 0».
+pnpm db:headship-admin-position  # one-off, on that deploy: rating 1.6 now pays
+                      #   a завідувач / декан for being named on the кафедра /
+                      #   факультет. Reports who moves (~36 on prod); --apply writes.
+                      #   Order: back up → migrate deploy → mirror check → this.
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 
@@ -472,6 +480,12 @@ positions a person either satisfies or does not, derived from their activities o
 five-year window. `Кнпп` — how many people on a кафедра meet enough of them — is
 **never stored**; it is computed in `lib/queries/get-department-knpp.ts`, because
 freezing it would go stale the moment somebody submits an achievement.
+
+**Any line can be removed — final — by ADMIN, or by the НПП on their own**
+(2026-10-06). An open year's rating line is deleted from the rating too; a
+closed year's is only hidden (`KharakterystykaRemovedLine`); an imported one is
+hidden (`removedAt`) so a re-import cannot bring it back. The table is
+«Removing a line» in `docs/kharakterystyka.md`.
 
 Which indicators satisfy which position is `ActivityType.licencePositions`, a JSON
 column and not a list in code — for the same reason `requiresVerification` and
