@@ -1297,7 +1297,7 @@ function Row({
   const recommended = recommendedStake({
     formulaHundredths: row.formulaHundredths,
     studentBonus: row.bonus.total,
-    status: statusValue(row.adminPosition, statusMap),
+    status: statusValue(row.adminPositions, statusMap),
   });
 
   return (
@@ -1368,7 +1368,7 @@ function Row({
       </td>
 
       <td className="px-2 py-2 text-center">
-        <StatusCell position={row.adminPosition} values={statusValues} />
+        <StatusCell positions={row.adminPositions} values={statusValues} />
       </td>
 
       <LimitCell

@@ -189,10 +189,10 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
       await updateOwnProfile({
         ...payload,
         ...ACADEMIC,
-        adminPositions: ['DEPARTMENT_OR_UNIT_HEAD'],
+        adminPositions: ['UNIT_HEAD'],
       } as unknown as OwnProfileSchema)
     ).toEqual({ error: 'Керівна посада може бути лише одна' });
-    expect(adminPostsConflict).toHaveBeenCalledWith('staff-own', ['DEPARTMENT_OR_UNIT_HEAD']);
+    expect(adminPostsConflict).toHaveBeenCalledWith('staff-own', ['UNIT_HEAD']);
     expect(tx.staff.update).not.toHaveBeenCalled();
   });
 

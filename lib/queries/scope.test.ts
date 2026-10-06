@@ -198,12 +198,12 @@ describe('headDeanConflict', () => {
   it('refuses to name a проректор or a керівник відділу', async () => {
     mockStaff.mockResolvedValue({ adminPositions: ['VICE_RECTOR'] });
     expect(await headDeanConflict('staff-1', 'DEAN')).toContain('Проректор');
-    mockStaff.mockResolvedValue({ adminPositions: ['DEPARTMENT_OR_UNIT_HEAD'] });
+    mockStaff.mockResolvedValue({ adminPositions: ['UNIT_HEAD'] });
     expect(await headDeanConflict('staff-1', 'HEAD')).toContain('лише одна');
   });
 
   it('names a вчений секретар as завідувач', async () => {
-    mockStaff.mockResolvedValue({ adminPositions: ['VICE_DEAN_OR_SECRETARY'] });
+    mockStaff.mockResolvedValue({ adminPositions: ['ACADEMIC_SECRETARY'] });
     expect(await headDeanConflict('staff-1', 'HEAD')).toBeNull();
   });
 });

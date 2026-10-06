@@ -121,10 +121,14 @@ function hasher() {
  */
 const SPARE_POSITIONS: readonly AdminPosition[] = [
   'VICE_RECTOR',
-  'VICE_DEAN_OR_SECRETARY',
+  'VICE_DEAN',
+  'ACADEMIC_SECRETARY',
+  'ADMISSION_SECRETARY',
+  'UNIT_HEAD',
   'DEPUTY_DEPARTMENT_HEAD',
   'DEPUTY_ADMISSION_SECRETARY',
-  'LAB_OR_CENTER_HEAD',
+  'LAB_HEAD',
+  'CENTER_HEAD',
 ];
 
 /**
@@ -138,11 +142,15 @@ const SPARE_POSITIONS: readonly AdminPosition[] = [
 const POSITION_VALUES: Record<AdminPosition, number> = {
   VICE_RECTOR: 15,
   DEAN: 10,
-  VICE_DEAN_OR_SECRETARY: 5,
-  DEPARTMENT_OR_UNIT_HEAD: 10,
+  VICE_DEAN: 5,
+  ACADEMIC_SECRETARY: 5,
+  ADMISSION_SECRETARY: 5,
+  DEPARTMENT_HEAD: 10,
+  UNIT_HEAD: 10,
   DEPUTY_DEPARTMENT_HEAD: 5,
   DEPUTY_ADMISSION_SECRETARY: 5,
-  LAB_OR_CENTER_HEAD: 5,
+  LAB_HEAD: 5,
+  CENTER_HEAD: 5,
 };
 
 export interface TestResult {
@@ -333,10 +341,11 @@ export async function seedTestUniverse(prisma: PrismaClient): Promise<TestResult
         // The декан is the SECOND person on the факультет's first кафедра. Every
         // кафедра has at least three, so there is always somebody to be it.
         const wantsDean: boolean = isDean;
-        const position: AdminPosition | null = wantsDean
-          ? 'DEAN'
-          : isHead
-            ? 'DEPARTMENT_OR_UNIT_HEAD'
+        // A завідувач or декан holds that post by being named on the кафедра or
+        // факультет (2026-10-06) — nothing is picked for them.
+        const position: AdminPosition | null =
+          wantsDean || isHead
+            ? null
             : spare < SPARE_POSITIONS.length
               ? SPARE_POSITIONS[spare++]!
               : null;
@@ -352,6 +361,7 @@ export async function seedTestUniverse(prisma: PrismaClient): Promise<TestResult
             isNpp: true,
             role: 'USER',
             departmentId: department.id,
+            adminPositions: position ? [position] : [],
             adminPosition: position,
             passwordHash: await hash(wantsDean ? 'DEAN' : isHead ? 'HEAD' : 'USER'),
             employmentRate: 1,

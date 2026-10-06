@@ -19,11 +19,7 @@ import { FormField } from '@/components/ui/form-field';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { BadgePicker } from '@/components/staff/badge-picker';
 import { CARD_TITLES } from '@/components/staff/profile/cards';
-import {
-  ACADEMIC_TITLE_LABELS,
-  PICKED_ADMIN_POSITION_LABELS,
-  STAFF_POSITION_LABELS,
-} from '@/lib/labels';
+import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
 import { offeredAdminPositions, type HeadshipPost } from '@/lib/staff/academic';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 import {
@@ -67,7 +63,7 @@ interface CardProps {
 }
 
 const HEADSHIP_NOTE: Record<HeadshipPost, string> = {
-  DEPARTMENT_OR_UNIT_HEAD: 'Завідувач кафедри — зараховано автоматично',
+  DEPARTMENT_HEAD: 'Завідувач кафедри — зараховано автоматично',
   DEAN: 'Декан — зараховано автоматично',
 };
 
@@ -262,7 +258,7 @@ export function AcademicCard({
             render={({ field }) => (
               <BadgePicker
                 id="adminPositions"
-                options={entries(PICKED_ADMIN_POSITION_LABELS)}
+                options={entries(ADMIN_POSITION_LABELS)}
                 offered={offeredAdminPositions(field.value as AdminPosition[], headship)}
                 value={field.value}
                 onChange={field.onChange}

@@ -85,9 +85,16 @@ describe('derivedEvidence', () => {
     expect(derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'DEAN' })).toEqual({
       option: 'dean',
     });
+    // Split posts share their printed 1.6 option (owner, 2026-10-06)
     expect(
-      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'LAB_OR_CENTER_HEAD' })
+      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'CENTER_HEAD' })
     ).toEqual({ option: 'lab_or_center_head' });
+    expect(
+      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'ACADEMIC_SECRETARY' })
+    ).toEqual({ option: 'vice_dean_or_secretary' });
+    expect(
+      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'UNIT_HEAD' })
+    ).toEqual({ option: 'department_or_unit_head' });
   });
 
   // Naming somebody завідувач or декан is what makes them one (owner, 2026-10-06).

@@ -28,17 +28,22 @@ import {
 /**
  * Rating 1.6 pays ONE administrative position — the highest (owner,
  * 2026-10-06). Ordered by what 1.6 pays: проректор 100, декан 80, завідувач
- * кафедри / керівник відділу 60, заступник декана / вчений секретар 50,
- * заступник завідувача 40, заст. відп. секретаря 30, завідувач лабораторії 30.
+ * кафедри / керівник відділу 60, заступник декана / вчений секретар / відп.
+ * секретар ПК 50, заступник завідувача 40, заст. відп. секретаря 30,
+ * завідувач лабораторії / керівник центру 30.
  */
 const ADMIN_POSITION_ORDER: readonly AdminPosition[] = [
   'VICE_RECTOR',
   'DEAN',
-  'DEPARTMENT_OR_UNIT_HEAD',
-  'VICE_DEAN_OR_SECRETARY',
+  'DEPARTMENT_HEAD',
+  'UNIT_HEAD',
+  'VICE_DEAN',
+  'ACADEMIC_SECRETARY',
+  'ADMISSION_SECRETARY',
   'DEPUTY_DEPARTMENT_HEAD',
   'DEPUTY_ADMISSION_SECRETARY',
-  'LAB_OR_CENTER_HEAD',
+  'LAB_HEAD',
+  'CENTER_HEAD',
 ];
 
 export interface AcademicFields {
@@ -99,13 +104,29 @@ export function legacyMirrors(fields: AcademicFields): LegacyMirrors {
 }
 
 /**
- * The administrative post rating 1.6 and the ставки «Статуси» column read.
- *
- * A завідувач and a декан are made one by a кафедра or факультет naming them
- * (`Department.headId`, `Faculty.deanId`) — nobody picks it on the profile
- * (owner, 2026-10-06). `adminPosition` is the highest post picked by hand (the
- * mirror above); when a headship pays more, the headship counts. One post is
- * paid, never two.
+ * Every post a person holds: the ones picked on the profile, and the headship a
+ * кафедра or факультет gives them by naming them (`Department.headId`,
+ * `Faculty.deanId`) — nobody picks that (owner, 2026-10-06). The ставки
+ * «Статуси» column prices each of them and adds them up.
+ */
+export function heldAdminPositions({
+  adminPositions,
+  isHead,
+  isDean,
+}: {
+  adminPositions: readonly AdminPosition[];
+  isHead: boolean;
+  isDean: boolean;
+}): AdminPosition[] {
+  const held = new Set<AdminPosition>(adminPositions);
+  if (isHead) held.add('DEPARTMENT_HEAD');
+  if (isDean) held.add('DEAN');
+  return ADMIN_POSITION_ORDER.filter((p) => held.has(p));
+}
+
+/**
+ * The ONE post rating 1.6 pays: the highest of the picked ones (`adminPosition`
+ * is their mirror) and the headship. Never two.
  */
 export function effectiveAdminPosition({
   adminPosition,
@@ -116,26 +137,29 @@ export function effectiveAdminPosition({
   isHead: boolean;
   isDean: boolean;
 }): AdminPosition | null {
-  const held = new Set<AdminPosition>();
-  if (adminPosition) held.add(adminPosition);
-  if (isHead) held.add('DEPARTMENT_OR_UNIT_HEAD');
-  if (isDean) held.add('DEAN');
-  return ADMIN_POSITION_ORDER.find((p) => held.has(p)) ?? null;
+  return (
+    heldAdminPositions({
+      adminPositions: adminPosition ? [adminPosition] : [],
+      isHead,
+      isDean,
+    })[0] ?? null
+  );
 }
 
 /**
  * The posts a person holds only ONE of (owner, 2026-10-06): проректор, декан,
- * завідувач кафедри / керівник відділу. The others sit beside one freely —
+ * завідувач кафедри, керівник відділу. The others sit beside one freely —
  * «завідувач кафедри та вчений секретар університету», as an НПП wrote.
  */
 const LEADING_ADMIN_POSITIONS: ReadonlySet<AdminPosition> = new Set([
   'VICE_RECTOR',
   'DEAN',
-  'DEPARTMENT_OR_UNIT_HEAD',
+  'DEPARTMENT_HEAD',
+  'UNIT_HEAD',
 ]);
 
 /** The post a кафедра or факультет gives a person by naming them */
-export type HeadshipPost = 'DEPARTMENT_OR_UNIT_HEAD' | 'DEAN';
+export type HeadshipPost = 'DEPARTMENT_HEAD' | 'DEAN';
 
 /** Which headship a person holds — a завідувач is never also a декан */
 export function headshipOf(staff: {
@@ -143,7 +167,7 @@ export function headshipOf(staff: {
   deanOfFaculty: unknown;
 }): HeadshipPost | null {
   if (staff.deanOfFaculty) return 'DEAN';
-  return staff.headOfDepartment ? 'DEPARTMENT_OR_UNIT_HEAD' : null;
+  return staff.headOfDepartment ? 'DEPARTMENT_HEAD' : null;
 }
 
 export type AdminPostProblem = 'VICE_RECTOR_ALONE' | 'ONE_LEADING';
@@ -152,35 +176,37 @@ export type AdminPostProblem = 'VICE_RECTOR_ALONE' | 'ONE_LEADING';
  * Why this set of posts cannot be held together, or null.
  *
  * A проректор holds nothing else at all («if it's vice-rector — that's it»).
- * Anybody else holds at most one leading post, a headship counted. A picked
- * «Керівник відділу» is a відділ, so it is a SECOND post beside a кафедра's
- * headship; a picked «Декан» (stored before deans became automatic) is the same
- * post as the факультет's, and is not counted twice.
+ * Anybody else holds at most one leading post, a headship counted. A «Декан»
+ * picked before deans became automatic is the same post as the факультет's,
+ * and is not counted twice.
  */
 export function adminPostProblem(
   picked: readonly AdminPosition[],
   headship: HeadshipPost | null = null
 ): AdminPostProblem | null {
   const held = new Set(picked);
-  if (held.has('VICE_RECTOR') && (held.size > 1 || headship)) return 'VICE_RECTOR_ALONE';
-  const sameAsHeadship = headship === 'DEAN' && held.has('DEAN');
-  const leading =
-    [...held].filter((p) => LEADING_ADMIN_POSITIONS.has(p)).length +
-    (headship && !sameAsHeadship ? 1 : 0);
+  if (headship) held.add(headship);
+  if (held.has('VICE_RECTOR') && held.size > 1) return 'VICE_RECTOR_ALONE';
+  const leading = [...held].filter((p) => LEADING_ADMIN_POSITIONS.has(p)).length;
   return leading > 1 ? 'ONE_LEADING' : null;
 }
 
+/** Made by a факультет or кафедра naming the person — never picked */
+const AUTOMATIC_ADMIN_POSITIONS: ReadonlySet<AdminPosition> = new Set(['DEAN', 'DEPARTMENT_HEAD']);
+
 /**
  * What the badge list may still offer: every post that would not break
- * `adminPostProblem`, and never «Декан» — a факультет naming the person is
- * what makes them one.
+ * `adminPostProblem`, and never «Декан» or «Завідувач кафедри».
  */
 export function offeredAdminPositions(
   picked: readonly AdminPosition[],
   headship: HeadshipPost | null = null
 ): AdminPosition[] {
   return ADMIN_POSITION_ORDER.filter(
-    (p) => p !== 'DEAN' && !picked.includes(p) && !adminPostProblem([...picked, p], headship)
+    (p) =>
+      !AUTOMATIC_ADMIN_POSITIONS.has(p) &&
+      !picked.includes(p) &&
+      !adminPostProblem([...picked, p], headship)
   );
 }
 

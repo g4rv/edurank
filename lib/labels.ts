@@ -74,21 +74,15 @@ export const PROOF_RULE_LABELS: Record<ProofRule, string> = {
 export const ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {
   VICE_RECTOR: 'Проректор',
   DEAN: 'Декан',
-  VICE_DEAN_OR_SECRETARY: 'Заступник декана / вчений секретар / відп. секретар прийм. комісії',
-  DEPARTMENT_OR_UNIT_HEAD: 'Завідувач кафедри / керівник відділу',
+  VICE_DEAN: 'Заступник декана',
+  ACADEMIC_SECRETARY: 'Вчений секретар',
+  ADMISSION_SECRETARY: 'Відповідальний секретар приймальної комісії',
+  DEPARTMENT_HEAD: 'Завідувач кафедри',
+  UNIT_HEAD: 'Керівник відділу',
   DEPUTY_DEPARTMENT_HEAD: 'Заступник завідувача кафедри',
   DEPUTY_ADMISSION_SECRETARY: 'Заступник відповідального секретаря приймальної комісії',
-  LAB_OR_CENTER_HEAD: 'Завідувач лабораторії / керівник центру',
-};
-
-/**
- * The post as a person picks it on their profile. A завідувач кафедри is made
- * one by the кафедра naming them (owner, 2026-10-06), so the picked
- * DEPARTMENT_OR_UNIT_HEAD can only mean a відділ.
- */
-export const PICKED_ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {
-  ...ADMIN_POSITION_LABELS,
-  DEPARTMENT_OR_UNIT_HEAD: 'Керівник відділу',
+  LAB_HEAD: 'Завідувач лабораторії',
+  CENTER_HEAD: 'Керівник центру',
 };
 
 export const FIELD_LABELS: Record<string, string> = {

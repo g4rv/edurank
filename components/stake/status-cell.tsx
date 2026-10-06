@@ -1,26 +1,26 @@
 'use client';
 
 import { formatStakeValue } from '@/lib/stake/units';
-import { statusLines } from '@/lib/stake/status-bonus';
+import { statusLines, statusValue } from '@/lib/stake/status-bonus';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 
 /**
- * What this person's administrative position is worth — and what every other
- * position would have been worth.
+ * What this person's administrative positions are worth, added up (owner,
+ * 2026-10-06) — and what every other position would have been worth.
  *
  * The full list is in the tooltip because the owner asked for it: «show total
  * list of all checks but those that count with checkmark». A bare «+0,02» tells
  * a завідувач the answer; the list tells them the rule, which is what they need
  * when somebody asks why their colleague's number is different.
  *
- * Nothing here is ticked by hand. `Staff.adminPosition` is already on the
- * profile and already drives the Характеристика — this reads it.
+ * Nothing here is ticked by hand. The posts are on the profile, and a headship
+ * on the кафедра or факультет — this reads them.
  */
 export function StatusCell({
-  position,
+  positions,
   values,
 }: {
-  position: AdminPosition | null;
+  positions: readonly AdminPosition[];
   /** Hundredths per position, as ADMIN priced them for the year */
   values: Record<AdminPosition, number | undefined>;
 }) {
@@ -29,8 +29,10 @@ export function StatusCell({
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => [k as AdminPosition, v as number])
   );
-  const lines = statusLines(position, asMap);
-  const held = lines.find((l) => l.counts);
+  const lines = statusLines(positions, asMap);
+  const held = lines.filter((l) => l.counts);
+  const priced = held.filter((l) => l.value > 0);
+  const unpriced = held.filter((l) => l.value <= 0);
 
   // Two decimals, not three. A надбавка is a ставка on the 0,05 ladder, so
   // «+0,050» claimed a precision the field cannot even accept — `formatBonus` is
@@ -53,34 +55,29 @@ export function StatusCell({
   //
   // The post is still on the profile and still on the Характеристика; it is
   // only absent from the column about money. The tooltip keeps the whole table.
-  if (!held || held.value <= 0) {
+  const note = unpriced.length
+    ? `\n\nНадбавку ще не встановлено: ${unpriced.map((l) => `«${l.label}»`).join(', ')}`
+    : '';
+  if (priced.length === 0) {
     return (
-      <span
-        className="cursor-help text-foreground-soft"
-        title={
-          held ? `${tooltip}\n\nНадбавку за посаду «${held.label}» ще не встановлено` : tooltip
-        }
-      >
+      <span className="cursor-help text-foreground-soft" title={tooltip + note}>
         —
       </span>
     );
   }
 
+  // Added up in hundredths, the way «Рекомендовано» adds them (`statusValue`)
+  const total = statusValue(
+    priced.map((l) => l.position),
+    asMap
+  );
   return (
-    <span title={tooltip} className="cursor-help">
-      <span className="tabular-nums">+{formatStakeValue(held.value)}</span>
-      {/* The position itself, small — «+0,05» alone makes the head look it up */}
-      <span className="block text-[10px] text-foreground-soft">{shorten(held.label)}</span>
+    <span title={tooltip + note} className="cursor-help">
+      <span className="tabular-nums">+{formatStakeValue(total)}</span>
+      {/* The positions themselves, small — «+0,05» alone makes the head look it up */}
+      <span className="block text-[10px] text-foreground-soft">
+        {priced.map((l) => l.label).join(', ')}
+      </span>
     </span>
   );
-}
-
-/**
- * The enum's labels carry every synonym the university uses («заступник декана /
- * вчений секретар / відп. секретар прийм. комісії»), which is right in a
- * settings list and far too wide for a table cell. The first alternative names
- * the post well enough to recognise; the tooltip has all of them.
- */
-function shorten(label: string): string {
-  return label.split(' / ')[0];
 }

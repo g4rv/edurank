@@ -12,21 +12,30 @@ import { round2 } from '@/lib/round';
 // code path. `Рекомендовано` is a figure to compare against, and the завідувач
 // types the number.
 //
-// **Automatic, because the data already exists.** `Staff.adminPosition` is on
+// **Automatic, because the data already exists.** `Staff.adminPositions` is on
 // every profile, and a headship is on the кафедра or факультет that names the
-// person (`effectiveAdminPosition`, 2026-10-06); asking somebody to tick
+// person (`heldAdminPositions`, 2026-10-06); asking somebody to tick
 // «заступник декана» again would be asking them to restate a fact the app holds.
 // ADMIN sets a value per position once a year, and it applies everywhere.
+//
+// **Every post is priced on its own and they add up** (owner, 2026-10-06).
+// Rating 1.6 pays only the highest post; this is a different question — what
+// the work is worth — and a заступник декана who also runs a лабораторія does
+// both.
 
-/** The seven positions, in the order the university lists them — рейтинг first */
+/** Every position, in the order the university lists them — рейтинг first */
 export const POSITION_ORDER: readonly AdminPosition[] = [
   'VICE_RECTOR',
   'DEAN',
-  'VICE_DEAN_OR_SECRETARY',
-  'DEPARTMENT_OR_UNIT_HEAD',
+  'VICE_DEAN',
+  'ACADEMIC_SECRETARY',
+  'ADMISSION_SECRETARY',
+  'DEPARTMENT_HEAD',
+  'UNIT_HEAD',
   'DEPUTY_DEPARTMENT_HEAD',
   'DEPUTY_ADMISSION_SECRETARY',
-  'LAB_OR_CENTER_HEAD',
+  'LAB_HEAD',
+  'CENTER_HEAD',
 ];
 
 /**
@@ -51,7 +60,7 @@ export interface StatusLine {
   label: string;
   /** In ставки. Zero when ADMIN has not priced this position for the year. */
   value: number;
-  /** True for the position this person actually holds */
+  /** True for every position this person actually holds */
   counts: boolean;
 }
 
@@ -65,7 +74,7 @@ export interface StatusLine {
  * a number and an explanation.
  */
 export function statusLines(
-  held: AdminPosition | null | undefined,
+  held: readonly AdminPosition[],
   valuesByPosition: ReadonlyMap<AdminPosition, number>
 ): StatusLine[] {
   // `PRICED_POSITIONS`, not the full list: this tooltip explains a надбавка,
@@ -75,24 +84,22 @@ export function statusLines(
     position,
     label: ADMIN_POSITION_LABELS[position],
     value: fromHundredths(valuesByPosition.get(position) ?? 0),
-    counts: held === position,
+    counts: held.includes(position),
   }));
 }
 
 /**
- * What this person's position is worth, in ставки.
- *
- * `Staff.adminPosition` holds ONE position, so this is a lookup rather than a
- * sum. It stays a function because the column may well become several positions
- * later — somebody is both заступник декана and завідувач лабораторії more often
- * than the enum admits — and every caller already treats it as a total.
+ * What this person's positions are worth, in ставки: each one's price, added up
+ * (owner, 2026-10-06). Summed in hundredths and converted once, so two prices
+ * never pick up a float's tail.
  */
 export function statusValue(
-  held: AdminPosition | null | undefined,
+  held: readonly AdminPosition[],
   valuesByPosition: ReadonlyMap<AdminPosition, number>
 ): number {
-  if (!held) return 0;
-  return fromHundredths(valuesByPosition.get(held) ?? 0);
+  let hundredths = 0;
+  for (const position of new Set(held)) hundredths += valuesByPosition.get(position) ?? 0;
+  return fromHundredths(hundredths);
 }
 
 /**

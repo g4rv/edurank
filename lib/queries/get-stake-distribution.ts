@@ -9,7 +9,7 @@ import { getSpecialityOwners } from './get-speciality-departments';
 import { originOf, type SpecialityOwners } from '@/lib/specialities/origin';
 import { EMPTY_BONUS, bonusForStaff, type StaffBonus } from './list-student-claims';
 import { ratingYearFor } from '@/lib/stake/rating-year';
-import { effectiveAdminPosition } from '@/lib/staff/academic';
+import { heldAdminPositions } from '@/lib/staff/academic';
 
 /**
  * Everything the distribution grid for one кафедра needs, in one read.
@@ -28,11 +28,12 @@ export interface StakeRow {
   name: string;
   rating: number;
   /**
-   * Their administrative position, or null — priced by ADMIN per year. The
-   * higher of the one picked on the profile and a headship (`effectiveAdminPosition`):
-   * a завідувач or декан counts as one without a pick (owner, 2026-10-06).
+   * Every administrative position they hold, each priced by ADMIN per year and
+   * added up: the ones picked on the profile and a headship
+   * (`heldAdminPositions`) — a завідувач or декан holds theirs without a pick
+   * (owner, 2026-10-06).
    */
-  adminPosition: AdminPosition | null;
+  adminPositions: AdminPosition[];
   /**
    * This кафедра is their ADDITIONAL one — they sit primarily elsewhere.
    *
@@ -160,7 +161,7 @@ export async function getStakeDistribution(
       // Drives the «Статуси» column. Read from the profile rather than ticked
       // per year: the position is already recorded there and already drives the
       // Характеристика (2026-08-17).
-      adminPosition: true,
+      adminPositions: true,
       headOfDepartment: { select: { id: true } },
       deanOfFaculty: { select: { id: true } },
       ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
@@ -257,8 +258,8 @@ export async function getStakeDistribution(
         staffId: s.id,
         name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
         rating: share.rating,
-        adminPosition: effectiveAdminPosition({
-          adminPosition: s.adminPosition,
+        adminPositions: heldAdminPositions({
+          adminPositions: s.adminPositions,
           isHead: s.headOfDepartment !== null,
           isDean: s.deanOfFaculty !== null,
         }),

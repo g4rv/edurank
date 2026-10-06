@@ -1,9 +1,5 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
-import {
-  ACADEMIC_TITLE_LABELS,
-  PICKED_ADMIN_POSITION_LABELS,
-  STAFF_POSITION_LABELS,
-} from '@/lib/labels';
+import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
 import {
   CANDIDATE_DEGREES,
   DOCTOR_DEGREES,
@@ -319,8 +315,7 @@ ResearchProfilesCard.Shell = function ResearchProfilesCardShell() {
  * Headship is derived from `headId`/`deanId`, never from a Role — one person is
  * routinely a завідувач, an НПП and a division editor at once. The posts picked
  * by hand sit beside it — a завідувач may also be вчений секретар (owner,
- * 2026-10-06) — and a picked «Завідувач … / керівник відділу» reads «Керівник
- * відділу» here, because the кафедра's own is the line above it.
+ * 2026-10-06).
  *
  * **The administrative posts live here.** «Академічна інформація» is НПП-only,
  * so an administrative employee's «проректор» would have nowhere else to go.
@@ -349,7 +344,7 @@ export function LeadershipCard({ staff }: { staff: StaffDetail }) {
           label="Адміністративні посади"
           value={
             staff.adminPositions.length
-              ? staff.adminPositions.map((p) => PICKED_ADMIN_POSITION_LABELS[p]).join(', ')
+              ? staff.adminPositions.map((p) => ADMIN_POSITION_LABELS[p]).join(', ')
               : null
           }
           showEmpty={false}

@@ -80,14 +80,23 @@ const RANK_OPTION: Record<AcademicRank, string> = {
   LECTURER: 'lecturer',
 };
 
+/**
+ * Each post's rating 1.6 option. The положення prints some posts together
+ * because they share the points; the profile holds them apart (owner,
+ * 2026-10-06), so several posts map to one option.
+ */
 const POSITION_OPTION: Record<AdminPosition, string> = {
   VICE_RECTOR: 'vice_rector',
   DEAN: 'dean',
-  VICE_DEAN_OR_SECRETARY: 'vice_dean_or_secretary',
-  DEPARTMENT_OR_UNIT_HEAD: 'department_or_unit_head',
+  VICE_DEAN: 'vice_dean_or_secretary',
+  ACADEMIC_SECRETARY: 'vice_dean_or_secretary',
+  ADMISSION_SECRETARY: 'vice_dean_or_secretary',
+  DEPARTMENT_HEAD: 'department_or_unit_head',
+  UNIT_HEAD: 'department_or_unit_head',
   DEPUTY_DEPARTMENT_HEAD: 'deputy_department_head',
   DEPUTY_ADMISSION_SECRETARY: 'deputy_admission_secretary',
-  LAB_OR_CENTER_HEAD: 'lab_or_center_head',
+  LAB_HEAD: 'lab_or_center_head',
+  CENTER_HEAD: 'lab_or_center_head',
 };
 
 function degreeOption(degree: ScientificDegree, matches: boolean | null): string {

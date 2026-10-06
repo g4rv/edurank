@@ -69,14 +69,23 @@ enum InputSource {
 
 // Administrative position held by an НПП (rating item 1.6) — keys match the
 // admin_position select options in lib/rating/evidence-fields.ts
+// One value per real post (owner, 2026-10-06). Rating 1.6 prints some of them
+// together — «заступник декана / вчений секретар / …» — because they share the
+// points; the profile says which one a person holds, and
+// `ADMIN_POSITION_OPTION` in lib/rating/profile-derived.ts maps each to its 1.6
+// option. DEAN and DEPARTMENT_HEAD come from Faculty.deanId / Department.headId.
 enum AdminPosition {
   VICE_RECTOR // проректор
   DEAN // декан
-  VICE_DEAN_OR_SECRETARY // заступник декана / вчений секретар / відп. секретар прийм. комісії
-  DEPARTMENT_OR_UNIT_HEAD // завідувач кафедри / керівник відділу
+  VICE_DEAN // заступник декана
+  ACADEMIC_SECRETARY // вчений секретар
+  ADMISSION_SECRETARY // відповідальний секретар приймальної комісії
+  DEPARTMENT_HEAD // завідувач кафедри
+  UNIT_HEAD // керівник відділу
   DEPUTY_DEPARTMENT_HEAD // заступник завідувача кафедри
   DEPUTY_ADMISSION_SECRETARY // заступник відповідального секретаря приймальної комісії
-  LAB_OR_CENTER_HEAD // завідувач лабораторії / керівник центру
+  LAB_HEAD // завідувач лабораторії
+  CENTER_HEAD // керівник центру
 }
 
 // There is no approval queue: every submit and every division entry writes

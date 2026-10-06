@@ -98,7 +98,7 @@ export async function headDeanConflict(
   });
   const problem = adminPostProblem(
     picked?.adminPositions ?? [],
-    post === 'DEAN' ? 'DEAN' : 'DEPARTMENT_OR_UNIT_HEAD'
+    post === 'DEAN' ? 'DEAN' : 'DEPARTMENT_HEAD'
   );
   if (problem) {
     return `${ADMIN_POST_PROBLEM_MESSAGES[problem]}. Спершу приберіть іншу посаду в профілі цієї людини.`;

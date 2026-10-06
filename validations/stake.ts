@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ADMIN_POSITIONS } from '@/validations/staff';
 import { MIN_STAKE, ceilToStep, floorToStep, parseStake, snapToStep } from '@/lib/stake/units';
 
 // Everything a person types into the ставка settings.
@@ -78,15 +79,7 @@ export type BonusPoolSchema = z.infer<typeof bonusPoolSchema>;
  */
 export const statusBonusSchema = z.object({
   year: z.number().int(),
-  position: z.enum([
-    'VICE_RECTOR',
-    'DEAN',
-    'VICE_DEAN_OR_SECRETARY',
-    'DEPARTMENT_OR_UNIT_HEAD',
-    'DEPUTY_DEPARTMENT_HEAD',
-    'DEPUTY_ADMISSION_SECRETARY',
-    'LAB_OR_CENTER_HEAD',
-  ]),
+  position: z.enum(ADMIN_POSITIONS),
   valueHundredths: stakeField('Значення')
     .pipe(
       z

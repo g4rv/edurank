@@ -3,6 +3,7 @@ import {
   academicAuditValue,
   adminPostProblem,
   effectiveAdminPosition,
+  heldAdminPositions,
   legacyMirrors,
   mirrorsForUpdate,
   offeredAdminPositions,
@@ -72,83 +73,90 @@ describe('legacyMirrors — the old columns the rating still reads (2026-10-06)'
   });
 
   // Rating 1.6 pays the highest badge only (owner, 2026-10-06): проректор 100,
-  // декан 80, завідувач 60, заступник декана 50, заст. завідувача 40, …
+  // декан 80, завідувач / керівник відділу 60, заступник декана 50, …
   it('gives the old адмін. посада the highest-paying badge', () => {
     expect(legacyMirrors(EMPTY).adminPosition).toBeNull();
     expect(
-      legacyMirrors({
-        ...EMPTY,
-        adminPositions: ['DEPUTY_ADMISSION_SECRETARY', 'DEPARTMENT_OR_UNIT_HEAD'],
-      }).adminPosition
-    ).toBe('DEPARTMENT_OR_UNIT_HEAD');
+      legacyMirrors({ ...EMPTY, adminPositions: ['DEPUTY_ADMISSION_SECRETARY', 'UNIT_HEAD'] })
+        .adminPosition
+    ).toBe('UNIT_HEAD');
     expect(
-      legacyMirrors({ ...EMPTY, adminPositions: ['VICE_DEAN_OR_SECRETARY', 'DEAN'] }).adminPosition
-    ).toBe('DEAN');
+      legacyMirrors({ ...EMPTY, adminPositions: ['LAB_HEAD', 'ACADEMIC_SECRETARY'] }).adminPosition
+    ).toBe('ACADEMIC_SECRETARY');
   });
 });
 
 // A завідувач and a декан hold their post because a кафедра or факультет names
-// them — nobody ticks it (owner, 2026-10-06). One post is paid, the highest.
-describe('effectiveAdminPosition — the one post rating 1.6 and «Статуси» read', () => {
+// them — nobody ticks it (owner, 2026-10-06).
+describe('heldAdminPositions — every post, for the ставки «Статуси» sum', () => {
+  it('adds the headship to the picked posts, in rating order', () => {
+    expect(
+      heldAdminPositions({ adminPositions: ['LAB_HEAD', 'VICE_DEAN'], isHead: true, isDean: false })
+    ).toEqual(['DEPARTMENT_HEAD', 'VICE_DEAN', 'LAB_HEAD']);
+    expect(heldAdminPositions({ adminPositions: [], isHead: false, isDean: true })).toEqual([
+      'DEAN',
+    ]);
+  });
+});
+
+describe('effectiveAdminPosition — the one post rating 1.6 pays', () => {
   const NONE = { adminPosition: null, isHead: false, isDean: false } as const;
 
   it('is the picked post when there is no headship', () => {
     expect(effectiveAdminPosition(NONE)).toBeNull();
-    expect(effectiveAdminPosition({ ...NONE, adminPosition: 'LAB_OR_CENTER_HEAD' })).toBe(
-      'LAB_OR_CENTER_HEAD'
-    );
+    expect(effectiveAdminPosition({ ...NONE, adminPosition: 'CENTER_HEAD' })).toBe('CENTER_HEAD');
   });
 
   it('makes a head a завідувач and a dean a декан without a pick', () => {
-    expect(effectiveAdminPosition({ ...NONE, isHead: true })).toBe('DEPARTMENT_OR_UNIT_HEAD');
+    expect(effectiveAdminPosition({ ...NONE, isHead: true })).toBe('DEPARTMENT_HEAD');
     expect(effectiveAdminPosition({ ...NONE, isDean: true })).toBe('DEAN');
   });
 
   it('pays the headship over a lower pick — завідувач 60 beats вчений секретар 50', () => {
     expect(
-      effectiveAdminPosition({ ...NONE, adminPosition: 'VICE_DEAN_OR_SECRETARY', isHead: true })
-    ).toBe('DEPARTMENT_OR_UNIT_HEAD');
+      effectiveAdminPosition({ ...NONE, adminPosition: 'ACADEMIC_SECRETARY', isHead: true })
+    ).toBe('DEPARTMENT_HEAD');
   });
 });
 
-// Only ONE leading post — проректор, декан, завідувач / керівник відділу — and a
-// проректор holds nothing else (owner, 2026-10-06). The rest combine freely.
+// Only ONE leading post — проректор, декан, завідувач кафедри, керівник відділу —
+// and a проректор holds nothing else (owner, 2026-10-06). The rest combine.
 describe('adminPostProblem — which posts can be held together', () => {
   it('lets a завідувач also be вчений секретар, as an НПП wrote in', () => {
-    expect(adminPostProblem(['VICE_DEAN_OR_SECRETARY'], 'DEPARTMENT_OR_UNIT_HEAD')).toBeNull();
-    expect(adminPostProblem(['VICE_DEAN_OR_SECRETARY', 'LAB_OR_CENTER_HEAD'])).toBeNull();
+    expect(adminPostProblem(['ACADEMIC_SECRETARY'], 'DEPARTMENT_HEAD')).toBeNull();
+    expect(adminPostProblem(['VICE_DEAN', 'ADMISSION_SECRETARY', 'LAB_HEAD'])).toBeNull();
   });
 
   it('refuses two leading posts, a headship counted', () => {
-    expect(adminPostProblem(['DEPARTMENT_OR_UNIT_HEAD'], 'DEAN')).toBe('ONE_LEADING');
-    // A picked «Керівник відділу» is a відділ — a second post beside the кафедра.
-    expect(adminPostProblem(['DEPARTMENT_OR_UNIT_HEAD'], 'DEPARTMENT_OR_UNIT_HEAD')).toBe(
-      'ONE_LEADING'
-    );
+    expect(adminPostProblem(['UNIT_HEAD'], 'DEAN')).toBe('ONE_LEADING');
+    expect(adminPostProblem(['UNIT_HEAD'], 'DEPARTMENT_HEAD')).toBe('ONE_LEADING');
   });
 
   it('does not count a stored «Декан» twice for the декан of that факультет', () => {
-    expect(adminPostProblem(['DEAN', 'VICE_DEAN_OR_SECRETARY'], 'DEAN')).toBeNull();
+    expect(adminPostProblem(['DEAN', 'VICE_DEAN'], 'DEAN')).toBeNull();
   });
 
   it('lets a проректор hold nothing else at all', () => {
     expect(adminPostProblem(['VICE_RECTOR'])).toBeNull();
-    expect(adminPostProblem(['VICE_RECTOR', 'VICE_DEAN_OR_SECRETARY'])).toBe('VICE_RECTOR_ALONE');
+    expect(adminPostProblem(['VICE_RECTOR', 'ACADEMIC_SECRETARY'])).toBe('VICE_RECTOR_ALONE');
     expect(adminPostProblem(['VICE_RECTOR'], 'DEAN')).toBe('VICE_RECTOR_ALONE');
   });
 });
 
 describe('offeredAdminPositions — what the badge list still offers', () => {
-  it('never offers «Декан»', () => {
-    expect(offeredAdminPositions([])).not.toContain('DEAN');
-    expect(offeredAdminPositions([])).toContain('VICE_RECTOR');
+  it('never offers «Декан» or «Завідувач кафедри» — those are automatic', () => {
+    const offered = offeredAdminPositions([]);
+    expect(offered).not.toContain('DEAN');
+    expect(offered).not.toContain('DEPARTMENT_HEAD');
+    expect(offered).toContain('VICE_RECTOR');
+    expect(offered).toContain('UNIT_HEAD');
   });
 
   it('offers a завідувач no second leading post and no проректор', () => {
-    const offered = offeredAdminPositions([], 'DEPARTMENT_OR_UNIT_HEAD');
+    const offered = offeredAdminPositions([], 'DEPARTMENT_HEAD');
     expect(offered).not.toContain('VICE_RECTOR');
-    expect(offered).not.toContain('DEPARTMENT_OR_UNIT_HEAD');
-    expect(offered).toContain('VICE_DEAN_OR_SECRETARY');
+    expect(offered).not.toContain('UNIT_HEAD');
+    expect(offered).toContain('ACADEMIC_SECRETARY');
   });
 
   it('offers a проректор nothing more', () => {

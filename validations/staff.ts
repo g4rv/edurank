@@ -101,14 +101,19 @@ const badges = <T extends string>(item: z.ZodType<T>) =>
     .default([])
     .transform((list) => [...new Set(list)]);
 
-const ADMIN_POSITIONS = [
+/** Every `AdminPosition` — one per real post since 2026-10-06 */
+export const ADMIN_POSITIONS = [
   'VICE_RECTOR',
   'DEAN',
-  'VICE_DEAN_OR_SECRETARY',
-  'DEPARTMENT_OR_UNIT_HEAD',
+  'VICE_DEAN',
+  'ACADEMIC_SECRETARY',
+  'ADMISSION_SECRETARY',
+  'DEPARTMENT_HEAD',
+  'UNIT_HEAD',
   'DEPUTY_DEPARTMENT_HEAD',
   'DEPUTY_ADMISSION_SECRETARY',
-  'LAB_OR_CENTER_HEAD',
+  'LAB_HEAD',
+  'CENTER_HEAD',
 ] as const;
 
 /**
