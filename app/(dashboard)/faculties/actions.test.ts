@@ -7,6 +7,7 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+vi.mock('@/lib/rating/profile-derived', () => ({ syncProfileDerivedFor: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn() },
@@ -18,6 +19,7 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { syncProfileDerivedFor } from '@/lib/rating/profile-derived';
 import { createFaculty, updateFaculty, deleteFaculty } from './actions';
 
 const mockAuth = auth as unknown as Mock;
@@ -95,5 +97,26 @@ describe('faculty actions authorization', () => {
       error: 'Неможливо видалити факультет, що має кафедри',
     });
     expect(mockTransaction).not.toHaveBeenCalled();
+  });
+});
+
+// Being named декан is a rating 1.6 post (owner, 2026-10-06), so changing the
+// декан moves both people's points in the same transaction.
+describe('a change of декан re-scores both people', () => {
+  const admin = { user: { id: 'a1', role: 'ADMIN', staffId: null } };
+
+  it('re-scores the old декан when the факультет drops them', async () => {
+    mockAuth.mockResolvedValue(admin);
+    const tx = mockTx();
+    tx.faculty.findUnique.mockResolvedValue({ name: 'Факультет', deanId: 'old-dean' });
+    await updateFaculty('fac-1', payload);
+    expect(syncProfileDerivedFor).toHaveBeenCalledWith(tx, ['old-dean', null]);
+  });
+
+  it('re-scores nobody when the декан stays', async () => {
+    mockAuth.mockResolvedValue(admin);
+    mockTx();
+    await updateFaculty('fac-1', payload);
+    expect(syncProfileDerivedFor).not.toHaveBeenCalled();
   });
 });

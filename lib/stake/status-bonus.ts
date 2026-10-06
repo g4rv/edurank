@@ -13,7 +13,8 @@ import { round2 } from '@/lib/round';
 // types the number.
 //
 // **Automatic, because the data already exists.** `Staff.adminPosition` is on
-// every profile and already drives the Характеристика; asking somebody to tick
+// every profile, and a headship is on the кафедра or факультет that names the
+// person (`effectiveAdminPosition`, 2026-10-06); asking somebody to tick
 // «заступник декана» again would be asking them to restate a fact the app holds.
 // ADMIN sets a value per position once a year, and it applies everywhere.
 

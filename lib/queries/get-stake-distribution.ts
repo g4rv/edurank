@@ -9,6 +9,7 @@ import { getSpecialityOwners } from './get-speciality-departments';
 import { originOf, type SpecialityOwners } from '@/lib/specialities/origin';
 import { EMPTY_BONUS, bonusForStaff, type StaffBonus } from './list-student-claims';
 import { ratingYearFor } from '@/lib/stake/rating-year';
+import { effectiveAdminPosition } from '@/lib/staff/academic';
 
 /**
  * Everything the distribution grid for one кафедра needs, in one read.
@@ -26,7 +27,11 @@ export interface StakeRow {
   staffId: string;
   name: string;
   rating: number;
-  /** Their administrative position, or null — priced by ADMIN per year */
+  /**
+   * Their administrative position, or null — priced by ADMIN per year. The
+   * higher of the one picked on the profile and a headship (`effectiveAdminPosition`):
+   * a завідувач or декан counts as one without a pick (owner, 2026-10-06).
+   */
   adminPosition: AdminPosition | null;
   /**
    * This кафедра is their ADDITIONAL one — they sit primarily elsewhere.
@@ -156,6 +161,8 @@ export async function getStakeDistribution(
       // per year: the position is already recorded there and already drives the
       // Характеристика (2026-08-17).
       adminPosition: true,
+      headOfDepartment: { select: { id: true } },
+      deanOfFaculty: { select: { id: true } },
       ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
       // Scoped to THIS кафедра: bounds are per-кафедра since 2026-08-24, and an
       // unscoped read would hand a сумісник their own кафедра's 1,00 ceiling.
@@ -250,7 +257,11 @@ export async function getStakeDistribution(
         staffId: s.id,
         name: `${s.lastName} ${s.firstName} ${s.patronymic}`,
         rating: share.rating,
-        adminPosition: s.adminPosition,
+        adminPosition: effectiveAdminPosition({
+          adminPosition: s.adminPosition,
+          isHead: s.headOfDepartment !== null,
+          isDean: s.deanOfFaculty !== null,
+        }),
         isPartTime: isPartTime(s),
         hasAllocation: !!allocation,
         positions: metCount,

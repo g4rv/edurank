@@ -122,9 +122,15 @@ const specialty = z.preprocess(
  * never accept different values.
  *
  * The old `academicRank`, `scientificDegree`, `degreeDefenceDate` and
- * `adminPosition` are NOT here: nobody types them any more. Every save derives
- * them from these (`lib/staff/academic.ts`), because the rating still reads
- * them.
+ * `degreeMatchesDepartment` are NOT here: nobody types them any more. Every
+ * save derives them from these (`lib/staff/academic.ts`), because the rating
+ * still reads them.
+ *
+ * `adminPosition` is ONE post, picked by hand (owner, 2026-10-06: «if it's
+ * vice-rector — that's it»). The form offers no «Декан», and a завідувач is
+ * «Керівник відділу» there: both headships come from the кафедра / факультет
+ * that names the person. The enum stays whole so a value stored earlier still
+ * round-trips through a save.
  */
 export const academicFields = {
   pedagogicalExperience: z.preprocess(num, z.number().int().nonnegative().nullable()),
@@ -138,7 +144,7 @@ export const academicFields = {
       error: 'Невідоме почесне звання',
     })
   ),
-  adminPositions: badges(z.enum(ADMIN_POSITIONS)),
+  adminPosition: z.preprocess(str, z.enum(ADMIN_POSITIONS).nullable()),
   candidateDegree: oneOf(CANDIDATE_DEGREES, 'Оберіть ступінь зі списку'),
   candidateSpecialty: specialty,
   candidateDefenceDate: defenceDate,

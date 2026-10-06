@@ -81,6 +81,16 @@ export const ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {
   LAB_OR_CENTER_HEAD: 'Завідувач лабораторії / керівник центру',
 };
 
+/**
+ * The post as a person picks it on their profile. A завідувач кафедри is made
+ * one by the кафедра naming them (owner, 2026-10-06), so the picked
+ * DEPARTMENT_OR_UNIT_HEAD can only mean a відділ.
+ */
+export const PICKED_ADMIN_POSITION_LABELS: Record<AdminPosition, string> = {
+  ...ADMIN_POSITION_LABELS,
+  DEPARTMENT_OR_UNIT_HEAD: 'Керівник відділу',
+};
+
 export const FIELD_LABELS: Record<string, string> = {
   // Staff
   lastName: 'Прізвище',

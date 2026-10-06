@@ -12,6 +12,7 @@ import {
   PROFILE_DERIVED_CODES,
   type ProfileDerivedCode,
 } from '@/lib/rating/profile-derived-fields';
+import { effectiveAdminPosition } from '@/lib/staff/academic';
 
 // Profile-derived indicators: rating activity types whose value comes from the
 // Staff profile instead of manual entry (NPP submission or division panel).
@@ -38,6 +39,9 @@ interface DerivedStaff {
   scientificDegree: ScientificDegree | null;
   degreeMatchesDepartment: boolean | null;
   adminPosition: AdminPosition | null;
+  /** Being named завідувач / декан is itself a 1.6 post (owner, 2026-10-06) */
+  headOfDepartment: { id: string } | null;
+  deanOfFaculty: { id: string } | null;
   basicEducationMatch: boolean | null;
   basicEducationSpecialty: string | null;
   wosCitationCount: number | null;
@@ -56,6 +60,8 @@ const DERIVED_STAFF_SELECT = {
   scientificDegree: true,
   degreeMatchesDepartment: true,
   adminPosition: true,
+  headOfDepartment: { select: { id: true } },
+  deanOfFaculty: { select: { id: true } },
   basicEducationMatch: true,
   basicEducationSpecialty: true,
   wosCitationCount: true,
@@ -110,8 +116,14 @@ export function derivedEvidence(
       return staff.scientificDegree
         ? { option: degreeOption(staff.scientificDegree, staff.degreeMatchesDepartment) }
         : null;
-    case 'admin_position':
-      return staff.adminPosition ? { option: POSITION_OPTION[staff.adminPosition] } : null;
+    case 'admin_position': {
+      const post = effectiveAdminPosition({
+        adminPosition: staff.adminPosition,
+        isHead: staff.headOfDepartment !== null,
+        isDean: staff.deanOfFaculty !== null,
+      });
+      return post ? { option: POSITION_OPTION[post] } : null;
+    }
     case 'basic_education_match':
       return staff.basicEducationMatch
         ? { confirmed: true, specialty: staff.basicEducationSpecialty ?? '' }
@@ -317,6 +329,20 @@ export async function syncProfileDerived(
 
   await applyPlan(tx, plan);
   await recomputeRatingEntry(tx, staffId, active.year);
+}
+
+/**
+ * Syncs several people — each once, skipping the empty ids.
+ *
+ * For a кафедра or факультет changing its завідувач / декан (2026-10-06): the
+ * headship is itself a 1.6 post, so the person who gains it and the person who
+ * loses it both move, in the same transaction as the change.
+ */
+export async function syncProfileDerivedFor(
+  tx: Prisma.TransactionClient,
+  staffIds: readonly (string | null | undefined)[]
+): Promise<void> {
+  for (const id of new Set(staffIds)) if (id) await syncProfileDerived(tx, id);
 }
 
 /**

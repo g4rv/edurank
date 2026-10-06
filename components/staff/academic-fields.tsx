@@ -19,7 +19,11 @@ import { FormField } from '@/components/ui/form-field';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { BadgePicker } from '@/components/staff/badge-picker';
 import { CARD_TITLES } from '@/components/staff/profile/cards';
-import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
+import {
+  ACADEMIC_TITLE_LABELS,
+  PICKED_ADMIN_POSITION_LABELS,
+  STAFF_POSITION_LABELS,
+} from '@/lib/labels';
 import {
   CANDIDATE_DEGREES,
   DOCTOR_DEGREES,
@@ -57,6 +61,19 @@ interface CardProps {
 
 const entries = (labels: Record<string, string>) =>
   Object.entries(labels).map(([value, label]) => ({ value, label }));
+
+/**
+ * The posts a person picks by hand. «Декан» and «Завідувач кафедри» are not
+ * among them: a факультет or кафедра naming the person is what makes them one
+ * (owner, 2026-10-06), so the old «Завідувач кафедри / керівник відділу» is
+ * just «Керівник відділу» here. A «Декан» stored before then is still shown —
+ * otherwise the select would read «—» over a value it keeps saving.
+ */
+function adminPositionOptions(current: string) {
+  return entries(PICKED_ADMIN_POSITION_LABELS).filter(
+    (o) => o.value !== 'DEAN' || current === 'DEAN'
+  );
+}
 
 /** A single-choice select with «—» for none, as the rest of the form draws them */
 function PlainSelect({
@@ -202,10 +219,32 @@ export function AcademicCard({
             {...register('pedagogicalExperience')}
           />
         </FormField>
-        <div />
+        {/* One post, the highest (owner, 2026-10-06: «if it's vice-rector —
+            that's it»). */}
+        <FormField
+          label="Адміністративна посада"
+          htmlFor="adminPosition"
+          labelSuffix={<RatingFieldHint field="adminPosition" />}
+          description="Завідувача кафедри і декана зараховано автоматично"
+          error={errors.adminPosition}
+        >
+          <Controller
+            name="adminPosition"
+            control={control}
+            render={({ field }) => (
+              <PlainSelect
+                id="adminPosition"
+                value={field.value}
+                onChange={field.onChange}
+                options={adminPositionOptions(field.value)}
+                disabled={isPending || locked('adminPosition')}
+              />
+            )}
+          />
+        </FormField>
       </FieldGroup>
 
-      {/* Lists of badges take the full width — a person may hold several, and
+      {/* A list of badges takes the full width — a person may hold several, and
           half a card squeezed «Заслужений працівник фізичної культури і спорту
           України» into three lines. */}
       <FieldGroup className="mt-4 flex flex-col gap-4">
@@ -225,27 +264,6 @@ export function AcademicCard({
                 onChange={field.onChange}
                 disabled={isPending || locked('honoraryTitles')}
                 addLabel="Додати почесне звання…"
-              />
-            )}
-          />
-        </FormField>
-        <FormField
-          label="Адміністративні посади"
-          htmlFor="adminPositions"
-          labelSuffix={<RatingFieldHint field="adminPosition" />}
-          error={errors.adminPositions as never}
-        >
-          <Controller
-            name="adminPositions"
-            control={control}
-            render={({ field }) => (
-              <BadgePicker
-                id="adminPositions"
-                options={entries(ADMIN_POSITION_LABELS)}
-                value={field.value}
-                onChange={field.onChange}
-                disabled={isPending || locked('adminPositions')}
-                addLabel="Додати посаду…"
               />
             )}
           />

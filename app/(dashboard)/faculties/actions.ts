@@ -9,6 +9,7 @@ import { diffChanges } from '@/lib/audit';
 import { canManageEntity } from '@/lib/permissions';
 import { headDeanConflict } from '@/lib/queries/scope';
 import { parseDbError } from '@/lib/db-error';
+import { syncProfileDerivedFor } from '@/lib/rating/profile-derived';
 
 export type FacultyActionState = { error: string } | { redirectTo: string };
 
@@ -61,6 +62,8 @@ export async function createFaculty(data: FacultySchema): Promise<FacultyActionS
           changes: diffChanges({}, { name: parsed.data.name, deanId: parsed.data.deanId ?? null }),
         },
       });
+      // Being named декан is a rating 1.6 post (owner, 2026-10-06).
+      await syncProfileDerivedFor(tx, [parsed.data.deanId]);
     });
   } catch (e) {
     dbError = parseDbError(
@@ -118,6 +121,10 @@ export async function updateFaculty(id: string, data: FacultySchema): Promise<Fa
           changes,
         },
       });
+      // The old декан loses the 1.6 post and the new one gains it.
+      if (existing?.deanId !== (parsed.data.deanId ?? null)) {
+        await syncProfileDerivedFor(tx, [existing?.deanId, parsed.data.deanId]);
+      }
     });
   } catch (e) {
     dbError = parseDbError(
@@ -166,6 +173,7 @@ export async function deleteFaculty(id: string): Promise<FacultyActionState> {
           changes: diffChanges({ name: faculty.name, deanId: faculty.deanId ?? null }, {}),
         },
       });
+      await syncProfileDerivedFor(tx, [faculty.deanId]);
     });
   } catch (e) {
     dbError = parseDbError(

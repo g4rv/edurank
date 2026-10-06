@@ -16,8 +16,8 @@ const ALLOWED_FIELD_NAMES = new Set([
   'phone',
   'isNpp',
   // «Академічна інформація» and «Освіта» (2026-10-06). The old academicRank /
-  // scientificDegree / degreeDefenceDate / adminPosition are derived mirrors now
-  // and nobody's to grant; the migration gave every division that held one of
+  // scientificDegree / degreeDefenceDate are derived mirrors now and nobody's to
+  // grant; the migration gave every division that held one of
   // them the new fields in its place.
   ...ACADEMIC_EDITABLE_FIELDS,
   'wosUrl',

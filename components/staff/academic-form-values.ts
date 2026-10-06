@@ -12,7 +12,7 @@ export type AcademicFormValues = {
   position: string;
   academicTitle: string;
   honoraryTitles: string[];
-  adminPositions: string[];
+  adminPosition: string;
   candidateDegree: string;
   candidateSpecialty: string;
   candidateDefenceDate: string;
@@ -30,7 +30,7 @@ export const EMPTY_ACADEMIC_VALUES: AcademicFormValues = {
   position: '',
   academicTitle: '',
   honoraryTitles: [],
-  adminPositions: [],
+  adminPosition: '',
   candidateDegree: '',
   candidateSpecialty: '',
   candidateDefenceDate: '',
@@ -49,7 +49,7 @@ export interface StoredAcademic {
   position: string | null;
   academicTitle: string | null;
   honoraryTitles: string[];
-  adminPositions: string[];
+  adminPosition: string | null;
   candidateDegree: string | null;
   candidateSpecialty: string | null;
   candidateDefenceDate: Date | null;
@@ -72,7 +72,7 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
     position: staff.position ?? '',
     academicTitle: staff.academicTitle ?? '',
     honoraryTitles: [...staff.honoraryTitles],
-    adminPositions: [...staff.adminPositions],
+    adminPosition: staff.adminPosition ?? '',
     candidateDegree: staff.candidateDegree ?? '',
     candidateSpecialty: staff.candidateSpecialty ?? '',
     candidateDefenceDate: date(staff.candidateDefenceDate),

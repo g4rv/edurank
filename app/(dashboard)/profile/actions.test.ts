@@ -40,7 +40,7 @@ const ACADEMIC = {
   position: 'DOCENT',
   academicTitle: 'DOCENT',
   honoraryTitles: ['merited_teacher'],
-  adminPositions: ['DEAN'],
+  adminPosition: 'VICE_RECTOR',
   candidateDegree: 'cand_history',
   candidateSpecialty: 'Історія',
   candidateDefenceDate: '2015-06-01',
@@ -166,12 +166,11 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     expect(data).toMatchObject({
       position: 'DOCENT',
       honoraryTitles: ['merited_teacher'],
-      adminPositions: ['DEAN'],
+      adminPosition: 'VICE_RECTOR',
       candidateDegree: 'cand_history',
-      // the mirrors rating 1.2 / 1.3 / 1.6 read
+      // the mirrors rating 1.2 / 1.3 read
       academicRank: 'DOCENT',
       scientificDegree: 'CANDIDATE',
-      adminPosition: 'DEAN',
     });
     expect(data.degreeDefenceDate).toEqual(new Date(Date.UTC(2015, 5, 1)));
     expect(syncProfileDerived).toHaveBeenCalledWith(tx, 'staff-own');

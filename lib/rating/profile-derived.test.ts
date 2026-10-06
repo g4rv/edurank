@@ -27,6 +27,8 @@ const emptyStaff = {
   scientificDegree: null,
   degreeMatchesDepartment: null,
   adminPosition: null,
+  headOfDepartment: null,
+  deanOfFaculty: null,
   basicEducationMatch: null,
   basicEducationSpecialty: null,
   wosCitationCount: null,
@@ -86,6 +88,23 @@ describe('derivedEvidence', () => {
     expect(
       derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'LAB_OR_CENTER_HEAD' })
     ).toEqual({ option: 'lab_or_center_head' });
+  });
+
+  // Naming somebody завідувач or декан is what makes them one (owner, 2026-10-06).
+  it('pays a head and a dean for the headship itself, the higher post winning', () => {
+    expect(
+      derivedEvidence('admin_position', { ...emptyStaff, headOfDepartment: { id: 'd1' } })
+    ).toEqual({ option: 'department_or_unit_head' });
+    expect(
+      derivedEvidence('admin_position', { ...emptyStaff, deanOfFaculty: { id: 'f1' } })
+    ).toEqual({ option: 'dean' });
+    expect(
+      derivedEvidence('admin_position', {
+        ...emptyStaff,
+        adminPosition: 'VICE_RECTOR',
+        headOfDepartment: { id: 'd1' },
+      })
+    ).toEqual({ option: 'vice_rector' });
   });
 
   it('maps basic education only when confirmed', () => {

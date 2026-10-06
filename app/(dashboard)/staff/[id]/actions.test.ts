@@ -66,7 +66,7 @@ const fullPayload: StaffUpdateSchema = {
   position: 'PROFESSOR',
   academicTitle: 'PROFESSOR',
   honoraryTitles: [],
-  adminPositions: ['DEAN'],
+  adminPosition: 'DEAN',
   candidateDegree: 'cand_history',
   candidateSpecialty: null,
   candidateDefenceDate: null,
@@ -244,7 +244,6 @@ describe('updateStaff field filtering', () => {
         'scientificDegree',
         'degreeDefenceDate',
         'degreeMatchesDepartment',
-        'adminPosition',
       ].sort()
     );
   });
@@ -1030,10 +1029,10 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
 });
 
 // The rating still reads the old columns (2026-10-06): an ADMIN save of the
-// new fields must keep them in step, or 1.2 / 1.3 / 1.6 would score the
+// new fields must keep them in step, or 1.2 / 1.3 would score the
 // person's previous values.
 describe('updateStaff — legacy mirrors', () => {
-  it('writes academicRank, scientificDegree and adminPosition from the new fields', async () => {
+  it('writes academicRank and scientificDegree from the new fields', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'admin-1' } });
     mockStaffLookups();
     const tx = mockTx();
@@ -1055,13 +1054,13 @@ describe('updateStaff — writes only what was sent', () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'admin-1' } });
     mockStaffLookups();
     const tx = mockTx();
-    const { position: _p, honoraryTitles: _h, adminPositions: _a, ...withoutSome } = fullPayload;
+    const { position: _p, honoraryTitles: _h, adminPosition: _a, ...withoutSome } = fullPayload;
 
     await updateStaff('staff-1', withoutSome as StaffUpdateSchema);
     const written = writtenFields(tx);
     expect(written).not.toContain('position');
     expect(written).not.toContain('honoraryTitles');
-    expect(written).not.toContain('adminPositions');
+    expect(written).not.toContain('adminPosition');
     expect(written).toContain('lastName');
   });
 });

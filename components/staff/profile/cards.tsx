@@ -1,5 +1,9 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
-import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
+import {
+  ACADEMIC_TITLE_LABELS,
+  PICKED_ADMIN_POSITION_LABELS,
+  STAFF_POSITION_LABELS,
+} from '@/lib/labels';
 import {
   CANDIDATE_DEGREES,
   DOCTOR_DEGREES,
@@ -297,19 +301,6 @@ export function ResearchProfilesCard({ staff, showEmpty = true }: CardProps) {
   );
 }
 
-/**
- * Every post this person holds.
- *
- * Headship is derived from `headId`/`deanId`, never from a Role — one person is
- * routinely a завідувач, an НПП and a division editor at once.
- *
- * **`adminPosition` lives here now.** It used to appear only in the identity
- * band, as the fallback where an НПП showed their звання. When that line came
- * out as duplicated (2026-09-07) the duplication argument did not hold for this
- * field: «Академічна інформація» is НПП-only, so an administrative employee's
- * «проректор» had nowhere else to go and would simply have vanished from their
- * profile. A post belongs on the card about posts.
- */
 ResearchProfilesCard.Shell = function ResearchProfilesCardShell() {
   return (
     <Card title={CARD_TITLES.research}>
@@ -323,6 +314,16 @@ ResearchProfilesCard.Shell = function ResearchProfilesCardShell() {
 };
 
 /**
+ * Every post this person holds.
+ *
+ * Headship is derived from `headId`/`deanId`, never from a Role — one person is
+ * routinely a завідувач, an НПП and a division editor at once. The post picked
+ * by hand is ONE (owner, 2026-10-06), and never «декан» or «завідувач кафедри»:
+ * those two are the lines below it.
+ *
+ * **`adminPosition` lives here.** «Академічна інформація» is НПП-only, so an
+ * administrative employee's «проректор» would have nowhere else to go.
+ *
  * **The exception to «every field renders».** No `showEmpty`, at any price.
  *
  * §5 says a blank field shows «—», because most of them describe something
@@ -336,7 +337,7 @@ ResearchProfilesCard.Shell = function ResearchProfilesCardShell() {
  * post that is not held is absent, and somebody holding none has no card.
  */
 export function LeadershipCard({ staff }: { staff: StaffDetail }) {
-  if (!staff.headOfDepartment && !staff.deanOfFaculty && staff.adminPositions.length === 0) {
+  if (!staff.headOfDepartment && !staff.deanOfFaculty && !staff.adminPosition) {
     return null;
   }
 
@@ -344,12 +345,8 @@ export function LeadershipCard({ staff }: { staff: StaffDetail }) {
     <Card title={CARD_TITLES.leadership}>
       <Fields>
         <MaybeField
-          label="Адміністративні посади"
-          value={
-            staff.adminPositions.length
-              ? staff.adminPositions.map((p) => ADMIN_POSITION_LABELS[p]).join(', ')
-              : null
-          }
+          label="Адміністративна посада"
+          value={staff.adminPosition ? PICKED_ADMIN_POSITION_LABELS[staff.adminPosition] : null}
           showEmpty={false}
         />
         <MaybeField

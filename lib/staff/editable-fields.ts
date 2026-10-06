@@ -7,7 +7,7 @@ export const ACADEMIC_EDITABLE_FIELDS = [
   'position',
   'academicTitle',
   'honoraryTitles',
-  'adminPositions',
+  'adminPosition',
   'candidateDegree',
   'candidateSpecialty',
   'candidateDefenceDate',
