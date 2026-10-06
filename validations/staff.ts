@@ -131,7 +131,7 @@ export const ADMIN_POSITIONS = [
 export const ADMIN_POST_PROBLEM_MESSAGES: Record<AdminPostProblem, string> = {
   VICE_RECTOR_ALONE: 'Проректор не обіймає інших адміністративних посад',
   ONE_LEADING:
-    'Керівна посада може бути лише одна: проректор, декан або завідувач кафедри / керівник відділу',
+    'Керівна посада може бути лише одна: проректор, декан, завідувач кафедри або керівник відділу',
 };
 
 const specialty = z.preprocess(
