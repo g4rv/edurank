@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deferralYear } from './count-year';
+import { deferralYear, earlierYear } from './count-year';
 
 const ARTICLE_FIELDS = [
   { kind: 'text', name: 'title' },
@@ -66,5 +66,35 @@ describe('deferralYear — a shared work with no publication date, by when it wa
 describe('deferralYear — never for an INDIVIDUAL work', () => {
   it('has no pool, so no co-authors to choose', () => {
     expect(article('2027-03-15', { sharing: 'INDIVIDUAL' })).toBeNull();
+  });
+});
+
+// The mirror: an article from January–August of the year the рік STARTS in was
+// also 2025/2026's, and a co-author may already have counted it on paper
+// (owner, 2026-10-07).
+describe('earlierYear — «вже зараховано у 2025/2026»', () => {
+  const article = (publishedOn: string, over: Partial<Parameters<typeof earlierYear>[0]> = {}) =>
+    earlierYear({
+      academicYear: '2026/2027',
+      sharing: 'SHARED',
+      fields: ARTICLE_FIELDS,
+      evidence: { title: 'Стаття', publishedOn },
+      createdAt: new Date('2026-10-01T10:00:00Z'),
+      ...over,
+    });
+
+  it('offers the previous year for an article published January–August 2026', () => {
+    expect(article('2026-03-15')).toBe('2025/2026');
+    expect(article('2026-01-02')).toBe('2025/2026');
+    expect(article('2026-08-31')).toBe('2025/2026');
+  });
+
+  it('offers nothing for an article from September 2026 on', () => {
+    expect(article('2026-09-01')).toBeNull();
+    expect(article('2027-03-15')).toBeNull();
+  });
+
+  it('offers nothing on a work nobody shares', () => {
+    expect(article('2026-03-15', { sharing: 'INDIVIDUAL' })).toBeNull();
   });
 });

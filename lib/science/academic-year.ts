@@ -42,6 +42,12 @@ export function nextAcademicYear(academicYear: string): string {
   return `${parsed[0] + 1}/${parsed[1] + 1}`;
 }
 
+export function previousAcademicYear(academicYear: string): string {
+  const parsed = halves(academicYear);
+  if (!parsed) throw new Error(`Не навчальний рік: "${academicYear}"`);
+  return `${parsed[0] - 1}/${parsed[1] - 1}`;
+}
+
 /**
  * September–December belong to the year that is starting; January–August to the one ending.
  *

@@ -4,7 +4,7 @@ import { initials } from '@/lib/name';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScienceRecordStatus, ScienceSharing } from '@/lib/generated/prisma/client';
 import { dateToMonthKey } from '@/lib/science/execution-month';
-import { deferralYear } from '@/lib/science/count-year';
+import { deferralYear, earlierYear } from '@/lib/science/count-year';
 
 /**
  * Every кафедра a person needs a plan on: their primary one (if they have
@@ -143,6 +143,12 @@ export interface SciencePlanRecordDetail {
    * author, on a closed year, or on a row that is not counting.
    */
   deferrable: string | null;
+  /**
+   * The previous навчальний рік, when this co-author may say their share was
+   * already counted there (`earlierYear`, owner 2026-10-07) — same conditions
+   * as `deferrable`, the mirror window.
+   */
+  countedEarlier: string | null;
 }
 
 /**
@@ -404,19 +410,19 @@ export async function getSciencePlan(
           })),
       ],
       authorName: initials(r.work.createdBy),
-      deferrable:
+      ...shareYearChoices(
         template.status === 'OPEN' &&
-        r.work.templateId === templateId &&
-        r.work.createdById !== staffId &&
-        r.status === 'APPROVED'
-          ? deferralYear({
-              academicYear: template.academicYear,
-              sharing: r.work.workType.sharing,
-              fields,
-              evidence: r.work.evidence,
-              createdAt: r.work.createdAt,
-            })
-          : null,
+          r.work.templateId === templateId &&
+          r.work.createdById !== staffId &&
+          r.status === 'APPROVED',
+        {
+          academicYear: template.academicYear,
+          sharing: r.work.workType.sharing,
+          fields,
+          evidence: r.work.evidence,
+          createdAt: r.work.createdAt,
+        }
+      ),
     };
   });
 
@@ -466,6 +472,15 @@ export async function getSciencePlan(
  * record — the primary кафедра's, or the first one — never on both of a
  * сумісник's plans.
  */
+/** Where a co-author may move their share — later, or «already counted» earlier */
+function shareYearChoices(
+  allowed: boolean,
+  window: Parameters<typeof deferralYear>[0]
+): { deferrable: string | null; countedEarlier: string | null } {
+  if (!allowed) return { deferrable: null, countedEarlier: null };
+  return { deferrable: deferralYear(window), countedEarlier: earlierYear(window) };
+}
+
 async function deferredSharesFor(
   staffId: string,
   departmentId: string,

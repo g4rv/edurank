@@ -592,6 +592,15 @@ Easy to get wrong:
   `ScienceCoauthorShare` with `academicYear` set and turns into a record in
   that year when the person saves its plan — so **a record's `templateId` may
   differ from its work's**. Never re-entered next year.
+- **…or say it was already counted in the PREVIOUS рік** (owner, 2026-10-07).
+  Science began in the app with 2026/2027, but 2025/2026 was reported on paper,
+  and an article from January–August 2026 belongs to both. A co-author (never
+  the author, SHARED only, year open) may mark their share «Вже зараховано у
+  2025/2026» when its date falls January–August of the year the рік STARTS in
+  (`earlierYear`, the mirror of `deferralYear`). The share becomes a
+  reservation marked with the past рік, which never opens — so it counts
+  nowhere, keeps its hours in the pool, and the author's and other
+  co-authors' hours do not move. «Повернути» undoes it while the year is open.
 - **A decline is of the WORK, not of one record** (owner, 2026-09-30). The proof
   is shared, so when it is wrong nobody counts until it is fixed:
   `removeScienceRecord` switches off EVERY record of the work and stamps
