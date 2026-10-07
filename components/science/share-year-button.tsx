@@ -3,7 +3,7 @@
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { CalendarClock, Undo2 } from 'lucide-react';
+import { CalendarCheck, CalendarClock, Undo2 } from 'lucide-react';
 import { Button } from '@/components/aurora/ui/button';
 import {
   AlertDialog,
@@ -28,6 +28,10 @@ import { formatHours } from '@/lib/science/hours';
  *
  * Moving asks first — the hours leave this year's «Виконано» — bringing back
  * does not: it only puts the hours back where they were.
+ *
+ * `earlier` (owner, 2026-10-07): «Вже зараховано у 2025/2026» — the share was
+ * already counted in the previous рік, on paper, and must not count twice. It
+ * leaves this year the same way and counts nowhere; «Повернути» undoes it.
  */
 export function ShareYearButton({
   workId,
@@ -45,7 +49,7 @@ export function ShareYearButton({
   targetYear: string;
   /** The work's own навчальний рік. */
   currentYear: string;
-  mode: 'defer' | 'back';
+  mode: 'defer' | 'back' | 'earlier';
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -58,7 +62,11 @@ export function ShareYearButton({
         return;
       }
       toast.success(
-        mode === 'defer' ? `Години перенесено на ${targetYear}` : `Години повернуто в ${targetYear}`
+        mode === 'defer'
+          ? `Години перенесено на ${targetYear}`
+          : mode === 'earlier'
+            ? `Позначено: вже зараховано у ${targetYear}`
+            : `Години повернуто в ${targetYear}`
       );
       router.refresh();
     });
@@ -70,6 +78,37 @@ export function ShareYearButton({
         <Undo2 className="size-3.5" />
         Повернути в {targetYear}
       </Button>
+    );
+  }
+
+  if (mode === 'earlier') {
+    return (
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <CalendarCheck className="size-3.5" />
+            Вже зараховано у {targetYear}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Вже зараховано у {targetYear}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ваші {formatHours(hoursHundredths)} год за роботу{' '}
+              <span className="font-medium text-foreground">{label}</span> не рахуватимуться у{' '}
+              {currentYear}, бо ви вже зарахували цю роботу у {targetYear}. Години автора та інших
+              співавторів не зміняться. Передумати можна, доки {currentYear} не закрито.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Скасувати</AlertDialogCancel>
+            {/* Not red: undone with «Повернути» while the year is open. */}
+            <AlertDialogAction variant="default" onClick={move} disabled={isPending}>
+              {isPending ? 'Збереження…' : 'Так, вже зараховано'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     );
   }
 

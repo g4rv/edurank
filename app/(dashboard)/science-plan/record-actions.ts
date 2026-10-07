@@ -19,7 +19,7 @@ import {
   undeferShare,
   type WorkRef,
 } from '@/lib/science/coauthor-store';
-import { deferralYear } from '@/lib/science/count-year';
+import { deferralYear, earlierYear } from '@/lib/science/count-year';
 import {
   authorShare,
   COAUTHOR_CANNOT_DELETE,
@@ -36,6 +36,7 @@ import {
 import { computeScore, type ScoringSpec } from '@/lib/specs/scoring';
 import { toHundredths } from '@/lib/stake/units';
 import { schemaForFields } from '@/validations/activity-evidence';
+import { pickedPersonProblem } from '@/lib/queries/list-my-aspirants';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
 import {
@@ -393,6 +394,11 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
   // назва, a DOI and a page count to give.
   const parsed = schemaForFields(fields, scoring).safeParse(input.evidence);
   if (!parsed.success) return { error: 'Невірні дані форми' };
+
+  // п.12: the аспірант is one of this person's own (owner, 2026-10-07) — the
+  // form offers nothing else; a hand-made request is told the same.
+  const pickFault = await pickedPersonProblem(fields, parsed.data, staffId);
+  if (pickFault) return { error: pickFault };
 
   const link = input.link?.trim() || null;
 
@@ -759,6 +765,11 @@ export async function updateWorkEvidence(input: {
       : undefined;
   const parsed = schemaForFields(fields, scoring, { stored }).safeParse(input.evidence);
   if (!parsed.success) return { error: 'Невірні дані форми' };
+
+  // п.12, judged against the work's OWNER (an ADMIN may be the one editing);
+  // a name already stored passes unchanged — see `pickedPersonProblem`.
+  const pickFault = await pickedPersonProblem(fields, parsed.data, work.createdById, stored);
+  if (pickFault) return { error: pickFault };
 
   const link = input.link?.trim() || null;
   if (link && type.linkRule === 'NONE') return { error: LINK_NOT_ALLOWED };
@@ -1221,7 +1232,10 @@ export async function updateCoauthors(input: {
 
 /**
  * A CO-AUTHOR chooses the навчальний рік their share counts in — the work's own,
- * or the next one (owner, 2026-10-02; the window is `deferralYear`).
+ * or the next one (owner, 2026-10-02; the window is `deferralYear`), or says it
+ * was already counted in the previous one (owner, 2026-10-07; `earlierYear`) —
+ * a reservation marked with a рік that never opens again, so it counts
+ * nowhere and nobody else's hours move.
  *
  * **Never the author.** Whoever adds a work is meant to count it in the year
  * they add it; an author who wants the next year enters it in September. And
@@ -1260,19 +1274,18 @@ export async function setShareYear(input: {
     return { error: 'Автор зараховує роботу в той рік, коли її додав' };
   }
 
-  const next = deferralYear({
+  const window = {
     academicYear: template.academicYear,
     sharing: work.workType.sharing,
     fields: work.workType.evidenceFields as unknown as EvidenceField[],
     evidence: work.evidence,
     createdAt: work.createdAt,
-  });
-  if (input.academicYear !== template.academicYear && input.academicYear !== next) {
-    return {
-      error: next
-        ? `Цю роботу можна зарахувати лише в ${template.academicYear} або ${next}`
-        : `Цю роботу можна зарахувати лише в ${template.academicYear}`,
-    };
+  };
+  const next = deferralYear(window);
+  const earlier = earlierYear(window);
+  const allowed = [template.academicYear, next, earlier].filter((y): y is string => !!y);
+  if (!allowed.includes(input.academicYear)) {
+    return { error: `Цю роботу можна зарахувати лише в ${allowed.join(' або ')}` };
   }
 
   const ref: WorkRef = {

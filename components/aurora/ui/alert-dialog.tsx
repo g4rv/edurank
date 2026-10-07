@@ -56,6 +56,11 @@ function AlertDialogContent({
         data-slot="alert-dialog-content"
         className={cn(
           'fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-card p-6 text-card-foreground shadow-float duration-150',
+          // Never taller than the screen (2026-10-07). It had no limit at all, so
+          // a long confirmation — a Характеристика line with its consequences,
+          // a bulk form — ran off a small screen with its buttons. `vh` first,
+          // `svh` where the browser knows it, as `DialogContent` does.
+          'max-h-[calc(100vh-2rem)] overflow-y-auto supports-[height:100svh]:max-h-[calc(100svh-2rem)]',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           className

@@ -249,10 +249,19 @@ pnpm db:headship-admin-position  # one-off, on that deploy: rating 1.6 now pays
                       #   a завідувач / декан for being named on the кафедра /
                       #   факультет. Reports who moves (~36 on prod); --apply writes.
                       #   Order: back up → migrate deploy → mirror check → this.
+pnpm db:import-aspirants  # the аспіранти list into Aspirant + their керівники
+                      #   (matched to НПП by surname ±1 letter AND initials; the
+                      #   rest reported, never guessed). Report first; --apply
+                      #   writes; --apply --pick ALSO switches п.12 to the select
+                      #   (off until a complete list is in). Re-run with every
+                      #   new list — upserts, never doubles.
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 
 pnpm staff:build      # rebuild staff-roster.json from edu-reference/ (gitignored output)
+pnpm aspirants:build ["<docx>"]  # lib/aspirants/aspirants.json from the
+                      #   аспірантура's list (no birth dates); commit it, then
+                      #   db:import-aspirants on the server
 pnpm students:build   # rebuild lib/students/accepted-2026.json from the ЄДЕБО export
                       #   AND the transcribed contract накази (students_specialties.xlsx)
 
@@ -583,6 +592,15 @@ Easy to get wrong:
   `ScienceCoauthorShare` with `academicYear` set and turns into a record in
   that year when the person saves its plan — so **a record's `templateId` may
   differ from its work's**. Never re-entered next year.
+- **…or say it was already counted in the PREVIOUS рік** (owner, 2026-10-07).
+  Science began in the app with 2026/2027, but 2025/2026 was reported on paper,
+  and an article from January–August 2026 belongs to both. A co-author (never
+  the author, SHARED only, year open) may mark their share «Вже зараховано у
+  2025/2026» when its date falls January–August of the year the рік STARTS in
+  (`earlierYear`, the mirror of `deferralYear`). The share becomes a
+  reservation marked with the past рік, which never opens — so it counts
+  nowhere, keeps its hours in the pool, and the author's and other
+  co-authors' hours do not move. «Повернути» undoes it while the year is open.
 - **A decline is of the WORK, not of one record** (owner, 2026-09-30). The proof
   is shared, so when it is wrong nobody counts until it is fixed:
   `removeScienceRecord` switches off EVERY record of the work and stamps
@@ -636,6 +654,14 @@ Easy to get wrong:
   often as a URL. `requiresFile` no longer exists. **Both NONE = no
   proof needed** (D53, owner 2026-09-24): п.12 «Керівництво аспірантами» is
   recorded by the аспірант's ПІБ alone; «never neither» holds everywhere else.
+  **That ПІБ is to be CHOSEN, not typed** (owner, 2026-10-07): `pickFrom:
+'aspirants'` on the group's first field draws one select of the аспіранти
+  the НПП supervises by the аспірантура's list (`listMyAspirants`), and
+  `saveRecord` / `updateWorkEvidence` refuse anyone else's
+  (`pickedPersonProblem`). **Built but switched OFF** until a complete list
+  is in — the first left out the first year; `db:import-aspirants --pick`
+  turns it on. The stored answer is the three name fields either way, so a
+  record typed before keeps its key and text, and stays editable.
 - **A record PROVES the work; it does not track when it was done** (D50,
   owner 2026-09-24). The execution month (D41/D48/D49) is **hidden, not
   removed**: `SHOW_EXECUTION_PERIOD` in `lib/science/execution-month.ts` is

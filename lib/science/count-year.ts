@@ -1,4 +1,8 @@
-import { ACADEMIC_YEAR_PATTERN, nextAcademicYear } from '@/lib/science/academic-year';
+import {
+  ACADEMIC_YEAR_PATTERN,
+  nextAcademicYear,
+  previousAcademicYear,
+} from '@/lib/science/academic-year';
 import { currentMonthKey } from '@/lib/science/execution-month';
 
 /**
@@ -43,6 +47,38 @@ export function deferralYear(input: {
 
   return year === endYear && monthNumber >= 1 && monthNumber <= 8
     ? nextAcademicYear(input.academicYear)
+    : null;
+}
+
+/**
+ * The PREVIOUS навчальний рік, when a CO-AUTHOR may say their share was already
+ * counted there (owner, 2026-10-07) — the mirror of `deferralYear`.
+ *
+ * Science planning began in the app with 2026/2027, but people reported
+ * 2025/2026 on paper. An article published January–August 2026 belongs to both
+ * роки (those months end 2025/2026 and are still «this calendar year» for the
+ * стаття's date rule), so a co-author may have counted it already; entered now,
+ * it would count twice. Their share then counts NOWHERE — it stays a
+ * reservation marked with the past рік, which never opens, so the author and
+ * the other co-authors keep their hours exactly as they were.
+ *
+ *   an article published in March 2026   → may be «вже зараховано у 2025/2026»;
+ *   one published in October 2026        → may not.
+ *
+ * Returns the previous навчальний рік when the choice exists, `null` when it
+ * does not. Who may make it and while which year is open are the caller's.
+ */
+export function earlierYear(input: Parameters<typeof deferralYear>[0]): string | null {
+  if (input.sharing !== 'SHARED') return null;
+  const years = ACADEMIC_YEAR_PATTERN.exec(input.academicYear);
+  if (!years) return null;
+  const startYear = Number(years[1]);
+
+  const month = publicationMonth(input.fields, input.evidence) ?? currentMonthKey(input.createdAt);
+  const [year, monthNumber] = month.split('-').map(Number);
+
+  return year === startYear && monthNumber >= 1 && monthNumber <= 8
+    ? previousAcademicYear(input.academicYear)
     : null;
 }
 

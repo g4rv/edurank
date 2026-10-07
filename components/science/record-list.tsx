@@ -168,7 +168,9 @@ export function RecordList({
                                 (a) =>
                                   `${a.name} — ${formatHours(a.hoursHundredths)} год${
                                     a.deferredTo
-                                      ? ` (перенесено на ${a.deferredTo})`
+                                      ? a.deferredTo < academicYear
+                                        ? ` (вже зараховано у ${a.deferredTo})`
+                                        : ` (перенесено на ${a.deferredTo})`
                                       : a.pending
                                         ? ' (чекає на план)'
                                         : ''
@@ -270,16 +272,30 @@ export function RecordList({
 
                       {/* A co-author picks the year their share counts in
                           (owner, 2026-10-02). Never on the author's row. */}
-                      {record.deferrable && !readOnly && (
-                        <div className="mt-2">
-                          <ShareYearButton
-                            mode="defer"
-                            workId={record.workId}
-                            label={record.summary}
-                            hoursHundredths={record.hoursHundredths}
-                            targetYear={record.deferrable}
-                            currentYear={academicYear}
-                          />
+                      {(record.deferrable || record.countedEarlier) && !readOnly && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {record.deferrable && (
+                            <ShareYearButton
+                              mode="defer"
+                              workId={record.workId}
+                              label={record.summary}
+                              hoursHundredths={record.hoursHundredths}
+                              targetYear={record.deferrable}
+                              currentYear={academicYear}
+                            />
+                          )}
+                          {/* Already counted on paper in the previous рік
+                              (owner, 2026-10-07) — must not count twice. */}
+                          {record.countedEarlier && (
+                            <ShareYearButton
+                              mode="earlier"
+                              workId={record.workId}
+                              label={record.summary}
+                              hoursHundredths={record.hoursHundredths}
+                              targetYear={record.countedEarlier}
+                              currentYear={academicYear}
+                            />
+                          )}
                         </div>
                       )}
 
@@ -369,58 +385,64 @@ export function RecordList({
           </Fragment>
         ))}
 
-        {/* Shares moved to the next year — listed, never counted here. */}
-        {deferred.length > 0 && (
-          <>
+        {/* Shares moved out of this year — to the next one, or marked as
+            already counted in the previous one — listed, never counted here.
+            One heading per рік. */}
+        {[...new Set(deferred.map((d) => d.academicYear))].sort().map((year) => (
+          <Fragment key={year}>
             <li className="flex items-baseline justify-between gap-3 bg-table-group px-5 py-2 text-sm font-semibold">
-              <span>Перенесено на {deferred[0].academicYear}</span>
+              <span>
+                {year < academicYear ? `Вже зараховано у ${year}` : `Перенесено на ${year}`}
+              </span>
               <span className="font-normal text-foreground-soft">у цьому році не рахуються</span>
             </li>
-            {deferred.map((share) => (
-              <li key={share.workId} className="px-5 py-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base text-foreground-soft">{share.workTypeLabel}</p>
-                    <p className="mt-0.5 text-sm text-foreground-soft">{share.summary}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                      {share.link && (
-                        <a
-                          href={share.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-brand underline decoration-brand/30 underline-offset-4 transition-colors hover:decoration-brand"
-                        >
-                          <ExternalLink className="size-3.5" />
-                          Підтвердження
-                        </a>
-                      )}
-                      <span className="text-foreground-soft">Автор: {share.authorName}</span>
-                    </div>
-                    {!readOnly && (
-                      <div className="mt-2">
-                        <ShareYearButton
-                          mode="back"
-                          workId={share.workId}
-                          label={share.summary}
-                          hoursHundredths={share.hoursHundredths}
-                          targetYear={academicYear}
-                          currentYear={academicYear}
-                        />
+            {deferred
+              .filter((d) => d.academicYear === year)
+              .map((share) => (
+                <li key={share.workId} className="px-5 py-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base text-foreground-soft">{share.workTypeLabel}</p>
+                      <p className="mt-0.5 text-sm text-foreground-soft">{share.summary}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                        {share.link && (
+                          <a
+                            href={share.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-brand underline decoration-brand/30 underline-offset-4 transition-colors hover:decoration-brand"
+                          >
+                            <ExternalLink className="size-3.5" />
+                            Підтвердження
+                          </a>
+                        )}
+                        <span className="text-foreground-soft">Автор: {share.authorName}</span>
                       </div>
-                    )}
+                      {!readOnly && (
+                        <div className="mt-2">
+                          <ShareYearButton
+                            mode="back"
+                            workId={share.workId}
+                            label={share.summary}
+                            hoursHundredths={share.hoursHundredths}
+                            targetYear={academicYear}
+                            currentYear={academicYear}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-sm text-foreground-soft">
+                      Годин:{' '}
+                      <span className="text-base font-semibold text-foreground-soft tabular-nums">
+                        {formatHours(share.hoursHundredths)}
+                      </span>{' '}
+                      з {formatHours(share.totalHundredths)} · у {share.academicYear}
+                    </span>
                   </div>
-                  <span className="shrink-0 text-sm text-foreground-soft">
-                    Годин:{' '}
-                    <span className="text-base font-semibold text-foreground-soft tabular-nums">
-                      {formatHours(share.hoursHundredths)}
-                    </span>{' '}
-                    з {formatHours(share.totalHundredths)} · у {share.academicYear}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </>
-        )}
+                </li>
+              ))}
+          </Fragment>
+        ))}
       </ul>
     </Card>
   );
