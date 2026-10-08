@@ -9,7 +9,11 @@ import { canViewAcademicRecord, deanOf } from '@/lib/queries/scope';
 import { canMutateStaffRecord } from '@/lib/permissions';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
-import { ArchiveStaffButton, RestoreStaffButton } from '@/components/staff/archive-button';
+import {
+  ArchiveStaffButton,
+  DeleteStaffButton,
+  RestoreStaffButton,
+} from '@/components/staff/archive-button';
 import { IdentityBand, ActivationBadge } from '@/components/staff/profile/identity-band';
 import { fullName } from './primitives';
 
@@ -80,6 +84,14 @@ export async function RecordHeader({ id }: { id: string }) {
 
   const archived = Boolean(staff.archivedAt);
 
+  // ADMIN only, never the editor's STAFF DELETE grant (owner, 2026-10-08): that
+  // grant means «archive». Same «not your own record» rule as archiving, and the
+  // record has to be in the archive already — archive is the bin, this empties it.
+  const canDelete = isAdmin && canArchive && archived;
+  const heads = [staff.headOfDepartment, staff.deanOfFaculty]
+    .filter((x): x is { id: string; name: string } => !!x)
+    .map((x) => `«${x.name}»`);
+
   return (
     <>
       {/* A head reads this record from «Моя кафедра», a декан from «Мій
@@ -115,14 +127,9 @@ export async function RecordHeader({ id }: { id: string }) {
               (archived ? (
                 <RestoreStaffButton staffId={id} staffName={fullName(staff)} />
               ) : (
-                <ArchiveStaffButton
-                  staffId={id}
-                  staffName={fullName(staff)}
-                  heads={[staff.headOfDepartment, staff.deanOfFaculty]
-                    .filter((x): x is { id: string; name: string } => !!x)
-                    .map((x) => `«${x.name}»`)}
-                />
+                <ArchiveStaffButton staffId={id} staffName={fullName(staff)} heads={heads} />
               ))}
+            {canDelete && <DeleteStaffButton staffId={id} staffName={fullName(staff)} />}
           </>
         }
       />

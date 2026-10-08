@@ -12,6 +12,7 @@ import { parseDbError } from '@/lib/db-error';
 import { logWarning } from '@/lib/log';
 import { issueAndEmailLink } from '@/lib/mail/invite';
 import { activeYear } from '@/lib/queries/get-active-template';
+import { emailTaken, EMAIL_TAKEN_MESSAGE } from '@/lib/queries/email-taken';
 import {
   RateRefused,
   parseRateSeeds,
@@ -23,7 +24,8 @@ import { academicAuditValue, mirrorsForUpdate, storedAcademic } from '@/lib/staf
 import type { DiffValue } from '@/lib/audit';
 
 export type StaffCreateState =
-  | { error: string }
+  /** `field` names the input the message belongs under, when there is one */
+  | { error: string; field?: 'email' }
   /**
    * `inviteWarning` means the person WAS created and only the mail failed. The
    * two must stay separable: losing a filled-in record because SMTP was down
@@ -51,6 +53,12 @@ export async function createStaff(
 
   const parsed = staffCreateSchema.safeParse(data);
   if (!parsed.success) return { error: 'Невірні дані' };
+
+  // `@unique` cannot refuse `Vasyl@…` beside `vasyl@…` — Postgres compares case
+  // — so this does, on the spelling the schema folded to.
+  if (await emailTaken(parsed.data.email)) {
+    return { error: EMAIL_TAKEN_MESSAGE, field: 'email' };
+  }
 
   // ADMIN only, like every other ставка figure: `employmentRate` is confidential
   // and grantable to nobody, and an allocation is the same number one level

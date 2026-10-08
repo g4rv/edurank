@@ -83,6 +83,7 @@ export function CreateStaffDialog({
     watch,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<RawStaffFormValues>({
     resolver: standardSchemaResolver(staffCreateSchema as never),
@@ -128,7 +129,12 @@ export function CreateStaffDialog({
       try {
         const result = await createStaff(data, { sendInvite, rates });
         if ('error' in result) {
-          toast.error(result.error);
+          // A taken address belongs under the field, not in a toast
+          if (result.field === 'email') {
+            setError('email', { message: result.error }, { shouldFocus: true });
+          } else {
+            toast.error(result.error);
+          }
           return;
         }
         // The record exists either way — only the mail can have failed, and

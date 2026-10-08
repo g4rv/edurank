@@ -35,7 +35,8 @@ import {
   USER_EDITABLE_STAFF_FIELDS,
 } from '@/lib/permissions';
 import { formatStake } from '@/lib/stake/units';
-import { parseDbError } from '@/lib/db-error';
+import { parseDbError, isForeignKeyViolation } from '@/lib/db-error';
+import { emailTaken, EMAIL_TAKEN_MESSAGE } from '@/lib/queries/email-taken';
 import { logError } from '@/lib/log';
 import { syncProfileDerived, PROFILE_DERIVED_STAFF_FIELDS } from '@/lib/rating/profile-derived';
 import {
@@ -52,7 +53,8 @@ export type StaffArchiveState = { error: string } | { success: true; message: st
 /**
  * Take a person off the active roster without losing anything they did.
  *
- * There is no hard delete of a person in this app. Deleting a Staff row
+ * This is the way a person leaves — hard delete is `deleteStaff`, ADMIN only,
+ * for a record that should never have existed. Deleting a Staff row
  * cascades their activities and rating entries — closed years included — and
  * those numbers are final university records. Archiving covers the two cases
  * that actually happen: someone leaves (and may come back years later, to find
@@ -300,7 +302,102 @@ export async function restoreStaff(id: string): Promise<StaffArchiveState> {
   return { success: true, message: 'Запис відновлено' };
 }
 
-export type StaffUpdateState = { error: string } | { success: true };
+/**
+ * Remove a person's row outright, with everything that hangs off it: their
+ * activities, rating entries — closed years included — plans, claims and records.
+ *
+ * **ADMIN only, only from the archive, only by hand** (owner, 2026-10-08,
+ * softening «a person is never deleted»). Two layers on purpose: archiving is the
+ * bin, and it loses nothing; this is emptying it. A person who is still active
+ * cannot be deleted in one click, so a wrong click costs a restore, not their
+ * history. Archiving stays the answer for somebody who left or is on leave; this
+ * is for a record that should never have existed. A duplicate is the case that
+ * made it necessary: the archived twin still holds the email, so the address
+ * stays taken and the sign-in stays ambiguous.
+ *
+ * Deliberately NOT behind the STAFF DELETE entity permission, which still means
+ * «archive»: it is the one action in this file that loses data nobody can bring
+ * back, so an editor's division grant does not reach it.
+ */
+export async function deleteStaff(id: string): Promise<StaffArchiveState> {
+  const session = await auth();
+  if (!session) redirect('/login');
+
+  if (session.user.role !== 'ADMIN') return { error: 'Недостатньо прав' };
+  // Nobody removes themselves — the same rule as archiving
+  if (session.user.staffId === id) return { error: 'Недостатньо прав' };
+
+  const target = await db.staff.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      email: true,
+      archivedAt: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
+  });
+  if (!target) return { error: 'Запис не знайдено' };
+
+  // The bin first. This also settles the last-admin question: archiving refuses
+  // the last active admin, so whoever is archived is never the one holding the
+  // university's only working login.
+  if (!target.archivedAt) {
+    return { error: 'Спершу архівуйте запис — видалити можна лише з архіву' };
+  }
+
+  let dbError: string | null = null;
+  let headship: string[] = [];
+
+  try {
+    await db.$transaction(async (tx) => {
+      // The foreign key would null `headId` / `deanId` by itself, but silently:
+      // the кафедра's own audit log would not say it lost its head.
+      headship = await clearHeadship(tx, id, session.user.id);
+
+      // Before the delete, and carrying the address: once the row is gone the
+      // log is the only place that says WHICH of two same-named people went.
+      await tx.auditLog.create({
+        data: {
+          action: 'DELETE',
+          entity: 'Staff',
+          entityId: id,
+          label: staffFullName(target),
+          userId: session.user.id,
+          changes: diffChanges({ email: target.email }, { email: null }),
+        },
+      });
+
+      await tx.staff.delete({ where: { id } });
+    });
+  } catch (e) {
+    dbError = isForeignKeyViolation(e)
+      ? // `ScienceWork.createdBy` and `ScienceRecordFile.uploadedBy` are required
+        // relations with no cascade: deleting their author would leave
+        // co-authors' records pointing at nobody.
+        'Видалити не вдалося: за цією людиною закріплені наукові роботи чи файли. Запис залишається в архіві'
+      : parseDbError(e, 'Не вдалося видалити запис. Зміни не застосовано', 'staff.deleteStaff', {
+          userId: session.user.id,
+        });
+  }
+
+  if (dbError) return { error: dbError };
+  revalidatePath('/staff');
+  revalidatePath('/dashboard');
+  if (headship.length > 0) {
+    revalidatePath('/departments');
+    revalidatePath('/faculties');
+  }
+  return {
+    success: true,
+    message: headship.length
+      ? `Запис видалено. Без керівника: ${headship.join(', ')}`
+      : 'Запис видалено',
+  };
+}
+
+export type StaffUpdateState = { error: string; field?: 'email' } | { success: true };
 
 export async function updateStaff(
   id: string,
@@ -398,6 +495,22 @@ export async function updateStaff(
   // would be told it may edit nothing — which is the opposite of the grant.
   if (Object.keys(updateData).length === 0 && !canWritePartTime) {
     return { error: 'Немає полів, доступних для редагування' };
+  }
+
+  // The address, in any case, against everybody else's. `parsed.data.email` is
+  // already folded; the STORED one may still carry capitals from before.
+  //
+  // Same address in another case is no change, so it is not written: saving a
+  // phone number used to rewrite an address nobody had touched and file it in
+  // the audit log as the admin's edit (2026-08-31). Folding the schema would
+  // bring that back without this.
+  if (typeof updateData.email === 'string') {
+    const current = await db.staff.findUnique({ where: { id }, select: { email: true } });
+    if (current?.email && current.email.toLowerCase() === updateData.email) {
+      delete updateData.email;
+    } else if (await emailTaken(updateData.email, id)) {
+      return { error: EMAIL_TAKEN_MESSAGE, field: 'email' };
+    }
   }
 
   // One leading post at most, a headship counted (owner, 2026-10-06).

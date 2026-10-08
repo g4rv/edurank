@@ -9,7 +9,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
-    staff: { findUnique: vi.fn(), update: vi.fn(), count: vi.fn() },
+    staff: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), count: vi.fn() },
     divisionEntityPermission: { findFirst: vi.fn() },
     divisionFieldPermission: { findMany: vi.fn() },
     // activeYear(), read when сумісництво is removed so the кафедра it drops
@@ -33,12 +33,14 @@ vi.mock('@/lib/mail/mailer', () => ({ sendMail: vi.fn().mockResolvedValue(undefi
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { sendMail } from '@/lib/mail/mailer';
+import { Prisma } from '@/lib/generated/prisma/client';
 import type { StaffUpdateSchema } from '@/validations/staff';
 import { ACADEMIC_EDITABLE_FIELDS } from '@/lib/staff/editable-fields';
 import {
   updateStaff,
   archiveStaff,
   restoreStaff,
+  deleteStaff,
   sendInvite,
   resetPassword,
   setPasswordManually,
@@ -51,6 +53,7 @@ const mockEntityPerm = db.divisionEntityPermission.findFirst as unknown as Mock;
 const mockFieldPerms = db.divisionFieldPermission.findMany as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 const mockStaffCount = db.staff.count as unknown as Mock;
+const mockStaffFirst = db.staff.findFirst as unknown as Mock;
 const mockSendMail = sendMail as unknown as Mock;
 
 // Payload an attacker could send: touches confidential + non-granted fields
@@ -99,11 +102,12 @@ function mockStaffLookups({
   targetRole = 'USER',
   divisionId = 'div-1' as string | null,
   archivedAt = null as Date | null,
+  email = undefined as string | undefined,
 } = {}) {
   mockStaffFind.mockImplementation(async (args: { where?: { id?: string }; select?: object }) => {
     const select = (args?.select ?? {}) as Record<string, boolean>;
     if (select.divisionId) return { divisionId };
-    return { id: args?.where?.id, role: targetRole, archivedAt };
+    return { id: args?.where?.id, role: targetRole, archivedAt, email };
   });
 }
 
@@ -112,8 +116,8 @@ function mockTx() {
     staff: {
       findUnique: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue({}),
-      // No `delete`: a person is never hard-deleted any more, so a call would
-      // fail here loudly instead of quietly passing a mock.
+      // Only `deleteStaff` (ADMIN) removes a row; archiving must never reach it
+      delete: vi.fn().mockResolvedValue({}),
     },
     staffDepartment: { deleteMany: vi.fn(), createMany: vi.fn() },
     // Мін/Макс are per кафедра per year, and go the same way as the allocation
@@ -403,6 +407,172 @@ describe('updateStaff target-role guard', () => {
 
     expect(await updateStaff('gone', fullPayload)).toEqual({ error: 'Запис не знайдено' });
     expect(mockTransaction).not.toHaveBeenCalled();
+  });
+});
+
+// The same address in another case is the same address (2026-10-08). `@unique`
+// cannot say so — Postgres compares case-sensitively — so the action does.
+describe('updateStaff email', () => {
+  const adminEdits = () =>
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+
+  it('refuses an address another person holds, in any case', async () => {
+    adminEdits();
+    mockStaffLookups({ email: 'old@univ.ua' });
+    mockStaffFirst.mockResolvedValueOnce({ id: 'someone-else' });
+
+    const result = await updateStaff('staff-1', { ...fullPayload, email: 'Taken@Univ.UA' });
+
+    expect(result).toEqual({ error: 'Працівник з таким email вже існує', field: 'email' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+    // Looked up on the folded spelling, and never matching the person themself
+    expect(mockStaffFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          email: { equals: 'taken@univ.ua', mode: 'insensitive' },
+          id: { not: 'staff-1' },
+        }),
+      })
+    );
+  });
+
+  it('saves a free address in lower case', async () => {
+    adminEdits();
+    mockStaffLookups({ email: 'old@univ.ua' });
+    mockStaffFirst.mockResolvedValueOnce(null);
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-1', { ...fullPayload, email: 'New@Univ.UA' })).toEqual({
+      success: true,
+    });
+    expect(tx.staff.update.mock.calls[0][0].data.email).toBe('new@univ.ua');
+  });
+
+  // The 2026-08-31 regression: saving a phone number rewrote an address nobody
+  // touched, and the audit log filed it as the admin's edit. A stored address
+  // that differs from the submitted one only in case is left exactly as it is.
+  it('leaves a stored address alone when only its case differs', async () => {
+    adminEdits();
+    mockStaffLookups({ email: 'Ivan.Petrenko@univ.ua' });
+    const tx = mockTx();
+
+    expect(
+      await updateStaff('staff-1', { ...fullPayload, email: 'IVAN.PETRENKO@univ.ua' })
+    ).toEqual({ success: true });
+
+    expect(writtenFields(tx)).not.toContain('email');
+    expect(tx.auditLog.create.mock.calls[0][0].data.changes).not.toHaveProperty('email');
+    // No duplicate hunt either: the only match would be the person themself
+    expect(mockStaffFirst).not.toHaveBeenCalled();
+  });
+});
+
+// A person is archived, not deleted — except by an ADMIN, who may remove a row
+// outright (owner, 2026-10-08). Archiving cannot fix a duplicate: the second
+// row is archived and still holds the address.
+describe('deleteStaff', () => {
+  const adminDeletes = () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'admin-1' } });
+  };
+  // Two layers (owner, 2026-10-08): archive first — the bin — then delete.
+  const inTheBin = new Date('2026-01-01');
+
+  it('removes the row, with an audit entry that names the address', async () => {
+    adminDeletes();
+    mockStaffLookups({
+      targetRole: 'USER',
+      archivedAt: inTheBin,
+      email: 'Vasyl.Bondarchuk@uhsp.edu.ua',
+    });
+    const tx = mockTx();
+
+    expect(await deleteStaff('staff-1')).toEqual({ success: true, message: 'Запис видалено' });
+
+    expect(tx.staff.delete).toHaveBeenCalledWith({ where: { id: 'staff-1' } });
+    const entry = tx.auditLog.create.mock.calls[0][0].data;
+    expect(entry).toMatchObject({ action: 'DELETE', entity: 'Staff', entityId: 'staff-1' });
+    expect(entry.changes).toEqual({
+      email: { from: 'Vasyl.Bondarchuk@uhsp.edu.ua', to: null },
+    });
+  });
+
+  // The second layer of safety: a mis-click on an active person cannot lose
+  // their history, because the button is not there and the action says no.
+  it('refuses a person who is not archived yet — the bin comes first', async () => {
+    adminDeletes();
+    mockStaffLookups({ targetRole: 'USER', archivedAt: null });
+    const tx = mockTx();
+
+    expect(await deleteStaff('staff-1')).toEqual({
+      error: 'Спершу архівуйте запис — видалити можна лише з архіву',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(tx.staff.delete).not.toHaveBeenCalled();
+  });
+
+  it('is for an ADMIN only — an editor holding STAFF DELETE may archive, not delete', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockStaffLookups({ targetRole: 'USER' });
+
+    expect(await deleteStaff('staff-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a USER', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-1' } });
+
+    expect(await deleteStaff('staff-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses an ADMIN deleting their own record', async () => {
+    adminDeletes();
+    mockStaffLookups({ targetRole: 'ADMIN' });
+
+    expect(await deleteStaff('admin-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('takes the post away first, so the кафедра does not point at nobody', async () => {
+    adminDeletes();
+    mockStaffLookups({ targetRole: 'USER', archivedAt: inTheBin });
+    const tx = mockTx();
+    tx.department.findMany.mockResolvedValue([{ id: 'dep-1', name: 'Кафедра менеджменту' }]);
+
+    expect(await deleteStaff('staff-1')).toEqual({
+      success: true,
+      message: 'Запис видалено. Без керівника: «Кафедра менеджменту»',
+    });
+    expect(tx.department.update).toHaveBeenCalledWith({
+      where: { id: 'dep-1' },
+      data: { headId: null },
+    });
+  });
+
+  it('reports a missing record', async () => {
+    adminDeletes();
+    mockStaffFind.mockResolvedValue(null);
+
+    expect(await deleteStaff('gone')).toEqual({ error: 'Запис не знайдено' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  // ScienceWork.createdBy and ScienceRecordFile.uploadedBy are required
+  // relations: a person who authored a work cannot be deleted without orphaning
+  // its co-authors' records, and the database says so.
+  it('says why, and leaves the record in the archive, when the person authored a science work', async () => {
+    adminDeletes();
+    mockStaffLookups({ targetRole: 'USER', archivedAt: inTheBin });
+    mockTx();
+    mockTransaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('FK', { code: 'P2003', clientVersion: 'test' })
+    );
+
+    expect(await deleteStaff('staff-1')).toEqual({
+      error:
+        'Видалити не вдалося: за цією людиною закріплені наукові роботи чи файли. Запис залишається в архіві',
+    });
   });
 });
 

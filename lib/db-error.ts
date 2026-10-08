@@ -17,6 +17,16 @@ export function isUniqueViolation(err: unknown): boolean {
 }
 
 /**
+ * A foreign-key violation (P2003): something still points at the row being
+ * removed, or at one that is not there. For a DELETE the first is the likely one,
+ * and the caller knows what the pointing rows are — `parseDbError`'s own
+ * «запис не існує» would read wrong, so a delete asks first.
+ */
+export function isForeignKeyViolation(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003';
+}
+
+/**
  * Turns a write failure into something the person can read.
  *
  * Two kinds of failure, treated differently on purpose:

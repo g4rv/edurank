@@ -75,6 +75,7 @@ export function StaffEditForm({
     setValue,
     watch,
     handleSubmit,
+    setError,
     formState: { errors, isDirty },
   } = useForm<RawStaffFormValues>({
     resolver: standardSchemaResolver(staffUpdateSchema as never),
@@ -101,7 +102,12 @@ export function StaffEditForm({
       try {
         const result = await updateStaff(staffId, data, { rates });
         if ('error' in result) {
-          toast.error(result.error);
+          // A taken address belongs under the field, not in a toast
+          if (result.field === 'email') {
+            setError('email', { message: result.error }, { shouldFocus: true });
+          } else {
+            toast.error(result.error);
+          }
         } else {
           toast.success('Збережено');
           setRates({});

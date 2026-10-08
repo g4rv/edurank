@@ -42,13 +42,36 @@ Division (відділ)                — separate cross-cutting structure, uni
 - Both types live in the same `Staff` table; the UI shows a unified list with a filter tab (НПП / Адміністративний / Всі).
 - Divisions operate university-wide — not scoped to faculty or department.
 
-**A person is never deleted — they are archived** (`Staff.archivedAt`). Deleting
+**A person is archived, not deleted** (`Staff.archivedAt`). Deleting
 cascades their activities and rating entries, closed years included, and those
 numbers are final university records. Two ordinary cases decided this: someone
 who leaves and returns years later must find their history intact, and someone on
 декретна відпустка must drop out of the current rating while every past result
-stays. There is no hard delete of a person anywhere — `archiveStaff` /
-`restoreStaff` are it, and the `STAFF DELETE` entity permission governs them.
+stays. `archiveStaff` / `restoreStaff` are how a person leaves and returns, and
+the `STAFF DELETE` entity permission governs them.
+
+**One exception: `deleteStaff`, ADMIN only, and only from the archive** (owner,
+2026-10-08). Two layers: archiving is the bin, deleting empties it — an active
+person is refused and the button is not drawn. For a record that should never
+have existed — a duplicate above all, where the archived twin still holds the
+email. It is not behind the entity permission: an editor's `STAFF DELETE` means
+«archive». Refused for one's own record; the last-admin question never arises,
+because archiving already refuses the last active admin. A person who authored a
+`ScienceWork` or uploaded a science file cannot be deleted (required FKs, no
+cascade) and stays in the archive.
+Leaving a `ScienceRecordFile`'s R2 object behind on delete is known and not
+cleaned up.
+
+**An email is one spelling.** Typed in any case, folded to lower case by the
+schemas (`validations/staff.ts`, login, forgot-password) before it reaches the
+server; `Staff.email` is `@unique` but Postgres compares case-sensitively, so
+`createStaff` / `updateStaff` also refuse a duplicate with `emailTaken`
+(`lib/queries/email-taken.ts`, archived rows included). `updateStaff` leaves a
+stored address untouched when the new one differs only in case, so a phone-number
+save never rewrites it. Rows saved before 2026-10-08 may still hold capitals —
+`emailMatches` still looks up case-insensitively for them. There is **no
+`lower(email)` unique index yet**: it needs every existing case-duplicate gone
+first, so it is a follow-up migration.
 
 Consequences to keep in mind:
 

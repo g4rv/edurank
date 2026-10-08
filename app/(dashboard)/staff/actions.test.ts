@@ -9,7 +9,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
-    staff: { findUnique: vi.fn() },
+    staff: { findUnique: vi.fn(), findFirst: vi.fn() },
     divisionEntityPermission: { findFirst: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -25,6 +25,7 @@ import { createStaff } from './actions';
 const mockAuth = auth as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
 const mockEntityPerm = db.divisionEntityPermission.findFirst as unknown as Mock;
+const mockStaffFirst = db.staff.findFirst as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 const mockInvite = issueAndEmailLink as unknown as Mock;
 
@@ -102,6 +103,43 @@ describe('createStaff authorization', () => {
     expect(await createStaff(payload)).toEqual({ redirectTo: '/staff/staff-new' });
     expect(tx.staff.create).toHaveBeenCalled();
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+});
+
+// Postgres `@unique` is case-sensitive, so `Vasyl.Bondarchuk@…` was created next
+// to an existing `vasyl.bondarchuk@…` on production (2026-10-08) — two rows for
+// one person, neither able to sign in. The pre-check is what closes it.
+describe('createStaff refuses a duplicate email', () => {
+  it('whatever case it is typed in', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffFirst.mockResolvedValueOnce({ id: 'existing' });
+
+    const result = await createStaff({ ...payload, email: 'Ivan@Univ.UA' });
+
+    expect(result).toEqual({ error: 'Працівник з таким email вже існує', field: 'email' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+    // Asked case-insensitively and on the folded spelling
+    expect(mockStaffFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ email: { equals: 'ivan@univ.ua', mode: 'insensitive' } }),
+      })
+    );
+  });
+
+  it('saves the lower-case spelling when it is free', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffFirst.mockResolvedValueOnce(null);
+    const tx = mockTx();
+
+    await createStaff({ ...payload, email: 'Ivan@Univ.UA' });
+
+    expect(tx.staff.create.mock.calls[0][0].data.email).toBe('ivan@univ.ua');
+  });
+
+  it('does not look anything up for somebody who may not create', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 's1' } });
+    await createStaff(payload);
+    expect(mockStaffFirst).not.toHaveBeenCalled();
   });
 });
 

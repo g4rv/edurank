@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArchiveRestore, ArchiveX } from 'lucide-react';
+import { ArchiveRestore, ArchiveX, Trash2 } from 'lucide-react';
 import { Button } from '@/components/aurora/ui/button';
 import { Label } from '@/components/aurora/ui/label';
 import { Textarea } from '@/components/aurora/ui/textarea';
@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/aurora/ui/alert-dialog';
-import { archiveStaff, restoreStaff } from '@/app/(dashboard)/staff/[id]/actions';
+import { archiveStaff, deleteStaff, restoreStaff } from '@/app/(dashboard)/staff/[id]/actions';
 
 /**
  * Archiving replaces deleting a person entirely (see archiveStaff). The dialog
@@ -61,7 +61,7 @@ export function ArchiveStaffButton({
             but the person leaves every list, grid and «Кнпп» in the app and is
             locked out of their own login. The soft `destructive` fill is the
             right weight for that: heavier than «Редагувати» beside it, lighter
-            than a real delete, which this app does not have for a person. */}
+            than the real delete beside it, which only an ADMIN has. */}
         <Button variant="destructive" size="sm">
           <ArchiveX className="size-4" />
           Архівувати
@@ -99,6 +99,61 @@ export function ArchiveStaffButton({
           <AlertDialogCancel>Скасувати</AlertDialogCancel>
           <AlertDialogAction onClick={handleArchive} disabled={isPending}>
             {isPending ? 'Архівування...' : 'Архівувати'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/**
+ * The real delete — ADMIN only, and only for somebody already archived (owner,
+ * 2026-10-08): archive is the bin, this empties it. For a record that should
+ * never have existed, a duplicate above all — archiving alone cannot fix one,
+ * the archived row still holds the email.
+ *
+ * The dialog says what is lost and where the safe action is, because the two
+ * buttons sit side by side and «Видалити» next to «Архівувати» is exactly where
+ * a wrong click happens. The person leaves the page afterwards: their record is
+ * gone, and staying on it would answer 404.
+ */
+export function DeleteStaffButton({ staffId, staffName }: { staffId: string; staffName: string }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  function handleDelete() {
+    startTransition(async () => {
+      const result = await deleteStaff(staffId);
+      if ('error' in result) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.message);
+      router.push('/staff');
+    });
+  }
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="outline" size="sm" className="text-error-strong">
+          <Trash2 className="size-4" />
+          Видалити
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Видалити запис остаточно?</AlertDialogTitle>
+          <AlertDialogDescription>
+            <span className="font-medium text-foreground">{staffName}</span> буде видалено разом з
+            усіма балами, поданнями та закритими роками. Це не можна скасувати і не можна відновити.
+            Якщо запис може ще знадобитися — залиште його в архіві.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Скасувати</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} disabled={isPending}>
+            {isPending ? 'Видалення...' : 'Видалити остаточно'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

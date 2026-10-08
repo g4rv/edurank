@@ -195,24 +195,22 @@ export const staffUpdateSchema = z
     lastName: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     firstName: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     patronymic: z.string().trim().min(1, { error: "Обов'язкове поле" }),
-    // Stored exactly as typed. Deliberately NOT lower-cased (2026-08-31).
+    // Typed in ANY case, sent in one (2026-10-08, reversing 2026-08-31).
     //
-    // Case never decides who an address belongs to, and nothing here needs it
-    // folded: `emailMatches` already compares case-insensitively at every point
-    // an address is looked up — sign-in and password reset — which is the only
-    // place the question is ever asked.
+    // Case never decides who an address belongs to, and `Staff.email` is
+    // `@unique` under a case-SENSITIVE comparison — so `Vasyl@…` and `vasyl@…`
+    // were two rows, and sign-in treats two rows as «no match» for both.
+    // Folding here means the form sends, and the server stores, one spelling;
+    // the field itself accepts whatever is pasted.
     //
-    // What lower-casing here actually did was edit a field nobody touched.
-    // Saving somebody's phone number also rewrote their «Name.Surname@…»
-    // address to lower case and filed it in the audit log as a change the
-    // admin had made (reported from production, 2026-08-31).
+    // The 2026-08-31 objection stands and is answered elsewhere: folding used to
+    // rewrite an address nobody had touched, and file it as the admin's edit.
+    // `updateStaff` now leaves a stored address alone when the new one differs
+    // from it only in case.
     //
-    // It enforced nothing either: the seeds, `db:seed:staff`, the invite
-    // import and any direct insert never pass through this schema. Uniqueness
-    // that ignores case belongs in a `lower(email)` unique index, where the
-    // database can hold it — not in a form validator that only some writes go
-    // through.
-    email: z.email({ error: 'Некоректний email' }).trim(),
+    // This does not enforce uniqueness — the seeds and imports never pass
+    // through a schema. `emailTaken` checks it on create and update.
+    email: z.email({ error: 'Некоректний email' }).trim().toLowerCase(),
     phone: phoneField,
     isNpp: z.preprocess((v) => v === true || v === 'true', z.boolean()),
     employmentRate: z.preprocess(num, z.number().nonnegative().nullable()),
