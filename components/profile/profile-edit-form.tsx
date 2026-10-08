@@ -159,7 +159,7 @@ export function ProfileEditForm({
   const profilesCard = (
     <Card title="Наукові профілі">
       <FieldGroup className="flex flex-col gap-4">
-        {/* Each link with its citation count beside it (owner, 2026-10-06):
+        {/* Each link with its h-індекс beside it (owner, 2026-10-06):
             an НПП now types their own counts, which pay rating points. */}
         <div className="grid grid-cols-3 gap-x-4">
           <FormField
@@ -177,7 +177,7 @@ export function ProfileEditForm({
           </FormField>
           <FormField
             htmlFor="wosCitationCount"
-            label="Цитувань"
+            label="h-індекс"
             labelSuffix={<RatingFieldHint field="wosCitationCount" />}
             error={errors.wosCitationCount}
           >
@@ -208,7 +208,7 @@ export function ProfileEditForm({
           </FormField>
           <FormField
             htmlFor="scopusCitationCount"
-            label="Цитувань"
+            label="h-індекс"
             labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
             error={errors.scopusCitationCount}
           >
@@ -239,7 +239,7 @@ export function ProfileEditForm({
           </FormField>
           <FormField
             htmlFor="googleScholarCitationCount"
-            label="Цитувань"
+            label="h-індекс"
             labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
             error={errors.googleScholarCitationCount}
           >

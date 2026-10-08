@@ -36,7 +36,6 @@ describe('UK', () => {
     expect(UK.department(3)).toBe('3 кафедри');
     expect(UK.department(6)).toBe('6 кафедр');
     expect(UK.submission(1)).toBe('1 подання');
-    expect(UK.citation(4)).toBe('4 цитування');
     expect(UK.partTimer(2)).toBe('2 сумісники');
   });
 });
