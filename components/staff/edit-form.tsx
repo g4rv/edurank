@@ -13,6 +13,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { fullName } from '@/components/staff/profile/primitives';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
 import { updateStaff } from '@/app/(dashboard)/staff/[id]/actions';
+import { RaiseLimitDialog } from '@/components/staff/raise-limit-dialog';
+import type { LimitRaise } from '@/lib/stake/seed-allocation';
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import { headshipOf } from '@/lib/staff/academic';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
@@ -69,6 +71,15 @@ export function StaffEditForm({
    */
   const [rates, setRates] = useState<Record<string, string>>({});
 
+  // A ставка above somebody's Макс is asked about, not refused: the server
+  // saved nothing and sent back what would be raised. «Так» sends the same
+  // save again, agreed.
+  const [raises, setRaises] = useState<LimitRaise[] | null>(null);
+  // True only between pressing «Так» and the answer — NOT while the question is
+  // being opened, which would show «Збереження...» on a button nobody pressed.
+  const [agreeing, setAgreeing] = useState(false);
+  const [askedAbout, setAskedAbout] = useState<StaffUpdateSchema | null>(null);
+
   const {
     register,
     control,
@@ -97,10 +108,22 @@ export function StaffEditForm({
   // eslint-disable-next-line react-hooks/incompatible-library
   const isNppValue = watch('isNpp') === 'true';
 
+  // Not `onSubmit(data, confirmRaise = false)`: react-hook-form calls its handler
+  // with the submit EVENT as a second argument, which would read as «agreed».
   function onSubmit(data: StaffUpdateSchema) {
+    submit(data, false);
+  }
+
+  function submit(data: StaffUpdateSchema, confirmRaise: boolean) {
     startTransition(async () => {
       try {
-        const result = await updateStaff(staffId, data, { rates });
+        const result = await updateStaff(staffId, data, { rates, confirmRaise });
+        if ('confirmRaise' in result) {
+          setAskedAbout(data);
+          setRaises(result.confirmRaise);
+          return;
+        }
+        setRaises(null);
         if ('error' in result) {
           // A taken address belongs under the field, not in a toast
           if (result.field === 'email') {
@@ -116,14 +139,17 @@ export function StaffEditForm({
       } catch (e) {
         if (isRedirectError(e)) throw e;
         toast.error('Сталася помилка');
+      } finally {
+        setAgreeing(false);
       }
     });
   }
 
   return (
-    <RequiredFields schema={staffUpdateSchema}>
-      <form onSubmit={handleSubmit(onSubmit as never)} className="space-y-4">
-        {/* The actions live in a HEADER, not a bar at the foot (owner,
+    <>
+      <RequiredFields schema={staffUpdateSchema}>
+        <form onSubmit={handleSubmit(onSubmit as never)} className="space-y-4">
+          {/* The actions live in a HEADER, not a bar at the foot (owner,
             2026-09-07). It is the profile's `IdentityBand` in shape — same card,
             same avatar, same actions pinned top right — so leaving the record to
             edit it does not feel like arriving somewhere else.
@@ -135,55 +161,66 @@ export function StaffEditForm({
             «Скасувати» is NEVER disabled. It is the way out of this screen, and
             «no changes yet» is exactly when somebody is most likely to be
             leaving. */}
-        <Card className="flex flex-wrap items-center gap-5">
-          <Avatar name={fullName(staff)} size="lg" />
+          <Card className="flex flex-wrap items-center gap-5">
+            <Avatar name={fullName(staff)} size="lg" />
 
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-semibold tracking-[-0.01em]">{fullName(staff)}</h1>
-            <p className="mt-1 text-sm text-foreground-soft">Редагування профілю</p>
-          </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-semibold tracking-[-0.01em]">{fullName(staff)}</h1>
+              <p className="mt-1 text-sm text-foreground-soft">Редагування профілю</p>
+            </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-3 self-start">
-            <span className="text-sm text-muted-foreground">
-              {isPending ? 'Збереження…' : dirty ? 'Є незбережені зміни' : 'Без змін'}
-            </span>
-            <Button type="submit" disabled={isPending || !dirty}>
-              Зберегти
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/staff/${staffId}`}>Скасувати</Link>
-            </Button>
-          </div>
-        </Card>
+            <div className="flex shrink-0 flex-wrap items-center gap-3 self-start">
+              <span className="text-sm text-muted-foreground">
+                {isPending ? 'Збереження…' : dirty ? 'Є незбережені зміни' : 'Без змін'}
+              </span>
+              <Button type="submit" disabled={isPending || !dirty}>
+                Зберегти
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/staff/${staffId}`}>Скасувати</Link>
+              </Button>
+            </div>
+          </Card>
 
-        <StaffFormFields
-          register={register}
-          control={control}
-          errors={errors}
-          setValue={setValue}
-          stakeBreakdown={stakeBreakdown}
-          rates={rates}
-          onRateChange={(departmentId, value) =>
-            setRates((prev) => ({ ...prev, [departmentId]: value }))
-          }
-          canEditRates={canEditRates}
-          isPending={isPending}
-          isAdmin={isAdmin}
-          canEditPartTime={canEditPartTime}
-          editableFields={editableFields}
-          isNpp={isNppValue}
-          headship={headshipOf(staff)}
-          departments={departments}
-          divisions={divisions}
-          // Switching someone between НПП and administrative changes which rating
-          // rows they get, so only ADMIN may do it after the record exists
-          canEditType={isAdmin}
-          // Two flowing columns, not a grid: a grid row is as tall as its
-          // tallest cell, so «Основна інформація» either stretched to match
-          // «Місця роботи» or left a gap under it.
-          layout="columns"
-        />
-      </form>
-    </RequiredFields>
+          <StaffFormFields
+            register={register}
+            control={control}
+            errors={errors}
+            setValue={setValue}
+            stakeBreakdown={stakeBreakdown}
+            rates={rates}
+            onRateChange={(departmentId, value) =>
+              setRates((prev) => ({ ...prev, [departmentId]: value }))
+            }
+            canEditRates={canEditRates}
+            isPending={isPending}
+            isAdmin={isAdmin}
+            canEditPartTime={canEditPartTime}
+            editableFields={editableFields}
+            isNpp={isNppValue}
+            headship={headshipOf(staff)}
+            departments={departments}
+            divisions={divisions}
+            // Switching someone between НПП and administrative changes which rating
+            // rows they get, so only ADMIN may do it after the record exists
+            canEditType={isAdmin}
+            // Two flowing columns, not a grid: a grid row is as tall as its
+            // tallest cell, so «Основна інформація» either stretched to match
+            // «Місця роботи» or left a gap under it.
+            layout="columns"
+          />
+        </form>
+      </RequiredFields>
+      <RaiseLimitDialog
+        raises={raises}
+        pending={agreeing}
+        onCancel={() => setRaises(null)}
+        onConfirm={() => {
+          if (!askedAbout) return;
+          setAgreeing(true);
+          submit(askedAbout, true);
+        }}
+      />
+    </>
   );
 }

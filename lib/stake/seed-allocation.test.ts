@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '@/lib/generated/prisma/client';
-import { parseRateSeeds, seedAllocations } from './seed-allocation';
+import { LimitRaiseNeeded, parseRateSeeds, seedAllocations } from './seed-allocation';
 
 describe('parseRateSeeds', () => {
   it('accepts a comma and a dot, because both get typed', () => {
@@ -57,7 +57,10 @@ function fakeTx(
       create: vi.fn().mockResolvedValue({}),
       groupBy: vi.fn().mockResolvedValue([]),
     },
-    staffStakeLimits: { findUnique: vi.fn().mockResolvedValue(limits) },
+    staffStakeLimits: {
+      findUnique: vi.fn().mockResolvedValue(limits),
+      upsert: vi.fn().mockResolvedValue({}),
+    },
     departmentStake: { findUnique: vi.fn().mockResolvedValue(pool) },
     department: { findUnique: vi.fn().mockResolvedValue({ name: 'Кафедра фінансів' }) },
     staff: {
@@ -130,11 +133,142 @@ describe('seedAllocations', () => {
     expect(tx.stakeAllocation.create).not.toHaveBeenCalled();
   });
 
-  // THE OTHER RULE. The grid clamps every ставка to the person's Мін/Макс, so a
-  // seed above it is a number the proper screen could never have produced — and
-  // it left the profile and the кафедра's grid disagreeing (owner, 2026-09-21).
-  it('refuses a ставка above the ceiling for that кафедра', async () => {
+  // THE OTHER RULE, as it stood until 2026-10-08: a seed above the person's
+  // Макс was refused, because the grid clamps every ставка to it and the profile
+  // and the grid would then disagree (owner, 2026-09-21). It is now ASKED about
+  // instead — ADMIN may set any ставка, and the ceiling moves up to meet it, so
+  // the two screens still agree. Nothing is written until they say yes.
+  it('asks before raising the ceiling, and writes nothing meanwhile', async () => {
     const tx = fakeTx(false, { primaryDepartmentId: 'd1' }); // own кафедра → 1,00
+
+    const call = seedAllocations(asTx(tx), 's1', [{ departmentId: 'd1', hundredths: 200 }], 2026);
+
+    await expect(call).rejects.toBeInstanceOf(LimitRaiseNeeded);
+    await expect(call).rejects.toMatchObject({
+      raises: [
+        {
+          departmentId: 'd1',
+          departmentName: 'Кафедра фінансів',
+          fromHundredths: 100,
+          toHundredths: 200,
+        },
+      ],
+    });
+    expect(tx.staffStakeLimits.upsert).not.toHaveBeenCalled();
+    expect(tx.stakeAllocation.create).not.toHaveBeenCalled();
+  });
+
+  it('raises the ceiling to the typed ставка once confirmed', async () => {
+    const tx = fakeTx(false, { primaryDepartmentId: 'd1' });
+    const raised: unknown[] = [];
+
+    const refusal = await seedAllocations(
+      asTx(tx),
+      's1',
+      [{ departmentId: 'd1', hundredths: 200 }],
+      2026,
+      { raiseLimits: true, raised: raised as never }
+    );
+
+    expect(refusal).toBeNull();
+    // The floor is the fallback's, the ceiling is exactly what was typed
+    expect(tx.staffStakeLimits.upsert).toHaveBeenCalledWith({
+      where: { staffId_departmentId_year: { staffId: 's1', departmentId: 'd1', year: 2026 } },
+      update: { maxHundredths: 200 },
+      create: {
+        staffId: 's1',
+        departmentId: 'd1',
+        year: 2026,
+        minHundredths: 10,
+        maxHundredths: 200,
+      },
+    });
+    expect(tx.stakeAllocation.create).toHaveBeenCalled();
+    // So the caller can put it in the audit log
+    expect(raised).toEqual([
+      {
+        departmentId: 'd1',
+        departmentName: 'Кафедра фінансів',
+        fromHundredths: 100,
+        toHundredths: 200,
+      },
+    ]);
+  });
+
+  // An additional кафедра caps at 0,25 and never inherits the primary's 1,00 —
+  // so the question names 0,25, not 1,00.
+  it('uses the 0,25 ceiling on a кафедра that is not their own', async () => {
+    const tx = fakeTx(false, { primaryDepartmentId: 'other' });
+
+    await expect(
+      seedAllocations(asTx(tx), 's1', [{ departmentId: 'd1', hundredths: 50 }], 2026)
+    ).rejects.toMatchObject({ raises: [{ fromHundredths: 25, toHundredths: 50 }] });
+  });
+
+  // A сумісник is paid LESS than a full ставка (owner, 2026-10-10). Unlike a
+  // main post there is a number nothing can raise a ceiling to: 1,00 and over is
+  // refused outright, and no question is asked about it.
+  it('refuses a сумісник a full ставка or more, without asking', async () => {
+    const tx = fakeTx(false, { primaryDepartmentId: 'other' });
+
+    const refusal = await seedAllocations(
+      asTx(tx),
+      's1',
+      [{ departmentId: 'd1', hundredths: 100 }],
+      2026,
+      { raiseLimits: true }
+    );
+
+    expect(refusal).toBe('Ставка сумісника на кафедрі «Кафедра фінансів» має бути меншою за 1,00');
+    expect(tx.staffStakeLimits.upsert).not.toHaveBeenCalled();
+    expect(tx.stakeAllocation.create).not.toHaveBeenCalled();
+  });
+
+  it('still asks to raise a сумісник’s ceiling, up to just under 1,00', async () => {
+    const tx = fakeTx(false, { primaryDepartmentId: 'other' });
+
+    await expect(
+      seedAllocations(asTx(tx), 's1', [{ departmentId: 'd1', hundredths: 95 }], 2026)
+    ).rejects.toMatchObject({ raises: [{ fromHundredths: 25, toHundredths: 95 }] });
+  });
+
+  // The same number on their OWN кафедра is a main post, which has no cap.
+  it('lets a main post go past 1,00', async () => {
+    const tx = fakeTx(false, { primaryDepartmentId: 'd1' });
+
+    const refusal = await seedAllocations(
+      asTx(tx),
+      's1',
+      [{ departmentId: 'd1', hundredths: 150 }],
+      2026,
+      { raiseLimits: true }
+    );
+
+    expect(refusal).toBeNull();
+  });
+
+  // No upper limit (owner, 2026-10-08: «admin should be cautious»). The popup is
+  // the caution; there is no number that is refused outright.
+  it('has no upper limit once confirmed', async () => {
+    const tx = fakeTx(false);
+
+    const refusal = await seedAllocations(
+      asTx(tx),
+      's1',
+      [{ departmentId: 'd1', hundredths: 1500 }],
+      2026,
+      { raiseLimits: true }
+    );
+
+    expect(refusal).toBeNull();
+    expect(tx.staffStakeLimits.upsert.mock.calls[0][0].create.maxHundredths).toBe(1500);
+  });
+
+  // A seed for a кафедра the head has already allocated is skipped, so it must
+  // not move the ceiling either — nothing was written for it.
+  it('does not raise a ceiling for an allocation it skips', async () => {
+    const tx = fakeTx(true);
+
     const refusal = await seedAllocations(
       asTx(tx),
       's1',
@@ -142,32 +276,50 @@ describe('seedAllocations', () => {
       2026
     );
 
-    expect(refusal).toBe('Ставка не може бути більшою за 1,00 на цій кафедрі');
-    expect(tx.stakeAllocation.create).not.toHaveBeenCalled();
+    expect(refusal).toBeNull();
+    expect(tx.staffStakeLimits.upsert).not.toHaveBeenCalled();
   });
 
-  // An additional кафедра caps at 0,25 and never inherits the primary's 1,00.
-  it('uses the 0,25 ceiling on a кафедра that is not their own', async () => {
-    const tx = fakeTx(false, { primaryDepartmentId: 'other' });
-    const refusal = await seedAllocations(
-      asTx(tx),
-      's1',
-      [{ departmentId: 'd1', hundredths: 50 }],
-      2026
-    );
+  // One question for the whole save, not one per кафедра.
+  it('lists every ceiling it would raise in one question', async () => {
+    const tx = fakeTx(false, { primaryDepartmentId: 'd1' });
 
-    expect(refusal).toBe('Ставка не може бути більшою за 0,25 на цій кафедрі');
+    await expect(
+      seedAllocations(
+        asTx(tx),
+        's1',
+        [
+          { departmentId: 'd1', hundredths: 150 },
+          { departmentId: 'd2', hundredths: 50 },
+        ],
+        2026
+      )
+    ).rejects.toMatchObject({
+      raises: [
+        { departmentId: 'd1', fromHundredths: 100, toHundredths: 150 },
+        { departmentId: 'd2', fromHundredths: 25, toHundredths: 50 },
+      ],
+    });
+  });
+
+  it('does not touch the ceiling for a ставка that fits', async () => {
+    const tx = fakeTx(false);
+    await seedAllocations(asTx(tx), 's1', [{ departmentId: 'd1', hundredths: 100 }], 2026, {
+      raiseLimits: true,
+    });
+
+    expect(tx.staffStakeLimits.upsert).not.toHaveBeenCalled();
   });
 
   it('honours an explicit StaffStakeLimits row over the fallback', async () => {
     const tx = fakeTx(false, {
       primaryDepartmentId: 'other',
-      limits: { minHundredths: 10, maxHundredths: 150 },
+      limits: { minHundredths: 10, maxHundredths: 90 },
     });
     const refusal = await seedAllocations(
       asTx(tx),
       's1',
-      [{ departmentId: 'd1', hundredths: 150 }],
+      [{ departmentId: 'd1', hundredths: 90 }],
       2026
     );
 

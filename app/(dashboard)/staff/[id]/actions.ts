@@ -17,10 +17,14 @@ import { unlockEmail } from '@/lib/auth/throttle';
 import { diffChanges, type DiffValue } from '@/lib/audit';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { syncEmploymentRate } from '@/lib/stake/employment-rate';
+import { DEFAULT_LIMITS, FULL_STAKE_HUNDREDTHS, PART_TIME_LIMITS } from '@/lib/stake/formula';
 import {
+  LimitRaiseNeeded,
   RateRefused,
+  describeRaises,
   parseRateSeeds,
   seedAllocations,
+  type LimitRaise,
   type RateSeed,
 } from '@/lib/stake/seed-allocation';
 import {
@@ -397,7 +401,11 @@ export async function deleteStaff(id: string): Promise<StaffArchiveState> {
   };
 }
 
-export type StaffUpdateState = { error: string; field?: 'email' } | { success: true };
+export type StaffUpdateState =
+  | { error: string; field?: 'email' }
+  | { success: true }
+  /** A ставка above somebody's Макс: nothing was saved, the form asks and re-sends */
+  | { confirmRaise: LimitRaise[] };
 
 export async function updateStaff(
   id: string,
@@ -410,7 +418,11 @@ export async function updateStaff(
    * number the завідувач decided. The form disables those boxes too, but the
    * guarantee is here, where it cannot be got around.
    */
-  options?: { rates?: Record<string, string> }
+  options?: {
+    rates?: Record<string, string>;
+    /** They agreed that a ceiling moves up to meet a typed ставка */
+    confirmRaise?: boolean;
+  }
 ): Promise<StaffUpdateState> {
   const session = await auth();
   if (!session) redirect('/login');
@@ -520,6 +532,9 @@ export async function updateStaff(
   }
 
   let dbError: string | null = null;
+  // Every ceiling this save moved, for the audit entry — filled by the cleanup
+  // below and by `seedAllocations`
+  const raised: LimitRaise[] = [];
 
   try {
     await db.$transaction(async (tx) => {
@@ -681,19 +696,36 @@ export async function updateStaff(
           ...partTimeAfter.filter((d) => partTimeBefore.has(d)),
         ].filter((d) => d.length > 0);
 
-        // Runs on EVERY save, not only when something moved. `keeps` spares
+        // Every кафедра they are on AFTER this save, whatever its kind. A
+        // кафедра whose kind CHANGED is in here but not in `keeps`: the person
+        // is still there, so the head's ставка stays (owner, 2026-10-08).
+        const stillOn = [...(primaryAfter !== null ? [primaryAfter] : []), ...partTimeAfter].filter(
+          (d) => d.length > 0
+        );
+        const changedKind = stillOn.filter(
+          (d) => !keeps.includes(d) && (d === primaryBefore || partTimeBefore.has(d))
+        );
+
+        // Runs on EVERY save, not only when something moved. `stillOn` spares
         // every кафедра the person is still on, so an unchanged save deletes
         // nothing — but it does sweep up an allocation on a кафедра they are no
         // longer on, whatever put it there. That self-healing is deliberate and
         // is what the «spares a placement whose kind did not change» tests
         // pin down; skipping the block to save two queries would quietly
         // remove it.
+        //
+        // **Keyed on being LEFT, no longer on changing kind.** Until 2026-10-08
+        // flipping «Основне» deleted the ставка too — so somebody who only had
+        // the switch turned off, or whose main кафедра was swapped with the
+        // additional one, lost their rate without a word (reported from
+        // production). The head's decision is not undone by a switch; the
+        // ceiling is adjusted to it below instead.
         const year = await activeYear();
         if (year !== null) {
           const removed = await tx.stakeAllocation.deleteMany({
             where: {
               staffId: id,
-              distribution: { year, departmentId: { notIn: keeps } },
+              distribution: { year, departmentId: { notIn: stillOn } },
             },
           });
           // Only when something actually went: the sum is unchanged otherwise,
@@ -710,13 +742,77 @@ export async function updateStaff(
           await tx.staffStakeLimits.deleteMany({
             where: { staffId: id, year, departmentId: { notIn: keeps } },
           });
+
+          // …and then the ceiling meets the rate that was KEPT. A 0,50 agreed
+          // while somebody was full-time cannot sit under the 0,25 an
+          // additional кафедра defaults to, or «Ставка» and «Макс» disagree on
+          // one row — the very thing the old delete was there to prevent. So
+          // the stale bound is gone (above) and exactly enough of a new one is
+          // written, never more than the rate needs. Only ever upwards: a rate
+          // that fits writes nothing.
+          if (changedKind.length > 0) {
+            const keptRates = await tx.stakeAllocation.findMany({
+              where: {
+                staffId: id,
+                distribution: { year, departmentId: { in: changedKind } },
+              },
+              select: {
+                proposedHundredths: true,
+                distribution: { select: { departmentId: true } },
+              },
+            });
+            const names = new Map(
+              (
+                await tx.department.findMany({
+                  where: { id: { in: changedKind } },
+                  select: { id: true, name: true },
+                })
+              ).map((d) => [d.id, d.name])
+            );
+            for (const { proposedHundredths, distribution } of keptRates) {
+              const departmentId = distribution.departmentId;
+              const fallback = departmentId === primaryAfter ? DEFAULT_LIMITS : PART_TIME_LIMITS;
+              if (proposedHundredths <= fallback.maxHundredths) continue;
+
+              // A сумісник is paid less than a full ставка (owner, 2026-10-10), so
+              // a 1,50 cannot be kept on a кафедра that is now an additional one.
+              // The ceiling is not raised to meet it, and the number is the
+              // head's to lower — so the save is refused, whole, with the reason.
+              if (departmentId !== primaryAfter && proposedHundredths >= FULL_STAKE_HUNDREDTHS) {
+                throw new RateRefused(
+                  `Кафедра «${names.get(departmentId) ?? departmentId}» не може стати додатковою: ставка ${formatStake(proposedHundredths)} для сумісника має бути меншою за ${formatStake(FULL_STAKE_HUNDREDTHS)}. Спершу зменшіть її на сторінці розподілу`
+                );
+              }
+
+              await tx.staffStakeLimits.upsert({
+                where: { staffId_departmentId_year: { staffId: id, departmentId, year } },
+                update: { maxHundredths: proposedHundredths },
+                create: {
+                  staffId: id,
+                  departmentId,
+                  year,
+                  minHundredths: fallback.minHundredths,
+                  maxHundredths: proposedHundredths,
+                },
+              });
+              raised.push({
+                departmentId,
+                departmentName: names.get(departmentId) ?? departmentId,
+                fromHundredths: fallback.maxHundredths,
+                toHundredths: proposedHundredths,
+              });
+            }
+          }
         }
       }
 
       // After the sweep above, so a кафедра being left and re-entered in one
       // save is seeded rather than seeded-then-deleted.
       if (seedYear !== null) {
-        const refusal = await seedAllocations(tx, id, seeded.seeds, seedYear);
+        const refusal = await seedAllocations(tx, id, seeded.seeds, seedYear, {
+          raiseLimits: options?.confirmRaise === true,
+          raised,
+        });
         if (refusal) throw new RateRefused(refusal);
       }
 
@@ -742,6 +838,10 @@ export async function updateStaff(
             .join('; '),
         };
       }
+
+      // Every ceiling that moved — a typed ставка above it, or a kept ставка that
+      // no longer fitted after a kind change. Nothing else writes it down.
+      if (raised.length > 0) changes.raisedLimits = { from: null, to: describeRaises(raised) };
 
       // **Re-saving a form without touching anything leaves no entry at all**,
       // ADMIN included (owner, 2026-09-21: «what was the change for her?» over a
@@ -771,6 +871,8 @@ export async function updateStaff(
     // A refused ставка is the person doing what the rules forbid, not a defect:
     // it carries its own sentence and must not be logged as a stack.
     if (e instanceof RateRefused) return { error: e.message };
+    // Rolled back whole. Ask, and let the form send the same save again.
+    if (e instanceof LimitRaiseNeeded) return { confirmRaise: e.raises };
     dbError = parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'staff.updateStaff', {
       userId: session.user.id,
     });

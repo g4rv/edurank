@@ -29,11 +29,17 @@ vi.mock('@/lib/activation', () => ({
   storeActivationToken: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('@/lib/mail/mailer', () => ({ sendMail: vi.fn().mockResolvedValue(undefined) }));
+// `parseRateSeeds` and the error classes stay real; only the database half is faked
+vi.mock('@/lib/stake/seed-allocation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/stake/seed-allocation')>()),
+  seedAllocations: vi.fn().mockResolvedValue(null),
+}));
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { sendMail } from '@/lib/mail/mailer';
 import { Prisma } from '@/lib/generated/prisma/client';
+import { LimitRaiseNeeded, seedAllocations, type LimitRaise } from '@/lib/stake/seed-allocation';
 import type { StaffUpdateSchema } from '@/validations/staff';
 import { ACADEMIC_EDITABLE_FIELDS } from '@/lib/staff/editable-fields';
 import {
@@ -54,6 +60,7 @@ const mockFieldPerms = db.divisionFieldPermission.findMany as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 const mockStaffCount = db.staff.count as unknown as Mock;
 const mockStaffFirst = db.staff.findFirst as unknown as Mock;
+const mockSeed = seedAllocations as unknown as Mock;
 const mockSendMail = sendMail as unknown as Mock;
 
 // Payload an attacker could send: touches confidential + non-granted fields
@@ -122,7 +129,10 @@ function mockTx() {
     staffDepartment: { deleteMany: vi.fn(), createMany: vi.fn() },
     // Мін/Макс are per кафедра per year, and go the same way as the allocation
     // when the placement they were typed for is gone.
-    staffStakeLimits: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    staffStakeLimits: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      upsert: vi.fn().mockResolvedValue({}),
+    },
     // The audit diff resolves сумісництво ids to кафедра names
     department: { findMany: vi.fn().mockResolvedValue([]), update: vi.fn() },
     // Archiving a завідувач / декан takes the post away (2026-10-07)
@@ -130,6 +140,8 @@ function mockTx() {
     // Removing сумісництво drops that кафедра's allocation and re-sums the rate
     stakeAllocation: {
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      // The ставки of a кафедра whose kind changed — see the keep-the-rate rule
+      findMany: vi.fn().mockResolvedValue([]),
       groupBy: vi.fn().mockResolvedValue([]),
     },
     activationToken: { deleteMany: vi.fn().mockResolvedValue({}) },
@@ -1050,15 +1062,18 @@ describe('updateStaff — сумісництво is a grantable field', () => {
  * Moving somebody between full-time and сумісник on the SAME кафедра.
  *
  * The 2026-08-24 rule dropped a кафедра's allocation when the person left it,
- * so «off the кафедра» and «paid by the кафедра» could not disagree. It keyed
- * on leaving, and a status change is not leaving — the кафедра stayed in
- * `keeps`, and a 0,50 agreed while somebody was full staff survived their move
- * to a 0,25 сумісник ceiling (owner, 2026-08-26, seen on screen).
+ * so «off the кафедра» and «paid by the кафедра» could not disagree. On
+ * 2026-08-26 it was widened to a change of kind, because a 0,50 agreed while
+ * somebody was full staff survived their move to a 0,25 сумісник ceiling and
+ * the grid showed two numbers that disagreed.
  *
- * The basis for the number is gone either way, so the number goes with it and
- * the head types a new one under the new bounds.
+ * That cure deleted the head's ставка on the flip of a switch, silently — a
+ * person who only had «Основне» turned off lost their rate (owner, 2026-10-08,
+ * reported from production). **The rate is kept now, and the ceiling moves to
+ * cover it** — the same way a typed ставка raises Макс. Only a кафедра the
+ * person has actually LEFT stops paying them.
  */
-describe('updateStaff — a placement that changes kind loses its allocation', () => {
+describe('updateStaff — a placement that changes kind keeps its allocation', () => {
   function admin(existing: { departmentId: string | null; partTime: string[] }) {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'a1' } });
     mockStaffLookups();
@@ -1076,13 +1091,13 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
     return tx;
   }
 
-  /** Which кафедри the delete was told to spare. */
+  /** Which кафедри the delete was told to spare — every one the person is still on. */
   function kept(tx: ReturnType<typeof mockTx>): string[] {
     const call = tx.stakeAllocation.deleteMany.mock.calls[0][0];
     return [...call.where.distribution.departmentId.notIn].sort();
   }
 
-  it('drops it when full-time becomes сумісник on the same кафедра', async () => {
+  it('keeps it when full-time becomes сумісник on the same кафедра', async () => {
     const tx = admin({ departmentId: 'dept-1', partTime: [] });
 
     await updateStaff('staff-1', {
@@ -1092,10 +1107,10 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
       partTimeDepartmentIds: ['dept-1'],
     });
 
-    expect(kept(tx)).toEqual([]);
+    expect(kept(tx)).toEqual(['dept-1']);
   });
 
-  it('drops it when сумісник becomes full-time on the same кафедра', async () => {
+  it('keeps it when сумісник becomes full-time on the same кафедра', async () => {
     const tx = admin({ departmentId: null, partTime: ['dept-1'] });
 
     await updateStaff('staff-1', {
@@ -1105,7 +1120,148 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
       partTimeDepartmentIds: [],
     });
 
-    expect(kept(tx)).toEqual([]);
+    expect(kept(tx)).toEqual(['dept-1']);
+  });
+
+  // Turning «Основне» on for the second row turns it off on the first, so both
+  // кафедри change kind in one save — and both keep their ставка.
+  it('keeps both when the main кафедра is swapped', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: ['dept-2'] });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-2',
+      partTimeDepartmentIds: ['dept-1'],
+    });
+
+    expect(kept(tx)).toEqual(['dept-1', 'dept-2']);
+  });
+
+  // The ceiling follows the rate, not the other way round: a 0,50 kept on a
+  // кафедра that is now an additional one needs a Макс of 0,50, not 0,25.
+  it('raises the new ceiling to cover a kept ставка that no longer fits', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: [] });
+    tx.stakeAllocation.findMany.mockResolvedValue([
+      { proposedHundredths: 50, distribution: { departmentId: 'dept-1' } },
+    ]);
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: null,
+      partTimeDepartmentIds: ['dept-1'],
+    });
+
+    expect(tx.stakeAllocation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          staffId: 'staff-1',
+          distribution: { year: 2026, departmentId: { in: ['dept-1'] } },
+        },
+      })
+    );
+    expect(tx.staffStakeLimits.upsert).toHaveBeenCalledWith({
+      where: {
+        staffId_departmentId_year: { staffId: 'staff-1', departmentId: 'dept-1', year: 2026 },
+      },
+      update: { maxHundredths: 50 },
+      create: {
+        staffId: 'staff-1',
+        departmentId: 'dept-1',
+        year: 2026,
+        minHundredths: 10,
+        maxHundredths: 50,
+      },
+    });
+  });
+
+  // A сумісник is paid less than a full ставка (owner, 2026-10-10). Keeping a
+  // 1,50 on a кафедра that is now an additional one would break that, and
+  // lowering it is the head's call, not this form's — so the save is refused
+  // with the reason, and nothing is half-done.
+  it('refuses to make a кафедра additional while its kept ставка is a full one', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: [] });
+    tx.stakeAllocation.findMany.mockResolvedValue([
+      { proposedHundredths: 150, distribution: { departmentId: 'dept-1' } },
+    ]);
+    tx.department.findMany.mockResolvedValue([{ id: 'dept-1', name: 'Кафедра фінансів' }]);
+
+    const result = await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: null,
+      partTimeDepartmentIds: ['dept-1'],
+    });
+
+    expect(result).toEqual({
+      error:
+        'Кафедра «Кафедра фінансів» не може стати додатковою: ставка 1,50 для сумісника має бути меншою за 1,00. Спершу зменшіть її на сторінці розподілу',
+    });
+    expect(tx.staffStakeLimits.upsert).not.toHaveBeenCalled();
+  });
+
+  it('allows it just under a full ставка, raising the ceiling to match', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: [] });
+    tx.stakeAllocation.findMany.mockResolvedValue([
+      { proposedHundredths: 95, distribution: { departmentId: 'dept-1' } },
+    ]);
+
+    const result = await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: null,
+      partTimeDepartmentIds: ['dept-1'],
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(tx.staffStakeLimits.upsert).toHaveBeenCalled();
+  });
+
+  it('leaves the ceiling alone when the kept ставка fits the new one', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: [] });
+    tx.stakeAllocation.findMany.mockResolvedValue([
+      { proposedHundredths: 25, distribution: { departmentId: 'dept-1' } },
+    ]);
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: null,
+      partTimeDepartmentIds: ['dept-1'],
+    });
+
+    expect(tx.staffStakeLimits.upsert).not.toHaveBeenCalled();
+  });
+
+  // Full-time has the higher default ceiling, so there is nothing to raise going up.
+  it('leaves the ceiling alone when сумісник becomes full-time', async () => {
+    const tx = admin({ departmentId: null, partTime: ['dept-1'] });
+    tx.stakeAllocation.findMany.mockResolvedValue([
+      { proposedHundredths: 25, distribution: { departmentId: 'dept-1' } },
+    ]);
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-1',
+      partTimeDepartmentIds: [],
+    });
+
+    expect(tx.staffStakeLimits.upsert).not.toHaveBeenCalled();
+  });
+
+  it('does not look for ставки on a кафедра whose kind did not change', async () => {
+    const tx = admin({ departmentId: 'dept-1', partTime: ['dept-2'] });
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-1',
+      partTimeDepartmentIds: ['dept-2'],
+    });
+
+    expect(tx.stakeAllocation.findMany).not.toHaveBeenCalled();
   });
 
   // A Макс of 1,00 typed while somebody was full-time would otherwise survive
@@ -1168,8 +1324,8 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
       partTimeDepartmentIds: [],
     });
 
-    // dept-1 is gone, so nothing is spared and its allocation goes with it
-    expect(kept(tx)).toEqual([]);
+    // dept-1 is left, so its allocation goes with it; dept-2 is where they are now
+    expect(kept(tx)).toEqual(['dept-2']);
     expect(tx.staffStakeLimits.deleteMany).toHaveBeenCalled();
   });
 
@@ -1215,7 +1371,7 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
   });
 
   // The two rules meeting: one кафедра swaps kind, the other is simply left.
-  it('spares only the untouched one when both change', async () => {
+  it('drops only the кафедра that was left', async () => {
     const tx = admin({ departmentId: 'dept-1', partTime: ['dept-2'] });
 
     await updateStaff('staff-1', {
@@ -1225,7 +1381,96 @@ describe('updateStaff — a placement that changes kind loses its allocation', (
       partTimeDepartmentIds: ['dept-3'],
     });
 
-    expect(kept(tx)).toEqual([]);
+    // dept-1 was left; dept-2 changed kind and is kept; dept-3 is new
+    expect(kept(tx)).toEqual(['dept-2', 'dept-3']);
+  });
+});
+
+// ADMIN may type any ставка on the profile. One above the person's Макс is not
+// refused: the form is asked, and the ceiling moves up only when they agree
+// (owner, 2026-10-08). The server decides — a popup the client could skip would
+// not be a guard.
+describe('updateStaff — a ставка above the ceiling', () => {
+  const raise: LimitRaise = {
+    departmentId: 'dept-1',
+    departmentName: 'Кафедра фінансів',
+    fromHundredths: 100,
+    toHundredths: 200,
+  };
+  const withRate = { rates: { 'dept-1': '2' } };
+
+  function adminSaves() {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'a1' } });
+    mockStaffLookups();
+    return mockTx();
+  }
+
+  it('asks before raising anything', async () => {
+    adminSaves();
+    mockSeed.mockRejectedValueOnce(new LimitRaiseNeeded([raise]));
+
+    const result = await updateStaff('staff-1', fullPayload, withRate);
+
+    expect(result).toEqual({ confirmRaise: [raise] });
+    // Asked WITHOUT agreement — the server never assumes it
+    expect(mockSeed.mock.calls[0][4]).toMatchObject({ raiseLimits: false });
+  });
+
+  it('raises the ceiling once agreed, and says so in the audit log', async () => {
+    const tx = adminSaves();
+    mockSeed.mockImplementationOnce(async (_tx, _id, _seeds, _year, opts) => {
+      opts.raised.push(raise);
+      return null;
+    });
+
+    const result = await updateStaff('staff-1', fullPayload, { ...withRate, confirmRaise: true });
+
+    expect(result).toEqual({ success: true });
+    expect(mockSeed.mock.calls[0][4]).toMatchObject({ raiseLimits: true });
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes.raisedLimits).toEqual({
+      from: null,
+      to: 'Кафедра фінансів — Макс 1,00 → 2,00',
+    });
+  });
+
+  // A kept ставка that no longer fits after «Основне» was switched off moves the
+  // ceiling too, and that is a change to somebody's bounds nobody else records.
+  it('logs a ceiling raised to cover a ставка kept through a kind change', async () => {
+    const tx = adminSaves();
+    tx.staff.findUnique.mockResolvedValue({
+      lastName: 'Єрічева',
+      firstName: 'Тамара',
+      patronymic: 'Юріївна',
+      departmentId: 'dept-1',
+      partTimeDepartments: [],
+    });
+    tx.department.findMany.mockResolvedValue([{ id: 'dept-1', name: 'Кафедра фінансів' }]);
+    tx.stakeAllocation.findMany.mockResolvedValue([
+      { proposedHundredths: 50, distribution: { departmentId: 'dept-1' } },
+    ]);
+
+    await updateStaff('staff-1', {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: null,
+      partTimeDepartmentIds: ['dept-1'],
+    });
+
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes.raisedLimits).toEqual({
+      from: null,
+      to: 'Кафедра фінансів — Макс 0,25 → 0,50',
+    });
+  });
+
+  it('logs nothing about ceilings when none moved', async () => {
+    const tx = adminSaves();
+
+    await updateStaff('staff-1', fullPayload);
+
+    const changes = tx.auditLog.create.mock.calls[0]?.[0].data.changes ?? {};
+    expect(changes).not.toHaveProperty('raisedLimits');
   });
 });
 

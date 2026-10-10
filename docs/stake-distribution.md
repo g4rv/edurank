@@ -297,6 +297,28 @@ at **0,25** there by default, a bound ADMIN sets per person per кафедра.
 never inherit from one another, so raising somebody to 1,50 on their own кафедра
 leaves their additional one at 0,25.
 
+**Two ways a ceiling moves up on its own (owner, 2026-10-08)**, both asked about or
+logged, neither ever lowering one:
+
+- _ADMIN types a ставка above the Макс on a staff form._ No upper limit — the form
+  asks «Підвищити максимум ставки?» and, on yes, the server writes a `Макс` equal to
+  the typed number (`LimitRaiseNeeded` → re-send with `confirmRaise`). A save
+  without the agreement raises nothing, whatever the client sends.
+- _«Основне» is flipped on a кафедра that already pays the person._ The ставка is
+  kept (it was deleted before this date — a head's decision lost on a switch). The
+  stale explicit Мін/Макс of the old kind is dropped and, only if the kept rate
+  exceeds the new kind's default ceiling, a `Макс` equal to that rate is written.
+  Only a кафедра the person has left drops its allocation.
+
+Both appear in the audit log as «Підвищено максимум ставки».
+
+**A сумісник is paid less than a full ставка (owner, 2026-10-10).** On a кафедра that
+is not their own the ceiling can be raised past the 0,25 default, but never to 1,00
+or more — the highest legal figure is 0,95. The seed form, the limits form, the
+head's grid and the «Основне» flip all refuse it. A ставка of 1,00+ kept on a
+кафедра therefore stops that кафедра from becoming an additional one until the head
+lowers the number.
+
 Two figures part company over it. `headcount` counts сумісники, because they get a
 row in the grid and a 0,10 floor, so `Кст ≥ 0,1 × N` has to cover them — a кафедра
 that gains one may fall below its own minimum and need a bigger pool. `Кнпп` does

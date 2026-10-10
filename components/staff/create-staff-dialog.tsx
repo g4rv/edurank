@@ -21,6 +21,8 @@ import {
 import { Switch } from '@/components/aurora/ui/switch';
 import { staffCreateSchema, type StaffCreateSchema } from '@/validations/staff';
 import { createStaff } from '@/app/(dashboard)/staff/actions';
+import { RaiseLimitDialog } from '@/components/staff/raise-limit-dialog';
+import type { LimitRaise } from '@/lib/stake/seed-allocation';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
 import { FieldHint } from '@/components/ui/field-hint';
@@ -107,6 +109,15 @@ export function CreateStaffDialog({
    */
   const [rates, setRates] = useState<Record<string, string>>({});
 
+  // A ставка above somebody's Макс is asked about, not refused: the server
+  // saved nothing and sent back what would be raised. «Так» sends the same
+  // save again, agreed.
+  const [raises, setRaises] = useState<LimitRaise[] | null>(null);
+  // True only between pressing «Так» and the answer — NOT while the question is
+  // being opened, which would show «Збереження...» on a button nobody pressed.
+  const [agreeing, setAgreeing] = useState(false);
+  const [askedAbout, setAskedAbout] = useState<StaffCreateSchema | null>(null);
+
   /**
    * Everything typed is dropped when the dialog closes.
    *
@@ -121,13 +132,26 @@ export function CreateStaffDialog({
       reset(EMPTY_STAFF_FORM_VALUES);
       setSendInvite(false);
       setRates({});
+      setRaises(null);
     }
   }
 
+  // Not `onSubmit(data, confirmRaise = false)`: react-hook-form calls its handler
+  // with the submit EVENT as a second argument, which would read as «agreed».
   function onSubmit(data: StaffCreateSchema) {
+    submit(data, false);
+  }
+
+  function submit(data: StaffCreateSchema, confirmRaise: boolean) {
     startTransition(async () => {
       try {
-        const result = await createStaff(data, { sendInvite, rates });
+        const result = await createStaff(data, { sendInvite, rates, confirmRaise });
+        if ('confirmRaise' in result) {
+          setAskedAbout(data);
+          setRaises(result.confirmRaise);
+          return;
+        }
+        setRaises(null);
         if ('error' in result) {
           // A taken address belongs under the field, not in a toast
           if (result.field === 'email') {
@@ -149,35 +173,41 @@ export function CreateStaffDialog({
       } catch (e) {
         if (isRedirectError(e)) throw e;
         toast.error('Помилка сервера');
+      } finally {
+        setAgreeing(false);
       }
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus />
-          Додати користувача
-        </Button>
-      </DialogTrigger>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogTrigger asChild>
+          <Button>
+            <Plus />
+            Додати користувача
+          </Button>
+        </DialogTrigger>
 
-      {/* `max-w-2xl` rather than the default `max-w-lg`: this is five sections
+        {/* `max-w-2xl` rather than the default `max-w-lg`: this is five sections
           of two-column rows, and at 512px every row collapses to one column and
           the form doubles in length. */}
-      <DialogContent className="max-w-2xl">
-        <RequiredFields schema={staffCreateSchema}>
-          <form onSubmit={handleSubmit(onSubmit as never)} className="flex min-h-0 flex-1 flex-col">
-            {/* `flex-row`, against `DialogHeader`'s own column: the switch sits
+        <DialogContent className="max-w-2xl">
+          <RequiredFields schema={staffCreateSchema}>
+            <form
+              onSubmit={handleSubmit(onSubmit as never)}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              {/* `flex-row`, against `DialogHeader`'s own column: the switch sits
                 opposite the title rather than under it. `pr-14` on the header
                 already keeps the × clear, so the switch stops short of it. */}
-            <DialogHeader className="flex-row items-center justify-between gap-4">
-              <div className="flex min-w-0 flex-col gap-1">
-                <DialogTitle>Новий співробітник</DialogTitle>
-                <DialogDescription>Заповніть дані нового запису</DialogDescription>
-              </div>
+              <DialogHeader className="flex-row items-center justify-between gap-4">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <DialogTitle>Новий співробітник</DialogTitle>
+                  <DialogDescription>Заповніть дані нового запису</DialogDescription>
+                </div>
 
-              {/* ADMIN only: handing out an account has never been an editor's
+                {/* ADMIN only: handing out an account has never been an editor's
                   to do, so the switch is not shown to them and the server
                   ignores the flag.
 
@@ -190,71 +220,82 @@ export function CreateStaffDialog({
                   Its explanation is a `FieldHint` rather than the second line
                   it used to carry: a header is two lines tall, and a sentence
                   about SMTP is not worth a third on every open. */}
-              {isAdmin && (
-                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
-                  <Switch
-                    checked={sendInvite}
-                    onCheckedChange={setSendInvite}
-                    disabled={isPending}
-                  />
-                  <span className="flex items-center gap-1.5">
-                    Надіслати запрошення
-                    <FieldHint>
-                      Людина отримає лист із посиланням, щоб установити пароль. Інакше запрошення
-                      можна надіслати пізніше з її сторінки.
-                    </FieldHint>
-                  </span>
-                </label>
-              )}
-            </DialogHeader>
+                {isAdmin && (
+                  <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm">
+                    <Switch
+                      checked={sendInvite}
+                      onCheckedChange={setSendInvite}
+                      disabled={isPending}
+                    />
+                    <span className="flex items-center gap-1.5">
+                      Надіслати запрошення
+                      <FieldHint>
+                        Людина отримає лист із посиланням, щоб установити пароль. Інакше запрошення
+                        можна надіслати пізніше з її сторінки.
+                      </FieldHint>
+                    </span>
+                  </label>
+                )}
+              </DialogHeader>
 
-            <DialogBody className="space-y-4">
-              <StaffFormFields
-                register={register}
-                control={control}
-                errors={errors}
-                setValue={setValue}
-                // No person yet, so no distribution to show — the typed «Ставка»
-                // field is what `null` turns back on.
-                stakeBreakdown={null}
-                isPending={isPending}
-                isAdmin={isAdmin}
-                canEditPartTime={canEditPartTime}
-                isNpp={isNppValue}
-                departments={departments}
-                divisions={divisions}
-                // Numbered sections read as steps while filling a blank record —
-                // and in a scrolling panel they are also the only thing saying
-                // how much is left.
-                numbered
-                // The type has to be chosen up front, whoever is creating the record
-                canEditType
-                rates={rates}
-                onRateChange={(departmentId, value) =>
-                  setRates((prev) => ({ ...prev, [departmentId]: value }))
-                }
-                canEditRates={canEditRates}
-                // No shadow on the sections: this dialog is itself a card, and
-                // §2 gives no elevation to anything nested inside one.
-                flat
-              />
-            </DialogBody>
+              <DialogBody className="space-y-4">
+                <StaffFormFields
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  setValue={setValue}
+                  // No person yet, so no distribution to show — the typed «Ставка»
+                  // field is what `null` turns back on.
+                  stakeBreakdown={null}
+                  isPending={isPending}
+                  isAdmin={isAdmin}
+                  canEditPartTime={canEditPartTime}
+                  isNpp={isNppValue}
+                  departments={departments}
+                  divisions={divisions}
+                  // Numbered sections read as steps while filling a blank record —
+                  // and in a scrolling panel they are also the only thing saying
+                  // how much is left.
+                  numbered
+                  // The type has to be chosen up front, whoever is creating the record
+                  canEditType
+                  rates={rates}
+                  onRateChange={(departmentId, value) =>
+                    setRates((prev) => ({ ...prev, [departmentId]: value }))
+                  }
+                  canEditRates={canEditRates}
+                  // No shadow on the sections: this dialog is itself a card, and
+                  // §2 gives no elevation to anything nested inside one.
+                  flat
+                />
+              </DialogBody>
 
-            <DialogFooter>
-              {/* Not a `DialogClose`: it has to be `type="button"` inside a
+              <DialogFooter>
+                {/* Not a `DialogClose`: it has to be `type="button"` inside a
                   form, and it must stay clickable while a save is in flight —
                   leaving is the ordinary way out of a form that is refusing to
                   submit. */}
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Скасувати
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Збереження...' : 'Створити'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </RequiredFields>
-      </DialogContent>
-    </Dialog>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Скасувати
+                </Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? 'Збереження...' : 'Створити'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </RequiredFields>
+        </DialogContent>
+      </Dialog>
+      <RaiseLimitDialog
+        raises={raises}
+        pending={agreeing}
+        onCancel={() => setRaises(null)}
+        onConfirm={() => {
+          if (!askedAbout) return;
+          setAgreeing(true);
+          submit(askedAbout, true);
+        }}
+      />
+    </>
   );
 }

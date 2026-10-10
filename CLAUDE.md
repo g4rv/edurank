@@ -499,6 +499,26 @@ Rules that are easy to get wrong:
   a `departmentId`, and the additional кафедра never inherits the primary one's
   bounds — the lookup is scoped and the fallback is `PART_TIME_LIMITS` (0,10–0,25),
   not `DEFAULT_LIMITS`.
+- **A ставка is kept when somebody's «Основне» is flipped** (owner, 2026-10-08,
+  reversing 2026-08-26). Turning the switch off, or swapping which кафедра is the
+  main one, used to delete the head's ставка and Мін/Макс silently. Now only a
+  кафедра the person has LEFT stops paying them; on one whose kind changed the
+  stale explicit bounds go and exactly enough of a new Макс is written to cover
+  the kept rate (never lower, never more than it needs). It is audited as
+  `raisedLimits`.
+- **A сумісник is paid LESS than 1,00 on an additional кафедра** (owner,
+  2026-10-10; `FULL_STAKE_HUNDREDTHS`, so 0,95 at most on the 0,05 ladder). A
+  ceiling can be raised past the 0,25 default, never to that: `seedAllocations`,
+  `setStaffLimits`, `saveDistribution` and the flip-of-«Основне» cleanup all
+  refuse it. A kept ставка of 1,00 or more therefore blocks turning its кафедра
+  into an additional one — the save is refused whole, naming the number, and the
+  head lowers it first on the розподіл page.
+- **ADMIN may type any ставка, with no upper limit — the Макс moves up to meet
+  it** (owner, 2026-10-08). `seedAllocations` no longer refuses one above the
+  ceiling: it throws `LimitRaiseNeeded`, the whole save rolls back, and the form
+  asks «Підвищити максимум ставки?». Only a re-send with `confirmRaise` raises
+  anything — the server decides, the popup is not the guard. The floor is still
+  refused and nothing ever lowers a Макс.
 - **`Staff.employmentRate` is the SUM across every кафедра that pays somebody.**
   `saveDistribution` writes it, adding what the other кафедри already allocated this
   year. Writing only this кафедра's share meant the second head to save overwrote

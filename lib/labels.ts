@@ -129,6 +129,7 @@ export const FIELD_LABELS: Record<string, string> = {
   // Not a Staff column: the ставки seeded from the profile form, recorded in the
   // audit diff because `seedAllocations` writes no entry of its own.
   seededRates: 'Призначена ставка',
+  raisedLimits: 'Підвищено максимум ставки',
   department: 'Випускова кафедра',
   divisionId: 'Відділ',
   archivedAt: 'Архівовано',

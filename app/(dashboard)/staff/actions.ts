@@ -14,9 +14,12 @@ import { issueAndEmailLink } from '@/lib/mail/invite';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { emailTaken, EMAIL_TAKEN_MESSAGE } from '@/lib/queries/email-taken';
 import {
+  LimitRaiseNeeded,
   RateRefused,
+  describeRaises,
   parseRateSeeds,
   seedAllocations,
+  type LimitRaise,
   type RateSeed,
 } from '@/lib/stake/seed-allocation';
 import { syncProfileDerived } from '@/lib/rating/profile-derived';
@@ -32,7 +35,12 @@ export type StaffCreateState =
    * would be the worse failure by far, and the invite can be resent from the
    * person's own page at any time.
    */
-  | { redirectTo: string; inviteWarning?: string };
+  | { redirectTo: string; inviteWarning?: string }
+  /**
+   * A ставка above somebody's Макс. Nothing was saved: the form asks, and sends
+   * the same save again with `confirmRaise` if the answer is yes.
+   */
+  | { confirmRaise: LimitRaise[] };
 
 export async function createStaff(
   data: StaffCreateSchema,
@@ -43,7 +51,12 @@ export async function createStaff(
    * the same reason: `staffCreateSchema` ends in `.superRefine()` and cannot be
    * `.extend()`ed, and neither of these is a property of the person anyway.
    */
-  options?: { sendInvite?: boolean; rates?: Record<string, string> }
+  options?: {
+    sendInvite?: boolean;
+    rates?: Record<string, string>;
+    /** They agreed that a ceiling moves up to meet a typed ставка */
+    confirmRaise?: boolean;
+  }
 ): Promise<StaffCreateState> {
   const session = await auth();
   if (!session) redirect('/login');
@@ -102,6 +115,8 @@ export async function createStaff(
   }
 
   let createdId = '';
+  // Filled by `seedAllocations` with every ceiling it moved, for the audit entry
+  const raised: LimitRaise[] = [];
   let dbError: string | null = null;
 
   try {
@@ -128,7 +143,10 @@ export async function createStaff(
       // Last, because it needs the person to exist and it recomputes the cached
       // `employmentRate` from what it wrote.
       if (year !== null) {
-        const refusal = await seedAllocations(tx, created.id, seeded.seeds, year);
+        const refusal = await seedAllocations(tx, created.id, seeded.seeds, year, {
+          raiseLimits: options?.confirmRaise === true,
+          raised,
+        });
         if (refusal) throw new RateRefused(refusal);
       }
 
@@ -178,6 +196,10 @@ export async function createStaff(
         };
       }
 
+      // A ceiling that moved is a change to somebody's bounds, and nothing else
+      // writes it down.
+      if (raised.length > 0) changes.raisedLimits = { from: null, to: describeRaises(raised) };
+
       await tx.auditLog.create({
         data: {
           action: 'CREATE',
@@ -193,6 +215,8 @@ export async function createStaff(
     // A refused ставка is the person doing what the rules forbid, not a defect:
     // it carries its own sentence and must not be logged as a stack.
     if (e instanceof RateRefused) return { error: e.message };
+    // Rolled back whole — the person was not created. Ask, and let them re-send.
+    if (e instanceof LimitRaiseNeeded) return { confirmRaise: e.raises };
     dbError = parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'staff.createStaff', {
       userId: session.user.id,
     });
