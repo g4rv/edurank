@@ -9,7 +9,12 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { isPositionGroup, licencePosition, windowFor } from '@/lib/kharakterystyka/positions';
-import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence';
+import {
+  defenceProblem,
+  positionEvidenceFields,
+  positionRowProblem,
+  rowYear,
+} from '@/lib/kharakterystyka/position-evidence';
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { schemaForFields } from '@/validations/activity-evidence';
 import { kharakterystykaEntrySchema, lineRefSchema } from '@/validations/kharakterystyka';
@@ -63,7 +68,7 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Невірні дані' };
   }
-  const { staffId, position, year, group, evidence } = parsed.data;
+  const { staffId, position, year: sentYear, group, evidence } = parsed.data;
 
   // Checked against the PARSED position, not the one the browser meant to send:
   // this is the line that keeps an НПП out of п.1.
@@ -101,9 +106,13 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
   if (!shape.success) {
     return { error: shape.error.issues[0]?.message ?? 'Заповніть поля запису' };
   }
+  // The position's own minimums (a period's length, a book's volume), judged on
+  // the server too — the form's half is the half a hand-made request skips.
+  const rowProblem = positionRowProblem(position, shape.data as Record<string, unknown>);
+  if (rowProblem) return { error: rowProblem.message };
   // What prints. Infinity, not the default 5: this text is the deliverable, and
   // a dropped field would understate the person to a licensing authority.
-  const text = summarizeEvidence(fields, shape.data, Infinity);
+  const text = summarizeEvidence(fields, shape.data, Infinity, { uaDates: true });
   if (!text.trim()) return { error: 'Заповніть хоча б одне поле' };
 
   const staff = await db.staff.findUnique({
@@ -117,6 +126,12 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
   const template = await getActiveTemplate();
   if (!template) return { error: 'Рейтинговий рік ще не налаштовано' };
   const { from, to } = windowFor(template.year);
+  // A form with a period has no «Рік» of its own: the row lands on the year the
+  // period ends, whatever the browser sent (owner, 2026-10-10).
+  const year = rowYear(position, fields, shape.data, from, to) ?? sentYear;
+  // п.5: the defence, not a «Рік», must fall in the window
+  const defence = defenceProblem(position, shape.data as Record<string, unknown>, from, to);
+  if (defence) return { error: defence.message };
   if (year < from || year > to) {
     return { error: `Рік має бути в межах ${from}–${to}` };
   }

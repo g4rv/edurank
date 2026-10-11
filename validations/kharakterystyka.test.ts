@@ -86,7 +86,8 @@ describe('п.20 — a period is one range, so it cannot run backwards', () => {
     organization: 'ТОВ «Агросвіт»',
     jobTitle: 'Агроном',
     period: {
-      from: `${new Date().getFullYear() - 5}-09-01`,
+      // six years: п.20 asks for at least five
+      from: `${new Date().getFullYear() - 6}-09-01`,
       to: `${new Date().getFullYear() - 1}-08-31`,
     },
   };
@@ -135,5 +136,24 @@ describe('п.20 — a period is one range, so it cannot run backwards', () => {
     expect(
       p20Problem({ ...row, period: { from: `${new Date().getFullYear() - 5}-09-01`, to: ahead } })
     ).toBeNull();
+  });
+});
+
+describe('п.5 — the defence must fall in the window', () => {
+  const p5 = positionFormSchema(5, 2022, 2026);
+  const row = (date: string) => ({ year: 2026, group: null, option: 'phd', date });
+  const problem = (date: string) => {
+    const r = p5.safeParse(row(date));
+    return r.success ? null : r.error.issues[0].message;
+  };
+
+  it('accepts a defence inside it, whatever the hidden year says', () => {
+    expect(problem('2024-03-15')).toBeNull();
+  });
+
+  it('refuses one before or after, under the date', () => {
+    expect(problem('2010-03-15')).toBe('Захист має бути в межах 2022–2026 років');
+    // far ahead the date field's own bound speaks first; refused either way
+    expect(problem('2031-03-15')).not.toBeNull();
   });
 });
