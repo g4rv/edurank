@@ -205,48 +205,6 @@ describe('seedAllocations', () => {
     ).rejects.toMatchObject({ raises: [{ fromHundredths: 25, toHundredths: 50 }] });
   });
 
-  // A сумісник is paid LESS than a full ставка (owner, 2026-10-10). Unlike a
-  // main post there is a number nothing can raise a ceiling to: 1,00 and over is
-  // refused outright, and no question is asked about it.
-  it('refuses a сумісник a full ставка or more, without asking', async () => {
-    const tx = fakeTx(false, { primaryDepartmentId: 'other' });
-
-    const refusal = await seedAllocations(
-      asTx(tx),
-      's1',
-      [{ departmentId: 'd1', hundredths: 100 }],
-      2026,
-      { raiseLimits: true }
-    );
-
-    expect(refusal).toBe('Ставка сумісника на кафедрі «Кафедра фінансів» має бути меншою за 1,00');
-    expect(tx.staffStakeLimits.upsert).not.toHaveBeenCalled();
-    expect(tx.stakeAllocation.create).not.toHaveBeenCalled();
-  });
-
-  it('still asks to raise a сумісник’s ceiling, up to just under 1,00', async () => {
-    const tx = fakeTx(false, { primaryDepartmentId: 'other' });
-
-    await expect(
-      seedAllocations(asTx(tx), 's1', [{ departmentId: 'd1', hundredths: 95 }], 2026)
-    ).rejects.toMatchObject({ raises: [{ fromHundredths: 25, toHundredths: 95 }] });
-  });
-
-  // The same number on their OWN кафедра is a main post, which has no cap.
-  it('lets a main post go past 1,00', async () => {
-    const tx = fakeTx(false, { primaryDepartmentId: 'd1' });
-
-    const refusal = await seedAllocations(
-      asTx(tx),
-      's1',
-      [{ departmentId: 'd1', hundredths: 150 }],
-      2026,
-      { raiseLimits: true }
-    );
-
-    expect(refusal).toBeNull();
-  });
-
   // No upper limit (owner, 2026-10-08: «admin should be cautious»). The popup is
   // the caution; there is no number that is refused outright.
   it('has no upper limit once confirmed', async () => {
@@ -314,12 +272,12 @@ describe('seedAllocations', () => {
   it('honours an explicit StaffStakeLimits row over the fallback', async () => {
     const tx = fakeTx(false, {
       primaryDepartmentId: 'other',
-      limits: { minHundredths: 10, maxHundredths: 90 },
+      limits: { minHundredths: 10, maxHundredths: 150 },
     });
     const refusal = await seedAllocations(
       asTx(tx),
       's1',
-      [{ departmentId: 'd1', hundredths: 90 }],
+      [{ departmentId: 'd1', hundredths: 150 }],
       2026
     );
 

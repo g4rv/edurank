@@ -197,14 +197,3 @@ export const PART_TIME_LIMITS = {
   minHundredths: MIN_STAKE,
   maxHundredths: toHundredths(0.25),
 } as const;
-
-/**
- * A full ставка. **A сумісник is paid LESS than this on their additional
- * кафедра** (owner, 2026-10-10): 1,00 and over is a main post, and the highest
- * rung of the 0,05 ladder below it is 0,95.
- *
- * A ceiling can be raised past the 0,25 default, by ADMIN typing a ставка or by
- * the ставка being kept through a change of kind — but never to this. Every
- * path that writes a сумісник's ставка or Макс checks it.
- */
-export const FULL_STAKE_HUNDREDTHS = toHundredths(1);

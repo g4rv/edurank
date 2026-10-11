@@ -539,19 +539,6 @@ describe('saveDistribution — per-person rules', () => {
     expect(result).toMatchObject({ error: expect.stringContaining('0,50') });
   });
 
-  it('refuses a сумісник a full ставка, even inside a Макс that would allow it', async () => {
-    const staff = roster();
-    staff[1].departmentId = 'dept-other'; // their own кафедра is elsewhere
-    staff[1].stakeLimits = [{ minHundredths: 10, maxHundredths: 150 }] as never;
-    mockStaff.mockResolvedValue(staff);
-
-    const result = await saveDistribution(payload([100, 100, 100]));
-
-    expect(result).toEqual({
-      error: 'Прізвище1 Ім’я: ставка сумісника має бути меншою за 1,00',
-    });
-  });
-
   it('refuses a value off the 0.05 ladder', async () => {
     const result = await saveDistribution(payload([100, 100, 63]));
     expect(result).toMatchObject({ error: expect.stringContaining('0,05') });
@@ -647,35 +634,6 @@ describe('setStaffLimits — who may', () => {
 
     expect(mockLimitsUpsert.mock.calls[0][0].where).toEqual({
       staffId_departmentId_year: { staffId: 's0', departmentId: DEPT, year: YEAR },
-    });
-  });
-
-  // A сумісник is paid less than a full ставка (owner, 2026-10-10), so the ceiling
-  // on a кафедра that is not their own cannot be set to 1,00 or more.
-  it('refuses a ceiling of 1,00 or more on a кафедра that is not the person’s own', async () => {
-    mockStaffOne.mockResolvedValue({
-      lastName: 'Гість',
-      firstName: 'Ім’я',
-      patronymic: 'По батькові',
-      departmentId: 'dept-2',
-    });
-
-    expect(await setStaffLimits(null, limitsForm('0,10', '1,00'))).toEqual({
-      error: 'Максимум для сумісника має бути меншим за 1,00',
-    });
-    expect(mockLimitsUpsert).not.toHaveBeenCalled();
-  });
-
-  it('accepts a сумісник’s ceiling just under 1,00', async () => {
-    mockStaffOne.mockResolvedValue({
-      lastName: 'Гість',
-      firstName: 'Ім’я',
-      patronymic: 'По батькові',
-      departmentId: 'dept-2',
-    });
-
-    expect(await setStaffLimits(null, limitsForm('0,10', '0,95'))).toMatchObject({
-      success: true,
     });
   });
 

@@ -17,7 +17,7 @@ import { unlockEmail } from '@/lib/auth/throttle';
 import { diffChanges, type DiffValue } from '@/lib/audit';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { syncEmploymentRate } from '@/lib/stake/employment-rate';
-import { DEFAULT_LIMITS, FULL_STAKE_HUNDREDTHS, PART_TIME_LIMITS } from '@/lib/stake/formula';
+import { DEFAULT_LIMITS, PART_TIME_LIMITS } from '@/lib/stake/formula';
 import {
   LimitRaiseNeeded,
   RateRefused,
@@ -773,16 +773,6 @@ export async function updateStaff(
               const departmentId = distribution.departmentId;
               const fallback = departmentId === primaryAfter ? DEFAULT_LIMITS : PART_TIME_LIMITS;
               if (proposedHundredths <= fallback.maxHundredths) continue;
-
-              // A сумісник is paid less than a full ставка (owner, 2026-10-10), so
-              // a 1,50 cannot be kept on a кафедра that is now an additional one.
-              // The ceiling is not raised to meet it, and the number is the
-              // head's to lower — so the save is refused, whole, with the reason.
-              if (departmentId !== primaryAfter && proposedHundredths >= FULL_STAKE_HUNDREDTHS) {
-                throw new RateRefused(
-                  `Кафедра «${names.get(departmentId) ?? departmentId}» не може стати додатковою: ставка ${formatStake(proposedHundredths)} для сумісника має бути меншою за ${formatStake(FULL_STAKE_HUNDREDTHS)}. Спершу зменшіть її на сторінці розподілу`
-                );
-              }
 
               await tx.staffStakeLimits.upsert({
                 where: { staffId_departmentId_year: { staffId: id, departmentId, year } },

@@ -1,6 +1,6 @@
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { syncEmploymentRate } from './employment-rate';
-import { DEFAULT_LIMITS, FULL_STAKE_HUNDREDTHS, PART_TIME_LIMITS } from './formula';
+import { DEFAULT_LIMITS, PART_TIME_LIMITS } from './formula';
 import { formatStake } from './units';
 import { STAKE_STEP, parseStake } from './units';
 
@@ -192,13 +192,6 @@ export async function seedAllocations(
 
     if (hundredths < bounds.minHundredths) {
       return `Ставка не може бути меншою за ${formatStake(bounds.minHundredths)}`;
-    }
-
-    // A сумісник is paid less than a full ставка (owner, 2026-10-10). This is not
-    // a ceiling that can be raised: it is refused outright, before any question
-    // about raising one is asked.
-    if (person?.departmentId !== departmentId && hundredths >= FULL_STAKE_HUNDREDTHS) {
-      return `Ставка сумісника на кафедрі «${dept?.name ?? '—'}» має бути меншою за ${formatStake(FULL_STAKE_HUNDREDTHS)}`;
     }
 
     // The кафедра may have no distribution for this year at all — a person can

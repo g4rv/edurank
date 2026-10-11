@@ -9,12 +9,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { ON_ROSTER, onDepartment } from '@/lib/queries/roster';
 import { headOf } from '@/lib/queries/scope';
-import {
-  DEFAULT_LIMITS,
-  FULL_STAKE_HUNDREDTHS,
-  PART_TIME_LIMITS,
-  formulaShares,
-} from '@/lib/stake/formula';
+import { DEFAULT_LIMITS, PART_TIME_LIMITS, formulaShares } from '@/lib/stake/formula';
 import { MIN_STAKE, STAKE_STEP, floorToStep, formatStake } from '@/lib/stake/units';
 import { ratingYearFor } from '@/lib/stake/rating-year';
 import { syncEmploymentRate } from '@/lib/stake/employment-rate';
@@ -261,13 +256,6 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
     }
     if (allocation.hundredths > max) {
       return { error: `${who}: ставка не може перевищувати ${formatStake(max)}` };
-    }
-    // Whatever Макс says: a сумісник is paid less than a full ставка. A stale
-    // explicit ceiling from before that rule must not let one through.
-    if (person.departmentId !== departmentId && allocation.hundredths >= FULL_STAKE_HUNDREDTHS) {
-      return {
-        error: `${who}: ставка сумісника має бути меншою за ${formatStake(FULL_STAKE_HUNDREDTHS)}`,
-      };
     }
     if (allocation.hundredths % STAKE_STEP !== 0) {
       return { error: `${who}: ставка має бути кратною 0,05` };
@@ -517,14 +505,6 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
     select: { lastName: true, firstName: true, patronymic: true, departmentId: true },
   });
   if (!person) return { error: 'Працівника не знайдено' };
-
-  // A сумісник is paid less than a full ставка (owner, 2026-10-10), so the
-  // ceiling on a кафедра that is not their own stops short of it.
-  if (person.departmentId !== departmentId && maxHundredths >= FULL_STAKE_HUNDREDTHS) {
-    return {
-      error: `Максимум для сумісника має бути меншим за ${formatStake(FULL_STAKE_HUNDREDTHS)}`,
-    };
-  }
 
   try {
     const existing = await db.staffStakeLimits.findUnique({

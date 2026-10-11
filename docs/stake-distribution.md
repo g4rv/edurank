@@ -312,13 +312,6 @@ logged, neither ever lowering one:
 
 Both appear in the audit log as «Підвищено максимум ставки».
 
-**A сумісник is paid less than a full ставка (owner, 2026-10-10).** On a кафедра that
-is not their own the ceiling can be raised past the 0,25 default, but never to 1,00
-or more — the highest legal figure is 0,95. The seed form, the limits form, the
-head's grid and the «Основне» flip all refuse it. A ставка of 1,00+ kept on a
-кафедра therefore stops that кафедра from becoming an additional one until the head
-lowers the number.
-
 Two figures part company over it. `headcount` counts сумісники, because they get a
 row in the grid and a 0,10 floor, so `Кст ≥ 0,1 × N` has to cover them — a кафедра
 that gains one may fall below its own minimum and need a bigger pool. `Кнпп` does
