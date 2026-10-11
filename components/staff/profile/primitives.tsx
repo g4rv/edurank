@@ -1,4 +1,3 @@
-import { UK } from '@/lib/plural';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
@@ -174,7 +173,7 @@ export function PositionEntry({
   );
 }
 
-/** An outward link to a citation database, with its citation count */
+/** An outward link to a citation database, with its h-індекс */
 export function ProfileLink({
   href,
   label,
@@ -198,7 +197,7 @@ export function ProfileLink({
           <ExternalLink className="size-3" />
         </a>
         {count !== null && count !== undefined && (
-          <span className="text-muted-foreground">{UK.citation(count)}</span>
+          <span className="text-muted-foreground">h-індекс: {count}</span>
         )}
       </dd>
     </div>

@@ -44,7 +44,11 @@ import {
   positionChoices,
   requiredEntries,
 } from '@/lib/kharakterystyka/positions';
-import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence';
+import {
+  rowYear,
+  yearIsDerived,
+  positionEvidenceFields,
+} from '@/lib/kharakterystyka/position-evidence';
 import { evidenceDefaults, summarizeEvidence } from '@/lib/rating/evidence-fields';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import { cn } from '@/lib/utils';
@@ -464,9 +468,10 @@ function EntryForm({
   // The position's own questions — п.15 asks for a школяр and an етап, п.20 for
   // a посада and a period. See `lib/kharakterystyka/position-evidence.ts`.
   const fields = positionEvidenceFields(position);
-  // Does the form carry years of its own? Then the row's own «Рік» needs saying
-  // apart from them.
-  const asksForYears = fields.some((f) => f.kind === 'number' && /year/i.test(f.name));
+  // Does the form carry a period, or п.5's defence date? Then that IS the row's
+  // year, and asking for a «Рік» as well was asking twice (owner, 2026-10-10 and
+  // 2026-10-12).
+  const hasPeriod = yearIsDerived(position, fields);
   // Built once: rebuilding it on every render remounts the resolver and drops
   // what somebody has already typed.
   const [schema] = useState(() => positionFormSchema(position, minYear, maxYear));
@@ -493,7 +498,9 @@ function EntryForm({
       const result = await addKharakterystykaEntry({
         staffId,
         position,
-        year,
+        // The server derives it again from the period; this keeps the payload
+        // honest for a position whose period was left empty.
+        year: rowYear(position, fields, evidence, minYear, maxYear) ?? year,
         group: group ?? null,
         evidence,
       });
@@ -516,8 +523,8 @@ function EntryForm({
 
         <DialogBody>
           <p className="mb-4 text-sm text-foreground-soft">
-            Заповніть поля — текст документа складеться з них. Рік має бути в межах {minYear}–
-            {maxYear}.
+            Заповніть поля — текст документа складеться з них.
+            {hasPeriod ? '' : ` Рік має бути в межах ${minYear}–${maxYear}.`}
           </p>
 
           {/* Two columns, because these forms are mostly short answers — a рік, a
@@ -614,25 +621,24 @@ function EntryForm({
               the form that arrives already filled in, so it belongs where the
               eye ends rather than where it starts — the fields somebody has to
               think about come first. */}
-            {/* The hint appears only where the form asks for years of its own —
-            п.11 and п.20 both have «Рік початку / завершення», and there «Рік»
-            alone does not say which year is meant. On the other fifteen it was
-            a wrapped second line explaining the only year on screen. */}
-            <FormField
-              htmlFor="entry-year"
-              label="Рік"
-              description={asksForYears ? 'Рік, за який зараховується запис' : undefined}
-              error={errors.year as { message?: string } | undefined}
-            >
-              <Input
-                id="entry-year"
-                type="number"
-                min={minYear}
-                max={maxYear}
-                disabled={pending}
-                {...register('year')}
-              />
-            </FormField>
+            {/* Not drawn where the form has a period (п.11, п.19, п.20): the
+            period carries the year, and the row takes it from there. */}
+            {!hasPeriod && (
+              <FormField
+                htmlFor="entry-year"
+                label="Рік"
+                error={errors.year as { message?: string } | undefined}
+              >
+                <Input
+                  id="entry-year"
+                  type="number"
+                  min={minYear}
+                  max={maxYear}
+                  disabled={pending}
+                  {...register('year')}
+                />
+              </FormField>
+            )}
 
             <Preview fields={fields} control={control} className="sm:col-span-2" />
           </div>
@@ -671,7 +677,7 @@ function Preview({
 }) {
   const values = useWatch({ control });
   // Infinity, matching the action: the document prints every answered field.
-  const text = summarizeEvidence(fields, values, Infinity);
+  const text = summarizeEvidence(fields, values, Infinity, { uaDates: true });
 
   return (
     <div className={cn('rounded-md border border-dashed px-3 py-2', className)}>

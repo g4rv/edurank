@@ -23,18 +23,7 @@ const FIELD_GROUPS = [
   },
   {
     label: 'Освіта',
-    fields: [
-      'candidateDegree',
-      'candidateSpecialty',
-      'candidateDefenceDate',
-      'candidateMatchesDepartment',
-      'doctorDegree',
-      'doctorSpecialty',
-      'doctorDefenceDate',
-      'doctorMatchesDepartment',
-      'basicEducationMatch',
-      'basicEducationSpecialty',
-    ],
+    fields: ['degrees', 'basicEducationMatch', 'basicEducationSpecialty'],
   },
   {
     label: 'Наукові профілі',

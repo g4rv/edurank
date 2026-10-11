@@ -42,13 +42,52 @@ Division (відділ)                — separate cross-cutting structure, uni
 - Both types live in the same `Staff` table; the UI shows a unified list with a filter tab (НПП / Адміністративний / Всі).
 - Divisions operate university-wide — not scoped to faculty or department.
 
-**A person is never deleted — they are archived** (`Staff.archivedAt`). Deleting
+**A person is archived, not deleted** (`Staff.archivedAt`). Deleting
 cascades their activities and rating entries, closed years included, and those
 numbers are final university records. Two ordinary cases decided this: someone
 who leaves and returns years later must find their history intact, and someone on
 декретна відпустка must drop out of the current rating while every past result
-stays. There is no hard delete of a person anywhere — `archiveStaff` /
-`restoreStaff` are it, and the `STAFF DELETE` entity permission governs them.
+stays. `archiveStaff` / `restoreStaff` are how a person leaves and returns, and
+the `STAFF DELETE` entity permission governs them.
+
+**One exception: `deleteStaff`, ADMIN only, and only from the archive** (owner,
+2026-10-08). Two layers: archiving is the bin, deleting empties it — an active
+person is refused and the button is not drawn. For a record that should never
+have existed — a duplicate above all, where the archived twin still holds the
+email. It is not behind the entity permission: an editor's `STAFF DELETE` means
+«archive». Refused for one's own record; the last-admin question never arises,
+because archiving already refuses the last active admin. A person who authored a
+`ScienceWork` or uploaded a science file cannot be deleted (required FKs, no
+cascade) and stays in the archive.
+Leaving a `ScienceRecordFile`'s R2 object behind on delete is known and not
+cleaned up.
+
+**An email is one spelling.** Typed in any case, folded to lower case by the
+schemas (`validations/staff.ts`, login, forgot-password) before it reaches the
+server; `Staff.email` is `@unique` but Postgres compares case-sensitively, so
+`createStaff` / `updateStaff` also refuse a duplicate with `emailTaken`
+(`lib/queries/email-taken.ts`, archived rows included). `updateStaff` leaves a
+stored address untouched when the new one differs only in case, so a phone-number
+save never rewrites it. Rows saved before 2026-10-08 may still hold capitals —
+`emailMatches` still looks up case-insensitively for them. There is **no
+`lower(email)` unique index yet**: it needs every existing case-duplicate gone
+first, so it is a follow-up migration.
+
+**Diplomas are a list** (owner, 2026-10-10). `Staff.degrees` is JSON — any
+number of `{ degree, specialty, defenceDate, matchesDepartment }`, edited with
+«Додати освіту» — and the six `candidate*` / `doctor*` columns are its
+**mirrors**, written on every save (`mirrorsForUpdate` → `deriveDegreeColumns`):
+the best doctor-level and the best candidate-level record, a record marked as
+matching the кафедра first, otherwise the most recent. The rating, the lists and
+the filters keep reading the columns, so no rating point moves; п.5's
+`degreeDefenceDate` is the newest defence of ANY diploma. Nobody writes the six
+columns directly — the field grant is `degrees`. «Базова освіта» stays its own
+two fields.
+
+**An administrative (non-НПП) account edits its phone and nothing else** on
+`/profile/edit` (owner, 2026-10-10; the photo comes later). The research
+profiles and the academic fields are dropped on the server too
+(`RESEARCH_PROFILE_FIELDS`, `ACADEMIC_EDITABLE_FIELDS`).
 
 Consequences to keep in mind:
 
@@ -476,6 +515,19 @@ Rules that are easy to get wrong:
   a `departmentId`, and the additional кафедра never inherits the primary one's
   bounds — the lookup is scoped and the fallback is `PART_TIME_LIMITS` (0,10–0,25),
   not `DEFAULT_LIMITS`.
+- **A ставка is kept when somebody's «Основне» is flipped** (owner, 2026-10-08,
+  reversing 2026-08-26). Turning the switch off, or swapping which кафедра is the
+  main one, used to delete the head's ставка and Мін/Макс silently. Now only a
+  кафедра the person has LEFT stops paying them; on one whose kind changed the
+  stale explicit bounds go and exactly enough of a new Макс is written to cover
+  the kept rate (never lower, never more than it needs). It is audited as
+  `raisedLimits`.
+- **ADMIN may type any ставка, with no upper limit — the Макс moves up to meet
+  it** (owner, 2026-10-08). `seedAllocations` no longer refuses one above the
+  ceiling: it throws `LimitRaiseNeeded`, the whole save rolls back, and the form
+  asks «Підвищити максимум ставки?». Only a re-send with `confirmRaise` raises
+  anything — the server decides, the popup is not the guard. The floor is still
+  refused and nothing ever lowers a Макс.
 - **`Staff.employmentRate` is the SUM across every кафедра that pays somebody.**
   `saveDistribution` writes it, adding what the other кафедри already allocated this
   year. Writing only this кафедра's share meant the second head to save overwrote

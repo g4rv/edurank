@@ -40,6 +40,7 @@ import {
   url,
 } from '@/lib/rating/evidence-fields';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { PAGES_PER_AUTHOR_SHEET } from '@/lib/rating/scoring';
 
 const DEGREE_OPTIONS = [
   opt('doctor', 'доктор наук'),
@@ -84,9 +85,8 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   ],
 
   // The law's «не менше 5 авторських аркушів (≥1,5 на співавтора)» is what
-  // `hasFiveAuthorSheets` checks on a RATING row. A typed row carries no such
-  // check — see the note in `build.ts` — but the numbers are asked for anyway,
-  // so whoever reads the document can do the division themselves.
+  // `hasFiveAuthorSheets` checks on a RATING row, and `positionRowProblem` checks
+  // the same two bars on a typed one — the pages are required, so it always can.
   3: [
     select('option', 'Вид видання', [
       opt('textbook', 'підручник'),
@@ -97,7 +97,11 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
       multiline: true,
       placeholder: BIB_MONOGRAPH,
     }),
-    number('pages', 'Кількість сторінок', { min: 1, int: true, optional: true }),
+    // Required (owner, 2026-10-12): the volume IS the condition — 5 author sheets,
+    // 1,5 per co-author — and a row that may skip it proves nothing. The rating's
+    // own rows already fail without pages. Co-authors stay optional: empty is a
+    // sole author.
+    number('pages', 'Кількість сторінок', { min: 1, int: true }),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
     isbn('isbn', 'ISBN', { optional: true }),
   ],
@@ -216,7 +220,9 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   13: [
     text('discipline', 'Дисципліна'),
     text('language', 'Мова викладання'),
-    number('hours', 'Кількість аудиторних годин', { min: 1, int: true }),
+    // 50, as the licence asks (owner, 2026-10-12): a typed row is the licence's
+    // own claim, so it carries the licence's bar, not the rating's 30.
+    number('hours', 'Кількість аудиторних годин', { min: 50, int: true }),
     text('program', 'Освітня програма', { optional: true }),
   ],
 
@@ -289,7 +295,9 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
   19: [
     text('title', "Назва об'єднання"),
     text('role', 'Роль / статус', { optional: true }),
-    text('period', 'Період', { optional: true }),
+    // The same picker as п.11 and п.20 (owner, 2026-10-10). Free text let «2019
+    // - зараз» and «з 2019 р.» into a licence document in three shapes.
+    dateRange('period', 'Період участі', { optional: true }),
   ],
 
   // Кадрові дані, and «крім педагогічної, науково-педагогічної, наукової» —
@@ -311,4 +319,163 @@ const POSITION_EVIDENCE: Record<number, readonly EvidenceField[]> = {
  */
 export function positionEvidenceFields(position: number): readonly EvidenceField[] {
   return POSITION_EVIDENCE[position] ?? [];
+}
+
+/**
+ * Positions whose own text sets a minimum LENGTH for the period (owner,
+ * 2026-10-12: «не менше трьох років» accepted a single month). п.19 has no such
+ * condition; п.11 asks three years and п.20 five.
+ */
+const MIN_PERIOD_YEARS: Record<number, number> = { 11: 3, 20: 5 };
+
+/** «з 01.10.2023 до 30.09.2026» is three years — the end day counts */
+function spansYears(from: string, to: string, years: number): boolean {
+  // A value that is no date is the field schema's to refuse, not this rule's:
+  // refinements run even when a field failed, and must not throw on its junk.
+  const day = /^\d{4}-\d{2}-\d{2}$/;
+  if (!day.test(from) || !day.test(to)) return true;
+  const [y, m, d] = from.split('-').map(Number);
+  // The day the span would end on, inclusive: the same date `years` later, less a day.
+  const limit = new Date(Date.UTC(y + years, m - 1, d - 1)).toISOString().slice(0, 10);
+  return to >= limit;
+}
+
+const yearsWord = (n: number) => (n === 3 ? 'трьох років' : n === 5 ? 'п’яти років' : `${n} р.`);
+
+/**
+ * What a position's own text demands of a typed row that no single field can
+ * say — the length of a period, the volume of a book. Null when the row is fine.
+ *
+ * One function for the form and the action, so the browser and the server
+ * cannot disagree. `path` is the field the message belongs under.
+ *
+ * Only what the row CARRIES is judged: п.3's pages and співавтори are optional
+ * (an old book rarely has its volume to hand), and an absent number is not a
+ * failing one.
+ */
+export function positionRowProblem(
+  position: number,
+  evidence: Record<string, unknown>
+): { path: string; message: string } | null {
+  const years = MIN_PERIOD_YEARS[position];
+  if (years) {
+    const range = evidence.period as { from?: string; to?: string } | undefined;
+    if (range?.from && range?.to && !spansYears(range.from, range.to, years)) {
+      return {
+        path: 'period',
+        message: `Період має бути не менше ${yearsWord(years)}`,
+      };
+    }
+  }
+
+  if (position === 3) {
+    const pages = Number(evidence.pages);
+    if (Number.isFinite(pages) && pages > 0) {
+      const total = pages / PAGES_PER_AUTHOR_SHEET;
+      if (total < 5) {
+        return {
+          path: 'pages',
+          message: `Обсяг має бути не менше 5 авторських аркушів (${5 * PAGES_PER_AUTHOR_SHEET} сторінок)`,
+        };
+      }
+      const coAuthors = Number(evidence.coAuthors);
+      if (Number.isFinite(coAuthors) && coAuthors > 1 && total / coAuthors < 1.5) {
+        return {
+          path: 'coAuthors',
+          message: 'На кожного співавтора має припадати не менше 1,5 авторського аркуша',
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+/** Does this form ask for a period? Then it does not also ask for a «Рік». */
+export function hasPeriodField(fields: readonly EvidenceField[]): boolean {
+  return fields.some((f) => f.kind === 'dateRange');
+}
+
+/**
+ * The «Рік» of a row whose form carries a period: the year the period ENDS,
+ * pulled into the window the document covers (owner, 2026-10-10 — a period is
+ * enough, asking for the year as well was asking twice).
+ *
+ * Pulled in, not refused: п.20 is practical work that may have ended before the
+ * window opened, and an appointment somebody still holds ends in the future. The
+ * row lands on the nearest year the document prints. Null when there is no
+ * period to read (п.19's is optional) — the caller keeps its own year.
+ */
+export function yearFromPeriod(
+  fields: readonly EvidenceField[],
+  evidence: unknown,
+  minYear: number,
+  maxYear: number
+): number | null {
+  const e = (evidence ?? {}) as Record<string, unknown>;
+  for (const f of fields) {
+    if (f.kind !== 'dateRange') continue;
+    const range = e[f.name] as { to?: string; from?: string } | undefined;
+    const end = range?.to ?? range?.from;
+    if (!end) continue;
+    const year = Number(end.slice(0, 4));
+    if (!Number.isInteger(year)) continue;
+    return Math.min(Math.max(year, minYear), maxYear);
+  }
+  return null;
+}
+
+/**
+ * Positions whose one required DATE is the row's year (owner, 2026-10-12): п.5
+ * turns on the defence falling inside the window, and a separate «Рік» beside
+ * it could say 2025 for a defence in 2010. The year is the date's, and a date
+ * outside the window is refused — not pulled in as a period is, because a
+ * defence in 2010 does not answer a question about the last five years.
+ */
+const YEAR_FROM_DATE: Record<number, string> = { 5: 'date' };
+
+/** Does this position take its «Рік» from a field of its own? Then no «Рік» box. */
+export function yearIsDerived(position: number, fields: readonly EvidenceField[]): boolean {
+  return position in YEAR_FROM_DATE || hasPeriodField(fields);
+}
+
+/**
+ * The row's year, from the form's own date or period; null when there is
+ * nothing to read (п.19's period is optional) and the caller keeps its own.
+ * For a date, the year is the date's own — the window is judged by the caller.
+ */
+export function rowYear(
+  position: number,
+  fields: readonly EvidenceField[],
+  evidence: unknown,
+  minYear: number,
+  maxYear: number
+): number | null {
+  const dateField = YEAR_FROM_DATE[position];
+  if (dateField) {
+    const value = ((evidence ?? {}) as Record<string, unknown>)[dateField];
+    const match = typeof value === 'string' ? /^(\d{4})-\d{2}-\d{2}$/.exec(value) : null;
+    return match ? Number(match[1]) : null;
+  }
+  return yearFromPeriod(fields, evidence, minYear, maxYear);
+}
+
+/** What п.5 says when the defence is outside the window — the date, not a «Рік» */
+export function defenceWindowMessage(from: number, to: number): string {
+  return `Захист має бути в межах ${from}–${to} років`;
+}
+
+/** The position-5 half of the row's judgement, which needs the window */
+export function defenceProblem(
+  position: number,
+  evidence: Record<string, unknown>,
+  from: number,
+  to: number
+): { path: string; message: string } | null {
+  if (position !== 5) return null;
+  const year = rowYear(5, [], evidence, from, to);
+  if (year === null) return null;
+  return year < from || year > to
+    ? { path: 'date', message: defenceWindowMessage(from, to) }
+    : null;
 }

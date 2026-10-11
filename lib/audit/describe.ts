@@ -21,8 +21,10 @@
  * Archiving a person, discarding an achievement, declining a наукова робота
  * and rejecting a student claim are all `UPDATE` in the database, because each
  * one writes a column rather than removing a row — and the app is right to
- * store them that way. `CLAUDE.md`: «A person is never deleted — they are
- * archived», and a discarded activity keeps its row so the reason survives.
+ * store them that way. `CLAUDE.md`: «A person is archived, not deleted» (only
+ * an ADMIN's `deleteStaff` removes a row, and that one is a true `DELETE`
+ * with no `archivedAt` in its diff, so it reads «Видалено»), and a discarded
+ * activity keeps its row so the reason survives.
  *
  * But the READER does not care which column moved. Archiving is how a person
  * leaves the app, and «Оновлено» over it is the log describing its own

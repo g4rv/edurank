@@ -203,3 +203,51 @@ describe('phone', () => {
     expect(withPhone('телефон кафедри').success).toBe(false);
   });
 });
+
+describe('degrees — a list of diplomas (owner, 2026-10-10)', () => {
+  const row = (fields: Record<string, unknown>) => ({
+    degree: '',
+    specialty: '',
+    defenceDate: '',
+    matchesDepartment: '',
+    ...fields,
+  });
+
+  it('keeps any number of diplomas and stores the date as a plain day', () => {
+    const out = parse({
+      degrees: [
+        row({ degree: 'doc_law', defenceDate: '2021-02-02', matchesDepartment: 'true' }),
+        row({ degree: 'phd', specialty: 'Право' }),
+        row({ degree: 'cand_history' }),
+      ],
+    });
+    expect(out.success).toBe(true);
+    if (!out.success) return;
+    expect(out.data.degrees).toEqual([
+      { degree: 'doc_law', specialty: null, defenceDate: '2021-02-02', matchesDepartment: true },
+      { degree: 'phd', specialty: 'Право', defenceDate: null, matchesDepartment: null },
+      { degree: 'cand_history', specialty: null, defenceDate: null, matchesDepartment: null },
+    ]);
+  });
+
+  // The form always shows one row; leaving it blank must save nothing.
+  it('drops a row nobody touched', () => {
+    const out = parse({ degrees: [row({})] });
+    expect(out.success && out.data.degrees).toEqual([]);
+  });
+
+  it('refuses a speciality or a date with no ступінь, rather than losing it', () => {
+    expect(parse({ degrees: [row({ specialty: 'Право' })] }).success).toBe(false);
+    expect(parse({ degrees: [row({ defenceDate: '2020-01-01' })] }).success).toBe(false);
+  });
+
+  it('refuses a ступінь no list has, and accepts the branch-less placeholder', () => {
+    expect(parse({ degrees: [row({ degree: 'nonsense' })] }).success).toBe(false);
+    expect(parse({ degrees: [row({ degree: 'doctor_unspecified' })] }).success).toBe(true);
+  });
+
+  it('is empty when the form did not send it', () => {
+    const out = parse({});
+    expect(out.success && out.data.degrees).toEqual([]);
+  });
+});

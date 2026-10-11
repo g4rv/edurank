@@ -8,16 +8,26 @@ export const ACADEMIC_EDITABLE_FIELDS = [
   'academicTitle',
   'honoraryTitles',
   'adminPositions',
-  'candidateDegree',
-  'candidateSpecialty',
-  'candidateDefenceDate',
-  'candidateMatchesDepartment',
-  'doctorDegree',
-  'doctorSpecialty',
-  'doctorDefenceDate',
-  'doctorMatchesDepartment',
+  // The diplomas as ONE list (owner, 2026-10-10) — the candidate* / doctor*
+  // columns are its mirrors and nobody writes them directly any more.
+  'degrees',
   'basicEducationMatch',
   'basicEducationSpecialty',
+] as const;
+
+/**
+ * The research-profile links and counts. Like the academic fields they are an
+ * НПП's own: an administrative account keeps its phone and nothing else
+ * (owner, 2026-10-10).
+ */
+export const RESEARCH_PROFILE_FIELDS = [
+  'wosUrl',
+  'scopusUrl',
+  'googleScholarUrl',
+  'orcidId',
+  'wosCitationCount',
+  'scopusCitationCount',
+  'googleScholarCitationCount',
 ] as const;
 
 /**

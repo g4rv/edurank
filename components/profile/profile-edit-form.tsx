@@ -159,7 +159,7 @@ export function ProfileEditForm({
   const profilesCard = (
     <Card title="Наукові профілі">
       <FieldGroup className="flex flex-col gap-4">
-        {/* Each link with its citation count beside it (owner, 2026-10-06):
+        {/* Each link with its h-індекс beside it (owner, 2026-10-06):
             an НПП now types their own counts, which pay rating points. */}
         <div className="grid grid-cols-3 gap-x-4">
           <FormField
@@ -177,7 +177,7 @@ export function ProfileEditForm({
           </FormField>
           <FormField
             htmlFor="wosCitationCount"
-            label="Цитувань"
+            label="h-індекс"
             labelSuffix={<RatingFieldHint field="wosCitationCount" />}
             error={errors.wosCitationCount}
           >
@@ -208,7 +208,7 @@ export function ProfileEditForm({
           </FormField>
           <FormField
             htmlFor="scopusCitationCount"
-            label="Цитувань"
+            label="h-індекс"
             labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
             error={errors.scopusCitationCount}
           >
@@ -239,7 +239,7 @@ export function ProfileEditForm({
           </FormField>
           <FormField
             htmlFor="googleScholarCitationCount"
-            label="Цитувань"
+            label="h-індекс"
             labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
             error={errors.googleScholarCitationCount}
           >
@@ -327,7 +327,8 @@ export function ProfileEditForm({
             The same places as on the record page — academic info and «Освіта»
             left, contacts and research links right — so a person finds a field
             where they just read it. Somebody who is not an НПП has no academic
-            cards, and keeps Контакти | Наукові профілі. */}
+            cards and no research profiles either (owner, 2026-10-10): their
+            page is Контакти alone, and the photo when it arrives. */}
         <div className="flex flex-col items-start gap-4 lg:flex-row">
           <div className="flex w-full flex-1 flex-col gap-4">
             {isNpp ? (
@@ -352,7 +353,7 @@ export function ProfileEditForm({
           </div>
           <div className="flex w-full flex-1 flex-col gap-4">
             {isNpp && contactsCard}
-            {profilesCard}
+            {isNpp && profilesCard}
           </div>
         </div>
       </form>

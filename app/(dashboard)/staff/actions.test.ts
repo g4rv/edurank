@@ -9,24 +9,35 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: {
-    staff: { findUnique: vi.fn() },
+    staff: { findUnique: vi.fn(), findFirst: vi.fn() },
     divisionEntityPermission: { findFirst: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
 vi.mock('@/lib/mail/invite', () => ({ issueAndEmailLink: vi.fn() }));
+vi.mock('@/lib/queries/get-active-template', () => ({
+  activeYear: vi.fn().mockResolvedValue(2026),
+}));
+// `parseRateSeeds` and the error classes stay real; only the database half is faked
+vi.mock('@/lib/stake/seed-allocation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/stake/seed-allocation')>()),
+  seedAllocations: vi.fn().mockResolvedValue(null),
+}));
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { issueAndEmailLink } from '@/lib/mail/invite';
+import { LimitRaiseNeeded, seedAllocations, type LimitRaise } from '@/lib/stake/seed-allocation';
 import type { StaffCreateSchema } from '@/validations/staff';
 import { createStaff } from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
 const mockEntityPerm = db.divisionEntityPermission.findFirst as unknown as Mock;
+const mockStaffFirst = db.staff.findFirst as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 const mockInvite = issueAndEmailLink as unknown as Mock;
+const mockSeed = seedAllocations as unknown as Mock;
 
 const payload: StaffCreateSchema = {
   lastName: 'Франко',
@@ -41,14 +52,7 @@ const payload: StaffCreateSchema = {
   academicTitle: null,
   honoraryTitles: [],
   adminPositions: [],
-  candidateDegree: null,
-  candidateSpecialty: null,
-  candidateDefenceDate: null,
-  doctorDegree: null,
-  doctorSpecialty: null,
-  doctorDefenceDate: null,
-  candidateMatchesDepartment: null,
-  doctorMatchesDepartment: null,
+  degrees: [],
   basicEducationMatch: null,
   basicEducationSpecialty: null,
   wosUrl: null,
@@ -68,6 +72,10 @@ function mockTx() {
     staff: { create: vi.fn().mockResolvedValue({ id: 'staff-new' }) },
     staffDepartment: { createMany: vi.fn().mockResolvedValue({}) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    // names the кафедри in the audit entry of a seeded ставка
+    department: {
+      findMany: vi.fn().mockResolvedValue([{ id: 'dep-1', name: 'Кафедра фінансів' }]),
+    },
     // no active template → syncProfileDerived no-ops
     ratingTemplate: { findFirst: vi.fn().mockResolvedValue(null) },
   };
@@ -102,6 +110,43 @@ describe('createStaff authorization', () => {
     expect(await createStaff(payload)).toEqual({ redirectTo: '/staff/staff-new' });
     expect(tx.staff.create).toHaveBeenCalled();
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+});
+
+// Postgres `@unique` is case-sensitive, so `Vasyl.Bondarchuk@…` was created next
+// to an existing `vasyl.bondarchuk@…` on production (2026-10-08) — two rows for
+// one person, neither able to sign in. The pre-check is what closes it.
+describe('createStaff refuses a duplicate email', () => {
+  it('whatever case it is typed in', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffFirst.mockResolvedValueOnce({ id: 'existing' });
+
+    const result = await createStaff({ ...payload, email: 'Ivan@Univ.UA' });
+
+    expect(result).toEqual({ error: 'Працівник з таким email вже існує', field: 'email' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+    // Asked case-insensitively and on the folded spelling
+    expect(mockStaffFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ email: { equals: 'ivan@univ.ua', mode: 'insensitive' } }),
+      })
+    );
+  });
+
+  it('saves the lower-case spelling when it is free', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffFirst.mockResolvedValueOnce(null);
+    const tx = mockTx();
+
+    await createStaff({ ...payload, email: 'Ivan@Univ.UA' });
+
+    expect(tx.staff.create.mock.calls[0][0].data.email).toBe('ivan@univ.ua');
+  });
+
+  it('does not look anything up for somebody who may not create', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 's1' } });
+    await createStaff(payload);
+    expect(mockStaffFirst).not.toHaveBeenCalled();
   });
 });
 
@@ -225,5 +270,60 @@ describe('createStaff invite on create', () => {
       redirectTo: '/staff/staff-new',
     });
     expect(mockInvite).not.toHaveBeenCalled();
+  });
+});
+
+// ADMIN may type any ставка. One above the person's Макс is not refused: the
+// form is asked, and the ceiling moves up only when they agree (owner,
+// 2026-10-08). The server decides — a popup the client could skip would not be a
+// guard.
+describe('createStaff — a ставка above the ceiling', () => {
+  const raise: LimitRaise = {
+    departmentId: 'dep-1',
+    departmentName: 'Кафедра фінансів',
+    fromHundredths: 100,
+    toHundredths: 200,
+  };
+  const withRate = { rates: { 'dep-1': '2' } };
+
+  it('asks before raising anything, and does not send the invitation', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockTx();
+    mockSeed.mockRejectedValueOnce(new LimitRaiseNeeded([raise]));
+
+    const result = await createStaff(payload, { ...withRate, sendInvite: true });
+
+    expect(result).toEqual({ confirmRaise: [raise] });
+    expect(mockInvite).not.toHaveBeenCalled();
+    // Asked WITHOUT agreement — the server never assumes it
+    expect(mockSeed.mock.calls[0][4]).toMatchObject({ raiseLimits: false });
+  });
+
+  it('raises the ceiling once agreed, and says so in the audit log', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    const tx = mockTx();
+    mockSeed.mockImplementationOnce(async (_tx, _id, _seeds, _year, opts) => {
+      opts.raised.push(raise);
+      return null;
+    });
+
+    const result = await createStaff(payload, { ...withRate, confirmRaise: true });
+
+    expect(result).toEqual({ redirectTo: '/staff/staff-new' });
+    expect(mockSeed.mock.calls[0][4]).toMatchObject({ raiseLimits: true });
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes.raisedLimits).toEqual({
+      from: null,
+      to: 'Кафедра фінансів — Макс 1,00 → 2,00',
+    });
+  });
+
+  it('logs no raise when nothing was raised', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    const tx = mockTx();
+
+    await createStaff(payload, { rates: { 'dep-1': '0,75' }, confirmRaise: true });
+
+    expect(tx.auditLog.create.mock.calls[0][0].data.changes).not.toHaveProperty('raisedLimits');
   });
 });

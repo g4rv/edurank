@@ -13,10 +13,18 @@ import type { Prisma } from '@/lib/generated/prisma/client';
 // could set their password without ever typing their address, and meet this
 // only at their first real sign-in.
 //
-// The fix lives HERE and nowhere else. An address is stored exactly as it was
-// typed; the folding happens when one is looked up. A `normaliseEmail` helper
-// once sat beside this and was used only by the schemas that rewrote what
-// people saved — removed with them (2026-08-31).
+// Two halves, because the data has two ages:
+//
+//   WRITING (2026-10-08) — every entry schema folds the address
+//   (`.trim().toLowerCase()`), so whatever is typed or pasted reaches the
+//   server, and the column, as one spelling. Until then the staff schema stored what was typed
+//   (2026-08-31, to stop a phone-number save rewriting an address), and the
+//   price was `Vasyl.Bondarchuk@…` created beside `vasyl.bondarchuk@…` on
+//   production: two rows, and `emailMatches` below answers «no match» to both.
+//
+//   LOOKING UP — `emailMatches` ignores case, because rows saved before that
+//   still hold capitals. It is also what the duplicate check uses, so it finds
+//   the old mixed-case row a new lower-case address would collide with.
 
 /**
  * Match an address whatever its case, for looking somebody up.

@@ -8,13 +8,7 @@ import {
   WOS_HOSTS,
 } from '@/lib/link-hosts';
 import { isValidOrcid } from '@/lib/orcid';
-import {
-  CANDIDATE_DEGREES,
-  DOCTOR_DEGREES,
-  HONORARY_TITLES,
-  UNSPECIFIED_CANDIDATE,
-  UNSPECIFIED_DOCTOR,
-} from '@/lib/staff/academic-options';
+import { HONORARY_TITLES, degreeLevel } from '@/lib/staff/academic-options';
 import { adminPostProblem, type AdminPostProblem } from '@/lib/staff/academic';
 
 const str = (v: unknown) =>
@@ -90,16 +84,6 @@ const defenceDate = z.preprocess(
     .nullable()
 );
 
-/** One of a list's keys, or nothing */
-const oneOf = (list: readonly { value: string }[], error: string) =>
-  z.preprocess(
-    str,
-    z
-      .string()
-      .refine((v) => list.some((o) => o.value === v), { error })
-      .nullable()
-  );
-
 /** A badge list: keys of the list, each once, in the order they were added */
 const badges = <T extends string>(item: z.ZodType<T>) =>
   z
@@ -140,6 +124,43 @@ const specialty = z.preprocess(
 );
 
 /**
+ * The diplomas, as a list (owner, 2026-10-10): any number, each with its exact
+ * ступінь, speciality, defence date and «відповідає кафедрі».
+ *
+ * The «unspecified» placeholder is accepted (`degreeLevel` knows it) though it
+ * is no option: a form re-sends what is stored, and refusing it would block
+ * every save — a phone number, by an admin who cannot know the branch — until
+ * somebody chose the degree.
+ *
+ * A row nobody touched (the form always shows at least one) is dropped; a row
+ * with a speciality or a date but no ступінь is an error, not a silent drop.
+ */
+const degreeRecord = z
+  .object({
+    degree: z.preprocess(
+      str,
+      z
+        .string()
+        .refine((v) => degreeLevel(v) !== null, { error: 'Оберіть ступінь зі списку' })
+        .nullable()
+    ),
+    specialty,
+    defenceDate: defenceDate.transform((d) => (d ? d.toISOString().slice(0, 10) : null)),
+    matchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+  })
+  .superRefine((r, ctx) => {
+    if (!r.degree && (r.specialty || r.defenceDate || r.matchesDepartment !== null)) {
+      ctx.addIssue({ code: 'custom', message: 'Оберіть ступінь', path: ['degree'] });
+    }
+  });
+
+const degrees = z
+  .array(degreeRecord)
+  .max(20, { error: 'Забагато дипломів' })
+  .default([])
+  .transform((list) => list.filter((r) => r.degree !== null));
+
+/**
  * «Академічна інформація» and «Освіта» (owner, 2026-10-06) — the fields an НПП
  * now fills in about themselves, and ADMIN and granted editors about anybody.
  * Shared by `staffUpdateSchema` and `ownProfileSchema`, so the two forms can
@@ -169,23 +190,7 @@ export const academicFields = {
     const problem = adminPostProblem(list);
     if (problem) ctx.addIssue({ code: 'custom', message: ADMIN_POST_PROBLEM_MESSAGES[problem] });
   }),
-  // The placeholder is no option (`UNSPECIFIED_CANDIDATE`), but a form re-sends
-  // what is stored: refusing it would block every save — a phone number, by an
-  // admin who cannot know the branch — until somebody chose the degree.
-  candidateDegree: oneOf(
-    [...CANDIDATE_DEGREES, { value: UNSPECIFIED_CANDIDATE }],
-    'Оберіть ступінь зі списку'
-  ),
-  candidateSpecialty: specialty,
-  candidateDefenceDate: defenceDate,
-  candidateMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
-  doctorDegree: oneOf(
-    [...DOCTOR_DEGREES, { value: UNSPECIFIED_DOCTOR }],
-    'Оберіть ступінь зі списку'
-  ),
-  doctorSpecialty: specialty,
-  doctorDefenceDate: defenceDate,
-  doctorMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+  degrees,
   basicEducationMatch: z.preprocess(boolStr, z.boolean().nullable()),
   basicEducationSpecialty: specialty,
 };
@@ -195,24 +200,22 @@ export const staffUpdateSchema = z
     lastName: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     firstName: z.string().trim().min(1, { error: "Обов'язкове поле" }),
     patronymic: z.string().trim().min(1, { error: "Обов'язкове поле" }),
-    // Stored exactly as typed. Deliberately NOT lower-cased (2026-08-31).
+    // Typed in ANY case, sent in one (2026-10-08, reversing 2026-08-31).
     //
-    // Case never decides who an address belongs to, and nothing here needs it
-    // folded: `emailMatches` already compares case-insensitively at every point
-    // an address is looked up — sign-in and password reset — which is the only
-    // place the question is ever asked.
+    // Case never decides who an address belongs to, and `Staff.email` is
+    // `@unique` under a case-SENSITIVE comparison — so `Vasyl@…` and `vasyl@…`
+    // were two rows, and sign-in treats two rows as «no match» for both.
+    // Folding here means the form sends, and the server stores, one spelling;
+    // the field itself accepts whatever is pasted.
     //
-    // What lower-casing here actually did was edit a field nobody touched.
-    // Saving somebody's phone number also rewrote their «Name.Surname@…»
-    // address to lower case and filed it in the audit log as a change the
-    // admin had made (reported from production, 2026-08-31).
+    // The 2026-08-31 objection stands and is answered elsewhere: folding used to
+    // rewrite an address nobody had touched, and file it as the admin's edit.
+    // `updateStaff` now leaves a stored address alone when the new one differs
+    // from it only in case.
     //
-    // It enforced nothing either: the seeds, `db:seed:staff`, the invite
-    // import and any direct insert never pass through this schema. Uniqueness
-    // that ignores case belongs in a `lower(email)` unique index, where the
-    // database can hold it — not in a form validator that only some writes go
-    // through.
-    email: z.email({ error: 'Некоректний email' }).trim(),
+    // This does not enforce uniqueness — the seeds and imports never pass
+    // through a schema. `emailTaken` checks it on create and update.
+    email: z.email({ error: 'Некоректний email' }).trim().toLowerCase(),
     phone: phoneField,
     isNpp: z.preprocess((v) => v === true || v === 'true', z.boolean()),
     employmentRate: z.preprocess(num, z.number().nonnegative().nullable()),

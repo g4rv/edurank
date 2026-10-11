@@ -27,16 +27,19 @@ describe('emailMatches', () => {
   });
 });
 
-// The two ENTRY schemas still fold case, and that is fine: their value is only
-// ever used to look somebody up, never written to a row. The staff schema does
-// NOT, and must not — it writes, and folding there rewrote addresses nobody had
-// touched (2026-08-31).
+// Every ENTRY schema folds case, so whatever is typed or pasted — `EmAiL@…` —
+// leaves the form, and reaches the server, as one spelling. That includes the
+// staff schema since 2026-10-08: it used to keep what was typed (2026-08-31, to
+// stop a phone-number save rewriting an address), and the price was two rows
+// for one person, neither of which could then sign in. `updateStaff` keeps that
+// earlier fix another way: it leaves a stored address alone when the new one
+// differs only in case.
 //
 // No surrounding spaces in the fixtures: `z.email()` validates BEFORE the
 // chained `.trim()` runs, so a padded address is rejected as malformed rather
 // than trimmed. Pre-existing and harmless — the input never carries them — but
 // it is why these read as they do.
-describe('input schemas fold case, because they only look somebody up', () => {
+describe('input schemas fold case', () => {
   const mixed = 'Petrenko@UHSP.edu.UA';
   const lower = 'petrenko@uhsp.edu.ua';
 
@@ -49,8 +52,9 @@ describe('input schemas fold case, because they only look somebody up', () => {
   });
 });
 
-describe('the staff schema stores the address exactly as typed', () => {
+describe('the staff schema accepts any case and sends one spelling', () => {
   const typed = 'Ivan.Petrenko@uhsp.edu.ua';
+  const lower = 'ivan.petrenko@uhsp.edu.ua';
 
   const person = (email: string) => ({
     lastName: 'Петренко',
@@ -64,22 +68,27 @@ describe('the staff schema stores the address exactly as typed', () => {
     partTimeDepartmentIds: [],
   });
 
-  // The regression this exists for: an admin saving a phone number also
-  // rewrote the person's email, and the audit log recorded it as their edit.
-  it('keeps capitals on create', () => {
+  it('lower-cases on create', () => {
     const parsed = staffCreateSchema.safeParse(person(typed));
     expect(parsed.success).toBe(true);
-    if (parsed.success) expect(parsed.data.email).toBe(typed);
+    if (parsed.success) expect(parsed.data.email).toBe(lower);
   });
 
-  it('keeps capitals on update', () => {
+  it('lower-cases on update', () => {
     const parsed = staffUpdateSchema.safeParse(person(typed));
     expect(parsed.success).toBe(true);
-    if (parsed.success) expect(parsed.data.email).toBe(typed);
+    if (parsed.success) expect(parsed.data.email).toBe(lower);
   });
 
-  it('still trims', () => {
-    const parsed = staffCreateSchema.safeParse(person(typed));
-    expect(parsed.success).toBe(true);
+  it('accepts a shouted address as well as a capitalised one', () => {
+    for (const email of ['EmAiL@email.com', 'emaIL@email.com', 'EMAIL@EMAIL.COM']) {
+      const parsed = staffCreateSchema.safeParse(person(email));
+      expect(parsed.success).toBe(true);
+      if (parsed.success) expect(parsed.data.email).toBe('email@email.com');
+    }
+  });
+
+  it('still refuses what is not an address', () => {
+    expect(staffCreateSchema.safeParse(person('not-an-email')).success).toBe(false);
   });
 });

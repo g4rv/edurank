@@ -7,7 +7,13 @@ import type {
 } from '@/lib/generated/prisma/client';
 import type { DiffValue } from '@/lib/audit';
 import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
-import { HONORARY_TITLES, degreeName, optionLabel } from '@/lib/staff/academic-options';
+import {
+  HONORARY_TITLES,
+  anyDegreeName,
+  degreeLevel,
+  degreeName,
+  optionLabel,
+} from '@/lib/staff/academic-options';
 
 /**
  * The old academic columns, derived from the new ones (owner, 2026-10-06).
@@ -229,6 +235,138 @@ export function offeredAdminPositions(
   );
 }
 
+/**
+ * One diploma in `Staff.degrees` (owner, 2026-10-10). The date is the calendar
+ * day as «YYYY-MM-DD» — JSON has no date, and a day is all the Характеристика
+ * and the rating read of it.
+ */
+export interface DegreeRecord {
+  degree: string;
+  specialty: string | null;
+  defenceDate: string | null;
+  matchesDepartment: boolean | null;
+}
+
+/** The six `candidate*` / `doctor*` columns, the mirrors of the list */
+export interface DegreeColumns {
+  candidateDegree: string | null;
+  candidateSpecialty: string | null;
+  candidateDefenceDate: Date | null;
+  candidateMatchesDepartment: boolean | null;
+  doctorDegree: string | null;
+  doctorSpecialty: string | null;
+  doctorDefenceDate: Date | null;
+  doctorMatchesDepartment: boolean | null;
+}
+
+const day = (v: string | null): Date | null => (v ? new Date(`${v}T00:00:00.000Z`) : null);
+const isoDay = (v: Date | null | undefined): string | null =>
+  v instanceof Date && !Number.isNaN(v.getTime()) ? v.toISOString().slice(0, 10) : null;
+
+/** The list as stored — defensive, because it is a JSON column */
+export function asDegreeRecords(value: unknown): DegreeRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const r = item as Record<string, unknown>;
+    if (typeof r.degree !== 'string' || !r.degree) return [];
+    return [
+      {
+        degree: r.degree,
+        specialty: typeof r.specialty === 'string' && r.specialty ? r.specialty : null,
+        defenceDate: typeof r.defenceDate === 'string' && r.defenceDate ? r.defenceDate : null,
+        matchesDepartment: typeof r.matchesDepartment === 'boolean' ? r.matchesDepartment : null,
+      },
+    ];
+  });
+}
+
+/**
+ * A person's diplomas: the list, or — for a row written before the list existed
+ * and not yet saved since (a seed, an import) — what the two old slots hold.
+ */
+export function degreesOf(row: Record<string, unknown> | null | undefined): DegreeRecord[] {
+  const listed = asDegreeRecords(row?.degrees);
+  if (listed.length > 0) return listed;
+  const fromSlot = (prefix: 'doctor' | 'candidate'): DegreeRecord[] => {
+    const degree = row?.[`${prefix}Degree`];
+    if (typeof degree !== 'string' || !degree) return [];
+    return [
+      {
+        degree,
+        specialty: (row?.[`${prefix}Specialty`] as string | null | undefined) ?? null,
+        defenceDate: isoDay(row?.[`${prefix}DefenceDate`] as Date | null | undefined),
+        matchesDepartment:
+          (row?.[`${prefix}MatchesDepartment`] as boolean | null | undefined) ?? null,
+      },
+    ];
+  };
+  return [...fromSlot('doctor'), ...fromSlot('candidate')];
+}
+
+/**
+ * The record a level is judged by (owner, 2026-10-10): the one marked as
+ * matching the кафедра first, otherwise the most recent defence. A record with no
+ * date is the oldest there is; a full tie keeps the one listed first.
+ */
+export function bestDegree(records: readonly DegreeRecord[]): DegreeRecord | null {
+  let best: DegreeRecord | null = null;
+  for (const r of records) {
+    if (!best) {
+      best = r;
+      continue;
+    }
+    const rMatch = r.matchesDepartment === true;
+    const bMatch = best.matchesDepartment === true;
+    if (rMatch !== bMatch) {
+      if (rMatch) best = r;
+      continue;
+    }
+    if ((r.defenceDate ?? '') > (best.defenceDate ?? '')) best = r;
+  }
+  return best;
+}
+
+/** The six mirror columns for a list: the best doctor-level and the best candidate-level record */
+export function deriveDegreeColumns(records: readonly DegreeRecord[]): DegreeColumns {
+  const doctor = bestDegree(records.filter((r) => degreeLevel(r.degree) === 'doctor'));
+  const candidate = bestDegree(records.filter((r) => degreeLevel(r.degree) === 'candidate'));
+  return {
+    candidateDegree: candidate?.degree ?? null,
+    candidateSpecialty: candidate?.specialty ?? null,
+    candidateDefenceDate: day(candidate?.defenceDate ?? null),
+    candidateMatchesDepartment: candidate?.matchesDepartment ?? null,
+    doctorDegree: doctor?.degree ?? null,
+    doctorSpecialty: doctor?.specialty ?? null,
+    doctorDefenceDate: day(doctor?.defenceDate ?? null),
+    doctorMatchesDepartment: doctor?.matchesDepartment ?? null,
+  };
+}
+
+/** The most recent defence of ANY diploma — what Характеристика п.5 looks for */
+function newestDefence(records: readonly DegreeRecord[]): Date | null {
+  const days = records.map((r) => r.defenceDate).filter((d): d is string => !!d);
+  return days.length ? day(days.reduce((a, b) => (b > a ? b : a))) : null;
+}
+
+/** The list as words for the audit log: «Доктор історичних наук · Історія · 12.05.2019 · відповідає кафедрі» */
+function degreesAuditText(value: unknown): string | null {
+  const records = asDegreeRecords(value);
+  if (records.length === 0) return null;
+  return records
+    .map((r) =>
+      [
+        anyDegreeName(r.degree),
+        r.specialty,
+        r.defenceDate ? r.defenceDate.split('-').reverse().join('.') : null,
+        r.matchesDepartment ? 'відповідає кафедрі' : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    )
+    .join('; ');
+}
+
 /** The new fields the mirrors are derived from */
 export const ACADEMIC_SOURCE_FIELDS = [
   'position',
@@ -250,11 +388,21 @@ export const ACADEMIC_SOURCE_FIELDS = [
 export function mirrorsForUpdate(
   stored: AcademicFields,
   update: Record<string, unknown>
-): LegacyMirrors | null {
-  if (!ACADEMIC_SOURCE_FIELDS.some((key) => key in update)) return null;
+): (LegacyMirrors & Partial<DegreeColumns>) | null {
+  const hasDegrees = 'degrees' in update;
+  if (!hasDegrees && !ACADEMIC_SOURCE_FIELDS.some((key) => key in update)) return null;
   const merged = { ...stored } as Record<string, unknown>;
   for (const key of ACADEMIC_SOURCE_FIELDS) if (key in update) merged[key] = update[key];
-  return legacyMirrors(merged as unknown as AcademicFields);
+
+  // The list is the source: its best records become the six columns, and the
+  // old single defence date is the newest of ALL of them — a defence inside the
+  // last five years is what п.5 asks, whichever diploma it was for.
+  if (!hasDegrees) return legacyMirrors(merged as unknown as AcademicFields);
+  const records = asDegreeRecords(update.degrees);
+  const columns = deriveDegreeColumns(records);
+  Object.assign(merged, columns);
+  const mirrors = legacyMirrors(merged as unknown as AcademicFields);
+  return { ...columns, ...mirrors, degreeDefenceDate: newestDefence(records) };
 }
 
 /**
@@ -271,6 +419,8 @@ export function academicAuditValue(key: string, value: unknown): DiffValue {
       return many(value as string[], (v) => optionLabel(HONORARY_TITLES, v));
     case 'adminPositions':
       return many(value as AdminPosition[], (v) => ADMIN_POSITION_LABELS[v as AdminPosition] ?? v);
+    case 'degrees':
+      return degreesAuditText(value);
     case 'candidateDegree':
       return value ? degreeName('candidate', String(value)) : null;
     case 'doctorDegree':
@@ -302,6 +452,7 @@ export const ACADEMIC_STORED_SELECT = {
   doctorSpecialty: true,
   doctorDefenceDate: true,
   doctorMatchesDepartment: true,
+  degrees: true,
   basicEducationMatch: true,
   basicEducationSpecialty: true,
 } as const;

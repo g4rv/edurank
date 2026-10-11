@@ -1,16 +1,39 @@
 'use client';
 
-import { Controller, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
+import {
+  Controller,
+  useFieldArray,
+  type Control,
+  type FieldErrors,
+  type UseFormRegister,
+} from 'react-hook-form';
+import { useState } from 'react';
+import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { AcademicFormValues } from '@/components/staff/academic-form-values';
+import {
+  EMPTY_DEGREE_ROW,
+  type AcademicFormValues,
+  type DegreeFormRow,
+} from '@/components/staff/academic-form-values';
 import { Card } from '@/components/aurora/ui/card';
 import { DateInput } from '@/components/aurora/ui/date-input';
 import { Input } from '@/components/aurora/ui/input';
+import { Button } from '@/components/aurora/ui/button';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/aurora/ui/dialog';
 import { Checkbox } from '@/components/aurora/ui/checkbox';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/aurora/ui/select';
@@ -28,7 +51,7 @@ import {
   HONORARY_TITLES,
   UNSPECIFIED_CANDIDATE,
   UNSPECIFIED_DOCTOR,
-  type AcademicOption,
+  anyDegreeName,
 } from '@/lib/staff/academic-options';
 
 /**
@@ -125,7 +148,7 @@ function MatchCheckbox({
   control,
   disabled,
 }: {
-  name: 'basicEducationMatch' | 'candidateMatchesDepartment' | 'doctorMatchesDepartment';
+  name: string;
   hint: string;
   control: Control<AcademicFormValues>;
   disabled: boolean;
@@ -133,7 +156,7 @@ function MatchCheckbox({
   return (
     <div className="flex items-center gap-1.5">
       <Controller
-        name={name}
+        name={name as never}
         control={control}
         render={({ field }) => (
           <label className="flex cursor-pointer items-center gap-2.5 text-sm">
@@ -150,16 +173,6 @@ function MatchCheckbox({
       <RatingFieldHint field={hint} />
     </div>
   );
-}
-
-/**
- * A degree list as offered: the «уточніть галузь» key the migration gave an
- * old degree is shown only while it is the current value — nobody picks it.
- */
-function shownDegree(value: string, unspecified: string): string {
-  // The stored placeholder is no option: the select reads empty until a real
-  // degree is picked, and the form keeps sending what is stored meanwhile.
-  return value === unspecified ? '' : value;
 }
 
 export function AcademicCard({
@@ -288,102 +301,213 @@ export function AcademicCard({
   );
 }
 
+/** «15.03.2021» from the stored «2021-03-15» */
+const uaDay = (iso: string) => iso.split('-').reverse().join('.');
+
 /**
- * One degree: its exact name and defence date, then the diploma speciality and
- * whether it matches the кафедра — that answer is per degree (owner,
- * 2026-10-06), because rating 1.3 pays it for the degree it pays for.
+ * One diploma as a card: the ступінь on the first line, then speciality, date
+ * and «відповідає кафедрі» on one (owner, 2026-10-10 — a list of cards, the
+ * fields themselves in a popup). A blank part is left out, not shown as «—».
  */
-function DegreeBlock({
-  title,
-  prefix,
-  list,
-  unspecified,
-  control,
-  register,
-  errors,
-  isPending,
-  locked,
+function DegreeCard({
+  row,
+  onEdit,
+  onRemove,
+  disabled,
 }: {
-  title: string;
-  prefix: 'candidate' | 'doctor';
-  list: readonly AcademicOption[];
-  unspecified: string;
-  control: Control<AcademicFormValues>;
-  register: UseFormRegister<AcademicFormValues>;
-  errors: FieldErrors<AcademicFormValues>;
-  isPending: boolean;
-  locked: (field: keyof AcademicFormValues) => boolean;
+  row: DegreeFormRow;
+  onEdit: () => void;
+  onRemove: () => void;
+  disabled: boolean;
 }) {
-  const degree = `${prefix}Degree` as const;
-  const specialty = `${prefix}Specialty` as const;
-  const defence = `${prefix}DefenceDate` as const;
-  const matches = `${prefix}MatchesDepartment` as const;
+  const placeholder = row.degree === UNSPECIFIED_DOCTOR || row.degree === UNSPECIFIED_CANDIDATE;
+  const detail = [row.specialty.trim(), row.defenceDate ? uaDay(row.defenceDate) : ''].filter(
+    Boolean
+  );
   return (
-    <div className="space-y-3">
-      {/* A group heading, not a field label (owner, 2026-10-06): at the label's
-          own size and weight «Доктор наук» read as one more field above
-          «Ступінь». See «Group heading» in docs/aurora.md §4. */}
-      <h3 className="border-b pb-1.5 text-base font-semibold">{title}</h3>
-      {/* One column per degree (owner, 2026-10-06): the card sets the two
-          degrees side by side, so each stacks its own four fields. */}
-      <FieldGroup className="flex flex-col gap-4">
-        <FormField
-          label="Ступінь"
-          htmlFor={degree}
-          labelSuffix={<RatingFieldHint field="scientificDegree" />}
-          error={errors[degree]}
-        >
-          <Controller
-            name={degree}
-            control={control}
-            render={({ field }) => (
-              <>
-                <PlainSelect
-                  id={degree}
-                  value={shownDegree(field.value, unspecified)}
-                  onChange={field.onChange}
-                  options={list}
-                  disabled={isPending || locked(degree)}
-                />
-                {field.value === unspecified && (
-                  <p className="mt-1 text-xs text-warning">Оберіть точний науковий ступінь</p>
-                )}
-              </>
+    <div className="flex items-start gap-3 rounded-xl border bg-muted/30 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">{anyDegreeName(row.degree)}</p>
+        {(detail.length > 0 || row.matchesDepartment === 'true') && (
+          <p className="mt-0.5 text-sm text-foreground-soft">
+            {detail.join(' – ')}
+            {detail.length > 0 && row.matchesDepartment === 'true' && ' – '}
+            {row.matchesDepartment === 'true' && (
+              <span className="inline-flex items-center gap-1">
+                відповідає кафедрі
+                <Check className="size-3.5 text-success" aria-hidden />
+              </span>
             )}
-          />
-        </FormField>
-        <FormField label="Дата захисту" htmlFor={defence} error={errors[defence]}>
-          <Controller
-            name={defence}
-            control={control}
-            render={({ field }) => (
-              <DateInput
-                id={defence}
-                value={field.value}
-                onChange={field.onChange}
-                min="1950-01-01"
-                max="2100-12-31"
-                disabled={isPending || locked(defence)}
-                aria-invalid={!!errors[defence]}
-              />
-            )}
-          />
-        </FormField>
-        <FormField htmlFor={specialty} label="Спеціальність за дипломом" error={errors[specialty]}>
-          <Input
-            id={specialty}
-            disabled={isPending || locked(specialty)}
-            {...register(specialty)}
-          />
-        </FormField>
-        <MatchCheckbox
-          name={matches}
-          hint="degreeMatchesDepartment"
-          control={control}
-          disabled={isPending || locked(matches)}
-        />
-      </FieldGroup>
+          </p>
+        )}
+        {placeholder && <p className="mt-0.5 text-xs text-warning">Оберіть точний ступінь</p>}
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Редагувати ступінь"
+        disabled={disabled}
+        onClick={onEdit}
+      >
+        <Pencil className="size-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Прибрати ступінь"
+        disabled={disabled}
+        onClick={onRemove}
+      >
+        <Trash2 className="size-4" />
+      </Button>
     </div>
+  );
+}
+
+/**
+ * The four fields of one diploma, in a popup. It edits a LOCAL draft and hands
+ * it back with «Готово»: nothing reaches the form — let alone the database —
+ * until then, and Скасувати leaves the card as it was.
+ *
+ * Not a nested `<form>`: the popup renders in a portal, outside the staff form,
+ * and its buttons are `type="button"` so nothing in it can submit that form.
+ */
+type DegreeDialogState = { index: number | null; row: DegreeFormRow };
+
+function DegreeDialog({
+  state,
+  onClose,
+  onDone,
+}: {
+  /** `index` null = a new diploma; null state = closed */
+  state: DegreeDialogState | null;
+  onClose: () => void;
+  onDone: (index: number | null, row: DegreeFormRow) => void;
+}) {
+  return (
+    <Dialog open={state !== null} onOpenChange={(next) => !next && onClose()}>
+      {/* No auto-focus: the first control is the rating hint's «i», and focusing it
+          opened its tooltip over the popup the moment it appeared. */}
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+        {/* Mounted only while open, so the draft starts fresh each time — from
+            the card being edited, or blank — with no effect to copy it in. */}
+        {state && <DegreeDialogForm state={state} onClose={onClose} onDone={onDone} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DegreeDialogForm({
+  state,
+  onClose,
+  onDone,
+}: {
+  state: DegreeDialogState;
+  onClose: () => void;
+  onDone: (index: number | null, row: DegreeFormRow) => void;
+}) {
+  const [draft, setDraft] = useState<DegreeFormRow>(state.row);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const set = (patch: Partial<DegreeFormRow>) => setDraft((d) => ({ ...d, ...patch }));
+  const placeholder = draft.degree === UNSPECIFIED_DOCTOR || draft.degree === UNSPECIFIED_CANDIDATE;
+
+  function done() {
+    if (!draft.degree) {
+      setProblem('Оберіть ступінь');
+      return;
+    }
+    onDone(state.index, draft);
+  }
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{state.index === null ? 'Додати ступінь' : 'Редагувати ступінь'}</DialogTitle>
+      </DialogHeader>
+      <DialogBody>
+        <FieldGroup className="flex flex-col gap-4">
+          <FormField
+            label="Ступінь"
+            htmlFor="degree-dialog-degree"
+            labelSuffix={<RatingFieldHint field="scientificDegree" />}
+            error={problem ? { message: problem } : undefined}
+          >
+            <Select
+              value={placeholder ? '' : draft.degree || ' '}
+              onValueChange={(v) => {
+                set({ degree: v === ' ' ? '' : v });
+                setProblem(null);
+              }}
+            >
+              <SelectTrigger id="degree-dialog-degree" className="w-full">
+                <SelectValue placeholder="—" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value=" ">—</SelectItem>
+                <SelectGroup>
+                  <SelectLabel>Доктор наук</SelectLabel>
+                  {DOCTOR_DEGREES.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>Кандидат наук / PhD</SelectLabel>
+                  {CANDIDATE_DEGREES.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {placeholder && (
+              <p className="mt-1 text-xs text-warning">Оберіть точний науковий ступінь</p>
+            )}
+          </FormField>
+          <FormField label="Дата захисту" htmlFor="degree-dialog-date">
+            <DateInput
+              id="degree-dialog-date"
+              value={draft.defenceDate}
+              onChange={(v) => set({ defenceDate: v ?? '' })}
+              min="1950-01-01"
+              max="2100-12-31"
+            />
+          </FormField>
+          <FormField htmlFor="degree-dialog-specialty" label="Спеціальність за дипломом">
+            <Input
+              id="degree-dialog-specialty"
+              value={draft.specialty}
+              onChange={(e) => set({ specialty: e.target.value })}
+            />
+          </FormField>
+          <div className="flex items-center gap-1.5">
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+              <Checkbox
+                checked={draft.matchesDepartment === 'true'}
+                onCheckedChange={(checked) =>
+                  set({ matchesDepartment: checked === true ? 'true' : '' })
+                }
+              />
+              Відповідає спеціальності кафедри
+            </label>
+            <RatingFieldHint field="degreeMatchesDepartment" />
+          </div>
+        </FieldGroup>
+      </DialogBody>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          Скасувати
+        </Button>
+        <Button type="button" onClick={done}>
+          {state.index === null ? 'Додати' : 'Готово'}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
 
@@ -396,12 +520,20 @@ export function EducationCard({
   className,
   action,
 }: CardProps) {
-  const shared = { control, register, errors, isPending, locked };
+  // The diplomas as a list of cards (owner, 2026-10-10): «+ Додати освіту» and
+  // the pencil open a popup with the four fields, so the form stays short however
+  // many diplomas a person holds. The list is what is saved; the old two slots
+  // are written from it.
+  const { fields, append, update, remove } = useFieldArray({ control, name: 'degrees' });
+  const [dialog, setDialog] = useState<{ index: number | null; row: DegreeFormRow } | null>(null);
+  const degreesLocked = isPending || locked('degrees');
+
   return (
     <Card title={CARD_TITLES.education} action={action} className={className}>
       <div className="space-y-5">
-        {/* Базова освіта first, as on the record (owner, 2026-10-06) */}
-        <FieldGroup className="flex flex-col gap-3">
+        {/* Базова освіта first, as on the record: the speciality, and beside it
+            whether it matches the кафедра (owner, 2026-10-10 sketch) */}
+        <FieldGroup className="grid grid-cols-1 items-end gap-x-4 gap-y-3 sm:grid-cols-2">
           <FormField
             htmlFor="basicEducationSpecialty"
             label="Спеціальність базової освіти"
@@ -414,32 +546,58 @@ export function EducationCard({
               {...register('basicEducationSpecialty')}
             />
           </FormField>
-          <MatchCheckbox
-            name="basicEducationMatch"
-            hint="basicEducationMatch"
-            control={control}
-            disabled={isPending || locked('basicEducationMatch')}
-          />
+          <div className="pb-2">
+            <MatchCheckbox
+              name="basicEducationMatch"
+              hint="basicEducationMatch"
+              control={control}
+              disabled={isPending || locked('basicEducationMatch')}
+            />
+          </div>
         </FieldGroup>
-        {/* Two columns, доктор наук first (owner, 2026-10-06) — the same order as
-            the record shows them. One column each on a phone. */}
-        <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
-          <DegreeBlock
-            title="Доктор наук"
-            prefix="doctor"
-            list={DOCTOR_DEGREES}
-            unspecified={UNSPECIFIED_DOCTOR}
-            {...shared}
-          />
-          <DegreeBlock
-            title="Кандидат наук / PhD"
-            prefix="candidate"
-            list={CANDIDATE_DEGREES}
-            unspecified={UNSPECIFIED_CANDIDATE}
-            {...shared}
-          />
+
+        <div className="space-y-3">
+          {fields.map((row, index) => (
+            <DegreeCard
+              key={row.id}
+              row={row as unknown as DegreeFormRow}
+              disabled={degreesLocked}
+              onEdit={() => setDialog({ index, row: row as unknown as DegreeFormRow })}
+              onRemove={() => remove(index)}
+            />
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={degreesLocked}
+            onClick={() => setDialog({ index: null, row: { ...EMPTY_DEGREE_ROW } })}
+          >
+            <Plus className="size-4" />
+            Додати освіту
+          </Button>
+          {typeof errors.degrees?.message === 'string' && (
+            <p className="text-sm text-error">{errors.degrees.message}</p>
+          )}
         </div>
       </div>
+
+      <DegreeDialog
+        state={dialog}
+        onClose={() => setDialog(null)}
+        onDone={(index, row) => {
+          // `row` is the draft, with the form's own `id` (RHF's) left out.
+          const value = {
+            degree: row.degree,
+            specialty: row.specialty,
+            defenceDate: row.defenceDate,
+            matchesDepartment: row.matchesDepartment,
+          };
+          if (index === null) append(value);
+          else update(index, value);
+          setDialog(null);
+        }}
+      />
     </Card>
   );
 }

@@ -25,7 +25,6 @@ export const UK = {
   person: (n: number) => countUk(n, 'особа', 'особи', 'осіб'),
   department: (n: number) => countUk(n, 'кафедра', 'кафедри', 'кафедр'),
   submission: (n: number) => countUk(n, 'подання', 'подання', 'подань'),
-  citation: (n: number) => countUk(n, 'цитування', 'цитування', 'цитувань'),
   partTimer: (n: number) => countUk(n, 'сумісник', 'сумісники', 'сумісників'),
   student: (n: number) => countUk(n, 'здобувач', 'здобувачі', 'здобувачів'),
   primary: (n: number) => countUk(n, 'основний', 'основні', 'основних'),

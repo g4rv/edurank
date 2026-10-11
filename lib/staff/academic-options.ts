@@ -61,6 +61,23 @@ export const DOCTOR_DEGREES: readonly AcademicOption[] = [
   ...BRANCHES.map(([key, branch]) => ({ value: `doc_${key}`, label: `Доктор ${branch}` })),
 ];
 
+/** Which of the two levels a degree key belongs to; null for a key no list has */
+export function degreeLevel(value: string | null | undefined): 'doctor' | 'candidate' | null {
+  if (!value) return null;
+  if (value === UNSPECIFIED_DOCTOR || DOCTOR_DEGREES.some((d) => d.value === value)) {
+    return 'doctor';
+  }
+  if (value === UNSPECIFIED_CANDIDATE || CANDIDATE_DEGREES.some((d) => d.value === value)) {
+    return 'candidate';
+  }
+  return null;
+}
+
+/** A stored degree as words, whichever level it is */
+export function anyDegreeName(value: string): string {
+  return degreeName(degreeLevel(value) ?? 'candidate', value);
+}
+
 /** A stored degree whose branch nobody has chosen yet — see `UNSPECIFIED_CANDIDATE` */
 export function isUnspecifiedDegree(value: string | null | undefined): boolean {
   return value === UNSPECIFIED_CANDIDATE || value === UNSPECIFIED_DOCTOR;

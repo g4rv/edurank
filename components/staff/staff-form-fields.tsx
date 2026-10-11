@@ -555,7 +555,7 @@ export function StaffFormFields({
         </FormField>
         <FormField
           htmlFor="wosCitationCount"
-          label="Web of Science — цитувань"
+          label="Web of Science — h-індекс"
           labelSuffix={<RatingFieldHint field="wosCitationCount" />}
           error={errors.wosCitationCount}
         >
@@ -578,7 +578,7 @@ export function StaffFormFields({
         </FormField>
         <FormField
           htmlFor="scopusCitationCount"
-          label="Scopus — цитувань"
+          label="Scopus — h-індекс"
           labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
           error={errors.scopusCitationCount}
         >
@@ -605,7 +605,7 @@ export function StaffFormFields({
         </FormField>
         <FormField
           htmlFor="googleScholarCitationCount"
-          label="Google Scholar — цитувань"
+          label="Google Scholar — h-індекс"
           labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
           error={errors.googleScholarCitationCount}
         >

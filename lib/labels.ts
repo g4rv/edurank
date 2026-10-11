@@ -101,6 +101,7 @@ export const FIELD_LABELS: Record<string, string> = {
   academicTitle: 'Вчене звання',
   honoraryTitles: 'Почесні звання',
   adminPositions: 'Адміністративні посади',
+  degrees: 'Наукові ступені',
   candidateDegree: 'Науковий ступінь: кандидат / PhD',
   candidateSpecialty: 'Спеціальність за дипломом (кандидат / PhD)',
   candidateDefenceDate: 'Дата захисту (кандидат / PhD)',
@@ -116,11 +117,11 @@ export const FIELD_LABELS: Record<string, string> = {
   basicEducationMatch: 'Базова освіта за спеціальністю кафедри',
   basicEducationSpecialty: 'Спеціальність за дипломом',
   wosUrl: 'WoS профіль',
-  wosCitationCount: 'WoS цитувань',
+  wosCitationCount: 'WoS h-індекс',
   scopusUrl: 'Scopus профіль',
-  scopusCitationCount: 'Scopus цитувань',
+  scopusCitationCount: 'Scopus h-індекс',
   googleScholarUrl: 'Google Scholar профіль',
-  googleScholarCitationCount: 'Google Scholar цитувань',
+  googleScholarCitationCount: 'Google Scholar h-індекс',
   orcidId: 'ORCID',
   departmentId: 'Кафедра (основна)',
   // Had no label at all, so every сумісництво change ever recorded rendered in
@@ -129,6 +130,7 @@ export const FIELD_LABELS: Record<string, string> = {
   // Not a Staff column: the ставки seeded from the profile form, recorded in the
   // audit diff because `seedAllocations` writes no entry of its own.
   seededRates: 'Призначена ставка',
+  raisedLimits: 'Підвищено максимум ставки',
   department: 'Випускова кафедра',
   divisionId: 'Відділ',
   archivedAt: 'Архівовано',

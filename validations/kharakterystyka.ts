@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { LICENCE_POSITIONS } from '@/lib/kharakterystyka/positions';
-import { positionEvidenceFields } from '@/lib/kharakterystyka/position-evidence';
+import {
+  defenceProblem,
+  positionEvidenceFields,
+  positionRowProblem,
+} from '@/lib/kharakterystyka/position-evidence';
 import { fieldSchema } from '@/validations/activity-evidence';
 
 const POSITION_NUMBERS = LICENCE_POSITIONS.map((p) => p.number);
@@ -94,7 +98,14 @@ export function positionFormSchema(position: number, minYear: number, maxYear: n
     ...evidence,
   });
 
-  return shape;
+  // What the position's own text asks of the row as a whole — a period's length,
+  // a book's volume. Under the field it is about, like any other message.
+  return shape.superRefine((values, ctx) => {
+    const row = values as Record<string, unknown>;
+    const problem =
+      positionRowProblem(position, row) ?? defenceProblem(position, row, minYear, maxYear);
+    if (problem) ctx.addIssue({ code: 'custom', message: problem.message, path: [problem.path] });
+  });
 }
 
 /**

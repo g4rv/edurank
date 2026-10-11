@@ -17,10 +17,14 @@ import { unlockEmail } from '@/lib/auth/throttle';
 import { diffChanges, type DiffValue } from '@/lib/audit';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { syncEmploymentRate } from '@/lib/stake/employment-rate';
+import { DEFAULT_LIMITS, PART_TIME_LIMITS } from '@/lib/stake/formula';
 import {
+  LimitRaiseNeeded,
   RateRefused,
+  describeRaises,
   parseRateSeeds,
   seedAllocations,
+  type LimitRaise,
   type RateSeed,
 } from '@/lib/stake/seed-allocation';
 import {
@@ -35,7 +39,8 @@ import {
   USER_EDITABLE_STAFF_FIELDS,
 } from '@/lib/permissions';
 import { formatStake } from '@/lib/stake/units';
-import { parseDbError } from '@/lib/db-error';
+import { parseDbError, isForeignKeyViolation } from '@/lib/db-error';
+import { emailTaken, EMAIL_TAKEN_MESSAGE } from '@/lib/queries/email-taken';
 import { logError } from '@/lib/log';
 import { syncProfileDerived, PROFILE_DERIVED_STAFF_FIELDS } from '@/lib/rating/profile-derived';
 import {
@@ -52,7 +57,8 @@ export type StaffArchiveState = { error: string } | { success: true; message: st
 /**
  * Take a person off the active roster without losing anything they did.
  *
- * There is no hard delete of a person in this app. Deleting a Staff row
+ * This is the way a person leaves — hard delete is `deleteStaff`, ADMIN only,
+ * for a record that should never have existed. Deleting a Staff row
  * cascades their activities and rating entries — closed years included — and
  * those numbers are final university records. Archiving covers the two cases
  * that actually happen: someone leaves (and may come back years later, to find
@@ -300,7 +306,106 @@ export async function restoreStaff(id: string): Promise<StaffArchiveState> {
   return { success: true, message: 'Запис відновлено' };
 }
 
-export type StaffUpdateState = { error: string } | { success: true };
+/**
+ * Remove a person's row outright, with everything that hangs off it: their
+ * activities, rating entries — closed years included — plans, claims and records.
+ *
+ * **ADMIN only, only from the archive, only by hand** (owner, 2026-10-08,
+ * softening «a person is never deleted»). Two layers on purpose: archiving is the
+ * bin, and it loses nothing; this is emptying it. A person who is still active
+ * cannot be deleted in one click, so a wrong click costs a restore, not their
+ * history. Archiving stays the answer for somebody who left or is on leave; this
+ * is for a record that should never have existed. A duplicate is the case that
+ * made it necessary: the archived twin still holds the email, so the address
+ * stays taken and the sign-in stays ambiguous.
+ *
+ * Deliberately NOT behind the STAFF DELETE entity permission, which still means
+ * «archive»: it is the one action in this file that loses data nobody can bring
+ * back, so an editor's division grant does not reach it.
+ */
+export async function deleteStaff(id: string): Promise<StaffArchiveState> {
+  const session = await auth();
+  if (!session) redirect('/login');
+
+  if (session.user.role !== 'ADMIN') return { error: 'Недостатньо прав' };
+  // Nobody removes themselves — the same rule as archiving
+  if (session.user.staffId === id) return { error: 'Недостатньо прав' };
+
+  const target = await db.staff.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      email: true,
+      archivedAt: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
+  });
+  if (!target) return { error: 'Запис не знайдено' };
+
+  // The bin first. This also settles the last-admin question: archiving refuses
+  // the last active admin, so whoever is archived is never the one holding the
+  // university's only working login.
+  if (!target.archivedAt) {
+    return { error: 'Спершу архівуйте запис — видалити можна лише з архіву' };
+  }
+
+  let dbError: string | null = null;
+  let headship: string[] = [];
+
+  try {
+    await db.$transaction(async (tx) => {
+      // The foreign key would null `headId` / `deanId` by itself, but silently:
+      // the кафедра's own audit log would not say it lost its head.
+      headship = await clearHeadship(tx, id, session.user.id);
+
+      // Before the delete, and carrying the address: once the row is gone the
+      // log is the only place that says WHICH of two same-named people went.
+      await tx.auditLog.create({
+        data: {
+          action: 'DELETE',
+          entity: 'Staff',
+          entityId: id,
+          label: staffFullName(target),
+          userId: session.user.id,
+          changes: diffChanges({ email: target.email }, { email: null }),
+        },
+      });
+
+      await tx.staff.delete({ where: { id } });
+    });
+  } catch (e) {
+    dbError = isForeignKeyViolation(e)
+      ? // `ScienceWork.createdBy` and `ScienceRecordFile.uploadedBy` are required
+        // relations with no cascade: deleting their author would leave
+        // co-authors' records pointing at nobody.
+        'Видалити не вдалося: за цією людиною закріплені наукові роботи чи файли. Запис залишається в архіві'
+      : parseDbError(e, 'Не вдалося видалити запис. Зміни не застосовано', 'staff.deleteStaff', {
+          userId: session.user.id,
+        });
+  }
+
+  if (dbError) return { error: dbError };
+  revalidatePath('/staff');
+  revalidatePath('/dashboard');
+  if (headship.length > 0) {
+    revalidatePath('/departments');
+    revalidatePath('/faculties');
+  }
+  return {
+    success: true,
+    message: headship.length
+      ? `Запис видалено. Без керівника: ${headship.join(', ')}`
+      : 'Запис видалено',
+  };
+}
+
+export type StaffUpdateState =
+  | { error: string; field?: 'email' }
+  | { success: true }
+  /** A ставка above somebody's Макс: nothing was saved, the form asks and re-sends */
+  | { confirmRaise: LimitRaise[] };
 
 export async function updateStaff(
   id: string,
@@ -313,7 +418,11 @@ export async function updateStaff(
    * number the завідувач decided. The form disables those boxes too, but the
    * guarantee is here, where it cannot be got around.
    */
-  options?: { rates?: Record<string, string> }
+  options?: {
+    rates?: Record<string, string>;
+    /** They agreed that a ceiling moves up to meet a typed ставка */
+    confirmRaise?: boolean;
+  }
 ): Promise<StaffUpdateState> {
   const session = await auth();
   if (!session) redirect('/login');
@@ -400,6 +509,22 @@ export async function updateStaff(
     return { error: 'Немає полів, доступних для редагування' };
   }
 
+  // The address, in any case, against everybody else's. `parsed.data.email` is
+  // already folded; the STORED one may still carry capitals from before.
+  //
+  // Same address in another case is no change, so it is not written: saving a
+  // phone number used to rewrite an address nobody had touched and file it in
+  // the audit log as the admin's edit (2026-08-31). Folding the schema would
+  // bring that back without this.
+  if (typeof updateData.email === 'string') {
+    const current = await db.staff.findUnique({ where: { id }, select: { email: true } });
+    if (current?.email && current.email.toLowerCase() === updateData.email) {
+      delete updateData.email;
+    } else if (await emailTaken(updateData.email, id)) {
+      return { error: EMAIL_TAKEN_MESSAGE, field: 'email' };
+    }
+  }
+
   // One leading post at most, a headship counted (owner, 2026-10-06).
   if (Array.isArray(updateData.adminPositions)) {
     const conflict = await adminPostsConflict(id, updateData.adminPositions as AdminPosition[]);
@@ -407,6 +532,9 @@ export async function updateStaff(
   }
 
   let dbError: string | null = null;
+  // Every ceiling this save moved, for the audit entry — filled by the cleanup
+  // below and by `seedAllocations`
+  const raised: LimitRaise[] = [];
 
   try {
     await db.$transaction(async (tx) => {
@@ -568,19 +696,36 @@ export async function updateStaff(
           ...partTimeAfter.filter((d) => partTimeBefore.has(d)),
         ].filter((d) => d.length > 0);
 
-        // Runs on EVERY save, not only when something moved. `keeps` spares
+        // Every кафедра they are on AFTER this save, whatever its kind. A
+        // кафедра whose kind CHANGED is in here but not in `keeps`: the person
+        // is still there, so the head's ставка stays (owner, 2026-10-08).
+        const stillOn = [...(primaryAfter !== null ? [primaryAfter] : []), ...partTimeAfter].filter(
+          (d) => d.length > 0
+        );
+        const changedKind = stillOn.filter(
+          (d) => !keeps.includes(d) && (d === primaryBefore || partTimeBefore.has(d))
+        );
+
+        // Runs on EVERY save, not only when something moved. `stillOn` spares
         // every кафедра the person is still on, so an unchanged save deletes
         // nothing — but it does sweep up an allocation on a кафедра they are no
         // longer on, whatever put it there. That self-healing is deliberate and
         // is what the «spares a placement whose kind did not change» tests
         // pin down; skipping the block to save two queries would quietly
         // remove it.
+        //
+        // **Keyed on being LEFT, no longer on changing kind.** Until 2026-10-08
+        // flipping «Основне» deleted the ставка too — so somebody who only had
+        // the switch turned off, or whose main кафедра was swapped with the
+        // additional one, lost their rate without a word (reported from
+        // production). The head's decision is not undone by a switch; the
+        // ceiling is adjusted to it below instead.
         const year = await activeYear();
         if (year !== null) {
           const removed = await tx.stakeAllocation.deleteMany({
             where: {
               staffId: id,
-              distribution: { year, departmentId: { notIn: keeps } },
+              distribution: { year, departmentId: { notIn: stillOn } },
             },
           });
           // Only when something actually went: the sum is unchanged otherwise,
@@ -597,13 +742,67 @@ export async function updateStaff(
           await tx.staffStakeLimits.deleteMany({
             where: { staffId: id, year, departmentId: { notIn: keeps } },
           });
+
+          // …and then the ceiling meets the rate that was KEPT. A 0,50 agreed
+          // while somebody was full-time cannot sit under the 0,25 an
+          // additional кафедра defaults to, or «Ставка» and «Макс» disagree on
+          // one row — the very thing the old delete was there to prevent. So
+          // the stale bound is gone (above) and exactly enough of a new one is
+          // written, never more than the rate needs. Only ever upwards: a rate
+          // that fits writes nothing.
+          if (changedKind.length > 0) {
+            const keptRates = await tx.stakeAllocation.findMany({
+              where: {
+                staffId: id,
+                distribution: { year, departmentId: { in: changedKind } },
+              },
+              select: {
+                proposedHundredths: true,
+                distribution: { select: { departmentId: true } },
+              },
+            });
+            const names = new Map(
+              (
+                await tx.department.findMany({
+                  where: { id: { in: changedKind } },
+                  select: { id: true, name: true },
+                })
+              ).map((d) => [d.id, d.name])
+            );
+            for (const { proposedHundredths, distribution } of keptRates) {
+              const departmentId = distribution.departmentId;
+              const fallback = departmentId === primaryAfter ? DEFAULT_LIMITS : PART_TIME_LIMITS;
+              if (proposedHundredths <= fallback.maxHundredths) continue;
+
+              await tx.staffStakeLimits.upsert({
+                where: { staffId_departmentId_year: { staffId: id, departmentId, year } },
+                update: { maxHundredths: proposedHundredths },
+                create: {
+                  staffId: id,
+                  departmentId,
+                  year,
+                  minHundredths: fallback.minHundredths,
+                  maxHundredths: proposedHundredths,
+                },
+              });
+              raised.push({
+                departmentId,
+                departmentName: names.get(departmentId) ?? departmentId,
+                fromHundredths: fallback.maxHundredths,
+                toHundredths: proposedHundredths,
+              });
+            }
+          }
         }
       }
 
       // After the sweep above, so a кафедра being left and re-entered in one
       // save is seeded rather than seeded-then-deleted.
       if (seedYear !== null) {
-        const refusal = await seedAllocations(tx, id, seeded.seeds, seedYear);
+        const refusal = await seedAllocations(tx, id, seeded.seeds, seedYear, {
+          raiseLimits: options?.confirmRaise === true,
+          raised,
+        });
         if (refusal) throw new RateRefused(refusal);
       }
 
@@ -629,6 +828,10 @@ export async function updateStaff(
             .join('; '),
         };
       }
+
+      // Every ceiling that moved — a typed ставка above it, or a kept ставка that
+      // no longer fitted after a kind change. Nothing else writes it down.
+      if (raised.length > 0) changes.raisedLimits = { from: null, to: describeRaises(raised) };
 
       // **Re-saving a form without touching anything leaves no entry at all**,
       // ADMIN included (owner, 2026-09-21: «what was the change for her?» over a
@@ -658,6 +861,8 @@ export async function updateStaff(
     // A refused ставка is the person doing what the rules forbid, not a defect:
     // it carries its own sentence and must not be logged as a stack.
     if (e instanceof RateRefused) return { error: e.message };
+    // Rolled back whole. Ask, and let the form send the same save again.
+    if (e instanceof LimitRaiseNeeded) return { confirmRaise: e.raises };
     dbError = parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'staff.updateStaff', {
       userId: session.user.id,
     });
