@@ -9,7 +9,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { logWarning } from '@/lib/log';
 import { USER_EDITABLE_STAFF_FIELDS } from '@/lib/permissions';
-import { ACADEMIC_EDITABLE_FIELDS } from '@/lib/staff/editable-fields';
+import { ACADEMIC_EDITABLE_FIELDS, RESEARCH_PROFILE_FIELDS } from '@/lib/staff/editable-fields';
 import {
   ACADEMIC_STORED_SELECT,
   academicAuditValue,
@@ -73,14 +73,15 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
     if (USER_EDITABLE_STAFF_FIELDS.has(key) && sent.has(key)) updateData[key] = value;
   }
 
-  // «Академічна інформація» and «Освіта» are an НПП's to fill in. The form only
-  // draws them for one; the server says the same, so a hand-made request from
-  // an administrative account cannot give itself a посада or a ступінь.
-  const academicSent = ACADEMIC_EDITABLE_FIELDS.some((key) => key in updateData);
-  if (academicSent) {
+  // «Академічна інформація», «Освіта» and the research profiles are an НПП's to
+  // fill in; an administrative account owns its phone and nothing else. The form
+  // only draws them for an НПП; the server says the same, so a hand-made request
+  // cannot give itself a посада, a ступінь or a Scopus count.
+  const nppOnly: string[] = [...ACADEMIC_EDITABLE_FIELDS, ...RESEARCH_PROFILE_FIELDS];
+  if (nppOnly.some((key) => key in updateData)) {
     const self = await db.staff.findUnique({ where: { id: staffId }, select: { isNpp: true } });
     if (!self?.isNpp) {
-      for (const key of ACADEMIC_EDITABLE_FIELDS) delete updateData[key];
+      for (const key of nppOnly) delete updateData[key];
     }
   }
 

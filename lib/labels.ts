@@ -101,6 +101,7 @@ export const FIELD_LABELS: Record<string, string> = {
   academicTitle: 'Вчене звання',
   honoraryTitles: 'Почесні звання',
   adminPositions: 'Адміністративні посади',
+  degrees: 'Наукові ступені',
   candidateDegree: 'Науковий ступінь: кандидат / PhD',
   candidateSpecialty: 'Спеціальність за дипломом (кандидат / PhD)',
   candidateDefenceDate: 'Дата захисту (кандидат / PhD)',

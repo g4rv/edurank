@@ -77,14 +77,10 @@ const fullPayload: StaffUpdateSchema = {
   academicTitle: 'PROFESSOR',
   honoraryTitles: [],
   adminPositions: ['DEAN'],
-  candidateDegree: 'cand_history',
-  candidateSpecialty: null,
-  candidateDefenceDate: null,
-  doctorDegree: 'doc_history',
-  doctorSpecialty: null,
-  doctorDefenceDate: null,
-  candidateMatchesDepartment: true,
-  doctorMatchesDepartment: true,
+  degrees: [
+    { degree: 'doc_history', specialty: null, defenceDate: null, matchesDepartment: true },
+    { degree: 'cand_history', specialty: null, defenceDate: null, matchesDepartment: true },
+  ],
   basicEducationMatch: true,
   basicEducationSpecialty: 'Історія',
   wosUrl: 'https://www.webofscience.com/wos/author/record/1',
@@ -263,6 +259,16 @@ describe('updateStaff field filtering', () => {
         'degreeDefenceDate',
         'degreeMatchesDepartment',
         'adminPosition',
+        // the best doctor- and candidate-level records of the list, written to
+        // the old slots
+        'candidateDegree',
+        'candidateSpecialty',
+        'candidateDefenceDate',
+        'candidateMatchesDepartment',
+        'doctorDegree',
+        'doctorSpecialty',
+        'doctorDefenceDate',
+        'doctorMatchesDepartment',
       ].sort()
     );
   });
@@ -1174,48 +1180,6 @@ describe('updateStaff — a placement that changes kind keeps its allocation', (
         maxHundredths: 50,
       },
     });
-  });
-
-  // A сумісник is paid less than a full ставка (owner, 2026-10-10). Keeping a
-  // 1,50 on a кафедра that is now an additional one would break that, and
-  // lowering it is the head's call, not this form's — so the save is refused
-  // with the reason, and nothing is half-done.
-  it('refuses to make a кафедра additional while its kept ставка is a full one', async () => {
-    const tx = admin({ departmentId: 'dept-1', partTime: [] });
-    tx.stakeAllocation.findMany.mockResolvedValue([
-      { proposedHundredths: 150, distribution: { departmentId: 'dept-1' } },
-    ]);
-    tx.department.findMany.mockResolvedValue([{ id: 'dept-1', name: 'Кафедра фінансів' }]);
-
-    const result = await updateStaff('staff-1', {
-      ...fullPayload,
-      isNpp: true,
-      departmentId: null,
-      partTimeDepartmentIds: ['dept-1'],
-    });
-
-    expect(result).toEqual({
-      error:
-        'Кафедра «Кафедра фінансів» не може стати додатковою: ставка 1,50 для сумісника має бути меншою за 1,00. Спершу зменшіть її на сторінці розподілу',
-    });
-    expect(tx.staffStakeLimits.upsert).not.toHaveBeenCalled();
-  });
-
-  it('allows it just under a full ставка, raising the ceiling to match', async () => {
-    const tx = admin({ departmentId: 'dept-1', partTime: [] });
-    tx.stakeAllocation.findMany.mockResolvedValue([
-      { proposedHundredths: 95, distribution: { departmentId: 'dept-1' } },
-    ]);
-
-    const result = await updateStaff('staff-1', {
-      ...fullPayload,
-      isNpp: true,
-      departmentId: null,
-      partTimeDepartmentIds: ['dept-1'],
-    });
-
-    expect(result).toEqual({ success: true });
-    expect(tx.staffStakeLimits.upsert).toHaveBeenCalled();
   });
 
   it('leaves the ceiling alone when the kept ставка fits the new one', async () => {

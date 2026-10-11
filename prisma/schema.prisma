@@ -328,6 +328,16 @@ model Staff {
   doctorDefenceDate          DateTime?
   doctorMatchesDepartment    Boolean?
 
+  /// Дипломи про науковий ступінь — a LIST (owner, 2026-10-10): some people hold
+  /// more than two. `[{ degree, specialty, defenceDate: "YYYY-MM-DD", matchesDepartment }]`,
+  /// `degree` a key of CANDIDATE_DEGREES / DOCTOR_DEGREES. This is what people
+  /// edit; the six `candidate*` / `doctor*` columns above are now its MIRRORS —
+  /// the best doctor-level and the best candidate-level record — written on
+  /// every save (`deriveDegreeColumns`), so everything that reads them (the
+  /// rating, the lists, the filters) is untouched. A JSON column, not a table:
+  /// nothing queries inside the list.
+  degrees Json @default("[]")
+
   // Характеристика п.5 — «Захист дисертації на здобуття наукового ступеня».
   // ONE date, for the highest degree only (decided 2026-08-07), not one per
   // ступінь. That is enough for the licence's «within the last five years» test:

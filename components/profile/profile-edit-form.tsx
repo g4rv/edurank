@@ -327,7 +327,8 @@ export function ProfileEditForm({
             The same places as on the record page — academic info and «Освіта»
             left, contacts and research links right — so a person finds a field
             where they just read it. Somebody who is not an НПП has no academic
-            cards, and keeps Контакти | Наукові профілі. */}
+            cards and no research profiles either (owner, 2026-10-10): their
+            page is Контакти alone, and the photo when it arrives. */}
         <div className="flex flex-col items-start gap-4 lg:flex-row">
           <div className="flex w-full flex-1 flex-col gap-4">
             {isNpp ? (
@@ -352,7 +353,7 @@ export function ProfileEditForm({
           </div>
           <div className="flex w-full flex-1 flex-col gap-4">
             {isNpp && contactsCard}
-            {profilesCard}
+            {isNpp && profilesCard}
           </div>
         </div>
       </form>

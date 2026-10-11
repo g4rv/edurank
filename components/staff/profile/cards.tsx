@@ -1,6 +1,13 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
-import { HONORARY_TITLES, degreeName, optionLabel } from '@/lib/staff/academic-options';
+import {
+  HONORARY_TITLES,
+  anyDegreeName,
+  degreeLevel,
+  optionLabel,
+} from '@/lib/staff/academic-options';
+import { Check } from 'lucide-react';
+import { degreesOf } from '@/lib/staff/academic';
 import { formatStake } from '@/lib/stake/units';
 import { OrcidField } from '@/components/profile/orcid-field';
 import { Card } from '@/components/aurora/ui/card';
@@ -63,19 +70,13 @@ export const ACADEMIC_LABELS = {
 
 /** «Освіта» (owner, 2026-10-06), in render order — the shell maps these too */
 export const EDUCATION_LABELS = {
-  candidate: 'Кандидат наук / PhD',
-  candidateSpecialty: 'Спеціальність за дипломом',
-  candidateDefence: 'Дата захисту',
-  doctor: 'Доктор наук',
-  doctorSpecialty: 'Спеціальність за дипломом',
-  doctorDefence: 'Дата захисту',
-  degreeMatch: 'Відповідає спеціальності кафедри',
+  degree: 'Науковий ступінь',
   educationMatch: 'Базова освіта відповідає кафедрі',
   specialty: 'Спеціальність базової освіти',
 } as const;
 
-/** A defence date, in UTC like the column is written — local time would show the day before */
-const defence = (d: Date | null) => (d ? d.toLocaleDateString('uk-UA', { timeZone: 'UTC' }) : null);
+/** «15.03.2021» from the stored «2021-03-15» — a plain day, so no time zone can move it */
+const uaDay = (iso: string) => iso.split('-').reverse().join('.');
 // «Так» or nothing (owner, 2026-10-06): the forms ask with a checkbox, and an
 // unticked box means «not confirmed», not «ні».
 const yesNo = (v: boolean | null) => (v ? 'Так' : null);
@@ -131,41 +132,19 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
 }
 
 /**
- * «Освіта» (owner, 2026-10-06): both degrees with their own speciality and
- * defence date, and the basic education the rating asks about.
+ * «Освіта» (owner, 2026-10-06): the basic education the rating asks about, and
+ * every diploma the person holds, one card each (owner, 2026-10-10: a list of
+ * cards, not two slots and not a table). A card reads «ступінь» over
+ * «спеціальність – дата – відповідає кафедрі ✓»; a blank part is left out.
  */
 export function EducationCard({ staff, showEmpty = true }: CardProps) {
   if (!staff.isNpp) return null;
 
-  // Базова освіта on top, then the two degrees side by side, доктор наук first
-  // — the edit form's order (owner, 2026-10-06). Each degree is its own column,
-  // so on a phone one reads through before the other begins, and carries its
-  // own «відповідає кафедрі»: rating 1.3 pays it for the degree it pays for.
-  const degree = (
-    label: string,
-    value: string | null,
-    specialty: string | null,
-    date: Date | null,
-    matches: boolean | null
-  ) => (
-    <Fields>
-      <MaybeField label={label} value={value} showEmpty={showEmpty} />
-      <MaybeField
-        label={EDUCATION_LABELS.candidateDefence}
-        value={defence(date)}
-        showEmpty={showEmpty}
-      />
-      <MaybeField
-        label={EDUCATION_LABELS.candidateSpecialty}
-        value={specialty}
-        showEmpty={showEmpty}
-      />
-      <MaybeField
-        label={EDUCATION_LABELS.degreeMatch}
-        value={yesNo(matches)}
-        showEmpty={showEmpty}
-      />
-    </Fields>
+  // Доктор first, as the edit form's old two columns were — a stable sort, so
+  // within a level the person's own order stands.
+  const records = degreesOf(staff as unknown as Record<string, unknown>).sort(
+    (a, b) =>
+      Number(degreeLevel(b.degree) === 'doctor') - Number(degreeLevel(a.degree) === 'doctor')
   );
 
   return (
@@ -183,22 +162,38 @@ export function EducationCard({ staff, showEmpty = true }: CardProps) {
             showEmpty={showEmpty}
           />
         </Fields>
-        <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-          {degree(
-            EDUCATION_LABELS.doctor,
-            staff.doctorDegree ? degreeName('doctor', staff.doctorDegree) : null,
-            staff.doctorSpecialty,
-            staff.doctorDefenceDate,
-            staff.doctorMatchesDepartment
-          )}
-          {degree(
-            EDUCATION_LABELS.candidate,
-            staff.candidateDegree ? degreeName('candidate', staff.candidateDegree) : null,
-            staff.candidateSpecialty,
-            staff.candidateDefenceDate,
-            staff.candidateMatchesDepartment
-          )}
-        </div>
+        {records.length > 0 ? (
+          <div className="space-y-3">
+            {records.map((d, i) => {
+              const detail = [d.specialty, d.defenceDate ? uaDay(d.defenceDate) : null].filter(
+                Boolean
+              );
+              return (
+                <div key={i} className="rounded-xl border bg-muted/30 px-4 py-3">
+                  <p className="font-medium">{anyDegreeName(d.degree)}</p>
+                  {(detail.length > 0 || d.matchesDepartment) && (
+                    <p className="mt-0.5 text-sm text-foreground-soft">
+                      {detail.join(' – ')}
+                      {detail.length > 0 && d.matchesDepartment && ' – '}
+                      {d.matchesDepartment && (
+                        <span className="inline-flex items-center gap-1">
+                          відповідає кафедрі
+                          <Check className="size-3.5 text-success" aria-hidden />
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          showEmpty && (
+            <Fields>
+              <MaybeField label={EDUCATION_LABELS.degree} value={null} showEmpty />
+            </Fields>
+          )
+        )}
       </div>
     </Card>
   );
@@ -208,14 +203,6 @@ export function EducationCard({ staff, showEmpty = true }: CardProps) {
 EducationCard.Shell = function EducationCardShell({ isNpp = true }: { isNpp?: boolean }) {
   if (!isNpp) return null;
   const shimmer = (label: string) => <Field label={label} value={<ValueShimmer />} />;
-  const degree = (label: string) => (
-    <Fields>
-      {shimmer(label)}
-      {shimmer(EDUCATION_LABELS.candidateDefence)}
-      {shimmer(EDUCATION_LABELS.candidateSpecialty)}
-      {shimmer(EDUCATION_LABELS.degreeMatch)}
-    </Fields>
-  );
   return (
     <Card title={CARD_TITLES.education}>
       <div className="space-y-5">
@@ -223,9 +210,8 @@ EducationCard.Shell = function EducationCardShell({ isNpp = true }: { isNpp?: bo
           {shimmer(EDUCATION_LABELS.specialty)}
           {shimmer(EDUCATION_LABELS.educationMatch)}
         </Fields>
-        <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-          {degree(EDUCATION_LABELS.doctor)}
-          {degree(EDUCATION_LABELS.candidate)}
+        <div className="rounded-xl border bg-muted/30 px-4 py-3">
+          <ValueShimmer />
         </div>
       </div>
     </Card>

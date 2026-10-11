@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   academicAuditValue,
   adminPostProblem,
+  bestDegree,
+  degreesOf,
+  deriveDegreeColumns,
   effectiveAdminPosition,
   heldAdminPositions,
   legacyMirrors,
@@ -257,5 +260,157 @@ describe('academicAuditValue — what the audit log prints', () => {
 
   it('passes every other value through', () => {
     expect(academicAuditValue('phone', '+380671234567')).toBe('+380671234567');
+  });
+});
+
+// ── Diplomas as a list (owner, 2026-10-10) ────────────────────────────────────
+
+const rec = (
+  degree: string,
+  defenceDate: string | null,
+  matchesDepartment: boolean | null = null,
+  specialty: string | null = null
+) => ({ degree, defenceDate, matchesDepartment, specialty });
+
+describe('bestDegree — which diploma a level is judged by', () => {
+  it('prefers the one that matches the кафедра, whatever its date', () => {
+    const best = bestDegree([
+      rec('cand_history', '2020-01-01', false),
+      rec('phd', '2010-01-01', true),
+    ]);
+    expect(best?.degree).toBe('phd');
+  });
+
+  it('otherwise takes the most recent defence, a dateless one being the oldest', () => {
+    expect(
+      bestDegree([
+        rec('cand_law', null),
+        rec('cand_history', '2012-05-01'),
+        rec('phd', '2018-05-01'),
+      ])?.degree
+    ).toBe('phd');
+  });
+
+  it('keeps the first listed on a full tie, and is null for an empty list', () => {
+    expect(bestDegree([rec('cand_law', null), rec('phd', null)])?.degree).toBe('cand_law');
+    expect(bestDegree([])).toBeNull();
+  });
+});
+
+describe('deriveDegreeColumns — the old slots, written from the list', () => {
+  it('fills the doctor and candidate slots from the best record of each level', () => {
+    const cols = deriveDegreeColumns([
+      rec('cand_history', '2005-06-01', false, 'Історія'),
+      rec('phd', '2015-06-01', null, 'Право'),
+      rec('doc_history', '2020-03-01', true, 'Історія'),
+    ]);
+    expect(cols.doctorDegree).toBe('doc_history');
+    expect(cols.doctorDefenceDate).toEqual(new Date(Date.UTC(2020, 2, 1)));
+    expect(cols.doctorMatchesDepartment).toBe(true);
+    expect(cols.candidateDegree).toBe('phd');
+    expect(cols.candidateSpecialty).toBe('Право');
+  });
+
+  it('empties a slot the list has no record for', () => {
+    expect(deriveDegreeColumns([rec('phd', null)]).doctorDegree).toBeNull();
+    expect(deriveDegreeColumns([]).candidateDegree).toBeNull();
+  });
+
+  it('counts a branch-less placeholder at its level', () => {
+    expect(deriveDegreeColumns([rec('doctor_unspecified', null)]).doctorDegree).toBe(
+      'doctor_unspecified'
+    );
+  });
+});
+
+describe('mirrorsForUpdate — with the list', () => {
+  const STORED = {
+    position: null,
+    academicTitle: null,
+    candidateDegree: null,
+    candidateDefenceDate: null,
+    candidateMatchesDepartment: null,
+    doctorDegree: null,
+    doctorDefenceDate: null,
+    doctorMatchesDepartment: null,
+    adminPositions: [],
+  } as const;
+
+  it('writes the six columns and the rating’s old fields from it', () => {
+    const out = mirrorsForUpdate(STORED, {
+      degrees: [rec('phd', '2015-06-01', true), rec('doc_law', '2021-02-02', false)],
+    });
+    expect(out).toMatchObject({
+      candidateDegree: 'phd',
+      doctorDegree: 'doc_law',
+      scientificDegree: 'DOCTOR',
+      // the highest level's best record answers 1.3's «за спеціальністю кафедри»
+      degreeMatchesDepartment: false,
+    });
+  });
+
+  // п.5 asks for a defence in the last five years — of ANY diploma, not only the
+  // two the slots keep.
+  it('takes the newest defence of ALL the diplomas for п.5', () => {
+    const out = mirrorsForUpdate(STORED, {
+      degrees: [
+        rec('phd', '2024-06-01', false),
+        rec('phd', '2010-06-01', true), // the slot keeps this one (it matches)…
+      ],
+    });
+    expect(out?.candidateDegree).toBe('phd');
+    expect(out?.candidateDefenceDate).toEqual(new Date(Date.UTC(2010, 5, 1)));
+    // …yet the newest defence is the 2024 one
+    expect(out?.degreeDefenceDate).toEqual(new Date(Date.UTC(2024, 5, 1)));
+  });
+
+  it('empties every mirror when the list is emptied', () => {
+    const out = mirrorsForUpdate({ ...STORED, candidateDegree: 'phd' }, { degrees: [] });
+    expect(out).toMatchObject({
+      candidateDegree: null,
+      scientificDegree: null,
+      degreeDefenceDate: null,
+    });
+  });
+});
+
+describe('degreesOf — the list, or the old slots standing in for it', () => {
+  it('uses the list when there is one', () => {
+    expect(degreesOf({ degrees: [rec('phd', '2015-06-01')], doctorDegree: 'doc_law' })).toEqual([
+      rec('phd', '2015-06-01'),
+    ]);
+  });
+
+  it('builds it from the slots for a row the list never reached', () => {
+    expect(
+      degreesOf({
+        degrees: [],
+        doctorDegree: 'doc_law',
+        doctorDefenceDate: new Date(Date.UTC(2021, 1, 2)),
+        candidateDegree: 'phd',
+      })
+    ).toEqual([
+      { degree: 'doc_law', specialty: null, defenceDate: '2021-02-02', matchesDepartment: null },
+      { degree: 'phd', specialty: null, defenceDate: null, matchesDepartment: null },
+    ]);
+  });
+
+  it('survives junk in the column', () => {
+    expect(degreesOf({ degrees: 'oops' })).toEqual([]);
+    expect(degreesOf({ degrees: [null, 3, { degree: '' }] })).toEqual([]);
+  });
+});
+
+describe('academicAuditValue — the list', () => {
+  it('prints the diplomas in words', () => {
+    expect(
+      academicAuditValue('degrees', [
+        rec('phd', '2015-06-01', true, 'Історія'),
+        rec('doc_law', null),
+      ])
+    ).toBe(
+      'Доктор філософії (PhD) · Історія · 01.06.2015 · відповідає кафедрі; Доктор юридичних наук'
+    );
+    expect(academicAuditValue('degrees', [])).toBeNull();
   });
 });

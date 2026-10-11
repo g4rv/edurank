@@ -8,13 +8,7 @@ import {
   WOS_HOSTS,
 } from '@/lib/link-hosts';
 import { isValidOrcid } from '@/lib/orcid';
-import {
-  CANDIDATE_DEGREES,
-  DOCTOR_DEGREES,
-  HONORARY_TITLES,
-  UNSPECIFIED_CANDIDATE,
-  UNSPECIFIED_DOCTOR,
-} from '@/lib/staff/academic-options';
+import { HONORARY_TITLES, degreeLevel } from '@/lib/staff/academic-options';
 import { adminPostProblem, type AdminPostProblem } from '@/lib/staff/academic';
 
 const str = (v: unknown) =>
@@ -90,16 +84,6 @@ const defenceDate = z.preprocess(
     .nullable()
 );
 
-/** One of a list's keys, or nothing */
-const oneOf = (list: readonly { value: string }[], error: string) =>
-  z.preprocess(
-    str,
-    z
-      .string()
-      .refine((v) => list.some((o) => o.value === v), { error })
-      .nullable()
-  );
-
 /** A badge list: keys of the list, each once, in the order they were added */
 const badges = <T extends string>(item: z.ZodType<T>) =>
   z
@@ -140,6 +124,43 @@ const specialty = z.preprocess(
 );
 
 /**
+ * The diplomas, as a list (owner, 2026-10-10): any number, each with its exact
+ * ступінь, speciality, defence date and «відповідає кафедрі».
+ *
+ * The «unspecified» placeholder is accepted (`degreeLevel` knows it) though it
+ * is no option: a form re-sends what is stored, and refusing it would block
+ * every save — a phone number, by an admin who cannot know the branch — until
+ * somebody chose the degree.
+ *
+ * A row nobody touched (the form always shows at least one) is dropped; a row
+ * with a speciality or a date but no ступінь is an error, not a silent drop.
+ */
+const degreeRecord = z
+  .object({
+    degree: z.preprocess(
+      str,
+      z
+        .string()
+        .refine((v) => degreeLevel(v) !== null, { error: 'Оберіть ступінь зі списку' })
+        .nullable()
+    ),
+    specialty,
+    defenceDate: defenceDate.transform((d) => (d ? d.toISOString().slice(0, 10) : null)),
+    matchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+  })
+  .superRefine((r, ctx) => {
+    if (!r.degree && (r.specialty || r.defenceDate || r.matchesDepartment !== null)) {
+      ctx.addIssue({ code: 'custom', message: 'Оберіть ступінь', path: ['degree'] });
+    }
+  });
+
+const degrees = z
+  .array(degreeRecord)
+  .max(20, { error: 'Забагато дипломів' })
+  .default([])
+  .transform((list) => list.filter((r) => r.degree !== null));
+
+/**
  * «Академічна інформація» and «Освіта» (owner, 2026-10-06) — the fields an НПП
  * now fills in about themselves, and ADMIN and granted editors about anybody.
  * Shared by `staffUpdateSchema` and `ownProfileSchema`, so the two forms can
@@ -169,23 +190,7 @@ export const academicFields = {
     const problem = adminPostProblem(list);
     if (problem) ctx.addIssue({ code: 'custom', message: ADMIN_POST_PROBLEM_MESSAGES[problem] });
   }),
-  // The placeholder is no option (`UNSPECIFIED_CANDIDATE`), but a form re-sends
-  // what is stored: refusing it would block every save — a phone number, by an
-  // admin who cannot know the branch — until somebody chose the degree.
-  candidateDegree: oneOf(
-    [...CANDIDATE_DEGREES, { value: UNSPECIFIED_CANDIDATE }],
-    'Оберіть ступінь зі списку'
-  ),
-  candidateSpecialty: specialty,
-  candidateDefenceDate: defenceDate,
-  candidateMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
-  doctorDegree: oneOf(
-    [...DOCTOR_DEGREES, { value: UNSPECIFIED_DOCTOR }],
-    'Оберіть ступінь зі списку'
-  ),
-  doctorSpecialty: specialty,
-  doctorDefenceDate: defenceDate,
-  doctorMatchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+  degrees,
   basicEducationMatch: z.preprocess(boolStr, z.boolean().nullable()),
   basicEducationSpecialty: specialty,
 };

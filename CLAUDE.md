@@ -73,6 +73,22 @@ save never rewrites it. Rows saved before 2026-10-08 may still hold capitals —
 `lower(email)` unique index yet**: it needs every existing case-duplicate gone
 first, so it is a follow-up migration.
 
+**Diplomas are a list** (owner, 2026-10-10). `Staff.degrees` is JSON — any
+number of `{ degree, specialty, defenceDate, matchesDepartment }`, edited with
+«Додати освіту» — and the six `candidate*` / `doctor*` columns are its
+**mirrors**, written on every save (`mirrorsForUpdate` → `deriveDegreeColumns`):
+the best doctor-level and the best candidate-level record, a record marked as
+matching the кафедра first, otherwise the most recent. The rating, the lists and
+the filters keep reading the columns, so no rating point moves; п.5's
+`degreeDefenceDate` is the newest defence of ANY diploma. Nobody writes the six
+columns directly — the field grant is `degrees`. «Базова освіта» stays its own
+two fields.
+
+**An administrative (non-НПП) account edits its phone and nothing else** on
+`/profile/edit` (owner, 2026-10-10; the photo comes later). The research
+profiles and the academic fields are dropped on the server too
+(`RESEARCH_PROFILE_FIELDS`, `ACADEMIC_EDITABLE_FIELDS`).
+
 Consequences to keep in mind:
 
 - An archived account **cannot sign in** (`authorize` in `lib/auth.ts`), and

@@ -47,14 +47,14 @@ const ACADEMIC = {
   academicTitle: 'DOCENT',
   honoraryTitles: ['merited_teacher'],
   adminPositions: ['DEAN'],
-  candidateDegree: 'cand_history',
-  candidateSpecialty: 'Історія',
-  candidateDefenceDate: '2015-06-01',
-  doctorDegree: null,
-  doctorSpecialty: null,
-  doctorDefenceDate: null,
-  candidateMatchesDepartment: true,
-  doctorMatchesDepartment: null,
+  degrees: [
+    {
+      degree: 'cand_history',
+      specialty: 'Історія',
+      defenceDate: '2015-06-01',
+      matchesDepartment: true,
+    },
+  ],
   basicEducationMatch: true,
   basicEducationSpecialty: 'Історія',
 };
@@ -173,7 +173,10 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
       position: 'DOCENT',
       honoraryTitles: ['merited_teacher'],
       adminPositions: ['DEAN'],
+      degrees: [expect.objectContaining({ degree: 'cand_history' })],
+      // the list's best candidate-level record, written to the old slot
       candidateDegree: 'cand_history',
+      candidateSpecialty: 'Історія',
       // the mirrors rating 1.2 / 1.3 / 1.6 read
       academicRank: 'DOCENT',
       scientificDegree: 'CANDIDATE',
@@ -212,6 +215,17 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     expect(fields).not.toContain('academicRank');
   });
 
+  // Administrative staff keep their phone and nothing else (owner, 2026-10-10).
+  it('drops the research profiles for somebody who is not an НПП', async () => {
+    (db.staff.findUnique as Mock).mockResolvedValueOnce({ isNpp: false });
+    const tx = mockTx();
+    await updateOwnProfile({
+      ...payload,
+      scopusCitationCount: 7,
+    } as unknown as OwnProfileSchema);
+    expect(writtenFields(tx)).toEqual(['phone']);
+  });
+
   // A save that does not carry the academic fields (an old open tab, the
   // contacts-only form) must not wipe them with the schema's empty defaults.
   it('leaves academic fields alone when the save did not send them', async () => {
@@ -232,13 +246,18 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
       patronymic: 'Петрович',
       honoraryTitles: [],
       adminPositions: [],
-      candidateDegree: null,
+      degrees: [],
       position: null,
     });
     await updateOwnProfile({ ...payload, ...ACADEMIC } as unknown as OwnProfileSchema);
     const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
     expect(changes.honoraryTitles).toEqual({ from: null, to: 'Заслужений вчитель' });
-    expect(changes.candidateDegree).toEqual({ from: null, to: 'Кандидат історичних наук' });
+    expect(changes.degrees).toEqual({
+      from: null,
+      to: 'Кандидат історичних наук · Історія · 01.06.2015 · відповідає кафедрі',
+    });
+    // The six old columns are bookkeeping too.
+    expect(changes.candidateDegree).toBeUndefined();
     expect(changes.position).toEqual({ from: null, to: 'Доцент' });
     // The mirrors are bookkeeping, not something the person changed.
     expect(changes.academicRank).toBeUndefined();
