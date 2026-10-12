@@ -7,6 +7,22 @@ import { diffChanges } from '@/lib/audit';
 import { requireAdmin } from '@/lib/permissions';
 import { parseDbError } from '@/lib/db-error';
 
+/** Every on/off grant a відділ carries; each one is audited when it moves. */
+const SWITCHES = [
+  'canModerateRating',
+  'canOverseeScience',
+  'canInviteStaff',
+  'canSetPasswords',
+  'canEndSessions',
+] as const;
+
+function switchesOf(source: Partial<Record<(typeof SWITCHES)[number], boolean | null>>) {
+  return Object.fromEntries(SWITCHES.map((k) => [k, source[k] ?? null])) as Record<
+    (typeof SWITCHES)[number],
+    boolean | null
+  >;
+}
+
 export type DivisionActionState = { error: string } | { redirectTo: string };
 
 /**
@@ -41,6 +57,9 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
           name: parsed.data.name,
           canModerateRating: parsed.data.canModerateRating,
           canOverseeScience: parsed.data.canOverseeScience,
+          canInviteStaff: parsed.data.canInviteStaff,
+          canSetPasswords: parsed.data.canSetPasswords,
+          canEndSessions: parsed.data.canEndSessions,
         },
         select: { id: true },
       });
@@ -51,14 +70,7 @@ export async function createDivision(data: DivisionSchema): Promise<DivisionActi
           entityId: created.id,
           label: parsed.data.name,
           userId: session.user.id,
-          changes: diffChanges(
-            {},
-            {
-              name: parsed.data.name,
-              canModerateRating: parsed.data.canModerateRating,
-              canOverseeScience: parsed.data.canOverseeScience,
-            }
-          ),
+          changes: diffChanges({}, { name: parsed.data.name, ...switchesOf(parsed.data) }),
         },
       });
     });
@@ -94,21 +106,20 @@ export async function updateDivision(
     await db.$transaction(async (tx) => {
       const existing = await tx.division.findUnique({
         where: { id },
-        select: { name: true, canModerateRating: true, canOverseeScience: true },
+        select: {
+          name: true,
+          canModerateRating: true,
+          canOverseeScience: true,
+          canInviteStaff: true,
+          canSetPasswords: true,
+          canEndSessions: true,
+        },
       });
       // Granting or revoking moderation or «Перевірка науки» is a permission change — it has to be
       // as visible in the audit log as a rename is.
       const changes = diffChanges(
-        {
-          name: existing?.name ?? null,
-          canModerateRating: existing?.canModerateRating ?? null,
-          canOverseeScience: existing?.canOverseeScience ?? null,
-        },
-        {
-          name: parsed.data.name,
-          canModerateRating: parsed.data.canModerateRating,
-          canOverseeScience: parsed.data.canOverseeScience,
-        }
+        { name: existing?.name ?? null, ...switchesOf(existing ?? {}) },
+        { name: parsed.data.name, ...switchesOf(parsed.data) }
       );
 
       await tx.division.update({
@@ -117,6 +128,9 @@ export async function updateDivision(
           name: parsed.data.name,
           canModerateRating: parsed.data.canModerateRating,
           canOverseeScience: parsed.data.canOverseeScience,
+          canInviteStaff: parsed.data.canInviteStaff,
+          canSetPasswords: parsed.data.canSetPasswords,
+          canEndSessions: parsed.data.canEndSessions,
         },
       });
       await tx.auditLog.create({

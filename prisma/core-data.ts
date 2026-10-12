@@ -28,6 +28,10 @@ export interface CoreDivision {
   canModerateRating: boolean;
   /** Optional: a prod-core.json written before D43 has no such key. */
   canOverseeScience?: boolean;
+  /** Optional: a file written before 2026-10-12 has none of the three account switches. */
+  canInviteStaff?: boolean;
+  canSetPasswords?: boolean;
+  canEndSessions?: boolean;
 }
 
 export interface CoreFaculty {

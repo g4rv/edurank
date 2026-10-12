@@ -30,6 +30,9 @@ function mockTx() {
         name: 'ННВ',
         canModerateRating: true,
         canOverseeScience: false,
+        canInviteStaff: false,
+        canSetPasswords: false,
+        canEndSessions: false,
       }),
       update: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
@@ -54,6 +57,9 @@ describe('division actions authorization', () => {
         name: 'Новий відділ',
         canModerateRating: false,
         canOverseeScience: false,
+        canInviteStaff: false,
+        canSetPasswords: false,
+        canEndSessions: false,
       })
     ).toEqual({
       error: 'Недостатньо прав',
@@ -74,6 +80,9 @@ describe('division actions authorization', () => {
         name: 'Новий відділ',
         canModerateRating: false,
         canOverseeScience: false,
+        canInviteStaff: false,
+        canSetPasswords: false,
+        canEndSessions: false,
       })
     ).toEqual({
       redirectTo: '/divisions',
@@ -121,6 +130,9 @@ describe('«Перевірка науки» on a division', () => {
       name: 'Новий відділ',
       canModerateRating: false,
       canOverseeScience: true,
+      canInviteStaff: false,
+      canSetPasswords: false,
+      canEndSessions: false,
     });
     expect(tx.division.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ canOverseeScience: true }) })
@@ -133,6 +145,9 @@ describe('«Перевірка науки» on a division', () => {
       name: 'ННВ',
       canModerateRating: true,
       canOverseeScience: true,
+      canInviteStaff: false,
+      canSetPasswords: false,
+      canEndSessions: false,
     });
     expect(tx.division.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ canOverseeScience: true }) })
@@ -140,5 +155,53 @@ describe('«Перевірка науки» on a division', () => {
     const { changes } = tx.auditLog.create.mock.calls[0][0].data;
     expect(changes).toHaveProperty('canOverseeScience');
     expect(changes).not.toHaveProperty('canModerateRating');
+  });
+});
+
+// The three account switches are permission changes too — written and audited
+// exactly like the two above.
+describe('account switches on a division', () => {
+  beforeEach(() => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+  });
+
+  it('writes and audits the three account switches', async () => {
+    const tx = mockTx();
+    await updateDivision('div-1', {
+      name: 'ННВ',
+      canModerateRating: true,
+      canOverseeScience: false,
+      canInviteStaff: true,
+      canSetPasswords: true,
+      canEndSessions: false,
+    });
+    expect(tx.division.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          canInviteStaff: true,
+          canSetPasswords: true,
+          canEndSessions: false,
+        }),
+      })
+    );
+    const { changes } = tx.auditLog.create.mock.calls[0][0].data;
+    expect(changes).toHaveProperty('canInviteStaff');
+    expect(changes).toHaveProperty('canSetPasswords');
+    expect(changes).not.toHaveProperty('canEndSessions');
+  });
+
+  it('writes them when a division is created', async () => {
+    const tx = mockTx();
+    await createDivision({
+      name: 'Новий відділ',
+      canModerateRating: false,
+      canOverseeScience: false,
+      canInviteStaff: false,
+      canSetPasswords: false,
+      canEndSessions: true,
+    });
+    expect(tx.division.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ canEndSessions: true }) })
+    );
   });
 });

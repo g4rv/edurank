@@ -222,6 +222,14 @@ model Division {
   // oversees and needs no row here.
   canOverseeScience Boolean @default(false)
 
+  // Account actions ADMIN shares with this division's editors. Each applies to
+  // USER records only (canMutateStaffRecord) and is read by
+  // `accountGrantsFor` in lib/permissions.ts. Unlocking a login, changing a
+  // role and bulk invites stay ADMIN-only.
+  canInviteStaff  Boolean @default(false) // send / re-send an invitation
+  canSetPasswords Boolean @default(false) // set a password, and reset one
+  canEndSessions  Boolean @default(false) // «Завершити всі сесії»
+
   staff             Staff[]
   fieldPermissions  DivisionFieldPermission[]
   entityPermissions DivisionEntityPermission[]

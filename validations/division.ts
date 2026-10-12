@@ -8,6 +8,10 @@ export const divisionSchema = z.object({
   // «Перевірка науки» (D43) — grants this division's editors наукова робота
   // oversight. ADMIN-only to set, like everything else about a division.
   canOverseeScience: z.boolean().default(false),
+  // Account actions shared with this division's editors (ADMIN-only to set).
+  canInviteStaff: z.boolean().default(false),
+  canSetPasswords: z.boolean().default(false),
+  canEndSessions: z.boolean().default(false),
 });
 
 export type DivisionSchema = z.infer<typeof divisionSchema>;
