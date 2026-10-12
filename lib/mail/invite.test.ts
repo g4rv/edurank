@@ -8,9 +8,11 @@ vi.mock('@/lib/activation', async (importOriginal) => {
   };
 });
 vi.mock('@/lib/mail/mailer', () => ({ sendMail: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('@/lib/mail/allowance', () => ({ recordMailSent: vi.fn().mockResolvedValue(undefined) }));
 
 import { storeActivationToken } from '@/lib/activation';
 import { sendMail } from '@/lib/mail/mailer';
+import { recordMailSent } from '@/lib/mail/allowance';
 import { issueAndEmailLink, staffFullName } from './invite';
 
 const mockStore = storeActivationToken as unknown as Mock;
@@ -76,6 +78,19 @@ describe('issueAndEmailLink', () => {
     const [welcome] = mockSendMail.mock.calls[0];
 
     expect(invite.subject).not.toBe(welcome.subject);
+  });
+});
+
+describe('issueAndEmailLink — letter allowance', () => {
+  it('records the letter only after the mail server accepted it', async () => {
+    await issueAndEmailLink(staff, 'reset');
+    expect(recordMailSent).toHaveBeenCalledWith('staff-1', 'reset');
+  });
+
+  it('records nothing when the send fails, so a refused letter never uses one of the three', async () => {
+    mockSendMail.mockRejectedValue(new Error('SMTP down'));
+    await expect(issueAndEmailLink(staff, 'invite')).rejects.toThrow('SMTP down');
+    expect(recordMailSent).not.toHaveBeenCalled();
   });
 });
 

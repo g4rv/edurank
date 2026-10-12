@@ -29,6 +29,11 @@ vi.mock('@/lib/activation', () => ({
   storeActivationToken: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('@/lib/mail/mailer', () => ({ sendMail: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('@/lib/mail/allowance', () => ({
+  mailAllowance: vi.fn().mockResolvedValue({ ok: true }),
+  recordMailSent: vi.fn().mockResolvedValue(undefined),
+  retryMessage: vi.fn(() => 'Лист уже надсилали. Спробуйте після 14:32'),
+}));
 // `parseRateSeeds` and the error classes stay real; only the database half is faked
 vi.mock('@/lib/stake/seed-allocation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/stake/seed-allocation')>()),

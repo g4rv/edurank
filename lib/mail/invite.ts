@@ -4,6 +4,7 @@ import {
   mintActivationToken,
   storeActivationToken,
 } from '@/lib/activation';
+import { recordMailSent } from '@/lib/mail/allowance';
 import { sendMail } from '@/lib/mail/mailer';
 import { inviteEmail, passwordResetEmail } from '@/lib/mail/templates';
 import { validityPhrase } from '@/lib/mail/validity';
@@ -63,4 +64,7 @@ export async function issueAndEmailLink(
   // Only now. A refused message must leave no trace saying it went out, and
   // must not revoke a link the person may still be holding.
   await storeActivationToken(staff.id, minted);
+  // Counted only once the message is away — a refused one must not use up
+  // one of the three letters (see lib/mail/allowance.ts).
+  await recordMailSent(staff.id, kind);
 }
