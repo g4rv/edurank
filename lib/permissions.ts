@@ -152,6 +152,62 @@ export function canMutateStaffRecord(
   return target.role === 'USER';
 }
 
+/**
+ * The account actions ADMIN can share with a division's editors, one switch
+ * each (owner, 2026-10-12). `password` covers setting a password AND resetting
+ * one: whoever may set may reset. Unlocking a login, changing a role and bulk
+ * invites are NOT here — they stay ADMIN's.
+ */
+export type AccountAction = 'invite' | 'password' | 'sessions';
+export type AccountGrants = Record<AccountAction, boolean>;
+
+const ALL_ACCOUNT_ACTIONS: AccountGrants = { invite: true, password: true, sessions: true };
+const NO_ACCOUNT_ACTIONS: AccountGrants = { invite: false, password: false, sessions: false };
+
+/**
+ * Which account actions may this caller take on THIS person?
+ *
+ * ADMIN — all. EDITOR — the switches their division holds, and only on a USER
+ * record: the same «whose record» rule as `canMutateStaffRecord`. Without it,
+ * «set pass» would let an editor set an admin's password and sign in as them.
+ * Everyone else — none; a завідувач or декан sees activation but acts on
+ * nothing.
+ *
+ * One function for the pages (which button to draw) and the actions (which to
+ * allow), so the two cannot disagree.
+ */
+export async function accountGrantsFor(
+  caller: { role: Role; staffId?: string | null },
+  target: { id: string; role: Role }
+): Promise<AccountGrants> {
+  if (caller.role === 'ADMIN') return ALL_ACCOUNT_ACTIONS;
+  if (caller.role !== 'EDITOR' || !caller.staffId) return NO_ACCOUNT_ACTIONS;
+  if (!canMutateStaffRecord(caller, target, { allowSelf: false })) return NO_ACCOUNT_ACTIONS;
+
+  const row = await db.staff.findUnique({
+    where: { id: caller.staffId },
+    select: {
+      division: {
+        select: { canInviteStaff: true, canSetPasswords: true, canEndSessions: true },
+      },
+    },
+  });
+  const division = row?.division;
+  return {
+    invite: division?.canInviteStaff === true,
+    password: division?.canSetPasswords === true,
+    sessions: division?.canEndSessions === true,
+  };
+}
+
+export async function canManageAccount(
+  caller: { role: Role; staffId?: string | null },
+  target: { id: string; role: Role },
+  action: AccountAction
+): Promise<boolean> {
+  return (await accountGrantsFor(caller, target))[action];
+}
+
 /** ADMIN, or an EDITOR belonging to exactly this division (rating direct-entry pages) */
 export async function canActForDivision(
   user: { role: Role; staffId?: string | null },
