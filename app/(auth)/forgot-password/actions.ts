@@ -32,6 +32,7 @@ export async function requestPasswordReset(
       patronymic: true,
       // Decides WHICH letter goes out — see below. Never leaves this function.
       passwordHash: true,
+      archivedAt: true,
     },
     take: 2,
   });
@@ -41,6 +42,16 @@ export async function requestPasswordReset(
   if (ambiguous.length > 0) {
     logWarning('auth.requestPasswordReset', 'two accounts differ only by email case', {
       email: parsed.data.email,
+    });
+    return { success: true };
+  }
+
+  // An archived account cannot sign in, so a letter for it is useless (owner,
+  // 2026-10-12). No send and no allowance read — and the same answer as ever, so
+  // the caller cannot tell it from an unknown address.
+  if (staff?.archivedAt) {
+    logWarning('auth.requestPasswordReset', 'reset requested for an archived account', {
+      entityId: staff.id,
     });
     return { success: true };
   }

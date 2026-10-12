@@ -171,15 +171,20 @@ const NO_ACCOUNT_ACTIONS: AccountGrants = { invite: false, password: false, sess
  * record: the same «whose record» rule as `canMutateStaffRecord`. Without it,
  * «set pass» would let an editor set an admin's password and sign in as them.
  * Everyone else — none; a завідувач or декан sees activation but acts on
- * nothing.
+ * nothing. An ARCHIVED person (`archivedAt` set): none for everyone, ADMIN
+ * included.
  *
  * One function for the pages (which button to draw) and the actions (which to
  * allow), so the two cannot disagree.
  */
 export async function accountGrantsFor(
   caller: { role: Role; staffId?: string | null },
-  target: { id: string; role: Role }
+  target: { id: string; role: Role; archivedAt?: Date | null }
 ): Promise<AccountGrants> {
+  // Owner, 2026-10-12: an archived account cannot sign in, so a letter or a
+  // password for it is useless (and a set password would survive a restore).
+  // Nobody acts on it, ADMIN included — restore the person first.
+  if (target.archivedAt) return NO_ACCOUNT_ACTIONS;
   if (caller.role === 'ADMIN') return ALL_ACCOUNT_ACTIONS;
   if (caller.role !== 'EDITOR' || !caller.staffId) return NO_ACCOUNT_ACTIONS;
   if (!canMutateStaffRecord(caller, target, { allowSelf: false })) return NO_ACCOUNT_ACTIONS;
@@ -202,7 +207,7 @@ export async function accountGrantsFor(
 
 export async function canManageAccount(
   caller: { role: Role; staffId?: string | null },
-  target: { id: string; role: Role },
+  target: { id: string; role: Role; archivedAt?: Date | null },
   action: AccountAction
 ): Promise<boolean> {
   return (await accountGrantsFor(caller, target))[action];

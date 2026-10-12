@@ -36,6 +36,7 @@ vi.mock('@/lib/mail/allowance', () => ({
   retryMessage: vi.fn(() => 'Лист уже надсилали. Спробуйте після 14:32'),
 }));
 // The real hash, watched: a refused hand-set password must never reach it
+vi.mock('@/lib/auth/throttle', () => ({ unlockEmail: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('bcryptjs', async (importOriginal) => {
   const real = await importOriginal<typeof import('bcryptjs')>();
   return { ...real, hash: vi.fn(real.hash) };
@@ -51,6 +52,7 @@ import { db } from '@/lib/db';
 import { hash } from 'bcryptjs';
 import { sendMail } from '@/lib/mail/mailer';
 import { mailAllowance } from '@/lib/mail/allowance';
+import { unlockEmail } from '@/lib/auth/throttle';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { LimitRaiseNeeded, seedAllocations, type LimitRaise } from '@/lib/stake/seed-allocation';
 import type { StaffUpdateSchema } from '@/validations/staff';
@@ -64,6 +66,7 @@ import {
   resetPassword,
   setPasswordManually,
   forceLogout,
+  unlockLogin,
   changeRole,
 } from './actions';
 
@@ -952,6 +955,7 @@ function mockAccountLookups({
   targetRole = 'USER',
   flags = {} as Partial<Record<'canInviteStaff' | 'canSetPasswords' | 'canEndSessions', boolean>>,
   passwordHash = null as string | null,
+  archivedAt = null as Date | null,
 } = {}) {
   mockStaffFind.mockImplementation(async (args: { select?: Record<string, unknown> }) => {
     const select = args?.select ?? {};
@@ -965,7 +969,7 @@ function mockAccountLookups({
         },
       };
     }
-    return { ...person, role: targetRole, passwordHash };
+    return { ...person, role: targetRole, passwordHash, archivedAt };
   });
 }
 
@@ -1156,6 +1160,78 @@ describe('account actions for an EDITOR with division switches', () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'u1' } });
     mockAccountLookups({});
     expect(await forceLogout('staff-1')).toEqual({ error: 'Недостатньо прав' });
+  });
+});
+
+// Owner, 2026-10-12: no credential action on an archived person — ADMIN included.
+// An archived account cannot sign in, so a letter or a password is useless and a
+// set password would outlive a restore.
+describe('account actions on an ARCHIVED person', () => {
+  const archivedMsg = 'Обліковий запис архівованої людини змінювати не можна. Спершу відновіть її';
+  const archivedAt = new Date('2026-09-01T00:00:00Z');
+  const allFlags = { canInviteStaff: true, canSetPasswords: true, canEndSessions: true };
+  const manual = { password: 'Parol123!', confirmPassword: 'Parol123!' };
+
+  const run: Array<[string, () => Promise<unknown>]> = [
+    ['sendInvite', () => sendInvite('staff-1')],
+    ['resetPassword', () => resetPassword('staff-1')],
+    ['setPasswordManually', () => setPasswordManually('staff-1', manual)],
+    ['forceLogout', () => forceLogout('staff-1')],
+    ['unlockLogin', () => unlockLogin('staff-1')],
+  ];
+
+  function expectNothingHappened(tx: ReturnType<typeof mockTx>) {
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(mockAllowance).not.toHaveBeenCalled();
+    expect(mockHash).not.toHaveBeenCalled();
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(tx.staff.update).not.toHaveBeenCalled();
+    expect(db.auditLog.create).not.toHaveBeenCalled();
+    expect(unlockEmail).not.toHaveBeenCalled();
+  }
+
+  it.each(run)('%s: ADMIN is refused, nothing is mailed or written', async (_name, call) => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockAccountLookups({ archivedAt });
+    const tx = mockTx();
+    mockTransaction.mockClear();
+    expect(await call()).toEqual({ error: archivedMsg });
+    expectNothingHappened(tx);
+  });
+
+  it.each(run.filter(([n]) => n !== 'unlockLogin'))(
+    '%s: an EDITOR holding the switch is refused the same way',
+    async (_name, call) => {
+      mockAuth.mockResolvedValue(editorSession);
+      mockAccountLookups({ archivedAt, flags: allFlags });
+      const tx = mockTx();
+      mockTransaction.mockClear();
+      expect(await call()).toEqual({ error: archivedMsg });
+      expectNothingHappened(tx);
+    }
+  );
+
+  it.each(run.filter(([n]) => n !== 'unlockLogin'))(
+    '%s: an EDITOR without the switch still hears «Недостатньо прав»',
+    async (_name, call) => {
+      mockAuth.mockResolvedValue(editorSession);
+      mockAccountLookups({ archivedAt, flags: {} });
+      mockTx();
+      expect(await call()).toEqual({ error: 'Недостатньо прав' });
+    }
+  );
+
+  it('unlockLogin: a non-admin is refused before the person is read', async () => {
+    mockAuth.mockResolvedValue(editorSession);
+    mockAccountLookups({ archivedAt });
+    expect(await unlockLogin('staff-1')).toEqual({ error: 'Недостатньо прав' });
+  });
+
+  it('unlockLogin: an active person is unlocked as before', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockAccountLookups({});
+    expect(await unlockLogin('staff-1')).toEqual({ success: true, message: 'Блокування знято' });
+    expect(unlockEmail).toHaveBeenCalledWith(person.email);
   });
 });
 

@@ -55,6 +55,11 @@ interface AccountCardProps {
   isAdmin: boolean;
   /** Which of the three shared actions this viewer may take on this person */
   grants: AccountGrants;
+  /**
+   * An archived person cannot sign in, so no credential button is drawn for
+   * anybody, ADMIN included (owner, 2026-10-12). The role select stays.
+   */
+  archived?: boolean;
 }
 
 /**
@@ -107,6 +112,7 @@ export function AccountControls({
   isSelf,
   isAdmin,
   grants,
+  archived = false,
   variant = 'card',
 }: AccountCardProps & { variant?: 'card' | 'bar' }) {
   const router = useRouter();
@@ -152,7 +158,7 @@ export function AccountControls({
       )}
 
       <div className={cn('flex gap-2', bar ? 'flex-wrap items-center' : 'flex-col')}>
-        {isAdmin && account.lockedUntil && (
+        {!archived && isAdmin && account.lockedUntil && (
           <Button
             variant="outline"
             className={bar ? 'rounded-md' : undefined}
@@ -165,7 +171,7 @@ export function AccountControls({
           </Button>
         )}
 
-        {grants.invite && !account.isActivated && (
+        {!archived && grants.invite && !account.isActivated && (
           <Button
             variant="outline"
             className={bar ? 'rounded-md' : undefined}
@@ -178,7 +184,7 @@ export function AccountControls({
           </Button>
         )}
 
-        {grants.password && account.isActivated && (
+        {!archived && grants.password && account.isActivated && (
           <ConfirmButton
             icon={<RotateCcw />}
             label="Скинути пароль"
@@ -196,7 +202,7 @@ export function AccountControls({
             for somebody who never activated (owner, 2026-10-12) — on an
             activated person it would let them sign in as that person. They use
             «Скинути пароль». ADMIN always sees it; the action re-checks. */}
-        {grants.password && (isAdmin || !account.isActivated) && (
+        {!archived && grants.password && (isAdmin || !account.isActivated) && (
           <ManualPasswordDialog
             size={bar ? 'default' : 'sm'}
             className={bar ? 'rounded-md' : undefined}
@@ -205,7 +211,7 @@ export function AccountControls({
           />
         )}
 
-        {grants.sessions && account.isActivated && !isSelf && (
+        {!archived && grants.sessions && account.isActivated && !isSelf && (
           <ConfirmButton
             icon={<LogOut />}
             label="Завершити всі сесії"
@@ -222,15 +228,22 @@ export function AccountControls({
 
       {/* On the bar these take the whole width, so a lockout warning never has
           to compete with a select for a line. */}
-      {((isAdmin && isSelf) ||
-        (grants.invite && !account.isActivated && account.invite) ||
-        (isAdmin && account.lockedUntil)) && (
+      {(archived ||
+        (isAdmin && isSelf) ||
+        (!archived && grants.invite && !account.isActivated && account.invite) ||
+        (!archived && isAdmin && account.lockedUntil)) && (
         <div className={cn('flex flex-col gap-1', bar && 'basis-full px-2 pb-1')}>
           {isAdmin && isSelf && (
             <p className="text-xs text-muted-foreground">Власну роль змінити не можна</p>
           )}
 
-          {grants.invite && !account.isActivated && account.invite && (
+          {archived && (
+            <p className="text-xs text-muted-foreground">
+              Обліковий запис архівованої людини змінювати не можна
+            </p>
+          )}
+
+          {!archived && grants.invite && !account.isActivated && account.invite && (
             <p className="text-xs text-muted-foreground">
               Запрошення надіслано {account.invite.sentAt.toLocaleDateString('uk-UA', KYIV)}
               {account.invite.expired && ' — посилання протерміноване'}
@@ -239,7 +252,7 @@ export function AccountControls({
 
           {/* Only while it is actually locked. A permanent «не заблоковано» line
               would be noise on 300 pages to serve the rare one. */}
-          {isAdmin && account.lockedUntil && (
+          {!archived && isAdmin && account.lockedUntil && (
             <p className="rounded-lg border border-warning/40 bg-warning-surface px-3 py-2 text-xs text-warning">
               Вхід заблоковано після невдалих спроб — до{' '}
               {account.lockedUntil.toLocaleTimeString('uk-UA', {

@@ -57,7 +57,15 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
 
   // ADMIN everything; an EDITOR the switches their division holds, on a USER
   // record only. A head or декан gets none — they see the badge, not buttons.
-  const grants = await accountGrantsFor(session.user, { id, role: staff.role });
+  // An ARCHIVED person gets no credential action from anybody, ADMIN included
+  // (owner, 2026-10-12): an editor's grants come back empty, and ADMIN keeps the
+  // bar for the role select while the buttons are not drawn.
+  const archived = !!staff.archivedAt;
+  const grants = await accountGrantsFor(session.user, {
+    id,
+    role: staff.role,
+    archivedAt: staff.archivedAt,
+  });
   const showAccountBar = isAdmin || Object.values(grants).some(Boolean);
 
   const stakeParts = showStake ? await getStakeBreakdown(id) : [];
@@ -80,6 +88,7 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
               isSelf={session.user.staffId === id}
               isAdmin={isAdmin}
               grants={grants}
+              archived={archived}
             />
           </Suspense>
         )}
@@ -108,11 +117,13 @@ async function AccountBar({
   isSelf,
   isAdmin,
   grants,
+  archived,
 }: {
   staffId: string;
   isSelf: boolean;
   isAdmin: boolean;
   grants: AccountGrants;
+  archived: boolean;
 }) {
   const account = await getStaffAccount(staffId);
   if (!account) return null;
@@ -128,6 +139,7 @@ async function AccountBar({
         isSelf={isSelf}
         isAdmin={isAdmin}
         grants={grants}
+        archived={archived}
         variant="bar"
       />
     </ToolbarGroup>

@@ -144,6 +144,12 @@ columns, not entity rows.
   (owner, 2026-10-12; `passwordHash` is null). For an activated person — who may be
   a завідувач, a декан or hold other power — they use «Скинути пароль», which mails
   the person a link. ADMIN may set one for anyone.
+- **No credential action on an archived person, ADMIN included** (owner,
+  2026-10-12): invite, reset, password by hand, end sessions and unlock are
+  refused — an archived account cannot sign in, so a letter is useless and a
+  set password would survive a restore. Restore the person first. The buttons
+  are not drawn, and `/forgot-password` sends nothing but answers as usual.
+  `changeRole` is not a credential action and is unchanged.
 - **Stay ADMIN-only:** `unlockLogin`, `changeRole`, bulk invite
   (`/admin/invites`, the invite checkbox on `createStaff`). Archive is still
   `STAFF DELETE`, not a switch.

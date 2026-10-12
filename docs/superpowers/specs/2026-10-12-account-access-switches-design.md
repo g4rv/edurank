@@ -74,7 +74,8 @@ switches; they carry these too.
   `canMutateStaffRecord` allows the target (a `USER` record). Otherwise «set pass»
   would be an account takeover of an admin or another editor.
 - Anyone else — never. Heads and деканs get no actions.
-- An EDITOR can never act on themselves (only USER records are reachable); ADMIN is unchanged. Archived and last-admin rules unchanged.
+- An EDITOR can never act on themselves (only USER records are reachable); ADMIN is unchanged. Last-admin rules unchanged.
+- **Archived target: no grants for anyone, ADMIN included** (owner, 2026-10-12). `accountGrantsFor` takes `archivedAt`; an archived account cannot sign in, so a letter or password for it is useless.
 
 ### Actions (`app/(dashboard)/staff/[id]/actions.ts`)
 
@@ -88,6 +89,8 @@ switches; they carry these too.
 An EDITOR may use `setPasswordManually` only for a never-activated person
 (`passwordHash` is null; owner, 2026-10-12) — for an activated one they use
 `resetPassword`, which mails a link. ADMIN may set a password for anyone.
+
+Every credential action (these five, `unlockLogin` too) is refused on an archived person, ADMIN included (owner, 2026-10-12): rights are checked first, so a caller without rights still hears «Недостатньо прав», then «Обліковий запис архівованої людини змінювати не можна. Спершу відновіть її». The public `/forgot-password` sends nothing for an archived address and answers as for any other.
 
 All keep their audit entries; the actor is the editor. Errors keep the existing
 `logError` / Ukrainian-sentence convention.

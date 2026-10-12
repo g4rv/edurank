@@ -25,7 +25,7 @@ vi.mock('@/lib/mail/allowance', () => ({
 vi.mock('@/lib/log', () => ({ logError: vi.fn(), logWarning: vi.fn() }));
 
 import { db } from '@/lib/db';
-import { logError } from '@/lib/log';
+import { logError, logWarning } from '@/lib/log';
 import { sendMail } from '@/lib/mail/mailer';
 import { mailAllowance } from '@/lib/mail/allowance';
 import { requestPasswordReset } from './actions';
@@ -72,6 +72,28 @@ describe('requestPasswordReset', () => {
     expect(mockStaffFind.mock.calls[0][0].where).toEqual({
       email: { equals: 'skydorw@gmail.com', mode: 'insensitive' },
     });
+    expect(mockSendMail).toHaveBeenCalledTimes(1);
+  });
+
+  // Owner, 2026-10-12: an archived account cannot sign in, so a letter is useless.
+  // The caller must still not be able to tell it apart from an unknown address.
+  it('sends nothing to an archived person and answers like an unknown address', async () => {
+    found({ ...staff, archivedAt: new Date('2026-09-01') });
+    const archivedAnswer = await requestPasswordReset({ email: staff.email });
+    nobody();
+    const unknownAnswer = await requestPasswordReset({ email: 'nobody@university.edu.ua' });
+
+    expect(archivedAnswer).toEqual({ success: true });
+    expect(archivedAnswer).toEqual(unknownAnswer);
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(mockAllowance).not.toHaveBeenCalled();
+    expect(logError).not.toHaveBeenCalled();
+    expect(logWarning).toHaveBeenCalled();
+  });
+
+  it('still sends to an active person (archivedAt null)', async () => {
+    found({ ...staff, archivedAt: null });
+    expect(await requestPasswordReset({ email: staff.email })).toEqual({ success: true });
     expect(mockSendMail).toHaveBeenCalledTimes(1);
   });
 

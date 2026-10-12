@@ -880,6 +880,9 @@ export async function updateStaff(
 
 export type AccountActionState = { error: string } | { success: true; message?: string };
 
+const ARCHIVED_ACCOUNT_ERROR =
+  'Обліковий запис архівованої людини змінювати не можна. Спершу відновіть її';
+
 /**
  * ADMIN, or an EDITOR whose division holds the switch for this action AND who
  * is acting on a USER record (`canManageAccount`). A missing person answers
@@ -893,15 +896,24 @@ async function authorizeAccountAction(
   const session = await auth();
   if (!session) redirect('/login');
 
-  const target = await db.staff.findUnique({ where: { id }, select: { id: true, role: true } });
-  if (!target) {
+  const found = await db.staff.findUnique({
+    where: { id },
+    select: { id: true, role: true, archivedAt: true },
+  });
+  if (!found) {
     return {
       error: session.user.role === 'ADMIN' ? 'Запис не знайдено' : 'Недостатньо прав',
     } as const;
   }
+  // Rights first, WITHOUT the archive: somebody with no rights over this person
+  // must not learn from the answer that the person is archived.
+  const target = { id: found.id, role: found.role };
   if (!(await canManageAccount(session.user, target, action))) {
     return { error: 'Недостатньо прав' } as const;
   }
+  // Owner, 2026-10-12: no credential action on an archived person, ADMIN
+  // included. Before any mail, hash or write.
+  if (found.archivedAt) return { error: ARCHIVED_ACCOUNT_ERROR } as const;
   return { session } as const;
 }
 
@@ -1115,9 +1127,16 @@ export async function unlockLogin(id: string): Promise<AccountActionState> {
 
   const staff = await db.staff.findUnique({
     where: { id },
-    select: { email: true, lastName: true, firstName: true, patronymic: true },
+    select: {
+      email: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+      archivedAt: true,
+    },
   });
   if (!staff) return { error: 'Запис не знайдено' };
+  if (staff.archivedAt) return { error: ARCHIVED_ACCOUNT_ERROR };
 
   try {
     await unlockEmail(staff.email);

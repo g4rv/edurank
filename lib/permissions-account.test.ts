@@ -71,7 +71,42 @@ describe('accountGrantsFor', () => {
   });
 });
 
+// Owner, 2026-10-12: no credential action on an archived person, ADMIN included.
+describe('accountGrantsFor — archived target', () => {
+  const archivedAt = new Date('2026-09-01');
+
+  it('gives ADMIN nothing, without reading the database', async () => {
+    const grants = await accountGrantsFor(
+      { role: 'ADMIN', staffId: 'a' },
+      { id: 'x', role: 'USER', archivedAt }
+    );
+    expect(grants).toEqual(none);
+    expect(mockStaffFind).not.toHaveBeenCalled();
+  });
+
+  it('gives an EDITOR nothing even when their division holds every switch', async () => {
+    divisionHolds({ canInviteStaff: true, canSetPasswords: true, canEndSessions: true });
+    expect(await accountGrantsFor(editor, { ...userTarget, archivedAt })).toEqual(none);
+  });
+
+  it('treats archivedAt null like an active person', async () => {
+    expect(
+      await accountGrantsFor({ role: 'ADMIN', staffId: 'a' }, { ...userTarget, archivedAt: null })
+    ).toEqual({ invite: true, password: true, sessions: true });
+  });
+});
+
 describe('canManageAccount', () => {
+  it('refuses ADMIN on an archived person', async () => {
+    expect(
+      await canManageAccount(
+        { role: 'ADMIN', staffId: 'a' },
+        { ...userTarget, archivedAt: new Date() },
+        'invite'
+      )
+    ).toBe(false);
+  });
+
   it('answers for one action', async () => {
     divisionHolds({ canSetPasswords: true });
     expect(await canManageAccount(editor, userTarget, 'password')).toBe(true);
