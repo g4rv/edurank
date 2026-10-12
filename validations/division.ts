@@ -15,3 +15,19 @@ export const divisionSchema = z.object({
 });
 
 export type DivisionSchema = z.infer<typeof divisionSchema>;
+
+export const divisionSettingsSchema = z.object({
+  name: z.string().trim().min(1, { error: "Обов'язкове поле" }),
+  canModerateRating: z.boolean(),
+  canOverseeScience: z.boolean(),
+  canInviteStaff: z.boolean(),
+  canSetPasswords: z.boolean(),
+  canEndSessions: z.boolean(),
+  /** «STAFF:CREATE» … */
+  entityPermissions: z.array(
+    z.string().regex(/^(STAFF|DEPARTMENT|FACULTY):(CREATE|UPDATE|DELETE)$/)
+  ),
+  fieldPermissions: z.array(z.string()),
+});
+
+export type DivisionSettingsSchema = z.infer<typeof divisionSettingsSchema>;

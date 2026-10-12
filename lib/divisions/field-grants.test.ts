@@ -19,7 +19,7 @@ describe('field grants', () => {
     for (const group of FIELD_GROUPS) {
       for (const field of group.fields) {
         expect(ALLOWED_FIELD_NAMES.has(field), field).toBe(true);
-        expect(isEditorWritableField(field) || field === 'partTimeDepartmentIds', field).toBe(true);
+        expect(isEditorWritableField(field), field).toBe(true);
       }
     }
   });

@@ -66,7 +66,7 @@ describe('audit descriptions', () => {
     expect(describeEntities(['STAFF:UPDATE', 'DEPARTMENT:CREATE'])).toBe(
       'Кафедра — Створення, Персонал — Редагування'
     );
-    expect(describeFields(['phone', 'email'])).toContain(', ');
+    expect(describeFields(['phone', 'email'])).toBe('Телефон, Email');
     expect(describeEntities([])).toBe('');
     expect(describeFields([])).toBe('');
   });
