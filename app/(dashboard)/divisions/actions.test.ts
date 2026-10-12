@@ -14,13 +14,15 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
+import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { createDivision, deleteDivision, updateDivision, updateDivisionSettings } from './actions';
+import { createDivision, deleteDivision, updateDivisionSettings } from './actions';
 
 const mockAuth = auth as unknown as Mock;
 const mockDivisionFind = db.division.findUnique as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
+const mockRevalidate = revalidatePath as unknown as Mock;
 
 function mockTx() {
   const tx = {
@@ -168,24 +170,6 @@ describe('«Перевірка науки» on a division', () => {
       expect.objectContaining({ data: expect.objectContaining({ canOverseeScience: true }) })
     );
   });
-
-  it('is written and shows in the audit diff when it is switched on', async () => {
-    const tx = mockTx();
-    await updateDivision('div-1', {
-      name: 'ННВ',
-      canModerateRating: true,
-      canOverseeScience: true,
-      canInviteStaff: false,
-      canSetPasswords: false,
-      canEndSessions: false,
-    });
-    expect(tx.division.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ canOverseeScience: true }) })
-    );
-    const { changes } = tx.auditLog.create.mock.calls[0][0].data;
-    expect(changes).toHaveProperty('canOverseeScience');
-    expect(changes).not.toHaveProperty('canModerateRating');
-  });
 });
 
 // The three account switches are permission changes too — written and audited
@@ -193,31 +177,6 @@ describe('«Перевірка науки» on a division', () => {
 describe('account switches on a division', () => {
   beforeEach(() => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
-  });
-
-  it('writes and audits the three account switches', async () => {
-    const tx = mockTx();
-    await updateDivision('div-1', {
-      name: 'ННВ',
-      canModerateRating: true,
-      canOverseeScience: false,
-      canInviteStaff: true,
-      canSetPasswords: true,
-      canEndSessions: false,
-    });
-    expect(tx.division.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          canInviteStaff: true,
-          canSetPasswords: true,
-          canEndSessions: false,
-        }),
-      })
-    );
-    const { changes } = tx.auditLog.create.mock.calls[0][0].data;
-    expect(changes).toHaveProperty('canInviteStaff');
-    expect(changes).toHaveProperty('canSetPasswords');
-    expect(changes).not.toHaveProperty('canEndSessions');
   });
 
   it('writes them when a division is created', async () => {
@@ -334,7 +293,7 @@ describe('updateDivisionSettings', () => {
     expect(changes).toHaveProperty('fieldPermissions');
   });
 
-  it.each(['employmentRate', 'divisionId', 'passwordHash', 'role', 'notAField'])(
+  it.each(['employmentRate', 'divisionId', 'passwordHash', 'role', 'tokenVersion', 'notAField'])(
     'refuses %s anywhere in the list and writes nothing at all',
     async (name) => {
       const tx = mockTx();
@@ -347,6 +306,10 @@ describe('updateDivisionSettings', () => {
       ).toEqual({ error: 'Невідоме поле' });
       expect(mockTransaction).not.toHaveBeenCalled();
       expect(tx.division.update).not.toHaveBeenCalled();
+      expect(tx.divisionEntityPermission.deleteMany).not.toHaveBeenCalled();
+      expect(tx.divisionEntityPermission.createMany).not.toHaveBeenCalled();
+      expect(tx.divisionFieldPermission.deleteMany).not.toHaveBeenCalled();
+      expect(tx.divisionFieldPermission.createMany).not.toHaveBeenCalled();
     }
   );
 
@@ -370,6 +333,25 @@ describe('updateDivisionSettings', () => {
     tx.division.findUnique.mockResolvedValue(null);
     expect(await updateDivisionSettings('nope', full)).toEqual({ error: 'Відділ не знайдено' });
     expect(tx.division.update).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+    expect(tx.divisionEntityPermission.deleteMany).not.toHaveBeenCalled();
+    expect(tx.divisionFieldPermission.deleteMany).not.toHaveBeenCalled();
+    expect(mockRevalidate).not.toHaveBeenCalled();
+  });
+
+  it('writes a duplicated entry once', async () => {
+    const tx = mockTx();
+    await updateDivisionSettings('div-1', {
+      ...full,
+      entityPermissions: ['STAFF:UPDATE', 'STAFF:UPDATE'],
+      fieldPermissions: ['phone', 'phone'],
+    });
+    expect(tx.divisionEntityPermission.createMany).toHaveBeenCalledWith({
+      data: [{ divisionId: 'div-1', entity: 'STAFF', action: 'UPDATE' }],
+    });
+    expect(tx.divisionFieldPermission.createMany).toHaveBeenCalledWith({
+      data: [{ divisionId: 'div-1', fieldName: 'phone' }],
+    });
   });
 
   it('writes nothing when a step inside the transaction fails', async () => {
@@ -377,5 +359,8 @@ describe('updateDivisionSettings', () => {
     tx.divisionFieldPermission.createMany.mockRejectedValue(new Error('db down'));
     const result = await updateDivisionSettings('div-1', { ...full, fieldPermissions: ['phone'] });
     expect(result).toEqual({ error: 'Не вдалося зберегти. Зміни не застосовано' });
+    expect(result).not.toHaveProperty('redirectTo');
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockRevalidate).not.toHaveBeenCalled();
   });
 });

@@ -224,7 +224,7 @@ pnpm db:science-catalogue --apply    # creates the 2026/2027 рік + the missin
 
 It never updates or deletes an existing row, so running it twice is harmless.
 The report must list ННВ under «Перевірка науки»; if it lists nobody, switch
-it on at /divisions/[id]/edit — the migration keys on `registryKey = 'NNV'`.
+it on at /divisions/[id] — the migration keys on `registryKey = 'NNV'`.
 
 ## 5. Before anybody else gets the URL
 

@@ -1,66 +1,50 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Pencil } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { Button } from '@/components/aurora/ui/button';
 import { DeleteDivisionButton } from '@/components/division/delete-button';
-import { FIELD_LABELS } from '@/lib/labels';
+import { DivisionSettingsForm } from '@/components/division/division-settings-form';
+import { toSettings } from '@/lib/divisions/settings';
 
-const ENTITY_LABELS: Record<string, string> = {
-  STAFF: 'Персонал',
-  DEPARTMENT: 'Кафедра',
-  FACULTY: 'Факультет',
-};
-
-const ACTION_LABELS: Record<string, string> = {
-  CREATE: 'Створення',
-  UPDATE: 'Редагування',
-  DELETE: 'Видалення',
-};
-
-function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border bg-card p-5">
-      <h2 className="mb-4 text-sm font-semibold tracking-wide text-foreground uppercase">
-        {title}
-      </h2>
-      {children}
-    </div>
-  );
-}
-
-export default async function DivisionDetailPage({ params }: { params: Promise<{ id: string }> }) {
+/**
+ * «Налаштування відділу» — every right ADMIN gives a division, on one page and
+ * saved with one button (owner, 2026-10-12). It replaces the read-only chip page,
+ * the separate edit form and the two permission screens «Поля доступу» and
+ * «Дії доступу».
+ *
+ * ADMIN only, like the list: this page edits the permission system itself.
+ */
+export default async function DivisionSettingsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const session = await auth();
   if (!session) redirect('/login');
-
-  const role = session.user.role;
-
-  // Same reason as the list: this page shows the division's granted fields and
-  // entity actions. ADMIN only.
-  if (role !== 'ADMIN') redirect('/');
+  if (session.user.role !== 'ADMIN') redirect('/');
 
   const division = await db.division.findUnique({
     where: { id },
     select: {
-      id: true,
       name: true,
+      canModerateRating: true,
+      canOverseeScience: true,
+      canInviteStaff: true,
+      canSetPasswords: true,
+      canEndSessions: true,
       _count: { select: { staff: true } },
-      fieldPermissions: { select: { fieldName: true }, orderBy: { fieldName: 'asc' } },
-      entityPermissions: {
-        select: { entity: true, action: true },
-        orderBy: [{ entity: 'asc' }, { action: 'asc' }],
-      },
+      entityPermissions: { select: { entity: true, action: true } },
+      fieldPermissions: { select: { fieldName: true } },
     },
   });
-
   if (!division) notFound();
 
-  const isAdmin = role === 'ADMIN';
+  const initial = toSettings(division);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-3xl space-y-6">
       <Link
         href="/divisions"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -73,56 +57,15 @@ export default async function DivisionDetailPage({ params }: { params: Promise<{
         <div>
           <h1 className="text-2xl font-semibold">{division.name}</h1>
           <p className="mt-0.5 text-sm text-foreground-soft">
-            {division._count.staff} співробітників
+            Налаштування · {division._count.staff} співробітників
           </p>
         </div>
-        {isAdmin && (
-          <div className="flex items-start gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/divisions/${id}/edit`}>
-                <Pencil className="size-4" />
-              </Link>
-            </Button>
-            <DeleteDivisionButton divisionId={id} divisionName={division.name} />
-          </div>
-        )}
+        <DeleteDivisionButton divisionId={id} divisionName={division.name} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <InfoCard title="Доступ до полів">
-          {division.fieldPermissions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Поля не налаштовано</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {division.fieldPermissions.map((fp) => (
-                <span
-                  key={fp.fieldName}
-                  className="rounded-md border bg-muted px-2.5 py-1 text-xs font-medium text-foreground"
-                >
-                  {FIELD_LABELS[fp.fieldName] ?? fp.fieldName}
-                </span>
-              ))}
-            </div>
-          )}
-        </InfoCard>
-
-        <InfoCard title="Дії з сутностями">
-          {division.entityPermissions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Дії не налаштовано</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {division.entityPermissions.map((ep) => (
-                <span
-                  key={`${ep.entity}-${ep.action}`}
-                  className="rounded-md border bg-muted px-2.5 py-1 text-xs font-medium text-foreground"
-                >
-                  {ENTITY_LABELS[ep.entity] ?? ep.entity} — {ACTION_LABELS[ep.action] ?? ep.action}
-                </span>
-              ))}
-            </div>
-          )}
-        </InfoCard>
-      </div>
+      {/* Keyed by the saved state: after a save the page re-renders with fresh
+          props and the form starts again from them, so «changed?» resets. */}
+      <DivisionSettingsForm key={JSON.stringify(initial)} divisionId={id} initial={initial} />
     </div>
   );
 }
