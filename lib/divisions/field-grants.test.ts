@@ -35,6 +35,14 @@ describe('field grants', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
+  it('draws every allowed field on the page', () => {
+    // The reverse of the first test: a field the server allows (and a SQL
+    // migration may have granted) but the page never draws could not be revoked.
+    expect(new Set(FIELD_GROUPS.flatMap((g) => [...g.fields]))).toEqual(
+      new Set(ALLOWED_FIELD_NAMES)
+    );
+  });
+
   it('keys an entity action', () => {
     expect(entityKey('STAFF', 'CREATE')).toBe('STAFF:CREATE');
     expect(ENTITY_ROWS).toEqual(['STAFF', 'DEPARTMENT', 'FACULTY']);

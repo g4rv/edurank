@@ -7,7 +7,7 @@ import type { EntityType, EntityAction, Role } from '@/lib/generated/prisma/clie
  * Confidential Staff fields: only ADMIN reads/writes them, EDITOR never,
  * USER sees only their own. Enforced in three places that must stay in sync:
  * - updateStaff write filter
- * - setFieldPermission (cannot be granted to a division)
+ * - updateDivisionSettings in app/(dashboard)/divisions/actions.ts (cannot be granted to a division)
  * - queries via includeConfidential
  */
 export const CONFIDENTIAL_STAFF_FIELDS: ReadonlySet<string> = new Set(['employmentRate']);
