@@ -14,9 +14,17 @@ vi.mock('@/lib/activation', () => ({
   storeActivationToken: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('@/lib/mail/mailer', () => ({ sendMail: vi.fn().mockResolvedValue(undefined) }));
+// issueAndEmailLink records every accepted letter; without this the real module
+// reaches for db.mailSend, which the db mock above does not have.
+vi.mock('@/lib/mail/allowance', () => ({
+  mailAllowance: vi.fn(),
+  recordMailSent: vi.fn().mockResolvedValue(undefined),
+  retryMessage: vi.fn(() => 'Лист уже надсилали.'),
+}));
 
 import { db } from '@/lib/db';
 import { sendMail } from '@/lib/mail/mailer';
+import { mailAllowance } from '@/lib/mail/allowance';
 import { requestPasswordReset } from './actions';
 
 const mockStaffFind = db.staff.findMany as unknown as Mock;
@@ -30,6 +38,7 @@ const mockStaffFind = db.staff.findMany as unknown as Mock;
 const found = (row: unknown) => mockStaffFind.mockResolvedValue([row]);
 const nobody = () => mockStaffFind.mockResolvedValue([]);
 const mockSendMail = sendMail as unknown as Mock;
+const mockAllowance = mailAllowance as unknown as Mock;
 
 const staff = {
   id: 'staff-1',
@@ -43,6 +52,7 @@ const staff = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockAllowance.mockResolvedValue({ ok: true });
 });
 
 describe('requestPasswordReset', () => {
@@ -94,13 +104,22 @@ describe('requestPasswordReset', () => {
     expect(mockSendMail.mock.calls[0][0].subject).not.toContain('Скидання');
   });
 
-  it('skips sending during the cooldown but still answers success', async () => {
-    found({
-      ...staff,
-      activationToken: { createdAt: new Date(Date.now() - 10_000) },
-    });
-    expect(await requestPasswordReset({ email: staff.email })).toEqual({ success: true });
+  it('sends nothing when the allowance is spent, and the answer is the same', async () => {
+    found(staff);
+    mockAllowance.mockResolvedValue({ ok: false, retryAt: new Date(Date.now() + 60_000) });
+    const blocked = await requestPasswordReset({ email: staff.email });
     expect(mockSendMail).not.toHaveBeenCalled();
+
+    // Identical to the answer for a known address that was sent to, and to an unknown one
+    nobody();
+    expect(blocked).toEqual(await requestPasswordReset({ email: 'nobody@university.edu.ua' }));
+    expect(blocked).toEqual({ success: true });
+  });
+
+  it('asks the allowance about THIS person', async () => {
+    found(staff);
+    await requestPasswordReset({ email: staff.email });
+    expect(mockAllowance).toHaveBeenCalledWith('staff-1');
   });
 
   it('answers success even when the mailer fails', async () => {
