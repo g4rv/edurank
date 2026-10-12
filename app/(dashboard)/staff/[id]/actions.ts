@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { hash } from 'bcryptjs';
+import type { Session } from 'next-auth';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { staffUpdateSchema, type StaffUpdateSchema } from '@/validations/staff';
@@ -13,6 +14,7 @@ import {
   type ChangeRoleSchema,
 } from '@/validations/account';
 import { issueAndEmailLink, staffFullName } from '@/lib/mail/invite';
+import { mailAllowance, retryMessage } from '@/lib/mail/allowance';
 import { unlockEmail } from '@/lib/auth/throttle';
 import { diffChanges, type DiffValue } from '@/lib/audit';
 import { activeYear } from '@/lib/queries/get-active-template';
@@ -28,6 +30,7 @@ import {
   type RateSeed,
 } from '@/lib/stake/seed-allocation';
 import {
+  canManageAccount,
   canManageEntity,
   canMutateStaffRecord,
   getEditorDivisionId,
@@ -37,6 +40,7 @@ import {
   isEditorWritableField,
   isLastActiveAdmin,
   USER_EDITABLE_STAFF_FIELDS,
+  type AccountAction,
 } from '@/lib/permissions';
 import { formatStake } from '@/lib/stake/units';
 import { parseDbError, isForeignKeyViolation } from '@/lib/db-error';
@@ -872,14 +876,50 @@ export async function updateStaff(
   return { success: true };
 }
 
-// ─── Account actions (ADMIN only) ────────────────────────────────────────────
+// ─── Account actions (ADMIN, or an EDITOR whose division holds the switch) ───
 
 export type AccountActionState = { error: string } | { success: true; message?: string };
 
+/**
+ * ADMIN, or an EDITOR whose division holds the switch for this action AND who
+ * is acting on a USER record (`canManageAccount`). A missing person answers
+ * «Недостатньо прав» to a non-admin so the answer does not reveal whether the
+ * id exists.
+ */
+async function authorizeAccountAction(
+  id: string,
+  action: AccountAction
+): Promise<{ error: string } | { session: Session }> {
+  const session = await auth();
+  if (!session) redirect('/login');
+
+  const target = await db.staff.findUnique({ where: { id }, select: { id: true, role: true } });
+  if (!target) {
+    return {
+      error: session.user.role === 'ADMIN' ? 'Запис не знайдено' : 'Недостатньо прав',
+    } as const;
+  }
+  if (!(await canManageAccount(session.user, target, action))) {
+    return { error: 'Недостатньо прав' } as const;
+  }
+  return { session } as const;
+}
+
+/** ADMIN sends freely; everyone else is held to the per-person allowance. */
+async function mailBlocked(
+  session: { user: { role: string } },
+  id: string
+): Promise<string | null> {
+  if (session.user.role === 'ADMIN') return null;
+  const allowance = await mailAllowance(id);
+  return allowance.ok ? null : retryMessage(allowance.retryAt);
+}
+
 // Invite (or re-invite) a not-yet-activated person: new token + email
 export async function sendInvite(id: string): Promise<AccountActionState> {
-  const session = await requireAdmin();
-  if (!session) return { error: 'Недостатньо прав' };
+  const gate = await authorizeAccountAction(id, 'invite');
+  if ('error' in gate) return { error: gate.error };
+  const { session } = gate;
 
   const staff = await db.staff.findUnique({
     where: { id },
@@ -894,6 +934,9 @@ export async function sendInvite(id: string): Promise<AccountActionState> {
   });
   if (!staff) return { error: 'Запис не знайдено' };
   if (staff.passwordHash) return { error: 'Обліковий запис вже активовано' };
+
+  const blocked = await mailBlocked(session, id);
+  if (blocked) return { error: blocked };
 
   try {
     await issueAndEmailLink(staff, 'invite');
@@ -910,14 +953,18 @@ export async function sendInvite(id: string): Promise<AccountActionState> {
 
 // Reset password: clear the hash (deactivates), kill sessions, email a new link
 export async function resetPassword(id: string): Promise<AccountActionState> {
-  const session = await requireAdmin();
-  if (!session) return { error: 'Недостатньо прав' };
+  const gate = await authorizeAccountAction(id, 'password');
+  if ('error' in gate) return { error: gate.error };
+  const { session } = gate;
 
   const staff = await db.staff.findUnique({
     where: { id },
     select: { id: true, email: true, lastName: true, firstName: true, patronymic: true },
   });
   if (!staff) return { error: 'Запис не знайдено' };
+
+  const blocked = await mailBlocked(session, id);
+  if (blocked) return { error: blocked };
 
   // Mail first, deactivate second: the reset clears the password, so doing it
   // before a failed send would leave the person with neither a working
@@ -955,8 +1002,9 @@ export async function setPasswordManually(
   id: string,
   data: SetPasswordSchema
 ): Promise<AccountActionState> {
-  const session = await requireAdmin();
-  if (!session) return { error: 'Недостатньо прав' };
+  const gate = await authorizeAccountAction(id, 'password');
+  if ('error' in gate) return { error: gate.error };
+  const { session } = gate;
 
   const parsed = setPasswordSchema.safeParse(data);
   if (!parsed.success) return { error: 'Некоректні дані' };
@@ -993,8 +1041,8 @@ export async function setPasswordManually(
 
 // Bump tokenVersion — every live session for this person dies on next request
 export async function forceLogout(id: string): Promise<AccountActionState> {
-  const session = await requireAdmin();
-  if (!session) return { error: 'Недостатньо прав' };
+  const gate = await authorizeAccountAction(id, 'sessions');
+  if ('error' in gate) return { error: gate.error };
 
   await db.staff.update({ where: { id }, data: { tokenVersion: { increment: 1 } } });
 

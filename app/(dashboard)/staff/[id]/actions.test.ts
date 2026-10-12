@@ -43,6 +43,7 @@ vi.mock('@/lib/stake/seed-allocation', async (importOriginal) => ({
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { sendMail } from '@/lib/mail/mailer';
+import { mailAllowance } from '@/lib/mail/allowance';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { LimitRaiseNeeded, seedAllocations, type LimitRaise } from '@/lib/stake/seed-allocation';
 import type { StaffUpdateSchema } from '@/validations/staff';
@@ -55,6 +56,7 @@ import {
   sendInvite,
   resetPassword,
   setPasswordManually,
+  forceLogout,
   changeRole,
 } from './actions';
 
@@ -67,6 +69,7 @@ const mockStaffCount = db.staff.count as unknown as Mock;
 const mockStaffFirst = db.staff.findFirst as unknown as Mock;
 const mockSeed = seedAllocations as unknown as Mock;
 const mockSendMail = sendMail as unknown as Mock;
+const mockAllowance = mailAllowance as unknown as Mock;
 
 // Payload an attacker could send: touches confidential + non-granted fields
 const fullPayload: StaffUpdateSchema = {
@@ -929,6 +932,134 @@ describe('setPasswordManually', () => {
     });
     expect(tx.activationToken.deleteMany).toHaveBeenCalledWith({ where: { staffId: 'staff-1' } });
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+});
+
+/**
+ * The target's role, the caller's division switches, and the person's own data
+ * all come through db.staff.findUnique — dispatch on `select` so a test does
+ * not depend on call order.
+ */
+function mockAccountLookups({
+  targetRole = 'USER',
+  flags = {} as Partial<Record<'canInviteStaff' | 'canSetPasswords' | 'canEndSessions', boolean>>,
+  passwordHash = null as string | null,
+} = {}) {
+  mockStaffFind.mockImplementation(async (args: { select?: Record<string, unknown> }) => {
+    const select = args?.select ?? {};
+    if ('division' in select) {
+      return {
+        division: {
+          canInviteStaff: false,
+          canSetPasswords: false,
+          canEndSessions: false,
+          ...flags,
+        },
+      };
+    }
+    return { ...person, role: targetRole, passwordHash };
+  });
+}
+
+describe('account actions for an EDITOR with division switches', () => {
+  beforeEach(() => {
+    mockAuth.mockResolvedValue(editorSession);
+    mockAllowance.mockResolvedValue({ ok: true });
+  });
+
+  it('sendInvite: refused without the switch', async () => {
+    mockAccountLookups({ flags: {} });
+    expect(await sendInvite('staff-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('sendInvite: allowed with the switch, and checks the allowance', async () => {
+    mockAccountLookups({ flags: { canInviteStaff: true } });
+    expect(await sendInvite('staff-1')).toEqual({ success: true, message: 'Запрошення надіслано' });
+    expect(mockAllowance).toHaveBeenCalledWith('staff-1');
+  });
+
+  it('sendInvite: says when to try again if the allowance is spent', async () => {
+    mockAccountLookups({ flags: { canInviteStaff: true } });
+    mockAllowance.mockResolvedValue({ ok: false, retryAt: new Date('2026-10-12T11:32:00Z') });
+    expect(await sendInvite('staff-1')).toEqual({
+      error: 'Лист уже надсилали. Спробуйте після 14:32',
+    });
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
+  it('sendInvite: ADMIN is never limited', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockAccountLookups({});
+    await sendInvite('staff-1');
+    expect(mockAllowance).not.toHaveBeenCalled();
+    expect(mockSendMail).toHaveBeenCalled();
+  });
+
+  it('resetPassword and setPasswordManually are one switch: «set pass»', async () => {
+    mockAccountLookups({ flags: { canSetPasswords: true }, passwordHash: 'hash' });
+    mockTx();
+    expect((await resetPassword('staff-1')) as object).toHaveProperty('success', true);
+    expect(
+      (await setPasswordManually('staff-1', {
+        password: 'Parol123!',
+        confirmPassword: 'Parol123!',
+      })) as object
+    ).toHaveProperty('success', true);
+
+    mockAccountLookups({ flags: { canInviteStaff: true, canEndSessions: true } });
+    expect(await resetPassword('staff-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(
+      await setPasswordManually('staff-1', { password: 'Parol123!', confirmPassword: 'Parol123!' })
+    ).toEqual({ error: 'Недостатньо прав' });
+  });
+
+  it('resetPassword: sends nothing and clears nothing when the allowance is spent', async () => {
+    mockAccountLookups({ flags: { canSetPasswords: true }, passwordHash: 'hash' });
+    mockAllowance.mockResolvedValue({ ok: false, retryAt: new Date('2026-10-12T11:32:00Z') });
+    const tx = mockTx();
+    expect(await resetPassword('staff-1')).toEqual({
+      error: 'Лист уже надсилали. Спробуйте після 14:32',
+    });
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(tx.staff.update).not.toHaveBeenCalled();
+  });
+
+  it('forceLogout: needs «end sessions»', async () => {
+    mockAccountLookups({ flags: { canSetPasswords: true } });
+    expect(await forceLogout('staff-1')).toEqual({ error: 'Недостатньо прав' });
+
+    mockAccountLookups({ flags: { canEndSessions: true } });
+    (db.staff.update as unknown as Mock).mockResolvedValue({});
+    expect(await forceLogout('staff-1')).toEqual({ success: true, message: 'Всі сесії завершено' });
+  });
+
+  // The takeover. All three switches held, target is an admin or another editor.
+  it.each(['ADMIN', 'EDITOR'] as const)(
+    'refuses every action on a %s record',
+    async (targetRole) => {
+      mockAccountLookups({
+        targetRole,
+        flags: { canInviteStaff: true, canSetPasswords: true, canEndSessions: true },
+      });
+      const refused = { error: 'Недостатньо прав' };
+      expect(await sendInvite('staff-1')).toEqual(refused);
+      expect(await resetPassword('staff-1')).toEqual(refused);
+      expect(
+        await setPasswordManually('staff-1', {
+          password: 'Parol123!',
+          confirmPassword: 'Parol123!',
+        })
+      ).toEqual(refused);
+      expect(await forceLogout('staff-1')).toEqual(refused);
+      expect(mockSendMail).not.toHaveBeenCalled();
+    }
+  );
+
+  it('a USER caller is refused', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'u1' } });
+    mockAccountLookups({});
+    expect(await forceLogout('staff-1')).toEqual({ error: 'Недостатньо прав' });
   });
 });
 
