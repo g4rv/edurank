@@ -111,4 +111,23 @@ describe('retryMessage', () => {
       'Лист уже надсилали. Спробуйте після 13.10, 01:30'
     );
   });
+
+  // 14:32:40 used to print «14:32», and a retry at 14:32:10 was refused again
+  it('rounds up to the next whole minute, never down', () => {
+    expect(retryMessage(new Date('2026-10-12T11:32:40Z'), now)).toBe(
+      'Лист уже надсилали. Спробуйте після 14:33'
+    );
+  });
+
+  it('leaves a time already on a whole minute alone', () => {
+    expect(retryMessage(new Date('2026-10-12T11:32:00Z'), now)).toBe(
+      'Лист уже надсилали. Спробуйте після 14:32'
+    );
+  });
+
+  it('rounds across midnight into the next day', () => {
+    expect(retryMessage(new Date('2026-10-12T20:59:30Z'), now)).toBe(
+      'Лист уже надсилали. Спробуйте після 13.10, 00:00'
+    );
+  });
 });

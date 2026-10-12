@@ -65,6 +65,10 @@ const dayKey = (d: Date) => d.toLocaleDateString('uk-UA', KYIV);
 
 /** «Спробуйте після 14:32», with the date when the wait crosses midnight in Kyiv */
 export function retryMessage(retryAt: Date, now = new Date()): string {
+  // Up to the next whole minute: the clock shows no seconds, and «14:32» for a
+  // 14:32:40 instant sent people back a few seconds too early, to be refused
+  // again with the same words.
+  retryAt = new Date(Math.ceil(retryAt.getTime() / 60_000) * 60_000);
   const time = retryAt.toLocaleTimeString('uk-UA', { ...KYIV, hour: '2-digit', minute: '2-digit' });
   if (dayKey(retryAt) === dayKey(now)) return `Лист уже надсилали. Спробуйте після ${time}`;
   const date = retryAt.toLocaleDateString('uk-UA', { ...KYIV, day: '2-digit', month: '2-digit' });

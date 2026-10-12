@@ -22,7 +22,10 @@ vi.mock('@/lib/mail/allowance', () => ({
   retryMessage: vi.fn(() => 'Лист уже надсилали.'),
 }));
 
+vi.mock('@/lib/log', () => ({ logError: vi.fn(), logWarning: vi.fn() }));
+
 import { db } from '@/lib/db';
+import { logError } from '@/lib/log';
 import { sendMail } from '@/lib/mail/mailer';
 import { mailAllowance } from '@/lib/mail/allowance';
 import { requestPasswordReset } from './actions';
@@ -114,6 +117,16 @@ describe('requestPasswordReset', () => {
     nobody();
     expect(blocked).toEqual(await requestPasswordReset({ email: 'nobody@university.edu.ua' }));
     expect(blocked).toEqual({ success: true });
+  });
+
+  it('answers like an unknown address when the allowance lookup itself fails', async () => {
+    found(staff);
+    mockAllowance.mockRejectedValue(new Error('db down'));
+    expect(await requestPasswordReset({ email: staff.email })).toEqual({ success: true });
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(logError).toHaveBeenCalledWith('auth.requestPasswordReset', expect.any(Error), {
+      entityId: 'staff-1',
+    });
   });
 
   it('asks the allowance about THIS person', async () => {

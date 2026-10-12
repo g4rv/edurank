@@ -50,7 +50,14 @@ export async function requestPasswordReset(
   // different answer would reveal that the address exists.
   let allowed = false;
   if (staff) {
-    allowed = (await mailAllowance(staff.id)).ok;
+    // A lookup that throws only for a KNOWN address would tell the caller the
+    // address exists. Fail closed — no letter — and answer as usual.
+    try {
+      allowed = (await mailAllowance(staff.id)).ok;
+    } catch (e) {
+      logError('auth.requestPasswordReset', e, { entityId: staff.id });
+      return { success: true };
+    }
     if (!allowed)
       logWarning('auth.requestPasswordReset', 'letter limit reached', { entityId: staff.id });
   }

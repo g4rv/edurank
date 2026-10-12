@@ -15,6 +15,7 @@ vi.mock('@/lib/db', () => ({
     // activeYear(), read when сумісництво is removed so the кафедра it drops
     // an allocation from is the current one
     ratingTemplate: { findFirst: vi.fn() },
+    auditLog: { create: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -1030,8 +1031,48 @@ describe('account actions for an EDITOR with division switches', () => {
     expect(await forceLogout('staff-1')).toEqual({ error: 'Недостатньо прав' });
 
     mockAccountLookups({ flags: { canEndSessions: true } });
-    (db.staff.update as unknown as Mock).mockResolvedValue({});
+    mockTx();
     expect(await forceLogout('staff-1')).toEqual({ success: true, message: 'Всі сесії завершено' });
+  });
+
+  it('forceLogout: bumps tokenVersion and audits it in one transaction', async () => {
+    mockAccountLookups({ flags: { canEndSessions: true } });
+    const tx = mockTx();
+    await forceLogout('staff-1');
+    expect(tx.staff.update).toHaveBeenCalledWith({
+      where: { id: 'staff-1' },
+      data: { tokenVersion: { increment: 1 } },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        action: 'UPDATE',
+        entity: 'Staff',
+        entityId: 'staff-1',
+        label: 'Коваленко Іван Петрович — завершено всі сесії',
+        userId: editorSession.user.id,
+      },
+    });
+  });
+
+  it('sendInvite: audits the letter once it was accepted', async () => {
+    mockAccountLookups({ flags: { canInviteStaff: true } });
+    expect(await sendInvite('staff-1')).toEqual({ success: true, message: 'Запрошення надіслано' });
+    expect(db.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        action: 'UPDATE',
+        entity: 'Staff',
+        entityId: 'staff-1',
+        label: 'Коваленко Іван Петрович — запрошення надіслано',
+        userId: editorSession.user.id,
+      },
+    });
+  });
+
+  it('sendInvite: no audit entry when the mail fails', async () => {
+    mockAccountLookups({ flags: { canInviteStaff: true } });
+    mockSendMail.mockRejectedValueOnce(new Error('SMTP down'));
+    expect((await sendInvite('staff-1')) as object).toHaveProperty('error');
+    expect(db.auditLog.create).not.toHaveBeenCalled();
   });
 
   // The takeover. All three switches held, target is an admin or another editor.

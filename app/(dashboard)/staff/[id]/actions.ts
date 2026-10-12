@@ -947,6 +947,22 @@ export async function sendInvite(id: string): Promise<AccountActionState> {
     return { error: 'Не вдалося надіслати лист. Перевірте налаштування пошти' };
   }
 
+  // Only now that the mail was accepted. The letter is away, so a failed audit
+  // write is logged rather than reported as a failed invite.
+  try {
+    await db.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'Staff',
+        entityId: id,
+        label: `${staffFullName(staff)} — запрошення надіслано`,
+        userId: session.user.id,
+      },
+    });
+  } catch (e) {
+    logError('staff.sendInvite.audit', e, { userId: session.user.id, entityId: id });
+  }
+
   revalidatePath(`/staff/${id}`);
   return { success: true, message: 'Запрошення надіслано' };
 }
@@ -1043,8 +1059,26 @@ export async function setPasswordManually(
 export async function forceLogout(id: string): Promise<AccountActionState> {
   const gate = await authorizeAccountAction(id, 'sessions');
   if ('error' in gate) return { error: gate.error };
+  const { session } = gate;
 
-  await db.staff.update({ where: { id }, data: { tokenVersion: { increment: 1 } } });
+  const staff = await db.staff.findUnique({
+    where: { id },
+    select: { lastName: true, firstName: true, patronymic: true },
+  });
+  if (!staff) return { error: 'Запис не знайдено' };
+
+  await db.$transaction(async (tx) => {
+    await tx.staff.update({ where: { id }, data: { tokenVersion: { increment: 1 } } });
+    await tx.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'Staff',
+        entityId: id,
+        label: `${staffFullName(staff)} — завершено всі сесії`,
+        userId: session.user.id,
+      },
+    });
+  });
 
   revalidatePath(`/staff/${id}`);
   return { success: true, message: 'Всі сесії завершено' };
