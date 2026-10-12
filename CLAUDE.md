@@ -129,6 +129,25 @@ Rules:
 - Confidential fields (e.g. ставка): only `ADMIN` can read them. `EDITOR` never sees them. `USER` sees only their own.
 - All permission enforcement is **server-side** — never only in UI components.
 
+**Account switches (owner, 2026-10-12).** Three booleans on `Division`, set by
+ADMIN on the division edit form, audited like the others, all `false` until
+ticked: `canInviteStaff` («Надсилання запрошень»), `canSetPasswords` (set a
+password **and reset one** — one switch covers both) and `canEndSessions`
+(`forceLogout`). Like `canModerateRating` and `canOverseeScience` they are
+columns, not entity rows.
+
+- **An editor reaches only `USER` records.** `accountGrantsFor` in
+  `lib/permissions.ts` returns the switches for a caller and a target; it is the
+  only door. Without the `USER`-only rule «set pass» would be an account takeover
+  of an admin or another editor. An editor therefore never acts on themselves.
+- **Stay ADMIN-only:** `unlockLogin`, `changeRole`, bulk invite
+  (`/admin/invites`, the invite checkbox on `createStaff`). Archive is still
+  `STAFF DELETE`, not a switch.
+- **Activation is visible to editors, heads and деканs** («Не активований»
+  pill, the badge on `/staff`, `/my-department`, `/my-faculty`). Seeing it is not
+  doing anything: heads and деканs get no buttons. Role and ставка stay
+  ADMIN-only.
+
 ## Stack
 
 **Current:**
@@ -139,6 +158,13 @@ Rules:
 - ESLint with `eslint-config-next`
 
 **Auth:** Email + password, no OAuth. NextAuth v5 credentials provider with **JWT sessions — no database adapter**. The `jwt` callback in `lib/auth.ts` re-reads the Staff row on every call so role changes and the `tokenVersion` kill-switch (`forceLogout`) take effect immediately.
+
+**Letters are limited** (owner, 2026-10-12): per person, one per 60 s and three
+per 6 h, counted from the `MailSend` table by `lib/mail/allowance.ts`. This covers
+every emailed link — invite and reset, including `/forgot-password`. ADMIN is
+exempt. A row is written only **after the mail server accepted** the message, so
+a failed send costs nothing. `/forgot-password` skips a limited request silently
+(no enumeration) and its page text states the rule.
 
 **Scale:** ~300 staff, tens of editors, a couple of admins.
 

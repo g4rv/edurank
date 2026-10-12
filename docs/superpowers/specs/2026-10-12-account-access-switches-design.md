@@ -74,7 +74,7 @@ switches; they carry these too.
   `canMutateStaffRecord` allows the target (a `USER` record). Otherwise «set pass»
   would be an account takeover of an admin or another editor.
 - Anyone else — never. Heads and деканs get no actions.
-- `forceLogout` on yourself stays refused. Archived and last-admin rules unchanged.
+- An EDITOR can never act on themselves (only USER records are reachable); ADMIN is unchanged. Archived and last-admin rules unchanged.
 
 ### Actions (`app/(dashboard)/staff/[id]/actions.ts`)
 
