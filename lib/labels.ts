@@ -146,6 +146,8 @@ export const FIELD_LABELS: Record<string, string> = {
   canInviteStaff: 'Надсилання запрошень',
   canSetPasswords: 'Встановлення й скидання паролів',
   canEndSessions: 'Завершення всіх сесій',
+  entityPermissions: 'Дії з сутностями',
+  fieldPermissions: 'Доступ до полів',
   registryKey: 'Ключ у довіднику',
   staffId: 'Співробітник',
   password: 'Пароль',
@@ -289,4 +291,16 @@ export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
     name: 'ПІБ',
     year: 'Рік вступу',
   },
+};
+
+export const ENTITY_TYPE_LABELS: Record<string, string> = {
+  STAFF: 'Персонал',
+  DEPARTMENT: 'Кафедра',
+  FACULTY: 'Факультет',
+};
+
+export const ENTITY_ACTION_LABELS: Record<string, string> = {
+  CREATE: 'Створення',
+  UPDATE: 'Редагування',
+  DELETE: 'Видалення',
 };
