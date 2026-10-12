@@ -128,9 +128,10 @@ Rules:
 - Divisions themselves can **only** be created/deleted by `ADMIN` — never by editors (divisions control permissions; editors touching them would be privilege escalation).
 - Confidential fields (e.g. ставка): only `ADMIN` can read them. `EDITOR` never sees them. `USER` sees only their own.
 - All permission enforcement is **server-side** — never only in UI components.
+- **All of a division's rights are edited in one place** (owner, 2026-10-12): `/divisions/[id]` — name, the switches, entity actions and field access — with one Save (`updateDivisionSettings`), ADMIN only, audited as one entry. The former «Поля доступу» / «Дії доступу» screens and `/divisions/[id]/edit` are gone.
 
 **Account switches (owner, 2026-10-12).** Three booleans on `Division`, set by
-ADMIN on the division edit form, audited like the others, all `false` until
+ADMIN on the division settings page, audited like the others, all `false` until
 ticked: `canInviteStaff` («Надсилання запрошень»), `canSetPasswords` (set a
 password **and reset one** — one switch covers both) and `canEndSessions`
 (`forceLogout`). Like `canModerateRating` and `canOverseeScience` they are
@@ -366,9 +367,6 @@ app/
   (dashboard)/                    ← all authenticated routes, shared dashboard shell
     dashboard/                    ← ADMIN + EDITOR: «Огляд» — charts + faculty/department tree
     admin/                        ← ADMIN-only pages
-      permissions/
-        field/                    ← configure DivisionFieldPermission per division
-        entity/                   ← configure DivisionEntityPermission per division
       rating/                     ← rating years: activate / clone / close / reopen
         [year]/                   ← per-section indicator editor
       stakes/                     ← redirects to /stakes (merged 2026-08-12)
@@ -390,7 +388,10 @@ app/
                                     (`CreateFacultyDialog`), not a `new/` route — same
                                     move as staff's, 2026-09-21, followed here 2026-09-29
     departments/                  ← same shape; [id]/stakes/ redirects to /stakes/[id]
-    divisions/                    ← same shape; create/delete is ADMIN-only
+    divisions/                    ← same shape; create/delete is ADMIN-only. [id]/ is the
+                                    division's SETTINGS page (name, switches, entity and
+                                    field rights, one Save) — no [id]/edit/, no
+                                    admin/permissions/; the old URLs redirect
     profile/                      ← own profile (personal data only)
     achievements/                 ← USER: «Мій рейтинг» + submission forms
       [section]/                  ← add an activity from section 1–5
@@ -810,7 +811,7 @@ Mutations use `diffChanges` from `lib/audit.ts` to capture before/after state in
 
 **When adding a new field to any model**, also add its Ukrainian label to `FIELD_LABELS` in `lib/labels.ts`. When adding a new entity with mutations, wire up `diffChanges` in its `actions.ts` following the pattern in existing action files.
 
-**When adding a new editable Staff field**, also add it to `ALLOWED_FIELD_NAMES` in `app/(dashboard)/admin/permissions/field/actions.ts` and to `FIELD_GROUPS` in `app/(dashboard)/admin/permissions/field/page.tsx` so it appears in the permissions UI and can be granted to divisions.
+**When adding a new editable Staff field**, also add it to `ALLOWED_FIELD_NAMES` and to `FIELD_GROUPS`, both in `lib/divisions/field-grants.ts`, so it appears on the division settings page (`/divisions/[id]`) and can be granted to divisions.
 
 ## UI feedback conventions
 

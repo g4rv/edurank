@@ -8,7 +8,7 @@ import type { Role } from '@/lib/generated/prisma/client';
  *
  * This used to be ННВ by `registryKey`, deliberately NOT a grantable flag, on
  * the reading that наказ №152 п.3 names ННВ. The owner reversed it: the right
- * is now a switch on `/divisions/[id]/edit`, and the migration that added it
+ * is now a switch on the division settings page (`/divisions/[id]`), and the migration that added it
  * turned it on for ННВ, so nobody lost access on deploy.
  *
  * Shape mirrors `canModerateRating` (`lib/rating/moderation.ts`) on purpose —

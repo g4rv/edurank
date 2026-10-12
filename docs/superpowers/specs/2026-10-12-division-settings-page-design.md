@@ -81,7 +81,7 @@ the settings page afterwards (a new division starts with none, as today).
 
 `ALLOWED_FIELD_NAMES` (now in `admin/permissions/field/actions.ts`) and
 `FIELD_GROUPS` (now in that screen's page) move to one shared file,
-`lib/permissions/division-fields.ts`, used by the new action AND the form. The
+`lib/divisions/field-grants.ts`, used by the new action AND the form. The
 rule in CLAUDE.md «When adding a new editable Staff field» points there.
 
 ### Removing the old screens
