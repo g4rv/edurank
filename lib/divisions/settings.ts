@@ -1,5 +1,5 @@
 import { ENTITY_ACTION_LABELS, ENTITY_TYPE_LABELS, FIELD_LABELS } from '@/lib/labels';
-import { entityKey } from './field-grants';
+import { ALLOWED_FIELD_NAMES, entityKey } from './field-grants';
 
 /** Everything the settings page edits, as plain data. */
 export interface DivisionSettings {
@@ -35,7 +35,13 @@ export function toSettings(row: DivisionRow): DivisionSettings {
     canSetPasswords: row.canSetPasswords,
     canEndSessions: row.canEndSessions,
     entityPermissions: row.entityPermissions.map((p) => entityKey(p.entity, p.action)).sort(),
-    fieldPermissions: row.fieldPermissions.map((p) => p.fieldName).sort(),
+    // A name the page cannot draw (left over from before the 2026-10-06 academic
+    // split) would ride in the form state and make every Save fail with
+    // «Невідоме поле». Dropped here; the next Save replaces the set without it.
+    fieldPermissions: row.fieldPermissions
+      .map((p) => p.fieldName)
+      .filter((n) => ALLOWED_FIELD_NAMES.has(n))
+      .sort(),
   };
 }
 

@@ -36,14 +36,12 @@ export type DivisionActionState = { error: string } | { redirectTo: string };
 
 /**
  * See the note in `faculties/actions.ts` — same gap, same cause. A відділ is
- * also a column on both permission screens and the owner of `/division-data`,
+ * also the owner of `/division-data`,
  * so a renamed or deleted one went on showing its old name there.
  */
 function revalidateDivisions(id?: string) {
   revalidatePath('/divisions');
   if (id) revalidatePath(`/divisions/${id}`);
-  revalidatePath('/admin/permissions/field');
-  revalidatePath('/admin/permissions/entity');
   revalidatePath('/division-data');
   // «Перевірка науки» decides who reaches both of these.
   revalidatePath('/science-plans');

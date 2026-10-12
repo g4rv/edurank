@@ -17,11 +17,9 @@ import {
   ClipboardList,
   FlaskConical,
   GraduationCap,
-  KeyRound,
   LayoutDashboard,
   MailPlus,
   Scale,
-  ShieldCheck,
   Table2,
   Trophy,
   UserPlus,
@@ -50,7 +48,7 @@ interface NavItem {
 
 /**
  * ADMIN and nobody else. Settings for the system rather than work on people:
- * which year is open, who may edit what, who has been invited, what was changed.
+ * which year is open, what a відділ may do, who has been invited, what was changed.
  *
  * «Відділи» sits here rather than beside Кафедри/Факультети, which is where it
  * looks like it belongs. A відділ carries the permission rows — an editor who
@@ -62,8 +60,6 @@ const ADMINISTRATION_NAV: NavItem[] = [
   { href: '/divisions', label: 'Відділи', icon: Building2 },
   { href: '/admin/rating', label: 'Рейтингові роки', icon: CalendarCog },
   { href: '/admin/science-plan', label: 'Планування науки', icon: FlaskConical },
-  { href: '/admin/permissions/field', label: 'Поля доступу', icon: KeyRound },
-  { href: '/admin/permissions/entity', label: 'Дії доступу', icon: ShieldCheck },
   { href: '/admin/invites', label: 'Запрошення', icon: MailPlus },
   { href: '/admin/students', label: 'Здобувачі', icon: GraduationCap },
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList },

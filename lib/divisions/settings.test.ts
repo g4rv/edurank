@@ -40,6 +40,20 @@ describe('toSettings', () => {
     expect(s.entityPermissions).toEqual([]);
     expect(s.fieldPermissions).toEqual([]);
   });
+
+  it('drops a stored field name the page no longer grants', () => {
+    // academicRank / degreeMatchesDepartment are left over from before the
+    // 2026-10-06 split. Carried into the form they would make every Save fail.
+    const s = toSettings({
+      ...row,
+      fieldPermissions: [
+        { fieldName: 'phone' },
+        { fieldName: 'academicRank' },
+        { fieldName: 'degreeMatchesDepartment' },
+      ],
+    });
+    expect(s.fieldPermissions).toEqual(['phone']);
+  });
 });
 
 describe('settingsEqual', () => {
@@ -54,6 +68,15 @@ describe('settingsEqual', () => {
     expect(settingsEqual(base, { ...base, canEndSessions: true })).toBe(false);
     expect(settingsEqual(base, { ...base, entityPermissions: [] })).toBe(false);
     expect(settingsEqual(base, { ...base, fieldPermissions: ['email'] })).toBe(false);
+  });
+
+  it('ignores stale stored field names on either side', () => {
+    const stale = toSettings({
+      ...row,
+      fieldPermissions: [{ fieldName: 'phone' }, { fieldName: 'scientificDegree' }],
+    });
+    const clean = toSettings({ ...row, fieldPermissions: [{ fieldName: 'phone' }] });
+    expect(settingsEqual(stale, clean)).toBe(true);
   });
 
   it('does not count surrounding spaces in the name as a change', () => {

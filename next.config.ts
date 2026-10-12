@@ -170,6 +170,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  /**
+   * The permission screens were folded into the division settings page
+   * (2026-10-12). Their URLs may be bookmarked; not permanent, so a browser does
+   * not remember them if a screen ever returns.
+   */
+  async redirects() {
+    return [
+      { source: '/admin/permissions/field', destination: '/divisions', permanent: false },
+      { source: '/admin/permissions/entity', destination: '/divisions', permanent: false },
+      { source: '/divisions/:id/edit', destination: '/divisions/:id', permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;
