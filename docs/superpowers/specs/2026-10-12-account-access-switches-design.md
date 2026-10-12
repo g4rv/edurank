@@ -85,6 +85,10 @@ switches; they carry these too.
 | `forceLogout`                          | `sessions`       |
 | `unlockLogin`, `changeRole`            | ADMIN, unchanged |
 
+An EDITOR may use `setPasswordManually` only for a never-activated person
+(`passwordHash` is null; owner, 2026-10-12) — for an activated one they use
+`resetPassword`, which mails a link. ADMIN may set a password for anyone.
+
 All keep their audit entries; the actor is the editor. Errors keep the existing
 `logError` / Ukrainian-sentence convention.
 

@@ -192,7 +192,11 @@ export function AccountControls({
           />
         )}
 
-        {grants.password && (
+        {/* By hand is the fallback for a bounced mailbox: an editor gets it only
+            for somebody who never activated (owner, 2026-10-12) — on an
+            activated person it would let them sign in as that person. They use
+            «Скинути пароль». ADMIN always sees it; the action re-checks. */}
+        {grants.password && (isAdmin || !account.isActivated) && (
           <ManualPasswordDialog
             size={bar ? 'default' : 'sm'}
             className={bar ? 'rounded-md' : undefined}

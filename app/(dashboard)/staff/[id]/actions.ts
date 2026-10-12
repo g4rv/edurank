@@ -1027,9 +1027,21 @@ export async function setPasswordManually(
 
   const staff = await db.staff.findUnique({
     where: { id },
-    select: { id: true, lastName: true, firstName: true, patronymic: true },
+    select: { id: true, lastName: true, firstName: true, patronymic: true, passwordHash: true },
   });
   if (!staff) return { error: 'Запис не знайдено' };
+
+  // Owner, 2026-10-12: by hand is the fallback for a bounced mailbox, so an
+  // editor gets it only for somebody who never activated. On an activated
+  // person (maybe a head, a dean) it would let the editor sign in as them with
+  // a password they know; «Скинути пароль» mails the person a link instead.
+  // ADMIN is unchanged. Checked before anything is hashed or written.
+  if (session.user.role !== 'ADMIN' && staff.passwordHash) {
+    return {
+      error:
+        'Пароль вручну можна задати лише тому, хто ще не активував обліковий запис. Скористайтесь «Скинути пароль»',
+    };
+  }
 
   const passwordHash = await hash(parsed.data.password, 10);
 

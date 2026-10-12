@@ -35,6 +35,11 @@ vi.mock('@/lib/mail/allowance', () => ({
   recordMailSent: vi.fn().mockResolvedValue(undefined),
   retryMessage: vi.fn(() => 'Лист уже надсилали. Спробуйте після 14:32'),
 }));
+// The real hash, watched: a refused hand-set password must never reach it
+vi.mock('bcryptjs', async (importOriginal) => {
+  const real = await importOriginal<typeof import('bcryptjs')>();
+  return { ...real, hash: vi.fn(real.hash) };
+});
 // `parseRateSeeds` and the error classes stay real; only the database half is faked
 vi.mock('@/lib/stake/seed-allocation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/stake/seed-allocation')>()),
@@ -43,6 +48,7 @@ vi.mock('@/lib/stake/seed-allocation', async (importOriginal) => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { hash } from 'bcryptjs';
 import { sendMail } from '@/lib/mail/mailer';
 import { mailAllowance } from '@/lib/mail/allowance';
 import { Prisma } from '@/lib/generated/prisma/client';
@@ -71,6 +77,7 @@ const mockStaffFirst = db.staff.findFirst as unknown as Mock;
 const mockSeed = seedAllocations as unknown as Mock;
 const mockSendMail = sendMail as unknown as Mock;
 const mockAllowance = mailAllowance as unknown as Mock;
+const mockHash = hash as unknown as Mock;
 
 // Payload an attacker could send: touches confidential + non-granted fields
 const fullPayload: StaffUpdateSchema = {
@@ -1001,6 +1008,8 @@ describe('account actions for an EDITOR with division switches', () => {
     mockAccountLookups({ flags: { canSetPasswords: true }, passwordHash: 'hash' });
     mockTx();
     expect((await resetPassword('staff-1')) as object).toHaveProperty('success', true);
+    // By hand only for somebody who never activated (owner, 2026-10-12)
+    mockAccountLookups({ flags: { canSetPasswords: true }, passwordHash: null });
     expect(
       (await setPasswordManually('staff-1', {
         password: 'Parol123!',
@@ -1013,6 +1022,52 @@ describe('account actions for an EDITOR with division switches', () => {
     expect(
       await setPasswordManually('staff-1', { password: 'Parol123!', confirmPassword: 'Parol123!' })
     ).toEqual({ error: 'Недостатньо прав' });
+  });
+
+  // Owner, 2026-10-12: a hand-set password on an activated person would let the
+  // editor sign in as them (a head, a dean...). They reset instead.
+  const manualInput = { password: 'Parol123!', confirmPassword: 'Parol123!' };
+
+  it('setPasswordManually: an editor is refused for an ACTIVATED person', async () => {
+    mockAccountLookups({ flags: { canSetPasswords: true }, passwordHash: 'hash' });
+    const tx = mockTx();
+    expect(await setPasswordManually('staff-1', manualInput)).toEqual({
+      error:
+        'Пароль вручну можна задати лише тому, хто ще не активував обліковий запис. Скористайтесь «Скинути пароль»',
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(tx.staff.update).not.toHaveBeenCalled();
+    expect(mockHash).not.toHaveBeenCalled();
+  });
+
+  it('setPasswordManually: an editor may set it for a never-activated person', async () => {
+    mockAccountLookups({ flags: { canSetPasswords: true }, passwordHash: null });
+    const tx = mockTx();
+    expect(await setPasswordManually('staff-1', manualInput)).toEqual({
+      success: true,
+      message: 'Пароль встановлено',
+    });
+    expect(tx.staff.update).toHaveBeenCalled();
+  });
+
+  it('setPasswordManually: ADMIN may still set it for an activated person', async () => {
+    mockAuth.mockResolvedValue(adminSession);
+    mockAccountLookups({ passwordHash: 'hash' });
+    const tx = mockTx();
+    expect(await setPasswordManually('staff-1', manualInput)).toEqual({
+      success: true,
+      message: 'Пароль встановлено',
+    });
+    expect(tx.staff.update).toHaveBeenCalled();
+  });
+
+  it('setPasswordManually: without the switch a never-activated person is still refused', async () => {
+    mockAccountLookups({ flags: { canInviteStaff: true }, passwordHash: null });
+    const tx = mockTx();
+    expect(await setPasswordManually('staff-1', manualInput)).toEqual({
+      error: 'Недостатньо прав',
+    });
+    expect(tx.staff.update).not.toHaveBeenCalled();
   });
 
   it('resetPassword: sends nothing and clears nothing when the allowance is spent', async () => {

@@ -140,6 +140,10 @@ columns, not entity rows.
   `lib/permissions.ts` returns the switches for a caller and a target; it is the
   only door. Without the `USER`-only rule «set pass» would be an account takeover
   of an admin or another editor. An editor therefore never acts on themselves.
+- **An editor sets a password by hand only for a never-activated person**
+  (owner, 2026-10-12; `passwordHash` is null). For an activated person — who may be
+  a завідувач, a декан or hold other power — they use «Скинути пароль», which mails
+  the person a link. ADMIN may set one for anyone.
 - **Stay ADMIN-only:** `unlockLogin`, `changeRole`, bulk invite
   (`/admin/invites`, the invite checkbox on `createStaff`). Archive is still
   `STAFF DELETE`, not a switch.
