@@ -5,11 +5,9 @@ import { issueAndEmailLink } from '@/lib/mail/invite';
 import { forgotPasswordSchema, type ForgotPasswordSchema } from '@/validations/account';
 import { emailMatches } from '@/lib/auth/email';
 import { logError, logWarning } from '@/lib/log';
+import { mailAllowance } from '@/lib/mail/allowance';
 
 export type ForgotPasswordState = { error: string } | { success: true };
-
-// Cooldown so a stranger typing someone's email can't flood their mailbox
-const RESEND_COOLDOWN_MS = 60 * 1000;
 
 // Public self-service reset. Always answers success for a well-formed email —
 // whether an account exists must not be observable. The current password
@@ -34,7 +32,7 @@ export async function requestPasswordReset(
       patronymic: true,
       // Decides WHICH letter goes out — see below. Never leaves this function.
       passwordHash: true,
-      activationToken: { select: { createdAt: true } },
+      archivedAt: true,
     },
     take: 2,
   });
@@ -48,11 +46,34 @@ export async function requestPasswordReset(
     return { success: true };
   }
 
-  const recentlySent =
-    staff?.activationToken &&
-    Date.now() - staff.activationToken.createdAt.getTime() < RESEND_COOLDOWN_MS;
+  // An archived account cannot sign in, so a letter for it is useless (owner,
+  // 2026-10-12). No send and no allowance read — and the same answer as ever, so
+  // the caller cannot tell it from an unknown address.
+  if (staff?.archivedAt) {
+    logWarning('auth.requestPasswordReset', 'reset requested for an archived account', {
+      entityId: staff.id,
+    });
+    return { success: true };
+  }
 
-  if (staff && !recentlySent) {
+  // At least a minute apart and at most three letters in six hours per person
+  // (lib/mail/allowance.ts). The caller still hears «success» either way — a
+  // different answer would reveal that the address exists.
+  let allowed = false;
+  if (staff) {
+    // A lookup that throws only for a KNOWN address would tell the caller the
+    // address exists. Fail closed — no letter — and answer as usual.
+    try {
+      allowed = (await mailAllowance(staff.id)).ok;
+    } catch (e) {
+      logError('auth.requestPasswordReset', e, { entityId: staff.id });
+      return { success: true };
+    }
+    if (!allowed)
+      logWarning('auth.requestPasswordReset', 'letter limit reached', { entityId: staff.id });
+  }
+
+  if (staff && allowed) {
     // An account with no password has never been activated, and there is one
     // very ordinary way to arrive here: a new colleague cannot find the
     // invitation and tries «Забули пароль?». Sending «Скидання паролю» to

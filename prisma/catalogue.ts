@@ -84,7 +84,7 @@ async function seedDivisions(prisma: PrismaClient): Promise<Record<string, strin
  *
  * `employmentRate` and `divisionId` are deliberately absent: the first is
  * confidential and the second decides an editor's own scope, so both are
- * ADMIN-only and `setFieldPermission` refuses to grant them. Seeding a row for
+ * ADMIN-only and `updateDivisionSettings` refuses to grant them. Seeding a row for
  * either would create an inert grant that reads as working.
  */
 async function seedNnvPermissions(prisma: PrismaClient, nnvId: string): Promise<void> {

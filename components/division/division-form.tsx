@@ -58,6 +58,9 @@ export function DivisionForm({
       name: '',
       canModerateRating: false,
       canOverseeScience: false,
+      canInviteStaff: false,
+      canSetPasswords: false,
+      canEndSessions: false,
       ...defaultValues,
     },
   });
@@ -126,6 +129,76 @@ export function DivisionForm({
               <span className="block text-xs text-muted-foreground">
                 Редактори цього відділу бачитимуть плани й виконання наукової роботи всіх НПП,
                 відкриватимуть файли підтвердження та зможуть відхиляти записи
+              </span>
+            </span>
+          </label>
+
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Керування обліковими записами</p>
+            <p className="text-xs text-muted-foreground">
+              Лише для звичайних співробітників. Облікові записи адміністраторів і редакторів змінює
+              тільки адміністратор.
+            </p>
+          </div>
+
+          <label className="flex cursor-pointer items-start gap-3">
+            <Controller
+              name="canInviteStaff"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  checked={!!field.value}
+                  disabled={isPending}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
+            <span className="text-sm">
+              Надсилання запрошень
+              <span className="block text-xs text-muted-foreground">
+                Редактори цього відділу зможуть надіслати запрошення людині, яка ще не активувала
+                обліковий запис
+              </span>
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3">
+            <Controller
+              name="canSetPasswords"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  checked={!!field.value}
+                  disabled={isPending}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
+            <span className="text-sm">
+              Встановлення й скидання паролів
+              <span className="block text-xs text-muted-foreground">
+                Редактори зможуть задати пароль вручну або скинути його (пароль видаляється, а на
+                пошту йде посилання)
+              </span>
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3">
+            <Controller
+              name="canEndSessions"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  checked={!!field.value}
+                  disabled={isPending}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
+            <span className="text-sm">
+              Завершення всіх сесій
+              <span className="block text-xs text-muted-foreground">
+                Редактори зможуть вийти за людину з усіх пристроїв
               </span>
             </span>
           </label>

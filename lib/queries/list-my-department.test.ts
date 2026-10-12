@@ -26,12 +26,19 @@ function departments(ids: string[]) {
 }
 
 function staff(
-  rows: { id: string; departmentId: string | null; partTimeIn?: string[]; total?: number }[]
+  rows: {
+    id: string;
+    departmentId: string | null;
+    partTimeIn?: string[];
+    total?: number;
+    passwordHash?: string | null;
+  }[]
 ) {
   mockStaff.mockResolvedValue(
     rows.map((r) => ({
       id: r.id,
       departmentId: r.departmentId,
+      passwordHash: r.passwordHash === undefined ? 'h' : r.passwordHash,
       partTimeDepartments: (r.partTimeIn ?? []).map((departmentId) => ({ departmentId })),
       lastName: r.id,
       firstName: 'І',
@@ -118,6 +125,24 @@ describe('listMyDepartments with a сумісник', () => {
     mockScope.mockResolvedValue([]);
     expect(await listMyDepartments('nobody', 2026)).toEqual([]);
     expect(mockStaff).not.toHaveBeenCalled();
+  });
+});
+
+describe('listMyDepartments — activation', () => {
+  it('reports whether each person has set a password, never the hash', async () => {
+    mockScope.mockResolvedValue(['d1']);
+    departments(['d1']);
+    staff([
+      { id: 'in', departmentId: 'd1', total: 200, passwordHash: '$2b$10$secret' },
+      { id: 'out', departmentId: 'd1', total: 100, passwordHash: null },
+    ]);
+
+    const [d1] = await listMyDepartments('head', 2026);
+    expect(d1.staff.map((s) => [s.id, s.isActivated])).toEqual([
+      ['in', true],
+      ['out', false],
+    ]);
+    expect(d1.staff[0]).not.toHaveProperty('passwordHash');
   });
 });
 

@@ -57,10 +57,10 @@ export async function RecordHeader({ id }: { id: string }) {
   const staff = await getStaff(id, showConfidential);
   if (!staff) notFound();
 
-  // «Активовано» is a fact about the person, like «Архівований» beside it, so it
-  // belongs on the band (owner, asked twice — 2026-09-09). Only an ADMIN may
-  // know it, and only an ADMIN loads the row.
-  const account = isAdmin ? await getStaffAccount(id) : null;
+  // «Активовано» is a fact about the person, like «Архівований» beside it, and
+  // every viewer who may read this record may know it (owner, 2026-10-12;
+  // ADMIN-only before). Only the boolean is drawn here.
+  const account = await getStaffAccount(id);
 
   let canEdit = isAdmin;
   // Nobody archives their own record, an ADMIN included (owner, 2026-10-05) —

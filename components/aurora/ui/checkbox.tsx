@@ -9,10 +9,11 @@ import { cn } from '@/lib/utils';
  * «Аврора»'s checkbox — and there was no `components/ui/checkbox` to replace.
  *
  * Three screens needed one and each grew its own: `/admin/permissions/field`
- * and `/admin/permissions/entity` use a bare `<input type="checkbox">` with
- * `accent-brand`, the licence-position picker uses the same input with
+ * and `/admin/permissions/entity` used a bare `<input type="checkbox">` with
+ * `accent-brand` (until they were folded into the division settings page,
+ * `/divisions/[id]`), the licence-position picker used the same input with
  * `accent-foreground`. So the two permission grids and the picker beside them
- * are already different colours, and none of them can carry a focus ring, an
+ * were already different colours, and none of them can carry a focus ring, an
  * invalid state, or the disabled surface every other control here has —
  * `accent-color` styles the box and nothing else.
  *
@@ -31,7 +32,7 @@ import { cn } from '@/lib/utils';
  * **There is no indeterminate state**, and that is deliberate (owner,
  * 2026-09-07). It was drawn first, on the assumption that the permission grid
  * has a «some of this division's fields» header — it does not. The three group
- * headings on `/admin/permissions/field` are plain text, and nothing else in
+ * headings of the field grid on `/divisions/[id]` are plain text, and nothing else in
  * this app selects a whole group at once. Radix supports the state whenever a
  * select-all appears; drawing it before then is a state nobody can reach and
  * one more thing to keep working.

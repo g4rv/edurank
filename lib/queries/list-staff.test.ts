@@ -127,6 +127,58 @@ describe('filtering by activation', () => {
     expect(rows[0]).not.toHaveProperty('passwordHash');
     expect(rows[0].isActivated).toBe(true);
   });
+
+  it('reports activation under includeActivation without selecting the role', async () => {
+    mockStaff.mockResolvedValue([
+      {
+        id: 's1',
+        lastName: 'Гість',
+        firstName: 'І',
+        patronymic: 'П',
+        email: 'g@u.ua',
+        isNpp: true,
+        archivedAt: null,
+        position: null,
+        academicTitle: null,
+        candidateDegree: null,
+        doctorDegree: null,
+        passwordHash: null,
+        department: null,
+        division: null,
+        partTimeDepartments: [],
+      },
+    ]);
+    const rows = await listStaff({ includeActivation: true });
+    const select = mockStaff.mock.calls[0][0].select;
+    expect(select.passwordHash).toBe(true);
+    expect(select).not.toHaveProperty('role');
+    expect(rows[0].isActivated).toBe(false);
+    expect(rows[0]).not.toHaveProperty('passwordHash');
+  });
+
+  it('leaves isActivated undefined when neither flag is set', async () => {
+    mockStaff.mockResolvedValue([
+      {
+        id: 's1',
+        lastName: 'Г',
+        firstName: 'І',
+        patronymic: 'П',
+        email: 'g@u.ua',
+        isNpp: true,
+        archivedAt: null,
+        position: null,
+        academicTitle: null,
+        candidateDegree: null,
+        doctorDegree: null,
+        department: null,
+        division: null,
+        partTimeDepartments: [],
+      },
+    ]);
+    const rows = await listStaff({});
+    expect(mockStaff.mock.calls[0][0].select).not.toHaveProperty('passwordHash');
+    expect(rows[0].isActivated).toBeUndefined();
+  });
 });
 
 // The academic filters on the new fields (owner, 2026-10-06)

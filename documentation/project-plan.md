@@ -138,16 +138,18 @@
 - [ ] Delete user
 - [ ] `validations/user.ts`
 
-### Field permissions (`app/(dashboard)/admin/permissions/field/`)
+### Field permissions (division settings page, `app/(dashboard)/divisions/[id]/`)
 
-- [ ] Per-division UI — select division → see + toggle which Staff fields they can edit
-- [ ] List of all Staff fields with friendly Ukrainian labels
+Since 2026-10-12 these live on the division's settings page together with entity permissions, saved with one button.
+
+- [ ] Per-division UI — see + toggle which Staff fields they can edit
+- [ ] List of all Staff fields with friendly Ukrainian labels (`lib/divisions/field-grants.ts`)
 - [ ] Save as DivisionFieldPermission rows
 - [ ] Server actions with ADMIN guard
 
-### Entity permissions (`app/(dashboard)/admin/permissions/entity/`)
+### Entity permissions (division settings page, `app/(dashboard)/divisions/[id]/`)
 
-- [ ] Per-division UI — select division → checkboxes for Staff/Department/Faculty × Create/Update/Delete
+- [ ] Per-division UI — checkboxes for Staff/Department/Faculty × Create/Update/Delete
 - [ ] Save as DivisionEntityPermission rows
 - [ ] Server actions with ADMIN guard
 

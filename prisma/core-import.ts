@@ -76,11 +76,17 @@ export async function importCoreData(
         registryKey: d.registryKey,
         canModerateRating: d.canModerateRating,
         canOverseeScience,
+        canInviteStaff: d.canInviteStaff ?? false,
+        canSetPasswords: d.canSetPasswords ?? false,
+        canEndSessions: d.canEndSessions ?? false,
       },
       update: {
         registryKey: d.registryKey,
         canModerateRating: d.canModerateRating,
         canOverseeScience,
+        canInviteStaff: d.canInviteStaff ?? false,
+        canSetPasswords: d.canSetPasswords ?? false,
+        canEndSessions: d.canEndSessions ?? false,
       },
     });
   }

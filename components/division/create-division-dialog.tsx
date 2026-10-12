@@ -21,8 +21,9 @@ import { createDivision } from '@/app/(dashboard)/divisions/actions';
  *
  * Same move as `CreateStaffDialog` for `/staff/new` (owner, 2026-09-21):
  * `/divisions/new` is deleted rather than kept as a second way in. Unlike
- * staff, `DivisionForm` itself stays shared — it still has one other
- * caller, `/divisions/[id]/edit`, so there is nothing to duplicate here.
+ * staff, `DivisionForm` stays a component of its own, but this dialog is now its
+ * only caller: editing a відділ moved to the settings page
+ * (`/divisions/[id]`, owner 2026-10-12).
  *
  * No props: the list page is ADMIN-only already, matching who may create a
  * відділ, and the form needs no dropdown data of its own.

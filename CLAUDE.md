@@ -128,6 +128,36 @@ Rules:
 - Divisions themselves can **only** be created/deleted by `ADMIN` — never by editors (divisions control permissions; editors touching them would be privilege escalation).
 - Confidential fields (e.g. ставка): only `ADMIN` can read them. `EDITOR` never sees them. `USER` sees only their own.
 - All permission enforcement is **server-side** — never only in UI components.
+- **All of a division's rights are edited in one place** (owner, 2026-10-12): `/divisions/[id]` — name, the switches, entity actions and field access — with one Save (`updateDivisionSettings`), ADMIN only, audited as one entry. The former «Поля доступу» / «Дії доступу» screens and `/divisions/[id]/edit` are gone.
+
+**Account switches (owner, 2026-10-12).** Three booleans on `Division`, set by
+ADMIN on the division settings page, audited like the others, all `false` until
+ticked: `canInviteStaff` («Надсилання запрошень»), `canSetPasswords` (set a
+password **and reset one** — one switch covers both) and `canEndSessions`
+(`forceLogout`). Like `canModerateRating` and `canOverseeScience` they are
+columns, not entity rows.
+
+- **An editor reaches only `USER` records.** `accountGrantsFor` in
+  `lib/permissions.ts` returns the switches for a caller and a target; it is the
+  only door. Without the `USER`-only rule «set pass» would be an account takeover
+  of an admin or another editor. An editor therefore never acts on themselves.
+- **An editor sets a password by hand only for a never-activated person**
+  (owner, 2026-10-12; `passwordHash` is null). For an activated person — who may be
+  a завідувач, a декан or hold other power — they use «Скинути пароль», which mails
+  the person a link. ADMIN may set one for anyone.
+- **No credential action on an archived person, ADMIN included** (owner,
+  2026-10-12): invite, reset, password by hand, end sessions and unlock are
+  refused — an archived account cannot sign in, so a letter is useless and a
+  set password would survive a restore. Restore the person first. The buttons
+  are not drawn, and `/forgot-password` sends nothing but answers as usual.
+  `changeRole` is not a credential action and is unchanged.
+- **Stay ADMIN-only:** `unlockLogin`, `changeRole`, bulk invite
+  (`/admin/invites`, the invite checkbox on `createStaff`). Archive is still
+  `STAFF DELETE`, not a switch.
+- **Activation is visible to editors, heads and деканs** («Не активований»
+  pill, the badge on `/staff`, `/my-department`, `/my-faculty`). Seeing it is not
+  doing anything: heads and деканs get no buttons. Role and ставка stay
+  ADMIN-only.
 
 ## Stack
 
@@ -139,6 +169,13 @@ Rules:
 - ESLint with `eslint-config-next`
 
 **Auth:** Email + password, no OAuth. NextAuth v5 credentials provider with **JWT sessions — no database adapter**. The `jwt` callback in `lib/auth.ts` re-reads the Staff row on every call so role changes and the `tokenVersion` kill-switch (`forceLogout`) take effect immediately.
+
+**Letters are limited** (owner, 2026-10-12): per person, one per 60 s and three
+per 6 h, counted from the `MailSend` table by `lib/mail/allowance.ts`. This covers
+every emailed link — invite and reset, including `/forgot-password`. ADMIN is
+exempt. A row is written only **after the mail server accepted** the message, so
+a failed send costs nothing. `/forgot-password` skips a limited request silently
+(no enumeration) and its page text states the rule.
 
 **Scale:** ~300 staff, tens of editors, a couple of admins.
 
@@ -330,9 +367,6 @@ app/
   (dashboard)/                    ← all authenticated routes, shared dashboard shell
     dashboard/                    ← ADMIN + EDITOR: «Огляд» — charts + faculty/department tree
     admin/                        ← ADMIN-only pages
-      permissions/
-        field/                    ← configure DivisionFieldPermission per division
-        entity/                   ← configure DivisionEntityPermission per division
       rating/                     ← rating years: activate / clone / close / reopen
         [year]/                   ← per-section indicator editor
       stakes/                     ← redirects to /stakes (merged 2026-08-12)
@@ -354,7 +388,10 @@ app/
                                     (`CreateFacultyDialog`), not a `new/` route — same
                                     move as staff's, 2026-09-21, followed here 2026-09-29
     departments/                  ← same shape; [id]/stakes/ redirects to /stakes/[id]
-    divisions/                    ← same shape; create/delete is ADMIN-only
+    divisions/                    ← same shape; create/delete is ADMIN-only. [id]/ is the
+                                    division's SETTINGS page (name, switches, entity and
+                                    field rights, one Save) — no [id]/edit/, no
+                                    admin/permissions/; the old URLs redirect
     profile/                      ← own profile (personal data only)
     achievements/                 ← USER: «Мій рейтинг» + submission forms
       [section]/                  ← add an activity from section 1–5
@@ -774,7 +811,7 @@ Mutations use `diffChanges` from `lib/audit.ts` to capture before/after state in
 
 **When adding a new field to any model**, also add its Ukrainian label to `FIELD_LABELS` in `lib/labels.ts`. When adding a new entity with mutations, wire up `diffChanges` in its `actions.ts` following the pattern in existing action files.
 
-**When adding a new editable Staff field**, also add it to `ALLOWED_FIELD_NAMES` in `app/(dashboard)/admin/permissions/field/actions.ts` and to `FIELD_GROUPS` in `app/(dashboard)/admin/permissions/field/page.tsx` so it appears in the permissions UI and can be granted to divisions.
+**When adding a new editable Staff field**, also add it to `ALLOWED_FIELD_NAMES` and to `FIELD_GROUPS`, both in `lib/divisions/field-grants.ts`, so it appears on the division settings page (`/divisions/[id]`) and can be granted to divisions.
 
 ## UI feedback conventions
 

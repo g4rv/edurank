@@ -132,6 +132,8 @@ export function parseStaffListParams(
  * `includeAccount` / `includeConfidential` widen the SELECT, never the WHERE,
  * so they cannot change which people come back — which is what lets the export
  * pass the same params and be sure it got the same rows as the screen.
+ * `includeActivation` is for everyone who can see the list; the role and the
+ * ставка stay ADMIN's.
  */
 export function toStaffFilters(
   p: StaffListParams,
@@ -139,6 +141,7 @@ export function toStaffFilters(
 ): StaffFilters {
   return {
     isNpp: p.isNpp,
+    includeActivation: true,
     includeAccount: isAdmin,
     sort: p.sort,
     dir: p.dir,

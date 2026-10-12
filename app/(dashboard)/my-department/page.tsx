@@ -247,9 +247,12 @@ function StaffTable({
               href={`/staff/${person.id}`}
               label={`Профіль: ${person.name}`}
               after={
-                // Their кафедра is elsewhere and this one also pays them a
-                // ставка (2026-08-24).
-                person.isPartTime ? <Badge tone="warn">Сумісник</Badge> : undefined
+                <>
+                  {/* Their кафедра is elsewhere and this one also pays them a
+                      ставка (2026-08-24). */}
+                  {person.isPartTime && <Badge tone="warn">Сумісник</Badge>}
+                  {!person.isActivated && <Badge tone="warn">Не активований</Badge>}
+                </>
               }
             >
               {person.name}

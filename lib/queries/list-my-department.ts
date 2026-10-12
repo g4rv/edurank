@@ -37,6 +37,8 @@ interface MyDepartmentStaff {
    * confidential-field rule). `null` while no split is saved.
    */
   stakeHundredths: number | null;
+  /** Has set a password — the boolean only, the hash never leaves this file */
+  isActivated: boolean;
 }
 
 export async function listMyDepartments(staffId: string | null | undefined, year: number) {
@@ -60,6 +62,7 @@ export async function listMyDepartments(staffId: string | null | undefined, year
         patronymic: true,
         academicRank: true,
         scientificDegree: true,
+        passwordHash: true,
         ratingEntries: { where: { year }, select: { totalScore: true } },
       },
     }),
@@ -92,6 +95,7 @@ export async function listMyDepartments(staffId: string | null | undefined, year
       academicRank: s.academicRank,
       scientificDegree: s.scientificDegree,
       total: s.ratingEntries[0]?.totalScore ?? 0,
+      isActivated: s.passwordHash !== null,
     };
 
     if (s.departmentId && inScope.has(s.departmentId)) {

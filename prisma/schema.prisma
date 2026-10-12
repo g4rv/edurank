@@ -156,6 +156,25 @@ model ActivationToken {
   createdAt DateTime @default(now())
 }
 
+enum MailKind {
+  INVITE
+  RESET
+}
+
+/// One row per letter the mail server ACCEPTED (invite or reset link). Written
+/// after the send, so a refused message never uses up one of the three letters
+/// a person gets per six hours — see `lib/mail/allowance.ts`. Rows older than
+/// the window are deleted whenever the same person is written again.
+model MailSend {
+  id      String   @id @default(cuid())
+  staffId String
+  staff   Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  kind    MailKind
+  sentAt  DateTime @default(now())
+
+  @@index([staffId, sentAt])
+}
+
 // ─── University structure ────────────────────────────────────────────────────
 
 model Faculty {
@@ -222,6 +241,14 @@ model Division {
   // oversees and needs no row here.
   canOverseeScience Boolean @default(false)
 
+  // Account actions ADMIN shares with this division's editors. Each applies to
+  // USER records only (canMutateStaffRecord) and is read by
+  // `accountGrantsFor` in lib/permissions.ts. Unlocking a login, changing a
+  // role and bulk invites stay ADMIN-only.
+  canInviteStaff  Boolean @default(false) // send / re-send an invitation
+  canSetPasswords Boolean @default(false) // set a password, and reset one
+  canEndSessions  Boolean @default(false) // «Завершити всі сесії»
+
   staff             Staff[]
   fieldPermissions  DivisionFieldPermission[]
   entityPermissions DivisionEntityPermission[]
@@ -257,6 +284,7 @@ model Staff {
   tokenVersion Int     @default(0)
 
   activationToken ActivationToken?
+  mailSends       MailSend[]
 
   // true = НПП (науково-педагогічний працівник), must belong to a department
   // false = non-НПП (administrative staff), department is optional

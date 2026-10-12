@@ -131,9 +131,32 @@ describe('toStaffFilters', () => {
     const asAdmin = toStaffFilters(p, admin);
     const asEditor = toStaffFilters(p, editor);
 
-    const { includeAccount: _a, includeConfidential: _b, ...adminWhere } = asAdmin;
-    const { includeAccount: _c, includeConfidential: _d, ...editorWhere } = asEditor;
+    const {
+      includeAccount: _a,
+      includeConfidential: _b,
+      includeActivation: _e,
+      ...adminWhere
+    } = asAdmin;
+    const {
+      includeAccount: _c,
+      includeConfidential: _d,
+      includeActivation: _f,
+      ...editorWhere
+    } = asEditor;
     expect(editorWhere).toEqual(adminWhere);
+  });
+
+  it('shows activation to everyone but account details only to ADMIN', () => {
+    const p = parseStaffListParams({}, editor);
+    expect(toStaffFilters(p, editor)).toMatchObject({
+      includeActivation: true,
+      includeAccount: false,
+      includeConfidential: false,
+    });
+    expect(toStaffFilters(p, admin)).toMatchObject({
+      includeActivation: true,
+      includeAccount: true,
+    });
   });
 });
 
