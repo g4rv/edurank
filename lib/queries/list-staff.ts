@@ -26,6 +26,12 @@ export type StaffFilters = {
   roles?: Role[];
   // ADMIN list view: adds role + activation state (never the hash itself)
   includeAccount?: boolean;
+  /**
+   * Whether each person has set a password — the boolean only. Safe for every
+   * viewer who may see the list (owner, 2026-10-12). `includeAccount` is the
+   * ADMIN-only superset: it adds the role.
+   */
+  includeActivation?: boolean;
   sort?: StaffSortField;
   dir?: 'asc' | 'desc';
   q?: string;
@@ -168,7 +174,8 @@ export async function listStaff(filters?: StaffFilters) {
       candidateDegree: true,
       doctorDegree: true,
       ...(filters?.includeConfidential ? { employmentRate: true } : {}),
-      ...(filters?.includeAccount ? { role: true, passwordHash: true } : {}),
+      ...(filters?.includeAccount ? { role: true } : {}),
+      ...(filters?.includeAccount || filters?.includeActivation ? { passwordHash: true } : {}),
       department: { select: { name: true } },
       division: { select: { name: true } },
       partTimeDepartments: { select: { department: { select: { name: true } } } },
@@ -177,9 +184,10 @@ export async function listStaff(filters?: StaffFilters) {
   });
 
   // Strip the hash before it can leave the query layer — UI only gets a boolean
+  const withActivation = Boolean(filters?.includeAccount || filters?.includeActivation);
   return rows.map(({ passwordHash, ...rest }) => ({
     ...rest,
-    isActivated: filters?.includeAccount ? typeof passwordHash === 'string' : undefined,
+    isActivated: withActivation ? typeof passwordHash === 'string' : undefined,
   }));
 }
 

@@ -47,7 +47,8 @@ export function IdentityBand({
   actions?: React.ReactNode;
   /**
    * Anything to say beside «НПП» that the record itself does not carry —
-   * «Активовано» is ADMIN-only, so the route supplies it.
+   * «Активовано» is shown to everyone who can read the record; the route
+   * supplies it.
    */
   badges?: React.ReactNode;
 }) {
@@ -134,8 +135,9 @@ export function IdentityBand({
  * The pill itself is `components/aurora/ui/badge.tsx` since 2026-09-10, when
  * the claims table became its second caller.
  *
- * ADMIN-only, and the ROUTE decides that — `RecordHeader` passes this in and a
- * band that is handed nothing renders nothing.
+ * Shown to everyone who can read the record, and the ROUTE decides that —
+ * `RecordHeader` passes this in and a band that is handed nothing renders
+ * nothing.
  */
 export function ActivationBadge({ activated }: { activated: boolean }) {
   return (
