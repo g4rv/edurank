@@ -2,7 +2,9 @@ import { cache } from 'react';
 import { db } from '@/lib/db';
 import { emailLockedUntil } from '@/lib/auth/throttle';
 
-// Account state for the ADMIN card on the staff detail page.
+// Account state for the staff detail page. Not only the ADMIN card:
+// `RecordHeader` reads it for every viewer, and a non-admin is only ever drawn
+// the «Активовано» boolean. The controls are gated separately, by the page.
 // passwordHash itself never leaves this function — only its presence.
 //
 // **`cache()`d, for the same reason `getStaff` is** (2026-09-10). Two components

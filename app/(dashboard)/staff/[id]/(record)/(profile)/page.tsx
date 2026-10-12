@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { accountGrantsFor, type AccountGrants } from '@/lib/permissions';
 import { canOverseeScience } from '@/lib/science/oversight';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { getStaff } from '@/lib/queries/get-staff';
@@ -54,22 +55,32 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
   const staff = await getStaff(id, showStake);
   if (!staff) notFound();
 
+  // ADMIN everything; an EDITOR the switches their division holds, on a USER
+  // record only. A head or декан gets none — they see the badge, not buttons.
+  const grants = await accountGrantsFor(session.user, { id, role: staff.role });
+  const showAccountBar = isAdmin || Object.values(grants).some(Boolean);
+
   const stakeParts = showStake ? await getStakeBreakdown(id) : [];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       <RecordTabRow staffId={id} showRating={staff.isNpp} showScience={showScience}>
-        {/* Only an ADMIN gets these, and only an ADMIN gets the placeholder —
-            which is why the decision is HERE and not in `loading.tsx`. A
-            loading file has no session, so a placeholder drawn there would show
-            a grey bar to the tens of editors who will never get controls, to
-            spare the couple of admins an empty corner.
+        {/* Only an ADMIN, or an EDITOR holding a switch, gets these — and only
+            they get the placeholder, which is why the decision is HERE and not
+            in `loading.tsx`. A loading file has no session, so a placeholder
+            drawn there would show a grey bar to everyone who will never get
+            controls, to spare the few who do an empty corner.
 
             Behind its own `Suspense`, so the tab row and the cards below no
             longer wait on `getStaffAccount` before anything appears. */}
-        {isAdmin && (
+        {showAccountBar && (
           <Suspense fallback={<AccountBarShell />}>
-            <AccountBar staffId={id} isSelf={session.user.staffId === id} />
+            <AccountBar
+              staffId={id}
+              isSelf={session.user.staffId === id}
+              isAdmin={isAdmin}
+              grants={grants}
+            />
           </Suspense>
         )}
       </RecordTabRow>
@@ -89,16 +100,36 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
  * `getStaffAccount` answers. Local to this page — one caller is not a shared
  * component (§11 of `docs/aurora.md`).
  *
- * ADMIN-only, and the PAGE checks that before rendering it. This component has
- * no session and does not decide.
+ * ADMIN or an editor with a switch, and the PAGE checks that before rendering
+ * it. This component has no session and does not decide.
  */
-async function AccountBar({ staffId, isSelf }: { staffId: string; isSelf: boolean }) {
+async function AccountBar({
+  staffId,
+  isSelf,
+  isAdmin,
+  grants,
+}: {
+  staffId: string;
+  isSelf: boolean;
+  isAdmin: boolean;
+  grants: AccountGrants;
+}) {
   const account = await getStaffAccount(staffId);
   if (!account) return null;
 
+  // The lockout is an ADMIN's to see and clear; an editor's client never gets it.
+  const shown = isAdmin ? account : { ...account, lockedUntil: null };
+
   return (
     <ToolbarGroup>
-      <AccountControls staffId={staffId} account={account} isSelf={isSelf} variant="bar" />
+      <AccountControls
+        staffId={staffId}
+        account={shown}
+        isSelf={isSelf}
+        isAdmin={isAdmin}
+        grants={grants}
+        variant="bar"
+      />
     </ToolbarGroup>
   );
 }

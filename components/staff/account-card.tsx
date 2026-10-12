@@ -41,6 +41,8 @@ import { ROLE_LABELS } from '@/lib/labels';
 import { setPasswordSchema, type SetPasswordSchema } from '@/validations/account';
 import type { Role } from '@/lib/generated/prisma/client';
 import type { StaffAccount } from '@/lib/queries/get-staff-account';
+// Type only: that module imports `lib/auth` (server), and `import type` is erased.
+import type { AccountGrants } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { KYIV } from '@/lib/kyiv-time';
@@ -49,6 +51,10 @@ interface AccountCardProps {
   staffId: string;
   account: StaffAccount;
   isSelf: boolean;
+  /** ADMIN sees the role select, unlock and the lockout note; an editor sees none of them */
+  isAdmin: boolean;
+  /** Which of the three shared actions this viewer may take on this person */
+  grants: AccountGrants;
 }
 
 /**
@@ -77,8 +83,10 @@ export function AccountBadge({ account }: { account: StaffAccount }) {
 }
 
 /**
- * Everything an ADMIN can DO to an account: the role, and the four things that
- * get somebody back in.
+ * Everything the viewer can DO to an account. An ADMIN gets the role and the
+ * unlock; an EDITOR gets only the invite / password / sessions buttons their
+ * division holds (`grants`). Which are drawn is a convenience — the actions
+ * re-check the same guard on the server.
  *
  * Two shapes, because it is rendered in two places:
  *
@@ -97,6 +105,8 @@ export function AccountControls({
   staffId,
   account,
   isSelf,
+  isAdmin,
+  grants,
   variant = 'card',
 }: AccountCardProps & { variant?: 'card' | 'bar' }) {
   const router = useRouter();
@@ -117,30 +127,32 @@ export function AccountControls({
 
   return (
     <div className={cn('flex', bar ? 'flex-wrap items-center gap-x-3 gap-y-2' : 'flex-col gap-4')}>
-      <div className={cn('flex', bar ? 'items-center gap-2 pl-2' : 'flex-col')}>
-        <span className={cn('text-muted-foreground', bar ? 'text-sm' : 'text-xs')}>Роль</span>
-        <div className={bar ? '' : 'mt-1'}>
-          <Select
-            value={account.role}
-            disabled={isPending || isSelf}
-            onValueChange={(value) => run(() => changeRole(staffId, { role: value as Role }))}
-          >
-            <SelectTrigger className={bar ? 'w-40' : 'w-full'}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {isAdmin && (
+        <div className={cn('flex', bar ? 'items-center gap-2 pl-2' : 'flex-col')}>
+          <span className={cn('text-muted-foreground', bar ? 'text-sm' : 'text-xs')}>Роль</span>
+          <div className={bar ? '' : 'mt-1'}>
+            <Select
+              value={account.role}
+              disabled={isPending || isSelf}
+              onValueChange={(value) => run(() => changeRole(staffId, { role: value as Role }))}
+            >
+              <SelectTrigger className={bar ? 'w-40' : 'w-full'}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className={cn('flex gap-2', bar ? 'flex-wrap items-center' : 'flex-col')}>
-        {account.lockedUntil && (
+        {isAdmin && account.lockedUntil && (
           <Button
             variant="outline"
             className={bar ? 'rounded-md' : undefined}
@@ -153,7 +165,7 @@ export function AccountControls({
           </Button>
         )}
 
-        {!account.isActivated && (
+        {grants.invite && !account.isActivated && (
           <Button
             variant="outline"
             className={bar ? 'rounded-md' : undefined}
@@ -166,7 +178,7 @@ export function AccountControls({
           </Button>
         )}
 
-        {account.isActivated && (
+        {grants.password && account.isActivated && (
           <ConfirmButton
             icon={<RotateCcw />}
             label="Скинути пароль"
@@ -180,14 +192,16 @@ export function AccountControls({
           />
         )}
 
-        <ManualPasswordDialog
-          size={bar ? 'default' : 'sm'}
-          className={bar ? 'rounded-md' : undefined}
-          disabled={isPending}
-          onSubmit={(data) => run(() => setPasswordManually(staffId, data))}
-        />
+        {grants.password && (
+          <ManualPasswordDialog
+            size={bar ? 'default' : 'sm'}
+            className={bar ? 'rounded-md' : undefined}
+            disabled={isPending}
+            onSubmit={(data) => run(() => setPasswordManually(staffId, data))}
+          />
+        )}
 
-        {account.isActivated && !isSelf && (
+        {grants.sessions && account.isActivated && !isSelf && (
           <ConfirmButton
             icon={<LogOut />}
             label="Завершити всі сесії"
@@ -204,11 +218,15 @@ export function AccountControls({
 
       {/* On the bar these take the whole width, so a lockout warning never has
           to compete with a select for a line. */}
-      {(isSelf || (!account.isActivated && account.invite) || account.lockedUntil) && (
+      {((isAdmin && isSelf) ||
+        (grants.invite && !account.isActivated && account.invite) ||
+        (isAdmin && account.lockedUntil)) && (
         <div className={cn('flex flex-col gap-1', bar && 'basis-full px-2 pb-1')}>
-          {isSelf && <p className="text-xs text-muted-foreground">Власну роль змінити не можна</p>}
+          {isAdmin && isSelf && (
+            <p className="text-xs text-muted-foreground">Власну роль змінити не можна</p>
+          )}
 
-          {!account.isActivated && account.invite && (
+          {grants.invite && !account.isActivated && account.invite && (
             <p className="text-xs text-muted-foreground">
               Запрошення надіслано {account.invite.sentAt.toLocaleDateString('uk-UA', KYIV)}
               {account.invite.expired && ' — посилання протерміноване'}
@@ -217,7 +235,7 @@ export function AccountControls({
 
           {/* Only while it is actually locked. A permanent «не заблоковано» line
               would be noise on 300 pages to serve the rare one. */}
-          {account.lockedUntil && (
+          {isAdmin && account.lockedUntil && (
             <p className="rounded-lg border border-warning/40 bg-warning-surface px-3 py-2 text-xs text-warning">
               Вхід заблоковано після невдалих спроб — до{' '}
               {account.lockedUntil.toLocaleTimeString('uk-UA', {

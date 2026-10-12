@@ -223,7 +223,8 @@ async function StaffTab({
 }) {
   // `/staff`'s own parsing, then two things fixed that the URL cannot change:
   // this факультет, and НПП only. A декан sees no confidential column and no
-  // account state — the same as an EDITOR on `/staff`.
+  // account details (role, invite) — the same as an EDITOR on `/staff` — but
+  // does see whether each person is activated (`includeActivation`).
   const filters = parseStaffListParams(params, { isAdmin: false });
   const [staff, departments] = await Promise.all([
     listStaff({

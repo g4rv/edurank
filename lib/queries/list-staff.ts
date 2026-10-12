@@ -24,7 +24,8 @@ export type StaffFilters = {
   isNpp?: boolean;
   // Show only these roles; undefined = all
   roles?: Role[];
-  // ADMIN list view: adds role + activation state (never the hash itself)
+  // ADMIN list view: adds the role (never the hash itself). Activation has its
+  // own flag, `includeActivation`, below.
   includeAccount?: boolean;
   /**
    * Whether each person has set a password — the boolean only. Safe for every
