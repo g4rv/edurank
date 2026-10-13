@@ -7,10 +7,12 @@ import {
 import { NPP_RATING_OPEN, NPP_RATING_CLOSED_NAV_NOTE } from '@/lib/rating/npp-access';
 
 /**
- * «Мій профіль»'s own tab row — Профіль · Рейтинг · Характеристика.
+ * «Мій профіль»'s own tab row — Профіль · Рейтинг · Характеристика ·
+ * Підвищення кваліфікації/Стажування.
  *
- * The same three tabs a record has, pointing at `/profile`, `/profile/rating`
- * and `/profile/kharakterystyka`. Rendered by each tab's page rather than the
+ * The same tabs a record has (bar «Наукова робота», which is an overseer's),
+ * pointing at `/profile`, `/profile/rating`, `/profile/kharakterystyka` and
+ * `/profile/qualifications`. Rendered by each tab's page rather than the
  * layout, for the reason `RecordTabRow` explains: a page cannot hand anything to
  * its layout, and both mechanisms that could were built and removed.
  *
@@ -36,7 +38,7 @@ export function ProfileTabRow({
   return (
     <div className="space-y-2">
       <ToolbarRow>
-        <StaffTabs basePath="/profile" showRating frozen={!NPP_RATING_OPEN} />
+        <StaffTabs basePath="/profile" showRating showQualifications frozen={!NPP_RATING_OPEN} />
         {children}
       </ToolbarRow>
       {!NPP_RATING_OPEN && (
@@ -57,7 +59,7 @@ export function ProfileTabRowSkeleton({ toolbar }: { toolbar?: 'rating' | 'khara
   return (
     <div className="space-y-2">
       <ToolbarRow>
-        <StaffTabs basePath="/profile" showRating frozen={!NPP_RATING_OPEN} />
+        <StaffTabs basePath="/profile" showRating showQualifications frozen={!NPP_RATING_OPEN} />
         {toolbar === 'rating' && <RatingToolbarShell />}
         {toolbar === 'kharakterystyka' && <KharakterystykaToolbarShell />}
       </ToolbarRow>

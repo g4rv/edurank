@@ -143,6 +143,7 @@ async function main() {
         registryKey: d.registryKey,
         canModerateRating: d.canModerateRating,
         canOverseeScience: d.canOverseeScience,
+        canViewQualifications: d.canViewQualifications,
         canInviteStaff: d.canInviteStaff,
         canSetPasswords: d.canSetPasswords,
         canEndSessions: d.canEndSessions,

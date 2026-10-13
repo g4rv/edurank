@@ -18,6 +18,7 @@ export function RecordTabRow({
   showRating,
   showStaffPages = true,
   showScience = false,
+  showQualifications = false,
   children,
 }: {
   staffId: string;
@@ -34,6 +35,8 @@ export function RecordTabRow({
   showStaffPages?: boolean;
   /** «Наукова робота» — pass `canOverseeScience(session.user)`. */
   showScience?: boolean;
+  /** «Підвищення кваліфікації/Стажування» — pass `canViewAnyQualifications(session.user)`. */
+  showQualifications?: boolean;
   /** This tab's controls — normally one `ToolbarGroup`. */
   children?: React.ReactNode;
 }) {
@@ -46,6 +49,7 @@ export function RecordTabRow({
         showRating={showRating}
         showStaffPages={showStaffPages}
         showScience={showScience}
+        showQualifications={showQualifications}
       />
       {children}
     </ToolbarRow>

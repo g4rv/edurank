@@ -34,6 +34,7 @@ export function DownloadButton({
   variant = 'outline',
   size,
   className,
+  disabled = false,
 }: {
   href: string;
   label: string;
@@ -42,6 +43,12 @@ export function DownloadButton({
   variant?: React.ComponentProps<typeof Button>['variant'];
   size?: React.ComponentProps<typeof Button>['size'];
   className?: string;
+  /**
+   * Nothing to download — drawn as the same button, greyed, and not a link at
+   * all, so there is no `href` to follow, middle-click or save. Say why in
+   * `title`.
+   */
+  disabled?: boolean;
 }) {
   const [pending, setPending] = useState(false);
   // A second click while the first is in flight would fetch the whole thing
@@ -96,6 +103,22 @@ export function DownloadButton({
       inFlight.current = false;
       setPending(false);
     }
+  }
+
+  if (disabled) {
+    return (
+      <Button
+        type="button"
+        variant={variant}
+        size={size}
+        className={className}
+        title={title ?? label}
+        disabled
+      >
+        <FileDown className="size-4" />
+        {label}
+      </Button>
+    );
   }
 
   return (

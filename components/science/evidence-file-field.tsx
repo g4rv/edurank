@@ -21,6 +21,34 @@ async function hashFile(file: File): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * How a chosen file reaches R2. The science evidence flow is the default; a
+ * qualification scan brings its own (no university-wide duplicate rule, so no
+ * hash, and a key in the owner's folder). The picker, the status line and the
+ * browser-side checks are the same either way.
+ */
+export interface FileUploader {
+  /** A presigned PUT for this file, or the sentence that refuses it. */
+  presign: (
+    file: File
+  ) => Promise<{ ok: true; url: string; objectKey: string } | { error: string }>;
+  /** Let go of an object nobody ended up pointing at. Fire-and-forget. */
+  discard: (objectKey: string) => void;
+}
+
+const scienceUploader: FileUploader = {
+  presign: async (file) =>
+    presignUpload({
+      fileName: file.name,
+      contentType: file.type,
+      sizeBytes: file.size,
+      // Computed here, and only for science: it lets D28 refuse a duplicate in
+      // a round trip instead of after a 10 MB PUT.
+      sha256: await hashFile(file),
+    }),
+  discard: (objectKey) => void discardUpload(objectKey),
+};
+
 type Status = 'idle' | 'checking' | 'uploading' | 'ready' | 'error';
 
 const BUSY: Status[] = ['checking', 'uploading'];
@@ -55,6 +83,7 @@ export function EvidenceFileField({
   onChange,
   onBusyChange,
   disabled,
+  uploader = scienceUploader,
 }: {
   id?: string;
   /** The staged object, held by the caller so it can be submitted or cleared. */
@@ -62,6 +91,8 @@ export function EvidenceFileField({
   onChange: (file: StagedFile | null) => void;
   onBusyChange?: (busy: boolean) => void;
   disabled?: boolean;
+  /** Defaults to the science evidence flow. */
+  uploader?: FileUploader;
 }) {
   // What the picker SHOWS. Kept beside `value` because `File` carries the name
   // and size a person recognises, while `value` is what the server needs.
@@ -78,7 +109,7 @@ export function EvidenceFileField({
   /** Whatever was already up there is no longer wanted — let it go, but never
    *  make the person wait for it or hear about it. */
   function releaseStaged(staged: StagedFile | null) {
-    if (staged) void discardUpload(staged.objectKey);
+    if (staged) uploader.discard(staged.objectKey);
   }
 
   async function upload(chosen: File) {
@@ -94,14 +125,7 @@ export function EvidenceFileField({
     }
 
     setStatus('checking');
-    const sha256 = await hashFile(chosen);
-
-    const presigned = await presignUpload({
-      fileName: chosen.name,
-      contentType: chosen.type,
-      sizeBytes: chosen.size,
-      sha256,
-    });
+    const presigned = await uploader.presign(chosen);
     if ('error' in presigned) {
       setProblem(presigned.error);
       setStatus('error');

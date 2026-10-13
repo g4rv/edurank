@@ -64,6 +64,14 @@ interface StaffTabsProps {
    * once the page arrives, so nothing already drawn moves.
    */
   showScience?: boolean;
+  /**
+   * «Підвищення кваліфікації/Стажування» (owner, 2026-10-13) — a person's own
+   * record always has it; somebody else's only for ADMIN and a division holding
+   * `canViewQualifications`. Defaults to false for the same reason `showScience`
+   * does: a `loading.tsx` has no session, and the tab arrives at the END once the
+   * page does, so nothing already drawn moves.
+   */
+  showQualifications?: boolean;
 }
 
 export function StaffTabs({
@@ -74,6 +82,7 @@ export function StaffTabs({
   basePath = '/staff',
   frozen = false,
   showScience = false,
+  showQualifications = false,
 }: StaffTabsProps) {
   const pathname = usePathname();
 
@@ -97,7 +106,7 @@ export function StaffTabs({
   // root, and an id is appended only when one is given or found in the path.
   const id = staffId ?? (basePath === '/profile' ? null : pathname.split('/').filter(Boolean)[1]);
   const root = id ? `${basePath}/${id}` : basePath;
-  const tabs = staffTabList({ root, showStaffPages, showScience });
+  const tabs = staffTabList({ root, showStaffPages, showScience, showQualifications });
 
   // One tab is not a tab bar — it is a label pretending to be a control.
   if (tabs.length < 2) return null;
@@ -127,7 +136,9 @@ export function StaffTabs({
     // them. Nothing new to justify.
     <div className="flex w-fit gap-1 rounded-lg border bg-card p-1 shadow-xs">
       {tabs.map((tab) =>
-        frozen && tab.key !== 'profile' ? (
+        // Only the rating's own tabs are shut while the year is prepared; a
+        // qualification record is not rating data.
+        frozen && (tab.key === 'rating' || tab.key === 'kharakterystyka') ? (
           // A span, not a styled `<Link>`: `pointer-events-none` still leaves
           // the route in the DOM for a prefetch and for anything that walks
           // links, and this one must not be followed at all. Same treatment the

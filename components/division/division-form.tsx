@@ -58,6 +58,7 @@ export function DivisionForm({
       name: '',
       canModerateRating: false,
       canOverseeScience: false,
+      canViewQualifications: false,
       canInviteStaff: false,
       canSetPasswords: false,
       canEndSessions: false,
@@ -129,6 +130,27 @@ export function DivisionForm({
               <span className="block text-xs text-muted-foreground">
                 Редактори цього відділу бачитимуть плани й виконання наукової роботи всіх НПП,
                 відкриватимуть файли підтвердження та зможуть відхиляти записи
+              </span>
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3">
+            <Controller
+              name="canViewQualifications"
+              control={control}
+              render={({ field }) => (
+                <Switch
+                  checked={!!field.value}
+                  disabled={isPending}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
+            <span className="text-sm">
+              Перегляд підвищення кваліфікації
+              <span className="block text-xs text-muted-foreground">
+                Редактори цього відділу бачитимуть записи про підвищення кваліфікації та стажування
+                всіх НПП і відкриватимуть їхні файли — лише для перегляду
               </span>
             </span>
           </label>

@@ -241,6 +241,11 @@ model Division {
   // oversees and needs no row here.
   canOverseeScience Boolean @default(false)
 
+  // «Перегляд підвищення кваліфікації» — may this division's editors read every
+  // НПП's qualification records and open their files? READ-ONLY: only the НПП
+  // and ADMIN write (owner, 2026-10-13). ADMIN always reads and needs no row.
+  canViewQualifications Boolean @default(false)
+
   // Account actions ADMIN shares with this division's editors. Each applies to
   // USER records only (canMutateStaffRecord) and is read by
   // `accountGrantsFor` in lib/permissions.ts. Unlocking a login, changing a
@@ -427,6 +432,7 @@ model Staff {
   scienceWorksDeclined   ScienceWork[]          @relation("ScienceWorkDecliner")
   removedScienceRecords  ScienceRecord[]        @relation("ScienceRecordRemover")
   scienceFilesUploaded   ScienceRecordFile[]    @relation("ScienceFileUploader")
+  qualifications         Qualification[]
 
   auditLogs          AuditLog[]
   approvedActivities Activity[]       @relation("ActivityApprover")
@@ -1637,6 +1643,66 @@ model ScienceRecordFile {
   uploadedAt DateTime @default(now())
 
   @@index([workId])
+}
+
+// ─── Підвищення кваліфікації / Стажування (owner, 2026-10-13) ───────────────
+//
+// A plain record list on an НПП's profile: courses and internships with the
+// document that proves them. It feeds nothing — not the rating, not the ставки,
+// not the Характеристика. The НПП and ADMIN write; a division with
+// `Division.canViewQualifications` reads.
+
+enum QualificationKind {
+  TRAINING // Підвищення кваліфікації
+  INTERNSHIP // Стажування
+}
+
+enum QualificationDocumentType {
+  REFERENCE // довідка
+  CERTIFICATE // сертифікат
+  DIPLOMA // диплом
+}
+
+model Qualification {
+  id String @id @default(cuid())
+
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  kind         QualificationKind
+  /// Найменування закладу
+  institution  String
+  documentType QualificationDocumentType
+  /// Серія — optional, a довідка often has none
+  series       String?
+  number       String
+  /// Тема стажування — or the спеціальність, when `documentType` is DIPLOMA
+  topic        String
+  issuedOn     DateTime                  @db.Date
+
+  /// Hundredths, never a float (the rule `lib/stake/units.ts` states for
+  /// ставки): ECTS credits come in halves, 1,5 is stored as 150.
+  ///
+  /// There is NO hours column (owner, 2026-10-13): hours are always credits × 30
+  /// (`hoursFromCredits`, lib/qualifications/format.ts), so storing them would
+  /// only be a second number that could disagree with the first.
+  creditsHundredths Int
+
+  /// The scanned document, optional. All five are set together or all null.
+  /// The R2 key is `qualifications/<staffId>/<uuid>.<ext>` — server-generated.
+  fileKey         String? @unique
+  fileName        String?
+  fileContentType String?
+  fileSizeBytes   Int?
+  /// Not unique, deliberately: unlike a science work's proof (D28), nothing here
+  /// is claimed by anybody else, and a person re-uploading their own scan must
+  /// not be refused.
+  fileSha256      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffId, issuedOn])
 }
 
 model AuditLog {

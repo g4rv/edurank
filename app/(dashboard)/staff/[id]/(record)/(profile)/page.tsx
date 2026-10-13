@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { accountGrantsFor, type AccountGrants } from '@/lib/permissions';
 import { canOverseeScience } from '@/lib/science/oversight';
+import { canViewAnyQualifications } from '@/lib/qualifications/access';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
@@ -34,6 +35,8 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
   if (!session) redirect('/login');
   // «Наукова робота» is ADMIN's and «Перевірка науки»'s alone (D43).
   const showScience = await canOverseeScience(session.user);
+  // «Підвищення кваліфікації/Стажування»: ADMIN and a division holding the switch.
+  const showQualifications = await canViewAnyQualifications(session.user);
   // A завідувач or декан READS the records of their кафедра's people
   // (owner, 2026-09-24) — `canViewAcademicRecord`, the rule the
   // Характеристика already used. Read-only: every control on the record is
@@ -72,7 +75,12 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <RecordTabRow staffId={id} showRating={staff.isNpp} showScience={showScience}>
+      <RecordTabRow
+        staffId={id}
+        showRating={staff.isNpp}
+        showScience={showScience}
+        showQualifications={showQualifications}
+      >
         {/* Only an ADMIN, or an EDITOR holding a switch, gets these — and only
             they get the placeholder, which is why the decision is HERE and not
             in `loading.tsx`. A loading file has no session, so a placeholder

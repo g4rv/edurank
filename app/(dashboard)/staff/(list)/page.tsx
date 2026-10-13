@@ -13,6 +13,7 @@ import { listDivisions } from '@/lib/queries/list-divisions';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { editorHasFieldGrant } from '@/lib/permissions';
+import { canViewAnyQualifications } from '@/lib/qualifications/access';
 import { Button } from '@/components/aurora/ui/button';
 import { DownloadButton } from '@/components/ui/download-button';
 import { Pagination } from '@/components/aurora/ui/pagination';
@@ -121,6 +122,12 @@ export default async function StaffPage({
   // `page` is deliberately absent — the file is the whole filtered set, not the
   // fifty rows on screen.
   const exportHref = `/api/export/staff${buildHref({}).slice('/staff'.length)}`;
+  // «Вивантажити кваліфікації» — the same people, with their qualification
+  // records (owner, 2026-10-13). For ADMIN and a division holding
+  // `canViewQualifications`, which is NOT the same set as the staff export's
+  // ADMIN alone; the route checks the same rule.
+  const showQualificationsExport = await canViewAnyQualifications(session.user);
+  const qualificationsExportHref = `/api/export/qualifications${buildHref({}).slice('/staff'.length)}`;
 
   // The «Тип» column is gone (owner, 2026-09-21): it printed the same three
   // letters down every row of the default view, and the fact is an attribute of
@@ -259,8 +266,15 @@ export default async function StaffPage({
             {isAdmin && (
               <DownloadButton
                 href={exportHref}
-                label="Експорт"
+                label="Вивантажити персонал"
                 title="Список персоналу за поточними фільтрами"
+              />
+            )}
+            {showQualificationsExport && (
+              <DownloadButton
+                href={qualificationsExportHref}
+                label="Вивантажити кваліфікації"
+                title="Підвищення кваліфікації та стажування персоналу за поточними фільтрами"
               />
             )}
             {showCreate && (
