@@ -20,6 +20,7 @@ const SWITCHES: {
     DivisionSettings,
     | 'canModerateRating'
     | 'canOverseeScience'
+    | 'canViewQualifications'
     | 'canInviteStaff'
     | 'canSetPasswords'
     | 'canEndSessions'
@@ -36,6 +37,11 @@ const SWITCHES: {
     key: 'canOverseeScience',
     label: 'Перевірка науки',
     help: 'Редактори цього відділу бачитимуть плани й виконання наукової роботи всіх НПП, відкриватимуть файли підтвердження та зможуть відхиляти записи',
+  },
+  {
+    key: 'canViewQualifications',
+    label: 'Перегляд підвищення кваліфікації',
+    help: 'Редактори цього відділу бачитимуть записи про підвищення кваліфікації та стажування всіх НПП і відкриватимуть їхні файли — лише для перегляду',
   },
   {
     key: 'canInviteStaff',

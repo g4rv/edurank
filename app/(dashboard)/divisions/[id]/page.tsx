@@ -31,6 +31,7 @@ export default async function DivisionSettingsPage({
       name: true,
       canModerateRating: true,
       canOverseeScience: true,
+      canViewQualifications: true,
       canInviteStaff: true,
       canSetPasswords: true,
       canEndSessions: true,

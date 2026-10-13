@@ -143,6 +143,7 @@ export const FIELD_LABELS: Record<string, string> = {
   role: 'Роль',
   canModerateRating: 'Модерація рейтингу',
   canOverseeScience: 'Перевірка науки',
+  canViewQualifications: 'Перегляд підвищення кваліфікації',
   canInviteStaff: 'Надсилання запрошень',
   canSetPasswords: 'Встановлення й скидання паролів',
   canEndSessions: 'Завершення всіх сесій',
@@ -290,6 +291,19 @@ export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
   AdmittedStudent: {
     name: 'ПІБ',
     year: 'Рік вступу',
+  },
+  // Qualification. Plain words like `kind` and `number` are too
+  // generic for the global table, so this entity owns its whole vocabulary.
+  Qualification: {
+    kind: 'Вид',
+    institution: 'Заклад',
+    documentType: 'Вид документа',
+    series: 'Серія',
+    number: 'Номер',
+    topic: 'Тема / спеціальність',
+    issuedOn: 'Дата видачі',
+    credits: 'Кредити',
+    fileName: 'Файл',
   },
 };
 

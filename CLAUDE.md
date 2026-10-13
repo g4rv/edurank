@@ -795,6 +795,61 @@ Easy to get wrong:
   again, and a cloned template is never reseeded. Report first, `--apply` to
   write.
 
+## Підвищення кваліфікації / Стажування (built, owner 2026-10-13)
+
+A plain record list on an НПП's profile: courses and internships, each with the
+document that proves it. Tab «Підвищення кваліфікації/Стажування» at
+`/profile/qualifications` (your own) and `/staff/[id]/qualifications`; table
+`Qualification`; actions in `app/(dashboard)/qualifications/`.
+
+- **It feeds nothing** — not the rating, not the ставки, not the Характеристика.
+  No year gate and no `NPP_RATING_OPEN` freeze: it is not rating data.
+- **Who may do what** (`qualificationAccessFor`, `lib/qualifications/access.ts`;
+  every action asks it through `authoriseQualifications`, the tab flag is not a
+  permission): the НПП reads and writes their own; ADMIN reads and writes
+  anybody's; an EDITOR whose division carries **`canViewQualifications`**
+  («Перегляд підвищення кваліфікації», a switch like `canOverseeScience`, set on
+  `/divisions/[id]`) **reads only**, files included. A head and a декан see
+  nothing; for them the staff route is `notFound`. **Only an НПП has records** —
+  every action refuses an administrative owner, ADMIN included.
+- **The topic box is one column.** Its label is «Тема стажування», or
+  «Спеціальність» when the document is a диплом; the Підвищення кваліфікації /
+  Стажування toggle is `kind` and changes no field.
+- **The date on the document is limited to the last five навчальних років** —
+  from 1 вересня of the year that opened four навчальних років before the
+  current one (2026/2027 → nothing before 01.09.2022), up to today. It follows
+  the навчальний рік (`currentAcademicYear`), **not the rating year** — these
+  records are independent of the rating. `qualificationMinDate()`
+  (`lib/qualifications/window.ts`) limits the date picker and the Save button;
+  the schema refuses it again on the server. An existing record older than the
+  window may be corrected while keeping its own date (`keepDate`), and is still
+  listed.
+- **Credits are INTEGER HUNDREDTHS** (`creditsHundredths`, 1,5 → 150); the
+  schema (`validations/qualification.ts`) keeps `credits` as a number up to two
+  decimals and the action converts. Required, ≥ 0.
+- **Hours are NEVER typed or stored: 1 кредит = 30 годин**
+  (`hoursFromCredits`, `lib/qualifications/format.ts`). The form shows them
+  under the credits as the person types; the list and the Excel compute them.
+  There is no `hours` column (dropped 2026-10-13) — a second number would only
+  have a way to disagree with the first.
+- **The scan is optional and one per record**, stored as columns on the row. It
+  uploads straight to R2 before the save (same flow and checks as science
+  evidence, through `EvidenceFileField` with its own `FileUploader`), under
+  `qualifications/<staffId>/<uuid>.<ext>`; `isQualificationKeyOf` stops anyone
+  attaching a key from another person's folder. **Its SHA-256 is NOT unique**
+  (unlike science's D28): nothing here is claimed hours, and a person may attach
+  their own scan again. Deleting a record or replacing its file deletes the
+  object; deleting a _person_ does not (the known R2 gap).
+- **Excel export** (`GET /api/export/qualifications`, one flat sheet, a row per
+  record, filterable): `?staffId=` for one НПП — the «Вивантажити Excel» button on
+  their tab — or the same query string `/staff` is on for the whole list — the
+  «Вивантажити кваліфікації» button beside «Вивантажити персонал» (the old
+  «Експорт», renamed; ADMIN only, unchanged). For ADMIN and a division with
+  `canViewQualifications` — **not the НПП themself**; the route refuses them
+  as the button hides from them.
+- Audited as entity `Qualification`; its field labels are
+  `ENTITY_FIELD_LABELS.Qualification`.
+
 ## Naming conventions
 
 - Files and folders: `kebab-case` everywhere

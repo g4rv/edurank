@@ -6,6 +6,7 @@ export interface DivisionSettings {
   name: string;
   canModerateRating: boolean;
   canOverseeScience: boolean;
+  canViewQualifications: boolean;
   canInviteStaff: boolean;
   canSetPasswords: boolean;
   canEndSessions: boolean;
@@ -19,6 +20,7 @@ export interface DivisionRow {
   name: string;
   canModerateRating: boolean;
   canOverseeScience: boolean;
+  canViewQualifications: boolean;
   canInviteStaff: boolean;
   canSetPasswords: boolean;
   canEndSessions: boolean;
@@ -31,6 +33,7 @@ export function toSettings(row: DivisionRow): DivisionSettings {
     name: row.name,
     canModerateRating: row.canModerateRating,
     canOverseeScience: row.canOverseeScience,
+    canViewQualifications: row.canViewQualifications,
     canInviteStaff: row.canInviteStaff,
     canSetPasswords: row.canSetPasswords,
     canEndSessions: row.canEndSessions,
@@ -54,6 +57,7 @@ export function settingsEqual(a: DivisionSettings, b: DivisionSettings): boolean
     a.name.trim() === b.name.trim() &&
     a.canModerateRating === b.canModerateRating &&
     a.canOverseeScience === b.canOverseeScience &&
+    a.canViewQualifications === b.canViewQualifications &&
     a.canInviteStaff === b.canInviteStaff &&
     a.canSetPasswords === b.canSetPasswords &&
     a.canEndSessions === b.canEndSessions &&

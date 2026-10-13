@@ -1,5 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { objectKeyFor } from './r2';
+import { isQualificationKeyOf, objectKeyFor, qualificationKeyFor } from './r2';
+
+describe('qualificationKeyFor / isQualificationKeyOf', () => {
+  it('builds qualifications/<staffId>/<random>.<ext>', () => {
+    const key = qualificationKeyFor({ staffId: 'cabc123', ext: 'pdf' });
+    expect(key).toMatch(/^qualifications\/cabc123\/[0-9a-f-]+\.pdf$/);
+  });
+
+  it('never repeats a key', () => {
+    const a = qualificationKeyFor({ staffId: 's1', ext: 'jpg' });
+    const b = qualificationKeyFor({ staffId: 's1', ext: 'jpg' });
+    expect(a).not.toBe(b);
+  });
+
+  it('recognises a key in its owner’s folder, and nobody else’s', () => {
+    const key = qualificationKeyFor({ staffId: 's1', ext: 'png' });
+    expect(isQualificationKeyOf('s1', key)).toBe(true);
+    expect(isQualificationKeyOf('s2', key)).toBe(false);
+  });
+
+  it('refuses a science key, a prefix trick and a path-shaped id', () => {
+    expect(isQualificationKeyOf('s1', 'evidence/t1/abc.pdf')).toBe(false);
+    // `s1` is a prefix of `s10`, but the folder boundary is the slash.
+    expect(isQualificationKeyOf('s1', 'qualifications/s10/abc.pdf')).toBe(false);
+    expect(isQualificationKeyOf('../x', 'qualifications/../x/abc.pdf')).toBe(false);
+    expect(isQualificationKeyOf('', 'qualifications//abc.pdf')).toBe(false);
+  });
+});
 
 describe('objectKeyFor', () => {
   it('builds evidence/<templateId>/<random>.<ext>', () => {

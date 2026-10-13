@@ -88,6 +88,13 @@ export async function verifyUploadedObject(input: {
    *  operation somebody complained about rather than this helper. */
   scope: string;
   context: LogContext;
+  /**
+   * Skip D28's «this file is already used» check. Science evidence is claimed
+   * hours, so one file may back one work university-wide; a qualification scan
+   * is nobody else's claim, and a person must be able to attach their own scan
+   * again. Default false — science callers are unchanged.
+   */
+  allowDuplicate?: boolean;
 }): Promise<{ ok: true; file: VerifiedFile } | { error: string }> {
   const { objectKey, scope, context } = input;
   const drop = () => safeDeleteObject(scope, objectKey, context);
@@ -131,13 +138,15 @@ export async function verifyUploadedObject(input: {
   // Re-checked here because the pre-check before the upload can be raced by
   // two uploads of the same bytes. This narrows it; the unique index on
   // `sha256` is what actually decides.
-  const duplicate = await db.scienceRecordFile.findUnique({
-    where: { sha256 },
-    select: { id: true },
-  });
-  if (duplicate) {
-    await drop();
-    return { error: DUPLICATE_FILE_MESSAGE };
+  if (!input.allowDuplicate) {
+    const duplicate = await db.scienceRecordFile.findUnique({
+      where: { sha256 },
+      select: { id: true },
+    });
+    if (duplicate) {
+      await drop();
+      return { error: DUPLICATE_FILE_MESSAGE };
+    }
   }
 
   return {

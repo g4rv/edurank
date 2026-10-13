@@ -90,6 +90,23 @@ export function objectKeyFor(input: { templateId: string; ext: string }): string
   return `evidence/${input.templateId}/${random}.${input.ext}`;
 }
 
+/** `qualifications/<staffId>/<uuid>.<ext>` — the scan behind a «Підвищення
+ *  кваліфікації / Стажування» record. The person's id is in the path so a key
+ *  can be tied to its owner without a lookup (`isQualificationKeyOf`); the uuid
+ *  and the extension are server-generated, nothing the user typed.
+ *
+ *  Needs no R2 credentials — pure string building. */
+export function qualificationKeyFor(input: { staffId: string; ext: string }): string {
+  return `qualifications/${input.staffId}/${randomUUID()}.${input.ext}`;
+}
+
+/** Does this key belong to this person's folder? An object key is a capability
+ *  only for the person it was minted for — without this check anybody who
+ *  learned another key could attach somebody else's scan to their own record. */
+export function isQualificationKeyOf(staffId: string, objectKey: string): boolean {
+  return /^[A-Za-z0-9_-]+$/.test(staffId) && objectKey.startsWith(`qualifications/${staffId}/`);
+}
+
 /** A presigned PUT for the browser to upload directly — the app never sees
  *  the file body, only this URL. Expires in 5 minutes. */
 export async function presignPut(key: string, contentType: string): Promise<string> {

@@ -53,6 +53,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   Division: 'Відділ',
   Faculty: 'Факультет',
   KharakterystykaEntry: 'Запис характеристики',
+  Qualification: 'Підвищення кваліфікації / стажування',
   RatingTemplate: 'Рейтинговий рік',
   SciencePlan: 'План наукової роботи',
   SciencePlanRow: 'Рядок плану науки',
