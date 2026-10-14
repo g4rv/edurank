@@ -17,6 +17,14 @@ import {
   storedAcademic,
 } from '@/lib/staff/academic';
 import { PROFILE_DERIVED_STAFF_FIELDS, syncProfileDerived } from '@/lib/rating/profile-derived';
+import {
+  applyCertificates,
+  dropObjects,
+  hasCertificateChanges,
+  prepareCertificates,
+  takeCertificates,
+  type PreparedCertificate,
+} from '@/lib/staff/language-certificates';
 import type { DiffValue } from '@/lib/audit';
 import { adminPostsConflict } from '@/lib/queries/scope';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
@@ -94,6 +102,25 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
     if (conflict) return { error: conflict };
   }
 
+  // The language certificates (owner, 2026-10-14) are rows of their own, not
+  // Staff columns: lifted out of the payload, their scans verified from the stored
+  // bytes BEFORE the transaction, and written inside it. A person writes their own
+  // — the НПП-only filter above has already dropped them for anybody else.
+  const certificates = takeCertificates(updateData);
+  let prepared: PreparedCertificate[] = [];
+  if (hasCertificateChanges(certificates)) {
+    const result = await prepareCertificates({
+      staffId,
+      userId: session.user.id,
+      changes: certificates,
+      scope: 'profile.updateOwnProfile',
+    });
+    if ('error' in result) return { error: result.error };
+    prepared = result.prepared;
+  }
+  // Set by the transaction: R2 objects a replaced or removed scan leaves behind.
+  let orphaned: string[] = [];
+
   try {
     await db.$transaction(async (tx) => {
       const existing = await tx.staff.findUnique({
@@ -134,6 +161,10 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
 
       await tx.staff.update({ where: { id: staffId }, data: updateData });
 
+      const applied = await applyCertificates(tx, staffId, prepared);
+      Object.assign(changes, applied.changes);
+      orphaned = applied.orphaned;
+
       const touchesDerived = Object.keys(updateData).some((key) =>
         (PROFILE_DERIVED_STAFF_FIELDS as readonly string[]).includes(key)
       );
@@ -156,6 +187,7 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
       });
     });
   } catch (e) {
+    // The staged scan stays: the form still holds its key, so the retry finds it.
     return {
       error: parseDbError(
         e,
@@ -167,6 +199,13 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
       ),
     };
   }
+
+  // After the commit, never inside it: a save the person saw succeed must not
+  // roll back because R2 was slow to delete.
+  await dropObjects('profile.updateOwnProfile', orphaned, {
+    userId: session.user.id,
+    entityId: staffId,
+  });
 
   revalidatePath('/profile');
   return { success: true };

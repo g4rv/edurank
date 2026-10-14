@@ -89,7 +89,18 @@ export async function createStaff(
     return { error: 'Немає активного рейтингового року — ставку зараз не зберегти' };
   }
 
-  const { partTimeDepartmentIds, departmentId, divisionId, ...rest } = parsed.data;
+  // The language certificates are NOT created here (owner, 2026-10-14): a scan
+  // is stored under the person's own id, which does not exist yet, and they are
+  // rows of their own rather than Staff columns. The create form does not carry
+  // them; a hand-made request that does is ignored, not an error.
+  const {
+    partTimeDepartmentIds,
+    departmentId,
+    divisionId,
+    englishCertificate: _englishCertificate,
+    ukrainianCertificate: _ukrainianCertificate,
+    ...rest
+  } = parsed.data;
 
   // The old columns the rating still reads, derived from the new fields
   // (2026-10-06) — see lib/staff/academic.ts.

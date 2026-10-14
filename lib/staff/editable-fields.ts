@@ -10,9 +10,13 @@ export const ACADEMIC_EDITABLE_FIELDS = [
   'adminPositions',
   // The diplomas as ONE list (owner, 2026-10-10) — the candidate* / doctor*
   // columns are its mirrors and nobody writes them directly any more.
+  // The diplomas AND the basic education, as ONE list (owner, 2026-10-14): the
+  // two `basicEducation*` columns are its mirrors now.
   'degrees',
-  'basicEducationMatch',
-  'basicEducationSpecialty',
+  // The language certificates (owner, 2026-10-14): a table of their own, not
+  // columns — see `lib/staff/language-certificates.ts`.
+  'englishCertificate',
+  'ukrainianCertificate',
 ] as const;
 
 /**

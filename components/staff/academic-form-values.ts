@@ -32,8 +32,6 @@ export type AcademicFormValues = {
   honoraryTitles: string[];
   adminPositions: string[];
   degrees: DegreeFormRow[];
-  basicEducationMatch: string;
-  basicEducationSpecialty: string;
 };
 
 export const EMPTY_ACADEMIC_VALUES: AcademicFormValues = {
@@ -43,8 +41,6 @@ export const EMPTY_ACADEMIC_VALUES: AcademicFormValues = {
   honoraryTitles: [],
   adminPositions: [],
   degrees: [],
-  basicEducationMatch: '',
-  basicEducationSpecialty: '',
 };
 
 /** The stored academic columns a record carries — the diplomas as the list (`degreesOf`) */
@@ -64,6 +60,7 @@ export interface StoredAcademic {
   doctorMatchesDepartment: boolean | null;
   /** The list; absent on a row read without it, then the two slots stand in */
   degrees?: unknown;
+  /** The two old basic-education columns — read only as a list entry (`degreesOf`) */
   basicEducationMatch: boolean | null;
   basicEducationSpecialty: string | null;
 }
@@ -88,7 +85,5 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
     honoraryTitles: [...staff.honoraryTitles],
     adminPositions: [...staff.adminPositions],
     degrees: degreeRows,
-    basicEducationMatch: bool(staff.basicEducationMatch),
-    basicEducationSpecialty: staff.basicEducationSpecialty ?? '',
   };
 }

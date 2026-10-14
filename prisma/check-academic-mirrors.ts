@@ -12,7 +12,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
-import { legacyMirrors } from '../lib/staff/academic';
+import { deriveBasicEducationColumns, degreesOf, legacyMirrors } from '../lib/staff/academic';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -37,6 +37,9 @@ async function main() {
       doctorDefenceDate: true,
       doctorMatchesDepartment: true,
       adminPositions: true,
+      degrees: true,
+      basicEducationMatch: true,
+      basicEducationSpecialty: true,
     },
   });
 
@@ -57,6 +60,11 @@ async function main() {
       m.adminPosition !== s.adminPosition &&
         `adminPosition ${s.adminPosition} → ${m.adminPosition}`,
     ].filter(Boolean);
+    // Basic education: the list's mirror must equal the old two columns.
+    const b = deriveBasicEducationColumns(degreesOf(s));
+    if ((b.basicEducationMatch ?? false) !== (s.basicEducationMatch ?? false)) {
+      diffs.push(`basicEducationMatch ${s.basicEducationMatch} → ${b.basicEducationMatch}`);
+    }
     if (diffs.length) {
       bad++;
       console.log(`  ✗ ${s.lastName} ${s.firstName}: ${diffs.join('; ')}`);

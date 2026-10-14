@@ -12,6 +12,9 @@ import { formatStake } from '@/lib/stake/units';
 import { OrcidField } from '@/components/profile/orcid-field';
 import { Card } from '@/components/aurora/ui/card';
 import { Fields, Field, MaybeField, PositionEntry, ProfileLink } from './primitives';
+import { CertificateView } from './certificate-view';
+import { CERTIFICATE_KINDS, CERTIFICATE_TITLES } from '@/lib/language-certificates/options';
+import type { PersonCertificates } from '@/lib/queries/get-language-certificates';
 import { ValueShimmer } from './value-shimmer';
 
 /**
@@ -70,16 +73,13 @@ export const ACADEMIC_LABELS = {
 
 /** «Освіта» (owner, 2026-10-06), in render order — the shell maps these too */
 export const EDUCATION_LABELS = {
-  degree: 'Науковий ступінь',
-  educationMatch: 'Базова освіта відповідає кафедрі',
-  specialty: 'Спеціальність базової освіти',
+  // The row a person with NO education entry sees. The basic education is an entry
+  // of the list now (owner, 2026-10-14), so it is no longer a pair of its own rows.
+  degree: 'Дипломи',
 } as const;
 
 /** «15.03.2021» from the stored «2021-03-15» — a plain day, so no time zone can move it */
 const uaDay = (iso: string) => iso.split('-').reverse().join('.');
-// «Так» or nothing (owner, 2026-10-06): the forms ask with a checkbox, and an
-// unticked box means «not confirmed», not «ні».
-const yesNo = (v: boolean | null) => (v ? 'Так' : null);
 
 export const RESEARCH_LABELS = {
   wos: 'Web of Science',
@@ -137,31 +137,33 @@ export function AcademicCard({ staff, showEmpty = true }: CardProps) {
  * cards, not two slots and not a table). A card reads «ступінь» over
  * «спеціальність – дата – відповідає кафедрі ✓»; a blank part is left out.
  */
-export function EducationCard({ staff, showEmpty = true }: CardProps) {
+export function EducationCard({
+  staff,
+  showEmpty = true,
+  certificates,
+  canOpenCertificateFiles = false,
+}: CardProps & {
+  /**
+   * The two language certificates (owner, 2026-10-14). Absent where the page did
+   * not load them — the card then simply has none to show.
+   */
+  certificates?: PersonCertificates;
+  /** Decided by the route: may THIS viewer open the scans? */
+  canOpenCertificateFiles?: boolean;
+}) {
   if (!staff.isNpp) return null;
 
-  // Доктор first, as the edit form's old two columns were — a stable sort, so
-  // within a level the person's own order stands.
+  // Доктор, then кандидат, then the basic education — a stable sort, so within a
+  // level the person's own order stands.
+  const LEVEL_ORDER = { doctor: 0, candidate: 1, basic: 2 } as const;
+  const rank = (degree: string) => LEVEL_ORDER[degreeLevel(degree) ?? 'candidate'];
   const records = degreesOf(staff as unknown as Record<string, unknown>).sort(
-    (a, b) =>
-      Number(degreeLevel(b.degree) === 'doctor') - Number(degreeLevel(a.degree) === 'doctor')
+    (a, b) => rank(a.degree) - rank(b.degree)
   );
 
   return (
     <Card title={CARD_TITLES.education}>
       <div className="space-y-5">
-        <Fields columns={2}>
-          <MaybeField
-            label={EDUCATION_LABELS.specialty}
-            value={staff.basicEducationSpecialty}
-            showEmpty={showEmpty}
-          />
-          <MaybeField
-            label={EDUCATION_LABELS.educationMatch}
-            value={yesNo(staff.basicEducationMatch)}
-            showEmpty={showEmpty}
-          />
-        </Fields>
         {records.length > 0 ? (
           <div className="space-y-3">
             {records.map((d, i) => {
@@ -194,6 +196,14 @@ export function EducationCard({ staff, showEmpty = true }: CardProps) {
             </Fields>
           )
         )}
+        {certificates && (
+          <CertificateView
+            staffId={staff.id}
+            certificates={certificates}
+            canOpenFiles={canOpenCertificateFiles}
+            showEmpty={showEmpty}
+          />
+        )}
       </div>
     </Card>
   );
@@ -202,17 +212,17 @@ export function EducationCard({ staff, showEmpty = true }: CardProps) {
 /** The same shape with a shimmer for every value — nothing jumps when it loads */
 EducationCard.Shell = function EducationCardShell({ isNpp = true }: { isNpp?: boolean }) {
   if (!isNpp) return null;
-  const shimmer = (label: string) => <Field label={label} value={<ValueShimmer />} />;
+  // Keyed by its label: the certificates' two rows are mapped, and a list of
+  // unkeyed elements is a React warning in the console.
+  const shimmer = (label: string) => <Field key={label} label={label} value={<ValueShimmer />} />;
   return (
     <Card title={CARD_TITLES.education}>
       <div className="space-y-5">
-        <Fields columns={2}>
-          {shimmer(EDUCATION_LABELS.specialty)}
-          {shimmer(EDUCATION_LABELS.educationMatch)}
-        </Fields>
         <div className="rounded-xl border bg-muted/30 px-4 py-3">
           <ValueShimmer />
         </div>
+        {/* The two language certificates' labels are static text too (2026-10-14). */}
+        <Fields>{CERTIFICATE_KINDS.map((kind) => shimmer(CERTIFICATE_TITLES[kind]))}</Fields>
       </div>
     </Card>
   );

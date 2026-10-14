@@ -1,4 +1,5 @@
 import type { StaffDetail } from '@/lib/queries/get-staff';
+import type { PersonCertificates } from '@/lib/queries/get-language-certificates';
 import {
   AcademicCard,
   EducationCard,
@@ -30,6 +31,8 @@ export function ProfileDetails({
   showEmpty = true,
   rating,
   aside,
+  certificates,
+  canOpenCertificateFiles = false,
 }: {
   staff: StaffDetail;
   /** Decided by the route. Never computed in a component. */
@@ -40,6 +43,10 @@ export function ProfileDetails({
   rating?: React.ReactNode;
   /** Top of the right column — the account card, ADMIN only */
   aside?: React.ReactNode;
+  /** An НПП's language certificates, in «Освіта» (owner, 2026-10-14) */
+  certificates?: PersonCertificates;
+  /** Decided by the route: may this viewer open the scans? Never worked out here. */
+  canOpenCertificateFiles?: boolean;
 }) {
   return (
     <div className="space-y-5">
@@ -58,7 +65,12 @@ export function ProfileDetails({
       <div className="flex flex-col items-start gap-4 lg:flex-row">
         <div className="flex w-full flex-1 flex-col gap-4">
           <AcademicCard staff={staff} showEmpty={showEmpty} />
-          <EducationCard staff={staff} showEmpty={showEmpty} />
+          <EducationCard
+            staff={staff}
+            showEmpty={showEmpty}
+            certificates={certificates}
+            canOpenCertificateFiles={canOpenCertificateFiles}
+          />
         </div>
 
         <div className="flex w-full flex-1 flex-col gap-4">

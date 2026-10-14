@@ -5,6 +5,12 @@ import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { authoriseQualifications, shortName } from '@/lib/qualifications/guard';
+import {
+  DOCUMENT_TYPE_LABELS,
+  QUALIFICATION_KIND_LABELS,
+  type DocumentTypeKey,
+  type QualificationKindKey,
+} from '@/lib/qualifications/options';
 import { isQualificationKeyOf } from '@/lib/science/r2';
 import { safeDeleteObject, verifyUploadedObject } from '@/lib/science/file-intake';
 import type { VerifiedFile } from '@/lib/science/file-intake';
@@ -50,7 +56,11 @@ function revalidateFor(staffId: string) {
   revalidatePath(`/staff/${staffId}/qualifications`);
 }
 
-/** The stored row in the shape the audit log compares. */
+/**
+ * The stored row in the shape the audit log compares. The two enums are logged
+ * as their Ukrainian words: the log is read by people, and «INTERNSHIP» is a key,
+ * not something to show them.
+ */
 function auditValues(row: {
   kind: string;
   institution: string;
@@ -63,9 +73,9 @@ function auditValues(row: {
   fileName: string | null;
 }) {
   return {
-    kind: row.kind,
+    kind: QUALIFICATION_KIND_LABELS[row.kind as QualificationKindKey] ?? row.kind,
     institution: row.institution,
-    documentType: row.documentType,
+    documentType: DOCUMENT_TYPE_LABELS[row.documentType as DocumentTypeKey] ?? row.documentType,
     series: row.series,
     number: row.number,
     topic: row.topic,

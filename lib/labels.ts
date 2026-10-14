@@ -144,6 +144,10 @@ export const FIELD_LABELS: Record<string, string> = {
   canModerateRating: 'Модерація рейтингу',
   canOverseeScience: 'Перевірка науки',
   canViewQualifications: 'Перегляд підвищення кваліфікації',
+  // The language certificates in «Освіта» (owner, 2026-10-14) — a division is
+  // granted them under these names, and the audit log prints them.
+  englishCertificate: 'Сертифікат з англійської мови',
+  ukrainianCertificate: 'Сертифікат з української мови',
   canInviteStaff: 'Надсилання запрошень',
   canSetPasswords: 'Встановлення й скидання паролів',
   canEndSessions: 'Завершення всіх сесій',

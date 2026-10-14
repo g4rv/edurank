@@ -57,6 +57,7 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { LimitRaiseNeeded, seedAllocations, type LimitRaise } from '@/lib/stake/seed-allocation';
 import type { StaffUpdateSchema } from '@/validations/staff';
 import { ACADEMIC_EDITABLE_FIELDS } from '@/lib/staff/editable-fields';
+import { CERTIFICATE_FIELDS } from '@/lib/language-certificates/options';
 import {
   updateStaff,
   archiveStaff,
@@ -100,8 +101,6 @@ const fullPayload: StaffUpdateSchema = {
     { degree: 'doc_history', specialty: null, defenceDate: null, matchesDepartment: true },
     { degree: 'cand_history', specialty: null, defenceDate: null, matchesDepartment: true },
   ],
-  basicEducationMatch: true,
-  basicEducationSpecialty: 'Історія',
   wosUrl: 'https://www.webofscience.com/wos/author/record/1',
   wosCitationCount: 10,
   scopusUrl: null,
@@ -125,11 +124,12 @@ function mockStaffLookups({
   divisionId = 'div-1' as string | null,
   archivedAt = null as Date | null,
   email = undefined as string | undefined,
+  isNpp = true,
 } = {}) {
   mockStaffFind.mockImplementation(async (args: { where?: { id?: string }; select?: object }) => {
     const select = (args?.select ?? {}) as Record<string, boolean>;
     if (select.divisionId) return { divisionId };
-    return { id: args?.where?.id, role: targetRole, archivedAt, email };
+    return { id: args?.where?.id, role: targetRole, archivedAt, email, isNpp };
   });
 }
 
@@ -160,6 +160,12 @@ function mockTx() {
       groupBy: vi.fn().mockResolvedValue([]),
     },
     activationToken: { deleteMany: vi.fn().mockResolvedValue({}) },
+    // The language certificates are rows of their own (owner, 2026-10-14)
+    languageCertificate: {
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue({}),
+      delete: vi.fn().mockResolvedValue({}),
+    },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
     // no active template → syncProfileDerived no-ops
     ratingTemplate: { findFirst: vi.fn().mockResolvedValue(null) },
@@ -175,6 +181,156 @@ function writtenFields(tx: ReturnType<typeof mockTx>): string[] {
 beforeEach(() => {
   vi.clearAllMocks();
   (db.ratingTemplate.findFirst as unknown as Mock).mockResolvedValue({ year: 2026 });
+});
+
+// The two language certificates of «Освіта» (owner, 2026-10-14) — rows of their
+// own, so they are lifted out of the Staff update and written to their table, under
+// the same grants as every other field.
+describe('updateStaff language certificates', () => {
+  const english = {
+    series: null,
+    number: '123456',
+    issuedBy: 'British Council',
+    issuedOn: '2024-03-15',
+  };
+  const withEnglish = {
+    ...fullPayload,
+    isNpp: true,
+    departmentId: 'dept-1',
+    englishCertificate: english,
+  } as unknown as StaffUpdateSchema;
+
+  it('ADMIN writes a certificate to its own table, never to a Staff column', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-1', withEnglish)).toEqual({ success: true });
+    expect(writtenFields(tx)).not.toContain('englishCertificate');
+    expect(tx.languageCertificate.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.languageCertificate.upsert.mock.calls[0][0]).toMatchObject({
+      where: { staffId_kind: { staffId: 'staff-1', kind: 'ENGLISH' } },
+      create: {
+        staffId: 'staff-1',
+        kind: 'ENGLISH',
+        number: '123456',
+        issuedBy: 'British Council',
+      },
+    });
+    const { changes } = tx.auditLog.create.mock.calls[0][0].data;
+    expect(changes.englishCertificate).toEqual({
+      from: null,
+      to: '№ 123456 · British Council · 15.03.2024',
+    });
+  });
+
+  it('leaves the certificates alone when the form did not carry them', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
+    const tx = mockTx();
+
+    expect(
+      await updateStaff('staff-1', { ...fullPayload, isNpp: true, departmentId: 'dept-1' })
+    ).toEqual({
+      success: true,
+    });
+    expect(tx.languageCertificate.findMany).not.toHaveBeenCalled();
+    expect(tx.languageCertificate.upsert).not.toHaveBeenCalled();
+    expect(tx.languageCertificate.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletes a certificate when the block was emptied', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
+    const tx = mockTx();
+    tx.languageCertificate.findMany.mockResolvedValue([
+      {
+        id: 'c1',
+        kind: 'ENGLISH',
+        series: null,
+        number: '123456',
+        issuedOn: new Date('2024-03-15T00:00:00.000Z'),
+        issuedBy: 'British Council',
+        level: null,
+        decisionNumber: null,
+        decisionDate: null,
+        fileKey: null,
+        fileName: null,
+      },
+    ]);
+    const emptied = {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-1',
+      englishCertificate: { series: '', number: '', issuedBy: '', issuedOn: '' },
+    } as unknown as StaffUpdateSchema;
+
+    expect(await updateStaff('staff-1', emptied)).toEqual({ success: true });
+    expect(tx.languageCertificate.delete).toHaveBeenCalledWith({ where: { id: 'c1' } });
+    expect(tx.languageCertificate.upsert).not.toHaveBeenCalled();
+  });
+
+  it('drops them for an administrative record, whoever saves', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups({ isNpp: false });
+    const tx = mockTx();
+
+    // `isNpp` stays false in the payload: this person is not an НПП.
+    const payload = { ...withEnglish, isNpp: false } as unknown as StaffUpdateSchema;
+    expect(await updateStaff('staff-1', payload)).toEqual({ success: true });
+    expect(tx.languageCertificate.upsert).not.toHaveBeenCalled();
+  });
+
+  it('EDITOR writes one only with its own grant', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockStaffLookups();
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'ukrainianCertificate' }]);
+    const tx = mockTx();
+
+    // The division holds the Ukrainian grant, not the English one.
+    expect(await updateStaff('staff-1', withEnglish)).toEqual({
+      error: 'Немає полів, доступних для редагування',
+    });
+    expect(tx.languageCertificate.upsert).not.toHaveBeenCalled();
+  });
+
+  it('EDITOR with the grant saves it — and it alone counts as something editable', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
+    mockStaffLookups();
+    mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'englishCertificate' }]);
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-1', withEnglish)).toEqual({ success: true });
+    expect(tx.languageCertificate.upsert).toHaveBeenCalledTimes(1);
+    // Nothing but the certificate was granted, so no Staff column is written.
+    expect(writtenFields(tx)).toEqual([]);
+  });
+
+  it('an НПП saves their own through the same action', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
+    mockStaffLookups();
+    const tx = mockTx();
+
+    expect(await updateStaff('staff-own', withEnglish)).toEqual({ success: true });
+    expect(tx.languageCertificate.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a half-filled certificate with «Невірні дані» and writes nothing', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+    mockStaffLookups();
+    mockTx();
+
+    const half = {
+      ...fullPayload,
+      isNpp: true,
+      departmentId: 'dept-1',
+      englishCertificate: { series: 'EN', number: '', issuedBy: '', issuedOn: '' },
+    } as unknown as StaffUpdateSchema;
+    expect(await updateStaff('staff-1', half)).toEqual({ error: 'Невірні дані' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
 });
 
 describe('updateStaff field filtering', () => {
@@ -200,14 +356,14 @@ describe('updateStaff field filtering', () => {
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     // employmentRate granted here on purpose: the confidential filter must still block it
     mockFieldPerms.mockResolvedValue([
-      { fieldName: 'basicEducationSpecialty' },
+      { fieldName: 'wosCitationCount' },
       { fieldName: 'pedagogicalExperience' },
       { fieldName: 'employmentRate' },
     ]);
     const tx = mockTx();
 
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx).sort()).toEqual(['basicEducationSpecialty', 'pedagogicalExperience']);
+    expect(writtenFields(tx).sort()).toEqual(['pedagogicalExperience', 'wosCitationCount']);
   });
 
   // Division decides an editor's permission scope, so writing it is escalation:
@@ -217,13 +373,13 @@ describe('updateStaff field filtering', () => {
     mockStaffLookups();
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
     mockFieldPerms.mockResolvedValue([
-      { fieldName: 'basicEducationSpecialty' },
+      { fieldName: 'wosCitationCount' },
       { fieldName: 'divisionId' },
     ]);
     const tx = mockTx();
 
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx)).toEqual(['basicEducationSpecialty']);
+    expect(writtenFields(tx)).toEqual(['wosCitationCount']);
   });
 
   // Without this the editor gets an empty UPDATE and a «Збережено» toast
@@ -272,7 +428,11 @@ describe('updateStaff field filtering', () => {
         'wosCitationCount',
         'scopusCitationCount',
         'googleScholarCitationCount',
-        ...ACADEMIC_EDITABLE_FIELDS,
+        // The two language certificates are in this list but are NOT Staff
+        // columns: they are rows of their own, written beside the update.
+        ...ACADEMIC_EDITABLE_FIELDS.filter(
+          (field) => !(Object.values(CERTIFICATE_FIELDS) as string[]).includes(field)
+        ),
         'academicRank',
         'scientificDegree',
         'degreeDefenceDate',
@@ -288,6 +448,9 @@ describe('updateStaff field filtering', () => {
         'doctorSpecialty',
         'doctorDefenceDate',
         'doctorMatchesDepartment',
+        // the basic-education mirrors, from the list's «Базова освіта» entries
+        'basicEducationMatch',
+        'basicEducationSpecialty',
       ].sort()
     );
   });
@@ -377,7 +540,7 @@ describe('updateStaff records сумісництво in the audit log', () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockStaffLookups();
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
-    mockFieldPerms.mockResolvedValue([{ fieldName: 'basicEducationSpecialty' }]);
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'wosCitationCount' }]);
     const tx = mockTx();
 
     await updateStaff('staff-1', { ...fullPayload, partTimeDepartmentIds: ['d2'] });
@@ -394,10 +557,7 @@ describe('updateStaff target-role guard', () => {
   const editorWithEmailGrant = () => {
     mockAuth.mockResolvedValue({ user: { id: 'e1', role: 'EDITOR', staffId: 'staff-editor' } });
     mockEntityPerm.mockResolvedValue({ id: 'perm-1' });
-    mockFieldPerms.mockResolvedValue([
-      { fieldName: 'email' },
-      { fieldName: 'basicEducationSpecialty' },
-    ]);
+    mockFieldPerms.mockResolvedValue([{ fieldName: 'email' }, { fieldName: 'wosCitationCount' }]);
   };
 
   it('refuses an EDITOR editing an ADMIN, even with every grant', async () => {
@@ -424,7 +584,7 @@ describe('updateStaff target-role guard', () => {
     const tx = mockTx();
 
     expect(await updateStaff('staff-1', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx).sort()).toEqual(['basicEducationSpecialty', 'email']);
+    expect(writtenFields(tx).sort()).toEqual(['email', 'wosCitationCount']);
   });
 
   // Their own row is theirs whatever their role: the field filters still apply
@@ -435,7 +595,7 @@ describe('updateStaff target-role guard', () => {
     const tx = mockTx();
 
     expect(await updateStaff('staff-editor', fullPayload)).toEqual({ success: true });
-    expect(writtenFields(tx).sort()).toEqual(['basicEducationSpecialty', 'email']);
+    expect(writtenFields(tx).sort()).toEqual(['email', 'wosCitationCount']);
   });
 
   it('reports a missing record instead of pretending it saved', async () => {
@@ -1341,7 +1501,7 @@ describe('updateStaff — сумісництво is a grantable field', () => {
   });
 
   it('an EDITOR granted the field writes it', async () => {
-    const tx = editor(['basicEducationSpecialty', 'partTimeDepartmentIds']);
+    const tx = editor(['wosCitationCount', 'partTimeDepartmentIds']);
 
     expect(await updateStaff('staff-1', withPartTime)).toEqual({ success: true });
     expect(tx.staffDepartment.createMany).toHaveBeenCalledWith(
@@ -1352,7 +1512,7 @@ describe('updateStaff — сумісництво is a grantable field', () => {
   });
 
   it('an EDITOR without the grant leaves сумісництво untouched', async () => {
-    const tx = editor(['basicEducationSpecialty']);
+    const tx = editor(['wosCitationCount']);
 
     expect(await updateStaff('staff-1', withPartTime)).toEqual({ success: true });
     expect(tx.staffDepartment.createMany).not.toHaveBeenCalled();

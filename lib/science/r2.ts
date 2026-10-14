@@ -107,6 +107,21 @@ export function isQualificationKeyOf(staffId: string, objectKey: string): boolea
   return /^[A-Za-z0-9_-]+$/.test(staffId) && objectKey.startsWith(`qualifications/${staffId}/`);
 }
 
+/** `language-certificates/<staffId>/<uuid>.<ext>` — the scan of an НПП's English
+ *  or Ukrainian language certificate. Built and guarded exactly like the
+ *  qualification keys above: the owner's id in the path, everything else
+ *  server-generated, no R2 credentials needed. */
+export function languageCertificateKeyFor(input: { staffId: string; ext: string }): string {
+  return `language-certificates/${input.staffId}/${randomUUID()}.${input.ext}`;
+}
+
+/** Does this key sit in this person's language-certificate folder? */
+export function isLanguageCertificateKeyOf(staffId: string, objectKey: string): boolean {
+  return (
+    /^[A-Za-z0-9_-]+$/.test(staffId) && objectKey.startsWith(`language-certificates/${staffId}/`)
+  );
+}
+
 /** A presigned PUT for the browser to upload directly — the app never sees
  *  the file body, only this URL. Expires in 5 minutes. */
 export async function presignPut(key: string, contentType: string): Promise<string> {

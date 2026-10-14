@@ -61,9 +61,24 @@ export const DOCTOR_DEGREES: readonly AcademicOption[] = [
   ...BRANCHES.map(([key, branch]) => ({ value: `doc_${key}`, label: `Доктор ${branch}` })),
 ];
 
-/** Which of the two levels a degree key belongs to; null for a key no list has */
-export function degreeLevel(value: string | null | undefined): 'doctor' | 'candidate' | null {
+/**
+ * «Базова освіта» (owner, 2026-10-14): a person may hold several, so each is an
+ * entry of the same list as the diplomas. It is ONE kind — бакалавр, магістр and
+ * спеціаліст are not told apart (owner, 2026-10-14). Level `'basic'`: it feeds
+ * rating 1.9 («за спеціальністю кафедри») through the `basicEducation*` mirror
+ * columns and nothing else — never 1.3, never п.5.
+ */
+export const BASIC_EDUCATION = 'basic_education';
+export const BASIC_DEGREES: readonly AcademicOption[] = [
+  { value: BASIC_EDUCATION, label: 'Базова освіта' },
+];
+
+/** Which level a degree key belongs to; null for a key no list has */
+export function degreeLevel(
+  value: string | null | undefined
+): 'doctor' | 'candidate' | 'basic' | null {
   if (!value) return null;
+  if (BASIC_DEGREES.some((d) => d.value === value)) return 'basic';
   if (value === UNSPECIFIED_DOCTOR || DOCTOR_DEGREES.some((d) => d.value === value)) {
     return 'doctor';
   }
@@ -87,9 +102,10 @@ export function isUnspecifiedDegree(value: string | null | undefined): boolean {
  * A stored degree as words: its exact name, or the plain level while the
  * branch is not chosen — «Кандидат наук», never «уточніть галузь».
  */
-export function degreeName(slot: 'candidate' | 'doctor', value: string): string {
+export function degreeName(slot: 'candidate' | 'doctor' | 'basic', value: string): string {
   if (value === UNSPECIFIED_CANDIDATE) return 'Кандидат наук';
   if (value === UNSPECIFIED_DOCTOR) return 'Доктор наук';
+  if (slot === 'basic') return optionLabel(BASIC_DEGREES, value);
   return optionLabel(slot === 'doctor' ? DOCTOR_DEGREES : CANDIDATE_DEGREES, value);
 }
 

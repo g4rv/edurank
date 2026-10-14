@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { isQualificationKeyOf, objectKeyFor, qualificationKeyFor } from './r2';
+import {
+  isLanguageCertificateKeyOf,
+  isQualificationKeyOf,
+  languageCertificateKeyFor,
+  objectKeyFor,
+  qualificationKeyFor,
+} from './r2';
 
 describe('qualificationKeyFor / isQualificationKeyOf', () => {
   it('builds qualifications/<staffId>/<random>.<ext>', () => {
@@ -25,6 +31,29 @@ describe('qualificationKeyFor / isQualificationKeyOf', () => {
     expect(isQualificationKeyOf('s1', 'qualifications/s10/abc.pdf')).toBe(false);
     expect(isQualificationKeyOf('../x', 'qualifications/../x/abc.pdf')).toBe(false);
     expect(isQualificationKeyOf('', 'qualifications//abc.pdf')).toBe(false);
+  });
+});
+
+describe('languageCertificateKeyFor / isLanguageCertificateKeyOf', () => {
+  it('builds language-certificates/<staffId>/<random>.<ext>', () => {
+    const key = languageCertificateKeyFor({ staffId: 'cabc123', ext: 'pdf' });
+    expect(key).toMatch(/^language-certificates\/cabc123\/[0-9a-f-]+\.pdf$/);
+    expect(languageCertificateKeyFor({ staffId: 's1', ext: 'jpg' })).not.toBe(
+      languageCertificateKeyFor({ staffId: 's1', ext: 'jpg' })
+    );
+  });
+
+  it('recognises a key in its owner’s folder and nobody else’s', () => {
+    const key = languageCertificateKeyFor({ staffId: 's1', ext: 'png' });
+    expect(isLanguageCertificateKeyOf('s1', key)).toBe(true);
+    expect(isLanguageCertificateKeyOf('s2', key)).toBe(false);
+  });
+
+  it('refuses the other folders, a prefix trick and a path-shaped id', () => {
+    expect(isLanguageCertificateKeyOf('s1', 'qualifications/s1/a.pdf')).toBe(false);
+    expect(isLanguageCertificateKeyOf('s1', 'evidence/t1/a.pdf')).toBe(false);
+    expect(isLanguageCertificateKeyOf('s1', 'language-certificates/s10/a.pdf')).toBe(false);
+    expect(isLanguageCertificateKeyOf('../x', 'language-certificates/../x/a.pdf')).toBe(false);
   });
 });
 

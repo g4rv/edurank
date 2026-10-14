@@ -5,7 +5,11 @@ vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
   db: { staff: { findUnique: vi.fn() }, qualification: { findMany: vi.fn() } },
 }));
-vi.mock('@/lib/queries/list-staff', () => ({ listStaff: vi.fn() }));
+// Partial: the real list-params reader needs this module's `STAFF_SORT_FIELDS`.
+vi.mock('@/lib/queries/list-staff', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/queries/list-staff')>()),
+  listStaff: vi.fn(),
+}));
 vi.mock('@/lib/qualifications/access', () => ({ canViewAnyQualifications: vi.fn() }));
 vi.mock('@/lib/log', () => ({ logError: vi.fn(), logWarning: vi.fn() }));
 
@@ -125,6 +129,30 @@ describe('the staff list', () => {
     expect(String(sheet.getCell('B3').value)).toContain('Андрієнко');
     // Only НПП are looked up: an administrative account has no records.
     expect(mockFindMany.mock.calls[0][0].where.staffId.in).toEqual(['s2', 's1', 's3']);
+  });
+
+  // The button hands over the page's own query string, and the route reads it
+  // with the reader the page uses — so the file is the filtered list.
+  it('applies the filters the /staff page is on', async () => {
+    mockListStaff.mockResolvedValue([]);
+    await call('?q=ivan&dept=d1&faculty=f1&partTime=1&sort=email&dir=desc');
+    expect(mockListStaff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: 'ivan',
+        departmentId: 'd1',
+        facultyId: 'f1',
+        partTime: true,
+        sort: 'email',
+        dir: 'desc',
+        archived: 'exclude',
+      })
+    );
+  });
+
+  it('exports the archive when the page is showing it', async () => {
+    mockListStaff.mockResolvedValue([]);
+    await call('?archived=1');
+    expect(mockListStaff).toHaveBeenCalledWith(expect.objectContaining({ archived: 'only' }));
   });
 
   it('names the кафедри a сумісник holds', async () => {

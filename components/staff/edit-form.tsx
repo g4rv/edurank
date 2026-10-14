@@ -20,6 +20,8 @@ import { headshipOf } from '@/lib/staff/academic';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
 import type { StakePart } from '@/lib/queries/get-stake-breakdown';
+import type { PersonCertificates } from '@/lib/queries/get-language-certificates';
+import { certificateScansOf } from '@/components/staff/certificate-form-values';
 import { RequiredFields } from '@/components/ui/required-fields';
 import {
   StaffFormFields,
@@ -46,6 +48,11 @@ interface StaffEditFormProps {
   stakeBreakdown: StakePart[];
   /** ADMIN, and only while a rating year is open — see `WorkplacesField` */
   canEditRates: boolean;
+  /**
+   * The language certificates (owner, 2026-10-14) — present for an НПП only. Their
+   * stored values seed the form and the scans' names the file fields.
+   */
+  certificates?: PersonCertificates;
 }
 
 export function StaffEditForm({
@@ -58,6 +65,7 @@ export function StaffEditForm({
   staffId,
   stakeBreakdown,
   canEditRates,
+  certificates,
 }: StaffEditFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -90,7 +98,7 @@ export function StaffEditForm({
     formState: { errors, isDirty },
   } = useForm<RawStaffFormValues>({
     resolver: standardSchemaResolver(staffUpdateSchema as never),
-    defaultValues: staffToFormValues(staff),
+    defaultValues: staffToFormValues(staff, certificates),
   });
 
   /**
@@ -197,6 +205,7 @@ export function StaffEditForm({
             isAdmin={isAdmin}
             canEditPartTime={canEditPartTime}
             editableFields={editableFields}
+            certificates={certificates ? certificateScansOf(staffId, certificates) : undefined}
             isNpp={isNppValue}
             headship={headshipOf(staff)}
             departments={departments}

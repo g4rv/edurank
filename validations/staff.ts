@@ -7,9 +7,14 @@ import {
   SCOPUS_HOSTS,
   WOS_HOSTS,
 } from '@/lib/link-hosts';
+import { KYIV } from '@/lib/kyiv-time';
 import { isValidOrcid } from '@/lib/orcid';
 import { HONORARY_TITLES, degreeLevel } from '@/lib/staff/academic-options';
 import { adminPostProblem, type AdminPostProblem } from '@/lib/staff/academic';
+import {
+  englishCertificateSchema,
+  ukrainianCertificateSchema,
+} from '@/validations/language-certificate';
 
 const str = (v: unknown) =>
   v === '' || v === undefined || (typeof v === 'string' && !v.trim()) ? null : v;
@@ -73,13 +78,18 @@ const profileLink = (hosts: readonly string[], error: string) =>
       .nullable()
   );
 
-/** A date in a sane range — a typo must not land a defence in 1024 or 2924 */
+/**
+ * A date in a sane range — a typo must not land a defence in 1024 or 2924 — and
+ * never in the future: a diploma or a defence that has not happened is not one
+ * (owner, 2026-10-14).
+ */
 const defenceDate = z.preprocess(
   dateStr,
   z
     .date()
-    .refine((d) => d.getUTCFullYear() >= 1950 && d.getUTCFullYear() <= 2100, {
-      error: 'Некоректна дата',
+    .refine((d) => d.getUTCFullYear() >= 1950, { error: 'Некоректна дата' })
+    .refine((d) => d.toISOString().slice(0, 10) <= new Date().toLocaleDateString('en-CA', KYIV), {
+      error: 'Дата не може бути в майбутньому',
     })
     .nullable()
 );
@@ -190,9 +200,18 @@ export const academicFields = {
     const problem = adminPostProblem(list);
     if (problem) ctx.addIssue({ code: 'custom', message: ADMIN_POST_PROBLEM_MESSAGES[problem] });
   }),
+  // The basic education is an entry of this list too (owner, 2026-10-14): a person
+  // may hold several, and `basicEducationMatch` / `basicEducationSpecialty` — what
+  // rating 1.9 reads — are mirrors of it, written on every save like the degree
+  // columns. They are no longer fields anybody sends.
   degrees,
-  basicEducationMatch: z.preprocess(boolStr, z.boolean().nullable()),
-  basicEducationSpecialty: specialty,
+  // The two language certificates (owner, 2026-10-14). NOT Staff columns — a
+  // `LanguageCertificate` row each — so the save actions take them out of the
+  // payload before the Staff update (`lib/staff/language-certificates.ts`).
+  // Optional: a form that does not carry them (the create dialog, an old tab)
+  // must leave what is stored alone.
+  englishCertificate: englishCertificateSchema.optional(),
+  ukrainianCertificate: ukrainianCertificateSchema.optional(),
 };
 
 export const staffUpdateSchema = z

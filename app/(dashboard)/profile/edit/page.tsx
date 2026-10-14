@@ -4,6 +4,11 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { ProfileEditForm } from '@/components/profile/profile-edit-form';
 import { headshipOf } from '@/lib/staff/academic';
 import { academicToFormValues } from '@/components/staff/academic-form-values';
+import {
+  certificateScansOf,
+  certificatesToFormValues,
+} from '@/components/staff/certificate-form-values';
+import { getLanguageCertificates } from '@/lib/queries/get-language-certificates';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
 import { fullName } from '@/components/staff/profile/primitives';
@@ -27,6 +32,9 @@ export default async function ProfileEditPage() {
   const staff = await getStaff(staffId, true);
   if (!staff) notFound();
 
+  // The language certificates of «Освіта» (owner, 2026-10-14) — an НПП's own.
+  const certificates = staff.isNpp ? await getLanguageCertificates(staffId) : null;
+
   return (
     // No heading of its own — the form carries one in its header card, beside
     // the actions it belongs with.
@@ -42,6 +50,7 @@ export default async function ProfileEditPage() {
         canEditAvatar={canSetOwnAvatar(session.user.role)}
         isNpp={staff.isNpp}
         headship={headshipOf(staff)}
+        certificates={certificates ? certificateScansOf(staffId, certificates) : undefined}
         defaultValues={{
           phone: staff.phone ?? '',
           wosUrl: staff.wosUrl ?? '',
@@ -57,6 +66,7 @@ export default async function ProfileEditPage() {
               : '',
           // Only an НПП's own academic info is theirs to edit (2026-10-06).
           ...(staff.isNpp ? academicToFormValues(staff) : {}),
+          ...(certificates ? certificatesToFormValues(certificates) : {}),
         }}
       />
     </div>

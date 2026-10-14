@@ -54,6 +54,15 @@ import {
   storedAcademic,
 } from '@/lib/staff/academic';
 import { adminPostsConflict } from '@/lib/queries/scope';
+import { CERTIFICATE_KINDS } from '@/lib/language-certificates/options';
+import {
+  applyCertificates,
+  dropObjects,
+  hasCertificateChanges,
+  prepareCertificates,
+  takeCertificates,
+  type PreparedCertificate,
+} from '@/lib/staff/language-certificates';
 import type { AdminPosition, Prisma } from '@/lib/generated/prisma/client';
 
 export type StaffArchiveState = { error: string } | { success: true; message: string };
@@ -441,7 +450,10 @@ export async function updateStaff(
 
   // Which fields an editor may write is decided further down by their grants;
   // whose record they may write is decided here, before anything is parsed.
-  const target = await db.staff.findUnique({ where: { id }, select: { id: true, role: true } });
+  const target = await db.staff.findUnique({
+    where: { id },
+    select: { id: true, role: true, isNpp: true },
+  });
   if (!target) return { error: 'Запис не знайдено' };
   if (!canMutateStaffRecord(session.user, target)) return { error: 'Недостатньо прав' };
 
@@ -503,13 +515,26 @@ export async function updateStaff(
     }
   }
 
+  // The language certificates (owner, 2026-10-14) are rows of their own, not
+  // Staff columns — so, like сумісництво, they are lifted out of `updateData`
+  // AFTER the permission filter above has decided who may write which (ADMIN
+  // both, the person their own, an editor only with the grant). Only an НПП has
+  // them: for an administrative record they are dropped, not refused.
+  const certificates = takeCertificates(updateData);
+  const isNppAfter = typeof updateData.isNpp === 'boolean' ? updateData.isNpp : target.isNpp;
+  if (!isNppAfter) {
+    for (const kind of CERTIFICATE_KINDS) delete certificates[kind];
+  }
+  const certificatesSent = hasCertificateChanges(certificates);
+
   // An editor whose division holds no usable field grants would otherwise get
   // an empty UPDATE, an empty audit row, and a «Збережено» for nothing saved.
   //
   // Сумісництво is checked beside it rather than counted in it: it is a join
   // table, never a key of `updateData`, so a division granted ONLY that field
-  // would be told it may edit nothing — which is the opposite of the grant.
-  if (Object.keys(updateData).length === 0 && !canWritePartTime) {
+  // would be told it may edit nothing — which is the opposite of the grant. The
+  // certificates are the same case.
+  if (Object.keys(updateData).length === 0 && !canWritePartTime && !certificatesSent) {
     return { error: 'Немає полів, доступних для редагування' };
   }
 
@@ -534,6 +559,24 @@ export async function updateStaff(
     const conflict = await adminPostsConflict(id, updateData.adminPositions as AdminPosition[]);
     if (conflict) return { error: conflict };
   }
+
+  // The scans are verified from their stored bytes BEFORE the transaction; a
+  // refusal has already dropped its object. A save that then FAILS leaves the
+  // staged scan where it is — the form still holds its key, and the retry (or the
+  // «підвищити максимум» re-send) must find it.
+  let prepared: PreparedCertificate[] = [];
+  if (certificatesSent) {
+    const result = await prepareCertificates({
+      staffId: id,
+      userId: session.user.id,
+      changes: certificates,
+      scope: 'staff.updateStaff',
+    });
+    if ('error' in result) return { error: result.error };
+    prepared = result.prepared;
+  }
+  // Set by the transaction: R2 objects a replaced or removed scan leaves behind.
+  let orphaned: string[] = [];
 
   let dbError: string | null = null;
   // Every ceiling this save moved, for the audit entry — filled by the cleanup
@@ -631,6 +674,10 @@ export async function updateStaff(
       }
 
       await tx.staff.update({ where: { id }, data: updateData });
+
+      const appliedCertificates = await applyCertificates(tx, id, prepared);
+      Object.assign(changes, appliedCertificates.changes);
+      orphaned = appliedCertificates.orphaned;
 
       // Profile is the source of truth for derived rating indicators — re-sync
       // when any feeding field (or the НПП flag itself) was touched.
@@ -873,6 +920,10 @@ export async function updateStaff(
   }
 
   if (dbError) return { error: dbError };
+
+  // After the commit, never inside it: a save the person saw succeed must not
+  // roll back because R2 was slow to delete.
+  await dropObjects('staff.updateStaff', orphaned, { userId: session.user.id, entityId: id });
   return { success: true };
 }
 
