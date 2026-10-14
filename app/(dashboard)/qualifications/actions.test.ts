@@ -209,6 +209,9 @@ describe('createQualification — what is stored', () => {
       label: 'Петренко П.П. — Цифрові технології в освіті',
     });
     expect(data.changes.credits).toEqual({ from: null, to: 1.5 });
+    // Words a person can read, not the enum keys.
+    expect(data.changes.kind).toEqual({ from: null, to: 'Підвищення кваліфікації' });
+    expect(data.changes.documentType).toEqual({ from: null, to: 'Сертифікат' });
   });
 
   it('refuses invalid values with the schema’s sentence and writes nothing', async () => {

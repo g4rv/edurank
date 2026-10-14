@@ -14,6 +14,7 @@ import { activeYear } from '@/lib/queries/get-active-template';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { editorHasFieldGrant } from '@/lib/permissions';
 import { canViewAnyQualifications } from '@/lib/qualifications/access';
+import { countQualifications } from '@/lib/queries/count-qualifications';
 import { Button } from '@/components/aurora/ui/button';
 import { DownloadButton } from '@/components/ui/download-button';
 import { Pagination } from '@/components/aurora/ui/pagination';
@@ -127,6 +128,11 @@ export default async function StaffPage({
   // `canViewQualifications`, which is NOT the same set as the staff export's
   // ADMIN alone; the route checks the same rule.
   const showQualificationsExport = await canViewAnyQualifications(session.user);
+  // Offered only when the people on screen (the WHOLE filtered set, not this
+  // page of it) hold at least one record — otherwise the file is a bare header.
+  const qualificationsInView = showQualificationsExport
+    ? await countQualifications(staff.filter((p) => p.isNpp).map((p) => p.id))
+    : 0;
   const qualificationsExportHref = `/api/export/qualifications${buildHref({}).slice('/staff'.length)}`;
 
   // The «Тип» column is gone (owner, 2026-09-21): it printed the same three
@@ -274,7 +280,12 @@ export default async function StaffPage({
               <DownloadButton
                 href={qualificationsExportHref}
                 label="Вивантажити кваліфікації"
-                title="Підвищення кваліфікації та стажування персоналу за поточними фільтрами"
+                disabled={qualificationsInView === 0}
+                title={
+                  qualificationsInView === 0
+                    ? 'Немає записів для вивантаження за поточними фільтрами'
+                    : 'Підвищення кваліфікації та стажування персоналу за поточними фільтрами'
+                }
               />
             )}
             {showCreate && (
