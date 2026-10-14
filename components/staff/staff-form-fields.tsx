@@ -38,6 +38,12 @@ import {
   academicToFormValues,
   type AcademicFormValues,
 } from '@/components/staff/academic-form-values';
+import {
+  certificatesToFormValues,
+  type CertificateScans,
+  type CertificatesFormValues,
+} from '@/components/staff/certificate-form-values';
+import type { PersonCertificates } from '@/lib/queries/get-language-certificates';
 import type { StaffDetail } from '@/lib/queries/get-staff';
 import type { DepartmentOption } from '@/lib/queries/list-departments';
 import type { DivisionOption } from '@/lib/queries/list-divisions';
@@ -67,7 +73,10 @@ export type RawStaffFormValues = {
   departmentId: string;
   divisionId: string;
   partTimeDepartmentIds: string[];
-} & AcademicFormValues;
+} & AcademicFormValues &
+  // Only where the certificates are edited (an existing person) — see
+  // `StaffFormFieldsProps.certificates`.
+  Partial<CertificatesFormValues>;
 
 export const EMPTY_STAFF_FORM_VALUES: RawStaffFormValues = {
   lastName: '',
@@ -90,8 +99,16 @@ export const EMPTY_STAFF_FORM_VALUES: RawStaffFormValues = {
   partTimeDepartmentIds: [],
 };
 
-/** An existing record as form strings; null becomes '' so inputs stay controlled */
-export function staffToFormValues(staff: StaffDetail): RawStaffFormValues {
+/**
+ * An existing record as form strings; null becomes '' so inputs stay controlled.
+ *
+ * `certificates` (owner, 2026-10-14) are passed only where the form edits them:
+ * left out, the keys are absent and a save leaves what is stored alone.
+ */
+export function staffToFormValues(
+  staff: StaffDetail,
+  certificates?: PersonCertificates
+): RawStaffFormValues {
   const numberOrEmpty = (v: number | null | undefined) => (v != null ? String(v) : '');
 
   return {
@@ -103,6 +120,7 @@ export function staffToFormValues(staff: StaffDetail): RawStaffFormValues {
     isNpp: staff.isNpp ? 'true' : 'false',
     employmentRate: numberOrEmpty(staff.employmentRate),
     ...academicToFormValues(staff),
+    ...(certificates ? certificatesToFormValues(certificates) : {}),
     wosUrl: staff.wosUrl ?? '',
     wosCitationCount: numberOrEmpty(staff.wosCitationCount),
     scopusUrl: staff.scopusUrl ?? '',
@@ -286,6 +304,12 @@ interface StaffFormFieldsProps {
    * allowed to create.
    */
   editableFields?: readonly string[];
+  /**
+   * The language certificates of «Освіта» (owner, 2026-10-14) are drawn only when
+   * this is given — an existing person's edit form. The create dialog omits it: a
+   * scan is stored under the person's own id.
+   */
+  certificates?: CertificateScans;
 }
 
 export function StaffFormFields({
@@ -309,6 +333,7 @@ export function StaffFormFields({
   canEditType,
   editableFields,
   headship = null,
+  certificates,
 }: StaffFormFieldsProps) {
   /**
    * Is this column outside what the viewer's division may write?
@@ -531,6 +556,7 @@ export function StaffFormFields({
       locked={academicLocked}
       className={CARD_CLASS}
       action={stepNumber()}
+      certificates={certificates}
     />
   );
 

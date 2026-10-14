@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
+import { getLanguageCertificates } from '@/lib/queries/get-language-certificates';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listDivisions } from '@/lib/queries/list-divisions';
@@ -105,6 +106,8 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
         stakeBreakdown={stakeBreakdown}
         // ADMIN only, and only while a year is open — an allocation lives in one.
         canEditRates={isAdmin && (await activeYear()) !== null}
+        // Only an НПП has language certificates (owner, 2026-10-14).
+        certificates={staff.isNpp ? await getLanguageCertificates(id) : undefined}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import {
   adminPostProblem,
   bestDegree,
   degreesOf,
+  deriveBasicEducationColumns,
   deriveDegreeColumns,
   effectiveAdminPosition,
   heldAdminPositions,
@@ -15,6 +16,7 @@ import {
   CANDIDATE_DEGREES,
   DOCTOR_DEGREES,
   HONORARY_TITLES,
+  degreeLevel,
   degreeName,
   isUnspecifiedDegree,
 } from './academic-options';
@@ -412,5 +414,84 @@ describe('academicAuditValue — the list', () => {
       'Доктор філософії (PhD) · Історія · 01.06.2015 · відповідає кафедрі; Доктор юридичних наук'
     );
     expect(academicAuditValue('degrees', [])).toBeNull();
+  });
+});
+
+// Basic education is entries of the list (owner, 2026-10-14): one kind, any number,
+// and the rating asks if ANY of them matches the кафедра.
+describe('basic education in the list', () => {
+  it('is its own level, apart from doctor and candidate', () => {
+    expect(degreeLevel('basic_education')).toBe('basic');
+    // бакалавр / магістр / спеціаліст are not told apart
+    expect(degreeLevel('basic_master')).toBeNull();
+    expect(degreeLevel('phd')).toBe('candidate');
+  });
+
+  it('pays 1.9 when ANY entry matches the кафедра, and names the matching one', () => {
+    const out = deriveBasicEducationColumns([
+      rec('basic_education', null, false, 'Право'),
+      rec('basic_education', null, true, 'Історія'),
+    ]);
+    expect(out).toEqual({ basicEducationMatch: true, basicEducationSpecialty: 'Історія' });
+  });
+
+  it('names the first specialty when none matches, and does not pay', () => {
+    const out = deriveBasicEducationColumns([
+      rec('basic_education', null, false, 'Право'),
+      rec('basic_education', null, null, 'Історія'),
+    ]);
+    expect(out).toEqual({ basicEducationMatch: null, basicEducationSpecialty: 'Право' });
+  });
+
+  it('ignores the doctor and candidate records, and is empty with no basic entry', () => {
+    expect(deriveBasicEducationColumns([rec('phd', '2015-06-01', true, 'Історія')])).toEqual({
+      basicEducationMatch: null,
+      basicEducationSpecialty: null,
+    });
+  });
+
+  it('stands in for the old columns on a row the list never reached', () => {
+    expect(
+      degreesOf({ degrees: [], basicEducationMatch: true, basicEducationSpecialty: 'Історія' })
+    ).toEqual([
+      {
+        degree: 'basic_education',
+        specialty: 'Історія',
+        defenceDate: null,
+        matchesDepartment: true,
+      },
+    ]);
+  });
+
+  const STORED = {
+    position: null,
+    academicTitle: null,
+    candidateDegree: null,
+    candidateDefenceDate: null,
+    candidateMatchesDepartment: null,
+    doctorDegree: null,
+    doctorDefenceDate: null,
+    doctorMatchesDepartment: null,
+    adminPositions: [],
+  } as const;
+
+  it('writes its mirrors with the list, and never lets its date open п.5', () => {
+    const out = mirrorsForUpdate(STORED, {
+      degrees: [
+        rec('basic_education', '2024-06-30', true, 'Історія'),
+        rec('phd', '2015-06-01', true),
+      ],
+    });
+    expect(out).toMatchObject({
+      basicEducationMatch: true,
+      basicEducationSpecialty: 'Історія',
+    });
+    // the 2024 diploma date is not a defence: п.5 sees the 2015 one
+    expect(out?.degreeDefenceDate).toEqual(new Date(Date.UTC(2015, 5, 1)));
+  });
+
+  it('gives п.5 no date at all when only a basic diploma is dated', () => {
+    const out = mirrorsForUpdate(STORED, { degrees: [rec('basic_education', '2024-06-30')] });
+    expect(out?.degreeDefenceDate).toBeNull();
   });
 });

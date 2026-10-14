@@ -81,7 +81,18 @@ describe('free-text length limits', () => {
   it('refuses an overlong phone, ORCID or specialty', () => {
     expect(parse({ phone: '0'.repeat(51) }).success).toBe(false);
     expect(parse({ orcidId: 'x'.repeat(51) }).success).toBe(false);
-    expect(parse({ basicEducationSpecialty: 'я'.repeat(201) }).success).toBe(false);
+    expect(
+      parse({
+        degrees: [
+          {
+            degree: 'basic_education',
+            specialty: 'я'.repeat(201),
+            defenceDate: null,
+            matchesDepartment: null,
+          },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it('still treats an empty value as null, not as a too-short string', () => {
@@ -241,9 +252,22 @@ describe('degrees — a list of diplomas (owner, 2026-10-10)', () => {
     expect(parse({ degrees: [row({ defenceDate: '2020-01-01' })] }).success).toBe(false);
   });
 
+  // A diploma or a defence that has not happened is not one (owner, 2026-10-14).
+  it('refuses a date in the future, and one before 1950', () => {
+    const future = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+    expect(parse({ degrees: [row({ degree: 'phd', defenceDate: future })] }).success).toBe(false);
+    expect(parse({ degrees: [row({ degree: 'phd', defenceDate: '1949-12-31' })] }).success).toBe(
+      false
+    );
+    expect(parse({ degrees: [row({ degree: 'phd', defenceDate: '2020-01-01' })] }).success).toBe(
+      true
+    );
+  });
+
   it('refuses a ступінь no list has, and accepts the branch-less placeholder', () => {
     expect(parse({ degrees: [row({ degree: 'nonsense' })] }).success).toBe(false);
     expect(parse({ degrees: [row({ degree: 'doctor_unspecified' })] }).success).toBe(true);
+    expect(parse({ degrees: [row({ degree: 'basic_education' })] }).success).toBe(true);
   });
 
   it('is empty when the form did not send it', () => {

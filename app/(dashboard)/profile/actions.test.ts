@@ -19,12 +19,18 @@ vi.mock('@/lib/rating/profile-derived', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/rating/profile-derived')>()),
   syncProfileDerived: vi.fn(),
 }));
+// A language certificate's scan is checked against R2 (owner, 2026-10-14).
+vi.mock('@/lib/science/file-intake', () => ({
+  verifyUploadedObject: vi.fn(),
+  safeDeleteObject: vi.fn(),
+}));
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import type { OwnProfileSchema } from '@/validations/staff';
 import { syncProfileDerived } from '@/lib/rating/profile-derived';
 import { adminPostsConflict } from '@/lib/queries/scope';
+import { safeDeleteObject, verifyUploadedObject } from '@/lib/science/file-intake';
 import { updateOwnProfile } from './actions';
 
 const mockAuth = auth as unknown as Mock;
@@ -55,8 +61,6 @@ const ACADEMIC = {
       matchesDepartment: true,
     },
   ],
-  basicEducationMatch: true,
-  basicEducationSpecialty: 'Історія',
 };
 
 function mockTx() {
@@ -64,6 +68,12 @@ function mockTx() {
     staff: {
       findUnique: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue({}),
+    },
+    // The language certificates are rows of their own (owner, 2026-10-14)
+    languageCertificate: {
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue({}),
+      delete: vi.fn().mockResolvedValue({}),
     },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
   };
@@ -261,6 +271,176 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     expect(changes.position).toEqual({ from: null, to: 'Доцент' });
     // The mirrors are bookkeeping, not something the person changed.
     expect(changes.academicRank).toBeUndefined();
+  });
+});
+
+// The two language certificates of «Освіта» (owner, 2026-10-14): rows of their own
+// — never Staff columns — written with the person's own save, scan and all.
+describe('updateOwnProfile — language certificates', () => {
+  const english = {
+    series: 'EN',
+    number: '123',
+    issuedBy: 'British Council',
+    issuedOn: '2024-03-15',
+  };
+  const withEnglish = { ...payload, englishCertificate: english } as unknown as OwnProfileSchema;
+
+  beforeEach(() => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'USER', staffId: 'staff-own' } });
+    // NB: `db.staff.findUnique` (the НПП check) answers {isNpp: true} by default.
+    (db.staff.findUnique as unknown as Mock).mockResolvedValue({ isNpp: true });
+  });
+
+  it('writes the certificate to its own table, and never to a Staff column', async () => {
+    const tx = mockTx();
+    expect(await updateOwnProfile(withEnglish)).toEqual({ success: true });
+
+    expect(writtenFields(tx)).not.toContain('englishCertificate');
+    expect(tx.languageCertificate.upsert.mock.calls[0][0]).toMatchObject({
+      where: { staffId_kind: { staffId: 'staff-own', kind: 'ENGLISH' } },
+      create: { staffId: 'staff-own', kind: 'ENGLISH', series: 'EN', number: '123' },
+    });
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes.englishCertificate).toEqual({
+      from: null,
+      to: 'EN № 123 · British Council · 15.03.2024',
+    });
+  });
+
+  it('drops them for somebody who is not an НПП', async () => {
+    (db.staff.findUnique as unknown as Mock).mockResolvedValue({ isNpp: false });
+    const tx = mockTx();
+    await updateOwnProfile(withEnglish);
+    expect(tx.languageCertificate.upsert).not.toHaveBeenCalled();
+    // An administrative account keeps its phone and nothing else.
+    expect(writtenFields(tx)).toEqual(['phone']);
+  });
+
+  it('leaves them alone when the save did not carry them', async () => {
+    const tx = mockTx();
+    await updateOwnProfile(payload);
+    expect(tx.languageCertificate.findMany).not.toHaveBeenCalled();
+    expect(tx.languageCertificate.upsert).not.toHaveBeenCalled();
+  });
+
+  it('refuses a half-filled certificate', async () => {
+    mockTx();
+    const half = {
+      ...payload,
+      ukrainianCertificate: { number: '777', level: '', issuedOn: '' },
+    } as unknown as OwnProfileSchema;
+    expect(await updateOwnProfile(half)).toEqual({ error: 'Невірні дані' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses a staged scan that is in somebody else’s folder', async () => {
+    mockTx();
+    const result = await updateOwnProfile({
+      ...payload,
+      englishCertificate: {
+        ...english,
+        file: { objectKey: 'language-certificates/staff-other/x.pdf', fileName: 'x.pdf' },
+      },
+    } as unknown as OwnProfileSchema);
+    expect('error' in result).toBe(true);
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(verifyUploadedObject).not.toHaveBeenCalled();
+  });
+
+  it('stores a verified scan on the row', async () => {
+    const key = 'language-certificates/staff-own/new.pdf';
+    (verifyUploadedObject as unknown as Mock).mockResolvedValue({
+      ok: true,
+      file: {
+        objectKey: key,
+        fileName: 'scan.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 900,
+        pageCount: 1,
+        sha256: 'abc',
+      },
+    });
+    const tx = mockTx();
+    await updateOwnProfile({
+      ...payload,
+      englishCertificate: { ...english, file: { objectKey: key, fileName: 'scan.pdf' } },
+    } as unknown as OwnProfileSchema);
+
+    expect(tx.languageCertificate.upsert.mock.calls[0][0].create).toMatchObject({
+      fileKey: key,
+      fileName: 'scan.pdf',
+      fileSizeBytes: 900,
+    });
+    expect(tx.auditLog.create.mock.calls[0][0].data.changes.englishCertificate.to).toContain(
+      'файл: scan.pdf'
+    );
+  });
+
+  it('deletes the old scan only AFTER a replacement commits', async () => {
+    const old = 'language-certificates/staff-own/old.pdf';
+    const next = 'language-certificates/staff-own/new.pdf';
+    (verifyUploadedObject as unknown as Mock).mockResolvedValue({
+      ok: true,
+      file: {
+        objectKey: next,
+        fileName: 'new.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 900,
+        pageCount: 1,
+        sha256: 'def',
+      },
+    });
+    const tx = mockTx();
+    tx.languageCertificate.findMany.mockResolvedValue([
+      {
+        id: 'c1',
+        kind: 'ENGLISH',
+        series: 'EN',
+        number: '123',
+        issuedOn: new Date('2024-03-15T00:00:00.000Z'),
+        issuedBy: 'British Council',
+        level: null,
+        decisionNumber: null,
+        decisionDate: null,
+        fileKey: old,
+        fileName: 'old.pdf',
+      },
+    ]);
+    await updateOwnProfile({
+      ...payload,
+      englishCertificate: { ...english, file: { objectKey: next, fileName: 'new.pdf' } },
+    } as unknown as OwnProfileSchema);
+
+    expect(safeDeleteObject).toHaveBeenCalledTimes(1);
+    expect(safeDeleteObject).toHaveBeenCalledWith(
+      'profile.updateOwnProfile',
+      old,
+      expect.anything()
+    );
+  });
+
+  it('keeps the staged scan when the save fails, so the retry finds it', async () => {
+    const key = 'language-certificates/staff-own/new.pdf';
+    (verifyUploadedObject as unknown as Mock).mockResolvedValue({
+      ok: true,
+      file: {
+        objectKey: key,
+        fileName: 'scan.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 900,
+        pageCount: 1,
+        sha256: 'abc',
+      },
+    });
+    const tx = mockTx();
+    tx.staff.update.mockRejectedValue(new Error('db down'));
+
+    const result = await updateOwnProfile({
+      ...payload,
+      englishCertificate: { ...english, file: { objectKey: key, fileName: 'scan.pdf' } },
+    } as unknown as OwnProfileSchema);
+    expect('error' in result).toBe(true);
+    expect(safeDeleteObject).not.toHaveBeenCalled();
   });
 });
 

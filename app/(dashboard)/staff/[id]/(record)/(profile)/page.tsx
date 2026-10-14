@@ -3,7 +3,12 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { accountGrantsFor, type AccountGrants } from '@/lib/permissions';
 import { canOverseeScience } from '@/lib/science/oversight';
-import { canViewAnyQualifications } from '@/lib/qualifications/access';
+import {
+  canViewAnyQualifications,
+  divisionAllowsQualifications,
+  qualificationAccessFor,
+} from '@/lib/qualifications/access';
+import { getLanguageCertificates } from '@/lib/queries/get-language-certificates';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
@@ -73,6 +78,18 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
 
   const stakeParts = showStake ? await getStakeBreakdown(id) : [];
 
+  // The language certificates of «Освіта» (owner, 2026-10-14). The TEXT is read
+  // like the rest of the record; the SCAN only by those who may read this person's
+  // qualification records — the same rule, asked once here and handed down.
+  const certificates = staff.isNpp ? await getLanguageCertificates(id) : undefined;
+  const canOpenCertificateFiles = qualificationAccessFor({
+    role: session.user.role,
+    staffId: session.user.staffId,
+    divisionAllows: await divisionAllowsQualifications(session.user),
+    ownerId: id,
+    ownerIsNpp: staff.isNpp,
+  }).read;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       <RecordTabRow
@@ -103,7 +120,13 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
       </RecordTabRow>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-        <ProfileDetails staff={staff} showStake={showStake} stakeParts={stakeParts} />
+        <ProfileDetails
+          staff={staff}
+          showStake={showStake}
+          stakeParts={stakeParts}
+          certificates={certificates}
+          canOpenCertificateFiles={canOpenCertificateFiles}
+        />
       </div>
     </div>
   );

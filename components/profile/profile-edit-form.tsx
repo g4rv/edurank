@@ -26,6 +26,10 @@ import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
 import type { HeadshipPost } from '@/lib/staff/academic';
 import type { AcademicFormValues } from '@/components/staff/academic-form-values';
+import type {
+  CertificateScans,
+  CertificatesFormValues,
+} from '@/components/staff/certificate-form-values';
 
 /** Empty strings, not nulls: an <input> with a null value is uncontrolled */
 type FormValues = {
@@ -37,7 +41,8 @@ type FormValues = {
   wosCitationCount: string;
   scopusCitationCount: string;
   googleScholarCitationCount: string;
-} & Partial<AcademicFormValues>;
+} & Partial<AcademicFormValues> &
+  Partial<CertificatesFormValues>;
 
 export function ProfileEditForm({
   name,
@@ -46,6 +51,7 @@ export function ProfileEditForm({
   defaultValues,
   isNpp = false,
   headship = null,
+  certificates,
 }: {
   /** Whose record this is — the header is the same one `/staff/[id]/edit` uses. */
   name: string;
@@ -63,6 +69,11 @@ export function ProfileEditForm({
   isNpp?: boolean;
   /** Their завідувач / декан post, counted by itself (2026-10-06) */
   headship?: HeadshipPost | null;
+  /**
+   * The language certificates of their own «Освіта» (owner, 2026-10-14) — an НПП's
+   * only. Their values are in `defaultValues`; this names the stored scans.
+   */
+  certificates?: CertificateScans;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -345,6 +356,7 @@ export function ProfileEditForm({
                   control={control as never}
                   errors={errors as never}
                   isPending={isPending}
+                  certificates={certificates}
                 />
               </>
             ) : (

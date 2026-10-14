@@ -39,7 +39,8 @@ import { SegmentedControl } from '@/components/aurora/ui/segmented-control';
 import { FormField } from '@/components/ui/form-field';
 import { RequiredFields } from '@/components/ui/required-fields';
 import { DialogProblem } from '@/components/science/dialog-problem';
-import { EvidenceFileField, type FileUploader } from '@/components/science/evidence-file-field';
+import type { FileUploader } from '@/components/science/evidence-file-field';
+import { ScanField, type ScanChoice } from '@/components/science/scan-field';
 import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
 import {
   DOCUMENT_TYPES,
@@ -71,7 +72,7 @@ import {
  *
  * The scan goes up the moment it is chosen, before anything is saved, and the
  * save carries its key — the flow science evidence already uses, through the
- * same `EvidenceFileField` with this feature's own uploader. A form holding
+ * shared `ScanField` (over `EvidenceFileField`) with this feature's own uploader. A form holding
  * unsaved input does not close on a click outside (aurora.md §10).
  */
 export function QualificationDialog({
@@ -200,14 +201,18 @@ function QualificationForm({
   const [problem, setProblem] = useState<string | null>(null);
 
   // The scan chosen in THIS form, already in R2 and waiting for the save.
-  const [staged, setStaged] = useState<StagedQualificationFile | null>(null);
+  // What the scan field last reported: undefined keeps the stored scan, null takes
+  // it away, an object replaces it (`ScanChoice`).
+  const [choice, setChoice] = useState<ScanChoice>(undefined);
   const [fileBusy, setFileBusy] = useState(false);
-  // Editing: the stored scan may be kept, or swapped / taken away.
-  const [replacing, setReplacing] = useState(false);
+  // Bumped to remount the field after the server dropped a staged scan, so it
+  // stops claiming to hold one.
+  const [fileFieldKey, setFileFieldKey] = useState(0);
 
-  function changeStaged(file: StagedQualificationFile | null) {
-    setStaged(file);
-    onStagedChange(file);
+  function changeChoice(next: ScanChoice) {
+    setChoice(next);
+    // Only an object is a staged scan; null is «take the stored one away».
+    onStagedChange(next && typeof next === 'object' ? next : null);
   }
 
   const uploader: FileUploader = {
@@ -248,9 +253,6 @@ function QualificationForm({
       ? `1 кредит = ${HOURS_PER_CREDIT} годин · разом ${hoursLabel(hoursFromCredits(Math.round(creditsTyped * 100)))}`
       : `1 кредит = ${HOURS_PER_CREDIT} годин`;
 
-  const hasStoredFile = !!qualification?.file;
-  const keepingStored = hasStoredFile && !replacing;
-
   function submit() {
     setProblem(null);
     const values = getValues();
@@ -258,7 +260,7 @@ function QualificationForm({
     startTransition(async () => {
       // `undefined` keeps the stored scan, `null` takes it away, an object
       // replaces it — see `QualificationInput.file`.
-      const file = staged ?? (hasStoredFile && replacing ? null : undefined);
+      const file = choice;
 
       const result = await attempt(() =>
         qualification
@@ -271,7 +273,10 @@ function QualificationForm({
         // stop claiming to hold one — except when the request never arrived:
         // then it is still there and clearing it would make somebody upload it
         // again.
-        if (staged && result.error !== CONNECTION_PROBLEM) changeStaged(null);
+        if (choice && result.error !== CONNECTION_PROBLEM) {
+          changeChoice(undefined);
+          setFileFieldKey((k) => k + 1);
+        }
         setProblem(result.error);
         return;
       }
@@ -422,57 +427,15 @@ function QualificationForm({
               required={false}
               description="Необов’язково. PDF, JPG чи PNG до 10 МБ."
             >
-              {keepingStored ? (
-                <div className="flex items-center justify-between gap-3 rounded-lg bg-foreground/6 px-3 py-2 text-sm">
-                  <span className="min-w-0 truncate" title={qualification?.file?.name}>
-                    {qualification?.file?.name}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={isPending}
-                    onClick={() => setReplacing(true)}
-                  >
-                    Замінити або прибрати
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <EvidenceFileField
-                    id="qualification-file"
-                    value={staged}
-                    onChange={changeStaged}
-                    onBusyChange={setFileBusy}
-                    disabled={isPending}
-                    uploader={uploader}
-                  />
-                  {hasStoredFile && (
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm text-foreground-soft">
-                        {staged
-                          ? 'Поточний файл буде замінено після збереження.'
-                          : 'Поточний файл буде прибрано після збереження.'}
-                      </p>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={isPending || fileBusy}
-                        onClick={() => {
-                          // Changed their mind: keep what is stored. A staged
-                          // scan goes with the field, which discards it.
-                          if (staged) void discardQualificationUpload(staffId, staged.objectKey);
-                          changeStaged(null);
-                          setReplacing(false);
-                        }}
-                      >
-                        Залишити поточний
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+              <ScanField
+                key={fileFieldKey}
+                id="qualification-file"
+                stored={qualification?.file ? { name: qualification.file.name } : null}
+                uploader={uploader}
+                onChange={changeChoice}
+                onBusyChange={setFileBusy}
+                disabled={isPending}
+              />
             </FormField>
           </fieldset>
         </DialogBody>

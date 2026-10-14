@@ -13,6 +13,7 @@ import {
   degreeLevel,
   degreeName,
   optionLabel,
+  BASIC_EDUCATION,
 } from '@/lib/staff/academic-options';
 
 /**
@@ -283,7 +284,8 @@ export function asDegreeRecords(value: unknown): DegreeRecord[] {
 
 /**
  * A person's diplomas: the list, or — for a row written before the list existed
- * and not yet saved since (a seed, an import) — what the two old slots hold.
+ * and not yet saved since (a seed, an import) — what the two old slots hold, and
+ * the one basic education the two old `basicEducation*` columns hold.
  */
 export function degreesOf(row: Record<string, unknown> | null | undefined): DegreeRecord[] {
   const listed = asDegreeRecords(row?.degrees);
@@ -301,7 +303,23 @@ export function degreesOf(row: Record<string, unknown> | null | undefined): Degr
       },
     ];
   };
-  return [...fromSlot('doctor'), ...fromSlot('candidate')];
+  const basicSpecialty = row?.basicEducationSpecialty;
+  const basicMatch = row?.basicEducationMatch;
+  const hasBasic =
+    (typeof basicSpecialty === 'string' && basicSpecialty.trim() !== '') ||
+    typeof basicMatch === 'boolean';
+  const basic: DegreeRecord[] = hasBasic
+    ? [
+        {
+          degree: BASIC_EDUCATION,
+          specialty:
+            typeof basicSpecialty === 'string' && basicSpecialty.trim() ? basicSpecialty : null,
+          defenceDate: null,
+          matchesDepartment: typeof basicMatch === 'boolean' ? basicMatch : null,
+        },
+      ]
+    : [];
+  return [...fromSlot('doctor'), ...fromSlot('candidate'), ...basic];
 }
 
 /**
@@ -343,9 +361,41 @@ export function deriveDegreeColumns(records: readonly DegreeRecord[]): DegreeCol
   };
 }
 
-/** The most recent defence of ANY diploma — what Характеристика п.5 looks for */
+/** The two `basicEducation*` columns, the mirrors of the list's basic-education entries */
+export interface BasicEducationColumns {
+  basicEducationMatch: boolean | null;
+  basicEducationSpecialty: string | null;
+}
+
+/**
+ * The two basic-education mirrors for a list (owner, 2026-10-14): a person may hold
+ * several, and rating 1.9 pays 50 once, if ANY of them is marked as matching the
+ * кафедра. So the match is `true` when any entry says so and `null` otherwise —
+ * never `false`, an unticked box stores nothing (the rule the form always had).
+ * The speciality is the matching entry's, else the first one's.
+ */
+export function deriveBasicEducationColumns(
+  records: readonly DegreeRecord[]
+): BasicEducationColumns {
+  const basic = records.filter((r) => degreeLevel(r.degree) === 'basic');
+  const matching = basic.find((r) => r.matchesDepartment === true);
+  const named = matching ?? basic.find((r) => r.specialty);
+  return {
+    basicEducationMatch: matching ? true : null,
+    basicEducationSpecialty: named?.specialty ?? null,
+  };
+}
+
+/**
+ * The most recent defence of ANY diploma — what Характеристика п.5 looks for.
+ * **Not a basic education's date**: that is the diploma's issue date, not a
+ * defence, and must never open or extend п.5's five-year window (owner, 2026-10-14).
+ */
 function newestDefence(records: readonly DegreeRecord[]): Date | null {
-  const days = records.map((r) => r.defenceDate).filter((d): d is string => !!d);
+  const days = records
+    .filter((r) => degreeLevel(r.degree) !== 'basic')
+    .map((r) => r.defenceDate)
+    .filter((d): d is string => !!d);
   return days.length ? day(days.reduce((a, b) => (b > a ? b : a))) : null;
 }
 
@@ -388,7 +438,7 @@ export const ACADEMIC_SOURCE_FIELDS = [
 export function mirrorsForUpdate(
   stored: AcademicFields,
   update: Record<string, unknown>
-): (LegacyMirrors & Partial<DegreeColumns>) | null {
+): (LegacyMirrors & Partial<DegreeColumns> & Partial<BasicEducationColumns>) | null {
   const hasDegrees = 'degrees' in update;
   if (!hasDegrees && !ACADEMIC_SOURCE_FIELDS.some((key) => key in update)) return null;
   const merged = { ...stored } as Record<string, unknown>;
@@ -402,7 +452,13 @@ export function mirrorsForUpdate(
   const columns = deriveDegreeColumns(records);
   Object.assign(merged, columns);
   const mirrors = legacyMirrors(merged as unknown as AcademicFields);
-  return { ...columns, ...mirrors, degreeDefenceDate: newestDefence(records) };
+  return {
+    ...columns,
+    // Rating 1.9 keeps reading the two basic-education columns (owner, 2026-10-14).
+    ...deriveBasicEducationColumns(records),
+    ...mirrors,
+    degreeDefenceDate: newestDefence(records),
+  };
 }
 
 /**

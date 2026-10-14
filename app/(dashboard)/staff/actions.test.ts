@@ -53,8 +53,6 @@ const payload: StaffCreateSchema = {
   honoraryTitles: [],
   adminPositions: [],
   degrees: [],
-  basicEducationMatch: null,
-  basicEducationSpecialty: null,
   wosUrl: null,
   wosCitationCount: null,
   scopusUrl: null,

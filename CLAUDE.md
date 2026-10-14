@@ -81,8 +81,23 @@ the best doctor-level and the best candidate-level record, a record marked as
 matching the кафедра first, otherwise the most recent. The rating, the lists and
 the filters keep reading the columns, so no rating point moves; п.5's
 `degreeDefenceDate` is the newest defence of ANY diploma. Nobody writes the six
-columns directly — the field grant is `degrees`. «Базова освіта» stays its own
-two fields.
+columns directly — the field grant is `degrees`.
+
+**Basic education is entries of that list** (owner, 2026-10-14): one kind,
+«Базова освіта» (`basic_education` — бакалавр / магістр / спеціаліст are NOT told
+apart), any number of entries. Its two old columns `basicEducationMatch` /
+`basicEducationSpecialty` are mirrors too (`deriveBasicEducationColumns`): rating
+1.9 pays when ANY entry matches the кафедра. The date on such an entry is the
+diploma's issue date, never a defence — `newestDefence` skips it, so it cannot
+open п.5's window. A person who had the old fields got one entry by migration
+`20261014140000` (no date); the two old field grants became `degrees`.
+
+**A diploma's date is mandatory and never in the future** (owner, 2026-10-14). The
+popup refuses an entry with no date, and its picker and `validations/staff.ts`
+stop at today (Kyiv). The server does NOT yet refuse a dateless entry — rows saved
+before this (every migrated basic education, and old degrees) have none, and
+refusing them would block an unrelated save — so such a card shows «Вкажіть дату»
+until somebody fills it.
 
 **An administrative (non-НПП) account edits its phone and nothing else** on
 `/profile/edit` (owner, 2026-10-10; the photo comes later). The research
@@ -849,6 +864,65 @@ document that proves it. Tab «Підвищення кваліфікації/С�
   as the button hides from them.
 - Audited as entity `Qualification`; its field labels are
   `ENTITY_FIELD_LABELS.Qualification`.
+
+## Мовні сертифікати in «Освіта» (built, owner 2026-10-14)
+
+Two optional documents in an НПП's «Освіта» card: the English certificate (not
+below B2) and the державний сертифікат про володіння українською мовою. Table
+`LanguageCertificate`, **one row per person and kind** (`@@unique([staffId, kind])`).
+Information only — they feed nothing.
+
+- **They are NOT Staff columns, and not a tab.** They are fields of the Education
+  card, saved with the ordinary profile Save through BOTH `updateStaff` (ADMIN,
+  granted editors) and `updateOwnProfile` (the НПП). Both call
+  `takeCertificates` to lift them out of `updateData` BEFORE `tx.staff.update`, then
+  `prepareCertificates` (scans verified before the transaction) and
+  `applyCertificates` (rows written inside it) — `lib/staff/language-certificates.ts`.
+  **A certificate key left in `updateData` would be written to a Staff column that
+  does not exist.** `createStaff` drops them: a scan lives under the person's own
+  id, so the create dialog does not draw them (the card gets `certificates` only
+  for an existing person).
+- **Fields.** English: Серія (optional), Номер, **Рівень (B2, C1 or C2 — B2, the
+  baseline, is the default)**, Ким виданий, Дата видачі. Ukrainian: Серія
+  (optional), Номер, Рівень володіння (**free text**, as the certificate words it,
+  required), Дата видачі, and the
+  commission's decision as **number + date, both or neither** — one general label
+  «Рішення Національної комісії зі стандартів державної мови» over two inputs.
+  Each has one optional scan. The English default lives in the popup's DRAFT only:
+  the form row stays empty until «Додати», so the default alone never makes a
+  certificate «entered». The English level is nullable in the schema (a certificate
+  saved before it existed still saves); the popup always sets one.
+- **Optional as a whole, strict once begun** (`validations/language-certificate.ts`):
+  an empty block stores nothing (and deletes a stored one); the moment anything —
+  a scan included — is entered, номер, дата and the kind's own third field are
+  required. **A schema here must accept its own OUTPUT**: the form passes the
+  server what the resolver produced, and an empty block's output is `null`, which
+  the action parses again. Refusing it made every save answer «Невірні дані».
+- **Who writes** (`authoriseCertificateWrite`, for the upload; the save applies the
+  same through the field filters): the НПП their own, ADMIN anybody's, an EDITOR only
+  with STAFF UPDATE **and** the grant for that very certificate — `englishCertificate`
+  / `ukrainianCertificate` are fields in the division settings' «Освіта» group
+  (`ACADEMIC_EDITABLE_FIELDS`). Only an НПП has them.
+- **Who opens a scan**: the owner, ADMIN and a division with `canViewQualifications`
+  — exactly `authoriseQualifications(…, 'read')`, one rule for both kinds of scan.
+  The TEXT is read like the rest of «Освіта»; heads and деканs see it, not the file.
+- **Scans**: the qualifications' flow (`ScanField` over `EvidenceFileField`, key
+  `language-certificates/<staffId>/<uuid>.<ext>`, SHA-256 not unique). A failed
+  save leaves the staged scan alone — the form still holds its key, so the retry
+  finds it; a replaced or removed scan's object is deleted AFTER the commit.
+  The popup's «Додати» / «Готово» is disabled while a chosen file uploads, so a key
+  R2 has not finished writing never reaches the form; a scan staged in a popup visit
+  and then abandoned (Скасувати, Esc, ×) is discarded by the slot
+  (`visitScan` in `components/staff/certificate-fields.tsx`).
+- **UI is a button → card → popup, like the diplomas** (owner, 2026-10-14: «not
+  overpopulated for the default user»): the diploma cards, then the certificate
+  cards, then **every «Додати …» button at the bottom of «Освіта»** (owner,
+  2026-10-14: «Додати освіту» and the two certificate buttons, in that order —
+  `CertificateFields` hands the cards and buttons to `EducationCard` separately);
+  the popup edits a draft and hands it back with «Готово», the profile's
+  «Зберегти» saves.
+- Audited as one readable line per certificate on the `Staff` entry
+  (`englishCertificate`, `ukrainianCertificate` in `FIELD_LABELS`).
 
 ## Naming conventions
 

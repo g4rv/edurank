@@ -433,6 +433,7 @@ model Staff {
   removedScienceRecords  ScienceRecord[]        @relation("ScienceRecordRemover")
   scienceFilesUploaded   ScienceRecordFile[]    @relation("ScienceFileUploader")
   qualifications         Qualification[]
+  languageCertificates   LanguageCertificate[]
 
   auditLogs          AuditLog[]
   approvedActivities Activity[]       @relation("ActivityApprover")
@@ -1703,6 +1704,58 @@ model Qualification {
   updatedAt DateTime @updatedAt
 
   @@index([staffId, issuedOn])
+}
+
+// ─── Мовні сертифікати (owner, 2026-10-14) ──────────────────────────────────
+//
+// Two optional documents in an НПП's «Освіта»: the English certificate (not
+// below B2) and the державний сертифікат про володіння українською мовою. At
+// most ONE of each per person. Information only — they feed nothing. Edited with
+// the rest of the profile (`updateStaff` / `updateOwnProfile`), not on a tab of
+// their own; each may carry one scan.
+
+enum LanguageCertificateKind {
+  ENGLISH
+  UKRAINIAN
+}
+
+model LanguageCertificate {
+  id String @id @default(cuid())
+
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  kind LanguageCertificateKind
+
+  /// Серія — optional on both
+  series   String?
+  number   String
+  issuedOn DateTime @db.Date
+
+  /// ENGLISH: «Ким виданий»
+  issuedBy String?
+
+  /// UKRAINIAN: «Рівень володіння» — a key of LANGUAGE_LEVELS (A1…C2)
+  level          String?
+  /// UKRAINIAN: «Рішення Національної комісії зі стандартів державної мови» —
+  /// its number and its date, both or neither
+  decisionNumber String?
+  decisionDate   DateTime? @db.Date
+
+  /// The scan, optional. The five are set together or all null. The R2 key is
+  /// `language-certificates/<staffId>/<uuid>.<ext>` — server-generated.
+  fileKey         String? @unique
+  fileName        String?
+  fileContentType String?
+  fileSizeBytes   Int?
+  /// Not unique, for the reason `Qualification.fileSha256` is not.
+  fileSha256      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One of each kind per person
+  @@unique([staffId, kind])
 }
 
 model AuditLog {

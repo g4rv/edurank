@@ -53,7 +53,7 @@ export const FIELD_GROUPS = [
   },
   {
     label: 'Освіта',
-    fields: ['degrees', 'basicEducationMatch', 'basicEducationSpecialty'],
+    fields: ['degrees', 'englishCertificate', 'ukrainianCertificate'],
   },
   {
     label: 'Наукові профілі',

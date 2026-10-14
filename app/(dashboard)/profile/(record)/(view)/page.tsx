@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
+import { getLanguageCertificates } from '@/lib/queries/get-language-certificates';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { ProfileDetails } from '@/components/staff/profile/profile-details';
 import { ProfileTabRow } from '@/components/staff/profile/profile-tab-row';
@@ -50,6 +51,8 @@ export default async function ProfilePage() {
   if (!staff) notFound();
 
   const stakeParts = await getStakeBreakdown(staffId);
+  // The language certificates of «Освіта» (owner, 2026-10-14) — an НПП's only.
+  const certificates = staff.isNpp ? await getLanguageCertificates(staffId) : undefined;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
@@ -62,6 +65,9 @@ export default async function ProfilePage() {
           // needs to be an ADMIN. The route answers that, never the component.
           showStake
           stakeParts={stakeParts}
+          certificates={certificates}
+          // Your own scans are yours to open.
+          canOpenCertificateFiles
         />
       </div>
     </div>
