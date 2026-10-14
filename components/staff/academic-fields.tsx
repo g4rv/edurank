@@ -30,6 +30,7 @@ import {
   DialogBody,
   DialogContent,
   DialogFooter,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/aurora/ui/dialog';
@@ -399,6 +400,7 @@ function DegreeDialogForm({
     <>
       <DialogHeader>
         <DialogTitle>{state.index === null ? 'Додати освіту' : 'Редагувати освіту'}</DialogTitle>
+        <DialogDescription>Вкажіть тип освіти або ступінь і дату диплома.</DialogDescription>
       </DialogHeader>
       <DialogBody>
         <FieldGroup className="flex flex-col gap-4">
