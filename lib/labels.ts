@@ -304,6 +304,7 @@ export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
     documentType: 'Вид документа',
     series: 'Серія',
     number: 'Номер',
+    url: 'Посилання',
     topic: 'Тема / спеціальність',
     issuedOn: 'Дата видачі',
     credits: 'Кредити',

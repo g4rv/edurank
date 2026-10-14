@@ -52,6 +52,13 @@ describe('certificateFacts', () => {
     ).toEqual(['№ 1', 'Дата видачі: 15.03.2024']);
   });
 
+  it('has no number to print when the certificate carries none', () => {
+    expect(
+      certificateFacts('ENGLISH', { number: null, issuedBy: 'IELTS', issuedOn: '2024-03-15' })
+    ).toEqual(['Ким виданий: IELTS', 'Дата видачі: 15.03.2024']);
+    expect(certificateFacts('ENGLISH', { series: 'EN', issuedOn: '2024-03-15' })[0]).toBe('EN');
+  });
+
   it('prints a commission decision only when it is complete', () => {
     expect(
       certificateFacts('UKRAINIAN', {

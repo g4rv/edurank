@@ -13,6 +13,7 @@ const row = (over: Partial<QualificationExportRow> = {}): QualificationExportRow
   documentType: 'CERTIFICATE',
   series: 'ПК',
   number: '12345',
+  url: null,
   topic: 'Цифрові технології в освіті',
   issuedOn: '2025-05-20',
   creditsHundredths: 150,
@@ -72,6 +73,14 @@ describe('buildQualificationsWorkbook', () => {
 
   it('leaves the series empty when there is none', () => {
     expect(sheetOf([row({ series: null })]).getCell('G2').value).toBe('');
+  });
+
+  it('leaves the number empty when there is none, and prints the link last', () => {
+    const sheet = sheetOf([row({ number: null, url: 'https://example.com/c/1' })]);
+    expect(sheet.getCell('H2').value).toBe('');
+    expect(sheet.getCell('N1').value).toBe('Посилання');
+    expect(sheet.getCell('N2').value).toBe('https://example.com/c/1');
+    expect(sheetOf([row()]).getCell('N2').value).toBe('');
   });
 
   it('only says whether a file is attached', () => {

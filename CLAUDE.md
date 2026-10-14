@@ -827,13 +827,19 @@ document that proves it. Tab «Підвищення кваліфікації/С�
   `/divisions/[id]`) **reads only**, files included. A head and a декан see
   nothing; for them the staff route is `notFound`. **Only an НПП has records** —
   every action refuses an administrative owner, ADMIN included.
+- **Серія and номер are both optional, and there is an optional «Посилання»**
+  (`url`, owner, 2026-10-14) — some certificates carry no number at all. The link
+  is **http(s) only** (`validations/web-link.ts`, the one rule the language
+  certificates share), because it is drawn as a clickable link. A document with
+  neither серія nor номер prints no «№» (`documentNumber` returns `null`); the
+  Excel has a «Посилання» column, last.
 - **The topic box is one column.** Its label is «Тема стажування», or
   «Спеціальність» when the document is a диплом; the Підвищення кваліфікації /
   Стажування toggle is `kind` and changes no field.
-- **The date on the document is limited to the last five навчальних років** —
-  from 1 вересня of the year that opened four навчальних років before the
-  current one (2026/2027 → nothing before 01.09.2022), up to today. It follows
-  the навчальний рік (`currentAcademicYear`), **not the rating year** — these
+- **The date on the document is limited to the last five CALENDAR years**
+  (owner, 2026-10-14, replacing five навчальних років) — in 2026 nothing before
+  01.01.2022, up to today; it moves on 1 січня, Kyiv time. It follows the
+  calendar, **not the rating year or the навчальний рік** — these
   records are independent of the rating. `qualificationMinDate()`
   (`lib/qualifications/window.ts`) limits the date picker and the Save button;
   the schema refuses it again on the server. An existing record older than the
@@ -882,9 +888,12 @@ Information only — they feed nothing.
   does not exist.** `createStaff` drops them: a scan lives under the person's own
   id, so the create dialog does not draw them (the card gets `certificates` only
   for an existing person).
-- **Fields.** English: Серія (optional), Номер, **Рівень (B2, C1 or C2 — B2, the
-  baseline, is the default)**, Ким виданий, Дата видачі. Ukrainian: Серія
-  (optional), Номер, Рівень володіння (**free text**, as the certificate words it,
+- **Fields.** Both have an optional **Посилання** (`url`, http(s) only — never
+  another scheme, it is drawn as a link). **Номер stays mandatory** (owner,
+  2026-10-14: made optional and taken back the same day — only the
+  qualifications' number is optional). English: Серія (optional), Номер,
+  **Рівень (B2, C1 or C2 — B2, the baseline, is the default)**, Ким виданий,
+  Дата видачі. Ukrainian: Серія (optional), Номер, Рівень володіння (**free text**, as the certificate words it,
   required), Дата видачі, and the
   commission's decision as **number + date, both or neither** — one general label
   «Рішення Національної комісії зі стандартів державної мови» over two inputs.
@@ -894,8 +903,8 @@ Information only — they feed nothing.
   saved before it existed still saves); the popup always sets one.
 - **Optional as a whole, strict once begun** (`validations/language-certificate.ts`):
   an empty block stores nothing (and deletes a stored one); the moment anything —
-  a scan included — is entered, номер, дата and the kind's own third field are
-  required. **A schema here must accept its own OUTPUT**: the form passes the
+  a scan or a link included — is entered, номер, дата and the kind's own third
+  field (рівень / ким виданий) are required. **A schema here must accept its own OUTPUT**: the form passes the
   server what the resolver produced, and an empty block's output is `null`, which
   the action parses again. Refusing it made every save answer «Невірні дані».
 - **Who writes** (`authoriseCertificateWrite`, for the upload; the save applies the

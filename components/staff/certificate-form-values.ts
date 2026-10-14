@@ -25,6 +25,7 @@ export interface CertificateFormRow {
   level: string;
   decisionNumber: string;
   decisionDate: string;
+  url: string;
   file?: { objectKey: string; fileName: string } | null;
 }
 
@@ -41,6 +42,7 @@ export const EMPTY_CERTIFICATE_ROW: CertificateFormRow = {
   level: '',
   decisionNumber: '',
   decisionDate: '',
+  url: '',
 };
 
 /**
@@ -59,12 +61,13 @@ export function certificatesToFormValues(certs: PersonCertificates): Certificate
     record
       ? {
           series: record.series ?? '',
-          number: record.number,
+          number: record.number ?? '',
           issuedBy: record.issuedBy ?? '',
           issuedOn: record.issuedOn,
           level: record.level ?? '',
           decisionNumber: record.decisionNumber ?? '',
           decisionDate: record.decisionDate ?? '',
+          url: record.url ?? '',
         }
       : { ...EMPTY_CERTIFICATE_ROW };
   return {

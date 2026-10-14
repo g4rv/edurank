@@ -43,6 +43,7 @@ const VALUES = {
   documentType: 'CERTIFICATE' as const,
   series: 'ПК',
   number: '12345',
+  url: '',
   topic: 'Цифрові технології в освіті',
   issuedOn: '2025-05-20',
   credits: '1,5',
@@ -191,6 +192,27 @@ describe('createQualification — what is stored', () => {
     expect(data.issuedOn.toISOString()).toBe('2025-05-20T00:00:00.000Z');
   });
 
+  it('stores a record with no number, and keeps its link', async () => {
+    signIn('USER', 'npp-1');
+    await createQualification({
+      staffId: 'npp-1',
+      values: { ...VALUES, number: '', url: ' https://example.com/c/1 ' },
+    });
+    const { data } = tx.qualification.create.mock.calls[0][0];
+    expect(data.number).toBeNull();
+    expect(data.url).toBe('https://example.com/c/1');
+  });
+
+  it('refuses a link that is not http(s), server-side', async () => {
+    signIn('USER', 'npp-1');
+    const result = await createQualification({
+      staffId: 'npp-1',
+      values: { ...VALUES, url: 'javascript:alert(1)' },
+    });
+    expect(result).toEqual({ error: 'Некоректне посилання' });
+    expect(tx.qualification.create).not.toHaveBeenCalled();
+  });
+
   it('stores an absent series as null', async () => {
     signIn('USER', 'npp-1');
     await createQualification({ staffId: 'npp-1', values: { ...VALUES, series: '' } });
@@ -224,13 +246,13 @@ describe('createQualification — what is stored', () => {
     expect(tx.qualification.create).not.toHaveBeenCalled();
   });
 
-  it('refuses a date older than the five навчальних років, server-side', async () => {
+  it('refuses a date older than the five calendar years, server-side', async () => {
     signIn('USER', 'npp-1');
     const result = await createQualification({
       staffId: 'npp-1',
       values: { ...VALUES, issuedOn: '2020-01-15' },
     });
-    expect('error' in result && result.error).toContain('останні 5 навчальних років');
+    expect('error' in result && result.error).toContain('останні 5 років');
     expect(tx.qualification.create).not.toHaveBeenCalled();
   });
 
@@ -239,7 +261,7 @@ describe('createQualification — what is stored', () => {
     mockFind.mockResolvedValue(null);
     await createQualification({
       staffId: 'npp-1',
-      values: { ...VALUES, number: '' },
+      values: { ...VALUES, topic: '' },
       file: { objectKey: 'qualifications/npp-1/x.pdf', fileName: 'x.pdf' },
     });
     expect(mockDrop).toHaveBeenCalledWith(

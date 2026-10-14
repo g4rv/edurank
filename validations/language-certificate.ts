@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { KYIV } from '@/lib/kyiv-time';
 import { CERTIFICATE_MIN_DATE, ENGLISH_LEVELS } from '@/lib/language-certificates/options';
+import { optionalWebLink as url } from '@/validations/web-link';
 
 // The two language certificates in an НПП's «Освіта» (owner, 2026-10-14).
 //
@@ -8,8 +9,9 @@ import { CERTIFICATE_MIN_DATE, ENGLISH_LEVELS } from '@/lib/language-certificate
 // none leaves the block empty and nothing is stored. The moment anything is
 // typed — or a scan is picked — the fields the document cannot do without
 // (номер, дата видачі, and для кожного свій третій) become required, so a half
-// certificate is never saved. Серія is optional on both: it is not printed on
-// every document.
+// certificate is never saved. Серія and the link are optional on both. (Номер
+// was optional for a few hours on 2026-10-14; the owner took it back — a
+// language certificate keeps its number mandatory.)
 //
 // Both certificates read what a FORM holds — strings, blank for «nothing» — and
 // hand the server `null` for an empty block. `file` is the staged scan, and
@@ -95,6 +97,7 @@ const englishBlock = z
   .object({
     series: text(50),
     number: text(100),
+    url,
     // B2 and up (owner, 2026-10-14). Never required here: the popup starts every
     // certificate on B2, so a person always has one, and a stored certificate
     // from before the level existed must still save.
@@ -124,6 +127,7 @@ const ukrainianBlock = z
   .object({
     series: text(50),
     number: text(100),
+    url,
     // Free text, as the certificate words it (owner, 2026-10-14) — required once
     // the certificate is begun, below.
     level: text(50),

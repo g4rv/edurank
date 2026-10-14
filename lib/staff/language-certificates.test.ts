@@ -78,7 +78,7 @@ describe('certificateSummary', () => {
     expect(
       certificateSummary(
         'ENGLISH',
-        { ...english, level: null, decisionNumber: null, decisionDate: null },
+        { ...english, level: null, decisionNumber: null, decisionDate: null, url: null },
         null
       )
     ).toBe('EN № 123 · British Council · 15.03.2024');
@@ -88,16 +88,16 @@ describe('certificateSummary', () => {
     expect(
       certificateSummary(
         'ENGLISH',
-        { ...english, level: 'C1', decisionNumber: null, decisionDate: null },
+        { ...english, level: 'C1', decisionNumber: null, decisionDate: null, url: null },
         null
       )
     ).toBe('EN № 123 · рівень C1 · British Council · 15.03.2024');
   });
 
   it('puts the level and the commission decision on a Ukrainian one, and the file last', () => {
-    expect(certificateSummary('UKRAINIAN', { ...ukrainian, issuedBy: null }, 'scan.pdf')).toBe(
-      '№ 777 · рівень B2 · рішення № 12/3 від 01.06.2023 · 10.07.2023 · файл: scan.pdf'
-    );
+    expect(
+      certificateSummary('UKRAINIAN', { ...ukrainian, issuedBy: null, url: null }, 'scan.pdf')
+    ).toBe('№ 777 · рівень B2 · рішення № 12/3 від 01.06.2023 · 10.07.2023 · файл: scan.pdf');
   });
 });
 
@@ -199,6 +199,7 @@ describe('applyCertificates', () => {
     level: null,
     decisionNumber: null,
     decisionDate: null,
+    url: null,
     fileKey: null,
     fileName: null,
     ...over,
@@ -265,6 +266,30 @@ describe('applyCertificates', () => {
       issuedBy: null,
     });
     expect((create.decisionDate as Date).toISOString()).toBe('2023-06-01T00:00:00.000Z');
+  });
+
+  it('stores the link', async () => {
+    const tx = fakeTx([]);
+    const result = await run(tx, [
+      {
+        kind: 'ENGLISH',
+        values: {
+          series: null,
+          number: '55',
+          url: 'https://example.com/c/1',
+          issuedBy: 'IELTS',
+          issuedOn: '2024-03-15',
+        } as never,
+        file: undefined,
+      },
+    ]);
+    expect(tx.languageCertificate.upsert.mock.calls[0][0].create).toMatchObject({
+      number: '55',
+      url: 'https://example.com/c/1',
+    });
+    expect(result.changes.englishCertificate.to).toBe(
+      '№ 55 · IELTS · 15.03.2024 · посилання: https://example.com/c/1'
+    );
   });
 
   it('writes no audit line for a save that changed nothing', async () => {

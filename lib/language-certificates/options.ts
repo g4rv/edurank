@@ -65,9 +65,19 @@ export interface CertificateValues {
   /** UKRAINIAN: the commission's decision — number and date, both or neither */
   decisionNumber: string | null;
   decisionDate: string | null;
+  /** A link to the certificate — http(s) only */
+  url: string | null;
 }
 
-/** «Серія» before «№», and no series at all when there is none. */
-export function certificateNumber(series: string | null, number: string): string {
-  return series ? `${series} № ${number}` : `№ ${number}`;
+/**
+ * «Серія» before «№», and nothing for what is missing. A certificate with
+ * neither has no number to print — `null`, not an empty «№».
+ */
+export function certificateNumber(
+  series: string | null | undefined,
+  number: string | null | undefined
+): string | null {
+  if (series && number) return `${series} № ${number}`;
+  if (number) return `№ ${number}`;
+  return series || null;
 }

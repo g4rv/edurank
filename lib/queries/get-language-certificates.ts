@@ -32,6 +32,7 @@ export async function getLanguageCertificates(staffId: string): Promise<PersonCe
       level: row.level,
       decisionNumber: row.decisionNumber,
       decisionDate: row.decisionDate ? iso(row.decisionDate) : null,
+      url: row.url,
       file: row.fileKey
         ? { name: row.fileName ?? 'файл', sizeBytes: row.fileSizeBytes ?? 0 }
         : null,

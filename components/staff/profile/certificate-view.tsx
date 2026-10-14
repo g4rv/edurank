@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react';
+import { ExternalLink, FileText } from 'lucide-react';
 import { CertificateFileButton } from '@/components/staff/profile/certificate-file-button';
 import { MaybeField, Fields } from '@/components/staff/profile/primitives';
 import { certificateFacts } from '@/lib/language-certificates/facts';
@@ -48,6 +48,19 @@ export function CertificateView({
             <p className="mt-0.5 text-sm text-foreground-soft">
               {certificateFacts(kind, record).join(' · ')}
             </p>
+            {record.url && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm">
+                <ExternalLink className="size-3.5 shrink-0 text-foreground-soft" aria-hidden />
+                <a
+                  href={record.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-w-0 truncate text-brand hover:underline"
+                >
+                  {record.url}
+                </a>
+              </p>
+            )}
             {record.file && (
               <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                 <p className="flex min-w-0 items-center gap-1.5 text-sm text-foreground-soft">

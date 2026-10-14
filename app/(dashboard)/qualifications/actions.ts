@@ -66,7 +66,8 @@ function auditValues(row: {
   institution: string;
   documentType: string;
   series: string | null;
-  number: string;
+  number: string | null;
+  url: string | null;
   topic: string;
   issuedOn: Date;
   creditsHundredths: number;
@@ -78,6 +79,7 @@ function auditValues(row: {
     documentType: DOCUMENT_TYPE_LABELS[row.documentType as DocumentTypeKey] ?? row.documentType,
     series: row.series,
     number: row.number,
+    url: row.url,
     topic: row.topic,
     issuedOn: row.issuedOn.toISOString().slice(0, 10),
     credits: fromHundredths(row.creditsHundredths),
@@ -92,6 +94,7 @@ function columnsFrom(data: QualificationData) {
     documentType: data.documentType,
     series: data.series,
     number: data.number,
+    url: data.url,
     topic: data.topic,
     issuedOn: new Date(`${data.issuedOn}T00:00:00.000Z`),
     creditsHundredths: toHundredths(data.credits),

@@ -1674,9 +1674,12 @@ model Qualification {
   /// Найменування закладу
   institution  String
   documentType QualificationDocumentType
-  /// Серія — optional, a довідка often has none
+  /// Серія and номер — both optional: a довідка often has no series, and some
+  /// certificates no number at all (owner, 2026-10-14)
   series       String?
-  number       String
+  number       String?
+  /// A link to the document (a register entry, a copy on the web), http(s) only
+  url          String?
   /// Тема стажування — or the спеціальність, when `documentType` is DIPLOMA
   topic        String
   issuedOn     DateTime                  @db.Date
@@ -1727,10 +1730,13 @@ model LanguageCertificate {
 
   kind LanguageCertificateKind
 
-  /// Серія — optional on both
+  /// Серія — optional on both; the номер is mandatory
   series   String?
   number   String
   issuedOn DateTime @db.Date
+
+  /// A link to the certificate (a register entry, a copy on the web), http(s) only
+  url String?
 
   /// ENGLISH: «Ким виданий»
   issuedBy String?

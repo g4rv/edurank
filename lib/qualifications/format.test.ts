@@ -74,6 +74,12 @@ describe('documentNumber', () => {
     expect(documentNumber('ПК', '12345')).toBe('ПК № 12345');
     expect(documentNumber(null, '12345')).toBe('№ 12345');
   });
+
+  it('copes with a document that has no number, or neither', () => {
+    expect(documentNumber('ПК', null)).toBe('ПК');
+    expect(documentNumber(null, null)).toBeNull();
+    expect(documentNumber('', '')).toBeNull();
+  });
 });
 
 describe('formatFileSize', () => {

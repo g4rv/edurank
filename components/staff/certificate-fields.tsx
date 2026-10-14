@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useController, type Control } from 'react-hook-form';
-import { FileText, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ExternalLink, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/aurora/ui/button';
 import { DateInput } from '@/components/aurora/ui/date-input';
 import {
@@ -120,7 +120,7 @@ export function CertificateFields({
   );
 }
 
-/** Has anything been entered? A bare scan choice does not count: it is nothing without a number. */
+/** Has anything been entered? A bare scan choice does not count: it is nothing without a date. */
 function hasContent(row: CertificateFormRow): boolean {
   return [
     row.series,
@@ -130,6 +130,7 @@ function hasContent(row: CertificateFormRow): boolean {
     row.level,
     row.decisionNumber,
     row.decisionDate,
+    row.url,
   ].some((v) => v.trim() !== '');
 }
 
@@ -188,6 +189,12 @@ function useCertificateSlot(
         <p className="mt-0.5 text-sm text-foreground-soft">
           {certificateFacts(kind, row).join(' · ')}
         </p>
+        {row.url.trim() && (
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-foreground-soft">
+            <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+            <span className="truncate">{row.url.trim()}</span>
+          </p>
+        )}
         {scanName && (
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-foreground-soft">
             <FileText className="size-3.5 shrink-0" aria-hidden />
@@ -472,6 +479,23 @@ function CertificateForm({
               </div>
             </FieldSet>
           )}
+
+          <FormField
+            htmlFor="cert-url"
+            label="Посилання"
+            description="Необов’язково."
+            error={err('url')}
+          >
+            <Input
+              id="cert-url"
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              placeholder="https://"
+              value={draft.url}
+              onChange={(e) => set({ url: e.target.value })}
+            />
+          </FormField>
 
           <FormField
             htmlFor="cert-file"
