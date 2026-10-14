@@ -3,6 +3,7 @@ import { KYIV } from '@/lib/kyiv-time';
 import { formatIssuedOn } from '@/lib/qualifications/format';
 import { DOCUMENT_TYPES, QUALIFICATION_KINDS } from '@/lib/qualifications/options';
 import { qualificationMinDate } from '@/lib/qualifications/window';
+import { optionalWebLink } from '@/validations/web-link';
 
 // One запис про підвищення кваліфікації / стажування (owner, 2026-10-13).
 //
@@ -22,6 +23,15 @@ const required = (message: string, max = 300) =>
     .string({ error: message })
     .transform((value) => value.trim().replace(/\s+/g, ' '))
     .pipe(z.string().min(1, { error: message }).max(max, { error: 'Занадто довге значення' }));
+
+/** Trimmed, runs of spaces collapsed; blank and absent both become `null`. */
+const optionalText = (max: number) =>
+  z
+    .string()
+    .optional()
+    .transform((value) => (value ?? '').trim().replace(/\s+/g, ' '))
+    .pipe(z.string().max(max, { error: 'Занадто довге значення' }))
+    .transform((value) => (value === '' ? null : value));
 
 /** «1,5» and «1.5» both. Empty is a missing value, not zero. */
 function decimal(value: unknown): number | null {
@@ -57,7 +67,7 @@ const credits = z
 
 /**
  * The date on the document: a real calendar day, not in the future, and inside
- * the last five навчальних років (`lib/qualifications/window.ts`).
+ * the last five calendar years (`lib/qualifications/window.ts`).
  *
  * `keepDate` is the date a record ALREADY has, so correcting a typo in an old
  * record does not force its date to change — only a NEW date must be in range.
@@ -75,7 +85,7 @@ function issuedOnFor(keepDate?: string) {
       // A function, so the date in the sentence is read when it is refused, not
       // when this module loaded — a server that runs across 1 вересня stays right.
       error: () =>
-        `Враховуються документи за останні 5 навчальних років — не раніше ${formatIssuedOn(qualificationMinDate())}`,
+        `Враховуються документи за останні 5 років — не раніше ${formatIssuedOn(qualificationMinDate())}`,
     });
 }
 
@@ -85,14 +95,11 @@ export function qualificationSchemaFor(options: { keepDate?: string } = {}) {
     institution: required('Вкажіть найменування закладу'),
     documentType: z.enum(DOCUMENT_TYPES, { error: 'Оберіть вид документа' }),
     /** Optional: a довідка often has no series. Empty becomes null. */
-    series: z
-      .string()
-      .transform((value) => value.trim().replace(/\s+/g, ' '))
-      .pipe(z.string().max(50, { error: 'Занадто довге значення' }))
-      .transform((value) => (value === '' ? null : value))
-      .optional()
-      .transform((value) => value ?? null),
-    number: required('Вкажіть номер', 100),
+    series: optionalText(50),
+    /** Optional: some certificates carry no number at all (owner, 2026-10-14). */
+    number: optionalText(100),
+    /** Optional link to the document — http(s) only. */
+    url: optionalWebLink,
     /** The тема, or the спеціальність when the document is a диплом. */
     topic: required('Вкажіть тему або спеціальність', 500),
     issuedOn: issuedOnFor(options.keepDate),

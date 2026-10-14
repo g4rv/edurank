@@ -163,6 +163,7 @@ function defaultsFor(q?: QualificationRow): QualificationFormValues {
       documentType: '' as DocumentTypeKey,
       series: '',
       number: '',
+      url: '',
       topic: '',
       issuedOn: '',
       credits: '',
@@ -173,7 +174,8 @@ function defaultsFor(q?: QualificationRow): QualificationFormValues {
     institution: q.institution,
     documentType: q.documentType,
     series: q.series ?? '',
-    number: q.number,
+    number: q.number ?? '',
+    url: q.url ?? '',
     topic: q.topic,
     issuedOn: q.issuedOn,
     credits: String(fromHundredths(q.creditsHundredths)),
@@ -193,7 +195,7 @@ function QualificationForm({
   onDone: () => void;
 }) {
   const router = useRouter();
-  // A fresh record must be inside the last five навчальних років; an old one may
+  // A fresh record must be inside the last five calendar years; an old one may
   // keep the date it has (see `issuedOnFor`).
   const keepDate = qualification?.issuedOn;
   const schema = useMemo(() => qualificationSchemaFor({ keepDate }), [keepDate]);
@@ -399,6 +401,23 @@ function QualificationForm({
                     aria-invalid={!!errors.issuedOn}
                   />
                 )}
+              />
+            </FormField>
+
+            <FormField
+              htmlFor="url"
+              label="Посилання"
+              description="Необов’язково. Адреса документа в інтернеті."
+              error={errors.url}
+            >
+              <Input
+                id="url"
+                type="url"
+                inputMode="url"
+                autoComplete="off"
+                placeholder="https://"
+                disabled={isPending}
+                {...register('url')}
               />
             </FormField>
 

@@ -11,7 +11,7 @@ import { certificateNumber, type CertificateKind } from '@/lib/language-certific
  */
 export interface CertificateFactsInput {
   series?: string | null;
-  number: string;
+  number?: string | null;
   /** `YYYY-MM-DD` */
   issuedOn: string;
   issuedBy?: string | null;
@@ -22,7 +22,9 @@ export interface CertificateFactsInput {
 }
 
 export function certificateFacts(kind: CertificateKind, v: CertificateFactsInput): string[] {
-  const parts = [certificateNumber(v.series || null, v.number)];
+  const parts: string[] = [];
+  const number = certificateNumber(v.series, v.number);
+  if (number) parts.push(number);
   // Both kinds carry a level; the English one is B2 and up.
   if (v.level) parts.push(`Рівень: ${v.level}`);
   if (kind === 'ENGLISH') {

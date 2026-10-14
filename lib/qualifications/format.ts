@@ -39,9 +39,17 @@ export function formatIssuedOn(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
-/** «ПК № 12345» / «№ 12345» — a series is optional. */
-export function documentNumber(series: string | null, number: string): string {
-  return series ? `${series} № ${number}` : `№ ${number}`;
+/**
+ * «ПК № 12345» / «№ 12345» / «ПК» — a series and a number are both optional, and
+ * a document with neither has nothing to print (`null`).
+ */
+export function documentNumber(
+  series: string | null | undefined,
+  number: string | null | undefined
+): string | null {
+  if (series && number) return `${series} № ${number}`;
+  if (number) return `№ ${number}`;
+  return series || null;
 }
 
 /** «204,8 КБ» — a reasonable read, not an exact one. */

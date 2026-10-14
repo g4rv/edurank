@@ -8,7 +8,8 @@ export interface QualificationRow {
   institution: string;
   documentType: DocumentTypeKey;
   series: string | null;
-  number: string;
+  number: string | null;
+  url: string | null;
   topic: string;
   /** `YYYY-MM-DD` — a calendar date, read in UTC like every stored date. */
   issuedOn: string;
@@ -36,6 +37,7 @@ export async function listQualifications(staffId: string): Promise<Qualification
     documentType: r.documentType,
     series: r.series,
     number: r.number,
+    url: r.url,
     topic: r.topic,
     issuedOn: r.issuedOn.toISOString().slice(0, 10),
     creditsHundredths: r.creditsHundredths,

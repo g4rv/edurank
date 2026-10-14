@@ -90,6 +90,7 @@ export async function GET(request: Request) {
         documentType: r.documentType,
         series: r.series,
         number: r.number,
+        url: r.url,
         topic: r.topic,
         issuedOn: r.issuedOn.toISOString().slice(0, 10),
         creditsHundredths: r.creditsHundredths,

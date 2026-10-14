@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react';
+import { ExternalLink, FileText } from 'lucide-react';
 import { Badge } from '@/components/aurora/ui/badge';
 import { Card, EmptyState } from '@/components/aurora/ui/card';
 import { DeleteQualificationButton } from '@/components/qualifications/delete-qualification-button';
@@ -59,12 +59,28 @@ export function QualificationList({
               <p className="text-base font-medium">{row.topic}</p>
               <p className="text-sm text-foreground-soft">{row.institution}</p>
               <p className="text-sm text-foreground-soft">
-                {DOCUMENT_TYPE_LABELS[row.documentType]} {documentNumber(row.series, row.number)}
+                {[DOCUMENT_TYPE_LABELS[row.documentType], documentNumber(row.series, row.number)]
+                  .filter(Boolean)
+                  .join(' ')}
                 {' · '}
                 {creditsLabel(row.creditsHundredths)}
                 {' · '}
                 {hoursLabel(hoursFromCredits(row.creditsHundredths))}
               </p>
+
+              {row.url && (
+                <p className="flex items-center gap-1.5 text-sm">
+                  <ExternalLink className="size-3.5 shrink-0 text-foreground-soft" aria-hidden />
+                  <a
+                    href={row.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-w-0 truncate text-brand hover:underline"
+                  >
+                    {row.url}
+                  </a>
+                </p>
+              )}
 
               {row.file && (
                 <p className="flex items-center gap-1.5 text-sm text-foreground-soft">

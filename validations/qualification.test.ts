@@ -8,6 +8,7 @@ const valid = {
   documentType: 'CERTIFICATE',
   series: 'ПК',
   number: '12345',
+  url: '',
   topic: 'Цифрові технології в освіті',
   issuedOn: '2025-05-20',
   credits: '1,5',
@@ -45,8 +46,25 @@ describe('qualificationSchema', () => {
     }
   });
 
-  it('requires the number, institution and topic', () => {
-    expect(problem({ number: '' })).toBe('Вкажіть номер');
+  // Some certificates carry no number at all (owner, 2026-10-14).
+  it('makes the number optional — empty, blank and absent all become null', () => {
+    for (const number of ['', '   ', undefined]) {
+      const result = parse({ number });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.number).toBeNull();
+    }
+  });
+
+  it('keeps an optional link, http(s) only', () => {
+    const ok = parse({ url: ' https://example.com/c/1 ' });
+    expect(ok.success && ok.data.url).toBe('https://example.com/c/1');
+    expect(parse({ url: '' }).success && parse({ url: '' }).data?.url).toBeNull();
+    for (const url of ['example.com', 'javascript:alert(1)', 'ftp://x.org/a']) {
+      expect(problem({ url })).toBe('Некоректне посилання');
+    }
+  });
+
+  it('requires the institution and topic', () => {
     expect(problem({ institution: '  ' })).toBe('Вкажіть найменування закладу');
     expect(problem({ topic: '' })).toBe('Вкажіть тему або спеціальність');
   });
@@ -77,14 +95,14 @@ describe('qualificationSchema', () => {
       expect(problem({ issuedOn: '2999-01-01' })).toBe('Дата не може бути в майбутньому');
     });
 
-    // The last five навчальних років (owner, 2026-10-13), independent of the rating year.
+    // The last five calendar years (owner, 2026-10-14), independent of the rating year.
     it('refuses anything before the window, and names where it starts', () => {
       const min = qualificationMinDate();
       const dayBefore = new Date(`${min}T00:00:00Z`);
       dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
       const [y, m, d] = min.split('-');
       expect(problem({ issuedOn: dayBefore.toISOString().slice(0, 10) })).toBe(
-        `Враховуються документи за останні 5 навчальних років — не раніше ${d}.${m}.${y}`
+        `Враховуються документи за останні 5 років — не раніше ${d}.${m}.${y}`
       );
       expect(problem({ issuedOn: '1024-01-01' })).toContain('не раніше');
     });

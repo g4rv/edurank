@@ -5,6 +5,7 @@ const english = (over: Record<string, unknown> = {}) =>
   englishCertificateSchema.safeParse({
     series: '',
     number: '',
+    url: '',
     issuedBy: '',
     issuedOn: '',
     ...over,
@@ -14,6 +15,7 @@ const ukrainian = (over: Record<string, unknown> = {}) =>
   ukrainianCertificateSchema.safeParse({
     series: '',
     number: '',
+    url: '',
     level: '',
     decisionNumber: '',
     decisionDate: '',
@@ -91,6 +93,7 @@ describe('English certificate', () => {
     expect(result.success && result.data).toEqual({
       series: 'EN',
       number: '123456',
+      url: null,
       level: 'C1',
       issuedBy: 'British Council',
       issuedOn: '2024-03-15',
@@ -131,12 +134,39 @@ describe('English certificate', () => {
     });
   });
 
+  // The number stays mandatory (owner, 2026-10-14).
+  it('refuses a certificate with no номер', () => {
+    const result = english({ issuedBy: 'British Council', issuedOn: '2024-03-15' });
+    expect(issues(result).number).toBe('Вкажіть номер');
+  });
+
+  it('keeps an optional link, http(s) only, and refuses anything else', () => {
+    const base = { number: '1', issuedBy: 'X', issuedOn: '2024-03-15' };
+    const ok = english({ ...base, url: ' https://example.com/cert/1 ' });
+    expect(ok.success && ok.data?.url).toBe('https://example.com/cert/1');
+    expect(english(base).success && english(base)).toBeTruthy();
+    for (const url of ['example.com', 'javascript:alert(1)', 'ftp://x.org/a', 'https://']) {
+      expect(issues(english({ ...base, url })).url).toBe('Некоректне посилання');
+    }
+    expect(issues(english({ ...base, url: `https://x.org/${'a'.repeat(2000)}` })).url).toBe(
+      'Занадто довге значення'
+    );
+  });
+
+  it('counts a link alone as beginning a certificate', () => {
+    expect(issues(english({ url: 'https://example.com' }))).toEqual({
+      number: 'Вкажіть номер',
+      issuedBy: 'Вкажіть, ким виданий',
+      issuedOn: 'Вкажіть дату видачі',
+    });
+  });
+
   it('counts a scan alone as beginning a certificate', () => {
     const result = english({
       file: { objectKey: 'language-certificates/s1/a.pdf', fileName: 'a.pdf' },
     });
     expect(result.success).toBe(false);
-    expect(issues(result).number).toBe('Вкажіть номер');
+    expect(issues(result).issuedOn).toBe('Вкажіть дату видачі');
   });
 
   it('carries the scan choice through: object replaces, null removes, absent keeps', () => {
@@ -185,7 +215,7 @@ describe('Ukrainian certificate', () => {
 
   it('accepts a complete certificate', () => {
     const result = ukrainian(complete);
-    expect(result.success && result.data).toEqual(complete);
+    expect(result.success && result.data).toEqual({ ...complete, url: null });
   });
 
   it('keeps серія and the commission decision optional', () => {

@@ -138,12 +138,13 @@ export function dropObjects(
 /** A stored row, as the audit and the form read it. */
 interface StoredCertificate {
   series: string | null;
-  number: string;
+  number: string | null;
   issuedOn: Date;
   issuedBy: string | null;
   level: string | null;
   decisionNumber: string | null;
   decisionDate: Date | null;
+  url: string | null;
   fileName: string | null;
   fileKey: string | null;
 }
@@ -157,16 +158,19 @@ export function certificateSummary(
   kind: CertificateKind,
   v: {
     series: string | null;
-    number: string;
+    number: string | null;
     issuedOn: string;
     issuedBy: string | null;
     level: string | null;
     decisionNumber: string | null;
     decisionDate: string | null;
+    url: string | null;
   },
   fileName: string | null
 ): string {
-  const parts = [certificateNumber(v.series, v.number)];
+  const parts: string[] = [];
+  const number = certificateNumber(v.series, v.number);
+  if (number) parts.push(number);
   // Both kinds carry a level (owner, 2026-10-14: the English one is B2 and up).
   if (v.level) parts.push(`рівень ${v.level}`);
   if (kind === 'ENGLISH') {
@@ -177,6 +181,7 @@ export function certificateSummary(
     }
   }
   parts.push(formatIssuedOn(v.issuedOn));
+  if (v.url) parts.push(`посилання: ${v.url}`);
   if (fileName) parts.push(`файл: ${fileName}`);
   return parts.join(' · ');
 }
@@ -192,6 +197,7 @@ function summaryOfStored(kind: CertificateKind, row: StoredCertificate): string 
       level: row.level,
       decisionNumber: row.decisionNumber,
       decisionDate: row.decisionDate ? row.decisionDate.toISOString().slice(0, 10) : null,
+      url: row.url,
     },
     row.fileKey ? row.fileName : null
   );
@@ -249,6 +255,7 @@ export async function applyCertificates(
       const columns = {
         series: v.series,
         number: v.number as string,
+        url: (v as { url?: string | null }).url ?? null,
         issuedOn: toDate(v.issuedOn) as Date,
         // Each kind keeps only its own fields; the other kind's are cleared, so a
         // row never carries a stale «Ким виданий» on a Ukrainian certificate. The
@@ -286,6 +293,7 @@ export async function applyCertificates(
           level: columns.level,
           decisionNumber: columns.decisionNumber,
           decisionDate: (v as { decisionDate?: string | null }).decisionDate ?? null,
+          url: columns.url,
         },
         finalFileName
       );

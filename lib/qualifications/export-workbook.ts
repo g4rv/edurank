@@ -30,7 +30,8 @@ export interface QualificationExportRow {
   institution: string;
   documentType: DocumentTypeKey;
   series: string | null;
-  number: string;
+  number: string | null;
+  url: string | null;
   topic: string;
   /** `YYYY-MM-DD` */
   issuedOn: string;
@@ -61,6 +62,7 @@ const HEADERS = [
   'Кредити',
   'Години',
   'Файл',
+  'Посилання',
 ] as const;
 
 export function buildQualificationsWorkbook(
@@ -84,6 +86,7 @@ export function buildQualificationsWorkbook(
     { key: 'credits', width: 10 },
     { key: 'hours', width: 10 },
     { key: 'file', width: 8 },
+    { key: 'url', width: 40 },
   ];
 
   const header = sheet.addRow([...HEADERS]);
@@ -104,7 +107,7 @@ export function buildQualificationsWorkbook(
       row.institution,
       DOCUMENT_TYPE_LABELS[row.documentType],
       row.series ?? '',
-      row.number,
+      row.number ?? '',
       row.topic,
       // A date, read as UTC midnight like every stored calendar date — a local
       // parse would move it a day for anyone east of UTC.
@@ -112,6 +115,7 @@ export function buildQualificationsWorkbook(
       row.creditsHundredths / 100,
       hoursFromCredits(row.creditsHundredths),
       row.hasFile ? 'є' : '—',
+      row.url ?? '',
     ]);
     added.eachCell((cell) => {
       cell.border = THIN;
