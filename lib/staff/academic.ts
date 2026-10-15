@@ -9,12 +9,12 @@ import type { DiffValue } from '@/lib/audit';
 import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
 import {
   HONORARY_TITLES,
-  anyDegreeName,
   degreeLevel,
   degreeName,
   optionLabel,
   BASIC_EDUCATION,
-  BASIC_LEVELS,
+  degreeTitle,
+  diplomaDocument,
 } from '@/lib/staff/academic-options';
 
 /**
@@ -238,9 +238,10 @@ export function offeredAdminPositions(
 }
 
 /**
- * One diploma in `Staff.degrees` (owner, 2026-10-10). The date is the calendar
- * day as «YYYY-MM-DD» — JSON has no date, and a day is all the Характеристика
- * and the rating read of it.
+ * One entry of a person's «Освіта» (owner, 2026-10-10) — a `Diploma` row since
+ * 2026-10-15, and the shape the form, the schema, the audit and the mirrors all
+ * share. A date is the calendar day as «YYYY-MM-DD»: a day is all the
+ * Характеристика and the rating read of it.
  */
 export interface DegreeRecord {
   degree: string;
@@ -288,7 +289,7 @@ const day = (v: string | null): Date | null => (v ? new Date(`${v}T00:00:00.000Z
 const isoDay = (v: Date | null | undefined): string | null =>
   v instanceof Date && !Number.isNaN(v.getTime()) ? v.toISOString().slice(0, 10) : null;
 
-/** The list as stored — defensive, because it is a JSON column */
+/** A list from outside — a validated payload or an audit value — read defensively */
 export function asDegreeRecords(value: unknown): DegreeRecord[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
@@ -313,13 +314,25 @@ export function asDegreeRecords(value: unknown): DegreeRecord[] {
   });
 }
 
+/** `Diploma` rows as records, in the person's own order */
+export function fromDiplomaRows(rows: unknown): DegreeRecord[] {
+  if (!Array.isArray(rows)) return [];
+  const asDay = (v: unknown) => (v instanceof Date ? isoDay(v) : v);
+  return asDegreeRecords(
+    [...rows]
+      .sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0))
+      .map((r) => ({ ...r, defenceDate: asDay(r?.defenceDate), issueDate: asDay(r?.issueDate) }))
+  );
+}
+
 /**
- * A person's diplomas: the list, or — for a row written before the list existed
- * and not yet saved since (a seed, an import) — what the two old slots hold, and
- * the one basic education the two old `basicEducation*` columns hold.
+ * A person's diplomas: their `Diploma` rows (read with `diplomas` selected), or
+ * — for a person written before the list existed and not saved since (a seed, an
+ * import) — what the two old slots hold, and the one basic education the two old
+ * `basicEducation*` columns hold.
  */
 export function degreesOf(row: Record<string, unknown> | null | undefined): DegreeRecord[] {
-  const listed = asDegreeRecords(row?.degrees);
+  const listed = fromDiplomaRows(row?.diplomas);
   if (listed.length > 0) return listed;
   const fromSlot = (prefix: 'doctor' | 'candidate'): DegreeRecord[] => {
     const degree = row?.[`${prefix}Degree`];
@@ -353,6 +366,85 @@ export function degreesOf(row: Record<string, unknown> | null | undefined): Degr
       ]
     : [];
   return [...fromSlot('doctor'), ...fromSlot('candidate'), ...basic];
+}
+
+/** A field of a diploma the popup and the save ask for */
+export type DiplomaField =
+  | 'degree'
+  | 'basicLevel'
+  | 'specialty'
+  | 'topic'
+  | 'defenceDate'
+  | 'issueDate'
+  | 'issuedBy'
+  | 'number';
+
+/** What is wrong with a field: left empty, or an issue date before the defence */
+export type DiplomaGap = 'missing' | 'beforeDefence';
+
+type DiplomaInput = {
+  [K in keyof DegreeRecord]?: DegreeRecord[K] | string;
+};
+
+/**
+ * Every field of a diploma is mandatory except «відповідає кафедрі» and the
+ * серія (owner, 2026-10-15), by kind: a basic education owes its level, a degree
+ * its topic and a separate issue date. A degree's diploma is issued after the
+ * defence, never before. Shared by the popup (form strings) and the save
+ * (records), so the two cannot disagree.
+ */
+export function diplomaGaps(r: DiplomaInput): Partial<Record<DiplomaField, DiplomaGap>> {
+  const filled = (v: unknown) => typeof v === 'string' && v.trim() !== '';
+  const out: Partial<Record<DiplomaField, DiplomaGap>> = {};
+  if (!filled(r.degree)) out.degree = 'missing';
+  const basic = degreeLevel(typeof r.degree === 'string' ? r.degree : null) === 'basic';
+  if (basic && !filled(r.basicLevel)) out.basicLevel = 'missing';
+  if (!filled(r.specialty)) out.specialty = 'missing';
+  if (!basic && !filled(r.topic)) out.topic = 'missing';
+  if (!filled(r.defenceDate)) out.defenceDate = 'missing';
+  if (!basic) {
+    if (!filled(r.issueDate)) out.issueDate = 'missing';
+    else if (filled(r.defenceDate) && String(r.issueDate) < String(r.defenceDate)) {
+      out.issueDate = 'beforeDefence';
+    }
+  }
+  if (!filled(r.issuedBy)) out.issuedBy = 'missing';
+  if (!filled(r.number)) out.number = 'missing';
+  return out;
+}
+
+const DIPLOMA_KEYS = [
+  'degree',
+  'specialty',
+  'defenceDate',
+  'matchesDepartment',
+  'issuedBy',
+  'series',
+  'number',
+  'issueDate',
+  'basicLevel',
+  'topic',
+] as const satisfies readonly (keyof DegreeRecord)[];
+
+/** The same entry, field for field */
+export function sameDiploma(a: DegreeRecord, b: DegreeRecord): boolean {
+  return DIPLOMA_KEYS.every((key) => (a[key] ?? null) === (b[key] ?? null));
+}
+
+/**
+ * Whether a save would store an incomplete diploma (owner, 2026-10-15). Only a
+ * NEW or CHANGED entry is judged: one saved before the papers existed comes back
+ * untouched on every save of the profile, and refusing it would block a phone
+ * number. Editing such an entry — even ticking «відповідає кафедрі» — makes it
+ * a changed one, and then it must be complete.
+ */
+export function hasIncompleteDiploma(
+  stored: readonly DegreeRecord[],
+  incoming: readonly DegreeRecord[]
+): boolean {
+  return incoming.some(
+    (r) => !stored.some((s) => sameDiploma(s, r)) && Object.keys(diplomaGaps(r)).length > 0
+  );
 }
 
 /**
@@ -441,14 +533,11 @@ function degreesAuditText(value: unknown): string | null {
   return records
     .map((r) =>
       [
-        anyDegreeName(r.degree),
+        degreeTitle(r.degree, r.basicLevel),
         r.specialty,
-        r.basicLevel ? optionLabel(BASIC_LEVELS, r.basicLevel) : null,
         r.topic ? `тема: ${r.topic}` : null,
         r.defenceDate ? uaDate(r.defenceDate) : null,
-        r.issuedBy ? `виданий: ${r.issuedBy}` : null,
-        r.series || r.number ? [r.series, r.number].filter(Boolean).join(' ') : null,
-        r.issueDate ? `видано ${uaDate(r.issueDate)}` : null,
+        diplomaDocument(r),
         r.matchesDepartment ? 'відповідає кафедрі' : null,
       ]
         .filter(Boolean)
@@ -548,7 +637,7 @@ export const ACADEMIC_STORED_SELECT = {
   doctorSpecialty: true,
   doctorDefenceDate: true,
   doctorMatchesDepartment: true,
-  degrees: true,
+  diplomas: { orderBy: { position: 'asc' } },
   basicEducationMatch: true,
   basicEducationSpecialty: true,
 } as const;

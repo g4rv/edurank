@@ -83,13 +83,16 @@ const mockSendMail = sendMail as unknown as Mock;
 const mockAllowance = mailAllowance as unknown as Mock;
 const mockHash = hash as unknown as Mock;
 
-const NO_DIPLOMA_FIELDS = {
-  issuedBy: null,
-  series: null,
-  number: null,
-  issueDate: null,
+/** A diploma's papers — mandatory for a new entry (owner, 2026-10-15) */
+const PAPERS = {
+  specialty: 'Історія',
+  defenceDate: '2010-05-05',
+  issuedBy: 'МОН України',
+  series: 'ДК',
+  number: '012345',
+  issueDate: '2010-10-01',
   basicLevel: null,
-  topic: null,
+  topic: 'Історія Слобожанщини',
 };
 
 // Payload an attacker could send: touches confidential + non-granted fields
@@ -107,20 +110,8 @@ const fullPayload: StaffUpdateSchema = {
   honoraryTitles: [],
   adminPositions: ['DEAN'],
   degrees: [
-    {
-      ...NO_DIPLOMA_FIELDS,
-      degree: 'doc_history',
-      specialty: null,
-      defenceDate: null,
-      matchesDepartment: true,
-    },
-    {
-      ...NO_DIPLOMA_FIELDS,
-      degree: 'cand_history',
-      specialty: null,
-      defenceDate: null,
-      matchesDepartment: true,
-    },
+    { ...PAPERS, degree: 'doc_history', matchesDepartment: true },
+    { ...PAPERS, degree: 'cand_history', matchesDepartment: true },
   ],
   wosUrl: 'https://www.webofscience.com/wos/author/record/1',
   wosCitationCount: 10,
@@ -188,6 +179,11 @@ function mockTx() {
       delete: vi.fn().mockResolvedValue({}),
     },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    // «Освіта» is rows of its own (owner, 2026-10-15)
+    diploma: {
+      deleteMany: vi.fn().mockResolvedValue({}),
+      createMany: vi.fn().mockResolvedValue({}),
+    },
     // no active template → syncProfileDerived no-ops
     ratingTemplate: { findFirst: vi.fn().mockResolvedValue(null) },
   };
@@ -439,6 +435,7 @@ describe('updateStaff field filtering', () => {
     const tx = mockTx();
 
     expect(await updateStaff('staff-own', fullPayload)).toEqual({ success: true });
+    expect(tx.diploma.createMany).toHaveBeenCalled();
     expect(writtenFields(tx).sort()).toEqual(
       [
         'googleScholarUrl',
@@ -449,10 +446,12 @@ describe('updateStaff field filtering', () => {
         'wosCitationCount',
         'scopusCitationCount',
         'googleScholarCitationCount',
-        // The two language certificates are in this list but are NOT Staff
-        // columns: they are rows of their own, written beside the update.
+        // The two language certificates and the diplomas («degrees») are in this
+        // list but are NOT Staff columns: they are rows of their own, written
+        // beside the update.
         ...ACADEMIC_EDITABLE_FIELDS.filter(
-          (field) => !(Object.values(CERTIFICATE_FIELDS) as string[]).includes(field)
+          (field) =>
+            field !== 'degrees' && !(Object.values(CERTIFICATE_FIELDS) as string[]).includes(field)
         ),
         'academicRank',
         'scientificDegree',

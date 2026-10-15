@@ -6,7 +6,7 @@
  * academic-fields.tsx.
  */
 
-import { degreesOf } from '@/lib/staff/academic';
+import { degreesOf, diplomaGaps, type DiplomaField } from '@/lib/staff/academic';
 import { degreeLevel } from '@/lib/staff/academic-options';
 
 /** One diploma as its inputs hold it (owner, 2026-10-10) */
@@ -72,8 +72,8 @@ export interface StoredAcademic {
   doctorSpecialty: string | null;
   doctorDefenceDate: Date | null;
   doctorMatchesDepartment: boolean | null;
-  /** The list; absent on a row read without it, then the two slots stand in */
-  degrees?: unknown;
+  /** The `Diploma` rows; absent on a row read without them, then the two slots stand in */
+  diplomas?: unknown;
   /** The two old basic-education columns — read only as a list entry (`degreesOf`) */
   basicEducationMatch: boolean | null;
   basicEducationSpecialty: string | null;
@@ -109,27 +109,26 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
 }
 
 /**
- * What the popup refuses (owner, 2026-10-15): every field of a diploma is
- * mandatory except «відповідає кафедрі». Which ones depend on the kind — a level
- * for a basic education, a topic and an issue date for a degree.
- *
- * The popup only. The server accepts an entry without them, because rows saved
- * before this have none and refusing them would block an unrelated save — such a
- * card is flagged until somebody fills it in.
+ * What the popup refuses (owner, 2026-10-15), as one message per field. The
+ * rule itself is `diplomaGaps` — the same one the save checks, so the popup and
+ * the server cannot disagree. Every field but «відповідає кафедрі» and the серія.
  */
-export function diplomaProblems(row: DegreeFormRow): Partial<Record<keyof DegreeFormRow, string>> {
-  const out: Partial<Record<keyof DegreeFormRow, string>> = {};
-  if (!row.degree) out.degree = 'Оберіть тип освіти або ступінь';
+export function diplomaProblems(row: DegreeFormRow): Partial<Record<DiplomaField, string>> {
   const basic = degreeLevel(row.degree) === 'basic';
-  if (basic && !row.basicLevel) out.basicLevel = 'Оберіть рівень освіти';
-  if (!row.specialty.trim()) out.specialty = 'Вкажіть спеціальність';
-  if (!basic && !row.topic.trim()) out.topic = 'Вкажіть тему наукової роботи';
-  if (!row.defenceDate) {
-    out.defenceDate = basic ? 'Вкажіть дату видачі диплома' : 'Вкажіть дату захисту';
+  const missing: Record<DiplomaField, string> = {
+    degree: 'Оберіть рівень освіти / науковий ступінь',
+    basicLevel: 'Оберіть рівень освіти',
+    specialty: 'Вкажіть спеціальність',
+    topic: 'Вкажіть тему наукової роботи',
+    defenceDate: basic ? 'Вкажіть дату видачі диплома' : 'Вкажіть дату захисту',
+    issueDate: 'Вкажіть дату видачі диплома',
+    issuedBy: 'Вкажіть, ким виданий диплом',
+    number: 'Вкажіть номер',
+  };
+  const out: Partial<Record<DiplomaField, string>> = {};
+  for (const [field, gap] of Object.entries(diplomaGaps(row)) as [DiplomaField, string][]) {
+    out[field] =
+      gap === 'beforeDefence' ? 'Диплом не може бути виданий раніше захисту' : missing[field];
   }
-  if (!basic && !row.issueDate) out.issueDate = 'Вкажіть дату видачі диплома';
-  if (!row.issuedBy.trim()) out.issuedBy = 'Вкажіть, ким виданий диплом';
-  if (!row.series.trim()) out.series = 'Вкажіть серію';
-  if (!row.number.trim()) out.number = 'Вкажіть номер';
   return out;
 }

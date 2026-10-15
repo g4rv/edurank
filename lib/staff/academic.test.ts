@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   academicAuditValue,
   asDegreeRecords,
+  diplomaGaps,
+  hasIncompleteDiploma,
   adminPostProblem,
   bestDegree,
   degreesOf,
@@ -390,16 +392,32 @@ describe('mirrorsForUpdate — with the list', () => {
 });
 
 describe('degreesOf — the list, or the old slots standing in for it', () => {
-  it('uses the list when there is one', () => {
-    expect(degreesOf({ degrees: [rec('phd', '2015-06-01')], doctorDegree: 'doc_law' })).toEqual([
-      rec('phd', '2015-06-01'),
+  // `Diploma` rows since 2026-10-15: dates are Dates, order is `position`
+  it('uses the Diploma rows when there are any, in their own order', () => {
+    expect(
+      degreesOf({
+        diplomas: [
+          { position: 1, degree: 'doc_law', defenceDate: new Date(Date.UTC(2021, 1, 2)) },
+          {
+            position: 0,
+            degree: 'phd',
+            defenceDate: new Date(Date.UTC(2015, 5, 1)),
+            issueDate: new Date(Date.UTC(2015, 9, 1)),
+            specialty: null,
+          },
+        ],
+        doctorDegree: 'cand_history',
+      })
+    ).toEqual([
+      { ...rec('phd', '2015-06-01'), issueDate: '2015-10-01' },
+      rec('doc_law', '2021-02-02'),
     ]);
   });
 
   it('builds it from the slots for a row the list never reached', () => {
     expect(
       degreesOf({
-        degrees: [],
+        diplomas: [],
         doctorDegree: 'doc_law',
         doctorDefenceDate: new Date(Date.UTC(2021, 1, 2)),
         candidateDegree: 'phd',
@@ -408,8 +426,8 @@ describe('degreesOf — the list, or the old slots standing in for it', () => {
   });
 
   it('survives junk in the column', () => {
-    expect(degreesOf({ degrees: 'oops' })).toEqual([]);
-    expect(degreesOf({ degrees: [null, 3, { degree: '' }] })).toEqual([]);
+    expect(degreesOf({ diplomas: 'oops' })).toEqual([]);
+    expect(degreesOf({ diplomas: [null, 3, { degree: '' }] })).toEqual([]);
   });
 });
 
@@ -462,7 +480,7 @@ describe('basic education in the list', () => {
 
   it('stands in for the old columns on a row the list never reached', () => {
     expect(
-      degreesOf({ degrees: [], basicEducationMatch: true, basicEducationSpecialty: 'Історія' })
+      degreesOf({ diplomas: [], basicEducationMatch: true, basicEducationSpecialty: 'Історія' })
     ).toEqual([rec('basic_education', null, true, 'Історія')]);
   });
 
@@ -532,10 +550,10 @@ describe('the diploma itself (owner, 2026-10-15)', () => {
         topic: 'Тема',
       },
     ]);
-    expect(text).toContain('тема: Тема');
-    expect(text).toContain('виданий: ХНУ');
-    expect(text).toContain('ДК 012345');
-    expect(text).toContain('видано 01.09.2020');
+    expect(text).toBe(
+      'Доктор філософії (PhD) · Право · тема: Тема · 05.05.2020 · ' +
+        'Видав ХНУ · серія ДК № 012345 · від 01.09.2020 · відповідає кафедрі'
+    );
   });
 
   // 1.9 and п.5 must not move: the level and the diploma's papers are information only.
@@ -551,5 +569,72 @@ describe('the diploma itself (owner, 2026-10-15)', () => {
     });
     const mirrors = mirrorsForUpdate(storedAcademic(null), { degrees: [basic] });
     expect(mirrors?.degreeDefenceDate).toBeNull();
+  });
+});
+
+describe('diplomaGaps — what a diploma owes (owner, 2026-10-15)', () => {
+  const degree = {
+    ...rec('phd', '2020-05-05', null, 'Право'),
+    issuedBy: 'МОН України',
+    number: '1',
+    issueDate: '2020-09-01',
+    topic: 'Тема',
+  };
+  const basic = {
+    ...rec('basic_education', '2005-06-30', null, 'Право'),
+    issuedBy: 'ХНУ',
+    number: '1',
+    basicLevel: 'master',
+  };
+
+  it('asks nothing of a complete entry — the серія and the tick are optional', () => {
+    expect(diplomaGaps(degree)).toEqual({});
+    expect(diplomaGaps(basic)).toEqual({});
+  });
+
+  it('asks a degree for its topic and issue date, a basic education for its level', () => {
+    expect(diplomaGaps({ ...degree, topic: null, issueDate: null })).toEqual({
+      topic: 'missing',
+      issueDate: 'missing',
+    });
+    expect(diplomaGaps({ ...basic, basicLevel: null })).toEqual({ basicLevel: 'missing' });
+  });
+
+  it('refuses a degree diploma issued before the defence', () => {
+    expect(diplomaGaps({ ...degree, issueDate: '2020-05-04' })).toEqual({
+      issueDate: 'beforeDefence',
+    });
+    expect(diplomaGaps({ ...degree, issueDate: '2020-05-05' })).toEqual({});
+  });
+
+  it('reads the form strings the same way — spaces are empty', () => {
+    expect(diplomaGaps({ ...degree, number: '  ' })).toEqual({ number: 'missing' });
+  });
+});
+
+describe('hasIncompleteDiploma — only a new or changed entry is judged', () => {
+  const old = rec('cand_history', '2015-06-01', true, 'Історія');
+
+  it('lets an untouched old entry through, however incomplete', () => {
+    expect(hasIncompleteDiploma([old], [old])).toBe(false);
+  });
+
+  it('judges an old entry once anything about it changed', () => {
+    expect(hasIncompleteDiploma([old], [{ ...old, matchesDepartment: null }])).toBe(true);
+  });
+
+  it('judges every entry of a person being created', () => {
+    expect(hasIncompleteDiploma([], [old])).toBe(true);
+  });
+
+  it('is satisfied by a new complete entry beside an old incomplete one', () => {
+    const complete = {
+      ...rec('phd', '2020-05-05', null, 'Право'),
+      issuedBy: 'МОН України',
+      number: '1',
+      issueDate: '2020-09-01',
+      topic: 'Тема',
+    };
+    expect(hasIncompleteDiploma([old], [old, complete])).toBe(false);
   });
 });

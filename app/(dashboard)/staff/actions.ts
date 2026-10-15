@@ -24,6 +24,12 @@ import {
 } from '@/lib/stake/seed-allocation';
 import { syncProfileDerived } from '@/lib/rating/profile-derived';
 import { academicAuditValue, mirrorsForUpdate, storedAcademic } from '@/lib/staff/academic';
+import {
+  DIPLOMA_INCOMPLETE_MESSAGE,
+  diplomaRefusal,
+  takeDiplomas,
+  writeDiplomas,
+} from '@/lib/staff/diplomas';
 import type { DiffValue } from '@/lib/audit';
 
 export type StaffCreateState =
@@ -125,6 +131,11 @@ export async function createStaff(
     }
   }
 
+  // «Освіта» is `Diploma` rows (owner, 2026-10-15), written once the person
+  // exists. Every entry is new, so every one must be complete.
+  const diplomas = takeDiplomas(createData);
+  if (await diplomaRefusal(null, diplomas)) return { error: DIPLOMA_INCOMPLETE_MESSAGE };
+
   let createdId = '';
   // Filled by `seedAllocations` with every ceiling it moved, for the audit entry
   const raised: LimitRaise[] = [];
@@ -138,6 +149,7 @@ export async function createStaff(
         select: { id: true },
       });
       createdId = created.id;
+      if (diplomas?.length) await writeDiplomas(tx, created.id, diplomas);
 
       if (partTimeDepartmentIds.length > 0) {
         await tx.staffDepartment.createMany({
@@ -180,6 +192,7 @@ export async function createStaff(
         if (key in mirrors) continue;
         after[key] = academicAuditValue(key, value);
       }
+      if (diplomas?.length) after.degrees = academicAuditValue('degrees', diplomas);
       const changes = diffChanges({}, after);
 
       if (partTimeDepartmentIds.length > 0) {

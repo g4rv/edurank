@@ -395,6 +395,8 @@ function DegreeDialogForm({
   const set = (patch: Partial<DegreeFormRow>) => {
     setDraft((d) => ({ ...d, ...patch }));
     for (const key of Object.keys(patch)) clear(key as keyof DegreeFormRow);
+    // The issue date is judged against the defence date, so moving one clears both.
+    if ('defenceDate' in patch) clear('issueDate');
   };
   const placeholder = isUnspecifiedDegree(draft.degree);
   // The basic education is an entry of the same list (owner, 2026-10-14), one kind.
@@ -430,7 +432,7 @@ function DegreeDialogForm({
       <DialogBody>
         <FieldGroup className="flex flex-col gap-4">
           <FormField
-            label="Тип освіти або ступінь"
+            label="Рівень освіти / Науковий ступінь"
             htmlFor="degree-dialog-degree"
             labelSuffix={
               <RatingFieldHint field={isBasic ? 'basicEducationMatch' : 'scientificDegree'} />
@@ -559,6 +561,9 @@ function DegreeDialogForm({
                 htmlFor="degree-dialog-issued-by"
                 label="Ким виданий"
                 required
+                description={
+                  isDegree ? 'Як зазначено в дипломі, наприклад: МОН України' : undefined
+                }
                 error={err('issuedBy')}
               >
                 <Input
@@ -569,12 +574,7 @@ function DegreeDialogForm({
                 />
               </FormField>
               <div className={FIELD_ROW}>
-                <FormField
-                  htmlFor="degree-dialog-series"
-                  label="Серія"
-                  required
-                  error={err('series')}
-                >
+                <FormField htmlFor="degree-dialog-series" label="Серія">
                   <Input
                     id="degree-dialog-series"
                     value={draft.series}
