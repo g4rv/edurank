@@ -50,9 +50,16 @@ import { syncProfileDerived, PROFILE_DERIVED_STAFF_FIELDS } from '@/lib/rating/p
 import {
   ACADEMIC_STORED_SELECT,
   academicAuditValue,
+  degreesOf,
   mirrorsForUpdate,
   storedAcademic,
 } from '@/lib/staff/academic';
+import {
+  DIPLOMA_INCOMPLETE_MESSAGE,
+  diplomaRefusal,
+  takeDiplomas,
+  writeDiplomas,
+} from '@/lib/staff/diplomas';
 import { adminPostsConflict } from '@/lib/queries/scope';
 import { CERTIFICATE_KINDS } from '@/lib/language-certificates/options';
 import {
@@ -527,6 +534,11 @@ export async function updateStaff(
   }
   const certificatesSent = hasCertificateChanges(certificates);
 
+  // «Освіта» is `Diploma` rows (owner, 2026-10-15), lifted out the same way and
+  // for the same reason: AFTER the permission filter, which still knows the list
+  // as the `degrees` field grant. Undefined = not sent, the rows stay.
+  const diplomas = takeDiplomas(updateData);
+
   // An editor whose division holds no usable field grants would otherwise get
   // an empty UPDATE, an empty audit row, and a «Збережено» for nothing saved.
   //
@@ -534,7 +546,12 @@ export async function updateStaff(
   // table, never a key of `updateData`, so a division granted ONLY that field
   // would be told it may edit nothing — which is the opposite of the grant. The
   // certificates are the same case.
-  if (Object.keys(updateData).length === 0 && !canWritePartTime && !certificatesSent) {
+  if (
+    Object.keys(updateData).length === 0 &&
+    !canWritePartTime &&
+    !certificatesSent &&
+    diplomas === undefined
+  ) {
     return { error: 'Немає полів, доступних для редагування' };
   }
 
@@ -559,6 +576,10 @@ export async function updateStaff(
     const conflict = await adminPostsConflict(id, updateData.adminPositions as AdminPosition[]);
     if (conflict) return { error: conflict };
   }
+
+  // A new or changed diploma must be complete (owner, 2026-10-15); the popup
+  // refuses the same, this is the guard.
+  if (await diplomaRefusal(id, diplomas)) return { error: DIPLOMA_INCOMPLETE_MESSAGE };
 
   // The scans are verified from their stored bytes BEFORE the transaction; a
   // refusal has already dropped its object. A save that then FAILS leaves the
@@ -636,6 +657,10 @@ export async function updateStaff(
         beforeFiltered[key] = academicAuditValue(key, stored);
         afterFiltered[key] = academicAuditValue(key, updateData[key]);
       }
+      if (diplomas) {
+        beforeFiltered.degrees = academicAuditValue('degrees', degreesOf(existing));
+        afterFiltered.degrees = academicAuditValue('degrees', diplomas);
+      }
       const changes = diffChanges(beforeFiltered, afterFiltered);
 
       // The old columns the rating still reads (2026-10-06), derived AFTER the
@@ -643,7 +668,7 @@ export async function updateStaff(
       // so the re-score below sees them.
       const mirrors = mirrorsForUpdate(
         storedAcademic(existing as Record<string, unknown> | null),
-        updateData
+        diplomas ? { ...updateData, degrees: diplomas } : updateData
       );
       if (mirrors) Object.assign(updateData, mirrors);
 
@@ -674,6 +699,7 @@ export async function updateStaff(
       }
 
       await tx.staff.update({ where: { id }, data: updateData });
+      if (diplomas) await writeDiplomas(tx, id, diplomas);
 
       const appliedCertificates = await applyCertificates(tx, id, prepared);
       Object.assign(changes, appliedCertificates.changes);

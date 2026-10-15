@@ -13,9 +13,16 @@ import { ACADEMIC_EDITABLE_FIELDS, RESEARCH_PROFILE_FIELDS } from '@/lib/staff/e
 import {
   ACADEMIC_STORED_SELECT,
   academicAuditValue,
+  degreesOf,
   mirrorsForUpdate,
   storedAcademic,
 } from '@/lib/staff/academic';
+import {
+  DIPLOMA_INCOMPLETE_MESSAGE,
+  diplomaRefusal,
+  takeDiplomas,
+  writeDiplomas,
+} from '@/lib/staff/diplomas';
 import { PROFILE_DERIVED_STAFF_FIELDS, syncProfileDerived } from '@/lib/rating/profile-derived';
 import {
   applyCertificates,
@@ -107,6 +114,10 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
   // bytes BEFORE the transaction, and written inside it. A person writes their own
   // — the НПП-only filter above has already dropped them for anybody else.
   const certificates = takeCertificates(updateData);
+  // «Освіта» is `Diploma` rows (owner, 2026-10-15): lifted out like the
+  // certificates. Undefined = not sent, the rows stay.
+  const diplomas = takeDiplomas(updateData);
+  if (await diplomaRefusal(staffId, diplomas)) return { error: DIPLOMA_INCOMPLETE_MESSAGE };
   let prepared: PreparedCertificate[] = [];
   if (hasCertificateChanges(certificates)) {
     const result = await prepareCertificates({
@@ -149,17 +160,22 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
         before[key] = academicAuditValue(key, stored);
         after[key] = academicAuditValue(key, updateData[key]);
       }
+      if (diplomas) {
+        before.degrees = academicAuditValue('degrees', degreesOf(existing));
+        after.degrees = academicAuditValue('degrees', diplomas);
+      }
       const changes = diffChanges(before, after);
 
       // The old columns the rating still reads, derived AFTER the diff: they
       // are bookkeeping, not something the person changed.
       const mirrors = mirrorsForUpdate(
         storedAcademic(existing as Record<string, unknown> | null),
-        updateData
+        diplomas ? { ...updateData, degrees: diplomas } : updateData
       );
       if (mirrors) Object.assign(updateData, mirrors);
 
       await tx.staff.update({ where: { id: staffId }, data: updateData });
+      if (diplomas) await writeDiplomas(tx, staffId, diplomas);
 
       const applied = await applyCertificates(tx, staffId, prepared);
       Object.assign(changes, applied.changes);

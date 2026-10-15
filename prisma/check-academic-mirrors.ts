@@ -37,7 +37,7 @@ async function main() {
       doctorDefenceDate: true,
       doctorMatchesDepartment: true,
       adminPositions: true,
-      degrees: true,
+      diplomas: { orderBy: { position: 'asc' } },
       basicEducationMatch: true,
       basicEducationSpecialty: true,
     },

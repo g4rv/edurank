@@ -46,6 +46,16 @@ const payload = {
   orcidId: '0000-0001-2345-6789',
 } as unknown as OwnProfileSchema;
 
+/** A diploma saved before its papers existed (owner, 2026-10-15) */
+const NO_PAPERS = {
+  issuedBy: null,
+  series: null,
+  number: null,
+  issueDate: null,
+  basicLevel: null,
+  topic: null,
+};
+
 // What an НПП now fills in about themselves (owner, 2026-10-06).
 const ACADEMIC = {
   pedagogicalExperience: 12,
@@ -59,6 +69,13 @@ const ACADEMIC = {
       specialty: 'Історія',
       defenceDate: '2015-06-01',
       matchesDepartment: true,
+      // the diploma's papers, mandatory for a new entry (owner, 2026-10-15)
+      issuedBy: 'МОН України',
+      series: 'ДК',
+      number: '012345',
+      issueDate: '2015-10-01',
+      basicLevel: null,
+      topic: 'Історія Слобожанщини',
     },
   ],
 };
@@ -76,6 +93,11 @@ function mockTx() {
       delete: vi.fn().mockResolvedValue({}),
     },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    // «Освіта» is rows of its own (owner, 2026-10-15)
+    diploma: {
+      deleteMany: vi.fn().mockResolvedValue({}),
+      createMany: vi.fn().mockResolvedValue({}),
+    },
   };
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
   return tx;
@@ -183,7 +205,6 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
       position: 'DOCENT',
       honoraryTitles: ['merited_teacher'],
       adminPositions: ['DEAN'],
-      degrees: [expect.objectContaining({ degree: 'cand_history' })],
       // the list's best candidate-level record, written to the old slot
       candidateDegree: 'cand_history',
       candidateSpecialty: 'Історія',
@@ -194,6 +215,71 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     });
     expect(data.degreeDefenceDate).toEqual(new Date(Date.UTC(2015, 5, 1)));
     expect(syncProfileDerived).toHaveBeenCalledWith(tx, 'staff-own');
+
+    // The diplomas are Diploma rows, never a Staff column (owner, 2026-10-15)
+    expect(data).not.toHaveProperty('degrees');
+    expect(tx.diploma.deleteMany).toHaveBeenCalledWith({ where: { staffId: 'staff-own' } });
+    expect(tx.diploma.createMany.mock.calls[0][0].data).toEqual([
+      expect.objectContaining({
+        staffId: 'staff-own',
+        position: 0,
+        degree: 'cand_history',
+        defenceDate: new Date(Date.UTC(2015, 5, 1)),
+        issueDate: new Date(Date.UTC(2015, 9, 1)),
+        number: '012345',
+        topic: 'Історія Слобожанщини',
+      }),
+    ]);
+  });
+
+  // The guard behind the popup (owner, 2026-10-15)
+  it('refuses a NEW diploma with a mandatory field empty, before anything is written', async () => {
+    mockTx();
+    const [entry] = ACADEMIC.degrees;
+    const result = await updateOwnProfile({
+      ...payload,
+      ...ACADEMIC,
+      degrees: [{ ...entry, number: null }],
+    } as unknown as OwnProfileSchema);
+    expect(result).toEqual({ error: 'Заповніть усі обов’язкові поля освіти. Зміни не збережено' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('lets an OLD incomplete diploma come back untouched, so a phone save still works', async () => {
+    const tx = mockTx();
+    (db.staff.findUnique as unknown as Mock).mockResolvedValue({
+      isNpp: true,
+      diplomas: [
+        {
+          position: 0,
+          degree: 'cand_history',
+          specialty: 'Історія',
+          defenceDate: new Date(Date.UTC(2015, 5, 1)),
+          matchesDepartment: true,
+        },
+      ],
+    });
+    const old = {
+      ...NO_PAPERS,
+      degree: 'cand_history',
+      specialty: 'Історія',
+      defenceDate: '2015-06-01',
+      matchesDepartment: true,
+    };
+    expect(
+      await updateOwnProfile({ ...payload, degrees: [old] } as unknown as OwnProfileSchema)
+    ).toEqual({ success: true });
+    expect(tx.diploma.createMany).toHaveBeenCalled();
+
+    // …but CHANGING it — even only the «відповідає кафедрі» tick — asks for the papers
+    expect(
+      await updateOwnProfile({
+        ...payload,
+        degrees: [{ ...old, matchesDepartment: null }],
+      } as unknown as OwnProfileSchema)
+    ).toEqual({ error: 'Заповніть усі обов’язкові поля освіти. Зміни не збережено' });
+    // the module mock's default, for the tests after this one
+    (db.staff.findUnique as unknown as Mock).mockResolvedValue({ isNpp: true });
   });
 
   // One leading post at most, a headship counted (owner, 2026-10-06): a
@@ -256,7 +342,7 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
       patronymic: 'Петрович',
       honoraryTitles: [],
       adminPositions: [],
-      degrees: [],
+      diplomas: [],
       position: null,
     });
     await updateOwnProfile({ ...payload, ...ACADEMIC } as unknown as OwnProfileSchema);
@@ -264,7 +350,9 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     expect(changes.honoraryTitles).toEqual({ from: null, to: 'Заслужений вчитель' });
     expect(changes.degrees).toEqual({
       from: null,
-      to: 'Кандидат історичних наук · Історія · 01.06.2015 · відповідає кафедрі',
+      to:
+        'Кандидат історичних наук · Історія · тема: Історія Слобожанщини · 01.06.2015 · ' +
+        'Видав МОН України · серія ДК № 012345 · від 01.10.2015 · відповідає кафедрі',
     });
     // The six old columns are bookkeeping too.
     expect(changes.candidateDegree).toBeUndefined();

@@ -73,9 +73,15 @@ save never rewrites it. Rows saved before 2026-10-08 may still hold capitals —
 `lower(email)` unique index yet**: it needs every existing case-duplicate gone
 first, so it is a follow-up migration.
 
-**Diplomas are a list** (owner, 2026-10-10). `Staff.degrees` is JSON — any
-number of `{ degree, specialty, defenceDate, matchesDepartment }`, edited with
-«Додати освіту» — and the six `candidate*` / `doctor*` columns are its
+**Diplomas are a list, stored as `Diploma` rows** (owner, 2026-10-10; a JSON
+column `Staff.degrees` until 2026-10-15, moved by migration `20261015120000`).
+Any number per person, in their own order (`position`), edited with «Додати
+освіту». The form, the audit and the field grant still call the list `degrees`:
+every save lifts it out of the Staff payload AFTER the permission filter
+(`takeDiplomas`, like the certificates) and replaces the person's rows inside
+the transaction (`writeDiplomas`, `lib/staff/diplomas.ts`) — a `degrees` key
+left in a Staff update names a column that no longer exists. Read them with
+`diplomas` selected and `degreesOf(row)`. The six `candidate*` / `doctor*` columns are its
 **mirrors**, written on every save (`mirrorsForUpdate` → `deriveDegreeColumns`):
 the best doctor-level and the best candidate-level record, a record marked as
 matching the кафедра first, otherwise the most recent. The rating, the lists and
@@ -92,12 +98,30 @@ diploma's issue date, never a defence — `newestDefence` skips it, so it cannot
 open п.5's window. A person who had the old fields got one entry by migration
 `20261014140000` (no date); the two old field grants became `degrees`.
 
+**A diploma carries its papers** (owner, 2026-10-15): `issuedBy` («Ким
+виданий»), `series`, `number`, and by kind: a **basic education** has
+`basicLevel` (бакалавр / спеціаліст / магістр, `BASIC_LEVELS`) and its one date
+is the issue date; a **candidate / doctor** has `topic` («Тема наукової
+роботи») and an `issueDate` BESIDE the defence date — both kept, because п.5
+turns on the defence (owner, 2026-10-15). The server drops a key the kind cannot
+have. Information only: 1.9, 1.3 and п.5 read the same columns as before, and a
+level is NOT a degree key (`degreeLevel('master')` is null). Series and number
+are visible like the rest of «Освіта» (owner, 2026-10-15).
+
+**Every field of a diploma is mandatory except the серія and «відповідає
+кафедрі»** (owner, 2026-10-15), and a degree's diploma is never issued before its
+defence. One rule, `diplomaGaps` (`lib/staff/academic.ts`), serves the popup
+and the save. The SERVER refuses only a NEW or CHANGED entry
+(`hasIncompleteDiploma`, via `diplomaRefusal` in all three saves): an entry
+saved before the papers existed comes back untouched with every profile save,
+and refusing it would block a phone number. Touching such an entry at all —
+even the tick — makes it changed, and then it must be complete. Its card shows
+«Заповніть усі поля диплома» until then.
+
 **A diploma's date is mandatory and never in the future** (owner, 2026-10-14). The
 popup refuses an entry with no date, and its picker and `validations/staff.ts`
-stop at today (Kyiv). The server does NOT yet refuse a dateless entry — rows saved
-before this (every migrated basic education, and old degrees) have none, and
-refusing them would block an unrelated save — so such a card shows «Вкажіть дату»
-until somebody fills it.
+stop at today (Kyiv). An old dateless entry is grandfathered like the papers
+above — the server refuses it only once it is changed.
 
 **An administrative (non-НПП) account edits its phone and nothing else** on
 `/profile/edit` (owner, 2026-10-10; the photo comes later). The research

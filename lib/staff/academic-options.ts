@@ -73,6 +73,17 @@ export const BASIC_DEGREES: readonly AcademicOption[] = [
   { value: BASIC_EDUCATION, label: 'Базова освіта' },
 ];
 
+/**
+ * What a basic-education entry is (owner, 2026-10-15, refining 2026-10-14): the
+ * entry stays ONE kind for the rating — 1.9 does not tell them apart — but the
+ * person now says which diploma it is. Information only.
+ */
+export const BASIC_LEVELS: readonly AcademicOption[] = [
+  { value: 'bachelor', label: 'Бакалавр' },
+  { value: 'specialist', label: 'Спеціаліст' },
+  { value: 'master', label: 'Магістр' },
+];
+
 /** Which level a degree key belongs to; null for a key no list has */
 export function degreeLevel(
   value: string | null | undefined
@@ -91,6 +102,33 @@ export function degreeLevel(
 /** A stored degree as words, whichever level it is */
 export function anyDegreeName(value: string): string {
   return degreeName(degreeLevel(value) ?? 'candidate', value);
+}
+
+/** An entry's heading: the degree, or «Базова освіта — Магістр» once the level is told */
+export function degreeTitle(value: string, basicLevel?: string | null): string {
+  const name = anyDegreeName(value);
+  const level = basicLevel ? BASIC_LEVELS.find((l) => l.value === basicLevel)?.label : null;
+  return level ? `${name} — ${level}` : name;
+}
+
+/** The diploma's own papers on one line: «Видав ХНУ · серія АА № 123456 · від 01.06.2010» */
+export function diplomaDocument(r: {
+  issuedBy?: string | null;
+  series?: string | null;
+  number?: string | null;
+  issueDate?: string | null;
+}): string | null {
+  const issuedBy = r.issuedBy?.trim();
+  const series = r.series?.trim();
+  const number = r.number?.trim();
+  const parts = [
+    issuedBy ? `Видав ${issuedBy}` : null,
+    series || number
+      ? [series ? `серія ${series}` : null, number ? `№ ${number}` : null].filter(Boolean).join(' ')
+      : null,
+    r.issueDate ? `від ${r.issueDate.split('-').reverse().join('.')}` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
 }
 
 /** A stored degree whose branch nobody has chosen yet — see `UNSPECIFIED_CANDIDATE` */

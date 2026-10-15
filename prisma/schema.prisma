@@ -361,15 +361,11 @@ model Staff {
   doctorDefenceDate          DateTime?
   doctorMatchesDepartment    Boolean?
 
-  /// Дипломи про науковий ступінь — a LIST (owner, 2026-10-10): some people hold
-  /// more than two. `[{ degree, specialty, defenceDate: "YYYY-MM-DD", matchesDepartment }]`,
-  /// `degree` a key of CANDIDATE_DEGREES / DOCTOR_DEGREES. This is what people
-  /// edit; the six `candidate*` / `doctor*` columns above are now its MIRRORS —
-  /// the best doctor-level and the best candidate-level record — written on
-  /// every save (`deriveDegreeColumns`), so everything that reads them (the
-  /// rating, the lists, the filters) is untouched. A JSON column, not a table:
-  /// nothing queries inside the list.
-  degrees Json @default("[]")
+  // The diplomas themselves live in `Diploma` (owner, 2026-10-15; a JSON list
+  // `degrees` from 2026-10-10 until then). The six `candidate*` / `doctor*`
+  // columns above are their MIRRORS — the best doctor-level and the best
+  // candidate-level record — written on every save (`deriveDegreeColumns`), so
+  // everything that reads them (the rating, the lists, the filters) is untouched.
 
   // Характеристика п.5 — «Захист дисертації на здобуття наукового ступеня».
   // ONE date, for the highest degree only (decided 2026-08-07), not one per
@@ -434,6 +430,7 @@ model Staff {
   scienceFilesUploaded   ScienceRecordFile[]    @relation("ScienceFileUploader")
   qualifications         Qualification[]
   languageCertificates   LanguageCertificate[]
+  diplomas               Diploma[]
 
   auditLogs          AuditLog[]
   approvedActivities Activity[]       @relation("ActivityApprover")
@@ -1764,6 +1761,50 @@ model LanguageCertificate {
   @@unique([staffId, kind])
 }
 
+/// One entry of a person's «Освіта» (owner, 2026-10-15): a scientific degree
+/// or a basic education, with the diploma's own papers. Was a JSON list on
+/// `Staff.degrees` (2026-10-10 → 2026-10-15).
+///
+/// Every save replaces a person's rows (`writeDiplomas`) and rewrites the
+/// mirror columns on `Staff` that the rating reads. The form and the division
+/// field grant still call the list `degrees`.
+///
+/// The papers are nullable because entries saved before 2026-10-15 have none;
+/// a NEW or CHANGED entry must be complete, which the save checks
+/// (`diplomaRefusal`) — the popup refuses the same.
+model Diploma {
+  id String @id @default(cuid())
+
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// The person's own order, 0-based
+  position Int
+
+  /// A key of CANDIDATE_DEGREES / DOCTOR_DEGREES, or `basic_education`
+  degree            String
+  specialty         String?
+  /// A degree's DEFENCE date; for a basic education, its diploma's issue date
+  defenceDate       DateTime? @db.Date
+  matchesDepartment Boolean?
+
+  /// «Ким виданий»
+  issuedBy   String?
+  series     String?
+  number     String?
+  /// A degree's diploma issue date; a basic education uses `defenceDate`
+  issueDate  DateTime? @db.Date
+  /// бакалавр / спеціаліст / магістр — a basic education only (`BASIC_LEVELS`)
+  basicLevel String?
+  /// «Тема наукової роботи» — a degree only
+  topic      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffId, position])
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -1794,10 +1835,10 @@ model AuditLog {
 model Aspirant {
   id String @id @default(cuid())
 
-  lastName   String
-  firstName  String
+  lastName       String
+  firstName      String
   /// Empty when the list gives none
-  middleName String @default("")
+  middleName     String @default("")
   /// Lower-case, apostrophes and spaces folded — what matching and «the same
   /// person» compare. With the спеціальність it identifies the row: one
   /// person appears under two спеціальності with different керівники.

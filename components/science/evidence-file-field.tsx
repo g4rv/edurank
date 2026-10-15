@@ -4,6 +4,7 @@ import * as React from 'react';
 import { FileInput } from '@/components/aurora/ui/file-input';
 import { discardUpload, presignUpload } from '@/app/(dashboard)/science-plan/file-actions';
 import { ACCEPT_FILE_TYPES, fileProblem } from '@/lib/science/file-limits';
+import { compressImage } from '@/lib/files/compress-image';
 
 /** An object already sitting in R2, waiting for something to point at it.
  *  `saveRecord` and `attachFile` both take exactly this. */
@@ -112,8 +113,15 @@ export function EvidenceFileField({
     if (staged) uploader.discard(staged.objectKey);
   }
 
-  async function upload(chosen: File) {
+  async function upload(picked: File) {
     setProblem(null);
+
+    // Shrink a JPG/PNG first, so a 15 MB phone photo is not refused for its
+    // size and R2 never stores the original. Everything below — the checks,
+    // the hash, the PUT — then sees the file that is actually kept.
+    setStatus('checking');
+    const chosen = await compressImage(picked);
+    if (chosen !== picked) setFile(chosen);
 
     // Refused here first, in the same words the server would use, so a 500 MB
     // file never reaches `crypto.subtle` and freezes the tab.

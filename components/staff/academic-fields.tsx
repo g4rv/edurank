@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import {
   EMPTY_DEGREE_ROW,
   type AcademicFormValues,
+  diplomaProblems,
   type DegreeFormRow,
 } from '@/components/staff/academic-form-values';
 import { Card } from '@/components/aurora/ui/card';
@@ -57,8 +58,10 @@ import {
   CANDIDATE_DEGREES,
   DOCTOR_DEGREES,
   HONORARY_TITLES,
-  anyDegreeName,
+  BASIC_LEVELS,
   degreeLevel,
+  degreeTitle,
+  diplomaDocument,
   isUnspecifiedDegree,
 } from '@/lib/staff/academic-options';
 
@@ -286,13 +289,17 @@ function DegreeCard({
   disabled: boolean;
 }) {
   const placeholder = isUnspecifiedDegree(row.degree);
+  const document = diplomaDocument(row);
   const detail = [row.specialty.trim(), row.defenceDate ? uaDay(row.defenceDate) : ''].filter(
     Boolean
   );
   return (
     <div className="flex items-start gap-3 rounded-xl border bg-muted/30 px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="font-medium">{anyDegreeName(row.degree)}</p>
+        <p className="font-medium">{degreeTitle(row.degree, row.basicLevel)}</p>
+        {row.topic.trim() && (
+          <p className="mt-0.5 text-sm text-foreground-soft">Тема: {row.topic.trim()}</p>
+        )}
         {(detail.length > 0 || row.matchesDepartment === 'true') && (
           <p className="mt-0.5 text-sm text-foreground-soft">
             {detail.join(' – ')}
@@ -305,9 +312,11 @@ function DegreeCard({
             )}
           </p>
         )}
+        {document && <p className="mt-0.5 text-sm text-foreground-soft">{document}</p>}
         {placeholder && <p className="mt-0.5 text-xs text-warning">Оберіть точний ступінь</p>}
-        {/* The date is required now; a card saved before that shows what is missing. */}
-        {!row.defenceDate && <p className="mt-0.5 text-xs text-warning">Вкажіть дату</p>}
+        {Object.keys(diplomaProblems(row)).length > 0 && (
+          <p className="mt-0.5 text-xs text-warning">Заповніть усі поля диплома</p>
+        )}
       </div>
       <Button
         type="button"
@@ -376,48 +385,64 @@ function DegreeDialogForm({
   onDone: (index: number | null, row: DegreeFormRow) => void;
 }) {
   const [draft, setDraft] = useState<DegreeFormRow>(state.row);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [dateProblem, setDateProblem] = useState<string | null>(null);
+  // Every field but «відповідає кафедрі» is mandatory (owner, 2026-10-15); a problem
+  // clears as its field is touched.
+  const [problems, setProblems] = useState<Partial<Record<keyof DegreeFormRow, string>>>({});
+  const err = (key: keyof DegreeFormRow) =>
+    problems[key] ? { message: problems[key]! } : undefined;
+  const clear = (key: keyof DegreeFormRow) => setProblems(({ [key]: _gone, ...rest }) => rest);
 
-  const set = (patch: Partial<DegreeFormRow>) => setDraft((d) => ({ ...d, ...patch }));
+  const set = (patch: Partial<DegreeFormRow>) => {
+    setDraft((d) => ({ ...d, ...patch }));
+    for (const key of Object.keys(patch)) clear(key as keyof DegreeFormRow);
+    // The issue date is judged against the defence date, so moving one clears both.
+    if ('defenceDate' in patch) clear('issueDate');
+  };
   const placeholder = isUnspecifiedDegree(draft.degree);
   // The basic education is an entry of the same list (owner, 2026-10-14), one kind.
   // It is judged by rating 1.9, not 1.3, and its date is the diploma's issue date,
-  // not a defence.
+  // not a defence. Since 2026-10-15 it also says which diploma it is — бакалавр,
+  // спеціаліст or магістр — for the record only.
   const isBasic = degreeLevel(draft.degree) === 'basic';
+  const isDegree = !!draft.degree && !isBasic;
 
   function done() {
-    // The date is mandatory (owner, 2026-10-14), for every kind of entry.
-    const noDegree = !draft.degree;
-    const noDate = !draft.defenceDate;
-    if (noDegree) setProblem('Оберіть тип освіти або ступінь');
-    if (noDate) setDateProblem(isBasic ? 'Вкажіть дату видачі диплома' : 'Вкажіть дату захисту');
-    if (noDegree || noDate) return;
-    onDone(state.index, draft);
+    const found = diplomaProblems(draft);
+    if (Object.keys(found).length > 0) {
+      setProblems(found);
+      return;
+    }
+    // Drop what does not belong to the kind, so a switch of kind leaves nothing behind.
+    onDone(state.index, {
+      ...draft,
+      basicLevel: isBasic ? draft.basicLevel : '',
+      topic: isBasic ? '' : draft.topic,
+      issueDate: isBasic ? '' : draft.issueDate,
+    });
   }
 
   return (
     <>
       <DialogHeader>
         <DialogTitle>{state.index === null ? 'Додати освіту' : 'Редагувати освіту'}</DialogTitle>
-        <DialogDescription>Вкажіть тип освіти або ступінь і дату диплома.</DialogDescription>
+        <DialogDescription>
+          Усі поля обов’язкові, окрім відповідності спеціальності кафедри.
+        </DialogDescription>
       </DialogHeader>
       <DialogBody>
         <FieldGroup className="flex flex-col gap-4">
           <FormField
-            label="Тип освіти або ступінь"
+            label="Рівень освіти / Науковий ступінь"
             htmlFor="degree-dialog-degree"
             labelSuffix={
               <RatingFieldHint field={isBasic ? 'basicEducationMatch' : 'scientificDegree'} />
             }
-            error={problem ? { message: problem } : undefined}
+            required
+            error={err('degree')}
           >
             <Select
               value={placeholder ? '' : draft.degree || ' '}
-              onValueChange={(v) => {
-                set({ degree: v === ' ' ? '' : v });
-                setProblem(null);
-              }}
+              onValueChange={(v) => set({ degree: v === ' ' ? '' : v })}
             >
               <SelectTrigger id="degree-dialog-degree" className="w-full">
                 <SelectValue placeholder="—" />
@@ -451,31 +476,128 @@ function DegreeDialogForm({
               <p className="mt-1 text-xs text-warning">Оберіть точний науковий ступінь</p>
             )}
           </FormField>
+          {isBasic && (
+            <FormField
+              label="Рівень освіти"
+              htmlFor="degree-dialog-level"
+              required
+              error={err('basicLevel')}
+            >
+              <Select value={draft.basicLevel} onValueChange={(v) => set({ basicLevel: v })}>
+                <SelectTrigger id="degree-dialog-level" className="w-full">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BASIC_LEVELS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
           <FormField
-            label={isBasic ? 'Дата видачі диплома' : 'Дата захисту'}
-            htmlFor="degree-dialog-date"
+            htmlFor="degree-dialog-specialty"
+            label="Спеціальність за дипломом"
             required
-            error={dateProblem ? { message: dateProblem } : undefined}
+            error={err('specialty')}
           >
-            <DateInput
-              id="degree-dialog-date"
-              value={draft.defenceDate}
-              onChange={(v) => {
-                set({ defenceDate: v ?? '' });
-                setDateProblem(null);
-              }}
-              min="1950-01-01"
-              max={todayInKyiv()}
-              aria-invalid={!!dateProblem}
-            />
-          </FormField>
-          <FormField htmlFor="degree-dialog-specialty" label="Спеціальність за дипломом">
             <Input
               id="degree-dialog-specialty"
               value={draft.specialty}
               onChange={(e) => set({ specialty: e.target.value })}
             />
           </FormField>
+          {isDegree && (
+            <FormField
+              htmlFor="degree-dialog-topic"
+              label="Тема наукової роботи"
+              required
+              error={err('topic')}
+            >
+              <Input
+                id="degree-dialog-topic"
+                value={draft.topic}
+                maxLength={500}
+                onChange={(e) => set({ topic: e.target.value })}
+              />
+            </FormField>
+          )}
+          <FormField
+            label={isBasic ? 'Дата видачі диплома' : 'Дата захисту'}
+            htmlFor="degree-dialog-date"
+            required
+            error={err('defenceDate')}
+          >
+            <DateInput
+              id="degree-dialog-date"
+              value={draft.defenceDate}
+              onChange={(v) => set({ defenceDate: v ?? '' })}
+              min="1950-01-01"
+              max={todayInKyiv()}
+              aria-invalid={!!problems.defenceDate}
+            />
+          </FormField>
+          {isDegree && (
+            <FormField
+              htmlFor="degree-dialog-issue-date"
+              label="Дата видачі диплома"
+              required
+              error={err('issueDate')}
+            >
+              <DateInput
+                id="degree-dialog-issue-date"
+                value={draft.issueDate}
+                onChange={(v) => set({ issueDate: v ?? '' })}
+                min="1950-01-01"
+                max={todayInKyiv()}
+              />
+            </FormField>
+          )}
+          {draft.degree && (
+            <>
+              <FormField
+                htmlFor="degree-dialog-issued-by"
+                label="Ким виданий"
+                required
+                description={
+                  isDegree ? 'Як зазначено в дипломі, наприклад: МОН України' : undefined
+                }
+                error={err('issuedBy')}
+              >
+                <Input
+                  id="degree-dialog-issued-by"
+                  value={draft.issuedBy}
+                  maxLength={200}
+                  onChange={(e) => set({ issuedBy: e.target.value })}
+                />
+              </FormField>
+              <div className={FIELD_ROW}>
+                <FormField htmlFor="degree-dialog-series" label="Серія">
+                  <Input
+                    id="degree-dialog-series"
+                    value={draft.series}
+                    maxLength={30}
+                    onChange={(e) => set({ series: e.target.value })}
+                  />
+                </FormField>
+                <FormField
+                  htmlFor="degree-dialog-number"
+                  label="Номер"
+                  required
+                  error={err('number')}
+                >
+                  <Input
+                    id="degree-dialog-number"
+                    value={draft.number}
+                    maxLength={50}
+                    onChange={(e) => set({ number: e.target.value })}
+                  />
+                </FormField>
+              </div>
+            </>
+          )}
           <div className="flex items-center gap-1.5">
             <label className="flex cursor-pointer items-center gap-2.5 text-sm">
               <Checkbox
@@ -587,11 +709,17 @@ export function EducationCard({
         onClose={() => setDialog(null)}
         onDone={(index, row) => {
           // `row` is the draft, with the form's own `id` (RHF's) left out.
-          const value = {
+          const value: DegreeFormRow = {
             degree: row.degree,
             specialty: row.specialty,
             defenceDate: row.defenceDate,
             matchesDepartment: row.matchesDepartment,
+            issuedBy: row.issuedBy,
+            series: row.series,
+            number: row.number,
+            issueDate: row.issueDate,
+            basicLevel: row.basicLevel,
+            topic: row.topic,
           };
           if (index === null) append(value);
           else update(index, value);

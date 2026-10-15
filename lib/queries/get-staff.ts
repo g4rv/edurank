@@ -50,7 +50,7 @@ export const getStaff = cache(async function getStaff(id: string, includeConfide
       doctorSpecialty: true,
       doctorDefenceDate: true,
       doctorMatchesDepartment: true,
-      degrees: true,
+      diplomas: { orderBy: { position: 'asc' } },
       academicRank: true,
       scientificDegree: true,
       degreeMatchesDepartment: true,
