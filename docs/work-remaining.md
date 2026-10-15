@@ -987,6 +987,36 @@ charts page, the `/dashboard` shape ADMIN has, scoped to their кафедра or
 shared link-tab bar. `StaffTabs` and the science `RecordTabs` still draw the
 same bar by hand; move them onto it (§11).
 
+### C9. Характеристика rules — postponed (owner, 2026-10-15)
+
+Discussed, nothing built. Pick up after the «Освіта» form work.
+
+- **п.8 — leader only.** From the rating, `3.4 ndr_execution` and `3.5
+initiative_topic` should satisfy п.8 only when the person chose `leader`;
+  the executor option scores in the rating but closes no position.
+  `3.17 journal_editorial_a/b` stay as they are. Drop «відповідальний виконавець»
+  from the manual п.8 form (`position-evidence.ts`). `licencePositions` is a DB
+  column, so prod needs a one-off script (report first, `--apply`), like
+  `db:patent-kind`. Open: should old executor rows stop counting too?
+- **п.5 — only a defence inside the window.** `defencePosition` (`build.ts`)
+  prints the profile date even outside 2022–2026 (a 2011 line beside «не
+  виконано»). Print no line outside the window, only a note. It also shows the
+  date and nothing else; `Staff.degrees` now holds degree and speciality, so
+  the line can say more. Computed at read time — no data script needed for it;
+  stored п.5 rows (manual or imported) need a read-only report first.
+- **Duplicates between the rating and typed lines.** The same achievement can
+  count twice (rating + hand-typed line), pushing a person over a threshold and
+  so a кафедра's `Кнпп`. Blocking the rating does not fix it: a person can type
+  first and enter the rating later. The strict fix (typing refused for
+  rating-covered positions) was the original design and caused approval and
+  validation trouble, so it is NOT the plan. Candidate plan: (1) warn on a
+  likely duplicate when typing (DOI / registration number / title+year),
+  (2) flag possible duplicates in the head's review, (3) freeze a snapshot when
+  the Характеристика is blocked in a couple of weeks, so late rating entries
+  cannot change it. Open: whether the head's approval is a new feature (there
+  is no approval status today), and what exactly went wrong with approval and
+  validation before.
+
 ## D. Waiting on other people
 
 Not blocked on a decision — blocked on a file or a third party.
