@@ -9,7 +9,7 @@ import {
 } from '@/lib/link-hosts';
 import { KYIV } from '@/lib/kyiv-time';
 import { isValidOrcid } from '@/lib/orcid';
-import { HONORARY_TITLES, degreeLevel } from '@/lib/staff/academic-options';
+import { BASIC_LEVELS, HONORARY_TITLES, degreeLevel } from '@/lib/staff/academic-options';
 import { adminPostProblem, type AdminPostProblem } from '@/lib/staff/academic';
 import {
   englishCertificateSchema,
@@ -133,6 +133,10 @@ const specialty = z.preprocess(
   z.string().max(200, { error: 'Занадто довге значення' }).nullable()
 );
 
+/** A free-text line of a diploma: empty is null, too long is refused */
+const diplomaText = (max: number) =>
+  z.preprocess(str, z.string().trim().max(max, { error: 'Занадто довге значення' }).nullable());
+
 /**
  * The diplomas, as a list (owner, 2026-10-10): any number, each with its exact
  * ступінь, speciality, defence date and «відповідає кафедрі».
@@ -157,11 +161,48 @@ const degreeRecord = z
     specialty,
     defenceDate: defenceDate.transform((d) => (d ? d.toISOString().slice(0, 10) : null)),
     matchesDepartment: z.preprocess(boolStr, z.boolean().nullable()),
+    // The diploma itself (owner, 2026-10-15). All optional: rows saved before it
+    // have none, and refusing them would block an unrelated save.
+    issuedBy: diplomaText(200),
+    series: diplomaText(30),
+    number: diplomaText(50),
+    issueDate: defenceDate.transform((d) => (d ? d.toISOString().slice(0, 10) : null)),
+    basicLevel: z.preprocess(
+      str,
+      z
+        .string()
+        .refine((v) => BASIC_LEVELS.some((l) => l.value === v), {
+          error: 'Оберіть рівень зі списку',
+        })
+        .nullable()
+    ),
+    topic: diplomaText(500),
   })
   .superRefine((r, ctx) => {
-    if (!r.degree && (r.specialty || r.defenceDate || r.matchesDepartment !== null)) {
+    const touched =
+      r.specialty ||
+      r.defenceDate ||
+      r.matchesDepartment !== null ||
+      r.issuedBy ||
+      r.series ||
+      r.number ||
+      r.issueDate ||
+      r.basicLevel ||
+      r.topic;
+    if (!r.degree && touched) {
       ctx.addIssue({ code: 'custom', message: 'Оберіть ступінь', path: ['degree'] });
     }
+  })
+  // A level belongs to a basic education only, a topic and a separate issue date
+  // to a degree only — whatever a stale form re-sends is dropped, not stored.
+  .transform((r) => {
+    const basic = degreeLevel(r.degree) === 'basic';
+    return {
+      ...r,
+      basicLevel: basic ? r.basicLevel : null,
+      topic: basic ? null : r.topic,
+      issueDate: basic ? null : r.issueDate,
+    };
   });
 
 const degrees = z

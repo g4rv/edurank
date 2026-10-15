@@ -2,7 +2,8 @@ import type { StaffDetail } from '@/lib/queries/get-staff';
 import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
 import {
   HONORARY_TITLES,
-  anyDegreeName,
+  degreeTitle,
+  diplomaDocument,
   degreeLevel,
   optionLabel,
 } from '@/lib/staff/academic-options';
@@ -172,7 +173,10 @@ export function EducationCard({
               );
               return (
                 <div key={i} className="rounded-xl border bg-muted/30 px-4 py-3">
-                  <p className="font-medium">{anyDegreeName(d.degree)}</p>
+                  <p className="font-medium">{degreeTitle(d.degree, d.basicLevel)}</p>
+                  {d.topic && (
+                    <p className="mt-0.5 text-sm text-foreground-soft">Тема: {d.topic}</p>
+                  )}
                   {(detail.length > 0 || d.matchesDepartment) && (
                     <p className="mt-0.5 text-sm text-foreground-soft">
                       {detail.join(' – ')}
@@ -184,6 +188,9 @@ export function EducationCard({
                         </span>
                       )}
                     </p>
+                  )}
+                  {diplomaDocument(d) && (
+                    <p className="mt-0.5 text-sm text-foreground-soft">{diplomaDocument(d)}</p>
                   )}
                 </div>
               );

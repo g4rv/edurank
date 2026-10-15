@@ -83,6 +83,15 @@ const mockSendMail = sendMail as unknown as Mock;
 const mockAllowance = mailAllowance as unknown as Mock;
 const mockHash = hash as unknown as Mock;
 
+const NO_DIPLOMA_FIELDS = {
+  issuedBy: null,
+  series: null,
+  number: null,
+  issueDate: null,
+  basicLevel: null,
+  topic: null,
+};
+
 // Payload an attacker could send: touches confidential + non-granted fields
 const fullPayload: StaffUpdateSchema = {
   lastName: 'Шевченко',
@@ -98,8 +107,20 @@ const fullPayload: StaffUpdateSchema = {
   honoraryTitles: [],
   adminPositions: ['DEAN'],
   degrees: [
-    { degree: 'doc_history', specialty: null, defenceDate: null, matchesDepartment: true },
-    { degree: 'cand_history', specialty: null, defenceDate: null, matchesDepartment: true },
+    {
+      ...NO_DIPLOMA_FIELDS,
+      degree: 'doc_history',
+      specialty: null,
+      defenceDate: null,
+      matchesDepartment: true,
+    },
+    {
+      ...NO_DIPLOMA_FIELDS,
+      degree: 'cand_history',
+      specialty: null,
+      defenceDate: null,
+      matchesDepartment: true,
+    },
   ],
   wosUrl: 'https://www.webofscience.com/wos/author/record/1',
   wosCitationCount: 10,

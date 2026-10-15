@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   academicAuditValue,
+  asDegreeRecords,
   adminPostProblem,
   bestDegree,
   degreesOf,
@@ -11,6 +12,7 @@ import {
   legacyMirrors,
   mirrorsForUpdate,
   offeredAdminPositions,
+  storedAcademic,
 } from './academic';
 import {
   CANDIDATE_DEGREES,
@@ -272,7 +274,18 @@ const rec = (
   defenceDate: string | null,
   matchesDepartment: boolean | null = null,
   specialty: string | null = null
-) => ({ degree, defenceDate, matchesDepartment, specialty });
+) => ({
+  degree,
+  defenceDate,
+  matchesDepartment,
+  specialty,
+  issuedBy: null,
+  series: null,
+  number: null,
+  issueDate: null,
+  basicLevel: null,
+  topic: null,
+});
 
 describe('bestDegree — which diploma a level is judged by', () => {
   it('prefers the one that matches the кафедра, whatever its date', () => {
@@ -391,10 +404,7 @@ describe('degreesOf — the list, or the old slots standing in for it', () => {
         doctorDefenceDate: new Date(Date.UTC(2021, 1, 2)),
         candidateDegree: 'phd',
       })
-    ).toEqual([
-      { degree: 'doc_law', specialty: null, defenceDate: '2021-02-02', matchesDepartment: null },
-      { degree: 'phd', specialty: null, defenceDate: null, matchesDepartment: null },
-    ]);
+    ).toEqual([{ ...rec('doc_law', '2021-02-02') }, { ...rec('phd', null) }]);
   });
 
   it('survives junk in the column', () => {
@@ -453,14 +463,7 @@ describe('basic education in the list', () => {
   it('stands in for the old columns on a row the list never reached', () => {
     expect(
       degreesOf({ degrees: [], basicEducationMatch: true, basicEducationSpecialty: 'Історія' })
-    ).toEqual([
-      {
-        degree: 'basic_education',
-        specialty: 'Історія',
-        defenceDate: null,
-        matchesDepartment: true,
-      },
-    ]);
+    ).toEqual([rec('basic_education', null, true, 'Історія')]);
   });
 
   const STORED = {
@@ -493,5 +496,60 @@ describe('basic education in the list', () => {
   it('gives п.5 no date at all when only a basic diploma is dated', () => {
     const out = mirrorsForUpdate(STORED, { degrees: [rec('basic_education', '2024-06-30')] });
     expect(out?.degreeDefenceDate).toBeNull();
+  });
+});
+
+describe('the diploma itself (owner, 2026-10-15)', () => {
+  it('reads the new keys of a stored list, and null for a row saved before them', () => {
+    const [old, full] = asDegreeRecords([
+      { degree: 'phd', specialty: 'Право' },
+      {
+        degree: 'basic_education',
+        basicLevel: 'master',
+        issuedBy: 'ХНУ',
+        series: 'АА',
+        number: '1',
+        topic: 'x',
+      },
+    ]);
+    expect(old).toMatchObject({ issuedBy: null, series: null, number: null, basicLevel: null });
+    expect(full).toMatchObject({
+      basicLevel: 'master',
+      issuedBy: 'ХНУ',
+      series: 'АА',
+      number: '1',
+    });
+  });
+
+  it('puts them in the audit text in words', () => {
+    const text = academicAuditValue('degrees', [
+      {
+        ...rec('phd', '2020-05-05', true, 'Право'),
+        issuedBy: 'ХНУ',
+        series: 'ДК',
+        number: '012345',
+        issueDate: '2020-09-01',
+        topic: 'Тема',
+      },
+    ]);
+    expect(text).toContain('тема: Тема');
+    expect(text).toContain('виданий: ХНУ');
+    expect(text).toContain('ДК 012345');
+    expect(text).toContain('видано 01.09.2020');
+  });
+
+  // 1.9 and п.5 must not move: the level and the diploma's papers are information only.
+  it('does not change what the rating reads', () => {
+    const basic = {
+      ...rec('basic_education', '2005-06-30', true, 'Право'),
+      basicLevel: 'master',
+      issuedBy: 'ХНУ',
+    };
+    expect(deriveBasicEducationColumns([basic])).toEqual({
+      basicEducationMatch: true,
+      basicEducationSpecialty: 'Право',
+    });
+    const mirrors = mirrorsForUpdate(storedAcademic(null), { degrees: [basic] });
+    expect(mirrors?.degreeDefenceDate).toBeNull();
   });
 });

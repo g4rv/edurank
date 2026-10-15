@@ -92,6 +92,15 @@ diploma's issue date, never a defence — `newestDefence` skips it, so it cannot
 open п.5's window. A person who had the old fields got one entry by migration
 `20261014140000` (no date); the two old field grants became `degrees`.
 
+**A diploma carries its papers** (owner, 2026-10-15) — all optional JSON keys of
+a `degrees` entry, so no migration: `issuedBy` («Ким виданий»), `series`,
+`number`, and by kind: a **basic education** has `basicLevel` (бакалавр /
+спеціаліст / магістр, `BASIC_LEVELS`, required in the popup) and its one date is
+the issue date; a **candidate / doctor** has `topic` («Тема наукової роботи») and
+a separate optional `issueDate` beside the defence date. The server drops a key
+the kind cannot have. Information only: 1.9, 1.3 and п.5 read the same columns as
+before, and a level is NOT a degree key (`degreeLevel('master')` is null).
+
 **A diploma's date is mandatory and never in the future** (owner, 2026-10-14). The
 popup refuses an entry with no date, and its picker and `validations/staff.ts`
 stop at today (Kyiv). The server does NOT yet refuse a dateless entry — rows saved

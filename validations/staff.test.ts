@@ -215,6 +215,18 @@ describe('phone', () => {
   });
 });
 
+const NO_DIPLOMA = {
+  specialty: null,
+  defenceDate: null,
+  matchesDepartment: null,
+  issuedBy: null,
+  series: null,
+  number: null,
+  issueDate: null,
+  basicLevel: null,
+  topic: null,
+};
+
 describe('degrees — a list of diplomas (owner, 2026-10-10)', () => {
   const row = (fields: Record<string, unknown>) => ({
     degree: '',
@@ -235,9 +247,9 @@ describe('degrees — a list of diplomas (owner, 2026-10-10)', () => {
     expect(out.success).toBe(true);
     if (!out.success) return;
     expect(out.data.degrees).toEqual([
-      { degree: 'doc_law', specialty: null, defenceDate: '2021-02-02', matchesDepartment: true },
-      { degree: 'phd', specialty: 'Право', defenceDate: null, matchesDepartment: null },
-      { degree: 'cand_history', specialty: null, defenceDate: null, matchesDepartment: null },
+      { ...NO_DIPLOMA, degree: 'doc_law', defenceDate: '2021-02-02', matchesDepartment: true },
+      { ...NO_DIPLOMA, degree: 'phd', specialty: 'Право' },
+      { ...NO_DIPLOMA, degree: 'cand_history' },
     ]);
   });
 
@@ -273,5 +285,81 @@ describe('degrees — a list of diplomas (owner, 2026-10-10)', () => {
   it('is empty when the form did not send it', () => {
     const out = parse({});
     expect(out.success && out.data.degrees).toEqual([]);
+  });
+
+  // The diploma itself (owner, 2026-10-15)
+  describe('the diploma itself', () => {
+    it('keeps who issued it, the series and number, the issue date and the topic of a degree', () => {
+      const out = parse({
+        degrees: [
+          row({
+            degree: 'phd',
+            defenceDate: '2020-05-05',
+            issuedBy: ' Харківський університет ',
+            series: 'ДК',
+            number: '012345',
+            issueDate: '2020-09-01',
+            topic: 'Тема наукової роботи',
+          }),
+        ],
+      });
+      expect(out.success && out.data.degrees).toEqual([
+        {
+          ...NO_DIPLOMA,
+          degree: 'phd',
+          defenceDate: '2020-05-05',
+          issuedBy: 'Харківський університет',
+          series: 'ДК',
+          number: '012345',
+          issueDate: '2020-09-01',
+          topic: 'Тема наукової роботи',
+        },
+      ]);
+    });
+
+    it('keeps the level of a basic education and drops a topic and issue date it cannot have', () => {
+      const out = parse({
+        degrees: [
+          row({
+            degree: 'basic_education',
+            defenceDate: '2005-06-30',
+            basicLevel: 'master',
+            topic: 'не тут',
+            issueDate: '2005-07-01',
+          }),
+        ],
+      });
+      expect(out.success && out.data.degrees).toEqual([
+        {
+          ...NO_DIPLOMA,
+          degree: 'basic_education',
+          defenceDate: '2005-06-30',
+          basicLevel: 'master',
+        },
+      ]);
+    });
+
+    it('drops a level a degree cannot have', () => {
+      const out = parse({ degrees: [row({ degree: 'phd', basicLevel: 'master' })] });
+      expect(out.success && out.data.degrees?.[0]?.basicLevel).toBeNull();
+    });
+
+    it('refuses a level no list has, an overlong line, and a future issue date', () => {
+      const basic = { degree: 'basic_education' };
+      expect(parse({ degrees: [row({ ...basic, basicLevel: 'doctor' })] }).success).toBe(false);
+      expect(parse({ degrees: [row({ degree: 'phd', topic: 'я'.repeat(501) })] }).success).toBe(
+        false
+      );
+      expect(parse({ degrees: [row({ degree: 'phd', issuedBy: 'я'.repeat(201) })] }).success).toBe(
+        false
+      );
+      const future = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+      expect(parse({ degrees: [row({ degree: 'phd', issueDate: future })] }).success).toBe(false);
+    });
+
+    it('refuses a diploma line with no ступінь, rather than losing it', () => {
+      expect(parse({ degrees: [row({ number: '123' })] }).success).toBe(false);
+      expect(parse({ degrees: [row({ topic: 'Тема' })] }).success).toBe(false);
+    });
   });
 });

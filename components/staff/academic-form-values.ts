@@ -7,6 +7,7 @@
  */
 
 import { degreesOf } from '@/lib/staff/academic';
+import { degreeLevel } from '@/lib/staff/academic-options';
 
 /** One diploma as its inputs hold it (owner, 2026-10-10) */
 export type DegreeFormRow = {
@@ -14,6 +15,13 @@ export type DegreeFormRow = {
   specialty: string;
   defenceDate: string;
   matchesDepartment: string;
+  /** The diploma itself (owner, 2026-10-15) */
+  issuedBy: string;
+  series: string;
+  number: string;
+  issueDate: string;
+  basicLevel: string;
+  topic: string;
 };
 
 /** A blank diploma — what «Додати освіту» starts the popup from */
@@ -22,6 +30,12 @@ export const EMPTY_DEGREE_ROW: DegreeFormRow = {
   specialty: '',
   defenceDate: '',
   matchesDepartment: '',
+  issuedBy: '',
+  series: '',
+  number: '',
+  issueDate: '',
+  basicLevel: '',
+  topic: '',
 };
 
 /** Every academic field as the inputs produce it; Zod coerces on submit */
@@ -75,6 +89,12 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
         specialty: r.specialty ?? '',
         defenceDate: r.defenceDate ?? '',
         matchesDepartment: bool(r.matchesDepartment),
+        issuedBy: r.issuedBy ?? '',
+        series: r.series ?? '',
+        number: r.number ?? '',
+        issueDate: r.issueDate ?? '',
+        basicLevel: r.basicLevel ?? '',
+        topic: r.topic ?? '',
       }))
     : [];
   return {
@@ -86,4 +106,30 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
     adminPositions: [...staff.adminPositions],
     degrees: degreeRows,
   };
+}
+
+/**
+ * What the popup refuses (owner, 2026-10-15): every field of a diploma is
+ * mandatory except «відповідає кафедрі». Which ones depend on the kind — a level
+ * for a basic education, a topic and an issue date for a degree.
+ *
+ * The popup only. The server accepts an entry without them, because rows saved
+ * before this have none and refusing them would block an unrelated save — such a
+ * card is flagged until somebody fills it in.
+ */
+export function diplomaProblems(row: DegreeFormRow): Partial<Record<keyof DegreeFormRow, string>> {
+  const out: Partial<Record<keyof DegreeFormRow, string>> = {};
+  if (!row.degree) out.degree = 'Оберіть тип освіти або ступінь';
+  const basic = degreeLevel(row.degree) === 'basic';
+  if (basic && !row.basicLevel) out.basicLevel = 'Оберіть рівень освіти';
+  if (!row.specialty.trim()) out.specialty = 'Вкажіть спеціальність';
+  if (!basic && !row.topic.trim()) out.topic = 'Вкажіть тему наукової роботи';
+  if (!row.defenceDate) {
+    out.defenceDate = basic ? 'Вкажіть дату видачі диплома' : 'Вкажіть дату захисту';
+  }
+  if (!basic && !row.issueDate) out.issueDate = 'Вкажіть дату видачі диплома';
+  if (!row.issuedBy.trim()) out.issuedBy = 'Вкажіть, ким виданий диплом';
+  if (!row.series.trim()) out.series = 'Вкажіть серію';
+  if (!row.number.trim()) out.number = 'Вкажіть номер';
+  return out;
 }

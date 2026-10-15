@@ -14,6 +14,7 @@ import {
   degreeName,
   optionLabel,
   BASIC_EDUCATION,
+  BASIC_LEVELS,
 } from '@/lib/staff/academic-options';
 
 /**
@@ -244,9 +245,32 @@ export function offeredAdminPositions(
 export interface DegreeRecord {
   degree: string;
   specialty: string | null;
+  /**
+   * The defence date of a degree; for a basic education, the diploma's issue
+   * date (owner, 2026-10-14) — never a defence, see `newestDefence`.
+   */
   defenceDate: string | null;
   matchesDepartment: boolean | null;
+  /** The diploma itself (owner, 2026-10-15) — all optional, old rows have none */
+  issuedBy: string | null;
+  series: string | null;
+  number: string | null;
+  /** The diploma's issue date of a candidate / doctor; a basic one uses `defenceDate` */
+  issueDate: string | null;
+  /** бакалавр / спеціаліст / магістр — a basic education only (`BASIC_LEVELS`) */
+  basicLevel: string | null;
+  /** The topic of the scientific work — a candidate / doctor only */
+  topic: string | null;
 }
+
+const NO_DIPLOMA = {
+  issuedBy: null,
+  series: null,
+  number: null,
+  issueDate: null,
+  basicLevel: null,
+  topic: null,
+} as const;
 
 /** The six `candidate*` / `doctor*` columns, the mirrors of the list */
 export interface DegreeColumns {
@@ -271,12 +295,19 @@ export function asDegreeRecords(value: unknown): DegreeRecord[] {
     if (!item || typeof item !== 'object') return [];
     const r = item as Record<string, unknown>;
     if (typeof r.degree !== 'string' || !r.degree) return [];
+    const text = (v: unknown) => (typeof v === 'string' && v ? v : null);
     return [
       {
         degree: r.degree,
-        specialty: typeof r.specialty === 'string' && r.specialty ? r.specialty : null,
-        defenceDate: typeof r.defenceDate === 'string' && r.defenceDate ? r.defenceDate : null,
+        specialty: text(r.specialty),
+        defenceDate: text(r.defenceDate),
         matchesDepartment: typeof r.matchesDepartment === 'boolean' ? r.matchesDepartment : null,
+        issuedBy: text(r.issuedBy),
+        series: text(r.series),
+        number: text(r.number),
+        issueDate: text(r.issueDate),
+        basicLevel: text(r.basicLevel),
+        topic: text(r.topic),
       },
     ];
   });
@@ -300,6 +331,7 @@ export function degreesOf(row: Record<string, unknown> | null | undefined): Degr
         defenceDate: isoDay(row?.[`${prefix}DefenceDate`] as Date | null | undefined),
         matchesDepartment:
           (row?.[`${prefix}MatchesDepartment`] as boolean | null | undefined) ?? null,
+        ...NO_DIPLOMA,
       },
     ];
   };
@@ -316,6 +348,7 @@ export function degreesOf(row: Record<string, unknown> | null | undefined): Degr
             typeof basicSpecialty === 'string' && basicSpecialty.trim() ? basicSpecialty : null,
           defenceDate: null,
           matchesDepartment: typeof basicMatch === 'boolean' ? basicMatch : null,
+          ...NO_DIPLOMA,
         },
       ]
     : [];
@@ -399,6 +432,8 @@ function newestDefence(records: readonly DegreeRecord[]): Date | null {
   return days.length ? day(days.reduce((a, b) => (b > a ? b : a))) : null;
 }
 
+const uaDate = (iso: string) => iso.split('-').reverse().join('.');
+
 /** The list as words for the audit log: «Доктор історичних наук · Історія · 12.05.2019 · відповідає кафедрі» */
 function degreesAuditText(value: unknown): string | null {
   const records = asDegreeRecords(value);
@@ -408,7 +443,12 @@ function degreesAuditText(value: unknown): string | null {
       [
         anyDegreeName(r.degree),
         r.specialty,
-        r.defenceDate ? r.defenceDate.split('-').reverse().join('.') : null,
+        r.basicLevel ? optionLabel(BASIC_LEVELS, r.basicLevel) : null,
+        r.topic ? `тема: ${r.topic}` : null,
+        r.defenceDate ? uaDate(r.defenceDate) : null,
+        r.issuedBy ? `виданий: ${r.issuedBy}` : null,
+        r.series || r.number ? [r.series, r.number].filter(Boolean).join(' ') : null,
+        r.issueDate ? `видано ${uaDate(r.issueDate)}` : null,
         r.matchesDepartment ? 'відповідає кафедрі' : null,
       ]
         .filter(Boolean)
