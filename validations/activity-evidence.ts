@@ -16,19 +16,22 @@ const emptyToUndefined = (v: unknown) =>
 export const MIN_EVIDENCE_YEAR = 1950;
 
 /**
- * What a `dateRange` may span — roughly a decade back, two ahead of that.
+ * What a `dateRange` may span: 1 January 1950 to the end of the year ten years
+ * ahead, Kyiv time (owner, 2026-10-16). Only the Характеристика's periods use
+ * it — п.11, п.19, п.20.
  *
- * **Not `MIN_EVIDENCE_YEAR`** (owner, 2026-09-14). 1950 is a floor for a
- * PUBLICATION year, where an old citation is ordinary. A period is not that:
- * п.11 records consulting «на підставі договору із закладом вищої освіти», and
- * the university did not exist to sign one. Offering 1950 in the picker invited
- * a date nobody could hold a contract for.
+ * Replaces «a decade back, twenty years ahead» (2026-09-14). The floor was too
+ * late: п.20's «Період роботи» often began in the nineties. The end may be in
+ * the future, because a fixed-term contract carries its expiry date — but not
+ * twenty years of it.
  *
- * Forward, because an end can be ahead of today — an appointment somebody still
- * holds, a contract with a term left to run.
+ * A function for the end, read when the date is judged, so a server that runs
+ * across 1 січня moves with the calendar.
  */
-export const RANGE_MIN_YEAR = new Date().getFullYear() - 10;
-export const RANGE_MAX_YEAR = new Date().getFullYear() + 20;
+export const RANGE_MIN_DAY = `${MIN_EVIDENCE_YEAR}-01-01`;
+export function rangeMaxDay(now: Date = new Date()): string {
+  return `${Number(currentYearBounds(now).max.slice(0, 4)) + 10}-12-31`;
+}
 
 /**
  * A date field's `currentYear` window: 1 January of this calendar year up to
@@ -144,13 +147,14 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
       // Both ends, and the end never before the start. The picker cannot
       // produce an inverted range, so this is here for the request that skips
       // the picker — the half of a shared rule an attacker keeps.
-      const day = z.iso.date({ error: 'Некоректна дата' }).refine(
-        (v) => {
-          const year = Number(v.slice(0, 4));
-          return year >= RANGE_MIN_YEAR && year <= RANGE_MAX_YEAR;
-        },
-        { error: `Рік має бути в межах ${RANGE_MIN_YEAR}–${RANGE_MAX_YEAR}` }
-      );
+      const day = z.iso
+        .date({ error: 'Некоректна дата' })
+        .refine((v) => v >= RANGE_MIN_DAY, {
+          error: `Дата не може бути раніше ${MIN_EVIDENCE_YEAR} року`,
+        })
+        .refine((v) => v <= rangeMaxDay(), {
+          error: `Дата не може бути пізніше ${rangeMaxDay().slice(0, 4)} року`,
+        });
       const base = z
         .object({ from: day, to: day })
         .refine((r) => r.from <= r.to, { error: 'Дата завершення раніше за дату початку' });

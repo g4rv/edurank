@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/aurora/ui/
 import { stepRange, type RangeEnd } from '@/lib/forms/date-range';
 import { fieldSurface } from '@/components/aurora/ui/field-surface';
 import { cn } from '@/lib/utils';
-import { RANGE_MAX_YEAR, RANGE_MIN_YEAR } from '@/validations/activity-evidence';
+import { RANGE_MIN_DAY, rangeMaxDay } from '@/validations/activity-evidence';
 
 export interface IsoRange {
   from?: string;
@@ -141,8 +141,9 @@ export function DateRangeInput({
             captionLayout="dropdown"
             // The same bounds the schema enforces, so the picker cannot offer a
             // day the server would refuse.
-            startMonth={new Date(RANGE_MIN_YEAR, 0)}
-            endMonth={new Date(RANGE_MAX_YEAR, 11)}
+            startMonth={parseISO(RANGE_MIN_DAY)}
+            endMonth={parseISO(rangeMaxDay())}
+            disabled={{ after: parseISO(rangeMaxDay()) }}
             autoFocus
           />
         )}
