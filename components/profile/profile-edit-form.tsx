@@ -21,10 +21,12 @@ import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { updateOwnProfile } from '@/app/(dashboard)/profile/actions';
 import { uploadAvatar } from '@/components/profile/upload-avatar';
 import { RequiredFields } from '@/components/ui/required-fields';
+import { UnsavedChangesGuard } from '@/components/unsaved-changes-guard';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
 import type { HeadshipPost } from '@/lib/staff/academic';
+import { USER_EDITABLE_STAFF_FIELDS } from '@/lib/staff/editable-fields';
 import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 import type {
   CertificateScans,
@@ -349,6 +351,9 @@ export function ProfileEditForm({
                   control={control as never}
                   errors={errors as never}
                   isPending={isPending}
+                  // Greyed from the list the save filters by — the стаж is
+                  // not theirs to set (owner, 2026-10-16).
+                  locked={(field) => !USER_EDITABLE_STAFF_FIELDS.has(field)}
                   headship={headship}
                 />
                 <EducationCard
@@ -369,6 +374,8 @@ export function ProfileEditForm({
           </div>
         </div>
       </form>
+      {/* People forget «Зберегти» (owner, 2026-10-16) — ask before they leave */}
+      <UnsavedChangesGuard when={changed} />
     </RequiredFields>
   );
 }

@@ -464,12 +464,35 @@ describe('dateRange — one field, two ends, never backwards', () => {
     expect(parse('2014-2019').success).toBe(false);
   });
 
-  it('refuses a period before the university could have signed anything', () => {
-    // A decade back, not 1950 (owner, 2026-09-14): п.11 records consulting «на
-    // підставі договору із закладом вищої освіти».
-    expect(parse({ from: '1994-09-01', to: '1999-08-31' }).success).toBe(false);
-    expect(parse({ from: `${year - 11}-01-01`, to: later }).success).toBe(false);
-    expect(parse({ from: `${year - 9}-01-01`, to: later }).success).toBe(true);
+  describe('from 1950 to ten years ahead (owner, 2026-10-16)', () => {
+    // 1 January 2027, 01:00 in Kyiv — still 2026 in UTC.
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-12-31T23:00:00Z'));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it('accepts a period that began decades ago', () => {
+      // Replaces «a decade back» (2026-09-14): п.20's «Період роботи» starts
+      // in the nineties as often as not.
+      expect(parse({ from: '1994-09-01', to: '1999-08-31' }).success).toBe(true);
+      expect(parse({ from: '1950-01-01', to: '1951-06-30' }).success).toBe(true);
+    });
+
+    it('refuses a day before 1950', () => {
+      expect(parse({ from: '1949-12-31', to: '1951-06-30' }).success).toBe(false);
+    });
+
+    it('accepts a future end, as a fixed-term contract has, up to the year ten years ahead in Kyiv', () => {
+      expect(parse({ from: '2020-09-01', to: '2030-08-31' }).success).toBe(true);
+      expect(parse({ from: '2020-09-01', to: '2037-12-31' }).success).toBe(true);
+    });
+
+    it('refuses an end past that', () => {
+      const result = parse({ from: '2020-09-01', to: '2038-01-01' });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.issues[0].message).toMatch(/2037/);
+    });
   });
 
   it('lets an optional range be left empty', () => {
