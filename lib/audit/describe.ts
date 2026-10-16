@@ -64,7 +64,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   ScienceWorkType: 'Вид наукової роботи',
   SpecialityDepartment: 'Спеціальність кафедри',
   SpecialityNorm: 'Норматив спеціальності',
-  Staff: 'Персонал',
+  Staff: 'Штат',
   StaffStakeLimits: 'Межі ставки НПП',
   StakeDistribution: 'Розподіл ставок',
   StakeStatusBonus: 'Бонус за посаду',

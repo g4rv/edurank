@@ -131,7 +131,7 @@ describe('division actions authorization', () => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
     mockDivisionFind.mockResolvedValue({ name: 'ННВ', _count: { staff: 4 } });
     expect(await deleteDivision('div-1')).toEqual({
-      error: 'Неможливо видалити відділ, до якого прикріплений персонал',
+      error: 'Неможливо видалити відділ, до якого прикріплені працівники',
     });
     expect(mockTransaction).not.toHaveBeenCalled();
   });

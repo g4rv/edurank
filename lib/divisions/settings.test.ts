@@ -89,7 +89,7 @@ describe('settingsEqual', () => {
 describe('audit descriptions', () => {
   it('names entity actions and fields in Ukrainian, sorted', () => {
     expect(describeEntities(['STAFF:UPDATE', 'DEPARTMENT:CREATE'])).toBe(
-      'Кафедра — Створення, Персонал — Редагування'
+      'Кафедра — Створення, Штат — Редагування'
     );
     expect(describeFields(['phone', 'email'])).toBe('Телефон, Email');
     expect(describeEntities([])).toBe('');

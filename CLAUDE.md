@@ -888,7 +888,7 @@ document that proves it. Tab «Підвищення кваліфікації/С�
 - **Excel export** (`GET /api/export/qualifications`, one flat sheet, a row per
   record, filterable): `?staffId=` for one НПП — the «Вивантажити Excel» button on
   their tab — or the same query string `/staff` is on for the whole list — the
-  «Вивантажити кваліфікації» button beside «Вивантажити персонал» (the old
+  «Вивантажити кваліфікації» button beside «Вивантажити штат» (the old
   «Експорт», renamed; ADMIN only, unchanged). For ADMIN and a division with
   `canViewQualifications` — **not the НПП themself**; the route refuses them
   as the button hides from them.

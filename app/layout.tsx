@@ -29,7 +29,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'EduRank',
-  description: 'Система управління науково-педагогічним персоналом університету',
+  description: 'Система управління науково-педагогічними працівниками університету',
 };
 
 export default function RootLayout({

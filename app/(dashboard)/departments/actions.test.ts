@@ -84,7 +84,7 @@ describe('department actions authorization', () => {
       _count: { primaryStaff: 2, partTimeStaff: 0 },
     });
     expect(await deleteDepartment('dep-1')).toEqual({
-      error: 'Неможливо видалити кафедру, до якої прикріплений персонал',
+      error: 'Неможливо видалити кафедру, до якої прикріплені працівники',
     });
     expect(mockTransaction).not.toHaveBeenCalled();
   });

@@ -181,7 +181,7 @@ export function Sidebar({
   }
   if (canSeeRating) {
     management.push(
-      { href: '/staff', label: 'Персонал', icon: Users },
+      { href: '/staff', label: 'Штат', icon: Users },
       { href: '/departments', label: 'Кафедри', icon: BookOpen },
       { href: '/faculties', label: 'Факультети', icon: GraduationCap }
     );

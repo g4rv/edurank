@@ -56,7 +56,7 @@ function activationText(isActivated: boolean | undefined): string {
 export function buildStaffListWorkbook(rows: readonly StaffListRow[]): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   wb.created = new Date();
-  const sheet = wb.addWorksheet('Персонал');
+  const sheet = wb.addWorksheet('Штат');
 
   sheet.columns = [
     { key: 'name', width: 40 },

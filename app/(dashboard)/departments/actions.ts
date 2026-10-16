@@ -191,7 +191,7 @@ export async function deleteDepartment(id: string): Promise<DepartmentActionStat
 
   if (!department) return { error: 'Кафедру не знайдено' };
   if (department._count.primaryStaff > 0 || department._count.partTimeStaff > 0)
-    return { error: 'Неможливо видалити кафедру, до якої прикріплений персонал' };
+    return { error: 'Неможливо видалити кафедру, до якої прикріплені працівники' };
 
   let dbError: string | null = null;
 

@@ -65,7 +65,7 @@ describe('attachmentHeader', () => {
 describe('fileNameFromDisposition', () => {
   // The round trip that matters: what attachmentHeader writes, this reads back.
   it('recovers a Cyrillic name written by attachmentHeader', () => {
-    const name = 'Список персоналу 2026-08-28.xlsx';
+    const name = 'Штат 2026-08-28.xlsx';
     expect(fileNameFromDisposition(attachmentHeader(name))).toBe(name);
   });
 
