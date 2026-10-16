@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useReducer, useState, useTransition } from 'react';
+import { useMemo, useReducer, useState, useTransition } from 'react';
+import { UnsavedChangesGuard } from '@/components/unsaved-changes-guard';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Save, RotateCcw } from 'lucide-react';
@@ -354,17 +355,11 @@ export function DistributionGrid({
 
   const dirty = isDirty(draft, view.rows);
 
-  // Nothing is written until «Зберегти», so closing the tab or refreshing now
-  // throws work away. The browser shows its own wording — a custom message has
-  // been ignored by every browser for years — and the Back button cannot be
+  // Nothing is written until «Зберегти», so leaving now throws work away —
+  // `UnsavedChangesGuard` below asks first, on closing the tab and on an in-app
+  // link alike (2026-10-16; closing only, before). The Back button cannot be
   // guarded at all. That gap is the cost of dropping autosave, accepted by the
   // owner on 2026-08-24.
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
 
   /**
    * The overwrite confirmation, asked once and at the moment it matters.
@@ -535,6 +530,7 @@ export function DistributionGrid({
     // collapsed once anything followed it — nothing does now, and the page is
     // `flex h-full min-h-0 flex-col` down to here.
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <UnsavedChangesGuard when={dirty} />
       <Totals
         kst={kst}
         distributed={distributed}

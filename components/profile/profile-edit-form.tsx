@@ -21,6 +21,7 @@ import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { updateOwnProfile } from '@/app/(dashboard)/profile/actions';
 import { uploadAvatar } from '@/components/profile/upload-avatar';
 import { RequiredFields } from '@/components/ui/required-fields';
+import { UnsavedChangesGuard } from '@/components/unsaved-changes-guard';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
@@ -373,6 +374,8 @@ export function ProfileEditForm({
           </div>
         </div>
       </form>
+      {/* People forget «Зберегти» (owner, 2026-10-16) — ask before they leave */}
+      <UnsavedChangesGuard when={changed} />
     </RequiredFields>
   );
 }

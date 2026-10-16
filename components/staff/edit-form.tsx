@@ -23,6 +23,7 @@ import type { StakePart } from '@/lib/queries/get-stake-breakdown';
 import type { PersonCertificates } from '@/lib/queries/get-language-certificates';
 import { certificateScansOf } from '@/components/staff/certificate-form-values';
 import { RequiredFields } from '@/components/ui/required-fields';
+import { UnsavedChangesGuard } from '@/components/unsaved-changes-guard';
 import {
   StaffFormFields,
   staffToFormValues,
@@ -95,6 +96,8 @@ export function StaffEditForm({
     watch,
     handleSubmit,
     setError,
+    reset,
+    getValues,
     formState: { errors, isDirty },
   } = useForm<RawStaffFormValues>({
     resolver: standardSchemaResolver(staffUpdateSchema as never),
@@ -142,6 +145,10 @@ export function StaffEditForm({
         } else {
           toast.success('Збережено');
           setRates({});
+          // The page stays open after a save, so what was saved becomes the
+          // form's starting point — otherwise the header kept saying
+          // «Є незбережені зміни» and leaving asked about work already saved.
+          reset(getValues());
           router.refresh();
         }
       } catch (e) {
@@ -220,6 +227,8 @@ export function StaffEditForm({
           />
         </form>
       </RequiredFields>
+      {/* People forget «Зберегти» (owner, 2026-10-16) — ask before they leave */}
+      <UnsavedChangesGuard when={dirty} />
       <RaiseLimitDialog
         raises={raises}
         pending={agreeing}
