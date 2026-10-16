@@ -336,6 +336,13 @@ pnpm db:science-catalogue  # how PRODUCTION gets Додаток III: creates the
                       #   2026/2027 рік and any missing вид роботи, CREATE-ONLY —
                       #   never updates or deletes a row an admin edited. Not the
                       #   seed: db:seed would overwrite the rating indicators.
+pnpm db:book-sheets  # one-off: rating 3.7 / 2.2 typed in друкованих аркушах, not
+                      #   pages. Converts the field, sets 1,5 minimum on монографія,
+                      #   and converts + RE-SCORES the open year's entries (pages ÷ 24
+                      #   to 0,1). Closed years untouched. Report first; --apply.
+pnpm db:science-sheets-decimals  # one-off: «Кількість друкованих аркушів» takes ONE decimal
+                      #   (1,7, never 1,73) in every planning year. Report first;
+                      #   --apply writes. Saved works with two decimals are only listed.
 pnpm db:science-conference-yearly  # one-off: «Участь у конференціях» ONCE →
                       #   YEARLY (D25). The наказ caps it at 5 per рік, and a
                       #   ONCE key carries no year — so the same annual
@@ -516,6 +523,13 @@ Rules that are easy to get wrong:
 - **Scores are frozen at save.** `Activity.score` is computed once; editing a coefficient later does not rewrite existing rows.
 - **A deactivated indicator scores nothing.** Only `APPROVED` rows of an `isActive` type count — see `COUNTED` in `lib/rating/recompute.ts`. Toggling `isActive` recomputes everyone holding it.
 - **`year` is always derived** from the type's template, never taken from client input.
+- **A book is typed in друкованих аркушах, not pages** (owner, 2026-10-16). The
+  page-based indicators (3.7 монографія, 2.2 видання) ask «Друкованих аркушів»
+  (`sheets`, one decimal) and «Кількість співавторів». The person's share is
+  `personalSheets` — sheets ÷ co-authors, rounded to 0,1 — and it is what is
+  scored and what Характеристика п.3 judges. A монографія's share must reach
+  `scoring.minShare` (1,5); 2.2 has no floor. A row saved before carries
+  `pages` and is read as pages ÷ 24 until `pnpm db:book-sheets` converts it.
 - **Closed years are read-only** and render from `RatingEntry.snapshot`. Appeals go through ADMIN `reopenYear` → fix → close again.
 
 ### Indicators live in the database, not in code
@@ -822,6 +836,14 @@ Easy to get wrong:
   (DOI, ISBN, pages, dates) come next and «Співавтори» last. The order of the
   fields themselves is the catalogue's, stored in JSON — so a database made
   earlier is reordered by `pnpm db:science-link-isbn`, not by the seed.
+- **Sheets are typed with ONE decimal at most** (owner, 2026-10-16): the three
+  «Кількість друкованих аркушів» fields (монографія, перевидання, рецензування)
+  carry `decimals: 1`. The box REFUSES a second digit while typing
+  (`limitDecimals`, a text box with a comma or a point) and `schemaForFields`
+  refuses it again on the server; a value already saved is not re-judged on
+  edit. The 1,5-per-співавтор rule stays in the Характеристика п.3 only. The
+  catalogue change reaches existing databases through
+  `pnpm db:science-sheets-decimals`, not the seed.
 - **A failed save must never destroy a form.** Every science dialog runs its
   action through `attempt()` (`lib/science/attempt.ts`): a rejected request
   (a phone losing signal, a server error) would otherwise be re-thrown into

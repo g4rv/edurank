@@ -41,6 +41,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     min: z.number().optional(),
     max: z.number().optional(),
     int: z.boolean().optional(),
+    decimals: z.number().int().min(0).max(3).optional(),
     optional: z.boolean().optional(),
   }),
   z.strictObject({
@@ -97,6 +98,7 @@ export const evidenceFieldsSpecSchema = z.array(evidenceFieldSpecSchema);
 export const scoringSpecSchema: z.ZodType<ScoringSpec> = z.strictObject({
   kind: z.enum(['FIXED', 'MULT', 'SELECT', 'SELECT_MULT', 'CHECK_SUM']),
   pageBased: z.boolean().optional(),
+  minShare: z.number().positive().optional(),
 });
 
 export interface ParsedTypeSpecs {
@@ -130,7 +132,7 @@ export function parseTypeSpecs(row: {
 export function scoringFieldNames(scoring: ScoringSpec): string[] {
   const names: string[] = [];
   const pageBased = scoring.pageBased === true;
-  if (pageBased) names.push('pages', 'coAuthors');
+  if (pageBased) names.push('sheets', 'coAuthors');
 
   switch (scoring.kind) {
     case 'FIXED':
@@ -155,7 +157,7 @@ export function scoringFieldNames(scoring: ScoringSpec): string[] {
 const SCORING_FIELD_TEMPLATES: Record<string, EvidenceField> = {
   value: { kind: 'number', name: 'value', label: 'Значення', min: 0 },
   credits: { kind: 'number', name: 'credits', label: 'Кількість кредитів', min: 1 },
-  pages: { kind: 'number', name: 'pages', label: 'Кількість сторінок', min: 1, int: true },
+  sheets: { kind: 'number', name: 'sheets', label: 'Друкованих аркушів', min: 0.1, decimals: 1 },
   coAuthors: {
     kind: 'number',
     name: 'coAuthors',
@@ -299,9 +301,15 @@ export function specProblems(fields: readonly EvidenceField[], scoring: ScoringS
     problems.push('Розрахунок за друкованими аркушами можливий лише для правил з множенням');
   }
 
+  if (scoring.minShare !== undefined && !scoring.pageBased) {
+    problems.push('Мінімальний особистий внесок можливий лише з розрахунком за аркушами');
+  }
+
   const pageBased = scoring.pageBased === true;
   if (pageBased) {
-    problems.push(...findRequired(fields, 'number', 'pages', 'числове поле сторінок').problems);
+    problems.push(
+      ...findRequired(fields, 'number', 'sheets', 'числове поле друкованих аркушів').problems
+    );
     // coAuthors is optional by design (absent = sole author), no check needed
   }
 

@@ -114,8 +114,11 @@ export const SELECT_OPTION_POINTS = {
 /** Moodle gate (розділ 5): full mode points only when ALL six materials are present */
 export const MOODLE_MODE_POINTS = { development: 150, update: 50 } as const;
 
-/** MULT/SELECT_MULT codes whose value = друковані аркуші: (pages / 24) / coAuthors */
+/** MULT/SELECT_MULT codes whose value = the person's друковані аркуші: sheets / coAuthors */
 export const PAGE_BASED_CODES = new Set(['monograph_ua', 'monograph_eu', 'edition_publication']);
+
+/** The least personal share a save may claim, in аркуші — монографія only (owner, 2026-10-16) */
+export const MIN_SHARE_SHEETS: Record<string, number> = { monograph_ua: 1.5, monograph_eu: 1.5 };
 
 /**
  * Which п.38 positions of the Характеристика each indicator's entries satisfy
@@ -278,6 +281,7 @@ export function dbSpecs(def: ActivityTypeDef): ActivityTypeSpecs {
     scoring: {
       kind: def.kind,
       ...(PAGE_BASED_CODES.has(def.code) ? { pageBased: true } : {}),
+      ...(MIN_SHARE_SHEETS[def.code] ? { minShare: MIN_SHARE_SHEETS[def.code] } : {}),
     },
     // Absent = satisfies no licence position, which is the common and correct
     // case. See LICENCE_POSITION_LINKS for the two codes where it is deliberate.

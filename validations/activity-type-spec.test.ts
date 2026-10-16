@@ -27,10 +27,10 @@ describe('scoringFieldNames', () => {
     expect(scoringFieldNames({ kind: 'SELECT_MULT' })).toEqual(['option', 'credits']);
   });
 
-  it('swaps the count for pages when the rule is page-based', () => {
-    expect(scoringFieldNames({ kind: 'MULT', pageBased: true })).toEqual(['pages', 'coAuthors']);
+  it('swaps the count for sheets when the rule is page-based', () => {
+    expect(scoringFieldNames({ kind: 'MULT', pageBased: true })).toEqual(['sheets', 'coAuthors']);
     expect(scoringFieldNames({ kind: 'SELECT_MULT', pageBased: true })).toEqual([
-      'pages',
+      'sheets',
       'coAuthors',
       'option',
     ]);
@@ -56,12 +56,12 @@ describe('withScoringFields', () => {
     expect(fixedForm.map((f) => f.name)).toEqual(['title']);
   });
 
-  it('swaps value for pages when page-based is switched on, and back again', () => {
+  it('swaps value for sheets when page-based is switched on, and back again', () => {
     const byCount = withScoringFields([text('bibliography')], { kind: 'MULT' });
     expect(byCount.map((f) => f.name)).toEqual(['value', 'bibliography']);
 
     const bySheets = withScoringFields(byCount, { kind: 'MULT', pageBased: true });
-    expect(bySheets.map((f) => f.name)).toEqual(['pages', 'coAuthors', 'bibliography']);
+    expect(bySheets.map((f) => f.name)).toEqual(['sheets', 'coAuthors', 'bibliography']);
 
     const backToCount = withScoringFields(bySheets, { kind: 'MULT' });
     expect(backToCount.map((f) => f.name)).toEqual(['value', 'bibliography']);

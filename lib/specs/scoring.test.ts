@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
 import { catalogueType } from '@/lib/rating/db-specs';
-import { computeScore, type ScorableType } from './scoring';
+import {
+  bookSheets,
+  computeScore,
+  personalSheets,
+  roundSheets,
+  type ScorableType,
+} from './scoring';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 
 // The engine is driven entirely by an ActivityType row (its scoring spec + its
@@ -106,45 +112,76 @@ describe('MULT types (value × coefficient)', () => {
   });
 });
 
-describe('monographs (author sheets: pages / 24 / coAuthors)', () => {
-  it('ukrainian monograph: 120 pages, 2 co-authors, ×200', () => {
-    expect(score('monograph_ua', { pages: 120, coAuthors: 2 }, 200)).toEqual({
+describe('monographs (personal sheets: sheets / coAuthors, to 0,1)', () => {
+  it('ukrainian monograph: 5 sheets, 2 co-authors, ×200', () => {
+    expect(score('monograph_ua', { sheets: 5, coAuthors: 2 }, 200)).toEqual({
       computedValue: 2.5,
       score: 500,
     });
   });
 
   it('EU-language monograph: sole author by default, ×300', () => {
-    expect(score('monograph_eu', { pages: 48 }, 300)).toEqual({
+    expect(score('monograph_eu', { sheets: 2 }, 300)).toEqual({
       computedValue: 2,
       score: 600,
     });
   });
 
-  it('rounds to 2 decimals without double-rounding the score', () => {
-    // 100 / 24 = 4.1666… → computedValue 4.17, score = raw × 200 = 833.33
+  it('rounds the personal share to one decimal before scoring', () => {
+    // 5,2 / 3 = 1,7333… → 1,7 → 1,7 × 200 = 340
+    expect(score('monograph_ua', { sheets: 5.2, coAuthors: 3 }, 200)).toEqual({
+      computedValue: 1.7,
+      score: 340,
+    });
+    // 5,3 / 3 = 1,7666… → 1,8
+    expect(score('monograph_ua', { sheets: 5.3, coAuthors: 3 }, 200).computedValue).toBe(1.8);
+  });
+
+  it('still scores a row saved with pages (pages / 24), rounded the same way', () => {
+    // 100 / 24 = 4,1666… → 4,2
     expect(score('monograph_ua', { pages: 100 }, 200)).toEqual({
-      computedValue: 4.17,
-      score: 833.33,
+      computedValue: 4.2,
+      score: 840,
     });
   });
 
-  it('rejects zero pages and invalid coAuthors', () => {
+  it('rejects zero sheets, zero pages and invalid coAuthors', () => {
+    expect(() => score('monograph_ua', { sheets: 0 }, 200)).toThrow('"sheets"');
     expect(() => score('monograph_ua', { pages: 0 }, 200)).toThrow('"pages"');
-    expect(() => score('monograph_ua', { pages: 24, coAuthors: 0 }, 200)).toThrow('"coAuthors"');
-    expect(() => score('monograph_ua', { pages: 24, coAuthors: 1.5 }, 200)).toThrow('"coAuthors"');
+    expect(() => score('monograph_ua', { sheets: 2, coAuthors: 0 }, 200)).toThrow('"coAuthors"');
+    expect(() => score('monograph_ua', { sheets: 2, coAuthors: 1.5 }, 200)).toThrow('"coAuthors"');
+  });
+});
+
+describe('personalSheets / bookSheets', () => {
+  it('reads sheets first, pages as the fallback', () => {
+    expect(bookSheets({ sheets: 3.5, pages: 999 })).toBe(3.5);
+    expect(bookSheets({ pages: 48 })).toBe(2);
+    expect(bookSheets({})).toBeNull();
+  });
+
+  it('divides by co-authors only when there are more than one', () => {
+    expect(personalSheets({ sheets: 3 })).toBe(3);
+    expect(personalSheets({ sheets: 3, coAuthors: 1 })).toBe(3);
+    expect(personalSheets({ sheets: 3, coAuthors: 2 })).toBe(1.5);
+  });
+
+  it('rounds half up to 0,1 and is not fooled by binary floats', () => {
+    expect(roundSheets(3.54645)).toBe(3.5);
+    expect(roundSheets(3.5634536)).toBe(3.6);
+    expect(roundSheets(1.05)).toBe(1.1);
   });
 });
 
 describe('SELECT_MULT types', () => {
   it('editions: type points × author sheets', () => {
-    // textbook: 200 × (240/24)/3 = 666.67
-    expect(score('edition_publication', { option: 'textbook', pages: 240, coAuthors: 3 })).toEqual({
-      computedValue: 666.67,
-      score: 666.67,
+    // textbook: 200 × (10 / 3 = 3,33… → 3,3) = 660
+    expect(score('edition_publication', { option: 'textbook', sheets: 10, coAuthors: 3 })).toEqual({
+      computedValue: 660,
+      score: 660,
     });
-    // recommendations: 80 × (24/24)/1 = 80
-    expect(score('edition_publication', { option: 'recommendations', pages: 24 }).score).toBe(80);
+    // recommendations: 80 × 1 = 80
+    expect(score('edition_publication', { option: 'recommendations', sheets: 1 }).score).toBe(80);
   });
 
   it('internships: per-credit points × credits', () => {

@@ -64,6 +64,8 @@ export type EvidenceField =
       /** Set it only where a number has a real ceiling — a YEAR does, a count does not */
       max?: number;
       int?: boolean;
+      /** Most digits after the point — 1 for a друкований аркуш («1,7», never «1,73») */
+      decimals?: number;
       optional?: boolean;
     }
   // `hosts` narrows a URL to a service (see lib/link-hosts.ts); without it any
@@ -177,8 +179,16 @@ export const text = (
 export const number = (
   name: string,
   label: string,
-  opts?: { min?: number; max?: number; int?: boolean; optional?: boolean }
+  opts?: { min?: number; max?: number; int?: boolean; decimals?: number; optional?: boolean }
 ): EvidenceField => ({ kind: 'number', name, label, ...opts });
+
+/**
+ * A book's size in друковані аркуші, typed — one decimal at most (owner,
+ * 2026-10-16; until then the form asked for pages and divided by 24). The
+ * person's share is this divided by the co-authors, see `personalSheets`.
+ */
+export const bookSheetsField = (): EvidenceField =>
+  number('sheets', 'Друкованих аркушів', { min: 0.1, decimals: 1 });
 
 export const url = (
   name: string,
@@ -542,7 +552,7 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       opt('methodical_guide', 'навчально-методичний посібник'),
       opt('recommendations', 'методичні рекомендації (словник, довідник)'),
     ]),
-    number('pages', 'Кількість сторінок', { min: 1, int: true }),
+    bookSheetsField(),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
     text('bibliography', 'Бібліографічний опис', {
       multiline: true,
@@ -606,7 +616,7 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     url('link', 'Посилання', { optional: true }),
   ],
   monograph_ua: [
-    number('pages', 'Кількість сторінок', { min: 1, int: true }),
+    bookSheetsField(),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
     // Required: the 2026 form marks this item «обов'язково ISBN»
     isbn('isbn', 'ISBN'),
@@ -616,7 +626,7 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     }),
   ],
   monograph_eu: [
-    number('pages', 'Кількість сторінок', { min: 1, int: true }),
+    bookSheetsField(),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
     // Optional: the form does not demand it here, so a missing ISBN must not
     // block a genuine submission — but it is still checked when filled in

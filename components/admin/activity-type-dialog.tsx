@@ -402,9 +402,30 @@ function ActivityTypeForm({
                   <span>
                     Рахувати друковані аркуші
                     <span className="block text-xs text-muted-foreground">
-                      сторінки ÷ 24 ÷ кількість співавторів
+                      аркуші ÷ кількість співавторів, до 0,1
                     </span>
                   </span>
+                </label>
+              )}
+
+              {scoring.pageBased === true && (
+                <label className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Мінімальний особистий внесок, арк.</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    className="w-24"
+                    placeholder="немає"
+                    value={scoring.minShare ?? ''}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      onScoringChange({
+                        ...scoring,
+                        minShare: e.target.value === '' || !(n > 0) ? undefined : n,
+                      });
+                    }}
+                  />
                 </label>
               )}
 

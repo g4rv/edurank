@@ -9,6 +9,7 @@ import {
   type UseFormRegister,
 } from 'react-hook-form';
 import { cn } from '@/lib/utils';
+import { limitDecimals } from '@/lib/decimal-input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { DateInput } from '@/components/aurora/ui/date-input';
@@ -188,18 +189,37 @@ export function EvidenceFields({
       case 'number':
         return (
           <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
-            <Input
-              id={f.name}
-              type="number"
-              step={f.int ? 1 : 'any'}
-              min={f.min}
-              max={f.max}
-              // The bound said up front, where it used to arrive only as a red
-              // «Мінімальне значення — 1» after a refused save (owner, 2026-09-24).
-              placeholder={f.min !== undefined ? `від ${f.min}` : undefined}
-              disabled={disabled}
-              {...register(f.name)}
-            />
+            {f.decimals !== undefined && !f.int ? (
+              // A limit on the decimals is ENFORCED while typing, not hinted
+              // (owner, 2026-10-16): the extra digit never appears. A text box,
+              // because a number box cannot be edited as it is typed.
+              <Input
+                id={f.name}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder={f.min !== undefined ? `від ${f.min}` : undefined}
+                disabled={disabled}
+                {...register(f.name, {
+                  onChange: (e) => {
+                    e.target.value = limitDecimals(e.target.value, f.decimals as number);
+                  },
+                })}
+              />
+            ) : (
+              <Input
+                id={f.name}
+                type="number"
+                step={f.int ? 1 : 'any'}
+                min={f.min}
+                max={f.max}
+                // The bound said up front, where it used to arrive only as a red
+                // «Мінімальне значення — 1» after a refused save (owner, 2026-09-24).
+                placeholder={f.min !== undefined ? `від ${f.min}` : undefined}
+                disabled={disabled}
+                {...register(f.name)}
+              />
+            )}
           </FormField>
         );
 

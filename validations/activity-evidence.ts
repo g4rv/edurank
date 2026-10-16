@@ -4,6 +4,8 @@ import type { ScoringSpec } from '@/lib/rating/scoring';
 import { isValidIsbn } from '@/lib/isbn';
 import { isValidDoi, normalizeDoi } from '@/lib/doi';
 import { hasDomainHost, hostMatches, withProtocol } from '@/lib/link-hosts';
+import { hasTooManyDecimals } from '@/lib/decimal-input';
+import { personalSheets } from '@/lib/specs/scoring';
 
 // Builds one Zod schema per activity type from its evidence field specs
 // (carried by the ActivityType row — see validations/activity-type-spec.ts).
@@ -96,6 +98,12 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
         base = base.max(f.max, { error: `Максимальне значення — ${f.max}` });
       }
       if (f.int) base = base.int({ error: 'Має бути цілим числом' });
+      if (f.decimals !== undefined && !f.int) {
+        const places = f.decimals;
+        return f.optional
+          ? z.preprocess(emptyToUndefined, decimalsRefine(base, places, stored).optional())
+          : decimalsRefine(base, places, stored);
+      }
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'url': {
@@ -254,6 +262,29 @@ export function schemaForFields(
           }
         });
 
+  // A монографія's personal share has a floor (owner, 2026-10-16): the book
+  // divided between its authors, rounded to 0,1, must reach `minShare`. A row
+  // whose two numbers are as they were saved is not re-judged.
+  const minShare = scoring?.pageBased ? scoring.minShare : undefined;
+  if (minShare !== undefined) {
+    return object.superRefine((v, ctx) => {
+      const e = v as Record<string, unknown>;
+      const stored = opts?.stored;
+      if (stored && e.sheets === stored.sheets && e.coAuthors === stored.coAuthors) return;
+      const share = personalSheets(e);
+      if (share === null || share >= minShare) return;
+      const coAuthored = Number(e.coAuthors) > 1;
+      const min = String(minShare).replace('.', ',');
+      ctx.addIssue({
+        code: 'custom',
+        path: [coAuthored ? 'coAuthors' : 'sheets'],
+        message: coAuthored
+          ? `На кожного співавтора має припадати не менше ${min} аркуша (зараз — ${String(share).replace('.', ',')})`
+          : `Обсяг має бути не менше ${min} друкованого аркуша`,
+      });
+    }) as unknown as z.ZodType<Record<string, unknown>>;
+  }
+
   // CHECK_SUM with nothing ticked sums to 0. Saving that would record a claim
   // of no work at all — «Зараховано» beside a score of 0, which reads as a
   // system fault to the person and to anyone moderating later. Refuse it.
@@ -273,4 +304,22 @@ export function schemaForFields(
   }
 
   return object as unknown as z.ZodType<Record<string, unknown>>;
+}
+
+/** «Не більше одного знака після коми» — for a друкований аркуш («1,7», never «1,73») */
+// A value ALREADY saved is not re-judged (it may be a «1,73» from before the limit),
+// so correcting another box of the record does not hit a wall.
+function decimalsRefine(
+  base: ReturnType<typeof z.coerce.number>,
+  places: number,
+  stored?: unknown
+) {
+  return base.refine((v) => v === Number(stored) || !hasTooManyDecimals(v, places), {
+    error:
+      places === 1
+        ? 'Не більше одного знака після коми'
+        : places === 0
+          ? 'Має бути цілим числом'
+          : `Не більше ${places} знаків після коми`,
+  });
 }

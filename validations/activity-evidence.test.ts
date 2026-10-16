@@ -44,7 +44,8 @@ function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknow
         out[f.name] = 'Тестове значення';
         break;
       case 'number':
-        out[f.name] = Math.max(f.min ?? 0, 1);
+        // A monograph's share must reach 1,5 sheets — 2 clears every floor here
+        out[f.name] = f.name === 'sheets' ? 2 : Math.max(f.min ?? 0, 1);
         break;
       case 'url':
         // Host-restricted fields need a link on that service, not a placeholder
@@ -98,14 +99,14 @@ describe('catalogue ↔ evidence fields consistency', () => {
     }
   });
 
-  it('scoring fields are present per kind (value / pages / credits / mode + materials)', () => {
+  it('scoring fields are present per kind (value / sheets / credits / mode + materials)', () => {
     const names = (code: string) => EVIDENCE_FIELDS[code].map((f) => f.name);
     for (const def of ACTIVITY_TYPES_2026) {
       if (def.kind === 'MULT') {
         const n = names(def.code);
         expect(
-          n.includes('value') || n.includes('pages'),
-          `${def.code}: MULT needs value or pages`
+          n.includes('value') || n.includes('sheets'),
+          `${def.code}: MULT needs value or sheets`
         ).toBe(true);
       }
       if (def.code === 'intl_internship' || def.code === 'ukr_internship') {
@@ -240,18 +241,18 @@ describe('schema validation behavior', () => {
   it('coerces numeric strings from form inputs', () => {
     const schema = schemaFor('monograph_ua');
     const parsed = schema.parse({
-      pages: '120',
+      sheets: '5',
       coAuthors: '2',
       isbn: '978-3-16-148410-0',
       bibliography: 'Опис',
     });
-    expect(parsed).toMatchObject({ pages: 120, coAuthors: 2 });
+    expect(parsed).toMatchObject({ sheets: 5, coAuthors: 2 });
     expect(score('monograph_ua', parsed, 200)).toEqual({ computedValue: 2.5, score: 500 });
   });
 
   it('rejects an ISBN whose check digit does not match', () => {
     const schema = schemaFor('monograph_ua');
-    const base = { pages: 120, coAuthors: 2, bibliography: 'Опис' };
+    const base = { sheets: 5, coAuthors: 2, bibliography: 'Опис' };
 
     expect(schema.safeParse({ ...base, isbn: '978-3-16-148410-0' }).success).toBe(true);
     expect(schema.safeParse({ ...base, isbn: '9783161484100' }).success).toBe(true);
@@ -264,7 +265,7 @@ describe('schema validation behavior', () => {
 
   it('leaves the ISBN optional on monograph_eu but still checks it when filled', () => {
     const schema = schemaFor('monograph_eu');
-    const base = { pages: 200, coAuthors: 1, bibliography: 'Beschreibung' };
+    const base = { sheets: 8.3, coAuthors: 1, bibliography: 'Beschreibung' };
 
     expect(schema.safeParse(base).success).toBe(true);
     expect(schema.safeParse({ ...base, isbn: '' }).success).toBe(true);
@@ -548,5 +549,99 @@ describe('currentYearBounds', () => {
       min: '2027-01-01',
       max: '2027-01-01',
     });
+  });
+});
+
+describe('a number field with a limit on its decimals', () => {
+  const sheets: EvidenceField = {
+    kind: 'number',
+    name: 'value',
+    label: 'Кількість друкованих аркушів',
+    min: 1,
+    decimals: 1,
+  };
+  const parse = (v: unknown, stored?: unknown) =>
+    schemaForFields(
+      [sheets],
+      undefined,
+      stored === undefined ? undefined : { stored: { value: stored } }
+    ).safeParse({
+      value: v,
+    });
+
+  it('accepts a whole number and one decimal, as typed or as a string', () => {
+    for (const v of [2, 1.6, 1.7, '1.7', '12']) expect(parse(v).success).toBe(true);
+  });
+
+  it('refuses two decimals — 1,73 is not a valid number of sheets', () => {
+    const r = parse(1.73);
+    expect(r.success).toBe(false);
+    expect(JSON.stringify(r.error?.issues)).toContain('Не більше одного знака після коми');
+    expect(parse('1.05').success).toBe(false);
+  });
+
+  it('still enforces the minimum', () => {
+    expect(parse(0.5).success).toBe(false);
+  });
+
+  it('does not re-judge a value already saved', () => {
+    expect(parse(1.73, 1.73).success).toBe(true);
+    expect(parse(1.74, 1.73).success).toBe(false);
+  });
+
+  it('is a plain number field when no limit is set', () => {
+    const plain: EvidenceField = { kind: 'number', name: 'value', label: 'x', min: 0 };
+    expect(schemaForFields([plain]).safeParse({ value: 1.73 }).success).toBe(true);
+  });
+});
+
+describe('the монографія personal share (minShare)', () => {
+  const schema = schemaFor('monograph_ua');
+  const base = { isbn: '978-3-16-148410-0', bibliography: 'Опис' };
+  const issue = (r: { success: boolean; error?: { issues: unknown[] } }) =>
+    JSON.stringify(r.error?.issues ?? []);
+
+  it('accepts a sole author from 1,5 sheets and refuses less', () => {
+    expect(schema.safeParse({ ...base, sheets: 1.5 }).success).toBe(true);
+    const r = schema.safeParse({ ...base, sheets: 1.4 });
+    expect(r.success).toBe(false);
+    expect(issue(r)).toContain('не менше 1,5 друкованого аркуша');
+    expect(issue(r)).toContain('"sheets"');
+  });
+
+  it('judges the share when there are co-authors, on the co-authors box', () => {
+    // 4 / 2 = 2 — fine; 4 / 3 = 1,33 → 1,3 — refused
+    expect(schema.safeParse({ ...base, sheets: 4, coAuthors: 2 }).success).toBe(true);
+    const r = schema.safeParse({ ...base, sheets: 4, coAuthors: 3 });
+    expect(r.success).toBe(false);
+    expect(issue(r)).toContain('зараз — 1,3');
+    expect(issue(r)).toContain('"coAuthors"');
+  });
+
+  it('measures the ROUNDED share — 1,46 counts as 1,5', () => {
+    // 4,4 / 3 = 1,4666… → 1,5
+    expect(schema.safeParse({ ...base, sheets: 4.4, coAuthors: 3 }).success).toBe(true);
+  });
+
+  it('refuses two decimals in the sheets box', () => {
+    expect(schema.safeParse({ ...base, sheets: 2.25 }).success).toBe(false);
+  });
+
+  it('does not re-judge an entry whose two numbers are as saved', () => {
+    const stored = { ...base, sheets: 1.1, coAuthors: 1 };
+    const s = schemaForFields(
+      catalogueType('monograph_ua').evidenceFields,
+      catalogueType('monograph_ua').scoring,
+      { stored }
+    );
+    expect(s.safeParse(stored).success).toBe(true);
+    expect(s.safeParse({ ...stored, sheets: 1.2 }).success).toBe(false);
+  });
+
+  it('has no floor on 2.2 — a small методичка still saves', () => {
+    const edition = schemaFor('edition_publication');
+    expect(
+      edition.safeParse({ option: 'recommendations', sheets: 0.8, bibliography: 'Опис' }).success
+    ).toBe(true);
   });
 });
