@@ -34,6 +34,9 @@ export const RESEARCH_PROFILE_FIELDS = [
   'googleScholarCitationCount',
 ] as const;
 
+/** Academic fields a division may be granted but the НПП may not set about themselves */
+const NOT_SELF_EDITABLE: ReadonlySet<string> = new Set(['pedagogicalExperience']);
+
 /**
  * Which Staff columns a person may edit on their own profile.
  *
@@ -61,5 +64,8 @@ export const USER_EDITABLE_STAFF_FIELDS: ReadonlySet<string> = new Set([
   // these in about themselves until somebody in HR owns them. Several move
   // rating points (посада 1.2, ступінь 1.3, адмін. посада 1.6), so every
   // change is audited and ADMIN gets a list of them.
-  ...ACADEMIC_EDITABLE_FIELDS,
+  //
+  // All but the науково-педагогічний стаж (owner, 2026-10-16): ADMIN or a
+  // division granted it sets that one, and the profile form shows it greyed.
+  ...ACADEMIC_EDITABLE_FIELDS.filter((field) => !NOT_SELF_EDITABLE.has(field)),
 ]);

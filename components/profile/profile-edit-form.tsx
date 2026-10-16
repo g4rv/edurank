@@ -25,6 +25,7 @@ import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
 import type { HeadshipPost } from '@/lib/staff/academic';
+import { USER_EDITABLE_STAFF_FIELDS } from '@/lib/staff/editable-fields';
 import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 import type {
   CertificateScans,
@@ -349,6 +350,9 @@ export function ProfileEditForm({
                   control={control as never}
                   errors={errors as never}
                   isPending={isPending}
+                  // Greyed from the list the save filters by — the стаж is
+                  // not theirs to set (owner, 2026-10-16).
+                  locked={(field) => !USER_EDITABLE_STAFF_FIELDS.has(field)}
                   headship={headship}
                 />
                 <EducationCard

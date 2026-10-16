@@ -449,9 +449,12 @@ describe('updateStaff field filtering', () => {
         // The two language certificates and the diplomas («degrees») are in this
         // list but are NOT Staff columns: they are rows of their own, written
         // beside the update.
+        // Nor the стаж: ADMIN or a granted division sets it (owner, 2026-10-16).
         ...ACADEMIC_EDITABLE_FIELDS.filter(
           (field) =>
-            field !== 'degrees' && !(Object.values(CERTIFICATE_FIELDS) as string[]).includes(field)
+            field !== 'degrees' &&
+            field !== 'pedagogicalExperience' &&
+            !(Object.values(CERTIFICATE_FIELDS) as string[]).includes(field)
         ),
         'academicRank',
         'scientificDegree',

@@ -232,6 +232,18 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     ]);
   });
 
+  // Not theirs to set (owner, 2026-10-16): ADMIN or a granted division does it.
+  it('drops the науково-педагогічний стаж, though the rest saves', async () => {
+    const tx = mockTx();
+    expect(
+      await updateOwnProfile({ ...payload, ...ACADEMIC } as unknown as OwnProfileSchema)
+    ).toEqual({ success: true });
+
+    const data = tx.staff.update.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('pedagogicalExperience');
+    expect(data).toMatchObject({ position: 'DOCENT' });
+  });
+
   // The guard behind the popup (owner, 2026-10-15)
   it('refuses a NEW diploma with a mandatory field empty, before anything is written', async () => {
     mockTx();
