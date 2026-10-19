@@ -71,6 +71,7 @@ export default async function RatingTemplatePage({
                 isActive: true,
                 requiresVerification: true,
                 entityFirstEntry: true,
+                gatesRating: true,
                 licencePositions: true,
                 // Drives whether the row may be deleted or only deactivated
                 _count: { select: { activities: true } },
@@ -218,6 +219,7 @@ export default async function RatingTemplatePage({
                         isActive: type.isActive,
                         requiresVerification: type.requiresVerification,
                         entityFirstEntry: type.entityFirstEntry,
+                        gatesRating: type.gatesRating,
                         licencePositions: parseLicencePositions(type.licencePositions),
                         activityCount: type._count.activities,
                         fields,

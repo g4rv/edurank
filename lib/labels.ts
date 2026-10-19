@@ -180,6 +180,7 @@ export const FIELD_LABELS: Record<string, string> = {
   isActive: 'Активний',
   requiresVerification: 'Потребує перевірки',
   entityFirstEntry: 'Внесення групою',
+  gatesRating: 'Спершу заповнити цей пункт',
   closedAt: 'Рік закрито',
   code: 'Код показника',
   licencePositions: 'Позиції ліцензійних умов',

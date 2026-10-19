@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import {
   BadgeCheck,
   BookOpen,
+  Check,
   Building2,
   CalendarCog,
   ChartColumn,
@@ -91,6 +92,11 @@ export interface SidebarProps {
    */
   ratingTotals?: SectionTotals | null;
   /**
+   * Sections made only of 5.1, which scores nothing (2026-10-16): a tick once
+   * it is filled, «—» before, never a «0». Section number → filled.
+   */
+  ratingMarks?: Record<number, boolean>;
+  /**
    * Which рік these five sections belong to. Somebody filling their rating in
    * September is a year behind what the calendar says, and the group gave no
    * sign of which one it was counting.
@@ -132,6 +138,7 @@ export function Sidebar({
   isDean = false,
   canOverseeSciencePlans = false,
   ratingTotals = null,
+  ratingMarks = {},
   ratingYear = null,
   inDrawer = false,
 }: SidebarProps) {
@@ -303,7 +310,12 @@ export function Sidebar({
               <NavLink key={item.href} item={item} pathname={pathname} />
             ))}
             {section.showSections && (
-              <AddActivityNav pathname={pathname} totals={ratingTotals} year={ratingYear} />
+              <AddActivityNav
+                pathname={pathname}
+                totals={ratingTotals}
+                marks={ratingMarks}
+                year={ratingYear}
+              />
             )}
           </Fragment>
         ))}
@@ -359,10 +371,12 @@ export function Sidebar({
 function AddActivityNav({
   pathname,
   totals,
+  marks,
   year,
 }: {
   pathname: string;
   totals: SectionTotals | null;
+  marks: Record<number, boolean>;
   year: number | null;
 }) {
   return (
@@ -402,10 +416,21 @@ function AddActivityNav({
                     chrome monochrome, and a coloured figure here would pull the
                     eye off the page it is meant to lead to. `tabular-nums` so
                     the five line up as a column rather than a ragged edge. */}
-                {totals && (
-                  <span className="ml-auto text-muted-foreground tabular-nums">
-                    {totals.sections[section - 1].toLocaleString('uk-UA')}
-                  </span>
+                {section in marks ? (
+                  // 5.1 alone: a status, so it may carry a hue (§3)
+                  marks[section] ? (
+                    <Check className="ml-auto size-4 text-success" aria-label="Виконано" />
+                  ) : (
+                    <span className="ml-auto text-warning" title="Не заповнено">
+                      —
+                    </span>
+                  )
+                ) : (
+                  totals && (
+                    <span className="ml-auto text-muted-foreground tabular-nums">
+                      {totals.sections[section - 1].toLocaleString('uk-UA')}
+                    </span>
+                  )
                 )}
               </span>
             </Link>

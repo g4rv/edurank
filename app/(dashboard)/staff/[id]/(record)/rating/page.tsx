@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { loadRatingGate } from '@/lib/rating/rating-gate';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { auth } from '@/lib/auth';
 import { canOverseeScience } from '@/lib/science/oversight';
@@ -8,7 +9,11 @@ import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-t
 import { getRatingEntry } from '@/lib/queries/get-rating';
 import { listStaffActivities } from '@/lib/queries/list-activities';
 import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
-import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-rows';
+import {
+  snapshotBlocked,
+  snapshotToGroups,
+  toAchievementGroups,
+} from '@/lib/rating/achievement-rows';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { RatingTable } from '@/components/rating/rating-table';
 import { EmptyRowsSwitch } from '@/components/rating/rating-view';
@@ -85,9 +90,12 @@ export default async function StaffRatingPage({
   // above — one rating, one table — holds just as hard for 2025.
   const catalogue = await listTemplateIndicators(year);
 
-  const snapshotGroups = closed
-    ? snapshotToGroups((await getRatingEntry(id, year))?.snapshot, catalogue)
-    : null;
+  const snapshot = closed ? (await getRatingEntry(id, year))?.snapshot : null;
+  const snapshotGroups = closed ? snapshotToGroups(snapshot, catalogue) : null;
+
+  // 5.1 not filled → the year counts as 0 (owner, 2026-10-16). An open year asks
+  // the live rule; a closed one reads what was frozen when it closed.
+  const blocked = closed ? snapshotBlocked(snapshot) : !(await loadRatingGate(db, id, year)).open;
 
   /**
    * A closed year with NO snapshot is an empty rating, not an open one.
@@ -134,7 +142,7 @@ export default async function StaffRatingPage({
         </ToolbarGroup>
       </RecordTabRow>
 
-      <RatingTable groups={groups} fill />
+      <RatingTable groups={groups} fill blocked={blocked} />
     </div>
   );
 }

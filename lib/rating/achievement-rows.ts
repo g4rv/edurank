@@ -33,6 +33,7 @@ function toRow(a: StaffActivity, canManage: boolean): AchievementRow {
     statusLabel: ACTIVITY_STATUS_LABELS[a.status],
     removeReason: a.removeReason,
     inputSource: a.activityType.inputSource,
+    gating: a.activityType.gatesRating || undefined,
     division: a.activityType.verifyingDivision
       ? shortDivisionName(a.activityType.verifyingDivision)
       : null,
@@ -57,8 +58,17 @@ interface RatingSnapshot {
       score: number;
       status: 'APPROVED';
       statusLabel: string;
+      /** 5.1 — shows «Виконано» (written since 2026-10-16) */
+      gating?: boolean;
     }[];
   }[];
+  /** 5.1 was not filled when the year closed: the total counted as 0 */
+  blocked?: boolean;
+}
+
+/** Did this closed year count as 0 because 5.1 was never filled? */
+export function snapshotBlocked(snapshot: unknown): boolean {
+  return (snapshot as RatingSnapshot | null)?.blocked === true;
 }
 
 /**
@@ -78,6 +88,7 @@ function emptyRow(indicator: TemplateIndicator): AchievementRow {
     canDelete: false,
     isEmpty: true,
     inputSource: indicator.inputSource,
+    gating: indicator.gatesRating || undefined,
     division: indicator.verifyingDivision ? shortDivisionName(indicator.verifyingDivision) : null,
   };
 }

@@ -340,6 +340,12 @@ pnpm db:book-sheets  # one-off: rating 3.7 / 2.2 typed in друкованих �
                       #   pages. Converts the field, sets 1,5 minimum on монографія,
                       #   and converts + RE-SCORES the open year's entries (pages ÷ 24
                       #   to 0,1). Closed years untouched. Report first; --apply.
+pnpm db:lecturer-gate  # one-off, after migrate deploy: 5.1 «Я викладач» — the new form, no
+                      #   points, opens the rest of the rating; its saved entries kept and
+                      #   re-scored to 0; every open-year total recomputed (those with no
+                      #   5.1 go to 0). Report first (runs and rolls back); --apply.
+pnpm db:intl-publication  # one-off: the new 3.10, and 3.10–3.25 → 3.11–3.26 in every open
+                      #   year. No entry or score moves. Report first; --apply.
 pnpm db:science-sheets-decimals  # one-off: «Кількість друкованих аркушів» takes ONE decimal
                       #   (1,7, never 1,73) in every planning year. Report first;
                       #   --apply writes. Saved works with two decimals are only listed.
@@ -523,6 +529,25 @@ Rules that are easy to get wrong:
 - **Scores are frozen at save.** `Activity.score` is computed once; editing a coefficient later does not rewrite existing rows.
 - **A deactivated indicator scores nothing.** Only `APPROVED` rows of an `isActive` type count — see `COUNTED` in `lib/rating/recompute.ts`. Toggling `isActive` recomputes everyone holding it.
 - **`year` is always derived** from the type's template, never taken from client input.
+- **5.1 comes first and scores nothing** (owner, 2026-10-16). Its form opens
+  with «Я викладач»; nothing else is drawn until it is on, and then the вид
+  роботи, дисципліна, посилання and at least one матеріал are required
+  (`requiredWhen: { field, checked }` — see `FieldCondition`). Saving it
+  either way OPENS THE REST OF THE RATING: until an НПП has an entry of every
+  `ActivityType.gatesRating` indicator of the year, `createActivity` /
+  `deleteActivity` refuse every other indicator, the section pages show
+  `RatingGateNote`, and `recomputeRatingEntry` writes their year as 0 —
+  division-entered points included (`lib/rating/rating-gate.ts`). Its own rows
+  read «✓ Виконано» / «Не заповнено», never a number (`GateMark`), in every
+  list, the sidebar, moderation and the Excel form. A closed year's snapshot
+  freezes the same rule (`blocked`). Order: the science plan, then 5.1, then
+  the rest. The cross-person lists (/rating, dashboard) still show its column
+  as 0.
+- **A box can be required only in some state of the form** — `requiredWhen` on
+  any kind: `{ field, in }` (a select's answer), `{ field, checked }` (a switch;
+  the box is also hidden and dropped while it is off) or `{ field, empty }`
+  (another box left empty — 3.10's «DOI or ISSN»). `schemaForFields` enforces
+  it; on a checkbox it means «at least one of the group».
 - **A book is typed in друкованих аркушах, not pages** (owner, 2026-10-16). The
   page-based indicators (3.7 монографія, 2.2 видання) ask «Друкованих аркушів»
   (`sheets`, one decimal) and «Кількість співавторів». The person's share is
@@ -839,7 +864,9 @@ Easy to get wrong:
 - **Sheets are typed with ONE decimal at most** (owner, 2026-10-16): the three
   «Кількість друкованих аркушів» fields (монографія, перевидання, рецензування)
   carry `decimals: 1`. The box REFUSES a second digit while typing
-  (`limitDecimals`, a text box with a comma or a point) and `schemaForFields`
+  (`limitDecimals`, a text box that takes a comma or a point and always SHOWS
+  the comma — the Ukrainian separator, owner 2026-10-19; every printed number
+  goes through `decimalText` too) and `schemaForFields`
   refuses it again on the server; a value already saved is not re-judged on
   edit. The 1,5-per-співавтор rule stays in the Характеристика п.3 only. The
   catalogue change reaches existing databases through

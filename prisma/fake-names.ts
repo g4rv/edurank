@@ -170,6 +170,9 @@ export function sampleEvidence(fields: readonly EvidenceField[], random: () => n
       case 'doi':
         out[f.name] = '10.1000/demo.2026';
         break;
+      case 'issn':
+        out[f.name] = '0028-0836';
+        break;
       case 'checkbox':
         out[f.name] = true;
         break;

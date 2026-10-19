@@ -150,3 +150,55 @@ describe('buildRatingWorkbook', () => {
     expect(grand[4].startsWith('=SUM(')).toBe(true);
   });
 });
+
+// 5.1 scores nothing (owner, 2026-10-16): the form says «Виконано» / «Не
+// заповнено» in its place, and a person who has not filled it totals 0.
+describe('buildRatingWorkbook — 5.1 «Я викладач»', () => {
+  const moodle: ExportActivityType = {
+    code: 'moodle_course',
+    label: 'Навчально-методичне забезпечення на платформі Moodle',
+    itemNumber: '5.1',
+    coefficient: 0,
+    coefficientNote: 'Без балів',
+    sectionNumber: 5,
+    sectionTitle: 'Moodle',
+    fields: [
+      { kind: 'checkbox', name: 'isLecturer', label: 'Я викладач' },
+      {
+        kind: 'select',
+        name: 'mode',
+        label: 'Вид роботи',
+        options: [{ value: 'development', label: 'Розроблення' }],
+        requiredWhen: { field: 'isLecturer', checked: true },
+      },
+    ],
+    divisionKey: null,
+    gatesRating: true,
+  };
+  const flatOf = (s: typeof staff & { blocked?: boolean }) =>
+    cellValues(buildRatingWorkbook(s, [...types, moodle]).getWorksheet('Рейтинг')!).map((r) =>
+      r.join('|')
+    );
+
+  it('reads «Виконано» on 5.1 and its розділ once it is filled, and adds up as usual', () => {
+    const flat = flatOf({
+      ...staff,
+      activities: [...staff.activities, { code: 'moodle_course', score: 0, option: 'development' }],
+    });
+    expect(flat.some((r) => r.startsWith('5.1.|') && r.includes('|Виконано|'))).toBe(true);
+    expect(
+      flat.some((r) => r.startsWith('Всього балів по розділу 5') && r.includes('Виконано'))
+    ).toBe(true);
+    // no per-option rows of points that do not exist
+    expect(flat.some((r) => r.startsWith('|Розроблення'))).toBe(false);
+    expect(flat.find((r) => r.startsWith('Загальна сума балів'))).toContain('=SUM(');
+  });
+
+  it('reads «Не заповнено» and totals 0 for somebody who has not filled it', () => {
+    const flat = flatOf({ ...staff, blocked: true });
+    expect(flat.some((r) => r.startsWith('5.1.|') && r.includes('|Не заповнено|'))).toBe(true);
+    const grand = flat.find((r) => r.startsWith('Загальна сума балів'))!;
+    expect(grand).toContain('|0|');
+    expect(grand).toContain('п. 5.1 не заповнено');
+  });
+});

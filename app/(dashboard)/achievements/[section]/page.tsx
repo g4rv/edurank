@@ -9,6 +9,9 @@ import { RatingClosedNote } from '@/components/rating/rating-closed-note';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PlanGateNote } from '@/components/rating/plan-gate-note';
+import { RatingGateNote } from '@/components/rating/rating-gate-note';
+import { loadRatingGate, type RatingGate } from '@/lib/rating/rating-gate';
+import { db } from '@/lib/db';
 import { AchievementsList } from '@/components/rating/achievements-list';
 import { AddAchievementForm } from '@/components/rating/add-achievement-form';
 import { SectionHeader } from '@/components/rating/section-header';
@@ -104,6 +107,7 @@ export default async function AchievementsSectionPage({
   // Only while the year can be filled in: a CLOSED year is read-only anyway,
   // and hiding a person's own finished record behind «save your plan» would
   // block nothing and only take the list away (owner, 2026-10-05).
+  let ratingGate: RatingGate = { open: true };
   if (canManage) {
     const gate = await getSciencePlanGate(staffId);
     if (!gate.open) {
@@ -115,7 +119,22 @@ export default async function AchievementsSectionPage({
         </div>
       );
     }
+
+    // Then 5.1 (owner, 2026-10-16): every other section waits for it, the same
+    // way and for the same reason. The section that holds it stays open, and
+    // offers only it until it is filled.
+    ratingGate = await loadRatingGate(db, staffId, template.year);
+    if (!ratingGate.open && !ratingGate.missing.some((t) => t.sectionNumber === section)) {
+      return (
+        <div className="space-y-5">
+          <Breadcrumbs items={[...RATING_CRUMBS, { label: `Розділ ${section}` }]} />
+          <SectionHeader section={section} />
+          <RatingGateNote missing={ratingGate.missing} />
+        </div>
+      );
+    }
   }
+  const onlyGating = ratingGate.open ? null : new Set(ratingGate.missing.map((t) => t.id));
 
   // The SAME stored row the sidebar reads, not a sum of the rows below. A
   // deactivated indicator still has rows on screen and scores nothing, so
@@ -128,6 +147,7 @@ export default async function AchievementsSectionPage({
   const submittableTypes = canManage
     ? template.activityTypes
         .filter((t) => t.section.number === section)
+        .filter((t) => !onlyGating || onlyGating.has(t.id))
         .map((t) => ({
           id: t.id,
           label: t.label,
@@ -135,6 +155,7 @@ export default async function AchievementsSectionPage({
           coefficientNote: t.coefficientNote,
           fields: fieldsOf(t),
           scoring: scoringOf(t),
+          gatesRating: t.gatesRating,
         }))
     : [];
 
@@ -148,6 +169,12 @@ export default async function AchievementsSectionPage({
       <SectionHeader
         section={section}
         score={totals?.sections[section - 1] ?? 0}
+        // A section made only of 5.1 has nothing to add up (2026-10-16)
+        done={
+          submittableTypes.length > 0 && submittableTypes.every((t) => t.gatesRating)
+            ? ratingGate.open
+            : undefined
+        }
         action={
           <AddAchievementForm
             types={submittableTypes}

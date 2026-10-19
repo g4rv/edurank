@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ChevronUp, ChevronDown, ChevronsUpDown, Eye, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GateMark } from '@/components/rating/gate-mark';
 import { Input } from '@/components/aurora/ui/input';
 import { Button } from '@/components/aurora/ui/button';
 import { DataTable } from '@/components/ui/data-table';
@@ -36,6 +37,8 @@ export interface ModerationRow {
   label: string;
   summary: string;
   score: number;
+  /** 5.1 — scores nothing, shows «Виконано» (2026-10-16) */
+  gating?: boolean;
   status: 'PENDING' | 'APPROVED' | 'REMOVED';
   statusLabel: string;
   removeReason: string | null;
@@ -546,7 +549,15 @@ function TableView({
                   row.status === 'REMOVED' && 'text-muted-foreground line-through'
                 )}
               >
-                {row.score}
+                {row.gating ? (
+                  row.status === 'APPROVED' ? (
+                    <GateMark done compact />
+                  ) : (
+                    '—'
+                  )
+                ) : (
+                  row.score
+                )}
               </td>
               <td className="px-3 py-2.5">
                 <StatusPill row={row} />
@@ -641,7 +652,15 @@ function GroupedView({
                       row.status === 'REMOVED' && 'text-muted-foreground line-through'
                     )}
                   >
-                    {row.score}
+                    {row.gating ? (
+                      row.status === 'APPROVED' ? (
+                        <GateMark done className="text-sm" />
+                      ) : (
+                        '—'
+                      )
+                    ) : (
+                      row.score
+                    )}
                   </span>
                   <RowActions row={row} />
                 </li>

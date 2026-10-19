@@ -27,8 +27,10 @@ function objectShape(schema: unknown): Record<string, unknown> | null {
   let cur = schema as { shape?: Record<string, unknown>; _def?: Record<string, unknown> } | null;
   for (let depth = 0; depth < 8 && cur; depth++) {
     if (cur.shape && typeof cur.shape === 'object') return cur.shape;
-    const def = cur._def as { schema?: unknown; innerType?: unknown } | undefined;
-    cur = (def?.schema ?? def?.innerType ?? null) as typeof cur;
+    // `in`: a `.transform()` makes a pipe whose input is the object — the
+    // evidence forms drop the boxes hidden behind a switch that way (2026-10-16)
+    const def = cur._def as { schema?: unknown; innerType?: unknown; in?: unknown } | undefined;
+    cur = (def?.schema ?? def?.innerType ?? def?.in ?? null) as typeof cur;
   }
   return null;
 }

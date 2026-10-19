@@ -32,6 +32,7 @@ const FIELD_KIND_LABELS: Record<EvidenceField['kind'], string> = {
   select: 'Список вибору',
   isbn: 'ISBN',
   doi: 'DOI',
+  issn: 'ISSN',
 };
 
 const ADDABLE_KINDS: EvidenceField['kind'][] = [

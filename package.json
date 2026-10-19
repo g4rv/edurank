@@ -32,6 +32,8 @@
     "db:kharakterystyka-cleanup": "tsx prisma/kharakterystyka-cleanup.ts",
     "db:bib-placeholder": "tsx prisma/bibliography-placeholder.ts",
     "db:book-sheets": "tsx prisma/book-sheets.ts",
+    "db:lecturer-gate": "tsx prisma/lecturer-gate.ts",
+    "db:intl-publication": "tsx prisma/intl-publication.ts",
     "data:export-kharakterystyka": "tsx prisma/kharakterystyka-transfer.ts --export",
     "db:import-kharakterystyka": "tsx prisma/kharakterystyka-transfer.ts",
     "kharakterystyka:one": "tsx prisma/kharakterystyka-one-person.ts",

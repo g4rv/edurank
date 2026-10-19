@@ -20,6 +20,15 @@ const label = z.string().trim().min(1, { error: "Обов'язкове поле"
 
 const common = { name: fieldName, label };
 
+/** See `FieldCondition` — when a box that may stay empty must be filled */
+const requiredWhen = z
+  .union([
+    z.strictObject({ field: z.string().min(1), in: z.array(z.string()).min(1) }),
+    z.strictObject({ field: z.string().min(1), checked: z.literal(true) }),
+    z.strictObject({ field: z.string().min(1), empty: z.literal(true) }),
+  ])
+  .optional();
+
 export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('text'),
@@ -32,6 +41,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     // A joined ПІБ chosen from a list rather than typed (2026-10-07)
     pickFrom: z.literal('aspirants').optional(),
     optional: z.boolean().optional(),
+    requiredWhen,
     // Display only — never read by the scoring engine or the Характеристика
     placeholder: z.string().max(300).optional(),
   }),
@@ -50,6 +60,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     optional: z.boolean().optional(),
     hosts: z.array(z.string().min(1)).readonly().optional(),
     hostsError: z.string().max(500).optional(),
+    requiredWhen,
   }),
   z.strictObject({
     kind: z.literal('date'),
@@ -62,11 +73,20 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     kind: z.literal('isbn'),
     ...common,
     optional: z.boolean().optional(),
-    requiredWhen: z
-      .strictObject({ field: z.string().min(1), in: z.array(z.string()).min(1) })
-      .optional(),
+    requiredWhen,
   }),
-  z.strictObject({ kind: z.literal('doi'), ...common, optional: z.boolean().optional() }),
+  z.strictObject({
+    kind: z.literal('doi'),
+    ...common,
+    optional: z.boolean().optional(),
+    requiredWhen,
+  }),
+  z.strictObject({
+    kind: z.literal('issn'),
+    ...common,
+    optional: z.boolean().optional(),
+    requiredWhen,
+  }),
   z.strictObject({
     kind: z.literal('checkbox'),
     ...common,
@@ -74,6 +94,8 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     requiredError: z.string().max(500).optional(),
     points: z.record(z.string(), z.number()).optional(),
     group: z.string().max(200).optional(),
+    requiredWhen,
+    offLabel: z.string().max(200).optional(),
   }),
   z.strictObject({
     kind: z.literal('select'),
@@ -90,6 +112,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
       .readonly(),
     optional: z.boolean().optional(),
     span: z.union([z.literal(1), z.literal(2)]).optional(),
+    requiredWhen,
   }),
 ]) as z.ZodType<EvidenceField>;
 

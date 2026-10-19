@@ -91,7 +91,11 @@ describe('thresholds', () => {
   it('п.4 needs three навчально-методичні праці', () => {
     const two = [
       activity('edition_publication', { option: 'methodical_guide', pages: 100 }),
-      activity('moodle_course', { mode: 'development', discipline: 'Педагогіка' }),
+      activity('moodle_course', {
+        isLecturer: true,
+        mode: 'development',
+        discipline: 'Педагогіка',
+      }),
     ];
     expect(position(buildKharakterystyka(two, NO_PROFILE, YEAR), 4).met).toBe(false);
 

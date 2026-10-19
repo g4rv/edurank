@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink, Eye } from 'lucide-react';
 import Link from 'next/link';
+import { GateMark } from '@/components/rating/gate-mark';
 import {
   Sheet,
   SheetContent,
@@ -107,7 +108,15 @@ export function SubmissionPanel({
                       row.status === 'REMOVED' && 'text-muted-foreground line-through'
                     )}
                   >
-                    {row.score}
+                    {row.gating ? (
+                      row.status === 'APPROVED' ? (
+                        <GateMark done className="text-sm" />
+                      ) : (
+                        '—'
+                      )
+                    ) : (
+                      row.score
+                    )}
                   </span>
                 </Figure>
                 <Figure label="Статус">{row.statusLabel}</Figure>

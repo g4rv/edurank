@@ -13,7 +13,8 @@ import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema, scoringSpecSchema } from '@/validations/activity-type-spec';
 import { parseLicencePositions } from '@/validations/licence-positions';
-import { recomputeRatingEntries } from '@/lib/rating/recompute';
+import { blockedStaff } from '@/lib/rating/rating-gate';
+import { recomputeRatingEntries, recomputeYearEntries } from '@/lib/rating/recompute';
 import {
   createActivityTypeSchema,
   updateActivityTypeSchema,
@@ -46,6 +47,12 @@ async function syncDerivedOrWarn(): Promise<{ synced: number; warning: string | 
     };
   }
 }
+
+/**
+ * For a transaction that may recompute the whole year because the 5.1 gate
+ * changed — ~330 people, well past Prisma's 5 s default.
+ */
+const GATE_RECOMPUTE_TX = { timeout: 60_000 };
 
 function revalidateRating() {
   revalidatePath('/admin/rating');
@@ -112,6 +119,7 @@ export async function cloneTemplate(fromYear: number): Promise<RatingAdminState>
               isActive: type.isActive,
               requiresVerification: type.requiresVerification,
               entityFirstEntry: type.entityFirstEntry,
+              gatesRating: type.gatesRating,
             },
           });
         }
@@ -302,6 +310,9 @@ export async function updateActivityType(
       licencePositions: true,
       verifyingDivisionId: true,
       isActive: true,
+      requiresVerification: true,
+      entityFirstEntry: true,
+      gatesRating: true,
       inputSource: true,
       section: { select: { number: true } },
       template: {
@@ -343,6 +354,10 @@ export async function updateActivityType(
   // Toggling «Показник активний» moves every rating that holds this indicator:
   // deactivated rows stay for history but stop scoring (see COUNTED in recompute.ts).
   const activeChanged = parsed.data.isActive !== type.isActive;
+  // Whether this indicator closes the rest of the rating (5.1) — before and
+  // after. A change moves everyone's total, not only its holders'.
+  const gateChanged =
+    (type.gatesRating && type.isActive) !== (parsed.data.gatesRating && parsed.data.isActive);
   let affected = 0;
 
   try {
@@ -378,6 +393,11 @@ export async function updateActivityType(
                 coefficientNote: type.coefficientNote,
                 verifyingDivisionId: type.verifyingDivisionId,
                 isActive: type.isActive,
+                // Every switch the form sends: one missing here read as «empty»,
+                // and every save logged it as changed when nobody touched it
+                requiresVerification: type.requiresVerification,
+                entityFirstEntry: type.entityFirstEntry,
+                gatesRating: type.gatesRating,
                 specs: specsFingerprint(type),
                 licencePositions: positionsFingerprint(type.licencePositions),
               },
@@ -392,18 +412,19 @@ export async function updateActivityType(
           },
         });
 
-        if (activeChanged) {
+        if (activeChanged || gateChanged) {
           const holders = await tx.activity.findMany({
             where: { activityTypeId: id, year: type.template.year },
             select: { staffId: true },
             distinct: ['staffId'],
           });
-          affected = holders.length;
-          await recomputeRatingEntries(
-            tx,
-            holders.map((h) => h.staffId),
-            type.template.year
-          );
+          const holderIds = holders.map((h) => h.staffId);
+          if (gateChanged) {
+            affected = await recomputeYearEntries(tx, type.template.year, holderIds);
+          } else {
+            affected = holders.length;
+            await recomputeRatingEntries(tx, holderIds, type.template.year);
+          }
         }
       },
       // A university-wide indicator can touch all ~300 НПП in one go
@@ -466,6 +487,7 @@ export async function createActivityType(
     where: { id: templateId },
     select: {
       id: true,
+      year: true,
       status: true,
       sections: { select: { id: true, number: true } },
       activityTypes: {
@@ -535,7 +557,9 @@ export async function createActivityType(
           ),
         },
       });
-    });
+      // A new indicator that must be filled first closes everybody's year
+      if (plain.gatesRating && plain.isActive) await recomputeYearEntries(tx, template.year);
+    }, GATE_RECOMPUTE_TX);
   } catch (e) {
     return {
       error: parseDbError(
@@ -566,7 +590,9 @@ export async function deleteActivityType(id: string): Promise<RatingAdminState> 
       id: true,
       code: true,
       label: true,
-      template: { select: { status: true } },
+      isActive: true,
+      gatesRating: true,
+      template: { select: { status: true, year: true } },
       _count: { select: { activities: true } },
     },
   });
@@ -591,7 +617,9 @@ export async function deleteActivityType(id: string): Promise<RatingAdminState> 
           changes: diffChanges({ code: type.code, label: type.label }, {}),
         },
       });
-    });
+      // Nobody can have filled it (no entries), so everybody was held at 0 by it
+      if (type.gatesRating && type.isActive) await recomputeYearEntries(tx, type.template.year);
+    }, GATE_RECOMPUTE_TX);
   } catch (e) {
     return {
       error: parseDbError(
@@ -622,6 +650,7 @@ export async function addActivityType(templateId: string, code: string): Promise
     where: { id: templateId },
     select: {
       id: true,
+      year: true,
       status: true,
       sections: { select: { id: true, number: true } },
       activityTypes: { where: { code }, select: { id: true } },
@@ -659,6 +688,7 @@ export async function addActivityType(templateId: string, code: string): Promise
           maxPerYear: specs.maxPerYear,
           requiresVerification: specs.requiresVerification,
           entityFirstEntry: specs.entityFirstEntry,
+          gatesRating: specs.gatesRating,
           evidenceFields: specs.evidenceFields as unknown as Prisma.InputJsonValue,
           scoring: specs.scoring as unknown as Prisma.InputJsonValue,
           licencePositions: specs.licencePositions as unknown as Prisma.InputJsonValue,
@@ -679,7 +709,9 @@ export async function addActivityType(templateId: string, code: string): Promise
           changes: diffChanges({}, { code: def.code, label: def.label }),
         },
       });
-    });
+      // Re-adding 5.1 closes everybody's year until they fill it again
+      if (specs.gatesRating) await recomputeYearEntries(tx, template.year);
+    }, GATE_RECOMPUTE_TX);
   } catch (e) {
     return {
       error: parseDbError(
@@ -713,6 +745,7 @@ interface SnapshotItem {
   score: number;
   status: 'APPROVED';
   statusLabel: string;
+  gating?: boolean;
 }
 
 /** Keep summed scores to 2 decimals — see the note in lib/rating/recompute.ts */
@@ -780,11 +813,20 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
                 label: true,
                 itemNumber: true,
                 evidenceFields: true,
+                gatesRating: true,
                 section: { select: { number: true, title: true } },
               },
             },
           },
         });
+
+        // 5.1 never filled → the year counted as 0, and the frozen copy says so
+        // (owner, 2026-10-16) — the same rule `recomputeRatingEntry` applies
+        const blocked = await blockedStaff(
+          tx,
+          [...new Set(activities.map((a) => a.staffId))],
+          year
+        );
 
         const byStaff = new Map<string, typeof activities>();
         for (const a of activities) {
@@ -805,19 +847,27 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
                 score: r.score,
                 status: 'APPROVED' as const,
                 statusLabel: ACTIVITY_STATUS_LABELS.APPROVED,
+                ...(r.activityType.gatesRating ? { gating: true } : {}),
               }));
             return {
               number,
               title: titleByNumber.get(number) ?? SECTION_TITLES[number] ?? '',
               // round2: summing 2-decimal scores with + reintroduces float dust
               // (0.1 + 0.2 = 0.30000000000000004); the snapshot is frozen, so keep it clean.
-              subtotal: round2(items.reduce((sum, i) => sum + i.score, 0)),
+              subtotal: blocked.has(staffId)
+                ? 0
+                : round2(items.reduce((sum, i) => sum + i.score, 0)),
               items,
             };
           });
           const total = round2(sections.reduce((sum, s) => sum + s.subtotal, 0));
 
-          const snapshot = { closedAt: new Date().toISOString(), total, sections };
+          const snapshot = {
+            closedAt: new Date().toISOString(),
+            total,
+            sections,
+            ...(blocked.has(staffId) ? { blocked: true } : {}),
+          };
           await tx.ratingEntry.updateMany({
             where: { staffId, year },
             data: { snapshot: snapshot as unknown as Prisma.InputJsonValue },

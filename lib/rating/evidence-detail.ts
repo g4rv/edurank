@@ -1,4 +1,5 @@
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { decimalText } from '@/lib/decimal-input';
 
 /**
  * One submission's evidence, field by field, ready to render.
@@ -66,6 +67,13 @@ export function evidenceItems(fields: readonly EvidenceField[], evidence: unknow
         break;
       case 'doi':
         items.push({ ...base, value: String(raw), href: doiUrl(String(raw)) });
+        break;
+      case 'issn':
+        items.push({ ...base, value: String(raw) });
+        break;
+      // «4,2» — the Ukrainian separator, as everywhere else a number is printed
+      case 'number':
+        items.push({ ...base, value: decimalText(raw) });
         break;
       case 'url':
         items.push({ ...base, value: String(raw), href: externalUrl(String(raw)) });

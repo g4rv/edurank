@@ -23,8 +23,46 @@ function score(code: string, evidence: unknown, coefficient?: number) {
 
 const defsByKind = (kind: string) => ACTIVITY_TYPES_2026.filter((t) => t.kind === kind);
 
-/** The scored material checkboxes of moodle_course, straight off its field specs */
-const moodleMaterials = catalogueType('moodle_course').evidenceFields.filter(
+/**
+ * The CHECK_SUM rule 5.1 used until 2026-10-16, kept as a fixture: 5.1 scores
+ * nothing now, but the kind is still the engine's, and an admin may build one.
+ */
+const MATERIAL_POINTS = [
+  ['workProgram', 15, 5],
+  ['syllabus', 5, 5],
+  ['tests', 20, 10],
+  ['lectureNotes', 50, 10],
+  ['presentations', 30, 10],
+  ['methodicalMaterials', 30, 10],
+] as const;
+const checkSumMoodle: ScorableType = {
+  code: 'moodle_check_sum',
+  coefficient: 1,
+  scoring: { kind: 'CHECK_SUM' },
+  evidenceFields: [
+    {
+      kind: 'select',
+      name: 'mode',
+      label: 'Вид роботи',
+      options: [
+        { value: 'development', label: 'Розроблення', points: 150 },
+        { value: 'update', label: 'Оновлення', points: 50 },
+      ],
+    },
+    ...MATERIAL_POINTS.map(
+      ([name, development, update]): EvidenceField => ({
+        kind: 'checkbox',
+        name,
+        label: name,
+        points: { development, update },
+        group: 'Матеріали курсу',
+      })
+    ),
+  ],
+};
+const sumMoodle = (evidence: unknown) => computeScore(checkSumMoodle, evidence);
+
+const moodleMaterials = checkSumMoodle.evidenceFields.filter(
   (f): f is Extract<EvidenceField, { kind: 'checkbox' }> =>
     f.kind === 'checkbox' && f.points !== undefined
 );
@@ -32,6 +70,21 @@ const moodleMaterials = catalogueType('moodle_course').evidenceFields.filter(
 function allMoodleMaterials(present = true): Record<string, boolean> {
   return Object.fromEntries(moodleMaterials.map((m) => [m.name, present]));
 }
+
+describe('5.1 (moodle_course) scores nothing (owner, 2026-10-16)', () => {
+  it('is 0 for a lecturer and for somebody who does not teach', () => {
+    expect(score('moodle_course', { isLecturer: false })).toEqual({ computedValue: 1, score: 0 });
+    expect(
+      score('moodle_course', {
+        isLecturer: true,
+        mode: 'development',
+        discipline: 'Педагогіка',
+        link: 'https://moodle.example/1',
+        syllabus: true,
+      }).score
+    ).toBe(0);
+  });
+});
 
 describe('catalogue ↔ scoring consistency', () => {
   it('SELECT / SELECT_MULT / CHECK_SUM types have coefficient 1 in 2026', () => {
@@ -219,16 +272,16 @@ describe('SELECT_MULT types', () => {
   });
 });
 
-describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
+describe('CHECK_SUM (sum of ticked materials, flat evidence)', () => {
   it('development with ALL six materials = 150', () => {
-    expect(score('moodle_course', { mode: 'development', ...allMoodleMaterials() })).toEqual({
+    expect(sumMoodle({ mode: 'development', ...allMoodleMaterials() })).toEqual({
       computedValue: 150,
       score: 150,
     });
   });
 
   it('update with ALL six materials = 50', () => {
-    expect(score('moodle_course', { mode: 'update', ...allMoodleMaterials() }).score).toBe(50);
+    expect(sumMoodle({ mode: 'update', ...allMoodleMaterials() }).score).toBe(50);
   });
 
   it('a missing material costs exactly its own share, not the whole score', () => {
@@ -239,7 +292,7 @@ describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
         const share = material.points?.[mode] ?? 0;
         expect(share, `${material.name} has no ${mode} points`).toBeGreaterThan(0);
         expect(
-          score('moodle_course', { mode, ...allMoodleMaterials(), [material.name]: false }).score,
+          sumMoodle({ mode, ...allMoodleMaterials(), [material.name]: false }).score,
           `${mode} without ${material.name}`
         ).toBe(full - share);
       }
@@ -249,7 +302,7 @@ describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
   // The regression this rule replaced: five of six materials used to score 0.
   it('five of six materials scores the five', () => {
     expect(
-      score('moodle_course', {
+      sumMoodle({
         mode: 'development',
         ...allMoodleMaterials(),
         presentations: false,
@@ -258,9 +311,7 @@ describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
   });
 
   it('no materials at all scores 0', () => {
-    expect(
-      score('moodle_course', { mode: 'development', ...allMoodleMaterials(false) }).score
-    ).toBe(0);
+    expect(sumMoodle({ mode: 'development', ...allMoodleMaterials(false) }).score).toBe(0);
   });
 
   it('the material shares add up to their mode maximum', () => {
@@ -274,12 +325,12 @@ describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
   });
 
   it('rejects an unknown mode even when nothing is ticked', () => {
-    expect(() => score('moodle_course', { mode: 'elective', ...allMoodleMaterials() })).toThrow(
+    expect(() => sumMoodle({ mode: 'elective', ...allMoodleMaterials() })).toThrow(
       'unknown option'
     );
-    expect(() =>
-      score('moodle_course', { mode: 'elective', ...allMoodleMaterials(false) })
-    ).toThrow('unknown option');
+    expect(() => sumMoodle({ mode: 'elective', ...allMoodleMaterials(false) })).toThrow(
+      'unknown option'
+    );
   });
 });
 

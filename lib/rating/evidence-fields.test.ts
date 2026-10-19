@@ -68,9 +68,10 @@ describe('summarizeEvidence', () => {
 
   it('keeps every ticked material visible for the real 5.1 field set', () => {
     const materials = EVIDENCE_FIELDS.moodle_course.filter(
-      (f) => f.kind === 'checkbox' && f.points !== undefined
+      (f) => f.kind === 'checkbox' && f.group === 'Матеріали курсу'
     );
     const evidence: Record<string, unknown> = {
+      isLecturer: true,
       mode: 'development',
       discipline: 'Алгоритми',
       link: 'https://moodle.example/course/1',
@@ -81,6 +82,14 @@ describe('summarizeEvidence', () => {
     const summary = summarizeEvidence(EVIDENCE_FIELDS.moodle_course, evidence);
     for (const m of materials.slice(0, 5)) expect(summary).toContain(m.label);
     expect(summary).not.toContain(materials[5].label);
+  });
+});
+
+describe('a switch with an offLabel', () => {
+  it('prints «Не викладач» for 5.1 saved with the switch off', () => {
+    expect(summarizeEvidence(EVIDENCE_FIELDS.moodle_course, { isLecturer: false })).toBe(
+      'Не викладач'
+    );
   });
 });
 

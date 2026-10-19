@@ -56,6 +56,7 @@ export interface ActivityTypeDraft {
   isActive: boolean;
   requiresVerification: boolean;
   entityFirstEntry: boolean;
+  gatesRating: boolean;
   licencePositions: LicencePositionLink[];
   fields: EvidenceField[];
   scoring: ScoringSpec;
@@ -198,6 +199,7 @@ function ActivityTypeForm({
       isActive: draft.isActive,
       requiresVerification: draft.requiresVerification,
       entityFirstEntry: draft.entityFirstEntry,
+      gatesRating: draft.gatesRating,
       licencePositions: draft.licencePositions,
       evidenceFields: draft.fields,
       scoring: draft.scoring,
@@ -208,6 +210,7 @@ function ActivityTypeForm({
   const isActive = watch('isActive');
   const requiresVerification = watch('requiresVerification');
   const entityFirstEntry = watch('entityFirstEntry');
+  const gatesRating = watch('gatesRating');
   const licencePositions = watch('licencePositions');
   const inputSource = watch('inputSource') as ActivityTypeDraft['inputSource'];
   const divisionId = watch('verifyingDivisionId') as string;
@@ -538,6 +541,24 @@ function ActivityTypeForm({
                     <span className="block text-xs text-muted-foreground">
                       Один об’єкт (проєкт, рада, програма) вноситься раз і розподіляється на всіх
                       учасників
+                    </span>
+                  )}
+                </span>
+              </label>
+            )}
+
+            {inputSource === 'NPP_SUBMISSION' && (
+              <label className="flex cursor-pointer items-center gap-2">
+                <Switch
+                  checked={!!gatesRating}
+                  onCheckedChange={(v) => setValue('gatesRating', v)}
+                />
+                <span className="text-sm">
+                  Спершу заповнити цей пункт
+                  {!!gatesRating && (
+                    <span className="block text-xs text-muted-foreground">
+                      Доки НПП не заповнить його, інші пункти рейтингу закриті, а сума рахується як
+                      0. Сам пункт показує «Виконано» замість балів
                     </span>
                   )}
                 </span>

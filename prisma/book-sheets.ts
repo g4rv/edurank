@@ -53,6 +53,7 @@ async function main() {
       code: true,
       itemNumber: true,
       coefficient: true,
+      coefficientNote: true,
       evidenceFields: true,
       scoring: true,
       template: { select: { year: true, status: true } },
@@ -75,7 +76,10 @@ async function main() {
     const hasPages = fields.some((f) => f.name === 'pages');
     const nextFields = fields.map((f) => (f.name === 'pages' ? bookSheetsField() : f));
     const nextScoring: ScoringSpec = minShare ? { ...scoring, minShare } : scoring;
-    const typeChanged = hasPages || nextScoring.minShare !== scoring.minShare;
+    // The note explained the old rule — «др. арк. = сторінок / 24» — and sheets are typed now
+    const nextNote = t.coefficientNote?.replace(' (др. арк. = сторінок / 24)', '') ?? null;
+    const typeChanged =
+      hasPages || nextScoring.minShare !== scoring.minShare || nextNote !== t.coefficientNote;
 
     if (typeChanged) {
       typeCount += 1;
@@ -83,6 +87,11 @@ async function main() {
         `\n• Показник ${t.template.year}, п. ${t.itemNumber ?? '—'} ${t.code} (${t.template.status})`
       );
       if (hasPages) console.log('    поле: «Кількість сторінок» → «Друкованих аркушів» (1 знак)');
+      if (nextNote !== t.coefficientNote) {
+        console.log(
+          `    примітка: «…${t.coefficientNote?.slice(-60)}» → «…${nextNote?.slice(-60)}»`
+        );
+      }
       if (nextScoring.minShare !== scoring.minShare) {
         console.log(`    мінімальний особистий внесок: немає → ${comma(minShare!)} арк.`);
       }
@@ -92,6 +101,7 @@ async function main() {
           data: {
             evidenceFields: nextFields as unknown as Prisma.InputJsonValue,
             scoring: nextScoring as unknown as Prisma.InputJsonValue,
+            coefficientNote: nextNote,
           },
         })
       );

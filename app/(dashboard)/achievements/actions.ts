@@ -15,6 +15,7 @@ import { logError } from '@/lib/log';
 import { NPP_RATING_CLOSED_DETAIL, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PLAN_GATE_DETAIL } from '@/lib/science/plan-gate';
+import { loadRatingGate, ratingGateDetail } from '@/lib/rating/rating-gate';
 
 export type CreateActivityState = { error: string } | { success: true; score: number };
 
@@ -66,6 +67,7 @@ export async function createActivity(
       inputSource: true,
       isActive: true,
       maxPerYear: true,
+      gatesRating: true,
       evidenceFields: true,
       scoring: true,
       template: { select: { year: true, isActive: true, status: true } },
@@ -76,6 +78,13 @@ export async function createActivity(
   }
   if (!type.template.isActive || type.template.status !== 'OPEN') {
     return { error: 'Рейтинговий рік закрито для подання' };
+  }
+
+  // 5.1 comes first (owner, 2026-10-16): until it is filled, nothing else can
+  // be added. The indicator that opens the rating is itself always allowed.
+  if (!type.gatesRating) {
+    const gate = await loadRatingGate(db, staffId, type.template.year);
+    if (!gate.open) return { error: ratingGateDetail(gate.missing) };
   }
 
   let specs: ReturnType<typeof parseTypeSpecs>;
@@ -201,7 +210,12 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
       status: true,
       submittedByRole: true,
       activityType: {
-        select: { code: true, label: true, template: { select: { status: true } } },
+        select: {
+          code: true,
+          label: true,
+          gatesRating: true,
+          template: { select: { status: true } },
+        },
       },
     },
   });
@@ -212,6 +226,13 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
   }
   if (activity.activityType.template.status !== 'OPEN') {
     return { error: 'Рейтинговий рік закрито' };
+  }
+
+  // Deleting is filling the rating too — closed until 5.1 is filled, except
+  // 5.1's own entry, which may always be corrected (owner, 2026-10-16)
+  if (!activity.activityType.gatesRating) {
+    const gate = await loadRatingGate(db, staffId, activity.year);
+    if (!gate.open) return { error: ratingGateDetail(gate.missing) };
   }
 
   try {

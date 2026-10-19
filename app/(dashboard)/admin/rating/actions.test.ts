@@ -52,6 +52,8 @@ function mockTx() {
       findMany: vi.fn().mockResolvedValue([]),
     },
     activityType: {
+      // No gating indicator in the year — the rating is open (rating-gate.ts)
+      findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({ id: 'type-new' }),
       update: vi.fn().mockResolvedValue({}),
       delete: vi.fn().mockResolvedValue({}),
@@ -63,6 +65,8 @@ function mockTx() {
     },
     ratingSection: { create: vi.fn().mockResolvedValue({ id: 'sec-new' }) },
     ratingEntry: {
+      // Who has a total this year — read when the 5.1 gate itself changes
+      findMany: vi.fn().mockResolvedValue([]),
       updateMany: vi.fn().mockResolvedValue({}),
       upsert: vi.fn().mockResolvedValue({}),
     },
@@ -224,7 +228,9 @@ describe('updateActivityType', () => {
     scoring: ndrSpecs.scoring,
     verifyingDivisionId: 'div-nnv',
     isActive: true,
+    gatesRating: false,
     requiresVerification: false,
+    entityFirstEntry: false,
     inputSource: 'DIVISION_MANAGED',
     section: { number: 3 },
     template: {
@@ -249,6 +255,7 @@ describe('updateActivityType', () => {
     isActive: true,
     requiresVerification: false,
     entityFirstEntry: false,
+    gatesRating: false,
     licencePositions: [],
   };
 
@@ -375,6 +382,47 @@ describe('updateActivityType', () => {
     expect(changes.licencePositions).toEqual({ from: 'жодної', to: 'позиції: 2' });
   });
 
+  // A save that touches nothing must log nothing — the three switches used to
+  // read as «empty» before and «Ні» after, a change on every save
+  it('logs no change for switches nobody touched', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+
+    await updateActivityType('type-1', { ...valid, coefficient: 1 });
+
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes).not.toHaveProperty('requiresVerification');
+    expect(changes).not.toHaveProperty('entityFirstEntry');
+    expect(changes).not.toHaveProperty('gatesRating');
+  });
+
+  it('logs the switch when it really changes', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+
+    await updateActivityType('type-1', { ...valid, requiresVerification: true });
+
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes.requiresVerification).toEqual({ from: false, to: true });
+  });
+
+  // 5.1 scores nothing — an editor that refused 0 could never save it again
+  it('saves an indicator worth 0 points, and refuses a negative one', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    mockTx();
+
+    expect(await updateActivityType('type-1', { ...valid, coefficient: 0 })).toHaveProperty(
+      'success',
+      true
+    );
+    expect(await updateActivityType('type-1', { ...valid, coefficient: -1 })).toEqual({
+      error: 'Не може бути від’ємним',
+    });
+  });
+
   it('leaves ratings alone when isActive did not change', async () => {
     mockTypeFind.mockResolvedValue(type);
     (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
@@ -444,12 +492,81 @@ describe('updateActivityType', () => {
     });
     expect(tx.ratingEntry.upsert).not.toHaveBeenCalled();
   });
+
+  // 5.1's switch decides whether a whole year counts — for the people who do NOT
+  // hold it above all. Recomputing only its holders left them on a stale total.
+  it('switching «Спершу заповнити» off recomputes everyone with a total', async () => {
+    mockTypeFind.mockResolvedValue({ ...type, gatesRating: true });
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+    tx.ratingEntry.findMany.mockResolvedValue([
+      { staffId: 'staff-1' },
+      { staffId: 'staff-2' },
+      { staffId: 'staff-3' },
+    ]);
+    tx.activity.findMany
+      // holders of this indicator
+      .mockResolvedValueOnce([{ staffId: 'staff-1' }])
+      // counting rows — staff-2 never filled 5.1 and was held at 0
+      .mockResolvedValueOnce([
+        { staffId: 'staff-2', score: 500, activityType: { section: { number: 1 } } },
+      ]);
+
+    expect(await updateActivityType('type-1', { ...valid, gatesRating: false })).toEqual({
+      success: true,
+      message: 'Збережено. Оновлено рейтинг: 3 НПП',
+    });
+    expect(tx.ratingEntry.findMany).toHaveBeenCalledWith({
+      where: { year: 2026 },
+      select: { staffId: true },
+    });
+    const staff2 = tx.ratingEntry.upsert.mock.calls.find(
+      (c) => c[0].where.staffId_year.staffId === 'staff-2'
+    );
+    expect(staff2?.[0].update.totalScore).toBe(500);
+  });
+
+  it('switching it on holds everyone without an entry of it at 0', async () => {
+    mockTypeFind.mockResolvedValue(type);
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-2' }]);
+    // The indicator now opens the rating
+    tx.activityType.findMany.mockResolvedValue([{ id: 'type-1' }]);
+    tx.activity.findMany
+      // nobody holds it
+      .mockResolvedValueOnce([])
+      // staff-2's counting rows
+      .mockResolvedValueOnce([
+        { staffId: 'staff-2', score: 500, activityType: { section: { number: 1 } } },
+      ])
+      // …and staff-2 has not filled it
+      .mockResolvedValueOnce([]);
+
+    await updateActivityType('type-1', { ...valid, gatesRating: true });
+
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.ratingEntry.upsert.mock.calls[0][0].update.totalScore).toBe(0);
+  });
+
+  it('deactivating an indicator that gates the year recomputes everyone too', async () => {
+    mockTypeFind.mockResolvedValue({ ...type, gatesRating: true });
+    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
+    const tx = mockTx();
+    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-1' }, { staffId: 'staff-2' }]);
+
+    await updateActivityType('type-1', { ...valid, gatesRating: true, isActive: false });
+
+    expect(tx.ratingEntry.findMany).toHaveBeenCalled();
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(2);
+  });
 });
 
 // An indicator nobody wrote code for: this is the whole point of the editor.
 describe('createActivityType', () => {
   const openTemplate = {
     id: 'tpl-1',
+    year: 2026,
     status: 'OPEN',
     sections: [{ id: 'sec-3', number: 3 }],
     activityTypes: [{ code: 'ndr_execution', order: 4, sectionId: 'sec-3' }],
@@ -468,6 +585,7 @@ describe('createActivityType', () => {
     isActive: true,
     requiresVerification: false,
     entityFirstEntry: false,
+    gatesRating: false,
     scoring: { kind: 'SELECT' as const },
     evidenceFields: [
       {
@@ -567,6 +685,34 @@ describe('createActivityType', () => {
       error: 'Рейтинговий рік закрито',
     });
   });
+
+  it('leaves totals alone for an ordinary indicator', async () => {
+    mockTemplateFind.mockResolvedValue(openTemplate);
+    const tx = mockTx();
+    await createActivityType('tpl-1', jury);
+    expect(tx.ratingEntry.findMany).not.toHaveBeenCalled();
+  });
+
+  // Nobody can have filled a brand-new indicator, so it holds everyone at 0
+  it('a new indicator that must be filled first recomputes the whole year', async () => {
+    mockTemplateFind.mockResolvedValue(openTemplate);
+    const tx = mockTx();
+    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-1' }]);
+    tx.activityType.findMany.mockResolvedValue([{ id: 'type-new' }]);
+    tx.activity.findMany
+      .mockResolvedValueOnce([
+        { staffId: 'staff-1', score: 300, activityType: { section: { number: 3 } } },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await createActivityType('tpl-1', { ...jury, gatesRating: true });
+
+    expect(tx.ratingEntry.findMany).toHaveBeenCalledWith({
+      where: { year: 2026 },
+      select: { staffId: true },
+    });
+    expect(tx.ratingEntry.upsert.mock.calls[0][0].update.totalScore).toBe(0);
+  });
 });
 
 describe('deleteActivityType', () => {
@@ -574,9 +720,24 @@ describe('deleteActivityType', () => {
     id: 'type-1',
     code: 'startup_jury',
     label: 'Журі',
-    template: { status: 'OPEN' },
+    isActive: true,
+    gatesRating: false,
+    template: { status: 'OPEN', year: 2026 },
     _count: { activities: 0 },
   };
+
+  it('removing an unused indicator that gated the year gives everyone their points back', async () => {
+    mockTypeFind.mockResolvedValue({ ...unused, gatesRating: true });
+    const tx = mockTx();
+    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-1' }]);
+    tx.activity.findMany.mockResolvedValueOnce([
+      { staffId: 'staff-1', score: 300, activityType: { section: { number: 3 } } },
+    ]);
+
+    await deleteActivityType('type-1');
+
+    expect(tx.ratingEntry.upsert.mock.calls[0][0].update.totalScore).toBe(300);
+  });
 
   it('deletes an indicator nobody has used', async () => {
     mockTypeFind.mockResolvedValue(unused);
@@ -671,6 +832,7 @@ describe('cloneTemplate', () => {
 describe('addActivityType', () => {
   const template = {
     id: 'tpl-1',
+    year: 2026,
     status: 'OPEN',
     sections: [{ id: 'sec-3', number: 3 }],
     activityTypes: [],
@@ -701,5 +863,20 @@ describe('addActivityType', () => {
       error: 'Відділ для цього показника не знайдено',
     });
     expect(tx.activityType.create).not.toHaveBeenCalled();
+  });
+
+  it('re-adding 5.1 recomputes the whole year — it closes everyone’s rating again', async () => {
+    mockTemplateFind.mockResolvedValue({ ...template, sections: [{ id: 'sec-5', number: 5 }] });
+    const tx = mockTx();
+    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-1' }]);
+
+    await addActivityType('tpl-1', 'moodle_course');
+
+    expect(tx.activityType.create.mock.calls[0][0].data.gatesRating).toBe(true);
+    expect(tx.ratingEntry.findMany).toHaveBeenCalledWith({
+      where: { year: 2026 },
+      select: { staffId: true },
+    });
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
   });
 });

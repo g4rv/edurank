@@ -1,10 +1,16 @@
 import { z } from 'zod';
-import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import {
+  conditionMet,
+  fieldShown,
+  type EvidenceField,
+  type FieldCondition,
+} from '@/lib/rating/evidence-fields';
+import { isValidIssn, normalizeIssn } from '@/lib/issn';
 import type { ScoringSpec } from '@/lib/rating/scoring';
 import { isValidIsbn } from '@/lib/isbn';
 import { isValidDoi, normalizeDoi } from '@/lib/doi';
 import { hasDomainHost, hostMatches, withProtocol } from '@/lib/link-hosts';
-import { hasTooManyDecimals } from '@/lib/decimal-input';
+import { commaToPoint, hasTooManyDecimals } from '@/lib/decimal-input';
 import { personalSheets } from '@/lib/specs/scoring';
 
 // Builds one Zod schema per activity type from its evidence field specs
@@ -80,7 +86,8 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
             error: 'Лише українські літери, апостроф і дефіс',
           });
       }
-      return f.optional
+      // A conditional box may be empty on its own; `schemaForFields` decides
+      return f.optional || f.requiredWhen
         ? z.preprocess(emptyToUndefined, base.min(1).optional())
         : base.min(1, { error: "Обов'язкове поле" });
     }
@@ -101,8 +108,11 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
       if (f.decimals !== undefined && !f.int) {
         const places = f.decimals;
         return f.optional
-          ? z.preprocess(emptyToUndefined, decimalsRefine(base, places, stored).optional())
-          : decimalsRefine(base, places, stored);
+          ? z.preprocess(
+              (v) => commaToPoint(emptyToUndefined(v)),
+              decimalsRefine(base, places, stored).optional()
+            )
+          : z.preprocess(commaToPoint, decimalsRefine(base, places, stored));
       }
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
@@ -126,7 +136,7 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
         const message = f.hostsError ?? 'Посилання на інший сайт';
         base = base.refine((v) => hostMatches(v, hosts), { error: message });
       }
-      return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
+      return f.optional || f.requiredWhen ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'date': {
       const maxYear = new Date().getFullYear() + 1;
@@ -197,7 +207,25 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
         .min(1, { error: "Обов'язкове поле" })
         .transform(normalizeDoi)
         .refine(isValidDoi, { error: 'Некоректний DOI — очікується 10.XXXX/…' });
-      return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
+      return f.optional || f.requiredWhen ? z.preprocess(emptyToUndefined, base.optional()) : base;
+    }
+    case 'issn': {
+      // Stored as «1234-567X», whatever separators were typed
+      const base = z
+        .string({ error: "Обов'язкове поле" })
+        .trim()
+        .min(1, { error: "Обов'язкове поле" })
+        // An unfinished number is not a wrong check digit — say which it is
+        .refine((v) => normalizeIssn(v).length === 8, {
+          error: 'ISSN має 8 символів, наприклад 0028-0836',
+          abort: true,
+        })
+        .refine(isValidIssn, { error: 'Некоректний ISSN — перевірте контрольну цифру' })
+        .transform((v) => {
+          const d = normalizeIssn(v);
+          return `${d.slice(0, 4)}-${d.slice(4)}`;
+        });
+      return f.optional || f.requiredWhen ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
     case 'checkbox': {
       return f.mustBeTrue
@@ -207,6 +235,7 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
     case 'select': {
       const values = f.options.map((o) => o.value) as [string, ...string[]];
       const base = z.enum(values, { error: 'Оберіть значення зі списку' });
+      if (f.requiredWhen) return z.preprocess(emptyToUndefined, base.optional());
       // An optional list is a real case, not a contradiction: п.15's «Призове
       // місце» has four answers for the two winner variants and none for the
       // two jury ones. Blank arrives as '' from an untouched Radix select, so
@@ -243,24 +272,58 @@ export function schemaForFields(
   );
   const baseObject = opts?.allowUnknownKeys ? z.object(shape) : z.strictObject(shape);
 
-  // A box that is required only for some answer of a select (a book's ISBN for
-  // a монографія): the select is in the same object, so the check lives here.
+  // A box required only in some state of the form — a book's ISBN for a
+  // монографія, 5.1's fields once «Я викладач» is on, DOI-or-ISSN. The other
+  // box is in the same object, so the check lives here. See `FieldCondition`.
   const conditional = fields.flatMap((f) =>
-    f.kind === 'isbn' && f.requiredWhen ? [{ name: f.name, when: f.requiredWhen }] : []
+    'requiredWhen' in f && f.requiredWhen ? [{ field: f, when: f.requiredWhen }] : []
   );
+  const labelOf = (name: string) => fields.find((f) => f.name === name)?.label ?? name;
+  const missing = (when: FieldCondition) =>
+    'empty' in when
+      ? `Обов'язкове поле, коли не заповнено «${labelOf(when.field)}»`
+      : "Обов'язкове поле";
   const object =
     conditional.length === 0
       ? baseObject
-      : baseObject.superRefine((v, ctx) => {
-          const value = v as Record<string, unknown>;
-          for (const { name, when } of conditional) {
-            const answer = value[when.field];
-            const blank = typeof value[name] !== 'string' || !(value[name] as string).trim();
-            if (blank && typeof answer === 'string' && when.in.includes(answer)) {
-              ctx.addIssue({ code: 'custom', path: [name], message: "Обов'язкове поле" });
+      : baseObject
+          .superRefine((v, ctx) => {
+            const value = v as Record<string, unknown>;
+            const groupsDone = new Set<string>();
+            for (const { field: f, when } of conditional) {
+              if (!conditionMet(when, value)) continue;
+              if (f.kind === 'checkbox') {
+                // «At least one of the group» — one message for the set
+                const key = f.group ?? f.name;
+                if (groupsDone.has(key)) continue;
+                groupsDone.add(key);
+                const members = conditional
+                  .map((c) => c.field)
+                  .filter((g) => g.kind === 'checkbox' && (g.group ?? g.name) === key);
+                if (!members.some((g) => value[g.name] === true)) {
+                  ctx.addIssue({
+                    code: 'custom',
+                    path: [members[0].name],
+                    message: 'Позначте хоча б один пункт',
+                  });
+                }
+                continue;
+              }
+              const answer = value[f.name];
+              const blank =
+                answer === undefined ||
+                answer === null ||
+                (typeof answer === 'string' && !answer.trim());
+              if (blank) ctx.addIssue({ code: 'custom', path: [f.name], message: missing(when) });
             }
-          }
-        });
+          })
+          // A box hidden behind a switch that is off is not part of the answer:
+          // what was typed there before the switch went off is dropped.
+          .transform((v) => {
+            const value = { ...(v as Record<string, unknown>) };
+            for (const f of fields) if (!fieldShown(f, value)) delete value[f.name];
+            return value;
+          });
 
   // A монографія's personal share has a floor (owner, 2026-10-16): the book
   // divided between its authors, rounded to 0,1, must reach `minShare`. A row

@@ -1,11 +1,17 @@
 import { redirect } from 'next/navigation';
+import { db } from '@/lib/db';
+import { loadRatingGate } from '@/lib/rating/rating-gate';
 import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
 import { listStaffActivities } from '@/lib/queries/list-activities';
 import { listTemplateIndicators } from '@/lib/queries/list-template-indicators';
-import { snapshotToGroups, toAchievementGroups } from '@/lib/rating/achievement-rows';
+import {
+  snapshotBlocked,
+  snapshotToGroups,
+  toAchievementGroups,
+} from '@/lib/rating/achievement-rows';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { RatingTable } from '@/components/rating/rating-table';
@@ -84,9 +90,14 @@ export default async function MyRatingPage({
   // themselves against. Nothing frozen changes — an empty row scores 0.
   const catalogue = await listTemplateIndicators(year);
 
-  const snapshotGroups = closed
-    ? snapshotToGroups((await getRatingEntry(staffId, year))?.snapshot, catalogue)
-    : null;
+  const snapshot = closed ? (await getRatingEntry(staffId, year))?.snapshot : null;
+  const snapshotGroups = closed ? snapshotToGroups(snapshot, catalogue) : null;
+
+  // 5.1 not filled → the year counts as 0 (owner, 2026-10-16). An open year asks
+  // the live rule; a closed one reads what was frozen when it closed.
+  const blocked = closed
+    ? snapshotBlocked(snapshot)
+    : !(await loadRatingGate(db, staffId, year)).open;
 
   const groups =
     snapshotGroups ??
@@ -117,7 +128,7 @@ export default async function MyRatingPage({
         </ToolbarGroup>
       </ProfileTabRow>
 
-      <RatingTable groups={groups} fill />
+      <RatingTable groups={groups} fill blocked={blocked} />
     </div>
   );
 }

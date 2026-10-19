@@ -110,6 +110,7 @@ describe('snapshotToGroups', () => {
       itemNumber,
       label: `Показник ${itemNumber}`,
       inputSource: 'NPP_SUBMISSION',
+      gatesRating: false,
       verifyingDivision: null,
       section: { number: section, title: `Розділ ${section}` },
     });
@@ -219,6 +220,7 @@ describe('toAchievementGroups', () => {
       label: `Показник ${itemNumber}`,
       inputSource,
       verifyingDivision,
+      gatesRating: false,
       section: { number: section, title: `Розділ ${section}` },
     });
 

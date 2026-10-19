@@ -24,6 +24,11 @@ vi.mock('@/lib/rating/npp-access', async (importOriginal) => {
 // The science-plan gate has its own tests; here it is a switch, open unless a
 // test says otherwise, so the rest of the file stays about the rating itself.
 vi.mock('@/lib/queries/get-science-plan-gate', () => ({ getSciencePlanGate: vi.fn() }));
+// The 5.1 gate likewise: its rule has its own tests, here it is a switch
+vi.mock('@/lib/rating/rating-gate', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/rating/rating-gate')>();
+  return { ...actual, loadRatingGate: vi.fn() };
+});
 vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn() },
@@ -37,6 +42,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { catalogueType } from '@/lib/rating/db-specs';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
+import { loadRatingGate } from '@/lib/rating/rating-gate';
 import { createActivity, deleteActivity } from './actions';
 
 const mockAuth = auth as unknown as Mock;
@@ -45,6 +51,7 @@ const mockTypeFind = db.activityType.findUnique as unknown as Mock;
 const mockActivityFind = db.activity.findUnique as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 const mockPlanGate = getSciencePlanGate as unknown as Mock;
+const mockRatingGate = loadRatingGate as unknown as Mock;
 
 const userSession = { user: { id: 'user-1', role: 'USER', staffId: 'staff-1' } };
 const nppStaff = { isNpp: true, lastName: 'Тест', firstName: 'Тест', patronymic: 'Тестович' };
@@ -75,6 +82,8 @@ function mockTx({ existingCount = 0 } = {}) {
       findMany: vi.fn().mockResolvedValue([]),
     },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    // No gating indicator in the year — the rating is open (rating-gate.ts)
+    activityType: { findMany: vi.fn().mockResolvedValue([]) },
     ratingEntry: { upsert: vi.fn().mockResolvedValue({}) },
   };
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
@@ -88,6 +97,7 @@ beforeEach(() => {
   mockStaffFind.mockResolvedValue(nppStaff);
   mockTypeFind.mockResolvedValue(confUkraineType);
   mockPlanGate.mockResolvedValue({ open: true });
+  mockRatingGate.mockResolvedValue({ open: true });
 });
 
 describe('createActivity', () => {
@@ -310,5 +320,62 @@ describe('while the science plan is not saved', () => {
     mockActivityFind.mockResolvedValue(ownActivity);
     expect(await deleteActivity('activity-1')).toEqual(unsaved);
     expect(mockTransaction).not.toHaveBeenCalled();
+  });
+});
+
+// 5.1 comes first (owner, 2026-10-16). On the server too, for a tab left open.
+describe('while 5.1 is not filled', () => {
+  const closed = {
+    error: 'Спершу заповніть п. 5.1 — після цього можна заповнювати інші пункти рейтингу.',
+  };
+
+  beforeEach(() => {
+    mockRatingGate.mockResolvedValue({
+      open: false,
+      missing: [{ id: 't51', itemNumber: '5.1', sectionNumber: 5 }],
+    });
+  });
+
+  it('refuses createActivity for any other indicator', async () => {
+    mockTypeFind.mockResolvedValue({ ...confUkraineType, gatesRating: false });
+    expect(await createActivity('type-1', { title: 'Конференція' })).toEqual(closed);
+    expect(mockRatingGate).toHaveBeenCalledWith(expect.anything(), 'staff-1', 2026);
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('lets 5.1 itself be saved', async () => {
+    const moodle = catalogueType('moodle_course').specs;
+    mockTypeFind.mockResolvedValue({
+      ...confUkraineType,
+      id: 'type-51',
+      code: 'moodle_course',
+      label: '5.1',
+      coefficient: 0,
+      maxPerYear: null,
+      gatesRating: true,
+      evidenceFields: moodle.evidenceFields,
+      scoring: moodle.scoring,
+    });
+    mockTx();
+    expect(await createActivity('type-51', { isLecturer: false })).toEqual({
+      success: true,
+      score: 0,
+    });
+    expect(mockRatingGate).not.toHaveBeenCalled();
+  });
+
+  it('refuses deleteActivity of another indicator, but not of 5.1', async () => {
+    mockActivityFind.mockResolvedValue({
+      ...ownActivity,
+      activityType: { ...ownActivity.activityType, gatesRating: false },
+    });
+    expect(await deleteActivity('activity-1')).toEqual(closed);
+
+    mockTx();
+    mockActivityFind.mockResolvedValue({
+      ...ownActivity,
+      activityType: { ...ownActivity.activityType, gatesRating: true },
+    });
+    expect(await deleteActivity('activity-1')).toEqual({ success: true });
   });
 });

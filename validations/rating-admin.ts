@@ -23,9 +23,11 @@ const base = {
   // Which розділ the indicator sits in. Editable, so a wrong choice can be
   // corrected in place instead of by deleting and rebuilding the indicator.
   section: z.coerce.number().int().min(1).max(5),
+  // 0 is a real answer: 5.1 scores nothing (owner, 2026-10-16), and refusing it
+  // made 5.1 impossible to save in the editor at all
   coefficient: z.coerce
     .number({ error: 'Має бути числом' })
-    .positive({ error: 'Має бути більше нуля' }),
+    .min(0, { error: 'Не може бути від’ємним' }),
   coefficientNote: z
     .string()
     .trim()
@@ -52,6 +54,8 @@ const base = {
   // DIVISION_MANAGED indicators — nobody else has that page — so it needs no
   // guard of its own either.
   entityFirstEntry: z.boolean(),
+  // Opens the rest of the rating for the НПП (5.1, «Я викладач»)
+  gatesRating: z.boolean(),
 };
 
 // …and the half that defines the form and the arithmetic. `specProblems` is the

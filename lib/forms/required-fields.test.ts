@@ -89,3 +89,23 @@ describe('alwaysMark', () => {
     expect(requiredFieldNames(mixed)).toEqual(new Set(['quartile']));
   });
 });
+
+// A form whose boxes depend on each other is a pipe once it drops the ones hidden
+// behind a switch — its always-required fields must keep their star (3.10, 2026-10-16).
+describe('a transformed schema', () => {
+  it('still marks the object’s required fields', async () => {
+    const { catalogueType } = await import('@/lib/rating/db-specs');
+    const names = requiredFieldNames(catalogueType('intl_peer_reviewed_publication').schema, {
+      alwaysMark: true,
+    });
+    expect(names.has('bibliography')).toBe(true);
+    expect(names.has('reviewsLink')).toBe(true);
+    // the conditional boxes are marked by the form, by their condition, not here
+    expect(names.has('doi')).toBe(false);
+  });
+
+  it('reads through a plain .transform() too', () => {
+    const schema = z.object({ a: z.string(), b: z.string().optional() }).transform((v) => v);
+    expect([...requiredFieldNames(schema, { alwaysMark: true })]).toEqual(['a']);
+  });
+});
