@@ -146,12 +146,15 @@ export async function GET(request: Request) {
     activitiesByStaff.set(a.staffId, list);
   }
 
-  // Who has not filled 5.1 — their form totals 0, as the app does (2026-10-16)
+  // Who has no 5.1 — an open year's form warns, a closed one totals 0, as the
+  // app does (owner, 2026-10-19)
   const blocked = await blockedStaff(
     db,
     staffList.map((s) => s.id),
     template.year
   );
+  const gateOf = (id: string) =>
+    !blocked.has(id) ? undefined : template.status === 'CLOSED' ? 'zeroed' : 'pending';
 
   const fullNames = staffList.map((s) => `${s.lastName} ${s.firstName} ${s.patronymic}`);
   // Namesakes must not overwrite each other inside the archive
@@ -169,7 +172,7 @@ export async function GET(request: Request) {
         department: staff.department?.name ?? '',
         year: template.year,
         activities: activitiesByStaff.get(staff.id) ?? [],
-        blocked: blocked.has(staff.id),
+        gate: gateOf(staff.id),
       },
       exportTypes
     );
@@ -190,7 +193,7 @@ export async function GET(request: Request) {
         department: staff.department?.name ?? '',
         year: template.year,
         activities: activitiesByStaff.get(staff.id) ?? [],
-        blocked: blocked.has(staff.id),
+        gate: gateOf(staff.id),
       },
       exportTypes
     );

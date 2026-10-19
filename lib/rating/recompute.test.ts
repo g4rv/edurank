@@ -91,29 +91,13 @@ describe('recomputeRatingEntry', () => {
     };
   }
 
-  it('counts the year as 0 until the gating indicator (5.1) has an entry', async () => {
+  // 5.1 is judged when the year closes, never before (owner, 2026-10-19)
+  it('adds up an open year whether or not 5.1 has an entry', async () => {
     const tx = mockTx([
       { score: 50, sectionNumber: 1 },
       { score: 300, sectionNumber: 3 },
     ]);
     tx.activityType.findMany.mockResolvedValue([{ id: 't51' }]);
-    // the rows above, then no 5.1 entry for the person
-    tx.activity.findMany
-      .mockResolvedValueOnce([
-        { score: 50, activityType: { section: { number: 1 } } },
-        { score: 300, activityType: { section: { number: 3 } } },
-      ])
-      .mockResolvedValueOnce([]);
-    const totals = await recomputeRatingEntry(tx as never, 'staff-1', 2026);
-    expect(totals.totalScore).toBe(0);
-
-    // once 5.1 is there, every point is back
-    tx.activity.findMany
-      .mockResolvedValueOnce([
-        { score: 50, activityType: { section: { number: 1 } } },
-        { score: 300, activityType: { section: { number: 3 } } },
-      ])
-      .mockResolvedValueOnce([{ staffId: 'staff-1', activityTypeId: 't51' }]);
     expect((await recomputeRatingEntry(tx as never, 'staff-1', 2026)).totalScore).toBe(350);
   });
 

@@ -96,7 +96,7 @@ export interface ActivityTypeDef {
    * instead of filling the same evidence in one grid cell at a time.
    */
   entityFirstEntry?: boolean;
-  /** Seed input for `ActivityType.gatesRating` — 5.1 opens the rest of the rating */
+  /** Seed input for `ActivityType.gatesRating` — 5.1, without which a closing year counts 0 */
   gatesRating?: boolean;
 }
 
@@ -922,11 +922,11 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     itemNumber: '5.1',
     label:
       'Навчально-методичне забезпечення навчальних дисциплін (освітніх компонентів) на платформі Moodle',
-    // No points (owner, 2026-10-16); filling it opens the rest of the rating
+    // No points (owner, 2026-10-16); without it the year counts 0 when it closes (2026-10-19)
     kind: 'FIXED',
     coefficient: 0,
     coefficientNote:
-      'Без балів. Заповнюється першим: доки пункт не заповнено, інші пункти рейтингу закриті, а сума рахується як 0. Лектор позначає виконані матеріали й додає посилання на курс',
+      'Без балів, але обов’язковий: якщо його не заповнено до закриття рейтингового року, бали за всі інші пункти не зараховуються. Лектор позначає виконані матеріали й додає посилання на курс',
     inputSource: 'NPP_SUBMISSION',
     gatesRating: true,
   },

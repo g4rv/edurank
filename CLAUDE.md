@@ -341,9 +341,10 @@ pnpm db:book-sheets  # one-off: rating 3.7 / 2.2 typed in друкованих �
                       #   and converts + RE-SCORES the open year's entries (pages ÷ 24
                       #   to 0,1). Closed years untouched. Report first; --apply.
 pnpm db:lecturer-gate  # one-off, after migrate deploy: 5.1 «Я лектор» — the new form, no
-                      #   points, opens the rest of the rating; its saved entries kept and
-                      #   re-scored to 0; every open-year total recomputed (those with no
-                      #   5.1 go to 0). Report first (runs and rolls back); --apply.
+                      #   points, mandatory for the year to count; its saved entries kept
+                      #   and re-scored to 0; every open-year total recomputed. Re-running
+                      #   it is how the form's wording reaches a database. Report first
+                      #   (runs and rolls back); --apply.
 pnpm db:intl-publication  # one-off: the new 3.10, and 3.10–3.25 → 3.11–3.26 in every open
                       #   year. No entry or score moves. Report first; --apply.
 pnpm db:science-sheets-decimals  # one-off: «Кількість друкованих аркушів» takes ONE decimal
@@ -535,20 +536,21 @@ Rules that are easy to get wrong:
 - **Scores are frozen at save.** `Activity.score` is computed once; editing a coefficient later does not rewrite existing rows.
 - **A deactivated indicator scores nothing.** Only `APPROVED` rows of an `isActive` type count — see `COUNTED` in `lib/rating/recompute.ts`. Toggling `isActive` recomputes everyone holding it.
 - **`year` is always derived** from the type's template, never taken from client input.
-- **5.1 comes first and scores nothing** (owner, 2026-10-16). Its form opens
-  with «Я лектор»; nothing else is drawn until it is on, and then the вид
-  роботи, дисципліна, посилання and at least one матеріал are required
-  (`requiredWhen: { field, checked }` — see `FieldCondition`). Saving it
-  either way OPENS THE REST OF THE RATING: until an НПП has an entry of every
-  `ActivityType.gatesRating` indicator of the year, `createActivity` /
-  `deleteActivity` refuse every other indicator, the section pages show
-  `RatingGateNote`, and `recomputeRatingEntry` writes their year as 0 —
-  division-entered points included (`lib/rating/rating-gate.ts`). Its own rows
-  read «✓ Виконано» / «Не заповнено», never a number (`GateMark`), in every
-  list, the sidebar, moderation and the Excel form. A closed year's snapshot
-  freezes the same rule (`blocked`). Order: the science plan, then 5.1, then
-  the rest. The cross-person lists (/rating, dashboard) still show its column
-  as 0.
+- **5.1 scores nothing and is mandatory, judged at the CLOSE** (owner,
+  2026-10-19, replacing 2026-10-16's «nothing else opens until 5.1 is
+  filled»). Its form opens with «Я лектор»; nothing else is drawn until it is
+  on, and then the вид роботи, дисципліна, посилання and at least one матеріал
+  are required (`requiredWhen: { field, checked }` — see `FieldCondition`).
+  While the year is open nothing waits for it: every section can be filled and
+  every total adds up. Розділ 5 shows `RatingGateNote` while it is empty, and
+  «Мій рейтинг» and the Excel form warn beside the total. `closeYear` is the ONE
+  place the rule applies: whoever has no entry of every
+  `ActivityType.gatesRating` indicator gets 0 — the snapshot (`blocked`) AND the
+  stored totals /rating reads, division-entered points included
+  (`lib/rating/rating-gate.ts`). `reopenYear` recomputes exactly those people.
+  Its own rows read «✓ Виконано» / «Не заповнено», never a number
+  (`GateMark`), in every list, the sidebar, moderation and the Excel form. The
+  science plan still comes first — that gate is unchanged.
 - **A box can be required only in some state of the form** — `requiredWhen` on
   any kind: `{ field, in }` (a select's answer), `{ field, checked }` (a switch;
   the box is also hidden and dropped while it is off) or `{ field, empty }`

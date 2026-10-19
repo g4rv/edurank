@@ -26,15 +26,16 @@ describe('ratingGate', () => {
 });
 
 describe('ratingGateDetail', () => {
-  it('names the item when one is missing', () => {
+  it('says what happens to the year without the item', () => {
     expect(ratingGateDetail([m51])).toBe(
-      'Спершу заповніть п. 5.1 — після цього можна заповнювати інші пункти рейтингу.'
+      'П. 5.1 обов’язковий: якщо не заповнити до закриття рейтингового року, ' +
+        'бали за всі інші пункти не буде зараховано.'
     );
   });
 
-  it('names the sections when several are', () => {
-    expect(ratingGateDetail([m51, { id: 'x', itemNumber: '4.2', sectionNumber: 4 }])).toContain(
-      'розділ 4, 5'
+  it('names every missing item when several are', () => {
+    expect(ratingGateDetail([m51, { id: 'x', itemNumber: '5.2', sectionNumber: 5 }])).toContain(
+      'Пункти 5.1, 5.2 обов’язкові'
     );
   });
 });

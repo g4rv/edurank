@@ -120,21 +120,13 @@ export default async function AchievementsSectionPage({
       );
     }
 
-    // Then 5.1 (owner, 2026-10-16): every other section waits for it, the same
-    // way and for the same reason. The section that holds it stays open, and
-    // offers only it until it is filled.
+    // 5.1 blocks nothing (owner, 2026-10-19): it is judged when the year
+    // closes. The section that holds it warns while it is empty.
     ratingGate = await loadRatingGate(db, staffId, template.year);
-    if (!ratingGate.open && !ratingGate.missing.some((t) => t.sectionNumber === section)) {
-      return (
-        <div className="space-y-5">
-          <Breadcrumbs items={[...RATING_CRUMBS, { label: `Розділ ${section}` }]} />
-          <SectionHeader section={section} />
-          <RatingGateNote missing={ratingGate.missing} />
-        </div>
-      );
-    }
   }
-  const onlyGating = ratingGate.open ? null : new Set(ratingGate.missing.map((t) => t.id));
+  const warnHere = ratingGate.open
+    ? []
+    : ratingGate.missing.filter((t) => t.sectionNumber === section);
 
   // The SAME stored row the sidebar reads, not a sum of the rows below. A
   // deactivated indicator still has rows on screen and scores nothing, so
@@ -147,7 +139,6 @@ export default async function AchievementsSectionPage({
   const submittableTypes = canManage
     ? template.activityTypes
         .filter((t) => t.section.number === section)
-        .filter((t) => !onlyGating || onlyGating.has(t.id))
         .map((t) => ({
           id: t.id,
           label: t.label,
@@ -182,6 +173,8 @@ export default async function AchievementsSectionPage({
           />
         }
       />
+
+      {warnHere.length > 0 && <RatingGateNote missing={warnHere} />}
 
       <AchievementsList groups={groups} />
     </div>

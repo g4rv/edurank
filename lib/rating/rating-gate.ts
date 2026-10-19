@@ -1,25 +1,23 @@
 import type { Prisma } from '@/lib/generated/prisma/client';
 
 /**
- * The rating waits for 5.1 (owner, 2026-10-16).
+ * 5.1 is mandatory, and it is judged when the year CLOSES (owner, 2026-10-19,
+ * replacing 2026-10-16's «nothing else opens until 5.1 is filled»).
  *
- * Every НПП answers 5.1 first — «Я лектор» on with the course and its
- * evidence, or off — and until they have, two things hold for the open year:
+ * Every НПП answers 5.1 — «Я лектор» on with the course and its evidence, or
+ * off. While the year is open nothing waits for it: every section can be
+ * filled, and the year total adds up as usual. Розділ 5 warns while it is
+ * empty, «Мій рейтинг» and the Excel form say so beside the total.
  *
- * - they cannot add or delete their OWN entries anywhere else in the rating
- *   (`createActivity` / `deleteActivity`, and the section pages say why);
- * - their year total counts as 0 (`recomputeRatingEntry`), entries a division
- *   entered for them included. Saving 5.1 brings every point back at once.
+ * When the year closes (`closeYear`), whoever has no entry of it scores 0 for
+ * the year — the frozen snapshot AND the stored totals the rankings read,
+ * entries a division entered for them included. Reopening the year recomputes
+ * everyone, so a late 5.1 still brings every point back before it closes again.
  *
- * Which indicator opens the rating is a COLUMN, `ActivityType.gatesRating` —
- * never a code — like `requiresVerification` and `entityFirstEntry`. With
- * several such indicators in a year, each needs an entry. A year with none is
- * open: the rule simply does not exist there (2025, or an admin who switches it
- * off).
- *
- * Where it does NOT reach: ADMIN and division editors entering data for other
- * people, «Мій рейтинг» as a read, the Характеристика, and a CLOSED year — its
- * totals are frozen history and never recomputed.
+ * Which indicator is mandatory is a COLUMN, `ActivityType.gatesRating` — never
+ * a code — like `requiresVerification` and `entityFirstEntry`. With several such
+ * indicators in a year, each needs an entry. A year with none has no such rule
+ * (2025, or an admin who switches it off).
  */
 
 export interface GatingType {
@@ -39,12 +37,16 @@ export function ratingGate(input: {
   return missing.length === 0 ? { open: true } : { open: false, missing };
 }
 
-/** The sentence a refused action returns and the section page shows */
+/** The warning beside an empty 5.1 — what happens to the year without it */
 export function ratingGateDetail(missing: readonly GatingType[]): string {
-  const sections = [...new Set(missing.map((t) => t.sectionNumber))].sort((a, b) => a - b);
   const where =
-    missing.length === 1 ? `п. ${missing[0].itemNumber}` : `розділ ${sections.join(', ')}`;
-  return `Спершу заповніть ${where} — після цього можна заповнювати інші пункти рейтингу.`;
+    missing.length === 1
+      ? `П. ${missing[0].itemNumber} обов’язковий`
+      : `Пункти ${missing.map((t) => t.itemNumber).join(', ')} обов’язкові`;
+  return (
+    `${where}: якщо не заповнити до закриття рейтингового року, ` +
+    'бали за всі інші пункти не буде зараховано.'
+  );
 }
 
 /** Only APPROVED rows of an active indicator open it — the same rows that count */

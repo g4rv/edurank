@@ -14,7 +14,7 @@ import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fie
 import { evidenceFieldsSpecSchema, scoringSpecSchema } from '@/validations/activity-type-spec';
 import { parseLicencePositions } from '@/validations/licence-positions';
 import { blockedStaff } from '@/lib/rating/rating-gate';
-import { recomputeRatingEntries, recomputeYearEntries } from '@/lib/rating/recompute';
+import { recomputeRatingEntries, sumBySection } from '@/lib/rating/recompute';
 import {
   createActivityTypeSchema,
   updateActivityTypeSchema,
@@ -47,12 +47,6 @@ async function syncDerivedOrWarn(): Promise<{ synced: number; warning: string | 
     };
   }
 }
-
-/**
- * For a transaction that may recompute the whole year because the 5.1 gate
- * changed — ~330 people, well past Prisma's 5 s default.
- */
-const GATE_RECOMPUTE_TX = { timeout: 60_000 };
 
 function revalidateRating() {
   revalidatePath('/admin/rating');
@@ -354,10 +348,6 @@ export async function updateActivityType(
   // Toggling «Показник активний» moves every rating that holds this indicator:
   // deactivated rows stay for history but stop scoring (see COUNTED in recompute.ts).
   const activeChanged = parsed.data.isActive !== type.isActive;
-  // Whether this indicator closes the rest of the rating (5.1) — before and
-  // after. A change moves everyone's total, not only its holders'.
-  const gateChanged =
-    (type.gatesRating && type.isActive) !== (parsed.data.gatesRating && parsed.data.isActive);
   let affected = 0;
 
   try {
@@ -412,19 +402,18 @@ export async function updateActivityType(
           },
         });
 
-        if (activeChanged || gateChanged) {
+        if (activeChanged) {
           const holders = await tx.activity.findMany({
             where: { activityTypeId: id, year: type.template.year },
             select: { staffId: true },
             distinct: ['staffId'],
           });
-          const holderIds = holders.map((h) => h.staffId);
-          if (gateChanged) {
-            affected = await recomputeYearEntries(tx, type.template.year, holderIds);
-          } else {
-            affected = holders.length;
-            await recomputeRatingEntries(tx, holderIds, type.template.year);
-          }
+          affected = holders.length;
+          await recomputeRatingEntries(
+            tx,
+            holders.map((h) => h.staffId),
+            type.template.year
+          );
         }
       },
       // A university-wide indicator can touch all ~300 НПП in one go
@@ -557,9 +546,7 @@ export async function createActivityType(
           ),
         },
       });
-      // A new indicator that must be filled first closes everybody's year
-      if (plain.gatesRating && plain.isActive) await recomputeYearEntries(tx, template.year);
-    }, GATE_RECOMPUTE_TX);
+    });
   } catch (e) {
     return {
       error: parseDbError(
@@ -617,9 +604,7 @@ export async function deleteActivityType(id: string): Promise<RatingAdminState> 
           changes: diffChanges({ code: type.code, label: type.label }, {}),
         },
       });
-      // Nobody can have filled it (no entries), so everybody was held at 0 by it
-      if (type.gatesRating && type.isActive) await recomputeYearEntries(tx, type.template.year);
-    }, GATE_RECOMPUTE_TX);
+    });
   } catch (e) {
     return {
       error: parseDbError(
@@ -709,9 +694,7 @@ export async function addActivityType(templateId: string, code: string): Promise
           changes: diffChanges({}, { code: def.code, label: def.label }),
         },
       });
-      // Re-adding 5.1 closes everybody's year until they fill it again
-      if (specs.gatesRating) await recomputeYearEntries(tx, template.year);
-    }, GATE_RECOMPUTE_TX);
+    });
   } catch (e) {
     return {
       error: parseDbError(
@@ -820,8 +803,9 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
           },
         });
 
-        // 5.1 never filled → the year counted as 0, and the frozen copy says so
-        // (owner, 2026-10-16) — the same rule `recomputeRatingEntry` applies
+        // 5.1 never filled → the year counts as 0 (owner, 2026-10-19). This is
+        // the ONE place that rule applies: an open year adds up whatever 5.1
+        // holds, and closing is when it is judged — see rating-gate.ts.
         const blocked = await blockedStaff(
           tx,
           [...new Set(activities.map((a) => a.staffId))],
@@ -874,6 +858,15 @@ export async function closeYear(year: number): Promise<RatingAdminState> {
           });
         }
 
+        // …and the stored totals the rankings read (/rating, the dashboard, the
+        // ставки of the next year) say the same. `reopenYear` recomputes them.
+        if (blocked.size > 0) {
+          await tx.ratingEntry.updateMany({
+            where: { year, staffId: { in: [...blocked] } },
+            data: sumBySection([]),
+          });
+        }
+
         // 4. Flip the authoritative flag
         await tx.ratingTemplate.update({
           where: { id: template.id },
@@ -923,22 +916,38 @@ export async function reopenYear(year: number): Promise<RatingAdminState> {
   if (template.status !== 'CLOSED') return { error: 'Рік не закрито' };
 
   try {
-    await db.$transaction(async (tx) => {
-      await tx.ratingTemplate.update({
-        where: { id: template.id },
-        data: { status: 'OPEN', closedAt: null, closedByUserId: null },
-      });
-      await tx.auditLog.create({
-        data: {
-          action: 'UPDATE',
-          entity: 'RatingTemplate',
-          entityId: template.id,
-          label: template.name,
-          userId: session.user.id,
-          changes: diffChanges({ status: 'CLOSED' }, { status: 'OPEN' }),
-        },
-      });
-    });
+    await db.$transaction(
+      async (tx) => {
+        await tx.ratingTemplate.update({
+          where: { id: template.id },
+          data: { status: 'OPEN', closedAt: null, closedByUserId: null },
+        });
+        // Closing set the totals of everyone without 5.1 to 0, and marked them in
+        // the snapshot; an open year adds up whatever 5.1 holds, until it closes
+        // again (owner, 2026-10-19). Only those are recomputed — anybody else's
+        // stored total stays as closing left it (2025's imported totals included).
+        const zeroed = await tx.ratingEntry.findMany({
+          where: { year, snapshot: { path: ['blocked'], equals: true } },
+          select: { staffId: true },
+        });
+        await recomputeRatingEntries(
+          tx,
+          zeroed.map((e) => e.staffId),
+          year
+        );
+        await tx.auditLog.create({
+          data: {
+            action: 'UPDATE',
+            entity: 'RatingTemplate',
+            entityId: template.id,
+            label: template.name,
+            userId: session.user.id,
+            changes: diffChanges({ status: 'CLOSED' }, { status: 'OPEN' }),
+          },
+        });
+      },
+      { timeout: 60_000 }
+    );
   } catch (e) {
     return {
       error: parseDbError(e, 'Не вдалося відкрити рік. Зміни не застосовано', 'rating.reopenYear', {

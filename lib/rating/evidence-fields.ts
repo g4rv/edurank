@@ -948,8 +948,8 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   // mode's maximum — `specProblems` enforces that, so a typo cannot go unnoticed.
   // No points at all (owner, 2026-10-16). The switch comes first and nothing
   // else is drawn until it is on; on, every box is required and at least one
-  // матеріал must be ticked. Saving it either way opens the rest of the rating
-  // (`ActivityType.gatesRating`).
+  // матеріал must be ticked. Without an entry of it either way, the year counts
+  // 0 when it closes (`ActivityType.gatesRating`, owner 2026-10-19).
   moodle_course: [
     checkbox('isLecturer', 'Я лектор', { offLabel: 'Не лектор' }),
     select('mode', 'Вид роботи', [opt('development', 'Розроблення'), opt('update', 'Оновлення')], {

@@ -1,6 +1,5 @@
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { round2 } from '@/lib/round';
-import { blockedStaff } from './rating-gate';
 
 // Rolls approved activity scores up into the cached RatingEntry for one staff/year.
 // Called inside the same transaction as the mutation that changed the activities
@@ -71,12 +70,10 @@ export async function recomputeRatingEntry(
     select: { score: true, activityType: { select: { section: { select: { number: true } } } } },
   });
 
-  // Until 5.1 is filled the year counts as 0 (owner, 2026-10-16) — see rating-gate.ts
-  const blocked = (await blockedStaff(tx, [staffId], year)).has(staffId);
+  // An open year always adds up — 5.1 is judged only when the year closes
+  // (owner, 2026-10-19; see rating-gate.ts and `closeYear`)
   const totals = sumBySection(
-    blocked
-      ? []
-      : activities.map((a) => ({ score: a.score, sectionNumber: a.activityType.section.number }))
+    activities.map((a) => ({ score: a.score, sectionNumber: a.activityType.section.number }))
   );
 
   await tx.ratingEntry.upsert({
@@ -86,25 +83,6 @@ export async function recomputeRatingEntry(
   });
 
   return totals;
-}
-
-/**
- * Everyone with a total in the year, recomputed — for a change to the gate
- * itself (`ActivityType.gatesRating`, 5.1). Switching it on or off, or turning
- * such an indicator on or off, decides whether a whole year counts for people
- * who do NOT hold it; recomputing only its holders left the rest on a stale
- * total. Somebody with no entry has no stored total to correct. Returns how
- * many were recomputed.
- */
-export async function recomputeYearEntries(
-  tx: Prisma.TransactionClient,
-  year: number,
-  alsoStaffIds: readonly string[] = []
-): Promise<number> {
-  const entries = await tx.ratingEntry.findMany({ where: { year }, select: { staffId: true } });
-  const staffIds = [...new Set([...entries.map((e) => e.staffId), ...alsoStaffIds])];
-  await recomputeRatingEntries(tx, staffIds, year);
-  return staffIds.length;
 }
 
 /**
@@ -135,13 +113,10 @@ export async function recomputeRatingEntries(
     rowsByStaff.set(a.staffId, rows);
   }
 
-  // Until 5.1 is filled the year counts as 0 (owner, 2026-10-16) — see rating-gate.ts
-  const blocked = await blockedStaff(tx, staffIds, year);
-
   // Iterate staffIds, not the map: someone whose last counting row just went
   // away has no activities left and still needs their entry zeroed.
   for (const staffId of staffIds) {
-    const totals = sumBySection(blocked.has(staffId) ? [] : (rowsByStaff.get(staffId) ?? []));
+    const totals = sumBySection(rowsByStaff.get(staffId) ?? []);
     await tx.ratingEntry.upsert({
       where: { staffId_year: { staffId, year } },
       create: { staffId, year, ...totals },

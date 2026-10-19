@@ -85,8 +85,11 @@ function sectionTotal(group: AchievementGroup): number {
   return sumScores(group.items.filter((i) => i.status === 'APPROVED').map((i) => i.score));
 }
 
-/** Only an NPP's own pages pass it — they are the ones who can fill 5.1 */
-const BLOCKED_NOTE = 'Доки не заповнено п. 5.1, сума рахується як 0';
+/** What the foot says when 5.1 has no entry — see `RatingTable`'s `gate` */
+const GATE_NOTE = {
+  pending: 'П. 5.1 не заповнено — без нього при закритті року бали не буде зараховано',
+  zeroed: 'П. 5.1 не заповнено — рік не зараховано',
+} as const;
 
 /**
  * Full read-only rating table — every section, its indicators, its subtotal,
@@ -105,14 +108,16 @@ const BLOCKED_NOTE = 'Доки не заповнено п. 5.1, сума рах�
 export function RatingTable({
   groups,
   fill = false,
-  blocked = false,
+  gate,
 }: {
   groups: AchievementGroup[];
   /**
-   * 5.1 is not filled (owner, 2026-10-16): the year counts as 0, as the stored
-   * total does — so the foot says 0 and why, while every row stays listed.
+   * 5.1 has no entry (owner, 2026-10-19). `pending` — the year is open: the
+   * total adds up as usual and the foot warns what the close will do.
+   * `zeroed` — the year closed without it: the total is 0, as the stored one
+   * is, and the foot says why, while every row stays listed.
    */
-  blocked?: boolean;
+  gate?: 'pending' | 'zeroed';
   /**
    * Take the height the layout has left rather than a guessed cap. Needs every
    * ancestor up to a bounded one to be a flex column — see `Table`'s own note.
@@ -121,7 +126,7 @@ export function RatingTable({
    */
   fill?: boolean;
 }) {
-  const grandTotal = blocked ? 0 : sumScores(groups.map(sectionTotal));
+  const grandTotal = gate === 'zeroed' ? 0 : sumScores(groups.map(sectionTotal));
   const emptyCount = groups.reduce((n, g) => n + g.items.filter((i) => i.isEmpty).length, 0);
 
   return (
@@ -143,8 +148,8 @@ export function RatingTable({
           <TableRow variant="total">
             <TableCell colSpan={3}>
               Загальна сума балів
-              {blocked && (
-                <span className="block text-xs font-normal text-warning">{BLOCKED_NOTE}</span>
+              {gate && (
+                <span className="block text-xs font-normal text-warning">{GATE_NOTE[gate]}</span>
               )}
             </TableCell>
             <TableCell numeric align="center" className="text-base">
