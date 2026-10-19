@@ -547,7 +547,9 @@ Rules that are easy to get wrong:
   any kind: `{ field, in }` (a select's answer), `{ field, checked }` (a switch;
   the box is also hidden and dropped while it is off) or `{ field, empty }`
   (another box left empty — 3.10's «DOI or ISSN»). `schemaForFields` enforces
-  it; on a checkbox it means «at least one of the group».
+  it; on a checkbox it means «at least one of the group». `hide: true` on `in` /
+  `empty` also hides the box while unmet and drops its value — 3.10's article
+  link is not drawn once a DOI is given (owner, 2026-10-19).
 - **A book is typed in друкованих аркушах, not pages** (owner, 2026-10-16). The
   page-based indicators (3.7 монографія, 2.2 видання) ask «Друкованих аркушів»
   (`sheets`, one decimal) and «Кількість співавторів». The person's share is

@@ -27,12 +27,18 @@ import { decimalText } from '@/lib/decimal-input';
  * - `empty`   — the box named in `field` is left empty: «DOI or ISSN, at
  *                least one», and «the article's link when there is no DOI»
  *
+ * `hide` on `in` or `empty` also HIDES the box while the condition is not met,
+ * and drops its value on save, the way `checked` always does: 3.10's article
+ * link is not even drawn once a DOI is given (owner, 2026-10-19). Without it
+ * the box stays visible and only loses its star — DOI and ISSN must, or each
+ * would hide the other.
+ *
  * On a CHECKBOX it means «at least one of this `group` must be ticked».
  */
 export type FieldCondition =
-  | { field: string; in: readonly string[] }
+  | { field: string; in: readonly string[]; hide?: true }
   | { field: string; checked: true }
-  | { field: string; empty: true };
+  | { field: string; empty: true; hide?: true };
 
 export type EvidenceField =
   | {
@@ -340,13 +346,15 @@ export function conditionMet(when: FieldCondition, values: Record<string, unknow
 }
 
 /**
- * Is this field shown? Only a `checked` condition hides a field — a box that
- * waits for a switch is not even drawn until it is on. The other two only make
- * a visible box obligatory.
+ * Is this field shown? A `checked` condition always hides its field — a box
+ * that waits for a switch is not even drawn until it is on — and the other two
+ * do when they carry `hide`. Otherwise they only make a visible box obligatory.
  */
 export function fieldShown(f: EvidenceField, values: Record<string, unknown>): boolean {
   const when = 'requiredWhen' in f ? f.requiredWhen : undefined;
-  return !when || !('checked' in when) || conditionMet(when, values);
+  if (!when) return true;
+  const hides = 'checked' in when || when.hide === true;
+  return !hides || conditionMet(when, values);
 }
 
 export const opt = (value: string, label: string) => ({ value, label });
@@ -778,7 +786,10 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     }),
     doi('doi', 'DOI', { requiredWhen: { field: 'issn', empty: true } }),
     issn('issn', 'ISSN', { requiredWhen: { field: 'doi', empty: true } }),
-    url('link', 'Посилання на статтю', { requiredWhen: { field: 'doi', empty: true } }),
+    // Not even drawn once a DOI is given — the DOI already leads to the article
+    url('link', 'Посилання на статтю', {
+      requiredWhen: { field: 'doi', empty: true, hide: true },
+    }),
     url('reviewsLink', 'Посилання на офіційну сторінку видавництва з відомостями про рецензії'),
   ],
   defense_supervision: [

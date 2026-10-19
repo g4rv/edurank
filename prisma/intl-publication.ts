@@ -20,7 +20,9 @@ import { catalogueType } from '../lib/rating/db-specs';
 //   2. The new indicator goes in as 3.10, right after 3.9, from the catalogue.
 //
 // A CLOSED year keeps its own numbers. Re-running is harmless: a year that
-// already has the indicator is skipped.
+// already has the indicator is not renumbered again — only its FORM is brought
+// up to the catalogue's when they differ (2026-10-19: the article link now hides
+// once a DOI is given), so a database that ran an earlier version catches up.
 
 const prisma = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
 const apply = process.argv.includes('--apply');
@@ -29,6 +31,21 @@ const NEW_CODE = 'intl_peer_reviewed_publication';
 const AFTER_CODE = 'publication_cat_b';
 /** The first number that moves: 3.10 */
 const FIRST_MOVED = 10;
+
+/** Equal as JSON, whatever the key order — Postgres's jsonb stores its own */
+function sameJson(a: unknown, b: unknown): boolean {
+  const sorted = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(sorted)
+      : v && typeof v === 'object'
+        ? Object.fromEntries(
+            Object.keys(v)
+              .sort()
+              .map((k) => [k, sorted((v as Record<string, unknown>)[k])])
+          )
+        : v;
+  return JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
+}
 
 async function main() {
   const target = catalogueType(NEW_CODE);
@@ -43,11 +60,31 @@ async function main() {
   for (const tpl of templates) {
     const section3 = await prisma.activityType.findMany({
       where: { templateId: tpl.id, section: { number: 3 } },
-      select: { id: true, code: true, itemNumber: true, order: true, sectionId: true },
+      select: {
+        id: true,
+        code: true,
+        itemNumber: true,
+        order: true,
+        sectionId: true,
+        evidenceFields: true,
+      },
       orderBy: { order: 'asc' },
     });
-    if (section3.some((t) => t.code === NEW_CODE)) {
-      console.log(`\n• ${tpl.year}: п. 3.10 вже є — пропущено`);
+    const existing = section3.find((t) => t.code === NEW_CODE);
+    if (existing) {
+      if (sameJson(existing.evidenceFields, target.specs.evidenceFields)) {
+        console.log(`\n• ${tpl.year}: п. 3.10 вже є — пропущено`);
+      } else {
+        console.log(`\n• ${tpl.year}: п. 3.10 вже є — форму оновлено до каталогу`);
+        writes.push((tx) =>
+          tx.activityType.update({
+            where: { id: existing.id },
+            data: {
+              evidenceFields: target.specs.evidenceFields as unknown as Prisma.InputJsonValue,
+            },
+          })
+        );
+      }
       continue;
     }
     const after = section3.find((t) => t.code === AFTER_CODE);

@@ -23,9 +23,17 @@ const common = { name: fieldName, label };
 /** See `FieldCondition` — when a box that may stay empty must be filled */
 const requiredWhen = z
   .union([
-    z.strictObject({ field: z.string().min(1), in: z.array(z.string()).min(1) }),
+    z.strictObject({
+      field: z.string().min(1),
+      in: z.array(z.string()).min(1),
+      hide: z.literal(true).optional(),
+    }),
     z.strictObject({ field: z.string().min(1), checked: z.literal(true) }),
-    z.strictObject({ field: z.string().min(1), empty: z.literal(true) }),
+    z.strictObject({
+      field: z.string().min(1),
+      empty: z.literal(true),
+      hide: z.literal(true).optional(),
+    }),
   ])
   .optional();
 

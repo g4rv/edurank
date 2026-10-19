@@ -672,6 +672,18 @@ describe('3.10 «Міжнародна публікація…» (owner, 2026-10-
     expect(schema.safeParse({ ...base, doi: '10.1038/s41586-021-03819-2' }).success).toBe(true);
   });
 
+  // The box is not even drawn with a DOI (owner, 2026-10-19) — a link typed
+  // before the DOI went in must not be stored behind the person's back
+  it('drops an article link given alongside a DOI', () => {
+    const r = schema.safeParse({
+      ...base,
+      doi: '10.1038/s41586-021-03819-2',
+      link: 'https://journal.example/a/1',
+    });
+    expect(r.success).toBe(true);
+    expect(r.data).not.toHaveProperty('link');
+  });
+
   it('takes an ISSN, but then asks for the article’s own page', () => {
     const noLink = schema.safeParse({ ...base, issn: '0028-0836' });
     expect(noLink.success).toBe(false);

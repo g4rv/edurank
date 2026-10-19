@@ -2,10 +2,30 @@ import { describe, expect, it } from 'vitest';
 import {
   date,
   EVIDENCE_FIELDS,
+  fieldShown,
   summarizeEvidence,
   text,
   type EvidenceField,
 } from './evidence-fields';
+
+describe('fieldShown — 3.10 (owner, 2026-10-19)', () => {
+  const fields = EVIDENCE_FIELDS.intl_peer_reviewed_publication;
+  const field = (name: string) => fields.find((f) => f.name === name)!;
+  const DOI = '10.1038/s41586-021-03819-2';
+
+  it('hides the article link once a DOI is given, and shows it without one', () => {
+    expect(fieldShown(field('link'), { doi: DOI })).toBe(false);
+    expect(fieldShown(field('link'), { doi: '' })).toBe(true);
+    expect(fieldShown(field('link'), {})).toBe(true);
+  });
+
+  // Each only loses its star when the other is filled — hiding would leave
+  // somebody who typed an ISSN unable to add the DOI as well
+  it('never hides DOI or ISSN, whatever the other holds', () => {
+    expect(fieldShown(field('doi'), { issn: '0028-0836' })).toBe(true);
+    expect(fieldShown(field('issn'), { doi: DOI })).toBe(true);
+  });
+});
 
 const box = (name: string, label: string, group?: string): EvidenceField => ({
   kind: 'checkbox',
