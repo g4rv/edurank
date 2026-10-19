@@ -69,6 +69,8 @@ function mockTx(live: { id: string; score: number; evidence: unknown }[] = []) {
       delete: vi.fn().mockResolvedValue({}),
     },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    // No gating indicator in the year — the rating is open (rating-gate.ts)
+    activityType: { findMany: vi.fn().mockResolvedValue([]) },
     ratingEntry: { upsert: vi.fn().mockResolvedValue({}) },
   };
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));

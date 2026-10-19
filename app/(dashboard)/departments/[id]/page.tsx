@@ -188,7 +188,7 @@ export default async function DepartmentDetailPage({
       {allStaff.length > 0 && (
         <div className="rounded-xl border bg-card">
           <div className="border-b px-4 py-3">
-            <p className="text-sm font-medium">Персонал кафедри</p>
+            <p className="text-sm font-medium">Штат кафедри</p>
           </div>
           <table className="w-full text-sm">
             <thead>

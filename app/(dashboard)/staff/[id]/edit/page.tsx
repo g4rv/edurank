@@ -89,7 +89,7 @@ export default async function StaffEditPage({ params }: { params: Promise<{ id: 
     <div className="space-y-5">
       <Breadcrumbs
         items={[
-          { label: 'Персонал', href: '/staff' },
+          { label: 'Штат', href: '/staff' },
           { label: fullName(staff), href: `/staff/${id}` },
           { label: 'Редагування' },
         ]}

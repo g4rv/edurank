@@ -7,7 +7,7 @@ import { ListTableSkeleton } from '@/components/ui/list-table-skeleton';
  * the page draws, so nothing moves when the rows arrive.
  *
  * The title is a real string: this page has one heading whatever the query
- * string says, unlike `/staff`, which is «Персонал» or «Архів».
+ * string says, unlike `/staff`, which is «Штат» or «Архів».
  */
 
 /** Mirrors `rating-rollup-table.tsx` — the кафедра is the flexible column. */

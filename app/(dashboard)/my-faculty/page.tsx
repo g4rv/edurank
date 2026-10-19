@@ -44,7 +44,7 @@ const PAGE_SIZE = 50;
  *   a декан's (owner, 2026-09-24), so neither the fund nor the grid is here —
  *   but the saved ставки are (owner, 2026-10-02): a total per кафедра here,
  *   one per person on the кафедра's page.
- * - **Штат** (tab label; «Персонал» until 2026-10-02) — `/staff`'s list, search and filters, fixed to this факультет
+ * - **Штат** (tab label) — `/staff`'s list, search and filters, fixed to this факультет
  *   and to НПП: the system is run by administrative staff but tracks НПП, and
  *   a декан's view has no administrative people in it.
  */
@@ -95,7 +95,7 @@ export default async function MyFacultyPage({
               label: 'Кафедри',
               active: tab === 'departments',
             },
-            // «Штат», not «Персонал» (owner, 2026-10-02) — the word a декан uses.
+            // «Штат» (owner, 2026-10-02) — the word a декан uses.
             { href: `${base}tab=staff`, label: 'Штат', active: tab === 'staff' },
           ]}
         />

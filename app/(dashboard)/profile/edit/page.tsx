@@ -19,7 +19,7 @@ import { avatarSrc, canSetOwnAvatar } from '@/lib/staff/avatar';
 // USER_EDITABLE_STAFF_FIELDS.
 //
 // An admin who needs to change their own ПІБ, кафедра or ставка goes through
-// Персонал like they would for anyone else. That is an administrative act on a
+// «Штат» like they would for anyone else. That is an administrative act on a
 // staff record, and keeping it there is what stops this page needing to know
 // about roles at all.
 export default async function ProfileEditPage() {

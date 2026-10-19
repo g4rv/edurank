@@ -33,7 +33,7 @@ const ALL = '__all__';
  * and it is the control the rest of the app's filter bars use.
  *
  * **The search is new.** The log's whole purpose is «who changed this», and
- * there was no way to ask it — you could narrow to «Персонал · Оновлено» and
+ * there was no way to ask it — you could narrow to «Штат · Оновлено» and
  * then read a hundred rows looking for one name. It matches the entry's own
  * label and the author's email, which are the two things a reader has in hand.
  *

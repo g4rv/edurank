@@ -34,6 +34,8 @@ export const getActiveTemplate = cache(async function getActiveTemplate() {
           // CHECK_SUM type refuses a submission with nothing ticked, and
           // without this the check would only fire server-side.
           scoring: true,
+          // 5.1 opens the rest of the rating and shows «Виконано» (2026-10-16)
+          gatesRating: true,
           section: { select: { number: true, title: true } },
         },
         orderBy: [{ section: { number: 'asc' } }, { order: 'asc' }],

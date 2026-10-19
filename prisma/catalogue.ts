@@ -168,6 +168,7 @@ async function seedTemplate(
       maxPerYear: specs.maxPerYear,
       requiresVerification: specs.requiresVerification,
       entityFirstEntry: specs.entityFirstEntry,
+      gatesRating: specs.gatesRating,
       evidenceFields: specs.evidenceFields as unknown as Prisma.InputJsonValue,
       scoring: specs.scoring as unknown as Prisma.InputJsonValue,
       licencePositions: specs.licencePositions as unknown as Prisma.InputJsonValue,

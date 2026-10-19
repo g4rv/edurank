@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
 import { catalogueType } from '@/lib/rating/db-specs';
-import { computeScore, type ScorableType } from './scoring';
+import {
+  bookSheets,
+  computeScore,
+  personalSheets,
+  roundSheets,
+  type ScorableType,
+} from './scoring';
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 
 // The engine is driven entirely by an ActivityType row (its scoring spec + its
@@ -17,8 +23,46 @@ function score(code: string, evidence: unknown, coefficient?: number) {
 
 const defsByKind = (kind: string) => ACTIVITY_TYPES_2026.filter((t) => t.kind === kind);
 
-/** The scored material checkboxes of moodle_course, straight off its field specs */
-const moodleMaterials = catalogueType('moodle_course').evidenceFields.filter(
+/**
+ * The CHECK_SUM rule 5.1 used until 2026-10-16, kept as a fixture: 5.1 scores
+ * nothing now, but the kind is still the engine's, and an admin may build one.
+ */
+const MATERIAL_POINTS = [
+  ['workProgram', 15, 5],
+  ['syllabus', 5, 5],
+  ['tests', 20, 10],
+  ['lectureNotes', 50, 10],
+  ['presentations', 30, 10],
+  ['methodicalMaterials', 30, 10],
+] as const;
+const checkSumMoodle: ScorableType = {
+  code: 'moodle_check_sum',
+  coefficient: 1,
+  scoring: { kind: 'CHECK_SUM' },
+  evidenceFields: [
+    {
+      kind: 'select',
+      name: 'mode',
+      label: 'Вид роботи',
+      options: [
+        { value: 'development', label: 'Розроблення', points: 150 },
+        { value: 'update', label: 'Оновлення', points: 50 },
+      ],
+    },
+    ...MATERIAL_POINTS.map(
+      ([name, development, update]): EvidenceField => ({
+        kind: 'checkbox',
+        name,
+        label: name,
+        points: { development, update },
+        group: 'Матеріали курсу',
+      })
+    ),
+  ],
+};
+const sumMoodle = (evidence: unknown) => computeScore(checkSumMoodle, evidence);
+
+const moodleMaterials = checkSumMoodle.evidenceFields.filter(
   (f): f is Extract<EvidenceField, { kind: 'checkbox' }> =>
     f.kind === 'checkbox' && f.points !== undefined
 );
@@ -26,6 +70,21 @@ const moodleMaterials = catalogueType('moodle_course').evidenceFields.filter(
 function allMoodleMaterials(present = true): Record<string, boolean> {
   return Object.fromEntries(moodleMaterials.map((m) => [m.name, present]));
 }
+
+describe('5.1 (moodle_course) scores nothing (owner, 2026-10-16)', () => {
+  it('is 0 for a lecturer and for somebody who does not teach', () => {
+    expect(score('moodle_course', { isLecturer: false })).toEqual({ computedValue: 1, score: 0 });
+    expect(
+      score('moodle_course', {
+        isLecturer: true,
+        mode: 'development',
+        discipline: 'Педагогіка',
+        link: 'https://moodle.example/1',
+        syllabus: true,
+      }).score
+    ).toBe(0);
+  });
+});
 
 describe('catalogue ↔ scoring consistency', () => {
   it('SELECT / SELECT_MULT / CHECK_SUM types have coefficient 1 in 2026', () => {
@@ -106,45 +165,76 @@ describe('MULT types (value × coefficient)', () => {
   });
 });
 
-describe('monographs (author sheets: pages / 24 / coAuthors)', () => {
-  it('ukrainian monograph: 120 pages, 2 co-authors, ×200', () => {
-    expect(score('monograph_ua', { pages: 120, coAuthors: 2 }, 200)).toEqual({
+describe('monographs (personal sheets: sheets / coAuthors, to 0,1)', () => {
+  it('ukrainian monograph: 5 sheets, 2 co-authors, ×200', () => {
+    expect(score('monograph_ua', { sheets: 5, coAuthors: 2 }, 200)).toEqual({
       computedValue: 2.5,
       score: 500,
     });
   });
 
   it('EU-language monograph: sole author by default, ×300', () => {
-    expect(score('monograph_eu', { pages: 48 }, 300)).toEqual({
+    expect(score('monograph_eu', { sheets: 2 }, 300)).toEqual({
       computedValue: 2,
       score: 600,
     });
   });
 
-  it('rounds to 2 decimals without double-rounding the score', () => {
-    // 100 / 24 = 4.1666… → computedValue 4.17, score = raw × 200 = 833.33
+  it('rounds the personal share to one decimal before scoring', () => {
+    // 5,2 / 3 = 1,7333… → 1,7 → 1,7 × 200 = 340
+    expect(score('monograph_ua', { sheets: 5.2, coAuthors: 3 }, 200)).toEqual({
+      computedValue: 1.7,
+      score: 340,
+    });
+    // 5,3 / 3 = 1,7666… → 1,8
+    expect(score('monograph_ua', { sheets: 5.3, coAuthors: 3 }, 200).computedValue).toBe(1.8);
+  });
+
+  it('still scores a row saved with pages (pages / 24), rounded the same way', () => {
+    // 100 / 24 = 4,1666… → 4,2
     expect(score('monograph_ua', { pages: 100 }, 200)).toEqual({
-      computedValue: 4.17,
-      score: 833.33,
+      computedValue: 4.2,
+      score: 840,
     });
   });
 
-  it('rejects zero pages and invalid coAuthors', () => {
+  it('rejects zero sheets, zero pages and invalid coAuthors', () => {
+    expect(() => score('monograph_ua', { sheets: 0 }, 200)).toThrow('"sheets"');
     expect(() => score('monograph_ua', { pages: 0 }, 200)).toThrow('"pages"');
-    expect(() => score('monograph_ua', { pages: 24, coAuthors: 0 }, 200)).toThrow('"coAuthors"');
-    expect(() => score('monograph_ua', { pages: 24, coAuthors: 1.5 }, 200)).toThrow('"coAuthors"');
+    expect(() => score('monograph_ua', { sheets: 2, coAuthors: 0 }, 200)).toThrow('"coAuthors"');
+    expect(() => score('monograph_ua', { sheets: 2, coAuthors: 1.5 }, 200)).toThrow('"coAuthors"');
+  });
+});
+
+describe('personalSheets / bookSheets', () => {
+  it('reads sheets first, pages as the fallback', () => {
+    expect(bookSheets({ sheets: 3.5, pages: 999 })).toBe(3.5);
+    expect(bookSheets({ pages: 48 })).toBe(2);
+    expect(bookSheets({})).toBeNull();
+  });
+
+  it('divides by co-authors only when there are more than one', () => {
+    expect(personalSheets({ sheets: 3 })).toBe(3);
+    expect(personalSheets({ sheets: 3, coAuthors: 1 })).toBe(3);
+    expect(personalSheets({ sheets: 3, coAuthors: 2 })).toBe(1.5);
+  });
+
+  it('rounds half up to 0,1 and is not fooled by binary floats', () => {
+    expect(roundSheets(3.54645)).toBe(3.5);
+    expect(roundSheets(3.5634536)).toBe(3.6);
+    expect(roundSheets(1.05)).toBe(1.1);
   });
 });
 
 describe('SELECT_MULT types', () => {
   it('editions: type points × author sheets', () => {
-    // textbook: 200 × (240/24)/3 = 666.67
-    expect(score('edition_publication', { option: 'textbook', pages: 240, coAuthors: 3 })).toEqual({
-      computedValue: 666.67,
-      score: 666.67,
+    // textbook: 200 × (10 / 3 = 3,33… → 3,3) = 660
+    expect(score('edition_publication', { option: 'textbook', sheets: 10, coAuthors: 3 })).toEqual({
+      computedValue: 660,
+      score: 660,
     });
-    // recommendations: 80 × (24/24)/1 = 80
-    expect(score('edition_publication', { option: 'recommendations', pages: 24 }).score).toBe(80);
+    // recommendations: 80 × 1 = 80
+    expect(score('edition_publication', { option: 'recommendations', sheets: 1 }).score).toBe(80);
   });
 
   it('internships: per-credit points × credits', () => {
@@ -182,16 +272,16 @@ describe('SELECT_MULT types', () => {
   });
 });
 
-describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
+describe('CHECK_SUM (sum of ticked materials, flat evidence)', () => {
   it('development with ALL six materials = 150', () => {
-    expect(score('moodle_course', { mode: 'development', ...allMoodleMaterials() })).toEqual({
+    expect(sumMoodle({ mode: 'development', ...allMoodleMaterials() })).toEqual({
       computedValue: 150,
       score: 150,
     });
   });
 
   it('update with ALL six materials = 50', () => {
-    expect(score('moodle_course', { mode: 'update', ...allMoodleMaterials() }).score).toBe(50);
+    expect(sumMoodle({ mode: 'update', ...allMoodleMaterials() }).score).toBe(50);
   });
 
   it('a missing material costs exactly its own share, not the whole score', () => {
@@ -202,7 +292,7 @@ describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
         const share = material.points?.[mode] ?? 0;
         expect(share, `${material.name} has no ${mode} points`).toBeGreaterThan(0);
         expect(
-          score('moodle_course', { mode, ...allMoodleMaterials(), [material.name]: false }).score,
+          sumMoodle({ mode, ...allMoodleMaterials(), [material.name]: false }).score,
           `${mode} without ${material.name}`
         ).toBe(full - share);
       }
@@ -212,7 +302,7 @@ describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
   // The regression this rule replaced: five of six materials used to score 0.
   it('five of six materials scores the five', () => {
     expect(
-      score('moodle_course', {
+      sumMoodle({
         mode: 'development',
         ...allMoodleMaterials(),
         presentations: false,
@@ -221,9 +311,7 @@ describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
   });
 
   it('no materials at all scores 0', () => {
-    expect(
-      score('moodle_course', { mode: 'development', ...allMoodleMaterials(false) }).score
-    ).toBe(0);
+    expect(sumMoodle({ mode: 'development', ...allMoodleMaterials(false) }).score).toBe(0);
   });
 
   it('the material shares add up to their mode maximum', () => {
@@ -237,12 +325,12 @@ describe('moodle CHECK_SUM (sum of ticked materials, flat evidence)', () => {
   });
 
   it('rejects an unknown mode even when nothing is ticked', () => {
-    expect(() => score('moodle_course', { mode: 'elective', ...allMoodleMaterials() })).toThrow(
+    expect(() => sumMoodle({ mode: 'elective', ...allMoodleMaterials() })).toThrow(
       'unknown option'
     );
-    expect(() =>
-      score('moodle_course', { mode: 'elective', ...allMoodleMaterials(false) })
-    ).toThrow('unknown option');
+    expect(() => sumMoodle({ mode: 'elective', ...allMoodleMaterials(false) })).toThrow(
+      'unknown option'
+    );
   });
 });
 

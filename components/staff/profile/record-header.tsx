@@ -100,7 +100,7 @@ export async function RecordHeader({ id }: { id: string }) {
       <Breadcrumbs
         items={[
           session.user.role !== 'USER'
-            ? { label: 'Персонал', href: '/staff' }
+            ? { label: 'Штат', href: '/staff' }
             : (await deanOf(session.user.staffId)).length > 0
               ? { label: 'Мій факультет', href: '/my-faculty?tab=staff' }
               : { label: 'Моя кафедра', href: '/my-department' },

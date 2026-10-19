@@ -180,7 +180,7 @@ export function DivisionSettingsForm({
       <section className="space-y-4">
         <h2 className="text-sm font-semibold tracking-wide uppercase">Доступ до полів</h2>
         <p className="text-sm text-foreground-soft">
-          Які поля персоналу редактори цього відділу можуть змінювати
+          Які поля працівників редактори цього відділу можуть змінювати
         </p>
         {FIELD_GROUPS.map((group) => (
           <div key={group.label} className="rounded-xl border bg-card">

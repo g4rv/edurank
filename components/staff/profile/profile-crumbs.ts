@@ -8,10 +8,10 @@ import type { Role } from '@/lib/generated/prisma/client';
  * `/profile` built the role-aware root itself, `/profile/edit` hardcoded two
  * levels and dropped it — so the same person saw «Особисте › Мій профіль» on
  * one page and «Мій профіль › Редагування» on the next, losing a level on the
- * way in. `/staff/[id]/edit` had it right all along («Персонал › ПІБ ›
+ * way in. `/staff/[id]/edit` had it right all along («Штат › ПІБ ›
  * Редагування»), which is what made the profile side look like the odd one.
  *
- * **An ADMIN or EDITOR starts at «Персонал»** — they reach their own record
+ * **An ADMIN or EDITOR starts at «Штат»** — they reach their own record
  * from that list as well as from the sidebar, so it is a real ancestor with a
  * real route. For an НПП it is not a page they may open, so the trail starts at
  * the sidebar group, which has no href because it has no page (see
@@ -22,8 +22,7 @@ import type { Role } from '@/lib/generated/prisma/client';
  *   is itself the leaf and takes no href.
  */
 export function profileCrumbs(role: Role, current?: string): Crumb[] {
-  const root: Crumb =
-    role === 'USER' ? { label: 'Особисте' } : { label: 'Персонал', href: '/staff' };
+  const root: Crumb = role === 'USER' ? { label: 'Особисте' } : { label: 'Штат', href: '/staff' };
 
   if (!current) return [root, { label: 'Мій профіль' }];
   return [root, { label: 'Мій профіль', href: '/profile' }, { label: current }];

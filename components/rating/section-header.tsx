@@ -1,6 +1,7 @@
 import { Card } from '@/components/aurora/ui/card';
 import type { Crumb } from '@/components/ui/breadcrumbs';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
+import { GateMark } from '@/components/rating/gate-mark';
 
 /**
  * Everything above «Розділ N» in the trail.
@@ -45,11 +46,17 @@ export const RATING_CRUMBS: Crumb[] = [{ label: 'Особисте' }, { label: '
 export function SectionHeader({
   section,
   score,
+  done,
   action,
 }: {
   section: number;
   /** This section's score for the open year; `undefined` while it loads */
   score?: number;
+  /**
+   * Set for a section that holds only 5.1 (2026-10-16): it scores nothing, so
+   * it says «Виконано» / «Не заповнено» where the others say «Бали: N».
+   */
+  done?: boolean;
   action?: React.ReactNode;
 }) {
   return (
@@ -82,13 +89,17 @@ export function SectionHeader({
               filled button, the wrong weight for the one number this page
               keeps. Still a step under the title: a figure ON the page, not
               the page's subject. */}
-          {score !== undefined && (
-            <p className="text-sm text-foreground-soft">
-              Бали:{' '}
-              <span className="text-lg font-semibold text-foreground tabular-nums">
-                {score.toLocaleString('uk-UA')}
-              </span>
-            </p>
+          {done !== undefined ? (
+            <GateMark done={done} />
+          ) : (
+            score !== undefined && (
+              <p className="text-sm text-foreground-soft">
+                Бали:{' '}
+                <span className="text-lg font-semibold text-foreground tabular-nums">
+                  {score.toLocaleString('uk-UA')}
+                </span>
+              </p>
+            )
           )}
           {action}
         </div>

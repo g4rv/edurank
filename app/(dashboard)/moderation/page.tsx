@@ -104,6 +104,7 @@ async function RatingSection({
     label: a.activityType.label,
     summary: summarizeEvidence(fieldsOf(a.activityType), a.evidence),
     score: a.score,
+    gating: a.activityType.gatesRating || undefined,
     status: a.status,
     statusLabel: ACTIVITY_STATUS_LABELS[a.status],
     removeReason: a.removeReason,

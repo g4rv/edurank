@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
 import {
+  checkbox,
   date,
   dateRange,
   doi,
@@ -27,13 +28,10 @@ function score(code: string, evidence: unknown, coefficient?: number) {
   return computeScore(coefficient === undefined ? type : { ...type, coefficient }, evidence);
 }
 
-/** The scored checkboxes of a check-sum type, off its own field specs */
-const scoredCheckboxNames = (code: string) =>
-  catalogueType(code)
-    .evidenceFields.filter((f) => f.kind === 'checkbox' && f.points !== undefined)
-    .map((f) => f.name);
-
-const MOODLE_MATERIALS = scoredCheckboxNames('moodle_course');
+/** 5.1's six матеріали — the checkboxes of its «Матеріали курсу» group */
+const MOODLE_MATERIALS = catalogueType('moodle_course')
+  .evidenceFields.filter((f) => f.kind === 'checkbox' && f.group === 'Матеріали курсу')
+  .map((f) => f.name);
 
 /** Build a valid sample evidence object straight from the field specs */
 function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknown> {
@@ -44,7 +42,8 @@ function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknow
         out[f.name] = 'Тестове значення';
         break;
       case 'number':
-        out[f.name] = Math.max(f.min ?? 0, 1);
+        // A monograph's share must reach 1,5 sheets — 2 clears every floor here
+        out[f.name] = f.name === 'sheets' ? 2 : Math.max(f.min ?? 0, 1);
         break;
       case 'url':
         // Host-restricted fields need a link on that service, not a placeholder
@@ -58,6 +57,9 @@ function sampleEvidence(fields: readonly EvidenceField[]): Record<string, unknow
         break;
       case 'doi':
         out[f.name] = '10.1038/s41586-021-03819-2';
+        break;
+      case 'issn':
+        out[f.name] = '0028-0836';
         break;
       case 'checkbox':
         out[f.name] = true;
@@ -98,24 +100,20 @@ describe('catalogue ↔ evidence fields consistency', () => {
     }
   });
 
-  it('scoring fields are present per kind (value / pages / credits / mode + materials)', () => {
+  it('scoring fields are present per kind (value / sheets / credits / mode + materials)', () => {
     const names = (code: string) => EVIDENCE_FIELDS[code].map((f) => f.name);
     for (const def of ACTIVITY_TYPES_2026) {
       if (def.kind === 'MULT') {
         const n = names(def.code);
         expect(
-          n.includes('value') || n.includes('pages'),
-          `${def.code}: MULT needs value or pages`
+          n.includes('value') || n.includes('sheets'),
+          `${def.code}: MULT needs value or sheets`
         ).toBe(true);
       }
       if (def.code === 'intl_internship' || def.code === 'ukr_internship') {
         expect(names(def.code)).toContain('credits');
       }
-      if (def.kind === 'CHECK_SUM') {
-        const n = names(def.code);
-        expect(n).toContain('mode');
-        for (const m of MOODLE_MATERIALS) expect(n, `moodle missing ${m}`).toContain(m);
-      }
+      if (def.kind === 'CHECK_SUM') expect(names(def.code)).toContain('mode');
     }
   });
 });
@@ -134,54 +132,70 @@ describe('schema → scoring integration (all 67 types)', () => {
     }
   });
 
-  // Item 5.1 pays per material, so any subset scores — except the empty one.
-  // Nothing ticked sums to 0, and a saved 0 would read as «Зараховано» beside
-  // no points at all, so the schema refuses it while the engine still computes
-  // it (computeScore is reachable from paths that skip the form).
-  it('moodle full sample scores mode points', () => {
-    const schema = schemaFor('moodle_course');
-    const full = schema.parse(sampleEvidence(EVIDENCE_FIELDS.moodle_course));
-    // «Розроблення» is the first mode option, which is what sampleEvidence picks
-    expect(score('moodle_course', full).score).toBe(150);
+  // CHECK_SUM with nothing ticked sums to 0, and a saved 0 would read as
+  // «Зараховано» beside no points at all — refused by the schema. 5.1 used this
+  // rule until 2026-10-16; the kind stays, so it is tested on a fixture.
+  it('a CHECK_SUM form refuses nothing ticked and lands on the first box', () => {
+    const fields: EvidenceField[] = [
+      select('mode', 'Вид', [{ value: 'a', label: 'A' }]),
+      checkbox('one', 'Один', { points: { a: 10 }, group: 'G' }),
+      checkbox('two', 'Два', { points: { a: 5 }, group: 'G' }),
+    ];
+    const schema = schemaForFields(fields, { kind: 'CHECK_SUM' });
+    const none = schema.safeParse({ mode: 'a', one: false, two: false });
+    expect(none.success).toBe(false);
+    expect(none.error?.issues[0].message).toContain('хоча б один');
+    expect(none.error?.issues[0].path).toEqual(['one']);
+    expect(schema.safeParse({ mode: 'a', one: false, two: true }).success).toBe(true);
+  });
+});
+
+describe('5.1 «Я викладач» (owner, 2026-10-16)', () => {
+  const schema = schemaFor('moodle_course');
+  const lecturer = {
+    isLecturer: true,
+    mode: 'development',
+    discipline: 'Педагогіка',
+    link: 'https://moodle.example/course/1',
+    syllabus: true,
+  };
+
+  it('saves with the switch OFF and nothing else', () => {
+    const r = schema.safeParse({ isLecturer: false });
+    expect(r.success).toBe(true);
+    expect(r.data).toEqual({ isLecturer: false });
   });
 
-  it('moodle accepts a course missing a material — it is no longer all-or-nothing', () => {
-    const schema = schemaFor('moodle_course');
-    const full = sampleEvidence(EVIDENCE_FIELDS.moodle_course);
+  it('drops whatever was typed behind the switch once it is OFF', () => {
+    const r = schema.safeParse({ ...lecturer, isLecturer: false });
+    expect(r.success).toBe(true);
+    expect(r.data).toEqual({ isLecturer: false });
+  });
 
+  it('with the switch ON requires вид роботи, дисципліна and посилання', () => {
+    for (const key of ['mode', 'discipline', 'link'] as const) {
+      const r = schema.safeParse({ ...lecturer, [key]: '' });
+      expect(r.success, key).toBe(false);
+      expect(
+        r.error?.issues.map((i) => i.path[0]),
+        key
+      ).toContain(key);
+    }
+  });
+
+  it('with the switch ON requires at least one матеріал', () => {
+    const none = { ...lecturer, syllabus: false };
+    const r = schema.safeParse(none);
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0].message).toContain('хоча б один');
+    expect(r.error?.issues[0].path).toEqual([MOODLE_MATERIALS[0]]);
     for (const material of MOODLE_MATERIALS) {
-      const result = schema.safeParse({ ...full, [material]: false });
-      expect(result.success, material).toBe(true);
+      expect(schema.safeParse({ ...none, [material]: true }).success, material).toBe(true);
     }
   });
 
-  it('an incomplete course scores the materials it does have', () => {
-    const full = schemaFor('moodle_course').parse(sampleEvidence(EVIDENCE_FIELDS.moodle_course));
-    // «Презентації» is worth 30 of the 150 available for розроблення
-    expect(score('moodle_course', { ...full, presentations: false }).score).toBe(120);
-  });
-
-  it('refuses a course with no material ticked at all', () => {
-    const schema = schemaFor('moodle_course');
-    const none = { ...sampleEvidence(EVIDENCE_FIELDS.moodle_course) };
-    for (const material of MOODLE_MATERIALS) none[material] = false;
-
-    const result = schema.safeParse(none);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toContain('хоча б один');
-      // Lands on the first box so the grouped set shows one message
-      expect(result.error.issues[0].path).toEqual([MOODLE_MATERIALS[0]]);
-    }
-  });
-
-  it('accepts a course with a single material ticked', () => {
-    const schema = schemaFor('moodle_course');
-    for (const material of MOODLE_MATERIALS) {
-      const one = { ...sampleEvidence(EVIDENCE_FIELDS.moodle_course) };
-      for (const other of MOODLE_MATERIALS) one[other] = other === material;
-      expect(schema.safeParse(one).success, material).toBe(true);
-    }
+  it('accepts a complete lecturer entry', () => {
+    expect(schema.safeParse(lecturer).success).toBe(true);
   });
 });
 
@@ -240,18 +254,18 @@ describe('schema validation behavior', () => {
   it('coerces numeric strings from form inputs', () => {
     const schema = schemaFor('monograph_ua');
     const parsed = schema.parse({
-      pages: '120',
+      sheets: '5',
       coAuthors: '2',
       isbn: '978-3-16-148410-0',
       bibliography: 'Опис',
     });
-    expect(parsed).toMatchObject({ pages: 120, coAuthors: 2 });
+    expect(parsed).toMatchObject({ sheets: 5, coAuthors: 2 });
     expect(score('monograph_ua', parsed, 200)).toEqual({ computedValue: 2.5, score: 500 });
   });
 
   it('rejects an ISBN whose check digit does not match', () => {
     const schema = schemaFor('monograph_ua');
-    const base = { pages: 120, coAuthors: 2, bibliography: 'Опис' };
+    const base = { sheets: 5, coAuthors: 2, bibliography: 'Опис' };
 
     expect(schema.safeParse({ ...base, isbn: '978-3-16-148410-0' }).success).toBe(true);
     expect(schema.safeParse({ ...base, isbn: '9783161484100' }).success).toBe(true);
@@ -264,7 +278,7 @@ describe('schema validation behavior', () => {
 
   it('leaves the ISBN optional on monograph_eu but still checks it when filled', () => {
     const schema = schemaFor('monograph_eu');
-    const base = { pages: 200, coAuthors: 1, bibliography: 'Beschreibung' };
+    const base = { sheets: 8.3, coAuthors: 1, bibliography: 'Beschreibung' };
 
     expect(schema.safeParse(base).success).toBe(true);
     expect(schema.safeParse({ ...base, isbn: '' }).success).toBe(true);
@@ -548,5 +562,182 @@ describe('currentYearBounds', () => {
       min: '2027-01-01',
       max: '2027-01-01',
     });
+  });
+});
+
+describe('a number field with a limit on its decimals', () => {
+  const sheets: EvidenceField = {
+    kind: 'number',
+    name: 'value',
+    label: 'Кількість друкованих аркушів',
+    min: 1,
+    decimals: 1,
+  };
+  const parse = (v: unknown, stored?: unknown) =>
+    schemaForFields(
+      [sheets],
+      undefined,
+      stored === undefined ? undefined : { stored: { value: stored } }
+    ).safeParse({
+      value: v,
+    });
+
+  it('accepts a whole number and one decimal, as typed or as a string', () => {
+    for (const v of [2, 1.6, 1.7, '1.7', '12']) expect(parse(v).success).toBe(true);
+  });
+
+  it('refuses two decimals — 1,73 is not a valid number of sheets', () => {
+    const r = parse(1.73);
+    expect(r.success).toBe(false);
+    expect(JSON.stringify(r.error?.issues)).toContain('Не більше одного знака після коми');
+    expect(parse('1.05').success).toBe(false);
+  });
+
+  it('still enforces the minimum', () => {
+    expect(parse(0.5).success).toBe(false);
+  });
+
+  it('does not re-judge a value already saved', () => {
+    expect(parse(1.73, 1.73).success).toBe(true);
+    expect(parse(1.74, 1.73).success).toBe(false);
+  });
+
+  it('is a plain number field when no limit is set', () => {
+    const plain: EvidenceField = { kind: 'number', name: 'value', label: 'x', min: 0 };
+    expect(schemaForFields([plain]).safeParse({ value: 1.73 }).success).toBe(true);
+  });
+});
+
+describe('the монографія personal share (minShare)', () => {
+  const schema = schemaFor('monograph_ua');
+  const base = { isbn: '978-3-16-148410-0', bibliography: 'Опис' };
+  const issue = (r: { success: boolean; error?: { issues: unknown[] } }) =>
+    JSON.stringify(r.error?.issues ?? []);
+
+  it('accepts a sole author from 1,5 sheets and refuses less', () => {
+    expect(schema.safeParse({ ...base, sheets: 1.5 }).success).toBe(true);
+    const r = schema.safeParse({ ...base, sheets: 1.4 });
+    expect(r.success).toBe(false);
+    expect(issue(r)).toContain('не менше 1,5 друкованого аркуша');
+    expect(issue(r)).toContain('"sheets"');
+  });
+
+  it('judges the share when there are co-authors, on the co-authors box', () => {
+    // 4 / 2 = 2 — fine; 4 / 3 = 1,33 → 1,3 — refused
+    expect(schema.safeParse({ ...base, sheets: 4, coAuthors: 2 }).success).toBe(true);
+    const r = schema.safeParse({ ...base, sheets: 4, coAuthors: 3 });
+    expect(r.success).toBe(false);
+    expect(issue(r)).toContain('зараз — 1,3');
+    expect(issue(r)).toContain('"coAuthors"');
+  });
+
+  it('measures the ROUNDED share — 1,46 counts as 1,5', () => {
+    // 4,4 / 3 = 1,4666… → 1,5
+    expect(schema.safeParse({ ...base, sheets: 4.4, coAuthors: 3 }).success).toBe(true);
+  });
+
+  it('refuses two decimals in the sheets box', () => {
+    expect(schema.safeParse({ ...base, sheets: 2.25 }).success).toBe(false);
+  });
+
+  it('does not re-judge an entry whose two numbers are as saved', () => {
+    const stored = { ...base, sheets: 1.1, coAuthors: 1 };
+    const s = schemaForFields(
+      catalogueType('monograph_ua').evidenceFields,
+      catalogueType('monograph_ua').scoring,
+      { stored }
+    );
+    expect(s.safeParse(stored).success).toBe(true);
+    expect(s.safeParse({ ...stored, sheets: 1.2 }).success).toBe(false);
+  });
+
+  it('has no floor on 2.2 — a small методичка still saves', () => {
+    const edition = schemaFor('edition_publication');
+    expect(
+      edition.safeParse({ option: 'recommendations', sheets: 0.8, bibliography: 'Опис' }).success
+    ).toBe(true);
+  });
+});
+
+describe('3.10 «Міжнародна публікація…» (owner, 2026-10-16)', () => {
+  const schema = schemaFor('intl_peer_reviewed_publication');
+  const base = {
+    bibliography: 'Shevchenko O. Title. Journal. 2026. Vol. 1. P. 1–10.',
+    reviewsLink: 'https://publisher.example/peer-review',
+  };
+  const paths = (r: { error?: { issues: { path: PropertyKey[] }[] } }) =>
+    (r.error?.issues ?? []).map((i) => i.path[0]);
+
+  it('takes a DOI alone — no ISSN, no article link needed', () => {
+    expect(schema.safeParse({ ...base, doi: '10.1038/s41586-021-03819-2' }).success).toBe(true);
+  });
+
+  // The box is not even drawn with a DOI (owner, 2026-10-19) — a link typed
+  // before the DOI went in must not be stored behind the person's back
+  it('drops an article link given alongside a DOI', () => {
+    const r = schema.safeParse({
+      ...base,
+      doi: '10.1038/s41586-021-03819-2',
+      link: 'https://journal.example/a/1',
+    });
+    expect(r.success).toBe(true);
+    expect(r.data).not.toHaveProperty('link');
+  });
+
+  it('takes an ISSN, but then asks for the article’s own page', () => {
+    const noLink = schema.safeParse({ ...base, issn: '0028-0836' });
+    expect(noLink.success).toBe(false);
+    expect(paths(noLink)).toEqual(['link']);
+    expect(
+      schema.safeParse({ ...base, issn: '0028-0836', link: 'https://journal.example/a/1' }).success
+    ).toBe(true);
+  });
+
+  it('refuses neither DOI nor ISSN, on both boxes', () => {
+    const r = schema.safeParse({ ...base, link: 'https://journal.example/a/1' });
+    expect(r.success).toBe(false);
+    expect(paths(r).sort()).toEqual(['doi', 'issn']);
+  });
+
+  it('always wants the publisher’s page about the reviewing', () => {
+    const r = schema.safeParse({
+      bibliography: base.bibliography,
+      doi: '10.1038/s41586-021-03819-2',
+    });
+    expect(r.success).toBe(false);
+    expect(paths(r)).toEqual(['reviewsLink']);
+  });
+
+  it('refuses an ISSN whose check digit is wrong, and stores a good one hyphenated', () => {
+    expect(
+      schema.safeParse({ ...base, issn: '0028-0837', link: 'https://journal.example/a/1' }).success
+    ).toBe(false);
+    const ok = schema.safeParse({ ...base, issn: '00280836', link: 'https://journal.example/a/1' });
+    expect(ok.data?.issn).toBe('0028-0836');
+  });
+
+  it('calls an unfinished ISSN short, not a wrong check digit', () => {
+    const r = schema.safeParse({ ...base, issn: '0028-08', link: 'https://journal.example/a/1' });
+    expect(r.error?.issues.map((i) => i.message)).toEqual([
+      'ISSN має 8 символів, наприклад 0028-0836',
+    ]);
+  });
+
+  it('scores 100', () => {
+    const parsed = schema.parse({ ...base, doi: '10.1038/s41586-021-03819-2' });
+    expect(score('intl_peer_reviewed_publication', parsed).score).toBe(100);
+  });
+});
+
+describe('a decimal typed with a comma', () => {
+  it('is read as a number — the box keeps the comma the person typed', () => {
+    const r = schemaFor('monograph_ua').safeParse({
+      sheets: '4,2',
+      coAuthors: '2',
+      isbn: '978-3-16-148410-0',
+      bibliography: 'Опис',
+    });
+    expect(r.success).toBe(true);
+    expect(r.data?.sheets).toBe(4.2);
   });
 });

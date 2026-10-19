@@ -236,7 +236,7 @@ export async function deleteDivision(id: string): Promise<DivisionActionState> {
 
   if (!division) return { error: 'Відділ не знайдено' };
   if (division._count.staff > 0)
-    return { error: 'Неможливо видалити відділ, до якого прикріплений персонал' };
+    return { error: 'Неможливо видалити відділ, до якого прикріплені працівники' };
 
   let dbError: string | null = null;
 

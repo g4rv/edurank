@@ -156,7 +156,7 @@ export function sampleEvidence(fields: readonly EvidenceField[], random: () => n
         break;
       case 'number':
         out[f.name] =
-          f.name === 'pages' ? 24 + Math.floor(random() * 96) : 1 + Math.floor(random() * 4);
+          f.name === 'sheets' ? 2 + Math.floor(random() * 40) / 10 : 1 + Math.floor(random() * 4);
         break;
       case 'url':
         out[f.name] = f.hosts ? `https://${f.hosts[0]}/demo` : 'https://example.com/demo';
@@ -169,6 +169,9 @@ export function sampleEvidence(fields: readonly EvidenceField[], random: () => n
         break;
       case 'doi':
         out[f.name] = '10.1000/demo.2026';
+        break;
+      case 'issn':
+        out[f.name] = '0028-0836';
         break;
       case 'checkbox':
         out[f.name] = true;

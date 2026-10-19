@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { allGating, GateMark, rowDone } from '@/components/rating/gate-mark';
 import { sumScores } from '@/lib/round';
 import type { AchievementGroup } from '@/components/rating/achievements-list';
 import { EmptyRowsScope } from '@/components/rating/rating-view';
@@ -84,6 +85,9 @@ function sectionTotal(group: AchievementGroup): number {
   return sumScores(group.items.filter((i) => i.status === 'APPROVED').map((i) => i.score));
 }
 
+/** Only an NPP's own pages pass it — they are the ones who can fill 5.1 */
+const BLOCKED_NOTE = 'Доки не заповнено п. 5.1, сума рахується як 0';
+
 /**
  * Full read-only rating table — every section, its indicators, its subtotal,
  * and the year's grand total at the foot.
@@ -101,8 +105,14 @@ function sectionTotal(group: AchievementGroup): number {
 export function RatingTable({
   groups,
   fill = false,
+  blocked = false,
 }: {
   groups: AchievementGroup[];
+  /**
+   * 5.1 is not filled (owner, 2026-10-16): the year counts as 0, as the stored
+   * total does — so the foot says 0 and why, while every row stays listed.
+   */
+  blocked?: boolean;
   /**
    * Take the height the layout has left rather than a guessed cap. Needs every
    * ancestor up to a bounded one to be a flex column — see `Table`'s own note.
@@ -111,7 +121,7 @@ export function RatingTable({
    */
   fill?: boolean;
 }) {
-  const grandTotal = sumScores(groups.map(sectionTotal));
+  const grandTotal = blocked ? 0 : sumScores(groups.map(sectionTotal));
   const emptyCount = groups.reduce((n, g) => n + g.items.filter((i) => i.isEmpty).length, 0);
 
   return (
@@ -131,7 +141,12 @@ export function RatingTable({
         // sixty-seven rows.
         footer={
           <TableRow variant="total">
-            <TableCell colSpan={3}>Загальна сума балів</TableCell>
+            <TableCell colSpan={3}>
+              Загальна сума балів
+              {blocked && (
+                <span className="block text-xs font-normal text-warning">{BLOCKED_NOTE}</span>
+              )}
+            </TableCell>
             <TableCell numeric align="center" className="text-base">
               {grandTotal}
             </TableCell>
@@ -162,7 +177,11 @@ function SectionRows({ group }: { group: AchievementGroup }) {
           Розділ {group.number}. {group.title}
         </TableCell>
         <TableCell numeric align="center">
-          {subtotal}
+          {allGating(group.items) ? (
+            <GateMark done={group.items.some(rowDone)} compact />
+          ) : (
+            subtotal
+          )}
         </TableCell>
       </TableRow>
 
@@ -249,7 +268,7 @@ function SectionRows({ group }: { group: AchievementGroup }) {
                   'font-normal text-muted-foreground line-through'
               )}
             >
-              {item.score}
+              {item.gating ? <GateMark done={rowDone(item)} compact /> : item.score}
             </TableCell>
           </TableRow>
         ))

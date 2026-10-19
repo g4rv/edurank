@@ -42,9 +42,9 @@ import { cn } from '@/lib/utils';
  * and the first screen is repointed in the same commit.
  *
  * Every slot is a `ReactNode` so `loading.tsx` can draw this same shell with
- * skeletons in it. The title is one too: `/staff` is «Персонал» or «Архів»
+ * skeletons in it. The title is one too: `/staff` is «Штат» or «Архів»
  * depending on a query param the loading boundary cannot see, and a skeleton
- * that guessed «Персонал» would flash the wrong word on the way to the other.
+ * that guessed «Штат» would flash the wrong word on the way to the other.
  */
 export function ListHeader({
   title,

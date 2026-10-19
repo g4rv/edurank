@@ -198,6 +198,8 @@ function makeTx(opts: {
       update: vi.fn().mockResolvedValue({}),
       deleteMany: vi.fn().mockResolvedValue({}),
     },
+    // No gating indicator in the year — the rating is open (rating-gate.ts)
+    activityType: { findMany: vi.fn().mockResolvedValue([]) },
     ratingEntry: { upsert: vi.fn().mockResolvedValue({}) },
   };
 }
@@ -398,6 +400,8 @@ describe('backfillProfileDerived', () => {
         update: vi.fn().mockResolvedValue({}),
         deleteMany: vi.fn().mockResolvedValue({}),
       },
+      // No gating indicator in the year — the rating is open (rating-gate.ts)
+      activityType: { findMany: vi.fn().mockResolvedValue([]) },
       ratingEntry: { upsert: vi.fn().mockResolvedValue({}) },
     };
     mockTransaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));

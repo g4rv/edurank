@@ -9,6 +9,7 @@ import { deanOf, scopeOf } from '@/lib/queries/scope';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
 import { sectionScores } from '@/lib/rating/section-scores';
+import { gatingSectionMarks } from '@/lib/rating/rating-gate';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { Sidebar } from '@/components/sidebar';
 import { NavDrawer } from '@/components/nav-drawer';
@@ -68,6 +69,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     year && session.user.staffId
       ? sectionScores(await getRatingEntry(session.user.staffId, year))
       : null;
+  // Розділ 5 is 5.1 alone and scores nothing: it shows a mark, not «0»
+  const ratingMarks =
+    year && session.user.staffId ? await gatingSectionMarks(db, session.user.staffId, year) : {};
 
   // Built once and handed to both the rail and the drawer, so the two can never
   // be given different answers about who may see what.
@@ -80,6 +84,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     isDean,
     canOverseeSciencePlans,
     ratingTotals,
+    ratingMarks,
     ratingYear: year,
   };
 

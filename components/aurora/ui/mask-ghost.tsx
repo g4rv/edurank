@@ -66,3 +66,6 @@ export const ORCID_MASK = '0000-0000-0000-0000';
  * meaning — the checksum and the work key both ignore separators.
  */
 export const ISBN_MASK = '000-0-00-000000-0';
+
+/** ISSN — a journal's number, always four and four (`formatIssn`, enforced). */
+export const ISSN_MASK = '0000-0000';

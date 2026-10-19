@@ -9,6 +9,7 @@ import {
   type UseFormRegister,
 } from 'react-hook-form';
 import { cn } from '@/lib/utils';
+import { decimalText, limitDecimals } from '@/lib/decimal-input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { DateInput } from '@/components/aurora/ui/date-input';
@@ -16,6 +17,8 @@ import { DateRangeInput } from '@/components/aurora/ui/date-range-input';
 import { Input } from '@/components/aurora/ui/input';
 import { DoiInput } from '@/components/aurora/ui/doi-input';
 import { IsbnInput } from '@/components/aurora/ui/isbn-input';
+import { IssnInput } from '@/components/aurora/ui/issn-input';
+import { issnState } from '@/lib/issn';
 import { PersonPick } from '@/components/rating/person-pick';
 import type { PersonOption } from '@/lib/aspirants/pick';
 import { usePickLists } from '@/components/rating/pick-lists';
@@ -28,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/aurora/ui/select';
-import type { EvidenceField } from '@/lib/rating/evidence-fields';
+import { conditionMet, fieldShown, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { currentYearBounds, MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
 
 const DATE_MIN = `${MIN_EVIDENCE_YEAR}-01-01`;
@@ -149,6 +152,22 @@ export function EvidenceFields({
   // балів» suffix has to follow the mode the person has actually chosen. Any
   // other rule has no `mode` field and this stays undefined, costing nothing.
   const mode = useWatch({ control, name: 'mode' });
+  // The whole form, for the conditions: a box behind «Я викладач» is not drawn
+  // until the switch is on, and a box required only in some state of the form
+  // shows the required marker exactly then. The forms are a handful of fields.
+  const values = (useWatch({ control }) ?? {}) as Record<string, unknown>;
+  const req = (f: EvidenceField): boolean | undefined => {
+    const when = 'requiredWhen' in f ? f.requiredWhen : undefined;
+    return when ? conditionMet(when, values) : undefined;
+  };
+  // A box another box's rule reads re-checks that box as it changes — filling the
+  // ISSN clears DOI's «коли не заповнено «ISSN»» at once, not on the next submit
+  const depsOf = (name: string): string[] | undefined => {
+    const deps = fields
+      .filter((g) => 'requiredWhen' in g && g.requiredWhen?.field === name)
+      .map((g) => g.name);
+    return deps.length > 0 ? deps : undefined;
+  };
 
   function pointsFor(f: Extract<EvidenceField, { kind: 'checkbox' }>): number | undefined {
     return typeof mode === 'string' ? f.points?.[mode] : undefined;
@@ -165,21 +184,28 @@ export function EvidenceFields({
     switch (f.kind) {
       case 'text':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} span={f.span}>
+          <FormField
+            key={f.name}
+            htmlFor={f.name}
+            label={f.label}
+            error={error}
+            required={req(f)}
+            span={f.span}
+          >
             {f.multiline ? (
               <Textarea
                 id={f.name}
                 rows={f.placeholder ? 4 : undefined}
                 placeholder={f.placeholder}
                 disabled={disabled}
-                {...register(f.name)}
+                {...register(f.name, { deps: depsOf(f.name) })}
               />
             ) : (
               <Input
                 id={f.name}
                 placeholder={f.placeholder}
                 disabled={disabled}
-                {...register(f.name)}
+                {...register(f.name, { deps: depsOf(f.name) })}
               />
             )}
           </FormField>
@@ -187,25 +213,54 @@ export function EvidenceFields({
 
       case 'number':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
-            <Input
-              id={f.name}
-              type="number"
-              step={f.int ? 1 : 'any'}
-              min={f.min}
-              max={f.max}
-              // The bound said up front, where it used to arrive only as a red
-              // «Мінімальне значення — 1» after a refused save (owner, 2026-09-24).
-              placeholder={f.min !== undefined ? `від ${f.min}` : undefined}
-              disabled={disabled}
-              {...register(f.name)}
-            />
+          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} required={req(f)}>
+            {f.decimals !== undefined && !f.int ? (
+              // A limit on the decimals is ENFORCED while typing, not hinted
+              // (owner, 2026-10-16): the extra digit never appears. A text box,
+              // because a number box cannot be edited as it is typed. Controlled,
+              // so a saved 4.2 opens as «4,2» too — the comma is the Ukrainian
+              // separator (owner, 2026-10-19).
+              <Controller
+                name={f.name}
+                rules={{ deps: depsOf(f.name) }}
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id={f.name}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder={f.min !== undefined ? `від ${decimalText(f.min)}` : undefined}
+                    disabled={disabled}
+                    value={decimalText(field.value)}
+                    onChange={(e) =>
+                      field.onChange(limitDecimals(e.target.value, f.decimals as number))
+                    }
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                )}
+              />
+            ) : (
+              <Input
+                id={f.name}
+                type="number"
+                step={f.int ? 1 : 'any'}
+                min={f.min}
+                max={f.max}
+                // The bound said up front, where it used to arrive only as a red
+                // «Мінімальне значення — 1» after a refused save (owner, 2026-09-24).
+                placeholder={f.min !== undefined ? `від ${f.min}` : undefined}
+                disabled={disabled}
+                {...register(f.name, { deps: depsOf(f.name) })}
+              />
+            )}
           </FormField>
         );
 
       case 'url':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
+          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} required={req(f)}>
             <Input
               id={f.name}
               type="url"
@@ -213,17 +268,18 @@ export function EvidenceFields({
               // one the field will actually accept
               placeholder="https://…"
               disabled={disabled}
-              {...register(f.name)}
+              {...register(f.name, { deps: depsOf(f.name) })}
             />
           </FormField>
         );
 
       case 'isbn':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
+          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} required={req(f)}>
             {/* Controlled: the mask rewrites what is typed (2026-10-07) */}
             <Controller
               name={f.name}
+              rules={{ deps: depsOf(f.name) }}
               control={control}
               render={({ field }) => (
                 <IsbnInput
@@ -241,16 +297,58 @@ export function EvidenceFields({
 
       case 'doi':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
-            <DoiInput id={f.name} disabled={disabled} {...register(f.name)} />
+          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} required={req(f)}>
+            <DoiInput
+              id={f.name}
+              disabled={disabled}
+              {...register(f.name, { deps: depsOf(f.name) })}
+            />
+          </FormField>
+        );
+
+      case 'issn':
+        return (
+          <FormField
+            key={f.name}
+            htmlFor={f.name}
+            label={f.label}
+            // A wrong check digit is already said by the box itself, right under
+            // it — the schema's sentence below would say it a second time
+            error={issnState(String(values[f.name] ?? '')) === 'invalid' ? undefined : error}
+            required={req(f)}
+          >
+            {/* Controlled, like the ISBN: the mask rewrites what is typed */}
+            <Controller
+              name={f.name}
+              rules={{ deps: depsOf(f.name) }}
+              control={control}
+              render={({ field }) => (
+                <IssnInput
+                  id={f.name}
+                  disabled={disabled}
+                  value={field.value as string | undefined}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  ref={field.ref}
+                />
+              )}
+            />
           </FormField>
         );
 
       case 'dateRange':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} span={2}>
+          <FormField
+            key={f.name}
+            htmlFor={f.name}
+            label={f.label}
+            error={error}
+            required={req(f)}
+            span={2}
+          >
             <Controller
               name={f.name}
+              rules={{ deps: depsOf(f.name) }}
               control={control}
               render={({ field }) => (
                 <DateRangeInput
@@ -271,9 +369,10 @@ export function EvidenceFields({
 
       case 'date':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error}>
+          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} required={req(f)}>
             <Controller
               name={f.name}
+              rules={{ deps: depsOf(f.name) }}
               control={control}
               render={({ field }) => (
                 <DateInput
@@ -304,9 +403,17 @@ export function EvidenceFields({
 
       case 'select':
         return (
-          <FormField key={f.name} htmlFor={f.name} label={f.label} error={error} span={f.span}>
+          <FormField
+            key={f.name}
+            htmlFor={f.name}
+            label={f.label}
+            error={error}
+            required={req(f)}
+            span={f.span}
+          >
             <Controller
               name={f.name}
+              rules={{ deps: depsOf(f.name) }}
               control={control}
               render={({ field }) => (
                 <Select
@@ -343,6 +450,7 @@ export function EvidenceFields({
     return (
       <Controller
         name={f.name}
+        rules={{ deps: depsOf(f.name) }}
         control={control}
         render={({ field }) => (
           <label
@@ -374,7 +482,7 @@ export function EvidenceFields({
 
   return (
     <div className={className}>
-      {toRenderItems(fields).map((item) => {
+      {toRenderItems(fields.filter((f) => fieldShown(f, values))).map((item) => {
         if (item.kind === 'single') return renderField(item.field);
 
         if (item.kind === 'joined') {
@@ -430,7 +538,7 @@ export function EvidenceFields({
                         'min-w-0',
                         i === all.length - 1 && all.length % 2 === 1 && 'sm:col-span-2'
                       )}
-                      {...register(f.name)}
+                      {...register(f.name, { deps: depsOf(f.name) })}
                     />
                   ))}
                 </div>

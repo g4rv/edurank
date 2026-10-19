@@ -21,7 +21,7 @@
 //         votes in a new publication indicator must be able to point it at
 //         position 1 without a deploy.
 
-import { PAGES_PER_AUTHOR_SHEET } from '@/lib/rating/scoring';
+import { bookSheets, personalSheets } from '@/lib/specs/scoring';
 
 /** How a position gets its content */
 export type PositionFill =
@@ -128,7 +128,9 @@ export function groupOf(link: LicencePositionLink): string {
  */
 export function linkMatches(link: LicencePositionLink, evidence: Record<string, unknown>): boolean {
   if (!link.when) return true;
-  const value = evidence[link.when.field];
+  const raw = evidence[link.when.field];
+  // A switch is matched as 'true' / 'false' — 5.1 links only «Я викладач»
+  const value = typeof raw === 'boolean' ? String(raw) : raw;
   return typeof value === 'string' && link.when.in.includes(value);
 }
 
@@ -146,15 +148,11 @@ export function linkMatches(link: LicencePositionLink, evidence: Record<string, 
  * take the whole document down.
  */
 function hasFiveAuthorSheets(row: PositionRow): boolean {
-  const pages = Number(row.evidence.pages);
-  if (!Number.isFinite(pages) || pages <= 0) return false;
-
-  const total = pages / PAGES_PER_AUTHOR_SHEET;
-  if (total < 5) return false;
-
-  const coAuthors = Number(row.evidence.coAuthors);
-  const share = Number.isFinite(coAuthors) && coAuthors > 1 ? total / coAuthors : total;
-  return share >= 1.5;
+  // `sheets` on a rating row since 2026-10-16, `pages` on an older or typed one
+  const total = bookSheets(row.evidence);
+  if (total === null || total < 5) return false;
+  const share = personalSheets(row.evidence);
+  return share !== null && share >= 1.5;
 }
 
 // Nineteen of the twenty positions have a single way of being met, so nothing

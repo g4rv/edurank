@@ -244,7 +244,7 @@ export default async function StaffPage({
     // table takes what is left, scrolling its rows internally.
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ListHeader
-        title={archivedView ? 'Архів' : 'Персонал'}
+        title={archivedView ? 'Архів' : 'Штат'}
         subtitle={
           <>
             {staff.length} записів
@@ -272,8 +272,8 @@ export default async function StaffPage({
             {isAdmin && (
               <DownloadButton
                 href={exportHref}
-                label="Вивантажити персонал"
-                title="Список персоналу за поточними фільтрами"
+                label="Вивантажити штат"
+                title="Список працівників за поточними фільтрами"
               />
             )}
             {showQualificationsExport && (
@@ -284,7 +284,7 @@ export default async function StaffPage({
                 title={
                   qualificationsInView === 0
                     ? 'Немає записів для вивантаження за поточними фільтрами'
-                    : 'Підвищення кваліфікації та стажування персоналу за поточними фільтрами'
+                    : 'Підвищення кваліфікації та стажування працівників за поточними фільтрами'
                 }
               />
             )}

@@ -40,6 +40,8 @@ export interface SubmittableType {
   fields: EvidenceField[];
   /** Needed for the rule-level checks, e.g. CHECK_SUM's «tick at least one» */
   scoring: ScoringSpec;
+  /** 5.1 — opens the rest of the rating and scores nothing (2026-10-16) */
+  gatesRating?: boolean;
 }
 
 /**
@@ -182,7 +184,12 @@ function EvidenceForm({
       if ('error' in result) {
         toast.error(result.error);
       } else {
-        toast.success(`Досягнення додано: +${result.score} балів`);
+        // 5.1 scores nothing — «+0 балів» would read as a failure (2026-10-16)
+        toast.success(
+          type.gatesRating
+            ? `П. ${type.itemNumber} виконано — інші пункти рейтингу відкрито`
+            : `Досягнення додано: +${result.score} балів`
+        );
         onDone();
       }
     });

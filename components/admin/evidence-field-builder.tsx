@@ -32,6 +32,7 @@ const FIELD_KIND_LABELS: Record<EvidenceField['kind'], string> = {
   select: 'Список вибору',
   isbn: 'ISBN',
   doi: 'DOI',
+  issn: 'ISSN',
 };
 
 const ADDABLE_KINDS: EvidenceField['kind'][] = [
@@ -324,6 +325,29 @@ function FieldSettings({
             />
             <span>Ціле число</span>
           </label>
+          {field.int !== true && (
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Знаків після коми, не більше</span>
+              <Input
+                type="number"
+                min={0}
+                max={3}
+                step={1}
+                className="w-20"
+                placeholder="без обмеження"
+                value={field.decimals ?? ''}
+                onChange={(e) =>
+                  onPatch({
+                    decimals:
+                      e.target.value === ''
+                        ? undefined
+                        : Math.min(3, Math.max(0, Math.trunc(Number(e.target.value)) || 0)),
+                  } as Partial<EvidenceField>)
+                }
+                aria-label={`Знаків після коми для «${field.label}»`}
+              />
+            </label>
+          )}
           {optionalToggle}
         </div>
       );

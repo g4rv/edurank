@@ -336,6 +336,19 @@ pnpm db:science-catalogue  # how PRODUCTION gets Додаток III: creates the
                       #   2026/2027 рік and any missing вид роботи, CREATE-ONLY —
                       #   never updates or deletes a row an admin edited. Not the
                       #   seed: db:seed would overwrite the rating indicators.
+pnpm db:book-sheets  # one-off: rating 3.7 / 2.2 typed in друкованих аркушах, not
+                      #   pages. Converts the field, sets 1,5 minimum on монографія,
+                      #   and converts + RE-SCORES the open year's entries (pages ÷ 24
+                      #   to 0,1). Closed years untouched. Report first; --apply.
+pnpm db:lecturer-gate  # one-off, after migrate deploy: 5.1 «Я викладач» — the new form, no
+                      #   points, opens the rest of the rating; its saved entries kept and
+                      #   re-scored to 0; every open-year total recomputed (those with no
+                      #   5.1 go to 0). Report first (runs and rolls back); --apply.
+pnpm db:intl-publication  # one-off: the new 3.10, and 3.10–3.25 → 3.11–3.26 in every open
+                      #   year. No entry or score moves. Report first; --apply.
+pnpm db:science-sheets-decimals  # one-off: «Кількість друкованих аркушів» takes ONE decimal
+                      #   (1,7, never 1,73) in every planning year. Report first;
+                      #   --apply writes. Saved works with two decimals are only listed.
 pnpm db:science-conference-yearly  # one-off: «Участь у конференціях» ONCE →
                       #   YEARLY (D25). The наказ caps it at 5 per рік, and a
                       #   ONCE key carries no year — so the same annual
@@ -516,6 +529,34 @@ Rules that are easy to get wrong:
 - **Scores are frozen at save.** `Activity.score` is computed once; editing a coefficient later does not rewrite existing rows.
 - **A deactivated indicator scores nothing.** Only `APPROVED` rows of an `isActive` type count — see `COUNTED` in `lib/rating/recompute.ts`. Toggling `isActive` recomputes everyone holding it.
 - **`year` is always derived** from the type's template, never taken from client input.
+- **5.1 comes first and scores nothing** (owner, 2026-10-16). Its form opens
+  with «Я викладач»; nothing else is drawn until it is on, and then the вид
+  роботи, дисципліна, посилання and at least one матеріал are required
+  (`requiredWhen: { field, checked }` — see `FieldCondition`). Saving it
+  either way OPENS THE REST OF THE RATING: until an НПП has an entry of every
+  `ActivityType.gatesRating` indicator of the year, `createActivity` /
+  `deleteActivity` refuse every other indicator, the section pages show
+  `RatingGateNote`, and `recomputeRatingEntry` writes their year as 0 —
+  division-entered points included (`lib/rating/rating-gate.ts`). Its own rows
+  read «✓ Виконано» / «Не заповнено», never a number (`GateMark`), in every
+  list, the sidebar, moderation and the Excel form. A closed year's snapshot
+  freezes the same rule (`blocked`). Order: the science plan, then 5.1, then
+  the rest. The cross-person lists (/rating, dashboard) still show its column
+  as 0.
+- **A box can be required only in some state of the form** — `requiredWhen` on
+  any kind: `{ field, in }` (a select's answer), `{ field, checked }` (a switch;
+  the box is also hidden and dropped while it is off) or `{ field, empty }`
+  (another box left empty — 3.10's «DOI or ISSN»). `schemaForFields` enforces
+  it; on a checkbox it means «at least one of the group». `hide: true` on `in` /
+  `empty` also hides the box while unmet and drops its value — 3.10's article
+  link is not drawn once a DOI is given (owner, 2026-10-19).
+- **A book is typed in друкованих аркушах, not pages** (owner, 2026-10-16). The
+  page-based indicators (3.7 монографія, 2.2 видання) ask «Друкованих аркушів»
+  (`sheets`, one decimal) and «Кількість співавторів». The person's share is
+  `personalSheets` — sheets ÷ co-authors, rounded to 0,1 — and it is what is
+  scored and what Характеристика п.3 judges. A монографія's share must reach
+  `scoring.minShare` (1,5); 2.2 has no floor. A row saved before carries
+  `pages` and is read as pages ÷ 24 until `pnpm db:book-sheets` converts it.
 - **Closed years are read-only** and render from `RatingEntry.snapshot`. Appeals go through ADMIN `reopenYear` → fix → close again.
 
 ### Indicators live in the database, not in code
@@ -822,6 +863,16 @@ Easy to get wrong:
   (DOI, ISBN, pages, dates) come next and «Співавтори» last. The order of the
   fields themselves is the catalogue's, stored in JSON — so a database made
   earlier is reordered by `pnpm db:science-link-isbn`, not by the seed.
+- **Sheets are typed with ONE decimal at most** (owner, 2026-10-16): the three
+  «Кількість друкованих аркушів» fields (монографія, перевидання, рецензування)
+  carry `decimals: 1`. The box REFUSES a second digit while typing
+  (`limitDecimals`, a text box that takes a comma or a point and always SHOWS
+  the comma — the Ukrainian separator, owner 2026-10-19; every printed number
+  goes through `decimalText` too) and `schemaForFields`
+  refuses it again on the server; a value already saved is not re-judged on
+  edit. The 1,5-per-співавтор rule stays in the Характеристика п.3 only. The
+  catalogue change reaches existing databases through
+  `pnpm db:science-sheets-decimals`, not the seed.
 - **A failed save must never destroy a form.** Every science dialog runs its
   action through `attempt()` (`lib/science/attempt.ts`): a rejected request
   (a phone losing signal, a server error) would otherwise be re-thrown into
@@ -888,7 +939,7 @@ document that proves it. Tab «Підвищення кваліфікації/С�
 - **Excel export** (`GET /api/export/qualifications`, one flat sheet, a row per
   record, filterable): `?staffId=` for one НПП — the «Вивантажити Excel» button on
   their tab — or the same query string `/staff` is on for the whole list — the
-  «Вивантажити кваліфікації» button beside «Вивантажити персонал» (the old
+  «Вивантажити кваліфікації» button beside «Вивантажити штат» (the old
   «Експорт», renamed; ADMIN only, unchanged). For ADMIN and a division with
   `canViewQualifications` — **not the НПП themself**; the route refuses them
   as the button hides from them.

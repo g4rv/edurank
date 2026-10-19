@@ -28,6 +28,8 @@ export async function listStaffActivities(staffId: string, year: number, section
           label: true,
           itemNumber: true,
           inputSource: true,
+          // 5.1 shows «Виконано», never a number (2026-10-16)
+          gatesRating: true,
           // Named on the row so «this number is wrong» has an addressee
           verifyingDivision: { select: { name: true, registryKey: true } },
           evidenceFields: true,

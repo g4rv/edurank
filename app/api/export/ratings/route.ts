@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { blockedStaff } from '@/lib/rating/rating-gate';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
@@ -67,6 +68,7 @@ export async function GET(request: Request) {
         coefficientNote: true,
         evidenceFields: true,
         verifyingDivisionId: true,
+        gatesRating: true,
         section: { select: { number: true, title: true } },
       },
       orderBy: [{ section: { number: 'asc' } }, { order: 'asc' }],
@@ -123,6 +125,7 @@ export async function GET(request: Request) {
       sectionNumber: t.section.number,
       sectionTitle: t.section.title,
       fields: fields.success ? fields.data : [],
+      gatesRating: t.gatesRating,
       divisionKey: t.verifyingDivisionId
         ? (keyByDivisionId.get(t.verifyingDivisionId) ?? null)
         : null,
@@ -143,6 +146,13 @@ export async function GET(request: Request) {
     activitiesByStaff.set(a.staffId, list);
   }
 
+  // Who has not filled 5.1 — their form totals 0, as the app does (2026-10-16)
+  const blocked = await blockedStaff(
+    db,
+    staffList.map((s) => s.id),
+    template.year
+  );
+
   const fullNames = staffList.map((s) => `${s.lastName} ${s.firstName} ${s.patronymic}`);
   // Namesakes must not overwrite each other inside the archive
   const fileNames = ratingFileNames(fullNames);
@@ -159,6 +169,7 @@ export async function GET(request: Request) {
         department: staff.department?.name ?? '',
         year: template.year,
         activities: activitiesByStaff.get(staff.id) ?? [],
+        blocked: blocked.has(staff.id),
       },
       exportTypes
     );
@@ -179,6 +190,7 @@ export async function GET(request: Request) {
         department: staff.department?.name ?? '',
         year: template.year,
         activities: activitiesByStaff.get(staff.id) ?? [],
+        blocked: blocked.has(staff.id),
       },
       exportTypes
     );

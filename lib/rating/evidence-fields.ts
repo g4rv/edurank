@@ -1,4 +1,5 @@
 import { SCOPUS_OR_WOS_HOSTS } from '@/lib/link-hosts';
+import { decimalText } from '@/lib/decimal-input';
 
 // Evidence field specs — the single source for BOTH the Zod schemas
 // (validations/activity-evidence.ts) and the generic evidence form (M2).
@@ -10,7 +11,34 @@ import { SCOPUS_OR_WOS_HOSTS } from '@/lib/link-hosts';
 //   exactly the keys of SELECT_OPTION_POINTS[code]
 // - MULT types have a number `value`, or `pages` + `coAuthors` for page-based codes
 // - SELECT_MULT internships add a number `credits`
-// - moodle_course has a select `mode` + six scored checkboxes (MOODLE_MATERIALS)
+// - moodle_course (5.1) scores nothing: «Я викладач» first, and only then the
+//   вид роботи, дисципліна, посилання and the матеріали (owner, 2026-10-16)
+
+/**
+ * When a box that may otherwise stay empty must be filled. One shape for every
+ * kind that can carry it, read by `schemaForFields` (which sees the whole
+ * form) and by the renderer:
+ *
+ * - `in`      — the select named in `field` holds one of these values (a
+ *                book's ISBN for a монографія, owner 2026-09-30)
+ * - `checked` — the switch named in `field` is on. The box is also HIDDEN
+ *                while it is off, and its value dropped on save: 5.1's
+ *                «Я викладач» comes before anything else (owner, 2026-10-16)
+ * - `empty`   — the box named in `field` is left empty: «DOI or ISSN, at
+ *                least one», and «the article's link when there is no DOI»
+ *
+ * `hide` on `in` or `empty` also HIDES the box while the condition is not met,
+ * and drops its value on save, the way `checked` always does: 3.10's article
+ * link is not even drawn once a DOI is given (owner, 2026-10-19). Without it
+ * the box stays visible and only loses its star — DOI and ISSN must, or each
+ * would hide the other.
+ *
+ * On a CHECKBOX it means «at least one of this `group` must be ticked».
+ */
+export type FieldCondition =
+  | { field: string; in: readonly string[]; hide?: true }
+  | { field: string; checked: true }
+  | { field: string; empty: true; hide?: true };
 
 export type EvidenceField =
   | {
@@ -55,6 +83,7 @@ export type EvidenceField =
        * typed before keeps reading, keying and printing as it did.
        */
       pickFrom?: 'aspirants';
+      requiredWhen?: FieldCondition;
     }
   | {
       kind: 'number';
@@ -64,6 +93,8 @@ export type EvidenceField =
       /** Set it only where a number has a real ceiling — a YEAR does, a count does not */
       max?: number;
       int?: boolean;
+      /** Most digits after the point — 1 for a друкований аркуш («1,7», never «1,73») */
+      decimals?: number;
       optional?: boolean;
     }
   // `hosts` narrows a URL to a service (see lib/link-hosts.ts); without it any
@@ -75,6 +106,7 @@ export type EvidenceField =
       optional?: boolean;
       hosts?: readonly string[];
       hostsError?: string;
+      requiredWhen?: FieldCondition;
     }
   | {
       kind: 'date';
@@ -107,10 +139,24 @@ export type EvidenceField =
       name: string;
       label: string;
       optional?: boolean;
-      requiredWhen?: { field: string; in: readonly string[] };
+      requiredWhen?: FieldCondition;
     }
   // Syntax-checked only — a DOI has no check digit; see lib/doi.ts
-  | { kind: 'doi'; name: string; label: string; optional?: boolean }
+  | {
+      kind: 'doi';
+      name: string;
+      label: string;
+      optional?: boolean;
+      requiredWhen?: FieldCondition;
+    }
+  // A journal's number, check-digit validated; see lib/issn.ts (owner, 2026-10-16)
+  | {
+      kind: 'issn';
+      name: string;
+      label: string;
+      optional?: boolean;
+      requiredWhen?: FieldCondition;
+    }
   // `mustBeTrue` makes the box a condition of submitting, not just a flag;
   // `requiredError` explains why, since a generic «Потрібно підтвердити» does
   // not tell an НПП that the item is all-or-nothing
@@ -134,6 +180,13 @@ export type EvidenceField =
        * together, repeating the same message per box is noise.
        */
       group?: string;
+      requiredWhen?: FieldCondition;
+      /**
+       * What the summary prints while the switch is OFF. Without it an off
+       * switch prints nothing — and 5.1 saved by somebody who does not teach
+       * would read as an empty line (owner, 2026-10-16: «Не викладач»).
+       */
+      offLabel?: string;
     }
   // `points` feeds the scoring engine when the type's scoring rule reads this
   // select (the `option`/`mode` conventions) — and the form shows it as a
@@ -152,6 +205,7 @@ export type EvidenceField =
        * read better side by side.
        */
       span?: 1 | 2;
+      requiredWhen?: FieldCondition;
     };
 
 // The field constructors below are exported for one other caller: the
@@ -171,19 +225,33 @@ export const text = (
     joinLabel?: string;
     span?: 1 | 2;
     rule?: 'cyrillicName';
+    requiredWhen?: FieldCondition;
   }
 ): EvidenceField => ({ kind: 'text', name, label, ...opts });
 
 export const number = (
   name: string,
   label: string,
-  opts?: { min?: number; max?: number; int?: boolean; optional?: boolean }
+  opts?: { min?: number; max?: number; int?: boolean; decimals?: number; optional?: boolean }
 ): EvidenceField => ({ kind: 'number', name, label, ...opts });
+
+/**
+ * A book's size in друковані аркуші, typed — one decimal at most (owner,
+ * 2026-10-16; until then the form asked for pages and divided by 24). The
+ * person's share is this divided by the co-authors, see `personalSheets`.
+ */
+export const bookSheetsField = (): EvidenceField =>
+  number('sheets', 'Друкованих аркушів', { min: 0.1, decimals: 1 });
 
 export const url = (
   name: string,
   label: string,
-  opts?: { optional?: boolean; hosts?: readonly string[]; hostsError?: string }
+  opts?: {
+    optional?: boolean;
+    hosts?: readonly string[];
+    hostsError?: string;
+    requiredWhen?: FieldCondition;
+  }
 ): EvidenceField => ({
   kind: 'url',
   name,
@@ -211,7 +279,7 @@ export const dateRange = (
 export const isbn = (
   name: string,
   label: string,
-  opts?: { optional?: boolean; requiredWhen?: { field: string; in: readonly string[] } }
+  opts?: { optional?: boolean; requiredWhen?: FieldCondition }
 ): EvidenceField => ({
   kind: 'isbn',
   name,
@@ -219,8 +287,23 @@ export const isbn = (
   ...opts,
 });
 
-export const doi = (name: string, label: string, opts?: { optional?: boolean }): EvidenceField => ({
+export const doi = (
+  name: string,
+  label: string,
+  opts?: { optional?: boolean; requiredWhen?: FieldCondition }
+): EvidenceField => ({
   kind: 'doi',
+  name,
+  label,
+  ...opts,
+});
+
+export const issn = (
+  name: string,
+  label: string,
+  opts?: { optional?: boolean; requiredWhen?: FieldCondition }
+): EvidenceField => ({
+  kind: 'issn',
   name,
   label,
   ...opts,
@@ -234,6 +317,8 @@ export const checkbox = (
     requiredError?: string;
     points?: Record<string, number>;
     group?: string;
+    requiredWhen?: FieldCondition;
+    offLabel?: string;
   }
 ): EvidenceField => ({
   kind: 'checkbox',
@@ -246,8 +331,31 @@ export const select = (
   name: string,
   label: string,
   options: readonly { value: string; label: string }[],
-  opts?: { optional?: boolean; span?: 1 | 2 }
+  opts?: { optional?: boolean; span?: 1 | 2; requiredWhen?: FieldCondition }
 ): EvidenceField => ({ kind: 'select', name, label, options, ...opts });
+
+const blankValue = (v: unknown) =>
+  v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
+
+/** Does the form's current state meet this condition? */
+export function conditionMet(when: FieldCondition, values: Record<string, unknown>): boolean {
+  const answer = values[when.field];
+  if ('checked' in when) return answer === true;
+  if ('empty' in when) return blankValue(answer);
+  return typeof answer === 'string' && when.in.includes(answer);
+}
+
+/**
+ * Is this field shown? A `checked` condition always hides its field — a box
+ * that waits for a switch is not even drawn until it is on — and the other two
+ * do when they carry `hide`. Otherwise they only make a visible box obligatory.
+ */
+export function fieldShown(f: EvidenceField, values: Record<string, unknown>): boolean {
+  const when = 'requiredWhen' in f ? f.requiredWhen : undefined;
+  if (!when) return true;
+  const hides = 'checked' in when || when.hide === true;
+  return !hides || conditionMet(when, values);
+}
 
 export const opt = (value: string, label: string) => ({ value, label });
 
@@ -295,6 +403,11 @@ export const opt = (value: string, label: string) => ({ value, label });
 export const BIB_ARTICLE =
   'Наприклад: Шевченко О. П., Коваленко І. М. Цифрова трансформація закладів вищої освіти. ' +
   'Педагогіка вищої школи. 2025. № 3 (42). С. 112–124.';
+
+/** A foreign journal's article — the description keeps the journal's own language */
+export const BIB_INTL_ARTICLE =
+  'Наприклад: Shevchenko O., Kovalenko I. Digital transformation of higher education ' +
+  'institutions. European Journal of Education. 2025. Vol. 60, No. 3. P. 112–124.';
 
 export const BIB_MONOGRAPH =
   'Наприклад: Шевченко О. П. Управління якістю вищої освіти : монографія. ' +
@@ -405,9 +518,11 @@ export function summarizeEvidence(
         break;
       case 'checkbox':
         if (v === true) parts.push(f.label);
+        else if (f.offLabel) parts.push(f.offLabel);
         break;
       case 'number':
-        parts.push(`${f.label}: ${v}`);
+        // «4,7», the Ukrainian way — this line is read, and printed into documents
+        parts.push(`${f.label}: ${decimalText(v)}`);
         break;
       case 'dateRange': {
         // «з 01.09.2014 до 31.08.2019» — the shape the document already uses for
@@ -421,6 +536,9 @@ export function summarizeEvidence(
         break;
       case 'doi':
         parts.push(`DOI ${v}`);
+        break;
+      case 'issn':
+        parts.push(`ISSN ${v}`);
         break;
       case 'date':
         parts.push(opts?.uaDates ? uaDay(String(v)) : String(v));
@@ -442,6 +560,9 @@ export function evidenceDefaults(fields: readonly EvidenceField[]): Record<strin
   }
   return out;
 }
+
+/** 5.1's boxes wait for «Я викладач» */
+const LECTURER: FieldCondition = { field: 'isLecturer', checked: true };
 
 export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   // ── Розділ 1 ────────────────────────────────────────────────────────────────
@@ -542,7 +663,7 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       opt('methodical_guide', 'навчально-методичний посібник'),
       opt('recommendations', 'методичні рекомендації (словник, довідник)'),
     ]),
-    number('pages', 'Кількість сторінок', { min: 1, int: true }),
+    bookSheetsField(),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
     text('bibliography', 'Бібліографічний опис', {
       multiline: true,
@@ -606,7 +727,7 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     url('link', 'Посилання', { optional: true }),
   ],
   monograph_ua: [
-    number('pages', 'Кількість сторінок', { min: 1, int: true }),
+    bookSheetsField(),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
     // Required: the 2026 form marks this item «обов'язково ISBN»
     isbn('isbn', 'ISBN'),
@@ -616,7 +737,7 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     }),
   ],
   monograph_eu: [
-    number('pages', 'Кількість сторінок', { min: 1, int: true }),
+    bookSheetsField(),
     number('coAuthors', 'Кількість співавторів', { min: 1, int: true, optional: true }),
     // Optional: the form does not demand it here, so a missing ISBN must not
     // block a genuine submission — but it is still checked when filled in
@@ -654,6 +775,22 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     }),
     url('link', 'Посилання', { optional: true }),
     doi('doi', 'DOI', { optional: true }),
+  ],
+  // 3.10 (owner, 2026-10-16): DOI or ISSN, at least one; without a DOI the
+  // article's own page; and always the publisher's page that names the
+  // reviewing — the «рецензованому» is what this item pays for.
+  intl_peer_reviewed_publication: [
+    text('bibliography', 'Бібліографічний опис', {
+      multiline: true,
+      placeholder: BIB_INTL_ARTICLE,
+    }),
+    doi('doi', 'DOI', { requiredWhen: { field: 'issn', empty: true } }),
+    issn('issn', 'ISSN', { requiredWhen: { field: 'doi', empty: true } }),
+    // Not even drawn once a DOI is given — the DOI already leads to the article
+    url('link', 'Посилання на статтю', {
+      requiredWhen: { field: 'doi', empty: true, hide: true },
+    }),
+    url('reviewsLink', 'Посилання на офіційну сторінку видавництва з відомостями про рецензії'),
   ],
   defense_supervision: [
     select('option', 'Ступінь', [opt('doctor', 'доктор наук'), opt('phd', 'кандидат наук (PhD)')]),
@@ -809,24 +946,28 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   // so a course missing one material scores the other five rather than zero.
   // The columns come from docs/rating-2026-catalogue.md and each sums to its
   // mode's maximum — `specProblems` enforces that, so a typo cannot go unnoticed.
+  // No points at all (owner, 2026-10-16). The switch comes first and nothing
+  // else is drawn until it is on; on, every box is required and at least one
+  // матеріал must be ticked. Saving it either way opens the rest of the rating
+  // (`ActivityType.gatesRating`).
   moodle_course: [
-    select('mode', 'Вид роботи', [opt('development', 'Розроблення'), opt('update', 'Оновлення')]),
-    text('discipline', 'Дисципліна (освітній компонент)'),
-    url('link', 'Посилання на курс'),
+    checkbox('isLecturer', 'Я викладач', { offLabel: 'Не викладач' }),
+    select('mode', 'Вид роботи', [opt('development', 'Розроблення'), opt('update', 'Оновлення')], {
+      requiredWhen: LECTURER,
+    }),
+    text('discipline', 'Дисципліна (освітній компонент)', { requiredWhen: LECTURER }),
+    url('link', 'Посилання на курс', { requiredWhen: LECTURER }),
     ...(
       [
-        ['workProgram', 'Робоча програма', 15, 5],
-        ['syllabus', 'Силабус', 5, 5],
-        ['tests', 'Тестові завдання (питання до тестів)', 20, 10],
-        ['lectureNotes', 'Конспекти лекцій', 50, 10],
-        ['presentations', 'Презентації', 30, 10],
-        ['methodicalMaterials', 'Методичні матеріали для практичних робіт', 30, 10],
+        ['workProgram', 'Робоча програма'],
+        ['syllabus', 'Силабус'],
+        ['tests', 'Тестові завдання (питання до тестів)'],
+        ['lectureNotes', 'Конспекти лекцій'],
+        ['presentations', 'Презентації'],
+        ['methodicalMaterials', 'Методичні матеріали для практичних робіт'],
       ] as const
-    ).map(([name, label, development, update]) =>
-      checkbox(name, label, {
-        points: { development, update },
-        group: 'Матеріали курсу',
-      })
+    ).map(([name, label]) =>
+      checkbox(name, label, { group: 'Матеріали курсу', requiredWhen: LECTURER })
     ),
   ],
 };

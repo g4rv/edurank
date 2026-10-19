@@ -21,11 +21,18 @@ export interface ScoreResult {
 /**
  * How one activity type's score is computed — the shape stored in
  * `ActivityType.scoring` (JSON). `pageBased` applies to MULT/SELECT_MULT and
- * switches the numeric part to друковані аркуші: pages / 24 / coAuthors.
+ * switches the numeric part to the person's share of друковані аркуші: the
+ * book's `sheets` / coAuthors, rounded to 0,1 (`personalSheets`).
  */
 export interface ScoringSpec {
   kind: ActivityKind;
   pageBased?: boolean;
+  /**
+   * `pageBased` only: the least personal share, in аркуші, a save may claim —
+   * 1,5 for a монографія (owner, 2026-10-16). A column value, not a code list,
+   * so an indicator an admin builds can carry it too.
+   */
+  minShare?: number;
 }
 
 /** Everything the engine needs, selected straight off an ActivityType row */
@@ -105,15 +112,47 @@ function optionPoints(type: ScorableType, selectName: string, evidence: unknown)
  */
 export const PAGES_PER_AUTHOR_SHEET = 24;
 
-/** Друковані аркуші: pages / 24, split between co-authors (default 1 = sole author) */
+/** A share of друковані аркуші counts to one decimal — «1,7», never «1,73» (owner, 2026-10-16) */
+export function roundSheets(sheets: number): number {
+  return Math.round((sheets + Number.EPSILON) * 10) / 10;
+}
+
+const positive = (v: unknown) => {
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/**
+ * The whole book in друковані аркуші. Typed as `sheets` since 2026-10-16
+ * (owner); a row saved before, and the Характеристика's typed п.3 row, carry
+ * `pages` instead, which is pages / 24. Null when neither is a usable number.
+ */
+export function bookSheets(evidence: Record<string, unknown>): number | null {
+  const sheets = positive(evidence.sheets);
+  if (sheets !== null) return sheets;
+  const pages = positive(evidence.pages);
+  return pages === null ? null : pages / PAGES_PER_AUTHOR_SHEET;
+}
+
+/** This person's share: the book divided between its authors (none = sole), rounded to 0,1 */
+export function personalSheets(evidence: Record<string, unknown>): number | null {
+  const total = bookSheets(evidence);
+  if (total === null) return null;
+  const coAuthors = positive(evidence.coAuthors);
+  return roundSheets(coAuthors !== null && coAuthors > 1 ? total / coAuthors : total);
+}
+
+/** The scored share — `personalSheets`, but a malformed row throws instead of scoring 0 */
 function authorSheets(evidence: unknown, code: string): number {
   const e = asRecord(evidence, code);
-  const pages = requireNumber(e.pages, 'pages', code, { min: 1 });
+  if (e.sheets !== undefined) requireNumber(e.sheets, 'sheets', code, { min: 0.1 });
+  else requireNumber(e.pages, 'pages', code, { min: 1 });
   const coAuthors = e.coAuthors === undefined ? 1 : e.coAuthors;
   if (typeof coAuthors !== 'number' || !Number.isInteger(coAuthors) || coAuthors < 1) {
     throw new Error(`${code}: "coAuthors" must be an integer >= 1`);
   }
-  return pages / PAGES_PER_AUTHOR_SHEET / coAuthors;
+  return personalSheets(e) as number;
 }
 
 // Sum of the ticked checkboxes' own points, read from the column the chosen

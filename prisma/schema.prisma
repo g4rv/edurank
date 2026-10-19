@@ -565,6 +565,13 @@ model ActivityType {
   // one-cell-at-a-time grid with nothing to explain why.
   entityFirstEntry Boolean @default(false)
 
+  // Opens the rest of the rating (owner, 2026-10-16 — 5.1, «Я викладач»). Until
+  // an НПП has an entry of an indicator with this switch in the year, they
+  // cannot add or delete their own entries anywhere else, and their year total
+  // counts as 0 — entries a division entered for them included. Its own rows
+  // show «Виконано», never a number. A column for the reason the two above are.
+  gatesRating Boolean @default(false)
+
   // Which п.38 positions of the Характеристика this indicator's entries satisfy:
   // LicencePositionLink[] — see validations/licence-positions.ts. Empty for most
   // indicators, and empty ON PURPOSE for patent_application and

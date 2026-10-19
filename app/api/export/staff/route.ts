@@ -57,5 +57,5 @@ export async function GET(request: Request) {
 
 function fileNameFor(archivedView: boolean): string {
   const today = new Date().toISOString().slice(0, 10);
-  return archivedView ? `Архів персоналу ${today}.xlsx` : `Список персоналу ${today}.xlsx`;
+  return archivedView ? `Архів штату ${today}.xlsx` : `Штат ${today}.xlsx`;
 }

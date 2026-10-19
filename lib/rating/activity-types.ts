@@ -96,6 +96,8 @@ export interface ActivityTypeDef {
    * instead of filling the same evidence in one grid cell at a time.
    */
   entityFirstEntry?: boolean;
+  /** Seed input for `ActivityType.gatesRating` — 5.1 opens the rest of the rating */
+  gatesRating?: boolean;
 }
 
 export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
@@ -301,7 +303,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     kind: 'SELECT_MULT',
     coefficient: 1,
     coefficientNote:
-      'підручник — 200, навчальний посібник — 150, навчально-методичний посібник — 100, методичні рекомендації (словник, довідник) — 80; балів × друковані аркуші / співавтори (др. арк. = сторінок / 24)',
+      'підручник — 200, навчальний посібник — 150, навчально-методичний посібник — 100, методичні рекомендації (словник, довідник) — 80; балів × друковані аркуші / співавтори',
     inputSource: 'NPP_SUBMISSION',
   },
   {
@@ -589,11 +591,24 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     inputSource: 'NPP_SUBMISSION',
     requiresVerification: true,
   },
+  // Added 2026-10-16 (owner); what was 3.10–3.25 is 3.11–3.26 since. Rating
+  // only: no Характеристика position and no «Перевірено».
   {
-    code: 'defense_supervision',
+    code: 'intl_peer_reviewed_publication',
     section: 3,
     order: 12,
     itemNumber: '3.10',
+    label: 'Міжнародна публікація у рецензованому науковому виданні',
+    kind: 'FIXED',
+    coefficient: 100,
+    coefficientNote: "за кожну публікацію; DOI або ISSN — обов'язково",
+    inputSource: 'NPP_SUBMISSION',
+  },
+  {
+    code: 'defense_supervision',
+    section: 3,
+    order: 13,
+    itemNumber: '3.11',
     label: 'Захист під керівництвом науково-педагогічного працівника',
     kind: 'SELECT',
     coefficient: 1,
@@ -604,8 +619,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'scientific_supervision',
     section: 3,
-    order: 13,
-    itemNumber: '3.11',
+    order: 14,
+    itemNumber: '3.12',
     label: 'Наукове консультування або керівництво',
     kind: 'SELECT',
     coefficient: 1,
@@ -616,8 +631,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'intl_olympiad_winners',
     section: 3,
-    order: 14,
-    itemNumber: '3.12',
+    order: 15,
+    itemNumber: '3.13',
     label:
       'Підготовка здобувачів вищої освіти, що стали призерами міжнародних студентських олімпіад та конкурсів наукових робіт, мистецьких та спортивних заходів',
     kind: 'SELECT',
@@ -628,8 +643,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'ukr_olympiad_winners',
     section: 3,
-    order: 15,
-    itemNumber: '3.13',
+    order: 16,
+    itemNumber: '3.14',
     label:
       'Підготовка здобувачів вищої освіти, що стали призерами всеукраїнських студентських олімпіад та конкурсів наукових робіт, мистецьких та спортивних заходів',
     kind: 'SELECT',
@@ -640,8 +655,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'olympiad_jury',
     section: 3,
-    order: 16,
-    itemNumber: '3.14',
+    order: 17,
+    itemNumber: '3.15',
     label:
       'Робота у складі оргкомітету/журі ІІ туру студентських олімпіад та конкурсів, конкурсів наукових робіт МАН',
     kind: 'FIXED',
@@ -651,8 +666,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'scientific_school',
     section: 3,
-    order: 17,
-    itemNumber: '3.15',
+    order: 18,
+    itemNumber: '3.16',
     label: 'Керівництво науковою школою',
     kind: 'FIXED',
     coefficient: 500,
@@ -662,8 +677,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'specialized_council',
     section: 3,
-    order: 18,
-    itemNumber: '3.16',
+    order: 19,
+    itemNumber: '3.17',
     label: 'Робота у спеціалізованих вчених радах',
     kind: 'SELECT',
     coefficient: 1,
@@ -676,8 +691,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'journal_editorial_a',
     section: 3,
-    order: 19,
-    itemNumber: '3.17',
+    order: 20,
+    itemNumber: '3.18',
     label: 'Робота по виданню фахових наукових збірників, журналів категорії «А»',
     kind: 'SELECT',
     coefficient: 1,
@@ -690,8 +705,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'journal_editorial_b',
     section: 3,
-    order: 20,
-    itemNumber: '3.17',
+    order: 21,
+    itemNumber: '3.18',
     label: 'Робота по виданню фахових наукових збірників, журналів категорії «Б»',
     kind: 'SELECT',
     coefficient: 1,
@@ -704,8 +719,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'journal_website_support',
     section: 3,
-    order: 21,
-    itemNumber: '3.17',
+    order: 22,
+    itemNumber: '3.18',
     label: 'Внесення даних та супровід сайту наукового збірника',
     kind: 'FIXED',
     coefficient: 100,
@@ -715,8 +730,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'org_consulting',
     section: 3,
-    order: 22,
-    itemNumber: '3.18',
+    order: 23,
+    itemNumber: '3.19',
     label: 'Наукове консультування установ, організацій (не менше 3-ох років)',
     kind: 'FIXED',
     coefficient: 50,
@@ -725,8 +740,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'conf_abroad',
     section: 3,
-    order: 23,
-    itemNumber: '3.19',
+    order: 24,
+    itemNumber: '3.20',
     label:
       'Участь у міжнародних наукових конференціях, симпозіумах, семінарах, круглих столах за кордоном (не більше 5)',
     kind: 'SELECT',
@@ -738,8 +753,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'conf_ukraine',
     section: 3,
-    order: 24,
-    itemNumber: '3.20',
+    order: 25,
+    itemNumber: '3.21',
     label:
       'Участь у міжнародних (всеукраїнських) наукових конференціях, симпозіумах, семінарах, круглих столах в Україні (не більше 5)',
     kind: 'FIXED',
@@ -750,8 +765,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'edu_exhibitions',
     section: 3,
-    order: 25,
-    itemNumber: '3.21',
+    order: 26,
+    itemNumber: '3.22',
     label: 'Участь в освітянських виставках міжнародного рівня',
     kind: 'FIXED',
     coefficient: 30,
@@ -761,8 +776,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'dissertation_opponent',
     section: 3,
-    order: 26,
-    itemNumber: '3.22',
+    order: 27,
+    itemNumber: '3.23',
     label: 'Опонування та експертиза дисертацій',
     kind: 'SELECT',
     coefficient: 1,
@@ -772,8 +787,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'mon_textbook_expertise',
     section: 3,
-    order: 27,
-    itemNumber: '3.23',
+    order: 28,
+    itemNumber: '3.24',
     label: 'Експертиза підручників у складі груп МОН України',
     kind: 'FIXED',
     coefficient: 30,
@@ -783,8 +798,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'citations_wos',
     section: 3,
-    order: 28,
-    itemNumber: '3.24',
+    order: 29,
+    itemNumber: '3.25',
     label: 'Показники цитувань наукових статей — WoS',
     kind: 'MULT',
     coefficient: 100,
@@ -794,8 +809,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'citations_scopus',
     section: 3,
-    order: 29,
-    itemNumber: '3.24',
+    order: 30,
+    itemNumber: '3.25',
     label: 'Показники цитувань наукових статей — Scopus',
     kind: 'MULT',
     coefficient: 100,
@@ -805,8 +820,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'citations_scholar',
     section: 3,
-    order: 30,
-    itemNumber: '3.24',
+    order: 31,
+    itemNumber: '3.25',
     label: 'Показники цитувань наукових статей — Google Scholar',
     kind: 'MULT',
     coefficient: 10,
@@ -816,8 +831,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'patent_granted',
     section: 3,
-    order: 31,
-    itemNumber: '3.25',
+    order: 32,
+    itemNumber: '3.26',
     label: 'Отримання патенту на винахід / патенту на корисну модель',
     kind: 'FIXED',
     coefficient: 50,
@@ -827,8 +842,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'patent_application',
     section: 3,
-    order: 32,
-    itemNumber: '3.25',
+    order: 33,
+    itemNumber: '3.26',
     label: 'Підготовка та подача заявки на винахід / на корисну модель',
     kind: 'FIXED',
     coefficient: 25,
@@ -838,8 +853,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'copyright_registration',
     section: 3,
-    order: 33,
-    itemNumber: '3.25',
+    order: 34,
+    itemNumber: '3.26',
     label:
       'Оформлення та реєстрація авторського права на об’єкт інтелектуальної власності (свідоцтво)',
     kind: 'FIXED',
@@ -907,10 +922,12 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     itemNumber: '5.1',
     label:
       'Навчально-методичне забезпечення навчальних дисциплін (освітніх компонентів) на платформі Moodle',
-    kind: 'CHECK_SUM',
-    coefficient: 1,
+    // No points (owner, 2026-10-16); filling it opens the rest of the rating
+    kind: 'FIXED',
+    coefficient: 0,
     coefficientNote:
-      'Максимум: Розроблення — 150, Оновлення — 50. Кожен матеріал має власну вартість (розроблення/оновлення): робоча програма 15/5, силабус 5/5, тестові завдання (питання до тестів) 20/10, конспекти лекцій 50/10, презентації 30/10, методичні матеріали для практичних робіт 30/10. Бали нараховуються за позначені матеріали — заповнювати всі не обов’язково',
+      'Без балів. Заповнюється першим: доки пункт не заповнено, інші пункти рейтингу закриті, а сума рахується як 0. Викладач позначає виконані матеріали й додає посилання на курс',
     inputSource: 'NPP_SUBMISSION',
+    gatesRating: true,
   },
 ];

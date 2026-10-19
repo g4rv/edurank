@@ -30,7 +30,11 @@ export function planFields(type: {
     const field = type.evidenceFields.find((f) => f.name === name);
     return field ? [field] : [];
   };
-  const pageBasedFields = () => [...byName('pages'), ...byName('coAuthors')];
+  // `sheets` since 2026-10-16; `pages` on a type defined before
+  const pageBasedFields = () => [
+    ...(byName('sheets').length > 0 ? byName('sheets') : byName('pages')),
+    ...byName('coAuthors'),
+  ];
 
   switch (type.scoring.kind) {
     case 'FIXED':

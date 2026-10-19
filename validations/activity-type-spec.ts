@@ -20,6 +20,23 @@ const label = z.string().trim().min(1, { error: "Обов'язкове поле"
 
 const common = { name: fieldName, label };
 
+/** See `FieldCondition` — when a box that may stay empty must be filled */
+const requiredWhen = z
+  .union([
+    z.strictObject({
+      field: z.string().min(1),
+      in: z.array(z.string()).min(1),
+      hide: z.literal(true).optional(),
+    }),
+    z.strictObject({ field: z.string().min(1), checked: z.literal(true) }),
+    z.strictObject({
+      field: z.string().min(1),
+      empty: z.literal(true),
+      hide: z.literal(true).optional(),
+    }),
+  ])
+  .optional();
+
 export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('text'),
@@ -32,6 +49,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     // A joined ПІБ chosen from a list rather than typed (2026-10-07)
     pickFrom: z.literal('aspirants').optional(),
     optional: z.boolean().optional(),
+    requiredWhen,
     // Display only — never read by the scoring engine or the Характеристика
     placeholder: z.string().max(300).optional(),
   }),
@@ -41,6 +59,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     min: z.number().optional(),
     max: z.number().optional(),
     int: z.boolean().optional(),
+    decimals: z.number().int().min(0).max(3).optional(),
     optional: z.boolean().optional(),
   }),
   z.strictObject({
@@ -49,6 +68,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     optional: z.boolean().optional(),
     hosts: z.array(z.string().min(1)).readonly().optional(),
     hostsError: z.string().max(500).optional(),
+    requiredWhen,
   }),
   z.strictObject({
     kind: z.literal('date'),
@@ -61,11 +81,20 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     kind: z.literal('isbn'),
     ...common,
     optional: z.boolean().optional(),
-    requiredWhen: z
-      .strictObject({ field: z.string().min(1), in: z.array(z.string()).min(1) })
-      .optional(),
+    requiredWhen,
   }),
-  z.strictObject({ kind: z.literal('doi'), ...common, optional: z.boolean().optional() }),
+  z.strictObject({
+    kind: z.literal('doi'),
+    ...common,
+    optional: z.boolean().optional(),
+    requiredWhen,
+  }),
+  z.strictObject({
+    kind: z.literal('issn'),
+    ...common,
+    optional: z.boolean().optional(),
+    requiredWhen,
+  }),
   z.strictObject({
     kind: z.literal('checkbox'),
     ...common,
@@ -73,6 +102,8 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     requiredError: z.string().max(500).optional(),
     points: z.record(z.string(), z.number()).optional(),
     group: z.string().max(200).optional(),
+    requiredWhen,
+    offLabel: z.string().max(200).optional(),
   }),
   z.strictObject({
     kind: z.literal('select'),
@@ -89,6 +120,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
       .readonly(),
     optional: z.boolean().optional(),
     span: z.union([z.literal(1), z.literal(2)]).optional(),
+    requiredWhen,
   }),
 ]) as z.ZodType<EvidenceField>;
 
@@ -97,6 +129,7 @@ export const evidenceFieldsSpecSchema = z.array(evidenceFieldSpecSchema);
 export const scoringSpecSchema: z.ZodType<ScoringSpec> = z.strictObject({
   kind: z.enum(['FIXED', 'MULT', 'SELECT', 'SELECT_MULT', 'CHECK_SUM']),
   pageBased: z.boolean().optional(),
+  minShare: z.number().positive().optional(),
 });
 
 export interface ParsedTypeSpecs {
@@ -130,7 +163,7 @@ export function parseTypeSpecs(row: {
 export function scoringFieldNames(scoring: ScoringSpec): string[] {
   const names: string[] = [];
   const pageBased = scoring.pageBased === true;
-  if (pageBased) names.push('pages', 'coAuthors');
+  if (pageBased) names.push('sheets', 'coAuthors');
 
   switch (scoring.kind) {
     case 'FIXED':
@@ -155,7 +188,7 @@ export function scoringFieldNames(scoring: ScoringSpec): string[] {
 const SCORING_FIELD_TEMPLATES: Record<string, EvidenceField> = {
   value: { kind: 'number', name: 'value', label: 'Значення', min: 0 },
   credits: { kind: 'number', name: 'credits', label: 'Кількість кредитів', min: 1 },
-  pages: { kind: 'number', name: 'pages', label: 'Кількість сторінок', min: 1, int: true },
+  sheets: { kind: 'number', name: 'sheets', label: 'Друкованих аркушів', min: 0.1, decimals: 1 },
   coAuthors: {
     kind: 'number',
     name: 'coAuthors',
@@ -299,9 +332,15 @@ export function specProblems(fields: readonly EvidenceField[], scoring: ScoringS
     problems.push('Розрахунок за друкованими аркушами можливий лише для правил з множенням');
   }
 
+  if (scoring.minShare !== undefined && !scoring.pageBased) {
+    problems.push('Мінімальний особистий внесок можливий лише з розрахунком за аркушами');
+  }
+
   const pageBased = scoring.pageBased === true;
   if (pageBased) {
-    problems.push(...findRequired(fields, 'number', 'pages', 'числове поле сторінок').problems);
+    problems.push(
+      ...findRequired(fields, 'number', 'sheets', 'числове поле друкованих аркушів').problems
+    );
     // coAuthors is optional by design (absent = sole author), no check needed
   }
 

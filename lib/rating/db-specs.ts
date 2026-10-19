@@ -4,7 +4,7 @@
 // the catalogue constants exist to (re)build it.
 //
 // The merge embeds option points into the select fields, so the DB spec is
-// self-contained: SELECT_OPTION_POINTS / MOODLE_MODE_POINTS never need to be
+// self-contained: SELECT_OPTION_POINTS never needs to be
 // consulted for a row that came through here.
 
 import { ACTIVITY_TYPES_2026, type ActivityTypeDef } from './activity-types';
@@ -111,11 +111,11 @@ export const SELECT_OPTION_POINTS = {
   },
 } as const satisfies Record<string, Record<string, number>>;
 
-/** Moodle gate (розділ 5): full mode points only when ALL six materials are present */
-export const MOODLE_MODE_POINTS = { development: 150, update: 50 } as const;
-
-/** MULT/SELECT_MULT codes whose value = друковані аркуші: (pages / 24) / coAuthors */
+/** MULT/SELECT_MULT codes whose value = the person's друковані аркуші: sheets / coAuthors */
 export const PAGE_BASED_CODES = new Set(['monograph_ua', 'monograph_eu', 'edition_publication']);
+
+/** The least personal share a save may claim, in аркуші — монографія only (owner, 2026-10-16) */
+export const MIN_SHARE_SHEETS: Record<string, number> = { monograph_ua: 1.5, monograph_eu: 1.5 };
 
 /**
  * Which п.38 positions of the Характеристика each indicator's entries satisfy
@@ -167,7 +167,8 @@ export const LICENCE_POSITION_LINKS: Record<string, LicencePositionLink[]> = {
     { position: 4, when: { field: 'option', in: ['methodical_guide', 'recommendations'] } },
   ],
   // «електронних курсів на освітніх платформах ліцензіатів» — Moodle is exactly that
-  moodle_course: [{ position: 4 }],
+  // Only a course somebody teaches — «Не викладач» proves no праця (2026-10-16)
+  moodle_course: [{ position: 4, when: { field: 'isLecturer', in: ['true'] } }],
 
   // п.5 is the defence date on the profile, not an indicator — see PositionFill.
 
@@ -225,6 +226,7 @@ export interface ActivityTypeSpecs {
   maxPerYear: number | null;
   requiresVerification: boolean;
   entityFirstEntry: boolean;
+  gatesRating: boolean;
   evidenceFields: EvidenceField[];
   scoring: ScoringSpec;
   licencePositions: LicencePositionLink[];
@@ -256,9 +258,7 @@ export function dbSpecs(def: ActivityTypeDef): ActivityTypeSpecs {
           name: 'option',
           points: SELECT_OPTION_POINTS[def.code as keyof typeof SELECT_OPTION_POINTS],
         }
-      : def.kind === 'CHECK_SUM'
-        ? { name: 'mode', points: MOODLE_MODE_POINTS }
-        : null;
+      : null;
   if (scoresBySelect && !scoresBySelect.points) {
     throw new Error(`${def.code}: no option points defined`);
   }
@@ -274,10 +274,12 @@ export function dbSpecs(def: ActivityTypeDef): ActivityTypeSpecs {
     maxPerYear: def.maxPerYear ?? null,
     requiresVerification: def.requiresVerification ?? false,
     entityFirstEntry: def.entityFirstEntry ?? false,
+    gatesRating: def.gatesRating ?? false,
     evidenceFields,
     scoring: {
       kind: def.kind,
       ...(PAGE_BASED_CODES.has(def.code) ? { pageBased: true } : {}),
+      ...(MIN_SHARE_SHEETS[def.code] ? { minShare: MIN_SHARE_SHEETS[def.code] } : {}),
     },
     // Absent = satisfies no licence position, which is the common and correct
     // case. See LICENCE_POSITION_LINKS for the two codes where it is deliberate.

@@ -84,7 +84,14 @@ describe('catalogueType', () => {
 
   it('every schema rejects an empty object when the type has a required field', () => {
     const withRequired = ACTIVITY_TYPES_2026.filter((t) =>
-      (EVIDENCE_FIELDS[t.code] ?? []).some((f) => !('optional' in f && f.optional))
+      (EVIDENCE_FIELDS[t.code] ?? []).some(
+        (f) =>
+          // A plain switch defaults to off and a conditional box may be empty:
+          // neither makes `{}` invalid (5.1 saves with the switch off)
+          !('optional' in f && f.optional) &&
+          !('requiredWhen' in f && f.requiredWhen) &&
+          !(f.kind === 'checkbox' && !f.mustBeTrue)
+      )
     );
     expect(withRequired.length).toBeGreaterThan(0);
     for (const def of withRequired) {

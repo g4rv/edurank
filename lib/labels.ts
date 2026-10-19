@@ -180,6 +180,7 @@ export const FIELD_LABELS: Record<string, string> = {
   isActive: 'Активний',
   requiresVerification: 'Потребує перевірки',
   entityFirstEntry: 'Внесення групою',
+  gatesRating: 'Спершу заповнити цей пункт',
   closedAt: 'Рік закрито',
   code: 'Код показника',
   licencePositions: 'Позиції ліцензійних умов',
@@ -313,7 +314,7 @@ export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
 };
 
 export const ENTITY_TYPE_LABELS: Record<string, string> = {
-  STAFF: 'Персонал',
+  STAFF: 'Штат',
   DEPARTMENT: 'Кафедра',
   FACULTY: 'Факультет',
 };

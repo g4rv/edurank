@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { GateMark, rowDone } from '@/components/rating/gate-mark';
 import { Badge } from '@/components/aurora/ui/badge';
 import { Card, EmptyState } from '@/components/aurora/ui/card';
 import { DeleteActivityButton } from '@/components/rating/delete-activity-button';
@@ -21,6 +22,11 @@ export interface AchievementRow {
   isEmpty?: boolean;
   /** Who fills this one in */
   inputSource?: 'NPP_SUBMISSION' | 'DIVISION_MANAGED' | 'PROFILE_DERIVED';
+  /**
+   * An indicator that opens the rating (5.1, `ActivityType.gatesRating`). It
+   * scores nothing, so it shows «Виконано» / «Не заповнено», never a number.
+   */
+  gating?: boolean;
   /**
    * WHICH відділ fills it, short form. «Вносить відділ» told an НПП that the
    * row was not theirs but not who to ask about it, which is the only thing
@@ -137,19 +143,23 @@ export function AchievementsList({ groups }: { groups: AchievementGroup[] }) {
                         The word earns its place where the date's did not: a
                         bare figure at the end of a row could be a count, a
                         year or a page number. */}
-                    <span className="text-sm text-foreground-soft">
-                      Бали:{' '}
-                      <span
-                        className={cn(
-                          // 16px: the score is the one value on the row
-                          // somebody actually goes looking for.
-                          'text-base font-semibold text-foreground tabular-nums',
-                          item.status === 'REMOVED' && 'text-muted-foreground line-through'
-                        )}
-                      >
-                        {item.score.toLocaleString('uk-UA')}
+                    {item.gating ? (
+                      <GateMark done={rowDone(item)} className="text-sm" />
+                    ) : (
+                      <span className="text-sm text-foreground-soft">
+                        Бали:{' '}
+                        <span
+                          className={cn(
+                            // 16px: the score is the one value on the row
+                            // somebody actually goes looking for.
+                            'text-base font-semibold text-foreground tabular-nums',
+                            item.status === 'REMOVED' && 'text-muted-foreground line-through'
+                          )}
+                        >
+                          {item.score.toLocaleString('uk-UA')}
+                        </span>
                       </span>
-                    </span>
+                    )}
                     {item.canDelete && (
                       <DeleteActivityButton activityId={item.id} label={item.label} />
                     )}

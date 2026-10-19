@@ -99,6 +99,18 @@ const count = (name: 'credits' | 'value', label: string): EvidenceField => ({
 });
 
 /**
+ * A quantity of друковані аркуші: one decimal at most — «1,7», never «1,73»
+ * (owner, 2026-10-16), enforced while typing and again on the server.
+ */
+const sheets = (name: 'credits' | 'value', label: string): EvidenceField => ({
+  kind: 'number',
+  name,
+  label,
+  min: 1,
+  decimals: 1,
+});
+
+/**
  * A person's ПІБ in three boxes under one label — Прізвище / Ім'я / По батькові
  * (owner, 2026-09-23), the same joined set the Характеристика's п.15 uses for a
  * школяр. `cyrillicName` keeps «asd» out; the по батькові is optional, since
@@ -258,7 +270,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
       // Mandatory for a монографія / підручник, optional for a посібник
       // (owner, 2026-09-30) — `requiredWhen` reads the «Вид видання» above.
       isbn('isbn', 'ISBN', { requiredWhen: { field: 'option', in: ['monograph'] } }),
-      count('credits', 'Кількість друкованих аркушів'),
+      sheets('credits', 'Кількість друкованих аркушів'),
     ],
   },
   {
@@ -277,7 +289,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     linkRule: 'REQUIRED',
     fileRule: 'NONE',
     identityFields: ['isbn', 'title'],
-    fields: [title, isbn('isbn', 'ISBN'), count('value', 'Кількість друкованих аркушів')],
+    fields: [title, isbn('isbn', 'ISBN'), sheets('value', 'Кількість друкованих аркушів')],
   },
   {
     code: 'article',
@@ -414,7 +426,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reuse: 'ONCE',
     sharing: 'INDIVIDUAL',
     identityFields: ['title'],
-    fields: [title, count('value', 'Кількість друкованих аркушів')],
+    fields: [title, sheets('value', 'Кількість друкованих аркушів')],
   },
   {
     code: 'review_dissertation',

@@ -10,7 +10,7 @@ const person = (over: Partial<StaffListRow> = {}): StaffListRow => ({
   ...over,
 });
 
-const sheetOf = (rows: StaffListRow[]) => buildStaffListWorkbook(rows).getWorksheet('Персонал')!;
+const sheetOf = (rows: StaffListRow[]) => buildStaffListWorkbook(rows).getWorksheet('Штат')!;
 
 describe('workplaceText', () => {
   it('names the кафедра', () => {

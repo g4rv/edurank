@@ -27,6 +27,8 @@ export interface ExportActivityType {
   fields: readonly EvidenceField[];
   /** Registry short key resolved by the caller from verifyingDivisionId */
   divisionKey: RatingDivisionKey | null;
+  /** 5.1 — scores nothing: one row reading «Виконано» / «Не заповнено» (2026-10-16) */
+  gatesRating?: boolean;
 }
 
 export interface ExportActivity {
@@ -41,7 +43,12 @@ export interface ExportStaffData {
   department: string;
   year: number;
   activities: ExportActivity[];
+  /** 5.1 not filled: the year counts as 0, and the form says so */
+  blocked?: boolean;
 }
+
+const DONE = 'Виконано';
+const NOT_DONE = 'Не заповнено';
 
 /**
  * One .xlsx filename per staff member, in the same order as the input.
@@ -203,7 +210,21 @@ export function buildRatingWorkbook(
       const division = type.divisionKey ? DIVISION_SHORT[type.divisionKey] : '';
       const opt = optionField(type.fields);
 
-      if (opt) {
+      if (type.gatesRating) {
+        // 5.1 scores nothing for anybody: a status in the score column, and no
+        // per-option rows of points that do not exist (owner, 2026-10-16)
+        const row = ws.addRow([
+          itemNumber,
+          type.label,
+          '',
+          type.coefficientNote ?? '',
+          scoreByCode.has(type.code) ? DONE : NOT_DONE,
+          division,
+        ]);
+        styleTableRow(row);
+        row.getCell(1).font = { bold: true };
+        row.getCell(5).font = { bold: true };
+      } else if (opt) {
         // Group: label row, then one row per option; № merged across the group.
         // Критерії stays empty — the per-option points live in column C.
         const head = ws.addRow(['', `${type.label}:`]);
@@ -251,9 +272,12 @@ export function buildRatingWorkbook(
     ws.mergeCells(`A${totalRow.number}:D${totalRow.number}`);
     styleTableRow(totalRow);
     totalRow.getCell(1).font = { bold: true };
-    totalRow.getCell(5).value = {
-      formula: `SUM(E${firstItemRow}:E${lastItemRow})`,
-    } as ExcelJS.CellFormulaValue;
+    // A розділ of 5.1 alone has nothing to add up — it repeats the status
+    totalRow.getCell(5).value = sectionTypes.every((t) => t.gatesRating)
+      ? sectionTypes.every((t) => scoreByCode.has(t.code))
+        ? DONE
+        : NOT_DONE
+      : ({ formula: `SUM(E${firstItemRow}:E${lastItemRow})` } as ExcelJS.CellFormulaValue);
     totalRow.getCell(5).font = { bold: true };
     sectionTotalRows.push(totalRow.number);
   }
@@ -262,10 +286,14 @@ export function buildRatingWorkbook(
   ws.mergeCells(`A${grand.number}:D${grand.number}`);
   styleTableRow(grand);
   grand.getCell(1).font = { bold: true, size: 12 };
-  grand.getCell(5).value = {
-    formula: `SUM(${sectionTotalRows.map((r) => `E${r}`).join(',')})`,
-  } as ExcelJS.CellFormulaValue;
+  // 5.1 not filled → the year counts as 0, as the app says (owner, 2026-10-16)
+  grand.getCell(5).value = staff.blocked
+    ? 0
+    : ({
+        formula: `SUM(${sectionTotalRows.map((r) => `E${r}`).join(',')})`,
+      } as ExcelJS.CellFormulaValue);
   grand.getCell(5).font = { bold: true, size: 12 };
+  if (staff.blocked) grand.getCell(6).value = 'п. 5.1 не заповнено';
 
   return wb;
 }
