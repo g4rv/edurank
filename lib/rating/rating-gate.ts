@@ -3,7 +3,7 @@ import type { Prisma } from '@/lib/generated/prisma/client';
 /**
  * The rating waits for 5.1 (owner, 2026-10-16).
  *
- * Every НПП answers 5.1 first — «Я викладач» on with the course and its
+ * Every НПП answers 5.1 first — «Я лектор» on with the course and its
  * evidence, or off — and until they have, two things hold for the open year:
  *
  * - they cannot add or delete their OWN entries anywhere else in the rating

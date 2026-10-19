@@ -150,7 +150,7 @@ describe('schema → scoring integration (all 67 types)', () => {
   });
 });
 
-describe('5.1 «Я викладач» (owner, 2026-10-16)', () => {
+describe('5.1 «Я лектор» (owner, 2026-10-16)', () => {
   const schema = schemaFor('moodle_course');
   const lecturer = {
     isLecturer: true,

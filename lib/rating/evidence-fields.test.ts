@@ -106,9 +106,9 @@ describe('summarizeEvidence', () => {
 });
 
 describe('a switch with an offLabel', () => {
-  it('prints «Не викладач» for 5.1 saved with the switch off', () => {
+  it('prints «Не лектор» for 5.1 saved with the switch off', () => {
     expect(summarizeEvidence(EVIDENCE_FIELDS.moodle_course, { isLecturer: false })).toBe(
-      'Не викладач'
+      'Не лектор'
     );
   });
 });

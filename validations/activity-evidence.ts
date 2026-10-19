@@ -273,7 +273,7 @@ export function schemaForFields(
   const baseObject = opts?.allowUnknownKeys ? z.object(shape) : z.strictObject(shape);
 
   // A box required only in some state of the form — a book's ISBN for a
-  // монографія, 5.1's fields once «Я викладач» is on, DOI-or-ISSN. The other
+  // монографія, 5.1's fields once «Я лектор» is on, DOI-or-ISSN. The other
   // box is in the same object, so the check lives here. See `FieldCondition`.
   const conditional = fields.flatMap((f) =>
     'requiredWhen' in f && f.requiredWhen ? [{ field: f, when: f.requiredWhen }] : []
