@@ -357,6 +357,12 @@ pnpm db:kharakterystyka-cleanup  # one-off: drop imported «evidence» that
                       #   evidences nothing («Так»/«Ні», a bare role) and strip
                       #   the «Оберіть …:» prompts. --bare also drops the
                       #   subjectless fragments. See docs/kharakterystyka.md.
+pnpm db:kharakterystyka-drop-moodle  # one-off: rating 5.1 feeds NO Характеристика
+                      #   position (owner, 2026-10-19 — linking it to п.4 was a
+                      #   mistake). Unlinks 5.1 in every year, the closed 2025 too,
+                      #   and hides the imported 2022–2024 «5.1» lines so a
+                      #   re-import cannot bring them back. Names who drops out
+                      #   of Кнпп. Report first; --apply.
 pnpm db:bib-placeholder  # one-off: put the ДСТУ example into every
                       #   «Бібліографічний опис» box; refreshes stale wording
 pnpm db:import-students  # one-off: load lib/students/accepted-<year>.json into

@@ -166,9 +166,10 @@ export const LICENCE_POSITION_LINKS: Record<string, LicencePositionLink[]> = {
     { position: 3, when: { field: 'option', in: ['textbook', 'study_guide'] } },
     { position: 4, when: { field: 'option', in: ['methodical_guide', 'recommendations'] } },
   ],
-  // «електронних курсів на освітніх платформах ліцензіатів» — Moodle is exactly that
-  // Only a course somebody teaches — «Не викладач» proves no праця (2026-10-16)
-  moodle_course: [{ position: 4, when: { field: 'isLecturer', in: ['true'] } }],
+  // moodle_course (5.1) feeds NO position (owner, 2026-10-19): linking it to п.4
+  // was a mistake. A course still counts there when the person types it into the
+  // Характеристика as «електронний курс на освітній платформі».
+  // `pnpm db:kharakterystyka-drop-moodle` takes it out of existing databases.
 
   // п.5 is the defence date on the profile, not an indicator — see PositionFill.
 
