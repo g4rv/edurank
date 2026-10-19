@@ -3,9 +3,13 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import type { Prisma } from '../lib/generated/prisma/client';
 import { hasTooManyDecimals } from '../lib/decimal-input';
+import { SCIENCE_WORK_TYPES_2027 } from '../lib/science/work-types-2027';
 
 // «Кількість друкованих аркушів» takes ONE decimal at most — «1,7», never
 // «1,73» (owner, 2026-10-16). The rule is `decimals: 1` on the number field.
+// It also carries the box's MINIMUM from the catalogue, by the вид роботи's
+// code: a монографія may be 0,5 sheets (owner, 2026-10-19), the others 1.
+// A type the catalogue does not know keeps the minimum it has.
 //
 //   pnpm db:science-sheets-decimals            — report only, writes nothing
 //   pnpm db:science-sheets-decimals --apply    — write it, in one transaction
@@ -15,8 +19,8 @@ import { hasTooManyDecimals } from '../lib/decimal-input';
 // cloned planning year is never reseeded, and production is never seeded again.
 //
 // Narrow on purpose: it finds the number fields NAMED `credits` or `value` and
-// LABELLED «Кількість друкованих аркушів», in EVERY year, and adds only the one
-// key. No other field, label or rule moves, and no hours are recalculated.
+// LABELLED «Кількість друкованих аркушів», in EVERY year, and sets only those
+// two keys. No other field, label or rule moves, and no hours are recalculated.
 //
 // Works already saved are only REPORTED. A sheet count with two decimals stays
 // as it is (the form does not re-judge a saved value), and the list names whose
@@ -32,11 +36,23 @@ type Field = {
   name?: string;
   label?: string;
   decimals?: number;
+  min?: number;
   [k: string]: unknown;
 };
 
 const isSheets = (f: Field) =>
   f.kind === 'number' && (f.name === 'credits' || f.name === 'value') && f.label === SHEETS_LABEL;
+
+/** The catalogue's minimum for each вид роботи's sheets box, by code */
+const CATALOGUE_MIN = new Map(
+  SCIENCE_WORK_TYPES_2027.flatMap((d) => {
+    const f = (d.fields as readonly Field[]).find(isSheets);
+    return f?.min !== undefined ? [[d.code, f.min] as const] : [];
+  })
+);
+
+const comma = (n: number | undefined) =>
+  n === undefined ? 'без обмеження' : String(n).replace('.', ',');
 
 async function main() {
   const types = await prisma.scienceWorkType.findMany({
@@ -58,14 +74,22 @@ async function main() {
     const target = fields.find(isSheets);
     if (!target) continue;
     sheetTypeIds.add(t.id);
-    if (target.decimals === 1) continue;
+    const min = CATALOGUE_MIN.get(t.code) ?? target.min;
+    const changes: string[] = [];
+    if (target.decimals !== 1) {
+      changes.push(
+        `знаків: ${target.decimals === undefined ? 'без обмеження' : target.decimals} → 1`
+      );
+    }
+    if (target.min !== min) changes.push(`мінімум: ${comma(target.min)} → ${comma(min)}`);
+    if (changes.length === 0) continue;
     console.log(
-      `  + ${t.template.academicYear} (${t.template.status}) ${t.code}: «${target.name}»` +
-        `  було: ${target.decimals === undefined ? 'без обмеження' : `${target.decimals} зн.`}  →  стало: 1 знак`
+      `  + ${t.template.academicYear} (${t.template.status}) ${t.code}: «${target.name}»  ` +
+        changes.join('; ')
     );
     updates.push({
       id: t.id,
-      fields: fields.map((f) => (isSheets(f) ? { ...f, decimals: 1 } : f)),
+      fields: fields.map((f) => (isSheets(f) ? { ...f, decimals: 1, min } : f)),
     });
   }
 

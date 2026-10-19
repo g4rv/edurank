@@ -40,6 +40,30 @@ describe('the catalogue is whole', () => {
   });
 });
 
+// The science plan measures apart from the rating: a монографія of 0,5 sheets
+// counts here, where 3.7 and the Характеристика's п.3 ask 1,5 (owner, 2026-10-19)
+describe('the least sheets a book may have', () => {
+  const sheetsOf = (code: string) => {
+    const f = byCode(code).evidenceFields.find(
+      (x) => x.kind === 'number' && x.label === 'Кількість друкованих аркушів'
+    );
+    return schemaForFields(f ? [f] : []);
+  };
+
+  it('takes a монографія of 0,5, and refuses 0,4 — saying so with a comma', () => {
+    expect(sheetsOf('monograph').safeParse({ credits: 0.5 }).success).toBe(true);
+    const r = sheetsOf('monograph').safeParse({ credits: 0.4 });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0].message).toBe('Мінімальне значення — 0,5');
+  });
+
+  it('keeps 1 for перевидання and рецензування', () => {
+    expect(sheetsOf('monograph_reissue').safeParse({ value: 0.5 }).success).toBe(false);
+    expect(sheetsOf('review_publication').safeParse({ value: 0.5 }).success).toBe(false);
+    expect(sheetsOf('review_publication').safeParse({ value: 1 }).success).toBe(true);
+  });
+});
+
 describe('hours match the printed Додаток III', () => {
   it('п.1 — грант: 400 г за одну програму', () => {
     expect(hours('intl_grant_program', {})).toBe(400);
