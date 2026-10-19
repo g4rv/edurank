@@ -5,6 +5,7 @@ import type { Prisma } from '../lib/generated/prisma/client';
 import { catalogueType } from '../lib/rating/db-specs';
 import { computeScore } from '../lib/specs/scoring';
 import { recomputeRatingEntries } from '../lib/rating/recompute';
+import { blockedStaff } from '../lib/rating/rating-gate';
 
 // 5.1 «Я лектор» (owner, 2026-10-16) reaches a database that already has the
 // year in it. The migration `20261016150000_activity_type_gates_rating` adds the
@@ -16,14 +17,16 @@ import { recomputeRatingEntries } from '../lib/rating/recompute';
 // What it does, in every NOT-closed year that has 5.1 (`moodle_course`):
 //
 //   1. The indicator: the new form («Я лектор» first, every other box behind
-//      it), no points (FIXED, coefficient 0), `gatesRating` on, and its
-//      Характеристика п.4 link only for a lecturer. This REPLACES the form an
-//      admin may have edited on 5.1 — read the report.
+//      it), no points (FIXED, coefficient 0), `gatesRating` on, no
+//      Характеристика link, and its note. This REPLACES the form an admin may
+//      have edited on 5.1 — read the report. Re-running is how new wording
+//      reaches a database.
 //   2. Its saved entries: kept as they are, marked «Я лектор» (they all name
-//      a course and a link already), and re-scored to 0. They count as a
-//      filled 5.1, so those people are not blocked.
-//   3. Every person's year total is recomputed with the new rule: somebody with
-//      no 5.1 entry now counts as 0 until they fill it. Printed «було» → «стало».
+//      a course and a link already), and re-scored to 0.
+//   3. Every person's year total is recomputed: 5.1's old points go, and
+//      whoever a version of this script held at 0 for want of 5.1 gets their
+//      points back — 5.1 is judged when the year closes, not before (owner,
+//      2026-10-19). Printed «було» → «стало», and how many still have no 5.1.
 //
 // A CLOSED year is not touched — its ranking is frozen history.
 // Re-running is harmless: a second run changes nothing.
@@ -124,47 +127,53 @@ async function main() {
     orderBy: { staff: { lastName: 'asc' } },
   });
 
-  const run = async (tx: Prisma.TransactionClient) => {
+  type Result = {
+    rows: { staffId: string; year: number; totalScore: number }[];
+    /** People with a total and no 5.1 entry — 0 for the year if it closes now */
+    missing: number;
+  };
+
+  const run = async (tx: Prisma.TransactionClient): Promise<Result> => {
     for (const w of writes) await w(tx);
+    let missing = 0;
     for (const year of years) {
-      await recomputeRatingEntries(
-        tx,
-        before.filter((e) => e.year === year).map((e) => e.staffId),
-        year
-      );
+      const ids = before.filter((e) => e.year === year).map((e) => e.staffId);
+      await recomputeRatingEntries(tx, ids, year);
+      missing += (await blockedStaff(tx, ids, year)).size;
     }
-    return tx.ratingEntry.findMany({
+    const rows = await tx.ratingEntry.findMany({
       where: { year: { in: [...years] } },
       select: { staffId: true, year: true, totalScore: true },
     });
+    return { rows, missing };
   };
 
   // The totals are computed by the same code either way: a report runs the
   // whole change inside a transaction and rolls it back, so it prints exactly
   // what --apply would leave behind.
   class Rollback extends Error {
-    constructor(public readonly after: { staffId: string; year: number; totalScore: number }[]) {
+    constructor(public readonly result: Result) {
       super('rollback');
     }
   }
-  let after: { staffId: string; year: number; totalScore: number }[] = [];
+  let result: Result = { rows: [], missing: 0 };
   try {
     await prisma.$transaction(
       async (tx) => {
-        const result = await run(tx);
-        if (!apply) throw new Rollback(result);
-        after = result;
+        const r = await run(tx);
+        if (!apply) throw new Rollback(r);
+        result = r;
       },
       { timeout: 300_000 }
     );
   } catch (e) {
     if (!(e instanceof Rollback)) throw e;
-    after = e.after;
+    result = e.result;
   }
+  const after = result.rows;
 
   const afterOf = new Map(after.map((e) => [`${e.staffId}:${e.year}`, e.totalScore]));
   const moved = before.filter((e) => afterOf.get(`${e.staffId}:${e.year}`) !== e.totalScore);
-  const zeroed = moved.filter((e) => afterOf.get(`${e.staffId}:${e.year}`) === 0);
   console.log(`\nПідсумки року: змінюються ${moved.length} з ${before.length}`);
   for (const e of moved) {
     console.log(
@@ -173,8 +182,8 @@ async function main() {
     );
   }
   console.log(
-    `\nДо 0 — бо п. 5.1 ще не заповнено: ${zeroed.length}. ` +
-      'Їхні бали повернуться, щойно вони заповнять п. 5.1.'
+    `\nБез п. 5.1: ${result.missing}. Їхні бали зараховано як звичайно, але якщо не ` +
+      'заповнять п. 5.1 до закриття року — рік закриється для них з 0.'
   );
   console.log(apply ? '\nЗаписано.' : '\nНічого не записано. Запустіть з --apply.');
 }

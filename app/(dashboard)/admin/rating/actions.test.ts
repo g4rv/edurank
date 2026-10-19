@@ -173,6 +173,62 @@ describe('closeYear', () => {
       data: { snapshot: Prisma.DbNull },
     });
   });
+
+  // 5.1 is judged here and nowhere else (owner, 2026-10-19)
+  describe('5.1', () => {
+    const row = {
+      id: 'a1',
+      staffId: 'staff-1',
+      score: 300,
+      evidence: { option: 'leader', title: 'Тема' },
+      activityType: {
+        code: 'ndr_execution',
+        label: 'Виконання НДР',
+        section: { number: 3, title: 'Наука' },
+      },
+    };
+
+    it('closes the year at 0 for a person with no entry — snapshot and totals', async () => {
+      mockTemplateFind.mockResolvedValue(openTemplate);
+      const tx = mockTx();
+      tx.activityType.findMany.mockResolvedValue([{ id: 't51' }]);
+      tx.activity.findMany
+        // the year's counting rows
+        .mockResolvedValueOnce([row])
+        // …and no 5.1 entry among them
+        .mockResolvedValueOnce([]);
+
+      await closeYear(2026);
+
+      const snapshot = tx.ratingEntry.updateMany.mock.calls.find(
+        (c) => c[0].where.staffId === 'staff-1'
+      )![0].data.snapshot;
+      expect(snapshot).toMatchObject({ total: 0, blocked: true });
+      expect(tx.ratingEntry.updateMany).toHaveBeenCalledWith({
+        where: { year: 2026, staffId: { in: ['staff-1'] } },
+        data: expect.objectContaining({ totalScore: 0, section3Score: 0 }),
+      });
+    });
+
+    it('closes the year as it stands for a person with an entry', async () => {
+      mockTemplateFind.mockResolvedValue(openTemplate);
+      const tx = mockTx();
+      tx.activityType.findMany.mockResolvedValue([{ id: 't51' }]);
+      tx.activity.findMany
+        .mockResolvedValueOnce([row])
+        .mockResolvedValueOnce([{ staffId: 'staff-1', activityTypeId: 't51' }]);
+
+      await closeYear(2026);
+
+      const snapshot = tx.ratingEntry.updateMany.mock.calls.find(
+        (c) => c[0].where.staffId === 'staff-1'
+      )![0].data.snapshot;
+      expect(snapshot.total).toBe(300);
+      expect(snapshot).not.toHaveProperty('blocked');
+      // no totals zeroed: only the snapshot wipe and the snapshot itself
+      expect(tx.ratingEntry.updateMany).toHaveBeenCalledTimes(2);
+    });
+  });
 });
 
 describe('reopenYear', () => {
@@ -190,6 +246,26 @@ describe('reopenYear', () => {
       data: { status: 'OPEN', closedAt: null, closedByUserId: null },
     });
     expect(tx.auditLog.create).toHaveBeenCalled();
+  });
+
+  // Closing zeroed whoever had no 5.1; the open year adds up again. Only they
+  // are recomputed — anybody else's total stays as closing left it.
+  it('gives back the totals closing zeroed, and touches nobody else', async () => {
+    mockTemplateFind.mockResolvedValue({ id: 'tpl-1', name: 'x', status: 'CLOSED' });
+    const tx = mockTx();
+    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-1' }]);
+    tx.activity.findMany.mockResolvedValue([
+      { staffId: 'staff-1', score: 300, activityType: { section: { number: 3 } } },
+    ]);
+
+    await reopenYear(2026);
+
+    expect(tx.ratingEntry.findMany).toHaveBeenCalledWith({
+      where: { year: 2026, snapshot: { path: ['blocked'], equals: true } },
+      select: { staffId: true },
+    });
+    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.ratingEntry.upsert.mock.calls[0][0].update.totalScore).toBe(300);
   });
 
   // The profile backfill runs after the transaction has committed. One indicator
@@ -492,74 +568,6 @@ describe('updateActivityType', () => {
     });
     expect(tx.ratingEntry.upsert).not.toHaveBeenCalled();
   });
-
-  // 5.1's switch decides whether a whole year counts — for the people who do NOT
-  // hold it above all. Recomputing only its holders left them on a stale total.
-  it('switching «Спершу заповнити» off recomputes everyone with a total', async () => {
-    mockTypeFind.mockResolvedValue({ ...type, gatesRating: true });
-    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
-    const tx = mockTx();
-    tx.ratingEntry.findMany.mockResolvedValue([
-      { staffId: 'staff-1' },
-      { staffId: 'staff-2' },
-      { staffId: 'staff-3' },
-    ]);
-    tx.activity.findMany
-      // holders of this indicator
-      .mockResolvedValueOnce([{ staffId: 'staff-1' }])
-      // counting rows — staff-2 never filled 5.1 and was held at 0
-      .mockResolvedValueOnce([
-        { staffId: 'staff-2', score: 500, activityType: { section: { number: 1 } } },
-      ]);
-
-    expect(await updateActivityType('type-1', { ...valid, gatesRating: false })).toEqual({
-      success: true,
-      message: 'Збережено. Оновлено рейтинг: 3 НПП',
-    });
-    expect(tx.ratingEntry.findMany).toHaveBeenCalledWith({
-      where: { year: 2026 },
-      select: { staffId: true },
-    });
-    const staff2 = tx.ratingEntry.upsert.mock.calls.find(
-      (c) => c[0].where.staffId_year.staffId === 'staff-2'
-    );
-    expect(staff2?.[0].update.totalScore).toBe(500);
-  });
-
-  it('switching it on holds everyone without an entry of it at 0', async () => {
-    mockTypeFind.mockResolvedValue(type);
-    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
-    const tx = mockTx();
-    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-2' }]);
-    // The indicator now opens the rating
-    tx.activityType.findMany.mockResolvedValue([{ id: 'type-1' }]);
-    tx.activity.findMany
-      // nobody holds it
-      .mockResolvedValueOnce([])
-      // staff-2's counting rows
-      .mockResolvedValueOnce([
-        { staffId: 'staff-2', score: 500, activityType: { section: { number: 1 } } },
-      ])
-      // …and staff-2 has not filled it
-      .mockResolvedValueOnce([]);
-
-    await updateActivityType('type-1', { ...valid, gatesRating: true });
-
-    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
-    expect(tx.ratingEntry.upsert.mock.calls[0][0].update.totalScore).toBe(0);
-  });
-
-  it('deactivating an indicator that gates the year recomputes everyone too', async () => {
-    mockTypeFind.mockResolvedValue({ ...type, gatesRating: true });
-    (db.division.findUnique as unknown as Mock).mockResolvedValue({ id: 'div-nnv' });
-    const tx = mockTx();
-    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-1' }, { staffId: 'staff-2' }]);
-
-    await updateActivityType('type-1', { ...valid, gatesRating: true, isActive: false });
-
-    expect(tx.ratingEntry.findMany).toHaveBeenCalled();
-    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(2);
-  });
 });
 
 // An indicator nobody wrote code for: this is the whole point of the editor.
@@ -692,27 +700,6 @@ describe('createActivityType', () => {
     await createActivityType('tpl-1', jury);
     expect(tx.ratingEntry.findMany).not.toHaveBeenCalled();
   });
-
-  // Nobody can have filled a brand-new indicator, so it holds everyone at 0
-  it('a new indicator that must be filled first recomputes the whole year', async () => {
-    mockTemplateFind.mockResolvedValue(openTemplate);
-    const tx = mockTx();
-    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-1' }]);
-    tx.activityType.findMany.mockResolvedValue([{ id: 'type-new' }]);
-    tx.activity.findMany
-      .mockResolvedValueOnce([
-        { staffId: 'staff-1', score: 300, activityType: { section: { number: 3 } } },
-      ])
-      .mockResolvedValueOnce([]);
-
-    await createActivityType('tpl-1', { ...jury, gatesRating: true });
-
-    expect(tx.ratingEntry.findMany).toHaveBeenCalledWith({
-      where: { year: 2026 },
-      select: { staffId: true },
-    });
-    expect(tx.ratingEntry.upsert.mock.calls[0][0].update.totalScore).toBe(0);
-  });
 });
 
 describe('deleteActivityType', () => {
@@ -725,19 +712,6 @@ describe('deleteActivityType', () => {
     template: { status: 'OPEN', year: 2026 },
     _count: { activities: 0 },
   };
-
-  it('removing an unused indicator that gated the year gives everyone their points back', async () => {
-    mockTypeFind.mockResolvedValue({ ...unused, gatesRating: true });
-    const tx = mockTx();
-    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-1' }]);
-    tx.activity.findMany.mockResolvedValueOnce([
-      { staffId: 'staff-1', score: 300, activityType: { section: { number: 3 } } },
-    ]);
-
-    await deleteActivityType('type-1');
-
-    expect(tx.ratingEntry.upsert.mock.calls[0][0].update.totalScore).toBe(300);
-  });
 
   it('deletes an indicator nobody has used', async () => {
     mockTypeFind.mockResolvedValue(unused);
@@ -863,20 +837,5 @@ describe('addActivityType', () => {
       error: 'Відділ для цього показника не знайдено',
     });
     expect(tx.activityType.create).not.toHaveBeenCalled();
-  });
-
-  it('re-adding 5.1 recomputes the whole year — it closes everyone’s rating again', async () => {
-    mockTemplateFind.mockResolvedValue({ ...template, sections: [{ id: 'sec-5', number: 5 }] });
-    const tx = mockTx();
-    tx.ratingEntry.findMany.mockResolvedValue([{ staffId: 'staff-1' }]);
-
-    await addActivityType('tpl-1', 'moodle_course');
-
-    expect(tx.activityType.create.mock.calls[0][0].data.gatesRating).toBe(true);
-    expect(tx.ratingEntry.findMany).toHaveBeenCalledWith({
-      where: { year: 2026 },
-      select: { staffId: true },
-    });
-    expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
   });
 });

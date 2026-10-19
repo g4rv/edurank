@@ -93,9 +93,15 @@ export default async function StaffRatingPage({
   const snapshot = closed ? (await getRatingEntry(id, year))?.snapshot : null;
   const snapshotGroups = closed ? snapshotToGroups(snapshot, catalogue) : null;
 
-  // 5.1 not filled → the year counts as 0 (owner, 2026-10-16). An open year asks
-  // the live rule; a closed one reads what was frozen when it closed.
-  const blocked = closed ? snapshotBlocked(snapshot) : !(await loadRatingGate(db, id, year)).open;
+  // 5.1 has no entry (owner, 2026-10-19): an open year warns what its close
+  // will do; a closed one reads what was frozen when it closed.
+  const gate = closed
+    ? snapshotBlocked(snapshot)
+      ? ('zeroed' as const)
+      : undefined
+    : (await loadRatingGate(db, id, year)).open
+      ? undefined
+      : ('pending' as const);
 
   /**
    * A closed year with NO snapshot is an empty rating, not an open one.
@@ -142,7 +148,7 @@ export default async function StaffRatingPage({
         </ToolbarGroup>
       </RecordTabRow>
 
-      <RatingTable groups={groups} fill blocked={blocked} />
+      <RatingTable groups={groups} fill gate={gate} />
     </div>
   );
 }

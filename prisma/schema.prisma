@@ -565,11 +565,11 @@ model ActivityType {
   // one-cell-at-a-time grid with nothing to explain why.
   entityFirstEntry Boolean @default(false)
 
-  // Opens the rest of the rating (owner, 2026-10-16 — 5.1, «Я лектор»). Until
-  // an НПП has an entry of an indicator with this switch in the year, they
-  // cannot add or delete their own entries anywhere else, and their year total
-  // counts as 0 — entries a division entered for them included. Its own rows
-  // show «Виконано», never a number. A column for the reason the two above are.
+  // Mandatory for the year to count (5.1, «Я лектор»; owner, 2026-10-19). An
+  // НПП with no entry of an indicator with this switch scores 0 for the year
+  // when it CLOSES — entries a division entered for them included. Nothing waits
+  // for it while the year is open. Its own rows show «Виконано», never a
+  // number. A column for the reason the two above are.
   gatesRating Boolean @default(false)
 
   // Which п.38 positions of the Характеристика this indicator's entries satisfy:

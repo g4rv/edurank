@@ -175,7 +175,7 @@ describe('buildRatingWorkbook — 5.1 «Я лектор»', () => {
     divisionKey: null,
     gatesRating: true,
   };
-  const flatOf = (s: typeof staff & { blocked?: boolean }) =>
+  const flatOf = (s: typeof staff & { gate?: 'pending' | 'zeroed' }) =>
     cellValues(buildRatingWorkbook(s, [...types, moodle]).getWorksheet('Рейтинг')!).map((r) =>
       r.join('|')
     );
@@ -194,11 +194,19 @@ describe('buildRatingWorkbook — 5.1 «Я лектор»', () => {
     expect(flat.find((r) => r.startsWith('Загальна сума балів'))).toContain('=SUM(');
   });
 
-  it('reads «Не заповнено» and totals 0 for somebody who has not filled it', () => {
-    const flat = flatOf({ ...staff, blocked: true });
+  // An open year adds up whatever 5.1 holds, and warns (owner, 2026-10-19)
+  it('in an open year reads «Не заповнено», still adds up and warns', () => {
+    const flat = flatOf({ ...staff, gate: 'pending' });
     expect(flat.some((r) => r.startsWith('5.1.|') && r.includes('|Не заповнено|'))).toBe(true);
     const grand = flat.find((r) => r.startsWith('Загальна сума балів'))!;
+    expect(grand).toContain('=SUM(');
+    expect(grand).toContain('без нього рік не буде зараховано');
+  });
+
+  it('in a year closed without it totals 0 and says why', () => {
+    const flat = flatOf({ ...staff, gate: 'zeroed' });
+    const grand = flat.find((r) => r.startsWith('Загальна сума балів'))!;
     expect(grand).toContain('|0|');
-    expect(grand).toContain('п. 5.1 не заповнено');
+    expect(grand).toContain('рік не зараховано');
   });
 });

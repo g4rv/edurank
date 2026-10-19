@@ -20,9 +20,10 @@
 >   науковому виданні», FIXED 100, НПП: бібліографічний опис, DOI або ISSN (хоча б одне),
 >   посилання на статтю без DOI, посилання на сторінку видавництва про рецензії. Every number
 >   below from 3.10 to 3.25 is one higher since: 3.10 → 3.11 … 3.25 → 3.26.
-> - **5.1 scores nothing.** «Я лектор» comes first; on, the вид роботи, дисципліна, посилання
->   and at least one матеріал are required. Filling it — either way — opens the rest of the
->   rating (`ActivityType.gatesRating`); until then the year counts as 0.
+> - **5.1 scores nothing, and is mandatory.** «Я лектор» comes first; on, the вид роботи,
+>   дисципліна, посилання and at least one матеріал are required. It blocks nothing while the
+>   year is open; whoever has no entry of it — either way — scores 0 for the year when it
+>   closes (`ActivityType.gatesRating`, owner 2026-10-19).
 > - **3.7 and 2.2 are typed in друкованих аркушах**, not pages; a монографія's personal share
 >   must reach 1,5.
 

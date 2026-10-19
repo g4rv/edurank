@@ -24,11 +24,6 @@ vi.mock('@/lib/rating/npp-access', async (importOriginal) => {
 // The science-plan gate has its own tests; here it is a switch, open unless a
 // test says otherwise, so the rest of the file stays about the rating itself.
 vi.mock('@/lib/queries/get-science-plan-gate', () => ({ getSciencePlanGate: vi.fn() }));
-// The 5.1 gate likewise: its rule has its own tests, here it is a switch
-vi.mock('@/lib/rating/rating-gate', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/rating/rating-gate')>();
-  return { ...actual, loadRatingGate: vi.fn() };
-});
 vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn() },
@@ -42,7 +37,6 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { catalogueType } from '@/lib/rating/db-specs';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
-import { loadRatingGate } from '@/lib/rating/rating-gate';
 import { createActivity, deleteActivity } from './actions';
 
 const mockAuth = auth as unknown as Mock;
@@ -51,7 +45,6 @@ const mockTypeFind = db.activityType.findUnique as unknown as Mock;
 const mockActivityFind = db.activity.findUnique as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 const mockPlanGate = getSciencePlanGate as unknown as Mock;
-const mockRatingGate = loadRatingGate as unknown as Mock;
 
 const userSession = { user: { id: 'user-1', role: 'USER', staffId: 'staff-1' } };
 const nppStaff = { isNpp: true, lastName: 'Тест', firstName: 'Тест', patronymic: 'Тестович' };
@@ -97,7 +90,6 @@ beforeEach(() => {
   mockStaffFind.mockResolvedValue(nppStaff);
   mockTypeFind.mockResolvedValue(confUkraineType);
   mockPlanGate.mockResolvedValue({ open: true });
-  mockRatingGate.mockResolvedValue({ open: true });
 });
 
 describe('createActivity', () => {
@@ -323,27 +315,18 @@ describe('while the science plan is not saved', () => {
   });
 });
 
-// 5.1 comes first (owner, 2026-10-16). On the server too, for a tab left open.
+// 5.1 is judged when the year closes, never before (owner, 2026-10-19, replacing
+// 2026-10-16's «nothing else opens until 5.1 is filled»)
 describe('while 5.1 is not filled', () => {
-  const closed = {
-    error: 'Спершу заповніть п. 5.1 — після цього можна заповнювати інші пункти рейтингу.',
-  };
-
-  beforeEach(() => {
-    mockRatingGate.mockResolvedValue({
-      open: false,
-      missing: [{ id: 't51', itemNumber: '5.1', sectionNumber: 5 }],
-    });
+  it('still saves any other indicator', async () => {
+    mockTx();
+    expect(await createActivity('type-1', { title: 'Конференція' })).toHaveProperty(
+      'success',
+      true
+    );
   });
 
-  it('refuses createActivity for any other indicator', async () => {
-    mockTypeFind.mockResolvedValue({ ...confUkraineType, gatesRating: false });
-    expect(await createActivity('type-1', { title: 'Конференція' })).toEqual(closed);
-    expect(mockRatingGate).toHaveBeenCalledWith(expect.anything(), 'staff-1', 2026);
-    expect(mockTransaction).not.toHaveBeenCalled();
-  });
-
-  it('lets 5.1 itself be saved', async () => {
+  it('saves 5.1 itself, for no points', async () => {
     const moodle = catalogueType('moodle_course').specs;
     mockTypeFind.mockResolvedValue({
       ...confUkraineType,
@@ -361,21 +344,11 @@ describe('while 5.1 is not filled', () => {
       success: true,
       score: 0,
     });
-    expect(mockRatingGate).not.toHaveBeenCalled();
   });
 
-  it('refuses deleteActivity of another indicator, but not of 5.1', async () => {
-    mockActivityFind.mockResolvedValue({
-      ...ownActivity,
-      activityType: { ...ownActivity.activityType, gatesRating: false },
-    });
-    expect(await deleteActivity('activity-1')).toEqual(closed);
-
+  it('still deletes an entry of another indicator', async () => {
     mockTx();
-    mockActivityFind.mockResolvedValue({
-      ...ownActivity,
-      activityType: { ...ownActivity.activityType, gatesRating: true },
-    });
+    mockActivityFind.mockResolvedValue(ownActivity);
     expect(await deleteActivity('activity-1')).toEqual({ success: true });
   });
 });

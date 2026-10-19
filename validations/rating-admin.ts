@@ -54,7 +54,7 @@ const base = {
   // DIVISION_MANAGED indicators — nobody else has that page — so it needs no
   // guard of its own either.
   entityFirstEntry: z.boolean(),
-  // Opens the rest of the rating for the НПП (5.1, «Я лектор»)
+  // Mandatory for the НПП's year to count when it closes (5.1, «Я лектор»)
   gatesRating: z.boolean(),
 };
 

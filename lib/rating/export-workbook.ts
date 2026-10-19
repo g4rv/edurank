@@ -43,8 +43,11 @@ export interface ExportStaffData {
   department: string;
   year: number;
   activities: ExportActivity[];
-  /** 5.1 not filled: the year counts as 0, and the form says so */
-  blocked?: boolean;
+  /**
+   * 5.1 has no entry (owner, 2026-10-19). `pending` — an open year: the total
+   * adds up and the form warns; `zeroed` — the year closed without it: 0.
+   */
+  gate?: 'pending' | 'zeroed';
 }
 
 const DONE = 'Виконано';
@@ -286,14 +289,21 @@ export function buildRatingWorkbook(
   ws.mergeCells(`A${grand.number}:D${grand.number}`);
   styleTableRow(grand);
   grand.getCell(1).font = { bold: true, size: 12 };
-  // 5.1 not filled → the year counts as 0, as the app says (owner, 2026-10-16)
-  grand.getCell(5).value = staff.blocked
-    ? 0
-    : ({
-        formula: `SUM(${sectionTotalRows.map((r) => `E${r}`).join(',')})`,
-      } as ExcelJS.CellFormulaValue);
+  // 5.1 has no entry → an open year warns, a closed one counted 0, as the app
+  // says (owner, 2026-10-19)
+  grand.getCell(5).value =
+    staff.gate === 'zeroed'
+      ? 0
+      : ({
+          formula: `SUM(${sectionTotalRows.map((r) => `E${r}`).join(',')})`,
+        } as ExcelJS.CellFormulaValue);
   grand.getCell(5).font = { bold: true, size: 12 };
-  if (staff.blocked) grand.getCell(6).value = 'п. 5.1 не заповнено';
+  if (staff.gate) {
+    grand.getCell(6).value =
+      staff.gate === 'zeroed'
+        ? 'п. 5.1 не заповнено — рік не зараховано'
+        : 'п. 5.1 не заповнено — без нього рік не буде зараховано';
+  }
 
   return wb;
 }
