@@ -6,7 +6,7 @@ import { catalogueType } from '../lib/rating/db-specs';
 import { computeScore } from '../lib/specs/scoring';
 import { recomputeRatingEntries } from '../lib/rating/recompute';
 
-// 5.1 «Я викладач» (owner, 2026-10-16) reaches a database that already has the
+// 5.1 «Я лектор» (owner, 2026-10-16) reaches a database that already has the
 // year in it. The migration `20261016150000_activity_type_gates_rating` adds the
 // column first; this switches 5.1 to the new rule.
 //
@@ -15,11 +15,11 @@ import { recomputeRatingEntries } from '../lib/rating/recompute';
 //
 // What it does, in every NOT-closed year that has 5.1 (`moodle_course`):
 //
-//   1. The indicator: the new form («Я викладач» first, every other box behind
+//   1. The indicator: the new form («Я лектор» first, every other box behind
 //      it), no points (FIXED, coefficient 0), `gatesRating` on, and its
 //      Характеристика п.4 link only for a lecturer. This REPLACES the form an
 //      admin may have edited on 5.1 — read the report.
-//   2. Its saved entries: kept as they are, marked «Я викладач» (they all name
+//   2. Its saved entries: kept as they are, marked «Я лектор» (they all name
 //      a course and a link already), and re-scored to 0. They count as a
 //      filled 5.1, so those people are not blocked.
 //   3. Every person's year total is recomputed with the new rule: somebody with
@@ -61,7 +61,7 @@ async function main() {
     console.log(`\n• ${year}, п. ${t.itemNumber}`);
     console.log(
       `    правило: ${kind} × ${comma(t.coefficient)} → FIXED × 0 (без балів); ` +
-        `спершу заповнити: ${t.gatesRating ? 'так' : 'ні'} → так; форма — нова («Я викладач»)`
+        `спершу заповнити: ${t.gatesRating ? 'так' : 'ні'} → так; форма — нова («Я лектор»)`
     );
     writes.push((tx) =>
       tx.activityType.update({
@@ -100,7 +100,7 @@ async function main() {
       changed += 1;
       console.log(
         `    ${a.staff.lastName} ${a.staff.firstName} (${a.status}): бали ${comma(a.score)} → ${comma(score)}` +
-          `${next !== evidence ? ', «Я викладач»' : ''}`
+          `${next !== evidence ? ', «Я лектор»' : ''}`
       );
       writes.push((tx) =>
         tx.activity.update({

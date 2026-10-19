@@ -11,7 +11,7 @@ import { decimalText } from '@/lib/decimal-input';
 //   exactly the keys of SELECT_OPTION_POINTS[code]
 // - MULT types have a number `value`, or `pages` + `coAuthors` for page-based codes
 // - SELECT_MULT internships add a number `credits`
-// - moodle_course (5.1) scores nothing: «Я викладач» first, and only then the
+// - moodle_course (5.1) scores nothing: «Я лектор» first, and only then the
 //   вид роботи, дисципліна, посилання and the матеріали (owner, 2026-10-16)
 
 /**
@@ -23,7 +23,7 @@ import { decimalText } from '@/lib/decimal-input';
  *                book's ISBN for a монографія, owner 2026-09-30)
  * - `checked` — the switch named in `field` is on. The box is also HIDDEN
  *                while it is off, and its value dropped on save: 5.1's
- *                «Я викладач» comes before anything else (owner, 2026-10-16)
+ *                «Я лектор» comes before anything else (owner, 2026-10-16)
  * - `empty`   — the box named in `field` is left empty: «DOI or ISSN, at
  *                least one», and «the article's link when there is no DOI»
  *
@@ -184,7 +184,7 @@ export type EvidenceField =
       /**
        * What the summary prints while the switch is OFF. Without it an off
        * switch prints nothing — and 5.1 saved by somebody who does not teach
-       * would read as an empty line (owner, 2026-10-16: «Не викладач»).
+       * would read as an empty line (owner, 2026-10-16: «Не лектор»).
        */
       offLabel?: string;
     }
@@ -561,7 +561,7 @@ export function evidenceDefaults(fields: readonly EvidenceField[]): Record<strin
   return out;
 }
 
-/** 5.1's boxes wait for «Я викладач» */
+/** 5.1's boxes wait for «Я лектор» */
 const LECTURER: FieldCondition = { field: 'isLecturer', checked: true };
 
 export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
@@ -951,7 +951,7 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
   // матеріал must be ticked. Saving it either way opens the rest of the rating
   // (`ActivityType.gatesRating`).
   moodle_course: [
-    checkbox('isLecturer', 'Я викладач', { offLabel: 'Не викладач' }),
+    checkbox('isLecturer', 'Я лектор', { offLabel: 'Не лектор' }),
     select('mode', 'Вид роботи', [opt('development', 'Розроблення'), opt('update', 'Оновлення')], {
       requiredWhen: LECTURER,
     }),

@@ -153,7 +153,7 @@ describe('buildRatingWorkbook', () => {
 
 // 5.1 scores nothing (owner, 2026-10-16): the form says «Виконано» / «Не
 // заповнено» in its place, and a person who has not filled it totals 0.
-describe('buildRatingWorkbook — 5.1 «Я викладач»', () => {
+describe('buildRatingWorkbook — 5.1 «Я лектор»', () => {
   const moodle: ExportActivityType = {
     code: 'moodle_course',
     label: 'Навчально-методичне забезпечення на платформі Moodle',
@@ -163,7 +163,7 @@ describe('buildRatingWorkbook — 5.1 «Я викладач»', () => {
     sectionNumber: 5,
     sectionTitle: 'Moodle',
     fields: [
-      { kind: 'checkbox', name: 'isLecturer', label: 'Я викладач' },
+      { kind: 'checkbox', name: 'isLecturer', label: 'Я лектор' },
       {
         kind: 'select',
         name: 'mode',

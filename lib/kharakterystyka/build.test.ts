@@ -91,11 +91,7 @@ describe('thresholds', () => {
   it('п.4 needs three навчально-методичні праці', () => {
     const two = [
       activity('edition_publication', { option: 'methodical_guide', pages: 100 }),
-      activity('moodle_course', {
-        isLecturer: true,
-        mode: 'development',
-        discipline: 'Педагогіка',
-      }),
+      activity('edition_publication', { option: 'recommendations', pages: 40 }),
     ];
     expect(position(buildKharakterystyka(two, NO_PROFILE, YEAR), 4).met).toBe(false);
 
@@ -104,6 +100,16 @@ describe('thresholds', () => {
       activity('edition_publication', { option: 'recommendations', pages: 60 }),
     ];
     expect(position(buildKharakterystyka(three, NO_PROFILE, YEAR), 4).met).toBe(true);
+  });
+
+  // Linking it to п.4 was a mistake (owner, 2026-10-19)
+  it('5.1 feeds no position, however many courses', () => {
+    const courses = [1, 2, 3].map((n) =>
+      activity('moodle_course', { isLecturer: true, mode: 'development', discipline: `Курс ${n}` })
+    );
+    const result = buildKharakterystyka(courses, NO_PROFILE, YEAR);
+    expect(position(result, 4).met).toBe(false);
+    expect(result.positions.every((p) => p.evidence === '')).toBe(true);
   });
 
   it('a single-entry position needs one entry and shows no counter', () => {

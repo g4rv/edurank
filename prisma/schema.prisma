@@ -565,7 +565,7 @@ model ActivityType {
   // one-cell-at-a-time grid with nothing to explain why.
   entityFirstEntry Boolean @default(false)
 
-  // Opens the rest of the rating (owner, 2026-10-16 — 5.1, «Я викладач»). Until
+  // Opens the rest of the rating (owner, 2026-10-16 — 5.1, «Я лектор»). Until
   // an НПП has an entry of an indicator with this switch in the year, they
   // cannot add or delete their own entries anywhere else, and their year total
   // counts as 0 — entries a division entered for them included. Its own rows

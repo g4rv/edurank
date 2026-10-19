@@ -129,7 +129,7 @@ export function groupOf(link: LicencePositionLink): string {
 export function linkMatches(link: LicencePositionLink, evidence: Record<string, unknown>): boolean {
   if (!link.when) return true;
   const raw = evidence[link.when.field];
-  // A switch is matched as 'true' / 'false' — 5.1 links only «Я викладач»
+  // A switch is matched as 'true' / 'false', so a link can name one
   const value = typeof raw === 'boolean' ? String(raw) : raw;
   return typeof value === 'string' && link.when.in.includes(value);
 }

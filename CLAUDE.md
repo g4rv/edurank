@@ -340,7 +340,7 @@ pnpm db:book-sheets  # one-off: rating 3.7 / 2.2 typed in друкованих �
                       #   pages. Converts the field, sets 1,5 minimum on монографія,
                       #   and converts + RE-SCORES the open year's entries (pages ÷ 24
                       #   to 0,1). Closed years untouched. Report first; --apply.
-pnpm db:lecturer-gate  # one-off, after migrate deploy: 5.1 «Я викладач» — the new form, no
+pnpm db:lecturer-gate  # one-off, after migrate deploy: 5.1 «Я лектор» — the new form, no
                       #   points, opens the rest of the rating; its saved entries kept and
                       #   re-scored to 0; every open-year total recomputed (those with no
                       #   5.1 go to 0). Report first (runs and rolls back); --apply.
@@ -357,6 +357,12 @@ pnpm db:kharakterystyka-cleanup  # one-off: drop imported «evidence» that
                       #   evidences nothing («Так»/«Ні», a bare role) and strip
                       #   the «Оберіть …:» prompts. --bare also drops the
                       #   subjectless fragments. See docs/kharakterystyka.md.
+pnpm db:kharakterystyka-drop-moodle  # one-off: rating 5.1 feeds NO Характеристика
+                      #   position (owner, 2026-10-19 — linking it to п.4 was a
+                      #   mistake). Unlinks 5.1 in every year, the closed 2025 too,
+                      #   and hides the imported 2022–2024 «5.1» lines so a
+                      #   re-import cannot bring them back. Names who drops out
+                      #   of Кнпп. Report first; --apply.
 pnpm db:bib-placeholder  # one-off: put the ДСТУ example into every
                       #   «Бібліографічний опис» box; refreshes stale wording
 pnpm db:import-students  # one-off: load lib/students/accepted-<year>.json into
@@ -530,7 +536,7 @@ Rules that are easy to get wrong:
 - **A deactivated indicator scores nothing.** Only `APPROVED` rows of an `isActive` type count — see `COUNTED` in `lib/rating/recompute.ts`. Toggling `isActive` recomputes everyone holding it.
 - **`year` is always derived** from the type's template, never taken from client input.
 - **5.1 comes first and scores nothing** (owner, 2026-10-16). Its form opens
-  with «Я викладач»; nothing else is drawn until it is on, and then the вид
+  with «Я лектор»; nothing else is drawn until it is on, and then the вид
   роботи, дисципліна, посилання and at least one матеріал are required
   (`requiredWhen: { field, checked }` — see `FieldCondition`). Saving it
   either way OPENS THE REST OF THE RATING: until an НПП has an entry of every

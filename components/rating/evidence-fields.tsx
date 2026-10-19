@@ -152,7 +152,7 @@ export function EvidenceFields({
   // балів» suffix has to follow the mode the person has actually chosen. Any
   // other rule has no `mode` field and this stays undefined, costing nothing.
   const mode = useWatch({ control, name: 'mode' });
-  // The whole form, for the conditions: a box behind «Я викладач» is not drawn
+  // The whole form, for the conditions: a box behind «Я лектор» is not drawn
   // until the switch is on, and a box required only in some state of the form
   // shows the required marker exactly then. The forms are a handful of fields.
   const values = (useWatch({ control }) ?? {}) as Record<string, unknown>;
