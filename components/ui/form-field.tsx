@@ -75,20 +75,26 @@ export function FormField({
           // `<Label>`, never this.
           onClick={(e) => e.preventDefault()}
         >
-          {label}
-          {isRequired && (
-            <>
-              {/* Same colour as the label, deliberately (owner, 2026-09-04):
-                  red is reserved for destructive and error in this app, and a
-                  field being obligatory is neither. */}
-              <span aria-hidden="true" className="-ml-1">
-                *
-              </span>
-              {/* The star is decoration to a screen reader. This is what
-                  actually carries the meaning, read as part of the label. */}
-              <span className="sr-only">, обов&apos;язкове поле</span>
-            </>
-          )}
+          {/* Text and star are ONE flex item, so the star follows the last word
+              inline. As two items, a label long enough to wrap left the star
+              in a column of its own, centred beside the text (2026-10-19).
+              No space before the star: it can never wrap onto a line alone. */}
+          <span>
+            {label}
+            {isRequired && (
+              <>
+                {/* Same colour as the label, deliberately (owner, 2026-09-04):
+                    red is reserved for destructive and error in this app, and a
+                    field being obligatory is neither. */}
+                <span aria-hidden="true" className="ml-1">
+                  *
+                </span>
+                {/* The star is decoration to a screen reader. This is what
+                    actually carries the meaning, read as part of the label. */}
+                <span className="sr-only">, обов&apos;язкове поле</span>
+              </>
+            )}
+          </span>
           {labelSuffix}
         </FieldLabel>
       )}
