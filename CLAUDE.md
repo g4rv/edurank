@@ -348,8 +348,10 @@ pnpm db:lecturer-gate  # one-off, after migrate deploy: 5.1 «Я лектор» 
 pnpm db:intl-publication  # one-off: the new 3.10, and 3.10–3.25 → 3.11–3.26 in every open
                       #   year. No entry or score moves. Report first; --apply.
 pnpm db:science-sheets-decimals  # one-off: «Кількість друкованих аркушів» takes ONE decimal
-                      #   (1,7, never 1,73) in every planning year. Report first;
-                      #   --apply writes. Saved works with two decimals are only listed.
+                      #   (1,7, never 1,73) in every planning year, and its minimum
+                      #   from the catalogue (монографія 0,5, the others 1). Report
+                      #   first; --apply writes. Saved works with two decimals are
+                      #   only listed.
 pnpm db:science-conference-yearly  # one-off: «Участь у конференціях» ONCE →
                       #   YEARLY (D25). The наказ caps it at 5 per рік, and a
                       #   ONCE key carries no year — so the same annual
@@ -878,7 +880,9 @@ Easy to get wrong:
   the comma — the Ukrainian separator, owner 2026-10-19; every printed number
   goes through `decimalText` too) and `schemaForFields`
   refuses it again on the server; a value already saved is not re-judged on
-  edit. The 1,5-per-співавтор rule stays in the Характеристика п.3 only. The
+  edit. A монографія may be **0,5** sheets here, перевидання and рецензування
+  1 (owner, 2026-10-19) — the rating's 3.7 and the Характеристика's п.3 keep
+  their 1,5 per person: the two systems measure apart. The
   catalogue change reaches existing databases through
   `pnpm db:science-sheets-decimals`, not the seed.
 - **A failed save must never destroy a form.** Every science dialog runs its

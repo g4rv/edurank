@@ -102,11 +102,11 @@ const count = (name: 'credits' | 'value', label: string): EvidenceField => ({
  * A quantity of друковані аркуші: one decimal at most — «1,7», never «1,73»
  * (owner, 2026-10-16), enforced while typing and again on the server.
  */
-const sheets = (name: 'credits' | 'value', label: string): EvidenceField => ({
+const sheets = (name: 'credits' | 'value', label: string, min = 1): EvidenceField => ({
   kind: 'number',
   name,
   label,
-  min: 1,
+  min,
   decimals: 1,
 });
 
@@ -270,7 +270,9 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
       // Mandatory for a монографія / підручник, optional for a посібник
       // (owner, 2026-09-30) — `requiredWhen` reads the «Вид видання» above.
       isbn('isbn', 'ISBN', { requiredWhen: { field: 'option', in: ['monograph'] } }),
-      sheets('credits', 'Кількість друкованих аркушів'),
+      // 0,5 is enough here (owner, 2026-10-19) — the rating's 3.7 and the
+      // Характеристика's п.3 keep their own 1,5; the two systems measure apart
+      sheets('credits', 'Кількість друкованих аркушів', 0.5),
     ],
   },
   {

@@ -10,7 +10,7 @@ import type { ScoringSpec } from '@/lib/rating/scoring';
 import { isValidIsbn } from '@/lib/isbn';
 import { isValidDoi, normalizeDoi } from '@/lib/doi';
 import { hasDomainHost, hostMatches, withProtocol } from '@/lib/link-hosts';
-import { commaToPoint, hasTooManyDecimals } from '@/lib/decimal-input';
+import { commaToPoint, decimalText, hasTooManyDecimals } from '@/lib/decimal-input';
 import { personalSheets } from '@/lib/specs/scoring';
 
 // Builds one Zod schema per activity type from its evidence field specs
@@ -95,14 +95,15 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
       const min = f.min ?? 0;
       let base = z.coerce
         .number({ error: 'Має бути числом' })
-        .min(min, { error: `Мінімальне значення — ${min}` });
+        // «0,5», the Ukrainian separator — as the box and every summary print it
+        .min(min, { error: `Мінімальне значення — ${decimalText(min)}` });
       // A ceiling only where the spec sets one. Most numbers here are counts —
       // сторінки, співавтори, дні — and inventing a maximum for those would
       // refuse real work. A YEAR is the case that needs it: «Рік початку» had a
       // floor of 1950 and nothing above, so 123123 was a valid year of
       // employment and printed into the licence document as one.
       if (f.max !== undefined) {
-        base = base.max(f.max, { error: `Максимальне значення — ${f.max}` });
+        base = base.max(f.max, { error: `Максимальне значення — ${decimalText(f.max)}` });
       }
       if (f.int) base = base.int({ error: 'Має бути цілим числом' });
       if (f.decimals !== undefined && !f.int) {
