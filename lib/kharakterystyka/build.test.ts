@@ -343,6 +343,38 @@ describe('п.5 — the defence date', () => {
     expect(position(result, 5).met).toBe(true);
   });
 
+  it('names the degree, topic and diploma the date belongs to', () => {
+    const result = buildKharakterystyka(
+      [],
+      {
+        scientificDegree: 'CANDIDATE',
+        degreeDefenceDate: new Date('2023-06-27'),
+        diplomas: [
+          {
+            position: 0,
+            degree: 'basic_education',
+            defenceDate: new Date('2005-06-01'),
+          },
+          {
+            position: 1,
+            degree: 'phd',
+            specialty: 'Історія',
+            topic: 'Мовна політика',
+            defenceDate: new Date('2023-06-27'),
+            issuedBy: 'ХНУ',
+            series: 'ДК',
+            number: '123',
+          },
+        ],
+      },
+      2026
+    );
+    const summary = position(result, 5).entries[0].summary;
+    expect(summary).toContain('27.06.2023');
+    expect(summary).toContain('тема: «Мовна політика»');
+    expect(summary).toContain('Видав ХНУ · серія ДК № 123');
+  });
+
   it('is not met when it falls before it', () => {
     const result = buildKharakterystyka(
       [],

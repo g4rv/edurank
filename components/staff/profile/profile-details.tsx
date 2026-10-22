@@ -63,7 +63,7 @@ export function ProfileDetails({
           «Академічна інформація» at all, and a new НПП has almost nothing
           anywhere. The grouping holds whatever the record contains. */}
       <div className="flex flex-col items-start gap-4 lg:flex-row">
-        <div className="flex w-full flex-1 flex-col gap-4">
+        <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
           <AcademicCard staff={staff} showEmpty={showEmpty} />
           <EducationCard
             staff={staff}
@@ -73,7 +73,7 @@ export function ProfileDetails({
           />
         </div>
 
-        <div className="flex w-full flex-1 flex-col gap-4">
+        <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
           {aside}
           <WorkplacesCard
             staff={staff}
