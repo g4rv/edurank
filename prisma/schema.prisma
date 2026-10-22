@@ -200,6 +200,13 @@ model Department {
   headId String? @unique
   head   Staff?  @relation("DepartmentHead", fields: [headId], references: [id])
 
+  // Заступник завідувача кафедри з наукової роботи (owner, 2026-10-21). Fills
+  // Рейтинг кафедри beside the завідувач, and has no other power — not a
+  // `Role` for the reason headship is not one. Not @unique: nothing forbids one
+  // person holding it on two кафедри.
+  scienceDeputyId String?
+  scienceDeputy   Staff?  @relation("DepartmentScienceDeputy", fields: [scienceDeputyId], references: [id], onDelete: SetNull)
+
   primaryStaff   Staff[]                @relation("PrimaryDepartment")
   partTimeStaff  StaffDepartment[]
   stakes         DepartmentStake[]
@@ -208,6 +215,7 @@ model Department {
   stakeSandboxes StakeSandbox[]
   specialities   SpecialityDepartment[]
   sciencePlans   SciencePlan[]
+  ratingReports  DepartmentReport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -433,10 +441,12 @@ model Staff {
   diplomas               Diploma[]
 
   auditLogs          AuditLog[]
-  approvedActivities Activity[]       @relation("ActivityApprover")
-  removedActivities  Activity[]       @relation("ActivityRemover")
-  verifiedActivities Activity[]       @relation("ActivityVerifier")
-  closedTemplates    RatingTemplate[] @relation("TemplateCloser")
+  approvedActivities Activity[]         @relation("ActivityApprover")
+  removedActivities  Activity[]         @relation("ActivityRemover")
+  verifiedActivities Activity[]         @relation("ActivityVerifier")
+  closedTemplates    RatingTemplate[]   @relation("TemplateCloser")
+  departmentReports  DepartmentReport[] @relation("DepartmentReportEditor")
+  scienceDeputyOf    Department[]       @relation("DepartmentScienceDeputy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -635,6 +645,56 @@ model Activity {
 
   @@index([staffId, year])
   @@index([activityTypeId, status])
+}
+
+// ─── Рейтинг кафедри (2026-10-20) ────────────────────────────────────────────
+// A кафедра's OWN report, filled by its завідувач — not the sum of its staff's
+// personal ratings. Separate from ActivityType/Activity on purpose: those are
+// per person throughout (recompute, Характеристика, moderation, the 5.1 gate).
+// See docs/superpowers/specs/2026-10-20-department-rating-design.md.
+
+enum DepartmentIndicatorKind {
+  HEADING // a group title (1, 2, 6, 7, 12) — never scores
+  COUNT // a number × coefficient
+  CHOICE // one of `options`, each with its own points (item 3)
+}
+
+// The scored half of the report, one row per line per year. In the database
+// rather than in code for the reason ActivityType is: next year's changes are
+// data. The narrative half (items 14–17) has no points and is fixed in
+// validations/department-report.ts.
+model DepartmentIndicator {
+  id          String                  @id @default(cuid())
+  year        Int
+  itemNumber  String // «1.1», «13.2»
+  order       Int
+  label       String
+  kind        DepartmentIndicatorKind
+  coefficient Float                   @default(0) // COUNT: points per unit
+  options     Json                    @default("[]") // CHOICE: [{ label, points }]
+  isActive    Boolean                 @default(true)
+
+  @@unique([year, itemNumber])
+  @@index([year, order])
+}
+
+model DepartmentReport {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  year         Int
+
+  values     Json  @default("{}") // DepartmentIndicator.id → count, or the CHOICE option's index
+  narrative  Json  @default("{}") // DepartmentNarrative — items 14–17
+  totalScore Float @default(0) // written on every save, rounded to 2 decimals
+
+  updatedById String?
+  updatedBy   Staff?  @relation("DepartmentReportEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([departmentId, year])
 }
 
 // Cached per-staff/year rollup of approved activity scores; snapshot frozen at year close

@@ -18,6 +18,8 @@
 //   which is the honest answer and also the starting state for everybody.
 
 import type { ActivityStatus, ScientificDegree } from '@/lib/generated/prisma/client';
+import { fromDiplomaRows } from '@/lib/staff/academic';
+import { degreeLevel, degreeTitle, diplomaDocument } from '@/lib/staff/academic-options';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import { parseLicencePositions } from '@/validations/licence-positions';
@@ -59,6 +61,8 @@ export interface KharakterystykaActivity {
 export interface KharakterystykaProfile {
   scientificDegree: ScientificDegree | null;
   degreeDefenceDate: Date | null;
+  /** `Diploma` rows, to say WHICH defence the date is — optional, the date alone still counts */
+  diplomas?: unknown;
 }
 
 /**
@@ -460,6 +464,26 @@ function derivedPosition(
 }
 
 /**
+ * What the profile says about the defence the date belongs to: the degree, its
+ * specialty and topic, and the diploma's papers. The diploma is the one whose
+ * defence date IS the profile's (the newest defence of any diploma); nothing is
+ * said when no diploma matches — the date alone still answers the position.
+ */
+function defenceDetails(profile: KharakterystykaProfile, date: Date): string[] {
+  const day = date.toISOString().slice(0, 10);
+  const diploma = fromDiplomaRows(profile.diplomas).find(
+    (d) => degreeLevel(d.degree) !== 'basic' && d.defenceDate === day
+  );
+  if (!diploma) return [];
+  return [
+    degreeTitle(diploma.degree),
+    diploma.specialty ? `спеціальність: ${diploma.specialty}` : null,
+    diploma.topic ? `тема: «${diploma.topic}»` : null,
+    diplomaDocument(diploma),
+  ].filter((p): p is string => Boolean(p));
+}
+
+/**
  * п.5 — «Захист дисертації». One date on the profile, for the highest degree.
  * The position asks for a defence inside the five-year window, and the highest
  * degree is also the most recent, so one date answers it (decided 2026-08-07).
@@ -485,7 +509,10 @@ function defencePosition(
           {
             itemNumber: '—',
             label: 'Захист дисертації',
-            summary: date.toLocaleDateString('uk-UA', { timeZone: 'UTC' }),
+            summary: [
+              date.toLocaleDateString('uk-UA', { timeZone: 'UTC' }),
+              ...defenceDetails(profile, date),
+            ].join(' · '),
             year,
           },
         ]

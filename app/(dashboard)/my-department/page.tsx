@@ -182,7 +182,7 @@ function DepartmentLinks({
           alike (owner, 2026-09-24). */}
       <DownloadButton
         href={`/api/export/department-ratings?department=${departmentId}`}
-        label={`Рейтинг кафедри ${year}`}
+        label={`Рейтинг НПП кафедри ${year}`}
         title="ПІБ і рейтинг усіх НПП кафедри"
       />
     </div>

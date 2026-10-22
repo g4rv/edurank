@@ -948,6 +948,32 @@ describe('archiveStaff', () => {
     expect(tx.faculty.update).not.toHaveBeenCalled();
   });
 
+  // An archived заступник з наукової роботи could still be named as the one who
+  // fills Рейтинг кафедри, while unable to sign in (2026-10-21).
+  it('takes the заступник з наукової роботи post away too', async () => {
+    adminArchives();
+    mockStaffLookups({ targetRole: 'USER' });
+    const tx = mockTx();
+    tx.department.findMany.mockImplementation(async (args: { where: Record<string, unknown> }) =>
+      'scienceDeputyId' in args.where ? [{ id: 'dep-2', name: 'Кафедра історії' }] : []
+    );
+
+    await archiveStaff('staff-1', '');
+    expect(tx.department.update).toHaveBeenCalledWith({
+      where: { id: 'dep-2' },
+      data: { scienceDeputyId: null },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          entity: 'Department',
+          entityId: 'dep-2',
+          changes: { scienceDeputyId: { from: 'staff-1', to: null } },
+        }),
+      })
+    );
+  });
+
   it('keeps an empty reason as null rather than an empty string', async () => {
     adminArchives();
     mockStaffLookups({ targetRole: 'USER' });

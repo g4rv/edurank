@@ -29,6 +29,7 @@
     "db:science-link-isbn": "tsx prisma/science-link-isbn.ts",
     "db:science-sheets-decimals": "tsx prisma/science-sheets-decimals.ts",
     "db:science-catalogue": "tsx prisma/science-catalogue.ts",
+    "db:department-rating-catalogue": "tsx prisma/department-rating-catalogue.ts",
     "db:kharakterystyka-cleanup": "tsx prisma/kharakterystyka-cleanup.ts",
     "db:kharakterystyka-drop-moodle": "tsx prisma/kharakterystyka-drop-moodle.ts",
     "db:bib-placeholder": "tsx prisma/bibliography-placeholder.ts",

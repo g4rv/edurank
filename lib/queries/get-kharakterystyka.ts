@@ -109,7 +109,12 @@ async function loadKharakterystyka(
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
-    select: { isNpp: true, scientificDegree: true, degreeDefenceDate: true },
+    select: {
+      isNpp: true,
+      scientificDegree: true,
+      degreeDefenceDate: true,
+      diplomas: true,
+    },
   });
   // Non-НПП have no rating and therefore no Характеристика — the document is
   // about academic activity, and an empty one for an accountant asserts
@@ -175,7 +180,12 @@ export async function getKharakterystykaMany(
   const [staff, activities, entries, removed] = await Promise.all([
     db.staff.findMany({
       where: { id: { in: [...staffIds] }, isNpp: true },
-      select: { id: true, scientificDegree: true, degreeDefenceDate: true },
+      select: {
+        id: true,
+        scientificDegree: true,
+        degreeDefenceDate: true,
+        diplomas: true,
+      },
     }),
     db.activity.findMany({
       where: { staffId: { in: [...staffIds] }, year: { gte: from, lte: to } },

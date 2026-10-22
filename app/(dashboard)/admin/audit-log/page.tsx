@@ -244,6 +244,7 @@ export default async function AuditLogPage({
       case 'specialityId':
         return specialityMap.get(str) ?? str;
       case 'headId':
+      case 'scienceDeputyId':
       case 'deanId':
       case 'staffId':
         return staffMap.get(str) ?? str;

@@ -216,10 +216,29 @@ async function clearHeadship(
   staffId: string,
   userId: string
 ): Promise<string[]> {
-  const [departments, faculties] = await Promise.all([
+  const [departments, faculties, deputyships] = await Promise.all([
     tx.department.findMany({ where: { headId: staffId }, select: { id: true, name: true } }),
     tx.faculty.findMany({ where: { deanId: staffId }, select: { id: true, name: true } }),
+    tx.department.findMany({
+      where: { scienceDeputyId: staffId },
+      select: { id: true, name: true },
+    }),
   ]);
+  // Заступник з наукової роботи (2026-10-21): cleared like a headship, but not
+  // named in the message — a кафедра without one still has its завідувач.
+  for (const d of deputyships) {
+    await tx.department.update({ where: { id: d.id }, data: { scienceDeputyId: null } });
+    await tx.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        entity: 'Department',
+        entityId: d.id,
+        label: d.name,
+        userId,
+        changes: diffChanges({ scienceDeputyId: staffId }, { scienceDeputyId: null }),
+      },
+    });
+  }
   for (const d of departments) {
     await tx.department.update({ where: { id: d.id }, data: { headId: null } });
     await tx.auditLog.create({
