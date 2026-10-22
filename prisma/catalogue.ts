@@ -4,6 +4,7 @@ import {
   SECTION_TITLES,
 } from '../lib/rating/activity-types';
 import { dbSpecs } from '../lib/rating/db-specs';
+import { DEPARTMENT_INDICATORS_2026 } from '../lib/department-rating/catalogue-2026';
 import { SPECIALITY_NORMS_2026, DEFAULT_CONTRACT_COEFFICIENT } from '../lib/stake/norms';
 import { stakeYearOf } from '../lib/science/academic-year';
 import {
@@ -46,6 +47,7 @@ export async function seedCatalogue(prisma: PrismaClient, year = 2026): Promise<
   const { templateId, activityTypeCount } = await seedTemplate(prisma, year, divisionIds);
   const specialityCount = await seedSpecialities(prisma, year);
   await seedSciencePlan(prisma);
+  await seedDepartmentIndicators(prisma, year);
 
   return { templateId, year, divisionIds, activityTypeCount, specialityCount };
 }
@@ -260,6 +262,43 @@ async function seedSciencePlan(prisma: PrismaClient): Promise<void> {
   }
 
   console.log(`  Додаток III: ${SCIENCE_WORK_TYPES_2027.length} видів роботи (${academicYear})`);
+}
+
+/**
+ * Рейтинг кафедри's scored lines for `year`.
+ *
+ * `isActive` on CREATE only, like the rating's own indicators: a line an ADMIN
+ * switched off must not come back with a deploy that ran this seed.
+ */
+async function seedDepartmentIndicators(prisma: PrismaClient, year: number): Promise<void> {
+  const rows = departmentIndicatorRows(year);
+  for (const row of rows) {
+    const { isActive, ...shape } = row;
+    await prisma.departmentIndicator.upsert({
+      where: { year_itemNumber: { year, itemNumber: row.itemNumber } },
+      update: shape,
+      create: { ...shape, isActive },
+    });
+  }
+  console.log(`  Рейтинг кафедри: ${rows.length} рядків (${year})`);
+}
+
+/**
+ * The 2026 Рейтинг кафедри lines as database rows — shared by the seed above
+ * and `prisma/department-rating-catalogue.ts`, the create-only script that is
+ * how PRODUCTION gets them.
+ */
+export function departmentIndicatorRows(year: number) {
+  return DEPARTMENT_INDICATORS_2026.map((def, order) => ({
+    year,
+    itemNumber: def.itemNumber,
+    order,
+    label: def.label,
+    kind: def.kind,
+    coefficient: def.coefficient ?? 0,
+    options: (def.options ?? []) as Prisma.InputJsonValue,
+    isActive: true,
+  }));
 }
 
 /**

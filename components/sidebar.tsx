@@ -9,6 +9,7 @@ import { NPP_RATING_CLOSED_NOTE, NPP_RATING_OPEN } from '@/lib/rating/npp-access
 import type { SectionTotals } from '@/lib/rating/section-scores';
 import { cn } from '@/lib/utils';
 import {
+  Award,
   BadgeCheck,
   BookOpen,
   Check,
@@ -83,6 +84,8 @@ export interface SidebarProps {
    * «Моя кафедра» — a декан is never also a завідувач (`headDeanConflict`).
    */
   isDean?: boolean;
+  /** Заступник завідувача кафедри з наукової роботи — opens «Рейтинг кафедри» only */
+  isScienceDeputy?: boolean;
   /** ADMIN, or exactly ННВ's editors (registryKey, never the moderation flag) */
   canOverseeSciencePlans?: boolean;
   /**
@@ -136,6 +139,7 @@ export function Sidebar({
   canEnterData = false,
   headsDepartment = false,
   isDean = false,
+  isScienceDeputy = false,
   canOverseeSciencePlans = false,
   ratingTotals = null,
   ratingMarks = {},
@@ -204,6 +208,12 @@ export function Sidebar({
       // heading a кафедра the same link in two places.
       { href: '/stakes', label: 'Розподіл ставок', icon: Scale }
     );
+  }
+  // A кафедра's own report (2026-10-20): the завідувач and the заступник з
+  // наукової роботи fill it, a декан reads their факультет's — unlike the two
+  // lines above, which are not theirs.
+  if (headsDepartment || isDean || isScienceDeputy || isAdmin) {
+    management.push({ href: '/department-rating', label: 'Рейтинг кафедри', icon: Award });
   }
   if (canEnterData) {
     management.push({ href: '/division-data', label: 'Дані відділу', icon: Table2 });

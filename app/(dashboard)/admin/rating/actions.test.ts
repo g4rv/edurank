@@ -71,6 +71,11 @@ function mockTx() {
       upsert: vi.fn().mockResolvedValue({}),
     },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    // Рейтинг кафедри's lines travel with the year (2026-10-20)
+    departmentIndicator: {
+      findMany: vi.fn().mockResolvedValue([]),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
   };
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
   return tx;
@@ -793,6 +798,43 @@ describe('cloneTemplate', () => {
         code: 'pedagogical_experience',
         verifyingDivisionId: 'div-kadry',
       }),
+    });
+  });
+
+  it('copies Рейтинг кафедри’s lines into year+1', async () => {
+    mockTemplateFind
+      .mockResolvedValueOnce({ id: 'tpl-1', year: 2026, sections: [], activityTypes: [] })
+      .mockResolvedValueOnce(null);
+    const tx = mockTx();
+    tx.departmentIndicator.findMany.mockResolvedValue([
+      {
+        id: 'ind-1',
+        year: 2026,
+        itemNumber: '3',
+        order: 8,
+        label: 'Платні послуги',
+        kind: 'CHOICE',
+        coefficient: 0,
+        options: [{ label: '0-10 тис. грн.', points: 10 }],
+        isActive: false,
+      },
+    ]);
+
+    expect(await cloneTemplate(2026)).toEqual({ success: true, message: 'Створено рік 2027' });
+    expect(tx.departmentIndicator.findMany).toHaveBeenCalledWith({ where: { year: 2026 } });
+    expect(tx.departmentIndicator.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          year: 2027,
+          itemNumber: '3',
+          order: 8,
+          label: 'Платні послуги',
+          kind: 'CHOICE',
+          coefficient: 0,
+          options: [{ label: '0-10 тис. грн.', points: 10 }],
+          isActive: false,
+        },
+      ],
     });
   });
 });

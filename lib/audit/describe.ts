@@ -49,6 +49,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   ActivityType: 'Показник рейтингу',
   AdmittedStudent: 'Здобувач (реєстр)',
   Department: 'Кафедра',
+  DepartmentReport: 'Рейтинг кафедри',
   DepartmentStake: 'Ставки кафедри',
   Division: 'Відділ',
   Faculty: 'Факультет',

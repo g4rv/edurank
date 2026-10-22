@@ -8,7 +8,14 @@ import {
   METRIC_TITLES,
   type RatingMetric,
 } from '@/lib/queries/get-rating-chart';
-import { DepartmentChartDocument, DepartmentStaffDocument } from '@/lib/rating/pdf-chart';
+import { TOP_STAFF_COUNT, type MetricKey } from '@/lib/dashboard/top-staff';
+import { getTopStaff } from '@/lib/queries/get-top-staff';
+import { listDepartmentReports } from '@/lib/queries/list-department-reports';
+import {
+  DepartmentChartDocument,
+  DepartmentReportsDocument,
+  DepartmentStaffDocument,
+} from '@/lib/rating/pdf-chart';
 
 // GET /api/export/rating-chart?kind=departments|staff&metric=total|1..5
 //     &departmentId=<id>&year=2026
@@ -60,6 +67,58 @@ export async function GET(request: Request) {
   if (!template) return new Response('Not found', { status: 404 });
 
   const metricKey = String(metric);
+
+  // «Топ-20 НПП»: the best people by the total or by one розділ, university-wide —
+  // the same bars as one кафедра's НПП, headed with the list's name
+  if (kind === 'top') {
+    const top = (await getTopStaff(template.year))[metricKey as MetricKey];
+    if (top.length === 0) return new Response('Empty', { status: 409 });
+
+    const buffer = await renderToBuffer(
+      DepartmentStaffDocument({
+        departmentName: `Топ-${TOP_STAFF_COUNT} НПП`,
+        rows: top.map((p) => ({ name: p.name, total: p.total, value: p.value })),
+        year: template.year,
+        metricLegend: METRIC_LEGEND[metricKey],
+        showMetricSeries: metric !== 'total',
+      })
+    );
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': contentDisposition(
+          `Топ-${TOP_STAFF_COUNT} НПП ${template.year} — ${metric === 'total' ? 'загальний бал' : `розділ ${metric}`}.pdf`,
+          inline
+        ),
+      },
+    });
+  }
+
+  // The кафедри ranked by their own report. The reports are the head's work and
+  // the dashboard shows this ranking to ADMIN alone, so the PDF does the same.
+  if (kind === 'reports') {
+    if (session.user.role !== 'ADMIN') return new Response('Forbidden', { status: 403 });
+    const reports = await listDepartmentReports(template.year, 'all');
+    const filled = reports.filter((r) => r.totalScore !== null);
+    if (filled.length === 0) return new Response('Empty', { status: 409 });
+
+    const buffer = await renderToBuffer(
+      DepartmentReportsDocument({
+        rows: filled.map((r) => ({ name: r.name, value: r.totalScore ?? 0 })),
+        year: template.year,
+        unfilled: reports.length - filled.length,
+      })
+    );
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': contentDisposition(
+          `Рейтинг кафедр ${template.year} — за звітом.pdf`,
+          inline
+        ),
+      },
+    });
+  }
 
   if (kind === 'staff') {
     const departmentId = url.searchParams.get('departmentId');

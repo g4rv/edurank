@@ -140,6 +140,7 @@ export const FIELD_LABELS: Record<string, string> = {
   deanId: 'Декан',
   facultyId: 'Факультет',
   headId: 'Завідувач',
+  scienceDeputyId: 'Заступник з наукової роботи',
   role: 'Роль',
   canModerateRating: 'Модерація рейтингу',
   canOverseeScience: 'Перевірка науки',

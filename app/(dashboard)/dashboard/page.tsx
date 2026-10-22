@@ -1,48 +1,20 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { getDashboard } from '@/lib/queries/get-dashboard';
 import { getReportData } from '@/lib/queries/get-rating-chart';
+import { getYearTrend } from '@/lib/queries/get-year-trend';
+import { getTopStaff } from '@/lib/queries/get-top-staff';
+import { listDepartmentReports } from '@/lib/queries/list-department-reports';
 import { YearSelect } from '@/components/rating/year-select';
-import { StatStrip } from '@/components/dashboard/stat-strip';
+import { KpiCards } from '@/components/dashboard/kpi-cards';
 import { OrgTree } from '@/components/dashboard/org-tree';
-import { ScoreDistribution } from '@/components/dashboard/score-distribution';
-import { SectionTotals } from '@/components/dashboard/section-totals';
+import { ScoreCharts } from '@/components/dashboard/score-charts';
 import { ReportsView } from '@/components/dashboard/reports-view';
 
 const full = new Intl.NumberFormat('uk-UA');
-
-/** Card shell — the overview is a page of them, so the chrome lives in one place */
-function Panel({
-  title,
-  hint,
-  action,
-  children,
-  bodyClassName,
-}: {
-  title: string;
-  hint?: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-  bodyClassName?: string;
-}) {
-  return (
-    // min-w-0: a grid item defaults to min-width:auto, so without this a wide
-    // chart pushes the whole column past the edge of the page
-    <section className="min-w-0 rounded-xl border bg-card">
-      <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
-        <div className="space-y-0.5">
-          <h2 className="text-sm font-semibold">{title}</h2>
-          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-        </div>
-        {action}
-      </div>
-      <div className={bodyClassName ?? 'p-4'}>{children}</div>
-    </section>
-  );
-}
 
 export default async function DashboardPage({
   searchParams,
@@ -90,10 +62,18 @@ export default async function DashboardPage({
   const year = years.includes(asked) ? asked : template.year;
   const shown = templateYears.find((t) => t.year === year) ?? template;
 
-  const [data, reportData] = await Promise.all([getDashboard(year), getReportData(year)]);
+  // The кафедри's own reports are the head's work, and the spec gave editors no
+  // sight of them: the «Звіт кафедри» tab is ADMIN's.
+  const [data, reportData, trend, top, reports] = await Promise.all([
+    getDashboard(year),
+    getReportData(year),
+    getYearTrend(),
+    getTopStaff(year),
+    session.user.role === 'ADMIN' ? listDepartmentReports(year, 'all') : Promise.resolve(null),
+  ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Графіки</h1>
@@ -115,8 +95,8 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      <StatStrip
-        stats={[
+      <KpiCards
+        items={[
           {
             label: 'НПП',
             value: full.format(data.nppCount),
@@ -125,6 +105,7 @@ export default async function DashboardPage({
           {
             label: 'Мають бали',
             value: full.format(data.scoredCount),
+            meter: data.nppCount > 0 ? (data.scoredCount / data.nppCount) * 100 : undefined,
             hint:
               data.nppCount > 0
                 ? `${Math.round((data.scoredCount / data.nppCount) * 100)}% від усіх НПП`
@@ -133,6 +114,7 @@ export default async function DashboardPage({
           {
             label: 'Середній бал',
             value: full.format(Math.round(data.averageScore)),
+            accent: true,
           },
           {
             label: 'Медіана',
@@ -142,42 +124,51 @@ export default async function DashboardPage({
         ]}
       />
 
-      <Panel
-        title="Розподіл балів"
-        hint="Скільки НПП потрапило в кожен діапазон. Наведіть на стовпчик, щоб побачити точні межі."
-      >
-        {data.distribution.length > 0 ? (
-          <ScoreDistribution bands={data.distribution} median={data.medianScore} />
-        ) : (
-          <p className="py-12 text-center text-sm text-muted-foreground">
-            Балів цього року ще немає.
-          </p>
-        )}
-      </Panel>
+      <ScoreCharts
+        year={year}
+        bands={data.distribution}
+        median={data.medianScore}
+        trend={trend}
+        sections={data.sectionTotals}
+      />
 
-      {/* The report is the hero: filters in a left rail drive the big preview.
-          The department ranking lives inside it (кафедра by кафедра, any
-          показник, with a PDF), so no separate static «Кафедри» card. */}
-      <ReportsView year={year} departments={reportData} universityAverage={data.averageScore} />
+      <ReportsView
+        year={year}
+        departments={reportData}
+        reports={reports}
+        top={top}
+        universityAverage={data.averageScore}
+      />
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <Panel title="Бали за розділами" hint="Сума по всіх НПП, розділи 1–5 офіційної форми">
-          <SectionTotals sections={data.sectionTotals} />
-        </Panel>
-
-        <Panel
-          title="Структура"
-          hint="Факультет → кафедра → скільки НПП"
-          bodyClassName=""
-          action={
-            <Link href="/departments" className="text-xs text-muted-foreground hover:underline">
-              Усі кафедри
-            </Link>
-          }
-        >
+      {/* Eleven факультети and some forty кафедри make the longest block on the
+            page, and it is a directory, not a figure: closed until somebody wants it. */}
+      <details className="group min-w-0 rounded-xl border bg-card shadow-card">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 marker:hidden [&::-webkit-details-marker]:hidden">
+          <span className="space-y-0.5">
+            <span className="block text-base font-semibold">Структура</span>
+            <span className="block text-sm text-muted-foreground">
+              Факультет → кафедра → скільки НПП ({data.faculties.length} факультетів)
+            </span>
+          </span>
+          {/* The whole row is the toggle and nothing in it is a link: a link beside
+                the arrow looked like part of it and was a miss-click away from
+                leaving the page. */}
+          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="group-open:hidden">Розгорнути</span>
+            <span className="hidden group-open:inline">Згорнути</span>
+            <ChevronDown className="size-5 transition-transform group-open:rotate-180" />
+          </span>
+        </summary>
+        <div className="border-t">
           <OrgTree faculties={data.faculties} />
-        </Panel>
-      </div>
+          <div className="border-t px-5 py-3 text-right">
+            <Link href="/departments" className="text-sm font-medium hover:underline">
+              Усі кафедри
+              <ArrowRight className="ml-1 inline size-4" />
+            </Link>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

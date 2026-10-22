@@ -109,18 +109,22 @@ export async function updateDepartment(
     await db.$transaction(async (tx) => {
       const existing = await tx.department.findUnique({
         where: { id },
-        select: { name: true, facultyId: true, headId: true },
+        select: { name: true, facultyId: true, headId: true, scienceDeputyId: true },
       });
+      // Only a form that carries the field may move the заступник — see the schema
+      const deputySent = parsed.data.scienceDeputyId !== undefined;
       const changes = diffChanges(
         {
           name: existing?.name ?? null,
           facultyId: existing?.facultyId ?? null,
           headId: existing?.headId ?? null,
+          ...(deputySent && { scienceDeputyId: existing?.scienceDeputyId ?? null }),
         },
         {
           name: parsed.data.name,
           facultyId: parsed.data.facultyId,
           headId: parsed.data.headId ?? null,
+          ...(deputySent && { scienceDeputyId: parsed.data.scienceDeputyId ?? null }),
         }
       );
 
@@ -130,6 +134,7 @@ export async function updateDepartment(
           name: parsed.data.name,
           facultyId: parsed.data.facultyId,
           headId: parsed.data.headId,
+          ...(deputySent && { scienceDeputyId: parsed.data.scienceDeputyId ?? null }),
         },
       });
       await tx.auditLog.create({

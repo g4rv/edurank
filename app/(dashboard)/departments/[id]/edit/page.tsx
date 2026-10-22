@@ -43,7 +43,7 @@ export default async function EditDepartmentPage({ params }: { params: Promise<{
   const [department, faculties, takenDeanRows, takenHeadRows, allStaff] = await Promise.all([
     db.department.findUnique({
       where: { id },
-      select: { id: true, name: true, facultyId: true, headId: true },
+      select: { id: true, name: true, facultyId: true, headId: true, scienceDeputyId: true },
     }),
     db.faculty.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     db.faculty.findMany({ select: { deanId: true }, where: { deanId: { not: null } } }),
@@ -88,11 +88,13 @@ export default async function EditDepartmentPage({ params }: { params: Promise<{
       <DepartmentForm
         faculties={faculties}
         staff={staff}
+        deputyStaff={allStaff}
         knownNames={knownNames}
         defaultValues={{
           name: department.name,
           facultyId: department.facultyId,
           headId: department.headId,
+          scienceDeputyId: department.scienceDeputyId,
         }}
         action={updateDepartment.bind(null, id)}
         submitLabel="Зберегти"

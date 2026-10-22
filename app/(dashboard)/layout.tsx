@@ -5,7 +5,7 @@ import { canModerateRating } from '@/lib/rating/moderation';
 import { getEditorDivisionId } from '@/lib/permissions';
 import { canOverseeScience } from '@/lib/science/oversight';
 import { listEntryDivisions } from '@/lib/queries/list-division-data';
-import { deanOf, scopeOf } from '@/lib/queries/scope';
+import { deanOf, scienceDeputyOf, scopeOf } from '@/lib/queries/scope';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
 import { sectionScores } from '@/lib/rating/section-scores';
@@ -40,13 +40,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Headship is derived from Department.headId / Faculty.deanId rather than
   // from a Role, so the nav has to ask rather than read it off the session.
-  const [scope, deanFaculties] = await Promise.all([
+  const [scope, deanFaculties, deputyships] = await Promise.all([
     scopeOf(session.user.staffId),
     deanOf(session.user.staffId),
+    scienceDeputyOf(session.user.staffId),
   ]);
   const headsDepartment = scope.length > 0;
   // A декан's own screen is the факультет, not a кафедра (owner, 2026-09-24).
   const isDean = deanFaculties.length > 0;
+  // Заступник з наукової роботи — «Рейтинг кафедри» and nothing else (2026-10-21)
+  const isScienceDeputy = deputyships.length > 0;
 
   // Fresh from DB, not the session token: an admin may flip НПП/адміністративний
   // mid-session, and the rating nav must follow immediately.
@@ -82,6 +85,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     canEnterData,
     headsDepartment,
     isDean,
+    isScienceDeputy,
     canOverseeSciencePlans,
     ratingTotals,
     ratingMarks,

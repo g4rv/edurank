@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts';
-import { FileDown } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, ChevronDown, FileDown, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/aurora/ui/button';
+import { SegmentedControl } from '@/components/aurora/ui/segmented-control';
 import {
   Select,
   SelectContent,
@@ -11,94 +12,83 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/aurora/ui/select';
-import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import { cn } from '@/lib/utils';
 import type { ReportDepartment } from '@/lib/queries/get-rating-chart';
+import type { DepartmentReportRow } from '@/lib/queries/list-department-reports';
+import {
+  METRIC_KEYS,
+  METRIC_LABELS,
+  TOP_STAFF_COUNT,
+  type MetricKey,
+  type TopByMetric,
+} from '@/lib/dashboard/top-staff';
+import { departmentRows, reportRows, staffRows, topStaffRows } from '@/lib/dashboard/ranking';
 import { DepartmentCombobox } from '@/components/department-combobox';
+import { RankingRows } from '@/components/dashboard/ranking-rows';
 
-// The report, native and themed: the two filters drive a live Recharts bar
-// chart, and «PDF» downloads exactly what the filters describe. It mirrors the
-// printed sheet — «Усі кафедри» is one blue series (the кафедра ranking); a
-// single кафедра pairs each НПП's total (red) with the chosen розділ (blue),
-// the same two bars the circulated PDF puts side by side.
+// «Рейтинг кафедр». Two rankings of the same кафедри behind one switch: the
+// staff's (each кафедра's НПП, any показник, with a PDF — the printed sheet's
+// twin) and the кафедра's own report. Both are rows, not a chart: a long
+// кафедра name needs a column of its own, which a chart axis cannot give 31 of.
 
-const METRICS: { value: string; label: string }[] = [
-  { value: 'total', label: 'Загальний бал' },
-  { value: '1', label: 'Розділ 1 — професійний розвиток' },
-  { value: '2', label: 'Розділ 2 — навчальна діяльність' },
-  { value: '3', label: 'Розділ 3 — науково-інноваційна діяльність' },
-  { value: '4', label: 'Розділ 4 — організаційна діяльність' },
-  { value: '5', label: 'Розділ 5 — навчально-методичне забезпечення' },
-];
+const METRICS: { value: string; label: string }[] = METRIC_KEYS.map((key) => ({
+  value: key,
+  label: METRIC_LABELS[key],
+}));
+
+type View = 'staff' | 'report' | 'top';
 
 const full = new Intl.NumberFormat('uk-UA');
-const compact = new Intl.NumberFormat('uk-UA', { notation: 'compact' });
 
-interface Row {
-  name: string;
-  short: string;
-  value: number;
-  total: number;
-  nppCount: number | null;
-}
+/** How many rows the card shows before «Показати всі» — 31 rows is a page of its own */
+const TOP = 5;
 
 export function ReportsView({
   year,
   departments,
+  reports,
+  top,
   universityAverage,
 }: {
   year: number;
   departments: ReportDepartment[];
-  /** Shown as a small detail in the header on the all-кафедри view */
+  /** The кафедри's own reports — only for ADMIN; null hides the switch */
+  reports: DepartmentReportRow[] | null;
+  /** The best НПП by the total and by each розділ — «Топ-20 НПП» */
+  top: TopByMetric;
   universityAverage?: number;
 }) {
-  // One control: «all» plots every кафедра's average, a department id plots that
-  // кафедра's НПП. Either way the question is «which кафедри», so it reads as one.
+  const [view, setView] = useState<View>('staff');
+  // «all» ranks the кафедри; a кафедра id ranks that кафедра's НПП
   const [target, setTarget] = useState('all');
   const [metric, setMetric] = useState('total');
+  // The top-20 has its own показник: going back to the кафедри keeps theirs
+  const [topMetric, setTopMetric] = useState<MetricKey>('total');
+  const [expanded, setExpanded] = useState(false);
 
+  // «Звіт кафедри» is ADMIN's: without the reports the tab is not drawn
+  const views: { value: View; label: string }[] = [
+    { value: 'staff', label: 'НПП' },
+    ...(reports !== null ? [{ value: 'report' as const, label: 'Звіт кафедри' }] : []),
+    { value: 'top', label: `Топ-${TOP_STAFF_COUNT} НПП` },
+  ];
+
+  const showReport = view === 'report' && reports !== null;
+  const showTop = view === 'top';
   const isAll = target === 'all';
   const metricIdx = metric === 'total' ? null : Number(metric) - 1;
-  // A single кафедра with a розділ chosen shows the paired bars; otherwise one.
-  const showPair = !isAll && metricIdx !== null;
+  const showPair = view === 'staff' && !isAll && metricIdx !== null;
   const sectionLabel = metricIdx === null ? 'Загальний бал' : `Розділ ${metric}`;
 
-  const config = {
-    total: { label: 'Загальний бал', color: 'var(--chart-total)' },
-    value: { label: sectionLabel, color: 'var(--chart-accent)' },
-  } satisfies ChartConfig;
-
-  const data: Row[] = useMemo(() => {
-    const pick = (sections: number[], total: number) =>
-      metricIdx === null ? total : sections[metricIdx];
-
-    if (isAll) {
-      return departments
-        .map((d) => ({
-          name: d.name,
-          short: d.name.replace(/^Кафедра\s+/i, ''),
-          value: pick(d.avgSections, d.avgTotal),
-          total: d.avgTotal,
-          nppCount: d.nppCount,
-        }))
-        .sort((a, b) => b.value - a.value);
-    }
-
+  const rows = useMemo(() => {
+    if (showReport) return reportRows(reports ?? []);
+    if (showTop) return topStaffRows(top[topMetric], topMetric !== 'total');
+    if (isAll) return departmentRows(departments, metricIdx);
     const dept = departments.find((d) => d.id === target);
-    if (!dept) return [];
-    // Sorted by whatever is plotted: the chosen розділ, or the total
-    return dept.staff
-      .map((s) => ({
-        name: s.name,
-        short: s.name,
-        value: pick(s.sections, s.total),
-        total: s.total,
-        nppCount: null,
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [departments, target, isAll, metricIdx]);
+    return dept ? staffRows(dept, metricIdx) : [];
+  }, [showReport, showTop, reports, top, topMetric, departments, isAll, target, metricIdx]);
 
-  // The PDF download — same filters, the university's house-style format.
+  // The PDF is the staff ranking, with the same filters
   const params = new URLSearchParams({
     kind: isAll ? 'departments' : 'staff',
     metric,
@@ -107,21 +97,62 @@ export function ReportsView({
   if (!isAll) params.set('departmentId', target);
   const href = `/api/export/rating-chart?${params.toString()}`;
 
-  // Grow with the rows so one bar does not float in white space, nor twenty
-  // squeeze into a smear. Paired rows carry two bars, so they need more room.
-  const rowHeight = showPair ? 40 : 28;
-  const height = Math.max(180, data.length * rowHeight + 48);
+  // The spreadsheet is whatever the card shows: the report ranking, one кафедра's
+  // НПП, or every кафедра's average
+  const excelParams = new URLSearchParams({
+    view: showReport ? 'report' : 'staff',
+    year: String(year),
+  });
+  if (!showReport && !isAll) excelParams.set('department', target);
+  const excelHref = `/api/export/department-ranking?${excelParams.toString()}`;
+
+  const shown = expanded ? rows : rows.slice(0, TOP);
+
+  const showAverage =
+    view === 'staff' && isAll && metricIdx === null && universityAverage !== undefined;
 
   return (
-    <section className="rounded-xl border bg-card">
-      <div className="flex flex-col md:flex-row">
-        {/* Filters rail — the controls sit beside the preview, not above it. */}
-        <div className="shrink-0 space-y-4 border-b p-4 md:w-60 md:border-r md:border-b-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="space-y-0.5">
-              <h2 className="text-sm font-semibold">Звіт</h2>
-              <p className="text-xs text-muted-foreground">Рейтинг за {year} рік</p>
-            </div>
+    <section className="min-w-0 rounded-xl border bg-card shadow-card">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b px-5 py-4">
+        <div className="space-y-0.5">
+          <h2 className="text-base font-semibold">Рейтинг</h2>
+          <p className="text-sm text-muted-foreground">
+            {showReport
+              ? `Кафедри за звітом кафедри, ${year} рік. Кафедра без звіту стоїть внизу.`
+              : showTop
+                ? `${TOP_STAFF_COUNT} НПП за показником «${METRICS.find((m) => m.value === topMetric)?.label}», ${year} рік.`
+                : `Кафедри за середнім балом НПП, ${year} рік.`}
+          </p>
+        </div>
+        <SegmentedControl
+          aria-label="Який рейтинг показати"
+          value={view}
+          onChange={setView}
+          options={views}
+          className="w-auto min-w-96"
+        />
+      </div>
+
+      {view === 'staff' && (
+        <div className="flex flex-wrap items-end gap-4 border-b px-5 py-4">
+          <div className="w-full space-y-1 sm:w-72">
+            <label className="text-xs font-medium text-muted-foreground">Кафедра</label>
+            <DepartmentCombobox
+              departments={departments}
+              value={isAll ? '' : target}
+              onChange={(next) => setTarget(next || 'all')}
+              allowAll={{ label: 'Усі кафедри' }}
+              placeholder="Кафедра"
+            />
+          </div>
+          <MetricSelect value={metric} onChange={setMetric} />
+          <div className="flex gap-2 sm:ml-auto">
+            <Button asChild size="sm" variant="outline" title="Завантажити Excel">
+              <a href={excelHref} download>
+                <FileSpreadsheet className="size-4" />
+                Excel
+              </a>
+            </Button>
             <Button asChild size="sm" variant="outline" title="Завантажити PDF">
               <a href={href} download>
                 <FileDown className="size-4" />
@@ -129,184 +160,147 @@ export function ReportsView({
               </a>
             </Button>
           </div>
+        </div>
+      )}
 
-          {isAll && universityAverage != null && (
-            <p className="text-xs text-muted-foreground">
-              Середнє по університету:{' '}
-              <span className="font-medium text-foreground">
-                {full.format(Math.round(universityAverage))}
-              </span>
-            </p>
-          )}
-
-          <div className="space-y-3">
-            <div className="w-full space-y-1">
-              <label htmlFor="reportTarget" className="text-xs font-medium text-muted-foreground">
-                Кафедра
-              </label>
-              <DepartmentCombobox
-                departments={departments}
-                value={target === 'all' ? '' : target}
-                onChange={(next) => setTarget(next || 'all')}
-                allowAll={{ label: 'Усі кафедри' }}
-                placeholder="Кафедра"
-              />
-            </div>
-
-            <LabeledSelect
-              id="reportMetric"
-              label="Показник"
-              value={metric}
-              onValueChange={setMetric}
-              wrapperClassName="w-full"
-            >
-              {METRICS.map((m) => (
-                <SelectItem key={m.value} value={m.value}>
-                  {m.label}
-                </SelectItem>
-              ))}
-            </LabeledSelect>
+      {showTop && (
+        <div className="flex flex-wrap items-end gap-4 border-b px-5 py-4">
+          <MetricSelect value={topMetric} onChange={(next) => setTopMetric(next as MetricKey)} />
+          <div className="flex gap-2 sm:ml-auto">
+            <Button asChild size="sm" variant="outline" title="Завантажити Excel">
+              <a
+                href={`/api/export/department-ranking?view=top&metric=${topMetric}&year=${year}`}
+                download
+              >
+                <FileSpreadsheet className="size-4" />
+                Excel
+              </a>
+            </Button>
+            <Button asChild size="sm" variant="outline" title="Завантажити PDF">
+              <a
+                href={`/api/export/rating-chart?kind=top&metric=${topMetric}&year=${year}`}
+                download
+              >
+                <FileDown className="size-4" />
+                PDF
+              </a>
+            </Button>
           </div>
+        </div>
+      )}
 
-          {showPair && (
-            <div className="space-y-1.5 text-xs text-muted-foreground">
+      {showReport && (
+        <div className="flex justify-end gap-2 border-b px-5 py-3">
+          <Button asChild size="sm" variant="outline" title="Завантажити Excel">
+            <a href={excelHref} download>
+              <FileSpreadsheet className="size-4" />
+              Excel
+            </a>
+          </Button>
+          <Button asChild size="sm" variant="outline" title="Завантажити PDF">
+            <a href={`/api/export/rating-chart?kind=reports&year=${year}`} download>
+              <FileDown className="size-4" />
+              PDF
+            </a>
+          </Button>
+        </div>
+      )}
+
+      <div className="px-5 py-2">
+        {rows.length === 0 ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">
+            Немає даних для цього вибору.
+          </p>
+        ) : (
+          <RankingRows rows={shown} average={showAverage ? universityAverage : undefined} />
+        )}
+      </div>
+
+      {rows.length > TOP && (
+        <div className="flex justify-center border-t px-5 py-3">
+          <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? `Згорнути до ${TOP}` : `Показати всі ${rows.length}`}
+            <ChevronDown className={cn('size-4 transition-transform', expanded && 'rotate-180')} />
+          </Button>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 text-xs text-muted-foreground">
+        {showReport ? (
+          <>
+            <span>Бали з форми «Звіт кафедри»: проєкти, публікації, конференції.</span>
+            <Link
+              href="/department-rating"
+              className="inline-flex items-center gap-1 font-medium text-foreground hover:underline"
+            >
+              Усі звіти
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </>
+        ) : showTop ? (
+          // The total alone is one bar and needs no key; a розділ rides with the total
+          topMetric === 'total' ? (
+            <span />
+          ) : (
+            <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span className="flex items-center gap-1.5">
-                <span
-                  className="size-2.5 rounded-sm"
-                  style={{ background: 'var(--chart-total)' }}
-                />
+                <span className="size-2.5 rounded-sm bg-chart-accent" />
+                Розділ {topMetric}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="size-2.5 rounded-sm bg-chart-total" />
                 Загальний бал
               </span>
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="size-2.5 rounded-sm"
-                  style={{ background: 'var(--chart-accent)' }}
-                />
-                {sectionLabel}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Preview — the big filter-driven chart */}
-        <div className="min-w-0 flex-1 p-4">
-          {data.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">
-              Немає даних для цього вибору.
-            </p>
-          ) : (
-            <ChartContainer config={config} className="aspect-auto w-full" style={{ height }}>
-              <BarChart
-                data={data}
-                layout="vertical"
-                margin={{ top: 4, right: 44, bottom: 4, left: 0 }}
-                barGap={2}
-              >
-                <CartesianGrid horizontal={false} stroke="var(--border)" />
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="short"
-                  tickLine={false}
-                  axisLine={false}
-                  width={isAll ? 150 : 168}
-                  interval={0}
-                  className="text-xs"
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const row = payload[0].payload as Row;
-                    return (
-                      <div className="max-w-64 rounded-lg border bg-background px-2.5 py-1.5 text-xs shadow-md">
-                        <p className="font-medium">{row.name}</p>
-                        {showPair ? (
-                          <div className="mt-1 space-y-0.5">
-                            <p>Загальний бал: {full.format(Math.round(row.total))}</p>
-                            <p>
-                              {sectionLabel}: {full.format(Math.round(row.value))}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="mt-1">
-                            {full.format(Math.round(row.value))} балів
-                            {row.nppCount !== null && ` · ${row.nppCount} НПП`}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  }}
-                />
-                {/* Blue section bar declared first, red total bar last — Recharts
-                  stacks the last-declared bar on top, and the total belongs
-                  above its розділ. In single mode only this blue bar shows. */}
-                <Bar
-                  dataKey="value"
-                  fill="var(--color-value)"
-                  radius={[0, 3, 3, 0]}
-                  maxBarSize={showPair ? 11 : 22}
-                >
-                  <LabelList
-                    dataKey="value"
-                    position="right"
-                    offset={6}
-                    className="fill-muted-foreground"
-                    fontSize={showPair ? 10 : 11}
-                    formatter={(value) => compact.format(Number(value ?? 0))}
-                  />
-                </Bar>
-                {showPair && (
-                  <Bar
-                    dataKey="total"
-                    fill="var(--color-total)"
-                    radius={[0, 3, 3, 0]}
-                    maxBarSize={11}
-                  >
-                    <LabelList
-                      dataKey="total"
-                      position="right"
-                      offset={6}
-                      className="fill-muted-foreground"
-                      fontSize={10}
-                      formatter={(value) => compact.format(Number(value ?? 0))}
-                    />
-                  </Bar>
-                )}
-              </BarChart>
-            </ChartContainer>
-          )}
-        </div>
+            </span>
+          )
+        ) : showPair ? (
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-sm bg-chart-accent" />
+              {sectionLabel}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-sm bg-chart-total" />
+              Загальний бал
+            </span>
+          </span>
+        ) : showAverage ? (
+          <span className="flex items-center gap-2">
+            <span className="h-3 border-l-2 border-dashed border-foreground/40" />
+            Середнє по університету:{' '}
+            <span className="font-medium text-foreground">
+              {full.format(Math.round(universityAverage))}
+            </span>
+          </span>
+        ) : (
+          <span />
+        )}
+        <span>
+          Показано {shown.length} з {rows.length}
+        </span>
       </div>
     </section>
   );
 }
 
-function LabeledSelect({
-  id,
-  label,
-  value,
-  onValueChange,
-  wrapperClassName,
-  children,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onValueChange: (value: string) => void;
-  wrapperClassName?: string;
-  children: React.ReactNode;
-}) {
+/** The показник select — one per view, so each keeps its own choice */
+function MetricSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
-    <div className={cn('space-y-1', wrapperClassName)}>
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
+    <div className="w-full space-y-1 sm:w-80">
+      <label htmlFor="reportMetric" className="text-xs font-medium text-muted-foreground">
+        Показник
       </label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger id={id} className="w-full">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="reportMetric" className="w-full">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>{children}</SelectContent>
+        <SelectContent>
+          {METRICS.map((m) => (
+            <SelectItem key={m.value} value={m.value}>
+              {m.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
     </div>
   );

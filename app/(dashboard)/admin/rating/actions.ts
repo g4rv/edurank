@@ -118,6 +118,24 @@ export async function cloneTemplate(fromYear: number): Promise<RatingAdminState>
           });
         }
 
+        // Рейтинг кафедри's scored lines belong to the year too, so a new year
+        // starts from last year's — and changing 2027's cannot reach 2026.
+        const indicators = await tx.departmentIndicator.findMany({ where: { year: fromYear } });
+        if (indicators.length > 0) {
+          await tx.departmentIndicator.createMany({
+            data: indicators.map((row) => ({
+              year: toYear,
+              itemNumber: row.itemNumber,
+              order: row.order,
+              label: row.label,
+              kind: row.kind,
+              coefficient: row.coefficient,
+              options: row.options as Prisma.InputJsonValue,
+              isActive: row.isActive,
+            })),
+          });
+        }
+
         await tx.auditLog.create({
           data: {
             action: 'CREATE',

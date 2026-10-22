@@ -40,6 +40,9 @@ export default async function DepartmentDetailPage({
       name: true,
       faculty: { select: { id: true, name: true } },
       head: { select: { id: true, lastName: true, firstName: true, patronymic: true } },
+      scienceDeputy: {
+        select: { id: true, lastName: true, firstName: true, patronymic: true },
+      },
       primaryStaff: {
         // Archived people — someone on декретна відпустка — are off the roster
         // and out of every other list in the app. This page never filtered
@@ -137,7 +140,7 @@ export default async function DepartmentDetailPage({
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border bg-card p-5">
           <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Факультет
@@ -160,6 +163,23 @@ export default async function DepartmentDetailPage({
               className="text-sm font-medium hover:underline"
             >
               {fullName(department.head)}
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground">Не призначено</p>
+          )}
+        </div>
+
+        {/* Fills Рейтинг кафедри beside the завідувач (2026-10-21) */}
+        <div className="rounded-xl border bg-card p-5">
+          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Заступник з наукової роботи
+          </p>
+          {department.scienceDeputy ? (
+            <Link
+              href={`/staff/${department.scienceDeputy.id}`}
+              className="text-sm font-medium hover:underline"
+            >
+              {fullName(department.scienceDeputy)}
             </Link>
           ) : (
             <p className="text-sm text-muted-foreground">Не призначено</p>

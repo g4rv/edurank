@@ -298,6 +298,45 @@ export function DepartmentChartDocument({
   );
 }
 
+/**
+ * «Рейтинг кафедр за звітом кафедри» — one bar per кафедра that has saved a
+ * report, its «Всього». A кафедра with no report has not scored zero, so it gets
+ * no bar; the subtitle says how many are missing.
+ */
+export function DepartmentReportsDocument({
+  rows,
+  year,
+  unfilled,
+  generatedAt = new Date(),
+}: {
+  rows: { name: string; value: number }[];
+  year: number;
+  /** Кафедри that have not filled the report in */
+  unfilled: number;
+  generatedAt?: Date;
+}): React.ReactElement<DocumentProps> {
+  return (
+    <Document title={`Рейтинг кафедр за звітом ${year}`}>
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.title}>Рейтинг кафедр за звітом кафедри</Text>
+        <Text style={styles.subtitle}>
+          за {year} рік{unfilled > 0 ? ` · без звіту: ${unfilled}` : ''}
+        </Text>
+
+        <BarChart
+          rows={rows.map((r) => ({ label: r.name, values: [r.value] }))}
+          colors={[COLOR_SINGLE]}
+          maxLabelWidth={220}
+          height={660}
+        />
+
+        <Legend items={[{ color: COLOR_SINGLE, label: 'Всього балів за звітом' }]} />
+        <Footer generatedAt={generatedAt} />
+      </Page>
+    </Document>
+  );
+}
+
 /** One department: every НПП with the year's total beside the chosen розділ */
 export function DepartmentStaffDocument({
   departmentName,

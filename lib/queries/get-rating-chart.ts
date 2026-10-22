@@ -191,7 +191,8 @@ export async function getDepartmentStaffChart(
           value: valueOf(entry, metric),
         };
       })
-      .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'uk')),
+      // Level on the plotted розділ: the greater total stands higher, then the name
+      .sort((a, b) => b.value - a.value || b.total - a.total || a.name.localeCompare(b.name, 'uk')),
   };
 }
 
@@ -205,6 +206,7 @@ export interface ReportStaff {
 export interface ReportDepartment {
   id: string;
   name: string;
+  faculty: string;
   nppCount: number;
   /** average of each розділ across the department's НПП */
   avgSections: number[];
@@ -226,6 +228,7 @@ export async function getReportData(year: number): Promise<ReportDepartment[]> {
     select: {
       id: true,
       name: true,
+      faculty: { select: { name: true } },
       primaryStaff: {
         where: { ...ON_ROSTER, isNpp: true },
         select: {
@@ -254,7 +257,7 @@ export async function getReportData(year: number): Promise<ReportDepartment[]> {
   });
 
   return departments
-    .map((d) => ({ id: d.id, name: d.name, people: onKafedra(d) }))
+    .map((d) => ({ id: d.id, name: d.name, faculty: d.faculty.name, people: onKafedra(d) }))
     .filter((d) => d.people.length > 0)
     .map((d) => {
       const staff: ReportStaff[] = d.people
@@ -281,6 +284,7 @@ export async function getReportData(year: number): Promise<ReportDepartment[]> {
       return {
         id: d.id,
         name: d.name,
+        faculty: d.faculty,
         nppCount: n,
         avgSections,
         avgTotal: round2(staff.reduce((acc, s) => acc + s.total, 0) / n),

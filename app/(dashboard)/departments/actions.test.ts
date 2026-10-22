@@ -146,3 +146,40 @@ describe('a change of завідувач re-scores both people', () => {
     expect(syncProfileDerivedFor).not.toHaveBeenCalled();
   });
 });
+
+// Заступник завідувача кафедри з наукової роботи — fills Рейтинг кафедри
+// (owner, 2026-10-21). Named on the edit page only.
+describe('the заступник з наукової роботи', () => {
+  const admin = { user: { id: 'a1', role: 'ADMIN', staffId: null } };
+
+  it('is saved and audited when the edit page names one', async () => {
+    mockAuth.mockResolvedValue(admin);
+    const tx = mockTx();
+    await updateDepartment('dep-1', { ...payload, scienceDeputyId: 'dep-sci' });
+    expect(tx.department.update).toHaveBeenCalledWith({
+      where: { id: 'dep-1' },
+      data: expect.objectContaining({ scienceDeputyId: 'dep-sci' }),
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        changes: expect.objectContaining({ scienceDeputyId: { from: null, to: 'dep-sci' } }),
+      }),
+    });
+  });
+
+  it('is left alone by a save that does not carry the field', async () => {
+    mockAuth.mockResolvedValue(admin);
+    const tx = mockTx();
+    tx.department.findUnique.mockResolvedValue({
+      name: 'Кафедра',
+      facultyId: 'fac-1',
+      headId: null,
+      scienceDeputyId: 'kept',
+    });
+    await updateDepartment('dep-1', payload);
+    const data = tx.department.update.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('scienceDeputyId');
+    const changes = tx.auditLog.create.mock.calls[0][0].data.changes;
+    expect(changes).not.toHaveProperty('scienceDeputyId');
+  });
+});

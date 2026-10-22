@@ -42,6 +42,13 @@ interface DepartmentFormProps {
   defaultValues?: Partial<DepartmentSchema>;
   faculties: FacultyOption[];
   staff: StaffOption[];
+  /**
+   * Who may be named заступник з наукової роботи — every НПП on the roster,
+   * not `staff`, which leaves out whoever already heads something. Given by the
+   * edit page only; without it the field is not drawn and the save leaves the
+   * post untouched.
+   */
+  deputyStaff?: StaffOption[];
   /** Every кафедра name the довідник already links to a спеціальність. */
   knownNames: readonly string[];
   action: (data: DepartmentSchema) => Promise<DepartmentActionState>;
@@ -67,6 +74,7 @@ export function DepartmentForm({
   defaultValues,
   faculties,
   staff,
+  deputyStaff,
   knownNames,
   action,
   submitLabel,
@@ -177,33 +185,37 @@ export function DepartmentForm({
             <Controller
               name="headId"
               control={control}
-              render={({ field }) => {
-                const selected = staff.find((s) => s.id === field.value);
-                return (
-                  <Combobox
-                    items={staff}
-                    value={field.value ?? ''}
-                    onChange={(v) => field.onChange(v || null)}
-                    filter={(s, q) => staffName(s).toLowerCase().includes(q.toLowerCase())}
-                    displayValue={selected ? staffName(selected) : ''}
-                    disabled={isPending}
-                  >
-                    <ComboboxInput placeholder="—" />
-                    <ComboboxContent>
-                      <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
-                      <ComboboxList<StaffOption>>
-                        {(s) => (
-                          <ComboboxItem key={s.id} value={s.id}>
-                            {staffName(s)}
-                          </ComboboxItem>
-                        )}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
-                );
-              }}
+              render={({ field }) => (
+                <StaffPicker
+                  staff={staff}
+                  value={field.value ?? null}
+                  onChange={field.onChange}
+                  disabled={isPending}
+                />
+              )}
             />
           </FormField>
+
+          {deputyStaff && (
+            <FormField
+              label="Заступник з наукової роботи"
+              description="Заповнює рейтинг кафедри разом із завідувачем"
+              error={errors.scienceDeputyId}
+            >
+              <Controller
+                name="scienceDeputyId"
+                control={control}
+                render={({ field }) => (
+                  <StaffPicker
+                    staff={deputyStaff}
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    disabled={isPending}
+                  />
+                )}
+              />
+            </FormField>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -222,5 +234,42 @@ export function DepartmentForm({
         </div>
       </form>
     </RequiredFields>
+  );
+}
+
+/** One person off a list, or nobody — the завідувач and the заступник alike */
+function StaffPicker({
+  staff,
+  value,
+  onChange,
+  disabled,
+}: {
+  staff: StaffOption[];
+  value: string | null;
+  onChange: (id: string | null) => void;
+  disabled: boolean;
+}) {
+  const selected = staff.find((s) => s.id === value);
+  return (
+    <Combobox
+      items={staff}
+      value={value ?? ''}
+      onChange={(v) => onChange(v || null)}
+      filter={(s, q) => staffName(s).toLowerCase().includes(q.toLowerCase())}
+      displayValue={selected ? staffName(selected) : ''}
+      disabled={disabled}
+    >
+      <ComboboxInput placeholder="—" />
+      <ComboboxContent>
+        <ComboboxEmpty>Нікого не знайдено</ComboboxEmpty>
+        <ComboboxList<StaffOption>>
+          {(s) => (
+            <ComboboxItem key={s.id} value={s.id}>
+              {staffName(s)}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }

@@ -55,6 +55,21 @@ export async function headOf(staffId: string | null | undefined): Promise<string
 }
 
 /**
+ * The кафедри this person is заступник завідувача з наукової роботи of —
+ * `Department.scienceDeputyId`. It decides one thing only: who besides the
+ * завідувач fills Рейтинг кафедри (owner, 2026-10-21). It is NOT part of
+ * `scopeOf` or `headOf`, so it opens no other head screen.
+ */
+export async function scienceDeputyOf(staffId: string | null | undefined): Promise<string[]> {
+  if (!staffId) return [];
+  const rows = await db.department.findMany({
+    where: { scienceDeputyId: staffId },
+    select: { id: true },
+  });
+  return rows.map((d) => d.id);
+}
+
+/**
  * The факультети this person is декан of — the dean half of `scopeOf`, for the
  * screens that are about a факультет as a whole («Мій факультет»). Almost
  * always one; a list for the same reason `headOf` is one.
