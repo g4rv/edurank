@@ -347,6 +347,9 @@ pnpm db:lecturer-gate  # one-off, after migrate deploy: 5.1 «Я лектор» 
                       #   (runs and rolls back); --apply.
 pnpm db:intl-publication  # one-off: the new 3.10, and 3.10–3.25 → 3.11–3.26 in every open
                       #   year. No entry or score moves. Report first; --apply.
+pnpm db:doi-publication  # one-off: the new 3.11 (publications with a DOI, not «А»/«Б»),
+                      #   and 3.11–3.26 → 3.12–3.27 in every open year. Run AFTER
+                      #   db:intl-publication. No entry or score moves. Report first; --apply.
 pnpm db:science-sheets-decimals  # one-off: «Кількість друкованих аркушів» takes ONE decimal
                       #   (1,7, never 1,73) in every planning year, and its minimum
                       #   from the catalogue (монографія 0,5, the others 1). Report
@@ -567,6 +570,18 @@ Rules that are easy to get wrong:
   scored and what Характеристика п.3 judges. A монографія's share must reach
   `scoring.minShare` (1,5); 2.2 has no floor. A row saved before carries
   `pages` and is read as pages ÷ 24 until `pnpm db:book-sheets` converts it.
+- **One DOI once per person per POINT, in every year** (owner, 2026-10-27).
+  `createActivity` refuses a DOI the person already holds in the same indicator
+  — matched by `code` across years, case and prefix ignored. Another point may
+  reuse it, co-authors each enter it, and a discarded or deleted entry frees
+  it. Production had three second articles saved with the first one's DOI
+  pasted in. The rating form also warns when the description or link names a
+  different DOI, and offers «Підставити» when the box is empty (`doiHint`) —
+  a hint, never a refusal.
+- **A `ratingYear` date is judged against the TEMPLATE's year**, never today's
+  (3.11's «Дата публікації»): a 2026 rating still open in January 2027 takes
+  2026 publications. Pass `ratingYear` to `schemaForFields`; without it the
+  calendar year stands in.
 - **Closed years are read-only** and render from `RatingEntry.snapshot`. Appeals go through ADMIN `reopenYear` → fix → close again.
 
 ### Indicators live in the database, not in code

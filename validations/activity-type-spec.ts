@@ -74,7 +74,7 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     kind: z.literal('date'),
     ...common,
     optional: z.boolean().optional(),
-    rule: z.literal('currentYear').optional(),
+    rule: z.enum(['currentYear', 'ratingYear']).optional(),
   }),
   z.strictObject({ kind: z.literal('dateRange'), ...common, optional: z.boolean().optional() }),
   z.strictObject({

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/navigation', () => ({
@@ -28,7 +28,7 @@ vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn() },
     activityType: { findUnique: vi.fn() },
-    activity: { findUnique: vi.fn() },
+    activity: { findUnique: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -43,6 +43,7 @@ const mockAuth = auth as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
 const mockTypeFind = db.activityType.findUnique as unknown as Mock;
 const mockActivityFind = db.activity.findUnique as unknown as Mock;
+const mockActivityFindMany = db.activity.findMany as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
 const mockPlanGate = getSciencePlanGate as unknown as Mock;
 
@@ -200,6 +201,113 @@ const ownActivity = {
     template: { status: 'OPEN' },
   },
 };
+
+describe('3.11 and the DOI rule (owner, 2026-10-27)', () => {
+  const specs = catalogueType('doi_publication').specs;
+  const doiType = {
+    id: 'type-311',
+    code: 'doi_publication',
+    label: 'Наукові публікації з DOI',
+    coefficient: 1,
+    inputSource: 'NPP_SUBMISSION',
+    isActive: true,
+    maxPerYear: specs.maxPerYear,
+    evidenceFields: specs.evidenceFields,
+    scoring: specs.scoring,
+    template: { year: 2026, isActive: true, status: 'OPEN' },
+  };
+  const article = (over: Record<string, unknown> = {}) => ({
+    option: 'solo',
+    bibliography: 'Шевченко О. П. Стаття. 2026.',
+    doi: '10.32782/2409-1154.2025.75.27',
+    publishedOn: '2026-03-15',
+    ...over,
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-27T10:00:00Z'));
+    mockTypeFind.mockResolvedValue(doiType);
+    mockActivityFindMany.mockResolvedValue([]);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('scores the options as the owner set them: 100 / 50 / 40', async () => {
+    mockTx();
+    expect(await createActivity('type-311', article())).toEqual({ success: true, score: 100 });
+    expect(await createActivity('type-311', article({ option: 'coauthored' }))).toEqual({
+      success: true,
+      score: 50,
+    });
+    expect(await createActivity('type-311', article({ option: 'conference' }))).toEqual({
+      success: true,
+      score: 40,
+    });
+  });
+
+  it('requires the DOI', async () => {
+    expect(await createActivity('type-311', article({ doi: '' }))).toEqual({
+      error: 'Невірні дані форми',
+    });
+  });
+
+  it("refuses a publication date outside the template's year", async () => {
+    expect(await createActivity('type-311', article({ publishedOn: '2025-12-30' }))).toEqual({
+      error: 'Невірні дані форми',
+    });
+  });
+
+  it('refuses a DOI this person already used in this point, in any year and any spelling', async () => {
+    const tx = mockTx();
+    mockActivityFindMany.mockResolvedValue([
+      {
+        year: 2025,
+        evidence: { doi: 'https://doi.org/10.32782/2409-1154.2025.75.27' },
+        activityType: { itemNumber: '3.11' },
+      },
+    ]);
+    expect(
+      await createActivity(
+        'type-311',
+        article({ doi: '10.32782/2409-1154.2025.75.27'.toUpperCase() })
+      )
+    ).toEqual({
+      error:
+        'Цей DOI ви вже подали у п. 3.11 (2025). Перевірте DOI — можливо, його скопійовано з іншої публікації',
+    });
+    expect(tx.activity.create).not.toHaveBeenCalled();
+  });
+
+  it("looks only at the person's own counting entries of THIS point", async () => {
+    mockTx();
+    await createActivity('type-311', article());
+    // Another point may carry the same DOI; a discarded entry frees it
+    expect(mockActivityFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          staffId: 'staff-1',
+          status: { not: 'REMOVED' },
+          activityType: { code: 'doi_publication' },
+        },
+      })
+    );
+  });
+
+  it('accepts a different DOI', async () => {
+    mockTx();
+    mockActivityFindMany.mockResolvedValue([
+      { year: 2026, evidence: { doi: '10.1000/other' }, activityType: { itemNumber: '3.11' } },
+    ]);
+    expect(await createActivity('type-311', article())).toEqual({ success: true, score: 100 });
+  });
+
+  it('never queries for an indicator with no DOI in the form', async () => {
+    mockTx();
+    mockTypeFind.mockResolvedValue(confUkraineType);
+    await createActivity('type-1', { title: 'Конференція' });
+    expect(mockActivityFindMany).not.toHaveBeenCalled();
+  });
+});
 
 describe('deleteActivity', () => {
   beforeEach(() => {

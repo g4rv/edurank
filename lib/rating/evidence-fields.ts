@@ -118,8 +118,14 @@ export type EvidenceField =
        * today, never the future (owner, 2026-09-24): the стаття's
        * «Опубліковано/Проіндексовано», so an old publication is refused at
        * once. A faked date is ННВ's to catch. See `currentYearBounds`.
+       *
+       * `ratingYear` — 1 January to 31 December of the RATING year, and never
+       * the future (owner, 2026-10-27, 3.11): the rating scores only what
+       * happened in its own calendar year. Not `currentYear`, because a year
+       * still open in January takes last year's publications. Needs the year
+       * (`schemaForFields`'s `ratingYear`); see `ratingYearBounds`.
        */
-      rule?: 'currentYear';
+      rule?: DateRule;
     }
   /**
    * A period, picked as one range rather than typed as two ends.
@@ -259,10 +265,13 @@ export const url = (
   ...opts,
 });
 
+/** A date field's window — see the `date` kind */
+export type DateRule = 'currentYear' | 'ratingYear';
+
 export const date = (
   name: string,
   label: string,
-  opts?: { optional?: boolean; rule?: 'currentYear' }
+  opts?: { optional?: boolean; rule?: DateRule }
 ): EvidenceField => ({
   kind: 'date',
   name,
@@ -791,6 +800,22 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       requiredWhen: { field: 'doi', empty: true, hide: true },
     }),
     url('reviewsLink', 'Посилання на офіційну сторінку видавництва з відомостями про рецензії'),
+  ],
+  // 3.11 (owner, 2026-10-27): the DOI is the proof and leads to the article, so
+  // it is mandatory and there is no link box. The order of the options is the
+  // owner's: the two articles first, the conference last.
+  doi_publication: [
+    select('option', 'Вид', [
+      opt('solo', 'стаття одноосібно'),
+      opt('coauthored', 'стаття у співавторстві'),
+      opt('conference', 'конференція'),
+    ]),
+    text('bibliography', 'Бібліографічний опис', {
+      multiline: true,
+      placeholder: BIB_ARTICLE,
+    }),
+    doi('doi', 'DOI'),
+    date('publishedOn', 'Дата публікації', { rule: 'ratingYear' }),
   ],
   defense_supervision: [
     select('option', 'Ступінь', [opt('doctor', 'доктор наук'), opt('phd', 'кандидат наук (PhD)')]),

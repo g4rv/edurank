@@ -62,12 +62,32 @@ export function currentYearBounds(now: Date = new Date()): { min: string; max: s
 }
 
 /**
+ * A date field's `ratingYear` window: 1 January to 31 December of the rating
+ * year, never past today (Kyiv). Not `currentYearBounds`: a year still open in
+ * January takes last year's publications. Without a year — a form that does not
+ * know its template — it falls back to the calendar year.
+ */
+export function ratingYearBounds(
+  year: number | undefined,
+  now: Date = new Date()
+): { min: string; max: string } {
+  const current = currentYearBounds(now);
+  if (year === undefined) return current;
+  const end = `${year}-12-31`;
+  return { min: `${year}-01-01`, max: end < current.max ? end : current.max };
+}
+
+/**
  * One field's rule. Exported for the Характеристика's hand-typed forms, which
  * compose a FLAT schema — `{ рік, варіант, ...поля }` — because the shared
  * renderer registers a field under its own name and nesting the evidence would
  * make every `register('bibliography')` a `register('evidence.bibliography')`.
  */
-export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
+export function fieldSchema(
+  f: EvidenceField,
+  stored?: unknown,
+  ctx?: { ratingYear?: number }
+): z.ZodType {
   switch (f.kind) {
     case 'text': {
       let base = z
@@ -148,16 +168,19 @@ export function fieldSchema(f: EvidenceField, stored?: unknown): z.ZodType {
         },
         { error: `Рік має бути в межах ${MIN_EVIDENCE_YEAR}–${maxYear}` }
       );
-      if (f.rule === 'currentYear') {
-        const { min, max } = currentYearBounds();
+      if (f.rule === 'currentYear' || f.rule === 'ratingYear') {
+        const { min, max } =
+          f.rule === 'ratingYear' ? ratingYearBounds(ctx?.ratingYear) : currentYearBounds();
         // The value already saved is not judged again: in January, last
         // year's article must still take a corrected title. Only a CHANGED
         // date meets the window — the same rule D48 gives the month.
         const kept = (v: string) => v === stored;
+        const onlyYear = `Приймаються лише публікації ${min.slice(0, 4)} року`;
         base = base
-          .refine((v) => kept(v) || v >= min, {
-            error: `Приймаються лише публікації ${min.slice(0, 4)} року`,
-          })
+          .refine((v) => kept(v) || v >= min, { error: onlyYear })
+          // A later year is «not this year», not «the future» — a 2026 rating
+          // still open in January 2027 is the case that tells them apart.
+          .refine((v) => kept(v) || v <= `${min.slice(0, 4)}-12-31`, { error: onlyYear })
           .refine((v) => kept(v) || v <= max, { error: 'Дата не може бути в майбутньому' });
       }
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
@@ -266,10 +289,16 @@ export function schemaForFields(
     /** The evidence already saved, when this validates an EDIT — a value left
      *  as it was is not re-judged against a window that has since moved. */
     stored?: Record<string, unknown>;
+    /** The rating year a `ratingYear` date must fall in — the template's,
+     *  never the client's. Without it the calendar year stands in. */
+    ratingYear?: number;
   }
 ): z.ZodType<Record<string, unknown>> {
   const shape = Object.fromEntries(
-    fields.map((f) => [f.name, fieldSchema(f, opts?.stored?.[f.name])])
+    fields.map((f) => [
+      f.name,
+      fieldSchema(f, opts?.stored?.[f.name], { ratingYear: opts?.ratingYear }),
+    ])
   );
   const baseObject = opts?.allowUnknownKeys ? z.object(shape) : z.strictObject(shape);
 

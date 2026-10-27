@@ -170,6 +170,7 @@ export default async function AchievementsSectionPage({
           <AddAchievementForm
             types={submittableTypes}
             title={`Розділ ${section}. ${SECTION_TITLES[section]}`}
+            ratingYear={template.year}
           />
         }
       />

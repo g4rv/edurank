@@ -36,6 +36,7 @@
     "db:book-sheets": "tsx prisma/book-sheets.ts",
     "db:lecturer-gate": "tsx prisma/lecturer-gate.ts",
     "db:intl-publication": "tsx prisma/intl-publication.ts",
+    "db:doi-publication": "tsx prisma/doi-publication.ts",
     "data:export-kharakterystyka": "tsx prisma/kharakterystyka-transfer.ts --export",
     "db:import-kharakterystyka": "tsx prisma/kharakterystyka-transfer.ts",
     "kharakterystyka:one": "tsx prisma/kharakterystyka-one-person.ts",

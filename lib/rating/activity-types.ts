@@ -604,11 +604,29 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: "за кожну публікацію; DOI або ISSN — обов'язково",
     inputSource: 'NPP_SUBMISSION',
   },
+  // Added 2026-10-27 (owner); what was 3.11–3.26 is 3.12–3.27 since. The DOI is
+  // the proof, so it is mandatory and there is no link box; the date keeps the
+  // publication inside the rating year. «Перевірено», like 3.8 and 3.9 — the
+  // division checks the DOI really is this article. No Характеристика position.
   {
-    code: 'defense_supervision',
+    code: 'doi_publication',
     section: 3,
     order: 13,
     itemNumber: '3.11',
+    label:
+      'Наукові публікації, що мають цифровий ідентифікатор DOI та не належать до категорій «А» і «Б»',
+    kind: 'SELECT',
+    coefficient: 1,
+    coefficientNote:
+      "стаття одноосібно — 100, стаття у співавторстві — 50, конференція — 40; DOI — обов'язково",
+    inputSource: 'NPP_SUBMISSION',
+    requiresVerification: true,
+  },
+  {
+    code: 'defense_supervision',
+    section: 3,
+    order: 14,
+    itemNumber: '3.12',
     label: 'Захист під керівництвом науково-педагогічного працівника',
     kind: 'SELECT',
     coefficient: 1,
@@ -619,8 +637,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'scientific_supervision',
     section: 3,
-    order: 14,
-    itemNumber: '3.12',
+    order: 15,
+    itemNumber: '3.13',
     label: 'Наукове консультування або керівництво',
     kind: 'SELECT',
     coefficient: 1,
@@ -631,8 +649,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'intl_olympiad_winners',
     section: 3,
-    order: 15,
-    itemNumber: '3.13',
+    order: 16,
+    itemNumber: '3.14',
     label:
       'Підготовка здобувачів вищої освіти, що стали призерами міжнародних студентських олімпіад та конкурсів наукових робіт, мистецьких та спортивних заходів',
     kind: 'SELECT',
@@ -643,8 +661,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'ukr_olympiad_winners',
     section: 3,
-    order: 16,
-    itemNumber: '3.14',
+    order: 17,
+    itemNumber: '3.15',
     label:
       'Підготовка здобувачів вищої освіти, що стали призерами всеукраїнських студентських олімпіад та конкурсів наукових робіт, мистецьких та спортивних заходів',
     kind: 'SELECT',
@@ -655,8 +673,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'olympiad_jury',
     section: 3,
-    order: 17,
-    itemNumber: '3.15',
+    order: 18,
+    itemNumber: '3.16',
     label:
       'Робота у складі оргкомітету/журі ІІ туру студентських олімпіад та конкурсів, конкурсів наукових робіт МАН',
     kind: 'FIXED',
@@ -666,8 +684,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'scientific_school',
     section: 3,
-    order: 18,
-    itemNumber: '3.16',
+    order: 19,
+    itemNumber: '3.17',
     label: 'Керівництво науковою школою',
     kind: 'FIXED',
     coefficient: 500,
@@ -677,8 +695,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'specialized_council',
     section: 3,
-    order: 19,
-    itemNumber: '3.17',
+    order: 20,
+    itemNumber: '3.18',
     label: 'Робота у спеціалізованих вчених радах',
     kind: 'SELECT',
     coefficient: 1,
@@ -691,8 +709,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'journal_editorial_a',
     section: 3,
-    order: 20,
-    itemNumber: '3.18',
+    order: 21,
+    itemNumber: '3.19',
     label: 'Робота по виданню фахових наукових збірників, журналів категорії «А»',
     kind: 'SELECT',
     coefficient: 1,
@@ -705,8 +723,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'journal_editorial_b',
     section: 3,
-    order: 21,
-    itemNumber: '3.18',
+    order: 22,
+    itemNumber: '3.19',
     label: 'Робота по виданню фахових наукових збірників, журналів категорії «Б»',
     kind: 'SELECT',
     coefficient: 1,
@@ -719,8 +737,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'journal_website_support',
     section: 3,
-    order: 22,
-    itemNumber: '3.18',
+    order: 23,
+    itemNumber: '3.19',
     label: 'Внесення даних та супровід сайту наукового збірника',
     kind: 'FIXED',
     coefficient: 100,
@@ -730,8 +748,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'org_consulting',
     section: 3,
-    order: 23,
-    itemNumber: '3.19',
+    order: 24,
+    itemNumber: '3.20',
     label: 'Наукове консультування установ, організацій (не менше 3-ох років)',
     kind: 'FIXED',
     coefficient: 50,
@@ -740,8 +758,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'conf_abroad',
     section: 3,
-    order: 24,
-    itemNumber: '3.20',
+    order: 25,
+    itemNumber: '3.21',
     label:
       'Участь у міжнародних наукових конференціях, симпозіумах, семінарах, круглих столах за кордоном (не більше 5)',
     kind: 'SELECT',
@@ -753,8 +771,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'conf_ukraine',
     section: 3,
-    order: 25,
-    itemNumber: '3.21',
+    order: 26,
+    itemNumber: '3.22',
     label:
       'Участь у міжнародних (всеукраїнських) наукових конференціях, симпозіумах, семінарах, круглих столах в Україні (не більше 5)',
     kind: 'FIXED',
@@ -765,8 +783,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'edu_exhibitions',
     section: 3,
-    order: 26,
-    itemNumber: '3.22',
+    order: 27,
+    itemNumber: '3.23',
     label: 'Участь в освітянських виставках міжнародного рівня',
     kind: 'FIXED',
     coefficient: 30,
@@ -776,8 +794,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'dissertation_opponent',
     section: 3,
-    order: 27,
-    itemNumber: '3.23',
+    order: 28,
+    itemNumber: '3.24',
     label: 'Опонування та експертиза дисертацій',
     kind: 'SELECT',
     coefficient: 1,
@@ -787,8 +805,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'mon_textbook_expertise',
     section: 3,
-    order: 28,
-    itemNumber: '3.24',
+    order: 29,
+    itemNumber: '3.25',
     label: 'Експертиза підручників у складі груп МОН України',
     kind: 'FIXED',
     coefficient: 30,
@@ -798,8 +816,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'citations_wos',
     section: 3,
-    order: 29,
-    itemNumber: '3.25',
+    order: 30,
+    itemNumber: '3.26',
     label: 'Показники цитувань наукових статей — WoS',
     kind: 'MULT',
     coefficient: 100,
@@ -809,8 +827,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'citations_scopus',
     section: 3,
-    order: 30,
-    itemNumber: '3.25',
+    order: 31,
+    itemNumber: '3.26',
     label: 'Показники цитувань наукових статей — Scopus',
     kind: 'MULT',
     coefficient: 100,
@@ -820,8 +838,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'citations_scholar',
     section: 3,
-    order: 31,
-    itemNumber: '3.25',
+    order: 32,
+    itemNumber: '3.26',
     label: 'Показники цитувань наукових статей — Google Scholar',
     kind: 'MULT',
     coefficient: 10,
@@ -831,8 +849,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'patent_granted',
     section: 3,
-    order: 32,
-    itemNumber: '3.26',
+    order: 33,
+    itemNumber: '3.27',
     label: 'Отримання патенту на винахід / патенту на корисну модель',
     kind: 'FIXED',
     coefficient: 50,
@@ -842,8 +860,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'patent_application',
     section: 3,
-    order: 33,
-    itemNumber: '3.26',
+    order: 34,
+    itemNumber: '3.27',
     label: 'Підготовка та подача заявки на винахід / на корисну модель',
     kind: 'FIXED',
     coefficient: 25,
@@ -853,8 +871,8 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
   {
     code: 'copyright_registration',
     section: 3,
-    order: 34,
-    itemNumber: '3.26',
+    order: 35,
+    itemNumber: '3.27',
     label:
       'Оформлення та реєстрація авторського права на об’єкт інтелектуальної власності (свідоцтво)',
     kind: 'FIXED',

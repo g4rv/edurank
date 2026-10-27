@@ -15,7 +15,12 @@ import {
 } from '@/lib/rating/evidence-fields';
 import { computeScore } from '@/lib/rating/scoring';
 import { catalogueType, SELECT_OPTION_POINTS } from '@/lib/rating/db-specs';
-import { currentYearBounds, fieldSchema, schemaForFields } from './activity-evidence';
+import {
+  currentYearBounds,
+  fieldSchema,
+  ratingYearBounds,
+  schemaForFields,
+} from './activity-evidence';
 
 // Schemas are built from an activity type's own field specs. Here they are
 // built from the catalogue through `catalogueType`, the same conversion the
@@ -553,6 +558,53 @@ describe('date with `currentYear` — old publications refused (owner, 2026-09-2
 
   it('leaves a date field without the rule as it was', () => {
     expect(fieldSchema(date('d', 'Дата')).safeParse('2019-05-01').success).toBe(true);
+  });
+});
+
+describe('date with `ratingYear` — 3.11, the rating year only (owner, 2026-10-27)', () => {
+  const field = date('publishedOn', 'Дата публікації', { rule: 'ratingYear' });
+  const parse = (v: string, ratingYear?: number) =>
+    schemaForFields([field], undefined, { ratingYear }).safeParse({ publishedOn: v });
+  const message = (v: string, ratingYear?: number) => parse(v, ratingYear).error?.issues[0].message;
+
+  afterEach(() => vi.useRealTimers());
+
+  it('takes any day of the rating year up to today', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-27T10:00:00Z'));
+    expect(parse('2026-01-01', 2026).success).toBe(true);
+    expect(parse('2026-10-27', 2026).success).toBe(true);
+    expect(message('2026-10-28', 2026)).toBe('Дата не може бути в майбутньому');
+    expect(message('2025-12-31', 2026)).toBe('Приймаються лише публікації 2026 року');
+  });
+
+  it("takes LAST year's publication while that rating year is still open in January", () => {
+    // Why the rule is not `currentYear`: that would refuse every 2026 date here.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-01-15T10:00:00Z'));
+    expect(parse('2026-12-20', 2026).success).toBe(true);
+    // A January 2027 date belongs to 2027's rating — not «the future»
+    expect(message('2027-01-05', 2026)).toBe('Приймаються лише публікації 2026 року');
+  });
+
+  it('falls back to the calendar year when no rating year is given', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-27T10:00:00Z'));
+    expect(parse('2026-03-01').success).toBe(true);
+    expect(parse('2025-03-01').success).toBe(false);
+  });
+});
+
+describe('ratingYearBounds', () => {
+  it('ends at today in the rating year, at 31 December once it is past', () => {
+    expect(ratingYearBounds(2026, new Date('2026-10-27T10:00:00Z'))).toEqual({
+      min: '2026-01-01',
+      max: '2026-10-27',
+    });
+    expect(ratingYearBounds(2026, new Date('2027-01-15T10:00:00Z'))).toEqual({
+      min: '2026-01-01',
+      max: '2026-12-31',
+    });
   });
 });
 
