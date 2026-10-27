@@ -167,13 +167,13 @@ export function RecordList({
                               .map(
                                 (a) =>
                                   `${a.name} — ${formatHours(a.hoursHundredths)} год${
-                                    a.deferredTo
-                                      ? a.deferredTo < academicYear
-                                        ? ` (вже зараховано у ${a.deferredTo})`
-                                        : ` (перенесено на ${a.deferredTo})`
-                                      : a.pending
-                                        ? ' (чекає на план)'
-                                        : ''
+                                    a.writtenOff
+                                      ? ' (відмічено співавтором як уже списану)'
+                                      : a.deferredTo
+                                        ? ` (перенесено на ${a.deferredTo})`
+                                        : a.pending
+                                          ? ' (чекає на план)'
+                                          : ''
                                   }`
                               )
                               .join(', ')}
@@ -272,7 +272,7 @@ export function RecordList({
 
                       {/* A co-author picks the year their share counts in
                           (owner, 2026-10-02). Never on the author's row. */}
-                      {(record.deferrable || record.countedEarlier) && !readOnly && (
+                      {(record.deferrable || record.canWriteOff) && !readOnly && (
                         <div className="mt-2 flex flex-wrap gap-2">
                           {record.deferrable && (
                             <ShareYearButton
@@ -284,15 +284,16 @@ export function RecordList({
                               currentYear={academicYear}
                             />
                           )}
-                          {/* Already counted on paper in the previous рік
-                              (owner, 2026-10-07) — must not count twice. */}
-                          {record.countedEarlier && (
+                          {/* Already used elsewhere — a докторант's own plan, a
+                              рік reported on paper (owner, 2026-10-27) — must
+                              not count twice. */}
+                          {record.canWriteOff && (
                             <ShareYearButton
-                              mode="earlier"
+                              mode="writeOff"
                               workId={record.workId}
                               label={record.summary}
                               hoursHundredths={record.hoursHundredths}
-                              targetYear={record.countedEarlier}
+                              targetYear={academicYear}
                               currentYear={academicYear}
                             />
                           )}
@@ -385,19 +386,28 @@ export function RecordList({
           </Fragment>
         ))}
 
-        {/* Shares moved out of this year — to the next one, or marked as
-            already counted in the previous one — listed, never counted here.
-            One heading per рік. */}
-        {[...new Set(deferred.map((d) => d.academicYear))].sort().map((year) => (
-          <Fragment key={year}>
+        {/* Shares taken out of this year — marked «уже списану», or moved to
+            the next рік — listed, never counted here. One heading per group. */}
+        {[
+          ...(deferred.some((d) => d.writtenOff) ? [null] : []),
+          ...[...new Set(deferred.flatMap((d) => d.academicYear ?? []))].sort(),
+        ].map((year) => (
+          <Fragment key={year ?? 'written-off'}>
             <li className="flex items-baseline justify-between gap-3 bg-table-group px-5 py-2 text-sm font-semibold">
               <span>
-                {year < academicYear ? `Вже зараховано у ${year}` : `Перенесено на ${year}`}
+                {year
+                  ? `Перенесено на ${year}`
+                  : // Read-only is somebody else's plan (ADMIN, «Перевірка науки»)
+                    readOnly
+                    ? 'Відмічено як уже списані'
+                    : 'Ви відмітили як уже списані'}
               </span>
-              <span className="font-normal text-foreground-soft">у цьому році не рахуються</span>
+              <span className="font-normal text-foreground-soft">
+                {year ? 'у цьому році не рахуються' : 'не рахуються ніде'}
+              </span>
             </li>
             {deferred
-              .filter((d) => d.academicYear === year)
+              .filter((d) => (year ? d.academicYear === year : d.writtenOff))
               .map((share) => (
                 <li key={share.workId} className="px-5 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -436,7 +446,8 @@ export function RecordList({
                       <span className="text-base font-semibold text-foreground-soft tabular-nums">
                         {formatHours(share.hoursHundredths)}
                       </span>{' '}
-                      з {formatHours(share.totalHundredths)} · у {share.academicYear}
+                      з {formatHours(share.totalHundredths)}
+                      {share.academicYear && ` · у ${share.academicYear}`}
                     </span>
                   </div>
                 </li>

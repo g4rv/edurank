@@ -17,9 +17,10 @@ import {
   grantShare,
   replaceCoauthors,
   undeferShare,
+  writeOffShare as writeOffShareIn,
   type WorkRef,
 } from '@/lib/science/coauthor-store';
-import { deferralYear, earlierYear } from '@/lib/science/count-year';
+import { deferralYear } from '@/lib/science/count-year';
 import {
   authorShare,
   COAUTHOR_CANNOT_DELETE,
@@ -1232,10 +1233,8 @@ export async function updateCoauthors(input: {
 
 /**
  * A CO-AUTHOR chooses the навчальний рік their share counts in — the work's own,
- * or the next one (owner, 2026-10-02; the window is `deferralYear`), or says it
- * was already counted in the previous one (owner, 2026-10-07; `earlierYear`) —
- * a reservation marked with a рік that never opens again, so it counts
- * nowhere and nobody else's hours move.
+ * or the next one (owner, 2026-10-02; the window is `deferralYear`). Choosing
+ * the work's own year is also «Повернути» for a share marked «уже списану».
  *
  * **Never the author.** Whoever adds a work is meant to count it in the year
  * they add it; an author who wants the next year enters it in September. And
@@ -1249,56 +1248,21 @@ export async function setShareYear(input: {
   if (!actor.ok) return { error: actor.error };
   const { userId, staffId, template } = actor.context;
 
-  const work = await db.scienceWork.findUnique({
-    where: { id: input.workId },
-    select: {
-      id: true,
-      templateId: true,
-      totalHundredths: true,
-      createdById: true,
-      createdAt: true,
-      evidence: true,
-      declinedAt: true,
-      declineReason: true,
-      declinedById: true,
-      workType: {
-        select: { id: true, label: true, sharing: true, maxPerYear: true, evidenceFields: true },
-      },
-    },
-  });
-  if (!work) return { error: 'Роботу не знайдено' };
-  if (work.templateId !== template.id) {
-    return { error: 'Рік цієї роботи вже закрито — рік зарахування змінити не можна' };
-  }
-  if (work.createdById === staffId) {
-    return { error: 'Автор зараховує роботу в той рік, коли її додав' };
-  }
+  const found = await coauthorWork(input.workId, staffId, template.id);
+  if ('error' in found) return found;
+  const { work, ref } = found;
 
-  const window = {
+  const next = deferralYear({
     academicYear: template.academicYear,
     sharing: work.workType.sharing,
     fields: work.workType.evidenceFields as unknown as EvidenceField[],
     evidence: work.evidence,
     createdAt: work.createdAt,
-  };
-  const next = deferralYear(window);
-  const earlier = earlierYear(window);
-  const allowed = [template.academicYear, next, earlier].filter((y): y is string => !!y);
+  });
+  const allowed = [template.academicYear, next].filter((y): y is string => !!y);
   if (!allowed.includes(input.academicYear)) {
     return { error: `Цю роботу можна зарахувати лише в ${allowed.join(' або ')}` };
   }
-
-  const ref: WorkRef = {
-    id: work.id,
-    templateId: work.templateId,
-    workTypeId: work.workType.id,
-    totalHundredths: work.totalHundredths,
-    typeLabel: work.workType.label,
-    maxPerYear: work.workType.maxPerYear,
-    declined: work.declinedAt
-      ? { at: work.declinedAt, reason: work.declineReason, byUserId: work.declinedById }
-      : null,
-  };
 
   try {
     await db.$transaction(async (tx) => {
@@ -1319,6 +1283,98 @@ export async function setShareYear(input: {
 
   revalidatePath('/science-plan');
   return { ok: true };
+}
+
+/**
+ * A CO-AUTHOR marks their share «уже списану» (owner, 2026-10-27): they already
+ * used this work elsewhere — a докторант's own plan, a рік reported on paper —
+ * so it must not count here. It counts nowhere; the hours stay held in the
+ * pool, so the author's and the other co-authors' hours do not move.
+ *
+ * No date window, unlike the «Вже зараховано у 2025/2026» it replaced. Never the
+ * author, only a SHARED work, only while its year is open; «Повернути» is
+ * `setShareYear` with the work's own year.
+ */
+export async function writeOffShare(input: {
+  workId: string;
+}): Promise<{ ok: true } | { error: string }> {
+  const actor = await resolveActor(undefined);
+  if (!actor.ok) return { error: actor.error };
+  const { userId, staffId, template } = actor.context;
+
+  const found = await coauthorWork(input.workId, staffId, template.id);
+  if ('error' in found) return found;
+  if (found.work.workType.sharing !== 'SHARED') {
+    return { error: 'Відмітити як уже списану можна лише спільну роботу' };
+  }
+
+  try {
+    await db.$transaction((tx) => writeOffShareIn(tx, { work: found.ref, staffId, userId }));
+  } catch (e) {
+    if (e instanceof CoauthorError) return { error: e.reason };
+    return {
+      error: parseDbError(e, 'Не вдалося зберегти. Зміни не застосовано', 'science.writeOffShare', {
+        userId,
+      }),
+    };
+  }
+
+  revalidatePath('/science-plan');
+  return { ok: true };
+}
+
+interface CoauthorWorkRow {
+  createdAt: Date;
+  evidence: Prisma.JsonValue;
+  workType: { sharing: 'SHARED' | 'INDIVIDUAL'; evidenceFields: Prisma.JsonValue };
+}
+
+/**
+ * The work a CO-AUTHOR acts on with `setShareYear` / `writeOffShare`: in the
+ * open year, and never theirs as its author.
+ */
+async function coauthorWork(
+  workId: string,
+  staffId: string,
+  openTemplateId: string
+): Promise<{ error: string } | { work: CoauthorWorkRow; ref: WorkRef }> {
+  const work = await db.scienceWork.findUnique({
+    where: { id: workId },
+    select: {
+      id: true,
+      templateId: true,
+      totalHundredths: true,
+      createdById: true,
+      createdAt: true,
+      evidence: true,
+      declinedAt: true,
+      declineReason: true,
+      declinedById: true,
+      workType: {
+        select: { id: true, label: true, sharing: true, maxPerYear: true, evidenceFields: true },
+      },
+    },
+  });
+  if (!work) return { error: 'Роботу не знайдено' };
+  if (work.templateId !== openTemplateId) {
+    return { error: 'Рік цієї роботи вже закрито — змінити частку не можна' };
+  }
+  if (work.createdById === staffId) {
+    return { error: 'Автор зараховує роботу в той рік, коли її додав' };
+  }
+
+  const ref: WorkRef = {
+    id: work.id,
+    templateId: work.templateId,
+    workTypeId: work.workType.id,
+    totalHundredths: work.totalHundredths,
+    typeLabel: work.workType.label,
+    maxPerYear: work.workType.maxPerYear,
+    declined: work.declinedAt
+      ? { at: work.declinedAt, reason: work.declineReason, byUserId: work.declinedById }
+      : null,
+  };
+  return { work, ref };
 }
 
 /**

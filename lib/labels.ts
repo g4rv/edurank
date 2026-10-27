@@ -253,6 +253,8 @@ export const FIELD_LABELS: Record<string, string> = {
   pageCount: 'Сторінок у файлі',
   // SciencePlanTemplate — the навчальний рік a Додаток III catalogue belongs to.
   academicYear: 'Навчальний рік',
+  // ScienceCoauthorShare — a co-author's «Відмітити як уже списану»
+  writtenOff: 'Відмічено як уже списану',
   orderRef: 'Наказ',
   minHoursPerRate: 'Мін. годин на ставку',
   // ScienceWorkType — one row of Додаток III's catalogue, edited on

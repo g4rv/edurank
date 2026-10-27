@@ -58,6 +58,7 @@ import {
   setShareYear,
   updateCoauthors,
   updateWorkEvidence,
+  writeOffShare,
 } from './record-actions';
 
 const mockAuth = auth as unknown as Mock;
@@ -1471,13 +1472,16 @@ describe('lockPlan — hours reserved for me become records (owner, 2026-09-30)'
     });
   });
 
-  it('reads only THIS person’s reservations — on works of THIS year, or moved to it', async () => {
+  it('reads only THIS person’s reservations — on works of THIS year, or moved to it; never one «уже списану»', async () => {
     await lockPlan('d1');
     expect(db.scienceCoauthorShare.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           staffId: 'staff-1',
-          OR: [{ academicYear: null, work: { templateId: 't1' } }, { academicYear: '2026/2027' }],
+          OR: [
+            { academicYear: null, writtenOffAt: null, work: { templateId: 't1' } },
+            { academicYear: '2026/2027' },
+          ],
         },
       })
     );
@@ -1955,7 +1959,7 @@ describe('setShareYear — a co-author chooses the year (owner, 2026-10-02)', ()
   it("refuses once the work's year is closed", async () => {
     (db.scienceWork.findUnique as Mock).mockResolvedValue({ ...WORK, templateId: 't0' });
     expect(await setShareYear({ workId: 'w1', academicYear: '2027/2028' })).toEqual({
-      error: 'Рік цієї роботи вже закрито — рік зарахування змінити не можна',
+      error: 'Рік цієї роботи вже закрито — змінити частку не можна',
     });
   });
 
@@ -1984,7 +1988,13 @@ describe('setShareYear — a co-author chooses the year (owner, 2026-10-02)', ()
     expect(await setShareYear({ workId: 'w1', academicYear: '2027/2028' })).toEqual({ ok: true });
     expect(db.scienceRecord.delete).toHaveBeenCalledWith({ where: { id: 'r1' } });
     expect(db.scienceCoauthorShare.create).toHaveBeenCalledWith({
-      data: { workId: 'w1', staffId: 'staff-1', hoursHundredths: 5000, academicYear: '2027/2028' },
+      data: {
+        workId: 'w1',
+        staffId: 'staff-1',
+        hoursHundredths: 5000,
+        academicYear: '2027/2028',
+        writtenOffAt: null,
+      },
       select: { id: true },
     });
   });
@@ -1996,7 +2006,7 @@ describe('setShareYear — a co-author chooses the year (owner, 2026-10-02)', ()
       hoursHundredths: 5000,
     });
     expect(await setShareYear({ workId: 'w1', academicYear: '2027/2028' })).toEqual({
-      error: 'Роботу відхилено — перенести частку можна, коли автор її виправить',
+      error: 'Роботу відхилено — змінити частку можна, коли автор її виправить',
     });
     expect(db.scienceRecord.delete).not.toHaveBeenCalled();
   });
@@ -2005,11 +2015,12 @@ describe('setShareYear — a co-author chooses the year (owner, 2026-10-02)', ()
     (db.scienceCoauthorShare.findUnique as Mock).mockResolvedValue({
       id: 's1',
       academicYear: null,
+      writtenOffAt: null,
     });
     expect(await setShareYear({ workId: 'w1', academicYear: '2027/2028' })).toEqual({ ok: true });
     expect(db.scienceCoauthorShare.update).toHaveBeenCalledWith({
       where: { id: 's1' },
-      data: { academicYear: '2027/2028' },
+      data: { academicYear: '2027/2028', writtenOffAt: null },
     });
   });
 
@@ -2017,6 +2028,7 @@ describe('setShareYear — a co-author chooses the year (owner, 2026-10-02)', ()
     (db.scienceCoauthorShare.findUnique as Mock).mockResolvedValue({
       id: 's1',
       academicYear: '2027/2028',
+      writtenOffAt: null,
       hoursHundredths: 5000,
     });
     (db.sciencePlan.findMany as Mock).mockResolvedValue([{ id: 'plan-1', departmentId: 'd1' }]);
@@ -2038,13 +2050,138 @@ describe('setShareYear — a co-author chooses the year (owner, 2026-10-02)', ()
     (db.scienceCoauthorShare.findUnique as Mock).mockResolvedValue({
       id: 's1',
       academicYear: '2027/2028',
+      writtenOffAt: null,
       hoursHundredths: 5000,
     });
     (db.sciencePlan.findMany as Mock).mockResolvedValue([]);
     expect(await setShareYear({ workId: 'w1', academicYear: '2026/2027' })).toEqual({ ok: true });
     expect(db.scienceCoauthorShare.update).toHaveBeenCalledWith({
       where: { id: 's1' },
-      data: { academicYear: null },
+      data: { academicYear: null, writtenOffAt: null },
+    });
+  });
+
+  it('no longer takes the previous year — «уже списану» replaced it', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...WORK,
+      evidence: { title: 'Стаття', publishedOn: '2026-03-15' },
+    });
+    expect(await setShareYear({ workId: 'w1', academicYear: '2025/2026' })).toEqual({
+      error: 'Цю роботу можна зарахувати лише в 2026/2027',
+    });
+  });
+});
+
+describe('writeOffShare — «Відмітити як уже списану» (owner, 2026-10-27)', () => {
+  // Published in October: outside every date window — the old «Вже зараховано у
+  // 2025/2026» was never offered for it. The new mark has no window at all.
+  const WORK = {
+    id: 'w1',
+    templateId: 't1',
+    totalHundredths: 15000,
+    createdById: 'staff-author',
+    createdAt: new Date('2026-10-20T10:00:00Z'),
+    evidence: { title: 'Стаття', publishedOn: '2026-10-05' },
+    declinedAt: null,
+    declineReason: null,
+    declinedById: null,
+    workType: {
+      id: 'wt1',
+      label: 'Наукова стаття',
+      sharing: 'SHARED',
+      maxPerYear: null,
+      evidenceFields: [
+        { kind: 'text', name: 'title', label: 'Назва' },
+        { kind: 'date', name: 'publishedOn', label: 'Опубліковано', rule: 'currentYear' },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue(WORK);
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue(null);
+    (db.scienceCoauthorShare.findUnique as Mock).mockResolvedValue(null);
+    (db.scienceCoauthorShare.create as Mock).mockResolvedValue({ id: 's1' });
+  });
+
+  it('turns a counting record into a held share, hours unchanged, whatever the date', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue({
+      id: 'r1',
+      status: 'APPROVED',
+      hoursHundredths: 5000,
+    });
+    expect(await writeOffShare({ workId: 'w1' })).toEqual({ ok: true });
+    expect(db.scienceRecord.delete).toHaveBeenCalledWith({ where: { id: 'r1' } });
+    expect(db.scienceCoauthorShare.create).toHaveBeenCalledWith({
+      data: {
+        workId: 'w1',
+        staffId: 'staff-1',
+        hoursHundredths: 5000,
+        academicYear: null,
+        writtenOffAt: expect.any(Date),
+      },
+      select: { id: true },
+    });
+    // The author's hours are not touched: no other record moves.
+    expect(db.scienceRecord.update).not.toHaveBeenCalled();
+  });
+
+  it('marks a plain reservation', async () => {
+    (db.scienceCoauthorShare.findUnique as Mock).mockResolvedValue({
+      id: 's1',
+      academicYear: null,
+      writtenOffAt: null,
+    });
+    expect(await writeOffShare({ workId: 'w1' })).toEqual({ ok: true });
+    expect(db.scienceCoauthorShare.update).toHaveBeenCalledWith({
+      where: { id: 's1' },
+      data: { academicYear: null, writtenOffAt: expect.any(Date) },
+    });
+  });
+
+  it('refuses the author', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({ ...WORK, createdById: 'staff-1' });
+    expect(await writeOffShare({ workId: 'w1' })).toEqual({
+      error: 'Автор зараховує роботу в той рік, коли її додав',
+    });
+  });
+
+  it('refuses a work nobody shares', async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({
+      ...WORK,
+      workType: { ...WORK.workType, sharing: 'INDIVIDUAL' },
+    });
+    expect(await writeOffShare({ workId: 'w1' })).toEqual({
+      error: 'Відмітити як уже списану можна лише спільну роботу',
+    });
+  });
+
+  it("refuses once the work's year is closed", async () => {
+    (db.scienceWork.findUnique as Mock).mockResolvedValue({ ...WORK, templateId: 't0' });
+    expect(await writeOffShare({ workId: 'w1' })).toEqual({
+      error: 'Рік цієї роботи вже закрито — змінити частку не можна',
+    });
+  });
+
+  it('«Повернути» brings a written-off share back as a record', async () => {
+    (db.scienceCoauthorShare.findUnique as Mock).mockResolvedValue({
+      id: 's1',
+      academicYear: null,
+      writtenOffAt: new Date('2026-10-21T10:00:00Z'),
+      hoursHundredths: 5000,
+    });
+    (db.sciencePlan.findMany as Mock).mockResolvedValue([{ id: 'plan-1', departmentId: 'd1' }]);
+    expect(await setShareYear({ workId: 'w1', academicYear: '2026/2027' })).toEqual({ ok: true });
+    expect(db.scienceCoauthorShare.delete).toHaveBeenCalledWith({ where: { id: 's1' } });
+    expect(db.scienceRecord.create).toHaveBeenCalledWith({
+      data: {
+        staffId: 'staff-1',
+        workId: 'w1',
+        templateId: 't1',
+        planId: 'plan-1',
+        planRowId: null,
+        hoursHundredths: 5000,
+      },
     });
   });
 });
