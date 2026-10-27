@@ -52,7 +52,9 @@ export function ShareYearButton({
   targetYear: string;
   /** The work's own навчальний рік. */
   currentYear: string;
-  mode: 'defer' | 'back' | 'writeOff';
+  /** `restore` is «back» for a share written off — it went to no year, so the
+   *  button names none. */
+  mode: 'defer' | 'back' | 'restore' | 'writeOff';
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -79,11 +81,11 @@ export function ShareYearButton({
     });
   }
 
-  if (mode === 'back') {
+  if (mode === 'back' || mode === 'restore') {
     return (
       <Button variant="outline" size="sm" onClick={move} loading={isPending} disabled={isPending}>
         <Undo2 className="size-3.5" />
-        Повернути в {targetYear}
+        {mode === 'restore' ? 'Повернути' : `Повернути в ${targetYear}`}
       </Button>
     );
   }

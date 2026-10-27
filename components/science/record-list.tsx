@@ -431,7 +431,7 @@ export function RecordList({
                       {!readOnly && (
                         <div className="mt-2">
                           <ShareYearButton
-                            mode="back"
+                            mode={share.writtenOff ? 'restore' : 'back'}
                             workId={share.workId}
                             label={share.summary}
                             hoursHundredths={share.hoursHundredths}
