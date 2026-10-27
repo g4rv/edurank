@@ -561,9 +561,6 @@ function DegreeDialogForm({
                 htmlFor="degree-dialog-issued-by"
                 label="Ким виданий"
                 required
-                description={
-                  isDegree ? 'Як зазначено в дипломі, наприклад: МОН України' : undefined
-                }
                 error={err('issuedBy')}
               >
                 <Input
