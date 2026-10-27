@@ -1,3 +1,4 @@
+import { DIPLOMA_ROWS } from '@/lib/staff/diploma-scan';
 import type {
   AcademicRank,
   AcademicTitle,
@@ -262,6 +263,19 @@ export interface DegreeRecord {
   basicLevel: string | null;
   /** The topic of the scientific work — a candidate / doctor only */
   topic: string | null;
+  /**
+   * The `Diploma` row this entry IS (owner, 2026-10-27), so a save updates it in
+   * place and its scan survives. Absent on an entry not saved yet, and on one
+   * from a form opened before ids existed — that one is written anew.
+   */
+  id?: string | null;
+  /**
+   * What a save does to the scan — `undefined` keeps it, `null` takes it away,
+   * an object is a newly uploaded one (the `ScanChoice` every scan uses).
+   */
+  file?: { objectKey: string; fileName: string } | null;
+  /** The stored scan's name, for showing only — the key never leaves the server */
+  scanName?: string | null;
 }
 
 const NO_DIPLOMA = {
@@ -297,20 +311,33 @@ export function asDegreeRecords(value: unknown): DegreeRecord[] {
     const r = item as Record<string, unknown>;
     if (typeof r.degree !== 'string' || !r.degree) return [];
     const text = (v: unknown) => (typeof v === 'string' && v ? v : null);
-    return [
-      {
-        degree: r.degree,
-        specialty: text(r.specialty),
-        defenceDate: text(r.defenceDate),
-        matchesDepartment: typeof r.matchesDepartment === 'boolean' ? r.matchesDepartment : null,
-        issuedBy: text(r.issuedBy),
-        series: text(r.series),
-        number: text(r.number),
-        issueDate: text(r.issueDate),
-        basicLevel: text(r.basicLevel),
-        topic: text(r.topic),
-      },
-    ];
+    const record: DegreeRecord = {
+      degree: r.degree,
+      specialty: text(r.specialty),
+      defenceDate: text(r.defenceDate),
+      matchesDepartment: typeof r.matchesDepartment === 'boolean' ? r.matchesDepartment : null,
+      issuedBy: text(r.issuedBy),
+      series: text(r.series),
+      number: text(r.number),
+      issueDate: text(r.issueDate),
+      basicLevel: text(r.basicLevel),
+      topic: text(r.topic),
+    };
+    // Carried only when present, so a record without them compares and prints
+    // exactly as before.
+    // `id` from a row; `diplomaId` from the form, which cannot use that name
+    // (it is `useFieldArray`'s own key).
+    const id = text(r.id) ?? text(r.diplomaId);
+    if (id) record.id = id;
+    if (r.file === null) record.file = null;
+    else if (r.file && typeof r.file === 'object') {
+      const f = r.file as Record<string, unknown>;
+      if (text(f.objectKey) && text(f.fileName)) {
+        record.file = { objectKey: f.objectKey as string, fileName: f.fileName as string };
+      }
+    }
+    if (text(r.scanName)) record.scanName = text(r.scanName);
+    return [record];
   });
 }
 
@@ -321,7 +348,15 @@ export function fromDiplomaRows(rows: unknown): DegreeRecord[] {
   return asDegreeRecords(
     [...rows]
       .sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0))
-      .map((r) => ({ ...r, defenceDate: asDay(r?.defenceDate), issueDate: asDay(r?.issueDate) }))
+      .map((r) => ({
+        ...r,
+        defenceDate: asDay(r?.defenceDate),
+        issueDate: asDay(r?.issueDate),
+        // The row's own `file*` columns are not the save's `file` choice: only
+        // the name is read out, and only when a scan is really there.
+        file: undefined,
+        scanName: r?.fileName ?? null,
+      }))
   );
 }
 
@@ -637,7 +672,7 @@ export const ACADEMIC_STORED_SELECT = {
   doctorSpecialty: true,
   doctorDefenceDate: true,
   doctorMatchesDepartment: true,
-  diplomas: { orderBy: { position: 'asc' } },
+  diplomas: DIPLOMA_ROWS,
   basicEducationMatch: true,
   basicEducationSpecialty: true,
 } as const;

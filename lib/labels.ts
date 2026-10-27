@@ -102,6 +102,8 @@ export const FIELD_LABELS: Record<string, string> = {
   honoraryTitles: 'Почесні звання',
   adminPositions: 'Адміністративні посади',
   degrees: 'Наукові ступені',
+  // Not a column: the names of the diploma scans, before and after a save
+  diplomaScans: 'Скани дипломів',
   candidateDegree: 'Науковий ступінь: кандидат / PhD',
   candidateSpecialty: 'Спеціальність за дипломом (кандидат / PhD)',
   candidateDefenceDate: 'Дата захисту (кандидат / PhD)',

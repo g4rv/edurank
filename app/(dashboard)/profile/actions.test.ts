@@ -97,6 +97,10 @@ function mockTx() {
     diploma: {
       deleteMany: vi.fn().mockResolvedValue({}),
       createMany: vi.fn().mockResolvedValue({}),
+      // Written in place since 2026-10-27 — none stored unless a test says so
+      findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn().mockResolvedValue({}),
+      create: vi.fn().mockResolvedValue({}),
     },
   };
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
@@ -218,8 +222,8 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
 
     // The diplomas are Diploma rows, never a Staff column (owner, 2026-10-15)
     expect(data).not.toHaveProperty('degrees');
-    expect(tx.diploma.deleteMany).toHaveBeenCalledWith({ where: { staffId: 'staff-own' } });
-    expect(tx.diploma.createMany.mock.calls[0][0].data).toEqual([
+    // A new entry is created; stored rows are written in place (2026-10-27)
+    expect(tx.diploma.create.mock.calls.map((c: { data: unknown }[]) => c[0].data)).toEqual([
       expect.objectContaining({
         staffId: 'staff-own',
         position: 0,
@@ -281,7 +285,7 @@ describe('updateOwnProfile — academic info (2026-10-06)', () => {
     expect(
       await updateOwnProfile({ ...payload, degrees: [old] } as unknown as OwnProfileSchema)
     ).toEqual({ success: true });
-    expect(tx.diploma.createMany).toHaveBeenCalled();
+    expect(tx.diploma.create).toHaveBeenCalled();
 
     // …but CHANGING it — even only the «відповідає кафедрі» tick — asks for the papers
     expect(

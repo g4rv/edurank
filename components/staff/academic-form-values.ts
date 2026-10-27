@@ -22,6 +22,13 @@ export type DegreeFormRow = {
   issueDate: string;
   basicLevel: string;
   topic: string;
+  /** The `Diploma` row, '' for one not saved yet (owner, 2026-10-27). Not `id`:
+   *  that name is `useFieldArray`'s own key and would be overwritten. */
+  diplomaId: string;
+  /** The scan choice — undefined keeps the stored one (`ScanChoice`) */
+  file?: { objectKey: string; fileName: string } | null;
+  /** The stored scan's name, '' for none — for showing only */
+  scanName: string;
 };
 
 /** A blank diploma — what «Додати освіту» starts the popup from */
@@ -36,6 +43,8 @@ export const EMPTY_DEGREE_ROW: DegreeFormRow = {
   issueDate: '',
   basicLevel: '',
   topic: '',
+  diplomaId: '',
+  scanName: '',
 };
 
 /** Every academic field as the inputs produce it; Zod coerces on submit */
@@ -95,6 +104,8 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
         issueDate: r.issueDate ?? '',
         basicLevel: r.basicLevel ?? '',
         topic: r.topic ?? '',
+        diplomaId: r.id ?? '',
+        scanName: r.scanName ?? '',
       }))
     : [];
   return {

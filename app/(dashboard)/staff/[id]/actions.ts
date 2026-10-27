@@ -57,6 +57,7 @@ import {
 import {
   DIPLOMA_INCOMPLETE_MESSAGE,
   diplomaRefusal,
+  prepareDiplomaScans,
   takeDiplomas,
   writeDiplomas,
 } from '@/lib/staff/diplomas';
@@ -615,6 +616,14 @@ export async function updateStaff(
     if ('error' in result) return { error: result.error };
     prepared = result.prepared;
   }
+  // A diploma scan, checked the same way (owner, 2026-10-27).
+  const scans = await prepareDiplomaScans({
+    staffId: id,
+    userId: session.user.id,
+    records: diplomas,
+    scope: 'staff.updateStaff',
+  });
+  if ('error' in scans) return { error: scans.error };
   // Set by the transaction: R2 objects a replaced or removed scan leaves behind.
   let orphaned: string[] = [];
 
@@ -718,11 +727,12 @@ export async function updateStaff(
       }
 
       await tx.staff.update({ where: { id }, data: updateData });
-      if (diplomas) await writeDiplomas(tx, id, diplomas);
+      const written = diplomas ? await writeDiplomas(tx, id, diplomas, scans.verified) : null;
+      if (written?.scans) changes.diplomaScans = written.scans;
 
       const appliedCertificates = await applyCertificates(tx, id, prepared);
       Object.assign(changes, appliedCertificates.changes);
-      orphaned = appliedCertificates.orphaned;
+      orphaned = [...appliedCertificates.orphaned, ...(written?.orphaned ?? [])];
 
       // Profile is the source of truth for derived rating indicators — re-sync
       // when any feeding field (or the НПП flag itself) was touched.

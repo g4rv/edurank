@@ -108,6 +108,27 @@ have. Information only: 1.9, 1.3 and п.5 read the same columns as before, and a
 level is NOT a degree key (`degreeLevel('master')` is null). Series and number
 are visible like the rest of «Освіта» (owner, 2026-10-15).
 
+**Diplomas are written IN PLACE, by id** (owner, 2026-10-27). `writeDiplomas`
+used to delete a person's rows and create them again on every save; it now
+updates the rows the form names (its `diplomaId`, never `id` — that is
+`useFieldArray`'s own key), creates the new ones and deletes only those the
+person removed. An id that is not one of THIS person's rows is treated as new,
+so nobody writes into another's diploma. A form with no ids (opened before
+them) is written exactly as before. **The schema keeps `diplomaId` through its
+transform**: the browser parses with it and the action parses the RESULT
+again — renaming it there dropped the id on the server and lost a scan on the
+next phone-number save (caught in the browser). Checked on a copy of
+production: 645 rows through both paths, 0 changed.
+
+**A кандидат / доктор diploma may carry a scan — optional, JPG only** (owner,
+2026-10-27). Five `file*` columns on `Diploma`, key `diplomas/<staffId>/<uuid>.jpg`,
+uploaded before the save like the certificates' (`app/(dashboard)/diplomas/file-actions.ts`,
+the `degrees` grant decides who may), checked from the stored bytes by
+`prepareDiplomaScans` — a PNG or PDF is refused there and by the picker. A basic
+education never has one. Opening it is the certificates' rule
+(`authoriseQualifications(…, 'read')`). Every read selects diplomas through
+`DIPLOMA_ROWS`, which leaves out the key and the hash. Audited as `diplomaScans`.
+
 **Every field of a diploma is mandatory except the серія and «відповідає
 кафедрі»** (owner, 2026-10-15), and a degree's diploma is never issued before its
 defence. One rule, `diplomaGaps` (`lib/staff/academic.ts`), serves the popup

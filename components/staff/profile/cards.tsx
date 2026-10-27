@@ -7,13 +7,14 @@ import {
   degreeLevel,
   optionLabel,
 } from '@/lib/staff/academic-options';
-import { Check } from 'lucide-react';
+import { Check, FileText } from 'lucide-react';
 import { degreesOf } from '@/lib/staff/academic';
 import { formatStake } from '@/lib/stake/units';
 import { OrcidField } from '@/components/profile/orcid-field';
 import { Card } from '@/components/aurora/ui/card';
 import { Fields, Field, MaybeField, PositionEntry, ProfileLink } from './primitives';
 import { CertificateView } from './certificate-view';
+import { DiplomaFileButton } from './diploma-file-button';
 import { CERTIFICATE_KINDS, CERTIFICATE_TITLES } from '@/lib/language-certificates/options';
 import type { PersonCertificates } from '@/lib/queries/get-language-certificates';
 import { ValueShimmer } from './value-shimmer';
@@ -191,6 +192,18 @@ export function EducationCard({
                   )}
                   {diplomaDocument(d) && (
                     <p className="mt-0.5 text-sm text-foreground-soft">{diplomaDocument(d)}</p>
+                  )}
+                  {/* The scan (owner, 2026-10-27): its name for everybody who
+                      reads «Освіта», the file itself only for those who may open
+                      a person's scans — the certificates' rule. */}
+                  {d.scanName && (
+                    <p className="mt-0.5 flex items-center gap-1.5 text-sm text-foreground-soft">
+                      <FileText className="size-3.5 shrink-0" aria-hidden />
+                      <span className="truncate">{d.scanName}</span>
+                      {canOpenCertificateFiles && d.id && (
+                        <DiplomaFileButton diplomaId={d.id} fileName={d.scanName} />
+                      )}
+                    </p>
                   )}
                 </div>
               );

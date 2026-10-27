@@ -28,6 +28,7 @@ import {
   DIPLOMA_INCOMPLETE_MESSAGE,
   diplomaRefusal,
   takeDiplomas,
+  withoutScans,
   writeDiplomas,
 } from '@/lib/staff/diplomas';
 import type { DiffValue } from '@/lib/audit';
@@ -149,7 +150,9 @@ export async function createStaff(
         select: { id: true },
       });
       createdId = created.id;
-      if (diplomas?.length) await writeDiplomas(tx, created.id, diplomas);
+      // No scans on create: a scan lives in the person's own folder, and this
+      // person had no id until a moment ago (the create dialog draws no picker).
+      if (diplomas?.length) await writeDiplomas(tx, created.id, withoutScans(diplomas));
 
       if (partTimeDepartmentIds.length > 0) {
         await tx.staffDepartment.createMany({

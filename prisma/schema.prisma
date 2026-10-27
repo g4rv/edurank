@@ -1841,9 +1841,11 @@ model LanguageCertificate {
 /// or a basic education, with the diploma's own papers. Was a JSON list on
 /// `Staff.degrees` (2026-10-10 → 2026-10-15).
 ///
-/// Every save replaces a person's rows (`writeDiplomas`) and rewrites the
-/// mirror columns on `Staff` that the rating reads. The form and the division
-/// field grant still call the list `degrees`.
+/// Every save writes a person's rows IN PLACE by id (`writeDiplomas`, owner
+/// 2026-10-27 — it used to delete and recreate them, which would have lost a
+/// scan on every phone-number save) and rewrites the mirror columns on `Staff`
+/// that the rating reads. The form and the division field grant still call the
+/// list `degrees`.
 ///
 /// The papers are nullable because entries saved before 2026-10-15 have none;
 /// a NEW or CHANGED entry must be complete, which the save checks
@@ -1874,6 +1876,16 @@ model Diploma {
   basicLevel String?
   /// «Тема наукової роботи» — a degree only
   topic      String?
+
+  /// The scan of a кандидат / доктор diploma, optional, JPG only (owner,
+  /// 2026-10-27). The five are set together or all null. The R2 key is
+  /// `diplomas/<staffId>/<uuid>.jpg` — server-generated. The SHA-256 is not
+  /// unique, for the reason `Qualification.fileSha256` is not.
+  fileKey         String? @unique
+  fileName        String?
+  fileContentType String?
+  fileSizeBytes   Int?
+  fileSha256      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

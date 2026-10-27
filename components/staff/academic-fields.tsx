@@ -7,8 +7,8 @@ import {
   type FieldErrors,
   type UseFormRegister,
 } from 'react-hook-form';
-import { useState, type ReactNode } from 'react';
-import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { Check, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   EMPTY_DEGREE_ROW,
@@ -48,6 +48,13 @@ import {
 import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
+import { ScanField, type ScanChoice } from '@/components/science/scan-field';
+import type { FileUploader } from '@/components/science/evidence-file-field';
+import {
+  discardDiplomaUpload,
+  presignDiplomaUpload,
+} from '@/app/(dashboard)/diplomas/file-actions';
+import { DIPLOMA_SCAN_TYPE, DIPLOMA_SCAN_TYPE_MESSAGE } from '@/lib/staff/diploma-scan';
 import { BadgePicker } from '@/components/staff/badge-picker';
 import { CARD_TITLES } from '@/components/staff/profile/cards';
 import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
@@ -272,6 +279,18 @@ export function AcademicCard({
 /** «15.03.2021» from the stored «2021-03-15» */
 const uaDay = (iso: string) => iso.split('-').reverse().join('.');
 
+/** The scan a card names: one chosen and not saved yet, else the stored one —
+ *  unless it is being taken away (`file: null`). */
+const scanOf = (row: DegreeFormRow): string | null =>
+  row.file === null ? null : row.file ? row.file.fileName : row.scanName || null;
+
+/** The diploma scan's one format (owner, 2026-10-27), for the picker */
+const DIPLOMA_SCAN_ONLY = {
+  type: DIPLOMA_SCAN_TYPE,
+  accept: 'image/jpeg,.jpg,.jpeg',
+  message: DIPLOMA_SCAN_TYPE_MESSAGE,
+};
+
 /**
  * One diploma as a card: the ступінь on the first line, then speciality, date
  * and «відповідає кафедрі» on one (owner, 2026-10-10 — a list of cards, the
@@ -313,6 +332,12 @@ function DegreeCard({
           </p>
         )}
         {document && <p className="mt-0.5 text-sm text-foreground-soft">{document}</p>}
+        {scanOf(row) && (
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-foreground-soft">
+            <FileText className="size-3.5 shrink-0" aria-hidden />
+            <span className="truncate">{scanOf(row)}</span>
+          </p>
+        )}
         {placeholder && <p className="mt-0.5 text-xs text-warning">Оберіть точний ступінь</p>}
         {Object.keys(diplomaProblems(row)).length > 0 && (
           <p className="mt-0.5 text-xs text-warning">Заповніть усі поля диплома</p>
@@ -356,20 +381,44 @@ function DegreeDialog({
   state,
   onClose,
   onDone,
+  uploader,
 }: {
   /** `index` null = a new diploma; null state = closed */
   state: DegreeDialogState | null;
   onClose: () => void;
   onDone: (index: number | null, row: DegreeFormRow) => void;
+  /** Where a scan goes — absent where the person has no id yet (create) */
+  uploader?: FileUploader;
 }) {
+  // The scan staged in the popup's CURRENT visit and not yet handed back. Every
+  // way out but «Готово» abandons it, and an abandoned object is deleted.
+  const visitScan = useRef<string | null>(null);
+  const close = () => {
+    if (visitScan.current) uploader?.discard(visitScan.current);
+    visitScan.current = null;
+    onClose();
+  };
   return (
-    <Dialog open={state !== null} onOpenChange={(next) => !next && onClose()}>
+    <Dialog open={state !== null} onOpenChange={(next) => !next && close()}>
       {/* No auto-focus: the first control is the rating hint's «i», and focusing it
           opened its tooltip over the popup the moment it appeared. */}
       <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         {/* Mounted only while open, so the draft starts fresh each time — from
             the card being edited, or blank — with no effect to copy it in. */}
-        {state && <DegreeDialogForm state={state} onClose={onClose} onDone={onDone} />}
+        {state && (
+          <DegreeDialogForm
+            state={state}
+            onClose={close}
+            onDone={(index, row) => {
+              visitScan.current = null;
+              onDone(index, row);
+            }}
+            uploader={uploader}
+            onStaged={(key) => {
+              visitScan.current = key;
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -379,12 +428,33 @@ function DegreeDialogForm({
   state,
   onClose,
   onDone,
+  uploader,
+  onStaged,
 }: {
   state: DegreeDialogState;
   onClose: () => void;
   onDone: (index: number | null, row: DegreeFormRow) => void;
+  uploader?: FileUploader;
+  /** Tells the popup what this visit has staged, so closing can discard it */
+  onStaged: (objectKey: string | null) => void;
 }) {
   const [draft, setDraft] = useState<DegreeFormRow>(state.row);
+  const [uploading, setUploading] = useState(false);
+  // The scan the popup opened with, as the scan field presents it: one staged in
+  // an earlier visit shows as a chip, like a stored one.
+  const opened = state.row.file;
+  const storedScan = opened
+    ? { name: opened.fileName }
+    : opened === null
+      ? null
+      : state.row.scanName
+        ? { name: state.row.scanName }
+        : null;
+  function chooseScan(choice: ScanChoice) {
+    // `undefined` keeps whatever the card had.
+    setDraft((d) => ({ ...d, file: choice === undefined ? opened : choice }));
+    onStaged(choice && typeof choice === 'object' ? choice.objectKey : null);
+  }
   // Every field but «відповідає кафедрі» is mandatory (owner, 2026-10-15); a problem
   // clears as its field is touched.
   const [problems, setProblems] = useState<Partial<Record<keyof DegreeFormRow, string>>>({});
@@ -412,12 +482,16 @@ function DegreeDialogForm({
       setProblems(found);
       return;
     }
-    // Drop what does not belong to the kind, so a switch of kind leaves nothing behind.
+    // Drop what does not belong to the kind, so a switch of kind leaves nothing
+    // behind — a basic education has no scan, so one staged here is let go and a
+    // stored one is taken away.
+    if (isBasic && draft.file) uploader?.discard(draft.file.objectKey);
     onDone(state.index, {
       ...draft,
       basicLevel: isBasic ? draft.basicLevel : '',
       topic: isBasic ? '' : draft.topic,
       issueDate: isBasic ? '' : draft.issueDate,
+      file: isBasic ? (draft.scanName || draft.file ? null : undefined) : draft.file,
     });
   }
 
@@ -607,14 +681,35 @@ function DegreeDialogForm({
             </label>
             <RatingFieldHint field={isBasic ? 'basicEducationMatch' : 'degreeMatchesDepartment'} />
           </div>
+          {/* A кандидат / доктор diploma's scan (owner, 2026-10-27): optional, JPG
+              only. Not for a basic education, and not where the person has no id
+              yet to keep it under. */}
+          {isDegree && uploader && (
+            <FormField
+              htmlFor="degree-dialog-file"
+              label="Скан диплома"
+              description="Необов’язково. Лише JPG, до 10 МБ."
+            >
+              <ScanField
+                id="degree-dialog-file"
+                stored={storedScan}
+                uploader={uploader}
+                onChange={chooseScan}
+                onBusyChange={setUploading}
+                only={DIPLOMA_SCAN_ONLY}
+              />
+            </FormField>
+          )}
         </FieldGroup>
       </DialogBody>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose}>
           Скасувати
         </Button>
-        <Button type="button" onClick={done}>
-          {state.index === null ? 'Додати' : 'Готово'}
+        {/* Disabled while a chosen file uploads: a key R2 has not finished
+            writing must never reach the form. */}
+        <Button type="button" onClick={done} disabled={uploading} loading={uploading}>
+          {uploading ? 'Завантаження файлу…' : state.index === null ? 'Додати' : 'Готово'}
         </Button>
       </DialogFooter>
     </>
@@ -648,13 +743,38 @@ export function EducationCard({
   const [dialog, setDialog] = useState<{ index: number | null; row: DegreeFormRow } | null>(null);
   const degreesLocked = isPending || locked('degrees');
 
+  // A diploma scan uploads into the person's own folder, so only where they have
+  // an id — the same place the certificates are drawn (owner, 2026-10-27).
+  const staffId = certificates?.staffId;
+  const scanUploader: FileUploader | undefined = useMemo(
+    () =>
+      staffId
+        ? {
+            presign: (file) =>
+              presignDiplomaUpload({
+                staffId,
+                fileName: file.name,
+                contentType: file.type,
+                sizeBytes: file.size,
+              }),
+            discard: (objectKey) => void discardDiplomaUpload(staffId, objectKey),
+          }
+        : undefined,
+    [staffId]
+  );
+
   const diplomaCards = fields.map((row, index) => (
     <DegreeCard
       key={row.id}
       row={row as unknown as DegreeFormRow}
       disabled={degreesLocked}
       onEdit={() => setDialog({ index, row: row as unknown as DegreeFormRow })}
-      onRemove={() => remove(index)}
+      onRemove={() => {
+        // A scan staged in this form and never saved goes with the card.
+        const staged = (row as unknown as DegreeFormRow).file;
+        if (staged) scanUploader?.discard(staged.objectKey);
+        remove(index);
+      }}
     />
   ));
   const addDiploma = (
@@ -703,8 +823,13 @@ export function EducationCard({
 
       <DegreeDialog
         state={dialog}
+        uploader={scanUploader}
         onClose={() => setDialog(null)}
         onDone={(index, row) => {
+          // A scan the card HAD, staged in an earlier visit, that this draft
+          // replaced or removed will never be saved: let it go now.
+          const had = index === null ? undefined : (fields[index] as unknown as DegreeFormRow).file;
+          if (had && row.file !== had) scanUploader?.discard(had.objectKey);
           // `row` is the draft, with the form's own `id` (RHF's) left out.
           const value: DegreeFormRow = {
             degree: row.degree,
@@ -717,6 +842,9 @@ export function EducationCard({
             issueDate: row.issueDate,
             basicLevel: row.basicLevel,
             topic: row.topic,
+            diplomaId: row.diplomaId,
+            file: row.file,
+            scanName: row.scanName,
           };
           if (index === null) append(value);
           else update(index, value);

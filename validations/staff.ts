@@ -177,6 +177,19 @@ const degreeRecord = z
         .nullable()
     ),
     topic: diplomaText(500),
+    // The row this entry is, so the save updates it in place (owner,
+    // 2026-10-27). The server checks it belongs to the person; a form opened
+    // before ids existed sends none and the entry is written anew. Kept under
+    // this name through the transform: the browser parses with this schema and
+    // the action parses the RESULT again, so renaming it here dropped the id on
+    // the server and every save recreated the rows (found in the browser).
+    diplomaId: z.preprocess(str, z.string().max(40).nullable()).optional(),
+    // The scan: absent keeps it, null takes it away, an object is a new upload.
+    // Its key and its bytes are checked by the save (`prepareDiplomaScans`).
+    file: z
+      .object({ objectKey: z.string().min(1).max(500), fileName: z.string().min(1).max(300) })
+      .nullable()
+      .optional(),
   })
   .superRefine((r, ctx) => {
     const touched =

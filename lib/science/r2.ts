@@ -115,6 +115,17 @@ export function languageCertificateKeyFor(input: { staffId: string; ext: string 
   return `language-certificates/${input.staffId}/${randomUUID()}.${input.ext}`;
 }
 
+/** `diplomas/<staffId>/<uuid>.jpg` — the scan of an НПП's кандидат / доктор
+ *  diploma (owner, 2026-10-27). Built and guarded like the keys above. */
+export function diplomaKeyFor(input: { staffId: string }): string {
+  return `diplomas/${input.staffId}/${randomUUID()}.jpg`;
+}
+
+/** Does this key sit in this person's diploma folder? */
+export function isDiplomaKeyOf(staffId: string, objectKey: string): boolean {
+  return /^[A-Za-z0-9_-]+$/.test(staffId) && objectKey.startsWith(`diplomas/${staffId}/`);
+}
+
 /** Does this key sit in this person's language-certificate folder? */
 export function isLanguageCertificateKeyOf(staffId: string, objectKey: string): boolean {
   return (
