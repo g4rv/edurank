@@ -9,6 +9,10 @@ import { planGate, type PlanGate } from '@/lib/science/plan-gate';
  *
  * The кафедри come from `planDepartmentsFor` — the list /science-plan itself
  * offers — so the gate can never ask for a plan the page has no tab for.
+ *
+ * A closed gate also says which of those кафедри have no ставка for the
+ * person (`noRate`, the same розподіл `rateForPlan` reads), because there the
+ * person cannot save the plan at all and has to be told whom to ask.
  */
 export async function getSciencePlanGate(staffId: string): Promise<PlanGate> {
   const template = await getActiveScienceTemplate();
@@ -22,5 +26,22 @@ export async function getSciencePlanGate(staffId: string): Promise<PlanGate> {
     }),
   ]);
 
-  return planGate({ hasOpenYear: true, departments, plans });
+  const gate = planGate({ hasOpenYear: true, departments, plans });
+  if (gate.open) return gate;
+
+  const rated = await db.stakeAllocation.findMany({
+    where: {
+      staffId,
+      distribution: {
+        year: template.stakeYear,
+        departmentId: { in: gate.unsaved.map((d) => d.id) },
+      },
+    },
+    select: { distribution: { select: { departmentId: true } } },
+  });
+  const ratedIds = new Set(rated.map((a) => a.distribution.departmentId));
+  return {
+    open: false,
+    unsaved: gate.unsaved.map((d) => ({ ...d, noRate: !ratedIds.has(d.id) })),
+  };
 }

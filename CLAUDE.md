@@ -870,6 +870,10 @@ Easy to get wrong:
   no planning**: «Запланувати роботу» is disabled and `savePlanRow` refuses a
   NEW row (an edit still saves); the header says why (`NO_RATE_DETAIL`). Such a
   person stays blocked from the rating until the завідувач distributes.
+  The rating's note (`PlanGateNote`) names every кафедра still missing a plan,
+  says which of them has given no ставка and whom to ask, and its button opens
+  that кафедра's tab (`?dept=`) — a сумісник with the main plan saved used to
+  land on «План збережено» and never see the cause (owner, 2026-10-28).
 - **Link and file are two separate rules per вид роботи** (D47,
   `ScienceWorkType.linkRule` / `fileRule`: REQUIRED / OPTIONAL / NONE, set by
   ADMIN). Only when neither is REQUIRED must one of the two be given; a proof
