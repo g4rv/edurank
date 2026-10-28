@@ -410,6 +410,9 @@ pnpm db:headship-admin-position  # one-off, on that deploy: rating 1.6 now pays
                       #   a завідувач / декан for being named on the кафедра /
                       #   факультет. Reports who moves (~36 on prod); --apply writes.
                       #   Order: back up → migrate deploy → mirror check → this.
+pnpm db:admin-position-every-post  # one-off: rating 1.6 pays EVERY post, one row
+                      #   per post (owner, 2026-10-28). Lists who moves (28, +1090 on
+                      #   prod 27.10); --apply writes through the profile sync.
 pnpm db:import-aspirants  # the аспіранти list into Aspirant + their керівники
                       #   (matched to НПП by surname ±1 letter AND initials; the
                       #   rest reported, never guessed). Report first; --apply
@@ -603,6 +606,12 @@ Rules that are easy to get wrong:
   (3.11's «Дата публікації»): a 2026 rating still open in January 2027 takes
   2026 publications. Pass `ratingYear` to `schemaForFields`; without it the
   calendar year stands in.
+- **1.6 pays every post, one row each** (owner, 2026-10-28). «Each different
+  post pays its points to the sum» — two posts the положення prints under one
+  option included (лабораторія + центр = 30 + 30). The sync writes one SYSTEM
+  row per held post, its `post` in the evidence so rows stay paired with their
+  post; a headship counts as a post. `effectiveAdminPosition` (the highest)
+  is no longer what the rating pays.
 - **Closed years are read-only** and render from `RatingEntry.snapshot`. Appeals go through ADMIN `reopenYear` → fix → close again.
 
 ### Indicators live in the database, not in code

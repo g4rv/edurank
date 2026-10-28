@@ -154,8 +154,9 @@ export function heldAdminPositions({
 }
 
 /**
- * The ONE post rating 1.6 pays: the highest of the picked ones (`adminPosition`
- * is their mirror) and the headship. Never two.
+ * The highest post: the picked ones (`adminPosition` is their mirror) and the
+ * headship. Rating 1.6 paid only this one until 2026-10-28; it now pays every
+ * post (`derivedEvidences` in lib/rating/profile-derived.ts).
  */
 export function effectiveAdminPosition({
   adminPosition,
