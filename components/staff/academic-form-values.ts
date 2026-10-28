@@ -124,6 +124,9 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
  * rule itself is `diplomaGaps` — the same one the save checks, so the popup and
  * the server cannot disagree. Every field but «відповідає кафедрі» and the серія.
  */
+/** A diploma date after today — it blocks every save of the profile until fixed */
+export const FUTURE_DATE_MESSAGE = 'Дата не може бути в майбутньому';
+
 export function diplomaProblems(row: DegreeFormRow): Partial<Record<DiplomaField, string>> {
   const basic = degreeLevel(row.degree) === 'basic';
   const missing: Record<DiplomaField, string> = {
@@ -139,7 +142,11 @@ export function diplomaProblems(row: DegreeFormRow): Partial<Record<DiplomaField
   const out: Partial<Record<DiplomaField, string>> = {};
   for (const [field, gap] of Object.entries(diplomaGaps(row)) as [DiplomaField, string][]) {
     out[field] =
-      gap === 'beforeDefence' ? 'Диплом не може бути виданий раніше захисту' : missing[field];
+      gap === 'beforeDefence'
+        ? 'Диплом не може бути виданий раніше захисту'
+        : gap === 'future'
+          ? FUTURE_DATE_MESSAGE
+          : missing[field];
   }
   return out;
 }

@@ -610,6 +610,22 @@ describe('diplomaGaps — what a diploma owes (owner, 2026-10-15)', () => {
   it('reads the form strings the same way — spaces are empty', () => {
     expect(diplomaGaps({ ...degree, number: '  ' })).toEqual({ number: 'missing' });
   });
+
+  // A date stored before 2026-10-14's rule (Троценко: PhD «defended»
+  // 22.12.2026) blocked every save with nothing on screen (2026-10-28).
+  it('names a date after today, so the card and the popup can say it', () => {
+    const today = '2026-10-28';
+    expect(
+      diplomaGaps({ ...degree, defenceDate: '2026-12-22', issueDate: '2026-12-30' }, today)
+    ).toEqual({
+      defenceDate: 'future',
+      issueDate: 'future',
+    });
+    expect(diplomaGaps({ ...basic, defenceDate: '2026-10-29' }, today)).toEqual({
+      defenceDate: 'future',
+    });
+    expect(diplomaGaps({ ...degree, defenceDate: today, issueDate: today }, today)).toEqual({});
+  });
 });
 
 describe('hasIncompleteDiploma — only a new or changed entry is judged', () => {

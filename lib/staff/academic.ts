@@ -1,4 +1,5 @@
 import { DIPLOMA_ROWS } from '@/lib/staff/diploma-scan';
+import { KYIV } from '@/lib/kyiv-time';
 import type {
   AcademicRank,
   AcademicTitle,
@@ -415,7 +416,7 @@ export type DiplomaField =
   | 'number';
 
 /** What is wrong with a field: left empty, or an issue date before the defence */
-export type DiplomaGap = 'missing' | 'beforeDefence';
+export type DiplomaGap = 'missing' | 'beforeDefence' | 'future';
 
 type DiplomaInput = {
   [K in keyof DegreeRecord]?: DegreeRecord[K] | string;
@@ -428,7 +429,11 @@ type DiplomaInput = {
  * defence, never before. Shared by the popup (form strings) and the save
  * (records), so the two cannot disagree.
  */
-export function diplomaGaps(r: DiplomaInput): Partial<Record<DiplomaField, DiplomaGap>> {
+export function diplomaGaps(
+  r: DiplomaInput,
+  /** «YYYY-MM-DD», Kyiv — a parameter so a test can fix it */
+  today: string = new Date().toLocaleDateString('en-CA', KYIV)
+): Partial<Record<DiplomaField, DiplomaGap>> {
   const filled = (v: unknown) => typeof v === 'string' && v.trim() !== '';
   const out: Partial<Record<DiplomaField, DiplomaGap>> = {};
   if (!filled(r.degree)) out.degree = 'missing';
@@ -445,6 +450,12 @@ export function diplomaGaps(r: DiplomaInput): Partial<Record<DiplomaField, Diplo
   }
   if (!filled(r.issuedBy)) out.issuedBy = 'missing';
   if (!filled(r.number)) out.number = 'missing';
+  // Never in the future (owner, 2026-10-14). The schema refuses it on every save,
+  // so a date stored before that rule — Троценко's PhD «defended» 22.12.2026 —
+  // blocked the whole profile with no word on screen. Said here, the card and
+  // the popup can name it (2026-10-28).
+  if (filled(r.defenceDate) && String(r.defenceDate) > today) out.defenceDate = 'future';
+  if (!basic && filled(r.issueDate) && String(r.issueDate) > today) out.issueDate = 'future';
   return out;
 }
 

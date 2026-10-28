@@ -12,6 +12,7 @@ import { Check, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   EMPTY_DEGREE_ROW,
+  FUTURE_DATE_MESSAGE,
   type AcademicFormValues,
   diplomaProblems,
   type DegreeFormRow,
@@ -339,8 +340,17 @@ function DegreeCard({
           </p>
         )}
         {placeholder && <p className="mt-0.5 text-xs text-warning">Оберіть точний ступінь</p>}
-        {Object.keys(diplomaProblems(row)).length > 0 && (
-          <p className="mt-0.5 text-xs text-warning">Заповніть усі поля диплома</p>
+        {/* A future date is not a missing paper: the save refuses it every time,
+            so it is said in red and by name (2026-10-28) — before, the whole
+            profile silently refused to save. */}
+        {Object.values(diplomaProblems(row)).includes(FUTURE_DATE_MESSAGE) ? (
+          <p className="mt-0.5 text-xs text-error">
+            {FUTURE_DATE_MESSAGE} — відкрийте й виправте дату, інакше профіль не збережеться
+          </p>
+        ) : (
+          Object.keys(diplomaProblems(row)).length > 0 && (
+            <p className="mt-0.5 text-xs text-warning">Заповніть усі поля диплома</p>
+          )
         )}
       </div>
       <Button
