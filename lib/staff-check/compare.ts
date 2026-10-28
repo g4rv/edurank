@@ -8,12 +8,14 @@ import {
   POSITION_FROM_LIST,
   TITLE_FROM_LIST,
 } from '@/lib/staff-check/match';
+import { CANDIDATE_DEGREES, DOCTOR_DEGREES } from '@/lib/staff/academic-options';
 
 /**
- * The staff list held against the database (owner, 2026-10-28). REPORT ONLY:
- * nothing here writes, and the categories are what a future `--apply` would be
- * built on, one at a time — the owner named ставка, кафедра, стаж and the
- * ступінь «for those who did not clarify it yet».
+ * The staff list held against the database (owner, 2026-10-28). Nothing here
+ * writes. Two categories carry a `fix` that the script's `--apply` writes —
+ * the стаж and a degree's missing галузь, where the owner trusts HR's list.
+ * Everything else (ставки, посади, звання, accounts) stays a report: the list
+ * is not trusted blindly, and a person decides those.
  *
  * Read the categories before acting on them; several are not errors:
  * - the list writes internal сумісництво as two placements on ONE кафедра
@@ -85,7 +87,20 @@ export interface Finding {
   list: string | null;
   system: string | null;
   staffId: string | null;
+  /**
+   * What `--apply` would write — set only on the two categories the owner
+   * trusts the HR list for (2026-10-28): the стаж, and the галузь of a degree
+   * stored as the bare level («Кандидат наук» → «Кандидат педагогічних наук»).
+   */
+  fix?: StaffFix;
 }
+
+export type StaffFix =
+  | { field: 'pedagogicalExperience'; value: number }
+  | { field: 'degree'; from: string; to: string };
+
+/** Every degree the profile's own lists offer — the only keys `--apply` may write */
+const OFFERED_DEGREES = new Set([...CANDIDATE_DEGREES, ...DOCTOR_DEGREES].map((d) => d.value));
 
 const UNSPECIFIED: Record<string, string> = {
   cand: 'candidate_unspecified',
@@ -219,15 +234,16 @@ export function compareStaffList(input: {
         ? held.includes(degree)
         : held.some((k) => k.startsWith(`${level}_`) || (level === 'cand' && k === 'phd'));
       if (!has) {
+        // The level is right and only the branch is missing: the list can fill it —
+        // but only ever with a degree OUR list offers, never HR's own wording
+        const unspecified =
+          known && held.includes(UNSPECIFIED[level] ?? '') && OFFERED_DEGREES.has(degree);
         add({
           ...ref,
-          // The level is right and only the branch is missing: the list can fill it
-          category:
-            known && held.includes(UNSPECIFIED[level] ?? '')
-              ? 'degreeUnspecified'
-              : 'degreeDiffers',
+          category: unspecified ? 'degreeUnspecified' : 'degreeDiffers',
           list: `${listText} (${degree})`,
           system: held.join(', ') || null,
+          ...(unspecified && { fix: { field: 'degree', from: UNSPECIFIED[level], to: degree } }),
         });
       }
     } else if (held.length) {
@@ -242,6 +258,7 @@ export function compareStaffList(input: {
         category: oneYear ? 'experienceOneYear' : 'experienceDiffers',
         list: String(p.experience),
         system: person.pedagogicalExperience == null ? null : String(person.pedagogicalExperience),
+        fix: { field: 'pedagogicalExperience', value: p.experience },
       });
     }
   }

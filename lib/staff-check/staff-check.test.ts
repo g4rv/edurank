@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDeputies, parseStaffSheet } from './parse';
 import { degreeFromList, matchDepartment, matchPeople } from './match';
 import { compareStaffList, type CheckStaff } from './compare';
+import { CANDIDATE_DEGREES, DOCTOR_DEGREES } from '@/lib/staff/academic-options';
 
 // Every shape below is one seen in edu-reference/staff.xlsx or the deputies
 // document (2026-10-28).
@@ -100,6 +101,17 @@ describe('degreeFromList', () => {
     expect(degreeFromList('доктор філософії ', null)).toBe('phd');
     expect(degreeFromList('кандидат', 'педагоігчних наук')).toBe('cand_pedagogy');
     expect(degreeFromList('доктор', 'історичних наук')).toBe('doc_history');
+  });
+  // `--apply` writes these keys into profiles: each must be one OUR lists offer
+  it('reads every branch as a degree the profile lists offer', () => {
+    const offered = new Set([...CANDIDATE_DEGREES, ...DOCTOR_DEGREES].map((d) => d.value));
+    for (const { label } of [...CANDIDATE_DEGREES, ...DOCTOR_DEGREES].filter(
+      (d) => d.value !== 'phd'
+    )) {
+      const [level, ...field] = label.toLowerCase().split(' ');
+      const key = degreeFromList(level, field.join(' '));
+      expect(offered.has(key!), `${label} → ${key}`).toBe(true);
+    }
   });
   it('knows the level without a branch, and nothing from nothing', () => {
     expect(degreeFromList('доктор наук', null)).toBe('doc_?');
@@ -247,10 +259,31 @@ describe('compareStaffList', () => {
     expect(by('internalPartTime')).toHaveLength(1);
     // Facts compared once, from the main placement
     expect(by('degreeUnspecified')).toEqual([
-      expect.objectContaining({ list: 'доктор політичних наук (doc_politics)' }),
+      expect.objectContaining({
+        list: 'доктор політичних наук (doc_politics)',
+        fix: { field: 'degree', from: 'doctor_unspecified', to: 'doc_politics' },
+      }),
     ]);
-    expect(by('experienceOneYear')).toHaveLength(1);
+    expect(by('experienceOneYear')).toEqual([
+      expect.objectContaining({ fix: { field: 'pedagogicalExperience', value: 12 } }),
+    ]);
     expect(by('headNotSet')).toHaveLength(0);
+    // Only стаж and the missing галузь are ever written — never the ставка
+    expect(findings.filter((f) => f.fix).map((f) => f.category)).toEqual([
+      'degreeUnspecified',
+      'experienceOneYear',
+    ]);
+  });
+
+  it('offers no fix for a degree of another level or branch', () => {
+    const findings = compareStaffList({
+      placements: [placement({ degreeLevel: 'кандидат', degreeField: 'історичних наук' })],
+      deputies: [],
+      departments: [dept],
+      staff: [person({ degreeKeys: ['cand_politics'] })],
+      allocations: new Map(),
+    });
+    expect(findings.find((f) => f.category === 'degreeDiffers')?.fix).toBeUndefined();
   });
 
   it('sets a single deputy, leaves several and a факультет to the admin', () => {

@@ -410,11 +410,15 @@ pnpm db:headship-admin-position  # one-off, on that deploy: rating 1.6 now pays
                       #   a завідувач / декан for being named on the кафедра /
                       #   факультет. Reports who moves (~36 on prod); --apply writes.
                       #   Order: back up → migrate deploy → mirror check → this.
-pnpm db:check-staff-list  # REPORT ONLY: edu-reference/staff.xlsx and «Заступники з
-                      #   науки.doc» against DATABASE_URL — run it LOCALLY on a restored prod
-                      #   backup, never on the server (the list holds every ставка). Prints a
-                      #   summary, writes staff-check.xlsx (gitignored). Several categories are
-                      #   not errors — read lib/staff-check/compare.ts first. Needs antiword.
+pnpm db:check-staff-list  # edu-reference/staff.xlsx and «Заступники з науки.doc»
+                      #   against DATABASE_URL — run it LOCALLY on a restored prod backup first
+                      #   (the list holds every ставка). Prints a summary, writes staff-check.xlsx
+                      #   (gitignored). Several categories are not errors — read
+                      #   lib/staff-check/compare.ts first. Needs antiword. --apply writes TWO
+                      #   things only (owner, 2026-10-28, HR's list trusted for them): the стаж,
+                      #   and the галузь of a degree stored as bare «Кандидат/Доктор наук». The
+                      #   стаж pays rating points — re-synced, before/after printed (prod 28.10:
+                      #   239 people, +112). Never ставки, посади, звання or accounts.
 pnpm db:admin-position-every-post  # one-off: rating 1.6 pays EVERY post, one row
                       #   per post (owner, 2026-10-28). Lists who moves (28, +1090 on
                       #   prod 27.10); --apply writes through the profile sync.

@@ -7,21 +7,50 @@ import ExcelJS from 'exceljs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
 import { parseDeputies, parseStaffSheet } from '../lib/staff-check/parse';
-import { compareStaffList, type Finding, type FindingCategory } from '../lib/staff-check/compare';
+import {
+  compareStaffList,
+  type Finding,
+  type FindingCategory,
+  type StaffFix,
+} from '../lib/staff-check/compare';
+import { syncProfileDerived } from '../lib/rating/profile-derived';
+import {
+  ACADEMIC_STORED_SELECT,
+  degreesOf,
+  mirrorsForUpdate,
+  storedAcademic,
+} from '../lib/staff/academic';
+import { degreeLevel, degreeName } from '../lib/staff/academic-options';
+import { computeScore } from '../lib/rating/scoring';
+import { parseTypeSpecs } from '../validations/activity-type-spec';
 
 // Holds the university's own staff list and science-deputies table against a
-// database, and says where they differ (owner, 2026-10-28). REPORT ONLY —
-// nothing is written to the database.
+// database, and says where they differ (owner, 2026-10-28).
 //
 //   DATABASE_URL=<a COPY of production> pnpm db:check-staff-list
 //     [--staff edu-reference/staff.xlsx]
 //     [--deputies "edu-reference/Заступники з науки.doc"]
 //     [--year 2026]            the ставки year (default: the latest split)
 //     [--out staff-check.xlsx] the report, one sheet per category
+//     [--apply]                write the two trusted fixes (below)
 //
-// RUN IT LOCALLY, against a restored production backup (owner, 2026-10-28):
-// the list holds every person's ставка and degree, and this way it never has to
-// reach the server. edu-reference/ is not on the server anyway.
+// WHAT --apply WRITES — two things only (owner, 2026-10-28: the list comes from
+// the head of HR, so HR knows these better than the profile):
+// - the стаж (`pedagogicalExperience`), whenever it differs from the list;
+// - the галузь of a degree stored as the bare level («Кандидат наук» →
+//   «Кандидат педагогічних наук»), when the list names it and the level agrees.
+// Nothing else — ставки, посади, звання, accounts, deputies — is ever written:
+// the list is not trusted blindly, and a person decides those.
+//
+// The стаж PAYS RATING POINTS (pedagogical_experience), so every person is
+// re-synced through `syncProfileDerived`, the same as a profile save, and the
+// report prints the points before and after. The degree's галузь moves none:
+// 1.3 pays the level. Archived people are skipped. Each person gets an audit
+// entry with no user («—»). Safe to run twice — the second run finds nothing.
+//
+// RUN IT LOCALLY first, against a restored production backup: the list holds
+// every person's ставка and degree. To change production, run it there with the
+// list copied up, report first, then --apply.
 //
 // The Word file is read with `antiword` (in Git for Windows' mingw64, or any
 // Linux package); a .txt saved from Word works too. Read the categories in
@@ -219,7 +248,167 @@ async function main() {
   }
   summary.getRow(1).font = { bold: true };
   await wb.xlsx.writeFile(outFile);
-  console.log(`\nЗвіт: ${outFile}. У базі нічого не змінено.`);
+  console.log(`\nЗвіт: ${outFile}.`);
+
+  await applyFixes(
+    findings,
+    new Map(staffRows.map((s) => [s.id, s])),
+    process.argv.includes('--apply')
+  );
+}
+
+type StaffRow = {
+  id: string;
+  lastName: string;
+  firstName: string;
+  patronymic: string | null;
+  archivedAt: Date | null;
+  pedagogicalExperience: number | null;
+  diplomas: { degree: string }[];
+};
+
+/** The стаж and the degree's галузь — the only two things the list may write */
+async function applyFixes(findings: Finding[], staff: Map<string, StaffRow>, apply: boolean) {
+  const byPerson = new Map<string, StaffFix[]>();
+  for (const f of findings) {
+    if (!f.fix || !f.staffId) continue;
+    byPerson.set(f.staffId, [...(byPerson.get(f.staffId) ?? []), f.fix]);
+  }
+
+  // What a стаж pays in the open year, to show who gains or loses points
+  const template = await prisma.ratingTemplate.findFirst({
+    where: { isActive: true, status: 'OPEN' },
+    select: {
+      year: true,
+      activityTypes: {
+        where: { code: 'pedagogical_experience', isActive: true, inputSource: 'PROFILE_DERIVED' },
+        select: { code: true, coefficient: true, evidenceFields: true, scoring: true },
+      },
+    },
+  });
+  const type = template?.activityTypes[0];
+  const points = (years: number | null) => {
+    if (!type || !years || years <= 0) return 0;
+    const specs = parseTypeSpecs(type);
+    return computeScore(
+      {
+        code: type.code,
+        coefficient: type.coefficient,
+        scoring: specs.scoring,
+        evidenceFields: specs.fields,
+      },
+      { value: years }
+    ).score;
+  };
+
+  const name = (s: StaffRow) => `${s.lastName} ${s.firstName} ${s.patronymic ?? ''}`.trim();
+  const plans: { s: StaffRow; experience?: number; degrees: { from: string; to: string }[] }[] = [];
+  const skipped: string[] = [];
+  for (const [id, fixes] of byPerson) {
+    const s = staff.get(id)!;
+    if (s.archivedAt) {
+      skipped.push(`${name(s)} — в архіві`);
+      continue;
+    }
+    const plan = { s, degrees: [] as { from: string; to: string }[] } as (typeof plans)[number];
+    for (const fix of fixes) {
+      if (fix.field === 'pedagogicalExperience') plan.experience = fix.value;
+      // Exactly one diploma of that bare level, or the guess is not ours to make
+      else if (s.diplomas.filter((d) => d.degree === fix.from).length === 1) plan.degrees.push(fix);
+      else
+        skipped.push(
+          `${name(s)} — ${degreeName('candidate', fix.from)}: не один диплом цього рівня`
+        );
+    }
+    if (plan.experience !== undefined || plan.degrees.length) plans.push(plan);
+  }
+  plans.sort((a, b) => name(a.s).localeCompare(name(b.s), 'uk'));
+
+  const experience = plans.filter((p) => p.experience !== undefined);
+  const degrees = plans.filter((p) => p.degrees.length);
+  let pointsMoved = 0;
+  console.log(
+    `\n── --apply запише: стаж — ${experience.length} осіб, галузь ступеня — ${degrees.length} осіб ──`
+  );
+  console.log('\nСтаж (система → список):');
+  for (const p of experience) {
+    const before = points(p.s.pedagogicalExperience);
+    const after = points(p.experience!);
+    pointsMoved += after - before;
+    const delta = after === before ? '' : `   ${before} → ${after} б.`;
+    const down = (p.s.pedagogicalExperience ?? 0) > p.experience! ? '   ↓ МЕНШЕ' : '';
+    console.log(
+      `  ${name(p.s)}: ${p.s.pedagogicalExperience ?? '—'} → ${p.experience}${delta}${down}`
+    );
+  }
+  console.log(
+    `  Бали рейтингу ${template?.year ?? ''} за стаж разом: ${pointsMoved >= 0 ? '+' : ''}${pointsMoved}`
+  );
+  console.log('\nГалузь ступеня:');
+  for (const p of degrees)
+    for (const d of p.degrees)
+      console.log(
+        `  ${name(p.s)}: ${degreeName(degreeLevel(d.to) ?? 'candidate', d.from)} → ${degreeName(degreeLevel(d.to) ?? 'candidate', d.to)}`
+      );
+  if (skipped.length) {
+    console.log('\nПропущено:');
+    for (const line of skipped) console.log(`  ${line}`);
+  }
+
+  if (!apply) {
+    console.log('\nУ базі нічого не змінено. Запустіть з --apply, щоб записати стаж і галузь.');
+    return;
+  }
+
+  for (const p of plans) {
+    await prisma.$transaction(
+      async (tx) => {
+        const before = await tx.staff.findUniqueOrThrow({
+          where: { id: p.s.id },
+          select: { ...ACADEMIC_STORED_SELECT },
+        });
+        const data: Record<string, unknown> = {};
+        const changes: Record<string, { from: unknown; to: unknown }> = {};
+        if (p.experience !== undefined) {
+          data.pedagogicalExperience = p.experience;
+          changes.pedagogicalExperience = { from: before.pedagogicalExperience, to: p.experience };
+        }
+        if (p.degrees.length) {
+          for (const d of p.degrees)
+            await tx.diploma.updateMany({
+              where: { staffId: p.s.id, degree: d.from },
+              data: { degree: d.to },
+            });
+          const row = await tx.staff.findUniqueOrThrow({
+            where: { id: p.s.id },
+            select: { ...ACADEMIC_STORED_SELECT },
+          });
+          // The six mirror columns follow the list, as on every profile save
+          Object.assign(data, mirrorsForUpdate(storedAcademic(row), { degrees: degreesOf(row) }));
+          for (const d of p.degrees) {
+            const slot = degreeLevel(d.to) === 'doctor' ? 'doctor' : 'candidate';
+            changes[`${slot}Degree`] = {
+              from: degreeName(slot, d.from),
+              to: degreeName(slot, d.to),
+            };
+          }
+        }
+        await tx.staff.update({ where: { id: p.s.id }, data });
+        await tx.auditLog.create({
+          data: {
+            action: 'UPDATE',
+            entity: 'Staff',
+            entityId: p.s.id,
+            label: `${name(p.s)} — за списком штату (відділ кадрів)`,
+            changes: changes as never,
+          },
+        });
+        await syncProfileDerived(tx, p.s.id);
+      },
+      { timeout: 30_000 }
+    );
+  }
+  console.log(`\nЗаписано: ${plans.length} осіб.`);
 }
 
 main()
