@@ -108,7 +108,12 @@ export function RemoveLineButton({
             <AlertDialogTitle>Вилучити запис з характеристики?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p className="rounded-md bg-muted/60 p-2 text-xs text-foreground">
+                {/* `wrap-anywhere`: the summary carries the line's links whole, and
+                    a percent-encoded one (`%D1%96_%D1%87…pdf`) has no space to
+                    break at — it widened the dialog past the screen and slid the
+                    title out of view (2026-10-28). See `rating-table.tsx` on why
+                    this and not `break-words`. */}
+                <p className="rounded-md bg-muted/60 p-2 text-xs wrap-anywhere text-foreground">
                   <span className="text-muted-foreground tabular-nums">{itemNumber}</span> {summary}{' '}
                   <span className="text-muted-foreground">({year})</span>
                 </p>
