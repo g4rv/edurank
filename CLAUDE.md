@@ -418,7 +418,16 @@ pnpm db:check-staff-list  # edu-reference/staff.xlsx and «Заступники 
                       #   things only (owner, 2026-10-28, HR's list trusted for them): the стаж,
                       #   and the галузь of a degree stored as bare «Кандидат/Доктор наук». The
                       #   стаж pays rating points — re-synced, before/after printed (prod 28.10:
-                      #   239 people, +112). Never ставки, посади, звання or accounts.
+                      #   239 people, +112). Never ставки (next script), посади, звання
+                      #   or accounts.
+pnpm db:staff-list-rates  # the ставки from the same staff.xlsx into the ACTIVE year's
+                      #   розподіл (owner, 2026-10-29: «for everyone»). A штатний +
+                      #   сумісник pair on one кафедра is ONE ставка, the sum. Overwrites
+                      #   the heads' numbers; raises a Макс to meet the new number, never
+                      #   lowers one; skips archived, off-ladder, under-Мін, no-Кст. Also
+                      #   lists every SAVED science plan under the new norm (ННВ reopens
+                      #   it — the rating closes until it is saved again). Prod copy
+                      #   28.10: 112 ставки on 27 кафедри, 4 plans to top up. --apply.
 pnpm db:admin-position-every-post  # one-off: rating 1.6 pays EVERY post, one row
                       #   per post (owner, 2026-10-28). Lists who moves (28, +1090 on
                       #   prod 27.10); --apply writes through the profile sync.

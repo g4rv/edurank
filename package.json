@@ -38,6 +38,7 @@
     "db:intl-publication": "tsx prisma/intl-publication.ts",
     "db:admin-position-every-post": "tsx prisma/admin-position-every-post.ts",
     "db:check-staff-list": "tsx prisma/check-staff-list.ts",
+    "db:staff-list-rates": "tsx prisma/staff-list-rates.ts",
     "db:doi-publication": "tsx prisma/doi-publication.ts",
     "data:export-kharakterystyka": "tsx prisma/kharakterystyka-transfer.ts --export",
     "db:import-kharakterystyka": "tsx prisma/kharakterystyka-transfer.ts",

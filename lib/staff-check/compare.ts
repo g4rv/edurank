@@ -14,15 +14,17 @@ import { CANDIDATE_DEGREES, DOCTOR_DEGREES } from '@/lib/staff/academic-options'
  * The staff list held against the database (owner, 2026-10-28). Nothing here
  * writes. Two categories carry a `fix` that the script's `--apply` writes —
  * the стаж and a degree's missing галузь, where the owner trusts HR's list.
- * Everything else (ставки, посади, звання, accounts) stays a report: the list
- * is not trusted blindly, and a person decides those.
+ * The ставки carry a `rate` that `pnpm db:staff-list-rates` writes (owner,
+ * 2026-10-29). Everything else (посади, звання, accounts) stays a report: the
+ * list is not trusted blindly, and a person decides those.
  *
  * Read the categories before acting on them; several are not errors:
  * - the list writes internal сумісництво as two placements on ONE кафедра
- *   (штатний + сумісник), the app holds one placement with one ставка — so the
- *   ставка is compared as the SUM, and that shape is reported, not flagged;
+ *   (штатний + сумісник): the main place of work plus a part-time ставка, and
+ *   the person's ставка there is their SUM (owner, 2026-10-29). The app holds
+ *   one placement with one ставка, so the sum is what is compared;
  * - the system's ставка is the завідувач's split for the year, the list's is
- *   HR's — they may differ on purpose;
+ *   HR's;
  * - the list is a year newer than many stored стажі (+1 is the commonest gap).
  */
 
@@ -93,6 +95,12 @@ export interface Finding {
    * stored as the bare level («Кандидат наук» → «Кандидат педагогічних наук»).
    */
   fix?: StaffFix;
+  /**
+   * On `rateMissing` / `rateDiffers` only: the list's ставка for this кафедра —
+   * the SUM of its lines, since a штатний + сумісник pair on one кафедра is one
+   * ставка (owner, 2026-10-29). `pnpm db:staff-list-rates` writes it.
+   */
+  rate?: { departmentId: string; hundredths: number; held: number | null };
 }
 
 export type StaffFix =
@@ -202,9 +210,17 @@ export function compareStaffList(input: {
         )
         .reduce((sum, r) => sum + hundredths(r.p.rate!), 0);
       const held = allocations.get(pair);
-      if (listed && held == null) add({ ...ref, category: 'rateMissing', list: rateText(listed) });
+      const rate = { departmentId: department.id, hundredths: listed, held: held ?? null };
+      if (listed && held == null)
+        add({ ...ref, category: 'rateMissing', list: rateText(listed), rate });
       else if (listed && held !== listed)
-        add({ ...ref, category: 'rateDiffers', list: rateText(listed), system: rateText(held!) });
+        add({
+          ...ref,
+          category: 'rateDiffers',
+          list: rateText(listed),
+          system: rateText(held!),
+          rate,
+        });
     }
 
     if (p.position === 'завідувач') {

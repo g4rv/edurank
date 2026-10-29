@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDeputies, parseStaffSheet } from './parse';
 import { degreeFromList, matchDepartment, matchPeople } from './match';
 import { compareStaffList, type CheckStaff } from './compare';
+import { planRateMoves, type RatePerson } from './rates';
 import { CANDIDATE_DEGREES, DOCTOR_DEGREES } from '@/lib/staff/academic-options';
 
 // Every shape below is one seen in edu-reference/staff.xlsx or the deputies
@@ -255,7 +256,13 @@ describe('compareStaffList', () => {
       allocations: new Map([['kotsur|d1', 125]]),
     });
     const by = (c: string) => findings.filter((f) => f.category === c);
-    expect(by('rateDiffers')).toEqual([expect.objectContaining({ list: '1,40', system: '1,25' })]);
+    expect(by('rateDiffers')).toEqual([
+      expect.objectContaining({
+        list: '1,40',
+        system: '1,25',
+        rate: { departmentId: 'd1', hundredths: 140, held: 125 },
+      }),
+    ]);
     expect(by('internalPartTime')).toHaveLength(1);
     // Facts compared once, from the main placement
     expect(by('degreeUnspecified')).toEqual([
@@ -273,6 +280,21 @@ describe('compareStaffList', () => {
       'degreeUnspecified',
       'experienceOneYear',
     ]);
+  });
+
+  it('gives a missing ставка the list’s number, with nothing held', () => {
+    const findings = compareStaffList({
+      placements: [placement({ kind: 'сумісник', rate: 0.2, position: 'доцент' })],
+      deputies: [],
+      departments: [dept],
+      staff: [person({ departmentId: 'd9', partTimeDepartmentIds: ['d1'] })],
+      allocations: new Map(),
+    });
+    expect(findings.find((f) => f.category === 'rateMissing')?.rate).toEqual({
+      departmentId: 'd1',
+      hundredths: 20,
+      held: null,
+    });
   });
 
   it('offers no fix for a degree of another level or branch', () => {
@@ -302,6 +324,92 @@ describe('compareStaffList', () => {
       ['deputyToSet', 'kotsur'],
       ['deputySeveral', null],
       ['deputyFaculty', null],
+    ]);
+  });
+});
+
+describe('planRateMoves', () => {
+  const finding = (
+    staffId: string,
+    departmentId: string,
+    hundredths: number,
+    held: number | null
+  ) =>
+    ({
+      category: held === null ? 'rateMissing' : 'rateDiffers',
+      person: staffId,
+      department: departmentId,
+      row: 1,
+      list: null,
+      system: null,
+      staffId,
+      rate: { departmentId, hundredths, held },
+    }) as const;
+  const on = (over: Partial<RatePerson> = {}): RatePerson => ({
+    archived: false,
+    isNpp: true,
+    departmentId: 'd1',
+    partTimeDepartmentIds: [],
+    ...over,
+  });
+  const plan = (
+    findings: ReturnType<typeof finding>[],
+    people: Record<string, RatePerson>,
+    limits: [string, { minHundredths: number; maxHundredths: number }][] = []
+  ) =>
+    planRateMoves({
+      findings,
+      people: new Map(Object.entries(people)),
+      limits: new Map(limits),
+      pools: new Set(['d1', 'd2']),
+    });
+
+  it('writes the internal сумісництво sum, raising the default Макс to meet it', () => {
+    expect(plan([finding('a', 'd1', 125, 100)], { a: on() }).moves).toEqual([
+      { staffId: 'a', departmentId: 'd1', from: 100, to: 125, raiseMaxFrom: 100 },
+    ]);
+  });
+
+  it('gives a missing сумісник row its number, against the part-time ceiling', () => {
+    const { moves } = plan([finding('a', 'd2', 50, null)], {
+      a: on({ partTimeDepartmentIds: ['d2'] }),
+    });
+    expect(moves).toEqual([
+      { staffId: 'a', departmentId: 'd2', from: null, to: 50, raiseMaxFrom: 25 },
+    ]);
+  });
+
+  it('lowers a ставка without touching the Макс', () => {
+    expect(plan([finding('a', 'd1', 90, 100)], { a: on() }).moves).toEqual([
+      { staffId: 'a', departmentId: 'd1', from: 100, to: 90 },
+    ]);
+  });
+
+  it('skips what the grid could not hold, and says why', () => {
+    const { moves, skips } = plan(
+      [
+        finding('archived', 'd1', 25, null),
+        finding('elsewhere', 'd1', 50, null),
+        finding('odd', 'd1', 33, 25),
+        finding('floor', 'd1', 20, 50),
+        finding('nopool', 'd3', 50, null),
+      ],
+      {
+        archived: on({ archived: true }),
+        elsewhere: on({ departmentId: 'd2' }),
+        odd: on(),
+        floor: on(),
+        nopool: on({ partTimeDepartmentIds: ['d3'] }),
+      },
+      [['floor|d1', { minHundredths: 30, maxHundredths: 100 }]]
+    );
+    expect(moves).toEqual([]);
+    expect(skips.map((s) => [s.staffId, s.reason])).toEqual([
+      ['archived', 'archived'],
+      ['elsewhere', 'notOnDepartment'],
+      ['odd', 'offLadder'],
+      ['floor', 'belowMin'],
+      ['nopool', 'noPool'],
     ]);
   });
 });

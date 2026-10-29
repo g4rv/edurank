@@ -6,7 +6,8 @@ import path from 'node:path';
 import ExcelJS from 'exceljs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
-import { parseDeputies, parseStaffSheet } from '../lib/staff-check/parse';
+import { parseDeputies } from '../lib/staff-check/parse';
+import { readStaffSheet } from '../lib/staff-check/read-sheet';
 import {
   compareStaffList,
   type Finding,
@@ -39,8 +40,9 @@ import { parseTypeSpecs } from '../validations/activity-type-spec';
 // - the стаж (`pedagogicalExperience`), whenever it differs from the list;
 // - the галузь of a degree stored as the bare level («Кандидат наук» →
 //   «Кандидат педагогічних наук»), when the list names it and the level agrees.
-// Nothing else — ставки, посади, звання, accounts, deputies — is ever written:
-// the list is not trusted blindly, and a person decides those.
+// Nothing else — посади, звання, accounts, deputies — is ever written: the list
+// is not trusted blindly, and a person decides those. The ставки have their own
+// script, `pnpm db:staff-list-rates` (owner, 2026-10-29).
 //
 // The стаж PAYS RATING POINTS (pedagogical_experience), so every person is
 // re-synced through `syncProfileDerived`, the same as a profile save, and the
@@ -90,28 +92,6 @@ const arg = (name: string, fallback: string) => {
   return at > 0 && process.argv[at + 1] ? process.argv[at + 1] : fallback;
 };
 
-async function readSheet(file: string) {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(file);
-  const ws = wb.worksheets[0];
-  const text = (v: ExcelJS.CellValue): string | null => {
-    if (v == null) return null;
-    if (typeof v === 'object') {
-      if ('richText' in v) return v.richText.map((t) => t.text).join('');
-      if ('text' in v) return String(v.text);
-      if ('result' in v) return v.result == null ? null : String(v.result);
-      return null;
-    }
-    return String(v);
-  };
-  const rows: { row: number; cells: (string | null)[] }[] = [];
-  ws.eachRow({ includeEmpty: true }, (row, n) => {
-    if (n > 1)
-      rows.push({ row: n, cells: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => text(row.getCell(i).value)) });
-  });
-  return parseStaffSheet(rows);
-}
-
 function readDeputiesText(file: string): string {
   if (file.toLowerCase().endsWith('.txt')) return readFileSync(file, 'utf8');
   // antiword cannot open a Cyrillic file name on Windows — read a copy
@@ -140,7 +120,7 @@ async function main() {
   for (const f of [staffFile, deputiesFile])
     if (!existsSync(f)) throw new Error(`Немає файлу: ${f}`);
 
-  const placements = await readSheet(staffFile);
+  const placements = await readStaffSheet(staffFile);
   const deputies = parseDeputies(readDeputiesText(deputiesFile));
 
   const year =
