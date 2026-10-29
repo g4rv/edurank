@@ -1,3 +1,4 @@
+import { DIPLOMA_ROWS } from '@/lib/staff/diploma-scan';
 import { cache } from 'react';
 import { db } from '@/lib/db';
 import {
@@ -113,7 +114,7 @@ async function loadKharakterystyka(
       isNpp: true,
       scientificDegree: true,
       degreeDefenceDate: true,
-      diplomas: true,
+      diplomas: DIPLOMA_ROWS,
     },
   });
   // Non-НПП have no rating and therefore no Характеристика — the document is
@@ -184,7 +185,7 @@ export async function getKharakterystykaMany(
         id: true,
         scientificDegree: true,
         degreeDefenceDate: true,
-        diplomas: true,
+        diplomas: DIPLOMA_ROWS,
       },
     }),
     db.activity.findMany({

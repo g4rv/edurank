@@ -102,6 +102,8 @@ export const FIELD_LABELS: Record<string, string> = {
   honoraryTitles: 'Почесні звання',
   adminPositions: 'Адміністративні посади',
   degrees: 'Наукові ступені',
+  // Not a column: the names of the diploma scans, before and after a save
+  diplomaScans: 'Скани дипломів',
   candidateDegree: 'Науковий ступінь: кандидат / PhD',
   candidateSpecialty: 'Спеціальність за дипломом (кандидат / PhD)',
   candidateDefenceDate: 'Дата захисту (кандидат / PhD)',
@@ -253,6 +255,8 @@ export const FIELD_LABELS: Record<string, string> = {
   pageCount: 'Сторінок у файлі',
   // SciencePlanTemplate — the навчальний рік a Додаток III catalogue belongs to.
   academicYear: 'Навчальний рік',
+  // ScienceCoauthorShare — a co-author's «Відмітити як уже списану»
+  writtenOff: 'Відмічено як уже списану',
   orderRef: 'Наказ',
   minHoursPerRate: 'Мін. годин на ставку',
   // ScienceWorkType — one row of Додаток III's catalogue, edited on

@@ -4,7 +4,7 @@ import { initials } from '@/lib/name';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import type { ScienceRecordStatus, ScienceSharing } from '@/lib/generated/prisma/client';
 import { dateToMonthKey } from '@/lib/science/execution-month';
-import { deferralYear, earlierYear } from '@/lib/science/count-year';
+import { deferralYear } from '@/lib/science/count-year';
 
 /**
  * Every кафедра a person needs a plan on: their primary one (if they have
@@ -133,6 +133,8 @@ export interface SciencePlanRecordDetail {
     pending: boolean;
     /** The co-author moved their share to this later навчальний рік. */
     deferredTo: string | null;
+    /** The co-author marked their share «уже списану» — it counts nowhere. */
+    writtenOff: boolean;
   }[];
   /** Whoever entered the work — named to a co-author, who must agree any change
    *  to their hours with this person. */
@@ -144,17 +146,17 @@ export interface SciencePlanRecordDetail {
    */
   deferrable: string | null;
   /**
-   * The previous навчальний рік, when this co-author may say their share was
-   * already counted there (`earlierYear`, owner 2026-10-07) — same conditions
-   * as `deferrable`, the mirror window.
+   * Whether this CO-AUTHOR may mark their share «уже списану» (owner,
+   * 2026-10-27) — a SHARED work of the open year, a counting row, never the
+   * author. No date window.
    */
-  countedEarlier: string | null;
+  canWriteOff: boolean;
 }
 
 /**
  * A co-author's share of one of this year's works that they moved to the next
- * навчальний рік — not counted here, listed so they can see it and bring it
- * back while this year is open.
+ * навчальний рік or marked «уже списану» — not counted here, listed so they can
+ * see it and bring it back while this year is open.
  */
 export interface DeferredShareDetail {
   workId: string;
@@ -164,8 +166,10 @@ export interface DeferredShareDetail {
   link: string | null;
   hoursHundredths: number;
   totalHundredths: number;
-  /** Where it will count, «2027/2028». */
-  academicYear: string;
+  /** Where it will count, «2027/2028»; null when it is written off. */
+  academicYear: string | null;
+  /** Marked «уже списану» — counts nowhere. */
+  writtenOff: boolean;
   authorName: string;
 }
 
@@ -284,6 +288,7 @@ export async function getSciencePlan(
                   staffId: true,
                   hoursHundredths: true,
                   academicYear: true,
+                  writtenOffAt: true,
                   staff: { select: { lastName: true, firstName: true, patronymic: true } },
                 },
               },
@@ -398,6 +403,7 @@ export async function getSciencePlan(
             hoursHundredths: other.hoursHundredths,
             pending: false,
             deferredTo: null,
+            writtenOff: false,
           })),
         ...r.work.coauthorShares
           .filter((other) => other.staffId !== staffId)
@@ -407,10 +413,11 @@ export async function getSciencePlan(
             hoursHundredths: other.hoursHundredths,
             pending: true,
             deferredTo: other.academicYear,
+            writtenOff: other.writtenOffAt !== null,
           })),
       ],
       authorName: initials(r.work.createdBy),
-      ...shareYearChoices(
+      ...shareChoices(
         template.status === 'OPEN' &&
           r.work.templateId === templateId &&
           r.work.createdById !== staffId &&
@@ -466,21 +473,21 @@ export async function getSciencePlan(
   };
 }
 
-/**
- * This year's works whose share this person moved to a later year. A share
- * hangs off no plan, so it is listed on the plan that would have held its
- * record — the primary кафедра's, or the first one — never on both of a
- * сумісник's plans.
- */
-/** Where a co-author may move their share — later, or «already counted» earlier */
-function shareYearChoices(
+/** What a co-author may do with their share — move it later, or write it off */
+function shareChoices(
   allowed: boolean,
   window: Parameters<typeof deferralYear>[0]
-): { deferrable: string | null; countedEarlier: string | null } {
-  if (!allowed) return { deferrable: null, countedEarlier: null };
-  return { deferrable: deferralYear(window), countedEarlier: earlierYear(window) };
+): { deferrable: string | null; canWriteOff: boolean } {
+  if (!allowed) return { deferrable: null, canWriteOff: false };
+  return { deferrable: deferralYear(window), canWriteOff: window.sharing === 'SHARED' };
 }
 
+/**
+ * This year's works whose share this person moved to a later year or marked
+ * «уже списану». A share hangs off no plan, so it is listed on the plan that
+ * would have held its record — the primary кафедра's, or the first one — never
+ * on both of a сумісник's plans.
+ */
 async function deferredSharesFor(
   staffId: string,
   departmentId: string,
@@ -500,10 +507,15 @@ async function deferredSharesFor(
   if (home !== departmentId) return [];
 
   const shares = await db.scienceCoauthorShare.findMany({
-    where: { staffId, academicYear: { not: null }, work: { templateId } },
+    where: {
+      staffId,
+      OR: [{ academicYear: { not: null } }, { writtenOffAt: { not: null } }],
+      work: { templateId },
+    },
     select: {
       hoursHundredths: true,
       academicYear: true,
+      writtenOffAt: true,
       work: {
         select: {
           id: true,
@@ -530,7 +542,8 @@ async function deferredSharesFor(
       link: share.work.link,
       hoursHundredths: share.hoursHundredths,
       totalHundredths: share.work.totalHundredths,
-      academicYear: share.academicYear!,
+      academicYear: share.academicYear,
+      writtenOff: share.writtenOffAt !== null,
       authorName: initials(share.work.createdBy),
     };
   });

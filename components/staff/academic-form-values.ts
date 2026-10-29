@@ -22,6 +22,13 @@ export type DegreeFormRow = {
   issueDate: string;
   basicLevel: string;
   topic: string;
+  /** The `Diploma` row, '' for one not saved yet (owner, 2026-10-27). Not `id`:
+   *  that name is `useFieldArray`'s own key and would be overwritten. */
+  diplomaId: string;
+  /** The scan choice — undefined keeps the stored one (`ScanChoice`) */
+  file?: { objectKey: string; fileName: string } | null;
+  /** The stored scan's name, '' for none — for showing only */
+  scanName: string;
 };
 
 /** A blank diploma — what «Додати освіту» starts the popup from */
@@ -36,6 +43,8 @@ export const EMPTY_DEGREE_ROW: DegreeFormRow = {
   issueDate: '',
   basicLevel: '',
   topic: '',
+  diplomaId: '',
+  scanName: '',
 };
 
 /** Every academic field as the inputs produce it; Zod coerces on submit */
@@ -95,6 +104,8 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
         issueDate: r.issueDate ?? '',
         basicLevel: r.basicLevel ?? '',
         topic: r.topic ?? '',
+        diplomaId: r.id ?? '',
+        scanName: r.scanName ?? '',
       }))
     : [];
   return {
@@ -113,6 +124,9 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
  * rule itself is `diplomaGaps` — the same one the save checks, so the popup and
  * the server cannot disagree. Every field but «відповідає кафедрі» and the серія.
  */
+/** A diploma date after today — it blocks every save of the profile until fixed */
+export const FUTURE_DATE_MESSAGE = 'Дата не може бути в майбутньому';
+
 export function diplomaProblems(row: DegreeFormRow): Partial<Record<DiplomaField, string>> {
   const basic = degreeLevel(row.degree) === 'basic';
   const missing: Record<DiplomaField, string> = {
@@ -128,7 +142,11 @@ export function diplomaProblems(row: DegreeFormRow): Partial<Record<DiplomaField
   const out: Partial<Record<DiplomaField, string>> = {};
   for (const [field, gap] of Object.entries(diplomaGaps(row)) as [DiplomaField, string][]) {
     out[field] =
-      gap === 'beforeDefence' ? 'Диплом не може бути виданий раніше захисту' : missing[field];
+      gap === 'beforeDefence'
+        ? 'Диплом не може бути виданий раніше захисту'
+        : gap === 'future'
+          ? FUTURE_DATE_MESSAGE
+          : missing[field];
   }
   return out;
 }

@@ -23,7 +23,17 @@ export interface PlanGateDepartment {
   name: string;
 }
 
-export type PlanGate = { open: true } | { open: false; unsaved: PlanGateDepartment[] };
+/**
+ * A кафедра still missing a saved plan. `noRate`: the person has no ставка
+ * there yet, so they CANNOT save it — only that кафедра's завідувач can unblock
+ * them, and the rating's note says so (owner, 2026-10-28). Filled in by
+ * `getSciencePlanGate`; `planGate` itself does not know.
+ */
+export interface UnsavedDepartment extends PlanGateDepartment {
+  noRate?: boolean;
+}
+
+export type PlanGate = { open: true } | { open: false; unsaved: UnsavedDepartment[] };
 
 /** The sentence a refused action returns; the page shows it as its heading. */
 export const PLAN_GATE_DETAIL =

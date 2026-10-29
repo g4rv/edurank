@@ -26,6 +26,20 @@
 >   closes (`ActivityType.gatesRating`, owner 2026-10-19).
 > - **3.7 and 2.2 are typed in друкованих аркушах**, not pages; a монографія's personal share
 >   must reach 1,5.
+>
+> **Changed 2026-10-27 (owner):**
+>
+> - **New 3.11** `doi_publication` «Наукові публікації, що мають цифровий ідентифікатор DOI
+>   та не належать до категорій «А» і «Б»», SELECT, НПП: стаття одноосібно 100 · стаття у
+>   співавторстві 50 · конференція 40 (in that order); бібліографічний опис, DOI (mandatory —
+>   it is the proof, so there is no link box) and «Дата публікації» inside the rating year
+>   (`rule: 'ratingYear'`). «Перевірено» on /moderation. Every number from 3.11 to 3.26 is one
+>   higher again: 3.11 → 3.12 … 3.26 → 3.27. Existing databases: `pnpm db:doi-publication`,
+>   after `db:intl-publication`.
+> - **One DOI once per person per point, across every year.** Any indicator with a DOI field:
+>   `createActivity` refuses a DOI the person already holds in the same point (matched by
+>   `code`, any year, any spelling). Another point may reuse it, co-authors each enter it,
+>   and a discarded or deleted entry frees it.
 
 ## Division name map (short key → Division.name in DB)
 

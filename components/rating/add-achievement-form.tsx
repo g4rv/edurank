@@ -66,12 +66,16 @@ export interface SubmittableType {
 export function AddAchievementForm({
   types: unsortedTypes,
   title,
+  ratingYear,
 }: {
   types: SubmittableType[];
   /** The section's own name — «Розділ 2. Показники навчальної діяльності» —
    *  as the dialog's title, so the form says WHERE it is adding (owner,
    *  2026-10-02; it read «Нове досягнення» on every section). */
   title: string;
+  /** The open year — what a `ratingYear` date must fall in (3.11's «Дата
+   *  публікації»). The server judges it again against the template. */
+  ratingYear: number;
 }) {
   const types = [...unsortedTypes].sort((a, b) => compareItemNumbers(a.itemNumber, b.itemNumber));
   const [open, setOpen] = useState(false);
@@ -109,6 +113,7 @@ export function AddAchievementForm({
           <EvidenceForm
             key={selected.id}
             type={selected}
+            ratingYear={ratingYear}
             onDone={() => setOpen(false)}
             picker={<TypePicker types={types} value={typeId} onChange={setTypeId} />}
           />
@@ -157,21 +162,24 @@ function TypePicker({
 
 function EvidenceForm({
   type,
+  ratingYear,
   onDone,
   picker,
 }: {
   type: SubmittableType;
+  ratingYear: number;
   onDone: () => void;
   picker: React.ReactNode;
 }) {
   const [isPending, startTransition] = useTransition();
   // useState initializer: fields are static for this mount (form remounts per type)
-  const [schema] = useState(() => schemaForFields(type.fields, type.scoring));
+  const [schema] = useState(() => schemaForFields(type.fields, type.scoring, { ratingYear }));
 
   const {
     register,
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<FieldValues>({
     resolver: standardSchemaResolver(schema as never) as unknown as Resolver<FieldValues>,
@@ -216,6 +224,8 @@ function EvidenceForm({
             register={register}
             control={control}
             errors={errors}
+            ratingYear={ratingYear}
+            doiHints={setValue}
           />
         </DialogBody>
         {/* Pinned below the body, not placed after the last field: a form is as

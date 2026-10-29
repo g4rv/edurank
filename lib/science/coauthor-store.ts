@@ -410,8 +410,9 @@ export async function attachReservations(
     where: {
       staffId,
       OR: [
-        // Reserved in this year, on this year's work — the ordinary case.
-        { academicYear: null, work: { templateId } },
+        // Reserved in this year, on this year's work — the ordinary case. A share
+        // marked «уже списану» counts nowhere and never becomes a record.
+        { academicYear: null, writtenOffAt: null, work: { templateId } },
         // Moved here from the year before by the co-author (owner, 2026-10-02):
         // the work is last year's, the record is this year's.
         { academicYear },
@@ -500,7 +501,39 @@ export async function deferShare(
   tx: Tx,
   input: { work: WorkRef; staffId: string; academicYear: string; userId: string }
 ): Promise<void> {
-  const { work, staffId, academicYear, userId } = input;
+  await moveShareOut(tx, input, { academicYear: input.academicYear, writtenOffAt: null });
+}
+
+/**
+ * A CO-AUTHOR marks their share «уже списану» (owner, 2026-10-27): they already
+ * used the work elsewhere. The same move as a deferral, to nowhere: the share
+ * keeps its hours in the pool and never becomes a record again unless they
+ * press «Повернути» (`undeferShare`).
+ */
+export async function writeOffShare(
+  tx: Tx,
+  input: { work: WorkRef; staffId: string; userId: string }
+): Promise<void> {
+  await moveShareOut(tx, input, { academicYear: null, writtenOffAt: new Date() });
+}
+
+/** Where a share stands, as the audit log shows it */
+function shareState(share: { academicYear: string | null; writtenOffAt: Date | null }) {
+  return { academicYear: share.academicYear, writtenOff: share.writtenOffAt !== null };
+}
+
+/**
+ * Take a co-author's share out of the work's own year — to a later one, or to
+ * nowhere. Their record — or their reservation, if they never had one — becomes
+ * a reservation in that state; `hoursHundredths` is kept, so the pool is unchanged.
+ */
+async function moveShareOut(
+  tx: Tx,
+  input: { work: WorkRef; staffId: string; userId: string },
+  target: { academicYear: string | null; writtenOffAt: Date | null }
+): Promise<void> {
+  const { work, staffId, userId } = input;
+  const counting = { academicYear: null, writtenOffAt: null };
 
   const record = await tx.scienceRecord.findUnique({
     where: { staffId_workId: { staffId, workId: work.id } },
@@ -509,11 +542,11 @@ export async function deferShare(
   if (record) {
     // A declined record holds no hours to move; the author fixes the work first.
     if (record.status !== 'APPROVED') {
-      throw new CoauthorError('Роботу відхилено — перенести частку можна, коли автор її виправить');
+      throw new CoauthorError('Роботу відхилено — змінити частку можна, коли автор її виправить');
     }
     await tx.scienceRecord.delete({ where: { id: record.id } });
     const share = await tx.scienceCoauthorShare.create({
-      data: { workId: work.id, staffId, hoursHundredths: record.hoursHundredths, academicYear },
+      data: { workId: work.id, staffId, hoursHundredths: record.hoursHundredths, ...target },
       select: { id: true },
     });
     await tx.auditLog.create({
@@ -523,7 +556,7 @@ export async function deferShare(
         entityId: share.id,
         label: work.typeLabel,
         userId,
-        changes: diffChanges({ academicYear: null }, { academicYear }),
+        changes: diffChanges(shareState(counting), shareState(target)),
       },
     });
     return;
@@ -531,11 +564,16 @@ export async function deferShare(
 
   const share = await tx.scienceCoauthorShare.findUnique({
     where: { workId_staffId: { workId: work.id, staffId } },
-    select: { id: true, academicYear: true },
+    select: { id: true, academicYear: true, writtenOffAt: true },
   });
   if (!share) throw new CoauthorError('Вас немає серед співавторів цієї роботи');
-  if (share.academicYear === academicYear) return;
-  await tx.scienceCoauthorShare.update({ where: { id: share.id }, data: { academicYear } });
+  if (
+    share.academicYear === target.academicYear &&
+    (share.writtenOffAt !== null) === (target.writtenOffAt !== null)
+  ) {
+    return;
+  }
+  await tx.scienceCoauthorShare.update({ where: { id: share.id }, data: target });
   await tx.auditLog.create({
     data: {
       action: 'UPDATE',
@@ -543,15 +581,16 @@ export async function deferShare(
       entityId: share.id,
       label: work.typeLabel,
       userId,
-      changes: diffChanges({ academicYear: share.academicYear }, { academicYear }),
+      changes: diffChanges(shareState(share), shareState(target)),
     },
   });
 }
 
 /**
  * The co-author changes their mind: the share counts in the work's own year
- * again. A record straight away when they have a saved plan for it, otherwise
- * an ordinary reservation that `lockPlan` attaches.
+ * again — from a later year or from «уже списану» alike. A record straight away
+ * when they have a saved plan for it, otherwise an ordinary reservation that
+ * `lockPlan` attaches.
  */
 export async function undeferShare(
   tx: Tx,
@@ -561,10 +600,10 @@ export async function undeferShare(
 
   const share = await tx.scienceCoauthorShare.findUnique({
     where: { workId_staffId: { workId: work.id, staffId } },
-    select: { id: true, academicYear: true, hoursHundredths: true },
+    select: { id: true, academicYear: true, writtenOffAt: true, hoursHundredths: true },
   });
   // Already counting in the work's year (a record, or a plain reservation).
-  if (!share || share.academicYear === null) return;
+  if (!share || (share.academicYear === null && share.writtenOffAt === null)) return;
 
   const person = await tx.staff.findUnique({
     where: { id: staffId },
@@ -577,7 +616,10 @@ export async function undeferShare(
   );
 
   if (!plan) {
-    await tx.scienceCoauthorShare.update({ where: { id: share.id }, data: { academicYear: null } });
+    await tx.scienceCoauthorShare.update({
+      where: { id: share.id },
+      data: { academicYear: null, writtenOffAt: null },
+    });
   } else {
     const cap = await capProblem(tx, work, staffId, 'Ви');
     if (cap) throw new CoauthorError(cap);
@@ -601,7 +643,10 @@ export async function undeferShare(
       entityId: share.id,
       label: work.typeLabel,
       userId,
-      changes: diffChanges({ academicYear: share.academicYear }, { academicYear: null }),
+      changes: diffChanges(
+        shareState(share),
+        shareState({ academicYear: null, writtenOffAt: null })
+      ),
     },
   });
 }

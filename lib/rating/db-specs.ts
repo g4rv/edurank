@@ -64,6 +64,7 @@ export const SELECT_OPTION_POINTS = {
   initiative_topic: { leader: 15, executor: 10 },
   publication_cat_a: { q1: 600, q2: 500, q3_4_or_none: 400 },
   publication_cat_b: { solo: 300, coauthored: 150 },
+  doi_publication: { solo: 100, coauthored: 50, conference: 40 },
   defense_supervision: { doctor: 500, phd: 300 },
   scientific_supervision: {
     doctoral_candidate: 100,

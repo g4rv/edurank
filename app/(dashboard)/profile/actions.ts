@@ -20,6 +20,7 @@ import {
 import {
   DIPLOMA_INCOMPLETE_MESSAGE,
   diplomaRefusal,
+  prepareDiplomaScans,
   takeDiplomas,
   writeDiplomas,
 } from '@/lib/staff/diplomas';
@@ -129,6 +130,14 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
     if ('error' in result) return { error: result.error };
     prepared = result.prepared;
   }
+  // A diploma scan, checked the same way (owner, 2026-10-27).
+  const scans = await prepareDiplomaScans({
+    staffId,
+    userId: session.user.id,
+    records: diplomas,
+    scope: 'profile.updateOwnProfile',
+  });
+  if ('error' in scans) return { error: scans.error };
   // Set by the transaction: R2 objects a replaced or removed scan leaves behind.
   let orphaned: string[] = [];
 
@@ -175,11 +184,12 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
       if (mirrors) Object.assign(updateData, mirrors);
 
       await tx.staff.update({ where: { id: staffId }, data: updateData });
-      if (diplomas) await writeDiplomas(tx, staffId, diplomas);
+      const written = diplomas ? await writeDiplomas(tx, staffId, diplomas, scans.verified) : null;
+      if (written?.scans) changes.diplomaScans = written.scans;
 
       const applied = await applyCertificates(tx, staffId, prepared);
       Object.assign(changes, applied.changes);
-      orphaned = applied.orphaned;
+      orphaned = [...applied.orphaned, ...(written?.orphaned ?? [])];
 
       const touchesDerived = Object.keys(updateData).some((key) =>
         (PROFILE_DERIVED_STAFF_FIELDS as readonly string[]).includes(key)

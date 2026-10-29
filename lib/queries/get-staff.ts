@@ -1,3 +1,4 @@
+import { DIPLOMA_ROWS } from '@/lib/staff/diploma-scan';
 import { cache } from 'react';
 import { db } from '@/lib/db';
 
@@ -50,7 +51,7 @@ export const getStaff = cache(async function getStaff(id: string, includeConfide
       doctorSpecialty: true,
       doctorDefenceDate: true,
       doctorMatchesDepartment: true,
-      diplomas: { orderBy: { position: 'asc' } },
+      diplomas: DIPLOMA_ROWS,
       academicRank: true,
       scientificDegree: true,
       degreeMatchesDepartment: true,

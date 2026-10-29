@@ -1,3 +1,5 @@
+import { DIPLOMA_ROWS } from '@/lib/staff/diploma-scan';
+import { KYIV } from '@/lib/kyiv-time';
 import type {
   AcademicRank,
   AcademicTitle,
@@ -152,8 +154,9 @@ export function heldAdminPositions({
 }
 
 /**
- * The ONE post rating 1.6 pays: the highest of the picked ones (`adminPosition`
- * is their mirror) and the headship. Never two.
+ * The highest post: the picked ones (`adminPosition` is their mirror) and the
+ * headship. Rating 1.6 paid only this one until 2026-10-28; it now pays every
+ * post (`derivedEvidences` in lib/rating/profile-derived.ts).
  */
 export function effectiveAdminPosition({
   adminPosition,
@@ -262,6 +265,19 @@ export interface DegreeRecord {
   basicLevel: string | null;
   /** The topic of the scientific work — a candidate / doctor only */
   topic: string | null;
+  /**
+   * The `Diploma` row this entry IS (owner, 2026-10-27), so a save updates it in
+   * place and its scan survives. Absent on an entry not saved yet, and on one
+   * from a form opened before ids existed — that one is written anew.
+   */
+  id?: string | null;
+  /**
+   * What a save does to the scan — `undefined` keeps it, `null` takes it away,
+   * an object is a newly uploaded one (the `ScanChoice` every scan uses).
+   */
+  file?: { objectKey: string; fileName: string } | null;
+  /** The stored scan's name, for showing only — the key never leaves the server */
+  scanName?: string | null;
 }
 
 const NO_DIPLOMA = {
@@ -297,20 +313,33 @@ export function asDegreeRecords(value: unknown): DegreeRecord[] {
     const r = item as Record<string, unknown>;
     if (typeof r.degree !== 'string' || !r.degree) return [];
     const text = (v: unknown) => (typeof v === 'string' && v ? v : null);
-    return [
-      {
-        degree: r.degree,
-        specialty: text(r.specialty),
-        defenceDate: text(r.defenceDate),
-        matchesDepartment: typeof r.matchesDepartment === 'boolean' ? r.matchesDepartment : null,
-        issuedBy: text(r.issuedBy),
-        series: text(r.series),
-        number: text(r.number),
-        issueDate: text(r.issueDate),
-        basicLevel: text(r.basicLevel),
-        topic: text(r.topic),
-      },
-    ];
+    const record: DegreeRecord = {
+      degree: r.degree,
+      specialty: text(r.specialty),
+      defenceDate: text(r.defenceDate),
+      matchesDepartment: typeof r.matchesDepartment === 'boolean' ? r.matchesDepartment : null,
+      issuedBy: text(r.issuedBy),
+      series: text(r.series),
+      number: text(r.number),
+      issueDate: text(r.issueDate),
+      basicLevel: text(r.basicLevel),
+      topic: text(r.topic),
+    };
+    // Carried only when present, so a record without them compares and prints
+    // exactly as before.
+    // `id` from a row; `diplomaId` from the form, which cannot use that name
+    // (it is `useFieldArray`'s own key).
+    const id = text(r.id) ?? text(r.diplomaId);
+    if (id) record.id = id;
+    if (r.file === null) record.file = null;
+    else if (r.file && typeof r.file === 'object') {
+      const f = r.file as Record<string, unknown>;
+      if (text(f.objectKey) && text(f.fileName)) {
+        record.file = { objectKey: f.objectKey as string, fileName: f.fileName as string };
+      }
+    }
+    if (text(r.scanName)) record.scanName = text(r.scanName);
+    return [record];
   });
 }
 
@@ -321,7 +350,15 @@ export function fromDiplomaRows(rows: unknown): DegreeRecord[] {
   return asDegreeRecords(
     [...rows]
       .sort((a, b) => (a?.position ?? 0) - (b?.position ?? 0))
-      .map((r) => ({ ...r, defenceDate: asDay(r?.defenceDate), issueDate: asDay(r?.issueDate) }))
+      .map((r) => ({
+        ...r,
+        defenceDate: asDay(r?.defenceDate),
+        issueDate: asDay(r?.issueDate),
+        // The row's own `file*` columns are not the save's `file` choice: only
+        // the name is read out, and only when a scan is really there.
+        file: undefined,
+        scanName: r?.fileName ?? null,
+      }))
   );
 }
 
@@ -380,7 +417,7 @@ export type DiplomaField =
   | 'number';
 
 /** What is wrong with a field: left empty, or an issue date before the defence */
-export type DiplomaGap = 'missing' | 'beforeDefence';
+export type DiplomaGap = 'missing' | 'beforeDefence' | 'future';
 
 type DiplomaInput = {
   [K in keyof DegreeRecord]?: DegreeRecord[K] | string;
@@ -393,7 +430,11 @@ type DiplomaInput = {
  * defence, never before. Shared by the popup (form strings) and the save
  * (records), so the two cannot disagree.
  */
-export function diplomaGaps(r: DiplomaInput): Partial<Record<DiplomaField, DiplomaGap>> {
+export function diplomaGaps(
+  r: DiplomaInput,
+  /** «YYYY-MM-DD», Kyiv — a parameter so a test can fix it */
+  today: string = new Date().toLocaleDateString('en-CA', KYIV)
+): Partial<Record<DiplomaField, DiplomaGap>> {
   const filled = (v: unknown) => typeof v === 'string' && v.trim() !== '';
   const out: Partial<Record<DiplomaField, DiplomaGap>> = {};
   if (!filled(r.degree)) out.degree = 'missing';
@@ -410,6 +451,12 @@ export function diplomaGaps(r: DiplomaInput): Partial<Record<DiplomaField, Diplo
   }
   if (!filled(r.issuedBy)) out.issuedBy = 'missing';
   if (!filled(r.number)) out.number = 'missing';
+  // Never in the future (owner, 2026-10-14). The schema refuses it on every save,
+  // so a date stored before that rule — Троценко's PhD «defended» 22.12.2026 —
+  // blocked the whole profile with no word on screen. Said here, the card and
+  // the popup can name it (2026-10-28).
+  if (filled(r.defenceDate) && String(r.defenceDate) > today) out.defenceDate = 'future';
+  if (!basic && filled(r.issueDate) && String(r.issueDate) > today) out.issueDate = 'future';
   return out;
 }
 
@@ -637,7 +684,7 @@ export const ACADEMIC_STORED_SELECT = {
   doctorSpecialty: true,
   doctorDefenceDate: true,
   doctorMatchesDepartment: true,
-  diplomas: { orderBy: { position: 'asc' } },
+  diplomas: DIPLOMA_ROWS,
   basicEducationMatch: true,
   basicEducationSpecialty: true,
 } as const;

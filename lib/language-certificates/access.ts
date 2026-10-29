@@ -27,6 +27,18 @@ export async function authoriseCertificateWrite(
   ownerId: string,
   kind: CertificateKind
 ): Promise<{ ok: true; userId: string } | { error: string }> {
+  return authoriseEducationWrite(ownerId, CERTIFICATE_FIELDS[kind]);
+}
+
+/**
+ * The same question for any field of «Освіта» that carries a scan — a language
+ * certificate, or the diplomas (`degrees`, owner 2026-10-27): ADMIN, the НПП
+ * themself, or an EDITOR with STAFF UPDATE and the grant for that field.
+ */
+export async function authoriseEducationWrite(
+  ownerId: string,
+  field: string
+): Promise<{ ok: true; userId: string } | { error: string }> {
   const session = await auth();
   const userId = session?.user?.id;
   if (!session || !userId) return { error: NOT_ALLOWED };
@@ -47,5 +59,5 @@ export async function authoriseCertificateWrite(
   if (!divisionId) return { error: NOT_ALLOWED };
   if (!(await hasEntityPermission(divisionId, 'STAFF', 'UPDATE'))) return { error: NOT_ALLOWED };
   const grants = await getDivisionFieldGrants(divisionId);
-  return grants.has(CERTIFICATE_FIELDS[kind]) ? { ok: true, userId } : { error: NOT_ALLOWED };
+  return grants.has(field) ? { ok: true, userId } : { error: NOT_ALLOWED };
 }

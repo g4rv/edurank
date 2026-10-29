@@ -3,7 +3,7 @@
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { CalendarCheck, CalendarClock, Undo2 } from 'lucide-react';
+import { CalendarClock, CircleSlash, Undo2 } from 'lucide-react';
 import { Button } from '@/components/aurora/ui/button';
 import {
   AlertDialog,
@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/aurora/ui/alert-dialog';
-import { setShareYear } from '@/app/(dashboard)/science-plan/record-actions';
+import { setShareYear, writeOffShare } from '@/app/(dashboard)/science-plan/record-actions';
 import { attempt } from '@/lib/science/attempt';
 import { formatHours } from '@/lib/science/hours';
 
@@ -29,9 +29,11 @@ import { formatHours } from '@/lib/science/hours';
  * Moving asks first — the hours leave this year's «Виконано» — bringing back
  * does not: it only puts the hours back where they were.
  *
- * `earlier` (owner, 2026-10-07): «Вже зараховано у 2025/2026» — the share was
- * already counted in the previous рік, on paper, and must not count twice. It
- * leaves this year the same way and counts nowhere; «Повернути» undoes it.
+ * `writeOff` (owner, 2026-10-27): «Відмітити як уже списану» — the co-author
+ * already used this work elsewhere, so it must not count twice. It leaves this
+ * year the same way and counts nowhere; «Повернути» undoes it. The label is a
+ * VERB on purpose: 2026-10-07's «Вже зараховано у 2025/2026» read as a status,
+ * and somebody took it to mean the article had been counted.
  */
 export function ShareYearButton({
   workId,
@@ -45,18 +47,25 @@ export function ShareYearButton({
   /** The work's one-line summary, named in the confirm. */
   label: string;
   hoursHundredths: number;
-  /** Where the share goes: the next year to defer, the current one to bring back. */
+  /** Where the share goes: the next year to defer, the current one to bring
+   *  back. Unused by `writeOff`, which goes nowhere. */
   targetYear: string;
   /** The work's own навчальний рік. */
   currentYear: string;
-  mode: 'defer' | 'back' | 'earlier';
+  /** `restore` is «back» for a share written off — it went to no year, so the
+   *  button names none. */
+  mode: 'defer' | 'back' | 'restore' | 'writeOff';
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function move() {
     startTransition(async () => {
-      const result = await attempt(() => setShareYear({ workId, academicYear: targetYear }));
+      const result = await attempt(() =>
+        mode === 'writeOff'
+          ? writeOffShare({ workId })
+          : setShareYear({ workId, academicYear: targetYear })
+      );
       if ('error' in result) {
         toast.error(result.error);
         return;
@@ -64,47 +73,47 @@ export function ShareYearButton({
       toast.success(
         mode === 'defer'
           ? `Години перенесено на ${targetYear}`
-          : mode === 'earlier'
-            ? `Позначено: вже зараховано у ${targetYear}`
+          : mode === 'writeOff'
+            ? 'Відмічено як уже списану'
             : `Години повернуто в ${targetYear}`
       );
       router.refresh();
     });
   }
 
-  if (mode === 'back') {
+  if (mode === 'back' || mode === 'restore') {
     return (
       <Button variant="outline" size="sm" onClick={move} loading={isPending} disabled={isPending}>
         <Undo2 className="size-3.5" />
-        Повернути в {targetYear}
+        {mode === 'restore' ? 'Повернути' : `Повернути в ${targetYear}`}
       </Button>
     );
   }
 
-  if (mode === 'earlier') {
+  if (mode === 'writeOff') {
     return (
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button variant="outline" size="sm">
-            <CalendarCheck className="size-3.5" />
-            Вже зараховано у {targetYear}
+            <CircleSlash className="size-3.5" />
+            Відмітити як уже списану
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Вже зараховано у {targetYear}?</AlertDialogTitle>
+            <AlertDialogTitle>Відмітити як уже списану?</AlertDialogTitle>
             <AlertDialogDescription>
               Ваші {formatHours(hoursHundredths)} год за роботу{' '}
-              <span className="font-medium text-foreground">{label}</span> не рахуватимуться у{' '}
-              {currentYear}, бо ви вже зарахували цю роботу у {targetYear}. Години автора та інших
-              співавторів не зміняться. Передумати можна, доки {currentYear} не закрито.
+              <span className="font-medium text-foreground">{label}</span> не рахуватимуться ніде.
+              Години автора та інших співавторів не зміняться. Повернути можна, доки {currentYear}{' '}
+              не закрито.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Скасувати</AlertDialogCancel>
             {/* Not red: undone with «Повернути» while the year is open. */}
             <AlertDialogAction variant="default" onClick={move} disabled={isPending}>
-              {isPending ? 'Збереження…' : 'Так, вже зараховано'}
+              {isPending ? 'Збереження…' : 'Так, відмітити'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -7,8 +7,12 @@ import {
   type FieldErrors,
   type FieldValues,
   type UseFormRegister,
+  type UseFormSetValue,
 } from 'react-hook-form';
+import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { doiHint } from '@/lib/doi';
+import { Button } from '@/components/aurora/ui/button';
 import { decimalText, limitDecimals } from '@/lib/decimal-input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
@@ -32,7 +36,11 @@ import {
   SelectValue,
 } from '@/components/aurora/ui/select';
 import { conditionMet, fieldShown, type EvidenceField } from '@/lib/rating/evidence-fields';
-import { currentYearBounds, MIN_EVIDENCE_YEAR } from '@/validations/activity-evidence';
+import {
+  currentYearBounds,
+  MIN_EVIDENCE_YEAR,
+  ratingYearBounds,
+} from '@/validations/activity-evidence';
 
 const DATE_MIN = `${MIN_EVIDENCE_YEAR}-01-01`;
 const DATE_MAX = `${new Date().getFullYear() + 1}-12-31`;
@@ -73,6 +81,15 @@ interface EvidenceFieldsProps {
    * such field passes nothing.
    */
   pick?: { aspirants?: readonly PersonOption[] };
+  /** The rating year a `ratingYear` date is picked in — the template's. */
+  ratingYear?: number;
+  /**
+   * Turns on the DOI box's hints (owner, 2026-10-27): a warning when the
+   * description or the link names a different DOI, and «Підставити» when the
+   * box is empty and one is found. The rating form passes its `setValue`; the
+   * science forms, which share this renderer, pass nothing and stay as they are.
+   */
+  doiHints?: UseFormSetValue<FieldValues>;
 }
 
 export type RenderItem =
@@ -144,6 +161,8 @@ export function EvidenceFields({
   className = 'space-y-4',
   unitLabel = 'балів',
   pick: pickProp,
+  ratingYear,
+  doiHints,
 }: EvidenceFieldsProps) {
   // The page provides the lists once (`PickListsProvider`); a prop overrides it
   const fromPage = usePickLists();
@@ -303,6 +322,17 @@ export function EvidenceFields({
               disabled={disabled}
               {...register(f.name, { deps: depsOf(f.name) })}
             />
+            {doiHints && (
+              <DoiHintLine
+                hint={doiHint(
+                  String(values[f.name] ?? ''),
+                  fields
+                    .filter((o) => o.kind === 'text' || o.kind === 'url')
+                    .map((o) => String(values[o.name] ?? ''))
+                )}
+                onUse={(doi) => doiHints(f.name, doi, { shouldDirty: true, shouldValidate: true })}
+              />
+            )}
           </FormField>
         );
 
@@ -383,8 +413,8 @@ export function EvidenceFields({
                   value={typeof field.value === 'string' ? field.value : ''}
                   onChange={field.onChange}
                   // The picker greys out what the schema would refuse.
-                  min={f.rule === 'currentYear' ? currentYearBounds().min : DATE_MIN}
-                  max={f.rule === 'currentYear' ? currentYearBounds().max : DATE_MAX}
+                  min={dateBounds(f.rule, ratingYear).min}
+                  max={dateBounds(f.rule, ratingYear).max}
                   disabled={disabled}
                   // Like the `select` case below it, off the same `error`.
                   aria-invalid={!!error}
@@ -568,5 +598,57 @@ export function EvidenceFields({
         );
       })}
     </div>
+  );
+}
+
+/** What a date picker may offer — the same window the schema enforces */
+function dateBounds(
+  rule: 'currentYear' | 'ratingYear' | undefined,
+  ratingYear: number | undefined
+): { min: string; max: string } {
+  if (rule === 'currentYear') return currentYearBounds();
+  if (rule === 'ratingYear') return ratingYearBounds(ratingYear);
+  return { min: DATE_MIN, max: DATE_MAX };
+}
+
+/**
+ * The line under a DOI box (owner, 2026-10-27). A mismatch is a status — the
+ * warning token and its icon (§3 of docs/aurora.md); a suggestion is plain text
+ * with one action. Neither blocks the save.
+ */
+function DoiHintLine({
+  hint,
+  onUse,
+}: {
+  hint: ReturnType<typeof doiHint>;
+  onUse: (doi: string) => void;
+}) {
+  if (!hint) return null;
+  if (hint.kind === 'mismatch') {
+    return (
+      <p className="flex items-start gap-1.5 text-sm text-warning">
+        <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>
+          В описі чи посиланні вказано інший DOI: <span className="break-all">{hint.doi}</span>.
+          Перевірте, чи DOI належить саме цій публікації.
+        </span>
+      </p>
+    );
+  }
+  return (
+    <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+      <span>
+        Знайдено DOI в описі: <span className="break-all">{hint.doi}</span>
+      </span>
+      <Button
+        type="button"
+        variant="link"
+        size="sm"
+        className="h-auto p-0"
+        onClick={() => onUse(hint.doi)}
+      >
+        Підставити
+      </Button>
+    </p>
   );
 }

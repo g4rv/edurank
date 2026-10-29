@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { doiState, doiUrl, isValidDoi, normalizeDoi } from './doi';
+import { doiHint, doisIn, doiState, doiUrl, isValidDoi, normalizeDoi } from './doi';
 
 const DOI = '10.1038/s41586-021-03819-2'; // a real Nature DOI
 
@@ -104,5 +104,58 @@ describe('doiState', () => {
     expect(doiState('https://scopus.com/record')).toBe('invalid');
     expect(doiState('немає')).toBe('invalid');
     expect(doiState('11.1038/abc')).toBe('invalid');
+  });
+});
+
+describe('doisIn — DOIs written inside other text', () => {
+  it('finds a DOI at the end of a description, without its full stop', () => {
+    expect(
+      doisIn('Козубенко Л.М. … С. 354 – 358. https://doi.org/10.32782/2710-4656/2025.5.1/57.')
+    ).toEqual(['10.32782/2710-4656/2025.5.1/57']);
+  });
+
+  it('lists each DOI once, in order', () => {
+    expect(doisIn('doi:10.1000/A then 10.1000/b and again 10.1000/a')).toEqual([
+      '10.1000/A',
+      '10.1000/b',
+    ]);
+  });
+
+  it('finds nothing in text with no DOI', () => {
+    expect(doisIn('Педагогіка вищої школи. 2025. № 3 (42). С. 112–124.')).toEqual([]);
+  });
+});
+
+describe('doiHint — what the DOI box says about the rest of the form', () => {
+  const bib = 'Стаття. https://doi.org/10.32782/2710-4656/2025.5.1/57';
+
+  it('warns when the box holds a DIFFERENT DOI than the description', () => {
+    // Production, 2026-10-26: the second article carried the first one's DOI
+    expect(doiHint('10.32782/2409-1154.2025.75.27', [bib])).toEqual({
+      kind: 'mismatch',
+      doi: '10.32782/2710-4656/2025.5.1/57',
+    });
+  });
+
+  it('says nothing when the box matches, whatever the case or prefix', () => {
+    expect(doiHint('https://doi.org/10.32782/2710-4656/2025.5.1/57', [bib])).toBeNull();
+    expect(doiHint('10.32782/2710-4656/2025.5.1/57'.toUpperCase(), [bib])).toBeNull();
+  });
+
+  it('says nothing when the box DOI is among several the text names', () => {
+    expect(doiHint('10.1000/b', ['10.1000/a and 10.1000/b'])).toBeNull();
+  });
+
+  it('suggests the DOI found when the box is empty', () => {
+    expect(doiHint('', [bib])).toEqual({ kind: 'suggest', doi: '10.32782/2710-4656/2025.5.1/57' });
+  });
+
+  it('says nothing while the box holds something that is not yet a DOI', () => {
+    expect(doiHint('10.32', [bib])).toBeNull();
+  });
+
+  it('says nothing when the rest of the form names no DOI', () => {
+    expect(doiHint('10.1000/a', ['Без DOI'])).toBeNull();
+    expect(doiHint('', [])).toBeNull();
   });
 });

@@ -14,6 +14,7 @@ import { catalogueType } from './db-specs';
 import {
   backfillProfileDerived,
   derivedEvidence,
+  derivedEvidences,
   syncProfileDerived,
   PROFILE_DERIVED_CODES,
   PROFILE_DERIVED_STAFF_FIELDS,
@@ -27,6 +28,7 @@ const emptyStaff = {
   scientificDegree: null,
   degreeMatchesDepartment: null,
   adminPosition: null,
+  adminPositions: [],
   headOfDepartment: null,
   deanOfFaculty: null,
   basicEducationMatch: null,
@@ -81,37 +83,52 @@ describe('derivedEvidence', () => {
     ).toEqual({ option: 'phd' });
   });
 
-  it('maps admin position enum to the select option key', () => {
-    expect(derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'DEAN' })).toEqual({
-      option: 'dean',
-    });
+  it('maps each admin post to its select option key, and names the post', () => {
+    const one = (post: string) =>
+      derivedEvidences('admin_position', { ...emptyStaff, adminPositions: [post as never] });
+    expect(one('DEAN')).toEqual([{ option: 'dean', post: 'DEAN' }]);
     // Split posts share their printed 1.6 option (owner, 2026-10-06)
-    expect(
-      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'CENTER_HEAD' })
-    ).toEqual({ option: 'lab_or_center_head' });
-    expect(
-      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'ACADEMIC_SECRETARY' })
-    ).toEqual({ option: 'vice_dean_or_secretary' });
-    expect(
-      derivedEvidence('admin_position', { ...emptyStaff, adminPosition: 'UNIT_HEAD' })
-    ).toEqual({ option: 'department_or_unit_head' });
+    expect(one('CENTER_HEAD')).toEqual([{ option: 'lab_or_center_head', post: 'CENTER_HEAD' }]);
+    expect(one('ACADEMIC_SECRETARY')).toEqual([
+      { option: 'vice_dean_or_secretary', post: 'ACADEMIC_SECRETARY' },
+    ]);
+    expect(one('UNIT_HEAD')).toEqual([{ option: 'department_or_unit_head', post: 'UNIT_HEAD' }]);
   });
 
   // Naming somebody завідувач or декан is what makes them one (owner, 2026-10-06).
-  it('pays a head and a dean for the headship itself, the higher post winning', () => {
+  it('pays a head and a dean for the headship itself', () => {
     expect(
-      derivedEvidence('admin_position', { ...emptyStaff, headOfDepartment: { id: 'd1' } })
-    ).toEqual({ option: 'department_or_unit_head' });
+      derivedEvidences('admin_position', { ...emptyStaff, headOfDepartment: { id: 'd1' } })
+    ).toEqual([{ option: 'department_or_unit_head', post: 'DEPARTMENT_HEAD' }]);
     expect(
-      derivedEvidence('admin_position', { ...emptyStaff, deanOfFaculty: { id: 'f1' } })
-    ).toEqual({ option: 'dean' });
+      derivedEvidences('admin_position', { ...emptyStaff, deanOfFaculty: { id: 'f1' } })
+    ).toEqual([{ option: 'dean', post: 'DEAN' }]);
+  });
+
+  // «Each different post pays its points to the sum» (owner, 2026-10-28) — even
+  // two the положення prints under one option.
+  it('makes one entry per post held, a headship included', () => {
     expect(
-      derivedEvidence('admin_position', {
+      derivedEvidences('admin_position', {
         ...emptyStaff,
-        adminPosition: 'VICE_RECTOR',
+        adminPositions: ['ACADEMIC_SECRETARY', 'LAB_HEAD', 'CENTER_HEAD'],
         headOfDepartment: { id: 'd1' },
       })
-    ).toEqual({ option: 'vice_rector' });
+    ).toEqual(
+      expect.arrayContaining([
+        { option: 'vice_dean_or_secretary', post: 'ACADEMIC_SECRETARY' },
+        { option: 'department_or_unit_head', post: 'DEPARTMENT_HEAD' },
+        { option: 'lab_or_center_head', post: 'LAB_HEAD' },
+        { option: 'lab_or_center_head', post: 'CENTER_HEAD' },
+      ])
+    );
+    expect(
+      derivedEvidences('admin_position', {
+        ...emptyStaff,
+        adminPositions: ['ACADEMIC_SECRETARY', 'LAB_HEAD', 'CENTER_HEAD'],
+        headOfDepartment: { id: 'd1' },
+      })
+    ).toHaveLength(4);
   });
 
   it('maps basic education only when confirmed', () => {
@@ -321,7 +338,7 @@ describe('syncProfileDerived', () => {
   it('purges duplicate rows, keeping the oldest as the synced one', async () => {
     const tx = makeTx({
       template: { year: 2026, activityTypes: [derivedType('admin_position')] },
-      staff: { ...emptyStaff, adminPosition: 'DEAN' },
+      staff: { ...emptyStaff, adminPosition: 'DEAN', adminPositions: ['DEAN'] },
       existing: {
         admin_position: [
           { id: 'act-old', evidence: { option: 'dean' }, score: 80 },
@@ -336,6 +353,78 @@ describe('syncProfileDerived', () => {
     });
     expect(tx.activity.createMany).not.toHaveBeenCalled();
     expect(tx.ratingEntry.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  // «Each different post pays its points to the sum» (owner, 2026-10-28)
+  describe('1.6 — one row per post', () => {
+    it('keeps the row written before posts were told apart, and adds the second post', async () => {
+      const tx = makeTx({
+        template: { year: 2026, activityTypes: [derivedType('admin_position')] },
+        staff: {
+          ...emptyStaff,
+          adminPositions: ['ACADEMIC_SECRETARY'],
+          headOfDepartment: { id: 'd1' },
+        },
+        existing: {
+          admin_position: [
+            { id: 'act-old', evidence: { option: 'department_or_unit_head' }, score: 60 },
+          ],
+        },
+      });
+      await syncProfileDerived(tx as never, 'staff-1');
+      // The old row is adopted for the headship — same id, now naming its post
+      expect(tx.activity.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'act-old' },
+          data: expect.objectContaining({
+            evidence: { option: 'department_or_unit_head', post: 'DEPARTMENT_HEAD' },
+            score: 60,
+          }),
+        })
+      );
+      expect(tx.activity.createMany.mock.calls[0][0].data).toEqual([
+        expect.objectContaining({
+          evidence: { option: 'vice_dean_or_secretary', post: 'ACADEMIC_SECRETARY' },
+          score: 50,
+        }),
+      ]);
+      expect(tx.activity.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('drops the row of a post no longer held, and leaves the others alone', async () => {
+      const tx = makeTx({
+        template: { year: 2026, activityTypes: [derivedType('admin_position')] },
+        staff: { ...emptyStaff, adminPositions: ['VICE_DEAN'] },
+        existing: {
+          admin_position: [
+            {
+              id: 'act-vd',
+              evidence: { option: 'vice_dean_or_secretary', post: 'VICE_DEAN' },
+              score: 50,
+            },
+            {
+              id: 'act-ddh',
+              evidence: { option: 'deputy_department_head', post: 'DEPUTY_DEPARTMENT_HEAD' },
+              score: 40,
+            },
+          ],
+        },
+      });
+      await syncProfileDerived(tx as never, 'staff-1');
+      expect(tx.activity.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['act-ddh'] } } });
+      expect(tx.activity.update).not.toHaveBeenCalled();
+      expect(tx.activity.createMany).not.toHaveBeenCalled();
+    });
+
+    it('pays two posts that share an option twice', async () => {
+      const tx = makeTx({
+        template: { year: 2026, activityTypes: [derivedType('admin_position')] },
+        staff: { ...emptyStaff, adminPositions: ['LAB_HEAD', 'CENTER_HEAD'] },
+      });
+      await syncProfileDerived(tx as never, 'staff-1');
+      const created = tx.activity.createMany.mock.calls[0][0].data;
+      expect(created.map((r: { score: number }) => r.score)).toEqual([30, 30]);
+    });
   });
 
   it('removes all derived rows when the staff is no longer НПП', async () => {

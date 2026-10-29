@@ -85,6 +85,7 @@ export function EvidenceFileField({
   onBusyChange,
   disabled,
   uploader = scienceUploader,
+  only,
 }: {
   id?: string;
   /** The staged object, held by the caller so it can be submitted or cleared. */
@@ -94,6 +95,12 @@ export function EvidenceFileField({
   disabled?: boolean;
   /** Defaults to the science evidence flow. */
   uploader?: FileUploader;
+  /**
+   * One format only, where a caller narrows the usual three — a diploma scan is
+   * JPG (owner, 2026-10-27). Refused before anything is uploaded, in the
+   * caller's words; the server checks the stored bytes again.
+   */
+  only?: { type: string; accept: string; message: string };
 }) {
   // What the picker SHOWS. Kept beside `value` because `File` carries the name
   // and size a person recognises, while `value` is what the server needs.
@@ -115,6 +122,11 @@ export function EvidenceFileField({
 
   async function upload(picked: File) {
     setProblem(null);
+    if (only && picked.type !== only.type) {
+      setProblem(only.message);
+      setStatus('error');
+      return;
+    }
 
     // Shrink a JPG/PNG first, so a 15 MB phone photo is not refused for its
     // size and R2 never stores the original. Everything below — the checks,
@@ -181,7 +193,7 @@ export function EvidenceFileField({
         id={id}
         value={file}
         onChange={choose}
-        accept={ACCEPT_FILE_TYPES}
+        accept={only?.accept ?? ACCEPT_FILE_TYPES}
         disabled={disabled || busy}
       />
       {status === 'checking' && <p className="text-sm text-foreground-soft">Перевірка файлу…</p>}

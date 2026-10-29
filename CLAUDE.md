@@ -108,6 +108,27 @@ have. Information only: 1.9, 1.3 and п.5 read the same columns as before, and a
 level is NOT a degree key (`degreeLevel('master')` is null). Series and number
 are visible like the rest of «Освіта» (owner, 2026-10-15).
 
+**Diplomas are written IN PLACE, by id** (owner, 2026-10-27). `writeDiplomas`
+used to delete a person's rows and create them again on every save; it now
+updates the rows the form names (its `diplomaId`, never `id` — that is
+`useFieldArray`'s own key), creates the new ones and deletes only those the
+person removed. An id that is not one of THIS person's rows is treated as new,
+so nobody writes into another's diploma. A form with no ids (opened before
+them) is written exactly as before. **The schema keeps `diplomaId` through its
+transform**: the browser parses with it and the action parses the RESULT
+again — renaming it there dropped the id on the server and lost a scan on the
+next phone-number save (caught in the browser). Checked on a copy of
+production: 645 rows through both paths, 0 changed.
+
+**A кандидат / доктор diploma may carry a scan — optional, JPG only** (owner,
+2026-10-27). Five `file*` columns on `Diploma`, key `diplomas/<staffId>/<uuid>.jpg`,
+uploaded before the save like the certificates' (`app/(dashboard)/diplomas/file-actions.ts`,
+the `degrees` grant decides who may), checked from the stored bytes by
+`prepareDiplomaScans` — a PNG or PDF is refused there and by the picker. A basic
+education never has one. Opening it is the certificates' rule
+(`authoriseQualifications(…, 'read')`). Every read selects diplomas through
+`DIPLOMA_ROWS`, which leaves out the key and the hash. Audited as `diplomaScans`.
+
 **Every field of a diploma is mandatory except the серія and «відповідає
 кафедрі»** (owner, 2026-10-15), and a degree's diploma is never issued before its
 defence. One rule, `diplomaGaps` (`lib/staff/academic.ts`), serves the popup
@@ -347,6 +368,9 @@ pnpm db:lecturer-gate  # one-off, after migrate deploy: 5.1 «Я лектор» 
                       #   (runs and rolls back); --apply.
 pnpm db:intl-publication  # one-off: the new 3.10, and 3.10–3.25 → 3.11–3.26 in every open
                       #   year. No entry or score moves. Report first; --apply.
+pnpm db:doi-publication  # one-off: the new 3.11 (publications with a DOI, not «А»/«Б»),
+                      #   and 3.11–3.26 → 3.12–3.27 in every open year. Run AFTER
+                      #   db:intl-publication. No entry or score moves. Report first; --apply.
 pnpm db:science-sheets-decimals  # one-off: «Кількість друкованих аркушів» takes ONE decimal
                       #   (1,7, never 1,73) in every planning year, and its minimum
                       #   from the catalogue (монографія 0,5, the others 1). Report
@@ -386,6 +410,27 @@ pnpm db:headship-admin-position  # one-off, on that deploy: rating 1.6 now pays
                       #   a завідувач / декан for being named on the кафедра /
                       #   факультет. Reports who moves (~36 on prod); --apply writes.
                       #   Order: back up → migrate deploy → mirror check → this.
+pnpm db:check-staff-list  # edu-reference/staff.xlsx and «Заступники з науки.doc»
+                      #   against DATABASE_URL — run it LOCALLY on a restored prod backup first
+                      #   (the list holds every ставка). Prints a summary, writes staff-check.xlsx
+                      #   (gitignored). Several categories are not errors — read
+                      #   lib/staff-check/compare.ts first. Needs antiword. --apply writes TWO
+                      #   things only (owner, 2026-10-28, HR's list trusted for them): the стаж,
+                      #   and the галузь of a degree stored as bare «Кандидат/Доктор наук». The
+                      #   стаж pays rating points — re-synced, before/after printed (prod 28.10:
+                      #   239 people, +112). Never ставки (next script), посади, звання
+                      #   or accounts.
+pnpm db:staff-list-rates  # the ставки from the same staff.xlsx into the ACTIVE year's
+                      #   розподіл (owner, 2026-10-29: «for everyone»). A штатний +
+                      #   сумісник pair on one кафедра is ONE ставка, the sum. Overwrites
+                      #   the heads' numbers; raises a Макс to meet the new number, never
+                      #   lowers one; skips archived, off-ladder, under-Мін, no-Кст. Also
+                      #   lists every SAVED science plan under the new norm (ННВ reopens
+                      #   it — the rating closes until it is saved again). Prod copy
+                      #   28.10: 112 ставки on 27 кафедри, 4 plans to top up. --apply.
+pnpm db:admin-position-every-post  # one-off: rating 1.6 pays EVERY post, one row
+                      #   per post (owner, 2026-10-28). Lists who moves (28, +1090 on
+                      #   prod 27.10); --apply writes through the profile sync.
 pnpm db:import-aspirants  # the аспіранти list into Aspirant + their керівники
                       #   (matched to НПП by surname ±1 letter AND initials; the
                       #   rest reported, never guessed). Report first; --apply
@@ -567,6 +612,24 @@ Rules that are easy to get wrong:
   scored and what Характеристика п.3 judges. A монографія's share must reach
   `scoring.minShare` (1,5); 2.2 has no floor. A row saved before carries
   `pages` and is read as pages ÷ 24 until `pnpm db:book-sheets` converts it.
+- **One DOI once per person per POINT, in every year** (owner, 2026-10-27).
+  `createActivity` refuses a DOI the person already holds in the same indicator
+  — matched by `code` across years, case and prefix ignored. Another point may
+  reuse it, co-authors each enter it, and a discarded or deleted entry frees
+  it. Production had three second articles saved with the first one's DOI
+  pasted in. The rating form also warns when the description or link names a
+  different DOI, and offers «Підставити» when the box is empty (`doiHint`) —
+  a hint, never a refusal.
+- **A `ratingYear` date is judged against the TEMPLATE's year**, never today's
+  (3.11's «Дата публікації»): a 2026 rating still open in January 2027 takes
+  2026 publications. Pass `ratingYear` to `schemaForFields`; without it the
+  calendar year stands in.
+- **1.6 pays every post, one row each** (owner, 2026-10-28). «Each different
+  post pays its points to the sum» — two posts the положення prints under one
+  option included (лабораторія + центр = 30 + 30). The sync writes one SYSTEM
+  row per held post, its `post` in the evidence so rows stay paired with their
+  post; a headship counts as a post. `effectiveAdminPosition` (the highest)
+  is no longer what the rating pays.
 - **Closed years are read-only** and render from `RatingEntry.snapshot`. Appeals go through ADMIN `reopenYear` → fix → close again.
 
 ### Indicators live in the database, not in code
@@ -771,15 +834,19 @@ Easy to get wrong:
   `ScienceCoauthorShare` with `academicYear` set and turns into a record in
   that year when the person saves its plan — so **a record's `templateId` may
   differ from its work's**. Never re-entered next year.
-- **…or say it was already counted in the PREVIOUS рік** (owner, 2026-10-07).
-  Science began in the app with 2026/2027, but 2025/2026 was reported on paper,
-  and an article from January–August 2026 belongs to both. A co-author (never
-  the author, SHARED only, year open) may mark their share «Вже зараховано у
-  2025/2026» when its date falls January–August of the year the рік STARTS in
-  (`earlierYear`, the mirror of `deferralYear`). The share becomes a
-  reservation marked with the past рік, which never opens — so it counts
-  nowhere, keeps its hours in the pool, and the author's and other
-  co-authors' hours do not move. «Повернути» undoes it while the year is open.
+- **…or mark it «уже списану»** (owner, 2026-10-27, replacing 2026-10-07's
+  «Вже зараховано у 2025/2026»). A co-author who already used the work
+  elsewhere — a докторант's own plan, a рік reported on paper — presses
+  «Відмітити як уже списану» (`writeOffShare`): never the author, SHARED only,
+  year open, and **no date window** — the old mark was offered only for
+  January–August of the previous рік and missed every other case. The share
+  becomes a reservation with `writtenOffAt` set: it counts nowhere, keeps its
+  hours in the pool, so the author's and other co-authors' hours do not move,
+  and `attachReservations` never turns it into a record. «Повернути» (`setShareYear`
+  with the work's own year) undoes it while the year is open. The button is a
+  VERB on purpose — the old label read as a status and somebody took it to mean
+  the article had been counted. Migration `20261027120000` turned the old marks
+  (a share moved to an EARLIER рік) into this one.
 - **A decline is of the WORK, not of one record** (owner, 2026-09-30). The proof
   is shared, so when it is wrong nobody counts until it is fixed:
   `removeScienceRecord` switches off EVERY record of the work and stamps
@@ -816,6 +883,10 @@ Easy to get wrong:
   no planning**: «Запланувати роботу» is disabled and `savePlanRow` refuses a
   NEW row (an edit still saves); the header says why (`NO_RATE_DETAIL`). Such a
   person stays blocked from the rating until the завідувач distributes.
+  The rating's note (`PlanGateNote`) names every кафедра still missing a plan,
+  says which of them has given no ставка and whom to ask, and its button opens
+  that кафедра's tab (`?dept=`) — a сумісник with the main plan saved used to
+  land on «План збережено» and never see the cause (owner, 2026-10-28).
 - **Link and file are two separate rules per вид роботи** (D47,
   `ScienceWorkType.linkRule` / `fileRule`: REQUIRED / OPTIONAL / NONE, set by
   ADMIN). Only when neither is REQUIRED must one of the two be given; a proof

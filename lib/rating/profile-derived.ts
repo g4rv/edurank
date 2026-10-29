@@ -12,7 +12,7 @@ import {
   PROFILE_DERIVED_CODES,
   type ProfileDerivedCode,
 } from '@/lib/rating/profile-derived-fields';
-import { effectiveAdminPosition } from '@/lib/staff/academic';
+import { heldAdminPositions } from '@/lib/staff/academic';
 
 // Profile-derived indicators: rating activity types whose value comes from the
 // Staff profile instead of manual entry (NPP submission or division panel).
@@ -39,6 +39,8 @@ interface DerivedStaff {
   scientificDegree: ScientificDegree | null;
   degreeMatchesDepartment: boolean | null;
   adminPosition: AdminPosition | null;
+  /** Every post picked on the profile — rating 1.6 pays each (owner, 2026-10-28) */
+  adminPositions: readonly AdminPosition[];
   /** Being named завідувач / декан is itself a 1.6 post (owner, 2026-10-06) */
   headOfDepartment: { id: string } | null;
   deanOfFaculty: { id: string } | null;
@@ -60,6 +62,7 @@ const DERIVED_STAFF_SELECT = {
   scientificDegree: true,
   degreeMatchesDepartment: true,
   adminPosition: true,
+  adminPositions: true,
   headOfDepartment: { select: { id: true } },
   deanOfFaculty: { select: { id: true } },
   basicEducationMatch: true,
@@ -109,6 +112,36 @@ function citations(count: number | null, link: string | null): { value: number }
   return count && count > 0 && link?.trim() ? { value: count } : null;
 }
 
+/**
+ * Every entry one derived type makes from the profile — none, one, or for 1.6
+ * one per post (owner, 2026-10-28: «each different post pays its points to the
+ * sum», even two posts the положення prints under one option). Each 1.6 entry
+ * carries its `post`, so the sync can tell two 30-point posts apart and keep
+ * each row in step with its own post.
+ */
+export function derivedEvidences(
+  code: ProfileDerivedCode,
+  staff: DerivedStaff
+): Record<string, unknown>[] {
+  if (code === 'admin_position') {
+    return heldAdminPositions({
+      adminPositions: staff.adminPositions,
+      isHead: staff.headOfDepartment !== null,
+      isDean: staff.deanOfFaculty !== null,
+    }).map((post) => ({ option: POSITION_OPTION[post], post }));
+  }
+  const one = derivedEvidence(code, staff);
+  return one ? [one] : [];
+}
+
+/** What pairs a stored row with the entry it stands for: the post for 1.6 (null
+ *  on a row written before posts were told apart), the same for every other type. */
+function identityOf(code: string, evidence: unknown): string | null {
+  if (code !== 'admin_position') return 'one';
+  const post = (evidence as { post?: unknown } | null)?.post;
+  return typeof post === 'string' ? post : null;
+}
+
 /** Evidence for one derived type from the profile; null = the indicator does not apply */
 export function derivedEvidence(
   code: ProfileDerivedCode,
@@ -126,12 +159,9 @@ export function derivedEvidence(
         ? { option: degreeOption(staff.scientificDegree, staff.degreeMatchesDepartment) }
         : null;
     case 'admin_position': {
-      const post = effectiveAdminPosition({
-        adminPosition: staff.adminPosition,
-        isHead: staff.headOfDepartment !== null,
-        isDean: staff.deanOfFaculty !== null,
-      });
-      return post ? { option: POSITION_OPTION[post] } : null;
+      // One post only — the highest. Kept for a caller that wants one line;
+      // the sync writes every post (`derivedEvidences`).
+      return derivedEvidences(code, staff)[0] ?? null;
     }
     case 'basic_education_match':
       return staff.basicEducationMatch
@@ -175,12 +205,13 @@ function planIsEmpty(plan: SyncPlan): boolean {
 
 /**
  * Pure diff for ONE staff member: what has to change so that each derived type
- * has exactly one APPROVED SYSTEM row matching the profile. Shared by the
- * single-staff sync and the full backfill so the two can never drift apart.
+ * has exactly the APPROVED SYSTEM rows the profile makes — one, or for 1.6 one
+ * per post. Shared by the single-staff sync and the full backfill so the two can
+ * never drift apart.
  *
- * `rowsByType` must be ordered oldest-first — the oldest row is kept and
- * adopted, any others (pre-reclassification manual entries, farmed duplicates)
- * are purged.
+ * `rowsByType` must be ordered oldest-first — the oldest matching row is kept
+ * and adopted, any others (pre-reclassification manual entries, farmed
+ * duplicates, a post no longer held) are purged.
  */
 function planProfileDerived(
   staff: DerivedStaff,
@@ -192,64 +223,94 @@ function planProfileDerived(
   const plan: SyncPlan = { deleteIds: [], updates: [], creates: [] };
 
   for (const type of types) {
-    const [existing, ...extras] = rowsByType.get(type.id) ?? [];
-    plan.deleteIds.push(...extras.map((r) => r.id));
-
     // Archived people are off the roster: no derived rows, so the open year
     // stops counting them the moment they are archived — and refills when they
     // are restored. Their past years are untouched; this only ever writes to
     // the active OPEN template (see activeDerivedTypes).
     const countsThisYear = staff.isNpp && !staff.archivedAt;
-    const evidence = countsThisYear
-      ? derivedEvidence(type.code as ProfileDerivedCode, staff)
-      : null;
+    const wanted = countsThisYear ? derivedEvidences(type.code as ProfileDerivedCode, staff) : [];
 
-    if (!evidence) {
-      if (existing) plan.deleteIds.push(existing.id);
-      continue;
-    }
-
-    const specs = parseTypeSpecs(type);
-    const { computedValue, score } = computeScore(
-      {
-        code: type.code,
-        coefficient: type.coefficient,
-        scoring: specs.scoring,
-        evidenceFields: specs.fields,
-      },
-      evidence
-    );
-
-    if (!existing) {
-      plan.creates.push({
-        staffId,
-        activityTypeId: type.id,
-        year,
-        evidence: evidence as Prisma.InputJsonValue,
-        computedValue,
-        score,
-        status: 'APPROVED',
-        submittedByRole: 'SYSTEM',
-        approvedAt: new Date(),
-      });
-      continue;
-    }
-
-    const unchanged =
-      existing.score === score &&
-      existing.submittedByRole === 'SYSTEM' &&
-      JSON.stringify(existing.evidence) === JSON.stringify(evidence);
-    if (unchanged) continue;
-
-    plan.updates.push({
-      id: existing.id,
-      evidence: evidence as Prisma.InputJsonValue,
-      computedValue,
-      score,
+    // Pair each wanted entry with a stored row: the one standing for the same
+    // thing first (1.6: the same post), then a row written before 1.6 told
+    // posts apart (no `post`) with the same option, then — for every other
+    // type — the oldest row. Pairing keeps a row's id; whatever is left over
+    // (pre-reclassification manual entries, farmed duplicates, a dropped post)
+    // is purged.
+    const remaining = [...(rowsByType.get(type.id) ?? [])];
+    const take = (match: (row: ExistingRow) => boolean): ExistingRow | undefined => {
+      const at = remaining.findIndex(match);
+      return at < 0 ? undefined : remaining.splice(at, 1)[0];
+    };
+    const pairs = wanted.map((evidence) => {
+      const identity = identityOf(type.code, evidence);
+      return {
+        evidence,
+        existing:
+          take((row) => identityOf(type.code, row.evidence) === identity) ??
+          take(
+            (row) =>
+              identityOf(type.code, row.evidence) === null &&
+              (row.evidence as { option?: unknown } | null)?.option === evidence.option
+          ),
+      };
     });
+    plan.deleteIds.push(...remaining.map((r) => r.id));
+
+    for (const { evidence, existing } of pairs) {
+      planOne(plan, type, staffId, year, evidence, existing);
+    }
   }
 
   return plan;
+}
+
+/** Create, update or leave one derived row so it matches `evidence` */
+function planOne(
+  plan: SyncPlan,
+  type: DerivedType,
+  staffId: string,
+  year: number,
+  evidence: Record<string, unknown>,
+  existing: ExistingRow | undefined
+): void {
+  const specs = parseTypeSpecs(type);
+  const { computedValue, score } = computeScore(
+    {
+      code: type.code,
+      coefficient: type.coefficient,
+      scoring: specs.scoring,
+      evidenceFields: specs.fields,
+    },
+    evidence
+  );
+
+  if (!existing) {
+    plan.creates.push({
+      staffId,
+      activityTypeId: type.id,
+      year,
+      evidence: evidence as Prisma.InputJsonValue,
+      computedValue,
+      score,
+      status: 'APPROVED',
+      submittedByRole: 'SYSTEM',
+      approvedAt: new Date(),
+    });
+    return;
+  }
+
+  const unchanged =
+    existing.score === score &&
+    existing.submittedByRole === 'SYSTEM' &&
+    JSON.stringify(existing.evidence) === JSON.stringify(evidence);
+  if (unchanged) return;
+
+  plan.updates.push({
+    id: existing.id,
+    evidence: evidence as Prisma.InputJsonValue,
+    computedValue,
+    score,
+  });
 }
 
 /** Writes a plan out. Updates also adopt pre-reclassification rows as system-synced. */
@@ -298,8 +359,8 @@ async function activeDerivedTypes(
 
 /**
  * Syncs one staff member's profile-derived activities in the active OPEN year.
- * Exactly one APPROVED row per derived type: created/updated when the profile field
- * has a value, hard-deleted when it is empty or the staff is not (or no longer) НПП.
+ * One APPROVED row per derived type — for 1.6 one per post: created/updated when the
+ * profile has a value, hard-deleted when it is empty or the staff is not (or no longer) НПП.
  * Recomputes the rating entry when anything changed. No-op when there is no active
  * open template. Closed years are never touched (their snapshot is authoritative).
  */

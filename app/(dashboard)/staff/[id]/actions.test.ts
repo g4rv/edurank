@@ -183,6 +183,10 @@ function mockTx() {
     diploma: {
       deleteMany: vi.fn().mockResolvedValue({}),
       createMany: vi.fn().mockResolvedValue({}),
+      // Written in place since 2026-10-27 — none stored unless a test says so
+      findMany: vi.fn().mockResolvedValue([]),
+      update: vi.fn().mockResolvedValue({}),
+      create: vi.fn().mockResolvedValue({}),
     },
     // no active template → syncProfileDerived no-ops
     ratingTemplate: { findFirst: vi.fn().mockResolvedValue(null) },
@@ -435,7 +439,7 @@ describe('updateStaff field filtering', () => {
     const tx = mockTx();
 
     expect(await updateStaff('staff-own', fullPayload)).toEqual({ success: true });
-    expect(tx.diploma.createMany).toHaveBeenCalled();
+    expect(tx.diploma.create).toHaveBeenCalled();
     expect(writtenFields(tx).sort()).toEqual(
       [
         'googleScholarUrl',

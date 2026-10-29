@@ -65,3 +65,46 @@ export function doiState(input: string): DoiState {
   if (/^1$|^10$|^10\.$|^10\.\d{1,9}\/?$/.test(doi)) return 'partial';
   return 'invalid';
 }
+
+/**
+ * Every DOI written somewhere in a piece of text — a bibliographic description
+ * that ends «… https://doi.org/10.32782/2710-4656/2025.5.1/57.», a pasted link.
+ * In order, without repeats, trailing punctuation dropped. A DOI is opaque
+ * after its slash, so a match runs to the next space or quote.
+ */
+export function doisIn(text: string): string[] {
+  const found: string[] = [];
+  for (const match of text.matchAll(/10\.\d{4,9}\/[^\s"'<>«»]+/g)) {
+    const doi = match[0].replace(/[.,;:)\]]+$/, '');
+    if (!found.some((d) => sameDoi(d, doi))) found.push(doi);
+  }
+  return found;
+}
+
+/** DOIs compare case-insensitively, whatever prefix was pasted with them */
+export function sameDoi(a: string, b: string): boolean {
+  return normalizeDoi(a).toLowerCase() === normalizeDoi(b).toLowerCase();
+}
+
+/**
+ * What a DOI box should tell the person, given the rest of the form (owner,
+ * 2026-10-27). A WARNING, never a refusal: a description may cite a second DOI
+ * on purpose.
+ *
+ * - `mismatch` — the box holds a DOI, and the description or the link names a
+ *   different one and NOT this one. That is how production got three articles
+ *   saved with another article's DOI pasted in.
+ * - `suggest` — the box is empty and the rest of the form names a DOI: offer
+ *   it. The description keeps it; it is only copied.
+ */
+export function doiHint(
+  boxValue: string,
+  elsewhere: readonly string[]
+): { kind: 'mismatch' | 'suggest'; doi: string } | null {
+  const found = elsewhere.flatMap(doisIn);
+  if (found.length === 0) return null;
+  const box = normalizeDoi(boxValue);
+  if (box === '') return { kind: 'suggest', doi: found[0] };
+  if (!isValidDoi(box) || found.some((d) => sameDoi(d, box))) return null;
+  return { kind: 'mismatch', doi: found[0] };
+}

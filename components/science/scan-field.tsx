@@ -39,6 +39,7 @@ export function ScanField({
   onChange,
   onBusyChange,
   disabled,
+  only,
 }: {
   id: string;
   /** The scan the record already holds, if any */
@@ -48,6 +49,8 @@ export function ScanField({
   /** True while a chosen file is being checked or uploaded */
   onBusyChange?: (busy: boolean) => void;
   disabled?: boolean;
+  /** One format only — see `EvidenceFileField` */
+  only?: { type: string; accept: string; message: string };
 }) {
   const [staged, setStaged] = useState<StagedFile | null>(null);
   // The stored scan may be kept, or swapped / taken away.
@@ -95,6 +98,7 @@ export function ScanField({
         onBusyChange={busyChanged}
         disabled={disabled}
         uploader={uploader}
+        only={only}
       />
       {stored && (
         <div className="flex items-center justify-between gap-3">

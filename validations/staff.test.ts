@@ -363,3 +363,41 @@ describe('degrees — a list of diplomas (owner, 2026-10-10)', () => {
     });
   });
 });
+
+// The browser validates with this schema and the action parses the RESULT
+// again. A rename in the transform once dropped the diploma's id on that second
+// parse, so every save recreated the rows and a scan was lost on the next
+// phone-number save (owner, 2026-10-27, caught in the browser).
+describe('a diploma keeps its row id and its scan through BOTH parses', () => {
+  const diploma = {
+    degree: 'cand_pedagogy',
+    specialty: 'Теорія та методика навчання',
+    defenceDate: '2015-06-01',
+    matchesDepartment: 'true',
+    issuedBy: 'ХНПУ',
+    series: '',
+    number: '012345',
+    issueDate: '2015-10-01',
+    basicLevel: '',
+    topic: 'Тема',
+    diplomaId: 'cmdiploma1',
+    file: { objectKey: 'diplomas/s1/a.jpg', fileName: 'a.jpg' },
+    scanName: '',
+  };
+
+  it('survives the second parse of its own output', () => {
+    const first = parse({ degrees: [diploma] });
+    expect(first.success).toBe(true);
+    const second = staffUpdateSchema.safeParse(first.data);
+    expect(second.success).toBe(true);
+    expect(second.data?.degrees?.[0]).toMatchObject({
+      diplomaId: 'cmdiploma1',
+      file: { objectKey: 'diplomas/s1/a.jpg', fileName: 'a.jpg' },
+    });
+  });
+
+  it('reads a new entry, with no id, as new', () => {
+    const result = parse({ degrees: [{ ...diploma, diplomaId: '', file: undefined }] });
+    expect(result.data?.degrees?.[0].diplomaId).toBeNull();
+  });
+});
