@@ -1,5 +1,6 @@
 import type { Role } from '@/lib/generated/prisma/client';
 import { NPP_RATING_CLOSED_DETAIL } from '@/lib/rating/npp-access';
+import { KHARAKTERYSTYKA_FROZEN_DETAIL, kharakterystykaFrozenFor } from './freeze';
 import { LICENCE_POSITIONS } from './positions';
 import { positionEvidenceFields } from './position-evidence';
 
@@ -94,6 +95,7 @@ export function typeEntryProblem(
   who: Who & { targetStaffId: string; position: number }
 ): string | null {
   if (who.role === 'ADMIN') return null;
+  if (kharakterystykaFrozenFor(who.role)) return KHARAKTERYSTYKA_FROZEN_DETAIL;
   return ownerProblem(who, who.targetStaffId, who.position);
 }
 
@@ -110,6 +112,7 @@ export function typeEntryProblem(
  */
 export function removeLineProblem(who: Who & { targetStaffId: string }): string | null {
   if (who.role === 'ADMIN') return null;
+  if (kharakterystykaFrozenFor(who.role)) return KHARAKTERYSTYKA_FROZEN_DETAIL;
   if (!who.ratingOpen) return NPP_RATING_CLOSED_DETAIL;
   if (!who.ownStaffId) return 'Характеристика ведеться лише для НПП';
   if (who.ownStaffId !== who.targetStaffId) {

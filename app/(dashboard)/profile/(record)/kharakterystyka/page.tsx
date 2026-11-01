@@ -6,7 +6,12 @@ import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kh
 import { listManualKharakterystyka } from '@/lib/queries/list-manual-kharakterystyka';
 import { SELF_TYPEABLE_POSITIONS } from '@/lib/kharakterystyka/self-entry';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
+import {
+  KHARAKTERYSTYKA_FROZEN_NOTE,
+  kharakterystykaFrozenFor,
+} from '@/lib/kharakterystyka/freeze';
 import { EmptyState } from '@/components/aurora/ui/card';
+import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import {
   KharakterystykaTable,
   KharakterystykaSummary,
@@ -36,6 +41,8 @@ export default async function MyKharakterystykaPage() {
   if (!staffId) redirect('/profile');
   const staff = await getStaff(staffId, true);
   if (!staff?.isNpp) redirect('/profile');
+
+  const frozen = kharakterystykaFrozenFor(session.user.role);
 
   if (!NPP_RATING_OPEN) {
     return (
@@ -88,18 +95,25 @@ export default async function MyKharakterystykaPage() {
           in `typeEntryProblem`, because the half of a rule that lives in the
           browser is the half an attacker skips. A typed row prints «Внесено
           власноруч» beside the derived ones and is audited. */}
+      {frozen && <FrozenNote>{KHARAKTERYSTYKA_FROZEN_NOTE}</FrozenNote>}
       <KharakterystykaTable
         data={data}
         sources={Object.fromEntries(positionSources)}
-        editing={{
-          staffId,
-          entries: manualEntries,
-          positions: SELF_TYPEABLE_POSITIONS,
-          selfId: staffId,
-        }}
+        // Frozen (lib/kharakterystyka/freeze.ts): read-only for everyone but
+        // ADMIN. The server refuses the same writes, this only hides the buttons.
+        editing={
+          frozen
+            ? undefined
+            : {
+                staffId,
+                entries: manualEntries,
+                positions: SELF_TYPEABLE_POSITIONS,
+                selfId: staffId,
+              }
+        }
         // Any line of their own document, final (owner, 2026-10-06) — the
         // server asks `removeLineProblem` again.
-        removing={{ staffId, asOwner: true }}
+        removing={frozen ? undefined : { staffId, asOwner: true }}
         fill
       />
     </div>

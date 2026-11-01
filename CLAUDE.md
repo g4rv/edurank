@@ -732,6 +732,18 @@ five-year window. `Кнпп` — how many people on a кафедра meet enough
 **never stored**; it is computed in `lib/queries/get-department-knpp.ts`, because
 freezing it would go stale the moment somebody submits an achievement.
 
+**Frozen for everyone but ADMIN (owner, 2026-11-01).** The division copies the
+Характеристика to another platform by hand, so two constants in
+`lib/kharakterystyka/freeze.ts` close it, with no dates — whoever unfreezes sets
+them to `false` and deploys. `KHARAKTERYSTYKA_FROZEN` refuses a non-admin every
+write on the document (typing, deleting, removing a line).
+`KHARAKTERYSTYKA_FREEZES_LINKED_RATING` also refuses a non-admin to add, delete
+or discard a rating entry of an indicator with `licencePositions` (НПП
+`createActivity`/`deleteActivity`, `/division-data`, `/moderation`), because the
+document is computed live from those rows. Other indicators stay open. **Known
+gap (KISS, chosen over a stored copy):** the profile-derived positions follow the
+live profile. Setting the second constant to `false` closes the document alone.
+
 **Any line can be removed — final — by ADMIN, or by the НПП on their own**
 (2026-10-06). An open year's rating line is deleted from the rating too; a
 closed year's is only hidden (`KharakterystykaRemovedLine`); an imported one is

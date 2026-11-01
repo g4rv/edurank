@@ -7,6 +7,12 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+// These tests cover the rules once the Характеристика is open again; the freeze
+// itself is tested in lib/kharakterystyka/freeze.test.ts.
+vi.mock('@/lib/kharakterystyka/freeze', () => ({
+  KHARAKTERYSTYKA_FROZEN_DETAIL: 'frozen',
+  kharakterystykaFrozenFor: () => false,
+}));
 vi.mock('@/lib/queries/get-active-template', () => ({ getActiveTemplate: vi.fn() }));
 vi.mock('@/lib/rating/recompute', () => ({ recomputeRatingEntry: vi.fn() }));
 vi.mock('@/lib/queries/get-science-plan-gate', () => ({

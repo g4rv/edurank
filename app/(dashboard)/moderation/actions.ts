@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { canModerateRating } from '@/lib/rating/moderation';
+import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
 import { evidenceItems, type EvidenceItem } from '@/lib/rating/evidence-detail';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
@@ -41,12 +42,18 @@ export async function removeActivity(
       status: true,
       submittedByRole: true,
       activityType: {
-        select: { label: true, template: { select: { status: true } } },
+        select: {
+          label: true,
+          licencePositions: true,
+          template: { select: { status: true } },
+        },
       },
     },
   });
 
   if (!activity) return { error: 'Досягнення не знайдено' };
+  const frozen = linkedRatingProblem(session.user.role, activity.activityType.licencePositions);
+  if (frozen) return { error: frozen };
   if (activity.submittedByRole !== 'NPP' || activity.status !== 'APPROVED') {
     return { error: 'Це досягнення не можна відхилити' };
   }
