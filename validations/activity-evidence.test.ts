@@ -16,6 +16,7 @@ import {
 import { computeScore } from '@/lib/rating/scoring';
 import { catalogueType, SELECT_OPTION_POINTS } from '@/lib/rating/db-specs';
 import {
+  academicYearBounds,
   currentYearBounds,
   fieldSchema,
   ratingYearBounds,
@@ -558,6 +559,62 @@ describe('date with `currentYear` — old publications refused (owner, 2026-09-2
 
   it('leaves a date field without the rule as it was', () => {
     expect(fieldSchema(date('d', 'Дата')).safeParse('2019-05-01').success).toBe(true);
+  });
+});
+
+describe('date with `currentYear` in a навчальний рік (owner, 2026-10-30)', () => {
+  const field = date('publishedOn', 'Опубліковано/Проіндексовано', { rule: 'currentYear' });
+  const parse = (v: string, academicYear?: string) =>
+    schemaForFields([field], undefined, { academicYear }).safeParse({ publishedOn: v });
+  const message = (v: string, academicYear?: string) =>
+    parse(v, academicYear).error?.issues[0].message;
+
+  afterEach(() => vi.useRealTimers());
+
+  it('opens on 1 January of the first year, from the autumn already', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-30T10:00:00Z'));
+    expect(parse('2026-01-01', '2026/2027').success).toBe(true);
+    expect(parse('2026-10-30', '2026/2027').success).toBe(true);
+    expect(message('2025-12-31', '2026/2027')).toBe('Приймаються лише публікації з 2026 року');
+  });
+
+  it("still takes last autumn's article in spring of the second year", () => {
+    // Why the window is not the calendar year: that refused every 2026 date here.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-03-20T10:00:00Z'));
+    expect(parse('2026-01-01', '2026/2027').success).toBe(true);
+    expect(parse('2026-10-05', '2026/2027').success).toBe(true);
+    expect(parse('2027-03-20', '2026/2027').success).toBe(true);
+    expect(message('2025-12-31', '2026/2027')).toBe('Приймаються лише публікації з 2026 року');
+  });
+
+  it('refuses the future', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-03-20T10:00:00Z'));
+    expect(message('2027-03-21', '2026/2027')).toBe('Дата не може бути в майбутньому');
+  });
+
+  it('falls back to the calendar year when no рік is given', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-03-20T10:00:00Z'));
+    expect(parse('2026-10-05').success).toBe(false);
+    expect(parse('2027-01-02').success).toBe(true);
+  });
+});
+
+describe('academicYearBounds', () => {
+  it('starts on 1 January of the first year and ends today', () => {
+    expect(academicYearBounds('2026/2027', new Date('2027-03-20T10:00:00Z'))).toEqual({
+      min: '2026-01-01',
+      max: '2027-03-20',
+    });
+  });
+
+  it('is the calendar year without a рік, or with one that does not parse', () => {
+    const now = new Date('2027-03-20T10:00:00Z');
+    expect(academicYearBounds(undefined, now)).toEqual(currentYearBounds(now));
+    expect(academicYearBounds('2026', now)).toEqual(currentYearBounds(now));
   });
 });
 

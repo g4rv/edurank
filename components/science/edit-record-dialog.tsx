@@ -211,6 +211,7 @@ function EditForm({
     schemaForFields(fields, type.scoring, {
       // An untouched date is not re-judged — the server does the same.
       stored: evidence && typeof evidence === 'object' ? (evidence as FieldValues) : undefined,
+      academicYear,
     })
   );
 
@@ -314,6 +315,7 @@ function EditForm({
       register={register}
       control={control}
       errors={typedErrors(errors, watched)}
+      academicYear={academicYear}
       unitLabel="год"
     />
   );

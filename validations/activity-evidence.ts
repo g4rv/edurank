@@ -12,6 +12,7 @@ import { isValidDoi, normalizeDoi } from '@/lib/doi';
 import { hasDomainHost, hostMatches, withProtocol } from '@/lib/link-hosts';
 import { commaToPoint, decimalText, hasTooManyDecimals } from '@/lib/decimal-input';
 import { personalSheets } from '@/lib/specs/scoring';
+import { ACADEMIC_YEAR_PATTERN } from '@/lib/science/academic-year';
 
 // Builds one Zod schema per activity type from its evidence field specs
 // (carried by the ActivityType row — see validations/activity-type-spec.ts).
@@ -42,10 +43,11 @@ export function rangeMaxDay(now: Date = new Date()): string {
 }
 
 /**
- * A date field's `currentYear` window: 1 January of this calendar year up to
- * today, both `YYYY-MM-DD`, read in Europe/Kyiv — at 00:30 on 1 January in
- * Kyiv it is still the old year in UTC. Calendar year, not навчальний рік
- * (owner, 2026-09-24): in 2026 a 2025 publication is refused.
+ * The calendar-year window: 1 January of this calendar year up to today, both
+ * `YYYY-MM-DD`, read in Europe/Kyiv — at 00:30 on 1 January in Kyiv it is still
+ * the old year in UTC. A `currentYear` date uses it only when its form does not
+ * know a навчальний рік (see `academicYearBounds`, 2026-10-30); `ratingYear`
+ * falls back to it too.
  *
  * Shared by the picker (its bounds) and the schema (the refusal), so the two
  * cannot disagree.
@@ -78,6 +80,23 @@ export function ratingYearBounds(
 }
 
 /**
+ * A `currentYear` date's window once the form knows its навчальний рік (owner,
+ * 2026-10-30): 1 January of the рік's FIRST calendar year up to today. For
+ * 2026/2027 that is 1 January 2026 — the whole рік straddles two calendar
+ * years, so an article from autumn 2026 is still takeable in spring 2027.
+ * Without a рік (or one that does not parse) it is `currentYearBounds`.
+ */
+export function academicYearBounds(
+  academicYear: string | undefined,
+  now: Date = new Date()
+): { min: string; max: string } {
+  const current = currentYearBounds(now);
+  const years = academicYear ? ACADEMIC_YEAR_PATTERN.exec(academicYear) : null;
+  if (!years) return current;
+  return { min: `${years[1]}-01-01`, max: current.max };
+}
+
+/**
  * One field's rule. Exported for the Характеристика's hand-typed forms, which
  * compose a FLAT schema — `{ рік, варіант, ...поля }` — because the shared
  * renderer registers a field under its own name and nesting the evidence would
@@ -86,7 +105,7 @@ export function ratingYearBounds(
 export function fieldSchema(
   f: EvidenceField,
   stored?: unknown,
-  ctx?: { ratingYear?: number }
+  ctx?: { ratingYear?: number; academicYear?: string }
 ): z.ZodType {
   switch (f.kind) {
     case 'text': {
@@ -169,19 +188,30 @@ export function fieldSchema(
         { error: `Рік має бути в межах ${MIN_EVIDENCE_YEAR}–${maxYear}` }
       );
       if (f.rule === 'currentYear' || f.rule === 'ratingYear') {
+        const byAcademicYear = f.rule === 'currentYear' && !!ctx?.academicYear;
         const { min, max } =
-          f.rule === 'ratingYear' ? ratingYearBounds(ctx?.ratingYear) : currentYearBounds();
+          f.rule === 'ratingYear'
+            ? ratingYearBounds(ctx?.ratingYear)
+            : academicYearBounds(ctx?.academicYear);
         // The value already saved is not judged again: in January, last
         // year's article must still take a corrected title. Only a CHANGED
         // date meets the window — the same rule D48 gives the month.
         const kept = (v: string) => v === stored;
-        const onlyYear = `Приймаються лише публікації ${min.slice(0, 4)} року`;
-        base = base
-          .refine((v) => kept(v) || v >= min, { error: onlyYear })
-          // A later year is «not this year», not «the future» — a 2026 rating
-          // still open in January 2027 is the case that tells them apart.
-          .refine((v) => kept(v) || v <= `${min.slice(0, 4)}-12-31`, { error: onlyYear })
-          .refine((v) => kept(v) || v <= max, { error: 'Дата не може бути в майбутньому' });
+        const onlyYear = byAcademicYear
+          ? `Приймаються лише публікації з ${min.slice(0, 4)} року`
+          : `Приймаються лише публікації ${min.slice(0, 4)} року`;
+        base = base.refine((v) => kept(v) || v >= min, { error: onlyYear });
+        // A later year is «not this year», not «the future» — a 2026 rating
+        // still open in January 2027 is the case that tells them apart. Not for
+        // a навчальний рік: its window runs on to today, whatever the year.
+        if (!byAcademicYear) {
+          base = base.refine((v) => kept(v) || v <= `${min.slice(0, 4)}-12-31`, {
+            error: onlyYear,
+          });
+        }
+        base = base.refine((v) => kept(v) || v <= max, {
+          error: 'Дата не може бути в майбутньому',
+        });
       }
       return f.optional ? z.preprocess(emptyToUndefined, base.optional()) : base;
     }
@@ -292,12 +322,18 @@ export function schemaForFields(
     /** The rating year a `ratingYear` date must fall in — the template's,
      *  never the client's. Without it the calendar year stands in. */
     ratingYear?: number;
+    /** The навчальний рік a `currentYear` date is judged in — the science
+     *  template's, never the client's. Without it the calendar year stands in. */
+    academicYear?: string;
   }
 ): z.ZodType<Record<string, unknown>> {
   const shape = Object.fromEntries(
     fields.map((f) => [
       f.name,
-      fieldSchema(f, opts?.stored?.[f.name], { ratingYear: opts?.ratingYear }),
+      fieldSchema(f, opts?.stored?.[f.name], {
+        ratingYear: opts?.ratingYear,
+        academicYear: opts?.academicYear,
+      }),
     ])
   );
   const baseObject = opts?.allowUnknownKeys ? z.object(shape) : z.strictObject(shape);
