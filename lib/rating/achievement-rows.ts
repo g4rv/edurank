@@ -4,6 +4,7 @@ import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import type { StaffActivity } from '@/lib/queries/list-activities';
+import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
 import type { TemplateIndicator } from '@/lib/queries/list-template-indicators';
 
 /** Field specs off the row's JSON; a malformed row degrades to an empty summary */
@@ -22,7 +23,7 @@ export function compareItemNumbers(a: string, b: string): number {
   return aMajor - bMajor || aMinor - bMinor;
 }
 
-function toRow(a: StaffActivity, canManage: boolean): AchievementRow {
+function toRow(a: StaffActivity, canManage: boolean, viewerRole?: string): AchievementRow {
   return {
     id: a.id,
     itemNumber: a.activityType.itemNumber,
@@ -37,8 +38,13 @@ function toRow(a: StaffActivity, canManage: boolean): AchievementRow {
     division: a.activityType.verifyingDivision
       ? shortDivisionName(a.activityType.verifyingDivision)
       : null,
-    // NPP may delete only their own self-report, and only while the year is open
-    canDelete: canManage && a.submittedByRole === 'NPP' && a.status === 'APPROVED',
+    // NPP may delete only their own self-report, and only while the year is open —
+    // and not one the frozen Характеристика closes (the server refuses it too)
+    canDelete:
+      canManage &&
+      a.submittedByRole === 'NPP' &&
+      a.status === 'APPROVED' &&
+      !linkedRatingProblem(viewerRole, a.activityType.licencePositions),
   };
 }
 
@@ -174,7 +180,8 @@ export function toAchievementGroups(
   activities: StaffActivity[],
   sections?: number[],
   canManage = false,
-  catalogue?: readonly TemplateIndicator[]
+  catalogue?: readonly TemplateIndicator[],
+  viewerRole?: string
 ): AchievementGroup[] {
   const rowsBySection = new Map<number, AchievementRow[]>();
   const titleBySection = new Map<number, string>();
@@ -183,7 +190,7 @@ export function toAchievementGroups(
   for (const a of activities) {
     const n = a.activityType.section.number;
     const rows = rowsBySection.get(n) ?? [];
-    rows.push(toRow(a, canManage));
+    rows.push(toRow(a, canManage, viewerRole));
     rowsBySection.set(n, rows);
     titleBySection.set(n, a.activityType.section.title);
     filled.add(a.activityType.id);

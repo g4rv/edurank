@@ -33,6 +33,8 @@ export async function listStaffActivities(staffId: string, year: number, section
           // Named on the row so «this number is wrong» has an addressee
           verifyingDivision: { select: { name: true, registryKey: true } },
           evidenceFields: true,
+          // Whether the frozen Характеристика closes this row (kharakterystyka/freeze.ts)
+          licencePositions: true,
           section: { select: { number: true, title: true } },
         },
       },

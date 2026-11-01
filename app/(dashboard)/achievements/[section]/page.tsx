@@ -136,7 +136,13 @@ export default async function AchievementsSectionPage({
   const totals = sectionScores(await getRatingEntry(staffId, template.year));
 
   const activities = await listStaffActivities(staffId, template.year, section);
-  const groups = toAchievementGroups(activities, undefined, canManage);
+  const groups = toAchievementGroups(
+    activities,
+    undefined,
+    canManage,
+    undefined,
+    session.user.role
+  );
 
   const submittableTypes = canManage
     ? template.activityTypes

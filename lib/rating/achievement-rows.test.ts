@@ -278,3 +278,46 @@ describe('toAchievementGroups', () => {
     });
   });
 });
+
+// The Характеристика is frozen (lib/kharakterystyka/freeze.ts): a row of an
+// indicator that feeds it must not offer «Видалити» to anybody but ADMIN, since
+// the server refuses it and the person would only learn that after confirming.
+describe('toAchievementGroups — delete button under the freeze', () => {
+  const activity = (licencePositions: unknown) =>
+    ({
+      id: 'act-1',
+      score: 150,
+      status: 'APPROVED',
+      submittedByRole: 'NPP',
+      removeReason: null,
+      evidence: {},
+      activityType: {
+        id: 'type-1',
+        itemNumber: '3.9',
+        label: 'Публікації',
+        inputSource: 'NPP_SUBMISSION',
+        gatesRating: false,
+        verifyingDivision: null,
+        evidenceFields: [],
+        licencePositions,
+        section: { number: 3, title: 'Розділ 3' },
+      },
+    }) as unknown as StaffActivity;
+
+  const canDelete = (licencePositions: unknown, role?: string) =>
+    toAchievementGroups([activity(licencePositions)], undefined, true, undefined, role)[0].items[0]
+      .canDelete;
+
+  it('hides it on a row that feeds a position, for a non-admin', () => {
+    expect(canDelete([{ position: 1 }], 'USER')).toBe(false);
+    expect(canDelete([{ position: 1 }], 'EDITOR')).toBe(false);
+  });
+
+  it('keeps it on a row that feeds no position', () => {
+    expect(canDelete([], 'USER')).toBe(true);
+  });
+
+  it('keeps it for ADMIN even on a linked row', () => {
+    expect(canDelete([{ position: 1 }], 'ADMIN')).toBe(true);
+  });
+});
