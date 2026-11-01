@@ -228,7 +228,7 @@ function RecordForm({
 
   // The WHOLE field set this time — see the note on this component.
   const [fields] = useState(() => type?.fields ?? []);
-  const [schema] = useState(() => schemaForFields(fields, type?.scoring));
+  const [schema] = useState(() => schemaForFields(fields, type?.scoring, { academicYear }));
 
   const {
     register,
@@ -353,6 +353,7 @@ function RecordForm({
       register={register}
       control={control}
       errors={typedErrors(errors, watched)}
+      academicYear={academicYear}
       // Додаток III prices in ГОДИНАХ, not балах (D3) — the renderer is the
       // rating's and defaults to its unit.
       unitLabel="год"

@@ -393,7 +393,9 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
   // A RECORD parses the type's WHOLE field set, unlike a plan row, which takes
   // only what the scoring rule reads (D23). By now the work exists, so it has a
   // назва, a DOI and a page count to give.
-  const parsed = schemaForFields(fields, scoring).safeParse(input.evidence);
+  const parsed = schemaForFields(fields, scoring, {
+    academicYear: template.academicYear,
+  }).safeParse(input.evidence);
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   // п.12: the аспірант is one of this person's own (owner, 2026-10-07) — the
@@ -764,7 +766,10 @@ export async function updateWorkEvidence(input: {
     work.evidence && typeof work.evidence === 'object'
       ? (work.evidence as Record<string, unknown>)
       : undefined;
-  const parsed = schemaForFields(fields, scoring, { stored }).safeParse(input.evidence);
+  const parsed = schemaForFields(fields, scoring, {
+    stored,
+    academicYear: template.academicYear,
+  }).safeParse(input.evidence);
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
   // п.12, judged against the work's OWNER (an ADMIN may be the one editing);

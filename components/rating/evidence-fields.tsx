@@ -37,7 +37,7 @@ import {
 } from '@/components/aurora/ui/select';
 import { conditionMet, fieldShown, type EvidenceField } from '@/lib/rating/evidence-fields';
 import {
-  currentYearBounds,
+  academicYearBounds,
   MIN_EVIDENCE_YEAR,
   ratingYearBounds,
 } from '@/validations/activity-evidence';
@@ -83,6 +83,8 @@ interface EvidenceFieldsProps {
   pick?: { aspirants?: readonly PersonOption[] };
   /** The rating year a `ratingYear` date is picked in — the template's. */
   ratingYear?: number;
+  /** The навчальний рік a `currentYear` date is picked in — the science template's. */
+  academicYear?: string;
   /**
    * Turns on the DOI box's hints (owner, 2026-10-27): a warning when the
    * description or the link names a different DOI, and «Підставити» when the
@@ -162,6 +164,7 @@ export function EvidenceFields({
   unitLabel = 'балів',
   pick: pickProp,
   ratingYear,
+  academicYear,
   doiHints,
 }: EvidenceFieldsProps) {
   // The page provides the lists once (`PickListsProvider`); a prop overrides it
@@ -413,8 +416,8 @@ export function EvidenceFields({
                   value={typeof field.value === 'string' ? field.value : ''}
                   onChange={field.onChange}
                   // The picker greys out what the schema would refuse.
-                  min={dateBounds(f.rule, ratingYear).min}
-                  max={dateBounds(f.rule, ratingYear).max}
+                  min={dateBounds(f.rule, ratingYear, academicYear).min}
+                  max={dateBounds(f.rule, ratingYear, academicYear).max}
                   disabled={disabled}
                   // Like the `select` case below it, off the same `error`.
                   aria-invalid={!!error}
@@ -604,9 +607,10 @@ export function EvidenceFields({
 /** What a date picker may offer — the same window the schema enforces */
 function dateBounds(
   rule: 'currentYear' | 'ratingYear' | undefined,
-  ratingYear: number | undefined
+  ratingYear: number | undefined,
+  academicYear: string | undefined
 ): { min: string; max: string } {
-  if (rule === 'currentYear') return currentYearBounds();
+  if (rule === 'currentYear') return academicYearBounds(academicYear);
   if (rule === 'ratingYear') return ratingYearBounds(ratingYear);
   return { min: DATE_MIN, max: DATE_MAX };
 }

@@ -7,6 +7,8 @@ import { getRatingEntry } from '@/lib/queries/get-rating';
 import { sectionScores } from '@/lib/rating/section-scores';
 import { RatingClosedNote } from '@/components/rating/rating-closed-note';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
+import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
+import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PlanGateNote } from '@/components/rating/plan-gate-note';
 import { RatingGateNote } from '@/components/rating/rating-gate-note';
@@ -134,11 +136,20 @@ export default async function AchievementsSectionPage({
   const totals = sectionScores(await getRatingEntry(staffId, template.year));
 
   const activities = await listStaffActivities(staffId, template.year, section);
-  const groups = toAchievementGroups(activities, undefined, canManage);
+  const groups = toAchievementGroups(
+    activities,
+    undefined,
+    canManage,
+    undefined,
+    session.user.role
+  );
 
   const submittableTypes = canManage
     ? template.activityTypes
         .filter((t) => t.section.number === section)
+        // The Характеристика is frozen: an indicator that feeds it cannot be
+        // added to (lib/kharakterystyka/freeze.ts). The action refuses it too.
+        .filter((t) => !linkedRatingProblem(session.user.role, t.licencePositions))
         .map((t) => ({
           id: t.id,
           label: t.label,
@@ -149,6 +160,13 @@ export default async function AchievementsSectionPage({
           gatesRating: t.gatesRating,
         }))
     : [];
+
+  const frozenHere = canManage
+    ? template.activityTypes.filter(
+        (t) =>
+          t.section.number === section && linkedRatingProblem(session.user.role, t.licencePositions)
+      ).length
+    : 0;
 
   return (
     <div className="space-y-5">
@@ -174,6 +192,13 @@ export default async function AchievementsSectionPage({
           />
         }
       />
+
+      {frozenHere > 0 && (
+        <FrozenNote>
+          Частину показників цього розділу тимчасово закрито: вони входять до характеристики, яка
+          зараз доступна лише для перегляду.
+        </FrozenNote>
+      )}
 
       {warnHere.length > 0 && <RatingGateNote missing={warnHere} />}
 

@@ -36,6 +36,8 @@ export const getActiveTemplate = cache(async function getActiveTemplate() {
           scoring: true,
           // 5.1 is mandatory for the year to count and shows «Виконано» (2026-10-19)
           gatesRating: true,
+          // Which indicators the frozen Характеристика closes (kharakterystyka/freeze.ts)
+          licencePositions: true,
           section: { select: { number: true, title: true } },
         },
         orderBy: [{ section: { number: 'asc' } }, { order: 'asc' }],

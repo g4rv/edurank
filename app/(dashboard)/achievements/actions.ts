@@ -15,6 +15,7 @@ import { recomputeRatingEntry } from '@/lib/rating/recompute';
 import { computeScore } from '@/lib/rating/scoring';
 import { logError } from '@/lib/log';
 import { NPP_RATING_CLOSED_DETAIL, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
+import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PLAN_GATE_DETAIL } from '@/lib/science/plan-gate';
 
@@ -70,12 +71,17 @@ export async function createActivity(
       maxPerYear: true,
       evidenceFields: true,
       scoring: true,
+      licencePositions: true,
       template: { select: { year: true, isActive: true, status: true } },
     },
   });
   if (!type || !type.isActive || type.inputSource !== 'NPP_SUBMISSION') {
     return { error: 'Цей показник недоступний для самостійного подання' };
   }
+  // The Характеристика is frozen: an indicator that feeds it is read-only for
+  // everybody but ADMIN (lib/kharakterystyka/freeze.ts).
+  const frozen = linkedRatingProblem(session.user.role, type.licencePositions);
+  if (frozen) return { error: frozen };
   if (!type.template.isActive || type.template.status !== 'OPEN') {
     return { error: 'Рейтинговий рік закрито для подання' };
   }
@@ -254,6 +260,7 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
         select: {
           code: true,
           label: true,
+          licencePositions: true,
           template: { select: { status: true } },
         },
       },
@@ -261,6 +268,8 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
   });
 
   if (!activity || activity.staffId !== staffId) return { error: 'Досягнення не знайдено' };
+  const frozen = linkedRatingProblem(session.user.role, activity.activityType.licencePositions);
+  if (frozen) return { error: frozen };
   if (activity.submittedByRole !== 'NPP' || activity.status !== 'APPROVED') {
     return { error: 'Це досягнення не можна видалити' };
   }

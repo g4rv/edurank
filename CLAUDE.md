@@ -732,6 +732,18 @@ five-year window. `Кнпп` — how many people on a кафедра meet enough
 **never stored**; it is computed in `lib/queries/get-department-knpp.ts`, because
 freezing it would go stale the moment somebody submits an achievement.
 
+**Frozen for everyone but ADMIN (owner, 2026-11-01).** The division copies the
+Характеристика to another platform by hand, so two constants in
+`lib/kharakterystyka/freeze.ts` close it, with no dates — whoever unfreezes sets
+them to `false` and deploys. `KHARAKTERYSTYKA_FROZEN` refuses a non-admin every
+write on the document (typing, deleting, removing a line).
+`KHARAKTERYSTYKA_FREEZES_LINKED_RATING` also refuses a non-admin to add, delete
+or discard a rating entry of an indicator with `licencePositions` (НПП
+`createActivity`/`deleteActivity`, `/division-data`, `/moderation`), because the
+document is computed live from those rows. Other indicators stay open. **Known
+gap (KISS, chosen over a stored copy):** the profile-derived positions follow the
+live profile. Setting the second constant to `false` closes the document alone.
+
 **Any line can be removed — final — by ADMIN, or by the НПП on their own**
 (2026-10-06). An open year's rating line is deleted from the rating too; a
 closed year's is only hidden (`KharakterystykaRemovedLine`); an imported one is
@@ -775,7 +787,7 @@ Easy to get wrong:
 - **One `ScienceWork` per identity, `dedupKey` UNIQUE.** `identityFields`
   (doi, link, title, in priority order) build the key — `link` is the RECORD's
   own «Посилання на роботу» (`lib/science/identity.ts`), so a type never asks
-  for the same address twice; `ONCE` carries the навчальний рік and `SHARED` no
+  for the same address twice; `YEARLY` carries the навчальний рік (`ONCE` does not) and `SHARED` no
   person-prefix, so the SAME article can never be entered twice
   university-wide. A second person who tries it is told who has it and to
   agree the hours with them (`ExistingWorkPanel`) — **nobody joins a work by
@@ -920,13 +932,18 @@ Easy to get wrong:
   `executedMonth`. Flip the constant to bring the picker, the month headings,
   the month on /moderation and ⚙ «Останній місяць» back — every stored row
   stays valid. Month maths only through that file, which reads Kyiv time.
-- **The стаття's «Опубліковано/Проіндексовано» refuses old publications** (D51).
-  `publishedOn` is a `date` evidence field with `rule: 'currentYear'`: from
-  1 January of the current CALENDAR year (Kyiv) to today — in 2026 a 2025
-  article is refused at once, by the picker and the schema alike
-  (`currentYearBounds`). A value already saved is not re-judged on edit. A
-  faked date inside the window is ННВ's to catch. Never one of the type's
-  `identityFields`, so a typed date cannot make one article look like two.
+- **The стаття's «Опубліковано/Проіндексовано» refuses old publications** (D51,
+  window widened 2026-10-30). `publishedOn` is a `date` evidence field with
+  `rule: 'currentYear'`: from 1 January of the FIRST calendar year of the
+  record's навчальний рік to today (Kyiv) — for 2026/2027 that is 1 January
+  2026, so autumn-2026 articles stay takeable in spring 2027 and a 2025 one is
+  refused, by the picker and the schema alike (`academicYearBounds`; the рік
+  is the template's, passed as `academicYear`, never the client's). Without a
+  рік it falls back to the calendar year (`currentYearBounds`). A value already
+  saved is not re-judged on edit. A faked date inside the window is ННВ's to
+  catch. Never one of the type's `identityFields`, so a typed date cannot make
+  one article look like two. The same article cannot go in twice across роки:
+  a ONCE work's `dedupKey` carries no year (only YEARLY adds it).
 - **A file is changed by whoever entered the work or uploaded it; a record's
   only proof is swapped with `replaceFile`, never deleted first** —
   `deleteFile` refuses it and names «Замінити». (D46's «every co-author

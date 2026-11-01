@@ -1,4 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// These tests cover the rules that apply once the Характеристика is open again.
+// The freeze has its own file (freeze.test.ts).
+vi.mock('./freeze', () => ({
+  KHARAKTERYSTYKA_FROZEN_DETAIL: 'frozen',
+  kharakterystykaFrozenFor: () => false,
+}));
+
 import {
   SELF_TYPEABLE_POSITIONS,
   typeEntryProblem,

@@ -114,10 +114,12 @@ export type EvidenceField =
       label: string;
       optional?: boolean;
       /**
-       * `currentYear` — 1 January of the CURRENT calendar year (Kyiv) up to
-       * today, never the future (owner, 2026-09-24): the стаття's
-       * «Опубліковано/Проіндексовано», so an old publication is refused at
-       * once. A faked date is ННВ's to catch. See `currentYearBounds`.
+       * `currentYear` — 1 January of the FIRST calendar year of the record's
+       * навчальний рік (Kyiv) up to today, never the future (owner,
+       * 2026-09-24, widened 2026-10-30): the стаття's «Опубліковано/
+       * Проіндексовано», so an old publication is refused at once. Without a
+       * рік, the current calendar year. A faked date is ННВ's to catch. See
+       * `academicYearBounds`.
        *
        * `ratingYear` — 1 January to 31 December of the RATING year, and never
        * the future (owner, 2026-10-27, 3.11): the rating scores only what
