@@ -14,7 +14,9 @@ import {
   snapshotToGroups,
   toAchievementGroups,
 } from '@/lib/rating/achievement-rows';
+import { adminFreezeNote } from '@/lib/kharakterystyka/freeze';
 import { EmptyState } from '@/components/aurora/ui/card';
+import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import { RatingTable } from '@/components/rating/rating-table';
 import { EmptyRowsSwitch } from '@/components/rating/rating-view';
 import { YearSelect } from '@/components/rating/year-select';
@@ -75,6 +77,7 @@ export default async function StaffRatingPage({
   }
 
   const status = templateYears.find((t) => t.year === year)?.status;
+  const adminNote = adminFreezeNote(session.user.role);
 
   // Closed year → the frozen snapshot is authoritative; open year → live rows
   const closed = status === 'CLOSED';
@@ -147,6 +150,8 @@ export default async function StaffRatingPage({
           />
         </ToolbarGroup>
       </RecordTabRow>
+
+      {adminNote && <FrozenNote>{adminNote}</FrozenNote>}
 
       <RatingTable groups={groups} fill gate={gate} />
     </div>

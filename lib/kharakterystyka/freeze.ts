@@ -49,6 +49,20 @@ export function kharakterystykaFrozenFor(role: Role | string | undefined): boole
   return KHARAKTERYSTYKA_FROZEN && role !== 'ADMIN';
 }
 
+/** What an ADMIN is told on a person's record while it is closed to others. */
+export const ADMIN_FREEZE_NOTE =
+  'Характеристика та відповідні показники рейтингу заблоковані для НПП';
+
+/**
+ * The line an ADMIN sees on a person's Характеристика and rating tabs, so the
+ * freeze is visible from the side that is not frozen. `null` for everyone else
+ * — they get `KHARAKTERYSTYKA_FROZEN_NOTE` — and once the constants are `false`.
+ */
+export function adminFreezeNote(role: Role | string | undefined): string | null {
+  if (role !== 'ADMIN') return null;
+  return KHARAKTERYSTYKA_FROZEN || KHARAKTERYSTYKA_FREEZES_LINKED_RATING ? ADMIN_FREEZE_NOTE : null;
+}
+
 /**
  * Is this rating indicator closed to this role? `null` means no: the sentence
  * otherwise, for the action to return.

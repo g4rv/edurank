@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ADMIN_FREEZE_NOTE,
+  adminFreezeNote,
   KHARAKTERYSTYKA_FROZEN,
   KHARAKTERYSTYKA_FREEZES_LINKED_RATING,
   KHARAKTERYSTYKA_FROZEN_DETAIL,
@@ -74,5 +76,20 @@ describe('the document itself', () => {
       typeEntryProblem({ ...who, role: 'ADMIN', targetStaffId: 'his-staff', position: 1 })
     ).toBeNull();
     expect(removeLineProblem({ ...who, role: 'ADMIN', targetStaffId: 'his-staff' })).toBeNull();
+  });
+});
+
+describe("adminFreezeNote — what ADMIN is told on a person's record", () => {
+  it('tells ADMIN that the Характеристика and its rating indicators are blocked', () => {
+    expect(adminFreezeNote('ADMIN')).toBe(ADMIN_FREEZE_NOTE);
+    expect(ADMIN_FREEZE_NOTE).toBe(
+      'Характеристика та відповідні показники рейтингу заблоковані для НПП'
+    );
+  });
+
+  it('says nothing to anybody else — they get the read-only note instead', () => {
+    for (const role of ['USER', 'EDITOR', undefined]) {
+      expect(adminFreezeNote(role)).toBeNull();
+    }
   });
 });
