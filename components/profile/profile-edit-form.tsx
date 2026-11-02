@@ -26,7 +26,12 @@ import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
 import type { HeadshipPost } from '@/lib/staff/academic';
-import { USER_EDITABLE_STAFF_FIELDS } from '@/lib/staff/editable-fields';
+import {
+  ownEditableFields,
+  PROFILE_FROZEN_NOTE,
+  profileFrozenFor,
+} from '@/lib/staff/profile-freeze';
+import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 import type {
   CertificateScans,
@@ -54,6 +59,7 @@ export function ProfileEditForm({
   isNpp = false,
   headship = null,
   certificates,
+  role,
 }: {
   /** Whose record this is — the header is the same one `/staff/[id]/edit` uses. */
   name: string;
@@ -76,7 +82,15 @@ export function ProfileEditForm({
    * only. Their values are in `defaultValues`; this names the stored scans.
    */
   certificates?: CertificateScans;
+  /** The caller's role — decides which fields are greyed (the profile freeze) */
+  role: string;
 }) {
+  const editable = ownEditableFields(role);
+  // Frozen: the academic and «Освіта» cards are not drawn at all, as the page
+  // was before they were opened (2026-10-06) — Контакти and the research links.
+  const showAcademic = isNpp && !profileFrozenFor(role);
+  // The h-index boxes pay rating points; they go with the freeze (owner, 2026-11-02).
+  const showCounts = editable.has('wosCitationCount');
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -179,7 +193,7 @@ export function ProfileEditForm({
             htmlFor="wosUrl"
             label="Web of Science"
             error={errors.wosUrl}
-            className="col-span-2"
+            className={showCounts ? 'col-span-2' : 'col-span-3'}
           >
             <Input
               id="wosUrl"
@@ -188,21 +202,23 @@ export function ProfileEditForm({
               {...register('wosUrl')}
             />
           </FormField>
-          <FormField
-            htmlFor="wosCitationCount"
-            label="h-індекс"
-            labelSuffix={<RatingFieldHint field="wosCitationCount" />}
-            error={errors.wosCitationCount}
-          >
-            <Input
-              id="wosCitationCount"
-              type="number"
-              min="0"
-              disabled={isPending}
-              {...register('wosCitationCount')}
-            />
-            <CitationNoLinkNote control={control} url="wosUrl" count="wosCitationCount" />
-          </FormField>
+          {showCounts && (
+            <FormField
+              htmlFor="wosCitationCount"
+              label="h-індекс"
+              labelSuffix={<RatingFieldHint field="wosCitationCount" />}
+              error={errors.wosCitationCount}
+            >
+              <Input
+                id="wosCitationCount"
+                type="number"
+                min="0"
+                disabled={isPending}
+                {...register('wosCitationCount')}
+              />
+              <CitationNoLinkNote control={control} url="wosUrl" count="wosCitationCount" />
+            </FormField>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-x-4">
@@ -210,7 +226,7 @@ export function ProfileEditForm({
             htmlFor="scopusUrl"
             label="Scopus"
             error={errors.scopusUrl}
-            className="col-span-2"
+            className={showCounts ? 'col-span-2' : 'col-span-3'}
           >
             <Input
               id="scopusUrl"
@@ -219,21 +235,23 @@ export function ProfileEditForm({
               {...register('scopusUrl')}
             />
           </FormField>
-          <FormField
-            htmlFor="scopusCitationCount"
-            label="h-індекс"
-            labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
-            error={errors.scopusCitationCount}
-          >
-            <Input
-              id="scopusCitationCount"
-              type="number"
-              min="0"
-              disabled={isPending}
-              {...register('scopusCitationCount')}
-            />
-            <CitationNoLinkNote control={control} url="scopusUrl" count="scopusCitationCount" />
-          </FormField>
+          {showCounts && (
+            <FormField
+              htmlFor="scopusCitationCount"
+              label="h-індекс"
+              labelSuffix={<RatingFieldHint field="scopusCitationCount" />}
+              error={errors.scopusCitationCount}
+            >
+              <Input
+                id="scopusCitationCount"
+                type="number"
+                min="0"
+                disabled={isPending}
+                {...register('scopusCitationCount')}
+              />
+              <CitationNoLinkNote control={control} url="scopusUrl" count="scopusCitationCount" />
+            </FormField>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-x-4">
@@ -241,7 +259,7 @@ export function ProfileEditForm({
             htmlFor="googleScholarUrl"
             label="Google Scholar"
             error={errors.googleScholarUrl}
-            className="col-span-2"
+            className={showCounts ? 'col-span-2' : 'col-span-3'}
           >
             <Input
               id="googleScholarUrl"
@@ -250,25 +268,27 @@ export function ProfileEditForm({
               {...register('googleScholarUrl')}
             />
           </FormField>
-          <FormField
-            htmlFor="googleScholarCitationCount"
-            label="h-індекс"
-            labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
-            error={errors.googleScholarCitationCount}
-          >
-            <Input
-              id="googleScholarCitationCount"
-              type="number"
-              min="0"
-              disabled={isPending}
-              {...register('googleScholarCitationCount')}
-            />
-            <CitationNoLinkNote
-              control={control}
-              url="googleScholarUrl"
-              count="googleScholarCitationCount"
-            />
-          </FormField>
+          {showCounts && (
+            <FormField
+              htmlFor="googleScholarCitationCount"
+              label="h-індекс"
+              labelSuffix={<RatingFieldHint field="googleScholarCitationCount" />}
+              error={errors.googleScholarCitationCount}
+            >
+              <Input
+                id="googleScholarCitationCount"
+                type="number"
+                min="0"
+                disabled={isPending}
+                {...register('googleScholarCitationCount')}
+              />
+              <CitationNoLinkNote
+                control={control}
+                url="googleScholarUrl"
+                count="googleScholarCitationCount"
+              />
+            </FormField>
+          )}
         </div>
 
         <FormField htmlFor="orcidId" label="ORCID" error={errors.orcidId}>
@@ -331,6 +351,8 @@ export function ProfileEditForm({
           </div>
         </Card>
 
+        {profileFrozenFor(role) && <FrozenNote>{PROFILE_FROZEN_NOTE}</FrozenNote>}
+
         {/* Two columns that each FLOW, not a grid (owner, 2026-10-06 — «bento»).
             A grid row is as tall as its tallest cell, so «Контакти», one field,
             left a hole under it the height of four profile links. Flowing
@@ -344,7 +366,7 @@ export function ProfileEditForm({
             page is Контакти alone, and the photo when it arrives. */}
         <div className="flex flex-col items-start gap-4 lg:flex-row">
           <div className="flex w-full flex-1 flex-col gap-4">
-            {isNpp ? (
+            {showAcademic ? (
               <>
                 <AcademicCard
                   register={register as never}
@@ -353,7 +375,7 @@ export function ProfileEditForm({
                   isPending={isPending}
                   // Greyed from the list the save filters by — the стаж is
                   // not theirs to set (owner, 2026-10-16).
-                  locked={(field) => !USER_EDITABLE_STAFF_FIELDS.has(field)}
+                  locked={(field) => !editable.has(field)}
                   headship={headship}
                 />
                 <EducationCard
@@ -361,6 +383,7 @@ export function ProfileEditForm({
                   control={control as never}
                   errors={errors as never}
                   isPending={isPending}
+                  locked={(field) => !editable.has(field)}
                   certificates={certificates}
                 />
               </>
@@ -369,7 +392,7 @@ export function ProfileEditForm({
             )}
           </div>
           <div className="flex w-full flex-1 flex-col gap-4">
-            {isNpp && contactsCard}
+            {showAcademic && contactsCard}
             {isNpp && profilesCard}
           </div>
         </div>

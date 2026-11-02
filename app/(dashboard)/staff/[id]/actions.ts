@@ -39,9 +39,9 @@ import {
   requireAdmin,
   isEditorWritableField,
   isLastActiveAdmin,
-  USER_EDITABLE_STAFF_FIELDS,
   type AccountAction,
 } from '@/lib/permissions';
+import { ownEditableFields } from '@/lib/staff/profile-freeze';
 import { formatStake } from '@/lib/stake/units';
 import { parseDbError, isForeignKeyViolation } from '@/lib/db-error';
 import { emailTaken, EMAIL_TAKEN_MESSAGE } from '@/lib/queries/email-taken';
@@ -537,8 +537,9 @@ export async function updateStaff(
       if (allowed.has(key) && isEditorWritableField(key)) updateData[key] = val;
     }
   } else {
+    const editable = ownEditableFields(role);
     for (const [key, val] of Object.entries(fields)) {
-      if (USER_EDITABLE_STAFF_FIELDS.has(key)) updateData[key] = val;
+      if (editable.has(key)) updateData[key] = val;
     }
   }
 

@@ -7,6 +7,16 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+// The freeze has its own file (lib/staff/profile-freeze.test.ts); these cover the rules once the profile is open.
+vi.mock('@/lib/staff/profile-freeze', async () => {
+  const { USER_EDITABLE_STAFF_FIELDS } = await import('@/lib/staff/editable-fields');
+  return {
+    profileFrozenFor: () => false,
+    ownEditableFields: () => USER_EDITABLE_STAFF_FIELDS,
+    PROFILE_FROZEN_NOTE: 'frozen',
+    QUALIFICATIONS_FROZEN_DETAIL: 'frozen',
+  };
+});
 vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), count: vi.fn() },
