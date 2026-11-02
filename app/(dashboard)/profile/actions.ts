@@ -8,7 +8,7 @@ import { ownProfileSchema, type OwnProfileSchema } from '@/validations/staff';
 import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { logWarning } from '@/lib/log';
-import { USER_EDITABLE_STAFF_FIELDS } from '@/lib/permissions';
+import { ownEditableFields } from '@/lib/staff/profile-freeze';
 import { ACADEMIC_EDITABLE_FIELDS, RESEARCH_PROFILE_FIELDS } from '@/lib/staff/editable-fields';
 import {
   ACADEMIC_STORED_SELECT,
@@ -85,8 +85,11 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
   // carry the academic fields would otherwise wipe them (2026-10-06).
   const sent = new Set(Object.keys((data ?? {}) as object));
   const updateData: Record<string, unknown> = {};
+  // Frozen for a plain НПП: phone and research links only (editable-fields.ts).
+  // The rest is dropped, not refused — the form greys it, the server agrees.
+  const editable = ownEditableFields(session.user.role);
   for (const [key, value] of Object.entries(parsed.data)) {
-    if (USER_EDITABLE_STAFF_FIELDS.has(key) && sent.has(key)) updateData[key] = value;
+    if (editable.has(key) && sent.has(key)) updateData[key] = value;
   }
 
   // «Академічна інформація», «Освіта» and the research profiles are an НПП's to

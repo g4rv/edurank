@@ -18,6 +18,7 @@ import {
 } from '@/components/aurora/ui/select';
 import { DiscardActivityButton } from '@/components/rating/discard-activity-button';
 import { VerifyActivityButton } from '@/components/rating/verify-activity-button';
+import { RestoreActivityButton } from '@/components/rating/restore-activity-button';
 import { SubmissionPanel } from '@/components/rating/submission-panel';
 import { compareItemNumbers } from '@/lib/rating/achievement-rows';
 import { sumScores } from '@/lib/round';
@@ -45,6 +46,7 @@ export interface ModerationRow {
   /** Display form; shown in the panel, no longer a column */
   date: string;
   canDiscard: boolean;
+  canRestore: boolean;
   verified: boolean;
   canVerify: boolean;
 }
@@ -761,6 +763,9 @@ function RowActions({ row }: { row: ModerationRow }) {
       )}
       {row.canDiscard && (
         <DiscardActivityButton activityId={row.id} label={row.label} staffName={row.staffName} />
+      )}
+      {row.canRestore && (
+        <RestoreActivityButton activityId={row.id} label={row.label} staffName={row.staffName} />
       )}
     </>
   );

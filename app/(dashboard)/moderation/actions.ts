@@ -9,6 +9,9 @@ import { parseDbError } from '@/lib/db-error';
 import { canModerateRating } from '@/lib/rating/moderation';
 import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
+import { doiClash } from '@/lib/rating/reused-doi';
+import { parseTypeSpecs } from '@/validations/activity-type-spec';
+import { logError } from '@/lib/log';
 import { evidenceItems, type EvidenceItem } from '@/lib/rating/evidence-detail';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import { ACTIVITY_STATUS_LABELS } from '@/lib/rating/labels';
@@ -105,6 +108,130 @@ export async function removeActivity(
   revalidatePath('/moderation');
   revalidatePath('/profile/rating');
   return { success: true };
+}
+
+export type RestoreActivityState = { error: string } | { success: true };
+
+// ADMIN takes back a discard made by mistake (owner, 2026-11-02). Until now a
+// discard was write-once: the НПП could only enter the work again, which the
+// Характеристика freeze and a taken DOI can both make impossible. The entry
+// keeps its frozen score; only the discard is undone. ADMIN only — a moderator
+// who discarded something does not also get to reverse it unseen.
+export async function restoreActivity(activityId: string): Promise<RestoreActivityState> {
+  const session = await auth();
+  if (!session) redirect('/login');
+  if (session.user.role !== 'ADMIN') return { error: 'Недостатньо прав' };
+
+  const found = await findRestorable(activityId, session.user.id);
+  if (!found.activity) return { error: found.error ?? 'Не вдалося перевірити запис' };
+  const { activity } = found;
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.activity.update({
+        where: { id: activity.id },
+        data: { status: 'APPROVED', removedByUserId: null, removedAt: null, removeReason: null },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'Activity',
+          entityId: activity.id,
+          label: activity.activityType.label,
+          userId: session.user.id,
+          changes: diffChanges(
+            { status: 'REMOVED', removeReason: activity.removeReason },
+            { status: 'APPROVED', removeReason: null }
+          ),
+        },
+      });
+
+      await recomputeRatingEntry(tx, activity.staffId, activity.year);
+    });
+  } catch (e) {
+    return {
+      error: parseDbError(
+        e,
+        'Не вдалося повернути. Зміни не застосовано',
+        'moderation.restoreActivity',
+        { userId: session.user.id }
+      ),
+    };
+  }
+
+  revalidatePath('/moderation');
+  revalidatePath('/profile/rating');
+  return { success: true };
+}
+
+export type CheckRestoreState = { error: string } | { ok: true };
+
+// Asked when the confirm dialog OPENS, so a restore that cannot happen shows
+// its reason inside the dialog and offers no confirm button — the same checks
+// `restoreActivity` makes, through the same function.
+export async function checkRestoreActivity(activityId: string): Promise<CheckRestoreState> {
+  const session = await auth();
+  if (!session) redirect('/login');
+  if (session.user.role !== 'ADMIN') return { error: 'Недостатньо прав' };
+
+  const found = await findRestorable(activityId, session.user.id);
+  if (!found.activity) return { error: found.error ?? 'Не вдалося перевірити запис' };
+  return { ok: true };
+}
+
+async function findRestorable(activityId: string, userId: string) {
+  const activity = await db.activity.findUnique({
+    where: { id: activityId },
+    select: {
+      id: true,
+      staffId: true,
+      year: true,
+      status: true,
+      removeReason: true,
+      submittedByRole: true,
+      evidence: true,
+      activityType: {
+        select: {
+          label: true,
+          code: true,
+          evidenceFields: true,
+          scoring: true,
+          template: { select: { status: true } },
+        },
+      },
+    },
+  });
+  if (!activity) return { error: 'Досягнення не знайдено' };
+  if (activity.submittedByRole !== 'NPP' || activity.status !== 'REMOVED') {
+    return { error: 'Це досягнення не можна повернути' };
+  }
+  if (activity.activityType.template.status !== 'OPEN') {
+    return { error: 'Рейтинговий рік закрито' };
+  }
+
+  // The НПП may have entered the same work again after the discard. Restoring
+  // beside it would count one DOI twice (the rule `createActivity` keeps).
+  try {
+    const { fields } = parseTypeSpecs(activity.activityType);
+    const clash = await doiClash(
+      activity.staffId,
+      activity.activityType.code,
+      fields,
+      (activity.evidence ?? {}) as Record<string, unknown>,
+      activity.id
+    );
+    if (clash) {
+      return {
+        error: `DOI цієї публікації вже зайнято в показнику п. ${clash.itemNumber}: у цієї особи є інший запис з таким DOI (${clash.year}). Спершу відхиліть той запис.`,
+      };
+    }
+  } catch (e) {
+    logError('moderation.restoreActivity.parseSpecs', e, { userId });
+    return { error: 'Не вдалося перевірити запис. Зміни не застосовано' };
+  }
+
+  return { activity };
 }
 
 export type VerifyActivityState = { error: string } | { success: true; verified: boolean };

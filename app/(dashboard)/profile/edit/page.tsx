@@ -48,6 +48,7 @@ export default async function ProfileEditPage() {
         name={fullName(staff)}
         avatarSrc={avatarSrc(staff)}
         canEditAvatar={canSetOwnAvatar(session.user.role)}
+        role={session.user.role}
         isNpp={staff.isNpp}
         headship={headshipOf(staff)}
         certificates={certificates ? certificateScansOf(staffId, certificates) : undefined}

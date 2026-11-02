@@ -144,6 +144,16 @@ popup refuses an entry with no date, and its picker and `validations/staff.ts`
 stop at today (Kyiv). An old dateless entry is grandfathered like the papers
 above — the server refuses it only once it is changed.
 
+**The profile is frozen for the plain НПП** (owner, 2026-11-02, the university's
+request): a `USER` edits their phone and the research links (NOT the h-index, which is not drawn
+beside each) and nothing else — no academic info, no «Освіта», no диплом or
+certificate scans, no «Підвищення кваліфікації/Стажування» writes (reads stay).
+**Editors and ADMIN are unchanged.** One constant, `PROFILE_FROZEN` in
+`lib/staff/profile-freeze.ts`, no dates: set it `false` and deploy. The server
+decides (`ownEditableFields` in `updateOwnProfile` and `updateStaff`,
+`authoriseQualifications` and `authoriseEducationWrite`); the form only greys.
+`createStaff` is not an edit and is untouched.
+
 **An administrative (non-НПП) account edits its phone and nothing else** on
 `/profile/edit` (owner, 2026-10-10; the photo comes later). The research
 profiles and the academic fields are dropped on the server too

@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { listQualifications } from '@/lib/queries/list-qualifications';
 import { QualificationDialog } from '@/components/qualifications/qualification-dialog';
 import { QualificationList } from '@/components/qualifications/qualification-list';
+import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
+import { profileFrozenFor, QUALIFICATIONS_FROZEN_DETAIL } from '@/lib/staff/profile-freeze';
 import { ProfileTabRow } from '@/components/staff/profile/profile-tab-row';
 import { ToolbarGroup } from '@/components/staff/record-toolbar';
 
@@ -27,17 +29,23 @@ export default async function MyQualificationsPage() {
   if (!staff?.isNpp) redirect('/profile');
 
   const rows = await listQualifications(staffId);
+  // Frozen for the plain НПП (lib/staff/editable-fields.ts): read-only.
+  const frozen = profileFrozenFor(session.user.role);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       <ProfileTabRow isNpp>
-        <ToolbarGroup>
-          <QualificationDialog staffId={staffId} triggerClassName="rounded-md" />
-        </ToolbarGroup>
+        {!frozen && (
+          <ToolbarGroup>
+            <QualificationDialog staffId={staffId} triggerClassName="rounded-md" />
+          </ToolbarGroup>
+        )}
       </ProfileTabRow>
 
+      {frozen && <FrozenNote>{QUALIFICATIONS_FROZEN_DETAIL}</FrozenNote>}
+
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <QualificationList staffId={staffId} rows={rows} canWrite />
+        <QualificationList staffId={staffId} rows={rows} canWrite={!frozen} />
       </div>
     </div>
   );

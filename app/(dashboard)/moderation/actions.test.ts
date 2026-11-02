@@ -7,6 +7,11 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+vi.mock('@/lib/rating/reused-doi', () => ({ doiClash: vi.fn().mockResolvedValue(null) }));
+vi.mock('@/validations/activity-type-spec', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/validations/activity-type-spec')>()),
+  parseTypeSpecs: vi.fn(() => ({ fields: [] })),
+}));
 vi.mock('@/lib/db', () => ({
   db: {
     staff: { findUnique: vi.fn() },
@@ -17,7 +22,13 @@ vi.mock('@/lib/db', () => ({
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { removeActivity, setActivityVerified } from './actions';
+import {
+  checkRestoreActivity,
+  removeActivity,
+  restoreActivity,
+  setActivityVerified,
+} from './actions';
+import { doiClash } from '@/lib/rating/reused-doi';
 
 const mockAuth = auth as unknown as Mock;
 const mockStaffFind = db.staff.findUnique as unknown as Mock;
@@ -244,5 +255,105 @@ describe('setActivityVerified', () => {
       verified: false,
     });
     expect(mockTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('restoreActivity', () => {
+  const removedActivity = {
+    ...approvedActivity,
+    status: 'REMOVED',
+    removeReason: 'Вказано невірне DOI',
+    evidence: { doi: '10.1/x' },
+    activityType: {
+      label: 'Публікації «Б»',
+      code: 'publication_cat_b',
+      evidenceFields: [],
+      scoring: { kind: 'fixed', points: 300 },
+      template: { status: 'OPEN' },
+    },
+  };
+
+  beforeEach(() => {
+    mockActivityFind.mockResolvedValue(removedActivity);
+    (doiClash as unknown as Mock).mockResolvedValue(null);
+  });
+
+  it('is ADMIN only — a moderator editor is refused', async () => {
+    mockAuth.mockResolvedValue(nnvEditorSession);
+    mockStaffFind.mockResolvedValue({ division: { canModerateRating: true } });
+    expect(await restoreActivity('activity-1')).toEqual({ error: 'Недостатньо прав' });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses an entry that is not discarded', async () => {
+    mockActivityFind.mockResolvedValue({ ...removedActivity, status: 'APPROVED' });
+    expect(await restoreActivity('activity-1')).toEqual({
+      error: 'Це досягнення не можна повернути',
+    });
+  });
+
+  it('refuses when the year is closed', async () => {
+    mockActivityFind.mockResolvedValue({
+      ...removedActivity,
+      activityType: { ...removedActivity.activityType, template: { status: 'CLOSED' } },
+    });
+    expect(await restoreActivity('activity-1')).toEqual({ error: 'Рейтинговий рік закрито' });
+  });
+
+  it('refuses when the person already holds the same DOI in another entry', async () => {
+    (doiClash as unknown as Mock).mockResolvedValue({ itemNumber: '3.9', year: 2026 });
+    const result = await restoreActivity('activity-1');
+    expect(result).toMatchObject({ error: expect.stringContaining('вже зайнято в показнику') });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('restores as admin: APPROVED, reason cleared, audited, recomputed', async () => {
+    const tx = mockTx();
+    expect(await restoreActivity('activity-1')).toEqual({ success: true });
+    expect(tx.activity.update).toHaveBeenCalledWith({
+      where: { id: 'activity-1' },
+      data: { status: 'APPROVED', removedByUserId: null, removedAt: null, removeReason: null },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
+    expect(tx.ratingEntry.upsert).toHaveBeenCalled();
+  });
+});
+
+describe('checkRestoreActivity', () => {
+  const removed = {
+    ...approvedActivity,
+    status: 'REMOVED',
+    removeReason: 'причина',
+    evidence: {},
+    activityType: {
+      label: 'Публікації «Б»',
+      code: 'publication_cat_b',
+      evidenceFields: [],
+      scoring: {},
+      template: { status: 'OPEN' },
+    },
+  };
+
+  beforeEach(() => {
+    mockActivityFind.mockResolvedValue(removed);
+    (doiClash as unknown as Mock).mockResolvedValue(null);
+  });
+
+  it('says ok when nothing stands in the way, and writes nothing', async () => {
+    expect(await checkRestoreActivity('activity-1')).toEqual({ ok: true });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('returns the DOI message so the dialog can show it', async () => {
+    (doiClash as unknown as Mock).mockResolvedValue({ itemNumber: '3.9', year: 2026 });
+    const result = await checkRestoreActivity('activity-1');
+    expect(result).toMatchObject({
+      error: expect.stringContaining('вже зайнято в показнику п. 3.9'),
+    });
+  });
+
+  it('is ADMIN only', async () => {
+    mockAuth.mockResolvedValue(nnvEditorSession);
+    expect(await checkRestoreActivity('activity-1')).toEqual({ error: 'Недостатньо прав' });
   });
 });
