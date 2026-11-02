@@ -15,6 +15,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { DiscardActivityButton } from '@/components/rating/discard-activity-button';
+import { RestoreActivityButton } from '@/components/rating/restore-activity-button';
 import { VerifyActivityButton } from '@/components/rating/verify-activity-button';
 import { getSubmissionDetail, type SubmissionDetail } from '@/app/(dashboard)/moderation/actions';
 import type { ModerationRow } from '@/components/rating/moderation-list';
@@ -205,7 +206,14 @@ export function SubmissionPanel({
                     staffName={row.staffName}
                   />
                 )}
-                {!row.canVerify && !row.canDiscard && (
+                {row.canRestore && (
+                  <RestoreActivityButton
+                    activityId={row.id}
+                    label={row.label}
+                    staffName={row.staffName}
+                  />
+                )}
+                {!row.canVerify && !row.canDiscard && !row.canRestore && (
                   <span className="text-xs text-muted-foreground">
                     Рік закрито — редагування недоступне.
                   </span>

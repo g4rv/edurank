@@ -52,7 +52,9 @@ export default async function ModerationPage({
 
   return (
     <div className={both ? 'flex flex-col gap-10' : 'flex h-full min-h-0 flex-col gap-8'}>
-      {canModerate && <RatingSection query={query} solo={!both} />}
+      {canModerate && (
+        <RatingSection query={query} solo={!both} isAdmin={session.user.role === 'ADMIN'} />
+      )}
       {canCheckScience && <ScienceSection query={query} solo={!both} />}
     </div>
   );
@@ -67,9 +69,11 @@ function sectionClass(solo: boolean): string {
 async function RatingSection({
   query,
   solo,
+  isAdmin,
 }: {
   query: { [key: string]: string | string[] | undefined };
   solo: boolean;
+  isAdmin: boolean;
 }) {
   const template = await getActiveTemplate();
   const templateYears = await listTemplateYears();
@@ -110,6 +114,8 @@ async function RatingSection({
     removeReason: a.removeReason,
     date: a.createdAt.toLocaleDateString('uk-UA', KYIV),
     canDiscard: yearOpen && a.status === 'APPROVED',
+    // Only ADMIN takes back a discard (restoreActivity)
+    canRestore: yearOpen && a.status === 'REMOVED' && isAdmin,
     verified: a.verifiedAt !== null,
     canVerify: yearOpen && a.status === 'APPROVED' && a.activityType.requiresVerification,
   }));
