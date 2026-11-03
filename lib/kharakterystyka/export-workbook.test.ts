@@ -107,6 +107,8 @@ describe('buildKharakterystykaWorkbook', () => {
     const HEAVY = (() => {
       const doc = buildKharakterystyka([], NO_PROFILE, 2026);
       const p1 = doc.positions.find((p) => p.number === 1)!;
+      // Only a met position prints its entries.
+      p1.met = true;
       p1.entries = Array.from({ length: 12 }, (_, i) => ({
         itemNumber: '3.8',
         label: 'Публікації',
@@ -185,6 +187,51 @@ describe('buildKharakterystykaWorkbook', () => {
       // The next position starts on its own row, not inside that merge
       const next = ws.getCell(`A${firstPositionRow + 12}`);
       expect(next.value).toBe(2);
+    });
+  });
+
+  describe('a position that is not met', () => {
+    const entry = (n: number) => ({
+      itemNumber: '3.8',
+      label: 'Публікації',
+      summary: `Стаття номер ${n}`,
+      year: 2025,
+    });
+    const withThree = (met: boolean) => {
+      const doc = buildKharakterystyka([], NO_PROFILE, 2026);
+      const p1 = doc.positions.find((p) => p.number === 1)!;
+      p1.met = met;
+      p1.progress = { have: 3, need: 5 };
+      p1.entries = [entry(1), entry(2), entry(3)];
+      return doc;
+    };
+
+    it('prints an empty evidence cell, not the three it has', () => {
+      const text = textOf(sheetOf(withThree(false))).join(' ');
+      expect(text).not.toContain('Стаття номер');
+      // …but the position itself is still on the sheet
+      expect(text).toContain(LICENCE_POSITIONS[0].title);
+    });
+
+    it('prints the evidence once the position is met', () => {
+      const text = textOf(sheetOf(withThree(true))).join(' ');
+      expect(text).toContain('Стаття номер 1 (2025)');
+      expect(text).toContain('Стаття номер 3 (2025)');
+    });
+
+    it('prints only the entries that proved a position with several bars', () => {
+      const doc = withThree(true);
+      const p1 = doc.positions.find((p) => p.number === 1)!;
+      p1.provenEntries = [entry(1)];
+      const text = textOf(sheetOf(doc)).join(' ');
+      expect(text).toContain('Стаття номер 1 (2025)');
+      expect(text).not.toContain('Стаття номер 2');
+    });
+
+    it('leaves the «Разом виконано позицій» count alone', () => {
+      const doc = withThree(false);
+      doc.metCount = 5;
+      expect(textOf(sheetOf(doc)).join(' ')).toContain('5 з 20');
     });
   });
 
