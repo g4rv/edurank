@@ -244,6 +244,11 @@ the last line off every publication. One spare line is added on top, because the
 two failure modes are not equal: a row a line too tall is a gap, a row a line too
 short silently drops evidence.
 
+**Only a met position prints its evidence** (owner, 2026-11-03). Three articles
+against a bar of five are not evidence of the position, so the evidence cell of
+an unmet one is empty in the file, though the screen still lists them with their
+«3 з 5». The position itself, and the «Разом виконано позицій» count, stay.
+
 ## «Вид патенту» — п.2 (decided 2026-09-01)
 
 Indicator `3.25 patent_granted` is «Отримання патенту на винахід / патенту на

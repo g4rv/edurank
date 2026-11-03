@@ -162,12 +162,19 @@ export function buildKharakterystykaWorkbook(
     // on the sheet to say so (owner, 2026-09-01). Split across rows each entry
     // gets the height it actually needs, and the document still reads as the
     // twenty positions of п.38.
-    const cells = position.entries.length > 0 ? position.entries : [null];
+    //
+    // **A position that is not met prints an empty evidence cell** (owner,
+    // 2026-11-03). Three articles against a bar of five are not evidence of
+    // the position, and a sheet read against п.38 would show them as if they
+    // were. The screen keeps listing them with their «3 з 5» — it is the
+    // person's own working view; this is the document handed over.
+    const shown = position.met ? position.entries : [];
+    const cells = shown.length > 0 ? shown : [null];
     const first = ws.rowCount + 1;
 
     for (const entry of cells) {
       const text = entry ? `${entry.summary} (${entry.year})` : '';
-      const row = ws.addRow([entry === position.entries[0] ? position.number : null, null, text]);
+      const row = ws.addRow([entry === shown[0] ? position.number : null, null, text]);
 
       row.getCell(1).alignment = { horizontal: 'center', vertical: 'top' };
       row.getCell(2).alignment = { vertical: 'top', wrapText: true };
