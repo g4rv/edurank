@@ -4,11 +4,11 @@ import { listStaff } from '@/lib/queries/list-staff';
 import { attachmentHeader, personFileNames } from '@/lib/export/file-names';
 import { fullStaffName } from '@/lib/staff-name';
 import { parseStaffListParams, toStaffFilters } from '@/lib/staff/list-params';
-import { workplaceText } from '@/lib/staff/export-workbook';
 import { canViewAnyQualifications } from '@/lib/qualifications/access';
 import {
   buildQualificationsWorkbook,
-  type QualificationExportRow,
+  type QualificationExportPerson,
+  type QualificationExportScope,
 } from '@/lib/qualifications/export-workbook';
 import { logError } from '@/lib/log';
 
@@ -40,6 +40,8 @@ export async function GET(request: Request) {
 
     let people: PersonForExport[];
     let fileName: string;
+    // How much of the person's place the list was not already narrowed to.
+    let scope: QualificationExportScope = 'all';
 
     if (staffId) {
       const person = await db.staff.findUnique({
@@ -50,8 +52,6 @@ export async function GET(request: Request) {
           lastName: true,
           firstName: true,
           patronymic: true,
-          department: { select: { name: true } },
-          partTimeDepartments: { select: { department: { select: { name: true } } } },
         },
       });
       // The same answer for «no such person» and «not an НПП»: there is nothing
@@ -64,6 +64,7 @@ export async function GET(request: Request) {
       const params = parseStaffListParams(query, { isAdmin });
       const staff = await listStaff(toStaffFilters(params, { isAdmin }));
       people = staff.filter((p) => p.isNpp);
+      scope = params.departmentId ? 'department' : params.facultyId ? 'faculty' : 'all';
       fileName = `Підвищення кваліфікації ${new Date().toISOString().slice(0, 10)}.xlsx`;
     }
 
@@ -76,29 +77,50 @@ export async function GET(request: Request) {
       byPerson.set(record.staffId, [...(byPerson.get(record.staffId) ?? []), record]);
     }
 
-    // People in the order the list had them; a person with no records has no
-    // rows. Each person's records are newest first.
-    const rows: QualificationExportRow[] = people.flatMap((person) =>
-      (byPerson.get(person.id) ?? []).map((r) => ({
-        fullName: fullStaffName(person),
-        workplace: workplaceText({
-          department: person.department?.name ?? null,
-          partTimeDepartments: person.partTimeDepartments.map((p) => p.department.name),
-        }),
-        kind: r.kind,
-        institution: r.institution,
-        documentType: r.documentType,
-        series: r.series,
-        number: r.number,
-        url: r.url,
-        topic: r.topic,
-        issuedOn: r.issuedOn.toISOString().slice(0, 10),
-        creditsHundredths: r.creditsHundredths,
-        hasFile: r.fileKey !== null,
-      }))
-    );
+    // Where each person works — the факультет of every кафедра they are on.
+    const places = await db.staff.findMany({
+      where: { id: { in: people.map((p) => p.id) } },
+      select: {
+        id: true,
+        department: { select: { name: true, faculty: { select: { name: true } } } },
+        partTimeDepartments: {
+          select: { department: { select: { name: true, faculty: { select: { name: true } } } } },
+        },
+      },
+    });
+    const placeOf = new Map(places.map((p) => [p.id, p]));
 
-    const buffer = await buildQualificationsWorkbook(rows).xlsx.writeBuffer();
+    // People in the order the list had them; a person with no records has no
+    // row. Each person's records are newest first.
+    const rows: QualificationExportPerson[] = people.flatMap((person) => {
+      const mine = byPerson.get(person.id) ?? [];
+      if (mine.length === 0) return [];
+      const place = placeOf.get(person.id);
+      const departments = [
+        ...(place?.department ? [place.department] : []),
+        ...(place?.partTimeDepartments.map((p) => p.department) ?? []),
+      ];
+      return [
+        {
+          fullName: fullStaffName(person),
+          faculties: [...new Set(departments.map((d) => d.faculty.name))],
+          departments: departments.map((d) => d.name),
+          records: mine.map((r) => ({
+            kind: r.kind,
+            institution: r.institution,
+            documentType: r.documentType,
+            series: r.series,
+            number: r.number,
+            url: r.url,
+            topic: r.topic,
+            issuedOn: r.issuedOn.toISOString().slice(0, 10),
+            creditsHundredths: r.creditsHundredths,
+          })),
+        },
+      ];
+    });
+
+    const buffer = await buildQualificationsWorkbook(rows, scope).xlsx.writeBuffer();
 
     return new Response(buffer as BodyInit, {
       headers: {
@@ -119,6 +141,4 @@ interface PersonForExport {
   lastName: string;
   firstName: string;
   patronymic: string;
-  department: { name: string } | null;
-  partTimeDepartments: { department: { name: string } }[];
 }

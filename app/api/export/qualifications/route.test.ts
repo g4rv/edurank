@@ -3,7 +3,10 @@ import ExcelJS from 'exceljs';
 
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/db', () => ({
-  db: { staff: { findUnique: vi.fn() }, qualification: { findMany: vi.fn() } },
+  db: {
+    staff: { findUnique: vi.fn(), findMany: vi.fn() },
+    qualification: { findMany: vi.fn() },
+  },
 }));
 // Partial: the real list-params reader needs this module's `STAFF_SORT_FIELDS`.
 vi.mock('@/lib/queries/list-staff', async (importOriginal) => ({
@@ -24,6 +27,7 @@ const mockAuth = auth as unknown as Mock;
 const mockAllowed = canViewAnyQualifications as unknown as Mock;
 const mockFindStaff = db.staff.findUnique as unknown as Mock;
 const mockFindMany = db.qualification.findMany as unknown as Mock;
+const mockPlaces = db.staff.findMany as unknown as Mock;
 const mockListStaff = listStaff as unknown as Mock;
 
 const person = (id: string, lastName: string, over: Record<string, unknown> = {}) => ({
@@ -32,7 +36,18 @@ const person = (id: string, lastName: string, over: Record<string, unknown> = {}
   lastName,
   firstName: 'Іван',
   patronymic: 'Іванович',
-  department: { name: 'Кафедра ботаніки' },
+  ...over,
+});
+
+const dept = (name: string, faculty = 'Факультет природничих наук') => ({
+  name,
+  faculty: { name: faculty },
+});
+
+// What the second lookup (where each person works) answers.
+const place = (id: string, over: Record<string, unknown> = {}) => ({
+  id,
+  department: dept('Кафедра ботаніки'),
   partTimeDepartments: [],
   ...over,
 });
@@ -64,6 +79,9 @@ beforeEach(() => {
   mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: 'a1' } });
   mockAllowed.mockResolvedValue(true);
   mockFindMany.mockResolvedValue([]);
+  mockPlaces.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
+    where.id.in.map((id) => place(id))
+  );
 });
 
 describe('who may export', () => {
@@ -97,8 +115,10 @@ describe('one НПП (?staffId=)', () => {
       'Петренко Іван Іванович - Підвищення кваліфікації.xlsx'
     );
     const sheet = await sheetOf(response);
-    expect(sheet.rowCount).toBe(3);
-    expect(sheet.getCell('I2').value).toBe('Тема А');
+    // One row for the person, both records inside it.
+    expect(sheet.rowCount).toBe(2);
+    expect(String(sheet.getCell('D2').value)).toContain('Тема А');
+    expect(String(sheet.getCell('D2').value)).toContain('Тема Б');
     expect(mockFindMany.mock.calls[0][0].where).toEqual({ staffId: { in: ['s1'] } });
     // Never the whole list for a single-person request.
     expect(mockListStaff).not.toHaveBeenCalled();
@@ -125,8 +145,8 @@ describe('the staff list', () => {
 
     expect(sheet.rowCount).toBe(3);
     // Бойко first — the order the list gave, not alphabetical by this route.
-    expect(String(sheet.getCell('B2').value)).toContain('Бойко');
-    expect(String(sheet.getCell('B3').value)).toContain('Андрієнко');
+    expect(String(sheet.getCell('A2').value)).toContain('Бойко');
+    expect(String(sheet.getCell('A3').value)).toContain('Андрієнко');
     // Only НПП are looked up: an administrative account has no records.
     expect(mockFindMany.mock.calls[0][0].where.staffId.in).toEqual(['s2', 's1', 's3']);
   });
@@ -155,15 +175,41 @@ describe('the staff list', () => {
     expect(mockListStaff).toHaveBeenCalledWith(expect.objectContaining({ archived: 'only' }));
   });
 
-  it('names the кафедри a сумісник holds', async () => {
-    mockListStaff.mockResolvedValue([
-      person('s1', 'Петренко', {
-        partTimeDepartments: [{ department: { name: 'Кафедра екології' } }],
+  it('names the кафедри and факультети a сумісник holds', async () => {
+    mockListStaff.mockResolvedValue([person('s1', 'Петренко')]);
+    mockPlaces.mockResolvedValue([
+      place('s1', {
+        partTimeDepartments: [{ department: dept('Кафедра екології', 'Факультет біології') }],
       }),
     ]);
     mockFindMany.mockResolvedValue([record('s1', 'Тема')]);
     const sheet = await sheetOf(await call());
-    expect(sheet.getCell('C2').value).toBe('Кафедра ботаніки + Кафедра екології');
+    expect(sheet.getCell('B2').value).toBe('Факультет природничих наук\nФакультет біології');
+    expect(sheet.getCell('C2').value).toBe('Кафедра ботаніки\nКафедра екології');
+  });
+
+  it('draws ПІБ | Факультет | Кафедра | records with no filter', async () => {
+    mockListStaff.mockResolvedValue([person('s1', 'Петренко')]);
+    mockFindMany.mockResolvedValue([record('s1', 'Тема')]);
+    const sheet = await sheetOf(await call());
+    expect(sheet.getRow(1).cellCount).toBe(4);
+    expect(sheet.getCell('C1').value).toBe('Кафедра');
+  });
+
+  it('drops the факультет column when the list is one факультет', async () => {
+    mockListStaff.mockResolvedValue([person('s1', 'Петренко')]);
+    mockFindMany.mockResolvedValue([record('s1', 'Тема')]);
+    const sheet = await sheetOf(await call('?faculty=f1'));
+    expect(sheet.getRow(1).cellCount).toBe(3);
+    expect(sheet.getCell('B1').value).toBe('Кафедра');
+  });
+
+  it('is name and records only when the list is one кафедра', async () => {
+    mockListStaff.mockResolvedValue([person('s1', 'Петренко')]);
+    mockFindMany.mockResolvedValue([record('s1', 'Тема')]);
+    // A кафедра filter wins over the факультет it sits in.
+    const sheet = await sheetOf(await call('?faculty=f1&dept=d1'));
+    expect(sheet.getRow(1).cellCount).toBe(2);
   });
 
   it('puts a person’s newest record first', async () => {
