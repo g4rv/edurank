@@ -1,91 +1,133 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildQualificationsWorkbook,
+  qualificationText,
   QUALIFICATIONS_SHEET,
-  type QualificationExportRow,
+  type QualificationExportPerson,
+  type QualificationExportRecord,
+  type QualificationExportScope,
 } from './export-workbook';
 
-const row = (over: Partial<QualificationExportRow> = {}): QualificationExportRow => ({
-  fullName: 'Петренко Петро Петрович',
-  workplace: 'Кафедра ботаніки',
+const record = (over: Partial<QualificationExportRecord> = {}): QualificationExportRecord => ({
   kind: 'TRAINING',
-  institution: 'Київський університет',
+  institution: 'Міжнародна школа педагогічної майстерності',
   documentType: 'CERTIFICATE',
-  series: 'ПК',
-  number: '12345',
+  series: null,
+  number: '2026/02/092',
   url: null,
-  topic: 'Цифрові технології в освіті',
-  issuedOn: '2025-05-20',
-  creditsHundredths: 150,
-  hasFile: true,
+  topic: 'Результати досліджень у професійній освіті педагогів',
+  issuedOn: '2025-02-11',
+  creditsHundredths: 300,
   ...over,
 });
 
-const sheetOf = (rows: QualificationExportRow[]) =>
-  buildQualificationsWorkbook(rows).getWorksheet(QUALIFICATIONS_SHEET)!;
+const person = (over: Partial<QualificationExportPerson> = {}): QualificationExportPerson => ({
+  fullName: 'Петренко Петро Петрович',
+  faculties: ['Факультет природничих наук'],
+  departments: ['Кафедра ботаніки'],
+  records: [record()],
+  ...over,
+});
+
+const sheetOf = (people: QualificationExportPerson[], scope?: QualificationExportScope) =>
+  buildQualificationsWorkbook(people, scope).getWorksheet(QUALIFICATIONS_SHEET)!;
+
+const headers = (sheet: ReturnType<typeof sheetOf>) =>
+  (sheet.getRow(1).values as unknown[]).slice(1);
+
+describe('qualificationText', () => {
+  it('groups a certificate as four lines, as the owner drew it', () => {
+    expect(qualificationText(record())).toBe(
+      [
+        'Підвищення кваліфікації 11.02.2025',
+        'Результати досліджень у професійній освіті педагогів',
+        'Міжнародна школа педагогічної майстерності',
+        'Сертифікат № 2026/02/092 3 кредити (90 годин)',
+      ].join('\n')
+    );
+  });
+
+  it('prints a диплом’s series before its number', () => {
+    const text = qualificationText(
+      record({
+        documentType: 'DIPLOMA',
+        series: 'М25',
+        number: '009307',
+        creditsHundredths: 9000,
+        issuedOn: '2025-01-15',
+      })
+    );
+    expect(text).toContain('Диплом М25 № 009307 90 кредитів (2700 годин)');
+  });
+
+  it('puts the link on the line after, and speaks of a fraction in the «few» form', () => {
+    const text = qualificationText(
+      record({ creditsHundredths: 33, url: 'https://courses.phc.org.ua/certificates/d84' })
+    );
+    expect(text.endsWith('\nhttps://courses.phc.org.ua/certificates/d84')).toBe(true);
+    expect(text).toContain('0,33 кредита (9,9 години)');
+  });
+
+  it('prints just the document type when it has neither series nor number', () => {
+    expect(qualificationText(record({ number: null, series: null }))).toContain(
+      '\nСертифікат 3 кредити'
+    );
+  });
+
+  it('names an internship', () => {
+    expect(qualificationText(record({ kind: 'INTERNSHIP' })).startsWith('Стажування ')).toBe(true);
+  });
+});
 
 describe('buildQualificationsWorkbook', () => {
-  it('heads thirteen columns', () => {
-    const sheet = sheetOf([row()]);
-    const headers = Array.from({ length: 13 }, (_, i) => sheet.getRow(1).getCell(i + 1).value);
-    expect(headers).toEqual([
-      '№',
+  it('has four columns with no filter, and no «/ Відділ»', () => {
+    expect(headers(sheetOf([person()], 'all'))).toEqual([
       'ПІБ',
-      'Кафедра / Відділ',
-      'Вид',
-      'Найменування закладу',
-      'Вид документа',
-      'Серія',
-      'Номер',
-      'Тема / спеціальність',
-      'Дата видачі',
-      'Кредити',
-      'Години',
-      'Файл',
+      'Факультет',
+      'Кафедра',
+      'Підвищення кваліфікації / Стажування',
     ]);
   });
 
-  it('writes one row per record with the person on every row', () => {
-    const sheet = sheetOf([row(), row({ topic: 'Інша тема', kind: 'INTERNSHIP' })]);
-    expect(sheet.rowCount).toBe(3);
-    expect(sheet.getCell('A2').value).toBe(1);
-    expect(sheet.getCell('A3').value).toBe(2);
-    expect(sheet.getCell('B3').value).toBe('Петренко Петро Петрович');
-    expect(sheet.getCell('D3').value).toBe('Стажування');
+  it('drops the факультет when the list is one факультет', () => {
+    expect(headers(sheetOf([person()], 'faculty'))).toEqual([
+      'ПІБ',
+      'Кафедра',
+      'Підвищення кваліфікації / Стажування',
+    ]);
   });
 
-  it('prints the Ukrainian words, not the keys', () => {
-    const sheet = sheetOf([row({ documentType: 'DIPLOMA' })]);
-    expect(sheet.getCell('D2').value).toBe('Підвищення кваліфікації');
-    expect(sheet.getCell('F2').value).toBe('Диплом');
+  it('is only the name and the records when the list is one кафедра', () => {
+    const sheet = sheetOf([person()], 'department');
+    expect(headers(sheet)).toEqual(['ПІБ', 'Підвищення кваліфікації / Стажування']);
+    expect(sheet.getCell('A2').value).toBe('Петренко Петро Петрович');
+    expect(String(sheet.getCell('B2').value)).toContain('Сертифікат № 2026/02/092');
   });
 
-  it('keeps credits, hours and the date as a number and a real date', () => {
-    const sheet = sheetOf([row()]);
-    expect(sheet.getCell('K2').value).toBe(1.5);
-    // 1,5 кредита × 30 — derived, never typed.
-    expect(sheet.getCell('L2').value).toBe(45);
-    const date = sheet.getCell('J2').value as Date;
-    expect(date).toBeInstanceOf(Date);
-    expect(date.toISOString().slice(0, 10)).toBe('2025-05-20');
-    expect(sheet.getCell('J2').numFmt).toBe('dd.mm.yyyy');
+  it('is one row per person, every record in the last cell, separated', () => {
+    const sheet = sheetOf(
+      [person({ records: [record({ topic: 'Нова' }), record({ topic: 'Стара' })] })],
+      'all'
+    );
+    expect(sheet.rowCount).toBe(2);
+    const cell = String(sheet.getCell('D2').value);
+    expect(cell.indexOf('Нова')).toBeLessThan(cell.indexOf('Стара'));
+    // One empty line between records, nothing drawn.
+    expect(cell).toContain('\n\nПідвищення кваліфікації 11.02.2025\n');
   });
 
-  it('leaves the series empty when there is none', () => {
-    expect(sheetOf([row({ series: null })]).getCell('G2').value).toBe('');
-  });
-
-  it('leaves the number empty when there is none, and prints the link last', () => {
-    const sheet = sheetOf([row({ number: null, url: 'https://example.com/c/1' })]);
-    expect(sheet.getCell('H2').value).toBe('');
-    expect(sheet.getCell('N1').value).toBe('Посилання');
-    expect(sheet.getCell('N2').value).toBe('https://example.com/c/1');
-    expect(sheetOf([row()]).getCell('N2').value).toBe('');
-  });
-
-  it('only says whether a file is attached', () => {
-    expect(sheetOf([row({ hasFile: true })]).getCell('M2').value).toBe('є');
-    expect(sheetOf([row({ hasFile: false })]).getCell('M2').value).toBe('—');
+  it('puts a сумісник’s two кафедри and факультети on separate lines', () => {
+    const sheet = sheetOf(
+      [
+        person({
+          faculties: ['Факультет А', 'Факультет Б'],
+          departments: ['Кафедра 1', 'Кафедра 2'],
+        }),
+      ],
+      'all'
+    );
+    expect(sheet.getCell('B2').value).toBe('Факультет А\nФакультет Б');
+    expect(sheet.getCell('C2').value).toBe('Кафедра 1\nКафедра 2');
   });
 
   it('is just the header for nobody', () => {
@@ -93,7 +135,7 @@ describe('buildQualificationsWorkbook', () => {
   });
 
   it('freezes the header and filters on it', () => {
-    const sheet = sheetOf([row()]);
+    const sheet = sheetOf([person()]);
     expect(sheet.views[0]).toMatchObject({ state: 'frozen', ySplit: 1 });
     expect(sheet.autoFilter).toBeTruthy();
   });

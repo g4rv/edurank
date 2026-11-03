@@ -589,6 +589,15 @@ How an indicator's value gets in is decided by `ActivityType.inputSource`:
 Rules that are easy to get wrong:
 
 - **There is no approval queue.** Submissions are `APPROVED` on save and count immediately; `PENDING` is never written. Oversight is _post_-moderation: ННВ editors and ADMIN discard a wrong entry with a reason (`/moderation`). So «Зараховано» means "counts", not "someone checked it".
+- **ADMIN may take a discard back** (owner, 2026-11-02): «Повернути» in the `/moderation`
+  drawer of a discarded entry (`restoreActivity` / `checkRestoreActivity`,
+  `app/(dashboard)/moderation/actions.ts`). ADMIN only — moderators discard but never restore —
+  and only in an OPEN year. The entry keeps its frozen `score`, the reason is cleared, the total
+  is recomputed and the audit log gets an entry. **Refused when the person already holds the same
+  DOI under that indicator in another entry** (`lib/rating/reused-doi.ts`, shared with
+  `createActivity`): the dialog checks as it opens and offers only «Скасувати»; to get the old
+  entry back, discard the newer one first. Why it exists: the НПП cannot simply re-enter the work
+  when the Характеристика freeze or the one-DOI rule blocks it.
 - **«Перевірено» is a separate flag** (`Activity.verifiedAt`), manual, publications only, and it does **not** affect the score.
 - **Scores are frozen at save.** `Activity.score` is computed once; editing a coefficient later does not rewrite existing rows.
 - **A deactivated indicator scores nothing.** Only `APPROVED` rows of an `isActive` type count — see `COUNTED` in `lib/rating/recompute.ts`. Toggling `isActive` recomputes everyone holding it.
@@ -1046,8 +1055,14 @@ document that proves it. Tab «Підвищення кваліфікації/С�
   (unlike science's D28): nothing here is claimed hours, and a person may attach
   their own scan again. Deleting a record or replacing its file deletes the
   object; deleting a _person_ does not (the known R2 gap).
-- **Excel export** (`GET /api/export/qualifications`, one flat sheet, a row per
-  record, filterable): `?staffId=` for one НПП — the «Вивантажити Excel» button on
+- **Excel export** (`GET /api/export/qualifications`, one sheet, **a row per
+  PERSON with at most four columns**, owner 2026-11-03): every record is a block
+  of lines in the last cell, newest first (`qualificationText`). The columns
+  before it say only what the list was not already narrowed to — no filter:
+  ПІБ | Факультет | Кафедра; a факультет filter: ПІБ | Кафедра; a кафедра
+  filter: ПІБ alone. The cost, accepted: the sheet cannot be sorted or summed
+  by date or credits. People with no records have no row. Filterable:
+  `?staffId=` for one НПП — the «Вивантажити Excel» button on
   their tab — or the same query string `/staff` is on for the whole list — the
   «Вивантажити кваліфікації» button beside «Вивантажити штат» (the old
   «Експорт», renamed; ADMIN only, unchanged). For ADMIN and a division with

@@ -1,5 +1,11 @@
 import ExcelJS from 'exceljs';
-import { hoursFromCredits } from '@/lib/qualifications/format';
+import {
+  creditsLabel,
+  documentNumber,
+  formatIssuedOn,
+  hoursFromCredits,
+  hoursLabel,
+} from '@/lib/qualifications/format';
 import {
   DOCUMENT_TYPE_LABELS,
   QUALIFICATION_KIND_LABELS,
@@ -8,24 +14,25 @@ import {
 } from '@/lib/qualifications/options';
 
 /**
- * «Підвищення кваліфікації / Стажування» as a spreadsheet (owner, 2026-10-13):
- * one row per record, for one НПП or for everybody on the staff list.
+ * «Підвищення кваліфікації / Стажування» as a spreadsheet (owner, 2026-10-13;
+ * reshaped 2026-11-03): **one row per person, at most four columns.**
  *
- * **Flat, with the person on every row**, not grouped under a heading: whoever
- * opens it filters and sorts it — by кафедра, by вид, by date — and a grouped
- * sheet cannot be filtered. The sheet carries an autofilter for that reason.
+ * Every record of the person is written, as a block of lines, into the last
+ * column, newest first — the HR reader scans a person at a glance instead of
+ * hunting across fourteen columns. The columns before it say as much of the
+ * person's place as the list was not already narrowed to:
  *
- * Credits, hours and the date are real numbers and a real date, so Excel sorts
- * and sums them. Hours are credits × 30, the same `hoursFromCredits` the screen
- * uses — there is no stored hours to disagree with.
+ * - `all`        — no filter:       ПІБ | Факультет | Кафедра | the records
+ * - `faculty`    — one факультет:   ПІБ | Кафедра | the records
+ * - `department` — one кафедра:     ПІБ | the records
  *
- * No file contents and no links to them: the scan is read in the app, behind a
- * login. The column only says whether one is attached.
+ * The trade-off, accepted by the owner: a record is no longer a row, so the
+ * sheet cannot be sorted or summed by credits or date. The file is for reading.
+ *
+ * No file contents and no links to scans: the scan is read in the app, behind a
+ * login. A `url` the person typed is printed — it is theirs and public.
  */
-export interface QualificationExportRow {
-  fullName: string;
-  /** «Кафедра ботаніки + Кафедра екології» — see `workplaceText` */
-  workplace: string;
+export interface QualificationExportRecord {
   kind: QualificationKindKey;
   institution: string;
   documentType: DocumentTypeKey;
@@ -36,10 +43,55 @@ export interface QualificationExportRow {
   /** `YYYY-MM-DD` */
   issuedOn: string;
   creditsHundredths: number;
-  hasFile: boolean;
 }
 
+export interface QualificationExportPerson {
+  fullName: string;
+  /** The person's факультети, primary first, no repeats. */
+  faculties: string[];
+  /** The person's кафедри, primary first. */
+  departments: string[];
+  /** Newest first — the order they are written in. */
+  records: QualificationExportRecord[];
+}
+
+export type QualificationExportScope = 'all' | 'faculty' | 'department';
+
 export const QUALIFICATIONS_SHEET = 'Підвищення кваліфікації';
+
+/** One empty line between two records of one person. */
+const RECORD_SEPARATOR = '\n\n';
+
+/**
+ * One record as the owner laid it out (2026-11-03) — four lines grouped
+ * together, a fifth only when the person gave a link:
+ *
+ *   Підвищення кваліфікації 11.02.2025
+ *   Результати досліджень у професійній освіті педагогів
+ *   Міжнародна школа педагогічної майстерності
+ *   Сертифікат № 2026/02/092 3 кредити (90 годин)
+ *   https://…
+ *
+ * Hours are credits × 30, the same `hoursFromCredits` the screen uses.
+ */
+export function qualificationText(r: QualificationExportRecord): string {
+  const number = documentNumber(r.series, r.number);
+  const document = number
+    ? `${DOCUMENT_TYPE_LABELS[r.documentType]} ${number}`
+    : DOCUMENT_TYPE_LABELS[r.documentType];
+  const facts = `${document} ${creditsLabel(r.creditsHundredths)} (${hoursLabel(
+    hoursFromCredits(r.creditsHundredths)
+  )})`;
+  return [
+    `${QUALIFICATION_KIND_LABELS[r.kind]} ${formatIssuedOn(r.issuedOn)}`,
+    r.topic,
+    r.institution,
+    facts,
+    r.url,
+  ]
+    .filter((line) => line)
+    .join('\n');
+}
 
 const THIN = {
   top: { style: 'thin' as const },
@@ -48,48 +100,47 @@ const THIN = {
   right: { style: 'thin' as const },
 };
 
-const HEADERS = [
-  '№',
-  'ПІБ',
-  'Кафедра / Відділ',
-  'Вид',
-  'Найменування закладу',
-  'Вид документа',
-  'Серія',
-  'Номер',
-  'Тема / спеціальність',
-  'Дата видачі',
-  'Кредити',
-  'Години',
-  'Файл',
-  'Посилання',
-] as const;
+interface Column {
+  header: string;
+  width: number;
+  value: (p: QualificationExportPerson) => string;
+}
+
+const NAME: Column = { header: 'ПІБ', width: 36, value: (p) => p.fullName };
+const FACULTY: Column = {
+  header: 'Факультет',
+  width: 30,
+  value: (p) => p.faculties.join('\n'),
+};
+const DEPARTMENT: Column = {
+  header: 'Кафедра',
+  width: 34,
+  value: (p) => p.departments.join('\n'),
+};
+const RECORDS: Column = {
+  header: 'Підвищення кваліфікації / Стажування',
+  width: 90,
+  value: (p) => p.records.map(qualificationText).join(RECORD_SEPARATOR),
+};
+
+const COLUMNS: Record<QualificationExportScope, Column[]> = {
+  all: [NAME, FACULTY, DEPARTMENT, RECORDS],
+  faculty: [NAME, DEPARTMENT, RECORDS],
+  department: [NAME, RECORDS],
+};
 
 export function buildQualificationsWorkbook(
-  rows: readonly QualificationExportRow[]
+  people: readonly QualificationExportPerson[],
+  scope: QualificationExportScope = 'all'
 ): ExcelJS.Workbook {
+  const columns = COLUMNS[scope];
   const wb = new ExcelJS.Workbook();
   wb.created = new Date();
   const sheet = wb.addWorksheet(QUALIFICATIONS_SHEET);
 
-  sheet.columns = [
-    { key: 'n', width: 6 },
-    { key: 'name', width: 38 },
-    { key: 'workplace', width: 36 },
-    { key: 'kind', width: 24 },
-    { key: 'institution', width: 40 },
-    { key: 'documentType', width: 16 },
-    { key: 'series', width: 12 },
-    { key: 'number', width: 16 },
-    { key: 'topic', width: 44 },
-    { key: 'issuedOn', width: 14 },
-    { key: 'credits', width: 10 },
-    { key: 'hours', width: 10 },
-    { key: 'file', width: 8 },
-    { key: 'url', width: 40 },
-  ];
+  sheet.columns = columns.map((c, i) => ({ key: `c${i}`, width: c.width }));
 
-  const header = sheet.addRow([...HEADERS]);
+  const header = sheet.addRow(columns.map((c) => c.header));
   header.font = { bold: true };
   header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
   header.height = 24;
@@ -98,39 +149,15 @@ export function buildQualificationsWorkbook(
     cell.border = THIN;
   });
 
-  rows.forEach((row, i) => {
-    const added = sheet.addRow([
-      i + 1,
-      row.fullName,
-      row.workplace,
-      QUALIFICATION_KIND_LABELS[row.kind],
-      row.institution,
-      DOCUMENT_TYPE_LABELS[row.documentType],
-      row.series ?? '',
-      row.number ?? '',
-      row.topic,
-      // A date, read as UTC midnight like every stored calendar date — a local
-      // parse would move it a day for anyone east of UTC.
-      new Date(`${row.issuedOn}T00:00:00.000Z`),
-      row.creditsHundredths / 100,
-      hoursFromCredits(row.creditsHundredths),
-      row.hasFile ? 'є' : '—',
-      row.url ?? '',
-    ]);
+  for (const person of people) {
+    const added = sheet.addRow(columns.map((c) => c.value(person)));
     added.eachCell((cell) => {
       cell.border = THIN;
       cell.alignment = { vertical: 'top', wrapText: true };
     });
-    added.getCell(1).alignment = { vertical: 'top', horizontal: 'center' };
-    const date = added.getCell(10);
-    date.numFmt = 'dd.mm.yyyy';
-    date.alignment = { vertical: 'top', horizontal: 'center' };
-    for (const col of [11, 12, 13]) {
-      added.getCell(col).alignment = { vertical: 'top', horizontal: 'center' };
-    }
-  });
+  }
 
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
-  sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: HEADERS.length } };
+  sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } };
   return wb;
 }
