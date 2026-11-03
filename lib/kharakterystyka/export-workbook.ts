@@ -168,7 +168,11 @@ export function buildKharakterystykaWorkbook(
     // the position, and a sheet read against п.38 would show them as if they
     // were. The screen keeps listing them with their «3 з 5» — it is the
     // person's own working view; this is the document handed over.
-    const shown = position.met ? position.entries : [];
+    //
+    // And within a met position with several bars (п.2), only the alternative
+    // that reached its own bar: five свідоцтва meet it, the three
+    // деклараційних beside them prove nothing (`provenEntries`).
+    const shown = position.met ? (position.provenEntries ?? position.entries) : [];
     const cells = shown.length > 0 ? shown : [null];
     const first = ws.rowCount + 1;
 

@@ -219,6 +219,15 @@ describe('buildKharakterystykaWorkbook', () => {
       expect(text).toContain('Стаття номер 3 (2025)');
     });
 
+    it('prints only the entries that proved a position with several bars', () => {
+      const doc = withThree(true);
+      const p1 = doc.positions.find((p) => p.number === 1)!;
+      p1.provenEntries = [entry(1)];
+      const text = textOf(sheetOf(doc)).join(' ');
+      expect(text).toContain('Стаття номер 1 (2025)');
+      expect(text).not.toContain('Стаття номер 2');
+    });
+
     it('leaves the «Разом виконано позицій» count alone', () => {
       const doc = withThree(false);
       doc.metCount = 5;

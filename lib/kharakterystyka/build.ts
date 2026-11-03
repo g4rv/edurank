@@ -152,6 +152,15 @@ export interface KharakterystykaPosition {
   evidence: string;
   /** The same entries, unjoined, for the on-screen list */
   entries: PositionEntry[];
+  /**
+   * The entries that actually PROVE the position: only those of an alternative
+   * that reached its own bar. For п.2 — one патент, or five деклараційних, or
+   * five свідоцтв — a person met by five свідоцтва who also holds three
+   * деклараційних has those three in `entries` (the screen shows them with their
+   * progress) but not here. The Excel prints this (owner, 2026-11-03). Absent
+   * on a position with one bar, where it would equal `entries`.
+   */
+  provenEntries?: PositionEntry[];
   /** Why this one is not auto-filled, or what to watch out for */
   note?: string;
 }
@@ -372,6 +381,9 @@ function derivedPosition(
   let best: { have: number; need: number } | null = null;
   const qualifying: Candidate[] = [];
   const manualUsed: KharakterystykaEntry[] = [];
+  // The same two lists, but only from alternatives that reached their own bar.
+  const provenQualifying: Candidate[] = [];
+  const provenManual: KharakterystykaEntry[] = [];
   const firstGroup = def.alternatives[0]?.group ?? '';
 
   for (const alt of def.alternatives) {
@@ -390,6 +402,10 @@ function derivedPosition(
 
     qualifying.push(...passing);
     manualUsed.push(...mine);
+    if (passing.length + mine.length >= alt.min) {
+      provenQualifying.push(...passing);
+      provenManual.push(...mine);
+    }
     // One row is one item, typed or imported alike, so a bar of five needs five
     // of them. A single row standing for five was checkable against nothing —
     // one реєстраційний номер cannot evidence five свідоцтв (owner, 2026-09-01).
@@ -407,40 +423,47 @@ function derivedPosition(
   // (position, group) twice — refused by `licencePositionProblems`, deduped here
   // anyway so a hand-inserted row cannot print one citation as two. Keyed on the
   // entry itself, never on its text: see the note on `Candidate.source`.
-  const seen = new Set<number>();
-  const entries = qualifying
-    .filter((c) => {
-      if (seen.has(c.source)) return false;
-      seen.add(c.source);
-      return true;
-    })
-    .sort(byRecency)
-    .map(({ itemNumber, label, summary, year, ref }) => ({
-      itemNumber,
-      label,
-      summary,
-      year,
-      ...(ref ? { ref } : {}),
-    }));
+  const toEntries = (q: readonly Candidate[], m: readonly KharakterystykaEntry[]) => {
+    const seen = new Set<number>();
+    const out = q
+      .filter((c) => {
+        if (seen.has(c.source)) return false;
+        seen.add(c.source);
+        return true;
+      })
+      .sort(byRecency)
+      .map(({ itemNumber, label, summary, year, ref }) => ({
+        itemNumber,
+        label,
+        summary,
+        year,
+        ...(ref ? { ref } : {}),
+      }));
 
-  // After the rating's own, newest first among themselves. A row appearing under
-  // two alternatives of one position is listed once, for the same reason a
-  // Candidate is: п.2 counts a свідоцтво towards one bar, not towards both.
-  const manualSeen = new Set<KharakterystykaEntry>();
-  for (const entry of manualUsed) {
-    if (manualSeen.has(entry)) continue;
-    manualSeen.add(entry);
-  }
-  entries.push(
-    ...[...manualSeen]
-      // Newest first, then the text — the same tie-break `byRecency` applies to
-      // the rating's own rows, and for the same reason. The query has no
-      // ORDER BY, so two rows of one year would otherwise print in whatever
-      // order Postgres returned them, and the document would reorder itself
-      // between loads of unchanged data.
-      .sort((a, b) => b.year - a.year || a.text.localeCompare(b.text, 'uk'))
-      .map(entryAsPositionEntry)
-  );
+    // After the rating's own, newest first among themselves. A row appearing under
+    // two alternatives of one position is listed once, for the same reason a
+    // Candidate is: п.2 counts a свідоцтво towards one bar, not towards both.
+    const manualSeen = new Set<KharakterystykaEntry>();
+    for (const entry of m) {
+      if (manualSeen.has(entry)) continue;
+      manualSeen.add(entry);
+    }
+    out.push(
+      ...[...manualSeen]
+        // Newest first, then the text — the same tie-break `byRecency` applies to
+        // the rating's own rows, and for the same reason. The query has no
+        // ORDER BY, so two rows of one year would otherwise print in whatever
+        // order Postgres returned them, and the document would reorder itself
+        // between loads of unchanged data.
+        .sort((a, b) => b.year - a.year || a.text.localeCompare(b.text, 'uk'))
+        .map(entryAsPositionEntry)
+    );
+    return out;
+  };
+  const entries = toEntries(qualifying, manualUsed);
+  // Only when it can differ: a position with one bar proves with all it has.
+  const provenEntries =
+    def.alternatives.length > 1 ? toEntries(provenQualifying, provenManual) : undefined;
 
   // «0 з 1» tells the reader nothing that «не виконано» does not, and a met
   // single-entry position needs no counter either.
@@ -459,6 +482,7 @@ function derivedPosition(
     progress,
     evidence: evidenceText(entries),
     entries,
+    ...(provenEntries ? { provenEntries } : {}),
     ...(note ? { note } : {}),
   };
 }

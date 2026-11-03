@@ -248,6 +248,9 @@ short silently drops evidence.
 against a bar of five are not evidence of the position, so the evidence cell of
 an unmet one is empty in the file, though the screen still lists them with their
 «3 з 5». The position itself, and the «Разом виконано позицій» count, stay.
+A position with several bars (п.2) prints only the alternative that reached its
+own: five свідоцтва meet it, the three деклараційних beside them are left out
+(`provenEntries`; the screen still lists all of `entries`).
 
 ## «Вид патенту» — п.2 (decided 2026-09-01)
 

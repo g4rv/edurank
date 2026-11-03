@@ -566,6 +566,26 @@ describe('buildKharakterystyka — manual and imported entries', () => {
     expect(position(fiveCertificates, 2).met).toBe(true);
   });
 
+  // A met position with several bars proves itself with the bar it reached
+  // (owner, 2026-11-03): the three деклараційних beside five свідоцтв stay on
+  // the screen's `entries`, but are not `provenEntries`, which the Excel prints.
+  it('proves п.2 with the alternative that reached its bar, not the ones short of it', () => {
+    const doc = buildKharakterystyka([], NO_PROFILE, YEAR, [
+      ...[1, 2, 3, 4, 5].map((n) => entry(2, { group: 'copyright', text: `Свідоцтво ${n}` })),
+      ...[1, 2, 3].map((n) => entry(2, { group: 'declarative', text: `Патент ${n}` })),
+    ]);
+    const p2 = position(doc, 2);
+    expect(p2.met).toBe(true);
+    expect(p2.entries).toHaveLength(8);
+    expect(p2.provenEntries).toHaveLength(5);
+    expect(p2.provenEntries!.every((e) => e.summary.startsWith('Свідоцтво'))).toBe(true);
+  });
+
+  it('has no provenEntries on a position with one bar', () => {
+    const doc = buildKharakterystyka([], NO_PROFILE, YEAR, [entry(15)]);
+    expect(position(doc, 15).provenEntries).toBeUndefined();
+  });
+
   // The bar a деклараційний патент answers to is five, not the one а патент на
   // винахід answers to. Nothing in the rating feeds this group — no indicator
   // names it — so it exists to be typed.
