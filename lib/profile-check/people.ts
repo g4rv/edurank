@@ -1,27 +1,40 @@
 import type { PrismaClient } from '@/lib/generated/prisma/client';
-import { ON_ROSTER } from '@/lib/queries/roster';
+import { ON_ROSTER, onDepartment } from '@/lib/queries/roster';
 import type { PersonInput } from '@/lib/profile-check/types';
 
 /**
- * The people a run covers: active НПП with at least one profile given.
+ * The people a run covers: active НПП with at least one profile given —
+ * optionally narrowed to one кафедра and/or an explicit list of ids (the
+ * admin page re-checks exactly what its filters show).
  *
  * Takes the client as an argument so the admin page (the app's `db`) and the
  * command-line script (its own client) read the same list.
  */
 export async function listPeopleToCheck(
   client: Pick<PrismaClient, 'staff'>,
-  { staffId, limit }: { staffId?: string; limit?: number } = {}
+  {
+    staffId,
+    staffIds,
+    departmentId,
+    limit,
+  }: { staffId?: string; staffIds?: string[]; departmentId?: string; limit?: number } = {}
 ): Promise<PersonInput[]> {
   const staff = await client.staff.findMany({
     where: {
       ...ON_ROSTER,
       isNpp: true,
-      ...(staffId ? { id: staffId } : {}),
-      OR: [
-        { orcidId: { not: null } },
-        { wosUrl: { not: null } },
-        { scopusUrl: { not: null } },
-        { googleScholarUrl: { not: null } },
+      ...(staffId ? { id: staffId } : staffIds ? { id: { in: staffIds } } : {}),
+      // AND, not two `OR` keys: the кафедра's own OR would overwrite the links'
+      AND: [
+        {
+          OR: [
+            { orcidId: { not: null } },
+            { wosUrl: { not: null } },
+            { scopusUrl: { not: null } },
+            { googleScholarUrl: { not: null } },
+          ],
+        },
+        ...(departmentId ? [onDepartment(departmentId)] : []),
       ],
     },
     select: {

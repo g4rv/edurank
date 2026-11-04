@@ -297,6 +297,7 @@ export const FIELD_LABELS: Record<string, string> = {
 export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
   ProfileCheckRun: {
     total: 'Кількість людей',
+    scope: 'Обсяг',
   },
   KharakterystykaEntry: {
     position: 'Позиція ліцензійних умов',

@@ -18,7 +18,17 @@ const POLL_MS = 2000;
  * tab does not stop it; this only asks how far it has got, every two seconds
  * while it runs, and refreshes the table when it ends.
  */
-export function ProfileCheckRun({ initial }: { initial: RunState }) {
+export function ProfileCheckRun({
+  initial,
+  filter,
+  scopeCount,
+}: {
+  initial: RunState;
+  /** The page's filters: the run covers exactly the people they show */
+  filter: { department?: string; onlyProblems: boolean };
+  /** How many people the filters show; null when nothing is filtered (everyone) */
+  scopeCount: number | null;
+}) {
   const router = useRouter();
   const [run, setRun] = useState<RunState>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +52,7 @@ export function ProfileCheckRun({ initial }: { initial: RunState }) {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await startProfileCheck();
+        const result = await startProfileCheck(filter);
         if ('error' in result) {
           setError(result.error);
           return;
@@ -77,8 +87,12 @@ export function ProfileCheckRun({ initial }: { initial: RunState }) {
             <span className="text-muted-foreground">Перевірку ще не запускали</span>
           )}
         </div>
-        <Button onClick={start} disabled={pending || running}>
-          {running ? 'Виконується…' : 'Перевірити профілі'}
+        <Button onClick={start} disabled={pending || running || scopeCount === 0}>
+          {running
+            ? 'Виконується…'
+            : scopeCount === null
+              ? 'Перевірити профілі'
+              : `Перевірити знову: ${scopeCount}`}
         </Button>
       </div>
 

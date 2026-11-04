@@ -64,7 +64,12 @@ export default async function ProfileCheckPage({
         </p>
       </div>
 
-      <ProfileCheckRun initial={run} />
+      {/* With a filter the button re-checks the people it shows, not all of them */}
+      <ProfileCheckRun
+        initial={run}
+        filter={{ department: department || undefined, onlyProblems }}
+        scopeCount={department || onlyProblems ? rows.length : null}
+      />
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-3 text-sm">
         <Link href={href({ only: '' })} className={tab(!onlyProblems)}>

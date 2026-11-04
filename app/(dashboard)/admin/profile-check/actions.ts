@@ -5,7 +5,8 @@ import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
 import { logError } from '@/lib/log';
 import { requireAdmin } from '@/lib/permissions';
-import { executeRun, startRun, STALE_MS } from '@/lib/profile-check/job';
+import { executeRun, startRun, STALE_MS, type RunScope } from '@/lib/profile-check/job';
+import { listProfileChecks } from '@/lib/queries/list-profile-checks';
 import { listPeopleToCheck } from '@/lib/profile-check/people';
 import { checkPerson } from '@/lib/profile-check/run';
 import { saveResult } from '@/lib/profile-check/store';
@@ -46,13 +47,28 @@ export async function getRunState(): Promise<RunState> {
  * the page polls `getRunState`. See lib/profile-check/job.ts for why there is
  * no queue.
  */
-export async function startProfileCheck(): Promise<{ error: string } | { success: true }> {
+export async function startProfileCheck(
+  filter: { department?: string; onlyProblems?: boolean } = {}
+): Promise<{ error: string } | { success: true }> {
   const session = await requireAdmin();
   if (!session) return { error: 'Недостатньо прав' };
 
+  const departmentId =
+    typeof filter.department === 'string' && filter.department ? filter.department : undefined;
+  const onlyProblems = filter.onlyProblems === true;
+
   let started;
   try {
-    started = await startRun(db, session.user.staffId ?? null);
+    // The run covers what the page's filters show, resolved here — the browser
+    // only says which filters, never which people
+    const scope: RunScope = { departmentId };
+    if (onlyProblems) {
+      const rows = await listProfileChecks({ departmentId });
+      const ids = rows.filter((r) => r.problem).map((r) => r.staffId);
+      if (ids.length === 0) return { error: 'За цим фільтром немає кого перевіряти' };
+      scope.staffIds = ids;
+    }
+    started = await startRun(db, session.user.staffId ?? null, scope);
   } catch (e) {
     logError('profileCheck.startProfileCheck', e, { userId: session.user.id });
     return { error: 'Не вдалося почати перевірку' };
@@ -74,7 +90,13 @@ export async function startProfileCheck(): Promise<{ error: string } | { success
         entityId: started.runId,
         label: 'Перевірка профілів',
         userId: session.user.id,
-        changes: diffChanges({}, { total: started.people.length }),
+        changes: diffChanges(
+          {},
+          {
+            total: started.people.length,
+            scope: departmentId || onlyProblems ? 'за фільтром' : 'усі',
+          }
+        ),
       },
     });
   } catch (e) {

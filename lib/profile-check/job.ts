@@ -23,7 +23,16 @@ export type StartedRun =
   | { ok: true; runId: string; people: PersonInput[] }
   | { ok: false; reason: 'running' | 'nobody' };
 
-export async function startRun(client: JobClient, startedById: string | null): Promise<StartedRun> {
+export interface RunScope {
+  staffIds?: string[];
+  departmentId?: string;
+}
+
+export async function startRun(
+  client: JobClient,
+  startedById: string | null,
+  scope: RunScope = {}
+): Promise<StartedRun> {
   const alive = new Date(Date.now() - STALE_MS);
 
   const live = await client.profileCheckRun.findFirst({
@@ -42,7 +51,7 @@ export async function startRun(client: JobClient, startedById: string | null): P
     },
   });
 
-  const people = await listPeopleToCheck(client);
+  const people = await listPeopleToCheck(client, scope);
   if (people.length === 0) return { ok: false, reason: 'nobody' };
 
   const run = await client.profileCheckRun.create({
