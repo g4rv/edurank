@@ -78,3 +78,6 @@ next-env.d.ts
 # Output of pnpm db:check-staff-list — every person's ставка and degree from
 # the staff list, the same reason as staff-roster.json
 /staff-check*.xlsx
+
+# Output of pnpm profiles:check — real people's profile data
+/profile-check-report*.json
