@@ -96,7 +96,7 @@ export function ProfileCheckTable({ rows }: { rows: ProfileCheckRow[] }) {
                   return (
                     <td key={p} className="px-4 py-2.5">
                       {cell ? (
-                        <Badge tone={TONE[cell.status]}>
+                        <Badge tone={TONE[cell.status]} className="whitespace-nowrap">
                           {PLATFORM_STATUS_LABELS[cell.status]}
                         </Badge>
                       ) : (
