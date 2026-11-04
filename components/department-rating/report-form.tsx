@@ -1,10 +1,9 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Controller, useForm, useWatch, type Control } from 'react-hook-form';
 import { toast } from 'sonner';
-import { Button } from '@/components/aurora/ui/button';
 import { Card } from '@/components/aurora/ui/card';
 import { Input } from '@/components/aurora/ui/input';
 import {
@@ -66,24 +65,42 @@ export function DepartmentReportForm({
   editable: boolean;
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setPending] = useState(false);
 
   const form = useForm<FormShape>({
     defaultValues: { counts: countsFromValues(indicators, values), narrative },
   });
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { isDirty },
-  } = form;
+  const { control } = form;
+
+  // Saved on blur (owner, 2026-11-04), not by a button. What the server holds
+  // is tracked here as text, so «is there anything to save» is one comparison
+  // that never reads a stale render: typing a number and leaving the box, or
+  // reverting it, saves nothing.
+  const [initialText] = useState(() => JSON.stringify(form.getValues()));
+  const saved = useRef(initialText);
+  const [savedText, setSavedText] = useState(initialText);
+  const running = useRef(false);
+  const again = useRef(false);
+
+  const all = useWatch({ control });
+  const unsaved = JSON.stringify(all) !== savedText;
 
   const counts = useWatch({ control, name: 'counts' });
   const liveValues = valuesFromCounts(indicators, counts);
   const total = reportTotal(indicators, liveValues);
 
-  function onSubmit(data: FormShape) {
-    startTransition(async () => {
+  async function save() {
+    // One request at a time: a blur during a save is remembered and runs after
+    if (running.current) {
+      again.current = true;
+      return;
+    }
+    const data = form.getValues();
+    const snapshot = JSON.stringify(data);
+    if (snapshot === saved.current) return;
+    running.current = true;
+    setPending(true);
+    try {
       const result = await saveDepartmentReport({
         departmentId,
         year,
@@ -91,28 +108,62 @@ export function DepartmentReportForm({
         narrative: data.narrative,
       });
       if (!result || 'error' in result) {
-        toast.error(result?.error ?? 'Не вдалося зберегти звіт кафедри. Зміни не застосовано');
+        toast.error(result?.error ?? 'Не вдалося зберегти звіт кафедри. Зміни не застосовано', {
+          id: 'department-report-error',
+        });
         return;
       }
-      toast.success('Збережено');
-      reset(data);
+      saved.current = snapshot;
+      setSavedText(snapshot);
       router.refresh();
-    });
+    } catch {
+      toast.error('Не вдалося зберегти звіт кафедри. Зміни не застосовано', {
+        id: 'department-report-error',
+      });
+    } finally {
+      running.current = false;
+      setPending(false);
+      if (again.current) {
+        again.current = false;
+        void save();
+      }
+    }
   }
 
-  const disabled = !editable || isPending;
+  // Items 14–17 change only when a popup hands its draft back («Готово»),
+  // removes a card or clears a section — never by typing in the page — so a
+  // change there is a finished edit and saves at once
+  const narrativeText = JSON.stringify(useWatch({ control, name: 'narrative' }));
+  const seenNarrative = useRef(JSON.stringify(narrative));
+  useEffect(() => {
+    if (!editable || narrativeText === seenNarrative.current) return;
+    seenNarrative.current = narrativeText;
+    void save();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narrativeText]);
+
+  const disabled = !editable;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form
+      onSubmit={(e) => e.preventDefault()}
+      // focusout bubbles, so one handler hears every box of the table
+      onBlur={() => editable && void save()}
+      className="space-y-4"
+    >
       <Card className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="text-sm font-medium">Всього</div>
           <div className="text-2xl font-semibold text-brand tabular-nums">{decimalText(total)}</div>
         </div>
         {editable && (
-          <Button type="submit" disabled={isPending || !isDirty}>
-            {isPending ? 'Збереження…' : 'Зберегти'}
-          </Button>
+          <div className="text-sm text-muted-foreground" role="status">
+            {isPending
+              ? 'Збереження…'
+              : unsaved
+                ? 'Збережеться, коли ви залишите поле'
+                : 'Усі зміни збережено'}
+          </div>
         )}
       </Card>
 
@@ -153,6 +204,7 @@ export function DepartmentReportForm({
                       control={control}
                       disabled={disabled}
                       editable={editable}
+                      onChoose={() => void save()}
                     />
                   </TableCell>
                   <TableCell align="right" numeric muted>
@@ -177,15 +229,7 @@ export function DepartmentReportForm({
         narrative={narrative}
       />
 
-      {editable && (
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isPending || !isDirty}>
-            {isPending ? 'Збереження…' : 'Зберегти'}
-          </Button>
-        </div>
-      )}
-
-      <UnsavedChangesGuard when={editable && isDirty} />
+      <UnsavedChangesGuard when={editable && (unsaved || isPending)} />
     </form>
   );
 }
@@ -195,11 +239,14 @@ function ValueControl({
   control,
   disabled,
   editable,
+  onChoose,
 }: {
   row: IndicatorRow;
   control: Control<FormShape>;
   disabled: boolean;
   editable: boolean;
+  /** Called after a select's value is in the form, so it can be saved */
+  onChoose: () => void;
 }) {
   return (
     <Controller
@@ -214,7 +261,11 @@ function ValueControl({
           return (
             <Select
               value={field.value ?? NO_CHOICE}
-              onValueChange={field.onChange}
+              // A select has no blur worth waiting for: the choice is the edit
+              onValueChange={(v) => {
+                field.onChange(v);
+                setTimeout(onChoose, 0);
+              }}
               disabled={disabled}
             >
               <SelectTrigger className="w-full" aria-label={`Пункт ${row.itemNumber}`}>

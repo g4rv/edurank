@@ -75,8 +75,8 @@ const IMPACT_SPECS: BoxSpec[] = [
  * **Cards and popups, not open boxes** (owner, 2026-10-21: «the forms take way
  * too much space»). Each entry is a card naming it by its first filled box; the
  * pencil, «Додати …» or «Заповнити» opens a popup holding its boxes. The popup
- * edits a draft and hands it back with «Готово» — nothing reaches the report
- * until the page's own «Зберегти», the same way the diplomas work on a profile.
+ * edits a draft and hands it back with «Готово» — the page then saves the report
+ * at once (save on blur, owner 2026-11-04).
  *
  * Read-only (a декан, a closed year) prints the full text instead: a reader
  * came to read, and a popup would hide exactly that.
@@ -381,7 +381,7 @@ function EntryDialogForm({
       <DialogHeader>
         <DialogTitle>{state.title}</DialogTitle>
         <DialogDescription>
-          Усі поля необов’язкові. Зміни збережуться кнопкою «Зберегти» на сторінці.
+          Усі поля необов’язкові. Зміни збережуться одразу після «Готово».
         </DialogDescription>
       </DialogHeader>
       <DialogBody>
