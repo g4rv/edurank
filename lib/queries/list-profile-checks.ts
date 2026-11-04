@@ -23,6 +23,8 @@ export interface ProfileCheckRow {
   /** Missing = never checked */
   cells: Partial<Record<Platform, PlatformCell>>;
   problem: boolean;
+  /** The platforms on which this person has a problem */
+  problemPlatforms: Platform[];
 }
 
 const PROBLEM: ReadonlySet<string> = new Set(['error', 'warning', 'failed']);
@@ -77,6 +79,7 @@ export async function listProfileChecks({ departmentId }: { departmentId?: strin
       department: dept?.name ?? null,
       cells,
       problem: Object.values(cells).some((c) => PROBLEM.has(c.status)),
+      problemPlatforms: PLATFORMS.filter((p) => cells[p] && PROBLEM.has(cells[p]!.status)),
     };
   });
 }

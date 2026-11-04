@@ -6,10 +6,13 @@ import { diffChanges } from '@/lib/audit';
 import { logError } from '@/lib/log';
 import { requireAdmin } from '@/lib/permissions';
 import { executeRun, startRun, STALE_MS, type RunScope } from '@/lib/profile-check/job';
-import { listProfileChecks } from '@/lib/queries/list-profile-checks';
+import { PLATFORM_LABELS } from '@/lib/profile-check/labels';
 import { listPeopleToCheck } from '@/lib/profile-check/people';
+import { CHECKERS } from '@/lib/profile-check/platforms';
 import { checkPerson } from '@/lib/profile-check/run';
 import { saveResult } from '@/lib/profile-check/store';
+import { PLATFORMS, type Platform } from '@/lib/profile-check/types';
+import { listProfileChecks } from '@/lib/queries/list-profile-checks';
 
 export type RunState = {
   id: string;
@@ -21,37 +24,66 @@ export type RunState = {
   error: string | null;
 } | null;
 
-/** The latest run, read by the page and polled by the progress bar. */
-export async function getRunState(): Promise<RunState> {
+export type RunStates = Record<Platform, RunState>;
+
+/**
+ * The latest run of every platform, read by the page and polled by the
+ * progress bars. A run made before the platforms were separate (`all`) counts
+ * as the last one for each of them until they have one of their own.
+ */
+export async function getRunStates(): Promise<RunStates | null> {
   const session = await requireAdmin();
   if (!session) return null;
 
-  const run = await db.profileCheckRun.findFirst({ orderBy: { startedAt: 'desc' } });
-  if (!run) return null;
-
-  // A run that stopped beating is dead whatever its row still says
-  const dead = run.status === 'RUNNING' && Date.now() - run.heartbeatAt.getTime() > STALE_MS;
-  return {
-    id: run.id,
-    status: dead ? 'FAILED' : run.status,
-    done: run.done,
-    total: run.total,
-    startedAt: run.startedAt.toISOString(),
-    finishedAt: run.finishedAt?.toISOString() ?? null,
-    error: dead ? 'Перервано: сервер було перезапущено' : run.error,
-  };
+  const states = {} as RunStates;
+  for (const platform of PLATFORMS) {
+    const run = await db.profileCheckRun.findFirst({
+      where: { platform: { in: [platform, 'all'] } },
+      orderBy: { startedAt: 'desc' },
+    });
+    if (!run) {
+      states[platform] = null;
+      continue;
+    }
+    // A run that stopped beating is dead whatever its row still says
+    const dead = run.status === 'RUNNING' && Date.now() - run.heartbeatAt.getTime() > STALE_MS;
+    states[platform] = {
+      id: run.id,
+      status: dead ? 'FAILED' : run.status,
+      done: run.done,
+      total: run.total,
+      startedAt: run.startedAt.toISOString(),
+      finishedAt: run.finishedAt?.toISOString() ?? null,
+      error: dead ? 'Перервано: сервер було перезапущено' : run.error,
+    };
+  }
+  return states;
 }
 
 /**
- * Starts a run and returns at once; the run goes on in the server process and
- * the page polls `getRunState`. See lib/profile-check/job.ts for why there is
- * no queue.
+ * Starts the check of ONE platform and returns at once; the run goes on in the
+ * server process and the page polls `getRunStates`. See lib/profile-check/job.ts
+ * for why there is no queue.
+ *
+ * Platforms run apart (owner, 2026-11-04) because their speeds do not compare —
+ * Scholar is spaced to about two seconds a person, ORCID is not — and so a
+ * block by one site never holds back another. Two runs of the SAME platform
+ * never overlap; different platforms may.
  */
 export async function startProfileCheck(
+  platform: string,
   filter: { department?: string; onlyProblems?: boolean } = {}
 ): Promise<{ error: string } | { success: true }> {
   const session = await requireAdmin();
   if (!session) return { error: 'Недостатньо прав' };
+
+  if (!(PLATFORMS as readonly string[]).includes(platform)) {
+    return { error: 'Невідома платформа' };
+  }
+  const target = platform as Platform;
+  if (!CHECKERS[target].implemented) {
+    return { error: 'Правила для цієї платформи ще не задані' };
+  }
 
   const departmentId =
     typeof filter.department === 'string' && filter.department ? filter.department : undefined;
@@ -63,21 +95,22 @@ export async function startProfileCheck(
     // only says which filters, never which people
     const scope: RunScope = { departmentId };
     if (onlyProblems) {
+      // «Problems» here are the problems of THIS platform
       const rows = await listProfileChecks({ departmentId });
-      const ids = rows.filter((r) => r.problem).map((r) => r.staffId);
+      const ids = rows.filter((r) => r.problemPlatforms.includes(target)).map((r) => r.staffId);
       if (ids.length === 0) return { error: 'За цим фільтром немає кого перевіряти' };
       scope.staffIds = ids;
     }
-    started = await startRun(db, session.user.staffId ?? null, scope);
+    started = await startRun(db, session.user.staffId ?? null, target, scope);
   } catch (e) {
-    logError('profileCheck.startProfileCheck', e, { userId: session.user.id });
+    logError('profileCheck.startProfileCheck', e, { userId: session.user.id, platform });
     return { error: 'Не вдалося почати перевірку' };
   }
   if (!started.ok) {
     return {
       error:
         started.reason === 'running'
-          ? 'Перевірка вже виконується'
+          ? `Перевірка ${PLATFORM_LABELS[target]} вже виконується`
           : 'Немає кого перевіряти: ні в кого не вказано профілів',
     };
   }
@@ -88,11 +121,12 @@ export async function startProfileCheck(
         action: 'CREATE',
         entity: 'ProfileCheckRun',
         entityId: started.runId,
-        label: 'Перевірка профілів',
+        label: `Перевірка профілів: ${PLATFORM_LABELS[target]}`,
         userId: session.user.id,
         changes: diffChanges(
           {},
           {
+            platform: PLATFORM_LABELS[target],
             total: started.people.length,
             scope: departmentId || onlyProblems ? 'за фільтром' : 'усі',
           }
@@ -105,13 +139,17 @@ export async function startProfileCheck(
   }
 
   // Deliberately not awaited: the run outlives this request
-  void executeRun(db, started.runId, started.people);
+  void executeRun(db, started.runId, started.people, target);
 
   revalidatePath('/admin/profile-check');
   return { success: true };
 }
 
-/** One person again — after they fixed their ORCID, without a whole run. */
+/**
+ * One person again, on every platform that is checked — after they fixed their
+ * ORCID, without a whole run. Scholar goes through its gate like any other
+ * request, so this takes a couple of seconds.
+ */
 export async function recheckPerson(
   staffId: string
 ): Promise<{ error: string } | { success: true }> {
@@ -121,7 +159,8 @@ export async function recheckPerson(
   try {
     const [person] = await listPeopleToCheck(db, { staffId });
     if (!person) return { error: 'У цієї людини немає профілів для перевірки' };
-    await saveResult(db, await checkPerson(person));
+    const platforms = PLATFORMS.filter((p) => CHECKERS[p].implemented);
+    await saveResult(db, await checkPerson(person, { platforms }));
   } catch (e) {
     logError('profileCheck.recheckPerson', e, { userId: session.user.id, staffId });
     return { error: 'Не вдалося перевірити. Спробуйте ще раз' };

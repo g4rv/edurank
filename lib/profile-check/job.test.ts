@@ -7,7 +7,7 @@ vi.mock('@/lib/profile-check/people', () => ({
   ]),
 }));
 
-type Where = { status: string; heartbeatAt: { gt: Date } };
+type Where = { status: string; platform: string; heartbeatAt: { gt: Date } };
 
 function client(live: boolean) {
   return {
@@ -22,24 +22,26 @@ function client(live: boolean) {
 describe('startRun', () => {
   it('refuses while another run is still beating', async () => {
     const c = client(true);
-    const r = await startRun(c as never, 'u1');
+    const r = await startRun(c as never, 'u1', 'orcid');
     expect(r).toEqual({ ok: false, reason: 'running' });
     expect(c.profileCheckRun.create).not.toHaveBeenCalled();
   });
 
   it('looks for liveness by the heartbeat, not by status alone', async () => {
     const c = client(false);
-    await startRun(c as never, 'u1');
+    await startRun(c as never, 'u1', 'orcid');
     const where = c.profileCheckRun.findFirst.mock.calls[0][0].where;
     expect(where.status).toBe('RUNNING');
+    expect(where.platform).toBe('orcid'); // another platform's run does not block this one
     expect(Date.now() - where.heartbeatAt.gt.getTime()).toBeGreaterThanOrEqual(STALE_MS - 50);
   });
 
   it('buries a dead run before starting and records who started the new one', async () => {
     const c = client(false);
-    const r = await startRun(c as never, 'u1');
+    const r = await startRun(c as never, 'u1', 'orcid');
     expect(c.profileCheckRun.updateMany.mock.calls[0][0].data.status).toBe('FAILED');
     expect(c.profileCheckRun.create.mock.calls[0][0].data).toEqual({
+      platform: 'orcid',
       total: 1,
       startedById: 'u1',
     });

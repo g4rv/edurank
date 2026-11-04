@@ -6,7 +6,9 @@ import { listProfileChecks } from '@/lib/queries/list-profile-checks';
 import { DepartmentSelect } from '@/components/department-select';
 import { ProfileCheckRun } from '@/components/admin/profile-check-run';
 import { ProfileCheckTable } from '@/components/admin/profile-check-table';
-import { getRunState } from './actions';
+import { CHECKERS } from '@/lib/profile-check/platforms';
+import { PLATFORMS, type Platform } from '@/lib/profile-check/types';
+import { getRunStates } from './actions';
 
 /**
  * «Перевірка профілів» — ORCID, Web of Science, Scopus and Google Scholar of
@@ -28,11 +30,26 @@ export default async function ProfileCheckPage({
   const onlyProblems = only === 'problems';
 
   const [run, all, departments] = await Promise.all([
-    getRunState(),
+    getRunStates(),
     listProfileChecks({ departmentId: department || undefined }),
     listDepartments(),
   ]);
   const rows = onlyProblems ? all.filter((r) => r.problem) : all;
+
+  // Per platform: who its button would re-check. «Problems» are that platform's own
+  const implemented = Object.fromEntries(
+    PLATFORMS.map((p) => [p, CHECKERS[p].implemented])
+  ) as Record<Platform, boolean>;
+  const counts = Object.fromEntries(
+    PLATFORMS.map((p) => [
+      p,
+      onlyProblems
+        ? all.filter((r) => r.problemPlatforms.includes(p)).length
+        : department
+          ? all.length
+          : null,
+    ])
+  ) as Record<Platform, number | null>;
 
   function href(next: { only?: string }) {
     const params = new URLSearchParams();
@@ -64,11 +81,12 @@ export default async function ProfileCheckPage({
         </p>
       </div>
 
-      {/* With a filter the button re-checks the people it shows, not all of them */}
+      {/* With a filter each button re-checks the people it shows, not all of them */}
       <ProfileCheckRun
         initial={run}
+        implemented={implemented}
         filter={{ department: department || undefined, onlyProblems }}
-        scopeCount={department || onlyProblems ? rows.length : null}
+        counts={counts}
       />
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-3 text-sm">

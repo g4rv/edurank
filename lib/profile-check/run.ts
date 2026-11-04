@@ -1,6 +1,7 @@
 import { CHECKERS } from '@/lib/profile-check/platforms';
 import {
   PLATFORMS,
+  type Platform,
   type PersonInput,
   type PersonResult,
   type PlatformChecker,
@@ -11,15 +12,26 @@ export interface RunOptions {
   checkers?: Record<string, PlatformChecker>;
   fetchImpl?: typeof fetch;
   now?: () => Date;
+  /** Check only these platforms (a run is per platform); default: all four */
+  platforms?: readonly Platform[];
 }
 
-/** All four profiles of one person; a platform without a link is `no_link`. */
+/**
+ * The profiles of one person — all four, or just `platforms`; a platform
+ * without a link is `no_link`.
+ */
 export async function checkPerson(
   person: PersonInput,
-  { checkers = CHECKERS, fetchImpl = fetch, now = () => new Date() }: RunOptions = {}
+  {
+    checkers = CHECKERS,
+    fetchImpl = fetch,
+    now = () => new Date(),
+    platforms: only = PLATFORMS,
+  }: RunOptions = {}
 ): Promise<PersonResult> {
   const platforms: PlatformResult[] = [];
   for (const platform of PLATFORMS) {
+    if (!only.includes(platform)) continue;
     const link = person.links[platform]?.trim() || null;
     const checkedAt = now().toISOString();
     const checker = checkers[platform];

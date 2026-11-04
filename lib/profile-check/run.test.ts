@@ -59,6 +59,18 @@ describe('checkPerson', () => {
   });
 });
 
+describe('checkPerson with one platform', () => {
+  it('checks and reports only that platform, leaving the others alone', async () => {
+    const r = await checkPerson(person({ orcid: 'x', wos: 'https://w/x' }), {
+      checkers,
+      now,
+      platforms: ['orcid'],
+    });
+    expect(r.platforms.map((p) => p.platform)).toEqual(['orcid']);
+    expect(checkers.wos.check).not.toHaveBeenCalled();
+  });
+});
+
 describe('checkPeople', () => {
   it('keeps the input order whatever finishes first', async () => {
     const people = ['a', 'b', 'c', 'd', 'e'].map((id) => ({

@@ -1175,7 +1175,7 @@ platform, replaced on every run — a status board, not a history) and
   `startRun` writes the row and returns, `executeRun` saves each person as they
   finish, the page polls `getRunState`. `heartbeatAt` tells a dead run (server
   restarted mid-run) from a live one — after `STALE_MS` it is marked FAILED when
-  the next run starts. One run at a time. A started run is audited as
+  the next run starts. **One run per platform** (owner, 2026-11-04): four buttons, one per platform, because the speeds do not compare (Scholar is spaced to ~2 s a person, ORCID is not) and a block by one site must hold nothing back. Two runs of the SAME platform never overlap; ORCID and Scholar may run at once. `ProfileCheckRun.platform` (`all` = a run from before the split); a run saves only its own platform's rows, so it never touches the others'. With «Є проблеми» on, a button re-checks the people with a problem ON THAT PLATFORM. A started run is audited as
   `ProfileCheckRun`.
 - **Concurrency 4**, one retry on 429/5xx: ORCID's public API is rate limited.
 - Excel: `/api/export/profile-checks` (ADMIN), the page's own filters.

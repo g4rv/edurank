@@ -1980,6 +1980,9 @@ enum ProfileCheckRunStatus {
 /// dead run is told from a live one (see lib/profile-check/job.ts).
 model ProfileCheckRun {
   id          String                @id @default(cuid())
+  /// 'orcid' | 'wos' | 'scopus' | 'googleScholar'; 'all' for a run made before
+  /// the platforms were separate (2026-11-04). One run per platform at a time.
+  platform    String                @default("all")
   status      ProfileCheckRunStatus @default(RUNNING)
   total       Int
   done        Int                   @default(0)
