@@ -1145,10 +1145,23 @@ Ported from the standalone Python `npp-profile-scraper`. Code in
 platform, replaced on every run — a status board, not a history) and
 `ProfileCheckRun`.
 
-- **Only ORCID is judged.** One `PlatformChecker` per platform in
-  `lib/profile-check/platforms.ts`; WoS, Scopus and Scholar are placeholders the
-  runner reports as `not_implemented` until their requirements are given. A new
-  platform is one checker file.
+- **ORCID is judged; Google Scholar is read; WoS and Scopus are placeholders.**
+  One `PlatformChecker` per platform in `lib/profile-check/platforms.ts`; a
+  placeholder is reported `not_implemented` until its requirements are given. A
+  new platform is one checker file.
+- **Google Scholar** (owner, 2026-11-04) is one plain GET of
+  `scholar.google.com/citations?user=<id>`; `lib/profile-check/google-scholar/`.
+  It records the h-index, citations and i10-index (all time and last 5 years) as
+  `ok` checks — NO thresholds yet, the university has given none. The six
+  `<td class="gsc_rsb_std">` cells are read BY POSITION, not by label (labels
+  follow the page language); if the count is not six the result is a warning,
+  never invented numbers. Redirects are NOT followed: to a login page means no
+  such (or a private) profile, to `/sorry`, a 429 or a CAPTCHA body means Google
+  blocked us. **Scholar has no API and blocks scripts**, so `gate.ts` spaces
+  every request (~2 s + jitter, however many people run at once) and, after a
+  block, fails everything for 10 minutes instead of lengthening it. A full run is
+  therefore bound by the gate — several minutes. Verified on 4 real profiles
+  against numbers read by hand.
 - **The university's requirements live in `config.ts`** (name — English or Ukrainian, case/quotes/spacing ignored, a misspelling is NOT accepted — domain, country,
   the personal page host), not in the checks.
 - **The ★ is read from ORCID's website JSON, not its public API** (owner,

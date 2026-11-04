@@ -7,6 +7,7 @@ import {
   PLATFORM_LABELS,
   PLATFORM_STATUS_LABELS,
 } from '@/lib/profile-check/labels';
+import { metricAll } from '@/lib/profile-check/labels';
 import { PLATFORMS } from '@/lib/profile-check/types';
 import { listProfileChecks } from '@/lib/queries/list-profile-checks';
 
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
       { header: 'Факультет', width: 40 },
       { header: 'Кафедра', width: 46 },
       ...PLATFORMS.map((p) => ({ header: PLATFORM_LABELS[p], width: 20 })),
+      { header: 'h-індекс (Scholar)', width: 18 },
       { header: 'Що виправити', width: 90 },
     ];
     ws.getRow(1).font = { bold: true };
@@ -65,10 +67,11 @@ export async function GET(request: Request) {
         r.faculty ?? '',
         r.department ?? '',
         ...PLATFORMS.map((p) => (r.cells[p] ? PLATFORM_STATUS_LABELS[r.cells[p]!.status] : '')),
+        metricAll(r.cells.googleScholar?.checks.find((c) => c.field === 'h_index')) ?? '',
         fixes.join('\n'),
       ]);
     }
-    ws.getColumn(PLATFORMS.length + 4).alignment = { wrapText: true, vertical: 'top' };
+    ws.getColumn(PLATFORMS.length + 5).alignment = { wrapText: true, vertical: 'top' };
 
     const buffer = await wb.xlsx.writeBuffer();
     return new Response(buffer as BodyInit, {

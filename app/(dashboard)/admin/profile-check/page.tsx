@@ -58,9 +58,9 @@ export default async function ProfileCheckPage({
       <div>
         <h1 className="text-2xl font-semibold">Перевірка профілів</h1>
         <p className="mt-0.5 max-w-3xl text-sm text-foreground-soft">
-          Профілі НПП в ORCID, Web of Science, Scopus та Google Scholar. Зараз перевіряється лише
-          ORCID; решта платформ з’являться, коли будуть задані вимоги. Перевірка йде на сервері —
-          сторінку можна закрити.
+          Профілі НПП в ORCID, Web of Science, Scopus та Google Scholar. Зараз перевіряються ORCID
+          та Google Scholar (h-індекс); Web of Science і Scopus з’являться, коли будуть задані
+          вимоги. Перевірка йде на сервері — сторінку можна закрити.
         </p>
       </div>
 

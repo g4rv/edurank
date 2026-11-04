@@ -1,3 +1,4 @@
+import { scholarChecker } from '@/lib/profile-check/google-scholar';
 import { orcidChecker } from '@/lib/profile-check/orcid';
 import type { Platform, PlatformChecker } from '@/lib/profile-check/types';
 
@@ -20,5 +21,5 @@ export const CHECKERS: Record<Platform, PlatformChecker> = {
   orcid: orcidChecker,
   wos: placeholder('wos'),
   scopus: placeholder('scopus'),
-  googleScholar: placeholder('googleScholar'),
+  googleScholar: scholarChecker,
 };

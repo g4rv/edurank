@@ -16,8 +16,10 @@ import {
 import { recheckPerson } from '@/app/(dashboard)/admin/profile-check/actions';
 import {
   CHECK_FIELD_LABELS,
+  METRIC_LABELS,
   PLATFORM_LABELS,
   PLATFORM_STATUS_LABELS,
+  metricAll,
 } from '@/lib/profile-check/labels';
 import { PLATFORMS, type Check, type PlatformStatus } from '@/lib/profile-check/types';
 import type { ProfileCheckRow } from '@/lib/queries/list-profile-checks';
@@ -96,9 +98,16 @@ export function ProfileCheckTable({ rows }: { rows: ProfileCheckRow[] }) {
                   return (
                     <td key={p} className="px-4 py-2.5">
                       {cell ? (
-                        <Badge tone={TONE[cell.status]} className="whitespace-nowrap">
-                          {PLATFORM_STATUS_LABELS[cell.status]}
-                        </Badge>
+                        <span className="inline-flex items-center gap-2">
+                          <Badge tone={TONE[cell.status]} className="whitespace-nowrap">
+                            {PLATFORM_STATUS_LABELS[cell.status]}
+                          </Badge>
+                          {metricAll(cell.checks.find((c) => c.field === 'h_index')) !== null && (
+                            <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+                              h {metricAll(cell.checks.find((c) => c.field === 'h_index'))}
+                            </span>
+                          )}
+                        </span>
                       ) : (
                         <Badge tone="muted">—</Badge>
                       )}
@@ -124,6 +133,10 @@ export function ProfileCheckTable({ rows }: { rows: ProfileCheckRow[] }) {
                   {PLATFORMS.map((p) => {
                     const cell = open.cells[p];
                     if (!cell) return null;
+                    const metrics = cell.checks.filter(
+                      (c) => c.field in METRIC_LABELS && c.status === 'ok'
+                    );
+                    // a metric is a number to show, never a problem to fix
                     const notes = cell.checks.filter((c) => c.status !== 'ok');
                     return (
                       <section key={p} className="space-y-2">
@@ -148,6 +161,27 @@ export function ProfileCheckTable({ rows }: { rows: ProfileCheckRow[] }) {
                           <p className="text-sm text-muted-foreground">
                             Правила для цієї платформи ще не задані.
                           </p>
+                        )}
+                        {metrics.length > 0 && (
+                          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                            {metrics.map((m) => {
+                              const v = m.current as { all: number; recent: number };
+                              return (
+                                <div key={m.field} className="contents">
+                                  <dt className="text-muted-foreground">
+                                    {METRIC_LABELS[m.field]}
+                                  </dt>
+                                  <dd className="tabular-nums">
+                                    <span className="font-medium">{v.all}</span>
+                                    <span className="text-muted-foreground">
+                                      {' '}
+                                      (за 5 років: {v.recent})
+                                    </span>
+                                  </dd>
+                                </div>
+                              );
+                            })}
+                          </dl>
                         )}
                         {notes.length === 0 && cell.checks.length > 0 && (
                           <p className="text-sm text-muted-foreground">Усе в порядку.</p>
