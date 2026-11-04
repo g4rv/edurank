@@ -8,6 +8,8 @@ import {
   CORPORATE_DOMAIN,
   COUNTRY_CODE,
   UNIVERSITY_NAME,
+  UNIVERSITY_NAME_UK,
+  isUniversityName,
   UNIVERSITY_PROFILE_HOST_PATH,
 } from '@/lib/profile-check/config';
 import type { Check, CheckStatus } from '@/lib/profile-check/types';
@@ -168,12 +170,12 @@ export function checkCountry(data: OrcidData): Check {
  * fine.
  */
 export function checkAffiliations(data: OrcidData): Check {
-  const should = `Місце роботи «${UNIVERSITY_NAME}» (позначене зіркою ★); рекомендовано: посада, кафедра, дата початку`;
+  const should = `Місце роботи «${UNIVERSITY_NAME}» або «${UNIVERSITY_NAME_UK}» (позначене зіркою ★); рекомендовано: посада, кафедра, дата початку`;
   if (!data.affiliations.length) {
     return check('affiliations', [], should, 'error', 'Немає жодного місця роботи');
   }
   const names = data.affiliations.map((a) => a.name);
-  const isUni = (a: { name: string }) => a.name.includes(UNIVERSITY_NAME);
+  const isUni = (a: { name: string }) => isUniversityName(a.name);
   const uni = data.affiliations.filter(isUni);
   const starKnown = data.affiliations.some((a) => a.preferred !== null);
 

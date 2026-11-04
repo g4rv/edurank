@@ -1149,7 +1149,7 @@ platform, replaced on every run — a status board, not a history) and
   `lib/profile-check/platforms.ts`; WoS, Scopus and Scholar are placeholders the
   runner reports as `not_implemented` until their requirements are given. A new
   platform is one checker file.
-- **The university's requirements live in `config.ts`** (name, domain, country,
+- **The university's requirements live in `config.ts`** (name — English or Ukrainian, case/quotes/spacing ignored, a misspelling is NOT accepted — domain, country,
   the personal page host), not in the checks.
 - **The ★ is read from ORCID's website JSON, not its public API** (owner,
   2026-11-04): `orcid.org/<id>/affiliationGroups.json`, an employment with

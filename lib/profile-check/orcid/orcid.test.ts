@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isUniversityName } from '@/lib/profile-check/config';
 import {
   checkAffiliations,
   checkEmail,
@@ -114,6 +115,22 @@ describe('extractOrcid', () => {
     expect(empty.affiliations).toEqual([]);
     expect(empty.mostRecentWork).toBeNull();
   });
+});
+
+describe('isUniversityName', () => {
+  it.each([
+    'Hryhorii Skovoroda University in Pereiaslav',
+    'Університет Григорія Сковороди в Переяславі',
+    '  hryhorii skovoroda  university in pereiaslav ',
+    '"Hryhorii Skovoroda University in Pereiaslav"',
+    'Hryhorii Skovoroda University in Pereiaslav: Pereiaslav, UA',
+  ])('accepts %s', (name) => expect(isUniversityName(name)).toBe(true));
+
+  it.each([
+    'Hryhorii Skovoroda University in Pereyaslav',
+    'Pereiaslav-Khmelnytskyi Hryhorii Skovoroda State Pedagogical University',
+    'Admiral Makarov National University of Shipbuilding',
+  ])('refuses %s', (name) => expect(isUniversityName(name)).toBe(false));
 });
 
 describe('checks', () => {
