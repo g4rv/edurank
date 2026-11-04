@@ -2,7 +2,8 @@ import { normaliseOrcid } from '@/lib/orcid';
 
 const API_BASE = 'https://pub.orcid.org/v3.0';
 const TIMEOUT_MS = 15_000;
-const HEADERS = { Accept: 'application/json' };
+// The website answers a bare request with HTML; a browser-like agent gets the JSON
+const HEADERS = { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; EduRank)' };
 
 export class OrcidFetchError extends Error {}
 
@@ -55,4 +56,44 @@ export async function fetchOrcidRecord(
     // the IDs are an extra; the record stands without them
   }
   return record;
+}
+
+const SITE_BASE = 'https://orcid.org';
+
+/**
+ * The put-codes of the employments ORCID features (the ★ on the page), or
+ * `null` when they could not be read.
+ *
+ * This is the website's own JSON, NOT the documented public API, so it may
+ * change without notice. That is why every failure — a status, a timeout, a
+ * shape we do not recognise — is `null` and never an error: the check then
+ * says the ★ could not be verified, as before. Replaces the headless browser
+ * the Python tool needed for the same one bit.
+ */
+export async function fetchFeaturedEmployments(
+  orcid: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<Set<string> | null> {
+  const id = normaliseOrcid(orcid);
+  if (!id) return null;
+  try {
+    const res = await get(`${SITE_BASE}/${id}/affiliationGroups.json`, fetchImpl);
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      affiliationGroups?: {
+        EMPLOYMENT?: { affiliations?: { putCode?: { value?: string }; featured?: unknown }[] }[];
+      };
+    };
+    const groups = json.affiliationGroups?.EMPLOYMENT;
+    if (!Array.isArray(groups)) return null;
+    const featured = new Set<string>();
+    for (const g of groups) {
+      for (const a of g.affiliations ?? []) {
+        if (a.featured === true && a.putCode?.value) featured.add(String(a.putCode.value));
+      }
+    }
+    return featured;
+  } catch {
+    return null;
+  }
 }

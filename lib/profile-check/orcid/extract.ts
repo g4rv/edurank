@@ -4,12 +4,13 @@
  * Ported from `scrapers/orcid.py` `extract()`. Pure: no network, so it is
  * tested on fixtures.
  *
- * **What the API cannot tell us:** which employment carries the ★ («preferred»
- * — the one ORCID shows first on the page). The Python tool read it from the
- * rendered page with Selenium. `display-index` is NOT a substitute — against
- * 8 real records the star sat on the lowest index in 5 and not in 3. So
- * `preferred` is `null` here (unknown) and the affiliation check says so
- * instead of guessing.
+ * **The ★ is not in the public API.** It is ORCID's "featured" employment, and it
+ * comes from the website's own JSON (`orcid.org/<id>/affiliationGroups.json`,
+ * see `fetch.ts`), matched here by put-code in `applyFeatured`. Verified on two
+ * real profiles against the rendered page: `featured: true` is the ★ and nothing
+ * else is. `display-index` is NOT a substitute — it matched the star in only 5
+ * of 8 records. When the JSON cannot be read, `preferred` stays `null`
+ * (unknown) and the affiliation check says so instead of guessing.
  */
 
 type Json = Record<string, unknown>;
@@ -72,6 +73,8 @@ export interface OrcidLink {
 }
 
 export interface OrcidAffiliation {
+  /** ORCID's id of this entry — how the ★ is matched to it */
+  putCode: string;
   name: string;
   orgCity: string;
   orgRegion: string;
@@ -82,7 +85,7 @@ export interface OrcidAffiliation {
   startDate: string | null;
   endDate: string | null;
   current: boolean;
-  /** null = the API does not say; see the file header */
+  /** null = could not be read; see the file header */
   preferred: boolean | null;
   displayIndex: number;
 }
@@ -166,6 +169,7 @@ export function extractOrcid(record: unknown): OrcidData {
   ).map((aff) => {
     const addr = dig(aff, 'organization', 'address');
     return {
+      putCode: String(aff['put-code'] ?? ''),
       name: str(aff, 'organization', 'name') || 'N/A',
       orgCity: str(addr, 'city'),
       orgRegion: str(addr, 'region'),
@@ -245,5 +249,17 @@ function mostRecentWork(activities: unknown): OrcidWork | null {
     journal: str(best, 'journal-title', 'value') || null,
     doi: doiEntry ? text(doiEntry['external-id-value']) || null : null,
     url: str(best, 'url', 'value') || null,
+  };
+}
+
+/**
+ * Marks the ★ on the affiliations. `featured` is the set of put-codes ORCID
+ * features, or null when it could not be read — then nothing is claimed.
+ */
+export function applyFeatured(data: OrcidData, featured: ReadonlySet<string> | null): OrcidData {
+  if (featured === null) return data;
+  return {
+    ...data,
+    affiliations: data.affiliations.map((a) => ({ ...a, preferred: featured.has(a.putCode) })),
   };
 }

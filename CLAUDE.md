@@ -1151,10 +1151,13 @@ platform, replaced on every run — a status board, not a history) and
   platform is one checker file.
 - **The university's requirements live in `config.ts`** (name, domain, country,
   the personal page host), not in the checks.
-- **The ★ (preferred employment) cannot be read from ORCID's API**, and
-  `display-index` is not a substitute (matched the star in 5 of 8 real records).
-  The check says it could not verify it. The Python tool read it from the page
-  with Selenium; no browser here on purpose.
+- **The ★ is read from ORCID's website JSON, not its public API** (owner,
+  2026-11-04): `orcid.org/<id>/affiliationGroups.json`, an employment with
+  `featured: true`. Checked against the rendered page on two profiles — one
+  starred, one not — and they agree; `display-index` is NOT the star (matched in
+  5 of 8). It is an undocumented endpoint, so any failure to read it leaves the
+  star unknown and the check says «не вдалося перевірити», never «гаразд». No
+  headless browser: the Python tool's Selenium was for this one bit.
 - **A run is a background job in the server process** (no queue, no worker):
   `startRun` writes the row and returns, `executeRun` saves each person as they
   finish, the page polls `getRunState`. `heartbeatAt` tells a dead run (server

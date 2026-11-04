@@ -1,8 +1,8 @@
 import { normaliseOrcid } from '@/lib/orcid';
 import { worstStatus, type PlatformChecker } from '@/lib/profile-check/types';
 import { runOrcidChecks } from './checks';
-import { extractOrcid } from './extract';
-import { fetchOrcidRecord } from './fetch';
+import { applyFeatured, extractOrcid } from './extract';
+import { fetchFeaturedEmployments, fetchOrcidRecord } from './fetch';
 
 /** ORCID: public API → extract → the university's requirements. */
 export const orcidChecker: PlatformChecker = {
@@ -20,8 +20,11 @@ export const orcidChecker: PlatformChecker = {
       };
     }
     try {
-      const record = await fetchOrcidRecord(id, fetchImpl);
-      const checks = runOrcidChecks(extractOrcid(record), {
+      const [record, featured] = await Promise.all([
+        fetchOrcidRecord(id, fetchImpl),
+        fetchFeaturedEmployments(id, fetchImpl),
+      ]);
+      const checks = runOrcidChecks(applyFeatured(extractOrcid(record), featured), {
         wos: Boolean(person.links.wos),
         scopus: Boolean(person.links.scopus),
         googleScholar: Boolean(person.links.googleScholar),

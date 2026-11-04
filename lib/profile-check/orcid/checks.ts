@@ -161,9 +161,11 @@ export function checkCountry(data: OrcidData): Check {
 }
 
 /**
- * The university must be a current employment. Whether it carries the ★ is
- * NOT checked: the public API does not expose it (see `extract.ts`), so a
- * passing result says so in an `info` rather than claiming it was verified.
+ * The ★ must be on a current employment at the university. The star comes from
+ * ORCID's website JSON (see `extract.ts`); when it could not be read
+ * (`preferred` is null on every entry) the university must still be a current
+ * employment and the result says the star was not verified, never that it is
+ * fine.
  */
 export function checkAffiliations(data: OrcidData): Check {
   const should = `Місце роботи «${UNIVERSITY_NAME}» (позначене зіркою ★); рекомендовано: посада, кафедра, дата початку`;
@@ -171,8 +173,33 @@ export function checkAffiliations(data: OrcidData): Check {
     return check('affiliations', [], should, 'error', 'Немає жодного місця роботи');
   }
   const names = data.affiliations.map((a) => a.name);
-  const uni = data.affiliations.filter((a) => a.name.includes(UNIVERSITY_NAME));
-  if (!uni.length)
+  const isUni = (a: { name: string }) => a.name.includes(UNIVERSITY_NAME);
+  const uni = data.affiliations.filter(isUni);
+  const starKnown = data.affiliations.some((a) => a.preferred !== null);
+
+  if (starKnown) {
+    const starred = data.affiliations.filter((a) => a.preferred);
+    if (!starred.length) {
+      return check(
+        'affiliations',
+        names,
+        should,
+        'error',
+        uni.length
+          ? 'Університет є у списку, але не позначений зіркою (★)'
+          : 'Університет не знайдено і не позначено зіркою'
+      );
+    }
+    if (!starred.some(isUni)) {
+      return check(
+        'affiliations',
+        starred[0].name,
+        should,
+        'error',
+        `Зіркою позначено не університет: «${starred[0].name}»`
+      );
+    }
+  } else if (!uni.length) {
     return check(
       'affiliations',
       names,
@@ -180,8 +207,12 @@ export function checkAffiliations(data: OrcidData): Check {
       'error',
       'Університет не знайдено серед місць роботи'
     );
+  }
 
-  const aff = uni.find((a) => a.current) ?? uni[0];
+  const aff =
+    (starKnown ? uni.find((a) => a.preferred && a.current) : undefined) ??
+    uni.find((a) => a.current) ??
+    uni[0];
   if (!aff.current) {
     return check(
       'affiliations',
@@ -203,13 +234,18 @@ export function checkAffiliations(data: OrcidData): Check {
     !aff.department && 'кафедра',
     !aff.startDate && 'дата початку',
   ].filter(Boolean);
-  const starNote = 'Зірку (★) через API перевірити неможливо — потрібно перевірити вручну';
+  const advice = tips.length ? `Рекомендовано заповнити: ${tips.join(', ')}` : null;
+
+  if (starKnown) {
+    return check('affiliations', current, should, advice ? 'info' : 'ok', advice);
+  }
+  const starNote = 'Зірку (★) не вдалося перевірити — перевірте вручну';
   return check(
     'affiliations',
     current,
     should,
     'info',
-    tips.length ? `Рекомендовано заповнити: ${tips.join(', ')}. ${starNote}` : starNote
+    advice ? `${advice}. ${starNote}` : starNote
   );
 }
 

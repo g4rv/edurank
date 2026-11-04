@@ -7,7 +7,7 @@ import {
   checkWorks,
   runOrcidChecks,
 } from './checks';
-import { extractOrcid } from './extract';
+import { applyFeatured, extractOrcid } from './extract';
 
 /** A record shaped like pub.orcid.org's, trimmed to what the extractor reads */
 const RECORD = {
@@ -52,6 +52,7 @@ const RECORD = {
                 'end-date': null,
                 organization: { name: 'Hryhorii Skovoroda University in Pereiaslav' },
                 'display-index': '1',
+                'put-code': 111,
               },
             },
           ],
@@ -161,10 +162,43 @@ describe('checks', () => {
     expect(checkLinks(bare, NO_OTHER_LINKS).message).toMatch(/профіль університету/);
   });
 
-  it('says the star could not be checked instead of claiming it was', () => {
+  it('says the star could not be verified instead of claiming it was', () => {
     const c = checkAffiliations(data);
     expect(c.status).toBe('info');
-    expect(c.message).toMatch(/Зірку/);
+    expect(c.message).toMatch(/не вдалося перевірити/);
+  });
+
+  describe('with the ★ known', () => {
+    const put = data.affiliations[0].putCode;
+    const uniName = data.affiliations[0].name;
+
+    it('passes when the star is on the university', () => {
+      const d = applyFeatured(data, new Set([put]));
+      expect(checkAffiliations(d).status).toBe('ok');
+    });
+
+    it('errors when the university is listed but nothing is starred', () => {
+      const d = applyFeatured(data, new Set());
+      const c = checkAffiliations(d);
+      expect(c.status).toBe('error');
+      expect(c.message).toMatch(/не позначений зіркою/);
+    });
+
+    it('errors when the star is on another employer', () => {
+      const other = { ...data.affiliations[0], putCode: '99', name: 'Some Other University' };
+      const d = applyFeatured(
+        { ...data, affiliations: [data.affiliations[0], other] },
+        new Set(['99'])
+      );
+      const c = checkAffiliations(d);
+      expect(c.status).toBe('error');
+      expect(c.message).toMatch(/Some Other University/);
+      expect(uniName).toContain('Skovoroda');
+    });
+
+    it('leaves the star unknown when the featured set could not be read', () => {
+      expect(applyFeatured(data, null).affiliations[0].preferred).toBeNull();
+    });
   });
 
   it('errors on an ended employment at the university', () => {
