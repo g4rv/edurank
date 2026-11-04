@@ -295,6 +295,9 @@ export const FIELD_LABELS: Record<string, string> = {
  * override the few keys that mean something different to it.
  */
 export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
+  ProfileCheckRun: {
+    total: 'Кількість людей',
+  },
   KharakterystykaEntry: {
     position: 'Позиція ліцензійних умов',
   },

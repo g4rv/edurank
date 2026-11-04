@@ -51,9 +51,11 @@ export async function checkPeople(
   options: RunOptions & {
     concurrency?: number;
     onProgress?: (done: number, total: number) => void;
+    /** Awaited before the next person is taken, so a save is never left behind */
+    onResult?: (result: PersonResult, done: number, total: number) => Promise<void> | void;
   } = {}
 ): Promise<PersonResult[]> {
-  const { concurrency = 4, onProgress } = options;
+  const { concurrency = 4, onProgress, onResult } = options;
   const results: PersonResult[] = new Array(people.length);
   let next = 0;
   let done = 0;
@@ -62,7 +64,9 @@ export async function checkPeople(
     while (next < people.length) {
       const i = next++;
       results[i] = await checkPerson(people[i], options);
-      onProgress?.(++done, people.length);
+      const n = ++done;
+      onProgress?.(n, people.length);
+      await onResult?.(results[i], n, people.length);
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, people.length) }, worker));

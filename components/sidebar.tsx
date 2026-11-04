@@ -21,6 +21,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   MailPlus,
+  UserCheck,
   Scale,
   Table2,
   Trophy,
@@ -63,6 +64,7 @@ const ADMINISTRATION_NAV: NavItem[] = [
   { href: '/admin/rating', label: 'Рейтингові роки', icon: CalendarCog },
   { href: '/admin/science-plan', label: 'Планування науки', icon: FlaskConical },
   { href: '/admin/invites', label: 'Запрошення', icon: MailPlus },
+  { href: '/admin/profile-check', label: 'Перевірка профілів', icon: UserCheck },
   { href: '/admin/students', label: 'Здобувачі', icon: GraduationCap },
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList },
 ];

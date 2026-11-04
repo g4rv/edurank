@@ -411,6 +411,11 @@ model Staff {
   // Part-time (сумісництво) departments
   partTimeDepartments StaffDepartment[]
 
+  // Research-profile checks (ORCID, WoS, Scopus, Scholar) and the runs this
+  // person started as ADMIN
+  profileChecks    ProfileCheck[]
+  profileCheckRuns ProfileCheckRun[]
+
   // Division this person belongs to (determines EDITOR permission scope)
   divisionId String?
   division   Division? @relation(fields: [divisionId], references: [id])
@@ -1960,4 +1965,51 @@ model AspirantSupervisor {
 
   @@id([aspirantId, staffId])
   @@index([staffId])
+}
+
+// ─── Research-profile check ──────────────────────────────────────────────────
+
+enum ProfileCheckRunStatus {
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// One run of «Перевірка профілів». It lives in the server process, so a
+/// restart in the middle leaves it RUNNING for ever — `heartbeatAt` is how a
+/// dead run is told from a live one (see lib/profile-check/job.ts).
+model ProfileCheckRun {
+  id          String                @id @default(cuid())
+  status      ProfileCheckRunStatus @default(RUNNING)
+  total       Int
+  done        Int                   @default(0)
+  startedAt   DateTime              @default(now())
+  heartbeatAt DateTime              @default(now())
+  finishedAt  DateTime?
+  error       String?
+
+  startedById String?
+  startedBy   Staff?  @relation(fields: [startedById], references: [id], onDelete: SetNull)
+
+  @@index([startedAt])
+}
+
+/// The latest result for one person on one platform. A re-run replaces it:
+/// this is a status board, not a history (the audit log keeps who ran what).
+model ProfileCheck {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  /// 'orcid' | 'wos' | 'scopus' | 'googleScholar'
+  platform  String
+  link      String?
+  /// ok | warning | error | no_link | not_implemented | failed
+  status    String
+  error     String?
+  /// Check[] — see lib/profile-check/types.ts
+  checks    Json     @default("[]")
+  checkedAt DateTime
+
+  @@unique([staffId, platform])
+  @@index([status])
 }

@@ -16,8 +16,8 @@ import 'dotenv/config';
 import { writeFileSync } from 'node:fs';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../lib/generated/prisma/client';
+import { listPeopleToCheck } from '../lib/profile-check/people';
 import { checkPeople } from '../lib/profile-check/run';
-import type { PersonInput } from '../lib/profile-check/types';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -33,52 +33,7 @@ async function main() {
   const concurrency = arg('concurrency') ? Number(arg('concurrency')) : 4;
   const out = arg('out') ?? 'profile-check-report.json';
 
-  const staff = await prisma.staff.findMany({
-    where: {
-      isNpp: true,
-      archivedAt: null,
-      OR: [
-        { orcidId: { not: null } },
-        { wosUrl: { not: null } },
-        { scopusUrl: { not: null } },
-        { googleScholarUrl: { not: null } },
-      ],
-    },
-    select: {
-      id: true,
-      lastName: true,
-      firstName: true,
-      patronymic: true,
-      orcidId: true,
-      wosUrl: true,
-      scopusUrl: true,
-      googleScholarUrl: true,
-      department: { select: { name: true, faculty: { select: { name: true } } } },
-      partTimeDepartments: {
-        select: { department: { select: { name: true, faculty: { select: { name: true } } } } },
-        take: 1,
-      },
-    },
-    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    take: limit,
-  });
-
-  const people: PersonInput[] = staff.map((s) => {
-    // A сумісник with no primary кафедра is shown under the additional one
-    const dept = s.department ?? s.partTimeDepartments[0]?.department ?? null;
-    return {
-      staffId: s.id,
-      name: [s.lastName, s.firstName, s.patronymic].filter(Boolean).join(' '),
-      faculty: dept?.faculty.name ?? null,
-      department: dept?.name ?? null,
-      links: {
-        orcid: s.orcidId,
-        wos: s.wosUrl,
-        scopus: s.scopusUrl,
-        googleScholar: s.googleScholarUrl,
-      },
-    };
-  });
+  const people = await listPeopleToCheck(prisma, { limit });
 
   console.log(`Checking ${people.length} people, ${concurrency} at a time…`);
   const results = await checkPeople(people, {

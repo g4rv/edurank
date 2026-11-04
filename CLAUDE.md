@@ -447,6 +447,9 @@ pnpm db:import-aspirants  # the аспіранти list into Aspirant + their к
                       #   writes; --apply --pick ALSO switches п.12 to the select
                       #   (off until a complete list is in). Re-run with every
                       #   new list — upserts, never doubles.
+pnpm profiles:check   # read-only: ORCID of every active НПП against the university's
+                      #   requirements → profile-check-report.json (gitignored). --limit N,
+                      #   --concurrency N. The admin page /admin/profile-check does the same.
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 
@@ -1132,6 +1135,34 @@ Information only — they feed nothing.
   «Зберегти» saves.
 - Audited as one readable line per certificate on the `Staff` entry
   (`englishCertificate`, `ukrainianCertificate` in `FIELD_LABELS`).
+
+## Перевірка профілів (built, owner 2026-11-04)
+
+ADMIN-only page `/admin/profile-check`: the ORCID, Web of Science, Scopus and
+Google Scholar of every active НПП, judged against what the university requires.
+Ported from the standalone Python `npp-profile-scraper`. Code in
+`lib/profile-check/`; tables `ProfileCheck` (latest result per person and
+platform, replaced on every run — a status board, not a history) and
+`ProfileCheckRun`.
+
+- **Only ORCID is judged.** One `PlatformChecker` per platform in
+  `lib/profile-check/platforms.ts`; WoS, Scopus and Scholar are placeholders the
+  runner reports as `not_implemented` until their requirements are given. A new
+  platform is one checker file.
+- **The university's requirements live in `config.ts`** (name, domain, country,
+  the personal page host), not in the checks.
+- **The ★ (preferred employment) cannot be read from ORCID's API**, and
+  `display-index` is not a substitute (matched the star in 5 of 8 real records).
+  The check says it could not verify it. The Python tool read it from the page
+  with Selenium; no browser here on purpose.
+- **A run is a background job in the server process** (no queue, no worker):
+  `startRun` writes the row and returns, `executeRun` saves each person as they
+  finish, the page polls `getRunState`. `heartbeatAt` tells a dead run (server
+  restarted mid-run) from a live one — after `STALE_MS` it is marked FAILED when
+  the next run starts. One run at a time. A started run is audited as
+  `ProfileCheckRun`.
+- **Concurrency 4**, one retry on 429/5xx: ORCID's public API is rate limited.
+- Excel: `/api/export/profile-checks` (ADMIN), the page's own filters.
 
 ## Naming conventions
 
