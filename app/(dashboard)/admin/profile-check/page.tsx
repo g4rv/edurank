@@ -5,8 +5,10 @@ import { listDepartments } from '@/lib/queries/list-departments';
 import { listProfileChecks } from '@/lib/queries/list-profile-checks';
 import { DepartmentSelect } from '@/components/department-select';
 import { ProfileCheckRun } from '@/components/admin/profile-check-run';
+import { ProfileCheckSearch } from '@/components/admin/profile-check-search';
 import { ProfileCheckTable } from '@/components/admin/profile-check-table';
 import { CHECKERS } from '@/lib/profile-check/platforms';
+import { plural } from '@/lib/profile-check/tally';
 import { PLATFORMS, type Platform } from '@/lib/profile-check/types';
 import { getRunStates } from './actions';
 
@@ -20,18 +22,19 @@ import { getRunStates } from './actions';
 export default async function ProfileCheckPage({
   searchParams,
 }: {
-  searchParams: Promise<{ department?: string; only?: string }>;
+  searchParams: Promise<{ department?: string; only?: string; q?: string }>;
 }) {
   const session = await auth();
   if (!session) redirect('/login');
   if (session.user.role !== 'ADMIN') redirect('/');
 
-  const { department, only } = await searchParams;
+  const { department, only, q: rawQ } = await searchParams;
   const onlyProblems = only === 'problems';
+  const q = rawQ?.trim() || undefined;
 
   const [run, all, departments] = await Promise.all([
     getRunStates(),
-    listProfileChecks({ departmentId: department || undefined }),
+    listProfileChecks({ departmentId: department || undefined, q }),
     listDepartments(),
   ]);
   const rows = onlyProblems ? all.filter((r) => r.problem) : all;
@@ -45,7 +48,7 @@ export default async function ProfileCheckPage({
       p,
       onlyProblems
         ? all.filter((r) => r.problemPlatforms.includes(p)).length
-        : department
+        : department || q
           ? all.length
           : null,
     ])
@@ -54,6 +57,7 @@ export default async function ProfileCheckPage({
   function href(next: { only?: string }) {
     const params = new URLSearchParams();
     if (department) params.set('department', department);
+    if (q) params.set('q', q);
     const o = next.only ?? only ?? '';
     if (o) params.set('only', o);
     const query = params.toString();
@@ -68,6 +72,7 @@ export default async function ProfileCheckPage({
   const exportParams = new URLSearchParams();
   if (department) exportParams.set('department', department);
   if (onlyProblems) exportParams.set('only', 'problems');
+  if (q) exportParams.set('q', q);
   const exportHref = `/api/export/profile-checks${exportParams.size ? `?${exportParams}` : ''}`;
 
   return (
@@ -85,7 +90,7 @@ export default async function ProfileCheckPage({
       <ProfileCheckRun
         initial={run}
         implemented={implemented}
-        filter={{ department: department || undefined, onlyProblems }}
+        filter={{ department: department || undefined, onlyProblems, q }}
         counts={counts}
       />
 
@@ -103,13 +108,17 @@ export default async function ProfileCheckPage({
           departments={departments}
           value={department ?? ''}
           basePath="/admin/profile-check"
-          extraParams={only ? { only } : undefined}
+          extraParams={only || q ? { ...(only ? { only } : {}), ...(q ? { q } : {}) } : undefined}
           allowAll={{ label: 'Усі кафедри' }}
           className="w-full sm:w-80"
         />
 
+        <ProfileCheckSearch initial={q ?? ''} />
+
         <span className="text-muted-foreground">
-          {rows.length === 0 ? 'нікого' : `${rows.length} осіб`}
+          {rows.length === 0
+            ? 'нікого'
+            : `${rows.length} ${plural(rows.length, 'особа', 'особи', 'осіб')}`}
         </span>
 
         {rows.length > 0 && (
@@ -122,7 +131,9 @@ export default async function ProfileCheckPage({
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {all.length === 0
-            ? 'Результатів ще немає. Натисніть «Перевірити профілі».'
+            ? department || q
+              ? 'За цим пошуком нікого не знайдено.'
+              : 'Результатів ще немає. Натисніть «Перевірити».'
             : 'За цим фільтром проблем немає.'}
         </p>
       ) : (

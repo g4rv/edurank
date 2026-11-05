@@ -36,7 +36,7 @@ export function ProfileCheckRun({
   /** False for a platform whose rules are not given yet: its button is off */
   implemented: Record<Platform, boolean>;
   /** The page's filters: a run covers exactly the people they show */
-  filter: { department?: string; onlyProblems: boolean };
+  filter: { department?: string; onlyProblems: boolean; q?: string };
   /** Per platform: how many people the filters show; null when unfiltered */
   counts: Record<Platform, number | null>;
 }) {

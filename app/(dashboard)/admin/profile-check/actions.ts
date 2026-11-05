@@ -72,7 +72,7 @@ export async function getRunStates(): Promise<RunStates | null> {
  */
 export async function startProfileCheck(
   platform: string,
-  filter: { department?: string; onlyProblems?: boolean } = {}
+  filter: { department?: string; onlyProblems?: boolean; q?: string } = {}
 ): Promise<{ error: string } | { success: true }> {
   const session = await requireAdmin();
   if (!session) return { error: 'Недостатньо прав' };
@@ -88,15 +88,16 @@ export async function startProfileCheck(
   const departmentId =
     typeof filter.department === 'string' && filter.department ? filter.department : undefined;
   const onlyProblems = filter.onlyProblems === true;
+  const q = typeof filter.q === 'string' && filter.q.trim() ? filter.q.trim() : undefined;
 
   let started;
   try {
     // The run covers what the page's filters show, resolved here — the browser
     // only says which filters, never which people
-    const scope: RunScope = { departmentId };
+    const scope: RunScope = { departmentId, q };
     if (onlyProblems) {
       // «Problems» here are the problems of THIS platform
-      const rows = await listProfileChecks({ departmentId });
+      const rows = await listProfileChecks({ departmentId, q });
       const ids = rows.filter((r) => r.problemPlatforms.includes(target)).map((r) => r.staffId);
       if (ids.length === 0) return { error: 'За цим фільтром немає кого перевіряти' };
       scope.staffIds = ids;
@@ -128,7 +129,7 @@ export async function startProfileCheck(
           {
             platform: PLATFORM_LABELS[target],
             total: started.people.length,
-            scope: departmentId || onlyProblems ? 'за фільтром' : 'усі',
+            scope: departmentId || onlyProblems || q ? 'за фільтром' : 'усі',
           }
         ),
       },

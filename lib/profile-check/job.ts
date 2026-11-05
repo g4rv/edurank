@@ -26,6 +26,8 @@ export type StartedRun =
 export interface RunScope {
   staffIds?: string[];
   departmentId?: string;
+  /** The page's name search */
+  q?: string;
 }
 
 export async function startRun(

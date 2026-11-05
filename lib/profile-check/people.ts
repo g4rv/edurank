@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@/lib/generated/prisma/client';
+import { nameSearch } from '@/lib/queries/name-search';
 import { ON_ROSTER, onDepartment } from '@/lib/queries/roster';
 import type { PersonInput } from '@/lib/profile-check/types';
 
@@ -16,8 +17,15 @@ export async function listPeopleToCheck(
     staffId,
     staffIds,
     departmentId,
+    q,
     limit,
-  }: { staffId?: string; staffIds?: string[]; departmentId?: string; limit?: number } = {}
+  }: {
+    staffId?: string;
+    staffIds?: string[];
+    departmentId?: string;
+    q?: string;
+    limit?: number;
+  } = {}
 ): Promise<PersonInput[]> {
   const staff = await client.staff.findMany({
     where: {
@@ -35,6 +43,9 @@ export async function listPeopleToCheck(
           ],
         },
         ...(departmentId ? [onDepartment(departmentId)] : []),
+        ...(q
+          ? [nameSearch(q, ['lastName', 'firstName', 'patronymic'])].flatMap((s) => (s ? [s] : []))
+          : []),
       ],
     },
     select: {

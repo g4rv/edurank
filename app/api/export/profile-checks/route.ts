@@ -30,9 +30,10 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const departmentId = url.searchParams.get('department') || undefined;
   const onlyProblems = url.searchParams.get('only') === 'problems';
+  const q = url.searchParams.get('q')?.trim() || undefined;
 
   try {
-    const all = await listProfileChecks({ departmentId });
+    const all = await listProfileChecks({ departmentId, q });
     const rows = onlyProblems ? all.filter((r) => r.problem) : all;
 
     const wb = new ExcelJS.Workbook();

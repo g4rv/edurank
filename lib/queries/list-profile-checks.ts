@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { nameSearch } from '@/lib/queries/name-search';
 import { ON_ROSTER, onDepartment } from '@/lib/queries/roster';
 import {
   PLATFORMS,
@@ -34,15 +35,18 @@ const PROBLEM: ReadonlySet<string> = new Set(['error', 'warning', 'failed']);
  * filter «show only who needs attention»: any platform in error, warning or
  * failed. `not_implemented` and `no_link` are not problems.
  */
-export async function listProfileChecks({ departmentId }: { departmentId?: string } = {}): Promise<
-  ProfileCheckRow[]
-> {
+export async function listProfileChecks({
+  departmentId,
+  q,
+}: { departmentId?: string; q?: string } = {}): Promise<ProfileCheckRow[]> {
   const staff = await db.staff.findMany({
     where: {
       ...ON_ROSTER,
       isNpp: true,
       profileChecks: { some: {} },
       ...(departmentId ? onDepartment(departmentId) : {}),
+      // By name, word by word — «Вайнтрауб Марк» finds them in any order
+      ...(q ? (nameSearch(q, ['lastName', 'firstName', 'patronymic']) ?? {}) : {}),
     },
     select: {
       id: true,
