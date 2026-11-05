@@ -13,6 +13,8 @@ import {
   UNIVERSITY_PROFILE_HOST_PATH,
 } from '@/lib/profile-check/config';
 import { latinKind } from '@/lib/profile-check/latin';
+import { scopusAuthorId } from '@/lib/profile-check/scopus';
+import { isResearcherId, wosRecordId } from '@/lib/profile-check/web-of-science/parse';
 import type { Check, CheckStatus } from '@/lib/profile-check/types';
 import type { OrcidData } from './extract';
 
@@ -82,12 +84,39 @@ export function checkEmail(data: OrcidData): Check {
 }
 
 /**
+ * The Scopus Author IDs and the WoS ResearcherIDs an ORCID record lists — as
+ * identifiers («Scopus Author ID», «ResearcherID») or inside a link a person
+ * attached («…authorDetails.url?authorID=58209804700…»).
+ */
+function idsOnOrcid(data: OrcidData) {
+  const scopus = new Set<string>();
+  const wos = new Set<string>();
+  for (const l of data.linksAndIds) {
+    const text = `${l.value} ${l.url}`;
+    if (SCOPUS_TYPE_RE.test(l.type) && /^\d{6,}$/.test(l.value.trim())) scopus.add(l.value.trim());
+    const inLink = /authorid=(\d{6,})/i.exec(text)?.[1];
+    if (inLink) scopus.add(inLink);
+
+    if (WOS_TYPE_RE.test(l.type) && isResearcherId(l.value.trim())) {
+      wos.add(l.value.trim().toUpperCase());
+    }
+    const rid = wosRecordId(text);
+    if (rid && isResearcherId(rid)) wos.add(rid);
+  }
+  return { scopus, wos };
+}
+
+/**
  * The university page is always required. The person's other profiles are
- * required on ORCID only when the person gave them; Google Scholar is advice.
+ * required on ORCID only when the person gave them — and it must be the SAME
+ * profile: the Scopus Author ID / WoS ResearcherID on ORCID has to equal the
+ * one in the person's own link, or one of the two points at somebody else.
+ * A WoS link that carries a numeric author record (not a ResearcherID) cannot
+ * be compared, so it is not. Google Scholar is advice.
  */
 export function checkLinks(
   data: OrcidData,
-  given: { wos: boolean; scopus: boolean; googleScholar: boolean }
+  given: { wos?: string | null; scopus?: string | null; googleScholar?: string | null }
 ): Check {
   const should =
     'Посилання на профіль університету; WoS ResearcherID, Scopus Author ID, Google Scholar (якщо вказані в системі)';
@@ -104,14 +133,31 @@ export function checkLinks(
   if (!hasUniPage) missing.push(`профіль університету (${UNIVERSITY_PROFILE_HOST_PATH}...)`);
   if (given.wos && !hasWos) missing.push('WoS ResearcherID');
   if (given.scopus && !hasScopus) missing.push('Scopus Author ID');
+
+  const onOrcid = idsOnOrcid(data);
+  const differs: string[] = [];
+  const ownScopus = given.scopus ? scopusAuthorId(given.scopus) : null;
+  if (ownScopus && onOrcid.scopus.size > 0 && !onOrcid.scopus.has(ownScopus)) {
+    differs.push(
+      `Scopus Author ID в ORCID (${[...onOrcid.scopus].join(', ')}) не збігається з профілем у системі (${ownScopus})`
+    );
+  }
+  const ownWos = given.wos ? wosRecordId(given.wos) : null;
+  if (ownWos && isResearcherId(ownWos) && onOrcid.wos.size > 0 && !onOrcid.wos.has(ownWos)) {
+    differs.push(
+      `WoS ResearcherID в ORCID (${[...onOrcid.wos].join(', ')}) не збігається з профілем у системі (${ownWos})`
+    );
+  }
   const recommended = given.googleScholar && !hasGs ? ['Google Scholar'] : [];
 
   const current = data.linksAndIds.map((l) => l.url || l.value);
-  if (missing.length) {
-    const message =
-      `Відсутні: ${missing.join(', ')}` +
-      (recommended.length ? `; рекомендовано: ${recommended.join(', ')}` : '');
-    return check('links_and_ids', current, should, 'error', message);
+  if (missing.length || differs.length) {
+    const parts = [
+      missing.length ? `Відсутні: ${missing.join(', ')}` : null,
+      ...differs,
+      recommended.length ? `рекомендовано: ${recommended.join(', ')}` : null,
+    ].filter(Boolean);
+    return check('links_and_ids', current, should, 'error', parts.join('; '));
   }
   if (recommended.length) {
     return check(
@@ -290,7 +336,7 @@ export function checkProfessionalActivities(data: OrcidData): Check {
 
 export function runOrcidChecks(
   data: OrcidData,
-  given: { wos: boolean; scopus: boolean; googleScholar: boolean },
+  given: { wos?: string | null; scopus?: string | null; googleScholar?: string | null },
   now: Date = new Date()
 ): Check[] {
   return [

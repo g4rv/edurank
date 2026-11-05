@@ -2,8 +2,11 @@ import { normaliseOrcid } from '@/lib/orcid';
 import { worstStatus, type Check, type PlatformChecker } from '@/lib/profile-check/types';
 import { checkScholarDescription, checkScholarName, checkScholarWorks } from './checks';
 import { fetchScholarProfile } from './fetch';
-import { scholarGate, type Gate } from './gate';
+import { createGate, type Gate } from '@/lib/profile-check/gate';
 import { parseScholarProfile, scholarUserId } from './parse';
+
+/** Scholar's own door: about two seconds between requests */
+const scholarGate: Gate = createGate();
 
 function check(
   field: string,

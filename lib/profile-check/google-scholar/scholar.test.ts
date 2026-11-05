@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createScholarChecker } from './index';
 import { checkScholarDescription, checkScholarName, checkScholarWorks } from './checks';
-import { createGate } from './gate';
+import { createGate } from '@/lib/profile-check/gate';
 import { fetchScholarProfile } from './fetch';
 import { looksBlocked, parseScholarProfile, scholarUserId } from './parse';
 

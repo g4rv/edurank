@@ -213,12 +213,14 @@ function CheckLine({ check }: { check: Check }) {
 
   // A number, not a verdict: «h-індекс: 10 (за 5 років: 6)»
   if (check.field in METRIC_LABELS && check.status === 'ok') {
-    const v = check.current as { all: number; recent: number };
+    const v = check.current as { all: number; recent?: number };
     return (
       <li className="tabular-nums">
         <span className="text-muted-foreground">{label}: </span>
         <span className="font-medium">{v.all}</span>
-        <span className="text-muted-foreground"> (за 5 років: {v.recent})</span>
+        {v.recent !== undefined && (
+          <span className="text-muted-foreground"> (за 5 років: {v.recent})</span>
+        )}
       </li>
     );
   }

@@ -1145,10 +1145,37 @@ Ported from the standalone Python `npp-profile-scraper`. Code in
 platform, replaced on every run — a status board, not a history) and
 `ProfileCheckRun`.
 
-- **ORCID is judged; Google Scholar is read; WoS and Scopus are placeholders.**
-  One `PlatformChecker` per platform in `lib/profile-check/platforms.ts`; a
-  placeholder is reported `not_implemented` until its requirements are given. A
-  new platform is one checker file.
+- **Four platforms, one `PlatformChecker` each** (`lib/profile-check/platforms.ts`).
+  ORCID and Google Scholar are read over plain HTTP; **Web of Science through a
+  browser**; **Scopus only by its link** (below). A platform with no checker
+  would be reported `not_implemented`.
+- **Web of Science** (owner, 2026-11-05) has no key-free API and its profile page
+  is a JavaScript shell, so it is read in a browser (Playwright, the TypeScript
+  counterpart of the old tool's Selenium; `lib/profile-check/browser.ts`). The
+  profile shows without a login: name (`h1.wat-author-name`), the organisation,
+  ResearcherID, ORCID and the Core Collection h-index. **Rules:** the ORCID on it
+  is the person's own, the name is Latin, the organisation is the university
+  (English or Ukrainian, a misspelling is not accepted); the h-index is a number
+  with no threshold. A missing record redirects to `/wos/error/authorNotFound`.
+  **The browser is honest on purpose** — no stealth flags, no spoofed agent; a
+  challenge page («Just a moment…») is reported as a block and everything fails
+  fast for 10 minutes, never worked around. It needs a browser on the machine:
+  `PROFILE_BROWSER_WS` (a separate container — keeps ~300 MB of Chromium out of
+  the app image), `PROFILE_BROWSER_PATH` or `PROFILE_BROWSER_CHANNEL`; with none
+  the platform says «Браузер недоступний» and the rest are unaffected. **Not in
+  the Docker image today — prod needs one of the three before this check works.**
+  Whether Clarivate's terms allow it is the owner's call; the Researcher API
+  (key, probably an institutional subscription) is the clean route.
+- **Scopus without a key** (owner, 2026-11-05): scopus.com sends everything but a
+  signed-in browser to an Elsevier login, and Elsevier's API returns only the
+  author id without a key («minimized metadata response»), so the profile CANNOT
+  be read. The checker only reads `authorId=` from the link and says plainly that
+  the content is not checked. **What the ORCID check adds:** the Scopus Author ID
+  and the WoS ResearcherID listed on ORCID must be the SAME as in the person's
+  own links (a numeric WoS record id cannot be compared and is skipped). An
+  Elsevier API key (free, non-commercial; what it returns depends on the
+  institution's subscription) would let this checker read name, ORCID,
+  affiliation and h-index.
 - **Google Scholar** (owner, 2026-11-04/05) is one plain GET of
   `scholar.google.com/citations?user=<id>&sortby=pubdate`;
   `lib/profile-check/google-scholar/`. **The rules are those of a reference

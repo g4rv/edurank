@@ -25,9 +25,9 @@ export const orcidChecker: PlatformChecker = {
         fetchFeaturedEmployments(id, fetchImpl),
       ]);
       const checks = runOrcidChecks(applyFeatured(extractOrcid(record), featured), {
-        wos: Boolean(person.links.wos),
-        scopus: Boolean(person.links.scopus),
-        googleScholar: Boolean(person.links.googleScholar),
+        wos: person.links.wos,
+        scopus: person.links.scopus,
+        googleScholar: person.links.googleScholar,
       });
       return {
         platform: 'orcid',

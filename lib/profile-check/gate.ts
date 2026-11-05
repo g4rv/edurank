@@ -1,5 +1,6 @@
 /**
- * One door for every Scholar request in this process.
+ * One door for every request to one site that does not like scripts, in this
+ * process: Google Scholar, Web of Science.
  *
  * Google tolerates a human's pace and not a script's: past a few dozen quick
  * requests from one address it answers with a CAPTCHA, and keeps answering for
@@ -8,7 +9,7 @@
  * closes for `cooldownMs` — everything in that window fails fast with
  * «спробуйте пізніше» rather than making the block longer.
  *
- * A full run is therefore bound by this gate (about 2 s a person) and takes
+ * A full run is therefore bound by its gate (about 2–3 s a person) and takes
  * several minutes. That is the price of not being blocked; the run is a
  * background job, so nobody waits for it.
  */
@@ -53,5 +54,3 @@ export function createGate({
     },
   };
 }
-
-export const scholarGate: Gate = createGate();

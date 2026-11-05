@@ -27,6 +27,8 @@ export const CHECK_STATUS_LABELS: Record<CheckStatus, string> = {
 export const CHECK_FIELD_LABELS: Record<string, string> = {
   profile: 'Профіль',
   description: 'Опис профілю',
+  orcid: 'ORCID',
+  scopus_content: 'Вміст профілю',
   name: "Ім'я",
   email: 'Email',
   links_and_ids: 'Посилання та ідентифікатори',

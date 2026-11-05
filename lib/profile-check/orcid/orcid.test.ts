@@ -34,8 +34,10 @@ const RECORD = {
       'external-identifier': [
         {
           'external-id-type': 'Scopus Author ID',
-          'external-id-value': '123',
-          'external-id-url': { value: 'https://www.scopus.com/authid/detail.uri?authorId=123' },
+          'external-id-value': '57219915893',
+          'external-id-url': {
+            value: 'https://www.scopus.com/authid/detail.uri?authorId=57219915893',
+          },
         },
       ],
     },
@@ -80,7 +82,10 @@ const RECORD = {
 };
 
 const NOW = new Date('2026-11-04T10:00:00Z');
-const NO_OTHER_LINKS = { wos: false, scopus: false, googleScholar: false };
+const NO_OTHER_LINKS = { wos: null, scopus: null, googleScholar: null };
+const SCOPUS = 'https://www.scopus.com/authid/detail.uri?authorId=57219915893';
+const WOS = 'https://www.webofscience.com/wos/author/record/HGB-1335-2022';
+const SCHOLAR = 'https://scholar.google.com/citations?user=0Vx_b04AAAAJ';
 
 describe('extractOrcid', () => {
   const data = extractOrcid(RECORD);
@@ -94,7 +99,7 @@ describe('extractOrcid', () => {
   it('reads researcher urls and external ids as links', () => {
     expect(data.linksAndIds.map((l) => l.url)).toEqual([
       'https://uhsp.edu.ua/personnel/kulyk',
-      'https://www.scopus.com/authid/detail.uri?authorId=123',
+      'https://www.scopus.com/authid/detail.uri?authorId=57219915893',
     ]);
   });
 
@@ -169,9 +174,60 @@ describe('checks', () => {
 
   it('requires the other profiles only when the person gave them', () => {
     expect(checkLinks(data, NO_OTHER_LINKS).status).toBe('ok');
-    expect(checkLinks(data, { ...NO_OTHER_LINKS, scopus: true }).status).toBe('ok');
-    expect(checkLinks(data, { ...NO_OTHER_LINKS, wos: true }).message).toMatch(/WoS/);
-    expect(checkLinks(data, { ...NO_OTHER_LINKS, googleScholar: true }).status).toBe('info');
+    expect(checkLinks(data, { ...NO_OTHER_LINKS, scopus: SCOPUS }).status).toBe('ok');
+    expect(checkLinks(data, { ...NO_OTHER_LINKS, wos: WOS }).message).toMatch(/WoS/);
+    expect(checkLinks(data, { ...NO_OTHER_LINKS, googleScholar: SCHOLAR }).status).toBe('info');
+  });
+
+  it('is not enough that a Scopus or WoS id is on ORCID: it must be the SAME one', () => {
+    const otherScopus = 'https://www.scopus.com/authid/detail.uri?authorId=11111111111';
+    const c = checkLinks(data, { ...NO_OTHER_LINKS, scopus: otherScopus });
+    expect(c.status).toBe('error');
+    expect(c.message).toContain('57219915893'); // what ORCID lists
+    expect(c.message).toContain('11111111111'); // what the system holds
+
+    const withWos = {
+      ...data,
+      linksAndIds: [
+        ...data.linksAndIds,
+        { type: 'ResearcherID', name: 'ResearcherID', value: 'HGB-1335-2022', url: '' },
+      ],
+    };
+    expect(checkLinks(withWos, { ...NO_OTHER_LINKS, wos: WOS }).status).toBe('ok');
+    const otherWos = 'https://www.webofscience.com/wos/author/record/AAA-1111-2022';
+    expect(checkLinks(withWos, { ...NO_OTHER_LINKS, wos: otherWos }).message).toContain(
+      'ResearcherID в ORCID (HGB-1335-2022)'
+    );
+  });
+
+  it('cannot compare a numeric WoS author record with a ResearcherID, so it does not try', () => {
+    const withWos = {
+      ...data,
+      linksAndIds: [
+        ...data.linksAndIds,
+        { type: 'ResearcherID', name: 'ResearcherID', value: 'HGB-1335-2022', url: '' },
+      ],
+    };
+    const numeric = 'https://www.webofscience.com/wos/author/record/30747601';
+    expect(checkLinks(withWos, { ...NO_OTHER_LINKS, wos: numeric }).status).toBe('ok');
+  });
+
+  it('reads the Scopus id out of a link a person attached to ORCID', () => {
+    const attached = {
+      ...data,
+      linksAndIds: [
+        ...data.linksAndIds.filter((l) => !/scopus/i.test(l.type)),
+        {
+          type: 'url',
+          name: 'Scopus',
+          value:
+            'http://www.scopus.com/inward/authorDetails.url?authorID=58209804700&partnerID=MN8TOARS',
+          url: 'http://www.scopus.com/inward/authorDetails.url?authorID=58209804700&partnerID=MN8TOARS',
+        },
+      ],
+    };
+    const mine = 'https://www.scopus.com/authid/detail.uri?authorId=58209804700';
+    expect(checkLinks(attached, { ...NO_OTHER_LINKS, scopus: mine }).status).toBe('ok');
   });
 
   it('errors when the university page is not linked', () => {
