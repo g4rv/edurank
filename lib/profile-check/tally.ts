@@ -2,7 +2,8 @@ import { METRIC_LABELS } from '@/lib/profile-check/labels';
 import type { Check } from '@/lib/profile-check/types';
 
 export interface TallyPart {
-  tone: 'text-success' | 'text-error-strong' | 'text-warning';
+  /** A `Badge` tone */
+  tone: 'ok' | 'destructive' | 'warn';
   text: string;
 }
 
@@ -30,17 +31,17 @@ export function tally(checks: Check[]) {
   const warnings = n('warning');
   const advice = n('info');
   return [
-    ok > 0 && { tone: 'text-success' as const, text: `${ok} успішно` },
+    ok > 0 && { tone: 'ok' as const, text: `${ok} успішно` },
     errors > 0 && {
-      tone: 'text-error-strong' as const,
+      tone: 'destructive' as const,
       text: `${errors} ${plural(errors, 'помилка', 'помилки', 'помилок')}`,
     },
     warnings > 0 && {
-      tone: 'text-warning' as const,
+      tone: 'warn' as const,
       text: `${warnings} ${plural(warnings, 'попередження', 'попередження', 'попереджень')}`,
     },
     advice > 0 && {
-      tone: 'text-warning' as const,
+      tone: 'warn' as const,
       text: `${advice} ${plural(advice, 'рекомендація', 'рекомендації', 'рекомендацій')}`,
     },
   ].filter((x): x is TallyPart => Boolean(x));

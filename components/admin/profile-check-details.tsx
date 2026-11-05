@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, Check as CheckIcon, TriangleAlert, X } from 'lucide-react';
+import { Badge } from '@/components/aurora/ui/badge';
 import { Button } from '@/components/aurora/ui/button';
 import {
   Dialog,
@@ -39,21 +40,21 @@ function shown(value: unknown): string | null {
 }
 
 /**
- * Errors first, then what is fine, then the optional advice (owner, 2026-11-05).
+ * Fine first, then what is wrong, then the optional advice (owner, 2026-11-05).
  * A warning is a real doubt, so it stays with the errors, just below them.
  */
-const RANK: Record<Check['status'], number> = { error: 0, warning: 1, ok: 2, info: 3 };
+const RANK: Record<Check['status'], number> = { ok: 0, error: 1, warning: 2, info: 3 };
 
 /**
- * The checks in three groups, in the order above — what is wrong (errors and
- * warnings), what is fine, the optional advice — each keeping the checks' own
+ * The checks in three groups, in the order above — what is fine, what is wrong
+ * (errors and warnings), the optional advice — each keeping the checks' own
  * order. The popup draws a line between the groups that are present.
  */
 function grouped(checks: Check[]): Check[][] {
   const sorted = [...checks].sort((a, b) => RANK[a.status] - RANK[b.status]);
   const groups: Check[][] = [[], [], []];
   for (const c of sorted) {
-    groups[c.status === 'error' || c.status === 'warning' ? 0 : c.status === 'ok' ? 1 : 2].push(c);
+    groups[c.status === 'ok' ? 0 : c.status === 'info' ? 2 : 1].push(c);
   }
   return groups.filter((g) => g.length > 0);
 }
@@ -139,16 +140,11 @@ export function ProfileCheckDetails({
                   <span />
                 )}
                 {stats.length > 0 && (
-                  <p className="flex flex-wrap gap-x-2 text-sm font-medium" aria-label="Підсумок">
-                    {stats.map((s, i) => (
-                      <span key={s.text} className="flex gap-2">
-                        {i > 0 && (
-                          <span className="text-muted-foreground" aria-hidden>
-                            ·
-                          </span>
-                        )}
-                        <span className={s.tone}>{s.text}</span>
-                      </span>
+                  <p className="flex flex-wrap gap-1.5" aria-label="Підсумок">
+                    {stats.map((s) => (
+                      <Badge key={s.text} tone={s.tone}>
+                        {s.text}
+                      </Badge>
                     ))}
                   </p>
                 )}
