@@ -1159,10 +1159,14 @@ platform, replaced on every run — a status board, not a history) and
   with no threshold. A missing record redirects to `/wos/error/authorNotFound`.
   **The browser is honest on purpose** — no stealth flags, no spoofed agent; a
   challenge page («Just a moment…») is reported as a block and everything fails
-  fast for 10 minutes, never worked around. It needs a browser on the machine:
+  fast for 10 minutes, never worked around. It needs a browser on the machine. With none of
+  the settings below, an installed Playwright Chromium, Chrome or Edge is tried
+  in turn — so a laptop works as it is. On a server set one:
   `PROFILE_BROWSER_WS` (a separate container — keeps ~300 MB of Chromium out of
-  the app image), `PROFILE_BROWSER_PATH` or `PROFILE_BROWSER_CHANNEL`; with none
-  the platform says «Браузер недоступний» and the rest are unaffected. **Not in
+  the app image), `PROFILE_BROWSER_PATH` or `PROFILE_BROWSER_CHANNEL`. If nothing
+  starts, the platform says «Браузер недоступний» with the setting to use, the
+  REAL reason for every candidate is logged once (`profileCheck.browser`), and
+  the rest are unaffected; a failed start is not retried for a minute. **Not in
   the Docker image today — prod needs one of the three before this check works.**
   Whether Clarivate's terms allow it is the owner's call; the Researcher API
   (key, probably an institutional subscription) is the clean route.

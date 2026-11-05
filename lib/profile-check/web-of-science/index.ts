@@ -125,7 +125,10 @@ export function createWosChecker(
         return failed(canonical, 'Web of Science вимагає перевірки браузера — спробуйте пізніше');
       }
       if (got.kind === 'unavailable') {
-        return failed(canonical, 'Браузер для перевірки Web of Science недоступний на сервері');
+        return failed(
+          canonical,
+          'Браузер для перевірки Web of Science недоступний на сервері. Задайте PROFILE_BROWSER_CHANNEL, PROFILE_BROWSER_PATH або PROFILE_BROWSER_WS'
+        );
       }
       if (got.kind === 'error') return failed(canonical, got.message);
       if (got.kind === 'not_found') {
