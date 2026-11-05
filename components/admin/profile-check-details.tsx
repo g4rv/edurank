@@ -28,6 +28,22 @@ import { PLATFORMS, type Check, type Platform } from '@/lib/profile-check/types'
 import type { ProfileCheckRow } from '@/lib/queries/list-profile-checks';
 import { KYIV } from '@/lib/kyiv-time';
 
+/**
+ * What a check that PASSED shows after its label — what the profile holds, in
+ * one line («Ім'я: John Doe»). The latest publication is an object and reads as
+ * «title (year)»; a long list (every link, every keyword) is cut, since the full
+ * list is one click away on the platform itself.
+ */
+function okValue(check: Check): string | null {
+  if (check.field === 'most_recent_work' && typeof check.current === 'object' && check.current) {
+    const w = check.current as { title?: string; year?: string | null };
+    if (!w.title) return null;
+    return w.year ? `${w.title} (${w.year})` : w.title;
+  }
+  const text = shown(check.current);
+  return text && text.length > 90 ? `${text.slice(0, 87)}…` : text;
+}
+
 /** What the person's `current` value looks like in one short line, or null. */
 function shown(value: unknown): string | null {
   if (value === null || value === undefined || value === '') return null;
@@ -217,15 +233,17 @@ function CheckLine({ check }: { check: Check }) {
         ? 'text-error-strong'
         : 'text-warning';
   const Icon = check.status === 'ok' ? CheckIcon : check.status === 'error' ? X : TriangleAlert;
-  // Only a line that is not fine gets its value: a tick needs no proof
+  // A line that is not fine shows the value under it («Зараз»); a line that
+  // passed shows it after the label, as the proof of the tick (owner, 2026-11-05)
   const now = check.status === 'ok' ? null : shown(check.current);
+  const proof = check.status === 'ok' ? okValue(check) : null;
 
   return (
     <li>
       <div className={`flex items-start gap-2 font-semibold opacity-90 ${tone}`}>
-        <span className="min-w-0">
+        <span className="min-w-0 break-words">
           {label}
-          {check.message ? `: ${check.message}` : ':'}
+          {check.message ? `: ${check.message}` : proof ? `: ${proof}` : ':'}
         </span>
         <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       </div>
