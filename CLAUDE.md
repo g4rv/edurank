@@ -1156,7 +1156,16 @@ platform, replaced on every run — a status board, not a history) and
   ResearcherID, ORCID and the Core Collection h-index. **Rules:** the ORCID on it
   is the person's own, the name is Latin, the organisation is the university
   (English or Ukrainian, a misspelling is not accepted); the h-index is a number
-  with no threshold. A missing record redirects to `/wos/error/authorNotFound`.
+  with no threshold; the **Subject Categories** are shown as information (one
+  chip each in `.Subjectcategory-chips`, read from the page structure because the
+  visible text runs them together; no rule, not counted as a success). A missing
+  record redirects to `/wos/error/authorNotFound`. **WoS rate-limits (owner
+  2026-11-05, found the hard way):** after about a dozen profile loads from one
+  address in an hour its own data calls (`/api/esti/SearchEngine/search`) answered
+  **429** and the page stayed an empty shell. That is reported as a block, not as
+  «did not load» (`whyNoProfile`); the door (`wosGate`) is ~10 s apart and a
+  refusal closes it for ten minutes, so a full run takes ~25 minutes and may still
+  be refused part-way. Do not hammer it while testing.
   **The browser is honest on purpose** — no stealth flags, no spoofed agent; a
   challenge page («Just a moment…») is reported as a block and everything fails
   fast for 10 minutes, never worked around. It needs a browser on the machine. With none of

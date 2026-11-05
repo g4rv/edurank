@@ -1,4 +1,4 @@
-import { METRIC_LABELS } from '@/lib/profile-check/labels';
+import { LIST_LABELS, METRIC_LABELS } from '@/lib/profile-check/labels';
 import type { Check } from '@/lib/profile-check/types';
 
 export interface TallyPart {
@@ -24,7 +24,9 @@ export function plural(n: number, one: string, few: string, many: string): strin
  * zeros.
  */
 export function tally(checks: Check[]) {
-  const verdicts = checks.filter((c) => !(c.field in METRIC_LABELS && c.status === 'ok'));
+  const verdicts = checks.filter(
+    (c) => !((c.field in METRIC_LABELS || c.field in LIST_LABELS) && c.status === 'ok')
+  );
   const n = (s: Check['status']) => verdicts.filter((c) => c.status === s).length;
   const ok = n('ok');
   const errors = n('error');

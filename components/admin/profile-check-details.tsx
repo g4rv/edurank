@@ -22,7 +22,12 @@ import {
   SelectValue,
 } from '@/components/aurora/ui/select';
 import { recheckPerson } from '@/app/(dashboard)/admin/profile-check/actions';
-import { CHECK_FIELD_LABELS, METRIC_LABELS, PLATFORM_LABELS } from '@/lib/profile-check/labels';
+import {
+  CHECK_FIELD_LABELS,
+  LIST_LABELS,
+  METRIC_LABELS,
+  PLATFORM_LABELS,
+} from '@/lib/profile-check/labels';
 import { tally } from '@/lib/profile-check/tally';
 import { PLATFORMS, type Check, type Platform } from '@/lib/profile-check/types';
 import type { ProfileCheckRow } from '@/lib/queries/list-profile-checks';
@@ -210,6 +215,16 @@ export function ProfileCheckDetails({
 
 function CheckLine({ check }: { check: Check }) {
   const label = CHECK_FIELD_LABELS[check.field] ?? METRIC_LABELS[check.field] ?? check.field;
+
+  // A list of words, not a verdict: «Предметні категорії: Business & Economics; …»
+  if (check.field in LIST_LABELS && check.status === 'ok' && Array.isArray(check.current)) {
+    return (
+      <li>
+        <span className="text-muted-foreground">{LIST_LABELS[check.field]}: </span>
+        <span className="font-medium">{(check.current as string[]).join('; ')}</span>
+      </li>
+    );
+  }
 
   // A number, not a verdict: «h-індекс: 10 (за 5 років: 6)»
   if (check.field in METRIC_LABELS && check.status === 'ok') {

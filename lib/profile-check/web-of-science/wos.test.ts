@@ -1,8 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGate } from '@/lib/profile-check/gate';
 import { scopusAuthorId, scopusChecker } from '@/lib/profile-check/scopus';
-import { checkWosAffiliation, checkWosHIndex, checkWosName, checkWosOrcid } from './checks';
-import { createWosChecker, type WosOpen } from './index';
+import { tally } from '@/lib/profile-check/tally';
+import {
+  checkWosAffiliation,
+  checkWosCategories,
+  checkWosHIndex,
+  checkWosName,
+  checkWosOrcid,
+} from './checks';
+import { createWosChecker, whyNoProfile, type WosOpen } from './index';
 import { isResearcherId, parseWosProfile, wosRecordId } from './parse';
 
 /** What a browser shows for the reference profile — one block per line */
@@ -58,6 +65,7 @@ describe('parseWosProfile', () => {
       publishedNames: ['Kamenska, Iryna', 'Kamenska, I'],
       organization: 'Hryhorii Skovoroda University in Pereiaslav',
       hIndex: 2,
+      subjectCategories: [],
     });
   });
 
@@ -131,14 +139,27 @@ describe('Web of Science rules', () => {
 });
 
 describe('the Web of Science checker', () => {
-  const okPage: WosOpen = { kind: 'ok', name: 'Iryna Kamenska', text: TEXT };
+  const CATEGORIES = ['Business & Economics', 'Education & Educational Research'];
+  const okPage: WosOpen = {
+    kind: 'ok',
+    name: 'Iryna Kamenska',
+    text: TEXT,
+    categories: CATEGORIES,
+  };
 
   it('passes the reference profile', async () => {
     const checker = createWosChecker(open(), async () => okPage);
     const r = await checker.check(LINK, { person, fetchImpl: fetch });
     expect(r.status).toBe('ok');
     expect(r.link).toBe(LINK);
-    expect(r.checks.map((c) => c.field)).toEqual(['orcid', 'name', 'affiliations', 'h_index']);
+    expect(r.checks.map((c) => c.field)).toEqual([
+      'orcid',
+      'name',
+      'affiliations',
+      'h_index',
+      'subject_categories',
+    ]);
+    expect(r.checks.at(-1)?.current).toEqual(CATEGORIES);
   });
 
   it('fails the platform when a rule fails', async () => {
@@ -147,6 +168,7 @@ describe('the Web of Science checker', () => {
       kind: 'ok',
       name: 'Iryna Kamenska',
       text,
+      categories: [],
     }));
     expect((await checker.check(LINK, { person, fetchImpl: fetch })).status).toBe('error');
   });
@@ -213,5 +235,52 @@ describe('Scopus, without a key', () => {
   it('errors on a link with no author id', async () => {
     const r = await scopusChecker.check('https://www.scopus.com/', { person, fetchImpl: fetch });
     expect(r.status).toBe('error');
+  });
+});
+
+describe('subject categories', () => {
+  const categories = [' Business & Economics ', 'Education & Educational Research', '  '];
+
+  it('are read from the chips, trimmed, and an empty chip is dropped', () => {
+    const p = parseWosProfile({ name: 'Iryna Kamenska', text: TEXT, categories });
+    expect(p?.subjectCategories).toEqual([
+      'Business & Economics',
+      'Education & Educational Research',
+    ]);
+  });
+
+  it('are empty, not guessed from the run-together line, when no chips were read', () => {
+    expect(parseWosProfile({ name: 'Iryna Kamenska', text: TEXT })?.subjectCategories).toEqual([]);
+  });
+
+  it('are information: an ok check that is not counted as a success', () => {
+    const c = checkWosCategories(profile({ subjectCategories: ['A', 'B'] }));
+    expect(c).toMatchObject({ field: 'subject_categories', status: 'ok', current: ['A', 'B'] });
+    const tallied = tally([checkWosOrcid(profile(), OWN), c]);
+    expect(tallied.map((t) => t.text)).toEqual(['1 успішно']);
+  });
+
+  it('add no line when the profile has none', async () => {
+    const checker = createWosChecker(open(), async () => ({
+      kind: 'ok',
+      name: 'Iryna Kamenska',
+      text: TEXT,
+      categories: [],
+    }));
+    const r = await checker.check(LINK, { person, fetchImpl: fetch });
+    expect(r.checks.map((c) => c.field)).not.toContain('subject_categories');
+  });
+});
+
+describe('whyNoProfile', () => {
+  it('is a block when the site refused one of its own data calls', () => {
+    expect(whyNoProfile(true, 'Web of Science')).toBe('blocked');
+  });
+  it('is a block on a challenge page, in any case', () => {
+    expect(whyNoProfile(false, 'Just a moment...')).toBe('blocked');
+    expect(whyNoProfile(false, 'Verify you are human')).toBe('blocked');
+  });
+  it('is only an error for an ordinary page that did not fill in', () => {
+    expect(whyNoProfile(false, 'Web of Science WOS Top Header')).toBe('error');
   });
 });

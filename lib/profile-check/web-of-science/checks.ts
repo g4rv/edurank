@@ -84,3 +84,8 @@ export function checkWosHIndex(profile: WosProfile): Check {
   }
   return check('h_index', { all: profile.hIndex }, 'Інформація', 'ok');
 }
+
+/** Information, no rule: what the profile's publications are filed under. */
+export function checkWosCategories(profile: WosProfile): Check {
+  return check('subject_categories', profile.subjectCategories, 'Інформація', 'ok');
+}

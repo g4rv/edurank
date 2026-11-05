@@ -2,7 +2,13 @@ import { normaliseOrcid } from '@/lib/orcid';
 import { BrowserUnavailableError, withBrowserPage } from '@/lib/profile-check/browser';
 import { createGate, type Gate } from '@/lib/profile-check/gate';
 import { worstStatus, type PlatformChecker, type PlatformResult } from '@/lib/profile-check/types';
-import { checkWosAffiliation, checkWosHIndex, checkWosName, checkWosOrcid } from './checks';
+import {
+  checkWosAffiliation,
+  checkWosCategories,
+  checkWosHIndex,
+  checkWosName,
+  checkWosOrcid,
+} from './checks';
 import { parseWosProfile, wosRecordId } from './parse';
 
 const PROFILE_URL = 'https://www.webofscience.com/wos/author/record/';
@@ -10,11 +16,25 @@ const WAIT_MS = 25_000;
 
 /** What opening a profile gave. `unavailable` = there is no browser to open it with. */
 export type WosOpen =
-  | { kind: 'ok'; name: string; text: string }
+  | { kind: 'ok'; name: string; text: string; categories: string[] }
   | { kind: 'not_found' }
   | { kind: 'blocked' }
   | { kind: 'unavailable' }
   | { kind: 'error'; message: string };
+
+/**
+ * Neither the profile nor the not-found page came. If the site refused one of
+ * its own data calls (429), or shows a challenge page, we are blocked — and the
+ * runner must stop asking; otherwise it is only a page that did not load.
+ */
+export function whyNoProfile(limited: boolean, seen: string): 'blocked' | 'error' {
+  if (limited) return 'blocked';
+  return /just a moment|verify you are human|attention required|access denied|too many requests/i.test(
+    seen
+  )
+    ? 'blocked'
+    : 'error';
+}
 
 /**
  * Opens one profile in a browser and returns what is on screen. The page is a
@@ -28,6 +48,12 @@ export async function openWosProfile(id: string): Promise<WosOpen> {
       await page.goto(`${PROFILE_URL}${encodeURIComponent(id)}`, {
         waitUntil: 'domcontentloaded',
         timeout: 30_000,
+      });
+      // The page is a shell: the profile itself comes from its own data calls, and
+      // a refused one (429) leaves it empty — which is a block, not «did not load»
+      let limited = false;
+      page.on('response', (r) => {
+        if (r.status() === 429 && /webofscience\.com\/api\//i.test(r.url())) limited = true;
       });
       const profile = page.waitForSelector('h1.wat-author-name', { timeout: WAIT_MS }).then(
         () => 'profile' as const,
@@ -45,7 +71,7 @@ export async function openWosProfile(id: string): Promise<WosOpen> {
         const seen = await page
           .evaluate(() => `${document.title} ${document.body?.innerText.slice(0, 400) ?? ''}`)
           .catch(() => '');
-        return /just a moment|verify you are human|attention required|access denied/i.test(seen)
+        return whyNoProfile(limited, seen) === 'blocked'
           ? { kind: 'blocked' }
           : { kind: 'error', message: 'Сторінка профілю WoS не завантажилась' };
       }
@@ -58,7 +84,13 @@ export async function openWosProfile(id: string): Promise<WosOpen> {
         })
         .catch(() => {});
       const text = await page.evaluate(() => document.body.innerText);
-      return { kind: 'ok', name, text };
+      // One chip per category; the text above runs them together
+      const categories = await page.evaluate(() =>
+        [...document.querySelectorAll('.Subjectcategory-chips .chip-span')].map(
+          (e) => e.textContent ?? ''
+        )
+      );
+      return { kind: 'ok', name, text, categories };
     });
   } catch (e) {
     if (e instanceof BrowserUnavailableError) return { kind: 'unavailable' };
@@ -66,8 +98,14 @@ export async function openWosProfile(id: string): Promise<WosOpen> {
   }
 }
 
-/** WoS's own door: a profile takes about 8 s to render, so about 3 s apart is plenty */
-const wosGate: Gate = createGate({ gapMs: 3000, jitterMs: 700 });
+/**
+ * WoS's own door. A profile takes about 8 s to render and makes several data
+ * calls of its own, and after about a dozen loads from one address in an hour
+ * WoS answered those calls with 429 (2026-11-05). So: about 10 s apart, and a
+ * refusal closes the door for ten minutes. A full run is therefore long (about
+ * 25 minutes for 150 people); nobody waits for it.
+ */
+const wosGate: Gate = createGate({ gapMs: 8000, jitterMs: 2500 });
 
 type Result = Omit<PlatformResult, 'checkedAt'>;
 
@@ -122,7 +160,10 @@ export function createWosChecker(
 
       if (got.kind === 'blocked') {
         gate.block();
-        return failed(canonical, 'Web of Science вимагає перевірки браузера — спробуйте пізніше');
+        return failed(
+          canonical,
+          'Web of Science тимчасово обмежив запити або вимагає перевірки браузера — спробуйте пізніше'
+        );
       }
       if (got.kind === 'unavailable') {
         return failed(
@@ -148,7 +189,11 @@ export function createWosChecker(
         };
       }
 
-      const profile = parseWosProfile({ name: got.name, text: got.text });
+      const profile = parseWosProfile({
+        name: got.name,
+        text: got.text,
+        categories: got.categories,
+      });
       if (!profile) return failed(canonical, 'Сторінка профілю має незнайому будову');
 
       const checks = [
@@ -156,6 +201,7 @@ export function createWosChecker(
         checkWosName(profile),
         checkWosAffiliation(profile),
         checkWosHIndex(profile),
+        ...(profile.subjectCategories.length > 0 ? [checkWosCategories(profile)] : []),
       ];
       return { platform: 'wos', link: canonical, status: worstStatus(checks), checks };
     },
