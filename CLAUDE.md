@@ -1250,6 +1250,14 @@ platform, replaced on every run — a status board, not a history) and
   `lib/profile-check/pending.ts`, resolved on the server in `startRun`
   (`onlyMissing`), never from ids the browser sends. A site that refuses a long
   run part-way can thus be finished later without asking the first ones again.
+- **A minute between two runs of one platform** (owner, 2026-11-05): after a run
+  ends, the same platform cannot start another for `RUN_COOLDOWN_MS` (60 s,
+  `lib/profile-check/cooldown.ts`). Pressing the button again and again is how
+  Google and WoS were made to refuse us. The server enforces it in `startRun`
+  (counted from the last run's `finishedAt`; a run that never ended has none and
+  does not count); the button only counts it down («Зачекайте 52 с»). Per
+  platform, because the sites' limits are per site. A person's re-check is not a
+  run and is not held by it.
 - **Concurrency 4**, one retry on 429/5xx: ORCID's public API is rate limited.
 - Excel: `/api/export/profile-checks` (ADMIN), the page's own filters.
 

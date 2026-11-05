@@ -154,3 +154,50 @@ describe('executeRun', () => {
     expect(progress.at(-1)).toMatchObject({ done: 3, failed: 3 });
   });
 });
+
+describe('startRun, a minute between runs', () => {
+  /** Answers the liveness query (RUNNING) with nothing, and the cooldown query with `last` */
+  function afterRun(last: { finishedAt: Date } | null) {
+    const findFirst = vi.fn(async (args: { where: { status?: string } }) =>
+      args.where.status === 'RUNNING' ? null : last
+    );
+    return {
+      findFirst,
+      client: {
+        profileCheckRun: {
+          findFirst,
+          updateMany: vi.fn(async () => ({ count: 0 })),
+          create: vi.fn(async () => ({ id: 'r2' })),
+        },
+      },
+    };
+  }
+
+  it('refuses a run that follows another of the same platform within the minute', async () => {
+    const { client } = afterRun({ finishedAt: new Date(Date.now() - 20_000) });
+    const r = await startRun(client as never, 'u1', 'googleScholar');
+    expect(r).toMatchObject({ ok: false, reason: 'cooling' });
+    if (!r.ok && r.reason === 'cooling') {
+      expect(r.secondsLeft).toBeGreaterThan(30);
+      expect(r.secondsLeft).toBeLessThanOrEqual(40);
+    }
+    expect(client.profileCheckRun.create).not.toHaveBeenCalled();
+  });
+
+  it('allows it once the minute has passed', async () => {
+    const { client } = afterRun({ finishedAt: new Date(Date.now() - 61_000) });
+    expect(await startRun(client as never, 'u1', 'googleScholar')).toMatchObject({ ok: true });
+  });
+
+  it('allows the first run ever', async () => {
+    const { client } = afterRun(null);
+    expect(await startRun(client as never, 'u1', 'googleScholar')).toMatchObject({ ok: true });
+  });
+
+  it('asks about the SAME platform only: another site’s pause is not this one’s', async () => {
+    const { client, findFirst } = afterRun(null);
+    await startRun(client as never, 'u1', 'wos');
+    const cooldownQuery = findFirst.mock.calls[1][0] as unknown as { where: { platform: string } };
+    expect(cooldownQuery.where.platform).toBe('wos');
+  });
+});

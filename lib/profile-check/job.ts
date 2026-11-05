@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@/lib/generated/prisma/client';
 import { logError } from '@/lib/log';
+import { cooldownSecondsLeft } from '@/lib/profile-check/cooldown';
 import { needsCheck } from '@/lib/profile-check/pending';
 import { listPeopleToCheck } from '@/lib/profile-check/people';
 import { checkPeople } from '@/lib/profile-check/run';
@@ -22,7 +23,9 @@ type JobClient = Pick<PrismaClient, '$transaction' | 'staff' | 'profileCheck' | 
 
 export type StartedRun =
   | { ok: true; runId: string; people: PersonInput[] }
-  | { ok: false; reason: 'running' | 'nobody' | 'nothing_new' };
+  | { ok: false; reason: 'running' | 'nobody' | 'nothing_new' }
+  /** The last run of this platform ended less than a minute ago */
+  | { ok: false; reason: 'cooling'; secondsLeft: number };
 
 export interface RunScope {
   staffIds?: string[];
@@ -50,6 +53,16 @@ export async function startRun(
     select: { id: true },
   });
   if (live) return { ok: false, reason: 'running' };
+
+  // A minute between two runs of one platform. A run that never ended (the server
+  // died under it) has no end time and so does not count; it is buried below.
+  const last = await client.profileCheckRun.findFirst({
+    where: { platform, finishedAt: { not: null } },
+    orderBy: { finishedAt: 'desc' },
+    select: { finishedAt: true },
+  });
+  const secondsLeft = cooldownSecondsLeft(last?.finishedAt);
+  if (secondsLeft > 0) return { ok: false, reason: 'cooling', secondsLeft };
 
   // A RUNNING row that stopped beating belongs to a process that is gone
   await client.profileCheckRun.updateMany({

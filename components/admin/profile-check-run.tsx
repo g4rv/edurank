@@ -20,6 +20,7 @@ import {
   type RunState,
   type RunStates,
 } from '@/app/(dashboard)/admin/profile-check/actions';
+import { cooldownSecondsLeft } from '@/lib/profile-check/cooldown';
 import { PLATFORM_LABELS } from '@/lib/profile-check/labels';
 import { plural } from '@/lib/profile-check/tally';
 import { PLATFORMS, type Platform } from '@/lib/profile-check/types';
@@ -77,6 +78,17 @@ export function ProfileCheckRun({
 
   const anyRunning = PLATFORMS.some((p) => runs?.[p]?.status === 'RUNNING');
 
+  // A minute between two runs of one platform: the server refuses an earlier one,
+  // this only counts it down so the button says why it is off. `now` is refreshed
+  // whenever the runs are, or a run that has just ended would read a stale clock.
+  const [now, setNow] = useState(() => Date.now());
+  const waiting = PLATFORMS.some((p) => cooldownSecondsLeft(runs?.[p]?.finishedAt, now) > 0);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [waiting]);
+
   // The runs as last SEEN, for telling which one just ended. A ref, because the
   // check must happen in the poll itself: a state updater runs during render,
   // and refreshing the router from inside one updates another component
@@ -88,6 +100,7 @@ export function ProfileCheckRun({
     const next = await getRunStates();
     const before = seen.current;
     seen.current = next;
+    setNow(Date.now());
     setRuns(next);
     // A run that just ended: the table has new rows to show
     if (
@@ -135,6 +148,7 @@ export function ProfileCheckRun({
           const running = run?.status === 'RUNNING';
           const ready = implemented[platform];
           const percent = run && run.total > 0 ? Math.round((run.done / run.total) * 100) : 0;
+          const cooling = cooldownSecondsLeft(run?.finishedAt, now);
 
           return (
             <div key={platform} className="space-y-2 px-5 py-3.5">
@@ -149,11 +163,12 @@ export function ProfileCheckRun({
                   disabled={
                     !ready ||
                     running ||
+                    cooling > 0 ||
                     (pending && starting === platform) ||
                     counts[platform].all === 0
                   }
                 >
-                  {running ? 'Виконується…' : 'Перевірити'}
+                  {running ? 'Виконується…' : cooling > 0 ? `Зачекайте ${cooling} с` : 'Перевірити'}
                 </Button>
               </div>
 

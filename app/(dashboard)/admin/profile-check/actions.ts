@@ -115,6 +115,11 @@ export async function startProfileCheck(
     return { error: 'Не вдалося почати перевірку' };
   }
   if (!started.ok) {
+    if (started.reason === 'cooling') {
+      return {
+        error: `Зачекайте ще ${started.secondsLeft} с: між перевірками однієї платформи має минути хвилина`,
+      };
+    }
     return {
       error:
         started.reason === 'running'
