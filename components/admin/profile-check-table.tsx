@@ -1,29 +1,11 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/aurora/ui/button';
+import { useState } from 'react';
 import { Badge } from '@/components/aurora/ui/badge';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/aurora/ui/dialog';
-import { recheckPerson } from '@/app/(dashboard)/admin/profile-check/actions';
-import {
-  CHECK_FIELD_LABELS,
-  METRIC_LABELS,
-  PLATFORM_LABELS,
-  PLATFORM_STATUS_LABELS,
-  metricAll,
-} from '@/lib/profile-check/labels';
-import { PLATFORMS, type Check, type PlatformStatus } from '@/lib/profile-check/types';
+import { ProfileCheckDetails } from '@/components/admin/profile-check-details';
+import { PLATFORM_LABELS, PLATFORM_STATUS_LABELS, metricAll } from '@/lib/profile-check/labels';
+import { PLATFORMS, type PlatformStatus } from '@/lib/profile-check/types';
 import type { ProfileCheckRow } from '@/lib/queries/list-profile-checks';
-import { KYIV } from '@/lib/kyiv-time';
 
 const TONE: Record<PlatformStatus, 'ok' | 'warn' | 'destructive' | 'muted'> = {
   ok: 'ok',
@@ -34,37 +16,13 @@ const TONE: Record<PlatformStatus, 'ok' | 'warn' | 'destructive' | 'muted'> = {
   not_implemented: 'muted',
 };
 
-function show(value: unknown): string {
-  if (value === null || value === undefined) return '—';
-  if (Array.isArray(value)) return value.map(show).join(', ');
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
-}
-
 /**
- * One row per person, a pill per platform; a row opens the field-by-field
- * result and the «Перевірити знову» for that person alone.
+ * One row per person, a pill per platform; a row opens that person's result
+ * (`ProfileCheckDetails`).
  */
 export function ProfileCheckTable({ rows }: { rows: ProfileCheckRow[] }) {
-  const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
   const open = rows.find((r) => r.staffId === openId) ?? null;
-
-  function recheck(staffId: string) {
-    setError(null);
-    startTransition(async () => {
-      try {
-        const result = await recheckPerson(staffId);
-        if ('error' in result) setError(result.error);
-        else router.refresh();
-      } catch {
-        setError('Не вдалося перевірити. Спробуйте ще раз');
-      }
-    });
-  }
 
   return (
     <>
@@ -86,10 +44,7 @@ export function ProfileCheckTable({ rows }: { rows: ProfileCheckRow[] }) {
               <tr
                 key={row.staffId}
                 className="cursor-pointer border-b last:border-0 hover:bg-muted/50"
-                onClick={() => {
-                  setError(null);
-                  setOpenId(row.staffId);
-                }}
+                onClick={() => setOpenId(row.staffId)}
               >
                 <td className="px-4 py-2.5 font-medium">{row.name}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{row.department ?? '—'}</td>
@@ -120,116 +75,10 @@ export function ProfileCheckTable({ rows }: { rows: ProfileCheckRow[] }) {
         </table>
       </div>
 
-      <Dialog open={open !== null} onOpenChange={(next) => !next && setOpenId(null)}>
-        <DialogContent className="max-w-2xl">
-          {open && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{open.name}</DialogTitle>
-                <DialogDescription>{open.department ?? 'Без кафедри'}</DialogDescription>
-              </DialogHeader>
-              <DialogBody>
-                <div className="space-y-5">
-                  {PLATFORMS.map((p) => {
-                    const cell = open.cells[p];
-                    if (!cell) return null;
-                    const metrics = cell.checks.filter(
-                      (c) => c.field in METRIC_LABELS && c.status === 'ok'
-                    );
-                    // a metric is a number to show, never a problem to fix
-                    const notes = cell.checks.filter((c) => c.status !== 'ok');
-                    return (
-                      <section key={p} className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-medium">{PLATFORM_LABELS[p]}</h3>
-                          <Badge tone={TONE[cell.status]}>
-                            {PLATFORM_STATUS_LABELS[cell.status]}
-                          </Badge>
-                          {cell.link && (
-                            <a
-                              href={cell.link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-sm text-brand-strong hover:underline"
-                            >
-                              відкрити
-                            </a>
-                          )}
-                        </div>
-                        {cell.error && <p className="text-sm text-error-strong">{cell.error}</p>}
-                        {cell.status === 'not_implemented' && (
-                          <p className="text-sm text-muted-foreground">
-                            Правила для цієї платформи ще не задані.
-                          </p>
-                        )}
-                        {metrics.length > 0 && (
-                          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                            {metrics.map((m) => {
-                              const v = m.current as { all: number; recent: number };
-                              return (
-                                <div key={m.field} className="contents">
-                                  <dt className="text-muted-foreground">
-                                    {METRIC_LABELS[m.field]}
-                                  </dt>
-                                  <dd className="tabular-nums">
-                                    <span className="font-medium">{v.all}</span>
-                                    <span className="text-muted-foreground">
-                                      {' '}
-                                      (за 5 років: {v.recent})
-                                    </span>
-                                  </dd>
-                                </div>
-                              );
-                            })}
-                          </dl>
-                        )}
-                        {notes.length === 0 && cell.checks.length > 0 && (
-                          <p className="text-sm text-muted-foreground">Усе в порядку.</p>
-                        )}
-                        <ul className="space-y-2">
-                          {notes.map((c) => (
-                            <CheckLine key={c.field} check={c} />
-                          ))}
-                        </ul>
-                        <p className="text-xs text-muted-foreground">
-                          Перевірено {new Date(cell.checkedAt).toLocaleString('uk-UA', KYIV)}
-                        </p>
-                      </section>
-                    );
-                  })}
-                </div>
-              </DialogBody>
-              <DialogFooter>
-                {error && <span className="mr-auto text-sm text-error-strong">{error}</span>}
-                <Button variant="outline" onClick={() => setOpenId(null)}>
-                  Закрити
-                </Button>
-                <Button onClick={() => recheck(open.staffId)} disabled={pending}>
-                  {pending ? 'Перевіряємо…' : 'Перевірити знову'}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Keyed by person, so it always opens on the first platform */}
+      {open && (
+        <ProfileCheckDetails key={open.staffId} row={open} onClose={() => setOpenId(null)} />
+      )}
     </>
-  );
-}
-
-function CheckLine({ check }: { check: Check }) {
-  const tone =
-    check.status === 'error' ? 'destructive' : check.status === 'warning' ? 'warn' : 'muted';
-  return (
-    <li className="rounded-lg border p-3 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={tone}>
-          {check.status === 'error' ? 'Помилка' : check.status === 'warning' ? 'Увага' : 'Порада'}
-        </Badge>
-        <span className="font-medium">{CHECK_FIELD_LABELS[check.field] ?? check.field}</span>
-      </div>
-      {check.message && <p className="mt-1.5">{check.message}</p>}
-      <p className="mt-1 text-xs text-muted-foreground">Зараз: {show(check.current)}</p>
-      <p className="text-xs text-muted-foreground">Потрібно: {check.shouldBe}</p>
-    </li>
   );
 }
