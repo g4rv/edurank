@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@/lib/generated/prisma/client';
-import { logError } from '@/lib/log';
+import { logError, logWarning } from '@/lib/log';
 import { cooldownSecondsLeft } from '@/lib/profile-check/cooldown';
 import { countingFetch, newUsage } from '@/lib/profile-check/usage';
 import { needsCheck } from '@/lib/profile-check/pending';
@@ -159,9 +159,14 @@ export async function executeRun(
     });
     // The last figures, apart from closing the run: if they cannot be written the
     // run is still done
-    await client.profileCheckRun
-      .update({ where: { id: runId }, data: usageData() })
-      .catch((e) => logError('profileCheck.usage', e, { runId }));
+    await client.profileCheckRun.update({ where: { id: runId }, data: usageData() }).catch((e) =>
+      logWarning('profileCheck.usage', "the run's request count was not saved", {
+        runId,
+        reason: String(e instanceof Error ? e.message : e)
+          .trim()
+          .split(/\r?\n/)[0],
+      })
+    );
     await client.profileCheckRun.update({
       where: { id: runId },
       data: { status: 'DONE', finishedAt: new Date() },

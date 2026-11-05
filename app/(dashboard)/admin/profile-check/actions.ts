@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import { diffChanges } from '@/lib/audit';
-import { logError } from '@/lib/log';
+import { logError, logWarning } from '@/lib/log';
 import { requireAdmin } from '@/lib/permissions';
 import { executeRun, startRun, STALE_MS, type RunScope } from '@/lib/profile-check/job';
 import { PLATFORM_LABELS } from '@/lib/profile-check/labels';
@@ -70,9 +70,30 @@ async function usageOf(
           : null,
     };
   } catch (e) {
-    logError('profileCheck.usage', e, { platform });
+    warnUsageOnce(e);
     return { requestsWeek: 0, quota: null };
   }
+}
+
+/**
+ * A missing usage figure blocks nobody, so it is a warning, not an error — and a
+ * page that asks for four platforms on every load must not say it four times.
+ * One line a minute. (Typically a server still running a database client from
+ * before the columns existed: it needs a restart, and says so.)
+ */
+let usageWarnedAt = 0;
+function warnUsageOnce(e: unknown) {
+  if (Date.now() - usageWarnedAt < 60_000) return;
+  usageWarnedAt = Date.now();
+  // Prisma's message begins with a blank line: take the first line that says something
+  const first = String(e instanceof Error ? e.message : e)
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find(Boolean);
+  logWarning(
+    'profileCheck.usage',
+    `the usage figures could not be read (restart the server if the schema just changed): ${first ?? ''}`
+  );
 }
 
 /**
