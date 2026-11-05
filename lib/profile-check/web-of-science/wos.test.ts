@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGate } from '@/lib/profile-check/gate';
-import { scopusAuthorId, scopusChecker } from '@/lib/profile-check/scopus';
+import { createScopusChecker, scopusAuthorId } from '@/lib/profile-check/scopus';
 import { tally } from '@/lib/profile-check/tally';
 import {
   checkWosAffiliation,
@@ -215,6 +215,9 @@ describe('the Web of Science checker', () => {
 });
 
 describe('Scopus, without a key', () => {
+  // Pinned to «no key», so a key in the environment can never send this test online
+  const noKeyScopus = createScopusChecker({ getKey: () => null });
+
   const link = 'https://www.scopus.com/authid/detail.uri?authorId=57219915893';
 
   it('reads the author id from a link, any case', () => {
@@ -226,7 +229,7 @@ describe('Scopus, without a key', () => {
   });
 
   it('passes a link with an id and says plainly that the profile is not read', async () => {
-    const r = await scopusChecker.check(link, { person, fetchImpl: fetch });
+    const r = await noKeyScopus.check(link, { person, fetchImpl: fetch });
     expect(r.status).toBe('ok');
     const note = r.checks.find((c) => c.field === 'scopus_content');
     expect(note?.status).toBe('info');
@@ -234,7 +237,7 @@ describe('Scopus, without a key', () => {
   });
 
   it('errors on a link with no author id', async () => {
-    const r = await scopusChecker.check('https://www.scopus.com/', { person, fetchImpl: fetch });
+    const r = await noKeyScopus.check('https://www.scopus.com/', { person, fetchImpl: fetch });
     expect(r.status).toBe('error');
   });
 });

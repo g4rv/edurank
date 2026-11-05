@@ -93,9 +93,11 @@ export default async function ProfileCheckPage({
       <div>
         <h1 className="text-2xl font-semibold">Перевірка профілів</h1>
         <p className="mt-0.5 max-w-3xl text-sm text-foreground-soft">
-          Профілі НПП в ORCID, Web of Science, Scopus та Google Scholar. Scopus поки перевіряється
-          лише за посиланням — для вмісту профілю потрібен ключ Elsevier API. Кожна платформа
-          перевіряється окремо, на сервері — сторінку можна закрити.
+          Профілі НПП в ORCID, Web of Science, Scopus та Google Scholar.
+          {process.env.SCOPUS_API_KEY
+            ? ' '
+            : ' Scopus перевіряється лише за посиланням — для вмісту профілю потрібен ключ Elsevier API (SCOPUS_API_KEY). '}
+          Кожна платформа перевіряється окремо, на сервері — сторінку можна закрити.
         </p>
       </div>
 

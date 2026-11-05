@@ -1181,16 +1181,24 @@ platform, replaced on every run — a status board, not a history) and
   the Docker image today — prod needs one of the three before this check works.**
   Whether Clarivate's terms allow it is the owner's call; the Researcher API
   (key, probably an institutional subscription) is the clean route.
-- **Scopus without a key** (owner, 2026-11-05): scopus.com sends everything but a
-  signed-in browser to an Elsevier login, and Elsevier's API returns only the
-  author id without a key («minimized metadata response»), so the profile CANNOT
-  be read. The checker only reads `authorId=` from the link and says plainly that
-  the content is not checked. **What the ORCID check adds:** the Scopus Author ID
-  and the WoS ResearcherID listed on ORCID must be the SAME as in the person's
-  own links (a numeric WoS record id cannot be compared and is skipped). An
-  Elsevier API key (free, non-commercial; what it returns depends on the
-  institution's subscription) would let this checker read name, ORCID,
-  affiliation and h-index.
+- **Scopus through Elsevier's Author Retrieval API** (owner, 2026-11-05), when
+  `SCOPUS_API_KEY` is set (`lib/profile-check/scopus/`; the key is free for
+  non-commercial use — 5,000 requests a week, 3 a second; it lives in `.env`, never
+  in git). `GET api.elsevier.com/content/author/author_id/<id>?view=ENHANCED`
+  with the key in `X-ELS-APIKey` returns the ORCID, name, current affiliation,
+  h-index and subject areas. **Rules, the same as for WoS:** the ORCID on the
+  profile is the person's own, the name is Latin, the CURRENT affiliation is the
+  university (English or Ukrainian, a misspelling is not accepted), the profile
+  carries its subject areas, and the h-index is a number with no threshold.
+  **Without a key Elsevier answers 200 with a «minimized metadata response» —
+  only the author id** — and scopus.com itself sends everything but a signed-in
+  browser to a login, so the profile cannot be read any other way. That minimized
+  answer is reported as «the key does not give the profile» (`minimized`), never
+  as an empty profile. With no key set the checker reads only `authorId=` from the
+  link and says so. A 429 closes the door for ten minutes like the other sites';
+  the gate is ~0.5 s. **What the ORCID check adds:** the Scopus Author ID and the
+  WoS ResearcherID listed on ORCID must be the SAME as in the person's own links
+  (a numeric WoS record id cannot be compared and is skipped).
 - **Google Scholar** (owner, 2026-11-04/05) is one plain GET of
   `scholar.google.com/citations?user=<id>&sortby=pubdate`;
   `lib/profile-check/google-scholar/`. **The rules are those of a reference
