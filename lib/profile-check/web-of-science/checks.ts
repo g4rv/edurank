@@ -85,7 +85,31 @@ export function checkWosHIndex(profile: WosProfile): Check {
   return check('h_index', { all: profile.hIndex }, 'Інформація', 'ok');
 }
 
-/** Information, no rule: what the profile's publications are filed under. */
+/**
+ * The profile carries its Subject Categories (owner, 2026-11-05) — what its
+ * publications are filed under. Missing is an error. If the heading is on the
+ * page but no category could be read, that is OUR doubt, not the person's
+ * fault: a warning, so a changed page does not flag everyone.
+ */
 export function checkWosCategories(profile: WosProfile): Check {
-  return check('subject_categories', profile.subjectCategories, 'Інформація', 'ok');
+  const should = 'У профілі вказано предметні категорії (Subject Categories)';
+  if (profile.subjectCategories.length > 0) {
+    return check('subject_categories', profile.subjectCategories, should, 'ok');
+  }
+  if (profile.hasCategoriesSection) {
+    return check(
+      'subject_categories',
+      null,
+      should,
+      'warning',
+      'Не вдалося прочитати предметні категорії зі сторінки профілю'
+    );
+  }
+  return check(
+    'subject_categories',
+    null,
+    should,
+    'error',
+    'У профілі не вказано предметні категорії'
+  );
 }

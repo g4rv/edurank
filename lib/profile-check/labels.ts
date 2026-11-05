@@ -26,6 +26,7 @@ export const CHECK_STATUS_LABELS: Record<CheckStatus, string> = {
 /** Field names of an ORCID check, as a person reads them */
 export const CHECK_FIELD_LABELS: Record<string, string> = {
   profile: 'Профіль',
+  subject_categories: 'Предметні категорії',
   description: 'Опис профілю',
   orcid: 'ORCID',
   scopus_content: 'Вміст профілю',
@@ -56,11 +57,3 @@ export function metricAll(check: { current: unknown } | undefined): number | nul
   const v = (check?.current as { all?: unknown } | null | undefined)?.all;
   return typeof v === 'number' ? v : null;
 }
-
-/**
- * Checks that carry a list of words rather than a verdict — shown as
- * «label: a; b», like the numbers above, and never counted as a success.
- */
-export const LIST_LABELS: Record<string, string> = {
-  subject_categories: 'Предметні категорії',
-};

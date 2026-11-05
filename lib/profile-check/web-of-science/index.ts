@@ -201,7 +201,7 @@ export function createWosChecker(
         checkWosName(profile),
         checkWosAffiliation(profile),
         checkWosHIndex(profile),
-        ...(profile.subjectCategories.length > 0 ? [checkWosCategories(profile)] : []),
+        checkWosCategories(profile),
       ];
       return { platform: 'wos', link: canonical, status: worstStatus(checks), checks };
     },

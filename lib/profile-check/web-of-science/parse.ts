@@ -27,6 +27,11 @@ export interface WosProfile {
   hIndex: number | null;
   /** «Subject Categories»: Business & Economics, Education & Educational Research… */
   subjectCategories: string[];
+  /**
+   * The «Subject Categories» heading is on the page. With it present and no chips
+   * read, the page changed or has not filled in; without it, the profile has none.
+   */
+  hasCategoriesSection: boolean;
 }
 
 const SECTION_LABELS = ['Identifiers', 'Published names', 'Organization', 'Subject Categories'];
@@ -96,6 +101,7 @@ export function parseWosProfile({
     organization: orgLines[0] ?? null,
     hIndex,
     subjectCategories: categories.map((c) => c.replace(/\s+/g, ' ').trim()).filter(Boolean),
+    hasCategoriesSection: indexOfLabel(lines, 'Subject Categories') !== -1,
   };
 }
 

@@ -66,6 +66,7 @@ describe('parseWosProfile', () => {
       organization: 'Hryhorii Skovoroda University in Pereiaslav',
       hIndex: 2,
       subjectCategories: [],
+      hasCategoriesSection: true,
     });
   });
 
@@ -253,22 +254,40 @@ describe('subject categories', () => {
     expect(parseWosProfile({ name: 'Iryna Kamenska', text: TEXT })?.subjectCategories).toEqual([]);
   });
 
-  it('are information: an ok check that is not counted as a success', () => {
+  it('are a requirement: present is a success, counted like the others', () => {
     const c = checkWosCategories(profile({ subjectCategories: ['A', 'B'] }));
     expect(c).toMatchObject({ field: 'subject_categories', status: 'ok', current: ['A', 'B'] });
     const tallied = tally([checkWosOrcid(profile(), OWN), c]);
-    expect(tallied.map((t) => t.text)).toEqual(['1 успішно']);
+    expect(tallied.map((t) => t.text)).toEqual(['2 успішно']);
   });
 
-  it('add no line when the profile has none', async () => {
+  it('are an error when the profile has none — there is no heading on the page', () => {
+    const none = parseWosProfile({
+      name: 'Iryna Kamenska',
+      text: TEXT.replace('Subject Categories', 'Something else'),
+      categories: [],
+    })!;
+    const c = checkWosCategories(none);
+    expect(c.status).toBe('error');
+    expect(c.message).toMatch(/не вказано предметні категорії/);
+  });
+
+  it('are only a warning when the heading is there but none could be read — that is our doubt', () => {
+    const c = checkWosCategories(profile({ subjectCategories: [], hasCategoriesSection: true }));
+    expect(c.status).toBe('warning');
+  });
+
+  it('are part of the platform result, so a profile without them fails the platform', async () => {
+    const text = TEXT.replace('Subject Categories', 'Something else');
     const checker = createWosChecker(open(), async () => ({
       kind: 'ok',
       name: 'Iryna Kamenska',
-      text: TEXT,
+      text,
       categories: [],
     }));
     const r = await checker.check(LINK, { person, fetchImpl: fetch });
-    expect(r.checks.map((c) => c.field)).not.toContain('subject_categories');
+    expect(r.checks.find((c) => c.field === 'subject_categories')?.status).toBe('error');
+    expect(r.status).toBe('error');
   });
 });
 

@@ -1156,9 +1156,11 @@ platform, replaced on every run — a status board, not a history) and
   ResearcherID, ORCID and the Core Collection h-index. **Rules:** the ORCID on it
   is the person's own, the name is Latin, the organisation is the university
   (English or Ukrainian, a misspelling is not accepted); the h-index is a number
-  with no threshold; the **Subject Categories** are shown as information (one
-  chip each in `.Subjectcategory-chips`, read from the page structure because the
-  visible text runs them together; no rule, not counted as a success). A missing
+  with no threshold; the profile must carry its **Subject Categories** (owner,
+  2026-11-05: a check, not information) — none on the page is an error; the
+  heading present but no chip readable is only a warning, because that is our
+  doubt. They are read one chip each from `.Subjectcategory-chips`, since the
+  visible text runs them together. A missing
   record redirects to `/wos/error/authorNotFound`. **WoS rate-limits (owner
   2026-11-05, found the hard way):** after about a dozen profile loads from one
   address in an hour its own data calls (`/api/esti/SearchEngine/search`) answered
