@@ -11,6 +11,8 @@ import {
 export interface RunOptions {
   checkers?: Record<string, PlatformChecker>;
   fetchImpl?: typeof fetch;
+  /** See `CheckContext.countRequest` */
+  countRequest?: () => void;
   now?: () => Date;
   /** Check only these platforms (a run is per platform); default: all four */
   platforms?: readonly Platform[];
@@ -25,6 +27,7 @@ export async function checkPerson(
   {
     checkers = CHECKERS,
     fetchImpl = fetch,
+    countRequest,
     now = () => new Date(),
     platforms: only = PLATFORMS,
   }: RunOptions = {}
@@ -40,7 +43,7 @@ export async function checkPerson(
     } else if (!checker || !checker.implemented) {
       platforms.push({ platform, link, status: 'not_implemented', checks: [], checkedAt });
     } else {
-      const result = await checker.check(link, { person, fetchImpl });
+      const result = await checker.check(link, { person, fetchImpl, countRequest });
       platforms.push({ ...result, checkedAt });
     }
   }

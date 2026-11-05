@@ -30,6 +30,9 @@ const POLL_MS = 2000;
 
 /** Said in the popup of a site that refuses a long run — why «ще не перевіряли» exists */
 const HINTS: Partial<Record<Platform, string>> = {
+  orcid:
+    'ORCID дозволяє без реєстрації до 12 запитів на секунду і 25 000 на добу з однієї адреси. Перевірка однієї людини — 3 запити.',
+  scopus: 'Ключ Elsevier дає 5 000 запитів на тиждень. Перевірка однієї людини — 1 запит.',
   googleScholar:
     'Google Scholar швидко обмежує зайві запити, тому перевірка повільна (близько 8 с на людину). Якщо його заблоковано, почніть із тих, кого ще не перевіряли, і поверніться пізніше за рештою.',
   wos: 'Web of Science обмежує частоту запитів, тому перевірка повільна (близько 10 с на людину). Краще перевіряти лише тих, кого ще не перевіряли.',
@@ -156,6 +159,7 @@ export function ProfileCheckRun({
                 <div className="min-w-0">
                   <div className="font-medium">{PLATFORM_LABELS[platform]}</div>
                   <div className="text-sm">{statusLine(run, ready)}</div>
+                  {run && <UsageLine run={run} />}
                 </div>
                 <Button
                   variant="outline"
@@ -271,4 +275,31 @@ function statusLine(run: RunState, ready: boolean) {
     );
   }
   return <span className="text-muted-foreground">Ще не запускали</span>;
+}
+
+/**
+ * What the platform has used (owner, 2026-11-05): the requests of the last seven
+ * days, and — where the site says so, as Elsevier does — what is left of its own
+ * quota and when that resets. Google and Web of Science publish no limit, so
+ * their count is the only way to learn where they cut us off; Web of Science's
+ * counts page loads only, so it is a floor.
+ */
+function UsageLine({ run }: { run: NonNullable<RunState> }) {
+  const n = (v: number) => v.toLocaleString('uk-UA');
+  return (
+    <div className="text-xs text-muted-foreground">
+      Запитів за 7 днів: {n(run.requestsWeek)}
+      {run.quota && (
+        <>
+          {' · '}
+          квота ключа: залишилось {n(run.quota.remaining)} з {n(run.quota.limit)}, оновиться{' '}
+          {new Date(run.quota.resetAt).toLocaleString('uk-UA', {
+            ...KYIV,
+            dateStyle: 'short',
+            timeStyle: 'short',
+          })}
+        </>
+      )}
+    </div>
+  );
 }

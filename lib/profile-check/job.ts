@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@/lib/generated/prisma/client';
 import { logError } from '@/lib/log';
 import { cooldownSecondsLeft } from '@/lib/profile-check/cooldown';
+import { countingFetch, newUsage } from '@/lib/profile-check/usage';
 import { needsCheck } from '@/lib/profile-check/pending';
 import { listPeopleToCheck } from '@/lib/profile-check/people';
 import { checkPeople } from '@/lib/profile-check/run';
@@ -104,16 +105,38 @@ export async function executeRun(
   {
     concurrency = 4,
     checkers,
-  }: { concurrency?: number; checkers?: Record<string, PlatformChecker> } = {}
+    fetchImpl: baseFetch = fetch,
+  }: {
+    concurrency?: number;
+    checkers?: Record<string, PlatformChecker>;
+    fetchImpl?: typeof fetch;
+  } = {}
 ): Promise<void> {
   // Counted in the loop, not read back: how many of this run could not be asked
   let failed = 0;
   let progressWarned = false;
+  // What the run sends, counted: through `fetch` for the sites with an API, and by
+  // the checker itself for the one read in a browser
+  const usage = newUsage();
+  const usageData = () => ({
+    requests: usage.requests,
+    ...(usage.quota
+      ? {
+          quotaLimit: usage.quota.limit,
+          quotaRemaining: usage.quota.remaining,
+          quotaResetAt: usage.quota.resetAt,
+        }
+      : {}),
+  });
   try {
     await checkPeople(people, {
       concurrency,
       platforms: [platform],
       checkers,
+      fetchImpl: countingFetch(baseFetch, usage),
+      countRequest: () => {
+        usage.requests += 1;
+      },
       onResult: async (result, done) => {
         await saveResult(client, result);
         failed += result.platforms.filter((p) => p.status === 'failed').length;
@@ -124,7 +147,7 @@ export async function executeRun(
         try {
           await client.profileCheckRun.update({
             where: { id: runId },
-            data: { done, failed, heartbeatAt: new Date() },
+            data: { done, failed, ...usageData(), heartbeatAt: new Date() },
           });
         } catch (e) {
           if (!progressWarned) {
@@ -134,6 +157,11 @@ export async function executeRun(
         }
       },
     });
+    // The last figures, apart from closing the run: if they cannot be written the
+    // run is still done
+    await client.profileCheckRun
+      .update({ where: { id: runId }, data: usageData() })
+      .catch((e) => logError('profileCheck.usage', e, { runId }));
     await client.profileCheckRun.update({
       where: { id: runId },
       data: { status: 'DONE', finishedAt: new Date() },

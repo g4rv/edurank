@@ -201,3 +201,110 @@ describe('startRun, a minute between runs', () => {
     expect(cooldownQuery.where.platform).toBe('wos');
   });
 });
+
+describe('executeRun, counting requests', () => {
+  const people = ['a', 'b', 'c'].map((id) => ({
+    staffId: id,
+    name: id,
+    faculty: null,
+    department: null,
+    links: { scopus: `https://www.scopus.com/authid/detail.uri?authorId=${id}` },
+  }));
+
+  /** A checker that makes `calls` requests per person through the fetch it is handed */
+  const checkerMaking = (calls: number) => ({
+    scopus: {
+      platform: 'scopus' as const,
+      implemented: true,
+      check: async (link: string, ctx: { fetchImpl: typeof fetch; countRequest?: () => void }) => {
+        for (let i = 0; i < calls; i++) await ctx.fetchImpl('https://api.example.test/x');
+        return { platform: 'scopus' as const, link, status: 'ok' as const, checks: [] };
+      },
+    },
+  });
+
+  function recorder() {
+    const updates: Record<string, unknown>[] = [];
+    return {
+      updates,
+      client: {
+        $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
+        profileCheck: { findMany: async () => [], upsert: async (a: unknown) => a },
+        profileCheckRun: {
+          update: async ({ data }: { data: Record<string, unknown> }) => {
+            updates.push(data);
+            return data;
+          },
+        },
+      },
+    };
+  }
+
+  const answers = (headers: Record<string, string> = {}) =>
+    (async () => new Response('{}', { status: 200, headers })) as typeof fetch;
+
+  it('saves how many requests the run sent', async () => {
+    const { client, updates } = recorder();
+    await executeRun(client as never, 'r1', people, 'scopus', {
+      checkers: checkerMaking(3) as never,
+      fetchImpl: answers(),
+    });
+    const last = updates.filter((u) => 'requests' in u).at(-1);
+    expect(last?.requests).toBe(9); // 3 people × 3 requests
+    expect(last).not.toHaveProperty('quotaLimit'); // ORCID, Google: nothing to report
+  });
+
+  it('saves the quota a site reports about itself', async () => {
+    const { client, updates } = recorder();
+    await executeRun(client as never, 'r1', people, 'scopus', {
+      checkers: checkerMaking(1) as never,
+      fetchImpl: answers({
+        'X-RateLimit-Limit': '5000',
+        'X-RateLimit-Remaining': '4990',
+        'X-RateLimit-Reset': '1794482932',
+      }),
+    });
+    const last = updates.filter((u) => 'quotaLimit' in u).at(-1);
+    expect(last).toMatchObject({ requests: 3, quotaLimit: 5000, quotaRemaining: 4990 });
+    expect(last?.quotaResetAt).toEqual(new Date('2026-11-12T11:28:52.000Z'));
+  });
+
+  it('counts a browser-read page, which does not go through fetch', async () => {
+    const { client, updates } = recorder();
+    const browserChecker = {
+      scopus: {
+        platform: 'scopus' as const,
+        implemented: true,
+        check: async (link: string, ctx: { countRequest?: () => void }) => {
+          ctx.countRequest?.();
+          return { platform: 'scopus' as const, link, status: 'ok' as const, checks: [] };
+        },
+      },
+    };
+    await executeRun(client as never, 'r1', people, 'scopus', {
+      checkers: browserChecker as never,
+      fetchImpl: answers(),
+    });
+    expect(updates.filter((u) => 'requests' in u).at(-1)?.requests).toBe(3);
+  });
+
+  it('still ends the run as done when the figures cannot be written', async () => {
+    const closing: Record<string, unknown>[] = [];
+    const client = {
+      $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
+      profileCheck: { findMany: async () => [], upsert: async (a: unknown) => a },
+      profileCheckRun: {
+        update: async ({ data }: { data: Record<string, unknown> }) => {
+          if ('requests' in data) throw new Error('Unknown argument `requests`');
+          closing.push(data);
+          return data;
+        },
+      },
+    };
+    await executeRun(client as never, 'r1', people, 'scopus', {
+      checkers: checkerMaking(1) as never,
+      fetchImpl: answers(),
+    });
+    expect(closing.at(-1)).toMatchObject({ status: 'DONE' });
+  });
+});

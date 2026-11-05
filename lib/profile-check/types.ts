@@ -68,6 +68,12 @@ export interface PersonResult {
 export interface CheckContext {
   person: PersonInput;
   fetchImpl: typeof fetch;
+  /**
+   * For a check that does NOT go through `fetchImpl` (a page opened in a browser):
+   * says that one request was sent, so the run's count is right. Optional — a
+   * check of one person on its own has no run to count for.
+   */
+  countRequest?: () => void;
 }
 
 export interface PlatformChecker {

@@ -24,9 +24,56 @@ export type RunState = {
   startedAt: string;
   finishedAt: string | null;
   error: string | null;
+  /** Requests this run sent */
+  requests: number;
+  /** Requests every run of this platform sent in the last 7 days */
+  requestsWeek: number;
+  /** What the site says of its own limit (Elsevier), while that window is open */
+  quota: { limit: number; remaining: number; resetAt: string } | null;
 } | null;
 
 export type RunStates = Record<Platform, RunState>;
+
+/**
+ * What a platform has used: the requests of the last seven days, and the quota the
+ * site last reported about itself (only while that window is still open — after
+ * its reset the figure says nothing). Read apart from the run and never allowed
+ * to break the page: a server still running a database client from before these
+ * columns existed answers with zeros rather than an error.
+ */
+async function usageOf(
+  platform: Platform
+): Promise<{ requestsWeek: number; quota: NonNullable<RunState>['quota'] }> {
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [sum, last] = await Promise.all([
+      db.profileCheckRun.aggregate({
+        _sum: { requests: true },
+        where: { platform, startedAt: { gte: weekAgo } },
+      }),
+      db.profileCheckRun.findFirst({
+        where: { platform, quotaRemaining: { not: null } },
+        orderBy: { startedAt: 'desc' },
+        select: { quotaLimit: true, quotaRemaining: true, quotaResetAt: true },
+      }),
+    ]);
+    const open = last?.quotaResetAt && last.quotaResetAt.getTime() > Date.now() ? last : null;
+    return {
+      requestsWeek: sum._sum.requests ?? 0,
+      quota:
+        open && open.quotaLimit !== null && open.quotaRemaining !== null && open.quotaResetAt
+          ? {
+              limit: open.quotaLimit,
+              remaining: open.quotaRemaining,
+              resetAt: open.quotaResetAt.toISOString(),
+            }
+          : null,
+    };
+  } catch (e) {
+    logError('profileCheck.usage', e, { platform });
+    return { requestsWeek: 0, quota: null };
+  }
+}
 
 /**
  * The latest run of every platform, read by the page and polled by the
@@ -49,6 +96,7 @@ export async function getRunStates(): Promise<RunStates | null> {
     }
     // A run that stopped beating is dead whatever its row still says
     const dead = run.status === 'RUNNING' && Date.now() - run.heartbeatAt.getTime() > STALE_MS;
+    const usage = await usageOf(platform);
     states[platform] = {
       id: run.id,
       status: dead ? 'FAILED' : run.status,
@@ -58,6 +106,8 @@ export async function getRunStates(): Promise<RunStates | null> {
       startedAt: run.startedAt.toISOString(),
       finishedAt: run.finishedAt?.toISOString() ?? null,
       error: dead ? 'Перервано: сервер було перезапущено' : run.error,
+      requests: run.requests ?? 0,
+      ...usage,
     };
   }
   return states;

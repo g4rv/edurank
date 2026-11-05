@@ -127,7 +127,7 @@ export function createWosChecker(
   return {
     platform: 'wos',
     implemented: true,
-    async check(link, { person }) {
+    async check(link, { person, countRequest }) {
       const id = wosRecordId(link);
       if (!id) {
         return {
@@ -156,6 +156,7 @@ export function createWosChecker(
       }
 
       await gate.wait();
+      countRequest?.(); // one page load; the page's own data calls are not counted
       const got = await open(id);
 
       if (got.kind === 'blocked') {

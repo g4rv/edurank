@@ -1258,6 +1258,21 @@ platform, replaced on every run — a status board, not a history) and
   does not count); the button only counts it down («Зачекайте 52 с»). Per
   platform, because the sites' limits are per site. A person's re-check is not a
   run and is not held by it.
+- **Every run counts its requests** (owner, 2026-11-05; `lib/profile-check/usage.ts`).
+  Each limit that matters is a number of requests, and Google and WoS publish none
+  — a count is the only way to learn where they cut us off. `countingFetch` wraps
+  the `fetch` a checker is given, so ORCID, Scholar and Scopus are counted without
+  knowing; WoS is read in a browser, so its checker calls `countRequest()` once
+  per page load (the page's own data calls are not counted — its figure is a
+  floor). The run row keeps `requests`, and — where the site says so in its
+  headers, as Elsevier does (`X-RateLimit-*`) — `quotaLimit` / `quotaRemaining` /
+  `quotaResetAt`. The panel shows the last 7 days per platform and Elsevier's real
+  remaining quota while its window is open. **Known limits:** ORCID's anonymous
+  public API 12 requests/s, 40 burst (over it: 503), 25,000 reads a day per IP —
+  a registered client 100,000 a day (ORCID FAQ, 2025; it sends no usage headers);
+  Elsevier 5,000 a week and 3/s per key. A person's re-check is not a run and is
+  not counted. The usage read never breaks the page: a server on a stale database
+  client shows 0 and logs.
 - **Concurrency 4**, one retry on 429/5xx: ORCID's public API is rate limited.
 - Excel: `/api/export/profile-checks` (ADMIN), the page's own filters.
 
