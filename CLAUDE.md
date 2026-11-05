@@ -1207,7 +1207,7 @@ platform, replaced on every run — a status board, not a history) and
   not six the result is a warning, never invented numbers. Redirects are NOT
   followed: to a login page means no such (or a private) profile, to `/sorry`,
   a 429 or a CAPTCHA body means Google blocked us. **Scholar has no API and
-  blocks scripts**, so `gate.ts` spaces every request (~2 s + jitter, however
+  blocks scripts**, so `gate.ts` spaces every request (~7 s + jitter — 2 s got us blocked, owner 2026-11-05 — however
   many people run at once) and, after a block, fails everything for 10 minutes
   instead of lengthening it. Verified against the reference profile and on
   four others against numbers read by hand.
@@ -1226,6 +1226,22 @@ platform, replaced on every run — a status board, not a history) and
   restarted mid-run) from a live one — after `STALE_MS` it is marked FAILED when
   the next run starts. **One run per platform** (owner, 2026-11-04): four buttons, one per platform, because the speeds do not compare (Scholar is spaced to ~2 s a person, ORCID is not) and a block by one site must hold nothing back. Two runs of the SAME platform never overlap; ORCID and Scholar may run at once. `ProfileCheckRun.platform` (`all` = a run from before the split); a run saves only its own platform's rows, so it never touches the others'. With «Є проблеми» on, a button re-checks the people with a problem ON THAT PLATFORM. A started run is audited as
   `ProfileCheckRun`.
+- **A failed attempt NEVER replaces a real result** (owner, 2026-11-05). `failed`
+  means we could not ask (blocked, no browser, network) and says nothing about
+  the profile. When Google began refusing, a re-run wrote «Не вдалося» over 294
+  saved Scholar results. `saveResult` now keeps a stored answer (`ok`,
+  `warning`, `error`) when the new status is `failed`; with nothing stored, or
+  only an earlier failure, the failure IS written so the page shows it. A genuine
+  `error` («profile not found») is an answer and does replace. The run counts
+  its failures (`ProfileCheckRun.failed`, «не вдалося перевірити: N — попередні
+  дані збережено» on the panel) and the per-person re-check says so too.
+- **A run button opens a choice** (owner, 2026-11-05): «ще не перевіряли» /
+  «всіх» / «Скасувати», over the people shown (with a filter) or everyone with a
+  link on that platform. «Не перевіряли» = has a link and (no stored row, or the
+  last attempt `failed`, or `no_link` with a link added since) —
+  `lib/profile-check/pending.ts`, resolved on the server in `startRun`
+  (`onlyMissing`), never from ids the browser sends. A site that refuses a long
+  run part-way can thus be finished later without asking the first ones again.
 - **Concurrency 4**, one retry on 429/5xx: ORCID's public API is rate limited.
 - Excel: `/api/export/profile-checks` (ADMIN), the page's own filters.
 

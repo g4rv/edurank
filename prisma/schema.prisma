@@ -1986,6 +1986,9 @@ model ProfileCheckRun {
   status      ProfileCheckRunStatus @default(RUNNING)
   total       Int
   done        Int                   @default(0)
+  /// How many of `done` could not be checked (blocked, no browser, network). Their
+  /// earlier results are kept — see lib/profile-check/store.ts
+  failed      Int                   @default(0)
   startedAt   DateTime              @default(now())
   heartbeatAt DateTime              @default(now())
   finishedAt  DateTime?

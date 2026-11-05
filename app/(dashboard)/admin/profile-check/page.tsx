@@ -1,12 +1,15 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
 import { listDepartments } from '@/lib/queries/list-departments';
 import { listProfileChecks } from '@/lib/queries/list-profile-checks';
 import { DepartmentSelect } from '@/components/department-select';
 import { ProfileCheckRun } from '@/components/admin/profile-check-run';
 import { ProfileCheckSearch } from '@/components/admin/profile-check-search';
 import { ProfileCheckTable } from '@/components/admin/profile-check-table';
+import { runCounts, type StoredCell } from '@/lib/profile-check/pending';
+import { listPeopleToCheck } from '@/lib/profile-check/people';
 import { CHECKERS } from '@/lib/profile-check/platforms';
 import { plural } from '@/lib/profile-check/tally';
 import { PLATFORMS, type Platform } from '@/lib/profile-check/types';
@@ -32,27 +35,37 @@ export default async function ProfileCheckPage({
   const onlyProblems = only === 'problems';
   const q = rawQ?.trim() || undefined;
 
-  const [run, all, departments] = await Promise.all([
+  const [run, all, departments, people] = await Promise.all([
     getRunStates(),
     listProfileChecks({ departmentId: department || undefined, q }),
     listDepartments(),
+    // Everyone a run could ask about, under the same filters — the popup says how many
+    listPeopleToCheck(db, { departmentId: department || undefined, q }),
   ]);
   const rows = onlyProblems ? all.filter((r) => r.problem) : all;
 
-  // Per platform: who its button would re-check. «Problems» are that platform's own
+  // Per platform, for the run popup: how many people are in scope, and how many of
+  // them have no answer yet. «Problems» are that platform's own.
   const implemented = Object.fromEntries(
     PLATFORMS.map((p) => [p, CHECKERS[p].implemented])
   ) as Record<Platform, boolean>;
+  const stored = new Map<string, Partial<Record<Platform, StoredCell>>>(
+    all.map((r) => [r.staffId, r.cells])
+  );
   const counts = Object.fromEntries(
     PLATFORMS.map((p) => [
       p,
-      onlyProblems
-        ? all.filter((r) => r.problemPlatforms.includes(p)).length
-        : department || q
-          ? all.length
-          : null,
+      runCounts(
+        people,
+        stored,
+        p,
+        onlyProblems
+          ? new Set(all.filter((r) => r.problemPlatforms.includes(p)).map((r) => r.staffId))
+          : undefined
+      ),
     ])
-  ) as Record<Platform, number | null>;
+  ) as Record<Platform, { all: number; missing: number }>;
+  const filtered = Boolean(department || q || onlyProblems);
 
   function href(next: { only?: string }) {
     const params = new URLSearchParams();
@@ -86,11 +99,12 @@ export default async function ProfileCheckPage({
         </p>
       </div>
 
-      {/* With a filter each button re-checks the people it shows, not all of them */}
+      {/* Each button opens a choice; with a filter it covers the people shown, not all */}
       <ProfileCheckRun
         initial={run}
         implemented={implemented}
         filter={{ department: department || undefined, onlyProblems, q }}
+        filtered={filtered}
         counts={counts}
       />
 

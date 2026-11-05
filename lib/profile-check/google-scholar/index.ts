@@ -5,8 +5,12 @@ import { fetchScholarProfile } from './fetch';
 import { createGate, type Gate } from '@/lib/profile-check/gate';
 import { parseScholarProfile, scholarUserId } from './parse';
 
-/** Scholar's own door: about two seconds between requests */
-const scholarGate: Gate = createGate();
+/**
+ * Scholar's own door: about seven seconds between requests. Two seconds got us
+ * blocked — a plain request was redirected to google.com/sorry (2026-11-05) —
+ * and the block lifts by itself after some hours.
+ */
+const scholarGate: Gate = createGate({ gapMs: 6000, jitterMs: 2000 });
 
 function check(
   field: string,

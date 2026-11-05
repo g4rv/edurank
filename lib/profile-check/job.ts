@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@/lib/generated/prisma/client';
 import { logError } from '@/lib/log';
+import { needsCheck } from '@/lib/profile-check/pending';
 import { listPeopleToCheck } from '@/lib/profile-check/people';
 import { checkPeople } from '@/lib/profile-check/run';
 import { saveResult } from '@/lib/profile-check/store';
@@ -21,13 +22,19 @@ type JobClient = Pick<PrismaClient, '$transaction' | 'staff' | 'profileCheck' | 
 
 export type StartedRun =
   | { ok: true; runId: string; people: PersonInput[] }
-  | { ok: false; reason: 'running' | 'nobody' };
+  | { ok: false; reason: 'running' | 'nobody' | 'nothing_new' };
 
 export interface RunScope {
   staffIds?: string[];
   departmentId?: string;
   /** The page's name search */
   q?: string;
+  /**
+   * Only those with no answer yet (`needsCheck`): never checked, or the last
+   * attempt failed. For a platform that refuses a long run part-way — ask the
+   * rest later without asking the first ones again.
+   */
+  onlyMissing?: boolean;
 }
 
 export async function startRun(
@@ -54,8 +61,19 @@ export async function startRun(
     },
   });
 
-  const people = await listPeopleToCheck(client, scope);
+  const { onlyMissing, ...who } = scope;
+  let people = await listPeopleToCheck(client, who);
   if (people.length === 0) return { ok: false, reason: 'nobody' };
+
+  if (onlyMissing) {
+    const stored = await client.profileCheck.findMany({
+      where: { platform, staffId: { in: people.map((x) => x.staffId) } },
+      select: { staffId: true, status: true },
+    });
+    const byStaff = new Map(stored.map((r) => [r.staffId, r]));
+    people = people.filter((x) => needsCheck(x.links[platform], byStaff.get(x.staffId)));
+    if (people.length === 0) return { ok: false, reason: 'nothing_new' };
+  }
 
   const run = await client.profileCheckRun.create({
     data: { platform, total: people.length, startedById },
@@ -72,15 +90,18 @@ export async function executeRun(
   platform: Platform,
   { concurrency = 4 }: { concurrency?: number } = {}
 ): Promise<void> {
+  // Counted in the loop, not read back: how many of this run could not be asked
+  let failed = 0;
   try {
     await checkPeople(people, {
       concurrency,
       platforms: [platform],
       onResult: async (result, done) => {
         await saveResult(client, result);
+        failed += result.platforms.filter((p) => p.status === 'failed').length;
         await client.profileCheckRun.update({
           where: { id: runId },
-          data: { done, heartbeatAt: new Date() },
+          data: { done, failed, heartbeatAt: new Date() },
         });
       },
     });

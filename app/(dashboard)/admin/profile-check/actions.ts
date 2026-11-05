@@ -18,6 +18,8 @@ export type RunState = {
   id: string;
   status: 'RUNNING' | 'DONE' | 'FAILED';
   done: number;
+  /** How many of `done` could not be asked; their earlier results were kept */
+  failed: number;
   total: number;
   startedAt: string;
   finishedAt: string | null;
@@ -51,6 +53,7 @@ export async function getRunStates(): Promise<RunStates | null> {
       id: run.id,
       status: dead ? 'FAILED' : run.status,
       done: run.done,
+      failed: run.failed,
       total: run.total,
       startedAt: run.startedAt.toISOString(),
       finishedAt: run.finishedAt?.toISOString() ?? null,
@@ -70,9 +73,12 @@ export async function getRunStates(): Promise<RunStates | null> {
  * block by one site never holds back another. Two runs of the SAME platform
  * never overlap; different platforms may.
  */
+export type RunMode = 'missing' | 'all';
+
 export async function startProfileCheck(
   platform: string,
-  filter: { department?: string; onlyProblems?: boolean; q?: string } = {}
+  filter: { department?: string; onlyProblems?: boolean; q?: string } = {},
+  mode: RunMode = 'all'
 ): Promise<{ error: string } | { success: true }> {
   const session = await requireAdmin();
   if (!session) return { error: 'Недостатньо прав' };
@@ -94,7 +100,8 @@ export async function startProfileCheck(
   try {
     // The run covers what the page's filters show, resolved here — the browser
     // only says which filters, never which people
-    const scope: RunScope = { departmentId, q };
+    // «missing»: only those with no answer yet — see lib/profile-check/pending.ts
+    const scope: RunScope = { departmentId, q, onlyMissing: mode === 'missing' };
     if (onlyProblems) {
       // «Problems» here are the problems of THIS platform
       const rows = await listProfileChecks({ departmentId, q });
@@ -112,7 +119,9 @@ export async function startProfileCheck(
       error:
         started.reason === 'running'
           ? `Перевірка ${PLATFORM_LABELS[target]} вже виконується`
-          : 'Немає кого перевіряти: ні в кого не вказано профілів',
+          : started.reason === 'nothing_new'
+            ? 'Усіх уже перевірено — немає кого перевіряти'
+            : 'Немає кого перевіряти: ні в кого не вказано профілів',
     };
   }
 
@@ -129,7 +138,9 @@ export async function startProfileCheck(
           {
             platform: PLATFORM_LABELS[target],
             total: started.people.length,
-            scope: departmentId || onlyProblems || q ? 'за фільтром' : 'усі',
+            scope:
+              (departmentId || onlyProblems || q ? 'за фільтром' : 'усі') +
+              (mode === 'missing' ? ', лише ще не перевірені' : ''),
           }
         ),
       },
@@ -161,7 +172,14 @@ export async function recheckPerson(
     const [person] = await listPeopleToCheck(db, { staffId });
     if (!person) return { error: 'У цієї людини немає профілів для перевірки' };
     const platforms = PLATFORMS.filter((p) => CHECKERS[p].implemented);
-    await saveResult(db, await checkPerson(person, { platforms }));
+    const { kept } = await saveResult(db, await checkPerson(person, { platforms }));
+    if (kept.length > 0) {
+      // Not a success: the page would show the OLD result under a fresh click
+      revalidatePath('/admin/profile-check');
+      return {
+        error: `Не вдалося перевірити: ${kept.map((k) => PLATFORM_LABELS[k]).join(', ')}. Попередні дані збережено`,
+      };
+    }
   } catch (e) {
     logError('profileCheck.recheckPerson', e, { userId: session.user.id, staffId });
     return { error: 'Не вдалося перевірити. Спробуйте ще раз' };

@@ -48,3 +48,34 @@ describe('startRun', () => {
     expect(r).toMatchObject({ ok: true, runId: 'r1' });
   });
 });
+
+describe('startRun, only those not yet checked', () => {
+  /** The fake client plus the stored rows a `findMany` over ProfileCheck returns */
+  function withStored(stored: { staffId: string; status: string }[]) {
+    const c = client(false);
+    const findMany = vi.fn(async (_args: unknown) => stored);
+    return { c: { ...c, profileCheck: { findMany } }, findMany };
+  }
+
+  it('skips someone who already has an answer, and starts no run', async () => {
+    const { c } = withStored([{ staffId: 's1', status: 'ok' }]);
+    const r = await startRun(c as never, 'u1', 'orcid', { onlyMissing: true });
+    expect(r).toEqual({ ok: false, reason: 'nothing_new' });
+    expect(c.profileCheckRun.create).not.toHaveBeenCalled();
+  });
+
+  it('takes someone never checked, and someone whose last attempt failed', async () => {
+    for (const stored of [[], [{ staffId: 's1', status: 'failed' }]]) {
+      const { c } = withStored(stored);
+      const r = await startRun(c as never, 'u1', 'orcid', { onlyMissing: true });
+      expect(r).toMatchObject({ ok: true });
+    }
+  });
+
+  it('with «everyone» never reads the stored rows', async () => {
+    const { c, findMany } = withStored([{ staffId: 's1', status: 'ok' }]);
+    const r = await startRun(c as never, 'u1', 'orcid', {});
+    expect(r).toMatchObject({ ok: true });
+    expect(findMany).not.toHaveBeenCalled();
+  });
+});
