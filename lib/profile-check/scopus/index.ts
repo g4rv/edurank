@@ -51,7 +51,7 @@ export const scopusChecker: PlatformChecker = {
         current: null,
         shouldBe: 'ORCID, ім’я, афіліація та h-індекс профілю',
         status: 'info',
-        message: 'Вміст профілю Scopus не перевіряється: для цього потрібен ключ Elsevier API',
+        message: 'не перевіряється — для цього потрібен ключ Elsevier API',
       },
     ];
     return { platform: 'scopus', link: canonical, status: 'ok', checks };
