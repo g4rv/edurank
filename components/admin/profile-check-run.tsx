@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/aurora/ui/button';
 import { Card } from '@/components/aurora/ui/card';
@@ -48,19 +48,26 @@ export function ProfileCheckRun({
 
   const anyRunning = PLATFORMS.some((p) => runs?.[p]?.status === 'RUNNING');
 
+  // The runs as last SEEN, for telling which one just ended. A ref, because the
+  // check must happen in the poll itself: a state updater runs during render,
+  // and refreshing the router from inside one updates another component
+  // mid-render (React: «Cannot update a component while rendering a different
+  // component»).
+  const seen = useRef<RunStates | null>(initial);
+
   const poll = useCallback(async () => {
     const next = await getRunStates();
-    setRuns((prev) => {
-      // A run that just ended: the table has new rows to show
-      if (
-        prev &&
-        next &&
-        PLATFORMS.some((p) => prev[p]?.status === 'RUNNING' && next[p]?.status !== 'RUNNING')
-      ) {
-        router.refresh();
-      }
-      return next;
-    });
+    const before = seen.current;
+    seen.current = next;
+    setRuns(next);
+    // A run that just ended: the table has new rows to show
+    if (
+      before &&
+      next &&
+      PLATFORMS.some((p) => before[p]?.status === 'RUNNING' && next[p]?.status !== 'RUNNING')
+    ) {
+      router.refresh();
+    }
   }, [router]);
 
   useEffect(() => {
@@ -111,7 +118,7 @@ export function ProfileCheckRun({
               >
                 {running
                   ? 'Виконується…'
-                  : count === null || count === undefined
+                  : !ready || count === null || count === undefined
                     ? 'Перевірити'
                     : `Перевірити знову: ${count}`}
               </Button>
