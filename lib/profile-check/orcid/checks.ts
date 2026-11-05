@@ -86,7 +86,7 @@ export function checkEmail(data: OrcidData): Check {
   const personal = addresses.filter((e) => !corporate.includes(e));
 
   const problems: string[] = [];
-  if (!corporate.length) problems.push(`немає корпоративного (@${CORPORATE_DOMAIN})`);
+  if (!corporate.length) problems.push(`немає корпоративного email (@${CORPORATE_DOMAIN})`);
   else if (!corporate.some((e) => e.verified))
     problems.push('корпоративний email не підтверджений');
   if (!personal.length) problems.push('немає особистого email');
