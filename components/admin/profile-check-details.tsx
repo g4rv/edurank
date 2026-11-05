@@ -41,8 +41,8 @@ function shown(value: unknown): string | null {
  * One person's result, one platform at a time (owner's sketch, 2026-11-05):
  * the name and кафедра on top, a switch between the platforms, a link to the
  * profile, then ONE LINE per check — green with a tick when it is fine, red
- * with a cross when it is wrong, amber when doubtful, plain when it is only
- * advice. The «Зараз» value sits under a line that is not fine, so the line
+ * with a cross when it is wrong, yellow with a warning sign when it is doubtful
+ * or only advice. The «Зараз» value sits under a line that is not fine, so the line
  * says what is wrong and the second row says what the profile holds.
  *
  * Mounted per person (`key`), so it always opens on the first platform.
@@ -165,33 +165,27 @@ function CheckLine({ check }: { check: Check }) {
     );
   }
 
+  // Advice is yellow like a warning (owner, 2026-11-05): both mean «look at this»,
+  // and a neutral line next to a green one read as «nothing to do». The icon is
+  // there so the colour is never the only signal.
   const tone =
     check.status === 'ok'
       ? 'text-success'
       : check.status === 'error'
         ? 'text-error-strong'
-        : check.status === 'warning'
-          ? 'text-warning'
-          : 'text-foreground';
-  const Icon =
-    check.status === 'ok'
-      ? CheckIcon
-      : check.status === 'error'
-        ? X
-        : check.status === 'warning'
-          ? TriangleAlert
-          : null;
+        : 'text-warning';
+  const Icon = check.status === 'ok' ? CheckIcon : check.status === 'error' ? X : TriangleAlert;
   // Only a line that is not fine gets its value: a tick needs no proof
   const now = check.status === 'ok' ? null : shown(check.current);
 
   return (
     <li>
-      <div className={`flex items-start gap-2 ${tone}`}>
+      <div className={`flex items-start gap-2 font-semibold ${tone}`}>
         <span className="min-w-0">
           {label}
           {check.message ? `: ${check.message}` : ':'}
         </span>
-        {Icon && <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />}
+        <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       </div>
       {now && (
         <p className="mt-0.5 line-clamp-2 text-xs break-all text-muted-foreground">Зараз: {now}</p>
