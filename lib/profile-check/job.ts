@@ -4,7 +4,7 @@ import { needsCheck } from '@/lib/profile-check/pending';
 import { listPeopleToCheck } from '@/lib/profile-check/people';
 import { checkPeople } from '@/lib/profile-check/run';
 import { saveResult } from '@/lib/profile-check/store';
-import type { PersonInput, Platform } from '@/lib/profile-check/types';
+import type { PersonInput, Platform, PlatformChecker } from '@/lib/profile-check/types';
 
 /**
  * The run as a background job — no queue, no worker (the same call the bulk
@@ -88,21 +88,37 @@ export async function executeRun(
   runId: string,
   people: PersonInput[],
   platform: Platform,
-  { concurrency = 4 }: { concurrency?: number } = {}
+  {
+    concurrency = 4,
+    checkers,
+  }: { concurrency?: number; checkers?: Record<string, PlatformChecker> } = {}
 ): Promise<void> {
   // Counted in the loop, not read back: how many of this run could not be asked
   let failed = 0;
+  let progressWarned = false;
   try {
     await checkPeople(people, {
       concurrency,
       platforms: [platform],
+      checkers,
       onResult: async (result, done) => {
         await saveResult(client, result);
         failed += result.platforms.filter((p) => p.status === 'failed').length;
-        await client.profileCheckRun.update({
-          where: { id: runId },
-          data: { done, failed, heartbeatAt: new Date() },
-        });
+        // Progress is for the page to show, not part of the work: a run of half an
+        // hour must not die because one counter could not be written (a database
+        // blip, or a server still running a client from before a column existed —
+        // that stopped two Scopus runs after one person on 2026-11-05)
+        try {
+          await client.profileCheckRun.update({
+            where: { id: runId },
+            data: { done, failed, heartbeatAt: new Date() },
+          });
+        } catch (e) {
+          if (!progressWarned) {
+            progressWarned = true;
+            logError('profileCheck.progress', e, { runId });
+          }
+        }
       },
     });
     await client.profileCheckRun.update({

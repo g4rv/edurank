@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { startRun, STALE_MS } from './job';
+import { executeRun, startRun, STALE_MS } from './job';
 
 vi.mock('@/lib/profile-check/people', () => ({
   listPeopleToCheck: vi.fn(async () => [
@@ -77,5 +77,80 @@ describe('startRun, only those not yet checked', () => {
     const r = await startRun(c as never, 'u1', 'orcid', {});
     expect(r).toMatchObject({ ok: true });
     expect(findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('executeRun', () => {
+  const people = ['a', 'b', 'c'].map((id) => ({
+    staffId: id,
+    name: id,
+    faculty: null,
+    department: null,
+    links: { scopus: `https://www.scopus.com/authid/detail.uri?authorId=${id}` },
+  }));
+  const checkers = {
+    scopus: {
+      platform: 'scopus' as const,
+      implemented: true,
+      check: vi.fn(async (link: string) => ({
+        platform: 'scopus' as const,
+        link,
+        status: 'ok' as const,
+        checks: [],
+      })),
+    },
+  };
+
+  function runClient(failProgress: boolean) {
+    const upserts: string[] = [];
+    const update = vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+      // The progress write carries `done`; the closing one carries `status`
+      if (failProgress && 'done' in data) throw new Error('Unknown argument `failed`');
+      return data;
+    });
+    return {
+      upserts,
+      update,
+      client: {
+        $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
+        profileCheck: {
+          findMany: async () => [],
+          upsert: async (a: { create: { staffId: string } }) => {
+            upserts.push(a.create.staffId);
+            return a;
+          },
+        },
+        profileCheckRun: { update },
+      },
+    };
+  }
+
+  it('checks everyone and ends as done even when the progress cannot be written', async () => {
+    const { client, upserts, update } = runClient(true);
+    await executeRun(client as never, 'r1', people, 'scopus', { checkers });
+    expect(upserts.sort()).toEqual(['a', 'b', 'c']);
+    const last = update.mock.calls.at(-1)?.[0].data as { status?: string };
+    expect(last.status).toBe('DONE');
+  });
+
+  it('counts a failed attempt on the run', async () => {
+    const { client, update } = runClient(false);
+    const failing = {
+      scopus: {
+        ...checkers.scopus,
+        check: async (link: string) => ({
+          platform: 'scopus' as const,
+          link,
+          status: 'failed' as const,
+          error: 'blocked',
+          checks: [],
+        }),
+      },
+    };
+    await executeRun(client as never, 'r1', people, 'scopus', { checkers: failing });
+    const progress = update.mock.calls
+      .map((c) => c[0].data as { done?: number; failed?: number })
+      .filter((d) => d.done !== undefined);
+    expect(progress.at(-1)).toMatchObject({ done: 3, failed: 3 });
   });
 });
