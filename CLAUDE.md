@@ -1149,19 +1149,26 @@ platform, replaced on every run — a status board, not a history) and
   One `PlatformChecker` per platform in `lib/profile-check/platforms.ts`; a
   placeholder is reported `not_implemented` until its requirements are given. A
   new platform is one checker file.
-- **Google Scholar** (owner, 2026-11-04) is one plain GET of
-  `scholar.google.com/citations?user=<id>`; `lib/profile-check/google-scholar/`.
-  It records the h-index, citations and i10-index (all time and last 5 years) as
-  `ok` checks — NO thresholds yet, the university has given none. The six
-  `<td class="gsc_rsb_std">` cells are read BY POSITION, not by label (labels
-  follow the page language); if the count is not six the result is a warning,
-  never invented numbers. Redirects are NOT followed: to a login page means no
-  such (or a private) profile, to `/sorry`, a 429 or a CAPTCHA body means Google
-  blocked us. **Scholar has no API and blocks scripts**, so `gate.ts` spaces
-  every request (~2 s + jitter, however many people run at once) and, after a
-  block, fails everything for 10 minutes instead of lengthening it. A full run is
-  therefore bound by the gate — several minutes. Verified on 4 real profiles
-  against numbers read by hand.
+- **Google Scholar** (owner, 2026-11-04/05) is one plain GET of
+  `scholar.google.com/citations?user=<id>&sortby=pubdate`;
+  `lib/profile-check/google-scholar/`. **The rules are those of a reference
+  profile the owner named** (`user=0Vx_b04AAAAJ`): (1) the **name** is Latin and
+  carries the person's own ORCID — «Name (ORCID 0000-…)», compared with
+  `Staff.orcidId`; another spelling of the same iD is only advice; (2) the
+  **latest article** is from this year or the last (the MAX year of the page, so
+  an undated row cannot hide the rest); (3) the **description** line names the
+  university (English or Ukrainian, a misspelling is NOT accepted) AND its ROR
+  link `https://ror.org/01p07y544` — the country is advice. The h-index,
+  citations and i10-index (all time and last 5 years) are recorded as `ok`
+  checks and have NO threshold. The six `<td class="gsc_rsb_std">` cells are read
+  BY POSITION, not by label (labels follow the page language); if the count is
+  not six the result is a warning, never invented numbers. Redirects are NOT
+  followed: to a login page means no such (or a private) profile, to `/sorry`,
+  a 429 or a CAPTCHA body means Google blocked us. **Scholar has no API and
+  blocks scripts**, so `gate.ts` spaces every request (~2 s + jitter, however
+  many people run at once) and, after a block, fails everything for 10 minutes
+  instead of lengthening it. Verified against the reference profile and on
+  four others against numbers read by hand.
 - **The university's requirements live in `config.ts`** (name — English or Ukrainian, case/quotes/spacing ignored, a misspelling is NOT accepted — domain, country,
   the personal page host), not in the checks.
 - **The ★ is read from ORCID's website JSON, not its public API** (owner,

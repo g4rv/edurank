@@ -21,14 +21,33 @@ export interface ScholarStats {
   i10Index: AllAndRecent;
 }
 
+export interface ScholarArticle {
+  title: string;
+  /** null when Scholar shows no year for it */
+  year: number | null;
+}
+
 export interface ScholarProfile {
-  /** The name as the person wrote it on the profile */
+  /** The name as the person wrote it on the profile — «Name (ORCID …)» */
   name: string;
+  /**
+   * The description line under the name — the affiliation, which Scholar calls
+   * «Affiliation» in the editor — or null when the person left it empty.
+   */
+  affiliation: string | null;
+  /** The first page of articles, newest first (the fetch asks `sortby=pubdate`) */
+  articles: ScholarArticle[];
   stats: ScholarStats | null;
 }
 
 const NAME_RE = /<div id="gsc_prf_in"[^>]*>([\s\S]*?)<\/div>/;
 const CELL_RE = /<td class="gsc_rsb_std">([^<]*)<\/td>/g;
+// The description is the first `gsc_prf_il` WITHOUT an id: the others (the
+// verified email, the interests) carry one
+const AFFILIATION_RE = /<div class="gsc_prf_il">([\s\S]*?)<\/div>/;
+const ROW_RE = /<tr class="gsc_a_tr">([\s\S]*?)<\/tr>/g;
+const TITLE_RE = /class="gsc_a_at"[^>]*>([\s\S]*?)<\/a>/;
+const YEAR_RE = /<td class="gsc_a_y">[\s\S]*?<span[^>]*>([^<]*)<\/span>/;
 
 function decode(text: string): string {
   return text
@@ -49,12 +68,27 @@ export function parseScholarProfile(html: string): ScholarProfile | null {
   const name = decode(nameMatch[1]);
   if (!name) return null;
 
+  const affMatch = AFFILIATION_RE.exec(html);
+  const affiliation = affMatch ? decode(affMatch[1]) || null : null;
+
+  const articles: ScholarArticle[] = [...html.matchAll(ROW_RE)].map((m) => {
+    const year = Number.parseInt(YEAR_RE.exec(m[1])?.[1] ?? '', 10);
+    return {
+      title: decode(TITLE_RE.exec(m[1])?.[1] ?? ''),
+      year: Number.isNaN(year) ? null : year,
+    };
+  });
+
   const cells = [...html.matchAll(CELL_RE)].map((m) => Number(m[1].replace(/\D/g, '')));
-  if (cells.length !== 6 || cells.some((n) => !Number.isFinite(n))) return { name, stats: null };
+  if (cells.length !== 6 || cells.some((n) => !Number.isFinite(n))) {
+    return { name, affiliation, articles, stats: null };
+  }
 
   const [cAll, cRecent, hAll, hRecent, iAll, iRecent] = cells;
   return {
     name,
+    affiliation,
+    articles,
     stats: {
       citations: { all: cAll, recent: cRecent },
       hIndex: { all: hAll, recent: hRecent },

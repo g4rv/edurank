@@ -12,33 +12,9 @@ import {
   isUniversityName,
   UNIVERSITY_PROFILE_HOST_PATH,
 } from '@/lib/profile-check/config';
+import { latinKind } from '@/lib/profile-check/latin';
 import type { Check, CheckStatus } from '@/lib/profile-check/types';
 import type { OrcidData } from './extract';
-
-const LATIN_RE = /^[A-Za-z\s\-'.,]+$/;
-
-/** Cyrillic letters drawn exactly like Latin ones — a typing slip worth naming */
-const LOOKALIKES: Record<string, string> = {
-  а: 'a',
-  е: 'e',
-  о: 'o',
-  р: 'p',
-  с: 'c',
-  х: 'x',
-  і: 'i',
-  А: 'A',
-  В: 'B',
-  Е: 'E',
-  О: 'O',
-  Р: 'P',
-  С: 'C',
-  Х: 'X',
-  М: 'M',
-  Н: 'H',
-  Т: 'T',
-  К: 'K',
-  У: 'Y',
-};
 
 const WOS_URL_RE = /webofscience\.com|researcherid\.com|researcher-id\.com/i;
 const SCOPUS_URL_RE = /scopus\.com/i;
@@ -60,9 +36,9 @@ export function checkName(data: OrcidData): Check {
   const should = 'Лише латинські символи';
   const full = `${data.name.given} ${data.name.family}`.trim();
   if (!full) return check('name', null, should, 'error', "Ім'я відсутнє");
-  if (LATIN_RE.test(full)) return check('name', full, should, 'ok');
-  const folded = [...full].map((c) => LOOKALIKES[c] ?? c).join('');
-  if (LATIN_RE.test(folded)) {
+  const kind = latinKind(full);
+  if (kind === 'latin') return check('name', full, should, 'ok');
+  if (kind === 'lookalike') {
     return check(
       'name',
       full,

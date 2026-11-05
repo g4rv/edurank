@@ -1,4 +1,6 @@
-import type { Check, PlatformChecker } from '@/lib/profile-check/types';
+import { normaliseOrcid } from '@/lib/orcid';
+import { worstStatus, type Check, type PlatformChecker } from '@/lib/profile-check/types';
+import { checkScholarDescription, checkScholarName, checkScholarWorks } from './checks';
 import { fetchScholarProfile } from './fetch';
 import { scholarGate, type Gate } from './gate';
 import { parseScholarProfile, scholarUserId } from './parse';
@@ -14,17 +16,20 @@ function check(
 }
 
 /**
- * Google Scholar: the profile exists and has its numbers. The h-index,
+ * Google Scholar, judged against the reference profile (owner, 2026-11-05): the
+ * name carries the person's ORCID, the latest article is from this year or the
+ * last, and the description names the university with its ROR link. The h-index,
  * citations and i10-index are recorded as `ok` checks so the page can show
- * them; there are no thresholds yet — the university has not given any, and
- * inventing one would flag people for nothing. When it does, a rule is one more
- * check here.
+ * them; they have no threshold — the university has not given one.
  */
-export function createScholarChecker(gate: Gate = scholarGate): PlatformChecker {
+export function createScholarChecker(
+  gate: Gate = scholarGate,
+  now: () => Date = () => new Date()
+): PlatformChecker {
   return {
     platform: 'googleScholar',
     implemented: true,
-    async check(link, { fetchImpl }) {
+    async check(link, { person, fetchImpl }) {
       const id = scholarUserId(link);
       if (!id) {
         return {
@@ -90,8 +95,11 @@ export function createScholarChecker(gate: Gate = scholarGate): PlatformChecker 
           checks: [],
         };
       }
+      // The reference profile's three requirements, then its numbers
       const checks: Check[] = [
-        check('profile', profile.name, 'Відкритий профіль Google Scholar', 'ok'),
+        checkScholarName(profile, normaliseOrcid(person.links.orcid)),
+        checkScholarWorks(profile, now()),
+        checkScholarDescription(profile),
       ];
       if (profile.stats) {
         const { hIndex, citations, i10Index } = profile.stats;
@@ -114,7 +122,7 @@ export function createScholarChecker(gate: Gate = scholarGate): PlatformChecker 
       return {
         platform: 'googleScholar',
         link: canonical,
-        status: checks.some((c) => c.status === 'warning') ? 'warning' : 'ok',
+        status: worstStatus(checks),
         checks,
       };
     },

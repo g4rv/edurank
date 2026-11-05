@@ -19,7 +19,8 @@ export type ScholarFetch =
   | { kind: 'error'; message: string };
 
 /**
- * Scholar has no API and rate-limits by address, so this is slow on purpose —
+ * `sortby=pubdate` lists the newest articles first, so the latest one is on the
+ * single page we read. Scholar has no API and rate-limits by address, so this is slow on purpose —
  * see `gate.ts`. Redirects are NOT followed, because where one points says what
  * happened: to a login page is «no such profile», to `/sorry` is a block.
  */
@@ -29,11 +30,14 @@ export async function fetchScholarProfile(
 ): Promise<ScholarFetch> {
   let res: Response;
   try {
-    res = await fetchImpl(`${PROFILE_URL}?user=${encodeURIComponent(userId)}&hl=en`, {
-      headers: HEADERS,
-      redirect: 'manual',
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+    res = await fetchImpl(
+      `${PROFILE_URL}?user=${encodeURIComponent(userId)}&hl=en&sortby=pubdate`,
+      {
+        headers: HEADERS,
+        redirect: 'manual',
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      }
+    );
   } catch (e) {
     return { kind: 'error', message: e instanceof Error ? e.message : 'Мережева помилка' };
   }

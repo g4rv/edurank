@@ -31,3 +31,11 @@ export const CORPORATE_DOMAIN = 'uhsp.edu.ua';
 export const COUNTRY_CODE = 'UA';
 /** The personal page on the university site that ORCID must link to */
 export const UNIVERSITY_PROFILE_HOST_PATH = 'uhsp.edu.ua/personnel/';
+
+/**
+ * The university's ROR record, which a Google Scholar profile's description
+ * must link to — «Hryhorii Skovoroda University in Pereiaslav
+ * (https://ror.org/01p07y544). UKRAINE», as on the reference profile.
+ */
+export const UNIVERSITY_ROR = 'https://ror.org/01p07y544';
+export const UNIVERSITY_COUNTRY_EN = 'UKRAINE';
