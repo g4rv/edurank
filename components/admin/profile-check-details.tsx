@@ -38,6 +38,17 @@ function shown(value: unknown): string | null {
 }
 
 /**
+ * Errors first, then what is fine, then the optional advice (owner, 2026-11-05).
+ * A warning is a real doubt, so it stays with the errors, just below them.
+ */
+const RANK: Record<Check['status'], number> = { error: 0, warning: 1, ok: 2, info: 3 };
+
+/** Sorted by status; the checks keep their own order within one status. */
+function sorted(checks: Check[]): Check[] {
+  return [...checks].sort((a, b) => RANK[a.status] - RANK[b.status]);
+}
+
+/**
  * One person's result, one platform at a time (owner's sketch, 2026-11-05):
  * the name and кафедра on top, a switch between the platforms, a link to the
  * profile, then ONE LINE per check — green with a tick when it is fine, red
@@ -126,7 +137,7 @@ export function ProfileCheckDetails({
 
             {cell && cell.checks.length > 0 && (
               <ul className="space-y-2.5 text-sm">
-                {cell.checks.map((c) => (
+                {sorted(cell.checks).map((c) => (
                   <CheckLine key={c.field} check={c} />
                 ))}
               </ul>
@@ -180,7 +191,7 @@ function CheckLine({ check }: { check: Check }) {
 
   return (
     <li>
-      <div className={`flex items-start gap-2 font-semibold ${tone}`}>
+      <div className={`flex items-start gap-2 font-semibold opacity-90 ${tone}`}>
         <span className="min-w-0">
           {label}
           {check.message ? `: ${check.message}` : ':'}
