@@ -164,7 +164,7 @@ describe('checks', () => {
       ...data,
       emails: [{ email: 'a@uhsp.edu.ua.evil.com', verified: true, primary: true }],
     };
-    expect(checkEmail(fake).message).toMatch(/Немає корпоративного email (@uhsp.edu.ua)/);
+    expect(checkEmail(fake).message).toContain('Немає корпоративного email (@uhsp.edu.ua)');
   });
 
   it('requires the other profiles only when the person gave them', () => {
