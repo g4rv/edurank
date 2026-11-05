@@ -22,6 +22,7 @@ import {
 } from '@/components/aurora/ui/select';
 import { recheckPerson } from '@/app/(dashboard)/admin/profile-check/actions';
 import { CHECK_FIELD_LABELS, METRIC_LABELS, PLATFORM_LABELS } from '@/lib/profile-check/labels';
+import { tally } from '@/lib/profile-check/tally';
 import { PLATFORMS, type Check, type Platform } from '@/lib/profile-check/types';
 import type { ProfileCheckRow } from '@/lib/queries/list-profile-checks';
 import { KYIV } from '@/lib/kyiv-time';
@@ -81,6 +82,7 @@ export function ProfileCheckDetails({
   const [pending, startTransition] = useTransition();
 
   const cell = row.cells[platform];
+  const stats = cell ? tally(cell.checks) : [];
 
   function recheck() {
     setError(null);
@@ -121,16 +123,36 @@ export function ProfileCheckDetails({
 
         <DialogBody>
           <div className="min-h-48 space-y-4">
-            {cell?.link && (
-              <a
-                href={cell.link}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-brand-strong hover:underline"
-              >
-                Переглянути
-                <ArrowUpRight className="size-4" aria-hidden />
-              </a>
+            {(cell?.link || stats.length > 0) && (
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                {cell?.link ? (
+                  <a
+                    href={cell.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-brand-strong hover:underline"
+                  >
+                    Переглянути
+                    <ArrowUpRight className="size-4" aria-hidden />
+                  </a>
+                ) : (
+                  <span />
+                )}
+                {stats.length > 0 && (
+                  <p className="flex flex-wrap gap-x-2 text-sm font-medium" aria-label="Підсумок">
+                    {stats.map((s, i) => (
+                      <span key={s.text} className="flex gap-2">
+                        {i > 0 && (
+                          <span className="text-muted-foreground" aria-hidden>
+                            ·
+                          </span>
+                        )}
+                        <span className={s.tone}>{s.text}</span>
+                      </span>
+                    ))}
+                  </p>
+                )}
+              </div>
             )}
 
             {!cell && <p className="text-sm text-muted-foreground">Ще не перевірялося.</p>}
