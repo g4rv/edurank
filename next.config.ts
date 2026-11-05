@@ -146,6 +146,9 @@ const nextConfig: NextConfig = {
   // `.next/static` and `public`. Miss them and the app boots and serves HTML
   // with no CSS and no fonts — a working site that looks broken.
   output: 'standalone',
+  // A browser driver is loaded at run time (Web of Science check) and does its own
+  // dynamic requires: bundling it breaks it, so it stays a plain node_modules import
+  serverExternalPackages: ['playwright-core'],
   ...(isDev ? { allowedDevOrigins: TUNNEL_ORIGINS } : {}),
   experimental: {
     ...(isDev ? { serverActions: { allowedOrigins: TUNNEL_ORIGINS } } : {}),

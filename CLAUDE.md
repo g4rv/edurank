@@ -447,6 +447,9 @@ pnpm db:import-aspirants  # the аспіранти list into Aspirant + their к
                       #   writes; --apply --pick ALSO switches п.12 to the select
                       #   (off until a complete list is in). Re-run with every
                       #   new list — upserts, never doubles.
+pnpm profiles:check   # read-only: ORCID of every active НПП against the university's
+                      #   requirements → profile-check-report.json (gitignored). --limit N,
+                      #   --concurrency N. The admin page /admin/profile-check does the same.
 pnpm db:generate      # prisma generate (run after any schema change)
 pnpm db:studio        # Prisma Studio at localhost:5555
 
@@ -1132,6 +1135,146 @@ Information only — they feed nothing.
   «Зберегти» saves.
 - Audited as one readable line per certificate on the `Staff` entry
   (`englishCertificate`, `ukrainianCertificate` in `FIELD_LABELS`).
+
+## Перевірка профілів (built, owner 2026-11-04)
+
+ADMIN-only page `/admin/profile-check`: the ORCID, Web of Science, Scopus and
+Google Scholar of every active НПП, judged against what the university requires.
+Ported from the standalone Python `npp-profile-scraper`. Code in
+`lib/profile-check/`; tables `ProfileCheck` (latest result per person and
+platform, replaced on every run — a status board, not a history) and
+`ProfileCheckRun`.
+
+- **Four platforms, one `PlatformChecker` each** (`lib/profile-check/platforms.ts`).
+  ORCID and Google Scholar are read over plain HTTP; **Web of Science through a
+  browser**; **Scopus only by its link** (below). A platform with no checker
+  would be reported `not_implemented`.
+- **Web of Science** (owner, 2026-11-05) has no key-free API and its profile page
+  is a JavaScript shell, so it is read in a browser (Playwright, the TypeScript
+  counterpart of the old tool's Selenium; `lib/profile-check/browser.ts`). The
+  profile shows without a login: name (`h1.wat-author-name`), the organisation,
+  ResearcherID, ORCID and the Core Collection h-index. **Rules:** the ORCID on it
+  is the person's own, the name is Latin, the organisation is the university
+  (English or Ukrainian, a misspelling is not accepted); the h-index is a number
+  with no threshold; the profile must carry its **Subject Categories** (owner,
+  2026-11-05: a check, not information) — none on the page is an error; the
+  heading present but no chip readable is only a warning, because that is our
+  doubt. They are read one chip each from `.Subjectcategory-chips`, since the
+  visible text runs them together. A missing
+  record redirects to `/wos/error/authorNotFound`. **WoS rate-limits (owner
+  2026-11-05, found the hard way):** after about a dozen profile loads from one
+  address in an hour its own data calls (`/api/esti/SearchEngine/search`) answered
+  **429** and the page stayed an empty shell. That is reported as a block, not as
+  «did not load» (`whyNoProfile`); the door (`wosGate`) is ~10 s apart and a
+  refusal closes it for ten minutes, so a full run takes ~25 minutes and may still
+  be refused part-way. Do not hammer it while testing.
+  **The browser is honest on purpose** — no stealth flags, no spoofed agent; a
+  challenge page («Just a moment…») is reported as a block and everything fails
+  fast for 10 minutes, never worked around. It needs a browser on the machine. With none of
+  the settings below, an installed Playwright Chromium, Chrome or Edge is tried
+  in turn — so a laptop works as it is. On a server set one:
+  `PROFILE_BROWSER_WS` (a separate container — keeps ~300 MB of Chromium out of
+  the app image), `PROFILE_BROWSER_PATH` or `PROFILE_BROWSER_CHANNEL`. If nothing
+  starts, the platform says «Браузер недоступний» with the setting to use, the
+  REAL reason for every candidate is logged once (`profileCheck.browser`), and
+  the rest are unaffected; a failed start is not retried for a minute. **Not in
+  the Docker image today — prod needs one of the three before this check works.**
+  Whether Clarivate's terms allow it is the owner's call; the Researcher API
+  (key, probably an institutional subscription) is the clean route.
+- **Scopus through Elsevier's Author Retrieval API** (owner, 2026-11-05), when
+  `SCOPUS_API_KEY` is set (`lib/profile-check/scopus/`; the key is free for
+  non-commercial use — 5,000 requests a week, 3 a second; it lives in `.env`, never
+  in git). `GET api.elsevier.com/content/author/author_id/<id>?view=ENHANCED`
+  with the key in `X-ELS-APIKey` returns the ORCID, name, current affiliation,
+  h-index and subject areas. **Rules, the same as for WoS:** the ORCID on the
+  profile is the person's own, the name is Latin, the CURRENT affiliation is the
+  university (English or Ukrainian, a misspelling is not accepted), the profile
+  carries its subject areas, and the h-index is a number with no threshold.
+  **Without a key Elsevier answers 200 with a «minimized metadata response» —
+  only the author id** — and scopus.com itself sends everything but a signed-in
+  browser to a login, so the profile cannot be read any other way. That minimized
+  answer is reported as «the key does not give the profile» (`minimized`), never
+  as an empty profile. With no key set the checker reads only `authorId=` from the
+  link and says so. A 429 closes the door for ten minutes like the other sites';
+  the gate is ~0.5 s. **What the ORCID check adds:** the Scopus Author ID and the
+  WoS ResearcherID listed on ORCID must be the SAME as in the person's own links
+  (a numeric WoS record id cannot be compared and is skipped).
+- **Google Scholar** (owner, 2026-11-04/05) is one plain GET of
+  `scholar.google.com/citations?user=<id>&sortby=pubdate`;
+  `lib/profile-check/google-scholar/`. **The rules are those of a reference
+  profile the owner named** (`user=0Vx_b04AAAAJ`): (1) the **name** is Latin and
+  carries the person's own ORCID — «Name (ORCID 0000-…)», compared with
+  `Staff.orcidId`; another spelling of the same iD is only advice; (2) the
+  **latest article** is from this year or the last (the MAX year of the page, so
+  an undated row cannot hide the rest); (3) the **description** line names the
+  university (English or Ukrainian, a misspelling is NOT accepted) AND its ROR
+  link `https://ror.org/01p07y544` — the country is advice. The h-index,
+  citations and i10-index (all time and last 5 years) are recorded as `ok`
+  checks and have NO threshold. The six `<td class="gsc_rsb_std">` cells are read
+  BY POSITION, not by label (labels follow the page language); if the count is
+  not six the result is a warning, never invented numbers. Redirects are NOT
+  followed: to a login page means no such (or a private) profile, to `/sorry`,
+  a 429 or a CAPTCHA body means Google blocked us. **Scholar has no API and
+  blocks scripts**, so `gate.ts` spaces every request (~7 s + jitter — 2 s got us blocked, owner 2026-11-05 — however
+  many people run at once) and, after a block, fails everything for 10 minutes
+  instead of lengthening it. Verified against the reference profile and on
+  four others against numbers read by hand.
+- **The university's requirements live in `config.ts`** (name — English or Ukrainian, case/quotes/spacing ignored, a misspelling is NOT accepted — domain, country,
+  the personal page host), not in the checks.
+- **The ★ is read from ORCID's website JSON, not its public API** (owner,
+  2026-11-04): `orcid.org/<id>/affiliationGroups.json`, an employment with
+  `featured: true`. Checked against the rendered page on two profiles — one
+  starred, one not — and they agree; `display-index` is NOT the star (matched in
+  5 of 8). It is an undocumented endpoint, so any failure to read it leaves the
+  star unknown and the check says «не вдалося перевірити», never «гаразд». No
+  headless browser: the Python tool's Selenium was for this one bit.
+- **A run is a background job in the server process** (no queue, no worker):
+  `startRun` writes the row and returns, `executeRun` saves each person as they
+  finish, the page polls `getRunState`. `heartbeatAt` tells a dead run (server
+  restarted mid-run) from a live one — after `STALE_MS` it is marked FAILED when
+  the next run starts. **One run per platform** (owner, 2026-11-04): four buttons, one per platform, because the speeds do not compare (Scholar is spaced to ~2 s a person, ORCID is not) and a block by one site must hold nothing back. Two runs of the SAME platform never overlap; ORCID and Scholar may run at once. `ProfileCheckRun.platform` (`all` = a run from before the split); a run saves only its own platform's rows, so it never touches the others'. With «Є проблеми» on, a button re-checks the people with a problem ON THAT PLATFORM. A started run is audited as
+  `ProfileCheckRun`.
+- **A failed attempt NEVER replaces a real result** (owner, 2026-11-05). `failed`
+  means we could not ask (blocked, no browser, network) and says nothing about
+  the profile. When Google began refusing, a re-run wrote «Не вдалося» over 294
+  saved Scholar results. `saveResult` now keeps a stored answer (`ok`,
+  `warning`, `error`) when the new status is `failed`; with nothing stored, or
+  only an earlier failure, the failure IS written so the page shows it. A genuine
+  `error` («profile not found») is an answer and does replace. The run counts
+  its failures (`ProfileCheckRun.failed`, «не вдалося перевірити: N — попередні
+  дані збережено» on the panel) and the per-person re-check says so too.
+- **A run button opens a choice** (owner, 2026-11-05): «ще не перевіряли» /
+  «всіх» / «Скасувати», over the people shown (with a filter) or everyone with a
+  link on that platform. «Не перевіряли» = has a link and (no stored row, or the
+  last attempt `failed`, or `no_link` with a link added since) —
+  `lib/profile-check/pending.ts`, resolved on the server in `startRun`
+  (`onlyMissing`), never from ids the browser sends. A site that refuses a long
+  run part-way can thus be finished later without asking the first ones again.
+- **A minute between two runs of one platform** (owner, 2026-11-05): after a run
+  ends, the same platform cannot start another for `RUN_COOLDOWN_MS` (60 s,
+  `lib/profile-check/cooldown.ts`). Pressing the button again and again is how
+  Google and WoS were made to refuse us. The server enforces it in `startRun`
+  (counted from the last run's `finishedAt`; a run that never ended has none and
+  does not count); the button only counts it down («Зачекайте 52 с»). Per
+  platform, because the sites' limits are per site. A person's re-check is not a
+  run and is not held by it.
+- **Every run counts its requests** (owner, 2026-11-05; `lib/profile-check/usage.ts`).
+  Each limit that matters is a number of requests, and Google and WoS publish none
+  — a count is the only way to learn where they cut us off. `countingFetch` wraps
+  the `fetch` a checker is given, so ORCID, Scholar and Scopus are counted without
+  knowing; WoS is read in a browser, so its checker calls `countRequest()` once
+  per page load (the page's own data calls are not counted — its figure is a
+  floor). The run row keeps `requests`, and — where the site says so in its
+  headers, as Elsevier does (`X-RateLimit-*`) — `quotaLimit` / `quotaRemaining` /
+  `quotaResetAt`. The panel shows the last 7 days per platform and Elsevier's real
+  remaining quota while its window is open. **Known limits:** ORCID's anonymous
+  public API 12 requests/s, 40 burst (over it: 503), 25,000 reads a day per IP —
+  a registered client 100,000 a day (ORCID FAQ, 2025; it sends no usage headers);
+  Elsevier 5,000 a week and 3/s per key. A person's re-check is not a run and is
+  not counted. The usage read never breaks the page: a server on a stale database
+  client shows 0 and logs.
+- **Concurrency 4**, one retry on 429/5xx: ORCID's public API is rate limited.
+- Excel: `/api/export/profile-checks` (ADMIN), the page's own filters.
 
 ## Naming conventions
 

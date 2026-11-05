@@ -135,7 +135,8 @@ Every box is optional.
 way too much space»). Each entry of 14/15, and the single block of 16/17, is a
 card naming it by its first filled box with «Заповнено N з M»; «Додати …» /
 «Заповнити» / the pencil open a popup that edits a draft and hands it back
-with «Готово». Nothing is stored until the page's one «Зберегти» — the
+with «Готово», which saves the report at once (save on blur, owner
+2026-11-04; there is no «Зберегти» button). Formerly the
 profile's diploma pattern. A popup closed with nothing typed adds nothing.
 Read-only (a декан, a closed year) prints the full text instead.
 
@@ -226,7 +227,7 @@ copy the shape of `/stakes` and `/stakes/[id]`.
   as the one accent figure. Part 1 as a table: №, Назва критерію, К-сть
   (number input / select for item 3), Бал (computed live). Headings 1, 2, 6, 7,
   12 as group rows. Part 2 below as cards (14, 15, 16, 17), item 14 and 15 with
-  «Додати» for the repeated rows up to their limit. One «Зберегти», the
+  «Додати» for the repeated rows up to their limit. Saved on blur — a count when its box is left, a choice when picked, a popup on «Готово»; no «Зберегти» button. The
   unsaved-changes guard (`components/unsaved-changes-guard.tsx`). Read-only
   render for a декан and for a closed year.
 - **Excel:** «Вивантажити Excel» on the report page →

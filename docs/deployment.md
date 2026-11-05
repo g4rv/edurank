@@ -62,6 +62,10 @@ Set these on the application resource. There is no `.env` file in the image —
 | `R2_SECRET_ACCESS_KEY`    | R2 API token secret                      |                                                                                                                                                     |
 | `R2_BUCKET`               | e.g. `edurank`                           |                                                                                                                                                     |
 | `R2_JURISDICTION`         | `eu` for an EU bucket, else unset        | An EU bucket answers only at `<account>.**eu**.r2.cloudflarestorage.com`. With the plain host it reports `NoSuchBucket` using perfectly valid keys. |
+| `SCOPUS_API_KEY`          | Elsevier API key (optional)              | «Перевірка профілів», Scopus. Free, non-commercial, 5,000 requests a week. Without it Scopus is checked by its link only. See §3b.                  |
+| `PROFILE_BROWSER_WS`      | e.g. `ws://browser:3000` (optional)      | A browser running elsewhere, for the Web of Science check. See §3b.                                                                                 |
+| `PROFILE_BROWSER_PATH`    | path to Chrome/Chromium (optional)       | Same, a browser on this machine. See §3b.                                                                                                           |
+| `PROFILE_BROWSER_CHANNEL` | `chrome` or `msedge` (optional)          | Same, the one installed on this machine. See §3b.                                                                                                   |
 
 The `R2_*` block is **not** checked at boot: a developer with no R2 access has
 to be able to run everything else. The cost is that a missing variable shows up
@@ -124,6 +128,42 @@ curl -i -X OPTIONS 'https://<account>.eu.r2.cloudflarestorage.com/<bucket>/probe
 
 **Also turn on bucket versioning** (same Settings page) — see §7: nothing else
 backs these files up.
+
+## 3b. Перевірка профілів — what it needs
+
+`/admin/profile-check` (ADMIN only) checks every НПП's ORCID, Web of Science,
+Scopus and Google Scholar. Nothing here blocks a deploy, and **none of it is
+required to boot** — each platform degrades on its own and says why.
+
+- **Migrations: four, additive** (`20261104150000_profile_check`,
+  `…_run_platform`, `…_run_failed`, `…_run_requests`): two new tables
+  (`ProfileCheck`, `ProfileCheckRun`) and one enum. Nothing existing is
+  touched — applied to a copy of production the staff, activity and audit counts
+  and a hash of every id/ORCID/email were identical. The old code ignores the
+  tables, so rolling the image back leaves them unused and harmless.
+- **Outbound HTTPS** must be allowed from the container to `pub.orcid.org`,
+  `orcid.org`, `scholar.google.com` and `api.elsevier.com` (and
+  `www.webofscience.com` for the browser). If everything comes back «Не вдалося»,
+  that is the first thing to check.
+- **ORCID** needs nothing: the public API, anonymous (12 requests a second, 25,000
+  reads a day per address — a full run is about 900).
+- **Scopus** needs `SCOPUS_API_KEY`. Without it the check reads only the author id
+  from the link and says the profile was not read.
+- **Google Scholar** needs nothing but **may be refused from a datacenter address**:
+  it has no API and blocks scripts, and its block lifts by itself after some hours.
+  A refused run keeps every earlier result (a failed attempt never replaces real
+  data) and can be finished later with «ще не перевіряли».
+- **Web of Science** is read in a browser, and **the image has none** (the driver,
+  `playwright-core`, is 12 MB; Chromium would be ~300 MB). Until you provide one
+  the platform says «Браузер недоступний». Set `PROFILE_BROWSER_WS` to a browser
+  in a separate container (keeps the app image small), or install Chromium in the
+  image and set `PROFILE_BROWSER_PATH`. WoS also rate-limits (429): a full run is
+  ~25 minutes and may be refused part-way.
+- A run is a background job in the app process: **do not redeploy while one is
+  running** — it dies, shows as failed after two minutes, and its saved results
+  stay. Finish it with «ще не перевіряли».
+- The saved results include the e-mail addresses people made public on ORCID, so
+  they are in the database backups.
 
 ## 4. First boot
 
