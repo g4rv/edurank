@@ -43,9 +43,18 @@ function shown(value: unknown): string | null {
  */
 const RANK: Record<Check['status'], number> = { error: 0, warning: 1, ok: 2, info: 3 };
 
-/** Sorted by status; the checks keep their own order within one status. */
-function sorted(checks: Check[]): Check[] {
-  return [...checks].sort((a, b) => RANK[a.status] - RANK[b.status]);
+/**
+ * The checks in three groups, in the order above — what is wrong (errors and
+ * warnings), what is fine, the optional advice — each keeping the checks' own
+ * order. The popup draws a line between the groups that are present.
+ */
+function grouped(checks: Check[]): Check[][] {
+  const sorted = [...checks].sort((a, b) => RANK[a.status] - RANK[b.status]);
+  const groups: Check[][] = [[], [], []];
+  for (const c of sorted) {
+    groups[c.status === 'error' || c.status === 'warning' ? 0 : c.status === 'ok' ? 1 : 2].push(c);
+  }
+  return groups.filter((g) => g.length > 0);
 }
 
 /**
@@ -136,11 +145,15 @@ export function ProfileCheckDetails({
             {cell?.error && <p className="text-sm text-error-strong">{cell.error}</p>}
 
             {cell && cell.checks.length > 0 && (
-              <ul className="space-y-2.5 text-sm">
-                {sorted(cell.checks).map((c) => (
-                  <CheckLine key={c.field} check={c} />
+              <div className="divide-y divide-border text-sm">
+                {grouped(cell.checks).map((group, i) => (
+                  <ul key={i} className="space-y-2.5 py-3 first:pt-0 last:pb-0">
+                    {group.map((c) => (
+                      <CheckLine key={c.field} check={c} />
+                    ))}
+                  </ul>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         </DialogBody>
