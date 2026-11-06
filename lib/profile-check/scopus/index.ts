@@ -10,7 +10,6 @@ import {
 import { fetchScopusAuthor, type ScopusFetch } from './api';
 import {
   checkScopusAffiliation,
-  checkScopusAreas,
   checkScopusHIndex,
   checkScopusName,
   checkScopusOrcid,
@@ -165,7 +164,6 @@ export function createScopusChecker({
         checkScopusName(profile),
         checkScopusAffiliation(profile),
         checkScopusHIndex(profile),
-        checkScopusAreas(profile),
       ];
       return { platform: 'scopus', link: canonical, status: worstStatus(checks), checks };
     },

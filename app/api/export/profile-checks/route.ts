@@ -13,11 +13,6 @@ import { listProfileChecks } from '@/lib/queries/list-profile-checks';
 
 export const runtime = 'nodejs';
 
-/** «Business & Economics; Education & Educational Research», or empty */
-function categoriesOf(check: { current: unknown } | undefined): string {
-  return Array.isArray(check?.current) ? (check.current as string[]).join('; ') : '';
-}
-
 /**
  * The «Перевірка профілів» list as Excel — ADMIN only, the page's own filters
  * (`?department=`, `?only=problems`). NOT covered by `proxy.ts`: every `/api`
@@ -49,7 +44,6 @@ export async function GET(request: Request) {
       { header: 'Кафедра', width: 46 },
       ...PLATFORMS.map((p) => ({ header: PLATFORM_LABELS[p], width: 20 })),
       { header: 'h-індекс (Scholar)', width: 18 },
-      { header: 'Предметні категорії (WoS)', width: 46 },
       { header: 'Що виправити', width: 90 },
     ];
     ws.getRow(1).font = { bold: true };
@@ -77,11 +71,10 @@ export async function GET(request: Request) {
           r.cells[p] ? PLATFORM_STATUS_LABELS[r.cells[p]!.status] : emptyCellText(r.links[p])
         ),
         metricAll(r.cells.googleScholar?.checks.find((c) => c.field === 'h_index')) ?? '',
-        categoriesOf(r.cells.wos?.checks.find((c) => c.field === 'subject_categories')),
         fixes.join('\n'),
       ]);
     }
-    ws.getColumn(PLATFORMS.length + 6).alignment = { wrapText: true, vertical: 'top' };
+    ws.getColumn(PLATFORMS.length + 5).alignment = { wrapText: true, vertical: 'top' };
 
     const buffer = await wb.xlsx.writeBuffer();
     return new Response(buffer as BodyInit, {

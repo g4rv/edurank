@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { nameSearch } from '@/lib/queries/name-search';
 import { ON_ROSTER, onDepartment } from '@/lib/queries/roster';
+import { readAsToday } from '@/lib/profile-check/legacy';
 import {
   PLATFORMS,
   type Check,
@@ -75,11 +76,13 @@ export async function listProfileChecks({
     const cells: ProfileCheckRow['cells'] = {};
     for (const c of s.profileChecks) {
       if (!(PLATFORMS as readonly string[]).includes(c.platform)) continue;
+      // A result saved under the old rules is read as the rules stand today
+      const today = readAsToday(c.status as PlatformStatus, c.checks as unknown as Check[]);
       cells[c.platform as Platform] = {
-        status: c.status as PlatformStatus,
+        status: today.status,
         link: c.link,
         error: c.error,
-        checks: c.checks as unknown as Check[],
+        checks: today.checks,
         checkedAt: c.checkedAt.toISOString(),
       };
     }

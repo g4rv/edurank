@@ -84,6 +84,21 @@ build for long), so deploy on a quiet day.
   hides the old `ProfileCheckRun` entries (they stay in the table).
 - Scopus without a key falls back to reading only the author id from the link.
 
+## Rule changes of 2026-11-06
+
+- **WoS and Scopus: «Предметні категорії» removed** — not a requirement any more.
+  No check, no scraping, no export column.
+- **Google Scholar:** the latest publication is now advice («if you have
+  up-to-date publications, please add them»), never an error. **New checks:**
+  the verified email is at `uhsp.edu.ua`, the homepage link is the person's
+  `uhsp.edu.ua/personnel/…` page (both required), and keywords (advice).
+  The markup selectors (`gsc_prf_ivh`, `gsc_prf_int`, `gsc_prf_inta`) come from
+  memory of Scholar's page and a test fixture, **not from a live page** — the
+  dev IP is blocked. Verify on the first real run, on prod or the university
+  network.
+- Old saved results are read as today's rules (`legacy.ts`), so the page does not
+  show the retired check or the old error until a re-run.
+
 ## Not decided / not built
 
 - A long **saved pause after a Google or WoS block** (~6 h for Google), stored

@@ -73,18 +73,3 @@ export function checkScopusHIndex(profile: ScopusProfile): Check {
   }
   return check('h_index', { all: profile.hIndex }, 'Інформація', 'ok');
 }
-
-/** Scopus calls them «subject areas»; they are what the person's documents are filed under. */
-export function checkScopusAreas(profile: ScopusProfile): Check {
-  const should = 'У профілі вказано предметні області (Subject areas)';
-  if (profile.subjectAreas.length > 0) {
-    return check('subject_categories', profile.subjectAreas, should, 'ok');
-  }
-  return check(
-    'subject_categories',
-    null,
-    should,
-    'error',
-    'У профілі не вказано предметні області'
-  );
-}

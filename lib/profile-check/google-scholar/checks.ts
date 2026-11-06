@@ -2,13 +2,17 @@
  * A Google Scholar profile → the university's requirements, one `Check` each.
  *
  * The requirements are those of the reference profile (owner, 2026-11-05):
- * the name carries the person's ORCID, the latest article is from this year or
- * the last, and the description names the university with its ROR link and
- * country. Pure: the clock and the person's own ORCID come in as arguments.
+ * the name carries the person's ORCID, and the description names the university
+ * with its ROR link and country; the verified email is the university's and its
+ * homepage is the person's page on the university site (2026-11-06). The latest
+ * article and the keywords are advice. Pure: the clock and the person's own
+ * ORCID come in as arguments.
  */
 import {
+  CORPORATE_DOMAIN,
   UNIVERSITY_COUNTRY_EN,
   UNIVERSITY_NAME,
+  UNIVERSITY_PROFILE_HOST_PATH,
   UNIVERSITY_ROR,
   isUniversityName,
 } from '@/lib/profile-check/config';
@@ -74,30 +78,28 @@ export function checkScholarName(profile: ScholarProfile, ownOrcid: string | nul
 }
 
 /**
- * The newest article is from this year or the last. The page is read newest
- * first, but the year is taken as the MAX over the rows rather than from the
- * first one, so an article Scholar shows without a year cannot hide the rest.
+ * The newest article is from this year or the last — a RECOMMENDATION, not a
+ * requirement (owner, 2026-11-06): whoever has up-to-date publications is asked to
+ * add them. The page is read newest first, but the year is taken as the MAX over
+ * the rows rather than from the first one, so an article Scholar shows without a
+ * year cannot hide the rest.
  */
+const RECENT_ADVICE = 'Якщо у вас є актуальні публікації, будь ласка, додайте їх до списку';
+
 export function checkScholarWorks(profile: ScholarProfile, now: Date): Check {
   const year = now.getFullYear();
   const should = `Принаймні 1 публікація; ${year} або ${year - 1} рік`;
   if (profile.articles.length === 0) {
-    return check('most_recent_work', null, should, 'error', 'Публікацій не знайдено');
+    return check('most_recent_work', null, should, 'info', RECENT_ADVICE);
   }
   const dated = profile.articles.filter((a) => a.year !== null);
   if (dated.length === 0) {
-    return check('most_recent_work', null, should, 'warning', 'У публікацій не вказано рік');
+    return check('most_recent_work', null, should, 'info', RECENT_ADVICE);
   }
   const latest = dated.reduce((best, a) => (a.year! > best.year! ? a : best));
   const current = { title: latest.title, year: String(latest.year) };
   if (latest.year! >= year - 1) return check('most_recent_work', current, should, 'ok');
-  return check(
-    'most_recent_work',
-    current,
-    should,
-    'error',
-    `Остання публікація за ${latest.year} рік — застаріла (прийнятно: ${year - 1}–${year})`
-  );
+  return check('most_recent_work', current, should, 'info', RECENT_ADVICE);
 }
 
 const DESCRIPTION_SHOULD = `Опис: «${UNIVERSITY_NAME} (${UNIVERSITY_ROR}). ${UNIVERSITY_COUNTRY_EN}»`;
@@ -131,4 +133,63 @@ export function checkScholarDescription(profile: ScholarProfile): Check {
     );
   }
   return check('description', text, DESCRIPTION_SHOULD, 'ok');
+}
+
+const EMAIL_SHOULD = `Підтверджена електронна адреса в ${CORPORATE_DOMAIN}`;
+
+/** «Verified email at uhsp.edu.ua»: the domain is the university's, not another one. */
+export function checkScholarVerifiedEmail(profile: ScholarProfile): Check {
+  const domain = profile.verifiedDomain;
+  if (!domain) {
+    return check(
+      'verified_email',
+      null,
+      EMAIL_SHOULD,
+      'error',
+      'Електронну адресу не підтверджено'
+    );
+  }
+  if (domain !== CORPORATE_DOMAIN && !domain.endsWith(`.${CORPORATE_DOMAIN}`)) {
+    return check(
+      'verified_email',
+      domain,
+      EMAIL_SHOULD,
+      'error',
+      `Підтверджено адресу в ${domain}, потрібна в ${CORPORATE_DOMAIN}`
+    );
+  }
+  return check('verified_email', domain, EMAIL_SHOULD, 'ok');
+}
+
+const HOMEPAGE_SHOULD = `Домашня сторінка: особиста сторінка на сайті університету (${UNIVERSITY_PROFILE_HOST_PATH}…)`;
+
+/** The «Homepage» next to the verified email is the person's page on the university site. */
+export function checkScholarHomepage(profile: ScholarProfile): Check {
+  const link = profile.homepage;
+  if (!link) {
+    return check('homepage', null, HOMEPAGE_SHOULD, 'error', 'Домашню сторінку не вказано');
+  }
+  if (!link.toLowerCase().includes(UNIVERSITY_PROFILE_HOST_PATH)) {
+    return check(
+      'homepage',
+      link,
+      HOMEPAGE_SHOULD,
+      'error',
+      'Домашня сторінка — не особиста сторінка на сайті університету'
+    );
+  }
+  return check('homepage', link, HOMEPAGE_SHOULD, 'ok');
+}
+
+/** The profile's interests — a recommendation, like ORCID's keywords. */
+export function checkScholarKeywords(profile: ScholarProfile): Check {
+  return profile.keywords.length
+    ? check('keywords', profile.keywords, 'Принаймні 1 ключове слово', 'ok')
+    : check(
+        'keywords',
+        [],
+        'Принаймні 1 ключове слово',
+        'info',
+        'Рекомендовано додати ключові слова'
+      );
 }

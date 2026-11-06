@@ -1172,11 +1172,9 @@ platform, replaced on every run — a status board, not a history) and
   ResearcherID, ORCID and the Core Collection h-index. **Rules:** the ORCID on it
   is the person's own, the name is Latin, the organisation is the university
   (English or Ukrainian, a misspelling is not accepted); the h-index is a number
-  with no threshold; the profile must carry its **Subject Categories** (owner,
-  2026-11-05: a check, not information) — none on the page is an error; the
-  heading present but no chip readable is only a warning, because that is our
-  doubt. They are read one chip each from `.Subjectcategory-chips`, since the
-  visible text runs them together. A missing
+  with no threshold. **The Subject Categories are NOT checked any more** (owner,
+  2026-11-06; they were a requirement for one day) — no check, no scraping, no
+  export column. A missing
   record redirects to `/wos/error/authorNotFound`. **WoS rate-limits (owner
   2026-11-05, found the hard way):** after about a dozen profile loads from one
   address in an hour its own data calls (`/api/esti/SearchEngine/search`) answered
@@ -1204,8 +1202,9 @@ platform, replaced on every run — a status board, not a history) and
   with the key in `X-ELS-APIKey` returns the ORCID, name, current affiliation,
   h-index and subject areas. **Rules, the same as for WoS:** the ORCID on the
   profile is the person's own, the name is Latin, the CURRENT affiliation is the
-  university (English or Ukrainian, a misspelling is not accepted), the profile
-  carries its subject areas, and the h-index is a number with no threshold.
+  university (English or Ukrainian, a misspelling is not accepted), and the
+  h-index is a number with no threshold. The subject areas are not checked
+  either (owner, 2026-11-06).
   **Without a key Elsevier answers 200 with a «minimized metadata response» —
   only the author id** — and scopus.com itself sends everything but a signed-in
   browser to a login, so the profile cannot be read any other way. That minimized
@@ -1221,10 +1220,15 @@ platform, replaced on every run — a status board, not a history) and
   profile the owner named** (`user=0Vx_b04AAAAJ`): (1) the **name** is Latin and
   carries the person's own ORCID — «Name (ORCID 0000-…)», compared with
   `Staff.orcidId`; another spelling of the same iD is only advice; (2) the
-  **latest article** is from this year or the last (the MAX year of the page, so
-  an undated row cannot hide the rest); (3) the **description** line names the
+  **description** line names the
   university (English or Ukrainian, a misspelling is NOT accepted) AND its ROR
-  link `https://ror.org/01p07y544` — the country is advice. The h-index,
+  link `https://ror.org/01p07y544` — the country is advice; (3) the **verified email**
+  is at `uhsp.edu.ua` and its **homepage** link is the person's page on the university
+  site (`uhsp.edu.ua/personnel/…`) — the `Verified email at … - Homepage` line, its
+  domain read as the first domain in it so the page language does not matter
+  (owner, 2026-11-06). **Advice only:** the **latest article** from this year or the
+  last (the MAX year of the page) — «if you have up-to-date publications, please add
+  them» — and the **keywords** (the profile's interests). The h-index,
   citations and i10-index (all time and last 5 years) are recorded as `ok`
   checks and have NO threshold. The six `<td class="gsc_rsb_std">` cells are read
   BY POSITION, not by label (labels follow the page language); if the count is
@@ -1250,6 +1254,9 @@ platform, replaced on every run — a status board, not a history) and
   restarted mid-run) from a live one — after `STALE_MS` it is marked FAILED when
   the next run starts. **One run per platform** (owner, 2026-11-04): four buttons, one per platform, because the speeds do not compare (Scholar is spaced to ~2 s a person, ORCID is not) and a block by one site must hold nothing back. Two runs of the SAME platform never overlap; ORCID and Scholar may run at once. `ProfileCheckRun.platform` (`all` = a run from before the split); a run saves only its own platform's rows, so it never touches the others'. With «Є проблеми» on, a button re-checks the people with a problem ON THAT PLATFORM. A started run is NOT audited (owner,
   2026-11-06: it changes no data, and the log page hides the old entries).
+- **A result saved under older rules is read as today's** (`lib/profile-check/legacy.ts`,
+  2026-11-06): the retired category check is dropped and an old latest-publication
+  error shows as advice, the platform's status worked out again. Nothing is written back.
 - **A failed attempt NEVER replaces a real result** (owner, 2026-11-05). `failed`
   means we could not ask (blocked, no browser, network) and says nothing about
   the profile. When Google began refusing, a re-run wrote «Не вдалося» over 294
