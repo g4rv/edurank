@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
-import { diffChanges } from '@/lib/audit';
 import { logError, logWarning } from '@/lib/log';
 import { requireAdmin } from '@/lib/permissions';
 import { executeRun, startRun, STALE_MS, type RunScope } from '@/lib/profile-check/job';
@@ -199,31 +198,6 @@ export async function startProfileCheck(
             ? 'Усіх уже перевірено — немає кого перевіряти'
             : 'Немає кого перевіряти: ні в кого не вказано профілів',
     };
-  }
-
-  try {
-    await db.auditLog.create({
-      data: {
-        action: 'CREATE',
-        entity: 'ProfileCheckRun',
-        entityId: started.runId,
-        label: `Перевірка профілів: ${PLATFORM_LABELS[target]}`,
-        userId: session.user.id,
-        changes: diffChanges(
-          {},
-          {
-            platform: PLATFORM_LABELS[target],
-            total: started.people.length,
-            scope:
-              (departmentId || onlyProblems || q ? 'за фільтром' : 'усі') +
-              (mode === 'missing' ? ', лише ще не перевірені' : ''),
-          }
-        ),
-      },
-    });
-  } catch (e) {
-    // The run is already going; a missing audit line must not stop it
-    logError('profileCheck.audit', e, { userId: session.user.id });
   }
 
   // Deliberately not awaited: the run outlives this request

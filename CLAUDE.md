@@ -1238,8 +1238,8 @@ platform, replaced on every run — a status board, not a history) and
   `startRun` writes the row and returns, `executeRun` saves each person as they
   finish, the page polls `getRunState`. `heartbeatAt` tells a dead run (server
   restarted mid-run) from a live one — after `STALE_MS` it is marked FAILED when
-  the next run starts. **One run per platform** (owner, 2026-11-04): four buttons, one per platform, because the speeds do not compare (Scholar is spaced to ~2 s a person, ORCID is not) and a block by one site must hold nothing back. Two runs of the SAME platform never overlap; ORCID and Scholar may run at once. `ProfileCheckRun.platform` (`all` = a run from before the split); a run saves only its own platform's rows, so it never touches the others'. With «Є проблеми» on, a button re-checks the people with a problem ON THAT PLATFORM. A started run is audited as
-  `ProfileCheckRun`.
+  the next run starts. **One run per platform** (owner, 2026-11-04): four buttons, one per platform, because the speeds do not compare (Scholar is spaced to ~2 s a person, ORCID is not) and a block by one site must hold nothing back. Two runs of the SAME platform never overlap; ORCID and Scholar may run at once. `ProfileCheckRun.platform` (`all` = a run from before the split); a run saves only its own platform's rows, so it never touches the others'. With «Є проблеми» on, a button re-checks the people with a problem ON THAT PLATFORM. A started run is NOT audited (owner,
+  2026-11-06: it changes no data, and the log page hides the old entries).
 - **A failed attempt NEVER replaces a real result** (owner, 2026-11-05). `failed`
   means we could not ask (blocked, no browser, network) and says nothing about
   the profile. When Google began refusing, a re-run wrote «Не вдалося» over 294
