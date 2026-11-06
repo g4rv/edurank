@@ -16,7 +16,7 @@ export type ScopusFetch =
   | { kind: 'ok'; item: unknown }
   | { kind: 'not_found' }
   /** The key is refused: wrong, revoked, or without access to this resource */
-  | { kind: 'unauthorized' }
+  | { kind: 'unauthorized'; status: number; reason: string | null }
   /** The key's quota or rate is used up: wait */
   | { kind: 'limited' }
   | { kind: 'error'; message: string };
@@ -24,19 +24,29 @@ export type ScopusFetch =
 export async function fetchScopusAuthor(
   authorId: string,
   key: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  insttoken: string | null = process.env.SCOPUS_INSTTOKEN?.trim() || null
 ): Promise<ScopusFetch> {
   let res: Response;
   try {
     res = await fetchImpl(`${BASE}${encodeURIComponent(authorId)}?view=ENHANCED`, {
-      headers: { 'X-ELS-APIKey': key, Accept: 'application/json' },
+      headers: {
+        'X-ELS-APIKey': key,
+        Accept: 'application/json',
+        // The institution's token, which Elsevier gives to a key used from outside the
+        // university's network; without it the profile views answer 401 there
+        ...(insttoken && { 'X-ELS-Insttoken': insttoken }),
+      },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (e) {
     return { kind: 'error', message: e instanceof Error ? e.message : 'Мережева помилка' };
   }
 
-  if (res.status === 401 || res.status === 403) return { kind: 'unauthorized' };
+  if (res.status === 401 || res.status === 403) {
+    // Elsevier names the cause in `X-ELS-Status` («AUTHENTICATION_ERROR - Invalid API Key»…)
+    return { kind: 'unauthorized', status: res.status, reason: res.headers.get('x-els-status') };
+  }
   if (res.status === 404) return { kind: 'not_found' };
   if (res.status === 429) return { kind: 'limited' };
   if (!res.ok) return { kind: 'error', message: `Elsevier відповів ${res.status}` };

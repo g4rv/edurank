@@ -7,7 +7,7 @@ import {
   PLATFORM_LABELS,
   PLATFORM_STATUS_LABELS,
 } from '@/lib/profile-check/labels';
-import { metricAll } from '@/lib/profile-check/labels';
+import { emptyCellText, metricAll } from '@/lib/profile-check/labels';
 import { PLATFORMS } from '@/lib/profile-check/types';
 import { listProfileChecks } from '@/lib/queries/list-profile-checks';
 
@@ -73,7 +73,9 @@ export async function GET(request: Request) {
         r.name,
         r.faculty ?? '',
         r.department ?? '',
-        ...PLATFORMS.map((p) => (r.cells[p] ? PLATFORM_STATUS_LABELS[r.cells[p]!.status] : '')),
+        ...PLATFORMS.map((p) =>
+          r.cells[p] ? PLATFORM_STATUS_LABELS[r.cells[p]!.status] : emptyCellText(r.links[p])
+        ),
         metricAll(r.cells.googleScholar?.checks.find((c) => c.field === 'h_index')) ?? '',
         categoriesOf(r.cells.wos?.checks.find((c) => c.field === 'subject_categories')),
         fixes.join('\n'),

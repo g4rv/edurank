@@ -1,3 +1,4 @@
+import { logWarning } from '@/lib/log';
 import { normaliseOrcid } from '@/lib/orcid';
 import { createGate, type Gate } from '@/lib/profile-check/gate';
 import {
@@ -35,6 +36,9 @@ function failed(link: string, error: string): Result {
  * other sites'. The whole staff is ~135 requests.
  */
 const scopusGate: Gate = createGate({ gapMs: 500, jitterMs: 150 });
+
+/** When a refusal was last logged — module-wide, so a whole run says it once a minute */
+let lastRefusalLog = 0;
 
 /**
  * Scopus, read through Elsevier's Author Retrieval API when `SCOPUS_API_KEY` is
@@ -116,7 +120,18 @@ export function createScopusChecker({
         return failed(canonical, 'Elsevier обмежив запити (ліміт ключа) — спробуйте пізніше');
       }
       if (got.kind === 'unauthorized') {
-        return failed(canonical, 'Elsevier не прийняв ключ або не дає доступу до профілів');
+        // Said once a minute: a run asks ~300 times and the reason is always the same
+        if (Date.now() - lastRefusalLog > 60_000) {
+          lastRefusalLog = Date.now();
+          logWarning(
+            'profileCheck.scopus',
+            `Elsevier refused the key — HTTP ${got.status}, ${got.reason ?? 'no reason given'}`
+          );
+        }
+        return failed(
+          canonical,
+          'Elsevier не дає ключу доступу до профілів з цього сервера — потрібен інституційний токен (SCOPUS_INSTTOKEN)'
+        );
       }
       if (got.kind === 'error') return failed(canonical, got.message);
       if (got.kind === 'not_found') {

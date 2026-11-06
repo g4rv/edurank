@@ -23,6 +23,8 @@ export interface ProfileCheckRow {
   department: string | null;
   /** Missing = never checked */
   cells: Partial<Record<Platform, PlatformCell>>;
+  /** The profile links the person has entered, per platform — null where none */
+  links: Record<Platform, string | null>;
   problem: boolean;
   /** The platforms on which this person has a problem */
   problemPlatforms: Platform[];
@@ -31,7 +33,9 @@ export interface ProfileCheckRow {
 const PROBLEM: ReadonlySet<string> = new Set(['error', 'warning', 'failed']);
 
 /**
- * Everyone who has a stored result, with a cell per platform. `problem` is the
+ * Every active НПП (owner, 2026-11-06 — it used to be only those with a stored
+ * result, so a fresh database showed a handful of people while the run popup
+ * counted three hundred), with a cell per platform where one is stored. `problem` is the
  * filter «show only who needs attention»: any platform in error, warning or
  * failed. `not_implemented` and `no_link` are not problems.
  */
@@ -43,7 +47,6 @@ export async function listProfileChecks({
     where: {
       ...ON_ROSTER,
       isNpp: true,
-      profileChecks: { some: {} },
       ...(departmentId ? onDepartment(departmentId) : {}),
       // By name, word by word — «Вайнтрауб Марк» finds them in any order
       ...(q ? (nameSearch(q, ['lastName', 'firstName', 'patronymic']) ?? {}) : {}),
@@ -59,6 +62,10 @@ export async function listProfileChecks({
         take: 1,
       },
       profileChecks: true,
+      orcidId: true,
+      wosUrl: true,
+      scopusUrl: true,
+      googleScholarUrl: true,
     },
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
   });
@@ -82,6 +89,12 @@ export async function listProfileChecks({
       faculty: dept?.faculty.name ?? null,
       department: dept?.name ?? null,
       cells,
+      links: {
+        orcid: s.orcidId,
+        wos: s.wosUrl,
+        scopus: s.scopusUrl,
+        googleScholar: s.googleScholarUrl,
+      },
       problem: Object.values(cells).some((c) => PROBLEM.has(c.status)),
       problemPlatforms: PLATFORMS.filter((p) => cells[p] && PROBLEM.has(cells[p]!.status)),
     };

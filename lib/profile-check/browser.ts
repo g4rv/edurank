@@ -81,7 +81,16 @@ async function candidates(): Promise<Candidate[]> {
 
 async function launch(): Promise<Browser> {
   const reasons: string[] = [];
-  for (const c of await candidates()) {
+  let list: Candidate[];
+  try {
+    list = await candidates();
+  } catch (e) {
+    // The driver itself would not load (a file missing from the build): the same
+    // «no browser» answer, with the real reason, not a raw module error.
+    const first = (e instanceof Error ? e.message : String(e)).split('\n')[0];
+    throw new BrowserUnavailableError(`playwright-core: ${first}`);
+  }
+  for (const c of list) {
     try {
       return await c.start();
     } catch (e) {

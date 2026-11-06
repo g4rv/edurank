@@ -149,6 +149,11 @@ const nextConfig: NextConfig = {
   // A browser driver is loaded at run time (Web of Science check) and does its own
   // dynamic requires: bundling it breaks it, so it stays a plain node_modules import
   serverExternalPackages: ['playwright-core'],
+  // ...and it reads browsers.json and package.json by path at start-up, which the
+  // file tracer cannot see, so the standalone copy came without them (prod, 2026-11-05).
+  outputFileTracingIncludes: {
+    '/admin/profile-check': ['./node_modules/playwright-core/**/*'],
+  },
   ...(isDev ? { allowedDevOrigins: TUNNEL_ORIGINS } : {}),
   experimental: {
     ...(isDev ? { serverActions: { allowedOrigins: TUNNEL_ORIGINS } } : {}),

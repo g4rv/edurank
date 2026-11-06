@@ -187,7 +187,9 @@ describe('the Scopus checker, with a key', () => {
     const run = (kind: ScopusFetch) =>
       withKey(async () => kind).check(LINK, { person, fetchImpl: fetch });
     expect((await run({ kind: 'not_found' })).status).toBe('error');
-    expect((await run({ kind: 'unauthorized' })).status).toBe('failed');
+    expect(
+      (await run({ kind: 'unauthorized', status: 401, reason: 'AUTHENTICATION_ERROR' })).status
+    ).toBe('failed');
     expect((await run({ kind: 'error', message: 'offline' })).error).toBe('offline');
   });
 
@@ -257,5 +259,25 @@ describe('fetchScopusAuthor', () => {
       throw new Error('offline');
     }) as typeof fetch;
     expect(await fetchScopusAuthor('1', 'K', down)).toEqual({ kind: 'error', message: 'offline' });
+  });
+});
+
+describe('fetchScopusAuthor — institutional token', () => {
+  const spy = () => {
+    const seen: Record<string, string>[] = [];
+    const f = (async (_u: unknown, init?: RequestInit) => {
+      seen.push(init?.headers as Record<string, string>);
+      return new Response('{}', { status: 404 });
+    }) as typeof fetch;
+    return { seen, f };
+  };
+
+  it('sends the token when there is one, and no header when there is not', async () => {
+    const a = spy();
+    await fetchScopusAuthor('1', 'K', a.f, 'TOKEN');
+    expect(a.seen[0]['X-ELS-Insttoken']).toBe('TOKEN');
+    const b = spy();
+    await fetchScopusAuthor('1', 'K', b.f, null);
+    expect(b.seen[0]).not.toHaveProperty('X-ELS-Insttoken');
   });
 });

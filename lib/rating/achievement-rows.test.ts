@@ -3,6 +3,7 @@ import { compareItemNumbers, snapshotToGroups, toAchievementGroups } from './ach
 import type { StaffActivity } from '@/lib/queries/list-activities';
 import type { TemplateIndicator } from '@/lib/queries/list-template-indicators';
 import { ACTIVITY_STATUS_LABELS } from './labels';
+import { KHARAKTERYSTYKA_FREEZES_LINKED_RATING } from '@/lib/kharakterystyka/freeze';
 
 describe('compareItemNumbers', () => {
   it('orders by section first', () => {
@@ -308,10 +309,20 @@ describe('toAchievementGroups — delete button under the freeze', () => {
     toAchievementGroups([activity(licencePositions)], undefined, true, undefined, role)[0].items[0]
       .canDelete;
 
-  it('hides it on a row that feeds a position, for a non-admin', () => {
-    expect(canDelete([{ position: 1 }], 'USER')).toBe(false);
-    expect(canDelete([{ position: 1 }], 'EDITOR')).toBe(false);
-  });
+  it.skipIf(!KHARAKTERYSTYKA_FREEZES_LINKED_RATING)(
+    'hides it on a row that feeds a position, for a non-admin',
+    () => {
+      expect(canDelete([{ position: 1 }], 'USER')).toBe(false);
+      expect(canDelete([{ position: 1 }], 'EDITOR')).toBe(false);
+    }
+  );
+
+  it.skipIf(KHARAKTERYSTYKA_FREEZES_LINKED_RATING)(
+    'keeps it on a linked row while the freeze is off',
+    () => {
+      expect(canDelete([{ position: 1 }], 'USER')).toBe(true);
+    }
+  );
 
   it('keeps it on a row that feeds no position', () => {
     expect(canDelete([], 'USER')).toBe(true);

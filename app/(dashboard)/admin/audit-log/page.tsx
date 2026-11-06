@@ -123,7 +123,9 @@ export default async function AuditLogPage({
 
   const where = {
     ...(actionFilter ? { action: actionFilter } : {}),
-    ...(entityFilter ? { entity: entityFilter } : {}),
+    // A profile-check run is not a change to anything (owner, 2026-11-06): the
+    // entries it wrote before stay in the table and are never listed
+    entity: entityFilter ? entityFilter : { not: 'ProfileCheckRun' },
     // «Хто це змінив» is what the log is FOR, and there was no way to ask it.
     // The label is the entry's own name for the record; the email is the author.
     ...(search

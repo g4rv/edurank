@@ -754,6 +754,8 @@ five-year window. `Кнпп` — how many people on a кафедра meet enough
 **never stored**; it is computed in `lib/queries/get-department-knpp.ts`, because
 freezing it would go stale the moment somebody submits an achievement.
 
+**TEMPORARILY OPEN since 2026-11-06 (owner): both constants below are `false`, and `PROFILE_FROZEN` too; the owner will freeze them again later. The tests of the frozen state run only while their constant is `true`.**
+
 **Frozen for everyone but ADMIN (owner, 2026-11-01).** The division copies the
 Характеристика to another platform by hand, so two constants in
 `lib/kharakterystyka/freeze.ts` close it, with no dates — whoever unfreezes sets
@@ -1145,6 +1147,10 @@ Ported from the standalone Python `npp-profile-scraper`. Code in
 platform, replaced on every run — a status board, not a history) and
 `ProfileCheckRun`.
 
+- **The list is every active НПП, scanned or not** (owner, 2026-11-06). A person with no
+  stored result shows «Не перевіряли» (has a link) or «Немає посилання» per platform
+  (`emptyCellText`), and is never a «problem». It used to list only people with a
+  result, so a fresh database showed a handful while the run popup counted ~300.
 - **Four platforms, one `PlatformChecker` each** (`lib/profile-check/platforms.ts`).
   ORCID and Google Scholar are read over plain HTTP; **Web of Science through a
   browser**; **Scopus only by its link** (below). A platform with no checker
@@ -1232,8 +1238,8 @@ platform, replaced on every run — a status board, not a history) and
   `startRun` writes the row and returns, `executeRun` saves each person as they
   finish, the page polls `getRunState`. `heartbeatAt` tells a dead run (server
   restarted mid-run) from a live one — after `STALE_MS` it is marked FAILED when
-  the next run starts. **One run per platform** (owner, 2026-11-04): four buttons, one per platform, because the speeds do not compare (Scholar is spaced to ~2 s a person, ORCID is not) and a block by one site must hold nothing back. Two runs of the SAME platform never overlap; ORCID and Scholar may run at once. `ProfileCheckRun.platform` (`all` = a run from before the split); a run saves only its own platform's rows, so it never touches the others'. With «Є проблеми» on, a button re-checks the people with a problem ON THAT PLATFORM. A started run is audited as
-  `ProfileCheckRun`.
+  the next run starts. **One run per platform** (owner, 2026-11-04): four buttons, one per platform, because the speeds do not compare (Scholar is spaced to ~2 s a person, ORCID is not) and a block by one site must hold nothing back. Two runs of the SAME platform never overlap; ORCID and Scholar may run at once. `ProfileCheckRun.platform` (`all` = a run from before the split); a run saves only its own platform's rows, so it never touches the others'. With «Є проблеми» on, a button re-checks the people with a problem ON THAT PLATFORM. A started run is NOT audited (owner,
+  2026-11-06: it changes no data, and the log page hides the old entries).
 - **A failed attempt NEVER replaces a real result** (owner, 2026-11-05). `failed`
   means we could not ask (blocked, no browser, network) and says nothing about
   the profile. When Google began refusing, a re-run wrote «Не вдалося» over 294

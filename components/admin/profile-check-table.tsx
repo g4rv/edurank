@@ -3,7 +3,12 @@
 import { useState } from 'react';
 import { Badge } from '@/components/aurora/ui/badge';
 import { ProfileCheckDetails } from '@/components/admin/profile-check-details';
-import { PLATFORM_LABELS, PLATFORM_STATUS_LABELS, metricAll } from '@/lib/profile-check/labels';
+import {
+  PLATFORM_LABELS,
+  PLATFORM_STATUS_LABELS,
+  emptyCellText,
+  metricAll,
+} from '@/lib/profile-check/labels';
 import { PLATFORMS, type PlatformStatus } from '@/lib/profile-check/types';
 import type { ProfileCheckRow } from '@/lib/queries/list-profile-checks';
 
@@ -64,7 +69,9 @@ export function ProfileCheckTable({ rows }: { rows: ProfileCheckRow[] }) {
                           )}
                         </span>
                       ) : (
-                        <Badge tone="muted">—</Badge>
+                        <Badge tone="muted" className="whitespace-nowrap">
+                          {emptyCellText(row.links[p])}
+                        </Badge>
                       )}
                     </td>
                   );
