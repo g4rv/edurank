@@ -14,18 +14,24 @@ export const QUALIFICATION_KIND_LABELS: Record<QualificationKindKey, string> = {
   INTERNSHIP: 'Стажування',
 };
 
-export const DOCUMENT_TYPES = ['REFERENCE', 'CERTIFICATE', 'DIPLOMA'] as const;
+export const DOCUMENT_TYPES = [
+  'REFERENCE',
+  'CERTIFICATE',
+  'COMPLETION_CERTIFICATE',
+  'DIPLOMA',
+] as const;
 export type DocumentTypeKey = (typeof DOCUMENT_TYPES)[number];
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentTypeKey, string> = {
   REFERENCE: 'Довідка',
   CERTIFICATE: 'Сертифікат',
+  COMPLETION_CERTIFICATE: 'Свідоцтво',
   DIPLOMA: 'Диплом',
 };
 
 /**
  * What the topic box is called. A диплом names a спеціальність; a довідка or a
- * сертифікат names the тема of the course or internship (owner, 2026-10-13).
+ * сертифікат or свідоцтво names the тема of the course or internship (owner, 2026-10-13).
  * One column holds both — only the label moves.
  */
 export function topicLabel(documentType: DocumentTypeKey | ''): string {

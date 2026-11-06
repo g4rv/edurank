@@ -1739,6 +1739,7 @@ enum QualificationKind {
 enum QualificationDocumentType {
   REFERENCE // довідка
   CERTIFICATE // сертифікат
+  COMPLETION_CERTIFICATE // свідоцтво
   DIPLOMA // диплом
 }
 

@@ -1038,6 +1038,10 @@ document that proves it. Tab «Підвищення кваліфікації/С�
   certificates share), because it is drawn as a clickable link. A document with
   neither серія nor номер prints no «№» (`documentNumber` returns `null`); the
   Excel has a «Посилання» column, last.
+- **Four kinds of document** (owner, 2026-11-06 added the fourth): довідка,
+  сертифікат, **свідоцтво** (`COMPLETION_CERTIFICATE`, migration
+  `20261106160000`), диплом — `QualificationDocumentType`, labels in
+  `lib/qualifications/options.ts`. Only a диплом changes the topic box's label.
 - **The topic box is one column.** Its label is «Тема стажування», or
   «Спеціальність» when the document is a диплом; the Підвищення кваліфікації /
   Стажування toggle is `kind` and changes no field.
