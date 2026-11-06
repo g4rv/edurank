@@ -154,6 +154,14 @@ export function compareStaffList(input: {
   const unknownDepartments = new Set<string>();
   const seen = new Set<string>();
   const rateChecked = new Set<string>();
+  // Whoever has a штатний row in the list: that row says what they ARE, and a
+  // сумісник row only repeats it. Whoever has NO штатний row (an НПП on one
+  // additional кафедра only, 2026-08-26) has nowhere else to be read — the
+  // first of their rows is then the source (Бокшиц, 2026-11-05: skipped, 13 vs 14).
+  const hasMainRow = new Set(
+    resolved.filter((r) => r.person && r.p.kind === 'штатний').map((r) => r.person!.id)
+  );
+  const readFromPartTime = new Set<string>();
 
   for (const { p, department, match, person } of resolved) {
     const who = `${p.lastName} ${p.names ?? ''}`.trim();
@@ -230,9 +238,13 @@ export function compareStaffList(input: {
       }
     }
 
-    // What a person IS, from their main placement only — a сумісник row
-    // repeats it, and comparing twice would report it twice.
-    if (!main) continue;
+    // What a person IS, from their main placement — a сумісник row repeats it,
+    // and comparing twice would report it twice. With no main row, the first
+    // part-time row is all the list says about them.
+    if (!main) {
+      if (hasMainRow.has(person.id) || readFromPartTime.has(person.id)) continue;
+      readFromPartTime.add(person.id);
+    }
     const position = p.position ? POSITION_FROM_LIST[p.position] : undefined;
     if (position && person.position !== position)
       add({ ...ref, category: 'positionDiffers', list: p.position, system: person.position });
@@ -285,12 +297,17 @@ export function compareStaffList(input: {
   // An active НПП on a кафедра the list covers, but not on the list
   const covered = new Set(resolved.map((r) => r.department?.id).filter((id): id is string => !!id));
   for (const s of staff) {
-    if (s.archived || !s.isNpp || seen.has(s.id) || !s.departmentId || !covered.has(s.departmentId))
-      continue;
+    if (s.archived || !s.isNpp || seen.has(s.id)) continue;
+    // Their primary кафедра or an additional one — a person with only the
+    // additional one (null departmentId) is on a кафедра all the same
+    const place = [s.departmentId, ...s.partTimeDepartmentIds].find(
+      (id): id is string => !!id && covered.has(id)
+    );
+    if (!place) continue;
     add({
       category: 'onlyInSystem',
       person: fio(s),
-      department: deptName(s.departmentId),
+      department: deptName(place),
       staffId: s.id,
     });
   }

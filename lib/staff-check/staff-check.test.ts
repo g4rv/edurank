@@ -282,6 +282,43 @@ describe('compareStaffList', () => {
     ]);
   });
 
+  it('reads a person with ONLY a сумісник row from that row (Бокшиц, 2026-11-05)', () => {
+    const only = person({ departmentId: null, partTimeDepartmentIds: ['d1'] });
+    const findings = compareStaffList({
+      placements: [placement({ row: 442, kind: 'сумісник', rate: 0.5, experience: 12 })],
+      deputies: [],
+      departments: [dept],
+      staff: [only],
+      allocations: new Map([['kotsur|d1', 50]]),
+    });
+    expect(findings.filter((f) => f.fix).map((f) => f.fix)).toEqual([
+      expect.objectContaining({ field: 'degree' }),
+      { field: 'pedagogicalExperience', value: 12 },
+    ]);
+  });
+
+  it('does not read a сумісник row twice when there is a main row', () => {
+    const findings = compareStaffList({
+      placements: [placement({}), placement({ row: 23, kind: 'сумісник', experience: 99 })],
+      deputies: [],
+      departments: [dept],
+      staff: [person({})],
+      allocations: new Map(),
+    });
+    expect(findings.filter((f) => f.category.startsWith('experience'))).toHaveLength(1);
+  });
+
+  it('lists an НПП with only an additional кафедра when the list leaves them out', () => {
+    const findings = compareStaffList({
+      placements: [placement({ lastName: 'Інший', names: 'Хтось Ще' })],
+      deputies: [],
+      departments: [dept],
+      staff: [person({ id: 'x', departmentId: null, partTimeDepartmentIds: ['d1'] })],
+      allocations: new Map(),
+    });
+    expect(findings.filter((f) => f.category === 'onlyInSystem')).toHaveLength(1);
+  });
+
   it('gives a missing ставка the list’s number, with nothing held', () => {
     const findings = compareStaffList({
       placements: [placement({ kind: 'сумісник', rate: 0.2, position: 'доцент' })],
