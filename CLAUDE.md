@@ -754,6 +754,8 @@ five-year window. `Кнпп` — how many people on a кафедра meet enough
 **never stored**; it is computed in `lib/queries/get-department-knpp.ts`, because
 freezing it would go stale the moment somebody submits an achievement.
 
+**TEMPORARILY OPEN since 2026-11-06 (owner): both constants below are `false`, and `PROFILE_FROZEN` too; the owner will freeze them again later. The tests of the frozen state run only while their constant is `true`.**
+
 **Frozen for everyone but ADMIN (owner, 2026-11-01).** The division copies the
 Характеристика to another platform by hand, so two constants in
 `lib/kharakterystyka/freeze.ts` close it, with no dates — whoever unfreezes sets

@@ -24,8 +24,8 @@ import { parseLicencePositions } from '@/validations/licence-positions';
  *
  * ADMIN is never subject to either.
  */
-export const KHARAKTERYSTYKA_FROZEN: boolean = true;
-export const KHARAKTERYSTYKA_FREEZES_LINKED_RATING: boolean = true;
+export const KHARAKTERYSTYKA_FROZEN: boolean = false;
+export const KHARAKTERYSTYKA_FREEZES_LINKED_RATING: boolean = false;
 
 /** The sentence for a refused write on the document itself. */
 export const KHARAKTERYSTYKA_FROZEN_DETAIL =

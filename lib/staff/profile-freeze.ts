@@ -10,7 +10,7 @@ import { USER_EDITABLE_STAFF_FIELDS } from '@/lib/staff/editable-fields';
  * Its own module so tests of the unfrozen mechanics can swap it, like
  * `lib/kharakterystyka/freeze.ts`.
  */
-export const PROFILE_FROZEN: boolean = true;
+export const PROFILE_FROZEN: boolean = false;
 
 const FROZEN_USER_FIELDS: ReadonlySet<string> = new Set([
   'phone',
