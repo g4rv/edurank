@@ -198,7 +198,11 @@ export function ProfileCheckDetails({
           </span>
           <span className="flex items-center gap-3">
             {error && <span className="text-sm text-error-strong">{error}</span>}
-            <Button variant="outline" onClick={recheck} disabled={pending}>
+            <Button
+              variant="outline"
+              onClick={recheck}
+              disabled={pending || !Object.values(row.links).some((l) => l?.trim())}
+            >
               {pending ? 'Перевіряємо…' : 'Перевірити знову'}
             </Button>
           </span>

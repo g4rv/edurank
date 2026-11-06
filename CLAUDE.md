@@ -1145,6 +1145,10 @@ Ported from the standalone Python `npp-profile-scraper`. Code in
 platform, replaced on every run — a status board, not a history) and
 `ProfileCheckRun`.
 
+- **The list is every active НПП, scanned or not** (owner, 2026-11-06). A person with no
+  stored result shows «Не перевіряли» (has a link) or «Немає посилання» per platform
+  (`emptyCellText`), and is never a «problem». It used to list only people with a
+  result, so a fresh database showed a handful while the run popup counted ~300.
 - **Four platforms, one `PlatformChecker` each** (`lib/profile-check/platforms.ts`).
   ORCID and Google Scholar are read over plain HTTP; **Web of Science through a
   browser**; **Scopus only by its link** (below). A platform with no checker

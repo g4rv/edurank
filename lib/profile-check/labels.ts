@@ -12,7 +12,7 @@ export const PLATFORM_STATUS_LABELS: Record<PlatformStatus, string> = {
   warning: 'Увага',
   error: 'Помилки',
   failed: 'Не вдалося',
-  no_link: 'Немає',
+  no_link: 'Немає посилання',
   not_implemented: 'Не перевіряється',
 };
 
@@ -56,4 +56,9 @@ export const METRIC_LABELS: Record<string, string> = {
 export function metricAll(check: { current: unknown } | undefined): number | null {
   const v = (check?.current as { all?: unknown } | null | undefined)?.all;
   return typeof v === 'number' ? v : null;
+}
+
+/** What a platform column says for a person with no stored result */
+export function emptyCellText(link: string | null | undefined): string {
+  return link?.trim() ? 'Не перевіряли' : PLATFORM_STATUS_LABELS.no_link;
 }
