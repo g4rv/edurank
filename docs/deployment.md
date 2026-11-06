@@ -63,6 +63,7 @@ Set these on the application resource. There is no `.env` file in the image —
 | `R2_BUCKET`               | e.g. `edurank`                           |                                                                                                                                                     |
 | `R2_JURISDICTION`         | `eu` for an EU bucket, else unset        | An EU bucket answers only at `<account>.**eu**.r2.cloudflarestorage.com`. With the plain host it reports `NoSuchBucket` using perfectly valid keys. |
 | `SCOPUS_API_KEY`          | Elsevier API key (optional)              | «Перевірка профілів», Scopus. Free, non-commercial, 5,000 requests a week. Without it Scopus is checked by its link only. See §3b.                  |
+| `SCOPUS_INSTTOKEN`        | Elsevier institutional token (optional)  | Scopus from outside the university network. See §3b.                                                                                                |
 | `PROFILE_BROWSER_WS`      | e.g. `ws://browser:3000` (optional)      | A browser running elsewhere, for the Web of Science check. See §3b.                                                                                 |
 | `PROFILE_BROWSER_PATH`    | path to Chrome/Chromium (optional)       | Same, a browser on this machine. See §3b.                                                                                                           |
 | `PROFILE_BROWSER_CHANNEL` | `chrome` or `msedge` (optional)          | Same, the one installed on this machine. See §3b.                                                                                                   |
@@ -148,7 +149,11 @@ required to boot** — each platform degrades on its own and says why.
 - **ORCID** needs nothing: the public API, anonymous (12 requests a second, 25,000
   reads a day per address — a full run is about 900).
 - **Scopus** needs `SCOPUS_API_KEY`. Without it the check reads only the author id
-  from the link and says the profile was not read.
+  from the link and says the profile was not read. **The free key alone is not enough from
+  the server** (checked 2026-11-06): the same key returns the full profile from the
+  university's network and `401 AUTHORIZATION_ERROR` — for every view, STANDARD and LIGHT
+  too — from the Hetzner address. Elsevier then wants an **institutional token**: set it
+  as `SCOPUS_INSTTOKEN` (sent as `X-ELS-Insttoken`). Ask the library or Elsevier support.
 - **Google Scholar** needs nothing but **may be refused from a datacenter address**:
   it has no API and blocks scripts, and its block lifts by itself after some hours.
   A refused run keeps every earlier result (a failed attempt never replaces real
