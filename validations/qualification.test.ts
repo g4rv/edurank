@@ -38,6 +38,14 @@ describe('qualificationSchema', () => {
     });
   });
 
+  it('accepts a свідоцтво as the kind of document', () => {
+    expect(parse({ documentType: 'COMPLETION_CERTIFICATE' }).success).toBe(true);
+  });
+
+  it('still refuses a kind of document it does not know', () => {
+    expect(parse({ documentType: 'LETTER' }).success).toBe(false);
+  });
+
   it('makes the series optional — empty, blank and absent all become null', () => {
     for (const series of ['', '   ', undefined]) {
       const result = parse({ series });

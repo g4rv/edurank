@@ -97,7 +97,7 @@ export async function qualificationFileUrl(
   });
   if (!row) return { error: 'Запис не знайдено' };
 
-  const authorised = await authoriseQualifications(row.staffId, 'read');
+  const authorised = await authoriseQualifications(row.staffId, 'read', { allowOverseer: true });
   if ('error' in authorised) return { error: 'У вас немає доступу до цього файлу' };
   if (!row.fileKey) return { error: 'До цього запису файл не додано' };
 

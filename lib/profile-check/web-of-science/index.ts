@@ -2,13 +2,7 @@ import { normaliseOrcid } from '@/lib/orcid';
 import { BrowserUnavailableError, withBrowserPage } from '@/lib/profile-check/browser';
 import { createGate, type Gate } from '@/lib/profile-check/gate';
 import { worstStatus, type PlatformChecker, type PlatformResult } from '@/lib/profile-check/types';
-import {
-  checkWosAffiliation,
-  checkWosCategories,
-  checkWosHIndex,
-  checkWosName,
-  checkWosOrcid,
-} from './checks';
+import { checkWosAffiliation, checkWosHIndex, checkWosName, checkWosOrcid } from './checks';
 import { parseWosProfile, wosRecordId } from './parse';
 
 const PROFILE_URL = 'https://www.webofscience.com/wos/author/record/';
@@ -16,7 +10,7 @@ const WAIT_MS = 25_000;
 
 /** What opening a profile gave. `unavailable` = there is no browser to open it with. */
 export type WosOpen =
-  | { kind: 'ok'; name: string; text: string; categories: string[] }
+  | { kind: 'ok'; name: string; text: string }
   | { kind: 'not_found' }
   | { kind: 'blocked' }
   | { kind: 'unavailable' }
@@ -84,13 +78,7 @@ export async function openWosProfile(id: string): Promise<WosOpen> {
         })
         .catch(() => {});
       const text = await page.evaluate(() => document.body.innerText);
-      // One chip per category; the text above runs them together
-      const categories = await page.evaluate(() =>
-        [...document.querySelectorAll('.Subjectcategory-chips .chip-span')].map(
-          (e) => e.textContent ?? ''
-        )
-      );
-      return { kind: 'ok', name, text, categories };
+      return { kind: 'ok', name, text };
     });
   } catch (e) {
     if (e instanceof BrowserUnavailableError) return { kind: 'unavailable' };
@@ -193,7 +181,6 @@ export function createWosChecker(
       const profile = parseWosProfile({
         name: got.name,
         text: got.text,
-        categories: got.categories,
       });
       if (!profile) return failed(canonical, 'Сторінка профілю має незнайому будову');
 
@@ -202,7 +189,6 @@ export function createWosChecker(
         checkWosName(profile),
         checkWosAffiliation(profile),
         checkWosHIndex(profile),
-        checkWosCategories(profile),
       ];
       return { platform: 'wos', link: canonical, status: worstStatus(checks), checks };
     },

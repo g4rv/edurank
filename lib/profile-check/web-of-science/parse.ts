@@ -25,13 +25,6 @@ export interface WosProfile {
   organization: string | null;
   /** Core Collection h-index */
   hIndex: number | null;
-  /** «Subject Categories»: Business & Economics, Education & Educational Research… */
-  subjectCategories: string[];
-  /**
-   * The «Subject Categories» heading is on the page. With it present and no chips
-   * read, the page changed or has not filled in; without it, the profile has none.
-   */
-  hasCategoriesSection: boolean;
 }
 
 const SECTION_LABELS = ['Identifiers', 'Published names', 'Organization', 'Subject Categories'];
@@ -52,21 +45,7 @@ function sectionAfter(lines: string[], label: string): string[] {
   return end === -1 ? rest : rest.slice(0, end);
 }
 
-/**
- * `categories` are read from the page's own structure — one chip each — because
- * the visible text runs them together on one line («Business & Economics
- * Education & Educational Research») with no mark to split on. Without them the
- * list is empty rather than a guess.
- */
-export function parseWosProfile({
-  name,
-  text,
-  categories = [],
-}: {
-  name: string;
-  text: string;
-  categories?: string[];
-}): WosProfile | null {
+export function parseWosProfile({ name, text }: { name: string; text: string }): WosProfile | null {
   const trimmed = name.trim();
   if (!trimmed) return null;
 
@@ -100,8 +79,6 @@ export function parseWosProfile({
     publishedNames: sectionAfter(lines, 'Published names'),
     organization: orgLines[0] ?? null,
     hIndex,
-    subjectCategories: categories.map((c) => c.replace(/\s+/g, ' ').trim()).filter(Boolean),
-    hasCategoriesSection: indexOfLabel(lines, 'Subject Categories') !== -1,
   };
 }
 

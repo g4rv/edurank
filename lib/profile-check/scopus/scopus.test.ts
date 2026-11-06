@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGate } from '@/lib/profile-check/gate';
-import { tally } from '@/lib/profile-check/tally';
 import { fetchScopusAuthor, type ScopusFetch } from './api';
 import {
   checkScopusAffiliation,
-  checkScopusAreas,
   checkScopusHIndex,
   checkScopusName,
   checkScopusOrcid,
@@ -72,7 +70,6 @@ describe('parseScopusAuthor', () => {
       hIndex: 2,
       documents: 7,
       citations: 11,
-      subjectAreas: ['Media Technology', 'Education'], // each once
       minimized: false,
     });
   });
@@ -147,27 +144,14 @@ describe('Scopus rules', () => {
     expect(checkScopusHIndex(profile()).current).toEqual({ all: 2 });
     expect(checkScopusHIndex(profile({ hIndex: null })).status).toBe('warning');
   });
-
-  it('subject areas: required, and counted as a success when present', () => {
-    const c = checkScopusAreas(profile());
-    expect(c).toMatchObject({ field: 'subject_categories', status: 'ok' });
-    expect(checkScopusAreas(profile({ subjectAreas: [] })).status).toBe('error');
-    expect(tally([checkScopusOrcid(profile(), OWN), c]).map((t) => t.text)).toEqual(['2 успішно']);
-  });
 });
 
 describe('the Scopus checker, with a key', () => {
-  it('passes the reference author and reads the five rules', async () => {
+  it('passes the reference author and reads the four rules', async () => {
     const checker = withKey(async () => ({ kind: 'ok', item: ITEM }));
     const r = await checker.check(LINK, { person, fetchImpl: fetch });
     expect(r.status).toBe('ok');
-    expect(r.checks.map((c) => c.field)).toEqual([
-      'orcid',
-      'name',
-      'affiliations',
-      'h_index',
-      'subject_categories',
-    ]);
+    expect(r.checks.map((c) => c.field)).toEqual(['orcid', 'name', 'affiliations', 'h_index']);
   });
 
   it('fails the platform when a rule fails', async () => {

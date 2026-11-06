@@ -1,6 +1,13 @@
 import { normaliseOrcid } from '@/lib/orcid';
 import { worstStatus, type Check, type PlatformChecker } from '@/lib/profile-check/types';
-import { checkScholarDescription, checkScholarName, checkScholarWorks } from './checks';
+import {
+  checkScholarDescription,
+  checkScholarHomepage,
+  checkScholarKeywords,
+  checkScholarName,
+  checkScholarVerifiedEmail,
+  checkScholarWorks,
+} from './checks';
 import { fetchScholarProfile } from './fetch';
 import { createGate, type Gate } from '@/lib/profile-check/gate';
 import { parseScholarProfile, scholarUserId } from './parse';
@@ -107,6 +114,9 @@ export function createScholarChecker(
         checkScholarName(profile, normaliseOrcid(person.links.orcid)),
         checkScholarWorks(profile, now()),
         checkScholarDescription(profile),
+        checkScholarVerifiedEmail(profile),
+        checkScholarHomepage(profile),
+        checkScholarKeywords(profile),
       ];
       if (profile.stats) {
         const { hIndex, citations, i10Index } = profile.stats;

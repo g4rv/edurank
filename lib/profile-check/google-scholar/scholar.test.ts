@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createScholarChecker } from './index';
-import { checkScholarDescription, checkScholarName, checkScholarWorks } from './checks';
+import {
+  checkScholarDescription,
+  checkScholarHomepage,
+  checkScholarKeywords,
+  checkScholarName,
+  checkScholarVerifiedEmail,
+  checkScholarWorks,
+} from './checks';
 import { createGate } from '@/lib/profile-check/gate';
 import { fetchScholarProfile } from './fetch';
 import { looksBlocked, parseScholarProfile, scholarUserId } from './parse';
@@ -11,11 +18,18 @@ function page({
   affiliation = 'Hryhorii Skovoroda University in Pereiaslav (https://ror.org/01p07y544). UKRAINE',
   years = [2026, 2025],
   cells = ['3331', '627', '30', '12', '68', '20'],
+  email = 'uhsp.edu.ua',
+  homepage = 'https://uhsp.edu.ua/personnel/kamenska-iryna-stepanivna/',
+  keywords = ['education', 'media'],
 }: {
   name?: string;
   affiliation?: string | null;
   years?: (number | null)[];
   cells?: string[];
+  /** The verified domain; null renders «No verified email» */
+  email?: string | null;
+  homepage?: string | null;
+  keywords?: string[];
 } = {}) {
   const rows = years
     .map(
@@ -28,7 +42,12 @@ function page({
   return `<html><body>
 <div id="gsc_prf_in">${name}</div>
 ${affiliation === null ? '' : `<div class="gsc_prf_il">${affiliation}</div>`}
-<div class="gsc_prf_il" id="gsc_prf_ivh">Verified email at uhsp.edu.ua</div>
+${
+  email === null
+    ? '<div class="gsc_prf_il" id="gsc_prf_ivh">No verified email</div>'
+    : `<div class="gsc_prf_il" id="gsc_prf_ivh">Verified email at ${email}${homepage ? ` - <a href="${homepage}" class="gsc_prf_ila" rel="nofollow">Homepage</a>` : ''}</div>`
+}
+${keywords.length ? `<div class="gsc_prf_il" id="gsc_prf_int">${keywords.map((k) => `<a href="/citations?mauthors=label:${k}" class="gs_ibl gsc_prf_inta">${k}</a>`).join('')}</div>` : ''}
 <table id="gsc_rsb_st"><tbody>
 <tr><td class="gsc_rsb_std">${c1}</td><td class="gsc_rsb_std">${c2}</td></tr>
 <tr><td class="gsc_rsb_std">${h1}</td><td class="gsc_rsb_std">${h2}</td></tr>
@@ -65,6 +84,9 @@ describe('parseScholarProfile', () => {
         { title: 'Article 1', year: 2026 },
         { title: 'Article 2', year: 2025 },
       ],
+      verifiedDomain: 'uhsp.edu.ua',
+      homepage: 'https://uhsp.edu.ua/personnel/kamenska-iryna-stepanivna/',
+      keywords: ['education', 'media'],
       stats: {
         citations: { all: 3331, recent: 627 },
         hIndex: { all: 30, recent: 12 },
@@ -272,24 +294,25 @@ describe('checkScholarWorks', () => {
     expect(checkScholarWorks(profile({ years: [2025] }), NOW()).status).toBe('ok');
   });
 
-  it('errors on an older one, and reports that year', () => {
+  it('only recommends when the newest is older — never an error', () => {
     const c = checkScholarWorks(profile({ years: [2024, 2023] }), NOW());
-    expect(c.status).toBe('error');
-    expect(c.message).toContain('2024');
+    expect(c.status).toBe('info');
+    expect(c.message).toBe('Якщо у вас є актуальні публікації, будь ласка, додайте їх до списку');
+    expect(c.current).toEqual({ title: 'Article 1', year: '2024' });
   });
 
   it('takes the newest year of the page, not the first row', () => {
     expect(checkScholarWorks(profile({ years: [null, 2019, 2026] }), NOW()).status).toBe('ok');
   });
 
-  it('errors with no articles at all, and warns when none has a year', () => {
-    expect(checkScholarWorks(profile({ years: [] }), NOW()).status).toBe('error');
-    expect(checkScholarWorks(profile({ years: [null] }), NOW()).status).toBe('warning');
+  it('recommends with no articles at all, and when none has a year', () => {
+    expect(checkScholarWorks(profile({ years: [] }), NOW()).status).toBe('info');
+    expect(checkScholarWorks(profile({ years: [null] }), NOW()).status).toBe('info');
   });
 
   it('judges against the clock it is given', () => {
     expect(checkScholarWorks(profile({ years: [2026] }), new Date('2029-01-01')).status).toBe(
-      'error'
+      'info'
     );
   });
 });
@@ -342,6 +365,9 @@ describe('the Scholar checker, whole', () => {
       'name',
       'most_recent_work',
       'description',
+      'verified_email',
+      'homepage',
+      'keywords',
       'h_index',
       'citations',
       'i10_index',
@@ -364,5 +390,58 @@ describe('the Scholar checker, whole', () => {
       fetchImpl: respond(200, PAGE),
     });
     expect(r.checks.find((c) => c.field === 'name')?.status).toBe('error');
+  });
+});
+
+describe('the verified email and the homepage', () => {
+  it('reads both from the «Verified email at … - Homepage» line, whatever the language', () => {
+    const p = profile();
+    expect(p.verifiedDomain).toBe('uhsp.edu.ua');
+    expect(p.homepage).toBe('https://uhsp.edu.ua/personnel/kamenska-iryna-stepanivna/');
+    expect(profile({ email: null }).verifiedDomain).toBeNull();
+    expect(profile({ email: null }).homepage).toBeNull();
+  });
+
+  it('passes the university domain, errors on none and on another one', () => {
+    expect(checkScholarVerifiedEmail(profile()).status).toBe('ok');
+    const none = checkScholarVerifiedEmail(profile({ email: null }));
+    expect(none.status).toBe('error');
+    expect(none.message).toBe('Електронну адресу не підтверджено');
+    const other = checkScholarVerifiedEmail(profile({ email: 'gmail.com' }));
+    expect(other.status).toBe('error');
+    expect(other.message).toContain('gmail.com');
+  });
+
+  it('passes the personal page on the university site, errors on none or another link', () => {
+    expect(checkScholarHomepage(profile()).status).toBe('ok');
+    expect(checkScholarHomepage(profile({ homepage: null })).status).toBe('error');
+    const other = checkScholarHomepage(profile({ homepage: 'https://example.com/me' }));
+    expect(other.status).toBe('error');
+    expect(other.message).toContain('сайті університету');
+  });
+
+  it('fails the platform when they are missing', async () => {
+    const r = await createScholarChecker(open(), NOW).check(LINK, {
+      person,
+      fetchImpl: respond(200, page({ email: null })),
+    });
+    expect(r.status).toBe('error');
+    expect(r.checks.map((c) => c.field)).toEqual(
+      expect.arrayContaining(['verified_email', 'homepage', 'keywords'])
+    );
+  });
+});
+
+describe('keywords', () => {
+  it('are read one per interest', () => {
+    expect(profile({ keywords: ['a', 'b'] }).keywords).toEqual(['a', 'b']);
+    expect(profile({ keywords: [] }).keywords).toEqual([]);
+  });
+
+  it('are advice: present is ok, none is only a recommendation', () => {
+    expect(checkScholarKeywords(profile()).status).toBe('ok');
+    const none = checkScholarKeywords(profile({ keywords: [] }));
+    expect(none.status).toBe('info');
+    expect(none.message).toBe('Рекомендовано додати ключові слова');
   });
 });

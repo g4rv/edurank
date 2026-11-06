@@ -42,8 +42,6 @@ export interface ScopusProfile {
   hIndex: number | null;
   documents: number | null;
   citations: number | null;
-  /** The subject areas, each once */
-  subjectAreas: string[];
   /** Only the id came back: the key has no access to the profile */
   minimized: boolean;
 }
@@ -72,10 +70,6 @@ export function parseScopusAuthor(item: unknown): ScopusProfile | null {
     .map((x) => text(obj(obj(x)?.['ip-doc'])?.afdispname))
     .filter(Boolean);
 
-  const areas = list(obj(a['subject-areas'])?.['subject-area'])
-    .map((x) => text(obj(x)?.$))
-    .filter(Boolean);
-
   return {
     authorId,
     orcid,
@@ -84,7 +78,6 @@ export function parseScopusAuthor(item: unknown): ScopusProfile | null {
     hIndex: count(a['h-index']),
     documents: count(core['document-count']),
     citations: count(core['citation-count']),
-    subjectAreas: [...new Set(areas)],
     minimized: !profile && a['h-index'] === undefined,
   };
 }

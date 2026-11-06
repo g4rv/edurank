@@ -4,7 +4,7 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { planDepartmentsFor, getSciencePlan } from '@/lib/queries/get-science-plan';
 import { canOverseeScience } from '@/lib/science/oversight';
-import { canViewAnyQualifications } from '@/lib/qualifications/access';
+import { canSeeQualificationsTab } from '@/lib/qualifications/access';
 import { pickPlanDepartment } from '@/lib/science/plan-department';
 import { toPlanWorkType } from '@/lib/science/to-plan-work-type';
 import { EmptyState } from '@/components/aurora/ui/card';
@@ -43,7 +43,7 @@ export default async function StaffSciencePage({
   if (!staff?.isNpp) notFound();
 
   const basePath = `/staff/${id}/science`;
-  const showQualifications = await canViewAnyQualifications(session.user);
+  const showQualifications = await canSeeQualificationsTab(session.user);
   const tabRow = (
     <RecordTabRow staffId={id} showRating showScience showQualifications={showQualifications} />
   );

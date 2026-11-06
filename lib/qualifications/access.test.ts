@@ -1,15 +1,23 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-vi.mock('@/lib/db', () => ({ db: { staff: { findUnique: vi.fn() } } }));
+vi.mock('@/lib/db', () => ({
+  db: {
+    staff: { findUnique: vi.fn() },
+    department: { findMany: vi.fn().mockResolvedValue([]) },
+    faculty: { findMany: vi.fn().mockResolvedValue([]) },
+  },
+}));
 
 import { db } from '@/lib/db';
 import {
+  canSeeQualificationsTab,
   canViewAnyQualifications,
   divisionAllowsQualifications,
   qualificationAccessFor,
 } from './access';
 
 const findStaff = db.staff.findUnique as unknown as Mock;
+const findDepartments = db.department.findMany as unknown as Mock;
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -56,8 +64,22 @@ describe('qualificationAccessFor', () => {
     ).toEqual({ read: true, write: true });
   });
 
-  it('refuses another НПП, a head and a декан (they are ordinary USERs)', () => {
+  it('refuses another НПП, and a head or декан who is not that person’s overseer', () => {
     expect(qualificationAccessFor(base)).toEqual({ read: false, write: false });
+  });
+
+  it('lets the overseer of the owner read, and never write', () => {
+    expect(qualificationAccessFor({ ...base, overseer: true })).toEqual({
+      read: true,
+      write: false,
+    });
+  });
+
+  it('gives an overseer nothing on an administrative record', () => {
+    expect(qualificationAccessFor({ ...base, overseer: true, ownerIsNpp: false })).toEqual({
+      read: false,
+      write: false,
+    });
   });
 
   it('ignores a division switch on a USER', () => {
@@ -117,5 +139,21 @@ describe('canViewAnyQualifications', () => {
   it('follows the division for an EDITOR', async () => {
     findStaff.mockResolvedValue({ division: { canViewQualifications: true } });
     expect(await canViewAnyQualifications({ role: 'EDITOR', staffId: 's1' })).toBe(true);
+  });
+});
+
+describe('canSeeQualificationsTab', () => {
+  it('shows the tab to a head or декан (some кафедри in scope)', async () => {
+    findDepartments.mockResolvedValueOnce([{ id: 'd1' }]);
+    expect(await canSeeQualificationsTab({ role: 'USER', staffId: 'head' })).toBe(true);
+  });
+
+  it('hides it from somebody who oversees nobody', async () => {
+    expect(await canSeeQualificationsTab({ role: 'USER', staffId: 'plain' })).toBe(false);
+  });
+
+  it('does not make a head an exporter — that stays ADMIN and the division', async () => {
+    findDepartments.mockResolvedValueOnce([{ id: 'd1' }]);
+    expect(await canViewAnyQualifications({ role: 'USER', staffId: 'head' })).toBe(false);
   });
 });

@@ -26,7 +26,8 @@ export const CHECK_STATUS_LABELS: Record<CheckStatus, string> = {
 /** Field names of an ORCID check, as a person reads them */
 export const CHECK_FIELD_LABELS: Record<string, string> = {
   profile: 'Профіль',
-  subject_categories: 'Предметні категорії',
+  verified_email: 'Підтверджена електронна адреса',
+  homepage: 'Домашня сторінка',
   description: 'Опис профілю',
   orcid: 'ORCID',
   scopus_content: 'Вміст профілю',

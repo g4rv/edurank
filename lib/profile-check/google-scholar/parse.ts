@@ -38,6 +38,16 @@ export interface ScholarProfile {
   /** The first page of articles, newest first (the fetch asks `sortby=pubdate`) */
   articles: ScholarArticle[];
   stats: ScholarStats | null;
+  /**
+   * The domain of the verified email — «Verified email at uhsp.edu.ua» — or null
+   * for «No verified email». Read as the first domain in that line, so it does
+   * not depend on the page language.
+   */
+  verifiedDomain: string | null;
+  /** The «Homepage» link next to the verified email, or null */
+  homepage: string | null;
+  /** The profile's interests, one per keyword */
+  keywords: string[];
 }
 
 const NAME_RE = /<div id="gsc_prf_in"[^>]*>([\s\S]*?)<\/div>/;
@@ -48,6 +58,16 @@ const AFFILIATION_RE = /<div class="gsc_prf_il">([\s\S]*?)<\/div>/;
 const ROW_RE = /<tr class="gsc_a_tr">([\s\S]*?)<\/tr>/g;
 const TITLE_RE = /class="gsc_a_at"[^>]*>([\s\S]*?)<\/a>/;
 const YEAR_RE = /<td class="gsc_a_y">[\s\S]*?<span[^>]*>([^<]*)<\/span>/;
+// «Verified email at uhsp.edu.ua - Homepage»: the line has its own id, and the
+// link inside it is the homepage
+const VERIFIED_RE = /<div[^>]*id="gsc_prf_ivh"[^>]*>([\s\S]*?)<\/div>/;
+const HOMEPAGE_RE = /<a[^>]*href="([^"]+)"[^>]*>/;
+const DOMAIN_RE = /([a-z0-9-]+(?:\.[a-z0-9-]+)+)/i;
+// The interests: every link inside the block that holds them — the block's id is
+// what scraping guides agree on; the class of each link (`gsc_prf_inta`) is not
+// relied on, so a renamed class does not empty everybody's keywords
+const INTERESTS_RE = /<div[^>]*id="gsc_prf_int"[^>]*>([\s\S]*?)<\/div>/;
+const INTEREST_RE = /<a\b[^>]*>([\s\S]*?)<\/a>/g;
 
 function decode(text: string): string {
   return text
@@ -79,9 +99,20 @@ export function parseScholarProfile(html: string): ScholarProfile | null {
     };
   });
 
+  const verifiedBlock = VERIFIED_RE.exec(html)?.[1] ?? '';
+  // The text outside the link: «Verified email at uhsp.edu.ua - »
+  const verifiedText = decode(verifiedBlock.replace(/<a[\s\S]*?<\/a>/g, ' '));
+  const verifiedDomain = DOMAIN_RE.exec(verifiedText)?.[1].toLowerCase() ?? null;
+  const homepageRaw = HOMEPAGE_RE.exec(verifiedBlock)?.[1] ?? null;
+  const homepage = homepageRaw ? decode(homepageRaw) || null : null;
+  const keywords = [...(INTERESTS_RE.exec(html)?.[1] ?? '').matchAll(INTEREST_RE)]
+    .map((m) => decode(m[1]))
+    .filter(Boolean);
+  const extras = { verifiedDomain, homepage, keywords };
+
   const cells = [...html.matchAll(CELL_RE)].map((m) => Number(m[1].replace(/\D/g, '')));
   if (cells.length !== 6 || cells.some((n) => !Number.isFinite(n))) {
-    return { name, affiliation, articles, stats: null };
+    return { name, affiliation, articles, stats: null, ...extras };
   }
 
   const [cAll, cRecent, hAll, hRecent, iAll, iRecent] = cells;
@@ -89,6 +120,7 @@ export function parseScholarProfile(html: string): ScholarProfile | null {
     name,
     affiliation,
     articles,
+    ...extras,
     stats: {
       citations: { all: cAll, recent: cRecent },
       hIndex: { all: hAll, recent: hRecent },

@@ -1,14 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGate } from '@/lib/profile-check/gate';
 import { createScopusChecker, scopusAuthorId } from '@/lib/profile-check/scopus';
-import { tally } from '@/lib/profile-check/tally';
-import {
-  checkWosAffiliation,
-  checkWosCategories,
-  checkWosHIndex,
-  checkWosName,
-  checkWosOrcid,
-} from './checks';
+import { checkWosAffiliation, checkWosHIndex, checkWosName, checkWosOrcid } from './checks';
 import { createWosChecker, whyNoProfile, type WosOpen } from './index';
 import { isResearcherId, parseWosProfile, wosRecordId } from './parse';
 
@@ -65,8 +58,6 @@ describe('parseWosProfile', () => {
       publishedNames: ['Kamenska, Iryna', 'Kamenska, I'],
       organization: 'Hryhorii Skovoroda University in Pereiaslav',
       hIndex: 2,
-      subjectCategories: [],
-      hasCategoriesSection: true,
     });
   });
 
@@ -140,12 +131,10 @@ describe('Web of Science rules', () => {
 });
 
 describe('the Web of Science checker', () => {
-  const CATEGORIES = ['Business & Economics', 'Education & Educational Research'];
   const okPage: WosOpen = {
     kind: 'ok',
     name: 'Iryna Kamenska',
     text: TEXT,
-    categories: CATEGORIES,
   };
 
   it('passes the reference profile', async () => {
@@ -153,14 +142,7 @@ describe('the Web of Science checker', () => {
     const r = await checker.check(LINK, { person, fetchImpl: fetch });
     expect(r.status).toBe('ok');
     expect(r.link).toBe(LINK);
-    expect(r.checks.map((c) => c.field)).toEqual([
-      'orcid',
-      'name',
-      'affiliations',
-      'h_index',
-      'subject_categories',
-    ]);
-    expect(r.checks.at(-1)?.current).toEqual(CATEGORIES);
+    expect(r.checks.map((c) => c.field)).toEqual(['orcid', 'name', 'affiliations', 'h_index']);
   });
 
   it('fails the platform when a rule fails', async () => {
@@ -169,7 +151,6 @@ describe('the Web of Science checker', () => {
       kind: 'ok',
       name: 'Iryna Kamenska',
       text,
-      categories: [],
     }));
     expect((await checker.check(LINK, { person, fetchImpl: fetch })).status).toBe('error');
   });
@@ -238,58 +219,6 @@ describe('Scopus, without a key', () => {
 
   it('errors on a link with no author id', async () => {
     const r = await noKeyScopus.check('https://www.scopus.com/', { person, fetchImpl: fetch });
-    expect(r.status).toBe('error');
-  });
-});
-
-describe('subject categories', () => {
-  const categories = [' Business & Economics ', 'Education & Educational Research', '  '];
-
-  it('are read from the chips, trimmed, and an empty chip is dropped', () => {
-    const p = parseWosProfile({ name: 'Iryna Kamenska', text: TEXT, categories });
-    expect(p?.subjectCategories).toEqual([
-      'Business & Economics',
-      'Education & Educational Research',
-    ]);
-  });
-
-  it('are empty, not guessed from the run-together line, when no chips were read', () => {
-    expect(parseWosProfile({ name: 'Iryna Kamenska', text: TEXT })?.subjectCategories).toEqual([]);
-  });
-
-  it('are a requirement: present is a success, counted like the others', () => {
-    const c = checkWosCategories(profile({ subjectCategories: ['A', 'B'] }));
-    expect(c).toMatchObject({ field: 'subject_categories', status: 'ok', current: ['A', 'B'] });
-    const tallied = tally([checkWosOrcid(profile(), OWN), c]);
-    expect(tallied.map((t) => t.text)).toEqual(['2 успішно']);
-  });
-
-  it('are an error when the profile has none — there is no heading on the page', () => {
-    const none = parseWosProfile({
-      name: 'Iryna Kamenska',
-      text: TEXT.replace('Subject Categories', 'Something else'),
-      categories: [],
-    })!;
-    const c = checkWosCategories(none);
-    expect(c.status).toBe('error');
-    expect(c.message).toMatch(/не вказано предметні категорії/);
-  });
-
-  it('are only a warning when the heading is there but none could be read — that is our doubt', () => {
-    const c = checkWosCategories(profile({ subjectCategories: [], hasCategoriesSection: true }));
-    expect(c.status).toBe('warning');
-  });
-
-  it('are part of the platform result, so a profile without them fails the platform', async () => {
-    const text = TEXT.replace('Subject Categories', 'Something else');
-    const checker = createWosChecker(open(), async () => ({
-      kind: 'ok',
-      name: 'Iryna Kamenska',
-      text,
-      categories: [],
-    }));
-    const r = await checker.check(LINK, { person, fetchImpl: fetch });
-    expect(r.checks.find((c) => c.field === 'subject_categories')?.status).toBe('error');
     expect(r.status).toBe('error');
   });
 });
