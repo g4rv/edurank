@@ -1023,8 +1023,14 @@ document that proves it. Tab «Підвищення кваліфікації/С�
   permission): the НПП reads and writes their own; ADMIN reads and writes
   anybody's; an EDITOR whose division carries **`canViewQualifications`**
   («Перегляд підвищення кваліфікації», a switch like `canOverseeScience`, set on
-  `/divisions/[id]`) **reads only**, files included. A head and a декан see
-  nothing; for them the staff route is `notFound`. **Only an НПП has records** —
+  `/divisions/[id]`) **reads only**, files included. **A завідувач and a декан read
+  their own people's records, files of the qualifications included, and write nothing**
+  (owner, 2026-11-06): `overseesStaff` (`lib/queries/scope.ts`) — head of a кафедра the
+  person works on, additional ones too, or декан of its факультет. They get no
+  Excel (`canViewAnyQualifications` stays ADMIN and the division), and the
+  diploma and certificate scans stay closed to them: `authoriseQualifications`
+  lets an overseer through only when the qualification file action passes
+  `allowOverseer`. For anybody else the staff route is `notFound`. **Only an НПП has records** —
   every action refuses an administrative owner, ADMIN included.
 - **Серія and номер are both optional, and there is an optional «Посилання»**
   (`url`, owner, 2026-10-14) — some certificates carry no number at all. The link

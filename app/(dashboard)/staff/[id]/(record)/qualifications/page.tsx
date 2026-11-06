@@ -7,6 +7,7 @@ import {
   divisionAllowsQualifications,
   qualificationAccessFor,
 } from '@/lib/qualifications/access';
+import { overseesStaff } from '@/lib/queries/scope';
 import { listQualifications } from '@/lib/queries/list-qualifications';
 import { QualificationDialog } from '@/components/qualifications/qualification-dialog';
 import { QualificationList } from '@/components/qualifications/qualification-list';
@@ -18,10 +19,11 @@ import { DownloadButton } from '@/components/ui/download-button';
  * «Підвищення кваліфікації/Стажування» of one НПП, as somebody else sees it
  * (owner, 2026-10-13).
  *
- * **ADMIN, or an EDITOR whose division carries `canViewQualifications`** — and
- * for everybody else this route does not exist: `notFound`, not a redirect, the
- * same as an unknown id, so it does not confirm the person has records. A
- * завідувач and a декан see nothing here.
+ * **ADMIN, an EDITOR whose division carries `canViewQualifications`, or the
+ * завідувач / декан of the person's кафедра / факультет (read only, owner
+ * 2026-11-06)** — and for everybody else this route does not exist: `notFound`,
+ * not a redirect, the same as an unknown id, so it does not confirm the person
+ * has records. A head gets no Excel.
  *
  * ADMIN may also add, edit and delete (`access.write`); the division switch is
  * read-only, so those editors get the file link and no controls. Administrative
@@ -50,6 +52,7 @@ export default async function StaffQualificationsPage({
     divisionAllows: await divisionAllowsQualifications(session.user),
     ownerId: id,
     ownerIsNpp: owner.isNpp,
+    overseer: await overseesStaff(session.user.staffId, id),
   });
   if (!access.read) notFound();
 

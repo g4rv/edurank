@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { accountGrantsFor, type AccountGrants } from '@/lib/permissions';
 import { canOverseeScience } from '@/lib/science/oversight';
 import {
-  canViewAnyQualifications,
+  canSeeQualificationsTab,
   divisionAllowsQualifications,
   qualificationAccessFor,
 } from '@/lib/qualifications/access';
@@ -41,7 +41,7 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
   // «Наукова робота» is ADMIN's and «Перевірка науки»'s alone (D43).
   const showScience = await canOverseeScience(session.user);
   // «Підвищення кваліфікації/Стажування»: ADMIN and a division holding the switch.
-  const showQualifications = await canViewAnyQualifications(session.user);
+  const showQualifications = await canSeeQualificationsTab(session.user);
   // A завідувач or декан READS the records of their кафедра's people
   // (owner, 2026-09-24) — `canViewAcademicRecord`, the rule the
   // Характеристика already used. Read-only: every control on the record is

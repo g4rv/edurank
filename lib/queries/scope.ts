@@ -157,8 +157,20 @@ export async function canViewAcademicRecord(
 ): Promise<boolean> {
   if (viewer.role === 'ADMIN' || viewer.role === 'EDITOR') return true;
   if (viewer.staffId && viewer.staffId === targetStaffId) return true;
+  return overseesStaff(viewer.staffId, targetStaffId);
+}
 
-  const departments = await scopeOf(viewer.staffId);
+/**
+ * Is this person a завідувач of a кафедра the target works on, or a декан of its
+ * факультет — nothing else? The «my people» half of `canViewAcademicRecord`,
+ * for a screen that wants it without the ADMIN / EDITOR / own-record shortcuts
+ * (the qualifications of a head's staff, 2026-11-06).
+ */
+export async function overseesStaff(
+  overseerStaffId: string | null | undefined,
+  targetStaffId: string
+): Promise<boolean> {
+  const departments = await scopeOf(overseerStaffId);
   if (departments.length === 0) return false;
 
   const target = await db.staff.findUnique({

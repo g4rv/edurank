@@ -12,7 +12,12 @@ vi.mock('@/lib/staff/profile-freeze', async () => {
   };
 });
 vi.mock('@/lib/db', () => ({
-  db: { staff: { findUnique: vi.fn() }, qualification: { findUnique: vi.fn() } },
+  db: {
+    staff: { findUnique: vi.fn() },
+    qualification: { findUnique: vi.fn() },
+    department: { findMany: vi.fn().mockResolvedValue([]) },
+    faculty: { findMany: vi.fn().mockResolvedValue([]) },
+  },
 }));
 vi.mock('@/lib/science/r2', async () => {
   const actual = await vi.importActual<typeof import('@/lib/science/r2')>('@/lib/science/r2');
@@ -34,6 +39,7 @@ import {
 const mockAuth = auth as unknown as Mock;
 const mockStaff = db.staff.findUnique as unknown as Mock;
 const mockFind = db.qualification.findUnique as unknown as Mock;
+const mockDepartments = db.department.findMany as unknown as Mock;
 const mockPut = presignPut as unknown as Mock;
 const mockGet = presignGet as unknown as Mock;
 const mockDrop = safeDeleteObject as unknown as Mock;
@@ -53,6 +59,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockPut.mockResolvedValue('https://r2/put');
   mockGet.mockResolvedValue('https://r2/get');
+  mockDepartments.mockResolvedValue([]);
 });
 
 describe('presignQualificationUpload', () => {
@@ -167,6 +174,32 @@ describe('qualificationFileUrl', () => {
       });
     }
     expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('signs a link for the head of the person’s кафедра (owner, 2026-11-06)', async () => {
+    signIn('USER', 'head-1');
+    mockDepartments.mockResolvedValue([{ id: 'd1' }]);
+    const base = mockStaff.getMockImplementation()!;
+    mockStaff.mockImplementation(async (args: { where: { id: string }; select?: object }) => ({
+      ...(await base(args)),
+      departmentId: 'd1',
+      partTimeDepartments: [],
+    }));
+    expect(await qualificationFileUrl('q1')).toEqual({ ok: true, url: 'https://r2/get' });
+  });
+
+  it('does not sign it for a head of ANOTHER кафедра', async () => {
+    signIn('USER', 'head-2');
+    mockDepartments.mockResolvedValue([{ id: 'other' }]);
+    const base = mockStaff.getMockImplementation()!;
+    mockStaff.mockImplementation(async (args: { where: { id: string }; select?: object }) => ({
+      ...(await base(args)),
+      departmentId: 'd1',
+      partTimeDepartments: [],
+    }));
+    expect(await qualificationFileUrl('q1')).toEqual({
+      error: 'У вас немає доступу до цього файлу',
+    });
   });
 
   it('says when there is no file or no record', async () => {

@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import type { Role } from '@/lib/generated/prisma/client';
+import { scopeOf } from '@/lib/queries/scope';
 
 /**
  * Who may do what with ONE person's qualification records (owner, 2026-10-13).
@@ -9,7 +10,8 @@ import type { Role } from '@/lib/generated/prisma/client';
  * | the НПП themself                         | yes  | yes   |
  * | ADMIN                                    | yes  | yes   |
  * | EDITOR, division `canViewQualifications` | yes  | no    |
- * | anybody else (a head, a декан, a USER)   | no   | no    |
+ * | a завідувач / декан of the person's кафедра / факультет | yes | no |
+ * | anybody else (a USER)                    | no   | no    |
  *
  * **Only an НПП has records at all.** An administrative account has no tab and
  * every action refuses it, whoever asks — `ownerIsNpp` is the caller's check
@@ -34,11 +36,17 @@ export function qualificationAccessFor(input: {
   /** The `Staff.id` the records belong to. */
   ownerId: string;
   ownerIsNpp: boolean;
+  /**
+   * The caller is a завідувач of a кафедра the owner works on, or a декан of its
+   * факультет (`overseesStaff`) — read only (owner, 2026-11-06).
+   */
+  overseer?: boolean;
 }): QualificationAccess {
   if (!input.ownerIsNpp) return NO_ACCESS;
   if (input.role === 'ADMIN') return { read: true, write: true };
   if (input.staffId && input.staffId === input.ownerId) return { read: true, write: true };
   if (input.role === 'EDITOR' && input.divisionAllows) return { read: true, write: false };
+  if (input.overseer) return { read: true, write: false };
   return NO_ACCESS;
 }
 
@@ -53,6 +61,20 @@ export async function divisionAllowsQualifications(user: {
     select: { division: { select: { canViewQualifications: true } } },
   });
   return staff?.division?.canViewQualifications === true;
+}
+
+/**
+ * Does the record's tab bar show the qualifications tab? Everybody who may read
+ * anybody's, plus a завідувач or декан, who may read their own people's — the
+ * tab then leads to a page that checks the one person. NOT the export's rule:
+ * a head gets no Excel (`canViewAnyQualifications` stays that).
+ */
+export async function canSeeQualificationsTab(user: {
+  role: Role;
+  staffId?: string | null;
+}): Promise<boolean> {
+  if (await canViewAnyQualifications(user)) return true;
+  return (await scopeOf(user.staffId)).length > 0;
 }
 
 /**

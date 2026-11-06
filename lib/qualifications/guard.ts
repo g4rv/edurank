@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import type { Role } from '@/lib/generated/prisma/client';
+import { overseesStaff } from '@/lib/queries/scope';
 import { profileFrozenFor, QUALIFICATIONS_FROZEN_DETAIL } from '@/lib/staff/profile-freeze';
 import {
   divisionAllowsQualifications,
@@ -29,7 +30,13 @@ export interface QualificationCaller {
  */
 export async function authoriseQualifications(
   ownerId: string,
-  need: 'read' | 'write'
+  need: 'read' | 'write',
+  /**
+   * A завідувач / декан of the owner may read — ONLY for the qualification records
+   * and their files. The diploma and certificate scans share this door and stay
+   * closed to them, so they do not pass it (owner, 2026-11-06).
+   */
+  options: { allowOverseer?: boolean } = {}
 ): Promise<{ ok: true; caller: QualificationCaller } | { error: string }> {
   const session = await auth();
   const userId = session?.user?.id;
@@ -49,12 +56,16 @@ export async function authoriseQualifications(
   const divisionAllows =
     need === 'read' && role === 'EDITOR' && (await divisionAllowsQualifications(session.user));
 
+  const overseer =
+    need === 'read' && options.allowOverseer === true && (await overseesStaff(staffId, owner.id));
+
   const access = qualificationAccessFor({
     role,
     staffId,
     divisionAllows,
     ownerId: owner.id,
     ownerIsNpp: owner.isNpp,
+    overseer,
   });
   if (!access[need]) return { error: NOT_ALLOWED };
 

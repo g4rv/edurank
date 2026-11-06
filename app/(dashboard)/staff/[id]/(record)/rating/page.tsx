@@ -3,7 +3,7 @@ import { loadRatingGate } from '@/lib/rating/rating-gate';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { auth } from '@/lib/auth';
 import { canOverseeScience } from '@/lib/science/oversight';
-import { canViewAnyQualifications } from '@/lib/qualifications/access';
+import { canSeeQualificationsTab } from '@/lib/qualifications/access';
 import { db } from '@/lib/db';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
@@ -38,7 +38,7 @@ export default async function StaffRatingPage({
   // «Наукова робота» is ADMIN's and «Перевірка науки»'s alone (D43).
   const showScience = await canOverseeScience(session.user);
   // «Підвищення кваліфікації/Стажування»: ADMIN and a division holding the switch.
-  const showQualifications = await canViewAnyQualifications(session.user);
+  const showQualifications = await canSeeQualificationsTab(session.user);
 
   // A завідувач or декан READS the records of their кафедра's people
   // (owner, 2026-09-24) — `canViewAcademicRecord`, the rule the

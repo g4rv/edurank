@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { canOverseeScience } from '@/lib/science/oversight';
-import { canViewAnyQualifications } from '@/lib/qualifications/access';
+import { canSeeQualificationsTab } from '@/lib/qualifications/access';
 import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
@@ -38,7 +38,7 @@ export default async function StaffKharakterystykaPage({
   // «Наукова робота» is ADMIN's and «Перевірка науки»'s alone (D43).
   const showScience = await canOverseeScience(session.user);
   // «Підвищення кваліфікації/Стажування»: ADMIN and a division holding the switch.
-  const showQualifications = await canViewAnyQualifications(session.user);
+  const showQualifications = await canSeeQualificationsTab(session.user);
 
   // An НПП reaching their own record belongs on «Мій рейтинг», which carries the
   // same document plus the forms to do something about it.
