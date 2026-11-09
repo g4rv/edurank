@@ -277,7 +277,7 @@ function CheckLine({ check }: { check: Check }) {
         <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       </div>
       {now && (
-        <p className="mt-0.5 line-clamp-2 text-xs break-all text-muted-foreground">
+        <p className="mt-0.5 line-clamp-2 text-sm break-all text-muted-foreground">
           Зараз: <CurrentValue field={check.field} text={now} />
         </p>
       )}
