@@ -1243,6 +1243,37 @@ platform, replaced on every run — a status board, not a history) and
   many people run at once) and, after a block, fails everything for 10 minutes
   instead of lengthening it. Verified against the reference profile and on
   four others against numbers read by hand.
+- **The Scholar NAME check judges letters, not the word «ORCID»** (owner, 2026-11-09,
+  `checkScholarName`). An ORCID iD anywhere in the name counts — with or without the
+  word «ORCID», brackets, a link form, spaces or hyphens between the groups — and
+  must equal `Staff.orcidId`. What is left after taking the iD, the word and the
+  brackets out is judged by `latinKind`: «Ім’я не латиницею» (really not Latin) or
+  «В імені кириличні літери, схожі на латинські» (a Cyrillic С in «ORСID»). Leftover
+  digits are «ORCID записано неправильно», not a letters problem. Only the exact
+  `(ORCID 0000-…)` spelling is the recommended form (advice otherwise). The popup
+  shows the Cyrillic letters of a mixed name in bold red (`cyrillicRuns`,
+  `CurrentValue` in `profile-check-details.tsx`); «Зараз» is `text-sm`.
+- **The local Scholar fetcher** (`scholar-selenium/`, GITIGNORED — real people's pages
+  inside). Scholar blocked the dev IP, and a block is per IP, so the pages are fetched by
+  a visible Chrome on the owner's machine and judged by the app's own checker:
+  `export_todo.ts` (who needs a check → `todo.json`; `--all`), `fetch_pages.py`
+  (Selenium, `py` not `python`; 12–25 s gap; ONE CAPTCHA to solve by hand, then stops
+  after 10 min; resumable `manifest.json`; never bypasses a CAPTCHA, no stealth),
+  `import_pages.ts` (feeds the saved HTML to `createScholarChecker` through a fake
+  `fetch` and `saveResult`; `--dry`), `fix_names.ts` (re-judges only the stored name
+  check after a rule change). Selenium does NOT prevent a block — it only lets a human
+  solve the CAPTCHA. 2026-11-09: 177 profiles fetched into `edurank_prod_20261106`
+  (the owner's local copy); ~104 other Scholar rows are from older rules.
+- **Requirements per platform, at a glance** (errors unless marked advice). ORCID: Latin
+  name; ≥2 emails — a VERIFIED `@uhsp.edu.ua` and a personal one; links — the university
+  page always, WoS ResearcherID / Scopus Author ID when the person gave those profiles (and
+  equal to them), Scholar is advice; country UA; the university listed (EN or UK), ★ and
+  current; a publication from this or last year; advice: keywords, education, professional
+  activity, position/кафедра/start date. WoS and Scopus: profile exists, its ORCID is the
+  person's own, name Latin, (current) organisation the university; h-index recorded, no
+  threshold; Scopus needs the institutional token on prod. Scholar: as above, plus
+  description (university + ROR), verified email `uhsp.edu.ua`, homepage
+  `uhsp.edu.ua/personnel/…`; advice: recent article, keywords, country.
 - **The university's requirements live in `config.ts`** (name — English or Ukrainian, case/quotes/spacing ignored, a misspelling is NOT accepted — domain, country,
   the personal page host), not in the checks.
 - **The ★ is read from ORCID's website JSON, not its public API** (owner,
@@ -1301,7 +1332,18 @@ platform, replaced on every run — a status board, not a history) and
   not counted. The usage read never breaks the page: a server on a stale database
   client shows 0 and logs.
 - **Concurrency 4**, one retry on 429/5xx: ORCID's public API is rate limited.
-- Excel: `/api/export/profile-checks` (ADMIN), the page's own filters.
+- **Excel** `/api/export/profile-checks` (ADMIN; owner, 2026-11-09), built by
+  `lib/profile-check/export-workbook.ts` (pure, tested): **a sheet per platform**, a row
+  per person, a column per requirement of that platform (header = its label), each cell
+  saying what the profile holds or what is wrong («Зараз: …»), plus Статус and a
+  clickable Посилання. Colours: error → name AND its cells red; advice → cell yellow,
+  name green; all fine → green; «Увага» → amber; **no profile on that platform → the
+  whole row gray, taller, name only**. No filter → faculty and кафедра heading rows;
+  any filter (кафедра, name, «Є проблеми») → flat, with Факультет/Кафедра columns, and
+  with «Є проблеми» every sheet lists the same people who have a problem on ANY platform
+  (so those without this platform show gray). **Sort: факультет and кафедра
+  alphabetically; inside a кафедра** all fine → fine with advice → doubt → error → not
+  checked / could not check → no profile, then by name.
 
 ## Naming conventions
 
