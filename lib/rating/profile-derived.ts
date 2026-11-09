@@ -13,6 +13,7 @@ import {
   type ProfileDerivedCode,
 } from '@/lib/rating/profile-derived-fields';
 import { heldAdminPositions } from '@/lib/staff/academic';
+import { degreeLevel } from '@/lib/staff/academic-options';
 
 // Profile-derived indicators: rating activity types whose value comes from the
 // Staff profile instead of manual entry (NPP submission or division panel).
@@ -46,6 +47,13 @@ interface DerivedStaff {
   deanOfFaculty: { id: string } | null;
   basicEducationMatch: boolean | null;
   basicEducationSpecialty: string | null;
+  /** Every diploma — rating 1.9 pays each basic education that fits the кафедра */
+  diplomas: readonly {
+    id: string;
+    degree: string;
+    specialty: string | null;
+    matchesDepartment: boolean | null;
+  }[];
   wosCitationCount: number | null;
   scopusCitationCount: number | null;
   googleScholarCitationCount: number | null;
@@ -67,6 +75,10 @@ const DERIVED_STAFF_SELECT = {
   deanOfFaculty: { select: { id: true } },
   basicEducationMatch: true,
   basicEducationSpecialty: true,
+  diplomas: {
+    select: { id: true, degree: true, specialty: true, matchesDepartment: true },
+    orderBy: { position: 'asc' as const },
+  },
   wosCitationCount: true,
   scopusCitationCount: true,
   googleScholarCitationCount: true,
@@ -130,6 +142,13 @@ export function derivedEvidences(
       isDean: staff.deanOfFaculty !== null,
     }).map((post) => ({ option: POSITION_OPTION[post], post }));
   }
+  if (code === 'basic_education_match' && staff.diplomas.length > 0) {
+    // One row per basic education that fits the кафедра (owner, 2026-11-09) —
+    // each carries its diploma, so a row stays paired with its own entry
+    return staff.diplomas
+      .filter((d) => degreeLevel(d.degree) === 'basic' && d.matchesDepartment === true)
+      .map((d) => ({ confirmed: true, specialty: d.specialty ?? '', diplomaId: d.id }));
+  }
   const one = derivedEvidence(code, staff);
   return one ? [one] : [];
 }
@@ -137,6 +156,10 @@ export function derivedEvidences(
 /** What pairs a stored row with the entry it stands for: the post for 1.6 (null
  *  on a row written before posts were told apart), the same for every other type. */
 function identityOf(code: string, evidence: unknown): string | null {
+  if (code === 'basic_education_match') {
+    const id = (evidence as { diplomaId?: unknown } | null)?.diplomaId;
+    return typeof id === 'string' ? id : null;
+  }
   if (code !== 'admin_position') return 'one';
   const post = (evidence as { post?: unknown } | null)?.post;
   return typeof post === 'string' ? post : null;
@@ -250,7 +273,9 @@ function planProfileDerived(
           take(
             (row) =>
               identityOf(type.code, row.evidence) === null &&
-              (row.evidence as { option?: unknown } | null)?.option === evidence.option
+              // 1.9 has no option: a row from before the diplomas were told apart
+              (type.code === 'basic_education_match' ||
+                (row.evidence as { option?: unknown } | null)?.option === evidence.option)
           ),
       };
     });

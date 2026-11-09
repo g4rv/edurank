@@ -37,6 +37,7 @@
     "db:lecturer-gate": "tsx prisma/lecturer-gate.ts",
     "db:intl-publication": "tsx prisma/intl-publication.ts",
     "db:admin-position-every-post": "tsx prisma/admin-position-every-post.ts",
+    "db:basic-education-every-match": "tsx prisma/basic-education-every-match.ts",
     "db:check-staff-list": "tsx prisma/check-staff-list.ts",
     "profiles:check": "tsx prisma/check-profiles.ts",
     "db:staff-list-rates": "tsx prisma/staff-list-rates.ts",
