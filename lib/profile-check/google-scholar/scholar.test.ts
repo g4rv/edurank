@@ -283,6 +283,32 @@ describe('checkScholarName', () => {
     expect(c.status).toBe('info');
   });
 
+  it('accepts the ORCID written without brackets, and says Latin when it is Latin', () => {
+    const c = checkScholarName(
+      profile({ name: 'Nataliya Yuriychuk ORCID 0000-0003-2872-5065' }),
+      OWN_ORCID
+    );
+    expect(c.status).toBe('info');
+    expect(c.message).toMatch(/Рекомендований/);
+  });
+
+  it('accepts the bare iD with no «ORCID» word, if it is the person’s own', () => {
+    const c = checkScholarName(
+      profile({ name: 'Nataliya Yuriychuk 0000-0003-2872-5065' }),
+      OWN_ORCID
+    );
+    expect(c.status).toBe('info');
+  });
+
+  it('still refuses another person’s bare iD', () => {
+    const c = checkScholarName(
+      profile({ name: 'Nataliya Yuriychuk 0000-0001-1111-1111' }),
+      OWN_ORCID
+    );
+    expect(c.status).toBe('error');
+    expect(c.message).toContain(OWN_ORCID);
+  });
+
   it('has nothing to compare to when the system holds no ORCID, and says so by passing', () => {
     expect(checkScholarName(profile(), null).status).toBe('ok');
   });
@@ -443,5 +469,22 @@ describe('keywords', () => {
     const none = checkScholarKeywords(profile({ keywords: [] }));
     expect(none.status).toBe('info');
     expect(none.message).toBe('Рекомендовано додати ключові слова');
+  });
+});
+
+describe('checkScholarName — an iD typed in odd ways', () => {
+  it('tells a broken iD as a broken iD, not as a name that is not Latin', () => {
+    const c = checkScholarName(profile({ name: 'Iryna Yuzkovets (000-0001-9372-550X)' }), null);
+    expect(c.status).toBe('error');
+    expect(c.message).toMatch(/записано неправильно/);
+    expect(c.message).not.toMatch(/не латиницею/);
+  });
+
+  it('accepts the iD parted by spaces, with advice only', () => {
+    const c = checkScholarName(
+      profile({ name: 'Volodimir Movchan (ORCID 0000 0003 2872 5065)' }),
+      OWN_ORCID
+    );
+    expect(c.status).toBe('info');
   });
 });

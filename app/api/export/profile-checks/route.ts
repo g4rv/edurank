@@ -1,14 +1,7 @@
-import ExcelJS from 'exceljs';
 import { auth } from '@/lib/auth';
 import { attachmentHeader } from '@/lib/export/file-names';
 import { logError } from '@/lib/log';
-import {
-  CHECK_FIELD_LABELS,
-  PLATFORM_LABELS,
-  PLATFORM_STATUS_LABELS,
-} from '@/lib/profile-check/labels';
-import { emptyCellText, metricAll } from '@/lib/profile-check/labels';
-import { PLATFORMS } from '@/lib/profile-check/types';
+import { buildProfileChecksWorkbook } from '@/lib/profile-check/export-workbook';
 import { listProfileChecks } from '@/lib/queries/list-profile-checks';
 
 export const runtime = 'nodejs';
@@ -18,8 +11,9 @@ export const runtime = 'nodejs';
  * (`?department=`, `?only=problems`). NOT covered by `proxy.ts`: every `/api`
  * route authenticates itself.
  *
- * One row per person; a column per platform with its status; and a last column
- * that says what to fix, so a кафедра can be sent its own rows as they are.
+ * A sheet per platform (`lib/profile-check/export-workbook.ts`): a row per
+ * person, a column per requirement, red / green cells. With no filter the rows
+ * are grouped by факультет and кафедра.
  */
 export async function GET(request: Request) {
   const session = await auth();
@@ -34,47 +28,11 @@ export async function GET(request: Request) {
 
   try {
     const all = await listProfileChecks({ departmentId, q });
-    const rows = onlyProblems ? all.filter((r) => r.problem) : all;
-
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Перевірка профілів');
-    ws.columns = [
-      { header: 'НПП', width: 38 },
-      { header: 'Факультет', width: 40 },
-      { header: 'Кафедра', width: 46 },
-      ...PLATFORMS.map((p) => ({ header: PLATFORM_LABELS[p], width: 20 })),
-      { header: 'h-індекс (Scholar)', width: 18 },
-      { header: 'Що виправити', width: 90 },
-    ];
-    ws.getRow(1).font = { bold: true };
-    ws.views = [{ state: 'frozen', ySplit: 1 }];
-
-    for (const r of rows) {
-      const fixes: string[] = [];
-      for (const p of PLATFORMS) {
-        const cell = r.cells[p];
-        if (!cell) continue;
-        if (cell.error) fixes.push(`${PLATFORM_LABELS[p]}: ${cell.error}`);
-        for (const c of cell.checks) {
-          if (c.status === 'error' || c.status === 'warning') {
-            fixes.push(
-              `${PLATFORM_LABELS[p]} — ${CHECK_FIELD_LABELS[c.field] ?? c.field}: ${c.message ?? ''}`
-            );
-          }
-        }
-      }
-      ws.addRow([
-        r.name,
-        r.faculty ?? '',
-        r.department ?? '',
-        ...PLATFORMS.map((p) =>
-          r.cells[p] ? PLATFORM_STATUS_LABELS[r.cells[p]!.status] : emptyCellText(r.links[p])
-        ),
-        metricAll(r.cells.googleScholar?.checks.find((c) => c.field === 'h_index')) ?? '',
-        fixes.join('\n'),
-      ]);
-    }
-    ws.getColumn(PLATFORMS.length + 5).alignment = { wrapText: true, vertical: 'top' };
+    // No filter at all: faculties with their кафедри and people. A filter: a flat list.
+    const wb = buildProfileChecksWorkbook(all, {
+      grouped: !departmentId && !q && !onlyProblems,
+      onlyProblems,
+    });
 
     const buffer = await wb.xlsx.writeBuffer();
     return new Response(buffer as BodyInit, {

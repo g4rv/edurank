@@ -33,6 +33,7 @@ const emptyStaff = {
   deanOfFaculty: null,
   basicEducationMatch: null,
   basicEducationSpecialty: null,
+  diplomas: [],
   wosCitationCount: null,
   scopusCitationCount: null,
   googleScholarCitationCount: null,
@@ -142,6 +143,33 @@ describe('derivedEvidence', () => {
     expect(
       derivedEvidence('basic_education_match', { ...emptyStaff, basicEducationMatch: false })
     ).toBeNull();
+  });
+
+  it('pays 1.9 once per basic education that fits the кафедра', () => {
+    const d = (
+      id: string,
+      degree: string,
+      specialty: string,
+      matchesDepartment: boolean | null
+    ) => ({
+      id,
+      degree,
+      specialty,
+      matchesDepartment,
+    });
+    expect(
+      derivedEvidences('basic_education_match', {
+        ...emptyStaff,
+        diplomas: [
+          d('a', 'basic_education', 'Історія', true),
+          d('b', 'basic_education', 'Право', false),
+          d('c', 'basic_education', 'Філософія', true),
+        ],
+      })
+    ).toEqual([
+      { confirmed: true, specialty: 'Історія', diplomaId: 'a' },
+      { confirmed: true, specialty: 'Філософія', diplomaId: 'c' },
+    ]);
   });
 
   it('maps h-index fields, treating 0 as no indicator', () => {

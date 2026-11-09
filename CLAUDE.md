@@ -93,7 +93,8 @@ columns directly — the field grant is `degrees`.
 «Базова освіта» (`basic_education` — бакалавр / магістр / спеціаліст are NOT told
 apart), any number of entries. Its two old columns `basicEducationMatch` /
 `basicEducationSpecialty` are mirrors too (`deriveBasicEducationColumns`): rating
-1.9 pays when ANY entry matches the кафедра. The date on such an entry is the
+1.9 pays EVERY entry that matches the кафедра, one row each (owner, 2026-11-09;
+the mirrors stay a flag plus one specialty). The date on such an entry is the
 diploma's issue date, never a defence — `newestDefence` skips it, so it cannot
 open п.5's window. A person who had the old fields got one entry by migration
 `20261014140000` (no date); the two old field grants became `degrees`.
@@ -438,6 +439,9 @@ pnpm db:staff-list-rates  # the ставки from the same staff.xlsx into the A
                       #   lists every SAVED science plan under the new norm (ННВ reopens
                       #   it — the rating closes until it is saved again). Prod copy
                       #   28.10: 112 ставки on 27 кафедри, 4 plans to top up. --apply.
+pnpm db:basic-education-every-match  # one-off: rating 1.9 pays EVERY basic education that fits the
+                      #   кафедра, one row each (owner, 2026-11-09). Lists who moves (42, +2800
+                      #   on prod copy 06.11); --apply writes through the profile sync.
 pnpm db:admin-position-every-post  # one-off: rating 1.6 pays EVERY post, one row
                       #   per post (owner, 2026-10-28). Lists who moves (28, +1090 on
                       #   prod 27.10); --apply writes through the profile sync.

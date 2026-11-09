@@ -81,3 +81,6 @@ next-env.d.ts
 
 # Output of pnpm profiles:check — real people's profile data
 /profile-check-report*.json
+
+# Local Google Scholar fetcher (Selenium) — its pages hold real people's data
+/scholar-selenium/
