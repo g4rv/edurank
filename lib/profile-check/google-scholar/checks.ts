@@ -30,8 +30,12 @@ function check(
   return { field, current, shouldBe, status, message };
 }
 
-/** Any ORCID iD written in a text, in canonical form, or null. */
-const ORCID_IN_TEXT = /(\d{4}-\d{4}-\d{4}-\d{3}[\dX])/i;
+/**
+ * Any ORCID iD written in a text, or null. The groups may be parted by hyphens,
+ * spaces or both («0000 0002 0377 6678», «0000- 0001-…») — people type it so, and
+ * it is still their number; only the recommended spelling is advised then.
+ */
+const ORCID_IN_TEXT = /(\d{4})[\s-]+(\d{4})[\s-]+(\d{4})[\s-]+(\d{3}[\dX])/i;
 /** The recommended spelling: «(ORCID 0000-0000-0000-0000)», spaces and case free */
 const ORCID_SUFFIX = /\(\s*ORCID\s+\d{4}-\d{4}-\d{4}-\d{3}[\dX]\s*\)/i;
 
@@ -39,25 +43,39 @@ const NAME_SHOULD = 'Ім’я латиницею з ORCID: «Ім’я Пріз
 
 /**
  * «Name (ORCID id)»: Latin letters, and the ORCID in it is the person's own.
- * `ownOrcid` is what the system holds for them (canonical, or null) — without
- * it only the presence of an ORCID is checked, nothing to compare to.
+ * The word «ORCID» and the brackets are NOT required — the iD alone counts when
+ * it is the person's. `ownOrcid` is what the system holds for them (canonical,
+ * or null) — without it only the presence of an ORCID is checked.
  */
 export function checkScholarName(profile: ScholarProfile, ownOrcid: string | null): Check {
   const name = profile.name;
-  const inName = ORCID_IN_TEXT.exec(name)?.[1].toUpperCase() ?? null;
-  // The name itself is what stands outside the brackets
+  const idMatch = ORCID_IN_TEXT.exec(name);
+  const inName = idMatch ? idMatch.slice(1, 5).join('-').toUpperCase() : null;
+  // The name itself: without the iD, the word «ORCID», the link form and brackets
   const plain = name
-    .replace(/\([^)]*\)/g, ' ')
+    .replace(/(https?:\/\/)?(www\.)?orcid\.org\/?/gi, ' ')
+    .replace(ORCID_IN_TEXT, ' ')
+    .replace(/\borcid\b(\s*id\b)?/gi, ' ')
+    .replace(/[()[\]:#]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // Digits left over are an iD typed wrongly (a group short, a letter in it) —
+  // that is not «a name not in Latin», and is told as what it is
+  const brokenId = /\d/.test(plain);
+  const latinPart = plain
+    .replace(/\S*\d\S*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
   const problems: string[] = [];
   if (!inName) {
-    problems.push('у імені немає ORCID');
+    problems.push(
+      brokenId ? 'ORCID записано неправильно (має бути 0000-0000-0000-0000)' : 'у імені немає ORCID'
+    );
   } else if (ownOrcid && inName !== ownOrcid.toUpperCase()) {
     problems.push(`ORCID в імені (${inName}) не збігається з ORCID у системі (${ownOrcid})`);
   }
-  const kind = latinKind(plain);
+  const kind = latinKind(latinPart);
   if (kind === 'other') problems.push('ім’я не латиницею');
   else if (kind === 'lookalike') problems.push('в імені кириличні літери, схожі на латинські');
 

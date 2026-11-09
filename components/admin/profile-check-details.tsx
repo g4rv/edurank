@@ -23,6 +23,7 @@ import {
 } from '@/components/aurora/ui/select';
 import { recheckPerson } from '@/app/(dashboard)/admin/profile-check/actions';
 import { CHECK_FIELD_LABELS, METRIC_LABELS, PLATFORM_LABELS } from '@/lib/profile-check/labels';
+import { cyrillicRuns } from '@/lib/profile-check/latin';
 import { tally } from '@/lib/profile-check/tally';
 import { PLATFORMS, type Check, type Platform } from '@/lib/profile-check/types';
 import type { ProfileCheckRow } from '@/lib/queries/list-profile-checks';
@@ -212,6 +213,28 @@ export function ProfileCheckDetails({
   );
 }
 
+/**
+ * The «Зараз» value. A name that mixes Latin and Cyrillic shows its Cyrillic
+ * letters in bold, so a lookalike («ORСID» with a Cyrillic С) can be seen.
+ */
+function CurrentValue({ field, text }: { field: string; text: string }) {
+  const runs = field === 'name' ? cyrillicRuns(text) : null;
+  if (!runs) return <>{text}</>;
+  return (
+    <>
+      {runs.map((r, i) =>
+        r.cyrillic ? (
+          <strong key={i} className="font-bold text-error-strong">
+            {r.text}
+          </strong>
+        ) : (
+          <span key={i}>{r.text}</span>
+        )
+      )}
+    </>
+  );
+}
+
 function CheckLine({ check }: { check: Check }) {
   const label = CHECK_FIELD_LABELS[check.field] ?? METRIC_LABELS[check.field] ?? check.field;
 
@@ -254,7 +277,9 @@ function CheckLine({ check }: { check: Check }) {
         <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       </div>
       {now && (
-        <p className="mt-0.5 line-clamp-2 text-xs break-all text-muted-foreground">Зараз: {now}</p>
+        <p className="mt-0.5 line-clamp-2 text-xs break-all text-muted-foreground">
+          Зараз: <CurrentValue field={check.field} text={now} />
+        </p>
       )}
     </li>
   );
