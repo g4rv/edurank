@@ -1,5 +1,6 @@
 'use server';
 
+import { EXTERNAL_PART_TIMER_REFUSAL } from '@/lib/staff/external-part-timer';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
@@ -89,11 +90,18 @@ export async function addStudentClaim(_prev: ClaimState, formData: FormData): Pr
   const [staff, speciality] = await Promise.all([
     db.staff.findUnique({
       where: { id: staffId },
-      select: { isNpp: true, archivedAt: true, lastName: true, firstName: true },
+      select: {
+        isNpp: true,
+        isExternalPartTimer: true,
+        archivedAt: true,
+        lastName: true,
+        firstName: true,
+      },
     }),
     db.speciality.findUnique({ where: { name: student.speciality }, select: { id: true } }),
   ]);
   if (!staff?.isNpp) return failed('Залучення здобувачів обліковується лише для НПП');
+  if (staff.isExternalPartTimer) return failed(EXTERNAL_PART_TIMER_REFUSAL);
   if (staff.archivedAt) return failed('Запис архівовано');
   // Only reachable for a speciality the register has and додаток 5 does not, so
   // the seed never created a row for it. Says who can fix it, rather than

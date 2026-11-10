@@ -25,7 +25,10 @@ export default async function MyQualificationsPage() {
   const staffId = session.user.staffId;
   if (!staffId) redirect('/profile');
 
-  const staff = await db.staff.findUnique({ where: { id: staffId }, select: { isNpp: true } });
+  const staff = await db.staff.findUnique({
+    where: { id: staffId },
+    select: { isNpp: true, isExternalPartTimer: true },
+  });
   if (!staff?.isNpp) redirect('/profile');
 
   const rows = await listQualifications(staffId);
@@ -34,7 +37,7 @@ export default async function MyQualificationsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <ProfileTabRow isNpp>
+      <ProfileTabRow isNpp external={staff.isExternalPartTimer}>
         {!frozen && (
           <ToolbarGroup>
             <QualificationDialog staffId={staffId} triggerClassName="rounded-md" />

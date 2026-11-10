@@ -401,3 +401,33 @@ describe('a diploma keeps its row id and its scan through BOTH parses', () => {
     expect(result.data?.degrees?.[0].diplomaId).toBeNull();
   });
 });
+
+describe('зовнішній сумісник', () => {
+  const external = { isNpp: 'true', isExternalPartTimer: 'true' };
+
+  it('is valid on exactly one additional кафедра and no main one', () => {
+    const r = parse({ ...external, departmentId: '', partTimeDepartmentIds: ['d1'] });
+    expect(r.success).toBe(true);
+    expect(r.success && r.data.isExternalPartTimer).toBe(true);
+  });
+
+  it('refuses a main кафедра', () => {
+    const r = parse({ ...external, departmentId: 'd1', partTimeDepartmentIds: ['d2'] });
+    expect(r.success).toBe(false);
+  });
+
+  it('refuses no кафедра, and refuses two', () => {
+    expect(parse({ ...external, partTimeDepartmentIds: [] }).success).toBe(false);
+    expect(parse({ ...external, partTimeDepartmentIds: ['d1', 'd2'] }).success).toBe(false);
+  });
+
+  it('refuses an administrative (non-НПП) record', () => {
+    const r = parse({ isNpp: 'false', isExternalPartTimer: 'true', partTimeDepartmentIds: ['d1'] });
+    expect(r.success).toBe(false);
+  });
+
+  it('is off by default and a person with the flag off is unaffected', () => {
+    const r = parse({ isNpp: 'true', departmentId: 'd1' });
+    expect(r.success && r.data.isExternalPartTimer).toBe(false);
+  });
+});

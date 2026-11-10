@@ -95,6 +95,7 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
       <RecordTabRow
         staffId={id}
         showRating={staff.isNpp}
+        showRatingTab={!staff.isExternalPartTimer}
         showScience={showScience}
         showQualifications={showQualifications}
       >

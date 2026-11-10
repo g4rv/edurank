@@ -1,5 +1,6 @@
 'use server';
 
+import { EXTERNAL_PART_TIMER_REFUSAL } from '@/lib/staff/external-part-timer';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
@@ -75,9 +76,17 @@ export async function upsertDivisionActivity(
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
-    select: { isNpp: true, archivedAt: true, lastName: true, firstName: true, patronymic: true },
+    select: {
+      isNpp: true,
+      isExternalPartTimer: true,
+      archivedAt: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
   });
   if (!staff?.isNpp) return { error: 'Рейтинг ведеться лише для НПП' };
+  if (staff.isExternalPartTimer) return { error: EXTERNAL_PART_TIMER_REFUSAL };
   // The grid does not offer archived people, so reaching one means a stale page
   if (staff.archivedAt) return { error: 'Запис архівовано' };
 
@@ -347,6 +356,7 @@ export async function batchUpsertDivisionActivity(
     select: {
       id: true,
       isNpp: true,
+      isExternalPartTimer: true,
       archivedAt: true,
       lastName: true,
       firstName: true,
@@ -359,6 +369,9 @@ export async function batchUpsertDivisionActivity(
     if (!s) return { error: 'НПП не знайдено' };
     if (!s.isNpp) {
       return { error: `${s.lastName} ${s.firstName} ${s.patronymic} — не НПП` };
+    }
+    if (s.isExternalPartTimer) {
+      return { error: `${s.lastName} ${s.firstName} ${s.patronymic} — зовнішній сумісник` };
     }
     if (s.archivedAt) {
       return { error: `${s.lastName} ${s.firstName} ${s.patronymic} — запис архівовано` };

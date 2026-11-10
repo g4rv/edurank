@@ -56,7 +56,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <ProfileTabRow isNpp={staff.isNpp} />
+      <ProfileTabRow isNpp={staff.isNpp} external={staff.isExternalPartTimer} />
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
         <ProfileDetails

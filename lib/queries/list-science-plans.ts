@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { ON_ROSTER, onDepartments } from './roster';
+import { RATED } from '@/lib/staff/external-part-timer';
 import { planTarget } from '@/lib/science/target';
 
 export interface SciencePlanRowSummary {
@@ -56,7 +57,7 @@ export async function listSciencePlans(input: {
   const staff = await db.staff.findMany({
     where: {
       ...ON_ROSTER,
-      isNpp: true,
+      ...RATED,
       ...onDepartments(ids),
       // `mode: 'insensitive'` matters more here than in a Latin list: somebody
       // typing «іванов» must find «Іванов», and Postgres does not fold

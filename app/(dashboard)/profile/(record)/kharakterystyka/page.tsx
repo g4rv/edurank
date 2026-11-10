@@ -47,7 +47,7 @@ export default async function MyKharakterystykaPage() {
   if (!NPP_RATING_OPEN) {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-5">
-        <ProfileTabRow isNpp />
+        <ProfileTabRow isNpp external={staff.isExternalPartTimer} />
         <EmptyState>Характеристика тимчасово недоступна — рік готується.</EmptyState>
       </div>
     );
@@ -57,7 +57,7 @@ export default async function MyKharakterystykaPage() {
   if (!template) {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-5">
-        <ProfileTabRow isNpp />
+        <ProfileTabRow isNpp external={staff.isExternalPartTimer} />
         <EmptyState>Рейтинговий рік ще не налаштовано. Зверніться до адміністратора.</EmptyState>
       </div>
     );
@@ -72,7 +72,7 @@ export default async function MyKharakterystykaPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <ProfileTabRow isNpp>
+      <ProfileTabRow isNpp external={staff.isExternalPartTimer}>
         <ToolbarGroup>
           <KharakterystykaSummary data={data} />
           <ToolbarDivider />

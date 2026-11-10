@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/aurora/ui/select';
+import { Switch } from '@/components/aurora/ui/switch';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard, FIELD_ROW } from '@/components/staff/academic-fields';
@@ -62,6 +63,8 @@ export type RawStaffFormValues = {
   email: string;
   phone: string;
   isNpp: string;
+  /** Зовнішній сумісник — `true` / `false` like `isNpp` */
+  isExternalPartTimer: string;
   employmentRate: string;
   wosUrl: string;
   wosCitationCount: string;
@@ -85,6 +88,7 @@ export const EMPTY_STAFF_FORM_VALUES: RawStaffFormValues = {
   email: '',
   phone: '',
   isNpp: 'true',
+  isExternalPartTimer: 'false',
   employmentRate: '',
   ...EMPTY_ACADEMIC_VALUES,
   wosUrl: '',
@@ -118,6 +122,7 @@ export function staffToFormValues(
     email: staff.email,
     phone: staff.phone ?? '',
     isNpp: staff.isNpp ? 'true' : 'false',
+    isExternalPartTimer: staff.isExternalPartTimer ? 'true' : 'false',
     employmentRate: numberOrEmpty(staff.employmentRate),
     ...academicToFormValues(staff),
     ...(certificates ? certificatesToFormValues(certificates) : {}),
@@ -480,6 +485,33 @@ export function StaffFormFields({
               });
             }}
           />
+        )}
+
+        {/* Зовнішній сумісник (owner, 2026-11-10): ADMIN, and an editor whose
+              division was granted it. On CREATE `editableFields` is undefined, so
+              anybody who may create a person may set it. */}
+        {isNpp && (
+          <FormField label="Зовнішній сумісник" error={errors.isExternalPartTimer}>
+            <Controller
+              name="isExternalPartTimer"
+              control={control}
+              render={({ field }) => (
+                <label className="flex items-start gap-3 text-sm">
+                  <Switch
+                    checked={field.value === 'true'}
+                    onCheckedChange={(on) => field.onChange(on ? 'true' : 'false')}
+                    disabled={isPending || locked('isExternalPartTimer')}
+                    aria-label="Зовнішній сумісник"
+                  />
+                  <span className="text-foreground-soft">
+                    Працює на одній кафедрі за сумісництвом, без основної. Є ставка, профіль,
+                    характеристика та підвищення кваліфікації; рейтингу, здобувачів і плану наукової
+                    роботи немає. Дані рейтингу не видаляються — їх лише заморожено.
+                  </span>
+                </label>
+              )}
+            />
+          </FormField>
         )}
 
         {/* ADMIN only: a person's відділ decides which permissions their

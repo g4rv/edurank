@@ -54,9 +54,16 @@ export default async function StaffRatingPage({
 
   const staff = await db.staff.findUnique({
     where: { id },
-    select: { lastName: true, firstName: true, patronymic: true, isNpp: true },
+    select: {
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+      isNpp: true,
+      isExternalPartTimer: true,
+    },
   });
-  if (!staff || !staff.isNpp) notFound();
+  // A зовнішній сумісник has no rating (owner, 2026-11-10); the data is frozen, not gone
+  if (!staff || !staff.isNpp || staff.isExternalPartTimer) notFound();
 
   // Which year is on screen. The active one by default; any template year on
   // request — the same picker the НПП already has over their own rating on

@@ -67,6 +67,7 @@ export function IdentityBand({
           <Badge tone={staff.isNpp ? 'brand' : 'muted'}>
             {staff.isNpp ? 'НПП' : 'Адміністративний'}
           </Badge>
+          {staff.isExternalPartTimer && <Badge tone="warn">Зовнішній сумісник</Badge>}
           {/* Amber, like everywhere else this appears: a сумісник's ставка comes
               out of two pools and does not count toward this кафедра's Кнпп, so
               it is something to notice rather than a neutral fact. */}

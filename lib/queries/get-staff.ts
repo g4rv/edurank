@@ -28,6 +28,7 @@ export const getStaff = cache(async function getStaff(id: string, includeConfide
       // key itself never reaches a browser — only the /api/avatar path does.
       avatarKey: true,
       isNpp: true,
+      isExternalPartTimer: true,
       // Whose record this is, in the permission sense: an editor may edit and
       // delete USER rows and their own, never an admin's. The pages need it to
       // stop offering «Редагувати» on a record the action will refuse.

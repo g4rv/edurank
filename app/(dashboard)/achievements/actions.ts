@@ -1,5 +1,6 @@
 'use server';
 
+import { EXTERNAL_PART_TIMER_REFUSAL } from '@/lib/staff/external-part-timer';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
@@ -48,9 +49,18 @@ export async function createActivity(
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
-    select: { isNpp: true, archivedAt: true, lastName: true, firstName: true, patronymic: true },
+    select: {
+      isNpp: true,
+      isExternalPartTimer: true,
+      archivedAt: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
   });
   if (!staff?.isNpp) return { error: 'Подання досягнень доступне лише для НПП' };
+  // Зовнішній сумісник: outside the rating, their data frozen (owner, 2026-11-10)
+  if (staff.isExternalPartTimer) return { error: EXTERNAL_PART_TIMER_REFUSAL };
   // Archiving blocks the login, so this is only reachable with a session that
   // was already open — belt and braces on the year's numbers.
   if (staff.archivedAt) return { error: 'Ваш запис архівовано' };
@@ -201,6 +211,13 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
   // their own mistyped submission (2026-08-17).
   const staffId = session.user.staffId;
   if (!staffId) return { error: 'Недостатньо прав' };
+
+  // A зовнішній сумісник's rating data is frozen (owner, 2026-11-10)
+  const own = await db.staff.findUnique({
+    where: { id: staffId },
+    select: { isExternalPartTimer: true },
+  });
+  if (own?.isExternalPartTimer) return { error: EXTERNAL_PART_TIMER_REFUSAL };
 
   // Deleting is filling the rating too — the gate covers the whole section page.
   if (!(await getSciencePlanGate(staffId)).open) return { error: PLAN_GATE_DETAIL };

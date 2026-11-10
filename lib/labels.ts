@@ -94,6 +94,7 @@ export const FIELD_LABELS: Record<string, string> = {
   phone: 'Телефон',
   avatarKey: 'Фото профілю',
   isNpp: 'Тип (НПП / Адм.)',
+  isExternalPartTimer: 'Зовнішній сумісник',
   employmentRate: 'Ставка',
   pedagogicalExperience: 'Науково-педагогічний стаж',
   academicRank: 'Вчене звання (старе поле)',

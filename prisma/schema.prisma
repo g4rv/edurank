@@ -303,6 +303,14 @@ model Staff {
   // false = non-НПП (administrative staff), department is optional
   isNpp Boolean @default(true)
 
+  // A person from another institution who works part-time on ONE кафедра (owner,
+  // 2026-11-10). Still an НПП — profile, Характеристика, qualifications — but
+  // outside the rating, the students and the science plan; they stay in the
+  // кафедра's ставка spread as a сумісник. Only ADMIN and editors with the grant
+  // set it. Switching it on FREEZES their rating data, it never deletes it, so
+  // switching it off brings everything back (`lib/staff/external-part-timer.ts`).
+  isExternalPartTimer Boolean @default(false)
+
   // Off the active roster, without losing a thing. Set when someone leaves, or
   // goes on декретна відпустка: they drop out of the current year's rating and
   // out of every list an editor works from, while all their past activities and

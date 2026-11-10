@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
+import { RATED } from '@/lib/staff/external-part-timer';
 
 /** One person the «Співавтори» picker can offer. */
 export interface CoauthorCandidate {
@@ -24,7 +25,7 @@ export interface CoauthorCandidate {
  */
 export async function listCoauthorCandidates(excludeStaffId: string): Promise<CoauthorCandidate[]> {
   const people = await db.staff.findMany({
-    where: { ...ON_ROSTER, isNpp: true, id: { not: excludeStaffId } },
+    where: { ...ON_ROSTER, ...RATED, id: { not: excludeStaffId } },
     select: {
       id: true,
       lastName: true,

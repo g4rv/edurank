@@ -113,6 +113,7 @@ const fullPayload: StaffUpdateSchema = {
   email: 'taras@univ.ua',
   phone: '+380501112233',
   isNpp: false,
+  isExternalPartTimer: false,
   employmentRate: 0.25, // confidential — EDITOR/USER must never write it
   pedagogicalExperience: 30,
   position: 'PROFESSOR',

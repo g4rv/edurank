@@ -39,7 +39,8 @@ export default async function SciencePlanPage({
   if (!staffId) redirect('/profile');
 
   const staff = await getStaff(staffId, true);
-  if (!staff?.isNpp) redirect('/profile');
+  // A зовнішній сумісник is outside the rating system (owner, 2026-11-10)
+  if (!staff?.isNpp || staff.isExternalPartTimer) redirect('/profile');
 
   const departments = await planDepartmentsFor(staffId);
 

@@ -15,6 +15,7 @@ import { Sidebar } from '@/components/sidebar';
 import { NavDrawer } from '@/components/nav-drawer';
 import { Toaster } from '@/components/ui/sonner';
 import { AuroraWash } from '@/components/ui/aurora-wash';
+import { takesPartInRating } from '@/lib/staff/external-part-timer';
 
 async function canEnterDivisionData(user: {
   role: 'ADMIN' | 'EDITOR' | 'USER';
@@ -56,7 +57,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const staff = session.user.staffId
     ? await db.staff.findUnique({
         where: { id: session.user.staffId },
-        select: { isNpp: true },
+        select: { isNpp: true, isExternalPartTimer: true },
       })
     : null;
 
@@ -66,7 +67,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // `NPP_RATING_OPEN` is in the condition because the group itself disappears
   // when the rating is closed, and numbers for a nav that is not drawn are
   // two queries spent on nothing.
-  const isNpp = staff?.isNpp ?? false;
+  // The nav's «rating half» (students, science, the year's scores) is for people in
+  // the rating system: a зовнішній сумісник keeps «Мій профіль» only (owner, 2026-11-10)
+  const isNpp = staff ? takesPartInRating(staff) : false;
   const year = isNpp && NPP_RATING_OPEN ? await activeYear() : null;
   const ratingTotals =
     year && session.user.staffId

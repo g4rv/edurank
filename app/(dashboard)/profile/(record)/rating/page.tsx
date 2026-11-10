@@ -50,7 +50,8 @@ export default async function MyRatingPage({
   // ordinary here.
   if (!staffId) redirect('/profile');
   const staff = await getStaff(staffId, true);
-  if (!staff?.isNpp) redirect('/profile');
+  // A зовнішній сумісник has no rating (owner, 2026-11-10)
+  if (!staff?.isNpp || staff.isExternalPartTimer) redirect('/profile');
 
   // Frozen while the year is prepared. The tab row keeps its own greyed tabs and
   // the sentence under them, so a bookmark lands somewhere that explains itself.

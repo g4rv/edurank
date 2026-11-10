@@ -28,17 +28,22 @@ export function staffTabList({
   showStaffPages = true,
   showScience = false,
   showQualifications = false,
+  showRatingTab = true,
 }: {
   root: string;
   showStaffPages?: boolean;
   showScience?: boolean;
   showQualifications?: boolean;
+  /** False for a зовнішній сумісник: no rating, everything else stays (owner, 2026-11-10) */
+  showRatingTab?: boolean;
 }): StaffTab[] {
   return [
     ...(showStaffPages
       ? [
           { key: 'profile' as const, label: 'Профіль', href: root },
-          { key: 'rating' as const, label: 'Рейтинг', href: `${root}/rating` },
+          ...(showRatingTab
+            ? [{ key: 'rating' as const, label: 'Рейтинг', href: `${root}/rating` }]
+            : []),
         ]
       : []),
     { key: 'kharakterystyka', label: 'Характеристика', href: `${root}/kharakterystyka` },

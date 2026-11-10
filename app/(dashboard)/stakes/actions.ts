@@ -1,5 +1,6 @@
 'use server';
 
+import { OF_RATED_STAFF } from '@/lib/staff/external-part-timer';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -152,7 +153,10 @@ export async function saveDistribution(payload: unknown): Promise<DistributionSt
         departmentId: true,
         lastName: true,
         firstName: true,
-        ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
+        ratingEntries: {
+          where: { year: ratingYear, ...OF_RATED_STAFF },
+          select: { totalScore: true },
+        },
         stakeLimits: {
           where: { year, departmentId },
           select: { minHundredths: true, maxHundredths: true },
@@ -568,7 +572,10 @@ export async function setStaffLimits(_prev: LimitsState, formData: FormData): Pr
       select: {
         id: true,
         departmentId: true,
-        ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
+        ratingEntries: {
+          where: { year: ratingYear, ...OF_RATED_STAFF },
+          select: { totalScore: true },
+        },
         stakeLimits: {
           where: { year, departmentId },
           select: { minHundredths: true, maxHundredths: true },

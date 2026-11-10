@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
+import { RATED } from '@/lib/staff/external-part-timer';
 import { summarise, TREND_YEARS, type YearPoint } from '@/lib/dashboard/trend';
 
 /**
@@ -30,7 +31,7 @@ export async function getYearTrend(): Promise<YearPoint[]> {
         );
       }
       const people = await db.staff.findMany({
-        where: { ...ON_ROSTER, isNpp: true },
+        where: { ...ON_ROSTER, ...RATED },
         select: { ratingEntries: { where: { year }, select: { totalScore: true } } },
       });
       return summarise(

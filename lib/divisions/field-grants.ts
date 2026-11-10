@@ -18,6 +18,9 @@ export const ALLOWED_FIELD_NAMES: ReadonlySet<string> = new Set([
   'email',
   'phone',
   'isNpp',
+  // Зовнішній сумісник (owner, 2026-11-10): who may set it is ADMIN and the editors
+  // granted it — the same people who place somebody on a кафедра.
+  'isExternalPartTimer',
   // «Академічна інформація» and «Освіта» (2026-10-06). The old academicRank /
   // scientificDegree / degreeDefenceDate / adminPosition are derived mirrors now
   // and nobody's to grant.
@@ -69,7 +72,7 @@ export const FIELD_GROUPS = [
   },
   {
     label: 'Організаційне',
-    fields: ['departmentId', 'partTimeDepartmentIds'],
+    fields: ['departmentId', 'partTimeDepartmentIds', 'isExternalPartTimer'],
   },
 ] as const;
 

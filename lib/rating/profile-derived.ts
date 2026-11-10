@@ -34,6 +34,8 @@ export {
 
 interface DerivedStaff {
   isNpp: boolean;
+  /** Зовнішній сумісник: the sync leaves their rows as they are (frozen, not deleted) */
+  isExternalPartTimer: boolean;
   archivedAt: Date | null;
   pedagogicalExperience: number | null;
   academicRank: AcademicRank | null;
@@ -64,6 +66,7 @@ interface DerivedStaff {
 
 const DERIVED_STAFF_SELECT = {
   isNpp: true,
+  isExternalPartTimer: true,
   archivedAt: true,
   pedagogicalExperience: true,
   academicRank: true,
@@ -244,6 +247,11 @@ function planProfileDerived(
   year: number
 ): SyncPlan {
   const plan: SyncPlan = { deleteIds: [], updates: [], creates: [] };
+
+  // An external part-timer is outside the rating: their rows are FROZEN — not
+  // updated, not purged — so switching the flag off finds everything as it was
+  // and the next profile save brings it up to date (owner, 2026-11-10).
+  if (staff.isExternalPartTimer) return plan;
 
   for (const type of types) {
     // Archived people are off the roster: no derived rows, so the open year

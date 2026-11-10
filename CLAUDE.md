@@ -1152,6 +1152,38 @@ Information only — they feed nothing.
 - Audited as one readable line per certificate on the `Staff` entry
   (`englishCertificate`, `ukrainianCertificate` in `FIELD_LABELS`).
 
+## Зовнішній сумісник (built, owner 2026-11-10)
+
+`Staff.isExternalPartTimer` — a person from another institution who works part-time on
+ONE кафедра. **Still an НПП** (`isNpp` stays true): profile, Характеристика (the
+positions from the profile plus lines typed by hand), «Підвищення кваліфікації/Стажування»
+(kept for now — removing it later is easier than adding it) and a ставка in the кафедра's
+spread, badged «Зовнішній сумісник». **Outside the university's rating system:** no rating,
+no «Мої здобувачі», no science plan (the plan may be added later — one place to change).
+Everything lives in `lib/staff/external-part-timer.ts`.
+
+- **Who sets it:** ADMIN, and an editor whose division was granted the `isExternalPartTimer`
+  field (group «Організаційне»); on CREATE anybody who may create a person. A завідувач
+  cannot. The schema (`validations/staff.ts`) requires an НПП on exactly ONE additional
+  кафедра and no main one — so the 0,10–0,25 ставка limits apply and Кнпп never counts them.
+- **Switching it on FREEZES, never deletes** (owner: «prevent mistakes … revert without any
+  harm»). Rating entries, activities, plans and claims stay in the database. The rating
+  lists leave them out (`RATED` in the queries: `/rating`, charts, top, trend, the
+  division-data grid, science plans and coauthor lists, student claims, the ratings Excel),
+  every action that would add refuses (`createActivity`, `deleteActivity`, student claims,
+  science plan and records, division-data), their rating and science pages redirect or 404,
+  and the profile-derived sync leaves their rows untouched — switching it off finds
+  everything as it was and the next save brings it up to date. **Closed years are history
+  and keep whoever was in them.**
+- **Ставка:** the формула sees their rating as 0 (`OF_RATED_STAFF` on every
+  `ratingEntries` read in the ставка code), so it proposes their Мін, and the head types
+  the number as for anybody.
+- **UI:** a switch in «Місця роботи» of the staff form, the badge on `/staff`, the profile
+  and the ставка grid; no Рейтинг tab, no «Мої здобувачі» / «Наукова робота» in the nav.
+- **Known, not done:** «Моя кафедра» (`list-my-department`) still lists them with their
+  rating column (a frozen figure, if any); the moderation page can still discard or restore
+  an old entry of theirs (ADMIN / ННВ).
+
 ## Перевірка профілів (built, owner 2026-11-04)
 
 ADMIN-only page `/admin/profile-check`: the ORCID, Web of Science, Scopus and

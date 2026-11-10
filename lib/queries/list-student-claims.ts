@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { ON_ROSTER, onDepartments } from './roster';
+import { RATED } from '@/lib/staff/external-part-timer';
 import { getStakeYearSettings } from './list-stake-settings';
 import {
   bonusByStaff,
@@ -183,7 +184,7 @@ export async function listClaimsForReview(
   // their claims belong in its review. The filter used to be the bare column,
   // so somebody with no primary кафедра was reviewed by nobody at all.
   const staff = await db.staff.findMany({
-    where: { ...ON_ROSTER, isNpp: true, ...onDepartments(departmentIds) },
+    where: { ...ON_ROSTER, ...RATED, ...onDepartments(departmentIds) },
     select: {
       id: true,
       lastName: true,

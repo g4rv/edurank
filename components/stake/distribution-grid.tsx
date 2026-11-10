@@ -1326,6 +1326,14 @@ function Row({
               {row.name}
             </Link>
           </span>
+          {row.isExternalPartTimer && (
+            <span
+              className="shrink-0 rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning"
+              title="Зовнішній сумісник: рейтингу немає, ставка за Мін, якщо не задано інакше"
+            >
+              Зовнішній сумісник
+            </span>
+          )}
           {/* On every row, not only the ones falling short: the head is looking
               at who counts towards Кнпп, and a badge that appears only on
               failures makes its absence the message. Green clears the licence

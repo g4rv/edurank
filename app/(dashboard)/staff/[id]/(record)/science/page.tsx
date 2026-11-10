@@ -40,7 +40,7 @@ export default async function StaffSciencePage({
 
   const staff = await getStaff(id);
   // Science is planned by НПП only; an administrative record has no tab for it.
-  if (!staff?.isNpp) notFound();
+  if (!staff?.isNpp || staff.isExternalPartTimer) notFound();
 
   const basePath = `/staff/${id}/science`;
   const showQualifications = await canSeeQualificationsTab(session.user);

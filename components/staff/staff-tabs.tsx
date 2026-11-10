@@ -72,6 +72,8 @@ interface StaffTabsProps {
    * page does, so nothing already drawn moves.
    */
   showQualifications?: boolean;
+  /** False for a зовнішній сумісник — the Рейтинг tab is not drawn */
+  showRatingTab?: boolean;
 }
 
 export function StaffTabs({
@@ -83,6 +85,7 @@ export function StaffTabs({
   frozen = false,
   showScience = false,
   showQualifications = false,
+  showRatingTab = true,
 }: StaffTabsProps) {
   const pathname = usePathname();
 
@@ -106,7 +109,13 @@ export function StaffTabs({
   // root, and an id is appended only when one is given or found in the path.
   const id = staffId ?? (basePath === '/profile' ? null : pathname.split('/').filter(Boolean)[1]);
   const root = id ? `${basePath}/${id}` : basePath;
-  const tabs = staffTabList({ root, showStaffPages, showScience, showQualifications });
+  const tabs = staffTabList({
+    root,
+    showStaffPages,
+    showScience,
+    showQualifications,
+    showRatingTab,
+  });
 
   // One tab is not a tab bar — it is a label pretending to be a control.
   if (tabs.length < 2) return null;

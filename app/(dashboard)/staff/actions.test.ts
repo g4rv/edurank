@@ -46,6 +46,7 @@ const payload: StaffCreateSchema = {
   email: 'ivan@univ.ua',
   phone: null,
   isNpp: false,
+  isExternalPartTimer: false,
   employmentRate: null,
   pedagogicalExperience: null,
   position: null,

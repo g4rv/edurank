@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
+import { RATED } from '@/lib/staff/external-part-timer';
 import { SECTION_TITLES } from '@/lib/rating/activity-types';
 import { round2 } from '@/lib/round';
 
@@ -93,7 +94,7 @@ export async function getDashboard(year: number): Promise<DashboardData> {
       orderBy: { name: 'asc' },
     }),
     db.staff.findMany({
-      where: { ...ON_ROSTER, isNpp: true },
+      where: { ...ON_ROSTER, ...RATED },
       select: {
         departmentId: true,
         partTimeDepartments: { select: { departmentId: true } },

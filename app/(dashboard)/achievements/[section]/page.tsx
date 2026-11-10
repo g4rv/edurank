@@ -76,7 +76,8 @@ export default async function AchievementsSectionPage({
   if (!staffId) redirect('/profile');
 
   const staff = await getStaff(staffId, true);
-  if (!staff?.isNpp) redirect('/profile');
+  // A зовнішній сумісник is outside the rating system (owner, 2026-11-10)
+  if (!staff?.isNpp || staff.isExternalPartTimer) redirect('/profile');
 
   // Frozen for НПП while `NPP_RATING_OPEN` is false. The note keeps this page's
   // own heading rather than redirecting to /profile, so a bookmark still lands

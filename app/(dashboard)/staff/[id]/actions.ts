@@ -739,7 +739,9 @@ export async function updateStaff(
       // when any feeding field (or the НПП flag itself) was touched.
       const touchesDerived = Object.keys(updateData).some(
         (key) =>
-          key === 'isNpp' || (PROFILE_DERIVED_STAFF_FIELDS as readonly string[]).includes(key)
+          key === 'isNpp' ||
+          key === 'isExternalPartTimer' ||
+          (PROFILE_DERIVED_STAFF_FIELDS as readonly string[]).includes(key)
       );
       if (touchesDerived) await syncProfileDerived(tx, id);
 

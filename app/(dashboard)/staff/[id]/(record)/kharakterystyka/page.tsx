@@ -49,7 +49,13 @@ export default async function StaffKharakterystykaPage({
 
   const staff = await db.staff.findUnique({
     where: { id },
-    select: { lastName: true, firstName: true, patronymic: true, isNpp: true },
+    select: {
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+      isNpp: true,
+      isExternalPartTimer: true,
+    },
   });
   if (!staff || !staff.isNpp) notFound();
 
@@ -86,6 +92,7 @@ export default async function StaffKharakterystykaPage({
       <RecordTabRow
         staffId={id}
         showRating
+        showRatingTab={!staff.isExternalPartTimer}
         showStaffPages={seesStaffPages}
         showScience={showScience}
         showQualifications={showQualifications}
