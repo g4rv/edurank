@@ -1396,7 +1396,13 @@ platform, replaced on every run — a status board, not a history) and
   with «Є проблеми» every sheet lists the same people who have a problem on ANY platform
   (so those without this platform show gray). **Sort: факультет and кафедра
   alphabetically; inside a кафедра** all fine → fine with advice → doubt → error → not
-  checked / could not check → no profile, then by name.
+  checked / could not check → no profile, then by name. The default (grouped) file
+  leaves 1 blank row after a кафедра and 3 after a факультет; the headings are taller
+  and bigger (факультет 22 pt, кафедра 16.5 pt, the body 11). **«Вивантажити .zip»**
+  (`/api/export/profile-checks/zip`, same filters): a folder per факультет, in it one
+  `<кафедра>.xlsx` of that кафедра's people (no place columns, no headings) — no
+  subfolder per кафедра, the file is enough (owner, 2026-11-09; the long names were also
+  near Windows' 260-character path limit).
 
 ## Naming conventions
 

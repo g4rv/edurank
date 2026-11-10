@@ -139,3 +139,68 @@ describe('checkText', () => {
     );
   });
 });
+
+describe('grouped layout', () => {
+  const two = [
+    person('A1', { faculty: 'Ф1', department: 'К1' }),
+    person('A2', { faculty: 'Ф1', department: 'К2' }),
+    person('B1', { faculty: 'Ф2', department: 'К3' }),
+  ];
+
+  it('leaves 1 blank row after a кафедра and 3 after a факультет', () => {
+    const ws = buildProfileChecksWorkbook(two, { grouped: true, onlyProblems: false }).getWorksheet(
+      'ORCID'
+    )!;
+    const col = [...Array(ws.rowCount - 1)].map((_, i) => ws.getRow(i + 2).getCell(1).value ?? '');
+    expect(col).toEqual(['Ф1', 'К1', 'A1', '', 'К2', 'A2', '', '', '', 'Ф2', 'К3', 'B1']);
+  });
+
+  it('makes the headings taller and bigger: факультет 22, кафедра 16.5', () => {
+    const ws = buildProfileChecksWorkbook(two, { grouped: true, onlyProblems: false }).getWorksheet(
+      'ORCID'
+    )!;
+    expect(ws.getRow(2).font?.size).toBe(22);
+    expect(ws.getRow(3).font?.size).toBe(16.5);
+    expect(ws.getRow(2).height).toBeGreaterThan(ws.getRow(3).height!);
+  });
+
+  it('a bare sheet has the name column first and no place columns or headings', () => {
+    const ws = buildProfileChecksWorkbook(two, {
+      grouped: false,
+      bare: true,
+      onlyProblems: false,
+    }).getWorksheet('ORCID')!;
+    expect(ws.getRow(1).getCell(2).value).toBe('Статус');
+    expect(ws.getRow(2).getCell(1).value).toBe('A1');
+  });
+});
+
+describe('a stored «no link»', () => {
+  it('is a gray row like any person with no profile, not a white one with a note', () => {
+    const stale = person('Stale', {
+      cells: {
+        orcid: { status: 'no_link', link: null, error: null, checks: [], checkedAt: '2026-11-01' },
+      },
+    });
+    const ws = buildProfileChecksWorkbook([stale], {
+      grouped: false,
+      onlyProblems: false,
+    }).getWorksheet('ORCID')!;
+    expect(argb(ws.getRow(2).getCell(1))).toBe('FFE2E2E2');
+    expect(ws.getRow(2).getCell(4).value).toBeNull();
+  });
+
+  it('says «Не перевіряли» when a link was added since', () => {
+    const added = person('Added', {
+      links: { ...none, orcid: '0000-0000-0000-0001' },
+      cells: {
+        orcid: { status: 'no_link', link: null, error: null, checks: [], checkedAt: '2026-11-01' },
+      },
+    });
+    const ws = buildProfileChecksWorkbook([added], {
+      grouped: false,
+      onlyProblems: false,
+    }).getWorksheet('ORCID')!;
+    expect(ws.getRow(2).getCell(4).value).toBe('Не перевіряли');
+  });
+});
