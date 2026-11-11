@@ -1,6 +1,7 @@
 import type { Role } from '@/lib/generated/prisma/client';
 import { NPP_RATING_CLOSED_DETAIL } from '@/lib/rating/npp-access';
-import { KHARAKTERYSTYKA_FROZEN_DETAIL, kharakterystykaFrozenFor } from './freeze';
+import type { Freeze } from '@/lib/freeze/rules';
+import { KHARAKTERYSTYKA_FROZEN_DETAIL } from './freeze';
 import { LICENCE_POSITIONS } from './positions';
 import { positionEvidenceFields } from './position-evidence';
 
@@ -64,6 +65,8 @@ interface Who {
   ownUserId: string;
   /** `NPP_RATING_OPEN`; an admin is not subject to it */
   ratingOpen: boolean;
+  /** What is closed to THIS viewer — `freezeFor(session.user)` */
+  freeze: Pick<Freeze, 'kharakterystyka'>;
 }
 
 /** Whose record this is, and whether they may write on it at all. */
@@ -95,7 +98,7 @@ export function typeEntryProblem(
   who: Who & { targetStaffId: string; position: number }
 ): string | null {
   if (who.role === 'ADMIN') return null;
-  if (kharakterystykaFrozenFor(who.role)) return KHARAKTERYSTYKA_FROZEN_DETAIL;
+  if (who.freeze.kharakterystyka) return KHARAKTERYSTYKA_FROZEN_DETAIL;
   return ownerProblem(who, who.targetStaffId, who.position);
 }
 
@@ -112,7 +115,7 @@ export function typeEntryProblem(
  */
 export function removeLineProblem(who: Who & { targetStaffId: string }): string | null {
   if (who.role === 'ADMIN') return null;
-  if (kharakterystykaFrozenFor(who.role)) return KHARAKTERYSTYKA_FROZEN_DETAIL;
+  if (who.freeze.kharakterystyka) return KHARAKTERYSTYKA_FROZEN_DETAIL;
   if (!who.ratingOpen) return NPP_RATING_CLOSED_DETAIL;
   if (!who.ownStaffId) return 'Характеристика ведеться лише для НПП';
   if (who.ownStaffId !== who.targetStaffId) {

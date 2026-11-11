@@ -11,6 +11,7 @@ import { isUniqueViolation, parseDbError } from '@/lib/db-error';
 import { canActForDivision } from '@/lib/permissions';
 import { logError } from '@/lib/log';
 import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { computeScore } from '@/lib/rating/scoring';
@@ -71,7 +72,7 @@ export async function upsertDivisionActivity(
   if (!(await canActForDivision(session.user, type.verifyingDivisionId))) {
     return { error: 'Недостатньо прав' };
   }
-  const frozen = linkedRatingProblem(session.user.role, type.licencePositions);
+  const frozen = linkedRatingProblem(await freezeFor(session.user), type.licencePositions);
   if (frozen) return { error: frozen };
 
   const staff = await db.staff.findUnique({
@@ -261,7 +262,10 @@ export async function clearDivisionActivity(
   if (!(await canActForDivision(session.user, activity.activityType.verifyingDivisionId))) {
     return { error: 'Недостатньо прав' };
   }
-  const frozen = linkedRatingProblem(session.user.role, activity.activityType.licencePositions);
+  const frozen = linkedRatingProblem(
+    await freezeFor(session.user),
+    activity.activityType.licencePositions
+  );
   if (frozen) return { error: frozen };
 
   try {
@@ -348,7 +352,7 @@ export async function batchUpsertDivisionActivity(
   if (!(await canActForDivision(session.user, type.verifyingDivisionId))) {
     return { error: 'Недостатньо прав' };
   }
-  const frozen = linkedRatingProblem(session.user.role, type.licencePositions);
+  const frozen = linkedRatingProblem(await freezeFor(session.user), type.licencePositions);
   if (frozen) return { error: frozen };
 
   const staffList = await db.staff.findMany({

@@ -1,41 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ADMIN_EXEMPT_NOTE,
   ADMIN_FREEZE_NOTE,
   adminFreezeNote,
-  KHARAKTERYSTYKA_FROZEN,
-  KHARAKTERYSTYKA_FREEZES_LINKED_RATING,
   KHARAKTERYSTYKA_FROZEN_DETAIL,
   LINKED_RATING_FROZEN_DETAIL,
   feedsKharakterystyka,
-  kharakterystykaFrozenFor,
   linkedRatingProblem,
 } from './freeze';
 import { removeLineProblem, typeEntryProblem } from './self-entry';
+import { NO_FREEZE, NOTHING_FROZEN, type Freeze, type FreezeSettings } from '@/lib/freeze/rules';
 
-// The freeze is temporarily OFF (owner, 2026-11-06). The tests of the frozen
-// mechanics run only while their constant is on, so they come back by
-// themselves when it is switched on again; the open state has its own tests.
+// The switches are read from the database since 2026-11-11 (lib/freeze). What
+// reaches these helpers is the viewer's `Freeze` — ADMIN and the whitelist are
+// already folded into it — so both states are tested here, every time.
 const LINKED = [{ position: 1 }];
 const UNLINKED: unknown[] = [];
-
-describe('the freeze switches', () => {
-  it('are both off for now — temporary unfreeze, 2026-11-06', () => {
-    expect(KHARAKTERYSTYKA_FROZEN).toBe(false);
-    expect(KHARAKTERYSTYKA_FREEZES_LINKED_RATING).toBe(false);
-  });
+const closed = (over: Partial<Freeze>): Freeze => ({ ...NO_FREEZE, ...over });
+const settings = (over: Partial<FreezeSettings>): FreezeSettings => ({
+  ...NOTHING_FROZEN,
+  ...over,
 });
-
-describe.skipIf(KHARAKTERYSTYKA_FROZEN || KHARAKTERYSTYKA_FREEZES_LINKED_RATING)(
-  'while it is open',
-  () => {
-    it('lets everybody type, remove and delete', () => {
-      expect(kharakterystykaFrozenFor('USER')).toBe(false);
-      expect(kharakterystykaFrozenFor('EDITOR')).toBe(false);
-      expect(linkedRatingProblem('USER', LINKED)).toBeNull();
-      expect(adminFreezeNote('ADMIN')).toBeNull();
-    });
-  }
-);
 
 describe('feedsKharakterystyka', () => {
   it('is true for an indicator that feeds a position', () => {
@@ -50,67 +35,108 @@ describe('feedsKharakterystyka', () => {
 });
 
 describe('linkedRatingProblem', () => {
-  describe.skipIf(!KHARAKTERYSTYKA_FREEZES_LINKED_RATING)('while frozen', () => {
-    it.each(['USER', 'EDITOR'])('refuses a linked indicator to %s', (role) => {
-      expect(linkedRatingProblem(role, LINKED)).toBe(LINKED_RATING_FROZEN_DETAIL);
-    });
+  it('refuses a linked indicator while the viewer is frozen', () => {
+    expect(linkedRatingProblem(closed({ linkedRating: true }), LINKED)).toBe(
+      LINKED_RATING_FROZEN_DETAIL
+    );
   });
 
-  it('leaves an indicator that feeds nothing open', () => {
-    expect(linkedRatingProblem('USER', UNLINKED)).toBeNull();
+  it('leaves an indicator that feeds nothing open, frozen or not', () => {
+    expect(linkedRatingProblem(closed({ linkedRating: true }), UNLINKED)).toBeNull();
+    expect(linkedRatingProblem(NO_FREEZE, UNLINKED)).toBeNull();
   });
 
-  it('never refuses ADMIN', () => {
-    expect(linkedRatingProblem('ADMIN', LINKED)).toBeNull();
+  it('leaves everything open while the switch is off', () => {
+    expect(linkedRatingProblem(NO_FREEZE, LINKED)).toBeNull();
+  });
+
+  it('reads its own switch, not the document’s', () => {
+    expect(linkedRatingProblem(closed({ kharakterystyka: true }), LINKED)).toBeNull();
   });
 });
 
 describe('the document itself', () => {
   const who = { ownStaffId: 'her-staff', ownUserId: 'her-user', ratingOpen: true };
+  const frozen = closed({ kharakterystyka: true });
 
-  it.skipIf(!KHARAKTERYSTYKA_FROZEN)('is closed to everybody but ADMIN', () => {
-    expect(kharakterystykaFrozenFor('USER')).toBe(true);
-    expect(kharakterystykaFrozenFor('EDITOR')).toBe(true);
-    expect(kharakterystykaFrozenFor('ADMIN')).toBe(false);
-  });
-
-  it.skipIf(!KHARAKTERYSTYKA_FROZEN)('refuses an НПП to type a row for themselves', () => {
+  it('refuses an НПП to type a row for themselves while frozen', () => {
     expect(
-      typeEntryProblem({ ...who, role: 'USER', targetStaffId: 'her-staff', position: 15 })
+      typeEntryProblem({
+        ...who,
+        role: 'USER',
+        freeze: frozen,
+        targetStaffId: 'her-staff',
+        position: 15,
+      })
     ).toBe(KHARAKTERYSTYKA_FROZEN_DETAIL);
   });
 
-  it.skipIf(!KHARAKTERYSTYKA_FROZEN)(
-    'refuses an НПП to remove a line of their own document',
-    () => {
-      expect(removeLineProblem({ ...who, role: 'USER', targetStaffId: 'her-staff' })).toBe(
-        KHARAKTERYSTYKA_FROZEN_DETAIL
-      );
-    }
-  );
-
-  it('still lets ADMIN type and remove, for anybody', () => {
+  it('refuses an НПП to remove a line of their own document while frozen', () => {
     expect(
-      typeEntryProblem({ ...who, role: 'ADMIN', targetStaffId: 'his-staff', position: 1 })
+      removeLineProblem({ ...who, role: 'USER', freeze: frozen, targetStaffId: 'her-staff' })
+    ).toBe(KHARAKTERYSTYKA_FROZEN_DETAIL);
+  });
+
+  it('lets them type and remove while open', () => {
+    expect(
+      typeEntryProblem({
+        ...who,
+        role: 'USER',
+        freeze: NO_FREEZE,
+        targetStaffId: 'her-staff',
+        position: 15,
+      })
     ).toBeNull();
-    expect(removeLineProblem({ ...who, role: 'ADMIN', targetStaffId: 'his-staff' })).toBeNull();
+    expect(
+      removeLineProblem({ ...who, role: 'USER', freeze: NO_FREEZE, targetStaffId: 'her-staff' })
+    ).toBeNull();
+  });
+
+  it('still lets ADMIN type and remove, for anybody, whatever the freeze says', () => {
+    expect(
+      typeEntryProblem({
+        ...who,
+        role: 'ADMIN',
+        freeze: frozen,
+        targetStaffId: 'his-staff',
+        position: 1,
+      })
+    ).toBeNull();
+    expect(
+      removeLineProblem({ ...who, role: 'ADMIN', freeze: frozen, targetStaffId: 'his-staff' })
+    ).toBeNull();
   });
 });
 
 describe("adminFreezeNote — what ADMIN is told on a person's record", () => {
-  it.skipIf(!KHARAKTERYSTYKA_FROZEN && !KHARAKTERYSTYKA_FREEZES_LINKED_RATING)(
-    'tells ADMIN that the Характеристика and its rating indicators are blocked',
-    () => {
-      expect(adminFreezeNote('ADMIN')).toBe(ADMIN_FREEZE_NOTE);
-      expect(ADMIN_FREEZE_NOTE).toBe(
-        'Характеристика та відповідні показники рейтингу заблоковані для НПП'
-      );
-    }
-  );
+  it('tells ADMIN that the Характеристика and its rating indicators are blocked', () => {
+    expect(adminFreezeNote('ADMIN', settings({ kharakterystykaFrozen: true }))).toBe(
+      ADMIN_FREEZE_NOTE
+    );
+    expect(adminFreezeNote('ADMIN', settings({ linkedRatingFrozen: true }))).toBe(
+      ADMIN_FREEZE_NOTE
+    );
+    expect(adminFreezeNote('ADMIN', settings({ allFrozen: true }))).toBe(ADMIN_FREEZE_NOTE);
+    expect(ADMIN_FREEZE_NOTE).toBe(
+      'Характеристика та відповідні показники рейтингу заблоковані для НПП'
+    );
+  });
+
+  // The person whose record it is may be on the whitelist: then the line that
+  // says «заблоковані» would be wrong about them (owner, 2026-11-11).
+  it('says the person is exempt when they are on the whitelist', () => {
+    expect(adminFreezeNote('ADMIN', settings({ allFrozen: true }), true)).toBe(ADMIN_EXEMPT_NOTE);
+  });
+
+  it('says nothing while only the profile is frozen, or nothing is', () => {
+    expect(adminFreezeNote('ADMIN', settings({ profileFrozen: true }))).toBeNull();
+    expect(adminFreezeNote('ADMIN', NOTHING_FROZEN)).toBeNull();
+    expect(adminFreezeNote('ADMIN', NOTHING_FROZEN, true)).toBeNull();
+  });
 
   it('says nothing to anybody else — they get the read-only note instead', () => {
     for (const role of ['USER', 'EDITOR', undefined]) {
-      expect(adminFreezeNote(role)).toBeNull();
+      expect(adminFreezeNote(role, settings({ allFrozen: true }))).toBeNull();
     }
   });
 });

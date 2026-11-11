@@ -53,6 +53,8 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   DepartmentStake: 'Ставки кафедри',
   Division: 'Відділ',
   Faculty: 'Факультет',
+  FreezeExemption: 'Виняток із заморозки',
+  FreezeSettings: 'Заморозка',
   KharakterystykaEntry: 'Запис характеристики',
   Qualification: 'Підвищення кваліфікації / стажування',
   RatingTemplate: 'Рейтинговий рік',

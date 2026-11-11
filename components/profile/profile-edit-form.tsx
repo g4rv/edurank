@@ -26,11 +26,8 @@ import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { CitationNoLinkNote } from '@/components/staff/citation-note';
 import { AcademicCard, EducationCard } from '@/components/staff/academic-fields';
 import type { HeadshipPost } from '@/lib/staff/academic';
-import {
-  ownEditableFields,
-  PROFILE_FROZEN_NOTE,
-  profileFrozenFor,
-} from '@/lib/staff/profile-freeze';
+import { ownEditableFields, PROFILE_FROZEN_NOTE } from '@/lib/staff/profile-freeze';
+import type { Freeze } from '@/lib/freeze/rules';
 import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import type { AcademicFormValues } from '@/components/staff/academic-form-values';
 import type {
@@ -59,7 +56,7 @@ export function ProfileEditForm({
   isNpp = false,
   headship = null,
   certificates,
-  role,
+  freeze,
 }: {
   /** Whose record this is — the header is the same one `/staff/[id]/edit` uses. */
   name: string;
@@ -82,13 +79,17 @@ export function ProfileEditForm({
    * only. Their values are in `defaultValues`; this names the stored scans.
    */
   certificates?: CertificateScans;
-  /** The caller's role — decides which fields are greyed (the profile freeze) */
-  role: string;
+  /**
+   * What is closed to this viewer (`freezeFor(session.user)` on the page) —
+   * decides which fields are greyed. A client component has no session, so the
+   * page resolves it; the action resolves it again before it writes.
+   */
+  freeze: Pick<Freeze, 'profile'>;
 }) {
-  const editable = ownEditableFields(role);
+  const editable = ownEditableFields(freeze);
   // Frozen: the academic and «Освіта» cards are not drawn at all, as the page
   // was before they were opened (2026-10-06) — Контакти and the research links.
-  const showAcademic = isNpp && !profileFrozenFor(role);
+  const showAcademic = isNpp && !freeze.profile;
   // The h-index boxes pay rating points; they go with the freeze (owner, 2026-11-02).
   const showCounts = editable.has('wosCitationCount');
   const router = useRouter();
@@ -351,7 +352,7 @@ export function ProfileEditForm({
           </div>
         </Card>
 
-        {profileFrozenFor(role) && <FrozenNote>{PROFILE_FROZEN_NOTE}</FrozenNote>}
+        {freeze.profile && <FrozenNote>{PROFILE_FROZEN_NOTE}</FrozenNote>}
 
         {/* Two columns that each FLOW, not a grid (owner, 2026-10-06 — «bento»).
             A grid row is as tall as its tallest cell, so «Контакти», one field,

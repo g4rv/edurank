@@ -28,6 +28,7 @@ import { getKharakterystyka, getKharakterystykaWithout } from '@/lib/queries/get
 import { parseLicencePositions } from '@/validations/licence-positions';
 import { logError } from '@/lib/log';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
+import { freezeFor } from '@/lib/freeze/state';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PLAN_GATE_DETAIL } from '@/lib/science/plan-gate';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
@@ -77,6 +78,7 @@ export async function addKharakterystykaEntry(payload: unknown): Promise<EntrySt
     ownStaffId: session.user.staffId,
     ownUserId: session.user.id,
     ratingOpen: NPP_RATING_OPEN,
+    freeze: await freezeFor(session.user),
     targetStaffId: staffId,
     position,
   });
@@ -206,6 +208,7 @@ export async function deleteKharakterystykaEntry(id: string): Promise<EntryState
     ownStaffId: session.user.staffId,
     ownUserId: session.user.id,
     ratingOpen: NPP_RATING_OPEN,
+    freeze: await freezeFor(session.user),
     entry,
   });
   if (denied) return { error: denied };
@@ -287,6 +290,7 @@ async function removalSession(staffId: string) {
     ownStaffId: session.user.staffId,
     ownUserId: session.user.id,
     ratingOpen: NPP_RATING_OPEN,
+    freeze: await freezeFor(session.user),
     targetStaffId: staffId,
   });
   return { session, denied };

@@ -6,10 +6,8 @@ import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kh
 import { listManualKharakterystyka } from '@/lib/queries/list-manual-kharakterystyka';
 import { SELF_TYPEABLE_POSITIONS } from '@/lib/kharakterystyka/self-entry';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
-import {
-  KHARAKTERYSTYKA_FROZEN_NOTE,
-  kharakterystykaFrozenFor,
-} from '@/lib/kharakterystyka/freeze';
+import { KHARAKTERYSTYKA_FROZEN_NOTE } from '@/lib/kharakterystyka/freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import {
@@ -42,7 +40,7 @@ export default async function MyKharakterystykaPage() {
   const staff = await getStaff(staffId, true);
   if (!staff?.isNpp) redirect('/profile');
 
-  const frozen = kharakterystykaFrozenFor(session.user.role);
+  const frozen = (await freezeFor(session.user)).kharakterystyka;
 
   if (!NPP_RATING_OPEN) {
     return (

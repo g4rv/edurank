@@ -6,7 +6,8 @@ import {
   getEditorDivisionId,
   hasEntityPermission,
 } from '@/lib/permissions';
-import { profileFrozenFor, PROFILE_FROZEN_NOTE } from '@/lib/staff/profile-freeze';
+import { PROFILE_FROZEN_NOTE } from '@/lib/staff/profile-freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { CERTIFICATE_FIELDS, type CertificateKind } from '@/lib/language-certificates/options';
 
 export const NOT_ALLOWED = 'Недостатньо прав';
@@ -53,8 +54,8 @@ export async function authoriseEducationWrite(
   if (!canMutateStaffRecord(session.user, owner)) return { error: NOT_ALLOWED };
 
   const { role, staffId } = session.user;
-  // «Освіта» is frozen for the plain НПП (editable-fields.ts)
-  if (profileFrozenFor(role)) return { error: PROFILE_FROZEN_NOTE };
+  // «Освіта» is frozen for the plain НПП (lib/staff/profile-freeze.ts)
+  if ((await freezeFor(session.user)).profile) return { error: PROFILE_FROZEN_NOTE };
   if (role === 'ADMIN' || (staffId && staffId === ownerId)) return { ok: true, userId };
 
   if (role !== 'EDITOR') return { error: NOT_ALLOWED };

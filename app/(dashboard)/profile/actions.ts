@@ -9,6 +9,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { logWarning } from '@/lib/log';
 import { ownEditableFields } from '@/lib/staff/profile-freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { ACADEMIC_EDITABLE_FIELDS, RESEARCH_PROFILE_FIELDS } from '@/lib/staff/editable-fields';
 import {
   ACADEMIC_STORED_SELECT,
@@ -87,7 +88,7 @@ export async function updateOwnProfile(data: OwnProfileSchema): Promise<OwnProfi
   const updateData: Record<string, unknown> = {};
   // Frozen for a plain НПП: phone and research links only (editable-fields.ts).
   // The rest is dropped, not refused — the form greys it, the server agrees.
-  const editable = ownEditableFields(session.user.role);
+  const editable = ownEditableFields(await freezeFor(session.user));
   for (const [key, value] of Object.entries(parsed.data)) {
     if (editable.has(key) && sent.has(key)) updateData[key] = value;
   }

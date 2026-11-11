@@ -5,7 +5,8 @@ import { listQualifications } from '@/lib/queries/list-qualifications';
 import { QualificationDialog } from '@/components/qualifications/qualification-dialog';
 import { QualificationList } from '@/components/qualifications/qualification-list';
 import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
-import { profileFrozenFor, QUALIFICATIONS_FROZEN_DETAIL } from '@/lib/staff/profile-freeze';
+import { QUALIFICATIONS_FROZEN_DETAIL } from '@/lib/staff/profile-freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { ProfileTabRow } from '@/components/staff/profile/profile-tab-row';
 import { ToolbarGroup } from '@/components/staff/record-toolbar';
 
@@ -32,8 +33,8 @@ export default async function MyQualificationsPage() {
   if (!staff?.isNpp) redirect('/profile');
 
   const rows = await listQualifications(staffId);
-  // Frozen for the plain НПП (lib/staff/editable-fields.ts): read-only.
-  const frozen = profileFrozenFor(session.user.role);
+  // Frozen for the plain НПП (lib/staff/profile-freeze.ts): read-only.
+  const frozen = (await freezeFor(session.user)).profile;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">

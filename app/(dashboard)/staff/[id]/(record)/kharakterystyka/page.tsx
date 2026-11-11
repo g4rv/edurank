@@ -8,6 +8,7 @@ import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kh
 import { listManualKharakterystyka } from '@/lib/queries/list-manual-kharakterystyka';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { adminFreezeNote } from '@/lib/kharakterystyka/freeze';
+import { isFreezeExempt, loadFreezeSettings } from '@/lib/freeze/state';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import {
@@ -71,7 +72,9 @@ export default async function StaffKharakterystykaPage({
   // ADMIN alone may type evidence by hand — see the note on the action. Loaded
   // only for them, so nobody else's page carries rows it will not render.
   const canEdit = session.user.role === 'ADMIN';
-  const adminNote = adminFreezeNote(session.user.role);
+  const adminNote = canEdit
+    ? adminFreezeNote(session.user.role, await loadFreezeSettings(), await isFreezeExempt(id))
+    : null;
 
   // Everybody who may read this page may read the other two tabs as well
   // since 2026-09-24 — a завідувач or декан included, read-only — so all three

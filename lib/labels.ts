@@ -299,6 +299,15 @@ export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
   KharakterystykaEntry: {
     position: 'Позиція ліцензійних умов',
   },
+  FreezeSettings: {
+    allFrozen: 'Заморозити все',
+    kharakterystykaFrozen: 'Характеристика',
+    linkedRatingFrozen: 'Показники рейтингу, що входять до характеристики',
+    profileFrozen: 'Профіль НПП',
+  },
+  FreezeExemption: {
+    exempt: 'Виняток',
+  },
   AdmittedStudent: {
     name: 'ПІБ',
     year: 'Рік вступу',
