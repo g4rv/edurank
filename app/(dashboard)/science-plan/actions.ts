@@ -1,5 +1,6 @@
 'use server';
 
+import { EXTERNAL_PART_TIMER_REFUSAL } from '@/lib/staff/external-part-timer';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -71,11 +72,13 @@ export async function savePlanRow(input: SavePlanRowInput): Promise<SavePlanRowR
       firstName: true,
       patronymic: true,
       isNpp: true,
+      isExternalPartTimer: true,
       departmentId: true,
       partTimeDepartments: { select: { departmentId: true } },
     },
   });
   if (!staff?.isNpp) return { error: 'Планування наукової роботи доступне лише для НПП' };
+  if (staff.isExternalPartTimer) return { error: EXTERNAL_PART_TIMER_REFUSAL };
 
   // Never trust the кафедра that arrived — it must be this person's primary
   // one, or an additional (сумісництво) one via StaffDepartment. A сумісник's

@@ -1,5 +1,6 @@
 'use server';
 
+import { EXTERNAL_PART_TIMER_REFUSAL } from '@/lib/staff/external-part-timer';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
@@ -16,6 +17,7 @@ import { computeScore } from '@/lib/rating/scoring';
 import { logError } from '@/lib/log';
 import { NPP_RATING_CLOSED_DETAIL, NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PLAN_GATE_DETAIL } from '@/lib/science/plan-gate';
 
@@ -48,9 +50,18 @@ export async function createActivity(
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
-    select: { isNpp: true, archivedAt: true, lastName: true, firstName: true, patronymic: true },
+    select: {
+      isNpp: true,
+      isExternalPartTimer: true,
+      archivedAt: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
   });
   if (!staff?.isNpp) return { error: 'Подання досягнень доступне лише для НПП' };
+  // Зовнішній сумісник: outside the rating, their data frozen (owner, 2026-11-10)
+  if (staff.isExternalPartTimer) return { error: EXTERNAL_PART_TIMER_REFUSAL };
   // Archiving blocks the login, so this is only reachable with a session that
   // was already open — belt and braces on the year's numbers.
   if (staff.archivedAt) return { error: 'Ваш запис архівовано' };
@@ -79,8 +90,8 @@ export async function createActivity(
     return { error: 'Цей показник недоступний для самостійного подання' };
   }
   // The Характеристика is frozen: an indicator that feeds it is read-only for
-  // everybody but ADMIN (lib/kharakterystyka/freeze.ts).
-  const frozen = linkedRatingProblem(session.user.role, type.licencePositions);
+  // everybody but ADMIN and the whitelist (lib/kharakterystyka/freeze.ts).
+  const frozen = linkedRatingProblem(await freezeFor(session.user), type.licencePositions);
   if (frozen) return { error: frozen };
   if (!type.template.isActive || type.template.status !== 'OPEN') {
     return { error: 'Рейтинговий рік закрито для подання' };
@@ -202,6 +213,13 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
   const staffId = session.user.staffId;
   if (!staffId) return { error: 'Недостатньо прав' };
 
+  // A зовнішній сумісник's rating data is frozen (owner, 2026-11-10)
+  const own = await db.staff.findUnique({
+    where: { id: staffId },
+    select: { isExternalPartTimer: true },
+  });
+  if (own?.isExternalPartTimer) return { error: EXTERNAL_PART_TIMER_REFUSAL };
+
   // Deleting is filling the rating too — the gate covers the whole section page.
   if (!(await getSciencePlanGate(staffId)).open) return { error: PLAN_GATE_DETAIL };
 
@@ -226,7 +244,10 @@ export async function deleteActivity(activityId: string): Promise<DeleteActivity
   });
 
   if (!activity || activity.staffId !== staffId) return { error: 'Досягнення не знайдено' };
-  const frozen = linkedRatingProblem(session.user.role, activity.activityType.licencePositions);
+  const frozen = linkedRatingProblem(
+    await freezeFor(session.user),
+    activity.activityType.licencePositions
+  );
   if (frozen) return { error: frozen };
   if (activity.submittedByRole !== 'NPP' || activity.status !== 'APPROVED') {
     return { error: 'Це досягнення не можна видалити' };

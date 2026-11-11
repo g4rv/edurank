@@ -22,6 +22,7 @@ import {
 
 const emptyStaff = {
   isNpp: true,
+  isExternalPartTimer: false,
   archivedAt: null,
   pedagogicalExperience: null,
   academicRank: null,

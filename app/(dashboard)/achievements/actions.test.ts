@@ -7,6 +7,16 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+// The freeze is a switch read from the database (lib/freeze): off here, its
+// rules have their own tests (lib/freeze/rules.test.ts).
+vi.mock('@/lib/freeze/state', () => ({
+  freezeFor: vi
+    .fn()
+    .mockResolvedValue({ kharakterystyka: false, linkedRating: false, profile: false }),
+  loadFreezeSettings: vi.fn(),
+  isFreezeExempt: vi.fn().mockResolvedValue(false),
+  FREEZE_SETTINGS_ID: 'default',
+}));
 // `NPP_RATING_OPEN` ships as false — the rating is temporarily closed to НПП —
 // which would refuse every call in this file before it reaches the logic each
 // test is about. The flag is made switchable here instead: the suite runs with

@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-// These tests cover the rules that apply once the Характеристика is open again.
-// The freeze has its own file (freeze.test.ts).
-vi.mock('./freeze', () => ({
-  KHARAKTERYSTYKA_FROZEN_DETAIL: 'frozen',
-  kharakterystykaFrozenFor: () => false,
-}));
+// These tests cover the rules that apply with the Характеристика open. The
+// freeze has its own file (freeze.test.ts).
+vi.mock('./freeze', () => ({ KHARAKTERYSTYKA_FROZEN_DETAIL: 'frozen' }));
 
+import { NO_FREEZE } from '@/lib/freeze/rules';
 import {
   SELF_TYPEABLE_POSITIONS,
   typeEntryProblem,
@@ -15,8 +13,18 @@ import {
 } from './self-entry';
 import { positionEvidenceFields } from './position-evidence';
 
-const ADMIN = { role: 'ADMIN' as const, ownStaffId: 'admin-staff', ownUserId: 'admin-user' };
-const OWNER = { role: 'USER' as const, ownStaffId: 'her-staff', ownUserId: 'her-user' };
+const ADMIN = {
+  role: 'ADMIN' as const,
+  ownStaffId: 'admin-staff',
+  ownUserId: 'admin-user',
+  freeze: NO_FREEZE,
+};
+const OWNER = {
+  role: 'USER' as const,
+  ownStaffId: 'her-staff',
+  ownUserId: 'her-user',
+  freeze: NO_FREEZE,
+};
 
 const typing = (over: Partial<Parameters<typeof typeEntryProblem>[0]> = {}) =>
   typeEntryProblem({
@@ -169,6 +177,7 @@ describe('removeLineProblem', () => {
     ownStaffId: 'her-staff',
     ownUserId: 'her-user',
     ratingOpen: true,
+    freeze: NO_FREEZE,
   };
 
   it('lets an НПП remove a line of their own document', () => {

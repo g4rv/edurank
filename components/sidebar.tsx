@@ -17,6 +17,7 @@ import {
   CalendarCog,
   ChartColumn,
   ClipboardList,
+  Snowflake,
   FlaskConical,
   GraduationCap,
   LayoutDashboard,
@@ -66,6 +67,7 @@ const ADMINISTRATION_NAV: NavItem[] = [
   { href: '/admin/invites', label: 'Запрошення', icon: MailPlus },
   { href: '/admin/profile-check', label: 'Перевірка профілів', icon: UserCheck },
   { href: '/admin/students', label: 'Здобувачі', icon: GraduationCap },
+  { href: '/admin/freeze', label: 'Заморозка', icon: Snowflake },
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList },
 ];
 

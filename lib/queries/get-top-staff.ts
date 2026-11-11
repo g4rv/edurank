@@ -19,7 +19,11 @@ export async function getTopStaff(year: number): Promise<TopByMetric> {
 
   const entries = await db.ratingEntry.findMany({
     // Nobody with nothing at all belongs on a «top»
-    where: { year, totalScore: { gt: 0 }, staff: { isNpp: true, ...(closed ? {} : ON_ROSTER) } },
+    where: {
+      year,
+      totalScore: { gt: 0 },
+      staff: { isNpp: true, ...(closed ? {} : { ...ON_ROSTER, isExternalPartTimer: false }) },
+    },
     select: {
       section1Score: true,
       section2Score: true,

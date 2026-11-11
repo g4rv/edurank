@@ -3,7 +3,7 @@ import { compareItemNumbers, snapshotToGroups, toAchievementGroups } from './ach
 import type { StaffActivity } from '@/lib/queries/list-activities';
 import type { TemplateIndicator } from '@/lib/queries/list-template-indicators';
 import { ACTIVITY_STATUS_LABELS } from './labels';
-import { KHARAKTERYSTYKA_FREEZES_LINKED_RATING } from '@/lib/kharakterystyka/freeze';
+import { NO_FREEZE, type Freeze } from '@/lib/freeze/rules';
 
 describe('compareItemNumbers', () => {
   it('orders by section first', () => {
@@ -305,30 +305,27 @@ describe('toAchievementGroups — delete button under the freeze', () => {
       },
     }) as unknown as StaffActivity;
 
-  const canDelete = (licencePositions: unknown, role?: string) =>
-    toAchievementGroups([activity(licencePositions)], undefined, true, undefined, role)[0].items[0]
-      .canDelete;
+  // What `freezeFor` answers for the viewer; ADMIN's is always `NO_FREEZE`.
+  const FROZEN: Freeze = { ...NO_FREEZE, linkedRating: true };
+  const canDelete = (licencePositions: unknown, freeze: Freeze) =>
+    toAchievementGroups([activity(licencePositions)], undefined, true, undefined, freeze)[0]
+      .items[0].canDelete;
 
-  it.skipIf(!KHARAKTERYSTYKA_FREEZES_LINKED_RATING)(
-    'hides it on a row that feeds a position, for a non-admin',
-    () => {
-      expect(canDelete([{ position: 1 }], 'USER')).toBe(false);
-      expect(canDelete([{ position: 1 }], 'EDITOR')).toBe(false);
-    }
-  );
-
-  it.skipIf(KHARAKTERYSTYKA_FREEZES_LINKED_RATING)(
-    'keeps it on a linked row while the freeze is off',
-    () => {
-      expect(canDelete([{ position: 1 }], 'USER')).toBe(true);
-    }
-  );
-
-  it('keeps it on a row that feeds no position', () => {
-    expect(canDelete([], 'USER')).toBe(true);
+  it('hides it on a row that feeds a position, for a frozen viewer', () => {
+    expect(canDelete([{ position: 1 }], FROZEN)).toBe(false);
   });
 
-  it('keeps it for ADMIN even on a linked row', () => {
-    expect(canDelete([{ position: 1 }], 'ADMIN')).toBe(true);
+  it('keeps it on a linked row while the freeze is off', () => {
+    expect(canDelete([{ position: 1 }], NO_FREEZE)).toBe(true);
+  });
+
+  it('keeps it on a row that feeds no position', () => {
+    expect(canDelete([], FROZEN)).toBe(true);
+  });
+
+  it('keeps it when no freeze is passed at all', () => {
+    expect(
+      toAchievementGroups([activity([{ position: 1 }])], undefined, true)[0].items[0].canDelete
+    ).toBe(true);
   });
 });

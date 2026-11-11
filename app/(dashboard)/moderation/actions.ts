@@ -8,6 +8,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { canModerateRating } from '@/lib/rating/moderation';
 import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
 import { doiClash } from '@/lib/rating/reused-doi';
 import { parseTypeSpecs } from '@/validations/activity-type-spec';
@@ -55,7 +56,10 @@ export async function removeActivity(
   });
 
   if (!activity) return { error: 'Досягнення не знайдено' };
-  const frozen = linkedRatingProblem(session.user.role, activity.activityType.licencePositions);
+  const frozen = linkedRatingProblem(
+    await freezeFor(session.user),
+    activity.activityType.licencePositions
+  );
   if (frozen) return { error: frozen };
   if (activity.submittedByRole !== 'NPP' || activity.status !== 'APPROVED') {
     return { error: 'Це досягнення не можна відхилити' };

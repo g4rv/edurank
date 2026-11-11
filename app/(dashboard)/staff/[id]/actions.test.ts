@@ -7,11 +7,20 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+// The freeze is a switch read from the database (lib/freeze): off here, its
+// rules have their own tests (lib/freeze/rules.test.ts).
+vi.mock('@/lib/freeze/state', () => ({
+  freezeFor: vi
+    .fn()
+    .mockResolvedValue({ kharakterystyka: false, linkedRating: false, profile: false }),
+  loadFreezeSettings: vi.fn(),
+  isFreezeExempt: vi.fn().mockResolvedValue(false),
+  FREEZE_SETTINGS_ID: 'default',
+}));
 // The freeze has its own file (lib/staff/profile-freeze.test.ts); these cover the rules once the profile is open.
 vi.mock('@/lib/staff/profile-freeze', async () => {
   const { USER_EDITABLE_STAFF_FIELDS } = await import('@/lib/staff/editable-fields');
   return {
-    profileFrozenFor: () => false,
     ownEditableFields: () => USER_EDITABLE_STAFF_FIELDS,
     PROFILE_FROZEN_NOTE: 'frozen',
     QUALIFICATIONS_FROZEN_DETAIL: 'frozen',
@@ -113,6 +122,7 @@ const fullPayload: StaffUpdateSchema = {
   email: 'taras@univ.ua',
   phone: '+380501112233',
   isNpp: false,
+  isExternalPartTimer: false,
   employmentRate: 0.25, // confidential — EDITOR/USER must never write it
   pedagogicalExperience: 30,
   position: 'PROFESSOR',

@@ -1325,6 +1325,16 @@ function Row({
             >
               {row.name}
             </Link>
+            {/* Under the name, not beside it: beside it the badge squeezed a long
+                ПІБ down to two letters in the narrow name column. */}
+            {row.isExternalPartTimer && (
+              <span
+                className="mt-1 block w-fit rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning"
+                title="Зовнішній сумісник: рейтингу немає, ставка за Мін, якщо не задано інакше"
+              >
+                Зовнішній сумісник
+              </span>
+            )}
           </span>
           {/* On every row, not only the ones falling short: the head is looking
               at who counts towards Кнпп, and a badge that appears only on

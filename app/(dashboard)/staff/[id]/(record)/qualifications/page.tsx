@@ -43,7 +43,10 @@ export default async function StaffQualificationsPage({
     redirect('/profile/qualifications');
   }
 
-  const owner = await db.staff.findUnique({ where: { id }, select: { isNpp: true } });
+  const owner = await db.staff.findUnique({
+    where: { id },
+    select: { isNpp: true, isExternalPartTimer: true },
+  });
   if (!owner?.isNpp) notFound();
 
   const access = qualificationAccessFor({
@@ -67,7 +70,13 @@ export default async function StaffQualificationsPage({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <RecordTabRow staffId={id} showRating showScience={showScience} showQualifications>
+      <RecordTabRow
+        staffId={id}
+        showRating
+        showRatingTab={!owner.isExternalPartTimer}
+        showScience={showScience}
+        showQualifications
+      >
         {(canExport || access.write) && (
           <ToolbarGroup>
             {canExport && (

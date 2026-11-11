@@ -2,7 +2,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import type { Role } from '@/lib/generated/prisma/client';
 import { overseesStaff } from '@/lib/queries/scope';
-import { profileFrozenFor, QUALIFICATIONS_FROZEN_DETAIL } from '@/lib/staff/profile-freeze';
+import { QUALIFICATIONS_FROZEN_DETAIL } from '@/lib/staff/profile-freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import {
   divisionAllowsQualifications,
   qualificationAccessFor,
@@ -49,8 +50,10 @@ export async function authoriseQualifications(
   if (!owner) return { error: 'Працівника не знайдено' };
 
   const { role, staffId } = session.user;
-  // Frozen for the plain НПП (editable-fields.ts); ADMIN and editors unchanged.
-  if (need === 'write' && profileFrozenFor(role)) return { error: QUALIFICATIONS_FROZEN_DETAIL };
+  // Frozen for the plain НПП (lib/staff/profile-freeze.ts); ADMIN and editors unchanged.
+  if (need === 'write' && (await freezeFor(session.user)).profile) {
+    return { error: QUALIFICATIONS_FROZEN_DETAIL };
+  }
   // The division is asked only when it can change the answer: a read by an
   // EDITOR. A write never depends on it — the switch is read-only by design.
   const divisionAllows =

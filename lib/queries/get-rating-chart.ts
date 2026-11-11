@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
+import { RATED } from '@/lib/staff/external-part-timer';
 import { round2 } from '@/lib/round';
 
 // The two datasets behind the PDF charts. Both read RatingEntry, which already
@@ -99,11 +100,11 @@ export async function getDepartmentChart(
     select: {
       name: true,
       primaryStaff: {
-        where: { ...ON_ROSTER, isNpp: true },
+        where: { ...ON_ROSTER, ...RATED },
         select: { id: true, ratingEntries: { where: { year }, select: ENTRY_SELECT } },
       },
       partTimeStaff: {
-        where: { staff: { ...ON_ROSTER, isNpp: true } },
+        where: { staff: { ...ON_ROSTER, ...RATED } },
         select: {
           staff: { select: { id: true, ratingEntries: { where: { year }, select: ENTRY_SELECT } } },
         },
@@ -153,7 +154,7 @@ export async function getDepartmentStaffChart(
     select: {
       name: true,
       primaryStaff: {
-        where: { ...ON_ROSTER, isNpp: true },
+        where: { ...ON_ROSTER, ...RATED },
         select: {
           id: true,
           lastName: true,
@@ -163,7 +164,7 @@ export async function getDepartmentStaffChart(
         },
       },
       partTimeStaff: {
-        where: { staff: { ...ON_ROSTER, isNpp: true } },
+        where: { staff: { ...ON_ROSTER, ...RATED } },
         select: {
           staff: {
             select: {
@@ -230,7 +231,7 @@ export async function getReportData(year: number): Promise<ReportDepartment[]> {
       name: true,
       faculty: { select: { name: true } },
       primaryStaff: {
-        where: { ...ON_ROSTER, isNpp: true },
+        where: { ...ON_ROSTER, ...RATED },
         select: {
           id: true,
           lastName: true,
@@ -240,7 +241,7 @@ export async function getReportData(year: number): Promise<ReportDepartment[]> {
         },
       },
       partTimeStaff: {
-        where: { staff: { ...ON_ROSTER, isNpp: true } },
+        where: { staff: { ...ON_ROSTER, ...RATED } },
         select: {
           staff: {
             select: {

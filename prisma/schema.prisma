@@ -303,6 +303,14 @@ model Staff {
   // false = non-НПП (administrative staff), department is optional
   isNpp Boolean @default(true)
 
+  // A person from another institution who works part-time on ONE кафедра (owner,
+  // 2026-11-10). Still an НПП — profile, Характеристика, qualifications — but
+  // outside the rating, the students and the science plan; they stay in the
+  // кафедра's ставка spread as a сумісник. Only ADMIN and editors with the grant
+  // set it. Switching it on FREEZES their rating data, it never deletes it, so
+  // switching it off brings everything back (`lib/staff/external-part-timer.ts`).
+  isExternalPartTimer Boolean @default(false)
+
   // Off the active roster, without losing a thing. Set when someone leaves, or
   // goes on декретна відпустка: they drop out of the current year's rating and
   // out of every list an editor works from, while all their past activities and
@@ -452,6 +460,9 @@ model Staff {
   closedTemplates    RatingTemplate[]   @relation("TemplateCloser")
   departmentReports  DepartmentReport[] @relation("DepartmentReportEditor")
   scienceDeputyOf    Department[]       @relation("DepartmentScienceDeputy")
+  freezeExemption    FreezeExemption?   @relation("FreezeExemptionOf")
+  freezeExemptionsBy FreezeExemption[]  @relation("FreezeExemptionBy")
+  freezeSettingsBy   FreezeSettings[]   @relation("FreezeSettingsUpdatedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1464,6 +1475,40 @@ model SciencePlanRow {
 // lets a botnet grind one account from a thousand hosts. Neither is enough on
 // its own, and the two never need to be joined, so one table with a prefixed
 // key beats two tables or a nullable pair.
+/**
+ * The freezes, as one row an ADMIN switches on `/admin/freeze` (owner,
+ * 2026-11-11) — until now three constants and a redeploy each time. `id` is
+ * always `default`; the row is created by its migration and never deleted.
+ * `allFrozen` is an override, not a shortcut: a thing is frozen when its own
+ * switch is on OR this one is, so turning the master off brings back whatever
+ * the three said before. ADMIN and the people in `FreezeExemption` are never
+ * frozen. The rules are in `lib/freeze/rules.ts`.
+ */
+model FreezeSettings {
+  id String @id @default("default")
+
+  allFrozen             Boolean @default(false)
+  kharakterystykaFrozen Boolean @default(false)
+  linkedRatingFrozen    Boolean @default(false)
+  profileFrozen         Boolean @default(false)
+
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+  updatedBy   Staff?   @relation("FreezeSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+/**
+ * A person every freeze leaves alone — the ADMIN's whitelist (owner, 2026-11-11).
+ */
+model FreezeExemption {
+  staffId String @id
+  staff   Staff  @relation("FreezeExemptionOf", fields: [staffId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  createdById String?
+  createdBy   Staff?   @relation("FreezeExemptionBy", fields: [createdById], references: [id], onDelete: SetNull)
+}
+
 model LoginThrottle {
   id      String @id @default(cuid())
   /// «email:kovalenko@uhsp.edu.ua» or «ip:203.0.113.4», lower-cased

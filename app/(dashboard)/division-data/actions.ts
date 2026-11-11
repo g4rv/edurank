@@ -1,5 +1,6 @@
 'use server';
 
+import { EXTERNAL_PART_TIMER_REFUSAL } from '@/lib/staff/external-part-timer';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
@@ -10,6 +11,7 @@ import { isUniqueViolation, parseDbError } from '@/lib/db-error';
 import { canActForDivision } from '@/lib/permissions';
 import { logError } from '@/lib/log';
 import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { summarizeEvidence } from '@/lib/rating/evidence-fields';
 import { parseTypeSpecs } from '@/validations/activity-type-spec';
 import { computeScore } from '@/lib/rating/scoring';
@@ -70,14 +72,22 @@ export async function upsertDivisionActivity(
   if (!(await canActForDivision(session.user, type.verifyingDivisionId))) {
     return { error: 'Недостатньо прав' };
   }
-  const frozen = linkedRatingProblem(session.user.role, type.licencePositions);
+  const frozen = linkedRatingProblem(await freezeFor(session.user), type.licencePositions);
   if (frozen) return { error: frozen };
 
   const staff = await db.staff.findUnique({
     where: { id: staffId },
-    select: { isNpp: true, archivedAt: true, lastName: true, firstName: true, patronymic: true },
+    select: {
+      isNpp: true,
+      isExternalPartTimer: true,
+      archivedAt: true,
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+    },
   });
   if (!staff?.isNpp) return { error: 'Рейтинг ведеться лише для НПП' };
+  if (staff.isExternalPartTimer) return { error: EXTERNAL_PART_TIMER_REFUSAL };
   // The grid does not offer archived people, so reaching one means a stale page
   if (staff.archivedAt) return { error: 'Запис архівовано' };
 
@@ -252,7 +262,10 @@ export async function clearDivisionActivity(
   if (!(await canActForDivision(session.user, activity.activityType.verifyingDivisionId))) {
     return { error: 'Недостатньо прав' };
   }
-  const frozen = linkedRatingProblem(session.user.role, activity.activityType.licencePositions);
+  const frozen = linkedRatingProblem(
+    await freezeFor(session.user),
+    activity.activityType.licencePositions
+  );
   if (frozen) return { error: frozen };
 
   try {
@@ -339,7 +352,7 @@ export async function batchUpsertDivisionActivity(
   if (!(await canActForDivision(session.user, type.verifyingDivisionId))) {
     return { error: 'Недостатньо прав' };
   }
-  const frozen = linkedRatingProblem(session.user.role, type.licencePositions);
+  const frozen = linkedRatingProblem(await freezeFor(session.user), type.licencePositions);
   if (frozen) return { error: frozen };
 
   const staffList = await db.staff.findMany({
@@ -347,6 +360,7 @@ export async function batchUpsertDivisionActivity(
     select: {
       id: true,
       isNpp: true,
+      isExternalPartTimer: true,
       archivedAt: true,
       lastName: true,
       firstName: true,
@@ -359,6 +373,9 @@ export async function batchUpsertDivisionActivity(
     if (!s) return { error: 'НПП не знайдено' };
     if (!s.isNpp) {
       return { error: `${s.lastName} ${s.firstName} ${s.patronymic} — не НПП` };
+    }
+    if (s.isExternalPartTimer) {
+      return { error: `${s.lastName} ${s.firstName} ${s.patronymic} — зовнішній сумісник` };
     }
     if (s.archivedAt) {
       return { error: `${s.lastName} ${s.firstName} ${s.patronymic} — запис архівовано` };

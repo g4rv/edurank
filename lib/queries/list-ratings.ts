@@ -33,7 +33,9 @@ export async function listRatings(filters: RatingListFilters) {
   // REAL_PEOPLE rather than relying on `isNpp`: a closed year drops ON_ROSTER
   // on purpose, and «not an НПП» is a different statement from «not a person».
   const conditions: object[] = [{ isNpp: true }, REAL_PEOPLE];
-  if (!closed) conditions.push(ON_ROSTER);
+  // A closed year keeps whoever was in it; an open one leaves out the external
+  // part-timers (owner, 2026-11-10) — their rating data is frozen, not deleted.
+  if (!closed) conditions.push(ON_ROSTER, { isExternalPartTimer: false });
   // Primary or сумісник, exactly like the кафедра filter below — the two are
   // ANDed, so a primary-only faculty filter cancelled out the кафедра one.
   if (filters.facultyId) conditions.push(onFaculty(filters.facultyId));

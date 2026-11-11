@@ -147,6 +147,11 @@ export function StaffTable({ staff, head, isAdmin, footer, fill }: Props) {
                     >
                       {member.isNpp ? 'НПП' : 'Адм.'}
                     </span>
+                    {member.isExternalPartTimer && (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">
+                        Зовнішній сумісник
+                      </span>
+                    )}
                     {/* Only ever shown in the archive view, where every row
                         carries it — but the name is where a reader looks first,
                         and «архів» is the one thing that changes how the rest

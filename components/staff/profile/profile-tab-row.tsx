@@ -27,9 +27,12 @@ import { NPP_RATING_OPEN, NPP_RATING_CLOSED_NAV_NOTE } from '@/lib/rating/npp-ac
  */
 export function ProfileTabRow({
   isNpp,
+  external = false,
   children,
 }: {
   isNpp: boolean;
+  /** A зовнішній сумісник has no Рейтинг tab (owner, 2026-11-10) */
+  external?: boolean;
   /** This tab's own controls, if it has any. */
   children?: React.ReactNode;
 }) {
@@ -38,7 +41,13 @@ export function ProfileTabRow({
   return (
     <div className="space-y-2">
       <ToolbarRow>
-        <StaffTabs basePath="/profile" showRating showQualifications frozen={!NPP_RATING_OPEN} />
+        <StaffTabs
+          basePath="/profile"
+          showRating
+          showQualifications
+          showRatingTab={!external}
+          frozen={!NPP_RATING_OPEN}
+        />
         {children}
       </ToolbarRow>
       {!NPP_RATING_OPEN && (

@@ -1,3 +1,4 @@
+import { OF_RATED_STAFF } from '@/lib/staff/external-part-timer';
 import { db } from '@/lib/db';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 import { ON_ROSTER, onDepartments } from './roster';
@@ -104,7 +105,10 @@ export async function listDepartmentStakes(year: number) {
         id: true,
         departmentId: true,
         partTimeDepartments: { select: { departmentId: true } },
-        ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
+        ratingEntries: {
+          where: { year: ratingYear, ...OF_RATED_STAFF },
+          select: { totalScore: true },
+        },
         stakeLimits: {
           where: { year },
           select: { departmentId: true, minHundredths: true, maxHundredths: true },

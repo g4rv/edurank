@@ -8,6 +8,7 @@ import { sectionScores } from '@/lib/rating/section-scores';
 import { RatingClosedNote } from '@/components/rating/rating-closed-note';
 import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PlanGateNote } from '@/components/rating/plan-gate-note';
@@ -76,7 +77,8 @@ export default async function AchievementsSectionPage({
   if (!staffId) redirect('/profile');
 
   const staff = await getStaff(staffId, true);
-  if (!staff?.isNpp) redirect('/profile');
+  // A зовнішній сумісник is outside the rating system (owner, 2026-11-10)
+  if (!staff?.isNpp || staff.isExternalPartTimer) redirect('/profile');
 
   // Frozen for НПП while `NPP_RATING_OPEN` is false. The note keeps this page's
   // own heading rather than redirecting to /profile, so a bookmark still lands
@@ -136,20 +138,17 @@ export default async function AchievementsSectionPage({
   const totals = sectionScores(await getRatingEntry(staffId, template.year));
 
   const activities = await listStaffActivities(staffId, template.year, section);
-  const groups = toAchievementGroups(
-    activities,
-    undefined,
-    canManage,
-    undefined,
-    session.user.role
-  );
+  // What is closed to this viewer (lib/freeze): the delete buttons, the form's
+  // indicator list and the note below all read the same answer.
+  const freeze = await freezeFor(session.user);
+  const groups = toAchievementGroups(activities, undefined, canManage, undefined, freeze);
 
   const submittableTypes = canManage
     ? template.activityTypes
         .filter((t) => t.section.number === section)
         // The Характеристика is frozen: an indicator that feeds it cannot be
         // added to (lib/kharakterystyka/freeze.ts). The action refuses it too.
-        .filter((t) => !linkedRatingProblem(session.user.role, t.licencePositions))
+        .filter((t) => !linkedRatingProblem(freeze, t.licencePositions))
         .map((t) => ({
           id: t.id,
           label: t.label,
@@ -163,8 +162,7 @@ export default async function AchievementsSectionPage({
 
   const frozenHere = canManage
     ? template.activityTypes.filter(
-        (t) =>
-          t.section.number === section && linkedRatingProblem(session.user.role, t.licencePositions)
+        (t) => t.section.number === section && linkedRatingProblem(freeze, t.licencePositions)
       ).length
     : 0;
 

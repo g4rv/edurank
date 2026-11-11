@@ -1,3 +1,4 @@
+import { RATED } from '@/lib/staff/external-part-timer';
 import JSZip from 'jszip';
 import { blockedStaff } from '@/lib/rating/rating-gate';
 import { auth } from '@/lib/auth';
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
       // form of their own — their history is intact and downloading it is how
       // somebody answers a question about a year they were here for — but they
       // are off the roster and out of the archive.
-      where: staffId ? { id: staffId, isNpp: true } : { ...ON_ROSTER, isNpp: true },
+      where: staffId ? { id: staffId, ...RATED } : { ...ON_ROSTER, ...RATED },
       select: {
         id: true,
         lastName: true,

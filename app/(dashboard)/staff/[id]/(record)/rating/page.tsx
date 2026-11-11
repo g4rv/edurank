@@ -15,6 +15,7 @@ import {
   toAchievementGroups,
 } from '@/lib/rating/achievement-rows';
 import { adminFreezeNote } from '@/lib/kharakterystyka/freeze';
+import { isFreezeExempt, loadFreezeSettings } from '@/lib/freeze/state';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import { RatingTable } from '@/components/rating/rating-table';
@@ -54,9 +55,16 @@ export default async function StaffRatingPage({
 
   const staff = await db.staff.findUnique({
     where: { id },
-    select: { lastName: true, firstName: true, patronymic: true, isNpp: true },
+    select: {
+      lastName: true,
+      firstName: true,
+      patronymic: true,
+      isNpp: true,
+      isExternalPartTimer: true,
+    },
   });
-  if (!staff || !staff.isNpp) notFound();
+  // A зовнішній сумісник has no rating (owner, 2026-11-10); the data is frozen, not gone
+  if (!staff || !staff.isNpp || staff.isExternalPartTimer) notFound();
 
   // Which year is on screen. The active one by default; any template year on
   // request — the same picker the НПП already has over their own rating on
@@ -77,7 +85,10 @@ export default async function StaffRatingPage({
   }
 
   const status = templateYears.find((t) => t.year === year)?.status;
-  const adminNote = adminFreezeNote(session.user.role);
+  const adminNote =
+    session.user.role === 'ADMIN'
+      ? adminFreezeNote(session.user.role, await loadFreezeSettings(), await isFreezeExempt(id))
+      : null;
 
   // Closed year → the frozen snapshot is authoritative; open year → live rows
   const closed = status === 'CLOSED';

@@ -291,6 +291,8 @@ export const staffUpdateSchema = z
     email: z.email({ error: 'Некоректний email' }).trim().toLowerCase(),
     phone: phoneField,
     isNpp: z.preprocess((v) => v === true || v === 'true', z.boolean()),
+    // Зовнішній сумісник (owner, 2026-11-10) — see `lib/staff/external-part-timer.ts`
+    isExternalPartTimer: z.preprocess((v) => v === true || v === 'true', z.boolean()),
     employmentRate: z.preprocess(num, z.number().nonnegative().nullable()),
     ...academicFields,
     wosUrl: profileLink(WOS_HOSTS, 'Очікується посилання на Web of Science'),
@@ -341,6 +343,26 @@ export const staffUpdateSchema = z
         message: 'НПП повинен мати кафедру — основну або додаткову',
         path: ['departmentId'],
       });
+    }
+
+    // An external part-timer is an НПП who is a сумісник on ONE кафедра and has no
+    // main one (owner, 2026-11-10): that is what makes their ставка a part-time
+    // one and keeps them out of every кафедра's Кнпп.
+    if (data.isExternalPartTimer) {
+      if (!data.isNpp) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Зовнішній сумісник — це НПП',
+          path: ['isExternalPartTimer'],
+        });
+      }
+      if (data.departmentId || data.partTimeDepartmentIds.length !== 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Зовнішній сумісник працює лише на одній додатковій кафедрі, без основної',
+          path: ['partTimeDepartmentIds'],
+        });
+      }
     }
 
     // TWO WORKPLACES IN TOTAL, counting the full-time post. The array's own

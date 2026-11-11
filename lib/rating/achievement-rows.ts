@@ -5,6 +5,7 @@ import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fie
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 import type { StaffActivity } from '@/lib/queries/list-activities';
 import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
+import { NO_FREEZE, type Freeze } from '@/lib/freeze/rules';
 import type { TemplateIndicator } from '@/lib/queries/list-template-indicators';
 
 /** Field specs off the row's JSON; a malformed row degrades to an empty summary */
@@ -23,7 +24,7 @@ export function compareItemNumbers(a: string, b: string): number {
   return aMajor - bMajor || aMinor - bMinor;
 }
 
-function toRow(a: StaffActivity, canManage: boolean, viewerRole?: string): AchievementRow {
+function toRow(a: StaffActivity, canManage: boolean, freeze: Freeze): AchievementRow {
   return {
     id: a.id,
     itemNumber: a.activityType.itemNumber,
@@ -44,7 +45,7 @@ function toRow(a: StaffActivity, canManage: boolean, viewerRole?: string): Achie
       canManage &&
       a.submittedByRole === 'NPP' &&
       a.status === 'APPROVED' &&
-      !linkedRatingProblem(viewerRole, a.activityType.licencePositions),
+      !linkedRatingProblem(freeze, a.activityType.licencePositions),
   };
 }
 
@@ -181,7 +182,8 @@ export function toAchievementGroups(
   sections?: number[],
   canManage = false,
   catalogue?: readonly TemplateIndicator[],
-  viewerRole?: string
+  /** What is closed to the viewer; only the delete button reads it */
+  freeze: Freeze = NO_FREEZE
 ): AchievementGroup[] {
   const rowsBySection = new Map<number, AchievementRow[]>();
   const titleBySection = new Map<number, string>();
@@ -190,7 +192,7 @@ export function toAchievementGroups(
   for (const a of activities) {
     const n = a.activityType.section.number;
     const rows = rowsBySection.get(n) ?? [];
-    rows.push(toRow(a, canManage, viewerRole));
+    rows.push(toRow(a, canManage, freeze));
     rowsBySection.set(n, rows);
     titleBySection.set(n, a.activityType.section.title);
     filled.add(a.activityType.id);

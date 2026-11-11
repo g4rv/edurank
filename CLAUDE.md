@@ -149,10 +149,12 @@ above — the server refuses it only once it is changed.
 request): a `USER` edits their phone and the research links (NOT the h-index, which is not drawn
 beside each) and nothing else — no academic info, no «Освіта», no диплом or
 certificate scans, no «Підвищення кваліфікації/Стажування» writes (reads stay).
-**Editors and ADMIN are unchanged.** One constant, `PROFILE_FROZEN` in
-`lib/staff/profile-freeze.ts`, no dates: set it `false` and deploy. The server
-decides (`ownEditableFields` in `updateOwnProfile` and `updateStaff`,
-`authoriseQualifications` and `authoriseEducationWrite`); the form only greys.
+**Editors and ADMIN are unchanged.** A switch on `/admin/freeze` («Профіль
+НПП», owner 2026-11-11; a constant and a redeploy before) — see «Заморозка»
+below. The server decides (`ownEditableFields(freeze)` in `updateOwnProfile`
+and `updateStaff`, `authoriseQualifications` and `authoriseEducationWrite`,
+each reading `freezeFor(session.user)`); the form only greys, from a `freeze`
+prop the page resolves.
 `createStaff` is not an edit and is untouched.
 
 **An administrative (non-НПП) account edits its phone and nothing else** on
@@ -758,19 +760,38 @@ five-year window. `Кнпп` — how many people on a кафедра meet enough
 **never stored**; it is computed in `lib/queries/get-department-knpp.ts`, because
 freezing it would go stale the moment somebody submits an achievement.
 
-**TEMPORARILY OPEN since 2026-11-06 (owner): both constants below are `false`, and `PROFILE_FROZEN` too; the owner will freeze them again later. The tests of the frozen state run only while their constant is `true`.**
+**Заморозка — four switches on `/admin/freeze`, no redeploy** (owner,
+2026-11-11; three constants until then). ADMIN only. One `FreezeSettings` row
+(`id = 'default'`, created by its migration, never deleted): «Характеристика»
+(`kharakterystykaFrozen`), «Показники рейтингу, що входять до характеристики»
+(`linkedRatingFrozen`), «Профіль НПП» (`profileFrozen`) and «Заморозити все»
+(`allFrozen`) — the master is an OVERRIDE, a thing is frozen when its own
+switch OR the master is on, so turning the master off brings back what the
+three said. Plus a whitelist, `FreezeExemption`: one list for all four
+switches, a person on it is frozen by nothing. ADMIN is never frozen and is
+refused from the list. Both are audited (`FreezeSettings`, `FreezeExemption`).
 
-**Frozen for everyone but ADMIN (owner, 2026-11-01).** The division copies the
-Характеристика to another platform by hand, so two constants in
-`lib/kharakterystyka/freeze.ts` close it, with no dates — whoever unfreezes sets
-them to `false` and deploys. `KHARAKTERYSTYKA_FROZEN` refuses a non-admin every
-write on the document (typing, deleting, removing a line).
-`KHARAKTERYSTYKA_FREEZES_LINKED_RATING` also refuses a non-admin to add, delete
-or discard a rating entry of an indicator with `licencePositions` (НПП
-`createActivity`/`deleteActivity`, `/division-data`, `/moderation`), because the
-document is computed live from those rows. Other indicators stay open. **Known
-gap (KISS, chosen over a stored copy):** the profile-derived positions follow the
-live profile. Setting the second constant to `false` closes the document alone.
+- **Rules in `lib/freeze/rules.ts`, no database**: `effectiveFreeze(settings,
+{ role, exempt })` → a `Freeze` `{ kharakterystyka, linkedRating, profile }`
+  for ONE viewer. `profile` is for `USER` only. **Reads in
+  `lib/freeze/state.ts`**: `loadFreezeSettings()` (React-cached per request),
+  `isFreezeExempt(staffId)`, and `freezeFor(session.user)` — the one question
+  a page or action asks, then hands the answer down. Every helper takes that
+  `Freeze`, never a role: `linkedRatingProblem(freeze, licencePositions)`,
+  `ownEditableFields(freeze)`, `self-entry`'s `Who.freeze`. A client form gets
+  it as a prop. The ADMIN's note on a person's record (`adminFreezeNote(role,
+settings, exempt)`) reads the SETTINGS and says «у списку винятків» for a
+  whitelisted person.
+- **What each switch closes.** The document: a non-admin cannot type, delete
+  or remove a line of a Характеристика. Linked rating: a non-admin cannot add,
+  delete or discard a rating entry of an indicator with `licencePositions`
+  (НПП `createActivity`/`deleteActivity`, `/division-data`, `/moderation`),
+  because the document is computed live from those rows; other indicators stay
+  open. Profile: see «The profile is frozen for the plain НПП» above.
+- **Known gap (KISS, chosen over a stored copy):** the profile-derived
+  positions follow the live profile.
+- Tests mock `@/lib/freeze/state` (nothing frozen); the frozen mechanics are
+  tested with a `Freeze` passed in, so both states run every time.
 
 **Any line can be removed — final — by ADMIN, or by the НПП on their own**
 (2026-10-06). An open year's rating line is deleted from the rating too; a
@@ -1151,6 +1172,38 @@ Information only — they feed nothing.
   «Зберегти» saves.
 - Audited as one readable line per certificate on the `Staff` entry
   (`englishCertificate`, `ukrainianCertificate` in `FIELD_LABELS`).
+
+## Зовнішній сумісник (built, owner 2026-11-10)
+
+`Staff.isExternalPartTimer` — a person from another institution who works part-time on
+ONE кафедра. **Still an НПП** (`isNpp` stays true): profile, Характеристика (the
+positions from the profile plus lines typed by hand), «Підвищення кваліфікації/Стажування»
+(kept for now — removing it later is easier than adding it) and a ставка in the кафедра's
+spread, badged «Зовнішній сумісник». **Outside the university's rating system:** no rating,
+no «Мої здобувачі», no science plan (the plan may be added later — one place to change).
+Everything lives in `lib/staff/external-part-timer.ts`.
+
+- **Who sets it:** ADMIN, and an editor whose division was granted the `isExternalPartTimer`
+  field (group «Організаційне»); on CREATE anybody who may create a person. A завідувач
+  cannot. The schema (`validations/staff.ts`) requires an НПП on exactly ONE additional
+  кафедра and no main one — so the 0,10–0,25 ставка limits apply and Кнпп never counts them.
+- **Switching it on FREEZES, never deletes** (owner: «prevent mistakes … revert without any
+  harm»). Rating entries, activities, plans and claims stay in the database. The rating
+  lists leave them out (`RATED` in the queries: `/rating`, charts, top, trend, the
+  division-data grid, science plans and coauthor lists, student claims, the ratings Excel),
+  every action that would add refuses (`createActivity`, `deleteActivity`, student claims,
+  science plan and records, division-data), their rating and science pages redirect or 404,
+  and the profile-derived sync leaves their rows untouched — switching it off finds
+  everything as it was and the next save brings it up to date. **Closed years are history
+  and keep whoever was in them.**
+- **Ставка:** the формула sees their rating as 0 (`OF_RATED_STAFF` on every
+  `ratingEntries` read in the ставка code), so it proposes their Мін, and the head types
+  the number as for anybody.
+- **UI:** a switch in «Місця роботи» of the staff form, the badge on `/staff`, the profile
+  and the ставка grid; no Рейтинг tab, no «Мої здобувачі» / «Наукова робота» in the nav.
+- **Known, not done:** «Моя кафедра» (`list-my-department`) still lists them with their
+  rating column (a frozen figure, if any); the moderation page can still discard or restore
+  an old entry of theirs (ADMIN / ННВ).
 
 ## Перевірка профілів (built, owner 2026-11-04)
 

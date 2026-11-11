@@ -7,11 +7,20 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+// The freeze is a switch read from the database (lib/freeze): off here, its
+// rules have their own tests (lib/freeze/rules.test.ts).
+vi.mock('@/lib/freeze/state', () => ({
+  freezeFor: vi
+    .fn()
+    .mockResolvedValue({ kharakterystyka: false, linkedRating: false, profile: false }),
+  loadFreezeSettings: vi.fn(),
+  isFreezeExempt: vi.fn().mockResolvedValue(false),
+  FREEZE_SETTINGS_ID: 'default',
+}));
 // These tests cover the rules once the Характеристика is open again; the freeze
 // itself is tested in lib/kharakterystyka/freeze.test.ts.
 vi.mock('@/lib/kharakterystyka/freeze', () => ({
   KHARAKTERYSTYKA_FROZEN_DETAIL: 'frozen',
-  kharakterystykaFrozenFor: () => false,
 }));
 vi.mock('@/lib/queries/get-active-template', () => ({ getActiveTemplate: vi.fn() }));
 vi.mock('@/lib/rating/recompute', () => ({ recomputeRatingEntry: vi.fn() }));

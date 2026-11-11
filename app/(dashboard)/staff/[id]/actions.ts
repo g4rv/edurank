@@ -42,6 +42,7 @@ import {
   type AccountAction,
 } from '@/lib/permissions';
 import { ownEditableFields } from '@/lib/staff/profile-freeze';
+import { freezeFor } from '@/lib/freeze/state';
 import { formatStake } from '@/lib/stake/units';
 import { parseDbError, isForeignKeyViolation } from '@/lib/db-error';
 import { emailTaken, EMAIL_TAKEN_MESSAGE } from '@/lib/queries/email-taken';
@@ -537,7 +538,7 @@ export async function updateStaff(
       if (allowed.has(key) && isEditorWritableField(key)) updateData[key] = val;
     }
   } else {
-    const editable = ownEditableFields(role);
+    const editable = ownEditableFields(await freezeFor(session.user));
     for (const [key, val] of Object.entries(fields)) {
       if (editable.has(key)) updateData[key] = val;
     }
@@ -739,7 +740,9 @@ export async function updateStaff(
       // when any feeding field (or the НПП flag itself) was touched.
       const touchesDerived = Object.keys(updateData).some(
         (key) =>
-          key === 'isNpp' || (PROFILE_DERIVED_STAFF_FIELDS as readonly string[]).includes(key)
+          key === 'isNpp' ||
+          key === 'isExternalPartTimer' ||
+          (PROFILE_DERIVED_STAFF_FIELDS as readonly string[]).includes(key)
       );
       if (touchesDerived) await syncProfileDerived(tx, id);
 

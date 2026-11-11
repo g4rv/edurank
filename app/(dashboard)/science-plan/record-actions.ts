@@ -1,5 +1,6 @@
 'use server';
 
+import { EXTERNAL_PART_TIMER_REFUSAL } from '@/lib/staff/external-part-timer';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -190,6 +191,7 @@ export async function resolveActor(
       firstName: true,
       patronymic: true,
       isNpp: true,
+      isExternalPartTimer: true,
       departmentId: true,
       partTimeDepartments: { select: { departmentId: true } },
     },
@@ -197,6 +199,10 @@ export async function resolveActor(
   const isAdmin = session.user.role === 'ADMIN';
   if (!staff || (!staff.isNpp && !(options?.allowAdmin && isAdmin))) {
     return { ok: false, error: 'Облік наукової роботи доступний лише для НПП' };
+  }
+  // An external part-timer has no science plan (owner, 2026-11-10)
+  if (staff.isExternalPartTimer && !(options?.allowAdmin && isAdmin)) {
+    return { ok: false, error: EXTERNAL_PART_TIMER_REFUSAL };
   }
 
   // Never trust the кафедра that arrived — it must be this person's primary one

@@ -1,3 +1,4 @@
+import { OF_RATED_STAFF } from '@/lib/staff/external-part-timer';
 import { db } from '@/lib/db';
 import type { AdminPosition } from '@/lib/generated/prisma/client';
 import { ON_ROSTER, onDepartment } from './roster';
@@ -42,6 +43,8 @@ export interface StakeRow {
    * place in the formula are exactly the same as anybody else's (2026-08-24).
    */
   isPartTime: boolean;
+  /** A зовнішній сумісник: no rating, shown with a badge (owner, 2026-11-10) */
+  isExternalPartTimer: boolean;
   /**
    * Is there a stored `StakeAllocation` for this person, or is the number below
    * only what the формула proposes?
@@ -155,6 +158,7 @@ export async function getStakeDistribution(
       // Compared against the кафедра being viewed — this is what tells a
       // primary row from a сумісник's, and no extra column is needed for it.
       departmentId: true,
+      isExternalPartTimer: true,
       lastName: true,
       firstName: true,
       patronymic: true,
@@ -164,7 +168,10 @@ export async function getStakeDistribution(
       adminPositions: true,
       headOfDepartment: { select: { id: true } },
       deanOfFaculty: { select: { id: true } },
-      ratingEntries: { where: { year: ratingYear }, select: { totalScore: true } },
+      ratingEntries: {
+        where: { year: ratingYear, ...OF_RATED_STAFF },
+        select: { totalScore: true },
+      },
       // Scoped to THIS кафедра: bounds are per-кафедра since 2026-08-24, and an
       // unscoped read would hand a сумісник their own кафедра's 1,00 ceiling.
       stakeLimits: {
@@ -264,6 +271,7 @@ export async function getStakeDistribution(
           isDean: s.deanOfFaculty !== null,
         }),
         isPartTime: isPartTime(s),
+        isExternalPartTimer: s.isExternalPartTimer,
         hasAllocation: !!allocation,
         positions: metCount,
         qualifies: metCount >= REQUIRED_POSITIONS,

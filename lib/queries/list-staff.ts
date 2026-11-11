@@ -169,6 +169,7 @@ export async function listStaff(filters?: StaffFilters) {
       patronymic: true,
       email: true,
       isNpp: true,
+      isExternalPartTimer: true,
       archivedAt: true,
       position: true,
       academicTitle: true,
