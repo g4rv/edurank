@@ -196,10 +196,13 @@ export async function deleteKharakterystykaEntry(id: string): Promise<EntryState
       text: true,
       source: true,
       createdBy: true,
+      removedAt: true,
       staff: { select: { lastName: true, firstName: true, patronymic: true } },
     },
   });
-  if (!entry) return { error: 'Запис не знайдено' };
+  // A line the year check hid is evidence, not a draft: deleting it would take
+  // the proof with it (owner, 2026-11-12). It comes back from the admin page.
+  if (!entry || entry.removedAt) return { error: 'Запис не знайдено' };
 
   // Reads the STORED row, never anything the caller sent: who typed it and
   // whose document it is are both facts of the row.

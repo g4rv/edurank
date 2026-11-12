@@ -181,6 +181,10 @@ is the profile's, changed there). The import and the rating both put lines in
 front of people that were wrong about them, and until now nobody could take one
 out.
 
+**A typed line that copies a rating entry can be hidden the same way** (owner, 2026-11-12): `removedReason = DUPLICATE_OF_RATING`, offered on the «Дублікати» tab of `/admin/kharakterystyka-check`. The same person, the same position, and the same description (`lib/kharakterystyka/duplicates.ts`): **the description decides** (owner, 2026-11-12) — a stretch of it is found in both and they share most of their words, whatever their DOIs say, because DOIs are typed by hand and are often wrong (a digit off, another prefix, the DOI of the person's other article pasted in). The DOI decides only when one side has no description (a bare DOI). A conference (п.12) needs the same DOI AND a description that does not contradict. The rating entry stays; imported lines are not offered.
+
+**One removal can be undone** (owner, 2026-11-12): a line hidden by the year check on `/admin/kharakterystyka-check` carries `removedReason = YEAR_OUT_OF_WINDOW`, and only such a line can be brought back from that page. Every other removal below is final.
+
 **Final.** Nothing in the app restores a removed line, and the confirmation says
 so. Before anything is written, the dialog shows the line, whether its position
 stays met («стане невиконаною, залишиться 4 з 5»), «N з 20» before and after

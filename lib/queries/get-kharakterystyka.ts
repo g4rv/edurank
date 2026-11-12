@@ -100,11 +100,25 @@ export function getKharakterystykaWithout(
   return loadKharakterystyka(staffId, lastYear, line, wholeActivity);
 }
 
+/**
+ * The document as it would read with SEVERAL saved lines hidden at once — what
+ * the year check's dialog compares against (owner, 2026-11-12). Built by the same
+ * builder, so the preview and the result cannot disagree.
+ */
+export function getKharakterystykaWithoutEntries(
+  staffId: string,
+  lastYear: number,
+  entryIds: readonly string[]
+): Promise<Kharakterystyka | null> {
+  return loadKharakterystyka(staffId, lastYear, undefined, false, new Set(entryIds));
+}
+
 async function loadKharakterystyka(
   staffId: string,
   lastYear: number,
   without?: LineRef,
-  wholeActivity = false
+  wholeActivity = false,
+  withoutEntryIds?: ReadonlySet<string>
 ): Promise<Kharakterystyka | null> {
   const { from, to } = windowFor(lastYear);
 
@@ -144,8 +158,9 @@ async function loadKharakterystyka(
   if (without?.kind === 'activity') {
     removedLines.add(removedLineKey(without.activityId, without.position));
   }
-  const kept =
+  const keptOne =
     without?.kind === 'entry' ? entries.filter((e) => e.id !== without.entryId) : entries;
+  const kept = withoutEntryIds ? keptOne.filter((e) => !withoutEntryIds.has(e.id)) : keptOne;
   const counted =
     without?.kind === 'activity' && wholeActivity
       ? activities.filter((a) => a.id !== without.activityId)
