@@ -298,6 +298,8 @@ export const FIELD_LABELS: Record<string, string> = {
 export const ENTITY_FIELD_LABELS: Record<string, Record<string, string>> = {
   KharakterystykaEntry: {
     position: 'Позиція ліцензійних умов',
+    removedAt: 'Приховано',
+    removedReason: 'Причина приховування',
   },
   FreezeSettings: {
     allFrozen: 'Заморозити все',

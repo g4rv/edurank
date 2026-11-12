@@ -13,7 +13,7 @@ import { db } from '@/lib/db';
  */
 export async function listManualKharakterystyka(staffId: string) {
   return db.kharakterystykaEntry.findMany({
-    where: { staffId, source: 'MANUAL' },
+    where: { staffId, source: 'MANUAL', removedAt: null },
     select: { id: true, position: true, group: true, year: true, text: true, createdBy: true },
     orderBy: [{ position: 'asc' }, { year: 'desc' }],
   });

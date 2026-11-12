@@ -87,6 +87,7 @@ export default async function ProfileCheckPage({
   if (onlyProblems) exportParams.set('only', 'problems');
   if (q) exportParams.set('q', q);
   const exportHref = `/api/export/profile-checks${exportParams.size ? `?${exportParams}` : ''}`;
+  const zipHref = `/api/export/profile-checks/zip${exportParams.size ? `?${exportParams}` : ''}`;
 
   return (
     <div className="space-y-6">
@@ -138,9 +139,14 @@ export default async function ProfileCheckPage({
         </span>
 
         {rows.length > 0 && (
-          <a href={exportHref} className="ml-auto text-brand-strong hover:underline">
-            Вивантажити Excel
-          </a>
+          <span className="ml-auto flex gap-4">
+            <a href={exportHref} className="text-brand-strong hover:underline">
+              Вивантажити Excel
+            </a>
+            <a href={zipHref} className="text-brand-strong hover:underline">
+              Вивантажити .zip
+            </a>
+          </span>
         )}
       </div>
 

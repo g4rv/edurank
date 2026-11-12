@@ -91,15 +91,25 @@ function fieldsOf(rows: ProfileCheckRow[], p: Platform): string[] {
 }
 
 /**
+ * The stored result of a platform, or undefined. A stored «no link» is no result:
+ * it only records that the person had no link THEN, and is treated as «never
+ * checked» — which reads «gray, no profile» when there is still no link, and
+ * «Не перевіряли» when one has been added since.
+ */
+function storedCell(r: ProfileCheckRow, p: Platform): PlatformCell | undefined {
+  const cell = r.cells[p];
+  return cell && cell.status !== 'no_link' ? cell : undefined;
+}
+
+/**
  * The order inside a list (owner, 2026-11-09): all fine, fine with advice only,
  * a doubt, errors, not checked / could not check, and last no profile at all.
  */
 function rankOf(r: ProfileCheckRow, p: Platform): number {
-  const cell = r.cells[p];
+  const cell = storedCell(r, p);
   if (!cell) return r.links[p]?.trim() ? 4 : 5;
   if (nameFill(cell) === RED) return 3;
   if (cell.status === 'failed') return 4;
-  if (cell.status === 'no_link') return 5;
   if (nameFill(cell) === AMBER) return 2;
   return cell.checks.some((c) => c.status === 'info') ? 1 : 0;
 }
@@ -111,11 +121,20 @@ export interface ExportOptions {
   grouped: boolean;
   /** Only people with a problem on any platform — the same people on every sheet */
   onlyProblems: boolean;
+  /**
+   * One кафедра's own file (the zip): no Факультет / Кафедра columns and no
+   * headings, since the folder says where it belongs
+   */
+  bare?: boolean;
 }
+
+/** The base font of a sheet is 11 pt: a факультет heading is twice that, a кафедра 1.5 times */
+const FACULTY_FONT = 22;
+const DEPARTMENT_FONT = 16.5;
 
 export function buildProfileChecksWorkbook(
   all: ProfileCheckRow[],
-  { grouped, onlyProblems }: ExportOptions
+  { grouped, onlyProblems, bare = false }: ExportOptions
 ): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
 
@@ -134,7 +153,8 @@ export function buildProfileChecksWorkbook(
     const fields = fieldsOf(rows, p);
 
     const ws = wb.addWorksheet(PLATFORM_LABELS[p]);
-    const lead = grouped ? ['НПП'] : ['НПП', 'Факультет', 'Кафедра'];
+    const placeColumns = !grouped && !bare;
+    const lead = placeColumns ? ['НПП', 'Факультет', 'Кафедра'] : ['НПП'];
     const headers = [...lead, 'Статус', 'Посилання', ...fields.map(label)];
     ws.columns = headers.map((header, i) => ({
       header,
@@ -159,28 +179,40 @@ export function buildProfileChecksWorkbook(
 
     let faculty: string | null | undefined;
     let department: string | null | undefined;
+    // Blank rows between the blocks: one after a кафедра, three after a факультет
+    const gap = (n: number) => {
+      for (let i = 0; i < n; i++) ws.addRow([]);
+    };
     for (const r of rows) {
       if (grouped) {
         if (r.faculty !== faculty) {
+          if (faculty !== undefined) gap(3);
           faculty = r.faculty;
           department = undefined;
           const h = ws.addRow([faculty ?? 'Без факультету']);
           ws.mergeCells(h.number, 1, h.number, headers.length);
-          h.font = { bold: true, size: 12 };
+          h.font = { bold: true, size: FACULTY_FONT };
+          h.height = 44;
+          h.alignment = { vertical: 'middle' };
           h.getCell(1).fill = fill(FACULTY);
         }
         if (r.department !== department) {
+          if (department !== undefined) gap(1);
           department = r.department;
           const h = ws.addRow([department ?? 'Без кафедри']);
           ws.mergeCells(h.number, 1, h.number, headers.length);
-          h.font = { bold: true };
+          h.font = { bold: true, size: DEPARTMENT_FONT };
+          h.height = 32;
+          h.alignment = { vertical: 'middle' };
           h.getCell(1).fill = fill(DEPARTMENT);
         }
       }
 
-      const cell = r.cells[p];
+      const cell = storedCell(r, p);
       const link = cell?.link?.trim() || r.links[p]?.trim() || '';
-      const row = ws.addRow(grouped ? [r.name] : [r.name, r.faculty ?? '', r.department ?? '']);
+      const row = ws.addRow(
+        placeColumns ? [r.name, r.faculty ?? '', r.department ?? ''] : [r.name]
+      );
       row.alignment = { vertical: 'middle', wrapText: true };
       // No profile on this platform: the name alone, the whole row gray
       if (!link && !cell) {

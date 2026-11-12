@@ -813,6 +813,12 @@ model KharakterystykaEntry {
   removedAt DateTime?
   /// The account that removed it. Not a relation, like `createdBy`.
   removedBy String?
+  /// WHY it was hidden, when it was hidden by the year check on
+  /// `/admin/kharakterystyka-check` (owner, 2026-11-12): the publication is
+  /// older than the five-year window. Only a row carrying this reason can be
+  /// brought back — a removal by a person stays final, so null here means
+  /// "final". The hidden line keeps its text as the proof.
+  removedReason String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -66,3 +66,16 @@ export function fileNameFromDisposition(header: string | null): string | null {
   const plain = /filename="([^"]*)"/i.exec(header) ?? /filename=([^;]+)/i.exec(header);
   return plain?.[1].trim() || null;
 }
+
+/**
+ * A folder or file name that Windows accepts, from any text: forbidden characters
+ * become spaces, runs of spaces collapse, and a trailing dot (also refused) goes.
+ */
+export function safeName(text: string | null | undefined, fallback: string): string {
+  const safe = (text ?? '')
+    .replace(FORBIDDEN_FILENAME_CHARS, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[. ]+$/, '')
+    .trim();
+  return safe || fallback;
+}
