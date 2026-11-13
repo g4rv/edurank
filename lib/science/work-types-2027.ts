@@ -73,6 +73,10 @@ export interface ScienceWorkTypeDef {
    *  стаття is link OPTIONAL, file NONE — link OR DOI (2026-10-02). */
   linkRule?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
   fileRule?: 'REQUIRED' | 'OPTIONAL' | 'NONE';
+  /** One file may prove several people's works — a conference programme lists
+   *  every presenter (owner, 2026-11-13). Changes only what D28 compares:
+   *  `ScienceRecordFile.guardHash`, `lib/science/file-guard.ts`. Default false. */
+  sharedFile?: boolean;
   maxPerYear?: number;
   fields: readonly EvidenceField[];
 }
@@ -382,6 +386,9 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reportingForm: 'Програма, матеріали конференції (зараховується після виходу в світ)',
     reuse: 'ONCE',
     sharing: 'SHARED',
+    // The programme names every presenter and the organisers issue no
+    // certificate, so colleagues attach the same file (owner, 2026-11-13).
+    sharedFile: true,
     identityFields: ['title'],
     fields: [
       title,
@@ -412,6 +419,7 @@ export const SCIENCE_WORK_TYPES_2027: readonly ScienceWorkTypeDef[] = [
     reuse: 'YEARLY',
     sharing: 'INDIVIDUAL',
     maxPerYear: 5,
+    sharedFile: true,
     identityFields: ['title'],
     // Not the shared `title` constant: «Назва роботи» makes no sense for
     // merely attending — there is no робота, only a conference to name.

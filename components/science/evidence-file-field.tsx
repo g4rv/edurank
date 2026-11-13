@@ -13,6 +13,17 @@ export interface StagedFile {
   fileName: string;
 }
 
+/** A file the server ALREADY stores (a conference programme a colleague
+ *  uploaded) — nothing is uploaded, the save connects the work to it. */
+export interface StagedExisting {
+  existingFileId: string;
+  fileName: string;
+}
+
+/** What the science dialogs hold and hand to `saveRecord` / `attachFile` /
+ *  `replaceFile` — exactly one of the two shapes. */
+export type StagedValue = StagedFile | StagedExisting;
+
 /** The same SHA-256 the server will compute, done before the upload so a
  *  duplicate costs a round trip instead of 10 MB. `crypto.subtle` needs HTTPS
  *  or localhost — which is every environment this runs in. */
@@ -32,12 +43,27 @@ export interface FileUploader {
   /** A presigned PUT for this file, or the sentence that refuses it. */
   presign: (
     file: File
-  ) => Promise<{ ok: true; url: string; objectKey: string } | { error: string }>;
+  ) => Promise<
+    | { ok: true; url: string; objectKey: string }
+    | { ok: true; reuse: { fileId: string; fileName: string } }
+    | { error: string }
+  >;
   /** Let go of an object nobody ended up pointing at. Fire-and-forget. */
   discard: (objectKey: string) => void;
 }
 
-const scienceUploader: FileUploader = {
+/**
+ * What the file is FOR, so the server's courtesy duplicate check applies the
+ * right rule: a вид роботи whose file is shared (a conference programme) is not
+ * refused because a colleague attached the same one. One of the three, or none.
+ */
+export interface FileTarget {
+  workTypeId?: string;
+  workId?: string;
+  fileId?: string;
+}
+
+const scienceUploaderFor = (target?: FileTarget): FileUploader => ({
   presign: async (file) =>
     presignUpload({
       fileName: file.name,
@@ -46,9 +72,10 @@ const scienceUploader: FileUploader = {
       // Computed here, and only for science: it lets D28 refuse a duplicate in
       // a round trip instead of after a 10 MB PUT.
       sha256: await hashFile(file),
+      ...target,
     }),
   discard: (objectKey) => void discardUpload(objectKey),
-};
+});
 
 type Status = 'idle' | 'checking' | 'uploading' | 'ready' | 'error';
 
@@ -84,17 +111,20 @@ export function EvidenceFileField({
   onChange,
   onBusyChange,
   disabled,
-  uploader = scienceUploader,
+  uploader: customUploader,
+  target,
   only,
 }: {
   id?: string;
   /** The staged object, held by the caller so it can be submitted or cleared. */
-  value: StagedFile | null;
-  onChange: (file: StagedFile | null) => void;
+  value: StagedValue | null;
+  onChange: (file: StagedValue | null) => void;
   onBusyChange?: (busy: boolean) => void;
   disabled?: boolean;
   /** Defaults to the science evidence flow. */
   uploader?: FileUploader;
+  /** What the file is for — see `FileTarget`. Science flow only. */
+  target?: FileTarget;
   /**
    * One format only, where a caller narrows the usual three — a diploma scan is
    * JPG (owner, 2026-10-27). Refused before anything is uploaded, in the
@@ -102,11 +132,14 @@ export function EvidenceFileField({
    */
   only?: { type: string; accept: string; message: string };
 }) {
+  const uploader = customUploader ?? scienceUploaderFor(target);
   // What the picker SHOWS. Kept beside `value` because `File` carries the name
   // and size a person recognises, while `value` is what the server needs.
   const [file, setFile] = React.useState<File | null>(null);
   const [status, setStatus] = React.useState<Status>('idle');
   const [problem, setProblem] = React.useState<string | null>(null);
+  // The server already holds these bytes and this person may share them.
+  const [reused, setReused] = React.useState(false);
 
   const busy = BUSY.includes(status);
   React.useEffect(() => {
@@ -116,8 +149,9 @@ export function EvidenceFileField({
 
   /** Whatever was already up there is no longer wanted — let it go, but never
    *  make the person wait for it or hear about it. */
-  function releaseStaged(staged: StagedFile | null) {
-    if (staged) uploader.discard(staged.objectKey);
+  function releaseStaged(staged: StagedValue | null) {
+    // An existing file is somebody else's stored evidence — never discarded.
+    if (staged && 'objectKey' in staged) uploader.discard(staged.objectKey);
   }
 
   async function upload(picked: File) {
@@ -151,6 +185,14 @@ export function EvidenceFileField({
       setStatus('error');
       return;
     }
+    // The file is already in the system and may be shared: nothing is uploaded,
+    // nothing is stored twice — the save connects this work to the stored one.
+    if ('reuse' in presigned) {
+      setReused(true);
+      onChange({ existingFileId: presigned.reuse.fileId, fileName: presigned.reuse.fileName });
+      setStatus('ready');
+      return;
+    }
 
     setStatus('uploading');
     try {
@@ -177,6 +219,7 @@ export function EvidenceFileField({
     // Replacing or clearing abandons whatever is already in the bucket.
     releaseStaged(value);
     onChange(null);
+    setReused(false);
     setFile(chosen);
 
     if (!chosen) {
@@ -198,7 +241,14 @@ export function EvidenceFileField({
       />
       {status === 'checking' && <p className="text-sm text-foreground-soft">Перевірка файлу…</p>}
       {status === 'uploading' && <p className="text-sm text-foreground-soft">Завантаження…</p>}
-      {status === 'ready' && <p className="text-sm text-success">Файл готовий до збереження</p>}
+      {status === 'ready' && !reused && (
+        <p className="text-sm text-success">Файл готовий до збереження</p>
+      )}
+      {status === 'ready' && reused && (
+        <p className="text-sm text-success">
+          Цей файл уже є в системі — буде підключено наявний, повторно завантажувати не потрібно
+        </p>
+      )}
       {/* Inline, under the control it belongs to — never a toast for something
           a field can show itself. */}
       {problem && <p className="text-sm text-error-strong">{problem}</p>}

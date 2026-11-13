@@ -217,8 +217,16 @@ export function RecordList({
                                   its refusal names «Замінити» as the way out. */}
                               {file.canChange && !readOnly && (
                                 <>
-                                  <ReplaceFileDialog fileId={file.id} fileName={file.fileName} />
-                                  <DeleteFileButton fileId={file.id} fileName={file.fileName} />
+                                  <ReplaceFileDialog
+                                    fileId={file.id}
+                                    fileName={file.fileName}
+                                    workId={record.workId}
+                                  />
+                                  <DeleteFileButton
+                                    fileId={file.id}
+                                    fileName={file.fileName}
+                                    workId={record.workId}
+                                  />
                                 </>
                               )}
                             </li>

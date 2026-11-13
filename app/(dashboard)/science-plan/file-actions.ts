@@ -13,16 +13,29 @@ import { doiProof, evidenceProblem, FILE_NOT_ALLOWED } from '@/lib/science/evide
 import type { EvidenceField } from '@/lib/rating/evidence-fields';
 import {
   DUPLICATE_FILE_MESSAGE,
+  FILE_WITH_WORKS,
   isDuplicateFileViolation,
+  linkedWorksOf,
+  resolveIncomingFile,
   safeDeleteObject,
-  verifyUploadedObject,
+  type FileTarget,
+  type IncomingFile,
 } from '@/lib/science/file-intake';
+import { dropOrphanFiles, fileShareProblem } from '@/lib/science/file-share';
 import { resolveActor } from './record-actions';
 
 // Evidence files for наукова робота records. Read
 // `docs/superpowers/specs/2026-09-15-science-plan-design.md` D27 (link or
 // file) and D28 (a file is unique across the whole university, never per
 // person or per кафедра) before changing anything here.
+//
+// **One stored file may now have MANY works** (owner, 2026-11-13) — but only for
+// a вид роботи with `sharedFile`, the conference types: the programme lists
+// every presenter and nobody holds a certificate. The file is stored once;
+// `presignUpload` tells the browser «use it» before any bytes move, and a save
+// connects the work to it. Removing a work, or a file from a work, lets go of
+// the file only — it and its R2 object are deleted when NO work holds it any
+// more (`dropOrphanFiles`). Every other вид is unchanged: one file, one record.
 //
 // **The order is upload FIRST, save second.** `presignUpload` needs no record
 // and no work — it hands out a key built from the навчальний рік alone — so
@@ -63,11 +76,48 @@ function ownsWork(work: { createdById: string; records: { staffId: string }[] },
  * narrower than `ownsWork`.
  */
 function mayChangeFile(
-  file: { uploadedById: string; work: { createdById: string } },
+  file: { uploadedById: string },
+  work: { createdById: string },
   staffId: string,
   isAdmin: boolean
 ): boolean {
-  return isAdmin || file.work.createdById === staffId || file.uploadedById === staffId;
+  return isAdmin || work.createdById === staffId || file.uploadedById === staffId;
+}
+
+/** WHICH work a delete or a replace means. A shared file has several, so the
+ *  caller names one; an ordinary file has exactly one and needs no name. */
+function workOfFile<W extends { id: string }>(works: W[], workId: string | undefined): W | null {
+  if (workId) return works.find((w) => w.id === workId) ?? null;
+  return works.length === 1 ? works[0] : null;
+}
+
+/** Where a file is going, from what the browser says it is FOR — a вид (new
+ *  record) or an existing work (attach, replace). `null` when it says nothing. */
+async function uploadTarget(
+  input: { workTypeId?: string; workId?: string },
+  staffId: string
+): Promise<FileTarget | null> {
+  if (input.workId) {
+    const work = await db.scienceWork.findUnique({
+      where: { id: input.workId },
+      select: { createdById: true, workTypeId: true, workType: { select: { sharedFile: true } } },
+    });
+    return work
+      ? {
+          workTypeId: work.workTypeId,
+          sharedFile: work.workType.sharedFile,
+          authorId: work.createdById,
+        }
+      : null;
+  }
+  if (input.workTypeId) {
+    const type = await db.scienceWorkType.findUnique({
+      where: { id: input.workTypeId },
+      select: { id: true, sharedFile: true },
+    });
+    return type ? { workTypeId: type.id, sharedFile: type.sharedFile, authorId: staffId } : null;
+  }
+  return null;
 }
 
 const CHANGE_FILE_REFUSED = 'Змінити файл може той, хто його додав, або автор роботи';
@@ -86,27 +136,64 @@ const CHANGE_FILE_REFUSED = 'Змінити файл може той, хто й�
  * **The browser's `sha256` is a courtesy**, letting D28 refuse a duplicate in
  * a round trip instead of after a 5 MB PUT. `verifyUploadedObject` re-hashes
  * the stored bytes and that hash is the one that decides.
+ *
+ * **When the bytes are already stored** (the same hash) the answer is either
+ * a refusal (D28) or — for a вид роботи with `sharedFile`, when the file is
+ * itself shared and this person does not already hold it — `reuse`: «this file
+ * is already in the system, connect to it». Nothing is uploaded, so nothing
+ * is stored twice. `workTypeId` (a new record) or `workId` (attach, replace)
+ * say what the file is FOR; the save re-checks everything, this is the courtesy.
  */
 export async function presignUpload(input: {
   fileName: string;
   contentType: string;
   sizeBytes: number;
   sha256: string;
-}): Promise<{ ok: true; url: string; objectKey: string } | { error: string }> {
+  workTypeId?: string;
+  workId?: string;
+}): Promise<
+  | { ok: true; url: string; objectKey: string }
+  | {
+      ok: true;
+      reuse: { fileId: string; fileName: string; sizeBytes: number; pageCount: number | null };
+    }
+  | { error: string }
+> {
   const actor = await resolveActor();
   if (!actor.ok) return { error: actor.error };
-  const { userId, template } = actor.context;
+  const { userId, staffId, template } = actor.context;
 
   const typeFault = fileProblem({ declaredType: input.contentType, sizeBytes: input.sizeBytes });
   if (typeFault) return { error: typeFault };
 
   // Before spending the upload (D28): the same bytes, anywhere in the
-  // university, at most once.
-  const duplicate = await db.scienceRecordFile.findUnique({
+  // university, are stored at most once — and connected to every work that may
+  // share them.
+  const existing = await db.scienceRecordFile.findUnique({
     where: { sha256: input.sha256 },
-    select: { id: true },
+    select: FILE_WITH_WORKS,
   });
-  if (duplicate) return { error: DUPLICATE_FILE_MESSAGE };
+  if (existing) {
+    const target = await uploadTarget(input, staffId);
+    const problem = target
+      ? fileShareProblem({
+          targetSharedFile: target.sharedFile,
+          targetWorkTypeId: target.workTypeId,
+          authorId: target.authorId,
+          linked: linkedWorksOf(existing),
+        })
+      : 'NOT_SHARED';
+    if (problem) return { error: DUPLICATE_FILE_MESSAGE };
+    return {
+      ok: true,
+      reuse: {
+        fileId: existing.id,
+        fileName: existing.fileName,
+        sizeBytes: existing.sizeBytes,
+        pageCount: existing.pageCount,
+      },
+    };
+  }
 
   const ext = EXTENSION_BY_TYPE[input.contentType] ?? 'bin';
   const objectKey = objectKeyFor({ templateId: template.id, ext });
@@ -159,11 +246,9 @@ export async function discardUpload(objectKey: string): Promise<{ ok: true }> {
  * (or a certificate that only arrived in March) could never be attached to
  * that record again.
  */
-export async function attachFile(input: {
-  workId: string;
-  objectKey: string;
-  fileName: string;
-}): Promise<{ ok: true; fileId: string } | { error: string }> {
+export async function attachFile(
+  input: IncomingFile & { workId: string }
+): Promise<{ ok: true; fileId: string } | { error: string }> {
   const actor = await resolveActor();
   if (!actor.ok) return { error: actor.error };
   const { userId, staffId, template } = actor.context;
@@ -174,53 +259,82 @@ export async function attachFile(input: {
       id: true,
       templateId: true,
       createdById: true,
+      workTypeId: true,
       records: { where: { status: 'APPROVED' }, select: { staffId: true } },
-      workType: { select: { fileRule: true } },
+      workType: { select: { fileRule: true, sharedFile: true } },
     },
   });
+  // Only a freshly uploaded object has anything to drop; an existing file is
+  // somebody else's stored evidence and is never touched here.
+  const dropNew = async () => {
+    if (input.objectKey) {
+      await safeDeleteObject('science.attachFile', input.objectKey, { userId });
+    }
+  };
   // A work from another year, or one the caller neither created nor drew
   // hours from, reads the same as «not found» — this is not the place to
   // tell the two apart (spec, «Correcting a work»).
   if (!work || work.templateId !== template.id || !ownsWork(work, staffId)) {
-    await safeDeleteObject('science.attachFile', input.objectKey, { userId });
+    await dropNew();
     return { error: 'Роботу не знайдено' };
   }
   // D47: this вид роботи is proved by a link alone.
   if (work.workType.fileRule === 'NONE') {
-    await safeDeleteObject('science.attachFile', input.objectKey, { userId });
+    await dropNew();
     return { error: FILE_NOT_ALLOWED };
   }
 
-  const verified = await verifyUploadedObject({
-    objectKey: input.objectKey,
-    fileName: input.fileName,
+  const resolved = await resolveIncomingFile({
+    incoming: input,
+    target: {
+      workTypeId: work.workTypeId,
+      sharedFile: work.workType.sharedFile,
+      authorId: work.createdById,
+    },
     scope: 'science.attachFile',
     context: { userId, entityId: work.id },
   });
-  if ('error' in verified) return { error: verified.error };
+  if ('error' in resolved) return { error: resolved.error };
 
   try {
     const fileId = await db.$transaction(async (tx) => {
-      const file = await tx.scienceRecordFile.create({
-        data: { ...verified.file, workId: work.id, uploadedById: staffId },
-        select: { id: true },
-      });
+      let id: string;
+      let label: string;
+      let pageCount: number | null = null;
+      if (resolved.use.kind === 'new') {
+        const created = await tx.scienceRecordFile.create({
+          data: {
+            ...resolved.use.file,
+            uploadedById: staffId,
+            works: { connect: { id: work.id } },
+          },
+          select: { id: true },
+        });
+        id = created.id;
+        label = resolved.use.file.fileName;
+        pageCount = resolved.use.file.pageCount;
+      } else {
+        // The file is already stored: connect, never copy.
+        await tx.scienceWork.update({
+          where: { id: work.id },
+          data: { files: { connect: { id: resolved.use.fileId } } },
+        });
+        id = resolved.use.fileId;
+        label = `${resolved.use.fileName} (наявний файл)`;
+      }
 
       await tx.auditLog.create({
         data: {
           action: 'CREATE',
           entity: 'ScienceRecordFile',
-          entityId: file.id,
-          label: verified.file.fileName,
+          entityId: id,
+          label,
           userId,
-          changes: diffChanges(
-            {},
-            { fileName: verified.file.fileName, pageCount: verified.file.pageCount }
-          ),
+          changes: diffChanges({}, { fileName: label, pageCount }),
         },
       });
 
-      return file.id;
+      return id;
     });
 
     revalidatePath('/science-plan');
@@ -228,7 +342,7 @@ export async function attachFile(input: {
   } catch (e) {
     // Never leave the object standing on a refusal — one nobody can reference
     // is pure cost.
-    await safeDeleteObject('science.attachFile', input.objectKey, { userId, entityId: work.id });
+    await dropNew();
 
     if (isUniqueViolation(e) && isDuplicateFileViolation(e)) {
       return { error: DUPLICATE_FILE_MESSAGE };
@@ -269,7 +383,8 @@ export async function fileUrl(
     where: { id: fileId },
     select: {
       objectKey: true,
-      work: {
+      // A shared file has several works: anyone who holds ONE of them may open it.
+      works: {
         select: {
           createdById: true,
           records: { where: { status: 'APPROVED' }, select: { staffId: true } },
@@ -280,7 +395,7 @@ export async function fileUrl(
   if (!file) return { error: 'Файл не знайдено' };
 
   const staffId = session.user.staffId;
-  let entitled = !!staffId && ownsWork(file.work, staffId);
+  let entitled = !!staffId && file.works.some((w) => ownsWork(w, staffId));
 
   if (!entitled) entitled = await canOverseeScience(session.user);
 
@@ -310,7 +425,11 @@ export async function fileUrl(
  * **The DB row goes first, the object after.** A failed object delete is
  * `logWarning`, never a blocked user.
  */
-export async function deleteFile(fileId: string): Promise<{ ok: true } | { error: string }> {
+export async function deleteFile(
+  fileId: string,
+  /** Which work, when the file is shared (it then has several). */
+  workId?: string
+): Promise<{ ok: true } | { error: string }> {
   // `allowAdmin`: the ADMIN branch below is the spec's escape hatch, and most
   // ADMIN accounts are not НПП — without this it was unreachable for them.
   const actor = await resolveActor(undefined, { allowAdmin: true });
@@ -325,8 +444,9 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
       objectKey: true,
       fileName: true,
       uploadedById: true,
-      work: {
+      works: {
         select: {
+          id: true,
           templateId: true,
           createdById: true,
           link: true,
@@ -337,8 +457,9 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
       },
     },
   });
-  if (!file || file.work.templateId !== template.id) return { error: 'Файл не знайдено' };
-  if (!mayChangeFile(file, staffId, isAdmin)) return { error: CHANGE_FILE_REFUSED };
+  const work = file ? workOfFile(file.works, workId) : null;
+  if (!file || !work || work.templateId !== template.id) return { error: 'Файл не знайдено' };
+  if (!mayChangeFile(file, work, staffId, isAdmin)) return { error: CHANGE_FILE_REFUSED };
 
   // **D27 survives a delete too.** Now that a record can be proved by a file
   // ALONE, removing the last one is the one way left to end up with a record
@@ -347,22 +468,26 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
   // REMAIN; the way out for the only proof is «Замінити» (`replaceFile`),
   // which the refusal names.
   const fault = evidenceProblem({
-    linkRule: file.work.workType.linkRule,
-    fileRule: file.work.workType.fileRule,
-    link: file.work.link,
-    fileCount: file.work._count.files - 1,
-    doi: doiProof(
-      file.work.workType.evidenceFields as unknown as EvidenceField[],
-      file.work.evidence
-    ),
+    linkRule: work.workType.linkRule,
+    fileRule: work.workType.fileRule,
+    link: work.link,
+    fileCount: work._count.files - 1,
+    doi: doiProof(work.workType.evidenceFields as unknown as EvidenceField[], work.evidence),
   });
   if (fault) {
     return { error: `${fault}: це єдине підтвердження цього запису — скористайтеся «Замінити»` };
   }
 
+  // The file goes only when NO work holds it any more (`dropOrphanFiles`): a
+  // shared programme stays for the colleagues who still use it.
+  let orphanedKeys: string[] = [];
   try {
     await db.$transaction(async (tx) => {
-      await tx.scienceRecordFile.delete({ where: { id: fileId } });
+      await tx.scienceWork.update({
+        where: { id: work.id },
+        data: { files: { disconnect: { id: fileId } } },
+      });
+      orphanedKeys = await dropOrphanFiles(tx, [fileId]);
 
       await tx.auditLog.create({
         data: {
@@ -388,7 +513,9 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
     };
   }
 
-  await safeDeleteObject('science.deleteFile', file.objectKey, { userId, entityId: fileId });
+  for (const key of orphanedKeys) {
+    await safeDeleteObject('science.deleteFile', key, { userId, entityId: fileId });
+  }
 
   revalidatePath('/science-plan');
   return { ok: true };
@@ -408,18 +535,26 @@ export async function deleteFile(fileId: string): Promise<{ ok: true } | { error
  * A replacement never changes how many files the work has, so D27's «link or
  * file» holds by construction and is not re-checked.
  */
-export async function replaceFile(input: {
-  fileId: string;
-  objectKey: string;
-  fileName: string;
-}): Promise<{ ok: true; fileId: string } | { error: string }> {
+export async function replaceFile(
+  input: IncomingFile & {
+    fileId: string;
+    /** Which work, when the file being replaced is shared. */
+    workId?: string;
+  }
+): Promise<{ ok: true; fileId: string } | { error: string }> {
   const actor = await resolveActor(undefined, { allowAdmin: true });
   if (!actor.ok) return { error: actor.error };
   const { userId, staffId, template } = actor.context;
   const isAdmin = actor.context.role === 'ADMIN';
 
-  const dropNew = () =>
-    safeDeleteObject('science.replaceFile', input.objectKey, { userId, entityId: input.fileId });
+  const dropNew = async () => {
+    if (input.objectKey) {
+      await safeDeleteObject('science.replaceFile', input.objectKey, {
+        userId,
+        entityId: input.fileId,
+      });
+    }
+  };
 
   const old = await db.scienceRecordFile.findUnique({
     where: { id: input.fileId },
@@ -428,61 +563,89 @@ export async function replaceFile(input: {
       objectKey: true,
       fileName: true,
       uploadedById: true,
-      work: {
+      works: {
         select: {
           id: true,
           templateId: true,
           createdById: true,
-          workType: { select: { fileRule: true } },
+          workTypeId: true,
+          workType: { select: { fileRule: true, sharedFile: true } },
         },
       },
     },
   });
-  if (!old || old.work.templateId !== template.id) {
+  const work = old ? workOfFile(old.works, input.workId) : null;
+  if (!old || !work || work.templateId !== template.id) {
     await dropNew();
     return { error: 'Файл не знайдено' };
   }
-  if (!mayChangeFile(old, staffId, isAdmin)) {
+  if (!mayChangeFile(old, work, staffId, isAdmin)) {
     await dropNew();
     return { error: CHANGE_FILE_REFUSED };
   }
   // A type that takes no file (D47) but still carries one from before: the
   // way out is deleting it once a link is there, never putting in another.
-  if (old.work.workType.fileRule === 'NONE') {
+  if (work.workType.fileRule === 'NONE') {
     await dropNew();
     return { error: FILE_NOT_ALLOWED };
   }
 
-  const verified = await verifyUploadedObject({
-    objectKey: input.objectKey,
-    fileName: input.fileName,
+  const resolved = await resolveIncomingFile({
+    incoming: input,
+    target: {
+      workTypeId: work.workTypeId,
+      sharedFile: work.workType.sharedFile,
+      authorId: work.createdById,
+    },
     scope: 'science.replaceFile',
-    context: { userId, entityId: old.work.id },
+    context: { userId, entityId: work.id },
   });
-  if ('error' in verified) return { error: verified.error };
+  if ('error' in resolved) return { error: resolved.error };
 
   let fileId: string;
+  let orphanedKeys: string[] = [];
   try {
     fileId = await db.$transaction(async (tx) => {
-      const created = await tx.scienceRecordFile.create({
-        data: { ...verified.file, workId: old.work.id, uploadedById: staffId },
-        select: { id: true },
+      let id: string;
+      let label: string;
+      let pageCount: number | null = null;
+      if (resolved.use.kind === 'new') {
+        const created = await tx.scienceRecordFile.create({
+          data: {
+            ...resolved.use.file,
+            uploadedById: staffId,
+            works: { connect: { id: work.id } },
+          },
+          select: { id: true },
+        });
+        id = created.id;
+        label = resolved.use.file.fileName;
+        pageCount = resolved.use.file.pageCount;
+      } else {
+        await tx.scienceWork.update({
+          where: { id: work.id },
+          data: { files: { connect: { id: resolved.use.fileId } } },
+        });
+        id = resolved.use.fileId;
+        label = `${resolved.use.fileName} (наявний файл)`;
+      }
+      // The old file lets go of THIS work only; it is deleted when no work is left.
+      await tx.scienceWork.update({
+        where: { id: work.id },
+        data: { files: { disconnect: { id: old.id } } },
       });
-      await tx.scienceRecordFile.delete({ where: { id: old.id } });
+      orphanedKeys = await dropOrphanFiles(tx, [old.id]);
       await tx.auditLog.create({
         data: {
           action: 'UPDATE',
           entity: 'ScienceRecordFile',
-          entityId: created.id,
-          label: verified.file.fileName,
+          entityId: id,
+          label,
           userId,
-          changes: diffChanges(
-            { fileName: old.fileName },
-            { fileName: verified.file.fileName, pageCount: verified.file.pageCount }
-          ),
+          changes: diffChanges({ fileName: old.fileName }, { fileName: label, pageCount }),
         },
       });
-      return created.id;
+      return id;
     });
   } catch (e) {
     await dropNew();
@@ -501,7 +664,9 @@ export async function replaceFile(input: {
 
   // After the commit, never inside it: a swap the person saw succeed must not
   // roll back because R2 was slow to delete.
-  await safeDeleteObject('science.replaceFile', old.objectKey, { userId, entityId: old.id });
+  for (const key of orphanedKeys) {
+    await safeDeleteObject('science.replaceFile', key, { userId, entityId: old.id });
+  }
 
   revalidatePath('/science-plan');
   return { ok: true, fileId };

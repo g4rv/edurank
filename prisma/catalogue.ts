@@ -339,6 +339,7 @@ export function scienceWorkTypeRows() {
         identityFields: [...def.identityFields] as unknown as Prisma.InputJsonValue,
         linkRule: def.linkRule ?? 'OPTIONAL',
         fileRule: def.fileRule ?? 'OPTIONAL',
+        sharedFile: def.sharedFile ?? false,
         maxPerYear: def.maxPerYear ?? null,
       },
     };

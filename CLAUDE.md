@@ -392,6 +392,8 @@ pnpm db:science-sheets-decimals  # one-off: «Кількість друкова�
 pnpm db:science-title-multiline  # one-off: «Назва роботи» is a textarea in every
                       #   вид роботи of every planning year (owner, 2026-11-13). Report
                       #   first; --apply. The catalogue constant has it for new years.
+pnpm db:science-shared-file  # one-off, after migrate deploy: the two conference types may
+                      #   share ONE stored file (sharedFile, owner 2026-11-13). Report first; --apply.
 pnpm db:science-conference-yearly  # one-off: «Участь у конференціях» ONCE →
                       #   YEARLY (D25). The наказ caps it at 5 per рік, and a
                       #   ONCE key carries no year — so the same annual
@@ -876,6 +878,21 @@ Easy to get wrong:
   (`ScienceRecordFile`, in R2) is proved by re-sniffing and re-hashing the
   STORED bytes, never the browser's own claim, and its SHA-256 is **UNIQUE
   university-wide** (D28) — the same evidence can back only one work, ever.
+  **Except a shared file** (owner, 2026-11-13): a вид роботи with
+  `ScienceWorkType.sharedFile` — the two conference types — lets colleagues
+  connect to the ONE stored file instead of uploading it (the organisers issue no
+  certificate; the programme names every presenter). The hash stays unique, the
+  file is stored once, and `ScienceRecordFile` ↔ `ScienceWork` is a many-to-many
+  (`work.files` reads are unchanged). `presignUpload` answers `reuse` BEFORE any
+  bytes move; saves take `{ existingFileId }` as well as `{ objectKey }`
+  (`resolveIncomingFile`, `lib/science/file-intake.ts`) and re-check the rule
+  (`fileShareProblem`, `lib/science/file-share.ts`): the вид shares files, the
+  file belongs only to shared вид (never somebody's сертифікат), and this person
+  does not already hold it on a work of the same вид. **A file and its R2 object
+  go only when NO work holds it** (`dropOrphanFiles`, in `deleteRecord`,
+  `deleteFile`, `replaceFile` and `closeScienceYear`) — delete and replace name
+  the work, because a shared file has several. `pnpm db:science-shared-file`
+  switches the flag on in existing databases (report first; no admin switch yet).
 - **The file goes up BEFORE the record is saved.** `presignUpload` needs no
   work — `objectKeyFor` names only the навчальний рік — so `saveRecord` takes
   an `{ objectKey, fileName }` it verifies from the stored bytes and attaches

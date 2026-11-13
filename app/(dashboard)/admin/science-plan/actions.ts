@@ -7,6 +7,7 @@ import { diffChanges } from '@/lib/audit';
 import { parseDbError } from '@/lib/db-error';
 import { requireAdmin } from '@/lib/permissions';
 import { safeDeleteObject } from '@/lib/science/file-intake';
+import { dropOrphanFiles } from '@/lib/science/file-share';
 import { isAcademicYear, nextAcademicYear, stakeYearOf } from '@/lib/science/academic-year';
 import { lastMonthProblem } from '@/lib/science/execution-month';
 
@@ -241,6 +242,7 @@ export async function cloneScienceYear(fromAcademicYear: string): Promise<Scienc
               identityFields: wt.identityFields as Prisma.InputJsonValue,
               linkRule: wt.linkRule,
               fileRule: wt.fileRule,
+              sharedFile: wt.sharedFile,
               maxPerYear: wt.maxPerYear,
               isActive: wt.isActive,
             },
@@ -343,19 +345,22 @@ export async function closeScienceYear(id: string): Promise<ScienceYearState> {
   // for the state a thing is already in.
   if (template.status === 'CLOSED') return { ok: true };
 
-  // R2 objects to clear once the rows are gone — read BEFORE the cascade takes
-  // the rows that name them.
+  // R2 objects to clear once the rows are gone — only those of files no OTHER
+  // work holds (a conference programme is shared, see `dropOrphanFiles`).
   let orphanedObjectKeys: string[] = [];
 
   try {
     await db.$transaction(async (tx) => {
       const declined = await tx.scienceWork.findMany({
         where: { templateId: id, declinedAt: { not: null } },
-        select: { id: true, files: { select: { objectKey: true } } },
+        select: { id: true, files: { select: { id: true } } },
       });
-      orphanedObjectKeys = declined.flatMap((w) => w.files.map((f) => f.objectKey));
       if (declined.length > 0) {
         await tx.scienceWork.deleteMany({ where: { id: { in: declined.map((w) => w.id) } } });
+        orphanedObjectKeys = await dropOrphanFiles(
+          tx,
+          declined.flatMap((w) => w.files.map((f) => f.id))
+        );
       }
       const single = await tx.scienceRecord.deleteMany({
         where: { templateId: id, status: 'REMOVED' },

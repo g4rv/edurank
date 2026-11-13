@@ -45,7 +45,7 @@ import {
   linkLabel,
   linkProblem,
 } from '@/lib/science/evidence-rule';
-import { EvidenceFileField, type StagedFile } from '@/components/science/evidence-file-field';
+import { EvidenceFileField, type StagedValue } from '@/components/science/evidence-file-field';
 import { DialogProblem } from '@/components/science/dialog-problem';
 import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
 
@@ -220,7 +220,7 @@ function RecordForm({
   // The file is ALREADY in R2 by the time this is non-null — see
   // `EvidenceFileField`. The save carries its key and the server verifies the
   // stored bytes, which is what lets a record be proved by a file alone (D27).
-  const [file, setFile] = useState<StagedFile | null>(null);
+  const [file, setFile] = useState<StagedValue | null>(null);
   // The upload runs while the form is still being filled, so «Додати» has to
   // wait for it: submitting a key R2 has not finished writing would be refused
   // as «файл не знайдено».
@@ -433,6 +433,7 @@ function RecordForm({
                   value={file}
                   onChange={setFile}
                   onBusyChange={setFileBusy}
+                  target={{ workTypeId: type.id }}
                 />
               </FormField>
             )}

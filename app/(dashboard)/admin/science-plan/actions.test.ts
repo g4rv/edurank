@@ -14,6 +14,7 @@ vi.mock('@/lib/db', () => {
     scienceWorkType: { create: vi.fn() },
     scienceWork: { findMany: vi.fn(), deleteMany: vi.fn() },
     scienceRecord: { deleteMany: vi.fn() },
+    scienceRecordFile: { findMany: vi.fn(), deleteMany: vi.fn() },
     auditLog: { create: vi.fn() },
   };
   return { db: { ...tx, $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)) } };
@@ -264,8 +265,12 @@ describe('closeScienceYear', () => {
         status: 'OPEN',
       });
       (db.scienceWork.findMany as Mock).mockResolvedValue([
-        { id: 'w1', files: [{ objectKey: 'evidence/t1/a.pdf' }] },
+        { id: 'w1', files: [{ id: 'f-a' }] },
         { id: 'w2', files: [] },
+      ]);
+      // Once the declined works are gone, this file is held by no work: an orphan.
+      (db.scienceRecordFile.findMany as Mock).mockResolvedValue([
+        { id: 'f-a', objectKey: 'evidence/t1/a.pdf' },
       ]);
       (db.scienceRecord.deleteMany as Mock).mockResolvedValue({ count: 1 });
     });
@@ -298,6 +303,15 @@ describe('closeScienceYear', () => {
           entityId: 't1',
         }
       );
+    });
+
+    // One stored file, many works (owner, 2026-11-13): a conference programme a
+    // dropped work held may still prove a colleague's work in another year.
+    it('KEEPS a file another work still holds — closing a year never takes a colleague’s proof', async () => {
+      (db.scienceRecordFile.findMany as Mock).mockResolvedValue([]);
+      await closeScienceYear('t1');
+      expect(db.scienceRecordFile.deleteMany).not.toHaveBeenCalled();
+      expect(safeDeleteObject).not.toHaveBeenCalled();
     });
 
     it('touches nothing when no work is declined', async () => {

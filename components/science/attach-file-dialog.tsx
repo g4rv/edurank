@@ -17,7 +17,7 @@ import {
 } from '@/components/aurora/ui/dialog';
 import { attachFile } from '@/app/(dashboard)/science-plan/file-actions';
 import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
-import { EvidenceFileField, type StagedFile } from '@/components/science/evidence-file-field';
+import { EvidenceFileField, type StagedValue } from '@/components/science/evidence-file-field';
 import { DialogProblem } from '@/components/science/dialog-problem';
 
 /**
@@ -38,7 +38,7 @@ import { DialogProblem } from '@/components/science/dialog-problem';
 export function AttachFileDialog({ workId, label }: { workId: string; label: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [file, setFile] = useState<StagedFile | null>(null);
+  const [file, setFile] = useState<StagedValue | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -85,7 +85,12 @@ export function AttachFileDialog({ workId, label }: { workId: string; label: str
         </DialogHeader>
 
         <DialogBody className="flex flex-col gap-2">
-          <EvidenceFileField value={file} onChange={setFile} onBusyChange={setBusy} />
+          <EvidenceFileField
+            value={file}
+            onChange={setFile}
+            onBusyChange={setBusy}
+            target={{ workId }}
+          />
           <p className="text-sm text-foreground-soft">
             Сертифікат, довідка або диплом — PDF, JPG чи PNG до 10 МБ. Один і той самий файл не
             можна додати до двох записів.

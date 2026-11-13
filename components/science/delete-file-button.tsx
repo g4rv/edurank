@@ -27,13 +27,22 @@ import { deleteFile } from '@/app/(dashboard)/science-plan/file-actions';
  * and its SHA-256 is what stops the same bytes being used twice, so this is
  * not recoverable by re-uploading a copy from somewhere else.
  */
-export function DeleteFileButton({ fileId, fileName }: { fileId: string; fileName: string }) {
+export function DeleteFileButton({
+  fileId,
+  fileName,
+  workId,
+}: {
+  fileId: string;
+  fileName: string;
+  /** Which work — a shared file (a conference programme) belongs to several. */
+  workId: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function handleDelete() {
     startTransition(async () => {
-      const result = await deleteFile(fileId);
+      const result = await deleteFile(fileId, workId);
       if ('error' in result) {
         toast.error(result.error);
         return;
