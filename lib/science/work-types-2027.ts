@@ -77,11 +77,18 @@ export interface ScienceWorkTypeDef {
   fields: readonly EvidenceField[];
 }
 
-/** «Назва роботи» — every type has one, and it is the identity of last resort. */
+/**
+ * «Назва роботи» — every type has one, and it is the identity of last resort.
+ *
+ * A textarea (owner, 2026-11-13): people paste the whole bibliographic
+ * description here, 200+ characters, and a one-line box hides most of it.
+ * `pnpm db:science-title-multiline` carries it to databases made before.
+ */
 const title: EvidenceField = {
   kind: 'text',
   name: 'title',
   label: 'Назва роботи',
+  multiline: true,
 };
 
 /**

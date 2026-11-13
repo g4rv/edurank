@@ -389,6 +389,9 @@ pnpm db:science-sheets-decimals  # one-off: «Кількість друкова�
                       #   from the catalogue (монографія 0,5, the others 1). Report
                       #   first; --apply writes. Saved works with two decimals are
                       #   only listed.
+pnpm db:science-title-multiline  # one-off: «Назва роботи» is a textarea in every
+                      #   вид роботи of every planning year (owner, 2026-11-13). Report
+                      #   first; --apply. The catalogue constant has it for new years.
 pnpm db:science-conference-yearly  # one-off: «Участь у конференціях» ONCE →
                       #   YEARLY (D25). The наказ caps it at 5 per рік, and a
                       #   ONCE key carries no year — so the same annual
@@ -836,7 +839,19 @@ Easy to get wrong:
 - **One `ScienceWork` per identity, `dedupKey` UNIQUE.** `identityFields`
   (doi, link, title, in priority order) build the key — `link` is the RECORD's
   own «Посилання на роботу» (`lib/science/identity.ts`), so a type never asks
-  for the same address twice; `YEARLY` carries the навчальний рік (`ONCE` does not) and `SHARED` no
+  for the same address twice — **but only a link that IS a DOI identifies a
+  work** (owner, 2026-11-13): two authors in one збірник share its page, and
+  keying on it refused the second one's own article. An ordinary address falls
+  through to the title — and a work sharing the SAME link with a description
+  that reads as a copy is refused too: `findSimilarWorkKey`
+  (`lib/science/similar-work.ts`), words of the SHORTER text found in the
+  longer ≥ 90 %, differing printed page ranges or any number each text has and
+  the other lacks («Частина 1/2», a year) = two articles
+  (`lib/science/similar-title.ts`). It reads the stored `link`, so works saved
+  under the old `url:` key are found without re-keying them. Asked on create AND
+  on an edit that moves the description or the link (`updateWorkEvidence`,
+  refusing with «Робота з такими даними вже існує»). A type whose identity is
+  `link` ALONE still keys by the address, as the last resort; `YEARLY` carries the навчальний рік (`ONCE` does not) and `SHARED` no
   person-prefix, so the SAME article can never be entered twice
   university-wide. A second person who tries it is told who has it and to
   agree the hours with them (`ExistingWorkPanel`) — **nobody joins a work by

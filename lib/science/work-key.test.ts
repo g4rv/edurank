@@ -116,13 +116,24 @@ describe('workKey — the record link as an identity', () => {
       ...over,
     });
 
-  it('keys on the link when there is no DOI — normalised like a url field', () => {
-    expect(withLink({ link: 'https://Example.com/A/?utm=1#top' })).toBe('url:example.com/a');
+  // Owner, 2026-11-13: two authors printed in the SAME збірник share its
+  // address, and the link was read before the title — so the second author was
+  // told their own article was the first one's. An ordinary address does not
+  // say WHICH work it is; the title does. A DOI still does.
+  it('does not identify a work by an ordinary address — the title does', () => {
+    const a = withLink({ link: 'https://journal.example/collection/2026' });
+    const b = withLink({
+      link: 'https://journal.example/collection/2026',
+      evidence: { title: 'Інша стаття у тому ж збірнику' },
+    });
+    expect(a).toBe('t:стаття про освіту');
+    expect(b).toBe('t:інша стаття у тому ж збірнику');
+    expect(a).not.toBe(b);
   });
 
-  it('gives the same key a `url` evidence field used to give, so nothing saved drifts', () => {
-    expect(withLink({ link: 'https://example.com/a' })).toBe(
-      key({ evidence: { url: 'https://example.com/a', title: 'Стаття про освіту' } })
+  it('gives one work one key whatever address each author pasted', () => {
+    expect(withLink({ link: 'https://a.example/x' })).toBe(
+      withLink({ link: 'https://b.example/y' })
     );
   });
 
@@ -155,9 +166,9 @@ describe('workKey — the record link as an identity', () => {
     expect(withLink({ link: '10.31392/XYZ' })).toBe('doi:10.31392/xyz');
   });
 
-  it('leaves an ordinary journal address alone', () => {
+  it('does not mistake a DOI-looking path inside a journal address for the DOI', () => {
     expect(withLink({ link: 'https://journal.example/doi/10.31392/xyz' })).toBe(
-      'url:journal.example/doi/10.31392/xyz'
+      't:стаття про освіту'
     );
   });
 });
@@ -204,5 +215,33 @@ describe('workKey — a ПІБ in three boxes is ONE identity', () => {
 
   it('falls through to the next identity field when the name is empty', () => {
     expect(nameKey({ title: 'Дисертація про освіту' })).toBe('t:дисертація про освіту');
+  });
+});
+
+describe('workKey — a type that names ONLY `link` as its identity', () => {
+  // An ADMIN can build such a type on /admin/science-plan. An ordinary address
+  // stopped being an identity for the article (2026-11-13), but where the link
+  // is ALL a type has, refusing every save with «Вкажіть назву або посилання»
+  // would be wrong — it is the last resort, as before.
+  const onlyLink = (link: string | null) =>
+    key({ identityFields: ['link'], evidenceFields: [FIELDS[0]], link, evidence: {} });
+
+  it('falls back to the address when nothing else names the work', () => {
+    expect(onlyLink('https://Example.com/A/?utm=1')).toBe('url:example.com/a');
+  });
+
+  it('still has no key without a link', () => {
+    expect(onlyLink(null)).toBeNull();
+  });
+
+  it('prefers a later identity over the address', () => {
+    expect(
+      key({
+        identityFields: ['link', 'title'],
+        evidenceFields: [FIELDS[0], FIELDS[2]],
+        link: 'https://journal.example/collection',
+        evidence: { title: 'Стаття про освіту' },
+      })
+    ).toBe('t:стаття про освіту');
   });
 });

@@ -89,10 +89,10 @@ export function RecordList({
       });
 
   return (
-    // `overflow-hidden`: the grey пункт row is square, and without the clip it
-    // painted over the card's rounded top corners — the shared `Table` clips
-    // itself the same way.
-    <Card padding="none" className="overflow-hidden">
+    // No `overflow-hidden` here (owner, 2026-11-13): it clipped everything that
+    // reaches past a row — focus rings, tooltips, menus. The grey пункт row is
+    // square, so the FIRST one rounds its own top corners instead (`first:`).
+    <Card padding="none">
       <ul className="divide-y">
         {/* One heading per пункт, like «План» — or, while the execution month
             is shown, one per month, newest first (D41). Either way the same
@@ -101,7 +101,7 @@ export function RecordList({
             beside it count only what still counts, like every other sum here. */}
         {sections.map((group) => (
           <Fragment key={group.key}>
-            <li className="flex items-baseline justify-between gap-3 bg-table-group px-5 py-2 text-sm font-semibold">
+            <li className="flex items-baseline justify-between gap-3 bg-table-group px-5 py-2 text-sm font-semibold first:rounded-t-xl">
               <span>{group.heading}</span>
               <span className="font-normal text-foreground-soft tabular-nums">
                 {formatHours(
@@ -136,7 +136,12 @@ export function RecordList({
                         )}
                         {record.workTypeLabel}
                       </p>
-                      <p className="mt-0.5 text-sm text-foreground-soft">{record.summary}</p>
+                      {/* `break-words`: the card no longer clips (see the top of
+                          this file), so a title that is one long address — a
+                          pasted link is a real one — must wrap, not run off. */}
+                      <p className="mt-0.5 text-sm break-words text-foreground-soft">
+                        {record.summary}
+                      </p>
                       {SHOW_EXECUTION_PERIOD && record.startedMonth && (
                         <p className="mt-0.5 text-sm text-foreground-soft">
                           {/* Grouped under the month it ended; this is how
@@ -301,7 +306,7 @@ export function RecordList({
                       )}
 
                       {declined && (
-                        <p className="mt-1.5 text-sm text-error-strong">
+                        <p className="mt-1.5 text-sm break-words text-error-strong">
                           {/* Kept on screen on purpose: a declined record is the one
                           thing the person has to be able to read and answer. */}
                           {record.removedReason ?? 'Запис відхилено.'}

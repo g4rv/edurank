@@ -41,6 +41,7 @@ import { schemaForFields } from '@/validations/activity-evidence';
 import { pickedPersonProblem } from '@/lib/queries/list-my-aspirants';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
+import { findSimilarWorkKey } from '@/lib/science/similar-work';
 import {
   currentMonthKey,
   dateToMonthKey,
@@ -518,7 +519,20 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
   }
   const totalHundredths = toHundredths(score);
 
-  const conflict = await findConflict(key, staffId, fields, type.label, template);
+  // The exact key first; then a work with the SAME LINK and a description that
+  // reads as a copy (`findSimilarWorkKey`) — a retyped duplicate has another key.
+  const similarKey = await findSimilarWorkKey({
+    typeCode: type.code,
+    sharing: type.sharing,
+    identityFields: Array.isArray(type.identityFields) ? (type.identityFields as string[]) : [],
+    link,
+    title: (parsed.data as Record<string, unknown>).title,
+  });
+  const conflict =
+    (await findConflict(key, staffId, fields, type.label, template)) ??
+    (similarKey && similarKey !== key
+      ? await findConflict(similarKey, staffId, fields, type.label, template)
+      : null);
   // Not this person's work to prove: the offer is to JOIN the existing one,
   // and its evidence belongs to whoever entered it. The object goes, or every
   // refused duplicate leaves one in the bucket.
@@ -832,6 +846,23 @@ export async function updateWorkEvidence(input: {
     staffId: work.createdById,
   });
   if (!key) return { error: 'Вкажіть назву або посилання, щоб роботу можна було розпізнати' };
+
+  // An edit must not turn a work into a retyped copy of another — the create
+  // path's check (`findSimilarWorkKey`) would otherwise be one edit away. Asked
+  // only when the description or the link MOVED: a person correcting the pages of
+  // a work that already sits next to a near-duplicate must still be able to save.
+  const newTitle = (parsed.data as Record<string, unknown>).title;
+  if (newTitle !== stored?.title || link !== (work.link ?? null)) {
+    const similarKey = await findSimilarWorkKey({
+      typeCode: type.code,
+      sharing: type.sharing,
+      identityFields: Array.isArray(type.identityFields) ? (type.identityFields as string[]) : [],
+      link,
+      title: newTitle,
+      excludeWorkId: work.id,
+    });
+    if (similarKey) return { error: 'Робота з такими даними вже існує' };
+  }
 
   let score: number;
   try {
