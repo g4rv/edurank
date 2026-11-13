@@ -53,7 +53,11 @@ describe('findSimilarWorkKey', () => {
   it('finds it through a different spelling of the address', async () => {
     rows = [stored()];
     expect(
-      await findSimilarWorkKey(input({ link: 'http://Drive.Google.com/file/d/13xe_wQhHmU7XJ6_qn4R92PJEenLQ1bXA/view/?usp=sharing' }))
+      await findSimilarWorkKey(
+        input({
+          link: 'http://Drive.Google.com/file/d/13xe_wQhHmU7XJ6_qn4R92PJEenLQ1bXA/view/?usp=sharing',
+        })
+      )
     ).toBe('url:stored-key');
   });
 
@@ -70,7 +74,11 @@ describe('findSimilarWorkKey', () => {
 
   it('does not depend on how many other works share the path', async () => {
     const crowd = Array.from({ length: 80 }, (_, i) =>
-      stored({ dedupKey: `url:other-${i}`, link: LINK, evidence: { title: `Зовсім інша робота номер ${i} про щось своє` } })
+      stored({
+        dedupKey: `url:other-${i}`,
+        link: LINK,
+        evidence: { title: `Зовсім інша робота номер ${i} про щось своє` },
+      })
     );
     rows = [...crowd, stored()];
     expect(await findSimilarWorkKey(input())).toBe('url:stored-key');
@@ -82,7 +90,10 @@ describe('findSimilarWorkKey', () => {
     rows = [stored()];
     expect(
       await findSimilarWorkKey(
-        input({ title: 'Рик С. Інша стаття з того ж збірника. Збірник наукових праць. Переяслав, 2026. С. 121-123.' })
+        input({
+          title:
+            'Рик С. Інша стаття з того ж збірника. Збірник наукових праць. Переяслав, 2026. С. 121-123.',
+        })
       )
     ).toBeNull();
   });
