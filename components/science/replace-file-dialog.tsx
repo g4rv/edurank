@@ -16,7 +16,8 @@ import {
   DialogTrigger,
 } from '@/components/aurora/ui/dialog';
 import { replaceFile } from '@/app/(dashboard)/science-plan/file-actions';
-import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
+import { attempt } from '@/lib/science/attempt';
+import { saveWithUploads } from '@/lib/files/pending-upload';
 import { EvidenceFileField, type StagedValue } from '@/components/science/evidence-file-field';
 import { DialogProblem } from '@/components/science/dialog-problem';
 
@@ -61,11 +62,12 @@ export function ReplaceFileDialog({
     if (!file) return;
     setProblem(null);
     startTransition(async () => {
-      const result = await attempt(() => replaceFile({ ...file, fileId, workId }));
+      // The file goes up HERE, behind the overlay; deleted again if the swap fails.
+      const result = await attempt(() =>
+        saveWithUploads({ ...file, fileId, workId }, (resolved) => replaceFile(resolved))
+      );
       if ('error' in result) {
-        // The server dropped the new object on refusal — the picker must not
-        // go on claiming to hold one. The old file is untouched.
-        if (result.error !== CONNECTION_PROBLEM) setFile(null);
+        // The old file is untouched; the new one is still held for a retry.
         setProblem(result.error);
         return;
       }

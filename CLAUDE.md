@@ -893,7 +893,24 @@ Easy to get wrong:
   `deleteFile`, `replaceFile` and `closeScienceYear`) — delete and replace name
   the work, because a shared file has several. `pnpm db:science-shared-file`
   switches the flag on in existing databases (report first; no admin switch yet).
-- **The file goes up BEFORE the record is saved.** `presignUpload` needs no
+- **A file is PICKED at once and UPLOADED only on Save** (owner, 2026-11-14,
+  replacing «uploaded the moment it is picked», which left an object in R2 for
+  every form closed unsaved and kept the picker busy — for ever when the network
+  hung). Picking registers the `File` in `lib/files/pending-upload.ts` and
+  hands the form a placeholder `{ objectKey: 'pending:<id>', fileName }`; every
+  save that can carry a file wraps its server action in `saveWithUploads` (add /
+  attach / replace record, qualification, the profile and staff forms for the
+  diploma and certificate scans). It uploads behind a full-page blocking overlay
+  (`components/ui/saving-overlay.tsx`: 20 s for the server's answer, 2 min per
+  PUT, one Cancel, a «leave site?» prompt), swaps in the real key and calls the
+  action; if anything fails — or the save is refused — what went up is deleted
+  again, so a failed save leaves nothing in R2. Closing the tab aborts a PUT in
+  flight and R2 keeps only a finished object. A placeholder that reaches a
+  server action is refused (its key is in nobody's folder). **A new caller must
+  wrap its save in `saveWithUploads` and its uploader in `withPlaceholders`.**
+  The duplicate-file rules (D28, the same-person rule, reuse of a shared file)
+  are judged at Save now, and show as the save's error. What follows is what the
+  SERVER does with the key it receives, unchanged. `presignUpload` needs no
   work — `objectKeyFor` names only the навчальний рік — so `saveRecord` takes
   an `{ objectKey, fileName }` it verifies from the stored bytes and attaches
   in the same transaction that creates the work. The old order (key contained

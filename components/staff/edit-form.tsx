@@ -23,6 +23,7 @@ import type { StakePart } from '@/lib/queries/get-stake-breakdown';
 import type { PersonCertificates } from '@/lib/queries/get-language-certificates';
 import { certificateScansOf } from '@/components/staff/certificate-form-values';
 import { RequiredFields } from '@/components/ui/required-fields';
+import { saveWithUploads } from '@/lib/files/pending-upload';
 import { UnsavedChangesGuard } from '@/components/unsaved-changes-guard';
 import {
   StaffFormFields,
@@ -128,7 +129,13 @@ export function StaffEditForm({
   function submit(data: StaffUpdateSchema, confirmRaise: boolean) {
     startTransition(async () => {
       try {
-        const result = await updateStaff(staffId, data, { rates, confirmRaise });
+        // Scans picked in «Освіта» go up HERE, behind the overlay, and are deleted
+        // again when nothing is saved (a refusal, or the question about a Макс).
+        const result = await saveWithUploads(
+          data,
+          (resolved) => updateStaff(staffId, resolved, { rates, confirmRaise }),
+          (answer) => 'error' in answer || 'confirmRaise' in answer
+        );
         if ('confirmRaise' in result) {
           setAskedAbout(data);
           setRaises(result.confirmRaise);
@@ -137,7 +144,7 @@ export function StaffEditForm({
         setRaises(null);
         if ('error' in result) {
           // A taken address belongs under the field, not in a toast
-          if (result.field === 'email') {
+          if ('field' in result && result.field === 'email') {
             setError('email', { message: result.error }, { shouldFocus: true });
           } else {
             toast.error(result.error);

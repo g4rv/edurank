@@ -14,6 +14,7 @@ import { NPP_RATING_OPEN } from '@/lib/rating/npp-access';
 import { Sidebar } from '@/components/sidebar';
 import { NavDrawer } from '@/components/nav-drawer';
 import { Toaster } from '@/components/ui/sonner';
+import { SavingOverlay } from '@/components/ui/saving-overlay';
 import { AuroraWash } from '@/components/ui/aurora-wash';
 import { takesPartInRating } from '@/lib/staff/external-part-timer';
 
@@ -121,6 +122,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <main className="relative flex-1 overflow-auto p-4 md:p-6">{children}</main>
       </div>
       <Toaster position="bottom-right" richColors />
+      <SavingOverlay />
     </div>
   );
 }

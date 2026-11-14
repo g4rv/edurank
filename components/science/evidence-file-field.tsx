@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { FileInput } from '@/components/aurora/ui/file-input';
 import { discardUpload, presignUpload } from '@/app/(dashboard)/science-plan/file-actions';
+import { registerPending, releaseKey, type FileUploader } from '@/lib/files/pending-upload';
 import { ACCEPT_FILE_TYPES, fileProblem } from '@/lib/science/file-limits';
 import { compressImage } from '@/lib/files/compress-image';
 
@@ -33,24 +34,7 @@ async function hashFile(file: File): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * How a chosen file reaches R2. The science evidence flow is the default; a
- * qualification scan brings its own (no university-wide duplicate rule, so no
- * hash, and a key in the owner's folder). The picker, the status line and the
- * browser-side checks are the same either way.
- */
-export interface FileUploader {
-  /** A presigned PUT for this file, or the sentence that refuses it. */
-  presign: (
-    file: File
-  ) => Promise<
-    | { ok: true; url: string; objectKey: string }
-    | { ok: true; reuse: { fileId: string; fileName: string } }
-    | { error: string }
-  >;
-  /** Let go of an object nobody ended up pointing at. Fire-and-forget. */
-  discard: (objectKey: string) => void;
-}
+export type { FileUploader };
 
 /**
  * What the file is FOR, so the server's courtesy duplicate check applies the
@@ -77,33 +61,23 @@ const scienceUploaderFor = (target?: FileTarget): FileUploader => ({
   discard: (objectKey) => void discardUpload(objectKey),
 });
 
-type Status = 'idle' | 'checking' | 'uploading' | 'ready' | 'error';
-
-const BUSY: Status[] = ['checking', 'uploading'];
+type Status = 'idle' | 'checking' | 'ready' | 'error';
 
 /**
- * Picks a file and puts it in R2 **immediately**, before anything is saved.
+ * Picks a file — and does NOTHING with the network.
  *
- * The old version did the opposite: it waited for the record to exist, because
- * the object key contained the work's id. Three things were wrong with that
- * order, and all three are gone now that `objectKeyFor` names only the year:
+ * The file is checked here (type, size) and shrunk if it is a photo, then kept in
+ * the browser. The form gets a placeholder `{ objectKey: 'pending:…', fileName }`
+ * (`lib/files/pending-upload.ts`) and the save step uploads the real file, behind
+ * an overlay with a timeout and a Cancel. Nothing reaches R2 unless the form is
+ * actually saved, so an abandoned form leaves nothing behind.
  *
- * 1. **A record could not be proved by a file alone.** At save time there was
- *    never a file, so `evidenceProblem` always saw zero and a link was in
- *    practice mandatory — the exact case D27 exists for (a сертифікат with no
- *    public page) could not be entered.
- * 2. **A failed upload was unrecoverable.** The record was already saved; the
- *    message said «Спробуйте ще раз» and there was nothing to press.
- * 3. The dialog had to lock its own form and stay open babysitting a `PUT`.
+ * The old version uploaded the moment a file was picked. That left an object in
+ * R2 for every form closed unsaved, and the picker stayed busy for as long as the
+ * network took — for ever when it hung (owner, 2026-11-14).
  *
- * Now the upload finishes (or fails, retryably) while the person is still
- * filling the form, and the save carries a key the server verifies from the
- * stored bytes. Failure costs one orphaned object, which `discardUpload`
- * clears whenever the person removes or replaces their choice.
- *
- * **`onBusyChange` exists so the caller can guard its own submit button** —
- * saving a record whose file is still going up would send a key R2 has not
- * finished writing.
+ * **`onBusyChange` stays**: shrinking a large photo takes a moment, and saving
+ * before it finishes would send the original.
  */
 export function EvidenceFileField({
   id,
@@ -116,7 +90,7 @@ export function EvidenceFileField({
   only,
 }: {
   id?: string;
-  /** The staged object, held by the caller so it can be submitted or cleared. */
+  /** The held file, owned by the caller so it can be submitted or cleared. */
   value: StagedValue | null;
   onChange: (file: StagedValue | null) => void;
   onBusyChange?: (busy: boolean) => void;
@@ -127,34 +101,35 @@ export function EvidenceFileField({
   target?: FileTarget;
   /**
    * One format only, where a caller narrows the usual three — a diploma scan is
-   * JPG (owner, 2026-10-27). Refused before anything is uploaded, in the
-   * caller's words; the server checks the stored bytes again.
+   * JPG (owner, 2026-10-27). Refused before anything is held, in the caller's
+   * words; the server checks the stored bytes again.
    */
   only?: { type: string; accept: string; message: string };
 }) {
+  // The uploader is read when the form is SAVED, not now: the вид роботи a science
+  // file is for may change after the file was picked. A ref keeps the newest.
   const uploader = customUploader ?? scienceUploaderFor(target);
+  const uploaderRef = React.useRef<FileUploader>(uploader);
+  React.useEffect(() => {
+    uploaderRef.current = uploader;
+  });
+
   // What the picker SHOWS. Kept beside `value` because `File` carries the name
   // and size a person recognises, while `value` is what the server needs.
   const [file, setFile] = React.useState<File | null>(null);
   const [status, setStatus] = React.useState<Status>('idle');
   const [problem, setProblem] = React.useState<string | null>(null);
-  // The server already holds these bytes and this person may share them.
-  const [reused, setReused] = React.useState(false);
+  // Which pick is current — shrinking is asynchronous and a second pick may win.
+  const pickRef = React.useRef(0);
 
-  const busy = BUSY.includes(status);
+  const busy = status === 'checking';
   React.useEffect(() => {
     onBusyChange?.(busy);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
-  /** Whatever was already up there is no longer wanted — let it go, but never
-   *  make the person wait for it or hear about it. */
-  function releaseStaged(staged: StagedValue | null) {
-    // An existing file is somebody else's stored evidence — never discarded.
-    if (staged && 'objectKey' in staged) uploader.discard(staged.objectKey);
-  }
-
-  async function upload(picked: File) {
+  async function hold(picked: File) {
+    const pick = ++pickRef.current;
     setProblem(null);
     if (only && picked.type !== only.type) {
       setProblem(only.message);
@@ -163,14 +138,14 @@ export function EvidenceFileField({
     }
 
     // Shrink a JPG/PNG first, so a 15 MB phone photo is not refused for its
-    // size and R2 never stores the original. Everything below — the checks,
-    // the hash, the PUT — then sees the file that is actually kept.
+    // size and R2 never stores the original.
     setStatus('checking');
     const chosen = await compressImage(picked);
+    if (pick !== pickRef.current) return;
     if (chosen !== picked) setFile(chosen);
 
-    // Refused here first, in the same words the server would use, so a 500 MB
-    // file never reaches `crypto.subtle` and freezes the tab.
+    // Refused here, in the same words the server would use, so a 500 MB file is
+    // never held at all.
     const localFault = fileProblem({ declaredType: chosen.type, sizeBytes: chosen.size });
     if (localFault) {
       setProblem(localFault);
@@ -178,48 +153,16 @@ export function EvidenceFileField({
       return;
     }
 
-    setStatus('checking');
-    const presigned = await uploader.presign(chosen);
-    if ('error' in presigned) {
-      setProblem(presigned.error);
-      setStatus('error');
-      return;
-    }
-    // The file is already in the system and may be shared: nothing is uploaded,
-    // nothing is stored twice — the save connects this work to the stored one.
-    if ('reuse' in presigned) {
-      setReused(true);
-      onChange({ existingFileId: presigned.reuse.fileId, fileName: presigned.reuse.fileName });
-      setStatus('ready');
-      return;
-    }
-
-    setStatus('uploading');
-    try {
-      const put = await fetch(presigned.url, {
-        method: 'PUT',
-        body: chosen,
-        headers: { 'Content-Type': chosen.type },
-      });
-      if (!put.ok) throw new Error(`PUT ${put.status}`);
-    } catch {
-      // The commonest cause by far is the bucket having no CORS rule for this
-      // origin, which no amount of retrying fixes — so the sentence points at
-      // somebody who can, instead of asking the person to try for ever.
-      setProblem('Не вдалося завантажити файл. Спробуйте ще раз або зверніться до адміністратора');
-      setStatus('error');
-      return;
-    }
-
-    onChange({ objectKey: presigned.objectKey, fileName: chosen.name });
+    onChange(registerPending(chosen, () => uploaderRef.current));
     setStatus('ready');
   }
 
   function choose(chosen: File | null) {
-    // Replacing or clearing abandons whatever is already in the bucket.
-    releaseStaged(value);
+    pickRef.current += 1;
+    // Replacing or clearing forgets whatever was held (a key already in R2 — a
+    // form older than this change — is deleted).
+    if (value && 'objectKey' in value) releaseKey(uploaderRef.current, value.objectKey);
     onChange(null);
-    setReused(false);
     setFile(chosen);
 
     if (!chosen) {
@@ -227,7 +170,7 @@ export function EvidenceFileField({
       setStatus('idle');
       return;
     }
-    void upload(chosen);
+    void hold(chosen);
   }
 
   return (
@@ -239,15 +182,9 @@ export function EvidenceFileField({
         accept={only?.accept ?? ACCEPT_FILE_TYPES}
         disabled={disabled || busy}
       />
-      {status === 'checking' && <p className="text-sm text-foreground-soft">Перевірка файлу…</p>}
-      {status === 'uploading' && <p className="text-sm text-foreground-soft">Завантаження…</p>}
-      {status === 'ready' && !reused && (
-        <p className="text-sm text-success">Файл готовий до збереження</p>
-      )}
-      {status === 'ready' && reused && (
-        <p className="text-sm text-success">
-          Цей файл уже є в системі — буде підключено наявний, повторно завантажувати не потрібно
-        </p>
+      {status === 'checking' && <p className="text-sm text-foreground-soft">Підготовка файлу…</p>}
+      {status === 'ready' && (
+        <p className="text-sm text-success">Файл буде завантажено під час збереження</p>
       )}
       {/* Inline, under the control it belongs to — never a toast for something
           a field can show itself. */}

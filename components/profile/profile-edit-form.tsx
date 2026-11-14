@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Controller, useForm } from 'react-hook-form';
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { toast } from 'sonner';
+import { saveWithUploads } from '@/lib/files/pending-upload';
 // «Аврора» controls: these are the same nine fields the staff form uses, and a
 // shadcn input beside an Аврора one is the half-swapped look the redesign
 // exists to end.
@@ -132,7 +133,11 @@ export function ProfileEditForm({
       // that cannot be uploaded (R2 down, a lost connection) must not cost the
       // person the phone number they just typed.
       if (isDirty) {
-        const result = await updateOwnProfile(values as unknown as OwnProfileSchema);
+        // A scan picked in «Освіта» goes up HERE, behind the overlay, and is deleted
+        // again if nothing is saved.
+        const result = await saveWithUploads(values as unknown as OwnProfileSchema, (resolved) =>
+          updateOwnProfile(resolved)
+        );
         if ('error' in result) {
           // Nothing here belongs to one field — the resolver already reports those
           // inline, so a failure at this point is the save itself going wrong.

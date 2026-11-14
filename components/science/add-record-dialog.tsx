@@ -47,7 +47,8 @@ import {
 } from '@/lib/science/evidence-rule';
 import { EvidenceFileField, type StagedValue } from '@/components/science/evidence-file-field';
 import { DialogProblem } from '@/components/science/dialog-problem';
-import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
+import { attempt } from '@/lib/science/attempt';
+import { saveWithUploads } from '@/lib/files/pending-upload';
 
 /**
  * «Додати виконане» — records one work that actually happened.
@@ -306,21 +307,28 @@ function RecordForm({
     const coauthors = 'shares' in parsedCoauthors ? parsedCoauthors.shares : [];
 
     startTransition(async () => {
+      // The file goes up HERE, behind the overlay, and is deleted again if the
+      // record is not saved (an error, or an offer to join an existing work).
       const result = await attempt(() =>
-        saveRecord({
-          departmentId,
-          workTypeId: type.id,
-          evidence: data,
-          link: link.trim() || undefined,
-          coauthors: coauthors.length > 0 ? coauthors : undefined,
-          // Hidden since 2026-09-24: the server stamps the save month instead.
-          ...(SHOW_EXECUTION_PERIOD
-            ? { executedMonth: month, startedMonth: started ?? undefined }
-            : {}),
-          // Already uploaded; the server verifies it from the stored bytes and
-          // writes its row in the same transaction as the work.
-          file: file ?? undefined,
-        })
+        saveWithUploads(
+          { file: file ?? undefined },
+          ({ file: resolved }) =>
+            saveRecord({
+              departmentId,
+              workTypeId: type.id,
+              evidence: data,
+              link: link.trim() || undefined,
+              coauthors: coauthors.length > 0 ? coauthors : undefined,
+              // Hidden since 2026-09-24: the server stamps the save month instead.
+              ...(SHOW_EXECUTION_PERIOD
+                ? { executedMonth: month, startedMonth: started ?? undefined }
+                : {}),
+              // Uploaded just now; the server verifies it from the stored bytes and
+              // writes its row in the same transaction as the work.
+              file: resolved,
+            }),
+          (answer) => 'error' in answer || 'conflict' in answer
+        )
       );
 
       if ('conflict' in result) {
@@ -329,11 +337,7 @@ function RecordForm({
         return;
       }
       if ('error' in result) {
-        // The server dropped the staged object on every refusal, so the
-        // picker must stop claiming to hold one.
-        // …except when the request never arrived: then the object is still
-        // staged, and clearing it would make somebody upload it again.
-        if (file && result.error !== CONNECTION_PROBLEM) setFile(null);
+        // The file is still held, so fixing the form and saving again just works.
         setProblem(result.error);
         return;
       }
