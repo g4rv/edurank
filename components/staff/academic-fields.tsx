@@ -50,6 +50,7 @@ import { FieldGroup } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import { RatingFieldHint } from '@/components/staff/rating-field-hint';
 import { ScanField, type ScanChoice } from '@/components/science/scan-field';
+import { withPlaceholders } from '@/lib/files/pending-upload';
 import type { FileUploader } from '@/components/science/evidence-file-field';
 import {
   discardDiplomaUpload,
@@ -759,7 +760,7 @@ export function EducationCard({
   const scanUploader: FileUploader | undefined = useMemo(
     () =>
       staffId
-        ? {
+        ? withPlaceholders({
             presign: (file) =>
               presignDiplomaUpload({
                 staffId,
@@ -768,7 +769,7 @@ export function EducationCard({
                 sizeBytes: file.size,
               }),
             discard: (objectKey) => void discardDiplomaUpload(staffId, objectKey),
-          }
+          })
         : undefined,
     [staffId]
   );

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import {
   Award,
   BadgeCheck,
+  BookCheck,
   BookOpen,
   Check,
   Building2,
@@ -66,6 +67,7 @@ const ADMINISTRATION_NAV: NavItem[] = [
   { href: '/admin/science-plan', label: 'Планування науки', icon: FlaskConical },
   { href: '/admin/invites', label: 'Запрошення', icon: MailPlus },
   { href: '/admin/profile-check', label: 'Перевірка профілів', icon: UserCheck },
+  { href: '/admin/kharakterystyka-check', label: 'Перевірка публікацій', icon: BookCheck },
   { href: '/admin/students', label: 'Здобувачі', icon: GraduationCap },
   { href: '/admin/freeze', label: 'Заморозка', icon: Snowflake },
   { href: '/admin/audit-log', label: 'Журнал аудиту', icon: ClipboardList },

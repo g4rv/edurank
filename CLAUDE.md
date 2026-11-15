@@ -389,6 +389,11 @@ pnpm db:science-sheets-decimals  # one-off: «Кількість друкова�
                       #   from the catalogue (монографія 0,5, the others 1). Report
                       #   first; --apply writes. Saved works with two decimals are
                       #   only listed.
+pnpm db:science-title-multiline  # one-off: «Назва роботи» is a textarea in every
+                      #   вид роботи of every planning year (owner, 2026-11-13). Report
+                      #   first; --apply. The catalogue constant has it for new years.
+pnpm db:science-shared-file  # one-off, after migrate deploy: the two conference types may
+                      #   share ONE stored file (sharedFile, owner 2026-11-13). Report first; --apply.
 pnpm db:science-conference-yearly  # one-off: «Участь у конференціях» ONCE →
                       #   YEARLY (D25). The наказ caps it at 5 per рік, and a
                       #   ONCE key carries no year — so the same annual
@@ -836,7 +841,19 @@ Easy to get wrong:
 - **One `ScienceWork` per identity, `dedupKey` UNIQUE.** `identityFields`
   (doi, link, title, in priority order) build the key — `link` is the RECORD's
   own «Посилання на роботу» (`lib/science/identity.ts`), so a type never asks
-  for the same address twice; `YEARLY` carries the навчальний рік (`ONCE` does not) and `SHARED` no
+  for the same address twice — **but only a link that IS a DOI identifies a
+  work** (owner, 2026-11-13): two authors in one збірник share its page, and
+  keying on it refused the second one's own article. An ordinary address falls
+  through to the title — and a work sharing the SAME link with a description
+  that reads as a copy is refused too: `findSimilarWorkKey`
+  (`lib/science/similar-work.ts`), words of the SHORTER text found in the
+  longer ≥ 90 %, differing printed page ranges or any number each text has and
+  the other lacks («Частина 1/2», a year) = two articles
+  (`lib/science/similar-title.ts`). It reads the stored `link`, so works saved
+  under the old `url:` key are found without re-keying them. Asked on create AND
+  on an edit that moves the description or the link (`updateWorkEvidence`,
+  refusing with «Робота з такими даними вже існує»). A type whose identity is
+  `link` ALONE still keys by the address, as the last resort; `YEARLY` carries the навчальний рік (`ONCE` does not) and `SHARED` no
   person-prefix, so the SAME article can never be entered twice
   university-wide. A second person who tries it is told who has it and to
   agree the hours with them (`ExistingWorkPanel`) — **nobody joins a work by
@@ -861,7 +878,39 @@ Easy to get wrong:
   (`ScienceRecordFile`, in R2) is proved by re-sniffing and re-hashing the
   STORED bytes, never the browser's own claim, and its SHA-256 is **UNIQUE
   university-wide** (D28) — the same evidence can back only one work, ever.
-- **The file goes up BEFORE the record is saved.** `presignUpload` needs no
+  **Except a shared file** (owner, 2026-11-13): a вид роботи with
+  `ScienceWorkType.sharedFile` — the two conference types — lets colleagues
+  connect to the ONE stored file instead of uploading it (the organisers issue no
+  certificate; the programme names every presenter). The hash stays unique, the
+  file is stored once, and `ScienceRecordFile` ↔ `ScienceWork` is a many-to-many
+  (`work.files` reads are unchanged). `presignUpload` answers `reuse` BEFORE any
+  bytes move; saves take `{ existingFileId }` as well as `{ objectKey }`
+  (`resolveIncomingFile`, `lib/science/file-intake.ts`) and re-check the rule
+  (`fileShareProblem`, `lib/science/file-share.ts`): the вид shares files, the
+  file belongs only to shared вид (never somebody's сертифікат), and this person
+  does not already hold it on a work of the same вид. **A file and its R2 object
+  go only when NO work holds it** (`dropOrphanFiles`, in `deleteRecord`,
+  `deleteFile`, `replaceFile` and `closeScienceYear`) — delete and replace name
+  the work, because a shared file has several. `pnpm db:science-shared-file`
+  switches the flag on in existing databases (report first; no admin switch yet).
+- **A file is PICKED at once and UPLOADED only on Save** (owner, 2026-11-14,
+  replacing «uploaded the moment it is picked», which left an object in R2 for
+  every form closed unsaved and kept the picker busy — for ever when the network
+  hung). Picking registers the `File` in `lib/files/pending-upload.ts` and
+  hands the form a placeholder `{ objectKey: 'pending:<id>', fileName }`; every
+  save that can carry a file wraps its server action in `saveWithUploads` (add /
+  attach / replace record, qualification, the profile and staff forms for the
+  diploma and certificate scans). It uploads behind a full-page blocking overlay
+  (`components/ui/saving-overlay.tsx`: 20 s for the server's answer, 2 min per
+  PUT, one Cancel, a «leave site?» prompt), swaps in the real key and calls the
+  action; if anything fails — or the save is refused — what went up is deleted
+  again, so a failed save leaves nothing in R2. Closing the tab aborts a PUT in
+  flight and R2 keeps only a finished object. A placeholder that reaches a
+  server action is refused (its key is in nobody's folder). **A new caller must
+  wrap its save in `saveWithUploads` and its uploader in `withPlaceholders`.**
+  The duplicate-file rules (D28, the same-person rule, reuse of a shared file)
+  are judged at Save now, and show as the save's error. What follows is what the
+  SERVER does with the key it receives, unchanged. `presignUpload` needs no
   work — `objectKeyFor` names only the навчальний рік — so `saveRecord` takes
   an `{ objectKey, fileName }` it verifies from the stored bytes and attaches
   in the same transaction that creates the work. The old order (key contained

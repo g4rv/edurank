@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { logWarning, type LogContext } from '@/lib/log';
 import { deleteObject, getObjectBytes, headObject } from '@/lib/science/r2';
 import { fileProblem, pdfPageCount, sha256Hex, sniffType } from '@/lib/science/file-checks';
+import { fileShareProblem, type LinkedWork } from '@/lib/science/file-share';
 
 /**
  * Turning an object somebody PUT into R2 into a row we are willing to store —
@@ -169,4 +170,100 @@ export async function verifyUploadedObject(input: {
 export function isDuplicateFileViolation(e: unknown): boolean {
   const target = String((e as { meta?: { target?: unknown } })?.meta?.target ?? '');
   return target.includes('sha256') || target.includes('objectKey');
+}
+
+// ─── One stored file, many works (owner, 2026-11-13) ─────────────────────────
+//
+// A вид роботи with `sharedFile` (the conference types) lets colleagues connect
+// to the ONE file that is already stored instead of uploading it again. The
+// browser learns this from `presignUpload` BEFORE any bytes move; the server
+// then re-checks everything here, because «use file X» is a request like any
+// other and a hand-made one must not borrow somebody's сертифікат.
+
+/** What the browser hands a save: freshly uploaded bytes, or the id of a file
+ *  that is already stored. Exactly one of the two. */
+export type IncomingFile =
+  | { objectKey: string; fileName: string; existingFileId?: undefined }
+  | { existingFileId: string; fileName: string; objectKey?: undefined };
+
+/** What a save writes: a verified new file, or an existing file to connect to. */
+export type ResolvedFile =
+  | { kind: 'new'; file: VerifiedFile }
+  | { kind: 'existing'; fileId: string; fileName: string };
+
+/** Where the file is going — the work's вид and its AUTHOR (the one who would
+ *  hold the connection), never the uploader. */
+export interface FileTarget {
+  workTypeId: string;
+  sharedFile: boolean;
+  authorId: string;
+}
+
+/** A stored file with the works it is connected to — what `fileShareProblem`
+ *  needs, selected one way everywhere. */
+export const FILE_WITH_WORKS = {
+  id: true,
+  fileName: true,
+  sizeBytes: true,
+  pageCount: true,
+  works: {
+    select: {
+      id: true,
+      createdById: true,
+      workTypeId: true,
+      workType: { select: { sharedFile: true } },
+    },
+  },
+} as const;
+
+export function linkedWorksOf(file: {
+  works: { createdById: string; workTypeId: string; workType: { sharedFile: boolean } }[];
+}): LinkedWork[] {
+  return file.works.map((w) => ({
+    createdById: w.createdById,
+    workTypeId: w.workTypeId,
+    sharedFile: w.workType.sharedFile,
+  }));
+}
+
+/**
+ * Turn what the browser sent into something a save can write: a VERIFIED new
+ * file, or an existing file this person is allowed to connect to.
+ *
+ * A refused request drops the uploaded object (if there was one) and says the
+ * same sentence D28 always has — it names nothing about the other record.
+ */
+export async function resolveIncomingFile(input: {
+  incoming: IncomingFile;
+  target: FileTarget;
+  scope: string;
+  context: LogContext;
+}): Promise<{ ok: true; use: ResolvedFile } | { error: string }> {
+  const { incoming, target } = input;
+
+  if (typeof incoming.existingFileId === 'string') {
+    const file = await db.scienceRecordFile.findUnique({
+      where: { id: incoming.existingFileId },
+      select: FILE_WITH_WORKS,
+    });
+    const problem = file
+      ? fileShareProblem({
+          targetSharedFile: target.sharedFile,
+          targetWorkTypeId: target.workTypeId,
+          authorId: target.authorId,
+          linked: linkedWorksOf(file),
+        })
+      : 'NOT_SHARABLE';
+    if (!file || problem) return { error: DUPLICATE_FILE_MESSAGE };
+    return { ok: true, use: { kind: 'existing', fileId: file.id, fileName: file.fileName } };
+  }
+
+  const verified = await verifyUploadedObject({
+    objectKey: incoming.objectKey,
+    fileName: incoming.fileName,
+    scope: input.scope,
+    context: input.context,
+  });
+  if ('error' in verified) return { error: verified.error };
+  return { ok: true, use: { kind: 'new', file: verified.file } };
 }

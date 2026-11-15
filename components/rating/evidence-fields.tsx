@@ -217,7 +217,12 @@ export function EvidenceFields({
             {f.multiline ? (
               <Textarea
                 id={f.name}
-                rows={f.placeholder ? 4 : undefined}
+                // Grows with what is typed, up to `max-h-64` — a pasted
+                // description is 200+ characters and used to scroll inside two
+                // lines (owner, 2026-11-13). `rows` is the fallback for a browser
+                // without `field-sizing`.
+                className="field-sizing-content max-h-64"
+                rows={f.placeholder ? 4 : 3}
                 placeholder={f.placeholder}
                 disabled={disabled}
                 {...register(f.name, { deps: depsOf(f.name) })}

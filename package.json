@@ -28,6 +28,8 @@
     "db:science-conference-yearly": "tsx prisma/science-conference-yearly.ts",
     "db:science-link-isbn": "tsx prisma/science-link-isbn.ts",
     "db:science-sheets-decimals": "tsx prisma/science-sheets-decimals.ts",
+    "db:science-title-multiline": "tsx prisma/science-title-multiline.ts",
+    "db:science-shared-file": "tsx prisma/science-shared-file.ts",
     "db:science-catalogue": "tsx prisma/science-catalogue.ts",
     "db:department-rating-catalogue": "tsx prisma/department-rating-catalogue.ts",
     "db:kharakterystyka-cleanup": "tsx prisma/kharakterystyka-cleanup.ts",

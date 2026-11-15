@@ -41,6 +41,8 @@ import { schemaForFields } from '@/validations/activity-evidence';
 import { pickedPersonProblem } from '@/lib/queries/list-my-aspirants';
 import { summarizeEvidence, type EvidenceField } from '@/lib/rating/evidence-fields';
 import { formatHours } from '@/lib/science/hours';
+import { findSimilarWorkKey } from '@/lib/science/similar-work';
+import { dropOrphanFiles } from '@/lib/science/file-share';
 import {
   currentMonthKey,
   dateToMonthKey,
@@ -53,8 +55,9 @@ import {
   DUPLICATE_FILE_MESSAGE,
   isDuplicateFileViolation,
   safeDeleteObject,
-  verifyUploadedObject,
-  type VerifiedFile,
+  resolveIncomingFile,
+  type IncomingFile,
+  type ResolvedFile,
 } from '@/lib/science/file-intake';
 
 // The факт half of планування наукової роботи — Stage 2's write side. Read
@@ -87,7 +90,7 @@ export interface SaveRecordInput {
    * by a file alone (D27), and what stops a failed upload leaving a saved
    * record with nothing behind it.
    */
-  file?: { objectKey: string; fileName: string };
+  file?: IncomingFile;
   /** D41/D48: `"YYYY-MM"`, the month the work was done — within the OPEN
    *  навчальний рік, never in the future. Where the work took several months,
    *  the month it was FINISHED — its hours all count here.
@@ -415,19 +418,26 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
   // evidence rule reads its count, so «файл без посилання» is a record that
   // can exist (D27) rather than one refused for having no link. Everything
   // after this point that fails must drop the object: `dropFile()`.
-  let verifiedFile: VerifiedFile | null = null;
+  //
+  // The file is either NEW bytes or an existing stored file this person may
+  // connect to (owner, 2026-11-13: a conference programme is stored once and
+  // shared) — `resolveIncomingFile` checks either way, never the browser.
+  let incomingFile: ResolvedFile | null = null;
   if (input.file) {
-    const verified = await verifyUploadedObject({
-      objectKey: input.file.objectKey,
-      fileName: input.file.fileName,
+    const resolved = await resolveIncomingFile({
+      incoming: input.file,
+      target: { workTypeId: type.id, sharedFile: type.sharedFile, authorId: staffId },
       scope: 'science.saveRecord',
       context: { userId },
     });
-    if ('error' in verified) return { error: verified.error };
-    verifiedFile = verified.file;
+    if ('error' in resolved) return { error: resolved.error };
+    incomingFile = resolved.use;
   }
   const dropFile = async () => {
-    if (input.file) await safeDeleteObject('science.saveRecord', input.file.objectKey, { userId });
+    // An existing file is somebody else's stored evidence: only an upload is dropped.
+    if (input.file?.objectKey) {
+      await safeDeleteObject('science.saveRecord', input.file.objectKey, { userId });
+    }
   };
 
   // D47: a proof on a side this вид роботи does not use is refused, not
@@ -479,7 +489,7 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
       linkRule: type.linkRule,
       fileRule: type.fileRule,
       link,
-      fileCount: verifiedFile ? 1 : 0,
+      fileCount: incomingFile ? 1 : 0,
       doi,
     });
   if (evidenceFault) {
@@ -518,7 +528,20 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
   }
   const totalHundredths = toHundredths(score);
 
-  const conflict = await findConflict(key, staffId, fields, type.label, template);
+  // The exact key first; then a work with the SAME LINK and a description that
+  // reads as a copy (`findSimilarWorkKey`) — a retyped duplicate has another key.
+  const similarKey = await findSimilarWorkKey({
+    typeCode: type.code,
+    sharing: type.sharing,
+    identityFields: Array.isArray(type.identityFields) ? (type.identityFields as string[]) : [],
+    link,
+    title: (parsed.data as Record<string, unknown>).title,
+  });
+  const conflict =
+    (await findConflict(key, staffId, fields, type.label, template)) ??
+    (similarKey && similarKey !== key
+      ? await findConflict(similarKey, staffId, fields, type.label, template)
+      : null);
   // Not this person's work to prove: the offer is to JOIN the existing one,
   // and its evidence belongs to whoever entered it. The object goes, or every
   // refused duplicate leaves one in the bucket.
@@ -617,9 +640,19 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
 
       // Same transaction as the work it proves: a record that was allowed to
       // exist BECAUSE of its file must never end up without it.
-      if (verifiedFile) {
+      if (incomingFile?.kind === 'new') {
         await tx.scienceRecordFile.create({
-          data: { ...verifiedFile, workId: work.id, uploadedById: staffId },
+          data: {
+            ...incomingFile.file,
+            uploadedById: staffId,
+            works: { connect: { id: work.id } },
+          },
+        });
+      } else if (incomingFile?.kind === 'existing') {
+        // Stored once, shared: connect the work to it, never copy it.
+        await tx.scienceWork.update({
+          where: { id: work.id },
+          data: { files: { connect: { id: incomingFile.fileId } } },
         });
       }
 
@@ -659,7 +692,14 @@ export async function saveRecord(input: SaveRecordInput): Promise<SaveRecordResu
               link,
               executedMonth,
               startedMonth: startedMonth ?? null,
-              ...(verifiedFile ? { fileName: verifiedFile.fileName } : {}),
+              ...(incomingFile
+                ? {
+                    fileName:
+                      incomingFile.kind === 'new'
+                        ? incomingFile.file.fileName
+                        : incomingFile.fileName,
+                  }
+                : {}),
             }
           ),
         },
@@ -833,6 +873,23 @@ export async function updateWorkEvidence(input: {
   });
   if (!key) return { error: 'Вкажіть назву або посилання, щоб роботу можна було розпізнати' };
 
+  // An edit must not turn a work into a retyped copy of another — the create
+  // path's check (`findSimilarWorkKey`) would otherwise be one edit away. Asked
+  // only when the description or the link MOVED: a person correcting the pages of
+  // a work that already sits next to a near-duplicate must still be able to save.
+  const newTitle = (parsed.data as Record<string, unknown>).title;
+  if (newTitle !== stored?.title || link !== (work.link ?? null)) {
+    const similarKey = await findSimilarWorkKey({
+      typeCode: type.code,
+      sharing: type.sharing,
+      identityFields: Array.isArray(type.identityFields) ? (type.identityFields as string[]) : [],
+      link,
+      title: newTitle,
+      excludeWorkId: work.id,
+    });
+    if (similarKey) return { error: 'Робота з такими даними вже існує' };
+  }
+
   let score: number;
   try {
     ({ score } = computeScore(
@@ -996,7 +1053,7 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
           id: true,
           createdById: true,
           workType: { select: { label: true, sharing: true } },
-          files: { select: { objectKey: true } },
+          files: { select: { id: true } },
         },
       },
     },
@@ -1008,16 +1065,20 @@ export async function deleteRecord(recordId: string): Promise<{ ok: true } | { e
 
   if (record.work.createdById !== staffId) return { error: COAUTHOR_CANNOT_DELETE };
 
-  // Objects to clear once the rows are gone — collected BEFORE the delete,
-  // because the cascade takes the rows that name them.
+  // Objects to clear once the rows are gone. A file is shared by every work that
+  // holds it (a conference programme), so only the files NO other work holds are
+  // dropped — a colleague's proof never disappears with somebody else's record.
   let orphanedObjectKeys: string[] = [];
 
   try {
     await db.$transaction(async (tx) => {
-      // Cascades every record, reservation and file row of the work; the R2
-      // objects are dropped after the transaction commits.
-      orphanedObjectKeys = record.work.files.map((f) => f.objectKey);
+      // Cascades every record, reservation and file CONNECTION of the work; the
+      // R2 objects of files nobody else holds are dropped after the commit.
       await tx.scienceWork.delete({ where: { id: record.work.id } });
+      orphanedObjectKeys = await dropOrphanFiles(
+        tx,
+        record.work.files.map((f) => f.id)
+      );
 
       await tx.auditLog.create({
         data: {

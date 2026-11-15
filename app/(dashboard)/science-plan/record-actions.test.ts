@@ -26,7 +26,7 @@ vi.mock('@/lib/db', () => {
       aggregate: vi.fn(),
     },
     sciencePlan: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
-    scienceRecordFile: { create: vi.fn() },
+    scienceRecordFile: { create: vi.fn(), findMany: vi.fn(), deleteMany: vi.fn() },
     sciencePlanRow: { findUnique: vi.fn() },
     stakeAllocation: { findFirst: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -36,11 +36,11 @@ vi.mock('@/lib/db', () => {
 vi.mock('@/lib/queries/get-science-template', () => ({ getActiveScienceTemplate: vi.fn() }));
 // The intake helper is exercised end-to-end in `file-actions.test.ts` against
 // real bytes; here it is stubbed so these tests stay about what `saveRecord`
-// DOES with a verified file, not about magic bytes. The message constants and
-// the P2002 test stay real.
+// DOES with a resolved file (new bytes, or an existing one to connect to), not
+// about magic bytes. The message constants and the P2002 test stay real.
 vi.mock('@/lib/science/file-intake', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/science/file-intake')>();
-  return { ...actual, verifyUploadedObject: vi.fn(), safeDeleteObject: vi.fn() };
+  return { ...actual, resolveIncomingFile: vi.fn(), safeDeleteObject: vi.fn() };
 });
 
 import { Prisma } from '@/lib/generated/prisma/client';
@@ -49,7 +49,7 @@ import { db } from '@/lib/db';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { DOI_IN_LINK } from '@/lib/science/evidence-rule';
 import { COAUTHOR_CANNOT_DELETE } from '@/lib/science/coauthors';
-import { safeDeleteObject, verifyUploadedObject } from '@/lib/science/file-intake';
+import { resolveIncomingFile, safeDeleteObject } from '@/lib/science/file-intake';
 import {
   deleteRecord,
   lockPlan,
@@ -63,7 +63,7 @@ import {
 
 const mockAuth = auth as unknown as Mock;
 const mockTemplate = getActiveScienceTemplate as unknown as Mock;
-const mockVerifyFile = verifyUploadedObject as unknown as Mock;
+const mockVerifyFile = resolveIncomingFile as unknown as Mock;
 const mockDropObject = safeDeleteObject as unknown as Mock;
 
 /** What the browser already put in R2, and what the server made of it. */
@@ -185,7 +185,7 @@ beforeEach(() => {
   (db.scienceCoauthorShare.aggregate as Mock).mockResolvedValue({ _sum: { hoursHundredths: 0 } });
   (db.$transaction as Mock).mockImplementation(async (fn: (t: unknown) => unknown) => fn(db));
   (db.scienceRecordFile.create as Mock).mockResolvedValue({ id: 'f1' });
-  mockVerifyFile.mockResolvedValue({ ok: true, file: VERIFIED });
+  mockVerifyFile.mockResolvedValue({ ok: true, use: { kind: 'new', file: VERIFIED } });
   mockDropObject.mockResolvedValue(undefined);
 });
 
@@ -386,17 +386,69 @@ describe('saveRecord — evidence by FILE (D27)', () => {
     await saveRecord({ ...base, link: undefined, file: STAGED });
     expect(db.scienceRecordFile.create).toHaveBeenCalledTimes(1);
     expect((db.scienceRecordFile.create as Mock).mock.calls[0][0].data).toMatchObject({
-      workId: 'w1',
+      works: { connect: { id: 'w1' } },
       uploadedById: 'staff-1',
       sha256: VERIFIED.sha256,
       pageCount: 3,
     });
   });
 
+  // ─── One stored file, many works (owner, 2026-11-13) ───────────────────────
+  // A conference programme is stored ONCE; the second colleague connects their
+  // work to it and nothing is uploaded or copied.
+  it('CONNECTS the work to an existing stored file — no new file row, nothing dropped', async () => {
+    mockVerifyFile.mockResolvedValue({
+      ok: true,
+      use: { kind: 'existing', fileId: 'f-stored', fileName: 'програма.pdf' },
+    });
+    const result = await saveRecord({
+      ...base,
+      link: undefined,
+      file: { existingFileId: 'f-stored', fileName: 'програма.pdf' },
+    });
+    expect(result).toMatchObject({ ok: true });
+    expect(db.scienceRecordFile.create).not.toHaveBeenCalled();
+    expect(db.scienceWork.update).toHaveBeenCalledWith({
+      where: { id: 'w1' },
+      data: { files: { connect: { id: 'f-stored' } } },
+    });
+    // somebody else's stored evidence is never an object to drop
+    expect(mockDropObject).not.toHaveBeenCalled();
+  });
+
+  it('proves a record by an existing file alone — the evidence rule counts it (D27)', async () => {
+    mockVerifyFile.mockResolvedValue({
+      ok: true,
+      use: { kind: 'existing', fileId: 'f-stored', fileName: 'програма.pdf' },
+    });
+    (db.scienceWorkType.findFirst as Mock).mockResolvedValue({ ...ARTICLE, fileRule: 'REQUIRED' });
+    expect(
+      await saveRecord({
+        ...base,
+        link: undefined,
+        file: { existingFileId: 'f-stored', fileName: 'програма.pdf' },
+      })
+    ).toMatchObject({ ok: true });
+  });
+
+  it('does NOT drop an object when an existing file is refused (there is none)', async () => {
+    mockVerifyFile.mockResolvedValue({ error: 'Цей файл уже використано в іншому записі' });
+    const result = await saveRecord({
+      ...base,
+      link: undefined,
+      file: { existingFileId: 'f-certificate', fileName: 'сертифікат.pdf' },
+    });
+    expect(result).toEqual({ error: 'Цей файл уже використано в іншому записі' });
+    expect(mockDropObject).not.toHaveBeenCalled();
+    expect(db.scienceWork.create).not.toHaveBeenCalled();
+  });
+
   it('verifies the STORED object before the evidence rule reads its count', async () => {
     await saveRecord({ ...base, link: undefined, file: STAGED });
     expect(mockVerifyFile).toHaveBeenCalledWith(
-      expect.objectContaining({ objectKey: STAGED.objectKey })
+      expect.objectContaining({
+        incoming: expect.objectContaining({ objectKey: STAGED.objectKey }),
+      })
     );
   });
 
@@ -1257,7 +1309,7 @@ describe('deleteRecord — withdrawing a draw', () => {
       id: 'w1',
       createdById: 'staff-1',
       workType: { label: 'Наукова стаття', sharing: 'SHARED' as const },
-      files: [] as { objectKey: string }[],
+      files: [] as { id: string }[],
     },
   };
 
@@ -1269,7 +1321,7 @@ describe('deleteRecord — withdrawing a draw', () => {
       id: 'w2',
       createdById: 'staff-1',
       workType: { label: 'Участь у конференції', sharing: 'INDIVIDUAL' as const },
-      files: [] as { objectKey: string }[],
+      files: [] as { id: string }[],
     },
   };
 
@@ -1306,17 +1358,39 @@ describe('deleteRecord — withdrawing a draw', () => {
     expect(db.scienceWork.delete).toHaveBeenCalledWith({ where: { id: 'w2' } });
   });
 
-  it('clears the deleted work’s R2 objects AFTER the commit', async () => {
+  it('clears the R2 objects of files NOBODY else holds, AFTER the commit', async () => {
     (db.scienceRecord.findUnique as Mock).mockResolvedValue({
       ...RECORD,
-      work: { ...RECORD.work, files: [{ objectKey: 'evidence/t1/gone.pdf' }] },
+      work: { ...RECORD.work, files: [{ id: 'f-own' }] },
     });
+    // After the work is deleted, this file has no work left.
+    (db.scienceRecordFile.findMany as Mock).mockResolvedValue([
+      { id: 'f-own', objectKey: 'evidence/t1/gone.pdf' },
+    ]);
 
     await deleteRecord('r1');
+    expect(db.scienceRecordFile.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['f-own'] } },
+    });
     expect(mockDropObject).toHaveBeenCalledWith('science.deleteRecord', 'evidence/t1/gone.pdf', {
       userId: 'u1',
       entityId: 'r1',
     });
+  });
+
+  // One stored file, many works (owner, 2026-11-13): a colleague deleting their
+  // own record must never take the programme away from the others who use it.
+  it('KEEPS a shared file — and its object — while another work still holds it', async () => {
+    (db.scienceRecord.findUnique as Mock).mockResolvedValue({
+      ...RECORD,
+      work: { ...RECORD.work, files: [{ id: 'f-shared' }] },
+    });
+    // Another work still holds it, so it is not an orphan.
+    (db.scienceRecordFile.findMany as Mock).mockResolvedValue([]);
+
+    expect(await deleteRecord('r1')).toEqual({ ok: true });
+    expect(db.scienceRecordFile.deleteMany).not.toHaveBeenCalled();
+    expect(mockDropObject).not.toHaveBeenCalled();
   });
 
   // Owner, 2026-10-02 — reversing 2026-09-30's «a co-author withdraws their

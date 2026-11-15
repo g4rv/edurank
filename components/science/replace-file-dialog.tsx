@@ -16,8 +16,9 @@ import {
   DialogTrigger,
 } from '@/components/aurora/ui/dialog';
 import { replaceFile } from '@/app/(dashboard)/science-plan/file-actions';
-import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
-import { EvidenceFileField, type StagedFile } from '@/components/science/evidence-file-field';
+import { attempt } from '@/lib/science/attempt';
+import { saveWithUploads } from '@/lib/files/pending-upload';
+import { EvidenceFileField, type StagedValue } from '@/components/science/evidence-file-field';
 import { DialogProblem } from '@/components/science/dialog-problem';
 
 /**
@@ -32,10 +33,19 @@ import { DialogProblem } from '@/components/science/dialog-problem';
  * server verifies it, saves it and removes the old one in one transaction.
  * Offered to whoever may change the file — `canChange`, checked again there.
  */
-export function ReplaceFileDialog({ fileId, fileName }: { fileId: string; fileName: string }) {
+export function ReplaceFileDialog({
+  fileId,
+  fileName,
+  workId,
+}: {
+  fileId: string;
+  fileName: string;
+  /** Which work — a shared file (a conference programme) belongs to several. */
+  workId: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [file, setFile] = useState<StagedFile | null>(null);
+  const [file, setFile] = useState<StagedValue | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -52,11 +62,12 @@ export function ReplaceFileDialog({ fileId, fileName }: { fileId: string; fileNa
     if (!file) return;
     setProblem(null);
     startTransition(async () => {
-      const result = await attempt(() => replaceFile({ ...file, fileId }));
+      // The file goes up HERE, behind the overlay; deleted again if the swap fails.
+      const result = await attempt(() =>
+        saveWithUploads({ ...file, fileId, workId }, (resolved) => replaceFile(resolved))
+      );
       if ('error' in result) {
-        // The server dropped the new object on refusal — the picker must not
-        // go on claiming to hold one. The old file is untouched.
-        if (result.error !== CONNECTION_PROBLEM) setFile(null);
+        // The old file is untouched; the new one is still held for a retry.
         setProblem(result.error);
         return;
       }
@@ -85,7 +96,12 @@ export function ReplaceFileDialog({ fileId, fileName }: { fileId: string; fileNa
         </DialogHeader>
 
         <DialogBody className="flex flex-col gap-2">
-          <EvidenceFileField value={file} onChange={setFile} onBusyChange={setBusy} />
+          <EvidenceFileField
+            value={file}
+            onChange={setFile}
+            onBusyChange={setBusy}
+            target={{ workId }}
+          />
           <p className="text-sm text-foreground-soft">
             PDF, JPG чи PNG до 10 МБ. Один і той самий файл не можна додати до двох записів.
           </p>

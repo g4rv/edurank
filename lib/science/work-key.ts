@@ -23,7 +23,7 @@ import type { ScienceReuse, ScienceSharing } from '@/lib/generated/prisma/client
  * neither.
  */
 
-function normalizeUrl(raw: string): string | null {
+export function normalizeUrl(raw: string): string | null {
   try {
     const url = new URL(raw.trim());
     // No query, no fragment, no trailing slash: the same journal page reached
@@ -45,7 +45,7 @@ function normalizeUrl(raw: string): string | null {
  * DOI in «DOI» and once with the doi.org address in «Посилання на роботу» got
  * two keys, `doi:…` and `url:doi.org/…`, and went in twice (owner, 2026-10-02).
  */
-function doiLinkKey(raw: string): string | null {
+export function doiLinkKey(raw: string): string | null {
   return isValidDoi(raw) ? `doi:${normalizeDoi(raw).toLowerCase()}` : null;
 }
 
@@ -107,14 +107,21 @@ export function workKey(input: {
   staffId: string;
 }): string | null {
   let core: string | null = null;
+  // The ordinary address, kept as the LAST resort only (see below).
+  let linkFallback: string | null = null;
   for (const name of input.identityFields) {
     if (name === RECORD_LINK_IDENTITY) {
-      // `url:` on purpose: it is the prefix a `url` field always gave, so a
-      // work keyed before this existed keeps its identity.
-      const doi = input.link ? doiLinkKey(input.link) : null;
-      const url = input.link ? normalizeUrl(input.link) : null;
-      core = doi ?? (url ? `url:${url}` : input.link ? normalizeTextKey(input.link) : null);
+      // Only a link that IS a DOI names a work. An ordinary address does not
+      // (owner, 2026-11-13): two authors printed in the same збірник share its
+      // page, and keying on it told the second one their own article was the
+      // first one's. The next identity entry — the title — tells them apart.
+      core = input.link ? doiLinkKey(input.link) : null;
       if (core) break;
+      // `url:` is the prefix a `url` field always gave. Used only when NOTHING
+      // after it names the work: a type an ADMIN built with `link` alone must
+      // not refuse every save.
+      const url = input.link ? normalizeUrl(input.link) : null;
+      linkFallback = url ? `url:${url}` : input.link ? normalizeTextKey(input.link) : null;
       continue;
     }
     const field = input.evidenceFields.find((f) => f.name === name);
@@ -143,6 +150,7 @@ export function workKey(input: {
     core = valueFor(field, input.evidence[name]);
     if (core) break;
   }
+  core ??= linkFallback;
   if (!core) return null;
 
   // The year goes INSIDE the key for a YEARLY type, which is what lets the same

@@ -1373,6 +1373,11 @@ model ScienceWorkType {
   /// file NONE: ННВ opens the link and checks it there, pages included (D40).
   linkRule ProofRule @default(OPTIONAL)
   fileRule ProofRule @default(OPTIONAL)
+  /// One stored file may prove SEVERAL people's works — a conference programme
+  /// lists every presenter and the organisers issue no certificate (owner,
+  /// 2026-11-13). The file is stored ONCE and each work connects to it; D28's
+  /// «one file, one record» still holds for every other вид. Default false.
+  sharedFile Boolean @default(false)
 
   /// Item 6's «Участь в конференціях (мах.5)».
   maxPerYear Int?
@@ -1742,8 +1747,13 @@ model ScienceRecordFile {
   /// Attached to the WORK, not to one person's draw: the сертифікат of an
   /// article is the same file for every co-author, and it must not vanish when
   /// the person who uploaded it withdraws their claim.
-  workId String
-  work   ScienceWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+  ///
+  /// MANY works since 2026-11-13: a вид роботи with `sharedFile` (a conference
+  /// programme) lets colleagues connect to the ONE stored file instead of
+  /// uploading it again. The row and its R2 object go only when the LAST work lets
+  /// go of it (`lib/science/file-share.ts`). For every other вид the file still
+  /// has exactly one work.
+  works ScienceWork[]
 
   /// The R2 object key. Server-generated end to end — nothing the user typed
   /// ever reaches it.
@@ -1771,8 +1781,6 @@ model ScienceRecordFile {
   uploadedBy   Staff  @relation("ScienceFileUploader", fields: [uploadedById], references: [id])
 
   uploadedAt DateTime @default(now())
-
-  @@index([workId])
 }
 
 // ─── Підвищення кваліфікації / Стажування (owner, 2026-10-13) ───────────────

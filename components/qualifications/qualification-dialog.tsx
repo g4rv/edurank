@@ -41,7 +41,13 @@ import { RequiredFields } from '@/components/ui/required-fields';
 import { DialogProblem } from '@/components/science/dialog-problem';
 import type { FileUploader } from '@/components/science/evidence-file-field';
 import { ScanField, type ScanChoice } from '@/components/science/scan-field';
-import { attempt, CONNECTION_PROBLEM } from '@/lib/science/attempt';
+import { attempt } from '@/lib/science/attempt';
+import {
+  dropPending,
+  isPendingKey,
+  saveWithUploads,
+  withPlaceholders,
+} from '@/lib/files/pending-upload';
 import {
   DOCUMENT_TYPES,
   DOCUMENT_TYPE_LABELS,
@@ -98,7 +104,9 @@ export function QualificationDialog({
 
   function handleOpenChange(next: boolean) {
     if (!next && stagedRef.current) {
-      void discardQualificationUpload(staffId, stagedRef.current.objectKey);
+      // A held file was never uploaded; only a key already in R2 is deleted there.
+      if (isPendingKey(stagedRef.current.objectKey)) dropPending(stagedRef.current.objectKey);
+      else void discardQualificationUpload(staffId, stagedRef.current.objectKey);
     }
     stagedRef.current = null;
     setOpen(next);
@@ -202,14 +210,11 @@ function QualificationForm({
   const [isPending, startTransition] = useTransition();
   const [problem, setProblem] = useState<string | null>(null);
 
-  // The scan chosen in THIS form, already in R2 and waiting for the save.
+  // The scan chosen in THIS form, held in the browser until the save uploads it.
   // What the scan field last reported: undefined keeps the stored scan, null takes
   // it away, an object replaces it (`ScanChoice`).
   const [choice, setChoice] = useState<ScanChoice>(undefined);
   const [fileBusy, setFileBusy] = useState(false);
-  // Bumped to remount the field after the server dropped a staged scan, so it
-  // stops claiming to hold one.
-  const [fileFieldKey, setFileFieldKey] = useState(0);
 
   function changeChoice(next: ScanChoice) {
     setChoice(next);
@@ -217,7 +222,7 @@ function QualificationForm({
     onStagedChange(next && typeof next === 'object' ? next : null);
   }
 
-  const uploader: FileUploader = {
+  const uploader: FileUploader = withPlaceholders({
     presign: (file) =>
       presignQualificationUpload({
         staffId,
@@ -226,7 +231,7 @@ function QualificationForm({
         sizeBytes: file.size,
       }),
     discard: (objectKey) => void discardQualificationUpload(staffId, objectKey),
-  };
+  });
 
   const {
     register,
@@ -264,21 +269,17 @@ function QualificationForm({
       // replaces it — see `QualificationInput.file`.
       const file = choice;
 
+      // The scan goes up HERE, behind the overlay, and is deleted again if the
+      // save does not happen — the picker keeps the file so a retry just works.
       const result = await attempt(() =>
-        qualification
-          ? updateQualification(qualification.id, { values, file })
-          : createQualification({ staffId, values, file: file ?? undefined })
+        saveWithUploads({ file }, ({ file: resolved }) =>
+          qualification
+            ? updateQualification(qualification.id, { values, file: resolved })
+            : createQualification({ staffId, values, file: resolved ?? undefined })
+        )
       );
 
       if ('error' in result) {
-        // The server dropped the staged object on a refusal, so the picker must
-        // stop claiming to hold one — except when the request never arrived:
-        // then it is still there and clearing it would make somebody upload it
-        // again.
-        if (choice && result.error !== CONNECTION_PROBLEM) {
-          changeChoice(undefined);
-          setFileFieldKey((k) => k + 1);
-        }
         setProblem(result.error);
         return;
       }
@@ -447,7 +448,6 @@ function QualificationForm({
               description="Необов’язково. PDF, JPG чи PNG до 10 МБ."
             >
               <ScanField
-                key={fileFieldKey}
                 id="qualification-file"
                 stored={qualification?.file ? { name: qualification.file.name } : null}
                 uploader={uploader}

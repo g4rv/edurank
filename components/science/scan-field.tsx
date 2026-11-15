@@ -89,7 +89,9 @@ export function ScanField({
       <EvidenceFileField
         id={id}
         value={staged}
-        onChange={(file) => {
+        onChange={(picked) => {
+          // A scan is personal: its uploader never offers an existing file.
+          const file = picked && 'objectKey' in picked ? picked : null;
           setStaged(file);
           // Cleared while a stored scan is being replaced: the person has chosen to
           // take it away, and has not chosen another.

@@ -13,8 +13,8 @@ import { YearCheckList } from '@/components/admin/kharakterystyka-year-check';
  * copies every document whole, and the filling is frozen, so these are taken out
  * here rather than left for people to fix.
  *
- * ADMIN only. Reached by its address — it is a clean-up tool, not a daily screen,
- * so it has no place in the sidebar.
+ * ADMIN only. Linked from the sidebar's «Адміністрування» group as «Перевірка
+ * публікацій».
  */
 export default async function KharakterystykaCheckPage({
   searchParams,

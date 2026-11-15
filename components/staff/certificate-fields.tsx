@@ -26,6 +26,7 @@ import { FieldGroup, FieldLegend, FieldSet } from '@/components/ui/field';
 import { FormField } from '@/components/ui/form-field';
 import type { FileUploader } from '@/components/science/evidence-file-field';
 import { ScanField, type ScanChoice } from '@/components/science/scan-field';
+import { withPlaceholders } from '@/lib/files/pending-upload';
 import {
   discardCertificateUpload,
   presignCertificateUpload,
@@ -149,17 +150,18 @@ function useCertificateSlot(
   const visitScan = useRef<{ objectKey: string; fileName: string } | null>(null);
 
   const uploader: FileUploader = useMemo(
-    () => ({
-      presign: (file) =>
-        presignCertificateUpload({
-          staffId: scans.staffId,
-          kind,
-          fileName: file.name,
-          contentType: file.type,
-          sizeBytes: file.size,
-        }),
-      discard: (objectKey) => void discardCertificateUpload(scans.staffId, kind, objectKey),
-    }),
+    () =>
+      withPlaceholders({
+        presign: (file) =>
+          presignCertificateUpload({
+            staffId: scans.staffId,
+            kind,
+            fileName: file.name,
+            contentType: file.type,
+            sizeBytes: file.size,
+          }),
+        discard: (objectKey) => void discardCertificateUpload(scans.staffId, kind, objectKey),
+      }),
     [scans.staffId, kind]
   );
 
