@@ -10,8 +10,9 @@ import type { Role } from '@/lib/generated/prisma/client';
  * ADMIN does both everywhere. An EDITOR gets nothing: a division has no part
  * in it.
  *
- * The заступник's right lives here and nowhere else — `scienceDeputyOf` is not
- * part of `scopeOf`, so it opens no other head screen.
+ * The заступник's right to SAVE lives here and nowhere else — `scienceDeputyOf`
+ * is not part of `scopeOf` or `headOf`. Since 2026-11-16 they also READ their
+ * кафедра's people (`canViewAcademicRecord`, `listMyDepartments`), nothing more.
  *
  * The one door — the pages, the action and the export all ask here.
  */

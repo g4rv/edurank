@@ -178,6 +178,11 @@ Consequences to keep in mind:
 - `ADMIN` — hardcoded full read/write, including confidential fields (e.g. ставка / work rate). No permission rows needed.
 - `EDITOR` — division employee. View access to nearly all pages. What they can actually **do** is entirely determined by their division's configured permissions (see below). Not all editors have the same capabilities.
 - `USER` — is a staff member (НПП). Can only view and edit their own profile, and submit achievements via forms.
+- **Заступник завідувача з наукової роботи** (`Department.scienceDeputyId`, not a `Role`):
+  fills Рейтинг кафедри beside the head (2026-10-21) and READS their кафедра's people
+  (owner, 2026-11-16) — «Моя кафедра» without ставки or head tools, and each person's
+  profile (no ставка), rating and Характеристика via `canViewAcademicRecord`. Never
+  qualifications (`overseesStaff` stays head + декан), never anything decided.
 
 ## Permission model (two layers, both per division, both configured by ADMIN)
 
