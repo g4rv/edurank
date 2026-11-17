@@ -27,6 +27,11 @@
 > - **3.7 and 2.2 are typed in друкованих аркушах**, not pages; a монографія's personal share
 >   must reach 1,5.
 >
+> **Changed 2026-11-17 (owner):** 3.11 takes a DOI **or an ISBN**, at least one, and its
+> title says so — «…що мають цифровий ідентифікатор DOI або ISBN та не належать до
+> категорій «А» і «Б»». Existing databases: `pnpm db:doi-publication-isbn`, report first,
+> then `--apply`.
+>
 > **Changed 2026-10-27 (owner):**
 >
 > - **New 3.11** `doi_publication` «Наукові публікації, що мають цифровий ідентифікатор DOI

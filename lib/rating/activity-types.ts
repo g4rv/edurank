@@ -604,8 +604,9 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     coefficientNote: "за кожну публікацію; DOI або ISSN — обов'язково",
     inputSource: 'NPP_SUBMISSION',
   },
-  // Added 2026-10-27 (owner); what was 3.11–3.26 is 3.12–3.27 since. The DOI is
-  // the proof, so it is mandatory and there is no link box; the date keeps the
+  // Added 2026-10-27 (owner); what was 3.11–3.26 is 3.12–3.27 since. The DOI or
+  // the ISBN is the proof (owner, 2026-11-17; the DOI alone before), there is no
+  // link box; the date keeps the
   // publication inside the rating year. «Перевірено», like 3.8 and 3.9 — the
   // division checks the DOI really is this article. No Характеристика position.
   {
@@ -614,11 +615,11 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     order: 13,
     itemNumber: '3.11',
     label:
-      'Наукові публікації, що мають цифровий ідентифікатор DOI та не належать до категорій «А» і «Б»',
+      'Наукові публікації, що мають цифровий ідентифікатор DOI або ISBN та не належать до категорій «А» і «Б»',
     kind: 'SELECT',
     coefficient: 1,
     coefficientNote:
-      "стаття одноосібно — 100, стаття у співавторстві — 50, конференція — 40; DOI — обов'язково",
+      "стаття одноосібно — 100, стаття у співавторстві — 50, конференція — 40; DOI або ISBN — обов'язково",
     inputSource: 'NPP_SUBMISSION',
     requiresVerification: true,
   },

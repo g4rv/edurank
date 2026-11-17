@@ -255,9 +255,16 @@ describe('3.11 and the DOI rule (owner, 2026-10-27)', () => {
     });
   });
 
-  it('requires the DOI', async () => {
+  it('requires the DOI or the ISBN (owner, 2026-11-17)', async () => {
     expect(await createActivity('type-311', article({ doi: '' }))).toEqual({
       error: 'Невірні дані форми',
+    });
+    mockTx();
+    expect(
+      await createActivity('type-311', article({ doi: '', isbn: '978-966-7230-41-8' }))
+    ).toEqual({
+      success: true,
+      score: 100,
     });
   });
 
