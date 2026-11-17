@@ -21,6 +21,7 @@ import { kharakterystykaEntrySchema, lineRefSchema } from '@/validations/kharakt
 import {
   deleteEntryProblem,
   removeLineProblem,
+  removePositionProblem,
   typeEntryProblem,
 } from '@/lib/kharakterystyka/self-entry';
 import { activityLineText, type LineRef } from '@/lib/kharakterystyka/build';
@@ -39,7 +40,7 @@ export type EntryState = { error: string } | { success: true } | null;
  * Evidence typed by hand for one п.38 position.
  *
  * **ADMIN anywhere; an НПП on п.15 and п.20 of their own document** (owner,
- * 2026-09-14). The rest of the file is derived and editable by nobody — the
+ * 2026-09-14; widened 2026-09-22, narrowed back 2026-11-17). The rest of the file is derived and editable by nobody — the
  * rule at the top of `build.ts` — and that is what stops the Характеристика
  * asserting something a person's own rating does not support.
  *
@@ -411,6 +412,8 @@ export async function previewLineRemoval(
   const isAdmin = session.user.role === 'ADMIN';
   const stored = await storedLine(staffId, parsed.data, { isAdmin });
   if ('error' in stored) return stored;
+  const offPosition = removePositionProblem(session.user.role, stored.position);
+  if (offPosition) return { error: offPosition };
   // Asked here as well as on removal, so the dialog says it before the button
   // is pressed rather than after (a rating change waits for a saved plan, D56).
   if (stored.mode === 'delete-activity' && !isAdmin) {
@@ -484,6 +487,9 @@ export async function removeKharakterystykaLine(
 
   const stored = await storedLine(staffId, line, { isAdmin });
   if ('error' in stored) return stored;
+  // Judged on the STORED line's position: an НПП removes only on п.15 / п.20
+  const offPosition = removePositionProblem(session.user.role, stored.position);
+  if (offPosition) return { error: offPosition };
 
   // A rating change, so the НПП's own rule for one applies (D56)
   if (stored.mode === 'delete-activity' && !isAdmin) {

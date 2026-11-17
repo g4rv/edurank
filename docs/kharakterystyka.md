@@ -129,11 +129,18 @@ Only what NAMES the achievement is required. A typed row usually records an old
 year from a document that said less than we would like, and a form refusing to
 save until every box is full would send somebody to invent a реєстраційний номер.
 
-## An НПП fills in their own document (decided 2026-09-22)
+## An НПП fills in their own document (decided 2026-09-22, narrowed 2026-11-17)
+
+**Since 2026-11-17 an НПП types only п.15 and п.20** — the `MANUAL` positions,
+the ones neither the rating nor the profile fills (owner: «closed for all the
+fields that can be populated from the rating»). Everything else comes from the
+rating, п.5 from the profile. The lines typed before stay and count — they were
+the corrections this section describes — and only ADMIN removes them now.
+ADMIN types anywhere. What follows is the history of the wider rule.
 
 Hand-typed rows were ADMIN-only until 2026-09-14, when п.15 and п.20 opened to
 the person the document is about — the two positions no rating indicator feeds.
-**Today every position that has a form opens to them**: 1–15, 19 and 20.
+**From 2026-09-22 every position that had a form opened to them**: 1–15, 19 and 20.
 
 п.16–п.18 stay shut. They are «для вищих військових навчальних закладів», a claim
 this university may not make, so no form was ever written for them.
@@ -173,7 +180,14 @@ This is **«for now»**. A moderation queue is the remedy if abuse appears; see
 `docs/work-remaining.md` §H for what it would cost. Narrowing it again is a
 one-line change in `lib/kharakterystyka/self-entry.ts`.
 
-## Removing a line (decided 2026-10-06)
+## Removing a line (decided 2026-10-06, narrowed 2026-11-17)
+
+**Since 2026-11-17 an НПП removes lines only on п.15 and п.20** (owner: «the only
+way they can interact with the Характеристика is via the rating and 15 and 20»).
+A wrong rating line goes by deleting the entry in «Мій рейтинг»; a line typed or
+imported on any other position stays unless ADMIN removes it. The bin is not
+drawn there, and `removePositionProblem` refuses it on the server. What follows
+is ADMIN's rule, and was the НПП's until then.
 
 **ADMIN on anybody's document, an НПП on their own — any line, whatever its
 source.** Every line of evidence carries a bin; п.5's defence date does not (it

@@ -30,6 +30,10 @@ import { formatStake } from '@/lib/stake/units';
  *
  * Deliberately read-only. The head's one editing job is the ставка
  * distribution, and that grid is a separate feature.
+ *
+ * A заступник з наукової роботи reads it too (owner, 2026-11-16), with no
+ * Ставка column and no «Розподіл ставок» / «Залучені здобувачі» — see
+ * `asScienceDeputy` in `listMyDepartments`.
  */
 export default async function MyDepartmentPage({
   searchParams,
@@ -101,7 +105,7 @@ export default async function MyDepartmentPage({
             <DepartmentLinks
               departmentId={departments[0].id}
               year={template.year}
-              showHeadTools={!isDean}
+              showHeadTools={!isDean && !departments[0].asScienceDeputy}
             />
           ) : undefined
         }
@@ -124,7 +128,7 @@ export default async function MyDepartmentPage({
                 <DepartmentLinks
                   departmentId={department.id}
                   year={template.year}
-                  showHeadTools={!isDean}
+                  showHeadTools={!isDean && !department.asScienceDeputy}
                 />
               )}
             </div>
@@ -139,6 +143,7 @@ export default async function MyDepartmentPage({
             positionsByStaff={positionsByStaff}
             year={template?.year ?? null}
             fill={single}
+            showStake={!department.asScienceDeputy}
           />
         </section>
       ))}
@@ -198,29 +203,37 @@ function DepartmentLinks({
  */
 const COLUMNS = [null, '16rem', '9rem', '7rem', '12rem'] as const;
 const MIN_WIDTH = 'calc(16rem + 16rem + 9rem + 7rem + 12rem)';
+// The same without «Ставка» — the заступник з наукової роботи's view
+const COLUMNS_NO_STAKE = [null, '16rem', '9rem', '12rem'] as const;
+const MIN_WIDTH_NO_STAKE = 'calc(16rem + 16rem + 9rem + 12rem)';
 
 /**
  * A декан sees the Ставка column too (owner, 2026-10-02, reversing
  * 2026-09-24): the saved split, read-only. The grid and the fund stay the
  * head's — `/stakes/[id]` still gates on `headOf`.
+ *
+ * A заступник з наукової роботи does NOT (owner, 2026-11-16): `showStake`
+ * false drops the column, and the query never fetched the numbers.
  */
 function StaffTable({
   staff,
   positionsByStaff,
   year,
   fill,
+  showStake,
 }: {
   staff: Awaited<ReturnType<typeof listMyDepartments>>[number]['staff'];
   positionsByStaff: Map<string, { metCount: number; qualifies: boolean }>;
   year: number | null;
   fill: boolean;
+  showStake: boolean;
 }) {
   if (staff.length === 0) return <EmptyState>На кафедрі немає НПП</EmptyState>;
 
   return (
     <Table
-      columns={COLUMNS}
-      minWidth={MIN_WIDTH}
+      columns={showStake ? COLUMNS : COLUMNS_NO_STAKE}
+      minWidth={showStake ? MIN_WIDTH : MIN_WIDTH_NO_STAKE}
       fill={fill}
       head={
         <TableRow>
@@ -231,7 +244,7 @@ function StaffTable({
           <TableHead align="center" className="whitespace-nowrap">
             {year === null ? 'Рейтинг' : `Рейтинг ${year}`}
           </TableHead>
-          <TableHead align="center">Ставка</TableHead>
+          {showStake && <TableHead align="center">Ставка</TableHead>}
           <TableHead align="center">Характеристика</TableHead>
         </TableRow>
       }
@@ -270,13 +283,15 @@ function StaffTable({
             </TableCell>
             {/* THIS кафедра's ставка for them — the head's own saved split, the
                 number on their grid. «—» until a split is saved. */}
-            <TableCell numeric align="center">
-              {person.stakeHundredths === null ? (
-                <span className="text-foreground-soft">—</span>
-              ) : (
-                formatStake(person.stakeHundredths)
-              )}
-            </TableCell>
+            {showStake && (
+              <TableCell numeric align="center">
+                {person.stakeHundredths === null ? (
+                  <span className="text-foreground-soft">—</span>
+                ) : (
+                  formatStake(person.stakeHundredths)
+                )}
+              </TableCell>
+            )}
             <TableCell align="center">
               {/* The licence score and the document it comes from, side by
                   side — the head reads the one and downloads the other. */}

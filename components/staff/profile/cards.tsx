@@ -405,7 +405,20 @@ export function WorkplacesCard({
   stakeParts = [],
   showStake = false,
   showEmpty = true,
-}: CardProps & { stakeParts?: StakePart[]; showStake?: boolean }) {
+  linkDepartments = false,
+  linkDivision = false,
+}: CardProps & {
+  stakeParts?: StakePart[];
+  showStake?: boolean;
+  /**
+   * Decided by the route: may this viewer open `/departments/[id]` and
+   * `/faculties/[id]`? Both send a `USER` back to /profile, so a link there was
+   * a dead end (owner, 2026-11-17). Off = the names as plain text.
+   */
+  linkDepartments?: boolean;
+  /** `/divisions/[id]` is ADMIN's alone */
+  linkDivision?: boolean;
+}) {
   const none = !staff.department && staff.partTimeDepartments.length === 0 && !staff.division;
   if (none && !showEmpty) return null;
 
@@ -462,10 +475,12 @@ export function WorkplacesCard({
                 badge="Основне"
                 faculty={staff.department.faculty?.name}
                 facultyHref={
-                  staff.department.faculty ? `/faculties/${staff.department.faculty.id}` : null
+                  linkDepartments && staff.department.faculty
+                    ? `/faculties/${staff.department.faculty.id}`
+                    : null
                 }
                 department={staff.department.name}
-                departmentHref={`/departments/${staff.department.id}`}
+                departmentHref={linkDepartments ? `/departments/${staff.department.id}` : null}
                 trailing={stake(staff.department.id)}
               />
             )}
@@ -475,10 +490,12 @@ export function WorkplacesCard({
                 badge="Сумісництво"
                 faculty={pd.department.faculty?.name}
                 facultyHref={
-                  pd.department.faculty ? `/faculties/${pd.department.faculty.id}` : null
+                  linkDepartments && pd.department.faculty
+                    ? `/faculties/${pd.department.faculty.id}`
+                    : null
                 }
                 department={pd.department.name}
-                departmentHref={`/departments/${pd.department.id}`}
+                departmentHref={linkDepartments ? `/departments/${pd.department.id}` : null}
                 trailing={stake(pd.department.id)}
               />
             ))}
@@ -488,7 +505,7 @@ export function WorkplacesCard({
               <PositionEntry
                 badge="Відділ"
                 department={staff.division.name}
-                departmentHref={`/divisions/${staff.division.id}`}
+                departmentHref={linkDivision ? `/divisions/${staff.division.id}` : null}
               />
             )}
           </div>

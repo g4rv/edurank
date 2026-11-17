@@ -127,7 +127,9 @@ describe('SELECT types', () => {
   it('publication_cat_a quartiles: Q1=600, Q2=500, Q3-4/none=400', () => {
     expect(score('publication_cat_a', { option: 'q1' }).score).toBe(600);
     expect(score('publication_cat_a', { option: 'q2' }).score).toBe(500);
-    expect(score('publication_cat_a', { option: 'q3_4_or_none' }).score).toBe(400);
+    // Two options since 2026-11-17, one price
+    expect(score('publication_cat_a', { option: 'q3_4' }).score).toBe(400);
+    expect(score('publication_cat_a', { option: 'none' }).score).toBe(400);
   });
 
   it('coefficient scales option points (admin can rescale a whole item)', () => {

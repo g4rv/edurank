@@ -192,8 +192,10 @@ export function Sidebar({
   const management: NavItem[] = [];
   if (isDean) {
     management.push({ href: '/my-faculty', label: 'Мій факультет', icon: GraduationCap });
-  } else if (headsDepartment) {
-    // Exact — otherwise /my-department/students lights both lines at once
+  } else if (headsDepartment || isScienceDeputy) {
+    // The заступник з наукової роботи reads the list too, without ставки
+    // (owner, 2026-11-16). Exact — otherwise /my-department/students lights
+    // both lines at once
     management.push({ href: '/my-department', label: 'Моя кафедра', icon: BookOpen, exact: true });
   }
   if (canSeeRating) {

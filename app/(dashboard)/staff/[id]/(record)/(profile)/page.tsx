@@ -127,6 +127,10 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
           stakeParts={stakeParts}
           certificates={certificates}
           canOpenCertificateFiles={canOpenCertificateFiles}
+          // A завідувач or декан on a USER account reads this record too, and
+          // the кафедра / факультет pages send a USER away (owner, 2026-11-17)
+          linkDepartments={session.user.role !== 'USER'}
+          linkDivision={isAdmin}
         />
       </div>
     </div>

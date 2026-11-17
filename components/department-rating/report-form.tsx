@@ -16,6 +16,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/aurora/ui/table';
 import { UnsavedChangesGuard } from '@/components/unsaved-changes-guard';
 import { NarrativeSections } from '@/components/department-rating/narrative-sections';
+import { DerivedHint } from '@/components/department-rating/derived-hint';
+import type { DepartmentDerived } from '@/lib/queries/get-department-derived';
 import { saveDepartmentReport } from '@/app/(dashboard)/department-rating/actions';
 import { decimalText } from '@/lib/decimal-input';
 import {
@@ -56,6 +58,7 @@ export function DepartmentReportForm({
   values,
   narrative,
   editable,
+  derived = null,
 }: {
   departmentId: string;
   year: number;
@@ -63,6 +66,8 @@ export function DepartmentReportForm({
   values: ReportValues;
   narrative: DepartmentNarrative;
   editable: boolean;
+  /** What the staff's personal ratings hold per line — the open year only */
+  derived?: DepartmentDerived | null;
 }) {
   const router = useRouter();
   const [isPending, setPending] = useState(false);
@@ -197,7 +202,24 @@ export function DepartmentReportForm({
                   <TableCell align="center" numeric muted>
                     {row.itemNumber}
                   </TableCell>
-                  <TableCell>{row.label}</TableCell>
+                  <TableCell>
+                    {row.label}
+                    {derived?.lines[row.id] && (
+                      <DerivedHint
+                        itemNumber={row.itemNumber}
+                        label={row.label ?? ''}
+                        line={derived.lines[row.id]}
+                        totals={derived}
+                        current={counts?.[row.id] ?? ''}
+                        canAccept={editable}
+                        // The same as typing the number and leaving the box
+                        onAccept={(count) => {
+                          form.setValue(`counts.${row.id}`, String(count), { shouldDirty: true });
+                          void save();
+                        }}
+                      />
+                    )}
+                  </TableCell>
                   <TableCell align="center">
                     <ValueControl
                       row={row}

@@ -1,17 +1,17 @@
 import { REQUIRED_POSITIONS } from '@/lib/kharakterystyka/positions';
-import { minimumKst, type DepartmentKnpp } from '@/lib/queries/get-department-knpp';
+import type { DepartmentKnpp } from '@/lib/queries/get-department-knpp';
 import { UK } from '@/lib/plural';
 import { Card } from '@/components/aurora/ui/card';
 
 /**
- * The кафедра's two ставка numbers, side by side — because they are different
+ * The кафедра's two head counts, side by side — because they are different
  * numbers and the whole feature goes wrong when somebody treats them as one.
  *
  *   Кнпп       the divisor in the formula — only those clearing ≥4 of 20
- *   НПП всього the roster, which sets the pool's own minimum (Кст ≥ 0.1 × N)
+ *   НПП всього the roster, сумісники included
  *
- * Shown together on purpose: a кафедра where the two differ sharply is exactly
- * where a reader would otherwise assume the smaller one bounds the pool.
+ * The pool minimum (Кст ≥ 0,1 × N) is no longer shown here (owner, 2026-11-16:
+ * «not useful» on a licence panel); `/stakes` still checks and shows it.
  */
 export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number }) {
   // Against the кафедра's OWN staff: `headcount` now includes сумісники, who
@@ -39,11 +39,6 @@ export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number
           label="НПП усього"
           hint="на кафедрі разом із сумісниками, крім архівних"
         />
-        <Figure
-          value={minimumKst(data.headcount).toFixed(2).replace('.', ',')}
-          label="Мінімум ставок на кафедру"
-          hint={`${data.headcount} осіб × 0,10 — менше виділити не можна, інакше не всім вистачить`}
-        />
       </div>
 
       {belowBar > 0 && (
@@ -57,9 +52,8 @@ export function KnppSummary({ data, year }: { data: DepartmentKnpp; year: number
 
       {data.partTimeHeadcount > 0 && (
         <p className="mt-3 border-t pt-3 text-sm text-foreground">
-          Із них {UK.partTimer(data.partTimeHeadcount)} з інших кафедр. Вони входять у мінімум
-          ставок, бо теж отримують ставку тут, але не входять у Кнпп — ліцензійні позиції рахує
-          основна кафедра.
+          Із них {UK.partTimer(data.partTimeHeadcount)} з інших кафедр. Вони не входять у Кнпп —
+          ліцензійні позиції рахує основна кафедра.
         </p>
       )}
     </Card>

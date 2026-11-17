@@ -50,7 +50,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const headsDepartment = scope.length > 0;
   // A декан's own screen is the факультет, not a кафедра (owner, 2026-09-24).
   const isDean = deanFaculties.length > 0;
-  // Заступник з наукової роботи — «Рейтинг кафедри» and nothing else (2026-10-21)
+  // Заступник з наукової роботи — «Рейтинг кафедри» (2026-10-21) and a
+  // read-only «Моя кафедра» without ставки (2026-11-16)
   const isScienceDeputy = deputyships.length > 0;
 
   // Fresh from DB, not the session token: an admin may flip НПП/адміністративний

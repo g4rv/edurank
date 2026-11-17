@@ -5,7 +5,7 @@ vi.mock('./get-kharakterystyka', () => ({ getKharakterystykaMany: vi.fn() }));
 
 import { db } from '@/lib/db';
 import { getKharakterystykaMany } from './get-kharakterystyka';
-import { getDepartmentKnpp, getDepartmentsKnpp, minimumKst } from './get-department-knpp';
+import { getDepartmentKnpp, getDepartmentsKnpp } from './get-department-knpp';
 
 const mockStaff = db.staff.findMany as unknown as Mock;
 const mockDocuments = getKharakterystykaMany as unknown as Mock;
@@ -144,20 +144,6 @@ describe('getDepartmentsKnpp', () => {
   });
 });
 
-describe('minimumKst', () => {
-  it('is 0.1 per person on the roster', () => {
-    expect(minimumKst(10)).toBe(1);
-    expect(minimumKst(25)).toBe(2.5);
-    expect(minimumKst(0)).toBe(0);
-  });
-
-  it('does not drift on a count that lands off a round number', () => {
-    // 7 × 0.1 in floats is 0.7000000000000001
-    expect(minimumKst(7)).toBe(0.7);
-    expect(minimumKst(29)).toBe(2.9);
-  });
-});
-
 describe('a сумісник on somebody else’s кафедра', () => {
   it('counts in headcount, because the pool must pay them a floor too', async () => {
     staffRows([
@@ -199,17 +185,6 @@ describe('a сумісник on somebody else’s кафедра', () => {
 
     const [d2] = await getDepartmentsKnpp(['d2'], 2026);
     expect(d2).toMatchObject({ primaryHeadcount: 1, partTimeHeadcount: 0, headcount: 1, knpp: 1 });
-  });
-
-  it('raises the pool minimum by 0,10 for each of them', async () => {
-    staffRows([
-      { id: 'a', departmentId: 'd1' },
-      { id: 'guest', departmentId: 'd2', partTimeIn: ['d1'] },
-    ]);
-    documents({ a: 7, guest: 7 });
-
-    const [d1] = await getDepartmentsKnpp(['d1'], 2026);
-    expect(minimumKst(d1.headcount)).toBeCloseTo(0.2, 5);
   });
 
   it('asks the database for сумісники as well as primary staff', async () => {

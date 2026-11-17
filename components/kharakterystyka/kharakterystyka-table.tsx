@@ -47,9 +47,16 @@ interface RemovingProps {
    * (owner, 2026-10-06), and the server refuses it the same way.
    */
   asOwner?: boolean;
+  /**
+   * Positions this viewer may remove lines on. Omitted = every one (ADMIN). An
+   * НПП gets п.15 and п.20 only (owner, 2026-11-17); the server asks
+   * `removePositionProblem` again.
+   */
+  positions?: readonly number[];
 }
 
-function mayRemove(ref: LineRef, removing: RemovingProps): boolean {
+function mayRemove(ref: LineRef, position: number, removing: RemovingProps): boolean {
+  if (removing.positions && !removing.positions.includes(position)) return false;
   if (!removing.asOwner || ref.kind !== 'activity' || !ref.openYearBy) return true;
   return ref.openYearBy === 'NPP';
 }
@@ -276,7 +283,7 @@ function PositionRow({
                 </span>
                 {/* Every line that is a stored thing — not п.5's defence date,
                     which is the profile's and is changed there. */}
-                {removing && entry.ref && mayRemove(entry.ref, removing) && (
+                {removing && entry.ref && mayRemove(entry.ref, position.number, removing) && (
                   <RemoveLineButton
                     staffId={removing.staffId}
                     line={entry.ref}

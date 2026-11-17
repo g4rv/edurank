@@ -52,13 +52,13 @@ import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, getKharakterystykaWithout } from '@/lib/queries/get-kharakterystyka';
 import { recomputeRatingEntry } from '@/lib/rating/recompute';
-import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import {
   addKharakterystykaEntry,
   deleteKharakterystykaEntry,
   previewLineRemoval,
   removeKharakterystykaLine,
 } from './actions';
+import { POSITION_FROM_RATING_DETAIL } from '@/lib/kharakterystyka/self-entry';
 
 const mockAuth = auth as unknown as Mock;
 const mockTemplate = getActiveTemplate as unknown as Mock;
@@ -158,18 +158,14 @@ describe('addKharakterystykaEntry', () => {
     );
   });
 
-  it('lets an НПП type a derived position on their own document', async () => {
-    // п.2 is fed by indicators, and this is exactly what widened on 2026-09-22:
-    // the import left positions empty that people genuinely satisfy, and its
-    // subject is the only one who can repair that. The row prints «Внесено
-    // власноруч» and is audited — see §H of docs/work-remaining.md.
+  it('refuses an НПП typing a position the rating fills', async () => {
+    // п.2 is fed by indicators. Open to them 2026-09-22 so they could repair the
+    // import; closed again 2026-11-17 — it comes from the rating only.
     mockAuth.mockResolvedValue({ user: { id: STAFF_ID, role: 'USER', staffId: STAFF_ID } });
-    expect(await addKharakterystykaEntry(validP2)).toEqual({ success: true });
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ position: 2, source: 'MANUAL', createdBy: STAFF_ID }),
-      })
-    );
+    expect(await addKharakterystykaEntry(validP2)).toEqual({
+      error: 'Ця позиція заповнюється з рейтингу або профілю',
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it('still lets an ADMIN type a derived position', async () => {
@@ -345,11 +341,10 @@ describe('removeKharakterystykaLine', () => {
 
   // A closed year is frozen: the line leaves the Характеристика only.
   it('hides a closed year’s rating line and leaves the rating alone', async () => {
-    asNpp();
     mockActivityFind.mockResolvedValue(activityIn('CLOSED'));
     expect(await removeKharakterystykaLine(STAFF_ID, ratingLine)).toEqual({ success: true });
     expect(mockRemovedLine).toHaveBeenCalledWith({
-      data: [{ activityId: 'act-1', position: 1, removedBy: STAFF_ID }],
+      data: [{ activityId: 'act-1', position: 1, removedBy: 'admin-1' }],
       skipDuplicates: true,
     });
     expect(mockActivityDelete).not.toHaveBeenCalled();
@@ -357,8 +352,7 @@ describe('removeKharakterystykaLine', () => {
   });
 
   // An open year's line is wrong in the rating too, and it can still be fixed.
-  it('deletes an open year’s entry from the rating, the НПП’s own', async () => {
-    asNpp();
+  it('deletes an open year’s entry from the rating, for ADMIN', async () => {
     mockActivityFind.mockResolvedValue(activityIn('OPEN'));
     expect(await removeKharakterystykaLine(STAFF_ID, ratingLine)).toEqual({ success: true });
     expect(mockActivityDelete).toHaveBeenCalledWith({ where: { id: 'act-1' } });
@@ -366,13 +360,16 @@ describe('removeKharakterystykaLine', () => {
     expect(mockRemovedLine).not.toHaveBeenCalled();
   });
 
-  it('asks an НПП for a saved science plan first, as any rating change does', async () => {
+  // Owner, 2026-11-17: an НПП changes a rating line through the rating itself
+  // («Мій рейтинг»), never from the Характеристика — open year or closed.
+  it.each(['OPEN', 'CLOSED'] as const)('refuses an НПП a rating line (%s year)', async (status) => {
     asNpp();
-    mockActivityFind.mockResolvedValue(activityIn('OPEN'));
-    (getSciencePlanGate as Mock).mockResolvedValueOnce({ open: false });
-    const result = await removeKharakterystykaLine(STAFF_ID, ratingLine);
-    expect(result).toHaveProperty('error');
+    mockActivityFind.mockResolvedValue(activityIn(status));
+    expect(await removeKharakterystykaLine(STAFF_ID, ratingLine)).toEqual({
+      error: POSITION_FROM_RATING_DETAIL,
+    });
     expect(mockActivityDelete).not.toHaveBeenCalled();
+    expect(mockRemovedLine).not.toHaveBeenCalled();
   });
 
   it('refuses an НПП a відділ’s open-year entry', async () => {
@@ -422,6 +419,27 @@ describe('removeKharakterystykaLine', () => {
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'entry-9' } });
   });
 
+  it('refuses an НПП a typed or imported line on a rating position', async () => {
+    asNpp();
+    for (const source of ['MANUAL', 'IMPORT']) {
+      mockEntryFind.mockResolvedValue({ ...entry, source });
+      expect(
+        await removeKharakterystykaLine(STAFF_ID, { kind: 'entry', entryId: 'entry-9' })
+      ).toEqual({ error: POSITION_FROM_RATING_DETAIL });
+    }
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('lets an НПП remove their typed line on п.15', async () => {
+    asNpp();
+    mockEntryFind.mockResolvedValue({ ...entry, position: 15, source: 'MANUAL' });
+    expect(
+      await removeKharakterystykaLine(STAFF_ID, { kind: 'entry', entryId: 'entry-9' })
+    ).toEqual({ success: true });
+    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'entry-9' } });
+  });
+
   it('refuses an НПП on somebody else’s document', async () => {
     asNpp();
     const result = await removeKharakterystykaLine('other-staff', ratingLine);
@@ -432,7 +450,7 @@ describe('removeKharakterystykaLine', () => {
 
 describe('previewLineRemoval', () => {
   // Said in the dialog, before «Вилучити» — not as a refusal after it
-  it('tells an НПП without a saved plan before they confirm', async () => {
+  it('tells an НПП before they confirm that a rating line is not theirs to remove here', async () => {
     mockAuth.mockResolvedValue({ user: { id: STAFF_ID, role: 'USER', staffId: STAFF_ID } });
     mockActivityFind.mockResolvedValue({
       staffId: STAFF_ID,
@@ -441,13 +459,12 @@ describe('previewLineRemoval', () => {
       submittedByRole: 'NPP',
       activityType: { licencePositions: [{ position: 1 }], template: { status: 'OPEN' } },
     });
-    (getSciencePlanGate as Mock).mockResolvedValueOnce({ open: false });
     const result = await previewLineRemoval(STAFF_ID, {
       kind: 'activity',
       activityId: 'act-1',
       position: 1,
     });
-    expect(result).toHaveProperty('error');
+    expect(result).toEqual({ error: POSITION_FROM_RATING_DETAIL });
   });
 
   const doc = (met: boolean, metCount: number) => ({

@@ -4,7 +4,10 @@ import {
   SECTION_TITLES,
 } from '../lib/rating/activity-types';
 import { dbSpecs } from '../lib/rating/db-specs';
-import { DEPARTMENT_INDICATORS_2026 } from '../lib/department-rating/catalogue-2026';
+import {
+  DEPARTMENT_INDICATORS_2026,
+  DERIVATIONS_2026,
+} from '../lib/department-rating/catalogue-2026';
 import { SPECIALITY_NORMS_2026, DEFAULT_CONTRACT_COEFFICIENT } from '../lib/stake/norms';
 import { stakeYearOf } from '../lib/science/academic-year';
 import {
@@ -13,7 +16,7 @@ import {
   scienceDbSpecs,
 } from '../lib/science/work-types-2027';
 import type { PrismaClient } from '../lib/generated/prisma/client';
-import type { Prisma } from '../lib/generated/prisma/client';
+import { Prisma } from '../lib/generated/prisma/client';
 
 // Everything a REAL university needs before anybody can use the app, and
 // nothing a real university would be embarrassed to find in its database.
@@ -298,6 +301,11 @@ export function departmentIndicatorRows(year: number) {
     coefficient: def.coefficient ?? 0,
     options: (def.options ?? []) as Prisma.InputJsonValue,
     isActive: true,
+    // Lines counted from the staff's personal entries (2026-11-16); the rest
+    // stay typed by hand. `Prisma.DbNull` is the SQL null a Json? column needs.
+    derivation: DERIVATIONS_2026[def.itemNumber]
+      ? (DERIVATIONS_2026[def.itemNumber] as unknown as Prisma.InputJsonValue)
+      : Prisma.DbNull,
   }));
 }
 

@@ -1,11 +1,11 @@
 import { db } from '@/lib/db';
 import { ON_ROSTER, onDepartments } from './roster';
-import { scopeOf } from './scope';
+import { scienceDeputyOf, scopeOf } from './scope';
 import type { AcademicRank, ScientificDegree } from '@/lib/generated/prisma/client';
 
 /**
- * The кафедри a завідувач heads (or a декан covers), with their НПП and each
- * person's total for the given year.
+ * The кафедри a завідувач heads (or a декан covers, or a заступник з наукової
+ * роботи reads), with their НПП and each person's total for the given year.
  *
  * This is the head's own view of their people. It exists because headship is
  * not a `Role`: a head is usually an ordinary `USER`, so `/staff` is closed to
@@ -42,8 +42,12 @@ interface MyDepartmentStaff {
 }
 
 export async function listMyDepartments(staffId: string | null | undefined, year: number) {
-  const departmentIds = await scopeOf(staffId);
+  // A заступник з наукової роботи reads their кафедра's list too (owner,
+  // 2026-11-16) — without the ставки: those are the head's and ADMIN's.
+  const [scope, deputyships] = await Promise.all([scopeOf(staffId), scienceDeputyOf(staffId)]);
+  const departmentIds = [...new Set([...scope, ...deputyships])];
   if (departmentIds.length === 0) return [];
+  const deputyOnly = new Set(deputyships.filter((id) => !scope.includes(id)));
 
   const [departments, staff, distributions] = await Promise.all([
     db.department.findMany({
@@ -66,8 +70,10 @@ export async function listMyDepartments(staffId: string | null | undefined, year
         ratingEntries: { where: { year }, select: { totalScore: true } },
       },
     }),
+    // Only the кафедри whose ставки this person may read: a deputy-only
+    // кафедра's split is never fetched, so it cannot leak into a page
     db.stakeDistribution.findMany({
-      where: { departmentId: { in: departmentIds }, year },
+      where: { departmentId: { in: scope }, year },
       select: {
         departmentId: true,
         allocations: { select: { staffId: true, proposedHundredths: true } },
@@ -121,6 +127,11 @@ export async function listMyDepartments(staffId: string | null | undefined, year
     id: d.id,
     name: d.name,
     faculty: d.faculty.name,
+    /**
+     * Read as заступник з наукової роботи, not as head or декан: no ставка
+     * column and no head tools. Every `stakeHundredths` below is null.
+     */
+    asScienceDeputy: deputyOnly.has(d.id),
     // Сумісники as a block at the bottom, then the ranking order — which is the
     // order the ставка formula spreads a pool in, so it is the order a head
     // already thinks in. Name as the final tie-break so it never wobbles.

@@ -1,5 +1,61 @@
 import { describe, expect, it } from 'vitest';
-import { DEPARTMENT_INDICATORS_2026 } from './catalogue-2026';
+import { DEPARTMENT_INDICATORS_2026, DERIVATIONS_2026 } from './catalogue-2026';
+import { readDerivation } from './derivation';
+import { ACTIVITY_TYPES_2026 } from '@/lib/rating/activity-types';
+import { EVIDENCE_FIELDS } from '@/lib/rating/evidence-fields';
+
+// The mapping names fields of OTHER forms by name, so a renamed field would
+// silently count nothing. These checks are the contract between the two.
+describe('DERIVATIONS_2026', () => {
+  const codes = new Set(ACTIVITY_TYPES_2026.map((t) => t.code));
+
+  it('maps only COUNT lines that exist', () => {
+    for (const itemNumber of Object.keys(DERIVATIONS_2026)) {
+      expect(byItemLine(itemNumber)?.kind, itemNumber).toBe('COUNT');
+    }
+  });
+
+  it('is a valid stored mapping on every line', () => {
+    for (const [itemNumber, d] of Object.entries(DERIVATIONS_2026)) {
+      expect(readDerivation(d), itemNumber).toEqual(d);
+    }
+  });
+
+  it('names real personal indicators, fields and options', () => {
+    for (const [itemNumber, d] of Object.entries(DERIVATIONS_2026)) {
+      for (const source of d.from) {
+        const where = `${itemNumber} ← ${source.code}`;
+        expect(codes.has(source.code), where).toBe(true);
+        const fields = EVIDENCE_FIELDS[source.code] ?? [];
+        const names = new Set(fields.map((f) => f.name));
+        for (const key of source.keys) expect(names.has(key), `${where} key ${key}`).toBe(true);
+        expect(names.has(source.text), `${where} text ${source.text}`).toBe(true);
+        if (source.when) {
+          const field = fields.find((f) => f.name === source.when!.field);
+          expect(field?.kind, `${where} when`).toBe('select');
+          const options = new Set(
+            field && field.kind === 'select' ? field.options.map((o) => o.value) : []
+          );
+          for (const value of source.when.in) {
+            expect(options.has(value), `${where} option ${value}`).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
+  it('links exactly the agreed lines, FULL and PARTIAL', () => {
+    const full = Object.entries(DERIVATIONS_2026)
+      .filter(([, d]) => d.coverage === 'FULL')
+      .map(([n]) => n);
+    expect(full.sort()).toEqual(['13.1', '13.2', '5', '7.1', '7.2', '9']);
+    expect(Object.keys(DERIVATIONS_2026)).toHaveLength(10);
+  });
+});
+
+function byItemLine(itemNumber: string) {
+  return DEPARTMENT_INDICATORS_2026.find((d) => d.itemNumber === itemNumber);
+}
 
 const byItem = (itemNumber: string) =>
   DEPARTMENT_INDICATORS_2026.find((d) => d.itemNumber === itemNumber);

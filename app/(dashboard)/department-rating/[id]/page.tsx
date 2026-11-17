@@ -8,6 +8,7 @@ import { reportAccessFor, visibleDepartmentIds } from '@/lib/department-rating/a
 import { db } from '@/lib/db';
 import { KYIV } from '@/lib/kyiv-time';
 import { getDepartmentReport } from '@/lib/queries/get-department-report';
+import { getDepartmentDerived } from '@/lib/queries/get-department-derived';
 import { EMPTY_NARRATIVE } from '@/validations/department-report';
 
 /**
@@ -43,6 +44,10 @@ export default async function DepartmentReportPage({
 
   const closed = template.status === 'CLOSED';
   const editable = access.canEdit && !closed;
+
+  // What the staff's personal ratings hold for each linked line (owner,
+  // 2026-11-16). The open year only: a closed report shows what was saved.
+  const derived = closed ? null : await getDepartmentDerived(departmentId, year);
 
   // A list to go back to only for somebody who has one — a завідувач of a
   // single кафедра is redirected from it straight back here.
@@ -80,6 +85,8 @@ export default async function DepartmentReportPage({
 
       <p className="text-sm text-foreground-soft">
         У показники кафедри вносяться дані <strong>лише по штатних працівниках</strong>.
+        {derived &&
+          ` Власні досягнення в рейтингу НПП внесли ${derived.enteredCount} з ${derived.staffCount} штатних НПП кафедри.`}
         {closed && ' Рейтинговий рік закрито — звіт не редагується.'}
         {!closed &&
           !access.canEdit &&
@@ -93,6 +100,7 @@ export default async function DepartmentReportPage({
         values={view.report?.values ?? {}}
         narrative={view.report?.narrative ?? EMPTY_NARRATIVE}
         editable={editable}
+        derived={derived}
       />
     </div>
   );

@@ -56,9 +56,13 @@ export async function headOf(staffId: string | null | undefined): Promise<string
 
 /**
  * The кафедри this person is заступник завідувача з наукової роботи of —
- * `Department.scienceDeputyId`. It decides one thing only: who besides the
- * завідувач fills Рейтинг кафедри (owner, 2026-10-21). It is NOT part of
- * `scopeOf` or `headOf`, so it opens no other head screen.
+ * `Department.scienceDeputyId`. Two things only: they fill Рейтинг кафедри
+ * beside the завідувач (owner, 2026-10-21), and they READ their кафедра's
+ * people — «Моя кафедра» without the ставки, and each person's profile, rating
+ * and Характеристика (owner, 2026-11-16, through `canViewAcademicRecord`).
+ *
+ * Still NOT part of `scopeOf` or `headOf`: no ставка, no students, no
+ * qualifications, nothing decided.
  */
 export async function scienceDeputyOf(staffId: string | null | undefined): Promise<string[]> {
   if (!staffId) return [];
@@ -140,13 +144,15 @@ export async function headDeanConflict(
  * Характеристика?
  *
  * ADMIN and EDITOR see everybody: any division member may already inspect any
- * НПП's total rating, which was confirmed as intended (W6). Beyond them, two
+ * НПП's total rating, which was confirmed as intended (W6). Beyond them, three
  * narrower routes:
  *
  * - **your own record** — the strongest reason anyone has to keep the rating
  *   filled in is seeing what it is short of;
  * - **your кафедра / факультет** — a head knows their staff, which is exactly
- *   why they are the one who distributes ставки.
+ *   why they are the one who distributes ставки;
+ * - **the кафедра you are заступник з наукової роботи of** (owner,
+ *   2026-11-16) — they fill Рейтинг кафедри from these people's work.
  *
  * Server-side only. Callers still check `auth()` themselves; this answers the
  * «whose record» half, never the «is there a session» half.
@@ -157,7 +163,14 @@ export async function canViewAcademicRecord(
 ): Promise<boolean> {
   if (viewer.role === 'ADMIN' || viewer.role === 'EDITOR') return true;
   if (viewer.staffId && viewer.staffId === targetStaffId) return true;
-  return overseesStaff(viewer.staffId, targetStaffId);
+  // The заступник з наукової роботи reads here too (owner, 2026-11-16) — and
+  // ONLY here: `overseesStaff`, which opens the qualification files, stays the
+  // head's and the декан's.
+  const [overseen, deputised] = await Promise.all([
+    scopeOf(viewer.staffId),
+    scienceDeputyOf(viewer.staffId),
+  ]);
+  return worksOnAny(targetStaffId, [...overseen, ...deputised]);
 }
 
 /**
@@ -170,7 +183,11 @@ export async function overseesStaff(
   overseerStaffId: string | null | undefined,
   targetStaffId: string
 ): Promise<boolean> {
-  const departments = await scopeOf(overseerStaffId);
+  return worksOnAny(targetStaffId, await scopeOf(overseerStaffId));
+}
+
+/** Does the target work on any of these кафедри — primary or сумісник? */
+async function worksOnAny(targetStaffId: string, departments: readonly string[]): Promise<boolean> {
   if (departments.length === 0) return false;
 
   const target = await db.staff.findUnique({

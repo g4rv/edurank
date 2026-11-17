@@ -203,6 +203,10 @@ All server-side; the sidebar flag is not a permission.
   nothing else. `Department.scienceDeputyId`, set by whoever may edit the
   кафедра on `/departments/[id]/edit` (not in the create dialog), audited,
   cleared when the person is archived. Not a `Role`, not in `scopeOf`.
+  **Widened 2026-11-16 (owner):** they also READ their кафедра's people — a
+  read-only «Моя кафедра» without the Ставка column and head tools, and each
+  person's profile (no ставка), rating and Характеристика. Not qualifications.
+  See `2026-11-16-department-rating-derived-values-design.md`.
 - «May I look» = `scopeOf` or `scienceDeputyOf` (or ADMIN); «may I save» =
   `headOf` or `scienceDeputyOf` (or ADMIN).
   `scope.ts` already draws exactly this line.

@@ -7,13 +7,14 @@ vi.mock('@/lib/db', () => ({
     stakeDistribution: { findMany: vi.fn() },
   },
 }));
-vi.mock('./scope', () => ({ scopeOf: vi.fn() }));
+vi.mock('./scope', () => ({ scopeOf: vi.fn(), scienceDeputyOf: vi.fn() }));
 
 import { db } from '@/lib/db';
-import { scopeOf } from './scope';
+import { scienceDeputyOf, scopeOf } from './scope';
 import { listMyDepartments } from './list-my-department';
 
 const mockScope = scopeOf as unknown as Mock;
+const mockDeputy = scienceDeputyOf as unknown as Mock;
 const mockDepartments = db.department.findMany as unknown as Mock;
 const mockStaff = db.staff.findMany as unknown as Mock;
 const mockDistributions = db.stakeDistribution.findMany as unknown as Mock;
@@ -54,6 +55,44 @@ beforeEach(() => {
   vi.clearAllMocks();
   // No distribution saved anywhere unless a test says otherwise.
   mockDistributions.mockResolvedValue([]);
+  // Nobody is a заступник з наукової роботи unless a test says otherwise.
+  mockDeputy.mockResolvedValue([]);
+});
+
+// Owner, 2026-11-16: the заступник reads «Моя кафедра», never its ставки.
+describe('listMyDepartments for a заступник з наукової роботи', () => {
+  it('lists their кафедра, marked as a deputy view', async () => {
+    mockScope.mockResolvedValue([]);
+    mockDeputy.mockResolvedValue(['d1']);
+    departments(['d1']);
+    staff([{ id: 'p1', departmentId: 'd1', total: 300 }]);
+
+    const [d1] = await listMyDepartments('deputy', 2026);
+    expect(d1).toMatchObject({ id: 'd1', asScienceDeputy: true });
+    expect(d1.staff[0]).toMatchObject({ id: 'p1', total: 300, stakeHundredths: null });
+  });
+
+  it('never asks for the ставки of a кафедра they only deputise', async () => {
+    mockScope.mockResolvedValue([]);
+    mockDeputy.mockResolvedValue(['d1']);
+    departments(['d1']);
+    staff([]);
+
+    await listMyDepartments('deputy', 2026);
+    expect(mockDistributions).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { departmentId: { in: [] }, year: 2026 } })
+    );
+  });
+
+  it('is a head view where they are also the head', async () => {
+    mockScope.mockResolvedValue(['d1']);
+    mockDeputy.mockResolvedValue(['d1']);
+    departments(['d1']);
+    staff([]);
+
+    const [d1] = await listMyDepartments('both', 2026);
+    expect(d1.asScienceDeputy).toBe(false);
+  });
 });
 
 describe('listMyDepartments with a сумісник', () => {

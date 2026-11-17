@@ -9,27 +9,31 @@ vi.mock('@/lib/db', () => ({
 }));
 
 import { db } from '@/lib/db';
-import { canViewAcademicRecord, headDeanConflict, scopeOf } from './scope';
+import { canViewAcademicRecord, headDeanConflict, overseesStaff, scopeOf } from './scope';
 
 const mockDepartments = db.department.findMany as unknown as Mock;
 const mockFaculties = db.faculty.findMany as unknown as Mock;
 const mockStaff = db.staff.findUnique as unknown as Mock;
 
 /**
- * `scopeOf` makes two parallel calls and then a third only for a dean. The
- * helper feeds them in that order, so a test says what the DB holds rather than
- * which call index returns what.
+ * What the DB holds, answered by the `where` each query asks — `headId`,
+ * `scienceDeputyId` or a dean's `facultyId` — so a test says what is true
+ * rather than which call index returns what, and a new parallel query (the
+ * deputy lookup, 2026-11-16) cannot shift the answers.
  */
 function given({
   headOf = [] as string[],
   deanOf = [] as string[],
   facultyDepartments = [] as string[],
+  deputyOf = [] as string[],
 } = {}) {
   mockDepartments.mockReset();
   mockFaculties.mockReset();
-  mockDepartments
-    .mockResolvedValueOnce(headOf.map((id) => ({ id })))
-    .mockResolvedValueOnce(facultyDepartments.map((id) => ({ id })));
+  mockDepartments.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+    const ids =
+      'headId' in where ? headOf : 'scienceDeputyId' in where ? deputyOf : facultyDepartments;
+    return ids.map((id) => ({ id }));
+  });
   mockFaculties.mockResolvedValue(deanOf.map((id) => ({ id })));
 }
 
@@ -147,6 +151,37 @@ describe('canViewAcademicRecord', () => {
       partTimeDepartments: [{ departmentId: 'dept-8' }],
     });
     expect(await canViewAcademicRecord({ role: 'USER', staffId: 'head' }, 'stranger')).toBe(false);
+  });
+
+  // Owner, 2026-11-16: the заступник з наукової роботи reads their кафедра's
+  // people — profile, rating, Характеристика — to fill Рейтинг кафедри.
+  it('lets a заступник з наукової роботи read someone on their кафедра', async () => {
+    given({ deputyOf: ['dept-1'] });
+    mockStaff.mockResolvedValue({ departmentId: 'dept-1', partTimeDepartments: [] });
+    expect(await canViewAcademicRecord({ role: 'USER', staffId: 'deputy' }, 'member')).toBe(true);
+  });
+
+  it('refuses a заступник someone on another кафедра', async () => {
+    given({ deputyOf: ['dept-1'] });
+    mockStaff.mockResolvedValue({ departmentId: 'dept-9', partTimeDepartments: [] });
+    expect(await canViewAcademicRecord({ role: 'USER', staffId: 'deputy' }, 'stranger')).toBe(
+      false
+    );
+  });
+});
+
+describe('overseesStaff', () => {
+  it('lets a head through', async () => {
+    given({ headOf: ['dept-1'] });
+    mockStaff.mockResolvedValue({ departmentId: 'dept-1', partTimeDepartments: [] });
+    expect(await overseesStaff('head', 'member')).toBe(true);
+  });
+
+  // It opens the qualification files; the заступник reads the record, not those
+  it('does NOT let a заступник з наукової роботи through', async () => {
+    given({ deputyOf: ['dept-1'] });
+    mockStaff.mockResolvedValue({ departmentId: 'dept-1', partTimeDepartments: [] });
+    expect(await overseesStaff('deputy', 'member')).toBe(false);
   });
 });
 
