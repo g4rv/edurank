@@ -762,7 +762,11 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     select('option', 'Квартиль', [
       opt('q1', 'Квартиль Q1'),
       opt('q2', 'Квартиль Q2'),
-      opt('q3_4_or_none', 'Квартиль Q3-4 / відсутній'),
+      // One option until 2026-11-17, «Q3-4 / відсутній»; split so Рейтинг кафедри
+      // 7.2 can count Q3-Q4 alone. Same points (owner). Existing rows:
+      // `pnpm db:cat-a-quartile`.
+      opt('q3_4', 'Квартиль Q3-4'),
+      opt('none', 'Квартиль відсутній'),
     ]),
     text('bibliography', 'Бібліографічний опис', {
       multiline: true,

@@ -575,7 +575,7 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     kind: 'SELECT',
     coefficient: 1,
     coefficientNote:
-      'квартиль Q1 — 600, квартиль Q2 — 500, квартиль Q3-4 / відсутній — 400; посилання Scopus або WoS',
+      'квартиль Q1 — 600, квартиль Q2 — 500, квартиль Q3-4 — 400, квартиль відсутній — 400; посилання Scopus або WoS',
     inputSource: 'NPP_SUBMISSION',
     requiresVerification: true,
   },

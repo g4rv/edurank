@@ -371,6 +371,10 @@ pnpm db:gate-to-check-sum  # one-off: convert retired GATE indicator rows to CHE
 # and production is never seeded again.
 pnpm db:patent-kind   # one-off: give 3.25 its «Вид патенту» select and route
                       #   п.2 by it; lists patents that still name no kind
+pnpm db:cat-a-quartile  # one-off: rating 3.8's «Q3-4 / відсутній» becomes two
+                      #   options, same points, in every open year; moves the 34
+                      #   saved entries by ННВ's journal list (ids in the script).
+                      #   An entry not on the list stops --apply. Report first; --apply.
 pnpm db:department-rating-derivation  # one-off, after migrate deploy: links
                       #   Рейтинг кафедри lines to the personal indicators they are
                       #   counted from. Create-only, every year whose line is still

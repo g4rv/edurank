@@ -25,6 +25,7 @@
     "db:recompute": "tsx prisma/recompute-year.ts",
     "db:gate-to-check-sum": "tsx prisma/gate-to-check-sum.ts",
     "db:patent-kind": "tsx prisma/patent-kind.ts",
+    "db:cat-a-quartile": "tsx prisma/cat-a-quartile.ts",
     "db:science-conference-yearly": "tsx prisma/science-conference-yearly.ts",
     "db:science-link-isbn": "tsx prisma/science-link-isbn.ts",
     "db:science-sheets-decimals": "tsx prisma/science-sheets-decimals.ts",
