@@ -12,6 +12,8 @@
  * row is in it, so that reads as a slip: 12.2 counts here (2026-10-20).
  */
 
+import type { Derivation } from './derivation';
+
 export type DepartmentIndicatorKind = 'HEADING' | 'COUNT' | 'CHOICE';
 
 export interface DepartmentIndicatorDef {
@@ -118,3 +120,97 @@ export const DEPARTMENT_INDICATORS_2026: DepartmentIndicatorDef[] = [
   count('13.1', "Реєстрація об'єктів інтелектуальної власності", 2),
   count('13.2', 'Реєстрація патентів', 10),
 ];
+
+/**
+ * Which 2026 lines can be counted from the staff's personal entries (owner,
+ * 2026-11-16). Seed input only — the app reads `DepartmentIndicator.derivation`.
+ *
+ * FULL only where the personal entry decides the line exactly. Every other
+ * overlap is PARTIAL, and the reason is on its line:
+ */
+export const DERIVATIONS_2026: Record<string, Derivation> = {
+  '5': {
+    coverage: 'FULL',
+    from: [{ code: 'initiative_topic', keys: [], text: 'title' }],
+  },
+  // The personal split is the book's LANGUAGE; the report's is where it was
+  // published («в Українських виданнях» / «за кордоном»)
+  '6.1': {
+    coverage: 'PARTIAL',
+    from: [{ code: 'monograph_ua', keys: ['isbn'], text: 'bibliography' }],
+  },
+  '6.2': {
+    coverage: 'PARTIAL',
+    from: [{ code: 'monograph_eu', keys: ['isbn'], text: 'bibliography' }],
+  },
+  // Q1/Q2 is Scopus/WoS by definition
+  '7.1': {
+    coverage: 'FULL',
+    from: [
+      {
+        code: 'publication_cat_a',
+        when: { field: 'option', in: ['q1', 'q2'] },
+        keys: ['doi', 'link'],
+        text: 'bibliography',
+      },
+    ],
+  },
+  // 3.8's «Q3-4 / відсутній» was split into «Q3-4» and «відсутній» on
+  // 2026-11-17 (`pnpm db:cat-a-quartile`), so this reads Q3-4 alone — and a
+  // quartile implies Scopus/WoS, so it is FULL like 7.1 (owner, 2026-11-17).
+  '7.2': {
+    coverage: 'FULL',
+    from: [
+      {
+        code: 'publication_cat_a',
+        when: { field: 'option', in: ['q3_4'] },
+        keys: ['doi', 'link'],
+        text: 'bibliography',
+      },
+    ],
+  },
+  '9': {
+    coverage: 'FULL',
+    from: [
+      {
+        code: 'edition_publication',
+        when: { field: 'option', in: ['textbook', 'study_guide'] },
+        keys: [],
+        text: 'bibliography',
+      },
+    ],
+  },
+  // The line also covers олімпіади and конкурси nobody enters as an organiser
+  '12.1': {
+    coverage: 'PARTIAL',
+    from: [
+      { code: 'intl_conf_organization', keys: [], text: 'title' },
+      {
+        code: 'cultural_sport_events',
+        when: { field: 'option', in: ['international'] },
+        keys: [],
+        text: 'title',
+      },
+    ],
+  },
+  '12.2': {
+    coverage: 'PARTIAL',
+    from: [
+      { code: 'ukr_conf_organization', keys: [], text: 'title' },
+      {
+        code: 'cultural_sport_events',
+        when: { field: 'option', in: ['national'] },
+        keys: [],
+        text: 'title',
+      },
+    ],
+  },
+  '13.1': {
+    coverage: 'FULL',
+    from: [{ code: 'copyright_registration', keys: ['certificateNumber'], text: 'title' }],
+  },
+  '13.2': {
+    coverage: 'FULL',
+    from: [{ code: 'patent_granted', keys: ['registrationNumber'], text: 'title' }],
+  },
+};

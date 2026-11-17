@@ -76,13 +76,6 @@ export interface DepartmentKnpp {
   }[];
 }
 
-/** The smallest pool that can pay the 0.1 floor to everyone on the кафедра */
-export function minimumKst(headcount: number): number {
-  // Kept in hundredths internally elsewhere; this is the readable figure for a
-  // message like «10 осіб × 0,1 = 1,0».
-  return Math.round(headcount * 10) / 100;
-}
-
 export async function getDepartmentKnpp(
   departmentId: string,
   year: number

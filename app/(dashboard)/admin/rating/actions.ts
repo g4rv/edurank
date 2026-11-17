@@ -132,6 +132,9 @@ export async function cloneTemplate(fromYear: number): Promise<RatingAdminState>
               coefficient: row.coefficient,
               options: row.options as Prisma.InputJsonValue,
               isActive: row.isActive,
+              // Which personal entries the line is counted from — the year's own
+              derivation:
+                row.derivation === null ? Prisma.DbNull : (row.derivation as Prisma.InputJsonValue),
             })),
           });
         }

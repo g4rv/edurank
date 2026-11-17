@@ -689,6 +689,10 @@ model DepartmentIndicator {
   coefficient Float                   @default(0) // COUNT: points per unit
   options     Json                    @default("[]") // CHOICE: [{ label, points }]
   isActive    Boolean                 @default(true)
+  // Which personal-rating entries this line can be counted from (2026-11-16) —
+  // a `Derivation`, lib/department-rating/derivation.ts. Null = typed by hand.
+  // Never written into `values`: the head accepts or types the number.
+  derivation  Json?
 
   @@unique([year, itemNumber])
   @@index([year, order])

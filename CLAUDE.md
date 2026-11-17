@@ -371,6 +371,10 @@ pnpm db:gate-to-check-sum  # one-off: convert retired GATE indicator rows to CHE
 # and production is never seeded again.
 pnpm db:patent-kind   # one-off: give 3.25 its «Вид патенту» select and route
                       #   п.2 by it; lists patents that still name no kind
+pnpm db:department-rating-derivation  # one-off, after migrate deploy: links
+                      #   Рейтинг кафедри lines to the personal indicators they are
+                      #   counted from. Create-only, every year whose line is still
+                      #   the 2026 one. Report first; --apply.
 pnpm db:science-catalogue  # how PRODUCTION gets Додаток III: creates the
                       #   2026/2027 рік and any missing вид роботи, CREATE-ONLY —
                       #   never updates or deletes a row an admin edited. Not the
@@ -813,6 +817,39 @@ Which indicators satisfy which position is `ActivityType.licencePositions`, a JS
 column and not a list in code — for the same reason `requiresVerification` and
 `entityFirstEntry` are columns: a code list silently excludes every indicator an
 admin builds themselves, and the вчена рада votes new ones in yearly.
+
+## Рейтинг кафедри (built)
+
+A кафедра's OWN report (`/department-rating`), filled by the завідувач or the
+заступник з наукової роботи — separate tables (`DepartmentIndicator`,
+`DepartmentReport`), not the staff's personal rating. Spec:
+`docs/superpowers/specs/2026-10-20-department-rating-design.md`.
+
+**Some lines are counted from the staff's personal entries** (owner,
+2026-11-16; spec `2026-11-16-department-rating-derived-values-design.md`).
+`DepartmentIndicator.derivation` (JSON, null = typed by hand) names the
+personal indicators by `code`, a select option to filter on, the identifying
+fields and the text field. `getDepartmentDerived` computes it on every read —
+**never stored**, like `Кнпп`:
+
+- **Whose:** primary `departmentId` = this кафедра, `ON_ROSTER`, `RATED`. Not
+  `onDepartment` — the sheet counts «ЛИШЕ ШТАТНИХ», so no сумісник.
+- **Works, not entries — one work shown once with everybody who entered it**
+  (`lib/department-rating/group-works.ts`): the same ISBN / DOI / link / number,
+  or the same text once case, quotes and punctuation are ignored, joins
+  co-authors' entries; texts `sameWorkByText` calls alike are joined too but
+  marked «перевірте», every spelling listed. Text never joins two entries whose
+  ISBN / DOI / number differ. (Owner, 2026-11-16, after the browser test: every
+  НПП enters the кафедра's own topic, and line 5 offered 13 for 3 topics.)
+- **The hint is one tinted box under the line** (owner, 2026-11-17: loose
+  buttons read as vague), `components/department-rating/derived-hint.tsx`.
+  **FULL** lines say «Автозаповнення з рейтингу НПП: N» with «Використати N» —
+  «Замінити на N» when the box holds another number, «✓ Збігається» when it
+  matches; **PARTIAL** ones say «знайдено N, можливо, більше — перевірте й
+  впишіть самі», no button; nothing found is one quiet line, no box. Every
+  box has «Переглянути роботи (N)». The box keeps what the head types; nothing is written by
+  itself. Open year only. Existing databases: `pnpm db:department-rating-derivation`
+  (report first, `--apply`), after `migrate deploy`.
 
 ## Планування наукової роботи (built)
 
