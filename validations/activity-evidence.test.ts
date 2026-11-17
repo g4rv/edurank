@@ -838,6 +838,25 @@ describe('3.10 «Міжнародна публікація…» (owner, 2026-10-
   });
 });
 
+describe('3.11 DOI or ISBN (owner, 2026-11-17)', () => {
+  const schema = schemaFor('doi_publication');
+  const paths = (r: { error?: { issues: { path: PropertyKey[] }[] } }) =>
+    (r.error?.issues ?? []).map((i) => i.path[0]);
+
+  // An empty form marks every box at once — the «one of the two» check used to
+  // wait until the rest was right, so DOI and ISBN stayed grey
+  it('marks DOI and ISBN on an empty form, beside the other boxes', () => {
+    expect(paths(schema.safeParse({})).sort()).toEqual(
+      ['bibliography', 'doi', 'isbn', 'option', 'publishedOn'].sort()
+    );
+  });
+
+  it('does not mark the DOI while an ISBN is typed but unfinished', () => {
+    const r = schema.safeParse({ isbn: '978-966' });
+    expect(paths(r)).not.toContain('doi');
+  });
+});
+
 describe('a decimal typed with a comma', () => {
   it('is read as a number — the box keeps the comma the person typed', () => {
     const r = schemaFor('monograph_ua').safeParse({

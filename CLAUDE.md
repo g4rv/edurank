@@ -375,6 +375,10 @@ pnpm db:cat-a-quartile  # one-off: rating 3.8's «Q3-4 / відсутній» be
                       #   options, same points, in every open year; moves the 34
                       #   saved entries by ННВ's journal list (ids in the script).
                       #   An entry not on the list stops --apply. Report first; --apply.
+pnpm db:doi-publication-isbn  # one-off: rating 3.11 takes DOI OR ISBN (one
+                      #   of the two required) in every open year; the title
+                      #   and the hint say so. No entry or
+                      #   score moves. Report first; --apply.
 pnpm db:department-rating-derivation  # one-off, after migrate deploy: links
                       #   Рейтинг кафедри lines to the personal indicators they are
                       #   counted from. Create-only, every year whose line is still

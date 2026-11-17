@@ -353,36 +353,44 @@ export function schemaForFields(
     conditional.length === 0
       ? baseObject
       : baseObject
-          .superRefine((v, ctx) => {
-            const value = v as Record<string, unknown>;
-            const groupsDone = new Set<string>();
-            for (const { field: f, when } of conditional) {
-              if (!conditionMet(when, value)) continue;
-              if (f.kind === 'checkbox') {
-                // «At least one of the group» — one message for the set
-                const key = f.group ?? f.name;
-                if (groupsDone.has(key)) continue;
-                groupsDone.add(key);
-                const members = conditional
-                  .map((c) => c.field)
-                  .filter((g) => g.kind === 'checkbox' && (g.group ?? g.name) === key);
-                if (!members.some((g) => value[g.name] === true)) {
-                  ctx.addIssue({
-                    code: 'custom',
-                    path: [members[0].name],
-                    message: 'Позначте хоча б один пункт',
-                  });
+          .superRefine(
+            (v, ctx) => {
+              const value = v as Record<string, unknown>;
+              const groupsDone = new Set<string>();
+              for (const { field: f, when } of conditional) {
+                if (!conditionMet(when, value)) continue;
+                if (f.kind === 'checkbox') {
+                  // «At least one of the group» — one message for the set
+                  const key = f.group ?? f.name;
+                  if (groupsDone.has(key)) continue;
+                  groupsDone.add(key);
+                  const members = conditional
+                    .map((c) => c.field)
+                    .filter((g) => g.kind === 'checkbox' && (g.group ?? g.name) === key);
+                  if (!members.some((g) => value[g.name] === true)) {
+                    ctx.addIssue({
+                      code: 'custom',
+                      path: [members[0].name],
+                      message: 'Позначте хоча б один пункт',
+                    });
+                  }
+                  continue;
                 }
-                continue;
+                const answer = value[f.name];
+                const blank =
+                  answer === undefined ||
+                  answer === null ||
+                  (typeof answer === 'string' && !answer.trim());
+                if (blank) ctx.addIssue({ code: 'custom', path: [f.name], message: missing(when) });
               }
-              const answer = value[f.name];
-              const blank =
-                answer === undefined ||
-                answer === null ||
-                (typeof answer === 'string' && !answer.trim());
-              if (blank) ctx.addIssue({ code: 'custom', path: [f.name], message: missing(when) });
-            }
-          })
+            },
+            // Run even when another box already failed (owner, 2026-11-17):
+            // zod skips a refinement after any earlier issue, so an empty form
+            // showed «Вид» red and DOI / ISBN grey until the rest was right.
+            // It only reads values and asks «blank?», so a half-valid object
+            // is safe here.
+            { when: () => true }
+          )
           // A box hidden behind a switch that is off is not part of the answer:
           // what was typed there before the switch went off is dropped.
           .transform((v) => {

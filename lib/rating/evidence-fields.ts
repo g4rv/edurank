@@ -807,9 +807,9 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     }),
     url('reviewsLink', 'Посилання на офіційну сторінку видавництва з відомостями про рецензії'),
   ],
-  // 3.11 (owner, 2026-10-27): the DOI is the proof and leads to the article, so
-  // it is mandatory and there is no link box. The order of the options is the
-  // owner's: the two articles first, the conference last.
+  // 3.11 (owner, 2026-10-27): no link box. DOI or ISBN, at least one (owner,
+  // 2026-11-17; the DOI alone was mandatory until then). The order of the
+  // options is the owner's: the two articles first, the conference last.
   doi_publication: [
     select('option', 'Вид', [
       opt('solo', 'стаття одноосібно'),
@@ -820,7 +820,8 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       multiline: true,
       placeholder: BIB_ARTICLE,
     }),
-    doi('doi', 'DOI'),
+    doi('doi', 'DOI', { requiredWhen: { field: 'isbn', empty: true } }),
+    isbn('isbn', 'ISBN', { requiredWhen: { field: 'doi', empty: true } }),
     date('publishedOn', 'Дата публікації', { rule: 'ratingYear' }),
   ],
   defense_supervision: [
