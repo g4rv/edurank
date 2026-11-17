@@ -68,6 +68,10 @@ export default async function ProfilePage() {
           certificates={certificates}
           // Your own scans are yours to open.
           canOpenCertificateFiles
+          // The кафедра / факультет pages send a USER back here, the відділ page
+          // everybody but ADMIN — so no link where it would only bounce.
+          linkDepartments={session.user.role !== 'USER'}
+          linkDivision={session.user.role === 'ADMIN'}
         />
       </div>
     </div>

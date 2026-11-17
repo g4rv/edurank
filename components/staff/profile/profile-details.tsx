@@ -33,6 +33,8 @@ export function ProfileDetails({
   aside,
   certificates,
   canOpenCertificateFiles = false,
+  linkDepartments = false,
+  linkDivision = false,
 }: {
   staff: StaffDetail;
   /** Decided by the route. Never computed in a component. */
@@ -47,6 +49,10 @@ export function ProfileDetails({
   certificates?: PersonCertificates;
   /** Decided by the route: may this viewer open the scans? Never worked out here. */
   canOpenCertificateFiles?: boolean;
+  /** Decided by the route: may this viewer open the кафедра / факультет pages? */
+  linkDepartments?: boolean;
+  /** Decided by the route: may this viewer open the відділ page (ADMIN)? */
+  linkDivision?: boolean;
 }) {
   return (
     <div className="space-y-5">
@@ -80,6 +86,8 @@ export function ProfileDetails({
             stakeParts={stakeParts}
             showStake={showStake}
             showEmpty={showEmpty}
+            linkDepartments={linkDepartments}
+            linkDivision={linkDivision}
           />
           {/* Under «Місця роботи» (owner, 2026-10-06): the left column now
               holds the person's academic record — «Академічна інформація» and
