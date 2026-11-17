@@ -50,6 +50,26 @@ export interface ExportStaffData {
   gate?: 'pending' | 'zeroed';
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * What `SUM(E{from}:E{to})` comes to — numbers only, as Excel's SUM.
+ *
+ * Stored as the formula's cached `result` (owner, 2026-11-17: «no section
+ * totals in the export»). A formula alone has no value until something
+ * calculates it, and a downloaded file opens in Excel's Protected View, an
+ * iPhone or a messenger preview — none of which calculate — so every total
+ * read empty. The formula stays, so an edited cell still recalculates.
+ */
+function columnSum(ws: ExcelJS.Worksheet, from: number, to: number): number {
+  let sum = 0;
+  for (let r = from; r <= to; r++) {
+    const v = ws.getRow(r).getCell(5).value;
+    if (typeof v === 'number') sum += v;
+  }
+  return round2(sum);
+}
+
 const DONE = 'Виконано';
 const NOT_DONE = 'Не заповнено';
 
@@ -191,6 +211,8 @@ export function buildRatingWorkbook(
   header.height = 30;
 
   const sectionTotalRows: number[] = [];
+  /** Each розділ's sum, stored beside its formula (see `columnSum`) */
+  const sectionResults: number[] = [];
 
   for (const sectionNumber of [1, 2, 3, 4, 5]) {
     const sectionTypes = types.filter((t) => t.sectionNumber === sectionNumber);
@@ -276,11 +298,18 @@ export function buildRatingWorkbook(
     styleTableRow(totalRow);
     totalRow.getCell(1).font = { bold: true };
     // A розділ of 5.1 alone has nothing to add up — it repeats the status
-    totalRow.getCell(5).value = sectionTypes.every((t) => t.gatesRating)
-      ? sectionTypes.every((t) => scoreByCode.has(t.code))
+    if (sectionTypes.every((t) => t.gatesRating)) {
+      totalRow.getCell(5).value = sectionTypes.every((t) => scoreByCode.has(t.code))
         ? DONE
-        : NOT_DONE
-      : ({ formula: `SUM(E${firstItemRow}:E${lastItemRow})` } as ExcelJS.CellFormulaValue);
+        : NOT_DONE;
+    } else {
+      const result = columnSum(ws, firstItemRow, lastItemRow);
+      sectionResults.push(result);
+      totalRow.getCell(5).value = {
+        formula: `SUM(E${firstItemRow}:E${lastItemRow})`,
+        result,
+      } as ExcelJS.CellFormulaValue;
+    }
     totalRow.getCell(5).font = { bold: true };
     sectionTotalRows.push(totalRow.number);
   }
@@ -296,6 +325,7 @@ export function buildRatingWorkbook(
       ? 0
       : ({
           formula: `SUM(${sectionTotalRows.map((r) => `E${r}`).join(',')})`,
+          result: round2(sectionResults.reduce((a, b) => a + b, 0)),
         } as ExcelJS.CellFormulaValue);
   grand.getCell(5).font = { bold: true, size: 12 };
   if (staff.gate) {

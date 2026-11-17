@@ -149,6 +149,19 @@ describe('buildRatingWorkbook', () => {
     const grand = rows.find((r) => r[0] === 'Загальна сума балів')!;
     expect(grand[4].startsWith('=SUM(')).toBe(true);
   });
+
+  // Owner, 2026-11-17: a downloaded file opens in Protected View or on a phone,
+  // which never calculate — a formula with no stored value showed empty there.
+  it('stores each total’s value beside its formula', () => {
+    const results: unknown[] = [];
+    ws.eachRow((row) => {
+      const label = String(row.getCell(1).value ?? '');
+      if (label.startsWith('Всього балів') || label === 'Загальна сума балів') {
+        results.push((row.getCell(5).value as { result?: unknown }).result);
+      }
+    });
+    expect(results).toEqual([17, 300, 317]);
+  });
 });
 
 // 5.1 scores nothing (owner, 2026-10-16): the form says «Виконано» / «Не
