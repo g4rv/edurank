@@ -83,11 +83,9 @@ export default async function MyKharakterystykaPage() {
         </ToolbarGroup>
       </ProfileTabRow>
 
-      {/* **A person fills in what is missing from their own document** (owner,
-          2026-09-22). `SELF_TYPEABLE_POSITIONS` is every position that has a
-          form — all but п.16–п.18, which this university may not claim — because
-          the 2022–2024 import left positions empty that people genuinely
-          satisfy, and its own subject is the only one who can repair that.
+      {/* **A person types only what the rating cannot fill** (owner,
+          2026-11-17): `SELF_TYPEABLE_POSITIONS` is п.15 and п.20. Lines typed
+          on other positions before then stay, and can still be removed.
 
           `positions` narrows the control; the server checks the same list again
           in `typeEntryProblem`, because the half of a rule that lives in the
@@ -109,9 +107,11 @@ export default async function MyKharakterystykaPage() {
                 selfId: staffId,
               }
         }
-        // Any line of their own document, final (owner, 2026-10-06) — the
-        // server asks `removeLineProblem` again.
-        removing={frozen ? undefined : { staffId, asOwner: true }}
+        // Only on п.15 / п.20, like typing (owner, 2026-11-17) — the server asks
+        // `removeLineProblem` and `removePositionProblem` again.
+        removing={
+          frozen ? undefined : { staffId, asOwner: true, positions: SELF_TYPEABLE_POSITIONS }
+        }
         fill
       />
     </div>

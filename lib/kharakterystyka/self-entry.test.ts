@@ -7,10 +7,27 @@ vi.mock('./freeze', () => ({ KHARAKTERYSTYKA_FROZEN_DETAIL: 'frozen' }));
 import { NO_FREEZE } from '@/lib/freeze/rules';
 import {
   SELF_TYPEABLE_POSITIONS,
+  POSITION_FROM_RATING_DETAIL,
   typeEntryProblem,
   deleteEntryProblem,
   removeLineProblem,
+  removePositionProblem,
 } from './self-entry';
+
+describe('removePositionProblem', () => {
+  it('lets an НПП remove only on п.15 and п.20', () => {
+    expect(removePositionProblem('USER', 15)).toBeNull();
+    expect(removePositionProblem('USER', 20)).toBeNull();
+    for (const position of [1, 2, 5, 12, 19]) {
+      expect(removePositionProblem('USER', position)).toBe(POSITION_FROM_RATING_DETAIL);
+    }
+  });
+
+  it('holds for an EDITOR too, and never for ADMIN', () => {
+    expect(removePositionProblem('EDITOR', 1)).not.toBeNull();
+    expect(removePositionProblem('ADMIN', 1)).toBeNull();
+  });
+});
 import { positionEvidenceFields } from './position-evidence';
 
 const ADMIN = {
@@ -58,13 +75,11 @@ const deleting = ({
   } as Parameters<typeof deleteEntryProblem>[0]);
 
 describe('SELF_TYPEABLE_POSITIONS', () => {
-  it('is every position that has a form — all but the military three', () => {
+  it('is only the positions the rating and the profile cannot fill', () => {
     // Pinned rather than left to a code review, because this list decides who
-    // may assert a licence position about themselves. It was [15, 20] until
-    // 2026-09-22; see the note on the export for what widening it accepts.
-    expect([...SELF_TYPEABLE_POSITIONS]).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 19, 20,
-    ]);
+    // may assert a licence position about themselves (owner, 2026-11-17; it was
+    // every position with a form from 2026-09-22).
+    expect([...SELF_TYPEABLE_POSITIONS]).toEqual([15, 20]);
   });
 
   it('leaves out п.16–п.18, which have no form at all', () => {
@@ -79,12 +94,15 @@ describe('SELF_TYPEABLE_POSITIONS', () => {
 });
 
 describe('typeEntryProblem', () => {
-  it('lets an НПП type any position that has a form', () => {
-    // Including the derived ones (owner, 2026-09-22). The 2022–2024 import left
-    // positions empty that people genuinely satisfy, and the person it is about
-    // is the only one who can repair that.
-    for (const position of [1, 2, 5, 12, 15, 19, 20]) {
+  it('lets an НПП type п.15 and п.20', () => {
+    for (const position of [15, 20]) {
       expect(typing({ position })).toBeNull();
+    }
+  });
+
+  it('refuses a position the rating or the profile fills', () => {
+    for (const position of [1, 2, 5, 12, 19]) {
+      expect(typing({ position })).toBe('Ця позиція заповнюється з рейтингу або профілю');
     }
   });
 
@@ -147,11 +165,10 @@ describe('deleteEntryProblem', () => {
     expect(deleting({ entry: { staffId: 'his-staff' } })).not.toBeNull();
   });
 
-  it('lets an НПП remove a derived-position row they typed themselves', () => {
-    // п.1 is typeable now, so it is deletable by whoever typed it — the two
-    // rules read the same list, and a row you may write but never remove is a
-    // mistake with no way back.
-    expect(deleting({ entry: { position: 1 } })).toBeNull();
+  it('refuses an НПП deleting a row typed on a position the rating fills', () => {
+    // Typed before 2026-11-17, kept and counting — but only ADMIN takes it out
+    // now: an НПП touches the document through the rating and п.15 / п.20 only.
+    expect(deleting({ entry: { position: 1 } })).toBe(POSITION_FROM_RATING_DETAIL);
   });
 
   it('refuses while the rating is closed', () => {

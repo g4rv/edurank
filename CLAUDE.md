@@ -811,8 +811,14 @@ settings, exempt)`) reads the SETTINGS and says «у списку виняткі
 - Tests mock `@/lib/freeze/state` (nothing frozen); the frozen mechanics are
   tested with a `Freeze` passed in, so both states run every time.
 
-**Any line can be removed — final — by ADMIN, or by the НПП on their own**
-(2026-10-06). An open year's rating line is deleted from the rating too; a
+**An НПП touches their Характеристика only through the rating and п.15 / п.20**
+(owner, 2026-11-17): they type and remove lines on those two positions alone
+(`SELF_TYPEABLE_POSITIONS`, `removePositionProblem` in
+`lib/kharakterystyka/self-entry.ts`); lines typed elsewhere before stay and
+count, and only ADMIN removes them. The freeze switch still closes all of it.
+
+**Any line can be removed — final — by ADMIN** (2026-10-06; the НПП only on
+п.15 / п.20 since 2026-11-17). An open year's rating line is deleted from the rating too; a
 closed year's is only hidden (`KharakterystykaRemovedLine`); an imported one is
 hidden (`removedAt`) so a re-import cannot bring it back. The table is
 «Removing a line» in `docs/kharakterystyka.md`.
