@@ -186,7 +186,11 @@ export function EvidenceFields({
   // ISSN clears DOI's «коли не заповнено «ISSN»» at once, not on the next submit
   const depsOf = (name: string): string[] | undefined => {
     const deps = fields
-      .filter((g) => 'requiredWhen' in g && g.requiredWhen?.field === name)
+      .filter((g) => {
+        const w = 'requiredWhen' in g ? g.requiredWhen : undefined;
+        if (!w) return false;
+        return w.field === name || ('alsoEmpty' in w && !!w.alsoEmpty?.includes(name));
+      })
       .map((g) => g.name);
     return deps.length > 0 ? deps : undefined;
   };

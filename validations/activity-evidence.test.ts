@@ -838,22 +838,34 @@ describe('3.10 «Міжнародна публікація…» (owner, 2026-10-
   });
 });
 
-describe('3.11 DOI or ISBN (owner, 2026-11-17)', () => {
+describe('3.11 DOI, ISBN or ISSN (owner, 2026-11-17; ISSN 2026-11-23)', () => {
   const schema = schemaFor('doi_publication');
   const paths = (r: { error?: { issues: { path: PropertyKey[] }[] } }) =>
     (r.error?.issues ?? []).map((i) => i.path[0]);
 
-  // An empty form marks every box at once — the «one of the two» check used to
-  // wait until the rest was right, so DOI and ISBN stayed grey
-  it('marks DOI and ISBN on an empty form, beside the other boxes', () => {
+  // An empty form marks every box at once — the «one of the three» check used to
+  // wait until the rest was right, so DOI, ISBN and ISSN stayed grey
+  it('marks DOI, ISBN and ISSN on an empty form, beside the other boxes', () => {
     expect(paths(schema.safeParse({})).sort()).toEqual(
-      ['bibliography', 'doi', 'isbn', 'option', 'publishedOn'].sort()
+      ['bibliography', 'doi', 'isbn', 'issn', 'option', 'publishedOn'].sort()
     );
   });
 
-  it('does not mark the DOI while an ISBN is typed but unfinished', () => {
-    const r = schema.safeParse({ isbn: '978-966' });
-    expect(paths(r)).not.toContain('doi');
+  it('does not mark the others while one box is typed but unfinished', () => {
+    expect(paths(schema.safeParse({ isbn: '978-966' }))).not.toContain('doi');
+    expect(paths(schema.safeParse({ isbn: '978-966' }))).not.toContain('issn');
+    expect(paths(schema.safeParse({ issn: '2049' }))).not.toContain('doi');
+    expect(paths(schema.safeParse({ issn: '2049' }))).not.toContain('isbn');
+  });
+
+  it('accepts an ISSN alone', () => {
+    const r = schema.safeParse({
+      option: 'solo',
+      bibliography: 'Опис',
+      issn: '2049-3630',
+      publishedOn: new Date().toISOString().slice(0, 10),
+    });
+    expect(paths(r)).toEqual([]);
   });
 });
 

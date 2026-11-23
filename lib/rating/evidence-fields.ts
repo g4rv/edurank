@@ -25,7 +25,9 @@ import { decimalText } from '@/lib/decimal-input';
  *                while it is off, and its value dropped on save: 5.1's
  *                «Я лектор» comes before anything else (owner, 2026-10-16)
  * - `empty`   — the box named in `field` is left empty: «DOI or ISSN, at
- *                least one», and «the article's link when there is no DOI»
+ *                least one», and «the article's link when there is no DOI».
+ *                `alsoEmpty` names more boxes that must be empty too, for
+ *                «one of three»: 3.11's DOI, ISBN or ISSN (owner, 2026-11-23)
  *
  * `hide` on `in` or `empty` also HIDES the box while the condition is not met,
  * and drops its value on save, the way `checked` always does: 3.10's article
@@ -38,7 +40,7 @@ import { decimalText } from '@/lib/decimal-input';
 export type FieldCondition =
   | { field: string; in: readonly string[]; hide?: true }
   | { field: string; checked: true }
-  | { field: string; empty: true; hide?: true };
+  | { field: string; empty: true; alsoEmpty?: readonly string[]; hide?: true };
 
 export type EvidenceField =
   | {
@@ -360,7 +362,9 @@ const blankValue = (v: unknown) =>
 export function conditionMet(when: FieldCondition, values: Record<string, unknown>): boolean {
   const answer = values[when.field];
   if ('checked' in when) return answer === true;
-  if ('empty' in when) return blankValue(answer);
+  if ('empty' in when) {
+    return blankValue(answer) && (when.alsoEmpty ?? []).every((n) => blankValue(values[n]));
+  }
   return typeof answer === 'string' && when.in.includes(answer);
 }
 
@@ -828,8 +832,10 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
       multiline: true,
       placeholder: BIB_ARTICLE,
     }),
-    doi('doi', 'DOI', { requiredWhen: { field: 'isbn', empty: true } }),
-    isbn('isbn', 'ISBN', { requiredWhen: { field: 'doi', empty: true } }),
+    // DOI, ISBN or ISSN — at least one (owner, 2026-11-23; ISSN added)
+    doi('doi', 'DOI', { requiredWhen: { field: 'isbn', empty: true, alsoEmpty: ['issn'] } }),
+    isbn('isbn', 'ISBN', { requiredWhen: { field: 'doi', empty: true, alsoEmpty: ['issn'] } }),
+    issn('issn', 'ISSN', { requiredWhen: { field: 'doi', empty: true, alsoEmpty: ['isbn'] } }),
     date('publishedOn', 'Дата публікації', { rule: 'ratingYear' }),
   ],
   defense_supervision: [

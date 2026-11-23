@@ -32,6 +32,7 @@ const requiredWhen = z
     z.strictObject({
       field: z.string().min(1),
       empty: z.literal(true),
+      alsoEmpty: z.array(z.string().min(1)).min(1).optional(),
       hide: z.literal(true).optional(),
     }),
   ])
