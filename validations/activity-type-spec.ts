@@ -48,6 +48,8 @@ export const evidenceFieldSpecSchema: z.ZodType<EvidenceField> = z.discriminated
     rule: z.literal('cyrillicName').optional(),
     // A joined ПІБ chosen from a list rather than typed (2026-10-07)
     pickFrom: z.literal('aspirants').optional(),
+    // 5.1's discipline, chosen from the person's assigned list (2026-11-19)
+    fromDisciplines: z.literal(true).optional(),
     optional: z.boolean().optional(),
     requiredWhen,
     // Display only — never read by the scoring engine or the Характеристика

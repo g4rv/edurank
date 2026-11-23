@@ -39,6 +39,7 @@ vi.mock('@/lib/db', () => ({
     staff: { findUnique: vi.fn() },
     activityType: { findUnique: vi.fn() },
     activity: { findUnique: vi.fn(), findMany: vi.fn() },
+    assignedDiscipline: { findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -55,6 +56,7 @@ const mockTypeFind = db.activityType.findUnique as unknown as Mock;
 const mockActivityFind = db.activity.findUnique as unknown as Mock;
 const mockActivityFindMany = db.activity.findMany as unknown as Mock;
 const mockTransaction = db.$transaction as unknown as Mock;
+const mockAssigned = db.assignedDiscipline.findMany as unknown as Mock;
 const mockPlanGate = getSciencePlanGate as unknown as Mock;
 
 const userSession = { user: { id: 'user-1', role: 'USER', staffId: 'staff-1' } };
@@ -101,6 +103,8 @@ beforeEach(() => {
   mockStaffFind.mockResolvedValue(nppStaff);
   mockTypeFind.mockResolvedValue(confUkraineType);
   mockPlanGate.mockResolvedValue({ open: true });
+  mockAssigned.mockResolvedValue([]);
+  mockActivityFindMany.mockResolvedValue([]);
 });
 
 describe('createActivity', () => {
@@ -468,6 +472,68 @@ describe('while 5.1 is not filled', () => {
     expect(await createActivity('type-51', { isLecturer: false })).toEqual({
       success: true,
       score: 0,
+    });
+  });
+
+  // Assigned disciplines (owner, 2026-11-19): a person who has any answers 5.1
+  // once for EACH of them, «Я лектор» being a per-entry answer
+  describe('with disciplines assigned', () => {
+    const moodle = () => {
+      const m = catalogueType('moodle_course').specs;
+      mockTypeFind.mockResolvedValue({
+        ...confUkraineType,
+        id: 'type-51',
+        code: 'moodle_course',
+        label: '5.1',
+        coefficient: 0,
+        maxPerYear: null,
+        gatesRating: true,
+        evidenceFields: m.evidenceFields,
+        scoring: m.scoring,
+      });
+    };
+    beforeEach(() => {
+      moodle();
+      mockAssigned.mockResolvedValue([{ name: 'Фізика' }, { name: 'Хімія' }]);
+    });
+
+    it('takes «Не лектор» for one of their disciplines, with nothing else filled', async () => {
+      mockTx();
+      expect(await createActivity('type-51', { isLecturer: false, discipline: 'Фізика' })).toEqual({
+        success: true,
+        score: 0,
+      });
+    });
+
+    it('refuses an entry with no discipline — «Не лектор» alone no longer settles the year', async () => {
+      mockTx();
+      expect(await createActivity('type-51', { isLecturer: false })).toEqual({
+        error: 'Невірні дані форми',
+      });
+    });
+
+    it('refuses a discipline that is not on their list', async () => {
+      mockTx();
+      expect(
+        await createActivity('type-51', { isLecturer: false, discipline: 'Астрономія' })
+      ).toEqual({ error: 'Невірні дані форми' });
+    });
+
+    it('refuses a second entry for the same discipline', async () => {
+      mockActivityFindMany.mockResolvedValue([{ evidence: { discipline: 'фізика ' } }]);
+      mockTx();
+      expect(await createActivity('type-51', { isLecturer: false, discipline: 'Фізика' })).toEqual({
+        error: expect.stringContaining('вже є запис'),
+      });
+    });
+
+    it('a person with no list keeps the old form and rule', async () => {
+      mockAssigned.mockResolvedValue([]);
+      mockTx();
+      expect(await createActivity('type-51', { isLecturer: false })).toEqual({
+        success: true,
+        score: 0,
+      });
     });
   });
 

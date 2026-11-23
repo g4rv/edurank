@@ -61,6 +61,8 @@
     "db:link-speciality-departments": "tsx prisma/link-speciality-departments.ts",
     "db:import-students": "tsx prisma/import-students.ts",
     "db:import-aspirants": "tsx prisma/import-aspirants.ts",
+    "db:import-disciplines": "tsx prisma/import-disciplines.ts",
+    "db:discipline-pick": "tsx prisma/discipline-pick.ts",
     "db:clean-student-names": "tsx prisma/clean-student-names.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",

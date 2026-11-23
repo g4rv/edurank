@@ -216,6 +216,21 @@ describe('buildRatingWorkbook — 5.1 «Я лектор»', () => {
     expect(grand).toContain('без нього рік не буде зараховано');
   });
 
+  // Assigned disciplines (2026-11-19): one entry exists but not one for each
+  // discipline, so the gate is set — the lines must not say «Виконано» under a warning
+  it('reads «Не заповнено» on 5.1 and its розділ when the gate is set although an entry exists', () => {
+    const flat = flatOf({
+      ...staff,
+      gate: 'pending',
+      activities: [...staff.activities, { code: 'moodle_course', score: 0, option: 'development' }],
+    });
+    expect(flat.some((r) => r.startsWith('5.1.|') && r.includes('|Не заповнено|'))).toBe(true);
+    expect(flat.some((r) => r.startsWith('5.1.|') && r.includes('|Виконано|'))).toBe(false);
+    expect(
+      flat.some((r) => r.startsWith('Всього балів по розділу 5') && r.includes('Не заповнено'))
+    ).toBe(true);
+  });
+
   it('in a year closed without it totals 0 and says why', () => {
     const flat = flatOf({ ...staff, gate: 'zeroed' });
     const grand = flat.find((r) => r.startsWith('Загальна сума балів'))!;

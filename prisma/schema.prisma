@@ -444,6 +444,8 @@ model Staff {
   scienceRecords         ScienceRecord[]
   /// The аспіранти this person is науковий керівник of (`Aspirant`)
   supervisedAspirants    AspirantSupervisor[]
+  /// The disciplines this person must answer in rating 5.1, per year
+  assignedDisciplines    AssignedDiscipline[]
   scienceCoauthorShares  ScienceCoauthorShare[]
   scienceWorksCreated    ScienceWork[]          @relation("ScienceWorkAuthor")
   scienceWorksDeclined   ScienceWork[]          @relation("ScienceWorkDecliner")
@@ -2032,6 +2034,33 @@ model AspirantSupervisor {
 }
 
 // ─── Research-profile check ──────────────────────────────────────────────────
+// ─── Assigned disciplines (rating 5.1) ───────────────────────────────────────
+
+/// A discipline the departments assigned to an НПП for a rating year (owner,
+/// 2026-11-19). A person who has any must answer 5.1 once for EACH of them —
+/// the form offers exactly this list and the year counts 0 at close without
+/// them all. A person with none keeps the old rule (one free-text entry).
+/// Loaded by `pnpm db:import-disciplines`; the same name is not repeated for a
+/// person in a year (`nameNormalised`), whatever groups it was taught to.
+model AssignedDiscipline {
+  id String @id @default(cuid())
+
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  /// The RATING year (the template's), never today's
+  year    Int
+
+  /// As the department wrote it — what the select shows and the entry stores
+  name           String
+  /// Lower-case, spaces and quotes folded — what «the same discipline» compares
+  nameNormalised String
+
+  createdAt DateTime @default(now())
+
+  @@unique([staffId, year, nameNormalised])
+  @@index([year])
+}
+
 
 enum ProfileCheckRunStatus {
   RUNNING

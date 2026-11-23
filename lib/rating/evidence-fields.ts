@@ -83,6 +83,13 @@ export type EvidenceField =
        * typed before keeps reading, keying and printing as it did.
        */
       pickFrom?: 'aspirants';
+      /**
+       * 5.1's «Дисципліна»: for a person with disciplines assigned to them
+       * (`AssignedDiscipline`, owner 2026-11-19) the box becomes a select over
+       * their list, always drawn and required — see `withAssignedDisciplines`.
+       * Everybody else keeps the text box.
+       */
+      fromDisciplines?: true;
       requiredWhen?: FieldCondition;
     }
   | {
@@ -234,6 +241,7 @@ export const text = (
     span?: 1 | 2;
     rule?: 'cyrillicName';
     requiredWhen?: FieldCondition;
+    fromDisciplines?: true;
   }
 ): EvidenceField => ({ kind: 'text', name, label, ...opts });
 
@@ -987,7 +995,12 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     select('mode', 'Вид роботи', [opt('development', 'Розроблення'), opt('update', 'Оновлення')], {
       requiredWhen: LECTURER,
     }),
-    text('discipline', 'Дисципліна (освітній компонент)', { requiredWhen: LECTURER }),
+    // A person with assigned disciplines gets a select over them instead, drawn
+    // whether or not «Я лектор» is on (`withAssignedDisciplines`, 2026-11-19)
+    text('discipline', 'Дисципліна (освітній компонент)', {
+      requiredWhen: LECTURER,
+      fromDisciplines: true,
+    }),
     url('link', 'Посилання на курс', { requiredWhen: LECTURER }),
     ...(
       [

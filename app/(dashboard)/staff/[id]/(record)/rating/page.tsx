@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
-import { loadRatingGate } from '@/lib/rating/rating-gate';
+import { loadDisciplineProgress, loadRatingGate } from '@/lib/rating/rating-gate';
+import { DisciplineChecklist } from '@/components/rating/discipline-checklist';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
 import { auth } from '@/lib/auth';
 import { canOverseeScience } from '@/lib/science/oversight';
@@ -117,6 +118,10 @@ export default async function StaffRatingPage({
       ? undefined
       : ('pending' as const);
 
+  // The disciplines assigned to them and which have an entry (2026-11-19): what
+  // the close of an open year will zero. A closed year has its frozen snapshot.
+  const disciplines = closed ? [] : await loadDisciplineProgress(db, id, year);
+
   /**
    * A closed year with NO snapshot is an empty rating, not an open one.
    *
@@ -163,6 +168,8 @@ export default async function StaffRatingPage({
       </RecordTabRow>
 
       {adminNote && <FrozenNote>{adminNote}</FrozenNote>}
+
+      <DisciplineChecklist items={disciplines} ofOther />
 
       <RatingTable groups={groups} fill gate={gate} />
     </div>
