@@ -121,14 +121,27 @@ again — renaming it there dropped the id on the server and lost a scan on the
 next phone-number save (caught in the browser). Checked on a copy of
 production: 645 rows through both paths, 0 changed.
 
-**A кандидат / доктор diploma may carry a scan — optional, JPG only** (owner,
-2026-10-27). Five `file*` columns on `Diploma`, key `diplomas/<staffId>/<uuid>.jpg`,
+**Every diploma carries a scan — JPG only, mandatory** (owner, 2026-11-23; it
+was optional, and for a кандидат / доктор only, from 2026-10-27). A basic education
+too. Five `file*` columns on `Diploma`, key `diplomas/<staffId>/<uuid>.jpg`,
 uploaded before the save like the certificates' (`app/(dashboard)/diplomas/file-actions.ts`,
 the `degrees` grant decides who may), checked from the stored bytes by
-`prepareDiplomaScans` — a PNG or PDF is refused there and by the picker. A basic
-education never has one. Opening it is the certificates' rule
-(`authoriseQualifications(…, 'read')`). Every read selects diplomas through
-`DIPLOMA_ROWS`, which leaves out the key and the hash. Audited as `diplomaScans`.
+`prepareDiplomaScans` — a PNG or PDF is refused there and by the picker. Opening it
+is the certificates' rule (`authoriseQualifications(…, 'read')`). Every read selects
+diplomas through `DIPLOMA_ROWS`, which leaves out the key and the hash. Audited as
+`diplomaScans`.
+
+- **Grandfathered, like the papers below.** The server refuses a NEW or CHANGED
+  diploma with no scan (`hasIncompleteDiploma`, `hasScanAfterSave`); an old one
+  with none saves untouched, so nobody's phone-number save is blocked, and its card
+  says «Додайте скан диплома (JPG)» (a warning, never a block). A scan a diploma
+  HAS can never be removed without another in its place. What the form sent as
+  `scanName` is never trusted — the stored row is read.
+- **A person being created has no folder yet**, so `createStaff` asks no scan
+  (`diplomaRefusal(null, …)` passes `requireScan: false`) and the create form does
+  not draw the field; the first edit of that diploma then needs one.
+- **The plain НПП cannot add one** while the profile is frozen (2026-11-02): only
+  ADMIN or a division granted `degrees` uploads, so the scans are HR's to collect.
 
 **Every field of a diploma is mandatory except the серія and «відповідає
 кафедрі»** (owner, 2026-10-15), and a degree's diploma is never issued before its

@@ -414,7 +414,9 @@ export type DiplomaField =
   | 'defenceDate'
   | 'issueDate'
   | 'issuedBy'
-  | 'number';
+  | 'number'
+  /** The scan (owner, 2026-11-23). Not judged by `diplomaGaps` — see `hasScanAfterSave`. */
+  | 'file';
 
 /** What is wrong with a field: left empty, or an issue date before the defence */
 export type DiplomaGap = 'missing' | 'beforeDefence' | 'future';
@@ -479,19 +481,57 @@ export function sameDiploma(a: DegreeRecord, b: DegreeRecord): boolean {
 }
 
 /**
+ * Whether a diploma will hold a scan once the save has run (owner, 2026-11-23).
+ * The entry's own `file` says what the save does: an object puts a new one in,
+ * `null` takes it away, `undefined` keeps what the row has. «What the row has»
+ * is read from the STORED records — never from the entry's `scanName`, which
+ * is only what the browser sent back.
+ */
+export function hasScanAfterSave(r: DegreeRecord, stored: readonly DegreeRecord[]): boolean {
+  if (r.file) return true;
+  if (r.file === null) return false;
+  const own =
+    (r.id ? stored.find((s) => s.id === r.id) : undefined) ?? stored.find((s) => sameDiploma(s, r));
+  return !!own?.scanName;
+}
+
+/**
  * Whether a save would store an incomplete diploma (owner, 2026-10-15). Only a
  * NEW or CHANGED entry is judged: one saved before the papers existed comes back
  * untouched on every save of the profile, and refusing it would block a phone
  * number. Editing such an entry — even ticking «відповідає кафедрі» — makes it
  * a changed one, and then it must be complete.
+ *
+ * **The scan is part of «complete»** (owner, 2026-11-23): every diploma, a basic
+ * education too, must carry one. A new or changed entry without one is refused;
+ * an old one with none passes untouched, like the papers — but a scan it HAS can
+ * never be taken away without another in its place. `requireScan: false` is for
+ * a person being created: their folder does not exist yet, so no scan can be
+ * uploaded until they do.
  */
 export function hasIncompleteDiploma(
   stored: readonly DegreeRecord[],
-  incoming: readonly DegreeRecord[]
+  incoming: readonly DegreeRecord[],
+  options: { requireScan?: boolean } = {}
 ): boolean {
-  return incoming.some(
-    (r) => !stored.some((s) => sameDiploma(s, r)) && Object.keys(diplomaGaps(r)).length > 0
-  );
+  const requireScan = options.requireScan ?? true;
+  return incoming.some((r) => {
+    const unchanged = stored.some((s) => sameDiploma(s, r));
+    if (!unchanged) {
+      return (
+        Object.keys(diplomaGaps(r)).length > 0 || (requireScan && !hasScanAfterSave(r, stored))
+      );
+    }
+    // Untouched: grandfathered — except that its scan may not be removed outright
+    return requireScan && r.file === null && !hasScanAfterSave(r, stored) && hadScan(r, stored);
+  });
+}
+
+/** Did the stored row this entry IS hold a scan? */
+function hadScan(r: DegreeRecord, stored: readonly DegreeRecord[]): boolean {
+  const own =
+    (r.id ? stored.find((s) => s.id === r.id) : undefined) ?? stored.find((s) => sameDiploma(s, r));
+  return !!own?.scanName;
 }
 
 /**

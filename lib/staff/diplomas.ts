@@ -1,6 +1,5 @@
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { db } from '@/lib/db';
-import { degreeLevel } from '@/lib/staff/academic-options';
 import { DIPLOMA_SCAN_TYPE, DIPLOMA_SCAN_TYPE_MESSAGE } from '@/lib/staff/diploma-scan';
 import { isDiplomaKeyOf } from '@/lib/science/r2';
 import {
@@ -58,7 +57,8 @@ export interface WrittenDiplomas {
  *
  * The scan follows the entry's `file`: `undefined` keeps it, `null` drops it,
  * an object puts in the scan `verified` holds for its key (`prepareDiplomaScans`
- * checked it before the transaction). A basic education never has one.
+ * checked it before the transaction). Every kind may have one, a basic education
+ * too (owner, 2026-11-23) — and a new or changed entry must (`hasIncompleteDiploma`).
  */
 export async function writeDiplomas(
   tx: Prisma.TransactionClient,
@@ -111,8 +111,7 @@ export async function writeDiplomas(
       topic: r.topic,
     };
 
-    // A basic education carries no scan, whatever a stale form sent.
-    const choice = degreeLevel(r.degree) === 'basic' ? null : r.file;
+    const choice = r.file;
     let file: ReturnType<typeof scanColumns> | undefined;
     if (choice === null) file = scanColumns(null);
     else if (choice) {
@@ -168,7 +167,7 @@ export async function prepareDiplomaScans(input: {
     Promise.all([...verified.keys()].map((key) => safeDeleteObject(input.scope, key, context)));
 
   for (const r of input.records ?? []) {
-    if (!r.file || degreeLevel(r.degree) === 'basic') continue;
+    if (!r.file) continue;
     if (!isDiplomaKeyOf(input.staffId, r.file.objectKey)) {
       // Not ours to delete: the key names somebody else's folder, or none.
       await dropAll();
@@ -206,7 +205,8 @@ export const DIPLOMA_INCOMPLETE_MESSAGE =
 /**
  * Whether this save would store an incomplete diploma — judged against what the
  * person has now, so an untouched old entry passes (`hasIncompleteDiploma`).
- * `staffId` null for a person being created: every entry is new.
+ * `staffId` null for a person being created: every entry is new, and none is
+ * asked for a scan — the create form has nowhere to put one until they have an id.
  */
 export async function diplomaRefusal(
   staffId: string | null,
@@ -233,5 +233,5 @@ export async function diplomaRefusal(
         })
       )
     : [];
-  return hasIncompleteDiploma(stored, incoming);
+  return hasIncompleteDiploma(stored, incoming, { requireScan: staffId !== null });
 }
