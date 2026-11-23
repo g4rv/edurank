@@ -115,10 +115,10 @@ export function languageCertificateKeyFor(input: { staffId: string; ext: string 
   return `language-certificates/${input.staffId}/${randomUUID()}.${input.ext}`;
 }
 
-/** `diplomas/<staffId>/<uuid>.jpg` — the scan of an НПП's кандидат / доктор
- *  diploma (owner, 2026-10-27). Built and guarded like the keys above. */
-export function diplomaKeyFor(input: { staffId: string }): string {
-  return `diplomas/${input.staffId}/${randomUUID()}.jpg`;
+/** `diplomas/<staffId>/<uuid>.jpg|png` — the scan of an НПП's diploma (owner,
+ *  2026-10-27; any image, 2026-11-23). Built and guarded like the keys above. */
+export function diplomaKeyFor(input: { staffId: string; extension?: 'jpg' | 'png' }): string {
+  return `diplomas/${input.staffId}/${randomUUID()}.${input.extension ?? 'jpg'}`;
 }
 
 /** Does this key sit in this person's diploma folder? */

@@ -190,7 +190,7 @@ describe('withoutScans — a new person has no folder yet', () => {
   });
 });
 
-describe('prepareDiplomaScans — checked from the stored bytes, JPG only', () => {
+describe('prepareDiplomaScans — checked from the stored bytes, JPEG or PNG', () => {
   const mockVerify = verifyUploadedObject as unknown as Mock;
   const mockDrop = safeDeleteObject as unknown as Mock;
   const prepare = (records: DegreeRecord[]) =>
@@ -216,14 +216,26 @@ describe('prepareDiplomaScans — checked from the stored bytes, JPG only', () =
     expect(mockDrop).not.toHaveBeenCalled();
   });
 
-  it('refuses a file that is not really a JPG, and drops it', async () => {
+  // Any image (owner, 2026-11-23): stored as JPEG or PNG, nothing else
+  it('accepts a PNG as well as a JPEG', async () => {
     mockVerify.mockResolvedValue({
-      file: { ...scan('diplomas/staff-1/a.jpg'), contentType: 'image/png' },
+      file: { ...scan('diplomas/staff-1/a.png'), contentType: 'image/png' },
     });
     const result = await prepare([
-      record({ file: { objectKey: 'diplomas/staff-1/a.jpg', fileName: 'a.jpg' } }),
+      record({ file: { objectKey: 'diplomas/staff-1/a.png', fileName: 'a.png' } }),
     ]);
-    expect(result).toEqual({ error: 'Скан диплома — лише у форматі JPG' });
+    expect(result).toMatchObject({ ok: true });
+    expect(mockDrop).not.toHaveBeenCalled();
+  });
+
+  it('refuses a stored file that is not an image we keep, and drops it', async () => {
+    mockVerify.mockResolvedValue({
+      file: { ...scan('diplomas/staff-1/a.jpg'), contentType: 'application/pdf' },
+    });
+    const result = await prepare([
+      record({ file: { objectKey: 'diplomas/staff-1/a.jpg', fileName: 'a.pdf' } }),
+    ]);
+    expect(result).toEqual({ error: 'Скан диплома — лише зображення (JPG, PNG та інші)' });
     expect(mockDrop).toHaveBeenCalledWith('test', 'diplomas/staff-1/a.jpg', expect.anything());
   });
 

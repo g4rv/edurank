@@ -1948,8 +1948,9 @@ model Diploma {
   /// «Тема наукової роботи» — a degree only
   topic      String?
 
-  /// The scan of a diploma, any kind, JPG only (owner, 2026-10-27; mandatory for
-  /// a new or changed one since 2026-11-23, an old row may still have none). The
+  /// The scan of a diploma, any kind, stored as JPEG or PNG (owner, 2026-10-27;
+  /// mandatory for a new or changed one and any image since 2026-11-23, an old row
+  /// may still have none). The
   /// five are set together or all null. The R2 key is
   /// `diplomas/<staffId>/<uuid>.jpg` — server-generated. The SHA-256 is not
   /// unique, for the reason `Qualification.fileSha256` is not.

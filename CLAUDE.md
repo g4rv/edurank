@@ -121,12 +121,16 @@ again — renaming it there dropped the id on the server and lost a scan on the
 next phone-number save (caught in the browser). Checked on a copy of
 production: 645 rows through both paths, 0 changed.
 
-**Every diploma carries a scan — JPG only, mandatory** (owner, 2026-11-23; it
-was optional, and for a кандидат / доктор only, from 2026-10-27). A basic education
-too. Five `file*` columns on `Diploma`, key `diplomas/<staffId>/<uuid>.jpg`,
+**Every diploma carries a scan — any image, mandatory** (owner, 2026-11-23; it
+was optional, JPG only, and for a кандидат / доктор only, from 2026-10-27). A basic
+education too. Five `file*` columns on `Diploma`, key `diplomas/<staffId>/<uuid>.jpg|png`,
 uploaded before the save like the certificates' (`app/(dashboard)/diplomas/file-actions.ts`,
 the `degrees` grant decides who may), checked from the stored bytes by
-`prepareDiplomaScans` — a PNG or PDF is refused there and by the picker. Opening it
+`prepareDiplomaScans`. **What is stored is JPEG or PNG**, the two image types the
+shared file checks can verify from their bytes; the picker takes ANY image and turns
+one that is not JPEG or PNG (WebP, GIF, BMP, AVIF…) into a JPEG in the browser
+(`convertToJpeg`; HEIC only where the browser can read it, otherwise it says so). A
+PDF is not an image and is refused there and by the picker. Opening it
 is the certificates' rule (`authoriseQualifications(…, 'read')`). Every read selects
 diplomas through `DIPLOMA_ROWS`, which leaves out the key and the hash. Audited as
 `diplomaScans`.
@@ -134,7 +138,7 @@ diplomas through `DIPLOMA_ROWS`, which leaves out the key and the hash. Audited 
 - **Grandfathered, like the papers below.** The server refuses a NEW or CHANGED
   diploma with no scan (`hasIncompleteDiploma`, `hasScanAfterSave`); an old one
   with none saves untouched, so nobody's phone-number save is blocked, and its card
-  says «Додайте скан диплома (JPG)» (a warning, never a block). A scan a diploma
+  shows a bold red «! Додайте скан диплома» (a note, never a block). A scan a diploma
   HAS can never be removed without another in its place. What the form sent as
   `scanName` is never trusted — the stored row is read.
 - **A person being created has no folder yet**, so `createStaff` asks no scan
@@ -392,6 +396,10 @@ pnpm db:doi-publication-isbn  # one-off: rating 3.11 takes DOI OR ISBN (one
                       #   of the two required) in every open year; the title
                       #   and the hint say so. No entry or
                       #   score moves. Report first; --apply.
+pnpm db:doi-publication-issn  # one-off, AFTER db:doi-publication-isbn: 3.11 takes DOI, ISBN
+                      #   OR ISSN (one of the three, owner 2026-11-23) in every open year;
+                      #   adds the ISSN box, title and hint. No entry or score moves.
+                      #   Report first; --apply. (`empty` + `alsoEmpty` in FieldCondition.)
 pnpm db:department-rating-derivation  # one-off, after migrate deploy: links
                       #   Рейтинг кафедри lines to the personal indicators they are
                       #   counted from. Create-only, every year whose line is still

@@ -1,6 +1,6 @@
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { db } from '@/lib/db';
-import { DIPLOMA_SCAN_TYPE, DIPLOMA_SCAN_TYPE_MESSAGE } from '@/lib/staff/diploma-scan';
+import { DIPLOMA_SCAN_TYPE_MESSAGE, isDiplomaScanType } from '@/lib/staff/diploma-scan';
 import { isDiplomaKeyOf } from '@/lib/science/r2';
 import {
   safeDeleteObject,
@@ -150,7 +150,8 @@ function scanColumns(file: VerifiedFile | null) {
 
 /**
  * Before the transaction: every scan an entry stages is checked from its STORED
- * bytes — in this person's diploma folder, really a JPG (owner, 2026-10-27).
+ * bytes — in this person's diploma folder, really a JPEG or PNG (owner,
+ * 2026-10-27; any image since 2026-11-23, others converted in the browser).
  * A refusal drops every object it checked; a save that fails AFTER this leaves
  * them, because the form still holds their keys and a retry must find them.
  */
@@ -185,7 +186,7 @@ export async function prepareDiplomaScans(input: {
       return { error: result.error };
     }
     verified.set(result.file.objectKey, result.file);
-    if (result.file.contentType !== DIPLOMA_SCAN_TYPE) {
+    if (!isDiplomaScanType(result.file.contentType)) {
       await dropAll();
       return { error: DIPLOMA_SCAN_TYPE_MESSAGE };
     }

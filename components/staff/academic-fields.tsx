@@ -8,7 +8,7 @@ import {
   type UseFormRegister,
 } from 'react-hook-form';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Check, CircleAlert, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   EMPTY_DEGREE_ROW,
@@ -56,7 +56,11 @@ import {
   discardDiplomaUpload,
   presignDiplomaUpload,
 } from '@/app/(dashboard)/diplomas/file-actions';
-import { DIPLOMA_SCAN_TYPE, DIPLOMA_SCAN_TYPE_MESSAGE } from '@/lib/staff/diploma-scan';
+import {
+  DIPLOMA_SCAN_ACCEPT,
+  DIPLOMA_SCAN_TYPE_MESSAGE,
+  DIPLOMA_SCAN_UNREADABLE_MESSAGE,
+} from '@/lib/staff/diploma-scan';
 import { BadgePicker } from '@/components/staff/badge-picker';
 import { CARD_TITLES } from '@/components/staff/profile/cards';
 import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
@@ -286,11 +290,12 @@ const uaDay = (iso: string) => iso.split('-').reverse().join('.');
 const scanOf = (row: DegreeFormRow): string | null =>
   row.file === null ? null : row.file ? row.file.fileName : row.scanName || null;
 
-/** The diploma scan's one format (owner, 2026-10-27), for the picker */
+/** The diploma scan may be any image (owner, 2026-11-23), for the picker */
 const DIPLOMA_SCAN_ONLY = {
-  type: DIPLOMA_SCAN_TYPE,
-  accept: 'image/jpeg,.jpg,.jpeg',
+  image: true,
+  accept: DIPLOMA_SCAN_ACCEPT,
   message: DIPLOMA_SCAN_TYPE_MESSAGE,
+  unreadable: DIPLOMA_SCAN_UNREADABLE_MESSAGE,
 };
 
 /**
@@ -360,7 +365,12 @@ function DegreeCard({
             )}
             {/* Every diploma needs a scan (owner, 2026-11-23). An old one saves
                 untouched without it; this asks, it does not block. */}
-            {scanProblem && <p className="mt-0.5 text-xs text-warning">{scanProblem}</p>}
+            {scanProblem && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-base font-bold text-error-strong">
+                <CircleAlert className="size-5 shrink-0" aria-hidden />
+                {scanProblem}
+              </p>
+            )}
           </>
         )}
       </div>
@@ -708,7 +718,7 @@ function DegreeDialogForm({
             <FormField
               htmlFor="degree-dialog-file"
               label="Скан диплома"
-              description="Лише JPG, до 10 МБ."
+              description="Будь-яке зображення (JPG, PNG та інші), до 10 МБ."
               required
               error={err('file')}
             >
@@ -790,7 +800,7 @@ export function EducationCard({
       key={row.id}
       row={row as unknown as DegreeFormRow}
       disabled={degreesLocked}
-      requireScan={!!scanUploader}
+      requireScan={!!scanUploader && !locked('degrees')}
       onEdit={() => setDialog({ index, row: row as unknown as DegreeFormRow })}
       onRemove={() => {
         // A scan staged in this form and never saved goes with the card.

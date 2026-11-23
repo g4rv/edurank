@@ -128,7 +128,7 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
 export const FUTURE_DATE_MESSAGE = 'Дата не може бути в майбутньому';
 
 /** The scan every diploma needs (owner, 2026-11-23) */
-export const SCAN_MISSING_MESSAGE = 'Додайте скан диплома (JPG)';
+export const SCAN_MISSING_MESSAGE = 'Додайте скан диплома';
 
 /**
  * Will this card hold a scan after the save: one chosen, else the stored one —
