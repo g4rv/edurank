@@ -241,7 +241,11 @@ export function Sidebar({
   // URL. The label drops «рейтингу» for the same reason: the page stopped
   // being only that.
   if (canModerate || canOverseeSciencePlans) {
-    management.push({ href: '/moderation', label: 'Модерація', icon: BadgeCheck });
+    management.push({ href: '/moderation', label: 'Модерація', icon: BadgeCheck, exact: true });
+  }
+  // Who still owes 5.1 an entry for each assigned discipline (owner, 2026-11-19)
+  if (canModerate) {
+    management.push({ href: '/moderation/disciplines', label: 'Дисципліни 5.1', icon: BookCheck });
   }
   if (canSeeRating) {
     management.push({ href: '/dashboard', label: 'Графіки', icon: ChartColumn });

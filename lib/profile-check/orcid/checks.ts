@@ -34,9 +34,18 @@ function check(
   return { field, current, shouldBe, status, message };
 }
 
+/**
+ * The name ORCID puts in the header is the PUBLISHED name (`credit-name`) when
+ * there is one; the given and family names then drop to the small line under it
+ * (owner, 2026-11-23). So the check follows the header: the published name when
+ * it is set, the given + family names when it is not. A person with a Cyrillic
+ * legal name and a Latin published name is fine.
+ */
 export function checkName(data: OrcidData): Check {
   const should = 'Лише латинські символи';
-  const full = `${data.name.given} ${data.name.family}`.trim();
+  const published = data.name.credit.trim();
+  const full = published || `${data.name.given} ${data.name.family}`.trim();
+  const which = published ? 'Опубліковане ім’я' : 'Ім’я';
   if (!full) return check('name', null, should, 'error', "Ім'я відсутнє");
   const kind = latinKind(full);
   if (kind === 'latin') return check('name', full, should, 'ok');
@@ -46,10 +55,10 @@ export function checkName(data: OrcidData): Check {
       full,
       should,
       'warning',
-      'Містить кириличні символи, схожі на латинські (наприклад «а» замість «a»)'
+      `${which} містить кириличні символи, схожі на латинські (наприклад «а» замість «a»)`
     );
   }
-  return check('name', full, should, 'error', "Ім'я містить не латинські символи");
+  return check('name', full, should, 'error', `${which} містить не латинські символи`);
 }
 
 /** At least one verified corporate email and at least one personal one. */

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ratingGate, ratingGateDetail, type GatingType } from './rating-gate';
-
+import { uniqueDisciplines } from '@/lib/disciplines/assigned';
+import {
+  evaluateGate,
+  ratingGate,
+  ratingGateDetail,
+  type GatingRow,
+  type GatingType,
+} from './rating-gate';
 const m51: GatingType = { id: 't51', itemNumber: '5.1', sectionNumber: 5 };
 
 describe('ratingGate', () => {
@@ -37,5 +43,45 @@ describe('ratingGateDetail', () => {
     expect(ratingGateDetail([m51, { id: 'x', itemNumber: '5.2', sectionNumber: 5 }])).toContain(
       'Пункти 5.1, 5.2 обов’язкові'
     );
+  });
+});
+
+describe('evaluateGate', () => {
+  const row: GatingRow = { id: 't51', itemNumber: '5.1', sectionNumber: 5, byDiscipline: true };
+  const assigned = uniqueDisciplines(['Фізика', 'Хімія']);
+  const entries = (...e: unknown[]) => new Map([['t51', e]]);
+
+  it('without a list one entry opens it, as before', () => {
+    expect(
+      evaluateGate({ gating: [row], assigned: [], entries: entries({ isLecturer: false }) })
+    ).toEqual({ open: true });
+    expect(evaluateGate({ gating: [row], assigned: [], entries: entries() }).open).toBe(false);
+  });
+
+  it('with a list one entry is not enough — every discipline needs its own', () => {
+    const gate = evaluateGate({
+      gating: [row],
+      assigned,
+      entries: entries({ discipline: 'Фізика', isLecturer: true }),
+    });
+    expect(gate).toMatchObject({ open: false, missingDisciplines: ['Хімія'] });
+  });
+
+  it('«Не лектор» on each discipline opens it', () => {
+    const gate = evaluateGate({
+      gating: [row],
+      assigned,
+      entries: entries(
+        { discipline: 'Фізика', isLecturer: false },
+        { discipline: 'Хімія', isLecturer: false }
+      ),
+    });
+    expect(gate).toEqual({ open: true });
+  });
+
+  it('a gating indicator that asks for no discipline keeps the one-entry rule even with a list', () => {
+    const plain: GatingRow = { ...row, id: 't52', itemNumber: '5.2', byDiscipline: false };
+    const gate = evaluateGate({ gating: [plain], assigned, entries: new Map([['t52', [{}]]]) });
+    expect(gate).toEqual({ open: true });
   });
 });

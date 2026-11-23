@@ -7,6 +7,25 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
+// The folder a diploma scan is kept in is the person's own; these fixtures use one key for all
+vi.mock('@/lib/science/r2', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/science/r2')>()),
+  isDiplomaKeyOf: vi.fn(() => true),
+}));
+// Every staged diploma scan is checked against R2; here it always checks out as a JPG
+vi.mock('@/lib/science/file-intake', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/science/file-intake')>()),
+  verifyUploadedObject: vi.fn(async (input: { objectKey: string; fileName: string }) => ({
+    file: {
+      objectKey: input.objectKey,
+      fileName: input.fileName,
+      contentType: 'image/jpeg',
+      sizeBytes: 10,
+      sha256: 'hash',
+    },
+  })),
+  safeDeleteObject: vi.fn(),
+}));
 // The freeze is a switch read from the database (lib/freeze): off here, its
 // rules have their own tests (lib/freeze/rules.test.ts).
 vi.mock('@/lib/freeze/state', () => ({
@@ -102,8 +121,9 @@ const mockSendMail = sendMail as unknown as Mock;
 const mockAllowance = mailAllowance as unknown as Mock;
 const mockHash = hash as unknown as Mock;
 
-/** A diploma's papers — mandatory for a new entry (owner, 2026-10-15) */
+/** A diploma's papers and its scan — mandatory for a new entry (owner, 2026-10-15, scan 2026-11-23) */
 const PAPERS = {
+  file: { objectKey: 'diplomas/staff-1/scan.jpg', fileName: 'scan.jpg' },
   specialty: 'Історія',
   defenceDate: '2010-05-05',
   issuedBy: 'МОН України',

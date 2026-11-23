@@ -154,15 +154,31 @@ describe('writeDiplomas — in place, by id (owner, 2026-10-27)', () => {
     ).rejects.toThrow('not verified');
   });
 
-  it('never keeps a scan on a basic education', async () => {
+  // Every diploma carries a scan, a basic education too (owner, 2026-11-23)
+  it('keeps the scan of a basic education, like any other diploma', async () => {
     const tx = mockTx([
       { id: 'd1', fileKey: 'diplomas/staff-1/a.jpg', fileName: 'a.jpg', position: 0 },
     ]);
     const result = await write(tx, [
       record({ id: 'd1', degree: 'basic_education', basicLevel: 'master', topic: null }),
     ]);
-    expect(tx.diploma.update.mock.calls[0][0].data.fileKey).toBeNull();
-    expect(result.orphaned).toEqual(['diplomas/staff-1/a.jpg']);
+    // `file` left undefined keeps the stored scan: nothing about it is written
+    expect(tx.diploma.update.mock.calls[0][0].data).not.toHaveProperty('fileKey');
+    expect(result.orphaned).toEqual([]);
+  });
+
+  it('puts a verified scan on a NEW basic education', async () => {
+    const tx = mockTx([]);
+    const staged = { objectKey: 'diplomas/staff-1/b.jpg', fileName: 'b.jpg' };
+    await write(
+      tx,
+      [record({ degree: 'basic_education', basicLevel: 'master', topic: null, file: staged })],
+      new Map([[staged.objectKey, scan(staged.objectKey, 'b.jpg')]])
+    );
+    expect(tx.diploma.create.mock.calls[0][0].data).toMatchObject({
+      degree: 'basic_education',
+      fileKey: 'diplomas/staff-1/b.jpg',
+    });
   });
 });
 
@@ -174,7 +190,7 @@ describe('withoutScans — a new person has no folder yet', () => {
   });
 });
 
-describe('prepareDiplomaScans — checked from the stored bytes, JPG only', () => {
+describe('prepareDiplomaScans — checked from the stored bytes, JPEG or PNG', () => {
   const mockVerify = verifyUploadedObject as unknown as Mock;
   const mockDrop = safeDeleteObject as unknown as Mock;
   const prepare = (records: DegreeRecord[]) =>
@@ -200,26 +216,44 @@ describe('prepareDiplomaScans — checked from the stored bytes, JPG only', () =
     expect(mockDrop).not.toHaveBeenCalled();
   });
 
-  it('refuses a file that is not really a JPG, and drops it', async () => {
+  // Any image (owner, 2026-11-23): stored as JPEG or PNG, nothing else
+  it('accepts a PNG as well as a JPEG', async () => {
     mockVerify.mockResolvedValue({
-      file: { ...scan('diplomas/staff-1/a.jpg'), contentType: 'image/png' },
+      file: { ...scan('diplomas/staff-1/a.png'), contentType: 'image/png' },
     });
     const result = await prepare([
-      record({ file: { objectKey: 'diplomas/staff-1/a.jpg', fileName: 'a.jpg' } }),
+      record({ file: { objectKey: 'diplomas/staff-1/a.png', fileName: 'a.png' } }),
     ]);
-    expect(result).toEqual({ error: 'Скан диплома — лише у форматі JPG' });
+    expect(result).toMatchObject({ ok: true });
+    expect(mockDrop).not.toHaveBeenCalled();
+  });
+
+  it('refuses a stored file that is not an image we keep, and drops it', async () => {
+    mockVerify.mockResolvedValue({
+      file: { ...scan('diplomas/staff-1/a.jpg'), contentType: 'application/pdf' },
+    });
+    const result = await prepare([
+      record({ file: { objectKey: 'diplomas/staff-1/a.jpg', fileName: 'a.pdf' } }),
+    ]);
+    expect(result).toEqual({ error: 'Скан диплома — лише зображення (JPG, PNG та інші)' });
     expect(mockDrop).toHaveBeenCalledWith('test', 'diplomas/staff-1/a.jpg', expect.anything());
   });
 
-  it('ignores entries with no staged scan, and a basic education', async () => {
+  it('ignores entries with no staged scan', async () => {
+    const result = await prepare([record()]);
+    expect(result).toMatchObject({ ok: true });
+    expect(mockVerify).not.toHaveBeenCalled();
+  });
+
+  it('verifies the scan of a basic education too', async () => {
+    mockVerify.mockResolvedValue({ file: scan('diplomas/staff-1/a.jpg') });
     const result = await prepare([
-      record(),
       record({
         degree: 'basic_education',
         file: { objectKey: 'diplomas/staff-1/a.jpg', fileName: 'a.jpg' },
       }),
     ]);
     expect(result).toMatchObject({ ok: true });
-    expect(mockVerify).not.toHaveBeenCalled();
+    expect(mockVerify).toHaveBeenCalledTimes(1);
   });
 });

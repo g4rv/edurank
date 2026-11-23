@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/aurora/ui/button';
 import {
   EvidenceFileField,
+  type FileOnly,
   type FileUploader,
   type StagedFile,
 } from '@/components/science/evidence-file-field';
@@ -49,8 +50,8 @@ export function ScanField({
   /** True while a chosen file is being checked or uploaded */
   onBusyChange?: (busy: boolean) => void;
   disabled?: boolean;
-  /** One format only — see `EvidenceFileField` */
-  only?: { type: string; accept: string; message: string };
+  /** Narrows the picker — see `EvidenceFileField` */
+  only?: FileOnly;
 }) {
   const [staged, setStaged] = useState<StagedFile | null>(null);
   // The stored scan may be kept, or swapped / taken away.

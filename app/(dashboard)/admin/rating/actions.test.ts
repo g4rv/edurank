@@ -71,6 +71,8 @@ function mockTx() {
       upsert: vi.fn().mockResolvedValue({}),
     },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    // Disciplines assigned for the year — none unless a test gives some (2026-11-19)
+    assignedDiscipline: { findMany: vi.fn().mockResolvedValue([]) },
     // Рейтинг кафедри's lines travel with the year (2026-10-20)
     departmentIndicator: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -181,6 +183,12 @@ describe('closeYear', () => {
 
   // 5.1 is judged here and nowhere else (owner, 2026-10-19)
   describe('5.1', () => {
+    const GATING_51 = {
+      id: 't51',
+      itemNumber: '5.1',
+      evidenceFields: [],
+      section: { number: 5 },
+    };
     const row = {
       id: 'a1',
       staffId: 'staff-1',
@@ -196,7 +204,7 @@ describe('closeYear', () => {
     it('closes the year at 0 for a person with no entry — snapshot and totals', async () => {
       mockTemplateFind.mockResolvedValue(openTemplate);
       const tx = mockTx();
-      tx.activityType.findMany.mockResolvedValue([{ id: 't51' }]);
+      tx.activityType.findMany.mockResolvedValue([GATING_51]);
       tx.activity.findMany
         // the year's counting rows
         .mockResolvedValueOnce([row])
@@ -218,10 +226,10 @@ describe('closeYear', () => {
     it('closes the year as it stands for a person with an entry', async () => {
       mockTemplateFind.mockResolvedValue(openTemplate);
       const tx = mockTx();
-      tx.activityType.findMany.mockResolvedValue([{ id: 't51' }]);
+      tx.activityType.findMany.mockResolvedValue([GATING_51]);
       tx.activity.findMany
         .mockResolvedValueOnce([row])
-        .mockResolvedValueOnce([{ staffId: 'staff-1', activityTypeId: 't51' }]);
+        .mockResolvedValueOnce([{ staffId: 'staff-1', activityTypeId: 't51', evidence: {} }]);
 
       await closeYear(2026);
 
@@ -232,6 +240,69 @@ describe('closeYear', () => {
       expect(snapshot).not.toHaveProperty('blocked');
       // no totals zeroed: only the snapshot wipe and the snapshot itself
       expect(tx.ratingEntry.updateMany).toHaveBeenCalledTimes(2);
+    });
+
+    // Assigned disciplines (owner, 2026-11-19): one entry per discipline
+    describe('with disciplines assigned', () => {
+      const BY_DISCIPLINE = {
+        ...GATING_51,
+        evidenceFields: [
+          { kind: 'checkbox', name: 'isLecturer', label: 'Я лектор' },
+          { kind: 'text', name: 'discipline', label: 'Дисципліна', fromDisciplines: true },
+        ],
+      };
+      const two = [
+        { staffId: 'staff-1', name: 'Фізика', nameNormalised: 'фізика' },
+        { staffId: 'staff-1', name: 'Хімія', nameNormalised: 'хімія' },
+      ];
+
+      it('closes at 0 while one of the disciplines has no entry', async () => {
+        mockTemplateFind.mockResolvedValue(openTemplate);
+        const tx = mockTx();
+        tx.activityType.findMany.mockResolvedValue([BY_DISCIPLINE]);
+        tx.assignedDiscipline.findMany.mockResolvedValue(two);
+        tx.activity.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([
+          {
+            staffId: 'staff-1',
+            activityTypeId: 't51',
+            evidence: { discipline: 'Фізика', isLecturer: true },
+          },
+        ]);
+
+        await closeYear(2026);
+
+        const snapshot = tx.ratingEntry.updateMany.mock.calls.find(
+          (c) => c[0].where.staffId === 'staff-1'
+        )![0].data.snapshot;
+        expect(snapshot).toMatchObject({ total: 0, blocked: true });
+      });
+
+      it('keeps the year once every discipline has an entry, lecturer or not', async () => {
+        mockTemplateFind.mockResolvedValue(openTemplate);
+        const tx = mockTx();
+        tx.activityType.findMany.mockResolvedValue([BY_DISCIPLINE]);
+        tx.assignedDiscipline.findMany.mockResolvedValue(two);
+        tx.activity.findMany.mockResolvedValueOnce([row]).mockResolvedValueOnce([
+          {
+            staffId: 'staff-1',
+            activityTypeId: 't51',
+            evidence: { discipline: 'Фізика', isLecturer: true },
+          },
+          {
+            staffId: 'staff-1',
+            activityTypeId: 't51',
+            evidence: { discipline: 'Хімія', isLecturer: false },
+          },
+        ]);
+
+        await closeYear(2026);
+
+        const snapshot = tx.ratingEntry.updateMany.mock.calls.find(
+          (c) => c[0].where.staffId === 'staff-1'
+        )![0].data.snapshot;
+        expect(snapshot.total).toBe(300);
+        expect(snapshot).not.toHaveProperty('blocked');
+      });
     });
   });
 });

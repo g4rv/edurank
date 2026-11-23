@@ -7,10 +7,14 @@ import { authoriseQualifications } from '@/lib/qualifications/guard';
 import { fileProblem } from '@/lib/science/file-checks';
 import { safeDeleteObject } from '@/lib/science/file-intake';
 import { diplomaKeyFor, isDiplomaKeyOf, presignGet, presignPut } from '@/lib/science/r2';
-import { DIPLOMA_SCAN_TYPE, DIPLOMA_SCAN_TYPE_MESSAGE } from '@/lib/staff/diploma-scan';
+import {
+  DIPLOMA_SCAN_TYPE_MESSAGE,
+  diplomaScanExtension,
+  isDiplomaScanType,
+} from '@/lib/staff/diploma-scan';
 
-// The scan of an НПП's кандидат / доктор diploma (owner, 2026-10-27): optional,
-// JPG only. The language certificates' flow (`../language-certificates/
+// The scan of an НПП's diploma, any kind (owner, 2026-10-27; mandatory and any
+// image since 2026-11-23): stored as JPEG or PNG. The language certificates' flow (`../language-certificates/
 // file-actions.ts`): the browser PUTs straight to R2, the profile save carries
 // the key and verifies it from the stored bytes (`lib/staff/diplomas.ts`).
 // Whoever may change the person's diplomas (the `degrees` grant) may upload.
@@ -25,11 +29,14 @@ export async function presignDiplomaUpload(input: {
   const allowed = await authoriseEducationWrite(input.staffId, 'degrees');
   if ('error' in allowed) return { error: allowed.error };
 
-  if (input.contentType !== DIPLOMA_SCAN_TYPE) return { error: DIPLOMA_SCAN_TYPE_MESSAGE };
+  if (!isDiplomaScanType(input.contentType)) return { error: DIPLOMA_SCAN_TYPE_MESSAGE };
   const sizeFault = fileProblem({ declaredType: input.contentType, sizeBytes: input.sizeBytes });
   if (sizeFault) return { error: sizeFault };
 
-  const objectKey = diplomaKeyFor({ staffId: input.staffId });
+  const objectKey = diplomaKeyFor({
+    staffId: input.staffId,
+    extension: diplomaScanExtension(input.contentType),
+  });
   try {
     const url = await presignPut(objectKey, input.contentType);
     return { ok: true, url, objectKey };

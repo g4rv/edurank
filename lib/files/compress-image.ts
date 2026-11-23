@@ -65,3 +65,48 @@ export async function compressImage(file: File): Promise<File> {
     return file;
   }
 }
+
+const IMAGE_EXTENSIONS = /.(jpe?g|png|gif|webp|avif|bmp|tiff?|heic|heif|svg)$/i;
+
+/**
+ * Is this chosen file an image? By its type, or — where the system gives no type
+ * (Windows leaves HEIC and some others blank) — by its extension. Pure.
+ */
+export function looksLikeImage(file: { type: string; name: string }): boolean {
+  if (file.type) return file.type.startsWith('image/');
+  return IMAGE_EXTENSIONS.test(file.name);
+}
+
+/**
+ * Turns ANY image the browser can read into a JPEG (owner, 2026-11-23: a diploma
+ * scan may be «any image type», while the server stores only JPEG or PNG). Always
+ * converts — unlike `compressImage`, which only keeps a smaller result — and
+ * returns null when the browser cannot decode it (HEIC outside Safari, a damaged
+ * file), so the caller can say so instead of storing nothing. Transparency
+ * becomes white (these are documents).
+ */
+export async function convertToJpeg(file: File): Promise<File | null> {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const { width, height } = fitWithin(bitmap.width, bitmap.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY)
+    );
+    if (!blob || blob.size === 0) return null;
+    return new File([blob], jpegName(file.name), {
+      type: 'image/jpeg',
+      lastModified: file.lastModified,
+    });
+  } catch {
+    return null;
+  }
+}

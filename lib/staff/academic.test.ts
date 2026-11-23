@@ -650,7 +650,75 @@ describe('hasIncompleteDiploma — only a new or changed entry is judged', () =>
       number: '1',
       issueDate: '2020-09-01',
       topic: 'Тема',
+      file: { objectKey: 'diplomas/s/a.jpg', fileName: 'a.jpg' },
     };
     expect(hasIncompleteDiploma([old], [old, complete])).toBe(false);
+  });
+
+  // Every diploma needs a scan, a basic education too (owner, 2026-11-23)
+  describe('the scan', () => {
+    const scan = { objectKey: 'diplomas/s/a.jpg', fileName: 'a.jpg' };
+    const complete = {
+      ...rec('phd', '2020-05-05', null, 'Право'),
+      issuedBy: 'МОН України',
+      number: '1',
+      issueDate: '2020-09-01',
+      topic: 'Тема',
+    };
+    const basicComplete = {
+      ...rec('basic_education', null, null, 'Історія'),
+      defenceDate: '2005-06-30',
+      issuedBy: 'Університет',
+      number: '7',
+      basicLevel: 'master',
+    };
+    /** A saved row with its scan, as the server reads it back */
+    const held = (r: typeof complete, id = 'd1') => ({ ...r, id, scanName: 'a.jpg' });
+
+    it('refuses a new complete diploma with no scan — a basic education too', () => {
+      expect(hasIncompleteDiploma([], [complete])).toBe(true);
+      expect(hasIncompleteDiploma([], [basicComplete])).toBe(true);
+    });
+
+    it('accepts them once a scan is staged', () => {
+      expect(hasIncompleteDiploma([], [{ ...complete, file: scan }])).toBe(false);
+      expect(hasIncompleteDiploma([], [{ ...basicComplete, file: scan }])).toBe(false);
+    });
+
+    it('asks no scan of a person being created, whose folder does not exist yet', () => {
+      expect(hasIncompleteDiploma([], [complete], { requireScan: false })).toBe(false);
+    });
+
+    it('lets an untouched scanless old diploma through (grandfathered)', () => {
+      expect(hasIncompleteDiploma([complete], [complete])).toBe(false);
+    });
+
+    it('asks a scan of an old diploma once it is changed', () => {
+      const changed = { ...complete, topic: 'Інша тема' };
+      expect(hasIncompleteDiploma([complete], [changed])).toBe(true);
+      expect(hasIncompleteDiploma([complete], [{ ...changed, file: scan }])).toBe(false);
+    });
+
+    it('keeps the stored scan of a changed diploma when the form sends none', () => {
+      const stored = held(complete);
+      const changed = { ...complete, id: 'd1', topic: 'Інша тема' };
+      expect(hasIncompleteDiploma([stored], [changed])).toBe(false);
+    });
+
+    it('does not trust a scan name the browser sends back', () => {
+      // a scanless stored row; the form claims it has one
+      const claims = { ...complete, id: 'd1', topic: 'Інша тема', scanName: 'fake.jpg' };
+      expect(hasIncompleteDiploma([{ ...complete, id: 'd1' }], [claims])).toBe(true);
+    });
+
+    it('never lets a stored scan be taken away without another in its place', () => {
+      const stored = held(complete);
+      expect(hasIncompleteDiploma([stored], [{ ...stored, file: null }])).toBe(true);
+      expect(hasIncompleteDiploma([stored], [{ ...stored, file: scan }])).toBe(false);
+    });
+
+    it('lets an untouched scanless diploma send file: null (nothing to take away)', () => {
+      expect(hasIncompleteDiploma([complete], [{ ...complete, file: null }])).toBe(false);
+    });
   });
 });

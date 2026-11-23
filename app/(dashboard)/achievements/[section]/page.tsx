@@ -13,7 +13,14 @@ import { FrozenNote } from '@/components/kharakterystyka/frozen-note';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PlanGateNote } from '@/components/rating/plan-gate-note';
 import { RatingGateNote } from '@/components/rating/rating-gate-note';
-import { loadRatingGate, type RatingGate } from '@/lib/rating/rating-gate';
+import {
+  loadDisciplineProgress,
+  loadRatingGate,
+  type DisciplineItem,
+  type RatingGate,
+} from '@/lib/rating/rating-gate';
+import { DisciplineChecklist } from '@/components/rating/discipline-checklist';
+import { hasDisciplineField, withAssignedDisciplines } from '@/lib/disciplines/assigned';
 import { db } from '@/lib/db';
 import { AchievementsList } from '@/components/rating/achievements-list';
 import { AddAchievementForm } from '@/components/rating/add-achievement-form';
@@ -112,6 +119,7 @@ export default async function AchievementsSectionPage({
   // and hiding a person's own finished record behind «save your plan» would
   // block nothing and only take the list away (owner, 2026-10-05).
   let ratingGate: RatingGate = { open: true };
+  let disciplines: DisciplineItem[] = [];
   if (canManage) {
     const gate = await getSciencePlanGate(staffId);
     if (!gate.open) {
@@ -127,6 +135,8 @@ export default async function AchievementsSectionPage({
     // 5.1 blocks nothing (owner, 2026-10-19): it is judged when the year
     // closes. The section that holds it warns while it is empty.
     ratingGate = await loadRatingGate(db, staffId, template.year);
+    // The disciplines assigned to them, and which already have an entry (2026-11-19)
+    disciplines = await loadDisciplineProgress(db, staffId, template.year);
   }
   const warnHere = ratingGate.open
     ? []
@@ -158,7 +168,22 @@ export default async function AchievementsSectionPage({
           scoring: scoringOf(t),
           gatesRating: t.gatesRating,
         }))
+        // With disciplines assigned, the discipline is chosen from the ones
+        // still without an entry; when none is left there is nothing to add
+        .flatMap((t) => {
+          if (disciplines.length === 0 || !hasDisciplineField(t.fields)) return [t];
+          const left = disciplines.filter((d) => !d.done).map((d) => d.name);
+          if (left.length === 0) return [];
+          return [
+            { ...t, fields: withAssignedDisciplines(t.fields, left), disciplinesLeft: left.length },
+          ];
+        })
     : [];
+
+  // Not «section 5»: whichever section holds the indicator that asks for them
+  const holdsDisciplines = template.activityTypes.some(
+    (t) => t.section.number === section && hasDisciplineField(fieldsOf(t))
+  );
 
   const frozenHere = canManage
     ? template.activityTypes.filter(
@@ -198,7 +223,9 @@ export default async function AchievementsSectionPage({
         </FrozenNote>
       )}
 
-      {warnHere.length > 0 && <RatingGateNote missing={warnHere} />}
+      {holdsDisciplines && <DisciplineChecklist items={disciplines} />}
+
+      {warnHere.length > 0 && disciplines.length === 0 && <RatingGateNote missing={warnHere} />}
 
       <AchievementsList groups={groups} />
     </div>

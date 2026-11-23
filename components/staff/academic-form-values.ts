@@ -127,7 +127,26 @@ export function academicToFormValues(staff: StoredAcademic): AcademicFormValues 
 /** A diploma date after today — it blocks every save of the profile until fixed */
 export const FUTURE_DATE_MESSAGE = 'Дата не може бути в майбутньому';
 
-export function diplomaProblems(row: DegreeFormRow): Partial<Record<DiplomaField, string>> {
+/** The scan every diploma needs (owner, 2026-11-23) */
+export const SCAN_MISSING_MESSAGE = 'Додайте скан диплома';
+
+/**
+ * Will this card hold a scan after the save: one chosen, else the stored one —
+ * unless it is being taken away (`file: null`). The server judges the same
+ * from the stored rows (`hasScanAfterSave`).
+ */
+export function diplomaHasScan(row: Pick<DegreeFormRow, 'file' | 'scanName'>): boolean {
+  return row.file === null ? false : row.file ? true : !!row.scanName;
+}
+
+/**
+ * `requireScan` is false where the form cannot take one — a person being
+ * created has no folder to keep it in yet.
+ */
+export function diplomaProblems(
+  row: DegreeFormRow,
+  { requireScan = true }: { requireScan?: boolean } = {}
+): Partial<Record<DiplomaField, string>> {
   const basic = degreeLevel(row.degree) === 'basic';
   const missing: Record<DiplomaField, string> = {
     degree: 'Оберіть рівень освіти / науковий ступінь',
@@ -138,6 +157,7 @@ export function diplomaProblems(row: DegreeFormRow): Partial<Record<DiplomaField
     issueDate: 'Вкажіть дату видачі диплома',
     issuedBy: 'Вкажіть, ким виданий диплом',
     number: 'Вкажіть номер',
+    file: SCAN_MISSING_MESSAGE,
   };
   const out: Partial<Record<DiplomaField, string>> = {};
   for (const [field, gap] of Object.entries(diplomaGaps(row)) as [DiplomaField, string][]) {
@@ -148,5 +168,6 @@ export function diplomaProblems(row: DegreeFormRow): Partial<Record<DiplomaField
           ? FUTURE_DATE_MESSAGE
           : missing[field];
   }
+  if (requireScan && !diplomaHasScan(row)) out.file = SCAN_MISSING_MESSAGE;
   return out;
 }

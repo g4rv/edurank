@@ -347,7 +347,9 @@ export function schemaForFields(
   const labelOf = (name: string) => fields.find((f) => f.name === name)?.label ?? name;
   const missing = (when: FieldCondition) =>
     'empty' in when
-      ? `Обов'язкове поле, коли не заповнено «${labelOf(when.field)}»`
+      ? `Обов'язкове поле, коли не заповнено ${[when.field, ...(when.alsoEmpty ?? [])]
+          .map((n) => `«${labelOf(n)}»`)
+          .join(' і ')}`
       : "Обов'язкове поле";
   const object =
     conditional.length === 0

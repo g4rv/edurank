@@ -20,6 +20,11 @@ import { linkedRatingProblem } from '@/lib/kharakterystyka/freeze';
 import { freezeFor } from '@/lib/freeze/state';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PLAN_GATE_DETAIL } from '@/lib/science/plan-gate';
+import {
+  evidenceDisciplineKey,
+  hasDisciplineField,
+  withAssignedDisciplines,
+} from '@/lib/disciplines/assigned';
 
 export type CreateActivityState = { error: string } | { success: true; score: number };
 
@@ -111,10 +116,42 @@ export async function createActivity(
   // Built here rather than taken from `specs.schema`, because a `ratingYear`
   // date is judged against this year (owner, 2026-10-27).
   const year = type.template.year;
-  const parsed = schemaForFields(specs.fields, specs.scoring, { ratingYear: year }).safeParse(
+
+  // A person with disciplines assigned for the year answers a discipline from
+  // that list, once each (owner, 2026-11-19). The select's own options are what
+  // refuses a discipline that is not theirs.
+  const assigned = hasDisciplineField(specs.fields)
+    ? await db.assignedDiscipline.findMany({
+        where: { staffId, year },
+        select: { name: true },
+        orderBy: { name: 'asc' },
+      })
+    : [];
+  const formFields = withAssignedDisciplines(
+    specs.fields,
+    assigned.map((a) => a.name)
+  );
+
+  const parsed = schemaForFields(formFields, specs.scoring, { ratingYear: year }).safeParse(
     evidence
   );
   if (!parsed.success) return { error: 'Невірні дані форми' };
+
+  if (assigned.length > 0) {
+    const key = evidenceDisciplineKey(parsed.data);
+    const held = await db.activity.findMany({
+      where: {
+        staffId,
+        activityTypeId: type.id,
+        year,
+        status: { not: 'REMOVED' },
+      },
+      select: { evidence: true },
+    });
+    if (key && held.some((h) => evidenceDisciplineKey(h.evidence) === key)) {
+      return { error: 'Для цієї дисципліни вже є запис. Видаліть його, щоб подати новий' };
+    }
+  }
 
   const reused = await reusedDoi(staffId, type.code, specs.fields, parsed.data);
   if (reused) return { error: reused };

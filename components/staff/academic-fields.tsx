@@ -8,7 +8,7 @@ import {
   type UseFormRegister,
 } from 'react-hook-form';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Check, CircleAlert, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   EMPTY_DEGREE_ROW,
@@ -56,7 +56,11 @@ import {
   discardDiplomaUpload,
   presignDiplomaUpload,
 } from '@/app/(dashboard)/diplomas/file-actions';
-import { DIPLOMA_SCAN_TYPE, DIPLOMA_SCAN_TYPE_MESSAGE } from '@/lib/staff/diploma-scan';
+import {
+  DIPLOMA_SCAN_ACCEPT,
+  DIPLOMA_SCAN_TYPE_MESSAGE,
+  DIPLOMA_SCAN_UNREADABLE_MESSAGE,
+} from '@/lib/staff/diploma-scan';
 import { BadgePicker } from '@/components/staff/badge-picker';
 import { CARD_TITLES } from '@/components/staff/profile/cards';
 import { ACADEMIC_TITLE_LABELS, ADMIN_POSITION_LABELS, STAFF_POSITION_LABELS } from '@/lib/labels';
@@ -286,11 +290,12 @@ const uaDay = (iso: string) => iso.split('-').reverse().join('.');
 const scanOf = (row: DegreeFormRow): string | null =>
   row.file === null ? null : row.file ? row.file.fileName : row.scanName || null;
 
-/** The diploma scan's one format (owner, 2026-10-27), for the picker */
+/** The diploma scan may be any image (owner, 2026-11-23), for the picker */
 const DIPLOMA_SCAN_ONLY = {
-  type: DIPLOMA_SCAN_TYPE,
-  accept: 'image/jpeg,.jpg,.jpeg',
+  image: true,
+  accept: DIPLOMA_SCAN_ACCEPT,
   message: DIPLOMA_SCAN_TYPE_MESSAGE,
+  unreadable: DIPLOMA_SCAN_UNREADABLE_MESSAGE,
 };
 
 /**
@@ -303,13 +308,18 @@ function DegreeCard({
   onEdit,
   onRemove,
   disabled,
+  requireScan,
 }: {
   row: DegreeFormRow;
   onEdit: () => void;
   onRemove: () => void;
   disabled: boolean;
+  /** False where the form cannot take a scan (a person being created) */
+  requireScan: boolean;
 }) {
   const placeholder = isUnspecifiedDegree(row.degree);
+  const problems = diplomaProblems(row, { requireScan });
+  const { file: scanProblem, ...fieldProblems } = problems;
   const document = diplomaDocument(row);
   const detail = [row.specialty.trim(), row.defenceDate ? uaDay(row.defenceDate) : ''].filter(
     Boolean
@@ -344,14 +354,24 @@ function DegreeCard({
         {/* A future date is not a missing paper: the save refuses it every time,
             so it is said in red and by name (2026-10-28) — before, the whole
             profile silently refused to save. */}
-        {Object.values(diplomaProblems(row)).includes(FUTURE_DATE_MESSAGE) ? (
+        {Object.values(fieldProblems).includes(FUTURE_DATE_MESSAGE) ? (
           <p className="mt-0.5 text-xs text-error">
             {FUTURE_DATE_MESSAGE} — відкрийте й виправте дату, інакше профіль не збережеться
           </p>
         ) : (
-          Object.keys(diplomaProblems(row)).length > 0 && (
-            <p className="mt-0.5 text-xs text-warning">Заповніть усі поля диплома</p>
-          )
+          <>
+            {Object.keys(fieldProblems).length > 0 && (
+              <p className="mt-0.5 text-xs text-warning">Заповніть усі поля диплома</p>
+            )}
+            {/* Every diploma needs a scan (owner, 2026-11-23). An old one saves
+                untouched without it; this asks, it does not block. */}
+            {scanProblem && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-base font-bold text-error-strong">
+                <CircleAlert className="size-5 shrink-0" aria-hidden />
+                {scanProblem}
+              </p>
+            )}
+          </>
         )}
       </div>
       <Button
@@ -464,6 +484,7 @@ function DegreeDialogForm({
   function chooseScan(choice: ScanChoice) {
     // `undefined` keeps whatever the card had.
     setDraft((d) => ({ ...d, file: choice === undefined ? opened : choice }));
+    clear('file');
     onStaged(choice && typeof choice === 'object' ? choice.objectKey : null);
   }
   // Every field but «відповідає кафедрі» is mandatory (owner, 2026-10-15); a problem
@@ -488,21 +509,19 @@ function DegreeDialogForm({
   const isDegree = !!draft.degree && !isBasic;
 
   function done() {
-    const found = diplomaProblems(draft);
+    const found = diplomaProblems(draft, { requireScan: !!uploader });
     if (Object.keys(found).length > 0) {
       setProblems(found);
       return;
     }
     // Drop what does not belong to the kind, so a switch of kind leaves nothing
-    // behind — a basic education has no scan, so one staged here is let go and a
-    // stored one is taken away.
-    if (isBasic && draft.file) uploader?.discard(draft.file.objectKey);
+    // behind. The scan stays whatever the kind: every diploma carries one.
     onDone(state.index, {
       ...draft,
       basicLevel: isBasic ? draft.basicLevel : '',
       topic: isBasic ? '' : draft.topic,
       issueDate: isBasic ? '' : draft.issueDate,
-      file: isBasic ? (draft.scanName || draft.file ? null : undefined) : draft.file,
+      file: draft.file,
     });
   }
 
@@ -692,14 +711,16 @@ function DegreeDialogForm({
             </label>
             <RatingFieldHint field={isBasic ? 'basicEducationMatch' : 'degreeMatchesDepartment'} />
           </div>
-          {/* A кандидат / доктор diploma's scan (owner, 2026-10-27): optional, JPG
-              only. Not for a basic education, and not where the person has no id
-              yet to keep it under. */}
-          {isDegree && uploader && (
+          {/* The diploma's scan: JPG only, and REQUIRED for every diploma, a basic
+              education too (owner, 2026-11-23; JPG-only 2026-10-27). Not drawn where
+              the person has no id yet to keep it under — a person being created. */}
+          {draft.degree && uploader && (
             <FormField
               htmlFor="degree-dialog-file"
               label="Скан диплома"
-              description="Необов’язково. Лише JPG, до 10 МБ."
+              description="Будь-яке зображення (JPG, PNG та інші), до 10 МБ."
+              required
+              error={err('file')}
             >
               <ScanField
                 id="degree-dialog-file"
@@ -779,6 +800,7 @@ export function EducationCard({
       key={row.id}
       row={row as unknown as DegreeFormRow}
       disabled={degreesLocked}
+      requireScan={!!scanUploader && !locked('degrees')}
       onEdit={() => setDialog({ index, row: row as unknown as DegreeFormRow })}
       onRemove={() => {
         // A scan staged in this form and never saved goes with the card.

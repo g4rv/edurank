@@ -95,6 +95,8 @@ const ACADEMIC = {
       issueDate: '2015-10-01',
       basicLevel: null,
       topic: 'Історія Слобожанщини',
+      // and its scan — mandatory too (owner, 2026-11-23)
+      file: { objectKey: 'diplomas/staff-own/scan.jpg', fileName: 'scan.jpg' },
     },
   ],
 };
@@ -132,6 +134,18 @@ function writtenFields(tx: ReturnType<typeof mockTx>): string[] {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // A staged diploma scan checks out as a JPG unless a test says otherwise
+  (verifyUploadedObject as unknown as Mock).mockImplementation(
+    async (input: { objectKey: string; fileName: string }) => ({
+      file: {
+        objectKey: input.objectKey,
+        fileName: input.fileName,
+        contentType: 'image/jpeg',
+        sizeBytes: 10,
+        sha256: 'hash',
+      },
+    })
+  );
 });
 
 describe('updateOwnProfile', () => {

@@ -5,7 +5,7 @@ import { FileInput } from '@/components/aurora/ui/file-input';
 import { discardUpload, presignUpload } from '@/app/(dashboard)/science-plan/file-actions';
 import { registerPending, releaseKey, type FileUploader } from '@/lib/files/pending-upload';
 import { ACCEPT_FILE_TYPES, fileProblem } from '@/lib/science/file-limits';
-import { compressImage } from '@/lib/files/compress-image';
+import { compressImage, convertToJpeg, looksLikeImage } from '@/lib/files/compress-image';
 
 /** An object already sitting in R2, waiting for something to point at it.
  *  `saveRecord` and `attachFile` both take exactly this. */
@@ -63,6 +63,15 @@ const scienceUploaderFor = (target?: FileTarget): FileUploader => ({
 
 type Status = 'idle' | 'checking' | 'ready' | 'error';
 
+/** What a caller may narrow the picker to — see the `only` prop of `EvidenceFileField` */
+export interface FileOnly {
+  type?: string;
+  image?: boolean;
+  accept: string;
+  message: string;
+  unreadable?: string;
+}
+
 /**
  * Picks a file — and does NOTHING with the network.
  *
@@ -100,11 +109,14 @@ export function EvidenceFileField({
   /** What the file is for — see `FileTarget`. Science flow only. */
   target?: FileTarget;
   /**
-   * One format only, where a caller narrows the usual three — a diploma scan is
-   * JPG (owner, 2026-10-27). Refused before anything is held, in the caller's
-   * words; the server checks the stored bytes again.
+   * Narrows the usual three, where a caller needs to. `type`: one MIME type only
+   * (a diploma scan was JPG, owner 2026-10-27). `image`: ANY image (owner,
+   * 2026-11-23) — JPEG and PNG as they are, every other image turned into a JPEG
+   * here, and `unreadable` said when the browser cannot read it. Refused before
+   * anything is held, in the caller's words; the server checks the stored bytes
+   * again.
    */
-  only?: { type: string; accept: string; message: string };
+  only?: FileOnly;
 }) {
   // The uploader is read when the form is SAVED, not now: the вид роботи a science
   // file is for may change after the file was picked. A ref keeps the newest.
@@ -128,10 +140,31 @@ export function EvidenceFileField({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
-  async function hold(picked: File) {
+  async function hold(original: File) {
     const pick = ++pickRef.current;
     setProblem(null);
-    if (only && picked.type !== only.type) {
+    let picked = original;
+    if (only?.image) {
+      if (!looksLikeImage(original)) {
+        setProblem(only.message);
+        setStatus('error');
+        return;
+      }
+      // JPEG and PNG go on as they are; any other image becomes a JPEG here, so
+      // the server only ever sees the two types it can verify from their bytes.
+      if (original.type !== 'image/jpeg' && original.type !== 'image/png') {
+        setStatus('checking');
+        const converted = await convertToJpeg(original);
+        if (pick !== pickRef.current) return;
+        if (!converted) {
+          setProblem(only.unreadable ?? only.message);
+          setStatus('error');
+          return;
+        }
+        picked = converted;
+        setFile(converted);
+      }
+    } else if (only?.type && picked.type !== only.type) {
       setProblem(only.message);
       setStatus('error');
       return;

@@ -444,6 +444,8 @@ model Staff {
   scienceRecords         ScienceRecord[]
   /// The аспіранти this person is науковий керівник of (`Aspirant`)
   supervisedAspirants    AspirantSupervisor[]
+  /// The disciplines this person must answer in rating 5.1, per year
+  assignedDisciplines    AssignedDiscipline[]
   scienceCoauthorShares  ScienceCoauthorShare[]
   scienceWorksCreated    ScienceWork[]          @relation("ScienceWorkAuthor")
   scienceWorksDeclined   ScienceWork[]          @relation("ScienceWorkDecliner")
@@ -1946,8 +1948,10 @@ model Diploma {
   /// «Тема наукової роботи» — a degree only
   topic      String?
 
-  /// The scan of a кандидат / доктор diploma, optional, JPG only (owner,
-  /// 2026-10-27). The five are set together or all null. The R2 key is
+  /// The scan of a diploma, any kind, stored as JPEG or PNG (owner, 2026-10-27;
+  /// mandatory for a new or changed one and any image since 2026-11-23, an old row
+  /// may still have none). The
+  /// five are set together or all null. The R2 key is
   /// `diplomas/<staffId>/<uuid>.jpg` — server-generated. The SHA-256 is not
   /// unique, for the reason `Qualification.fileSha256` is not.
   fileKey         String? @unique
@@ -2029,6 +2033,33 @@ model AspirantSupervisor {
 
   @@id([aspirantId, staffId])
   @@index([staffId])
+}
+
+// ─── Assigned disciplines (rating 5.1) ───────────────────────────────────────
+
+/// A discipline the departments assigned to an НПП for a rating year (owner,
+/// 2026-11-19). A person who has any must answer 5.1 once for EACH of them —
+/// the form offers exactly this list and the year counts 0 at close without
+/// them all. A person with none keeps the old rule (one free-text entry).
+/// Loaded by `pnpm db:import-disciplines`; the same name is not repeated for a
+/// person in a year (`nameNormalised`), whatever groups it was taught to.
+model AssignedDiscipline {
+  id String @id @default(cuid())
+
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  /// The RATING year (the template's), never today's
+  year    Int
+
+  /// As the department wrote it — what the select shows and the entry stores
+  name           String
+  /// Lower-case, spaces and quotes folded — what «the same discipline» compares
+  nameNormalised String
+
+  createdAt DateTime @default(now())
+
+  @@unique([staffId, year, nameNormalised])
+  @@index([year])
 }
 
 // ─── Research-profile check ──────────────────────────────────────────────────

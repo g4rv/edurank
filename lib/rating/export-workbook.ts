@@ -44,8 +44,11 @@ export interface ExportStaffData {
   year: number;
   activities: ExportActivity[];
   /**
-   * 5.1 has no entry (owner, 2026-10-19). `pending` — an open year: the total
-   * adds up and the form warns; `zeroed` — the year closed without it: 0.
+   * 5.1 has no entry (owner, 2026-10-19) — or, for a person with disciplines
+   * assigned, not one for each of them (2026-11-19). `pending` — an open year:
+   * the total adds up and the form warns; `zeroed` — the year closed without
+   * it: 0. While it is set the 5.1 lines read «Не заповнено», whatever entries
+   * exist, so a line and the warning under it never disagree.
    */
   gate?: 'pending' | 'zeroed';
 }
@@ -243,7 +246,7 @@ export function buildRatingWorkbook(
           type.label,
           '',
           type.coefficientNote ?? '',
-          scoreByCode.has(type.code) ? DONE : NOT_DONE,
+          scoreByCode.has(type.code) && !staff.gate ? DONE : NOT_DONE,
           division,
         ]);
         styleTableRow(row);
@@ -299,9 +302,8 @@ export function buildRatingWorkbook(
     totalRow.getCell(1).font = { bold: true };
     // A розділ of 5.1 alone has nothing to add up — it repeats the status
     if (sectionTypes.every((t) => t.gatesRating)) {
-      totalRow.getCell(5).value = sectionTypes.every((t) => scoreByCode.has(t.code))
-        ? DONE
-        : NOT_DONE;
+      totalRow.getCell(5).value =
+        !staff.gate && sectionTypes.every((t) => scoreByCode.has(t.code)) ? DONE : NOT_DONE;
     } else {
       const result = columnSum(ws, firstItemRow, lastItemRow);
       sectionResults.push(result);

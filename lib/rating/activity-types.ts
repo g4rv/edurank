@@ -615,11 +615,11 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     order: 13,
     itemNumber: '3.11',
     label:
-      'Наукові публікації, що мають цифровий ідентифікатор DOI або ISBN та не належать до категорій «А» і «Б»',
+      'Наукові публікації, що мають цифровий ідентифікатор DOI, ISBN або ISSN та не належать до категорій «А» і «Б»',
     kind: 'SELECT',
     coefficient: 1,
     coefficientNote:
-      "стаття одноосібно — 100, стаття у співавторстві — 50, конференція — 40; DOI або ISBN — обов'язково",
+      "стаття одноосібно — 100, стаття у співавторстві — 50, конференція — 40; DOI, ISBN або ISSN — обов'язково",
     inputSource: 'NPP_SUBMISSION',
     requiresVerification: true,
   },
