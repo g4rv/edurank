@@ -153,6 +153,32 @@ describe('checks', () => {
     expect(checkName(cyrillic).status).toBe('error');
   });
 
+  // The header shows the published name when there is one (owner, 2026-11-23)
+  it('checks the published name instead when there is one', () => {
+    const latinPublished = {
+      ...data,
+      name: { given: 'Леонід', family: 'Козубенко', credit: 'Leonid Kozubenko' },
+    };
+    const ok = checkName(latinPublished);
+    expect(ok.status).toBe('ok');
+    expect(ok.current).toBe('Leonid Kozubenko');
+
+    // …and a Cyrillic published name fails even beside a Latin legal name
+    const cyrillicPublished = {
+      ...data,
+      name: { given: 'Olena', family: 'Kulyk', credit: 'Олена Кулик' },
+    };
+    const bad = checkName(cyrillicPublished);
+    expect(bad.status).toBe('error');
+    expect(bad.message).toContain('Опубліковане');
+
+    // a blank published name does not count: given + family are checked
+    const blank = { ...data, name: { given: 'Олена', family: 'Кулик', credit: '  ' } };
+    expect(checkName(blank).status).toBe('error');
+    const blankLatin = { ...data, name: { given: 'Olena', family: 'Kulyk', credit: '' } };
+    expect(checkName(blankLatin).status).toBe('ok');
+  });
+
   it('needs a verified corporate email and a personal one', () => {
     expect(checkEmail(data).status).toBe('ok');
     const unverified = {

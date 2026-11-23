@@ -1423,7 +1423,9 @@ platform, replaced on every run — a status board, not a history) and
   solve the CAPTCHA. 2026-11-09: 177 profiles fetched into `edurank_prod_20261106`
   (the owner's local copy); ~104 other Scholar rows are from older rules.
 - **Requirements per platform, at a glance** (errors unless marked advice). ORCID: Latin
-  name; ≥2 emails — a VERIFIED `@uhsp.edu.ua` and a personal one; links — the university
+  name — the PUBLISHED name when the record has one (it is the bold name in ORCID's
+  header; given + family then sit under it), otherwise given + family (owner,
+  2026-11-23); ≥2 emails — a VERIFIED `@uhsp.edu.ua` and a personal one; links — the university
   page always, WoS ResearcherID / Scopus Author ID when the person gave those profiles (and
   equal to them), Scholar is advice; country UA; the university listed (EN or UK), ★ and
   current; a publication from this or last year; advice: keywords, education, professional
