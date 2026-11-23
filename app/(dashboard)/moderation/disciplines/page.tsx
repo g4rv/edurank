@@ -7,6 +7,10 @@ import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { listDisciplineStandings } from '@/lib/rating/rating-gate';
 import { progressText } from '@/lib/disciplines/assigned';
 import { EmptyState } from '@/components/aurora/ui/card';
+import { DisciplineNamesDialog } from '@/components/rating/discipline-names-dialog';
+
+const fullName = (p: { lastName: string; firstName: string; patronymic: string | null }) =>
+  `${p.lastName} ${p.firstName} ${p.patronymic ?? ''}`.trim();
 
 /**
  * «Дисципліни 5.1» (owner, 2026-11-19): who has not answered 5.1 for every
@@ -17,6 +21,25 @@ import { EmptyState } from '@/components/aurora/ui/card';
  * Reading only: nothing on this page changes a record. Filters are plain links.
  */
 type Filter = 'all' | 'missing' | 'notLecturer';
+
+/**
+ * A column of discipline names. A long list sits behind one button that opens a
+ * popup (owner, 2026-11-23: one row listed eighteen) — the same dialog the
+ * person's own checklist uses.
+ */
+function Names({ names, person, title }: { names: string[]; person: string; title: string }) {
+  if (names.length === 0) return <span className="text-muted-foreground">—</span>;
+  if (names.length <= 3) {
+    return (
+      <ul className="list-inside list-disc space-y-0.5">
+        {names.map((m) => (
+          <li key={m}>{m}</li>
+        ))}
+      </ul>
+    );
+  }
+  return <DisciplineNamesDialog person={person} title={title} names={names} />;
+}
 
 export default async function DisciplinesPage({
   searchParams,
@@ -135,26 +158,14 @@ export default async function DisciplinesPage({
                     </span>
                   </td>
                   <td className="px-4 py-2">
-                    {r.missing.length > 0 ? (
-                      <ul className="list-inside list-disc space-y-0.5">
-                        {r.missing.map((m) => (
-                          <li key={m}>{m}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <Names names={r.missing} person={fullName(r.person!)} title="Немає запису" />
                   </td>
                   <td className="px-4 py-2">
-                    {r.notLecturer.length > 0 ? (
-                      <ul className="list-inside list-disc space-y-0.5">
-                        {r.notLecturer.map((m) => (
-                          <li key={m}>{m}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <Names
+                      names={r.notLecturer}
+                      person={fullName(r.person!)}
+                      title="Відмічено «не лектор»"
+                    />
                   </td>
                 </tr>
               ))}
