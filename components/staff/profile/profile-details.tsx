@@ -33,6 +33,7 @@ export function ProfileDetails({
   aside,
   certificates,
   canOpenCertificateFiles = false,
+  showScanNote = false,
   linkDepartments = false,
   linkDivision = false,
 }: {
@@ -49,6 +50,8 @@ export function ProfileDetails({
   certificates?: PersonCertificates;
   /** Decided by the route: may this viewer open the scans? Never worked out here. */
   canOpenCertificateFiles?: boolean;
+  /** Decided by the route: may this viewer add a missing diploma scan? */
+  showScanNote?: boolean;
   /** Decided by the route: may this viewer open the кафедра / факультет pages? */
   linkDepartments?: boolean;
   /** Decided by the route: may this viewer open the відділ page (ADMIN)? */
@@ -76,6 +79,7 @@ export function ProfileDetails({
             showEmpty={showEmpty}
             certificates={certificates}
             canOpenCertificateFiles={canOpenCertificateFiles}
+            showScanNote={showScanNote}
           />
         </div>
 

@@ -4,6 +4,8 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { getLanguageCertificates } from '@/lib/queries/get-language-certificates';
 import { EmptyState } from '@/components/aurora/ui/card';
+import { freezeFor } from '@/lib/freeze/state';
+import { ownEditableFields } from '@/lib/staff/profile-freeze';
 import { ProfileDetails } from '@/components/staff/profile/profile-details';
 import { ProfileTabRow } from '@/components/staff/profile/profile-tab-row';
 
@@ -50,6 +52,10 @@ export default async function ProfilePage() {
   const staff = await getStaff(staffId, true);
   if (!staff) notFound();
 
+  // Your own diplomas' red note only while the profile is open to you: frozen, you
+  // cannot add the scan, so it would ask for what you cannot do.
+  const showScanNote = ownEditableFields(await freezeFor(session.user)).has('degrees');
+
   const stakeParts = await getStakeBreakdown(staffId);
   // The language certificates of «Освіта» (owner, 2026-10-14) — an НПП's only.
   const certificates = staff.isNpp ? await getLanguageCertificates(staffId) : undefined;
@@ -68,6 +74,7 @@ export default async function ProfilePage() {
           certificates={certificates}
           // Your own scans are yours to open.
           canOpenCertificateFiles
+          showScanNote={showScanNote}
           // The кафедра / факультет pages send a USER back here, the відділ page
           // everybody but ADMIN — so no link where it would only bounce.
           linkDepartments={session.user.role !== 'USER'}

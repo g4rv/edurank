@@ -1,7 +1,13 @@
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { accountGrantsFor, type AccountGrants } from '@/lib/permissions';
+import {
+  accountGrantsFor,
+  canMutateStaffRecord,
+  editorHasFieldGrant,
+  type AccountGrants,
+} from '@/lib/permissions';
+import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
 import { canOverseeScience } from '@/lib/science/oversight';
 import {
   canSeeQualificationsTab,
@@ -90,6 +96,15 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
     ownerIsNpp: staff.isNpp,
   }).read;
 
+  // The red «Додайте скан диплома» is drawn only to somebody who can add one —
+  // the rule the edit form applies (`degrees` granted, the record theirs to edit).
+  const showScanNote =
+    isAdmin ||
+    (session.user.role === 'EDITOR' &&
+      (await getEditorEntityPermissions(session.user.staffId ?? '', 'STAFF')).canUpdate &&
+      canMutateStaffRecord(session.user, { id: staff.id, role: staff.role }) &&
+      (await editorHasFieldGrant(session.user.staffId, 'degrees')));
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5">
       <RecordTabRow
@@ -127,6 +142,7 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
           stakeParts={stakeParts}
           certificates={certificates}
           canOpenCertificateFiles={canOpenCertificateFiles}
+          showScanNote={showScanNote}
           // A завідувач or декан on a USER account reads this record too, and
           // the кафедра / факультет pages send a USER away (owner, 2026-11-17)
           linkDepartments={session.user.role !== 'USER'}

@@ -7,7 +7,8 @@ import {
   degreeLevel,
   optionLabel,
 } from '@/lib/staff/academic-options';
-import { Check, FileText } from 'lucide-react';
+import { Check, CircleAlert, FileText } from 'lucide-react';
+import { SCAN_MISSING_MESSAGE } from '@/components/staff/academic-form-values';
 import { degreesOf } from '@/lib/staff/academic';
 import { formatStake } from '@/lib/stake/units';
 import { OrcidField } from '@/components/profile/orcid-field';
@@ -144,6 +145,7 @@ export function EducationCard({
   showEmpty = true,
   certificates,
   canOpenCertificateFiles = false,
+  showScanNote = false,
 }: CardProps & {
   /**
    * The two language certificates (owner, 2026-10-14). Absent where the page did
@@ -152,6 +154,12 @@ export function EducationCard({
   certificates?: PersonCertificates;
   /** Decided by the route: may THIS viewer open the scans? */
   canOpenCertificateFiles?: boolean;
+  /**
+   * Decided by the route: may THIS viewer add a missing scan? Only then is the
+   * red «Додайте скан диплома» drawn — to somebody who cannot act on it (a head,
+   * a frozen НПП) it would be noise (owner, 2026-11-23).
+   */
+  showScanNote?: boolean;
 }) {
   if (!staff.isNpp) return null;
 
@@ -203,6 +211,14 @@ export function EducationCard({
                       {canOpenCertificateFiles && d.id && (
                         <DiplomaFileButton diplomaId={d.id} fileName={d.scanName} />
                       )}
+                    </p>
+                  )}
+                  {/* The same note as on the edit card — a diploma saved before
+                      scans were mandatory has none. A note, never a block. */}
+                  {showScanNote && !d.scanName && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-base font-bold text-error-strong">
+                      <CircleAlert className="size-5 shrink-0" aria-hidden />
+                      {SCAN_MISSING_MESSAGE}
                     </p>
                   )}
                 </div>
