@@ -171,6 +171,13 @@ export const DERIVATIONS_2026: Record<string, Derivation> = {
       },
     ],
   },
+  // 7.4 is the department's «категорія «Б»»; the personal 3.9 is the same
+  // category under longer wording («у фахових наукових виданнях України…»), so
+  // the personal entry decides the line exactly (owner, 2026-11-24)
+  '7.4': {
+    coverage: 'FULL',
+    from: [{ code: 'publication_cat_b', keys: ['doi', 'link'], text: 'bibliography' }],
+  },
   '9': {
     coverage: 'FULL',
     from: [

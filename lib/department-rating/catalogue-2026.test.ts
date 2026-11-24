@@ -48,8 +48,8 @@ describe('DERIVATIONS_2026', () => {
     const full = Object.entries(DERIVATIONS_2026)
       .filter(([, d]) => d.coverage === 'FULL')
       .map(([n]) => n);
-    expect(full.sort()).toEqual(['13.1', '13.2', '5', '7.1', '7.2', '9']);
-    expect(Object.keys(DERIVATIONS_2026)).toHaveLength(10);
+    expect(full.sort()).toEqual(['13.1', '13.2', '5', '7.1', '7.2', '7.4', '9']);
+    expect(Object.keys(DERIVATIONS_2026)).toHaveLength(11);
   });
 });
 
@@ -87,14 +87,18 @@ describe('DEPARTMENT_INDICATORS_2026', () => {
     expect(byItem('13.2')?.coefficient).toBe(10);
   });
 
-  // 7.4 (owner, 2026-11-24): a «Б» publication scores 2 a record, typed by hand
+  // 7.4 (owner, 2026-11-24): a «Б» publication scores 2 a record, counted from 3.9
   it('has 7.4, the «Б» category, at 2 points a record, right after 7.3', () => {
     expect(byItem('7.4')).toMatchObject({ kind: 'COUNT', coefficient: 2 });
     // the owner's wording, exactly: no «України», no «всього одиниць»
     expect(byItem('7.4')?.label).toBe('у фахових виданнях категорії «Б»');
     const numbers = DEPARTMENT_INDICATORS_2026.map((d) => d.itemNumber);
     expect(numbers.indexOf('7.4')).toBe(numbers.indexOf('7.3') + 1);
-    expect(DERIVATIONS_2026['7.4']).toBeUndefined();
+    // …and counted from the personal 3.9, the same category in longer words
+    expect(DERIVATIONS_2026['7.4']).toMatchObject({
+      coverage: 'FULL',
+      from: [{ code: 'publication_cat_b' }],
+    });
   });
 
   it('makes item 3 a choice of three amounts', () => {
