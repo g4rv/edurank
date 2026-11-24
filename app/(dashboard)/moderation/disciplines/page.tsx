@@ -8,6 +8,7 @@ import { listDisciplineStandings } from '@/lib/rating/rating-gate';
 import { progressText } from '@/lib/disciplines/assigned';
 import { EmptyState } from '@/components/aurora/ui/card';
 import { DisciplineNamesDialog } from '@/components/rating/discipline-names-dialog';
+import { CountEntryDialog } from '@/components/rating/count-entry-dialog';
 
 const fullName = (p: { lastName: string; firstName: string; patronymic: string | null }) =>
   `${p.lastName} ${p.firstName} ${p.patronymic ?? ''}`.trim();
@@ -18,7 +19,9 @@ const fullName = (p: { lastName: string; firstName: string; patronymic: string |
  * people when it closes, so ННВ and ADMIN read this BEFORE pressing close — a
  * wrong «не лектор» is judged here, by a person, not by the system.
  *
- * Reading only: nothing on this page changes a record. Filters are plain links.
+ * Filters are plain links. The one thing that changes a record is «Зарахувати запис»
+ * (owner, 2026-11-24): where a person's own entry is right but named otherwise than
+ * the departments' list, a moderator counts it for the missing discipline.
  */
 type Filter = 'all' | 'missing' | 'notLecturer';
 
@@ -159,6 +162,13 @@ export default async function DisciplinesPage({
                   </td>
                   <td className="px-4 py-2">
                     <Names names={r.missing} person={fullName(r.person!)} title="Немає запису" />
+                    {r.missing.length > 0 && r.unmatched.length > 0 && (
+                      <CountEntryDialog
+                        person={fullName(r.person!)}
+                        missing={r.missing}
+                        unmatched={r.unmatched}
+                      />
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <Names

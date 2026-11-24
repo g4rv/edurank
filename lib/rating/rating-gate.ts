@@ -3,7 +3,9 @@ import {
   evidenceDisciplineKey,
   hasDisciplineField,
   missingDisciplines,
+  unmatchedEntries,
   type AssignedName,
+  type UnmatchedEntry,
 } from '@/lib/disciplines/assigned';
 import { evidenceFieldsSpecSchema } from '@/validations/activity-type-spec';
 
@@ -246,6 +248,8 @@ export interface DisciplineStanding {
   missing: string[];
   /** Entries on an assigned discipline marked «Не лектор» */
   notLecturer: string[];
+  /** Their entries that name none of the assigned disciplines — for «Зарахувати» */
+  unmatched: UnmatchedEntry[];
 }
 
 /**
@@ -275,14 +279,18 @@ export async function listDisciplineStandings(
       activityTypeId: { in: gating.map((g) => g.id) },
       ...COUNTED,
     },
-    select: { staffId: true, evidence: true },
+    select: { id: true, staffId: true, evidence: true },
   });
 
   const evidenceBy = new Map<string, unknown[]>();
+  const entriesBy = new Map<string, { id: string; evidence: unknown }[]>();
   for (const a of activities) {
     const list = evidenceBy.get(a.staffId) ?? [];
     list.push(a.evidence);
     evidenceBy.set(a.staffId, list);
+    const entries = entriesBy.get(a.staffId) ?? [];
+    entries.push({ id: a.id, evidence: a.evidence });
+    entriesBy.set(a.staffId, entries);
   }
   const namesBy = new Map<string, AssignedName[]>();
   for (const a of assigned) {
@@ -306,6 +314,8 @@ export async function listDisciplineStandings(
       done: names.length - missing.length,
       missing,
       notLecturer: names.filter((n) => off.has(n.name)).map((n) => n.name),
+      // Only worth carrying for somebody who is missing something
+      unmatched: missing.length > 0 ? unmatchedEntries(names, entriesBy.get(staffId) ?? []) : [],
     };
   });
 }
