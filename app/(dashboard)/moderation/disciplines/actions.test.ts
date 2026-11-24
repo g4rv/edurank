@@ -233,16 +233,18 @@ describe('accepting a discipline without an entry', () => {
     expect('activity' in tx).toBe(false);
   });
 
-  it('is open to ННВ and closed to anybody else', async () => {
-    mockAuth.mockResolvedValue(nnv);
+  // Counting with no proof is ADMIN's alone (owner, 2026-11-24); ННВ keeps counting an entry
+  it('is closed to ННВ and to anybody else, for accepting and for taking back', async () => {
     mockStaffFind.mockImplementation(async (a: { select: Record<string, unknown> }) =>
       'division' in a.select ? { division: { canModerateRating: true } } : who
     );
-    mockAcceptTx();
-    expect(await acceptDiscipline(input)).toEqual({ success: true });
-
-    mockAuth.mockResolvedValue({ user: { id: 'u', role: 'USER', staffId: 'staff-9' } });
-    expect(await acceptDiscipline(input)).toEqual({ error: 'Недостатньо прав' });
+    const tx = mockAcceptTx();
+    for (const session of [nnv, { user: { id: 'u', role: 'USER', staffId: 'staff-9' } }]) {
+      mockAuth.mockResolvedValue(session);
+      expect(await acceptDiscipline(input)).toEqual({ error: 'Недостатньо прав' });
+      expect(await revokeAcceptance(input)).toEqual({ error: 'Недостатньо прав' });
+    }
+    expect(tx.assignedDiscipline.update).not.toHaveBeenCalled();
   });
 
   it('refuses a discipline that is not on the list', async () => {

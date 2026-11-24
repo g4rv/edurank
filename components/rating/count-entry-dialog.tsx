@@ -59,7 +59,7 @@ function linkHint(link: string): string {
  *
  * - **Зарахувати запис** — pick one of THEIR OWN entries; it takes the assigned
  *   name and counts. Only the name changes.
- * - **Зарахувати без запису** — the moderator simply confirms (owner, 2026-11-24:
+ * - **Зарахувати без запису** — ADMIN only: the admin simply confirms (owner, 2026-11-24:
  *   «admin can just confirm»). Nothing is written to the person's entries; the
  *   discipline is marked accepted, with who and when, and may be taken back.
  */
@@ -69,6 +69,7 @@ export function CountEntryDialog({
   missing,
   unmatched,
   accepted,
+  canAcceptWithoutEntry,
 }: {
   staffId: string;
   person: string;
@@ -78,6 +79,8 @@ export function CountEntryDialog({
   unmatched: UnmatchedEntry[];
   /** Disciplines already counted without an entry — shown, and may be taken back */
   accepted: string[];
+  /** ADMIN only: confirming a discipline with no entry behind it, and taking that back */
+  canAcceptWithoutEntry: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -123,7 +126,8 @@ export function CountEntryDialog({
           <DialogTitle>Зарахувати</DialogTitle>
           <DialogDescription>
             {person}. Для кожної дисципліни без запису оберіть один із записів цієї людини — він
-            отримає призначену назву — або зарахуйте дисципліну без запису.
+            отримає призначену назву
+            {canAcceptWithoutEntry ? ' — або зарахуйте дисципліну без запису.' : '.'}
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
@@ -177,43 +181,45 @@ export function CountEntryDialog({
                             </Button>
                           </>
                         )}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={busy !== null}
-                            >
-                              Зарахувати без запису
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Зарахувати без запису?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                «{name}» буде зараховано для {person}, хоча запису за цією
-                                дисципліною немає. Запису в рейтингу не з’явиться; зарахування можна
-                                скасувати.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Скасувати</AlertDialogCancel>
-                              <AlertDialogAction
-                                variant="default"
-                                onClick={() =>
-                                  run(
-                                    `accept:${name}`,
-                                    () => acceptDiscipline({ staffId, discipline: name }),
-                                    'Дисципліну зараховано'
-                                  )
-                                }
+                        {canAcceptWithoutEntry && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={busy !== null}
                               >
-                                Зарахувати
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                Зарахувати без запису
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Зарахувати без запису?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  «{name}» буде зараховано для {person}, хоча запису за цією
+                                  дисципліною немає. Запису в рейтингу не з’явиться; зарахування
+                                  можна скасувати.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                                <AlertDialogAction
+                                  variant="default"
+                                  onClick={() =>
+                                    run(
+                                      `accept:${name}`,
+                                      () => acceptDiscipline({ staffId, discipline: name }),
+                                      'Дисципліну зараховано'
+                                    )
+                                  }
+                                >
+                                  Зарахувати
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -227,21 +233,23 @@ export function CountEntryDialog({
                     {accepted.map((name) => (
                       <li key={name} className="flex flex-wrap items-center gap-2 text-sm">
                         <span className="min-w-0 flex-1">{name}</span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={busy !== null}
-                          onClick={() =>
-                            run(
-                              `revoke:${name}`,
-                              () => revokeAcceptance({ staffId, discipline: name }),
-                              'Зарахування скасовано'
-                            )
-                          }
-                        >
-                          {busy === `revoke:${name}` ? 'Скасовую…' : 'Скасувати зарахування'}
-                        </Button>
+                        {canAcceptWithoutEntry && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={busy !== null}
+                            onClick={() =>
+                              run(
+                                `revoke:${name}`,
+                                () => revokeAcceptance({ staffId, discipline: name }),
+                                'Зарахування скасовано'
+                              )
+                            }
+                          >
+                            {busy === `revoke:${name}` ? 'Скасовую…' : 'Скасувати зарахування'}
+                          </Button>
+                        )}
                       </li>
                     ))}
                   </ul>

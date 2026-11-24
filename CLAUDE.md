@@ -695,7 +695,8 @@ Rules that are easy to get wrong:
   `lib/disciplines/count-entry.ts`) to give one of a person's own unmatched entries the
   missing discipline's name — only the `discipline` text changes, audited with the old
   name, no undo button. **Or without any entry** (owner, 2026-11-24, «admin can just confirm»):
-  **«Зарахувати без запису»** (`acceptDiscipline`) marks the assigned discipline itself
+  **«Зарахувати без запису»** (`acceptDiscipline`, **ADMIN only** — owner, 2026-11-24; ННВ keeps
+  «Зарахувати запис») marks the assigned discipline itself
   accepted — `AssignedDiscipline.acceptedAt` / `acceptedById` — and the rule reads it as
   answered (`AssignedName.accepted`); nothing is written to the person's entries, the
   checklist says «зараховано без запису», and **«Скасувати зарахування»**
@@ -898,7 +899,9 @@ first, `--apply`): it creates the missing lines of the ACTIVE year from
 `catalogue-2026.ts` and nothing else — except the stored position (`order`) of the
 lines that follow a new one, which it brings to the catalogue's. Reports keep their
 values (keyed by line id). 7.4 «у фахових виданнях категорії «Б»», 2 points a
-record, was added this way (owner, 2026-11-24), typed by hand — no mapping to 3.9.
+record, was added this way (owner, 2026-11-24). It is counted from the personal 3.9 («Б»
+publications, `publication_cat_b`) like 7.1/7.2 are from 3.8: the same category under
+shorter wording, so FULL.
 
 **Some lines are counted from the staff's personal entries** (owner,
 2026-11-16; spec `2026-11-16-department-rating-derived-values-design.md`).

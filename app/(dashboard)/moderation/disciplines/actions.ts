@@ -162,8 +162,9 @@ async function acceptanceTarget(staffId: string, discipline: string): Promise<Ac
 /**
  * «Зарахувати без запису» (owner, 2026-11-24): a moderator counts one assigned
  * discipline for a person with NO entry behind it — the work was done and the
- * departments' list is wrong, or the entry cannot be matched. ADMIN and ННВ, the
- * open year only. Nothing is written to the person's entries; the discipline
+ * departments' list is wrong, or the entry cannot be matched. ADMIN only
+ * (owner, 2026-11-24: counting with no proof is the stronger act; ННВ keeps «Зарахувати
+ * запис»), the open year only. Nothing is written to the person's entries; the discipline
  * itself carries who accepted it and when, and the rule reads it as answered.
  * Taken back with `revokeAcceptance`. Audited both ways.
  */
@@ -173,7 +174,7 @@ export async function acceptDiscipline(input: {
 }): Promise<AcceptDisciplineState> {
   const session = await auth();
   if (!session) redirect('/login');
-  if (!(await canModerateRating(session.user))) return { error: 'Недостатньо прав' };
+  if (session.user.role !== 'ADMIN') return { error: 'Недостатньо прав' };
 
   const target = await acceptanceTarget(String(input.staffId ?? ''), input.discipline);
   if ('error' in target) return target;
@@ -233,7 +234,7 @@ export async function revokeAcceptance(input: {
 }): Promise<AcceptDisciplineState> {
   const session = await auth();
   if (!session) redirect('/login');
-  if (!(await canModerateRating(session.user))) return { error: 'Недостатньо прав' };
+  if (session.user.role !== 'ADMIN') return { error: 'Недостатньо прав' };
 
   const target = await acceptanceTarget(String(input.staffId ?? ''), input.discipline);
   if ('error' in target) return target;

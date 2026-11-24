@@ -53,6 +53,8 @@ export default async function DisciplinesPage({
   if (!session) redirect('/login');
   if (!(await canModerateRating(session.user))) redirect('/');
 
+  // Counting a discipline with NO entry behind it is ADMIN's alone (owner, 2026-11-24)
+  const isAdmin = session.user.role === 'ADMIN';
   const { show } = await searchParams;
   const filter: Filter = show === 'missing' || show === 'notLecturer' ? show : 'all';
 
@@ -167,13 +169,16 @@ export default async function DisciplinesPage({
                         Зараховано без запису: {r.accepted.length}
                       </p>
                     )}
-                    {(r.missing.length > 0 || r.accepted.length > 0) && (
+                    {(isAdmin
+                      ? r.missing.length > 0 || r.accepted.length > 0
+                      : r.missing.length > 0 && r.unmatched.length > 0) && (
                       <CountEntryDialog
                         staffId={r.staffId}
                         person={fullName(r.person!)}
                         missing={r.missing}
                         unmatched={r.unmatched}
                         accepted={r.accepted}
+                        canAcceptWithoutEntry={isAdmin}
                       />
                     )}
                   </td>
