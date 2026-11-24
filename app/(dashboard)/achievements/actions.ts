@@ -21,12 +21,20 @@ import { freezeFor } from '@/lib/freeze/state';
 import { getSciencePlanGate } from '@/lib/queries/get-science-plan-gate';
 import { PLAN_GATE_DETAIL } from '@/lib/science/plan-gate';
 import {
-  evidenceDisciplineKey,
   hasDisciplineField,
+  isRepeatEntry,
+  missingDisciplines,
   withAssignedDisciplines,
 } from '@/lib/disciplines/assigned';
 
-export type CreateActivityState = { error: string } | { success: true; score: number };
+export type CreateActivityState =
+  | { error: string }
+  | {
+      success: true;
+      score: number;
+      /** Assigned disciplines still without an entry after this save; absent without a list */
+      disciplinesLeft?: number;
+    };
 
 // Sentinel for the in-transaction «не більше N» cap check
 class CapExceededError extends Error {
@@ -123,7 +131,7 @@ export async function createActivity(
   const assigned = hasDisciplineField(specs.fields)
     ? await db.assignedDiscipline.findMany({
         where: { staffId, year },
-        select: { name: true },
+        select: { name: true, nameNormalised: true },
         orderBy: { name: 'asc' },
       })
     : [];
@@ -137,19 +145,23 @@ export async function createActivity(
   );
   if (!parsed.success) return { error: 'Невірні дані форми' };
 
+  // The entries this person already holds under 5.1. A discipline may hold several
+  // (a second group); only an exact repeat is refused.
+  let held: unknown[] = [];
   if (assigned.length > 0) {
-    const key = evidenceDisciplineKey(parsed.data);
-    const held = await db.activity.findMany({
-      where: {
-        staffId,
-        activityTypeId: type.id,
-        year,
-        status: { not: 'REMOVED' },
-      },
-      select: { evidence: true },
-    });
-    if (key && held.some((h) => evidenceDisciplineKey(h.evidence) === key)) {
-      return { error: 'Для цієї дисципліни вже є запис. Видаліть його, щоб подати новий' };
+    held = (
+      await db.activity.findMany({
+        where: {
+          staffId,
+          activityTypeId: type.id,
+          year,
+          status: { not: 'REMOVED' },
+        },
+        select: { evidence: true },
+      })
+    ).map((h) => h.evidence);
+    if (held.some((h) => isRepeatEntry(h, parsed.data))) {
+      return { error: 'Такий запис для цієї дисципліни вже є' };
     }
   }
 
@@ -227,7 +239,13 @@ export async function createActivity(
   }
 
   revalidatePath('/profile/rating');
-  return { success: true, score };
+  return {
+    success: true,
+    score,
+    ...(assigned.length > 0 && {
+      disciplinesLeft: missingDisciplines(assigned, [...held, parsed.data]).length,
+    }),
+  };
 }
 
 export type DeleteActivityState = { error: string } | { success: true };

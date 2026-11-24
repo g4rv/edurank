@@ -168,15 +168,19 @@ export default async function AchievementsSectionPage({
           scoring: scoringOf(t),
           gatesRating: t.gatesRating,
         }))
-        // With disciplines assigned, the discipline is chosen from the ones
-        // still without an entry; when none is left there is nothing to add
-        .flatMap((t) => {
-          if (disciplines.length === 0 || !hasDisciplineField(t.fields)) return [t];
-          const left = disciplines.filter((d) => !d.done).map((d) => d.name);
-          if (left.length === 0) return [];
-          return [
-            { ...t, fields: withAssignedDisciplines(t.fields, left), disciplinesLeft: left.length },
-          ];
+        // With disciplines assigned, the discipline is chosen from ALL of them —
+        // a second group is another entry — and the answered ones carry a «✓»
+        .map((t) => {
+          if (disciplines.length === 0 || !hasDisciplineField(t.fields)) return t;
+          const done = new Set(disciplines.filter((d) => d.done).map((d) => d.name));
+          return {
+            ...t,
+            fields: withAssignedDisciplines(
+              t.fields,
+              disciplines.map((d) => d.name),
+              done
+            ),
+          };
         })
     : [];
 

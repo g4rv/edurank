@@ -42,8 +42,6 @@ export interface SubmittableType {
   scoring: ScoringSpec;
   /** 5.1 — mandatory for the year to count, and scores nothing (2026-10-19) */
   gatesRating?: boolean;
-  /** Assigned disciplines still without an entry (2026-11-19); absent without a list */
-  disciplinesLeft?: number;
 }
 
 /**
@@ -195,7 +193,8 @@ function EvidenceForm({
         toast.error(result.error);
       } else {
         // 5.1 scores nothing — «+0 балів» would read as a failure (2026-10-16)
-        const left = (type.disciplinesLeft ?? 0) - 1;
+        // The server counts what is still without an entry, repeats included
+        const left = result.disciplinesLeft ?? 0;
         toast.success(
           type.gatesRating && left > 0
             ? `Запис додано. Дисциплін без запису: ${left}`

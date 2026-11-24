@@ -494,7 +494,10 @@ describe('while 5.1 is not filled', () => {
     };
     beforeEach(() => {
       moodle();
-      mockAssigned.mockResolvedValue([{ name: 'Фізика' }, { name: 'Хімія' }]);
+      mockAssigned.mockResolvedValue([
+        { name: 'Фізика', nameNormalised: 'фізика' },
+        { name: 'Хімія', nameNormalised: 'хімія' },
+      ]);
     });
 
     it('takes «Не лектор» for one of their disciplines, with nothing else filled', async () => {
@@ -502,6 +505,7 @@ describe('while 5.1 is not filled', () => {
       expect(await createActivity('type-51', { isLecturer: false, discipline: 'Фізика' })).toEqual({
         success: true,
         score: 0,
+        disciplinesLeft: 1,
       });
     });
 
@@ -519,11 +523,49 @@ describe('while 5.1 is not filled', () => {
       ).toEqual({ error: 'Невірні дані форми' });
     });
 
-    it('refuses a second entry for the same discipline', async () => {
-      mockActivityFindMany.mockResolvedValue([{ evidence: { discipline: 'фізика ' } }]);
+    // The department gave ONE name for several groups (owner, 2026-11-24), so a
+    // discipline may hold several entries; only an exact repeat is refused
+    it('refuses an exact repeat of an entry', async () => {
+      mockActivityFindMany.mockResolvedValue([
+        { evidence: { discipline: 'фізика ', isLecturer: false } },
+      ]);
       mockTx();
       expect(await createActivity('type-51', { isLecturer: false, discipline: 'Фізика' })).toEqual({
-        error: expect.stringContaining('вже є запис'),
+        error: 'Такий запис для цієї дисципліни вже є',
+      });
+    });
+
+    it('takes a second entry for a discipline that already has one — another group', async () => {
+      mockActivityFindMany.mockResolvedValue([
+        {
+          evidence: {
+            discipline: 'Фізика',
+            isLecturer: true,
+            link: 'https://moodle.uhsp.edu.ua/course/view.php?id=1',
+          },
+        },
+      ]);
+      mockTx();
+      expect(
+        await createActivity('type-51', {
+          isLecturer: true,
+          mode: 'update',
+          discipline: 'Фізика',
+          link: 'https://moodle.uhsp.edu.ua/course/view.php?id=2',
+          workProgram: true,
+        })
+      ).toEqual({ success: true, score: 0, disciplinesLeft: 1 });
+    });
+
+    it('says how many disciplines still have no entry, counting the one just saved', async () => {
+      mockActivityFindMany.mockResolvedValue([
+        { evidence: { discipline: 'Фізика', isLecturer: false } },
+      ]);
+      mockTx();
+      expect(await createActivity('type-51', { isLecturer: false, discipline: 'Хімія' })).toEqual({
+        success: true,
+        score: 0,
+        disciplinesLeft: 0,
       });
     });
 
