@@ -446,6 +446,8 @@ model Staff {
   supervisedAspirants    AspirantSupervisor[]
   /// The disciplines this person must answer in rating 5.1, per year
   assignedDisciplines    AssignedDiscipline[]
+  /// Assigned disciplines this person accepted for somebody (ADMIN / ННВ, 2026-11-24)
+  acceptedDisciplines    AssignedDiscipline[]   @relation("DisciplineAcceptedBy")
   scienceCoauthorShares  ScienceCoauthorShare[]
   scienceWorksCreated    ScienceWork[]          @relation("ScienceWorkAuthor")
   scienceWorksDeclined   ScienceWork[]          @relation("ScienceWorkDecliner")
@@ -2057,6 +2059,13 @@ model AssignedDiscipline {
   nameNormalised String
 
   createdAt DateTime @default(now())
+
+  /// A moderator counted this discipline for the person WITHOUT an entry behind it
+  /// (owner, 2026-11-24): the departments' list is often wrong, and the work was
+  /// done. Null = not accepted. The rating rule reads it as «has an entry».
+  acceptedAt   DateTime?
+  acceptedById String?
+  acceptedBy   Staff?    @relation("DisciplineAcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
 
   @@unique([staffId, year, nameNormalised])
   @@index([year])

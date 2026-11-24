@@ -24,6 +24,11 @@ export function disciplineKey(name: string): string {
 export interface AssignedName {
   name: string;
   nameNormalised: string;
+  /**
+   * A moderator counted it WITHOUT an entry behind it (owner, 2026-11-24). It then
+   * reads as answered everywhere, and shows as such.
+   */
+  accepted?: boolean;
 }
 
 /**
@@ -48,7 +53,24 @@ export function evidenceDisciplineKey(evidence: unknown): string | null {
   return typeof v === 'string' && v.trim() ? disciplineKey(v) : null;
 }
 
-/** Which of `assigned` no entry of `evidences` covers yet, in the given order */
+/**
+ * Is `b` the very same entry as `a` — the same discipline, the same answer to
+ * «Я лектор» and the same link? A discipline may hold SEVERAL entries (owner,
+ * 2026-11-24: the department gave one name for every group, so each group is an
+ * entry of its own); only an exact repeat is refused.
+ */
+export function isRepeatEntry(a: unknown, b: unknown): boolean {
+  const key = evidenceDisciplineKey(a);
+  if (!key || key !== evidenceDisciplineKey(b)) return false;
+  const get = (e: unknown, f: string) => (e as Record<string, unknown> | null)?.[f];
+  const link = (e: unknown) =>
+    String(get(e, 'link') ?? '')
+      .trim()
+      .toLowerCase();
+  return (get(a, 'isLecturer') === true) === (get(b, 'isLecturer') === true) && link(a) === link(b);
+}
+
+/** Which of `assigned` neither an entry of `evidences` nor a moderator covers yet, in the given order */
 export function missingDisciplines(
   assigned: readonly AssignedName[],
   evidences: readonly unknown[]
@@ -58,7 +80,39 @@ export function missingDisciplines(
     const key = evidenceDisciplineKey(e);
     if (key) done.add(key);
   }
-  return assigned.filter((a) => !done.has(a.nameNormalised));
+  return assigned.filter((a) => !a.accepted && !done.has(a.nameNormalised));
+}
+
+/** An entry that names none of the assigned disciplines — what a moderator may count */
+export interface UnmatchedEntry {
+  activityId: string;
+  /** The discipline as the person typed it */
+  name: string;
+  link: string;
+}
+
+/**
+ * The entries whose discipline is not on `assigned` (a slip in the name, an
+ * abbreviation, a course the list left out), in the order given. A moderator may
+ * count one of them for a discipline the person is missing («Зарахувати»).
+ */
+export function unmatchedEntries(
+  assigned: readonly AssignedName[],
+  entries: readonly { id: string; evidence: unknown }[]
+): UnmatchedEntry[] {
+  const keys = new Set(assigned.map((a) => a.nameNormalised));
+  return entries.flatMap((e) => {
+    const key = evidenceDisciplineKey(e.evidence);
+    if (!key || keys.has(key)) return [];
+    const ev = e.evidence as Record<string, unknown>;
+    return [
+      {
+        activityId: e.id,
+        name: String(ev.discipline).replace(/\s+/g, ' ').trim(),
+        link: typeof ev.link === 'string' ? ev.link : '',
+      },
+    ];
+  });
 }
 
 /** Does the form spec ask for a discipline that can be chosen from a list? */
@@ -77,7 +131,9 @@ export function hasDisciplineField(fields: readonly EvidenceField[]): boolean {
  */
 export function withAssignedDisciplines(
   fields: readonly EvidenceField[],
-  names: readonly string[]
+  names: readonly string[],
+  /** Names that already have an entry: still offered (another group), but marked */
+  done: ReadonlySet<string> = new Set()
 ): EvidenceField[] {
   if (names.length === 0) return [...fields];
   return fields.map((f) =>
@@ -86,7 +142,7 @@ export function withAssignedDisciplines(
           kind: 'select' as const,
           name: f.name,
           label: f.label,
-          options: names.map((n) => ({ value: n, label: n })),
+          options: names.map((n) => ({ value: n, label: done.has(n) ? `${n} ✓` : n })),
         }
       : f
   );

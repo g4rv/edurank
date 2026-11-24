@@ -87,6 +87,8 @@ export const DEPARTMENT_INDICATORS_2026: DepartmentIndicatorDef[] = [
     4
   ),
   count('7.3', 'з них у відкритому доступі', 1),
+  // Added 2026-11-24 (owner): a publication in a фахове видання of category «Б», 2 points a record
+  count('7.4', 'у фахових виданнях категорії «Б»', 2),
   count(
     '8',
     'Опубліковано науково-педагогічними працівниками кафедри словників, каталогів, довідників та енциклопедій, всього одиниць',
@@ -168,6 +170,13 @@ export const DERIVATIONS_2026: Record<string, Derivation> = {
         text: 'bibliography',
       },
     ],
+  },
+  // 7.4 is the department's «категорія «Б»»; the personal 3.9 is the same
+  // category under longer wording («у фахових наукових виданнях України…»), so
+  // the personal entry decides the line exactly (owner, 2026-11-24)
+  '7.4': {
+    coverage: 'FULL',
+    from: [{ code: 'publication_cat_b', keys: ['doi', 'link'], text: 'bibliography' }],
   },
   '9': {
     coverage: 'FULL',
