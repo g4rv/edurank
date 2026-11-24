@@ -897,7 +897,7 @@ A кафедра's OWN report (`/department-rating`), filled by the завіду
 first, `--apply`): it creates the missing lines of the ACTIVE year from
 `catalogue-2026.ts` and nothing else — except the stored position (`order`) of the
 lines that follow a new one, which it brings to the catalogue's. Reports keep their
-values (keyed by line id). 7.4 «у фахових виданнях України категорії «Б»», 2 points a
+values (keyed by line id). 7.4 «у фахових виданнях категорії «Б»», 2 points a
 record, was added this way (owner, 2026-11-24), typed by hand — no mapping to 3.9.
 
 **Some lines are counted from the staff's personal entries** (owner,

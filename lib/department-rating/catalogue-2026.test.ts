@@ -90,7 +90,8 @@ describe('DEPARTMENT_INDICATORS_2026', () => {
   // 7.4 (owner, 2026-11-24): a «Б» publication scores 2 a record, typed by hand
   it('has 7.4, the «Б» category, at 2 points a record, right after 7.3', () => {
     expect(byItem('7.4')).toMatchObject({ kind: 'COUNT', coefficient: 2 });
-    expect(byItem('7.4')?.label).toContain('«Б»');
+    // the owner's wording, exactly: no «України», no «всього одиниць»
+    expect(byItem('7.4')?.label).toBe('у фахових виданнях категорії «Б»');
     const numbers = DEPARTMENT_INDICATORS_2026.map((d) => d.itemNumber);
     expect(numbers.indexOf('7.4')).toBe(numbers.indexOf('7.3') + 1);
     expect(DERIVATIONS_2026['7.4']).toBeUndefined();
