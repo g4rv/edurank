@@ -918,7 +918,10 @@ fields and the text field. `getDepartmentDerived` computes it on every read —
   co-authors' entries; texts `sameWorkByText` calls alike are joined too but
   marked «перевірте», every spelling listed. Text never joins two entries whose
   ISBN / DOI / number differ. (Owner, 2026-11-16, after the browser test: every
-  НПП enters the кафедра's own topic, and line 5 offered 13 for 3 topics.)
+  НПП enters the кафедра's own topic, and line 5 offered 13 for 3 topics.) **An apostrophe
+  is part of the word** (owner, 2026-11-24): `wordsOf` drops it before splitting, because
+  «здоров’язбережувальної» typed as «здоровя'збережувальної» left two words unmatched in
+  a 19-word title (0.89, under `COPY_SHARE` 0.9) and one topic counted twice.
 - **The hint is one tinted box under the line** (owner, 2026-11-17: loose
   buttons read as vague), `components/department-rating/derived-hint.tsx`.
   **FULL** lines say «Автозаповнення з рейтингу НПП: N» with «Використати N» —

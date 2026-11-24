@@ -23,8 +23,24 @@
 export const COPY_SHARE = 0.9;
 export const MIN_WORDS = 4;
 
+/**
+ * An apostrophe is PART of a Ukrainian word, never a separator (owner,
+ * 2026-11-24): «здоров’язбережувальної», «здоровя'збережувальної» and
+ * «здоров'язбережувальної» are one word typed three ways. Split at it, each
+ * spelling gave two words the other lacked, and one slip in a 19-word title
+ * scored 0.89 — under {@link COPY_SHARE} — so a кафедра's report counted one
+ * topic twice. The apostrophes of every spelling (straight, curly, modifier
+ * letter, grave, acute, prime) are dropped before the text is split into words.
+ */
+const APOSTROPHES = /['’ʼ`‘´′]/g;
+
 function wordsOf(raw: string): string[] {
-  return raw.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  return (
+    raw
+      .toLowerCase()
+      .replace(APOSTROPHES, '')
+      .match(/[\p{L}\p{N}]+/gu) ?? []
+  );
 }
 
 /** «С. 118-120», «с.118–120», «pp. 5-9» — the first range printed in the text. */

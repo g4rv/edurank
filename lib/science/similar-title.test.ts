@@ -87,3 +87,36 @@ describe('sameWorkByText — numbers carry identity', () => {
     expect(sameWorkByText(`${base}, 2026`, base)).toBe(true);
   });
 });
+
+// An apostrophe belongs to the word (owner, 2026-11-24): a кафедра's initiative topic was
+// counted twice because one author typed «здоровя'збережувальної»
+describe('sameWorkByText — apostrophes', () => {
+  const WORD = 'здоров’язбережувальної';
+  const TITLE = `Формування ${WORD} компетентності у дітей, учнівської та студентської молоді в системі безперервної освіти: медико-біологічні та психолого-педагогічні аспекти`;
+
+  it('is the same when the apostrophe sits in another place or is another character', () => {
+    for (const typed of [
+      "здоровя'збережувальної",
+      "здоров'язбережувальної",
+      'здоровʼязбережувальної',
+      'здоровязбережувальної',
+    ]) {
+      expect(sameWorkByText(TITLE, TITLE.replace(WORD, typed)), typed).toBe(true);
+    }
+  });
+
+  it('still keeps two different titles apart', () => {
+    expect(
+      sameWorkByText(
+        TITLE,
+        'Формування цифрової компетентності вчителя в системі безперервної освіти: аспекти підготовки'
+      )
+    ).toBe(false);
+  });
+
+  it('does not let a quote mark glue two words together', () => {
+    expect(
+      sameWorkByText("Оцінювання 'якості' освіти в закладах", 'Оцінювання якості освіти в закладах')
+    ).toBe(true);
+  });
+});
