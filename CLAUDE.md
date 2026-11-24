@@ -400,6 +400,17 @@ pnpm db:doi-publication-issn  # one-off, AFTER db:doi-publication-isbn: 3.11 tak
                       #   OR ISSN (one of the three, owner 2026-11-23) in every open year;
                       #   adds the ISSN box, title and hint. No entry or score moves.
                       #   Report first; --apply. (`empty` + `alsoEmpty` in FieldCondition.)
+pnpm db:import-disciplines  # the departments' NAME_TOPICS.json into AssignedDiscipline (owner, 2026-11-19).
+                      #   Replaces a person's rows from the file; report first, --apply, --year.
+pnpm db:discipline-pick  # marks 5.1 «per assigned discipline» in every year's form. Needs the NEW code
+                      #   running (the old strict schema rejects the marker). Report first; --apply.
+pnpm db:discipline-list-edit  # one person's LIST: --email, --replace "<name>", --with "<name>" (repeat).
+                      #   Entries untouched. Report first; --apply.
+pnpm db:discipline-fix-names  # one-off, after db:import-disciplines: renames a 5.1 entry typed with a slip
+                      #   («органзація», a Latin «i») to the discipline's assigned name, so the per-
+                      #   discipline rule sees it. Open year, ≥ 0.9 similar (--min), one entry ↔ one
+                      #   name, no close rival, never when one name is the other plus words
+                      #   («д.ф.», «(вибіркова)», a group code); only the `discipline` text, audited. Report first; --apply.
 pnpm db:department-rating-derivation  # one-off, after migrate deploy: links
                       #   Рейтинг кафедри lines to the personal indicators they are
                       #   counted from. Create-only, every year whose line is still
@@ -667,7 +678,24 @@ Rules that are easy to get wrong:
   stored totals /rating reads, division-entered points included
   (`lib/rating/rating-gate.ts`). `reopenYear` recomputes exactly those people.
   Its own rows read «✓ Виконано» / «Не заповнено», never a number
-  (`GateMark`), in every list, the sidebar, moderation and the Excel form. The
+  (`GateMark`), in every list, the sidebar, moderation and the Excel form.
+- **A person the departments gave disciplines to answers 5.1 once for EACH of them**
+  (owner, 2026-11-19; `AssignedDiscipline`, loaded from the departments' `NAME_TOPICS.json`
+  by `pnpm db:import-disciplines`; `db:discipline-pick` marks the form with
+  `fromDisciplines`). The discipline box becomes a select over THEIR list
+  (`withAssignedDisciplines`), «Я лектор» is a per-entry answer, and `closeYear` zeroes
+  whoever has a discipline with no entry (`lib/rating/rating-gate.ts`). Nobody on no list
+  keeps the old one-entry rule. **Several entries per discipline are allowed** (owner,
+  2026-11-24: one shortened name stands for every group); only an exact repeat — same
+  discipline, same answer, same link — is refused (`isRepeatEntry`). The list is the
+  departments' work and is often wrong (typos, Latin letters, abbreviations, electives), so
+  three tools exist: `db:discipline-fix-names` renames a mistyped ENTRY to its assigned
+  name; `db:discipline-list-edit` replaces one assigned name in ONE person's LIST; and
+  on «Дисципліни 5.1» ADMIN / ННВ press **«Зарахувати запис»** (`countEntryForDiscipline`,
+  `lib/disciplines/count-entry.ts`) to give one of a person's own unmatched entries the
+  missing discipline's name — only the `discipline` text changes, audited with the old
+  name, no undo button. `db:import-disciplines` replaces a person's rows from the file, so
+  re-importing undoes a list edit. The
   science plan still comes first — that gate is unchanged.
 - **A box can be required only in some state of the form** — `requiredWhen` on
   any kind: `{ field, in }` (a select's answer), `{ field, checked }` (a switch;
