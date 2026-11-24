@@ -13,6 +13,12 @@ import { departmentIndicatorRows } from './catalogue';
 // line that exists is never updated or deleted, so a second run changes
 // nothing.
 //
+// One exception, for the POSITION only (owner, 2026-11-24, when 7.4 joined the
+// list): a line inserted in the middle moves every line after it, so the stored
+// `order` of an existing line is brought to the catalogue's. Nothing else on an
+// existing line is ever written — label, points, switch and mapping stay as the
+// admin left them, and a report keeps its values (they are keyed by line id).
+//
 //   pnpm db:department-rating-catalogue            reports
 //   pnpm db:department-rating-catalogue --apply    writes
 
@@ -40,10 +46,21 @@ async function main() {
   );
   const missing = rows.filter((r) => !existing.has(r.itemNumber));
 
+  // Existing lines whose place in the list is no longer the catalogue's
+  const stored = await prisma.departmentIndicator.findMany({
+    where: { year },
+    select: { id: true, itemNumber: true, order: true },
+  });
+  const wanted = new Map(rows.map((r) => [r.itemNumber, r.order]));
+  const moved = stored.filter(
+    (r) => wanted.has(r.itemNumber) && wanted.get(r.itemNumber) !== r.order
+  );
+
   console.log(`Рейтинг кафедри ${year}: рядків уже є ${existing.size}, бракує ${missing.length}.`);
   for (const row of missing) console.log(`  + ${row.itemNumber} — ${row.label}`);
+  if (moved.length > 0) console.log(`Зміниться лише місце в списку: ${moved.length} рядків.`);
 
-  if (missing.length === 0) {
+  if (missing.length === 0 && moved.length === 0) {
     console.log('\nНічого створювати: каталог повний.');
     return;
   }
@@ -52,8 +69,17 @@ async function main() {
     return;
   }
 
-  await prisma.departmentIndicator.createMany({ data: missing });
-  console.log(`\nГотово. Створено рядків: ${missing.length}.`);
+  await prisma.$transaction(async (tx) => {
+    // Positions first, so the new line never shares a place with an old one
+    for (const r of moved) {
+      await tx.departmentIndicator.update({
+        where: { id: r.id },
+        data: { order: wanted.get(r.itemNumber)! },
+      });
+    }
+    if (missing.length > 0) await tx.departmentIndicator.createMany({ data: missing });
+  });
+  console.log(`\nГотово. Створено рядків: ${missing.length}, переставлено: ${moved.length}.`);
 }
 
 main()

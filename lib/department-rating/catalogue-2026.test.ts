@@ -61,11 +61,11 @@ const byItem = (itemNumber: string) =>
   DEPARTMENT_INDICATORS_2026.find((d) => d.itemNumber === itemNumber);
 
 describe('DEPARTMENT_INDICATORS_2026', () => {
-  it('holds the sheet’s 32 rows: 5 headings, 26 counts and one choice', () => {
-    expect(DEPARTMENT_INDICATORS_2026).toHaveLength(32);
+  it('holds the sheet’s 32 rows and 7.4: 5 headings, 27 counts and one choice', () => {
+    expect(DEPARTMENT_INDICATORS_2026).toHaveLength(33);
     const kinds = DEPARTMENT_INDICATORS_2026.map((d) => d.kind);
     expect(kinds.filter((k) => k === 'HEADING')).toHaveLength(5);
-    expect(kinds.filter((k) => k === 'COUNT')).toHaveLength(26);
+    expect(kinds.filter((k) => k === 'COUNT')).toHaveLength(27);
     expect(kinds.filter((k) => k === 'CHOICE')).toHaveLength(1);
   });
 
@@ -85,6 +85,15 @@ describe('DEPARTMENT_INDICATORS_2026', () => {
     expect(byItem('10')?.coefficient).toBe(0.5);
     expect(byItem('12.2')?.coefficient).toBe(5);
     expect(byItem('13.2')?.coefficient).toBe(10);
+  });
+
+  // 7.4 (owner, 2026-11-24): a «Б» publication scores 2 a record, typed by hand
+  it('has 7.4, the «Б» category, at 2 points a record, right after 7.3', () => {
+    expect(byItem('7.4')).toMatchObject({ kind: 'COUNT', coefficient: 2 });
+    expect(byItem('7.4')?.label).toContain('«Б»');
+    const numbers = DEPARTMENT_INDICATORS_2026.map((d) => d.itemNumber);
+    expect(numbers.indexOf('7.4')).toBe(numbers.indexOf('7.3') + 1);
+    expect(DERIVATIONS_2026['7.4']).toBeUndefined();
   });
 
   it('makes item 3 a choice of three amounts', () => {
