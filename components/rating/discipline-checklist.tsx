@@ -105,6 +105,9 @@ export function DisciplineChecklist({
                         <span className="text-muted-foreground"> — не лектор</span>
                       )}
                       {!i.done && <span className="text-warning"> — немає запису</span>}
+                      {i.accepted && (
+                        <span className="text-muted-foreground"> — зараховано без запису</span>
+                      )}
                     </span>
                   </li>
                 ))}

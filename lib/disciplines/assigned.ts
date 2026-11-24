@@ -24,6 +24,11 @@ export function disciplineKey(name: string): string {
 export interface AssignedName {
   name: string;
   nameNormalised: string;
+  /**
+   * A moderator counted it WITHOUT an entry behind it (owner, 2026-11-24). It then
+   * reads as answered everywhere, and shows as such.
+   */
+  accepted?: boolean;
 }
 
 /**
@@ -65,7 +70,7 @@ export function isRepeatEntry(a: unknown, b: unknown): boolean {
   return (get(a, 'isLecturer') === true) === (get(b, 'isLecturer') === true) && link(a) === link(b);
 }
 
-/** Which of `assigned` no entry of `evidences` covers yet, in the given order */
+/** Which of `assigned` neither an entry of `evidences` nor a moderator covers yet, in the given order */
 export function missingDisciplines(
   assigned: readonly AssignedName[],
   evidences: readonly unknown[]
@@ -75,7 +80,7 @@ export function missingDisciplines(
     const key = evidenceDisciplineKey(e);
     if (key) done.add(key);
   }
-  return assigned.filter((a) => !done.has(a.nameNormalised));
+  return assigned.filter((a) => !a.accepted && !done.has(a.nameNormalised));
 }
 
 /** An entry that names none of the assigned disciplines — what a moderator may count */

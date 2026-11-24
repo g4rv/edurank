@@ -152,7 +152,7 @@ async function loadGateInputs(
   const [assigned, activities] = await Promise.all([
     tx.assignedDiscipline.findMany({
       where: { staffId: { in: [...staffIds] }, year },
-      select: { staffId: true, name: true, nameNormalised: true },
+      select: { staffId: true, name: true, nameNormalised: true, acceptedAt: true },
       orderBy: { name: 'asc' },
     }),
     tx.activity.findMany({
@@ -166,7 +166,11 @@ async function loadGateInputs(
     }),
   ]);
   for (const a of assigned) {
-    out.get(a.staffId)?.assigned.push({ name: a.name, nameNormalised: a.nameNormalised });
+    out.get(a.staffId)?.assigned.push({
+      name: a.name,
+      nameNormalised: a.nameNormalised,
+      accepted: Boolean(a.acceptedAt),
+    });
   }
   for (const a of activities) {
     const entries = out.get(a.staffId)?.entries;
@@ -250,6 +254,8 @@ export interface DisciplineStanding {
   notLecturer: string[];
   /** Their entries that name none of the assigned disciplines — for «Зарахувати» */
   unmatched: UnmatchedEntry[];
+  /** Disciplines a moderator counted without an entry — shown, and may be taken back */
+  accepted: string[];
 }
 
 /**
@@ -268,7 +274,7 @@ export async function listDisciplineStandings(
     // Only people who can fill 5.1: not archived, an НПП, not outside the rating
     // (зовнішній сумісник, 2026-11-10)
     where: { year, staff: { archivedAt: null, isNpp: true, isExternalPartTimer: false } },
-    select: { staffId: true, name: true, nameNormalised: true },
+    select: { staffId: true, name: true, nameNormalised: true, acceptedAt: true },
     orderBy: { name: 'asc' },
   });
   const staffIds = [...new Set(assigned.map((a) => a.staffId))];
@@ -295,7 +301,11 @@ export async function listDisciplineStandings(
   const namesBy = new Map<string, AssignedName[]>();
   for (const a of assigned) {
     const list = namesBy.get(a.staffId) ?? [];
-    list.push({ name: a.name, nameNormalised: a.nameNormalised });
+    list.push({
+      name: a.name,
+      nameNormalised: a.nameNormalised,
+      accepted: Boolean(a.acceptedAt),
+    });
     namesBy.set(a.staffId, list);
   }
 
@@ -316,6 +326,7 @@ export async function listDisciplineStandings(
       notLecturer: names.filter((n) => off.has(n.name)).map((n) => n.name),
       // Only worth carrying for somebody who is missing something
       unmatched: missing.length > 0 ? unmatchedEntries(names, entriesBy.get(staffId) ?? []) : [],
+      accepted: names.filter((n) => n.accepted).map((n) => n.name),
     };
   });
 }
@@ -327,6 +338,8 @@ export interface DisciplineItem {
   done: boolean;
   /** …and says «Не лектор» */
   notLecturer: boolean;
+  /** Counted by a moderator, with no entry behind it */
+  accepted: boolean;
 }
 
 /**
@@ -355,5 +368,6 @@ export async function loadDisciplineProgress(
     name: a.name,
     done: !gaps.has(a.nameNormalised),
     notLecturer: lecturerOff.has(a.nameNormalised),
+    accepted: a.accepted === true,
   }));
 }

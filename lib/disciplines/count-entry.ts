@@ -10,7 +10,7 @@ import { disciplineKey, evidenceDisciplineKey } from './assigned';
  */
 export interface CountEntryCase {
   /** The assigned names of this person for the year, as stored */
-  assigned: readonly { name: string; nameNormalised: string }[];
+  assigned: readonly { name: string; nameNormalised: string; accepted?: boolean }[];
   /** The assigned name the moderator picked */
   target: string;
   /** The evidence of the entry the moderator picked */
@@ -32,6 +32,9 @@ export function assignedTarget<T extends { nameNormalised: string }>(
 export function countEntryProblem(c: CountEntryCase): string | null {
   const target = assignedTarget(c.assigned, c.target);
   if (!target) return 'Такої дисципліни немає у списку цієї людини';
+
+  // Already counted by a moderator: an entry on top of it would count nothing more
+  if (target.accepted) return 'Цю дисципліну вже зараховано без запису';
 
   const own = evidenceDisciplineKey(c.entryEvidence);
   if (!own) return 'Запис не називає дисципліни';

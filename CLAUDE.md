@@ -694,8 +694,13 @@ Rules that are easy to get wrong:
   on «Дисципліни 5.1» ADMIN / ННВ press **«Зарахувати запис»** (`countEntryForDiscipline`,
   `lib/disciplines/count-entry.ts`) to give one of a person's own unmatched entries the
   missing discipline's name — only the `discipline` text changes, audited with the old
-  name, no undo button. `db:import-disciplines` replaces a person's rows from the file, so
-  re-importing undoes a list edit. The
+  name, no undo button. **Or without any entry** (owner, 2026-11-24, «admin can just confirm»):
+  **«Зарахувати без запису»** (`acceptDiscipline`) marks the assigned discipline itself
+  accepted — `AssignedDiscipline.acceptedAt` / `acceptedById` — and the rule reads it as
+  answered (`AssignedName.accepted`); nothing is written to the person's entries, the
+  checklist says «зараховано без запису», and **«Скасувати зарахування»**
+  (`revokeAcceptance`) takes it back. Both are audited. `db:import-disciplines` replaces a
+  person's rows from the file, so re-importing undoes a list edit AND an acceptance. The
   science plan still comes first — that gate is unchanged.
 - **A box can be required only in some state of the form** — `requiredWhen` on
   any kind: `{ field, in }` (a select's answer), `{ field, checked }` (a switch;
@@ -887,6 +892,13 @@ A кафедра's OWN report (`/department-rating`), filled by the завіду
 заступник з наукової роботи — separate tables (`DepartmentIndicator`,
 `DepartmentReport`), not the staff's personal rating. Spec:
 `docs/superpowers/specs/2026-10-20-department-rating-design.md`.
+
+**A line is added to a running year with `pnpm db:department-rating-catalogue`** (report
+first, `--apply`): it creates the missing lines of the ACTIVE year from
+`catalogue-2026.ts` and nothing else — except the stored position (`order`) of the
+lines that follow a new one, which it brings to the catalogue's. Reports keep their
+values (keyed by line id). 7.4 «у фахових виданнях України категорії «Б»», 2 points a
+record, was added this way (owner, 2026-11-24), typed by hand — no mapping to 3.9.
 
 **Some lines are counted from the staff's personal entries** (owner,
 2026-11-16; spec `2026-11-16-department-rating-derived-values-design.md`).

@@ -85,3 +85,26 @@ describe('evaluateGate', () => {
     expect(gate).toEqual({ open: true });
   });
 });
+
+describe('evaluateGate with a discipline a moderator accepted', () => {
+  const gating: GatingRow[] = [
+    { id: 't51', itemNumber: '5.1', sectionNumber: 5, byDiscipline: true },
+  ];
+  const assigned = [
+    { name: 'Фізика', nameNormalised: 'фізика', accepted: true },
+    { name: 'Хімія', nameNormalised: 'хімія' },
+  ];
+
+  it('opens the gate once the other discipline has its entry', () => {
+    expect(
+      evaluateGate({ gating, assigned, entries: new Map([['t51', [{ discipline: 'Хімія' }]]]) })
+    ).toEqual({ open: true });
+  });
+
+  it('names only the discipline that still owes one', () => {
+    expect(evaluateGate({ gating, assigned, entries: new Map() })).toMatchObject({
+      open: false,
+      missingDisciplines: ['Хімія'],
+    });
+  });
+});

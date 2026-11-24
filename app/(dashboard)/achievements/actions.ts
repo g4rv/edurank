@@ -131,7 +131,7 @@ export async function createActivity(
   const assigned = hasDisciplineField(specs.fields)
     ? await db.assignedDiscipline.findMany({
         where: { staffId, year },
-        select: { name: true, nameNormalised: true },
+        select: { name: true, nameNormalised: true, acceptedAt: true },
         orderBy: { name: 'asc' },
       })
     : [];
@@ -243,7 +243,10 @@ export async function createActivity(
     success: true,
     score,
     ...(assigned.length > 0 && {
-      disciplinesLeft: missingDisciplines(assigned, [...held, parsed.data]).length,
+      disciplinesLeft: missingDisciplines(
+        assigned.map((a) => ({ ...a, accepted: Boolean(a.acceptedAt) })),
+        [...held, parsed.data]
+      ).length,
     }),
   };
 }

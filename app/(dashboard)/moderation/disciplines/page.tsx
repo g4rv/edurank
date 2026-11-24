@@ -162,11 +162,18 @@ export default async function DisciplinesPage({
                   </td>
                   <td className="px-4 py-2">
                     <Names names={r.missing} person={fullName(r.person!)} title="Немає запису" />
-                    {r.missing.length > 0 && r.unmatched.length > 0 && (
+                    {r.accepted.length > 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Зараховано без запису: {r.accepted.length}
+                      </p>
+                    )}
+                    {(r.missing.length > 0 || r.accepted.length > 0) && (
                       <CountEntryDialog
+                        staffId={r.staffId}
                         person={fullName(r.person!)}
                         missing={r.missing}
                         unmatched={r.unmatched}
+                        accepted={r.accepted}
                       />
                     )}
                   </td>

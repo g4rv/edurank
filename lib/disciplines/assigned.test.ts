@@ -178,3 +178,18 @@ describe('unmatchedEntries', () => {
     expect(unmatchedEntries(assigned, [entries[0]])).toEqual([]);
   });
 });
+
+describe('a discipline a moderator accepted', () => {
+  const list = [
+    { name: 'Фізика', nameNormalised: 'фізика', accepted: true },
+    { name: 'Хімія', nameNormalised: 'хімія' },
+  ];
+
+  it('is covered without any entry', () => {
+    expect(missingDisciplines(list, []).map((n) => n.name)).toEqual(['Хімія']);
+  });
+
+  it('leaves the rest owing an entry', () => {
+    expect(missingDisciplines(list, [{ discipline: 'Хімія' }])).toEqual([]);
+  });
+});
