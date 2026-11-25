@@ -193,7 +193,7 @@ Consequences to keep in mind:
 ## Roles
 
 - `ADMIN` — hardcoded full read/write, including confidential fields (e.g. ставка / work rate). No permission rows needed.
-- `EDITOR` — division employee. View access to nearly all pages. What they can actually **do** is entirely determined by their division's configured permissions (see below). Not all editors have the same capabilities.
+- `EDITOR` — division employee. Which pages they open AND what they can **do** are both determined by their division's configured permissions (see below; pages since 2026-11-25 — «Page switches»). Not all editors have the same capabilities.
 - `USER` — is a staff member (НПП). Can only view and edit their own profile, and submit achievements via forms.
 - **Заступник завідувача з наукової роботи** (`Department.scienceDeputyId`, not a `Role`):
   fills Рейтинг кафедри beside the head (2026-10-21) and READS their кафедра's people
@@ -224,6 +224,35 @@ Rules:
 - Confidential fields (e.g. ставка): only `ADMIN` can read them. `EDITOR` never sees them. `USER` sees only their own.
 - All permission enforcement is **server-side** — never only in UI components.
 - **All of a division's rights are edited in one place** (owner, 2026-10-12): `/divisions/[id]` — name, the switches, entity actions and field access — with one Save (`updateDivisionSettings`), ADMIN only, audited as one entry. The former «Поля доступу» / «Дії доступу» screens and `/divisions/[id]/edit` are gone.
+
+**Page switches (owner, 2026-11-25).** Every EDITOR used to open Штат,
+Кафедри, Факультети, Рейтинг НПП and Графіки by role alone — the aspirantura
+division's member got the whole rating table that way. Now each is a column on
+`Division` (`canViewStaff`, `canViewDepartments`, `canViewFaculties`,
+`canViewRating`, `canViewCharts`, all `false` until ticked on `/divisions/[id]`).
+**If a division may edit, it may look:** a right used from a page opens it
+whatever its switch says — any STAFF action, a field grant, an account switch,
+«Перегляд підвищення кваліфікації» or «Перевірка науки» open Штат; moderation
+opens Рейтинг НПП; DEPARTMENT / FACULTY actions open their pages. That is
+computed (`lib/divisions/page-access.ts`), never stored, and the settings page
+draws such a switch ticked and locked with the reason.
+
+- **One question, `pageAccessFor(session.user)`** (`lib/divisions/page-access-state.ts`,
+  cached per request): ADMIN all, USER none, EDITOR by division. Each page
+  calls `requirePageAccess(user, key)` (to the viewer's start page, never a 404);
+  the exports behind Рейтинг НПП and Графіки answer 403.
+- **A person's record splits:** the Профіль needs Штат (`canViewStaffProfile`),
+  the Рейтинг and Характеристика need Рейтинг НПП (`canViewAcademicRecord`).
+  Heads, deans and science deputies keep both through `readsThroughPosition`,
+  whatever their role. Tabs follow (`recordTabsFor`).
+- **«Дані відділу» is not a switch** — it already shows only to a division that
+  enters some indicator (`canEnterDivisionData`).
+- **Start page:** `/` and the login send an editor to the first page they open
+  (`startPageFor`), else their profile; a USER still lands on /profile.
+- **Names are links only where the viewer may open them** (`personHref`,
+  `CellLink`/`RowLinkCell` with `href={null}`).
+- Before deploying: `pnpm db:division-page-access-report` on prod lists who
+  keeps and loses what.
 
 **Account switches (owner, 2026-10-12).** Three booleans on `Division`, set by
 ADMIN on the division settings page, audited like the others, all `false` until
@@ -392,6 +421,14 @@ pnpm db:cat-a-quartile  # one-off: rating 3.8's «Q3-4 / відсутній» be
                       #   options, same points, in every open year; moves the 34
                       #   saved entries by ННВ's journal list (ids in the script).
                       #   An entry not on the list stops --apply. Report first; --apply.
+pnpm db:scientific-school-circle  # one-off: rating 3.17 «Керівництво науковою школою» gains
+                      #   «гурток / проблемна група» (100; the школа keeps the row's own
+                      #   points) and an optional «Номер наказу», in every open year
+                      #   (owner, 2026-11-25). Saved entries get the «школа» answer, no
+                      #   score moves. Both options feed Характеристика п.14. Report first; --apply.
+pnpm db:division-page-access-report  # read-only: per division, its editors and which of the
+                      #   five pages they keep or lose under the page switches (owner,
+                      #   2026-11-25). Run on prod BEFORE deploying that change.
 pnpm db:doi-publication-isbn  # one-off: rating 3.11 takes DOI OR ISBN (one
                       #   of the two required) in every open year; the title
                       #   and the hint say so. No entry or

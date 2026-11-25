@@ -19,7 +19,17 @@ function departmentWord(count: number): string {
   return 'кафедр';
 }
 
-export function OrgTree({ faculties }: { faculties: FacultyNode[] }) {
+export function OrgTree({
+  faculties,
+  linkFaculties = true,
+  linkDepartments = true,
+}: {
+  faculties: FacultyNode[];
+  /** The viewer may open `/faculties/[id]` — by their division since 2026-11-25 */
+  linkFaculties?: boolean;
+  /** The viewer may open `/departments/[id]` */
+  linkDepartments?: boolean;
+}) {
   if (faculties.length === 0) {
     return (
       <p className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -33,12 +43,16 @@ export function OrgTree({ faculties }: { faculties: FacultyNode[] }) {
       {faculties.map((faculty) => (
         <div key={faculty.id} className="px-4 py-3">
           <div className="flex items-baseline justify-between gap-3">
-            <Link
-              href={`/faculties/${faculty.id}`}
-              className="truncate text-sm font-medium hover:underline"
-            >
-              {faculty.name}
-            </Link>
+            {linkFaculties ? (
+              <Link
+                href={`/faculties/${faculty.id}`}
+                className="truncate text-sm font-medium hover:underline"
+              >
+                {faculty.name}
+              </Link>
+            ) : (
+              <span className="truncate text-sm font-medium">{faculty.name}</span>
+            )}
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
               {faculty.departments.length} {departmentWord(faculty.departments.length)} ·{' '}
               {counts.format(faculty.nppCount)} НПП
@@ -49,12 +63,18 @@ export function OrgTree({ faculties }: { faculties: FacultyNode[] }) {
             <ul className="mt-2 ml-1 space-y-1 border-l pl-3">
               {faculty.departments.map((department) => (
                 <li key={department.id} className="flex items-baseline justify-between gap-3">
-                  <Link
-                    href={`/departments/${department.id}`}
-                    className="truncate text-sm text-muted-foreground hover:text-foreground hover:underline"
-                  >
-                    {department.name}
-                  </Link>
+                  {linkDepartments ? (
+                    <Link
+                      href={`/departments/${department.id}`}
+                      className="truncate text-sm text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      {department.name}
+                    </Link>
+                  ) : (
+                    <span className="truncate text-sm text-muted-foreground">
+                      {department.name}
+                    </span>
+                  )}
                   {/* A department with nobody in it is worth seeing, so it stays
                       in the list and only its number goes quiet. */}
                   <span

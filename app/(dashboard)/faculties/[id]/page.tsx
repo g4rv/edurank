@@ -2,6 +2,10 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Pencil } from 'lucide-react';
 import { auth } from '@/lib/auth';
+import { requirePageAccess } from '@/lib/divisions/start-page-state';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
+import { personHref } from '@/lib/divisions/page-access';
+import { PersonName } from '@/components/ui/person-name';
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { Button } from '@/components/aurora/ui/button';
@@ -23,6 +27,10 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
   const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
+  // Only where this person's division opens it (owner, 2026-11-25)
+  await requirePageAccess(session.user, 'faculties');
+  // Names and кафедра links only where this viewer may open them
+  const access = await pageAccessFor(session.user);
 
   const faculty = await db.faculty.findUnique({
     where: { id },
@@ -112,12 +120,7 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
             Декан
           </p>
           {faculty.dean ? (
-            <Link
-              href={`/staff/${faculty.dean.id}`}
-              className="text-sm font-medium hover:underline"
-            >
-              {fullName(faculty.dean)}
-            </Link>
+            <PersonName href={personHref(access, faculty.dean.id)} name={fullName(faculty.dean)} />
           ) : (
             <p className="text-sm text-muted-foreground">Не призначено</p>
           )}
@@ -133,9 +136,13 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
             <ul className="space-y-2">
               {faculty.departments.map((dept) => (
                 <li key={dept.id} className="flex items-center justify-between">
-                  <Link href={`/departments/${dept.id}`} className="text-sm hover:underline">
-                    {dept.name}
-                  </Link>
+                  {access.departments ? (
+                    <Link href={`/departments/${dept.id}`} className="text-sm hover:underline">
+                      {dept.name}
+                    </Link>
+                  ) : (
+                    <span className="text-sm">{dept.name}</span>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {dept._count.primaryStaff + dept._count.partTimeStaff} НПП
                   </span>
@@ -167,7 +174,7 @@ export default async function FacultyDetailPage({ params }: { params: Promise<{ 
                   key={member.id}
                   className="border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
-                  <RowLinkCell href={`/staff/${member.id}`}>{fullName(member)}</RowLinkCell>
+                  <RowLinkCell href={personHref(access, member.id)}>{fullName(member)}</RowLinkCell>
                   <td className="px-4 py-3 text-muted-foreground">
                     {member.department?.name ?? '—'}
                   </td>

@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { requirePageAccess } from '@/lib/divisions/start-page-state';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import {
@@ -28,6 +30,9 @@ export default async function DepartmentsPage({
   const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
+  // Only where this person's division opens it (owner, 2026-11-25)
+  await requirePageAccess(session.user, 'departments');
+  const access = await pageAccessFor(session.user);
 
   const sortField = parseDepartmentSort(sort);
   const sortDir = parseSortDir(dir);
@@ -140,7 +145,7 @@ export default async function DepartmentsPage({
         }
       />
 
-      <DepartmentTable groups={groups} head={head} canDelete={canDelete} fill />
+      <DepartmentTable groups={groups} head={head} canDelete={canDelete} fill access={access} />
     </div>
   );
 }

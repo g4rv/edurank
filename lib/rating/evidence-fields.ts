@@ -866,7 +866,16 @@ export const EVIDENCE_FIELDS: Record<string, readonly EvidenceField[]> = {
     date('date', 'Дата', { optional: true }),
   ],
   olympiad_jury: [text('event', 'Назва заходу'), text('basis', 'Номер наказу', { optional: true })],
-  scientific_school: [text('title', 'Назва наукової школи')],
+  // `title` keeps its name from when this was the школа alone, so the entries
+  // saved then stay valid.
+  scientific_school: [
+    select('option', 'Вид керівництва', [
+      opt('school', 'наукова школа'),
+      opt('circle', 'постійно діючий студентський науковий гурток / проблемна група'),
+    ]),
+    text('title', 'Назва наукової школи / гуртка / проблемної групи'),
+    text('basis', 'Номер наказу', { optional: true }),
+  ],
   // The mention link (3.16–3.18, decided 2026-08-07): the public page of the
   // council / editorial board that names this person. Proof of the role that
   // does not depend on anyone's word, and cheap to check.

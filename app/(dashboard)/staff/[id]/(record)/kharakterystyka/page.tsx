@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 import { getActiveTemplate } from '@/lib/queries/get-active-template';
 import { getKharakterystyka, licencePositionSources } from '@/lib/queries/get-kharakterystyka';
 import { listManualKharakterystyka } from '@/lib/queries/list-manual-kharakterystyka';
-import { canViewAcademicRecord } from '@/lib/queries/scope';
+import { recordTabsFor } from '@/lib/queries/scope';
 import { adminFreezeNote } from '@/lib/kharakterystyka/freeze';
 import { isFreezeExempt, loadFreezeSettings } from '@/lib/freeze/state';
 import { EmptyState } from '@/components/aurora/ui/card';
@@ -46,7 +46,13 @@ export default async function StaffKharakterystykaPage({
   if (session.user.staffId === id && session.user.role === 'USER') {
     redirect('/profile/kharakterystyka');
   }
-  if (!(await canViewAcademicRecord(session.user, id))) notFound();
+  // «Рейтинг НПП» opens this tab to an editor (owner, 2026-11-25); with «Штат»
+  // alone the Профіль is theirs
+  const tabs = await recordTabsFor(session.user, id);
+  if (!tabs.academic) {
+    if (tabs.profile) redirect(`/staff/${id}`);
+    notFound();
+  }
 
   const staff = await db.staff.findUnique({
     where: { id },
@@ -97,6 +103,8 @@ export default async function StaffKharakterystykaPage({
         showRating
         showRatingTab={!staff.isExternalPartTimer}
         showStaffPages={seesStaffPages}
+        showProfile={tabs.profile}
+        showAcademic={tabs.academic}
         showScience={showScience}
         showQualifications={showQualifications}
       >

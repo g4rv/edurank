@@ -8,8 +8,22 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 
+// Which of the five pages an editor's division opens (owner, 2026-11-25)
+vi.mock('@/lib/divisions/page-access-state', () => ({ pageAccessFor: vi.fn() }));
+
 import { db } from '@/lib/db';
-import { canViewAcademicRecord, headDeanConflict, overseesStaff, scopeOf } from './scope';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
+import { NO_PAGES } from '@/lib/divisions/page-access';
+import {
+  canViewAcademicRecord,
+  canViewStaffProfile,
+  headDeanConflict,
+  overseesStaff,
+  scopeOf,
+} from './scope';
+
+const mockPageAccess = pageAccessFor as unknown as Mock;
+beforeEach(() => mockPageAccess.mockResolvedValue(NO_PAGES));
 
 const mockDepartments = db.department.findMany as unknown as Mock;
 const mockFaculties = db.faculty.findMany as unknown as Mock;
@@ -81,9 +95,27 @@ describe('canViewAcademicRecord', () => {
     expect(mockDepartments).not.toHaveBeenCalled();
   });
 
-  it('lets EDITOR read anybody — inspecting a rating is intended (W6)', async () => {
+  it('lets an EDITOR whose division opens «Рейтинг НПП» read anybody', async () => {
     given();
+    mockPageAccess.mockResolvedValue({ ...NO_PAGES, rating: true });
     expect(await canViewAcademicRecord({ role: 'EDITOR', staffId: 'e' }, 'other')).toBe(true);
+  });
+
+  it('refuses an EDITOR whose division does not open «Рейтинг НПП» (owner, 2026-11-25)', async () => {
+    given();
+    mockStaff.mockResolvedValue({ departmentId: 'dept-9', partTimeDepartments: [] });
+    expect(await canViewAcademicRecord({ role: 'EDITOR', staffId: 'e' }, 'other')).toBe(false);
+  });
+
+  it('still lets an EDITOR who heads the кафедра read their own people', async () => {
+    given({ headOf: ['dept-1'] });
+    mockStaff.mockResolvedValue({ departmentId: 'dept-1', partTimeDepartments: [] });
+    expect(await canViewAcademicRecord({ role: 'EDITOR', staffId: 'e' }, 'member')).toBe(true);
+  });
+
+  it('lets an EDITOR read their own record with every page closed', async () => {
+    given();
+    expect(await canViewAcademicRecord({ role: 'EDITOR', staffId: 'e' }, 'e')).toBe(true);
   });
 
   it('lets anybody read their own record', async () => {
@@ -240,5 +272,42 @@ describe('headDeanConflict', () => {
   it('names a вчений секретар as завідувач', async () => {
     mockStaff.mockResolvedValue({ adminPositions: ['ACADEMIC_SECRETARY'] });
     expect(await headDeanConflict('staff-1', 'HEAD')).toBeNull();
+  });
+});
+
+// «Штат» opens a person's Профіль tab (owner, 2026-11-25). A завідувач, декан
+// or заступник keeps reading their own people's profiles (2026-09-24).
+describe('canViewStaffProfile', () => {
+  it('lets a head read the profile of someone on their кафедра', async () => {
+    given({ headOf: ['dept-1'] });
+    mockStaff.mockResolvedValue({ departmentId: 'dept-1', partTimeDepartments: [] });
+    expect(await canViewStaffProfile({ role: 'USER', staffId: 'head' }, 'member')).toBe(true);
+  });
+
+  it('lets ADMIN read anybody', async () => {
+    expect(await canViewStaffProfile({ role: 'ADMIN', staffId: 'a' }, 'other')).toBe(true);
+  });
+
+  it('lets anybody read their own profile', async () => {
+    expect(await canViewStaffProfile({ role: 'EDITOR', staffId: 'me' }, 'me')).toBe(true);
+    expect(await canViewStaffProfile({ role: 'USER', staffId: 'me' }, 'me')).toBe(true);
+  });
+
+  it('lets an EDITOR whose division opens «Штат» read anybody', async () => {
+    mockPageAccess.mockResolvedValue({ ...NO_PAGES, staff: true });
+    expect(await canViewStaffProfile({ role: 'EDITOR', staffId: 'e' }, 'other')).toBe(true);
+  });
+
+  it('refuses an EDITOR whose division does not open «Штат»', async () => {
+    given();
+    mockStaff.mockResolvedValue({ departmentId: 'dept-9', partTimeDepartments: [] });
+    mockPageAccess.mockResolvedValue({ ...NO_PAGES, rating: true });
+    expect(await canViewStaffProfile({ role: 'EDITOR', staffId: 'e' }, 'other')).toBe(false);
+  });
+
+  it('refuses a USER somebody else’s profile', async () => {
+    given();
+    mockStaff.mockResolvedValue({ departmentId: 'dept-9', partTimeDepartments: [] });
+    expect(await canViewStaffProfile({ role: 'USER', staffId: 'u' }, 'other')).toBe(false);
   });
 });

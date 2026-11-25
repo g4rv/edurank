@@ -4,6 +4,7 @@ import { getStaff } from '@/lib/queries/get-staff';
 import { getActiveScienceTemplate } from '@/lib/queries/get-science-template';
 import { planDepartmentsFor, getSciencePlan } from '@/lib/queries/get-science-plan';
 import { canOverseeScience } from '@/lib/science/oversight';
+import { recordTabsFor } from '@/lib/queries/scope';
 import { canSeeQualificationsTab } from '@/lib/qualifications/access';
 import { pickPlanDepartment } from '@/lib/science/plan-department';
 import { toPlanWorkType } from '@/lib/science/to-plan-work-type';
@@ -44,8 +45,16 @@ export default async function StaffSciencePage({
 
   const basePath = `/staff/${id}/science`;
   const showQualifications = await canSeeQualificationsTab(session.user);
+  const tabs = await recordTabsFor(session.user, id);
   const tabRow = (
-    <RecordTabRow staffId={id} showRating showScience showQualifications={showQualifications} />
+    <RecordTabRow
+      staffId={id}
+      showRating
+      showScience
+      showQualifications={showQualifications}
+      showProfile={tabs.profile}
+      showAcademic={tabs.academic}
+    />
   );
 
   const departments = await planDepartmentsFor(id);

@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { getLanguageCertificates } from '@/lib/queries/get-language-certificates';
@@ -36,6 +37,8 @@ export default async function ProfilePage() {
   if (!session) redirect('/login');
 
   const staffId = session.user.staffId;
+  // Which кафедра / факультет pages a link may point at (owner, 2026-11-25)
+  const access = await pageAccessFor(session.user);
 
   // An account with no Staff row — an operator login, or a record deleted from
   // under a live session. There is nothing to render, so say so rather than 404.
@@ -68,9 +71,10 @@ export default async function ProfilePage() {
           certificates={certificates}
           // Your own scans are yours to open.
           canOpenCertificateFiles
-          // The кафедра / факультет pages send a USER back here, the відділ page
-          // everybody but ADMIN — so no link where it would only bounce.
-          linkDepartments={session.user.role !== 'USER'}
+          // The кафедра / факультет pages open by the viewer's division (owner,
+          // 2026-11-25), the відділ page to ADMIN — so no link where it would bounce.
+          linkDepartments={access.departments}
+          linkFaculties={access.faculties}
           linkDivision={session.user.role === 'ADMIN'}
         />
       </div>

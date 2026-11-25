@@ -5,7 +5,9 @@ import { auth } from '@/lib/auth';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStaffAccount } from '@/lib/queries/get-staff-account';
 import { getEditorEntityPermissions } from '@/lib/queries/get-editor-permissions';
-import { canViewAcademicRecord, deanOf } from '@/lib/queries/scope';
+import { deanOf, recordTabsFor } from '@/lib/queries/scope';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
+import { startPageOf } from '@/lib/divisions/start-page-state';
 import { canMutateStaffRecord } from '@/lib/permissions';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
@@ -48,8 +50,14 @@ export async function RecordHeader({ id }: { id: string }) {
   // page narrows it further — the Профіль and Рейтинг tabs still send a USER to
   // their own record. ADMIN and EDITOR short-circuit inside the helper, so this
   // costs a query for a head and nobody else.
-  if (session.user.role === 'USER' && !(await canViewAcademicRecord(session.user, id))) {
-    redirect('/profile');
+  //
+  // Since 2026-11-25 an editor too opens only what their division opens: the
+  // Профіль with «Штат», the Рейтинг and Характеристика with «Рейтинг НПП». The
+  // header needs either; each tab checks its own.
+  const access = await pageAccessFor(session.user);
+  if (!isAdmin) {
+    const tabs = await recordTabsFor(session.user, id);
+    if (!tabs.profile && !tabs.academic) redirect(await startPageOf(session.user));
   }
 
   const showConfidential = isAdmin || session.user.staffId === id;
@@ -99,11 +107,16 @@ export async function RecordHeader({ id }: { id: string }) {
           would lead nowhere. */}
       <Breadcrumbs
         items={[
-          session.user.role !== 'USER'
+          // The page this viewer reached the record from — never one closed to them
+          access.staff
             ? { label: 'Штат', href: '/staff' }
-            : (await deanOf(session.user.staffId)).length > 0
-              ? { label: 'Мій факультет', href: '/my-faculty?tab=staff' }
-              : { label: 'Моя кафедра', href: '/my-department' },
+            : access.rating
+              ? { label: 'Рейтинг НПП', href: '/rating' }
+              : session.user.staffId === id
+                ? { label: 'Мій профіль', href: '/profile' }
+                : (await deanOf(session.user.staffId)).length > 0
+                  ? { label: 'Мій факультет', href: '/my-faculty?tab=staff' }
+                  : { label: 'Моя кафедра', href: '/my-department' },
           { label: fullName(staff) },
         ]}
       />

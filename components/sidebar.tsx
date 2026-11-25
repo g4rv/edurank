@@ -33,6 +33,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Fragment } from 'react';
+import { NO_PAGES, type PageAccess } from '@/lib/divisions/page-access';
 
 const RATING_SECTIONS = [1, 2, 3, 4, 5];
 
@@ -83,6 +84,12 @@ export interface SidebarProps {
   isNpp?: boolean;
   canModerate?: boolean;
   canEnterData?: boolean;
+  /**
+   * Which of Штат, Кафедри, Факультети, Рейтинг НПП, Графіки this person opens
+   * (owner, 2026-11-25) — ADMIN all, an editor what their division opens, a
+   * USER none. Each page checks it again.
+   */
+  pageAccess?: PageAccess;
   /** Heads a кафедра or a факультет — derived from headId/deanId, never a Role */
   headsDepartment?: boolean;
   /**
@@ -143,6 +150,7 @@ export function Sidebar({
   isNpp = false,
   canModerate = false,
   canEnterData = false,
+  pageAccess = NO_PAGES,
   headsDepartment = false,
   isDean = false,
   isScienceDeputy = false,
@@ -155,8 +163,6 @@ export function Sidebar({
   const pathname = usePathname();
 
   const isAdmin = user.role === 'ADMIN';
-  // View access to other people's ratings and to the structure lists
-  const canSeeRating = isAdmin || user.role === 'EDITOR';
 
   // ── Особисте ───────────────────────────────────────────────────────────────
   // A person's own record, and the only place they are the subject rather than
@@ -198,12 +204,14 @@ export function Sidebar({
     // both lines at once
     management.push({ href: '/my-department', label: 'Моя кафедра', icon: BookOpen, exact: true });
   }
-  if (canSeeRating) {
-    management.push(
-      { href: '/staff', label: 'Штат', icon: Users },
-      { href: '/departments', label: 'Кафедри', icon: BookOpen },
-      { href: '/faculties', label: 'Факультети', icon: GraduationCap }
-    );
+  // Each of these by its own switch on the division (owner, 2026-11-25); every
+  // editor had all five before
+  if (pageAccess.staff) management.push({ href: '/staff', label: 'Штат', icon: Users });
+  if (pageAccess.departments) {
+    management.push({ href: '/departments', label: 'Кафедри', icon: BookOpen });
+  }
+  if (pageAccess.faculties) {
+    management.push({ href: '/faculties', label: 'Факультети', icon: GraduationCap });
   }
   // Not for a декан (owner, 2026-09-24): «Мій факультет» is information about
   // their кафедри and staff, and nothing else — the students and the ставки
@@ -226,7 +234,7 @@ export function Sidebar({
   if (canEnterData) {
     management.push({ href: '/division-data', label: 'Дані відділу', icon: Table2 });
   }
-  if (canSeeRating) {
+  if (pageAccess.rating) {
     management.push({ href: '/rating', label: 'Рейтинг НПП', icon: Trophy });
   }
   if (canOverseeSciencePlans) {
@@ -247,7 +255,7 @@ export function Sidebar({
   if (canModerate) {
     management.push({ href: '/moderation/disciplines', label: 'Дисципліни 5.1', icon: BookCheck });
   }
-  if (canSeeRating) {
+  if (pageAccess.charts) {
     management.push({ href: '/dashboard', label: 'Графіки', icon: ChartColumn });
   }
 

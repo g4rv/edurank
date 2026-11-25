@@ -74,6 +74,10 @@ interface StaffTabsProps {
   showQualifications?: boolean;
   /** False for a зовнішній сумісник — the Рейтинг tab is not drawn */
   showRatingTab?: boolean;
+  /** The viewer may open the Профіль (owner, 2026-11-25) */
+  showProfile?: boolean;
+  /** The viewer may open Рейтинг and Характеристика (owner, 2026-11-25) */
+  showAcademic?: boolean;
 }
 
 export function StaffTabs({
@@ -86,6 +90,8 @@ export function StaffTabs({
   showScience = false,
   showQualifications = false,
   showRatingTab = true,
+  showProfile = true,
+  showAcademic = true,
 }: StaffTabsProps) {
   const pathname = usePathname();
 
@@ -115,6 +121,8 @@ export function StaffTabs({
     showScience,
     showQualifications,
     showRatingTab,
+    showProfile,
+    showAcademic,
   });
 
   // One tab is not a tab bar — it is a label pretending to be a control.

@@ -406,6 +406,7 @@ export function WorkplacesCard({
   showStake = false,
   showEmpty = true,
   linkDepartments = false,
+  linkFaculties = false,
   linkDivision = false,
 }: CardProps & {
   stakeParts?: StakePart[];
@@ -416,6 +417,8 @@ export function WorkplacesCard({
    * a dead end (owner, 2026-11-17). Off = the names as plain text.
    */
   linkDepartments?: boolean;
+  /** May this viewer open `/faculties/[id]` — a page of its own since 2026-11-25 */
+  linkFaculties?: boolean;
   /** `/divisions/[id]` is ADMIN's alone */
   linkDivision?: boolean;
 }) {
@@ -475,7 +478,7 @@ export function WorkplacesCard({
                 badge="Основне"
                 faculty={staff.department.faculty?.name}
                 facultyHref={
-                  linkDepartments && staff.department.faculty
+                  linkFaculties && staff.department.faculty
                     ? `/faculties/${staff.department.faculty.id}`
                     : null
                 }
@@ -490,7 +493,7 @@ export function WorkplacesCard({
                 badge="Сумісництво"
                 faculty={pd.department.faculty?.name}
                 facultyHref={
-                  linkDepartments && pd.department.faculty
+                  linkFaculties && pd.department.faculty
                     ? `/faculties/${pd.department.faculty.id}`
                     : null
                 }

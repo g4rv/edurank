@@ -262,6 +262,16 @@ model Division {
   canSetPasswords Boolean @default(false) // set a password, and reset one
   canEndSessions  Boolean @default(false) // «Завершити всі сесії»
 
+  // The pages this division's editors open (owner, 2026-11-25) — every editor
+  // opened all five by role before. A right used from a page opens it whatever
+  // the switch says; that is worked out in lib/divisions/page-access.ts, never
+  // stored here.
+  canViewStaff       Boolean @default(false) // «Штат»
+  canViewDepartments Boolean @default(false) // «Кафедри»
+  canViewFaculties   Boolean @default(false) // «Факультети»
+  canViewRating      Boolean @default(false) // «Рейтинг НПП»
+  canViewCharts      Boolean @default(false) // «Графіки»
+
   staff             Staff[]
   fieldPermissions  DivisionFieldPermission[]
   entityPermissions DivisionEntityPermission[]

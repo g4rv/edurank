@@ -36,6 +36,11 @@ function mockTx() {
         canInviteStaff: false,
         canSetPasswords: false,
         canEndSessions: false,
+        canViewStaff: false,
+        canViewDepartments: false,
+        canViewFaculties: false,
+        canViewRating: false,
+        canViewCharts: false,
         entityPermissions: [],
         fieldPermissions: [],
       }),
@@ -209,6 +214,11 @@ const full = {
   canInviteStaff: false,
   canSetPasswords: false,
   canEndSessions: false,
+  canViewStaff: false,
+  canViewDepartments: false,
+  canViewFaculties: false,
+  canViewRating: false,
+  canViewCharts: false,
   entityPermissions: [] as string[],
   fieldPermissions: [] as string[],
 };
@@ -216,6 +226,31 @@ const full = {
 describe('updateDivisionSettings', () => {
   beforeEach(() => {
     mockAuth.mockResolvedValue({ user: { id: 'a1', role: 'ADMIN', staffId: null } });
+  });
+
+  it('writes the five page switches and audits them (owner, 2026-11-25)', async () => {
+    const tx = mockTx();
+    const result = await updateDivisionSettings('div-1', {
+      ...full,
+      canViewStaff: true,
+      canViewRating: true,
+    });
+    expect(result).toEqual({ redirectTo: '/divisions/div-1' });
+    expect(tx.division.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          canViewStaff: true,
+          canViewDepartments: false,
+          canViewFaculties: false,
+          canViewRating: true,
+          canViewCharts: false,
+        }),
+      })
+    );
+    const { changes } = tx.auditLog.create.mock.calls[0][0].data;
+    expect(changes).toHaveProperty('canViewStaff');
+    expect(changes).toHaveProperty('canViewRating');
+    expect(changes).not.toHaveProperty('canViewCharts');
   });
 
   it('rejects EDITOR and USER, and touches nothing', async () => {

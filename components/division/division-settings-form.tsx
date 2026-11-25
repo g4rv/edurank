@@ -9,7 +9,12 @@ import { Input } from '@/components/aurora/ui/input';
 import { Switch } from '@/components/aurora/ui/switch';
 import { updateDivisionSettings } from '@/app/(dashboard)/divisions/actions';
 import { ENTITY_ACTIONS, ENTITY_ROWS, FIELD_GROUPS, entityKey } from '@/lib/divisions/field-grants';
-import { settingsEqual, type DivisionSettings } from '@/lib/divisions/settings';
+import {
+  forcedPagesOfSettings,
+  settingsEqual,
+  type DivisionSettings,
+} from '@/lib/divisions/settings';
+import { PAGE_COLUMNS, type ForceReason, type PageKey } from '@/lib/divisions/page-access';
 import { ENTITY_TYPE_LABELS, FIELD_LABELS } from '@/lib/labels';
 
 /** Column headings of the entity table — verbs, unlike the audit wording. */
@@ -60,6 +65,31 @@ const SWITCHES: {
   },
 ];
 
+/** The pages this division's editors open (owner, 2026-11-25) */
+const PAGES: { key: PageKey; label: string; help: string }[] = [
+  { key: 'staff', label: 'Штат', help: 'Список працівників і профіль кожного' },
+  { key: 'departments', label: 'Кафедри', help: 'Список кафедр і сторінка кожної' },
+  { key: 'faculties', label: 'Факультети', help: 'Список факультетів і сторінка кожного' },
+  {
+    key: 'rating',
+    label: 'Рейтинг НПП',
+    help: 'Рейтинг усіх НПП; у картці працівника — вкладки «Рейтинг» і «Характеристика»; їх вивантаження в Excel',
+  },
+  { key: 'charts', label: 'Графіки', help: 'Графіки рейтингу та їх вивантаження' },
+];
+
+/** What a right lets the division do — «Увімкнено, бо відділ може …» */
+const FORCE_REASON_LABELS: Record<ForceReason, string> = {
+  staffEntity: 'створювати, редагувати чи архівувати працівників',
+  fieldGrants: 'змінювати поля працівників',
+  accountSwitches: 'керувати обліковими записами',
+  qualifications: 'переглядати підвищення кваліфікації',
+  science: 'перевіряти науку',
+  moderation: 'модерувати рейтинг',
+  departmentEntity: 'змінювати кафедри',
+  facultyEntity: 'змінювати факультети',
+};
+
 function toggle(list: string[], value: string, on: boolean): string[] {
   const without = list.filter((v) => v !== value);
   return on ? [...without, value] : without;
@@ -77,6 +107,7 @@ export function DivisionSettingsForm({
   const [value, setValue] = useState<DivisionSettings>(initial);
 
   const changed = !settingsEqual(value, initial);
+  const forced = forcedPagesOfSettings(value);
   const nameMissing = value.name.trim() === '';
 
   function save() {
@@ -111,6 +142,43 @@ export function DivisionSettingsForm({
           />
           {nameMissing && <p className="text-sm text-error">Обов&apos;язкове поле</p>}
         </div>
+      </section>
+
+      <section className="space-y-5 rounded-xl border bg-card p-5">
+        <h2 className="text-sm font-semibold tracking-wide uppercase">Сторінки</h2>
+        <p className="text-xs text-muted-foreground">
+          Які сторінки відкриваються редакторам цього відділу. Якщо відділ може щось змінювати на
+          сторінці, вона відкривається сама.
+        </p>
+        {PAGES.map((page) => {
+          const column = PAGE_COLUMNS[page.key];
+          const reasons = forced[page.key];
+          return (
+            <label
+              key={page.key}
+              className={`flex items-start gap-3 ${reasons ? '' : 'cursor-pointer'}`}
+            >
+              <Switch
+                checked={value[column] || !!reasons}
+                disabled={isPending || !!reasons}
+                onCheckedChange={(on) => setValue({ ...value, [column]: on })}
+              />
+              <span className="text-sm">
+                {page.label}
+                <span className="block text-xs text-muted-foreground">{page.help}</span>
+                {reasons && (
+                  <span className="block text-xs text-foreground-soft">
+                    Увімкнено, бо відділ може{' '}
+                    {reasons.map((r) => FORCE_REASON_LABELS[r]).join(', ')}
+                  </span>
+                )}
+              </span>
+            </label>
+          );
+        })}
+        <p className="text-xs text-muted-foreground">
+          «Дані відділу» відкриваються самі, якщо відділ вносить показники рейтингу.
+        </p>
       </section>
 
       <section className="space-y-5 rounded-xl border bg-card p-5">

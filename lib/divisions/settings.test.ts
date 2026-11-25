@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   describeEntities,
   describeFields,
+  forcedPagesOfSettings,
   settingsEqual,
   toSettings,
   type DivisionSettings,
@@ -15,6 +16,11 @@ const row = {
   canInviteStaff: false,
   canSetPasswords: true,
   canEndSessions: false,
+  canViewStaff: false,
+  canViewDepartments: false,
+  canViewFaculties: false,
+  canViewRating: true,
+  canViewCharts: false,
   entityPermissions: [
     { entity: 'STAFF' as const, action: 'UPDATE' as const },
     { entity: 'DEPARTMENT' as const, action: 'CREATE' as const },
@@ -32,6 +38,11 @@ describe('toSettings', () => {
       canInviteStaff: false,
       canSetPasswords: true,
       canEndSessions: false,
+      canViewStaff: false,
+      canViewDepartments: false,
+      canViewFaculties: false,
+      canViewRating: true,
+      canViewCharts: false,
       entityPermissions: ['DEPARTMENT:CREATE', 'STAFF:UPDATE'],
       fieldPermissions: ['email', 'phone'],
     });
@@ -94,5 +105,40 @@ describe('audit descriptions', () => {
     expect(describeFields(['phone', 'email'])).toBe('Телефон, Email');
     expect(describeEntities([])).toBe('');
     expect(describeFields([])).toBe('');
+  });
+});
+
+// The switches a division's rights force on, as the settings form draws them
+// (owner, 2026-11-25) — from the form's CURRENT values, so ticking a right locks
+// its page at once.
+describe('forcedPagesOfSettings', () => {
+  const none = toSettings({
+    ...row,
+    canModerateRating: false,
+    canSetPasswords: false,
+    entityPermissions: [],
+    fieldPermissions: [],
+  });
+
+  it('forces nothing for a division with no rights', () => {
+    expect(forcedPagesOfSettings(none)).toEqual({});
+  });
+
+  it('forces Штат from a field grant and Рейтинг НПП from moderation', () => {
+    expect(
+      forcedPagesOfSettings({ ...none, fieldPermissions: ['phone'], canModerateRating: true })
+    ).toEqual({ staff: ['fieldGrants'], rating: ['moderation'] });
+  });
+
+  it('forces Кафедри from any кафедра action, Штат from any staff action', () => {
+    expect(
+      forcedPagesOfSettings({ ...none, entityPermissions: ['DEPARTMENT:DELETE', 'STAFF:CREATE'] })
+    ).toEqual({ staff: ['staffEntity'], departments: ['departmentEntity'] });
+  });
+
+  it('forces Штат from any of the three account switches', () => {
+    expect(forcedPagesOfSettings({ ...none, canEndSessions: true })).toEqual({
+      staff: ['accountSwitches'],
+    });
   });
 });

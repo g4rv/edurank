@@ -7,6 +7,7 @@ import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Button } from '@/components/aurora/ui/button';
 import { IdentityBand } from '@/components/staff/profile/identity-band';
 import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 
 /**
  * Who you are — the breadcrumb and the band on «Мій профіль» and its tabs.
@@ -29,7 +30,11 @@ export async function ProfileHeader() {
 
   // Shared with /profile/edit, which used to build its own two-level trail and
   // lose this root — see `profileCrumbs` for which role starts where.
-  const crumbs = profileCrumbs(session.user.role);
+  const crumbs = profileCrumbs(
+    session.user.role,
+    undefined,
+    (await pageAccessFor(session.user)).staff
+  );
 
   // **An account with no Staff row gets the trail and nothing else** — an
   // operator login, or a record deleted from under a live session. `notFound()`

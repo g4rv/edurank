@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
+import { requirePageAccess } from '@/lib/divisions/start-page-state';
 import { listStaff } from '@/lib/queries/list-staff';
 import {
   academicFilterParams,
@@ -40,6 +41,8 @@ export default async function StaffPage({
   const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
+  // Only where this person's division opens it (owner, 2026-11-25)
+  await requirePageAccess(session.user, 'staff');
 
   const isAdmin = role === 'ADMIN';
 

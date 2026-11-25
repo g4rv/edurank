@@ -1,7 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { loadDisciplineProgress, loadRatingGate } from '@/lib/rating/rating-gate';
 import { DisciplineChecklist } from '@/components/rating/discipline-checklist';
-import { canViewAcademicRecord } from '@/lib/queries/scope';
+import { recordTabsFor } from '@/lib/queries/scope';
+import { startPageOf } from '@/lib/divisions/start-page-state';
 import { auth } from '@/lib/auth';
 import { canOverseeScience } from '@/lib/science/oversight';
 import { canSeeQualificationsTab } from '@/lib/qualifications/access';
@@ -47,11 +48,12 @@ export default async function StaffRatingPage({
   // Характеристика already used. Read-only: every control on the record is
   // ADMIN's or an EDITOR's, and the ставка stays ADMIN's and the person's own.
   // A USER on their OWN record still goes to /profile, which is theirs.
-  if (
-    session.user.role === 'USER' &&
-    (session.user.staffId === id || !(await canViewAcademicRecord(session.user, id)))
-  ) {
-    redirect('/profile');
+  if (session.user.role === 'USER' && session.user.staffId === id) redirect('/profile');
+  // An editor sees the Рейтинг only where their division opens «Рейтинг НПП»
+  // (owner, 2026-11-25); with «Штат» alone the Профіль is theirs.
+  const tabs = await recordTabsFor(session.user, id);
+  if (!tabs.academic) {
+    redirect(tabs.profile ? `/staff/${id}` : await startPageOf(session.user));
   }
 
   const staff = await db.staff.findUnique({
@@ -151,6 +153,8 @@ export default async function StaffRatingPage({
         showRating
         showScience={showScience}
         showQualifications={showQualifications}
+        showProfile={tabs.profile}
+        showAcademic={tabs.academic}
       >
         <ToolbarGroup className="pl-3">
           <span className="text-sm text-muted-foreground">Рік</span>
