@@ -687,9 +687,13 @@ export const ACTIVITY_TYPES_2026: ActivityTypeDef[] = [
     section: 3,
     order: 19,
     itemNumber: '3.17',
-    label: 'Керівництво науковою школою',
-    kind: 'FIXED',
-    coefficient: 500,
+    // A гурток / проблемна група beside the школа (owner, 2026-11-25), so every
+    // variant of Характеристика п.14 has an indicator to come from.
+    label:
+      'Керівництво науковою школою або постійно діючим студентським науковим гуртком / проблемною групою',
+    kind: 'SELECT',
+    coefficient: 1,
+    coefficientNote: 'наукова школа — 500, науковий гурток / проблемна група — 100',
     inputSource: 'DIVISION_MANAGED',
     verifyingDivision: 'NNV',
   },

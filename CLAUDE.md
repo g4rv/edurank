@@ -392,6 +392,11 @@ pnpm db:cat-a-quartile  # one-off: rating 3.8's «Q3-4 / відсутній» be
                       #   options, same points, in every open year; moves the 34
                       #   saved entries by ННВ's journal list (ids in the script).
                       #   An entry not on the list stops --apply. Report first; --apply.
+pnpm db:scientific-school-circle  # one-off: rating 3.17 «Керівництво науковою школою» gains
+                      #   «гурток / проблемна група» (100; the школа keeps the row's own
+                      #   points) and an optional «Номер наказу», in every open year
+                      #   (owner, 2026-11-25). Saved entries get the «школа» answer, no
+                      #   score moves. Both options feed Характеристика п.14. Report first; --apply.
 pnpm db:doi-publication-isbn  # one-off: rating 3.11 takes DOI OR ISBN (one
                       #   of the two required) in every open year; the title
                       #   and the hint say so. No entry or

@@ -74,6 +74,7 @@ export const SELECT_OPTION_POINTS = {
   },
   intl_olympiad_winners: { first_place: 100, second_place: 80, third_place: 60 },
   ukr_olympiad_winners: { first_place: 80, second_place: 60, third_place: 40 },
+  scientific_school: { school: 500, circle: 100 },
   specialized_council: { head: 150, deputy_or_secretary: 100, member: 50 },
   journal_editorial_a: {
     chief_editor: 250,
@@ -213,6 +214,8 @@ export const LICENCE_POSITION_LINKS: Record<string, LicencePositionLink[]> = {
   intl_olympiad_winners: [{ position: 14 }],
   ukr_olympiad_winners: [{ position: 14 }],
   olympiad_jury: [{ position: 14 }],
+  // Both of 3.17's options — the школа and the гурток / проблемна група (owner,
+  // 2026-11-25) — so no condition.
   scientific_school: [{ position: 14 }],
 
   // п.15 (школярі) and п.20 (практичний досвід) are typed by hand — no indicator
