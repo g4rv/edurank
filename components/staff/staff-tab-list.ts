@@ -29,6 +29,8 @@ export function staffTabList({
   showScience = false,
   showQualifications = false,
   showRatingTab = true,
+  showProfile = true,
+  showAcademic = true,
 }: {
   root: string;
   showStaffPages?: boolean;
@@ -36,17 +38,27 @@ export function staffTabList({
   showQualifications?: boolean;
   /** False for a зовнішній сумісник: no rating, everything else stays (owner, 2026-11-10) */
   showRatingTab?: boolean;
+  /** The viewer may open the Профіль — `canViewStaffProfile` (owner, 2026-11-25) */
+  showProfile?: boolean;
+  /** The viewer may open Рейтинг and Характеристика — `canViewAcademicRecord` */
+  showAcademic?: boolean;
 }): StaffTab[] {
   return [
-    ...(showStaffPages
+    ...(showStaffPages && showProfile
+      ? [{ key: 'profile' as const, label: 'Профіль', href: root }]
+      : []),
+    ...(showStaffPages && showRatingTab && showAcademic
+      ? [{ key: 'rating' as const, label: 'Рейтинг', href: `${root}/rating` }]
+      : []),
+    ...(showAcademic
       ? [
-          { key: 'profile' as const, label: 'Профіль', href: root },
-          ...(showRatingTab
-            ? [{ key: 'rating' as const, label: 'Рейтинг', href: `${root}/rating` }]
-            : []),
+          {
+            key: 'kharakterystyka' as const,
+            label: 'Характеристика',
+            href: `${root}/kharakterystyka`,
+          },
         ]
       : []),
-    { key: 'kharakterystyka', label: 'Характеристика', href: `${root}/kharakterystyka` },
     ...(showStaffPages && showScience
       ? [{ key: 'science' as const, label: 'Наукова робота', href: `${root}/science` }]
       : []),

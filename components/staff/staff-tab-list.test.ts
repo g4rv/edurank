@@ -60,3 +60,26 @@ describe('staffTabList', () => {
     ]);
   });
 });
+
+// What a division opens decides the tabs too (owner, 2026-11-25): «Штат» is the
+// Профіль, «Рейтинг НПП» the Рейтинг and the Характеристика.
+describe('staffTabList by the viewer’s pages', () => {
+  const keysOf = (t: ReturnType<typeof staffTabList>) => t.map((x) => x.key);
+
+  it('offers only the Профіль to a division with «Штат» and not «Рейтинг НПП»', () => {
+    expect(keysOf(staffTabList({ root: '/staff/s1', showAcademic: false }))).toEqual(['profile']);
+  });
+
+  it('keeps the qualifications tab beside the Профіль alone', () => {
+    expect(
+      keysOf(staffTabList({ root: '/staff/s1', showAcademic: false, showQualifications: true }))
+    ).toEqual(['profile', 'qualifications']);
+  });
+
+  it('offers only Рейтинг and Характеристика to a division with «Рейтинг НПП» alone', () => {
+    expect(keysOf(staffTabList({ root: '/staff/s1', showProfile: false }))).toEqual([
+      'rating',
+      'kharakterystyka',
+    ]);
+  });
+});

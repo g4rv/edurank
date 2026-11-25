@@ -22,6 +22,11 @@ const SWITCHES = [
   'canInviteStaff',
   'canSetPasswords',
   'canEndSessions',
+  'canViewStaff',
+  'canViewDepartments',
+  'canViewFaculties',
+  'canViewRating',
+  'canViewCharts',
 ] as const;
 
 function switchesOf(
@@ -133,6 +138,11 @@ export async function updateDivisionSettings(
           canInviteStaff: true,
           canSetPasswords: true,
           canEndSessions: true,
+          canViewStaff: true,
+          canViewDepartments: true,
+          canViewFaculties: true,
+          canViewRating: true,
+          canViewCharts: true,
           entityPermissions: { select: { entity: true, action: true } },
           fieldPermissions: { select: { fieldName: true } },
         },
@@ -172,6 +182,11 @@ export async function updateDivisionSettings(
           canInviteStaff: parsed.data.canInviteStaff,
           canSetPasswords: parsed.data.canSetPasswords,
           canEndSessions: parsed.data.canEndSessions,
+          canViewStaff: parsed.data.canViewStaff,
+          canViewDepartments: parsed.data.canViewDepartments,
+          canViewFaculties: parsed.data.canViewFaculties,
+          canViewRating: parsed.data.canViewRating,
+          canViewCharts: parsed.data.canViewCharts,
         },
       });
 

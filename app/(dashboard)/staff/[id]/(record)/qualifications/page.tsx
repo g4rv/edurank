@@ -7,7 +7,7 @@ import {
   divisionAllowsQualifications,
   qualificationAccessFor,
 } from '@/lib/qualifications/access';
-import { overseesStaff } from '@/lib/queries/scope';
+import { overseesStaff, recordTabsFor } from '@/lib/queries/scope';
 import { listQualifications } from '@/lib/queries/list-qualifications';
 import { QualificationDialog } from '@/components/qualifications/qualification-dialog';
 import { QualificationList } from '@/components/qualifications/qualification-list';
@@ -62,10 +62,11 @@ export default async function StaffQualificationsPage({
   // Exporting is for the people who may READ everybody's records — ADMIN and an
   // allowed division — not for the НПП, who has no such page here. The route
   // asks the same rule again.
-  const [rows, showScience, canExport] = await Promise.all([
+  const [rows, showScience, canExport, tabs] = await Promise.all([
     listQualifications(id),
     canOverseeScience(session.user),
     canViewAnyQualifications(session.user),
+    recordTabsFor(session.user, id),
   ]);
 
   return (
@@ -76,6 +77,8 @@ export default async function StaffQualificationsPage({
         showRatingTab={!owner.isExternalPartTimer}
         showScience={showScience}
         showQualifications
+        showProfile={tabs.profile}
+        showAcademic={tabs.academic}
       >
         {(canExport || access.write) && (
           <ToolbarGroup>

@@ -2,6 +2,10 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Pencil, SlidersHorizontal } from 'lucide-react';
 import { auth } from '@/lib/auth';
+import { requirePageAccess } from '@/lib/divisions/start-page-state';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
+import { personHref } from '@/lib/divisions/page-access';
+import { PersonName } from '@/components/ui/person-name';
 import { db } from '@/lib/db';
 import { Button } from '@/components/aurora/ui/button';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
@@ -32,6 +36,10 @@ export default async function DepartmentDetailPage({
   const role = session.user.role;
 
   if (role === 'USER') redirect('/profile');
+  // Only where this person's division opens it (owner, 2026-11-25)
+  await requirePageAccess(session.user, 'departments');
+  // Names and the факультет link only where this viewer may open them
+  const access = await pageAccessFor(session.user);
 
   const department = await db.department.findUnique({
     where: { id },
@@ -145,12 +153,16 @@ export default async function DepartmentDetailPage({
           <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Факультет
           </p>
-          <Link
-            href={`/faculties/${department.faculty.id}`}
-            className="text-sm font-medium hover:underline"
-          >
-            {department.faculty.name}
-          </Link>
+          {access.faculties ? (
+            <Link
+              href={`/faculties/${department.faculty.id}`}
+              className="text-sm font-medium hover:underline"
+            >
+              {department.faculty.name}
+            </Link>
+          ) : (
+            <p className="text-sm font-medium">{department.faculty.name}</p>
+          )}
         </div>
 
         <div className="rounded-xl border bg-card p-5">
@@ -158,12 +170,10 @@ export default async function DepartmentDetailPage({
             Завідувач
           </p>
           {department.head ? (
-            <Link
-              href={`/staff/${department.head.id}`}
-              className="text-sm font-medium hover:underline"
-            >
-              {fullName(department.head)}
-            </Link>
+            <PersonName
+              href={personHref(access, department.head.id)}
+              name={fullName(department.head)}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">Не призначено</p>
           )}
@@ -175,12 +185,10 @@ export default async function DepartmentDetailPage({
             Заступник з наукової роботи
           </p>
           {department.scienceDeputy ? (
-            <Link
-              href={`/staff/${department.scienceDeputy.id}`}
-              className="text-sm font-medium hover:underline"
-            >
-              {fullName(department.scienceDeputy)}
-            </Link>
+            <PersonName
+              href={personHref(access, department.scienceDeputy.id)}
+              name={fullName(department.scienceDeputy)}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">Не призначено</p>
           )}
@@ -226,7 +234,7 @@ export default async function DepartmentDetailPage({
                   key={member.id}
                   className="border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
-                  <RowLinkCell href={`/staff/${member.id}`}>{fullName(member)}</RowLinkCell>
+                  <RowLinkCell href={personHref(access, member.id)}>{fullName(member)}</RowLinkCell>
                   <td className="px-4 py-3 text-muted-foreground">
                     {member.academicRank
                       ? [

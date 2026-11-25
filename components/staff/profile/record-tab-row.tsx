@@ -20,6 +20,8 @@ export function RecordTabRow({
   showScience = false,
   showQualifications = false,
   showRatingTab = true,
+  showProfile = true,
+  showAcademic = true,
   children,
 }: {
   staffId: string;
@@ -40,6 +42,10 @@ export function RecordTabRow({
   showQualifications?: boolean;
   /** False for a зовнішній сумісник — no Рейтинг tab (owner, 2026-11-10) */
   showRatingTab?: boolean;
+  /** `recordTabsFor(…).profile` — the viewer may open the Профіль (owner, 2026-11-25) */
+  showProfile?: boolean;
+  /** `recordTabsFor(…).academic` — the viewer may open Рейтинг and Характеристика */
+  showAcademic?: boolean;
   /** This tab's controls — normally one `ToolbarGroup`. */
   children?: React.ReactNode;
 }) {
@@ -54,6 +60,8 @@ export function RecordTabRow({
         showScience={showScience}
         showQualifications={showQualifications}
         showRatingTab={showRatingTab}
+        showProfile={showProfile}
+        showAcademic={showAcademic}
       />
       {children}
     </ToolbarRow>

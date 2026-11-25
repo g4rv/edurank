@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
-import type { AdminPosition } from '@/lib/generated/prisma/client';
+import type { AdminPosition, Role } from '@/lib/generated/prisma/client';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { adminPostProblem, headshipOf } from '@/lib/staff/academic';
 import { ADMIN_POST_PROBLEM_MESSAGES } from '@/validations/staff';
 
@@ -143,9 +144,10 @@ export async function headDeanConflict(
  * May this person look at that person's academic record — rating tab,
  * Характеристика?
  *
- * ADMIN and EDITOR see everybody: any division member may already inspect any
- * НПП's total rating, which was confirmed as intended (W6). Beyond them, three
- * narrower routes:
+ * ADMIN sees everybody, and so does an EDITOR whose division opens «Рейтинг
+ * НПП» (owner, 2026-11-25 — every editor did before, W6; the aspirantura
+ * division's member got the whole rating with it). Beyond them, three narrower
+ * routes, which an editor takes like anybody else:
  *
  * - **your own record** — the strongest reason anyone has to keep the rating
  *   filled in is seeing what it is short of;
@@ -161,17 +163,68 @@ export async function canViewAcademicRecord(
   viewer: { role: string; staffId?: string | null },
   targetStaffId: string
 ): Promise<boolean> {
-  if (viewer.role === 'ADMIN' || viewer.role === 'EDITOR') return true;
+  if (viewer.role === 'ADMIN') return true;
   if (viewer.staffId && viewer.staffId === targetStaffId) return true;
+  if (viewer.role === 'EDITOR' && (await pageAccessFor(asViewer(viewer))).rating) return true;
+  return readsThroughPosition(viewer.staffId, targetStaffId);
+}
+
+/**
+ * The position routes into somebody's record: a завідувач or декан of a кафедра
+ * they work on, or its заступник з наукової роботи. The same for every role —
+ * an editor who heads a кафедра keeps reading their own people.
+ */
+async function readsThroughPosition(
+  viewerStaffId: string | null | undefined,
+  targetStaffId: string
+): Promise<boolean> {
   // The заступник з наукової роботи reads here too (owner, 2026-11-16) — and
   // ONLY here: `overseesStaff`, which opens the qualification files, stays the
   // head's and the декан's.
   const [overseen, deputised] = await Promise.all([
-    scopeOf(viewer.staffId),
-    scienceDeputyOf(viewer.staffId),
+    scopeOf(viewerStaffId),
+    scienceDeputyOf(viewerStaffId),
   ]);
   return worksOnAny(targetStaffId, [...overseen, ...deputised]);
 }
+
+/**
+ * May this person open that person's Профіль tab (owner, 2026-11-25)? ADMIN,
+ * the person themself, an EDITOR whose division opens «Штат» (or has a right
+ * used from it), and — as since 2026-09-24 — a завідувач, декан or заступник of
+ * a кафедра the person works on.
+ */
+export async function canViewStaffProfile(
+  viewer: { role: string; staffId?: string | null },
+  targetStaffId: string
+): Promise<boolean> {
+  if (viewer.role === 'ADMIN') return true;
+  if (viewer.staffId && viewer.staffId === targetStaffId) return true;
+  if (viewer.role === 'EDITOR' && (await pageAccessFor(asViewer(viewer))).staff) return true;
+  return readsThroughPosition(viewer.staffId, targetStaffId);
+}
+
+/**
+ * Which tabs of a person's record this viewer opens: the Профіль, and the
+ * Рейтинг with the Характеристика (owner, 2026-11-25). Every record tab passes
+ * both to `RecordTabRow`, so a tab that would refuse is never drawn.
+ */
+export async function recordTabsFor(
+  viewer: { role: string; staffId?: string | null },
+  targetStaffId: string
+): Promise<{ profile: boolean; academic: boolean }> {
+  const [profile, academic] = await Promise.all([
+    canViewStaffProfile(viewer, targetStaffId),
+    canViewAcademicRecord(viewer, targetStaffId),
+  ]);
+  return { profile, academic };
+}
+
+/** The session's role is a string here; the loader takes the enum */
+const asViewer = (viewer: { role: string; staffId?: string | null }) => ({
+  role: viewer.role as Role,
+  staffId: viewer.staffId,
+});
 
 /**
  * Is this person a завідувач of a кафедра the target works on, or a декан of its

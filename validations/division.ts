@@ -27,6 +27,12 @@ export const divisionSettingsSchema = z.object({
   canInviteStaff: z.boolean(),
   canSetPasswords: z.boolean(),
   canEndSessions: z.boolean(),
+  // The pages this division's editors open (owner, 2026-11-25)
+  canViewStaff: z.boolean(),
+  canViewDepartments: z.boolean(),
+  canViewFaculties: z.boolean(),
+  canViewRating: z.boolean(),
+  canViewCharts: z.boolean(),
   /** «STAFF:CREATE» … */
   entityPermissions: z.array(
     z.string().regex(/^(STAFF|DEPARTMENT|FACULTY):(CREATE|UPDATE|DELETE)$/)

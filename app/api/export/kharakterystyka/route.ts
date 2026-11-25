@@ -1,5 +1,7 @@
 import JSZip from 'jszip';
 import { auth } from '@/lib/auth';
+import type { Role } from '@/lib/generated/prisma/client';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
@@ -72,6 +74,10 @@ export async function GET(request: Request) {
   const rawYear = url.searchParams.get('year');
   const yearParam = rawYear === null ? NaN : Number(rawYear);
   const staffId = url.searchParams.get('staffId');
+  // Refused before anything is read — the archive's own check stays as well
+  if (!staffId && !(await pageAccessFor(session.user)).rating) {
+    return new Response('Forbidden', { status: 403 });
+  }
 
   const template = Number.isInteger(yearParam)
     ? await db.ratingTemplate.findUnique({ where: { year: yearParam } })
@@ -135,9 +141,15 @@ async function singleDocument(
   });
 }
 
-/** Every НПП on the roster, one workbook each, zipped. ADMIN/EDITOR only. */
-async function archive(user: { role: string }, year: number): Promise<Response> {
-  if (user.role === 'USER') return new Response('Forbidden', { status: 403 });
+/**
+ * Every НПП on the roster, one workbook each, zipped. ADMIN, and an editor whose
+ * division opens «Рейтинг НПП» (owner, 2026-11-25 — every editor before).
+ */
+async function archive(
+  user: { role: Role; staffId?: string | null },
+  year: number
+): Promise<Response> {
+  if (!(await pageAccessFor(user)).rating) return new Response('Forbidden', { status: 403 });
 
   const staffList = (await db.staff.findMany({
     where: { ...ON_ROSTER, isNpp: true },

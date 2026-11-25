@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { auth } from '@/lib/auth';
+import { requirePageAccess } from '@/lib/divisions/start-page-state';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { getDashboard } from '@/lib/queries/get-dashboard';
 import { getReportData } from '@/lib/queries/get-rating-chart';
@@ -28,6 +30,9 @@ export default async function DashboardPage({
   // `/profile` and not `/profile/rating`: the rating is a tab of it now, and a
   // non-НПП USER has no rating tab to be sent to.
   if (session.user.role === 'USER') redirect('/profile');
+  // Only where this person's division opens it (owner, 2026-11-25)
+  await requirePageAccess(session.user, 'charts');
+  const access = await pageAccessFor(session.user);
 
   const template = await getActiveTemplate();
 
@@ -160,13 +165,19 @@ export default async function DashboardPage({
           </span>
         </summary>
         <div className="border-t">
-          <OrgTree faculties={data.faculties} />
-          <div className="border-t px-5 py-3 text-right">
-            <Link href="/departments" className="text-sm font-medium hover:underline">
-              Усі кафедри
-              <ArrowRight className="ml-1 inline size-4" />
-            </Link>
-          </div>
+          <OrgTree
+            faculties={data.faculties}
+            linkFaculties={access.faculties}
+            linkDepartments={access.departments}
+          />
+          {access.departments && (
+            <div className="border-t px-5 py-3 text-right">
+              <Link href="/departments" className="text-sm font-medium hover:underline">
+                Усі кафедри
+                <ArrowRight className="ml-1 inline size-4" />
+              </Link>
+            </div>
+          )}
         </div>
       </details>
     </div>

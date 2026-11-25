@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { safeCallbackPath } from '@/lib/auth/callback-url';
+import { startPageOf } from '@/lib/divisions/start-page-state';
 import { LoginForm } from './login-form';
 
 // Server side of the login route. The proxy deliberately lets everyone reach
@@ -18,7 +19,7 @@ export default async function LoginPage({
     // Somebody already signed in who lands here — a bookmark, a back button —
     // still goes where they were headed, if that is a same-site path.
     const wanted = safeCallbackPath(typeof callbackUrl === 'string' ? callbackUrl : null);
-    redirect(wanted ?? (session.user.role === 'USER' ? '/profile' : '/staff'));
+    redirect(wanted ?? (await startPageOf(session.user)));
   }
 
   return <LoginForm />;

@@ -9,7 +9,9 @@ import {
   qualificationAccessFor,
 } from '@/lib/qualifications/access';
 import { getLanguageCertificates } from '@/lib/queries/get-language-certificates';
-import { canViewAcademicRecord } from '@/lib/queries/scope';
+import { recordTabsFor } from '@/lib/queries/scope';
+import { startPageOf } from '@/lib/divisions/start-page-state';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { getStaff } from '@/lib/queries/get-staff';
 import { getStakeBreakdown } from '@/lib/queries/get-stake-breakdown';
 import { getStaffAccount } from '@/lib/queries/get-staff-account';
@@ -47,11 +49,16 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
   // Характеристика already used. Read-only: every control on the record is
   // ADMIN's or an EDITOR's, and the ставка stays ADMIN's and the person's own.
   // A USER on their OWN record still goes to /profile, which is theirs.
-  if (
-    session.user.role === 'USER' &&
-    (session.user.staffId === id || !(await canViewAcademicRecord(session.user, id)))
-  ) {
-    redirect('/profile');
+  if (session.user.role === 'USER' && session.user.staffId === id) redirect('/profile');
+  // Which tabs this viewer opens (owner, 2026-11-25): an editor's division may
+  // open «Рейтинг НПП» without «Штат», and then the Рейтинг is where they go.
+  const [tabs, access] = await Promise.all([
+    recordTabsFor(session.user, id),
+    pageAccessFor(session.user),
+  ]);
+  if (!tabs.profile) {
+    if (tabs.academic) redirect(`/staff/${id}/rating`);
+    redirect(await startPageOf(session.user));
   }
 
   // A ставка is confidential: ADMIN, or the person themselves. An EDITOR never
@@ -98,6 +105,8 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
         showRatingTab={!staff.isExternalPartTimer}
         showScience={showScience}
         showQualifications={showQualifications}
+        showProfile={tabs.profile}
+        showAcademic={tabs.academic}
       >
         {/* Only an ADMIN, or an EDITOR holding a switch, gets these — and only
             they get the placeholder, which is why the decision is HERE and not
@@ -127,9 +136,10 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
           stakeParts={stakeParts}
           certificates={certificates}
           canOpenCertificateFiles={canOpenCertificateFiles}
-          // A завідувач or декан on a USER account reads this record too, and
-          // the кафедра / факультет pages send a USER away (owner, 2026-11-17)
-          linkDepartments={session.user.role !== 'USER'}
+          // Only where this viewer may open them (owner, 2026-11-17; by the
+          // division's switches since 2026-11-25)
+          linkDepartments={access.departments}
+          linkFaculties={access.faculties}
           linkDivision={isAdmin}
         />
       </div>

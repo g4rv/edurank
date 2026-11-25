@@ -155,6 +155,12 @@ export const FIELD_LABELS: Record<string, string> = {
   canInviteStaff: 'Надсилання запрошень',
   canSetPasswords: 'Встановлення й скидання паролів',
   canEndSessions: 'Завершення всіх сесій',
+  // The pages a division's editors open (owner, 2026-11-25)
+  canViewStaff: 'Сторінка «Штат»',
+  canViewDepartments: 'Сторінка «Кафедри»',
+  canViewFaculties: 'Сторінка «Факультети»',
+  canViewRating: 'Сторінка «Рейтинг НПП»',
+  canViewCharts: 'Сторінка «Графіки»',
   entityPermissions: 'Дії з сутностями',
   fieldPermissions: 'Доступ до полів',
   registryKey: 'Ключ у довіднику',

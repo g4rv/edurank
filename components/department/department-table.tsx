@@ -2,6 +2,7 @@ import { EmptyState } from '@/components/aurora/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/aurora/ui/table';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { CellLink } from '@/components/ui/cell-link';
+import { personHref, type PageAccess } from '@/lib/divisions/page-access';
 import { DeleteDepartmentButton } from '@/components/department/delete-button';
 import { UK } from '@/lib/plural';
 import type { DepartmentGroup } from '@/lib/queries/list-departments';
@@ -60,8 +61,11 @@ export function DepartmentTable({
   head,
   canDelete,
   fill,
+  access,
 }: {
   groups: DepartmentGroup[];
+  /** Which pages the viewer opens — a name or факультет is a link only there (owner, 2026-11-25) */
+  access: PageAccess;
   /** Built by the page, which owns the sort links — see `SortHead` */
   head: React.ReactNode;
   /**
@@ -95,7 +99,9 @@ export function DepartmentTable({
                 of what the owner asked the heading for. `CellLink` draws it the
                 way every other cross-reference in a row is drawn. */}
             <TableCell colSpan={2}>
-              <CellLink href={`/faculties/${group.id}`}>{group.name}</CellLink>
+              <CellLink href={access.faculties ? `/faculties/${group.id}` : null}>
+                {group.name}
+              </CellLink>
               {/* How many кафедри the heading covers. Muted and in the same
                   cell, because it is a fact ABOUT the heading rather than a
                   column of its own — and `font-semibold` on the group row would
@@ -126,7 +132,7 @@ export function DepartmentTable({
 
               <TableCell>
                 {dept.head ? (
-                  <CellLink href={`/staff/${dept.head.id}`}>
+                  <CellLink href={personHref(access, dept.head.id)}>
                     {`${dept.head.lastName} ${dept.head.firstName} ${dept.head.patronymic}`}
                   </CellLink>
                 ) : (

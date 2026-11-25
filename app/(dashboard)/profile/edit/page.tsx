@@ -11,6 +11,7 @@ import {
 import { getLanguageCertificates } from '@/lib/queries/get-language-certificates';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { profileCrumbs } from '@/components/staff/profile/profile-crumbs';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { fullName } from '@/components/staff/profile/primitives';
 import { avatarSrc, canSetOwnAvatar } from '@/lib/staff/avatar';
 import { freezeFor } from '@/lib/freeze/state';
@@ -43,7 +44,13 @@ export default async function ProfileEditPage() {
       {/* Three levels, not two. This hardcoded «Мій профіль › Редагування» and
           dropped whichever root the role gets, so walking from /profile to
           /profile/edit lost a level instead of gaining one. */}
-      <Breadcrumbs items={profileCrumbs(session.user.role, 'Редагування')} />
+      <Breadcrumbs
+        items={profileCrumbs(
+          session.user.role,
+          'Редагування',
+          (await pageAccessFor(session.user)).staff
+        )}
+      />
 
       <ProfileEditForm
         name={fullName(staff)}

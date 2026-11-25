@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { requirePageAccess } from '@/lib/divisions/start-page-state';
 import { getActiveTemplate, listTemplateYears } from '@/lib/queries/get-active-template';
 import { listRatings, type RatingSortField } from '@/lib/queries/list-ratings';
 import { listFaculties } from '@/lib/queries/list-faculties';
@@ -22,6 +23,8 @@ export default async function RatingRollupPage({
   if (!session) redirect('/login');
   // НПП see their own rating on their own record, not the university-wide list
   if (session.user.role === 'USER') redirect('/profile');
+  // Only where this person's division opens it (owner, 2026-11-25)
+  await requirePageAccess(session.user, 'rating');
 
   const template = await getActiveTemplate();
   if (!template) {

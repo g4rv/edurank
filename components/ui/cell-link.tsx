@@ -31,12 +31,17 @@ export function CellLink({
   label,
   className,
 }: {
-  href: string;
+  /**
+   * `null` draws the text alone, with no arrow — for a page this viewer may not
+   * open (owner, 2026-11-25), where a link would only send them away
+   */
+  href: string | null;
   children: React.ReactNode;
   /** Accessible name, when the visible text alone would not identify the target */
   label?: string;
   className?: string;
 }) {
+  if (href === null) return <span className={className}>{children}</span>;
   return (
     <Link
       href={href}

@@ -21,8 +21,11 @@ import type { Role } from '@/lib/generated/prisma/client';
  *   «Мій профіль» becomes a link and this is the leaf; omitted, «Мій профіль»
  *   is itself the leaf and takes no href.
  */
-export function profileCrumbs(role: Role, current?: string): Crumb[] {
-  const root: Crumb = role === 'USER' ? { label: 'Особисте' } : { label: 'Штат', href: '/staff' };
+export function profileCrumbs(role: Role, current?: string, opensStaff?: boolean): Crumb[] {
+  // An editor starts at «Штат» only where their division opens it (owner,
+  // 2026-11-25); `opensStaff` left out keeps the role's answer.
+  const staffRoot = opensStaff ?? role !== 'USER';
+  const root: Crumb = staffRoot ? { label: 'Штат', href: '/staff' } : { label: 'Особисте' };
 
   if (!current) return [root, { label: 'Мій профіль' }];
   return [root, { label: 'Мій профіль', href: '/profile' }, { label: current }];

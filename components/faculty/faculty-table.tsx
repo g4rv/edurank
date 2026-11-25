@@ -2,6 +2,7 @@ import { EmptyState } from '@/components/aurora/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/aurora/ui/table';
 import { RowLinkCell } from '@/components/ui/row-link-cell';
 import { CellLink } from '@/components/ui/cell-link';
+import { personHref, type PageAccess } from '@/lib/divisions/page-access';
 import { DeleteFacultyButton } from '@/components/faculty/delete-button';
 import type { FacultyListItem } from '@/lib/queries/list-faculties';
 
@@ -36,8 +37,11 @@ export function FacultyTable({
   head,
   canDelete,
   fill,
+  access,
 }: {
   faculties: FacultyListItem[];
+  /** Which pages the viewer opens — a dean's name is a link only there (owner, 2026-11-25) */
+  access: PageAccess;
   /** Built by the page, which owns the sort links — see `SortHead` */
   head: React.ReactNode;
   /**
@@ -81,7 +85,7 @@ export function FacultyTable({
                   is glanced at, and the декан is the reason somebody reads this
                   row. */}
               {faculty.dean ? (
-                <CellLink href={`/staff/${faculty.dean.id}`}>
+                <CellLink href={personHref(access, faculty.dean.id)}>
                   {`${faculty.dean.lastName} ${faculty.dean.firstName} ${faculty.dean.patronymic}`}
                 </CellLink>
               ) : (

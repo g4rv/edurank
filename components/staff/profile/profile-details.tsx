@@ -34,6 +34,7 @@ export function ProfileDetails({
   certificates,
   canOpenCertificateFiles = false,
   linkDepartments = false,
+  linkFaculties = false,
   linkDivision = false,
 }: {
   staff: StaffDetail;
@@ -49,8 +50,10 @@ export function ProfileDetails({
   certificates?: PersonCertificates;
   /** Decided by the route: may this viewer open the scans? Never worked out here. */
   canOpenCertificateFiles?: boolean;
-  /** Decided by the route: may this viewer open the кафедра / факультет pages? */
+  /** Decided by the route: may this viewer open the кафедра pages? */
   linkDepartments?: boolean;
+  /** …and the факультет pages (separate switches since 2026-11-25) */
+  linkFaculties?: boolean;
   /** Decided by the route: may this viewer open the відділ page (ADMIN)? */
   linkDivision?: boolean;
 }) {
@@ -87,6 +90,7 @@ export function ProfileDetails({
             showStake={showStake}
             showEmpty={showEmpty}
             linkDepartments={linkDepartments}
+            linkFaculties={linkFaculties}
             linkDivision={linkDivision}
           />
           {/* Under «Місця роботи» (owner, 2026-10-06): the left column now

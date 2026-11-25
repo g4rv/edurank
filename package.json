@@ -27,6 +27,7 @@
     "db:patent-kind": "tsx prisma/patent-kind.ts",
     "db:cat-a-quartile": "tsx prisma/cat-a-quartile.ts",
     "db:scientific-school-circle": "tsx prisma/scientific-school-circle.ts",
+    "db:division-page-access-report": "tsx prisma/division-page-access-report.ts",
     "db:doi-publication-isbn": "tsx prisma/doi-publication-isbn.ts",
     "db:doi-publication-issn": "tsx prisma/doi-publication-issn.ts",
     "db:discipline-fix-names": "tsx prisma/discipline-fix-names.ts",

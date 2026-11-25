@@ -1,5 +1,6 @@
 import { renderToBuffer } from '@react-pdf/renderer';
 import { auth } from '@/lib/auth';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { db } from '@/lib/db';
 import {
   getDepartmentChart,
@@ -47,7 +48,9 @@ function contentDisposition(name: string, inline: boolean): string {
 
 export async function GET(request: Request) {
   const session = await auth();
-  if (!session || session.user.role === 'USER') {
+  // The «Графіки» page's own door (owner, 2026-11-25): ADMIN, and an editor
+  // whose division opens it
+  if (!session || !(await pageAccessFor(session.user)).charts) {
     return new Response('Forbidden', { status: 403 });
   }
 

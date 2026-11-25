@@ -35,7 +35,8 @@ export function RowLinkCell({
   label,
   className,
 }: {
-  href: string;
+  /** `null` — the name as plain text, see `CellLink` */
+  href: string | null;
   children: React.ReactNode;
   /**
    * Rendered in the cell but OUTSIDE the link — a badge, a pill, a status mark

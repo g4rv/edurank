@@ -2,6 +2,7 @@ import { RATED } from '@/lib/staff/external-part-timer';
 import JSZip from 'jszip';
 import { blockedStaff } from '@/lib/rating/rating-gate';
 import { auth } from '@/lib/auth';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { db } from '@/lib/db';
 import { ON_ROSTER } from '@/lib/queries/roster';
 import { canViewAcademicRecord } from '@/lib/queries/scope';
@@ -49,7 +50,9 @@ export async function GET(request: Request) {
     if (!(await canViewAcademicRecord(session.user, staffId))) {
       return new Response('Forbidden', { status: 403 });
     }
-  } else if (session.user.role === 'USER') {
+  } else if (!(await pageAccessFor(session.user)).rating) {
+    // Every НПП's form at once: ADMIN, and an editor whose division opens
+    // «Рейтинг НПП» (owner, 2026-11-25 — every editor before)
     return new Response('Forbidden', { status: 403 });
   }
 

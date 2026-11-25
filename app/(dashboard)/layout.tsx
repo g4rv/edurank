@@ -2,9 +2,9 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { canModerateRating } from '@/lib/rating/moderation';
-import { getEditorDivisionId } from '@/lib/permissions';
 import { canOverseeScience } from '@/lib/science/oversight';
-import { listEntryDivisions } from '@/lib/queries/list-division-data';
+import { canEnterDivisionData } from '@/lib/divisions/start-page-state';
+import { pageAccessFor } from '@/lib/divisions/page-access-state';
 import { deanOf, scienceDeputyOf, scopeOf } from '@/lib/queries/scope';
 import { activeYear } from '@/lib/queries/get-active-template';
 import { getRatingEntry } from '@/lib/queries/get-rating';
@@ -18,23 +18,15 @@ import { SavingOverlay } from '@/components/ui/saving-overlay';
 import { AuroraWash } from '@/components/ui/aurora-wash';
 import { takesPartInRating } from '@/lib/staff/external-part-timer';
 
-async function canEnterDivisionData(user: {
-  role: 'ADMIN' | 'EDITOR' | 'USER';
-  staffId?: string | null;
-}): Promise<boolean> {
-  if (user.role === 'ADMIN') return true;
-  if (user.role !== 'EDITOR') return false;
-  const own = await getEditorDivisionId(user.staffId);
-  if (!own) return false;
-  return (await listEntryDivisions()).some((d) => d.id === own);
-}
-
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session) redirect('/login');
 
   const canModerate = await canModerateRating(session.user);
   const canEnterData = await canEnterDivisionData(session.user);
+  // Which of Штат, Кафедри, Факультети, Рейтинг НПП, Графіки this person's
+  // division opens (owner, 2026-11-25); each page checks it again.
+  const pageAccess = await pageAccessFor(session.user);
 
   // «Перевірка науки» — see lib/science/oversight.ts. The pages enforce it
   // again server-side regardless of what the nav shows.
@@ -88,6 +80,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     isNpp,
     canModerate,
     canEnterData,
+    pageAccess,
     headsDepartment,
     isDean,
     isScienceDeputy,
